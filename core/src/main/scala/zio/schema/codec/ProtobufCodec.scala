@@ -21,12 +21,14 @@ object ProtobufCodec extends Codec {
 
     sealed trait WireType {}
 
-    case object VarInt                     extends WireType
-    case object Bit64                      extends WireType
-    case class LengthDelimited(width: Int) extends WireType
-    case object StartGroup                 extends WireType
-    case object EndGroup                   extends WireType
-    case object Bit32                      extends WireType
+    object WireType {
+      case object VarInt                     extends WireType
+      case object Bit64                      extends WireType
+      case class LengthDelimited(width: Int) extends WireType
+      case object StartGroup                 extends WireType
+      case object EndGroup                   extends WireType
+      case object Bit32                      extends WireType
+    }
 
     def flatFields(
       structure: Map[String, Schema[_]],
@@ -119,7 +121,7 @@ object ProtobufCodec extends Codec {
               .map(value => encode(Some(fieldNumber), schema.asInstanceOf[Schema[Any]], value))
               .getOrElse(Chunk.empty)
         })
-        .map(chunk => encodeKey(LengthDelimited(chunk.size), fieldNumber) ++ chunk)
+        .map(chunk => encodeKey(WireType.LengthDelimited(chunk.size), fieldNumber) ++ chunk)
         .flatten
 
     private def encodeSequence[A](
@@ -129,7 +131,7 @@ object ProtobufCodec extends Codec {
     ): Chunk[Byte] =
       if (canBePacked(element)) {
         val chunk = sequence.flatMap(value => encode(None, element, value))
-        encodeKey(LengthDelimited(chunk.size), fieldNumber) ++ chunk
+        encodeKey(WireType.LengthDelimited(chunk.size), fieldNumber) ++ chunk
       } else {
         sequence.flatMap(value => encode(fieldNumber, element, value))
       }
@@ -159,27 +161,27 @@ object ProtobufCodec extends Codec {
           Chunk.empty
         case (StandardType.StringType, str: String) =>
           val encoded = Chunk.fromArray(str.getBytes(StandardCharsets.UTF_8))
-          encodeKey(LengthDelimited(encoded.size), fieldNumber) ++ encoded
+          encodeKey(WireType.LengthDelimited(encoded.size), fieldNumber) ++ encoded
         case (StandardType.BoolType, b: Boolean) =>
-          encodeKey(VarInt, fieldNumber) ++ encodeVarInt(if (b) 1 else 0)
+          encodeKey(WireType.VarInt, fieldNumber) ++ encodeVarInt(if (b) 1 else 0)
         case (StandardType.ShortType, v: Short) =>
-          encodeKey(VarInt, fieldNumber) ++ encodeVarInt(v.toLong)
+          encodeKey(WireType.VarInt, fieldNumber) ++ encodeVarInt(v.toLong)
         case (StandardType.IntType, v: Int) =>
-          encodeKey(VarInt, fieldNumber) ++ encodeVarInt(v)
+          encodeKey(WireType.VarInt, fieldNumber) ++ encodeVarInt(v)
         case (StandardType.LongType, v: Long) =>
-          encodeKey(VarInt, fieldNumber) ++ encodeVarInt(v)
+          encodeKey(WireType.VarInt, fieldNumber) ++ encodeVarInt(v)
         case (StandardType.FloatType, v: Float) =>
           val byteBuffer = ByteBuffer.allocate(4)
           byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
           byteBuffer.putFloat(v)
-          encodeKey(Bit32, fieldNumber) ++ Chunk.fromArray(byteBuffer.array)
+          encodeKey(WireType.Bit32, fieldNumber) ++ Chunk.fromArray(byteBuffer.array)
         case (StandardType.DoubleType, v: Double) =>
           val byteBuffer = ByteBuffer.allocate(8)
           byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
           byteBuffer.putDouble(v)
-          encodeKey(Bit64, fieldNumber) ++ Chunk.fromArray(byteBuffer.array)
-        case (StandardType.ByteType, bytes: Chunk[Byte]) =>
-          encodeKey(LengthDelimited(bytes.length), fieldNumber) ++ bytes
+          encodeKey(WireType.Bit64, fieldNumber) ++ Chunk.fromArray(byteBuffer.array)
+        case (StandardType.BinaryType, bytes: Chunk[Byte]) =>
+          encodeKey(WireType.LengthDelimited(bytes.length), fieldNumber) ++ bytes
         case (StandardType.CharType, c: Char) =>
           encodePrimitive(fieldNumber, StandardType.StringType, c.toString)
         case (StandardType.DayOfWeekType, v: DayOfWeek) =>
@@ -256,12 +258,12 @@ object ProtobufCodec extends Codec {
       fieldNumber.map { num =>
         val encode = (base3: Int) => encodeVarInt(num << 3 | base3)
         wireType match {
-          case VarInt                  => encode(0)
-          case Bit64                   => encode(1)
-          case LengthDelimited(length) => encode(2) ++ encodeVarInt(length)
-          case StartGroup              => encode(3)
-          case EndGroup                => encode(4)
-          case Bit32                   => encode(5)
+          case WireType.VarInt                  => encode(0)
+          case WireType.Bit64                   => encode(1)
+          case WireType.LengthDelimited(length) => encode(2) ++ encodeVarInt(length)
+          case WireType.StartGroup              => encode(3)
+          case WireType.EndGroup                => encode(4)
+          case WireType.Bit32                   => encode(5)
         }
       }.getOrElse(Chunk.empty)
 
@@ -285,7 +287,7 @@ object ProtobufCodec extends Codec {
       case StandardType.LongType          => true
       case StandardType.FloatType         => true
       case StandardType.DoubleType        => true
-      case StandardType.ByteType          => false
+      case StandardType.BinaryType        => false
       case StandardType.CharType          => true
       case StandardType.DayOfWeekType     => true
       case StandardType.Month             => true
@@ -327,7 +329,7 @@ object ProtobufCodec extends Codec {
 
     def decodeChunk[A](schema: Schema[A], chunk: Option[Chunk[Byte]]): Either[String, Chunk[A]] =
       chunk
-        .map(bs => decoder(schema).run(bs, LengthDelimited(bs.size)))
+        .map(bs => decoder(schema).run(bs, WireType.LengthDelimited(bs.size)))
         .map(_.map { case (_, value) => Chunk(value) })
         .getOrElse(Right(Chunk.empty))
 
@@ -387,7 +389,7 @@ object ProtobufCodec extends Codec {
     private def sequenceDecoder[A](schema: Schema[A]): Decoder[Chunk[A]] =
       (chunk, wireType) =>
         wireType match {
-          case LengthDelimited(length) =>
+          case WireType.LengthDelimited(length) =>
             sequenceLoopDecoder(schema, Chunk.empty).run(chunk.take(length), wireType).map {
               case (_, values) => (chunk.drop(length), values)
             }
@@ -414,18 +416,20 @@ object ProtobufCodec extends Codec {
       standardType match {
         case StandardType.UnitType   => ((chunk: Chunk[Byte]) => Right((chunk, ()))).asInstanceOf[Decoder[A]]
         case StandardType.StringType => stringDecoder.asInstanceOf[Decoder[A]]
-        case StandardType.BoolType   => packedDecoder(VarInt, varIntDecoder).map(_ != 0).asInstanceOf[Decoder[A]]
-        case StandardType.ShortType  => packedDecoder(VarInt, varIntDecoder).map(_.shortValue()).asInstanceOf[Decoder[A]]
-        case StandardType.IntType    => packedDecoder(VarInt, varIntDecoder).map(_.intValue()).asInstanceOf[Decoder[A]]
-        case StandardType.LongType   => packedDecoder(VarInt, varIntDecoder).asInstanceOf[Decoder[A]]
+        case StandardType.BoolType   => packedDecoder(WireType.VarInt, varIntDecoder).map(_ != 0).asInstanceOf[Decoder[A]]
+        case StandardType.ShortType =>
+          packedDecoder(WireType.VarInt, varIntDecoder).map(_.shortValue()).asInstanceOf[Decoder[A]]
+        case StandardType.IntType =>
+          packedDecoder(WireType.VarInt, varIntDecoder).map(_.intValue()).asInstanceOf[Decoder[A]]
+        case StandardType.LongType   => packedDecoder(WireType.VarInt, varIntDecoder).asInstanceOf[Decoder[A]]
         case StandardType.FloatType  => floatDecoder.asInstanceOf[Decoder[A]]
         case StandardType.DoubleType => doubleDecoder.asInstanceOf[Decoder[A]]
-        case StandardType.ByteType   => byteDecoder.asInstanceOf[Decoder[A]]
+        case StandardType.BinaryType => byteDecoder.asInstanceOf[Decoder[A]]
         case StandardType.CharType   => stringDecoder.map(_.charAt(0)).asInstanceOf[Decoder[A]]
         case StandardType.DayOfWeekType =>
-          packedDecoder(VarInt, varIntDecoder).map(_.intValue).map(DayOfWeek.of).asInstanceOf[Decoder[A]]
+          packedDecoder(WireType.VarInt, varIntDecoder).map(_.intValue).map(DayOfWeek.of).asInstanceOf[Decoder[A]]
         case StandardType.Month =>
-          packedDecoder(VarInt, varIntDecoder).map(_.intValue).map(Month.of).asInstanceOf[Decoder[A]]
+          packedDecoder(WireType.VarInt, varIntDecoder).map(_.intValue).map(Month.of).asInstanceOf[Decoder[A]]
         case StandardType.MonthDay =>
           recordDecoder(monthDayStructure())
             .map(
@@ -443,7 +447,7 @@ object ProtobufCodec extends Codec {
             )
             .asInstanceOf[Decoder[A]]
         case StandardType.Year =>
-          packedDecoder(VarInt, varIntDecoder).map(_.intValue).map(Year.of).asInstanceOf[Decoder[A]]
+          packedDecoder(WireType.VarInt, varIntDecoder).map(_.intValue).map(Year.of).asInstanceOf[Decoder[A]]
         case StandardType.YearMonth =>
           recordDecoder(yearMonthStructure())
             .map(
@@ -453,12 +457,12 @@ object ProtobufCodec extends Codec {
             .asInstanceOf[Decoder[A]]
         case StandardType.ZoneId => stringDecoder.map(ZoneId.of).asInstanceOf[Decoder[A]]
         case StandardType.ZoneOffset =>
-          packedDecoder(VarInt, varIntDecoder)
+          packedDecoder(WireType.VarInt, varIntDecoder)
             .map(_.intValue)
             .map(ZoneOffset.ofTotalSeconds)
             .asInstanceOf[Decoder[A]]
         case StandardType.Duration(temporalUnit) =>
-          packedDecoder(VarInt, varIntDecoder).map(Duration.of(_, temporalUnit)).asInstanceOf[Decoder[A]]
+          packedDecoder(WireType.VarInt, varIntDecoder).map(Duration.of(_, temporalUnit)).asInstanceOf[Decoder[A]]
         case StandardType.Instant(formatter) => stringDecoder.map(formatter.parse(_)).asInstanceOf[Decoder[A]]
         case StandardType.LocalDate(formatter) =>
           stringDecoder.map(LocalDate.parse(_, formatter)).asInstanceOf[Decoder[A]]
@@ -499,7 +503,7 @@ object ProtobufCodec extends Codec {
 
     private def floatDecoder: Decoder[Float] =
       packedDecoder(
-        Bit32,
+        WireType.Bit32,
         (chunk, _) => {
           val (float, remainder) = chunk.splitAt(4)
           val byteBuffer         = ByteBuffer.allocate(4)
@@ -511,7 +515,7 @@ object ProtobufCodec extends Codec {
 
     private def doubleDecoder: Decoder[Double] =
       packedDecoder(
-        Bit64,
+        WireType.Bit64,
         (chunk, _) => {
           val (double, remainder) = chunk.splitAt(8)
           val byteBuffer          = ByteBuffer.allocate(8)
@@ -529,14 +533,14 @@ object ProtobufCodec extends Codec {
     private def lengthDelimitedDecoder[A](decoder: Int => Decoder[A]): Decoder[A] =
       (chunk, wireType) =>
         wireType match {
-          case LengthDelimited(length) => decoder(length).run(chunk, wireType)
-          case _                       => Left("Invalid wire type")
+          case WireType.LengthDelimited(length) => decoder(length).run(chunk, wireType)
+          case _                                => Left("Invalid wire type")
       }
 
     private def packedDecoder[A](decoderWireType: WireType, decoder: Decoder[A]): Decoder[A] =
       (chunk, wireType) =>
         wireType match {
-          case LengthDelimited(_)               => decoder.run(chunk, wireType)
+          case WireType.LengthDelimited(_)      => decoder.run(chunk, wireType)
           case _ if decoderWireType == wireType => decoder.run(chunk, wireType)
           case _                                => Left("Invalid wire type")
       }
@@ -548,12 +552,13 @@ object ProtobufCodec extends Codec {
           Left("Failed decoding key")
         } else {
           key & 0x07 match {
-            case 0 => Right((chunk, (VarInt, fieldNumber)))
-            case 1 => Right((chunk, (Bit64, fieldNumber)))
-            case 2 => varIntDecoder.map(length => (LengthDelimited(length.toInt), fieldNumber)).run(chunk, wireType)
-            case 3 => Right((chunk, (StartGroup, fieldNumber)))
-            case 4 => Right((chunk, (EndGroup, fieldNumber)))
-            case 5 => Right((chunk, (Bit32, fieldNumber)))
+            case 0 => Right((chunk, (WireType.VarInt, fieldNumber)))
+            case 1 => Right((chunk, (WireType.Bit64, fieldNumber)))
+            case 2 =>
+              varIntDecoder.map(length => (WireType.LengthDelimited(length.toInt), fieldNumber)).run(chunk, wireType)
+            case 3 => Right((chunk, (WireType.StartGroup, fieldNumber)))
+            case 4 => Right((chunk, (WireType.EndGroup, fieldNumber)))
+            case 5 => Right((chunk, (WireType.Bit32, fieldNumber)))
             case _ => Left("Failed decoding key")
           }
         }
@@ -594,7 +599,7 @@ object ProtobufCodec extends Codec {
       case StandardType.LongType          => Some(0L)
       case StandardType.FloatType         => Some(0.0f)
       case StandardType.DoubleType        => Some(0.0)
-      case StandardType.ByteType          => Some(Chunk.empty)
+      case StandardType.BinaryType        => Some(Chunk.empty)
       case StandardType.CharType          => None
       case StandardType.DayOfWeekType     => None
       case StandardType.Month             => None
