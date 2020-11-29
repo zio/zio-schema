@@ -2,6 +2,7 @@ package zio.web.codec
 
 import java.nio.charset.StandardCharsets
 import java.nio.{ ByteBuffer, ByteOrder }
+import java.time._
 
 import zio.stream.ZTransducer
 import zio.schema._
@@ -68,6 +69,23 @@ object ProtobufCodec extends Codec {
       case _: Schema.Tuple[_, _]  => None
       case _: Schema.Optional[_]  => None
     }
+
+    def tupleSchema[A, B](left: Schema[A], right: Schema[B]): Schema[Map[String, _]] =
+      Schema.record(Map("left" -> left, "right" -> right))
+
+    def optionalSchema[A](codec: Schema[A]): Schema[Map[String, _]] = Schema.record(Map("value" -> codec))
+
+    def monthDayStructure(): Map[String, Schema[Int]] =
+      Map("month" -> Schema.Primitive(StandardType.IntType), "day" -> Schema.Primitive(StandardType.IntType))
+
+    def periodStructure(): Map[String, Schema[Int]] = Map(
+      "years"  -> Schema.Primitive(StandardType.IntType),
+      "months" -> Schema.Primitive(StandardType.IntType),
+      "days"   -> Schema.Primitive(StandardType.IntType)
+    )
+
+    def yearMonthStructure(): Map[String, Schema[Int]] =
+      Map("year" -> Schema.Primitive(StandardType.IntType), "month" -> Schema.Primitive(StandardType.IntType))
   }
 
   object Encoder {
@@ -164,6 +182,40 @@ object ProtobufCodec extends Codec {
           encodeKey(LengthDelimited(bytes.length), fieldNumber) ++ bytes
         case (StandardType.CharType, c: Char) =>
           encodePrimitive(fieldNumber, StandardType.StringType, c.toString)
+        case (StandardType.DayOfWeekType, v: DayOfWeek) =>
+          encodePrimitive(fieldNumber, StandardType.IntType, v.getValue)
+        case (StandardType.Month, v: Month) =>
+          encodePrimitive(fieldNumber, StandardType.IntType, v.getValue)
+        case (StandardType.MonthDay, v: MonthDay) =>
+          encodeRecord(fieldNumber, monthDayStructure(), Map("month" -> v.getMonthValue, "day" -> v.getDayOfMonth))
+        case (StandardType.Period, v: Period) =>
+          encodeRecord(fieldNumber,
+                       periodStructure(),
+                       Map("years" -> v.getYears, "months" -> v.getMonths, "days" -> v.getDays))
+        case (StandardType.Year, v: Year) =>
+          encodePrimitive(fieldNumber, StandardType.IntType, v.getValue)
+        case (StandardType.YearMonth, v: YearMonth) =>
+          encodeRecord(fieldNumber, yearMonthStructure(), Map("year" -> v.getYear, "month" -> v.getMonthValue))
+        case (StandardType.ZoneId, v: ZoneId) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, v.getId)
+        case (StandardType.ZoneOffset, v: ZoneOffset) =>
+          encodePrimitive(fieldNumber, StandardType.IntType, v.getTotalSeconds)
+        case (StandardType.Duration(temporalUnit), v: Duration) =>
+          encodePrimitive(fieldNumber, StandardType.LongType, v.get(temporalUnit))
+        case (StandardType.Instant(formatter), v: Instant) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
+        case (StandardType.LocalDate(formatter), v: LocalDate) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
+        case (StandardType.LocalTime(formatter), v: LocalTime) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
+        case (StandardType.LocalDateTime(formatter), v: LocalDateTime) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
+        case (StandardType.OffsetTime(formatter), v: OffsetTime) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
+        case (StandardType.OffsetDateTime(formatter), v: OffsetDateTime) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
+        case (StandardType.ZonedDateTime(formatter), v: ZonedDateTime) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
         case (_, _) =>
           Chunk.empty
       }
@@ -176,14 +228,14 @@ object ProtobufCodec extends Codec {
     ): Chunk[Byte] =
       encode(
         fieldNumber,
-        Schema.record(Map("left" -> left, "right" -> right)),
+        tupleSchema(left, right),
         Map[String, Any]("left" -> tuple._1, "right" -> tuple._2)
       )
 
     private def encodeOptional[A](fieldNumber: Option[Int], schema: Schema[A], value: Option[A]): Chunk[Byte] =
       encode(
         fieldNumber,
-        Schema.record(Map("value" -> schema)),
+        optionalSchema(schema),
         Map("value" -> value)
       )
 
@@ -225,17 +277,32 @@ object ProtobufCodec extends Codec {
     }
 
     private def canBePacked(standardType: StandardType[_]): Boolean = standardType match {
-      case StandardType.UnitType   => false
-      case StandardType.StringType => false
-      case StandardType.BoolType   => true
-      case StandardType.ShortType  => true
-      case StandardType.IntType    => true
-      case StandardType.LongType   => true
-      case StandardType.FloatType  => true
-      case StandardType.DoubleType => true
-      case StandardType.ByteType   => false
-      case StandardType.CharType   => true
-      case _                       => false // TODO java time
+      case StandardType.UnitType          => false
+      case StandardType.StringType        => false
+      case StandardType.BoolType          => true
+      case StandardType.ShortType         => true
+      case StandardType.IntType           => true
+      case StandardType.LongType          => true
+      case StandardType.FloatType         => true
+      case StandardType.DoubleType        => true
+      case StandardType.ByteType          => false
+      case StandardType.CharType          => true
+      case StandardType.DayOfWeekType     => true
+      case StandardType.Month             => true
+      case StandardType.MonthDay          => false
+      case StandardType.Period            => false
+      case StandardType.Year              => true
+      case StandardType.YearMonth         => false
+      case StandardType.ZoneId            => false
+      case StandardType.ZoneOffset        => true
+      case StandardType.Duration(_)       => true
+      case StandardType.Instant(_)        => false
+      case StandardType.LocalDate(_)      => false
+      case StandardType.LocalTime(_)      => false
+      case StandardType.LocalDateTime(_)  => false
+      case StandardType.OffsetTime(_)     => false
+      case StandardType.OffsetDateTime(_) => false
+      case StandardType.ZonedDateTime(_)  => false
     }
   }
 
@@ -355,13 +422,63 @@ object ProtobufCodec extends Codec {
         case StandardType.DoubleType => doubleDecoder.asInstanceOf[Decoder[A]]
         case StandardType.ByteType   => byteDecoder.asInstanceOf[Decoder[A]]
         case StandardType.CharType   => stringDecoder.map(_.charAt(0)).asInstanceOf[Decoder[A]]
+        case StandardType.DayOfWeekType =>
+          packedDecoder(VarInt, varIntDecoder).map(_.intValue).map(DayOfWeek.of).asInstanceOf[Decoder[A]]
+        case StandardType.Month =>
+          packedDecoder(VarInt, varIntDecoder).map(_.intValue).map(Month.of).asInstanceOf[Decoder[A]]
+        case StandardType.MonthDay =>
+          recordDecoder(monthDayStructure())
+            .map(
+              data =>
+                MonthDay.of(data.getOrElse("month", 0).asInstanceOf[Int], data.getOrElse("day", 0).asInstanceOf[Int])
+            )
+            .asInstanceOf[Decoder[A]]
+        case StandardType.Period =>
+          recordDecoder(periodStructure())
+            .map(
+              data =>
+                Period.of(data.getOrElse("years", 0).asInstanceOf[Int],
+                          data.getOrElse("months", 0).asInstanceOf[Int],
+                          data.getOrElse("days", 0).asInstanceOf[Int])
+            )
+            .asInstanceOf[Decoder[A]]
+        case StandardType.Year =>
+          packedDecoder(VarInt, varIntDecoder).map(_.intValue).map(Year.of).asInstanceOf[Decoder[A]]
+        case StandardType.YearMonth =>
+          recordDecoder(yearMonthStructure())
+            .map(
+              data =>
+                YearMonth.of(data.getOrElse("year", 0).asInstanceOf[Int], data.getOrElse("month", 0).asInstanceOf[Int])
+            )
+            .asInstanceOf[Decoder[A]]
+        case StandardType.ZoneId => stringDecoder.map(ZoneId.of).asInstanceOf[Decoder[A]]
+        case StandardType.ZoneOffset =>
+          packedDecoder(VarInt, varIntDecoder)
+            .map(_.intValue)
+            .map(ZoneOffset.ofTotalSeconds)
+            .asInstanceOf[Decoder[A]]
+        case StandardType.Duration(temporalUnit) =>
+          packedDecoder(VarInt, varIntDecoder).map(Duration.of(_, temporalUnit)).asInstanceOf[Decoder[A]]
+        case StandardType.Instant(formatter) => stringDecoder.map(formatter.parse(_)).asInstanceOf[Decoder[A]]
+        case StandardType.LocalDate(formatter) =>
+          stringDecoder.map(LocalDate.parse(_, formatter)).asInstanceOf[Decoder[A]]
+        case StandardType.LocalTime(formatter) =>
+          stringDecoder.map(LocalTime.parse(_, formatter)).asInstanceOf[Decoder[A]]
+        case StandardType.LocalDateTime(formatter) =>
+          stringDecoder.map(LocalDateTime.parse(_, formatter)).asInstanceOf[Decoder[A]]
+        case StandardType.OffsetTime(formatter) =>
+          stringDecoder.map(OffsetTime.parse(_, formatter)).asInstanceOf[Decoder[A]]
+        case StandardType.OffsetDateTime(formatter) =>
+          stringDecoder.map(OffsetDateTime.parse(_, formatter)).asInstanceOf[Decoder[A]]
+        case StandardType.ZonedDateTime(formatter) =>
+          stringDecoder.map(ZonedDateTime.parse(_, formatter)).asInstanceOf[Decoder[A]]
         case _ =>
           (_, _) =>
-            Left("Not supported") // TODO java time
+            Left("Unsupported primitive type")
       }
 
     private def tupleDecoder[A, B](left: Schema[A], right: Schema[B]): Decoder[(A, B)] =
-      decoder(Schema.record(Map("left" -> left, "right" -> right)))
+      decoder(tupleSchema(left, right))
         .flatMap(
           record =>
             (chunk, _) =>
@@ -372,7 +489,7 @@ object ProtobufCodec extends Codec {
         )
 
     private def optionalDecoder[A](schema: Schema[_]): Decoder[Option[A]] =
-      decoder(Schema.record(Map("value" -> schema)))
+      decoder(optionalSchema(schema))
         .map(record => record.get("value").asInstanceOf[Option[A]])
 
     private def stringDecoder: Decoder[String] = lengthDelimitedDecoder { length => (chunk, _) =>
@@ -430,7 +547,7 @@ object ProtobufCodec extends Codec {
         if (fieldNumber < 1) {
           Left("Failed decoding key")
         } else {
-          (key & 0x07) match {
+          key & 0x07 match {
             case 0 => Right((chunk, (VarInt, fieldNumber)))
             case 1 => Right((chunk, (Bit64, fieldNumber)))
             case 2 => varIntDecoder.map(length => (LengthDelimited(length.toInt), fieldNumber)).run(chunk, wireType)
@@ -469,17 +586,32 @@ object ProtobufCodec extends Codec {
     }
 
     private def defaultValue(standardType: StandardType[_]): Option[Any] = standardType match {
-      case StandardType.UnitType   => Some(())
-      case StandardType.StringType => Some("")
-      case StandardType.BoolType   => Some(false)
-      case StandardType.ShortType  => Some(0)
-      case StandardType.IntType    => Some(0)
-      case StandardType.LongType   => Some(0L)
-      case StandardType.FloatType  => Some(0.0f)
-      case StandardType.DoubleType => Some(0.0)
-      case StandardType.ByteType   => Some(Chunk.empty)
-      case StandardType.CharType   => None
-      case _                       => None // TODO java time
+      case StandardType.UnitType          => Some(())
+      case StandardType.StringType        => Some("")
+      case StandardType.BoolType          => Some(false)
+      case StandardType.ShortType         => Some(0)
+      case StandardType.IntType           => Some(0)
+      case StandardType.LongType          => Some(0L)
+      case StandardType.FloatType         => Some(0.0f)
+      case StandardType.DoubleType        => Some(0.0)
+      case StandardType.ByteType          => Some(Chunk.empty)
+      case StandardType.CharType          => None
+      case StandardType.DayOfWeekType     => None
+      case StandardType.Month             => None
+      case StandardType.MonthDay          => None
+      case StandardType.Period            => None
+      case StandardType.Year              => None
+      case StandardType.YearMonth         => None
+      case StandardType.ZoneId            => None
+      case StandardType.ZoneOffset        => None
+      case StandardType.Duration(_)       => None
+      case StandardType.Instant(_)        => None
+      case StandardType.LocalDate(_)      => None
+      case StandardType.LocalTime(_)      => None
+      case StandardType.LocalDateTime(_)  => None
+      case StandardType.OffsetTime(_)     => None
+      case StandardType.OffsetDateTime(_) => None
+      case StandardType.ZonedDateTime(_)  => None
     }
   }
 }
