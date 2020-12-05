@@ -1,10 +1,32 @@
-package zio.web.codec
+package zio.schema.codec
+
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.time.{
+  DayOfWeek,
+  Duration,
+  Instant,
+  LocalDate,
+  LocalDateTime,
+  LocalTime,
+  Month,
+  MonthDay,
+  OffsetDateTime,
+  OffsetTime,
+  Period,
+  Year,
+  YearMonth,
+  ZoneId,
+  ZoneOffset,
+  ZonedDateTime
+}
 
 import zio.Chunk
+import zio.schema.Schema.Primitive
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-import zio.schema.Schema
+import zio.schema.{ Schema, StandardType }
 
 import scala.util.Try
 
@@ -101,6 +123,108 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       testM("Should encode and decode bytes successfully") {
         val value = Chunk.fromArray("some bytes".getBytes)
         assertM(encodeAndDecode(Schema[Chunk[Byte]], value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode chars successfully") {
+        val value = 'c'
+        assertM(encodeAndDecode(Schema[Char], value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode day of weeks successfully") {
+        val value = DayOfWeek.of(3)
+        assertM(encodeAndDecode(Schema[DayOfWeek], value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode months successfully") {
+        val value = Month.of(3)
+        assertM(encodeAndDecode(Schema[Month], value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode month days successfully") {
+        val value = MonthDay.of(1, 31)
+        assertM(encodeAndDecode(Schema[MonthDay], value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode periods successfully") {
+        val value = Period.of(5, 3, 1)
+        assertM(encodeAndDecode(Schema[Period], value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode years successfully") {
+        val value = Year.of(2020)
+        assertM(encodeAndDecode(Schema[Year], value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode year months successfully") {
+        val value = YearMonth.of(2020, 5)
+        assertM(encodeAndDecode(Schema[YearMonth], value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode zone ids successfully") {
+        val value = ZoneId.systemDefault()
+        assertM(encodeAndDecode(Schema[ZoneId], value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode zone offsets successfully") {
+        val value = ZoneOffset.ofHours(6)
+        assertM(encodeAndDecode(Schema[ZoneOffset], value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode durations successfully") {
+        val value = Duration.ofDays(12)
+        assertM(encodeAndDecode(Primitive(StandardType.Duration(ChronoUnit.DAYS)), value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode instants successfully") {
+        val value = Instant.now()
+        assertM(encodeAndDecode(Primitive(StandardType.Instant(DateTimeFormatter.ISO_INSTANT)), value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode local dates successfully") {
+        val value = LocalDate.now()
+        assertM(encodeAndDecode(Primitive(StandardType.LocalDate(DateTimeFormatter.ISO_LOCAL_DATE)), value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode local times successfully") {
+        val value = LocalTime.now()
+        assertM(encodeAndDecode(Primitive(StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME)), value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode local date times successfully") {
+        val value = LocalDateTime.now()
+        assertM(encodeAndDecode(Primitive(StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME)), value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode offset times successfully") {
+        val value = OffsetTime.now()
+        assertM(encodeAndDecode(Primitive(StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME)), value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode offset date times successfully") {
+        val value = OffsetDateTime.now()
+        assertM(encodeAndDecode(Primitive(StandardType.OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME)), value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode zoned date times successfully") {
+        val value = ZonedDateTime.now()
+        assertM(encodeAndDecode(Primitive(StandardType.ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME)), value))(
           equalTo(Chunk(value))
         )
       },

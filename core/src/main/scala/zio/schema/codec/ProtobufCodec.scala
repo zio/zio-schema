@@ -1,4 +1,4 @@
-package zio.web.codec
+package zio.schema.codec
 
 import java.nio.charset.StandardCharsets
 import java.nio.{ ByteBuffer, ByteOrder }
@@ -6,7 +6,6 @@ import java.time._
 
 import zio.stream.ZTransducer
 import zio.schema._
-import zio.schema.codec.Codec
 import zio.{ Chunk, ZIO }
 
 object ProtobufCodec extends Codec {
@@ -99,6 +98,9 @@ object ProtobufCodec extends Codec {
 
     def yearMonthStructure(): Map[String, Schema[Int]] =
       Map("year" -> Schema.Primitive(StandardType.IntType), "month" -> Schema.Primitive(StandardType.IntType))
+
+    def durationStructure(): Map[String, Schema[_]] =
+      Map("seconds" -> Schema.Primitive(StandardType.LongType), "nanos" -> Schema.Primitive(StandardType.IntType))
   }
 
   object Encoder {
@@ -212,22 +214,22 @@ object ProtobufCodec extends Codec {
           encodePrimitive(fieldNumber, StandardType.StringType, v.getId)
         case (StandardType.ZoneOffset, v: ZoneOffset) =>
           encodePrimitive(fieldNumber, StandardType.IntType, v.getTotalSeconds)
-        case (StandardType.Duration(temporalUnit), v: Duration) =>
-          encodePrimitive(fieldNumber, StandardType.LongType, v.get(temporalUnit))
+        case (StandardType.Duration(_), v: Duration) =>
+          encodeRecord(fieldNumber, durationStructure(), Map("seconds" -> v.getSeconds, "nanos" -> v.getNano))
         case (StandardType.Instant(formatter), v: Instant) =>
           encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
         case (StandardType.LocalDate(formatter), v: LocalDate) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
+          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
         case (StandardType.LocalTime(formatter), v: LocalTime) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
+          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
         case (StandardType.LocalDateTime(formatter), v: LocalDateTime) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
+          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
         case (StandardType.OffsetTime(formatter), v: OffsetTime) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
+          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
         case (StandardType.OffsetDateTime(formatter), v: OffsetDateTime) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
+          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
         case (StandardType.ZonedDateTime(formatter), v: ZonedDateTime) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
+          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
         case (_, _) =>
           Chunk.empty
       }
@@ -476,9 +478,16 @@ object ProtobufCodec extends Codec {
             .map(_.intValue)
             .map(ZoneOffset.ofTotalSeconds)
             .asInstanceOf[Decoder[A]]
-        case StandardType.Duration(temporalUnit) =>
-          packedDecoder(WireType.VarInt, varIntDecoder).map(Duration.of(_, temporalUnit)).asInstanceOf[Decoder[A]]
-        case StandardType.Instant(formatter) => stringDecoder.map(formatter.parse(_)).asInstanceOf[Decoder[A]]
+        case StandardType.Duration(_) =>
+          recordDecoder(durationStructure())
+            .map(
+              data =>
+                Duration.ofSeconds(data.getOrElse("seconds", 0).asInstanceOf[Long],
+                                   data.getOrElse("nanos", 0).asInstanceOf[Int].toLong)
+            )
+            .asInstanceOf[Decoder[A]]
+        case StandardType.Instant(formatter) =>
+          stringDecoder.map(v => Instant.from(formatter.parse(v))).asInstanceOf[Decoder[A]]
         case StandardType.LocalDate(formatter) =>
           stringDecoder.map(LocalDate.parse(_, formatter)).asInstanceOf[Decoder[A]]
         case StandardType.LocalTime(formatter) =>
