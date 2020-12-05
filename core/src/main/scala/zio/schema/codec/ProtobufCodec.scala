@@ -9,7 +9,6 @@ import zio.schema._
 import zio.schema.codec.Codec
 import zio.{ Chunk, ZIO }
 
-// TODO safe splitting of chunks?
 object ProtobufCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
     ZTransducer.fromPush(
@@ -246,11 +245,15 @@ object ProtobufCodec extends Codec {
       )
 
     private def encodeOptional[A](fieldNumber: Option[Int], schema: Schema[A], value: Option[A]): Chunk[Byte] =
-      encode(
-        fieldNumber,
-        optionalSchema(schema),
-        Map("value" -> value)
-      )
+      value match {
+        case Some(v) =>
+          encode(
+            fieldNumber,
+            optionalSchema(schema),
+            Map("value" -> v)
+          )
+        case None => Chunk.empty
+      }
 
     private def encodeVarInt(value: Int): Chunk[Byte] =
       encodeVarInt(value.toLong)
@@ -434,7 +437,7 @@ object ProtobufCodec extends Codec {
         case StandardType.LongType   => packedDecoder(WireType.VarInt, varIntDecoder).asInstanceOf[Decoder[A]]
         case StandardType.FloatType  => floatDecoder.asInstanceOf[Decoder[A]]
         case StandardType.DoubleType => doubleDecoder.asInstanceOf[Decoder[A]]
-        case StandardType.BinaryType => byteDecoder.asInstanceOf[Decoder[A]]
+        case StandardType.BinaryType => binaryDecoder.asInstanceOf[Decoder[A]]
         case StandardType.CharType   => stringDecoder.map(_.charAt(0)).asInstanceOf[Decoder[A]]
         case StandardType.DayOfWeekType =>
           packedDecoder(WireType.VarInt, varIntDecoder).map(_.intValue).map(DayOfWeek.of).asInstanceOf[Decoder[A]]
@@ -509,19 +512,18 @@ object ProtobufCodec extends Codec {
         .map(record => record.get("value").asInstanceOf[Option[A]])
 
     private def stringDecoder: Decoder[String] = lengthDelimitedDecoder { length => (chunk, _) =>
-      val (str, remainder) = chunk.splitAt(length)
-      Right((remainder, new String(str.toArray, StandardCharsets.UTF_8)))
+      decodeChunk(length, chunk, bytes => new String(bytes.toArray, StandardCharsets.UTF_8))
     }
 
     private def floatDecoder: Decoder[Float] =
       packedDecoder(
         WireType.Bit32,
         (chunk, _) => {
-          val (float, remainder) = chunk.splitAt(4)
-          val byteBuffer         = ByteBuffer.allocate(4)
-          byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
-          byteBuffer.put(float.toArray)
-          Right((remainder, byteBuffer.getFloat()))
+          decodeChunk(4, chunk, bytes => {
+            val byteBuffer = ByteBuffer.wrap(bytes.toArray)
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
+            byteBuffer.getFloat
+          })
         }
       )
 
@@ -529,17 +531,16 @@ object ProtobufCodec extends Codec {
       packedDecoder(
         WireType.Bit64,
         (chunk, _) => {
-          val (double, remainder) = chunk.splitAt(8)
-          val byteBuffer          = ByteBuffer.allocate(8)
-          byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
-          byteBuffer.put(double.toArray)
-          Right((remainder, byteBuffer.getDouble))
+          decodeChunk(8, chunk, bytes => {
+            val byteBuffer = ByteBuffer.wrap(bytes.toArray)
+            byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
+            byteBuffer.getDouble
+          })
         }
       )
 
-    private def byteDecoder: Decoder[Byte] = lengthDelimitedDecoder { _ => (chunk, _) =>
-      val (byte, remainder) = chunk.splitAt(1)
-      Right((remainder, byte(0)))
+    private def binaryDecoder: Decoder[Chunk[Byte]] = lengthDelimitedDecoder { length => (chunk, _) =>
+      decodeChunk(length, chunk, identity)
     }
 
     private def lengthDelimitedDecoder[A](decoder: Int => Decoder[A]): Decoder[A] =
@@ -579,7 +580,7 @@ object ProtobufCodec extends Codec {
     private def varIntDecoder: Decoder[Long] =
       (chunk, _) =>
         if (chunk.isEmpty) {
-          Left("Unexpected end of stream")
+          Left("Unexpected end of chunk")
         } else {
           val length = chunk.indexWhere(octet => (octet.longValue() & 0x80) != 0x80) + 1
           val value  = chunk.take(length).foldRight(0L)((octet, v) => (v << 7) + (octet & 0x7F))
@@ -630,5 +631,13 @@ object ProtobufCodec extends Codec {
       case StandardType.OffsetDateTime(_) => None
       case StandardType.ZonedDateTime(_)  => None
     }
+
+    private def decodeChunk[A](index: Int, chunk: Chunk[Byte], fn: Chunk[Byte] => A): Either[String, (Chunk[Byte], A)] =
+      if (index > chunk.size) {
+        Left("Unexpected end of chunk");
+      } else {
+        val (bs, remainder) = chunk.splitAt(index);
+        Right((remainder, fn(bs)))
+      }
   }
 }

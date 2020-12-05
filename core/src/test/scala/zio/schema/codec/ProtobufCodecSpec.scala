@@ -8,6 +8,7 @@ import zio.schema.Schema
 
 import scala.util.Try
 
+// TODO: use generators instead of manual encode/decode
 object ProtobufCodecSpec extends DefaultRunnableSpec {
 
   def spec = suite("ProtobufCodec Spec")(
@@ -62,24 +63,87 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           equalTo(Chunk(Record("", 123)))
         )
       },
-      testM("Should encode and decode successfully") {
+      testM("Should encode and decode messages successfully") {
         assertM(encodeAndDecode(schema, message))(
           equalTo(Chunk(message))
         )
       },
-      testM("Should encode and decode successfully PACKED") {
+      testM("Should encode and decode booleans successfully") {
+        val value = true
+        assertM(encodeAndDecode(Schema[Boolean], value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode shorts successfully") {
+        val value = 5.toShort
+        assertM(encodeAndDecode(Schema[Short], value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode longs successfully") {
+        val value = 1000L
+        assertM(encodeAndDecode(Schema[Long], value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode floats successfully") {
+        val value = 0.001f
+        assertM(encodeAndDecode(Schema[Float], value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode doubles successfully") {
+        val value = 0.001
+        assertM(encodeAndDecode(Schema[Double], value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode bytes successfully") {
+        val value = Chunk.fromArray("some bytes".getBytes)
+        assertM(encodeAndDecode(Schema[Chunk[Byte]], value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode packed sequences successfully") {
         assertM(encodeAndDecode(schemaPackedList, PackedList(List(3, 270, 86942))))(
           equalTo(Chunk(PackedList(List(3, 270, 86942))))
         )
       },
-      testM("Should encode and decode successfully NON-PACKED") {
+      testM("Should encode and decode non-packed sequences successfully") {
         assertM(encodeAndDecode(schemaUnpackedList, UnpackedList(List("foo", "bar", "baz"))))(
           equalTo(Chunk(UnpackedList(List("foo", "bar", "baz"))))
         )
       },
-      testM("Should encode and decode successfully ENUMERATION") {
+      testM("Should encode and decode enumerations successfully") {
         assertM(encodeAndDecode(schemaEnumeration, Enumeration(BooleanValue(true))))(
           equalTo(Chunk(Enumeration(BooleanValue(true))))
+        )
+      },
+      testM("Should encode and decode tuples successfully") {
+        val value = (123, "foo")
+        assertM(encodeAndDecode(Schema.Tuple(Schema[Int], Schema[String]), value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should encode and decode optionals successfully") {
+        val value = Some(123)
+        assertM(encodeAndDecode(Schema.Optional(Schema[Int]), value))(
+          equalTo(Chunk(value))
+        )
+      },
+      testM("Should return nothing on empty input") {
+        assertM(decode(Schema[Int], ""))(
+          equalTo(Chunk.empty)
+        )
+      },
+      testM("Should return error on invalid keys") {
+        assertM(decode(schemaRecord, "FF").run)(
+          fails(equalTo("Failed decoding key"))
+        )
+      },
+      testM("Should return error on incomplete chunks") {
+        assertM(decode(schemaRecord, "0A0346").run)(
+          fails(equalTo("Unexpected end of chunk"))
         )
       }
     )
@@ -168,7 +232,6 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
   val schemaEnumeration: Schema[Enumeration] =
     Schema.caseClassN("value" -> schemaOneOf)(Enumeration, Enumeration.unapply)
 
-  // TODO: Generators instead of SearchRequest
   case class SearchRequest(query: String, pageNumber: Int, resultPerPage: Int)
 
   val schema: Schema[SearchRequest] = Schema.caseClassN(
