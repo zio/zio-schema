@@ -7,15 +7,21 @@ import java.time._
 import zio.stream.ZTransducer
 import zio.schema._
 import zio.schema.codec.Codec
-import zio.{ Chunk, ZIO, ZManaged }
+import zio.{ Chunk, ZIO }
 
 // TODO safe splitting of chunks?
 object ProtobufCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
-    ZTransducer(ZManaged.succeed(chunk => ZIO.succeed(Encoder.encodeChunk(schema, chunk))))
+    ZTransducer.fromPush(
+      (opt: Option[Chunk[A]]) =>
+        ZIO.succeed(opt.map(values => values.flatMap(Encoder.encode(None, schema, _))).getOrElse(Chunk.empty))
+    )
 
   override def decoder[A](schema: Schema[A]): ZTransducer[Any, String, Byte, A] =
-    ZTransducer(ZManaged.succeed(chunk => ZIO.fromEither(Decoder.decodeChunk(schema, chunk))))
+    ZTransducer.fromPush(
+      (opt: Option[Chunk[Byte]]) =>
+        ZIO.fromEither(opt.map(chunk => Decoder.decode(schema, chunk).map(Chunk(_))).getOrElse(Right(Chunk.empty)))
+    )
 
   object Protobuf {
 
@@ -55,11 +61,17 @@ object ProtobufCodec extends Codec {
           _.map {
             case (fieldNumber, fieldAndSchema) =>
               val field = fieldAndSchema._1
-              (fieldNumber,
-               (baseField,
-                Schema.Transform(fieldAndSchema._2.asInstanceOf[Schema[Any]],
-                                 (a: Any) => Right(Map(field -> a)),
-                                 (b: Map[String, Any]) => b.get(field).toRight("Missing value"))))
+              (
+                fieldNumber,
+                (
+                  baseField,
+                  Schema.Transform(
+                    fieldAndSchema._2.asInstanceOf[Schema[Any]],
+                    (a: Any) => Right(Map(field -> a)),
+                    (b: Map[String, Any]) => b.get(field).toRight("Missing value")
+                  )
+                )
+              )
           }
         )
       case Schema.Transform(codec, f, g) =>
@@ -93,10 +105,7 @@ object ProtobufCodec extends Codec {
   object Encoder {
     import Protobuf._
 
-    def encodeChunk[A](schema: Schema[A], chunk: Option[Chunk[A]]): Chunk[Byte] =
-      chunk.map(_.flatMap(encode(None, schema, _))).getOrElse(Chunk.empty)
-
-    private def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
+    def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
       (schema, value) match {
         case (Schema.Record(structure), v: Map[String, _])      => encodeRecord(fieldNumber, structure, v)
         case (Schema.Sequence(element), v: Chunk[_])            => encodeSequence(fieldNumber, element, v)
@@ -191,9 +200,11 @@ object ProtobufCodec extends Codec {
         case (StandardType.MonthDay, v: MonthDay) =>
           encodeRecord(fieldNumber, monthDayStructure(), Map("month" -> v.getMonthValue, "day" -> v.getDayOfMonth))
         case (StandardType.Period, v: Period) =>
-          encodeRecord(fieldNumber,
-                       periodStructure(),
-                       Map("years" -> v.getYears, "months" -> v.getMonths, "days" -> v.getDays))
+          encodeRecord(
+            fieldNumber,
+            periodStructure(),
+            Map("years" -> v.getYears, "months" -> v.getMonths, "days" -> v.getDays)
+          )
         case (StandardType.Year, v: Year) =>
           encodePrimitive(fieldNumber, StandardType.IntType, v.getValue)
         case (StandardType.YearMonth, v: YearMonth) =>
@@ -327,11 +338,10 @@ object ProtobufCodec extends Codec {
         }
     }
 
-    def decodeChunk[A](schema: Schema[A], chunk: Option[Chunk[Byte]]): Either[String, Chunk[A]] =
-      chunk
-        .map(bs => decoder(schema).run(bs, WireType.LengthDelimited(bs.size)))
-        .map(_.map { case (_, value) => Chunk(value) })
-        .getOrElse(Right(Chunk.empty))
+    def decode[A](schema: Schema[A], chunk: Chunk[Byte]): Either[String, A] =
+      decoder(schema)
+        .run(chunk, WireType.LengthDelimited(chunk.size))
+        .map(_._2)
 
     private def decoder[A](schema: Schema[A]): Decoder[A] =
       schema match {
@@ -441,9 +451,11 @@ object ProtobufCodec extends Codec {
           recordDecoder(periodStructure())
             .map(
               data =>
-                Period.of(data.getOrElse("years", 0).asInstanceOf[Int],
-                          data.getOrElse("months", 0).asInstanceOf[Int],
-                          data.getOrElse("days", 0).asInstanceOf[Int])
+                Period.of(
+                  data.getOrElse("years", 0).asInstanceOf[Int],
+                  data.getOrElse("months", 0).asInstanceOf[Int],
+                  data.getOrElse("days", 0).asInstanceOf[Int]
+              )
             )
             .asInstanceOf[Decoder[A]]
         case StandardType.Year =>
