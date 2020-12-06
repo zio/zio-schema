@@ -34,239 +34,260 @@ import scala.util.Try
 object ProtobufCodecSpec extends DefaultRunnableSpec {
 
   def spec = suite("ProtobufCodec Spec")(
-    suite("Toplevel ProtobufCodec Spec")(
-      testM("Should correctly encode integers") {
+    suite("Should correctly encode")(
+      testM("integers") {
         assertM(encode(schemaBasicInt, BasicInt(150)).map(toHex))(
           equalTo("089601")
         )
       },
-      testM("Should correctly encode strings") {
+      testM("strings") {
         assertM(encode(schemaBasicString, BasicString("testing")).map(toHex))(
           equalTo("0A0774657374696E67")
         )
       },
-      testM("Should correctly encode floats") {
+      testM("floats") {
         assertM(encode(schemaBasicFloat, BasicFloat(0.001f)).map(toHex))(
           equalTo("0D6F12833A")
         )
       },
-      testM("Should correctly encode doubles") {
+      testM("doubles") {
         assertM(encode(schemaBasicDouble, BasicDouble(0.001)).map(toHex))(
           equalTo("09FCA9F1D24D62503F")
         )
       },
-      testM("Should correctly encode embedded messages") {
+      testM("embedded messages") {
         assertM(encode(schemaEmbedded, Embedded(BasicInt(150))).map(toHex))(
           equalTo("0A03089601")
         )
       },
-      testM("Should correctly encode packed lists") {
+      testM("packed lists") {
         assertM(encode(schemaPackedList, PackedList(List(3, 270, 86942))).map(toHex))(
           equalTo("0A06038E029EA705")
         )
       },
-      testM("Should correctly encode unpacked lists") {
+      testM("unpacked lists") {
         assertM(encode(schemaUnpackedList, UnpackedList(List("foo", "bar", "baz"))).map(toHex))(
           equalTo("0A03666F6F0A036261720A0362617A")
         )
       },
-      testM("Should correctly encode records") {
+      testM("records") {
         assertM(encode(schemaRecord, Record("Foo", 123)).map(toHex))(
           equalTo("0A03466F6F107B")
         )
       },
-      testM("Should correctly encode enumerations") {
+      testM("enumerations") {
         assertM(encode(schemaEnumeration, Enumeration(IntValue(482))).map(toHex))(
           equalTo("10E203")
         )
-      },
-      testM("Should fill non-complete messages with default values") {
-        assertM(decode(schemaRecord, "107B"))(
-          equalTo(Chunk(Record("", 123)))
-        )
-      },
-      testM("Should encode and decode messages successfully") {
+      }
+    ),
+    suite("Should successfully encode and decode")(
+      testM("messages") {
         assertM(encodeAndDecode(schema, message))(
           equalTo(Chunk(message))
         )
       },
-      testM("Should encode and decode booleans successfully") {
+      testM("booleans") {
         val value = true
         assertM(encodeAndDecode(Schema[Boolean], value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode shorts successfully") {
+      testM("shorts") {
         val value = 5.toShort
         assertM(encodeAndDecode(Schema[Short], value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode longs successfully") {
+      testM("longs") {
         val value = 1000L
         assertM(encodeAndDecode(Schema[Long], value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode floats successfully") {
+      testM("floats") {
         val value = 0.001f
         assertM(encodeAndDecode(Schema[Float], value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode doubles successfully") {
+      testM("doubles") {
         val value = 0.001
         assertM(encodeAndDecode(Schema[Double], value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode bytes successfully") {
+      testM("bytes") {
         val value = Chunk.fromArray("some bytes".getBytes)
         assertM(encodeAndDecode(Schema[Chunk[Byte]], value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode chars successfully") {
+      testM("chars") {
         val value = 'c'
         assertM(encodeAndDecode(Schema[Char], value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode day of weeks successfully") {
+      testM("day of weeks") {
         val value = DayOfWeek.of(3)
         assertM(encodeAndDecode(Schema[DayOfWeek], value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode months successfully") {
+      testM("months") {
         val value = Month.of(3)
         assertM(encodeAndDecode(Schema[Month], value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode month days successfully") {
+      testM("month days") {
         val value = MonthDay.of(1, 31)
         assertM(encodeAndDecode(Schema[MonthDay], value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode periods successfully") {
+      testM("periods") {
         val value = Period.of(5, 3, 1)
         assertM(encodeAndDecode(Schema[Period], value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode years successfully") {
+      testM("years") {
         val value = Year.of(2020)
         assertM(encodeAndDecode(Schema[Year], value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode year months successfully") {
+      testM("year months") {
         val value = YearMonth.of(2020, 5)
         assertM(encodeAndDecode(Schema[YearMonth], value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode zone ids successfully") {
+      testM("zone ids") {
         val value = ZoneId.systemDefault()
         assertM(encodeAndDecode(Schema[ZoneId], value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode zone offsets successfully") {
+      testM("zone offsets") {
         val value = ZoneOffset.ofHours(6)
         assertM(encodeAndDecode(Schema[ZoneOffset], value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode durations successfully") {
+      testM("durations") {
         val value = Duration.ofDays(12)
         assertM(encodeAndDecode(Primitive(StandardType.Duration(ChronoUnit.DAYS)), value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode instants successfully") {
+      testM("instants") {
         val value = Instant.now()
         assertM(encodeAndDecode(Primitive(StandardType.Instant(DateTimeFormatter.ISO_INSTANT)), value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode local dates successfully") {
+      testM("local dates") {
         val value = LocalDate.now()
         assertM(encodeAndDecode(Primitive(StandardType.LocalDate(DateTimeFormatter.ISO_LOCAL_DATE)), value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode local times successfully") {
+      testM("local times") {
         val value = LocalTime.now()
         assertM(encodeAndDecode(Primitive(StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME)), value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode local date times successfully") {
+      testM("local date times") {
         val value = LocalDateTime.now()
         assertM(encodeAndDecode(Primitive(StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME)), value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode offset times successfully") {
+      testM("offset times") {
         val value = OffsetTime.now()
         assertM(encodeAndDecode(Primitive(StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME)), value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode offset date times successfully") {
+      testM("offset date times") {
         val value = OffsetDateTime.now()
         assertM(encodeAndDecode(Primitive(StandardType.OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME)), value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode zoned date times successfully") {
+      testM("zoned date times") {
         val value = ZonedDateTime.now()
         assertM(encodeAndDecode(Primitive(StandardType.ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME)), value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode packed sequences successfully") {
+      testM("packed sequences") {
         assertM(encodeAndDecode(schemaPackedList, PackedList(List(3, 270, 86942))))(
           equalTo(Chunk(PackedList(List(3, 270, 86942))))
         )
       },
-      testM("Should encode and decode non-packed sequences successfully") {
+      testM("non-packed sequences") {
         assertM(encodeAndDecode(schemaUnpackedList, UnpackedList(List("foo", "bar", "baz"))))(
           equalTo(Chunk(UnpackedList(List("foo", "bar", "baz"))))
         )
       },
-      testM("Should encode and decode enumerations successfully") {
+      testM("enumerations") {
         assertM(encodeAndDecode(schemaEnumeration, Enumeration(BooleanValue(true))))(
           equalTo(Chunk(Enumeration(BooleanValue(true))))
         )
       },
-      testM("Should encode and decode tuples successfully") {
+      testM("tuples") {
         val value = (123, "foo")
-        assertM(encodeAndDecode(Schema.Tuple(Schema[Int], Schema[String]), value))(
+        assertM(encodeAndDecode(schemaTuple, value))(
           equalTo(Chunk(value))
         )
       },
-      testM("Should encode and decode optionals successfully") {
+      testM("optionals") {
         val value = Some(123)
         assertM(encodeAndDecode(Schema.Optional(Schema[Int]), value))(
           equalTo(Chunk(value))
         )
+      }
+    ),
+    suite("Should successfully decode")(
+      testM("incomplete messages using default values") {
+        assertM(decode(schemaRecord, "107B"))(
+          equalTo(Chunk(Record("", 123)))
+        )
       },
-      testM("Should return nothing on empty input") {
+      testM("incomplete tuples using default values") {
+        assertM(decode(schemaTuple, "087B"))(
+          equalTo(Chunk((123, "")))
+        )
+      },
+      testM("empty input") {
         assertM(decode(Schema[Int], ""))(
           equalTo(Chunk.empty)
         )
-      },
-      testM("Should return error on invalid keys") {
-        assertM(decode(schemaRecord, "FF").run)(
-          fails(equalTo("Failed decoding key"))
+      }
+    ),
+    suite("Should fail to decode")(
+      testM("unknown wire types") {
+        assertM(decode(schemaRecord, "0F").run)(
+          fails(equalTo("Failed decoding key: unknown wire type"))
         )
       },
-      testM("Should return error on incomplete chunks") {
+      testM("invalid field numbers") {
+        assertM(decode(schemaRecord, "00").run)(
+          fails(equalTo("Failed decoding key: invalid field number"))
+        )
+      },
+      testM("incomplete length delimited values") {
         assertM(decode(schemaRecord, "0A0346").run)(
+          fails(equalTo("Unexpected end of chunk"))
+        )
+      },
+      testM("incomplete var ints") {
+        assertM(decode(schemaRecord, "10FF").run)(
           fails(equalTo("Unexpected end of chunk"))
         )
       }
@@ -323,6 +344,8 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
     "name"  -> Schema[String],
     "value" -> Schema[Int]
   )(Record, Record.unapply)
+
+  val schemaTuple: Schema.Tuple[Int, String] = Schema.Tuple(Schema[Int], Schema[String])
 
   sealed trait OneOf
   case class StringValue(value: String)   extends OneOf

@@ -571,7 +571,7 @@ object ProtobufCodec extends Codec {
       varIntDecoder.flatMap { key => (chunk, wireType) =>
         val fieldNumber = (key >>> 3).toInt
         if (fieldNumber < 1) {
-          Left("Failed decoding key")
+          Left("Failed decoding key: invalid field number")
         } else {
           key & 0x07 match {
             case 0 => Right((chunk, (WireType.VarInt, fieldNumber)))
@@ -581,7 +581,7 @@ object ProtobufCodec extends Codec {
             case 3 => Right((chunk, (WireType.StartGroup, fieldNumber)))
             case 4 => Right((chunk, (WireType.EndGroup, fieldNumber)))
             case 5 => Right((chunk, (WireType.Bit32, fieldNumber)))
-            case _ => Left("Failed decoding key")
+            case _ => Left("Failed decoding key: unknown wire type")
           }
         }
       }
@@ -592,8 +592,12 @@ object ProtobufCodec extends Codec {
           Left("Unexpected end of chunk")
         } else {
           val length = chunk.indexWhere(octet => (octet.longValue() & 0x80) != 0x80) + 1
-          val value  = chunk.take(length).foldRight(0L)((octet, v) => (v << 7) + (octet & 0x7F))
-          Right((chunk.drop(length), value))
+          if (length <= 0) {
+            Left("Unexpected end of chunk")
+          } else {
+            val value = chunk.take(length).foldRight(0L)((octet, v) => (v << 7) + (octet & 0x7F))
+            Right((chunk.drop(length), value))
+          }
       }
 
     private def defaultMap(structure: Map[String, Schema[_]]): Map[String, _] =
