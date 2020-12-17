@@ -54,10 +54,16 @@ lazy val core = project
   .settings(stdSettings("zio-schema-core"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio"         % zioVersion,
-      "dev.zio" %% "zio-streams" % zioVersion,
+      "dev.zio"        %% "zio"          % zioVersion,
+      "dev.zio"        %% "zio-streams"  % zioVersion,
       "dev.zio"        %% "zio-json"     % zioJsonVersion,
       "com.propensive" %% "magnolia"     % magnoliaVersion,
       "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
     )
   )
+//  .dependsOn(jsonBranch)
+
+//when doing this i get the following on build
+//Caused by: java.lang.ClassNotFoundException: org.scalajs.ir.ScalaJSVersions$
+//lazy val jsonBranch =
+//  ProjectRef(uri("git://github.com/steinybot/zio-json.git#bug/duration-encoder"), "zioJsonJVM")
