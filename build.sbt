@@ -55,6 +55,7 @@ lazy val core = project
   .settings(
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio"         % zioVersion,
+      "dev.zio" %% "zio-streams" % zioVersion,
       "com.propensive" %% "magnolia"     % magnoliaVersion,
       "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
     )
