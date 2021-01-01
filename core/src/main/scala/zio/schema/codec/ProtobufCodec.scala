@@ -612,7 +612,7 @@ object ProtobufCodec extends Codec {
       case _: Schema.Enumeration          => None
       case Schema.Transform(codec, f, _)  => defaultValue(codec).flatMap(f(_).toOption)
       case Schema.Primitive(standardType) => defaultValue(standardType)
-      case Schema.Tuple(left, right)      => defaultValue(left).zip(defaultValue(right))
+      case Schema.Tuple(left, right)      => defaultValue(left).zip(defaultValue(right)).headOption
       case _: Schema.Optional[_]          => Some(None)
     }
 
