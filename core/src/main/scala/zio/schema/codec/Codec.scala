@@ -1,7 +1,6 @@
 package zio.schema.codec
 
 import zio.schema._
-
 import zio.stream.ZTransducer
 
 trait Codec {

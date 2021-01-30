@@ -1,8 +1,8 @@
 package zio.schema
 
 import zio.Chunk
-import zio.test.{ DefaultRunnableSpec, assert, suite, test }
 import zio.schema.SchemaAssertions.hasSameSchema
+import zio.test.{ DefaultRunnableSpec, ZSpec, assert, suite, test }
 
 object DeriveSchemaSpec extends DefaultRunnableSpec {
 
@@ -14,7 +14,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       extends Status
   case object Pending extends Status
 
-  override def spec = suite("DeriveSchemaSpec")(
+  override def spec: ZSpec[Environment, Failure] = suite("DeriveSchemaSpec")(
     test("DeriveSchema correctly derives schema for UserId case class") {
 
       val userIdSchema: Schema[UserId] = DeriveSchema.gen

@@ -1,8 +1,8 @@
 package zio.schema
 
-import magnolia._
-
 import scala.language.experimental.macros
+
+import magnolia._
 
 object DeriveSchema {
 
