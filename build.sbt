@@ -35,9 +35,11 @@ inThisBuild(
 
 ThisBuild / publishTo := sonatypePublishToBundle.value
 
-addCommandAlias("fmt", "all scalafmtSbt scalafmt test:scalafmt")
-addCommandAlias("check", "all scalafmtSbtCheck scalafmtCheck test:scalafmtCheck")
-addCommandAlias("testRelease", ";set every isSnapshot := false;+clean;+compile")
+addCommandAlias("prepare", "fix; fmt")
+addCommandAlias("fmt", "all scalafmtSbt scalafmtAll")
+addCommandAlias("fmtCheck", "all scalafmtSbtCheck scalafmtCheckAll")
+addCommandAlias("fix", "scalafixAll")
+addCommandAlias("fixCheck", "scalafixAll --check")
 
 lazy val root = project
   .in(file("."))
