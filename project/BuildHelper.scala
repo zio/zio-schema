@@ -5,6 +5,7 @@ import explicitdeps.ExplicitDepsPlugin.autoImport._
 import sbtcrossproject.CrossPlugin.autoImport.CrossType
 import sbtbuildinfo._
 import BuildInfoKeys._
+import scalafix.sbt.ScalafixPlugin.autoImport._
 
 object BuildHelper {
 
@@ -93,10 +94,18 @@ object BuildHelper {
   def stdSettings(prjName: String) =
     Seq(
       name := s"$prjName",
-      crossScalaVersions := Seq("2.13.3", "2.12.12", "2.11.12"),
+      crossScalaVersions := Seq("2.13.3", "2.12.12"),
       scalaVersion in ThisBuild := crossScalaVersions.value.head,
       scalacOptions := compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ testDeps,
+      ThisBuild / semanticdbEnabled := true,
+      ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
+      ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
+      ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
+      ThisBuild / scalafixDependencies ++= List(
+        "com.github.liancheng" %% "organize-imports" % "0.4.4",
+        "com.github.vovapolu"  %% "scaluzzi"         % "0.1.17"
+      ),
       parallelExecution in Test := true,
       incOptions ~= (_.withLogRecompileOnMacro(true)),
       autoAPIMappings := true,
