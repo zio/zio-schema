@@ -612,8 +612,9 @@ object ProtobufCodec extends Codec {
       case _: Schema.Enumeration          => None
       case Schema.Transform(codec, f, _)  => defaultValue(codec).flatMap(f(_).toOption)
       case Schema.Primitive(standardType) => defaultValue(standardType)
-      case Schema.Tuple(left, right)      => defaultValue(left).zip(defaultValue(right))
-      case _: Schema.Optional[_]          => Some(None)
+      case Schema.Tuple(left, right) =>
+        if (defaultValue(left).isEmpty || defaultValue(right).isEmpty) None else Some((left, right))
+      case _: Schema.Optional[_] => Some(None)
     }
 
     private def defaultValue(standardType: StandardType[_]): Option[Any] = standardType match {
