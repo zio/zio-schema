@@ -60,3 +60,22 @@ lazy val core = project
       "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
     )
   )
+
+lazy val docs = project
+  .in(file("zio-schema-docs"))
+  .settings(
+    skip.in(publish) := true,
+    moduleName := "zio-schema-docs",
+    scalacOptions -= "-Yno-imports",
+    scalacOptions -= "-Xfatal-warnings",
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio" % zioVersion
+    ),
+    unidocProjectFilter in (ScalaUnidoc, unidoc) := inProjects(root),
+    target in (ScalaUnidoc, unidoc) := (baseDirectory in LocalRootProject).value / "website" / "static" / "api",
+    cleanFiles += (target in (ScalaUnidoc, unidoc)).value,
+    docusaurusCreateSite := docusaurusCreateSite.dependsOn(unidoc in Compile).value,
+    docusaurusPublishGhpages := docusaurusPublishGhpages.dependsOn(unidoc in Compile).value
+  )
+  .dependsOn(root)
+  .enablePlugins(MdocPlugin, DocusaurusPlugin, ScalaUnidocPlugin)
