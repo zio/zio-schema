@@ -348,7 +348,7 @@ object ProtobufCodec extends Codec {
   object Decoder {
     import Protobuf._
 
-    trait Decoder[A] { self =>
+    trait Decoder[+A] { self =>
       def run(chunk: Chunk[Byte], wireType: WireType): Either[String, (Chunk[Byte], A)]
 
       def map[B](f: A => B): Decoder[B] =
@@ -372,22 +372,22 @@ object ProtobufCodec extends Codec {
     private def decoder[A](schema: Schema[A]): Decoder[A] =
       schema match {
         case Schema.Record(structure) => recordDecoder(structure).asInstanceOf[Decoder[A]]
-        case Schema.Sequence(element) => sequenceDecoder(element).asInstanceOf[Decoder[A]]
+        case Schema.Sequence(element) => sequenceDecoder(element)
         case Schema.Enumeration(_) =>
           (_, _) => Left("oneof must be part of a message")
         case Schema.Transform(codec, f, _)  => transformDecoder(codec, f)
-        case Schema.Primitive(standardType) => primitiveDecoder(standardType)
-        case Schema.Tuple(left, right)      => tupleDecoder(left, right).asInstanceOf[Decoder[A]]
+        case Schema.Primitive(standardType) => primitiveDecoder(standardType).asInstanceOf[Decoder[A]]
+        case Schema.Tuple(left, right)      => tupleDecoder(left, right)
         case Schema.Optional(codec)         => optionalDecoder(codec).asInstanceOf[Decoder[A]]
       }
 
-    private def recordDecoder[A](structure: Map[String, Schema[A]]): Decoder[Map[String, A]] =
+    private def recordDecoder[A >: Seq[_]](structure: Map[String, Schema[A]]): Decoder[Map[String, Any]] =
       recordLoopDecoder(flatFields(structure), defaultMap(structure))
 
     private def recordLoopDecoder[A](
       fields: Map[Int, (String, Schema[A])],
       result: Map[String, A]
-    ): Decoder[Map[String, A]] =
+    ): Decoder[Map[String, Any]] =
       (chunk, wireType) =>
         if (chunk.isEmpty) {
           Right((chunk, result))
@@ -395,10 +395,10 @@ object ProtobufCodec extends Codec {
           recordLoopStepDecoder(fields, result).run(chunk, wireType)
         }
 
-    private def recordLoopStepDecoder[A](
+    private def recordLoopStepDecoder[A >: Seq[_]](
       fields: Map[Int, (String, Schema[A])],
       result: Map[String, A]
-    ): Decoder[Map[String, A]] =
+    ): Decoder[Map[String, Any]] =
       keyDecoder.flatMap {
         case (wireType, fieldNumber) =>
           val resultDecoder: Decoder[Map[String, A]] =
@@ -408,12 +408,7 @@ object ProtobufCodec extends Codec {
                 case (field, schema) =>
                   fieldDecoder(wireType, schema).map {
                     case value: Seq[_] =>
-                      val values = result
-                        .get(field)
-                        .asInstanceOf[Option[Seq[_]]]
-                        .map(_ ++ value)
-                        .getOrElse(value)
-                        .asInstanceOf[A] // needed for Dotty
+                      val values = result.get(field).map((a: A) => a.asInstanceOf[Seq[A]] ++ value).getOrElse(value)
                       result + (field -> values): Map[String, A]
                     case value =>
                       result + (field -> value)
@@ -452,31 +447,31 @@ object ProtobufCodec extends Codec {
     private def transformDecoder[A, B](schema: Schema[B], f: B => Either[String, A]): Decoder[A] =
       decoder(schema).flatMap(a => (chunk, _) => f(a).map(b => (chunk, b)))
 
-    private def primitiveDecoder[A](standardType: StandardType[A]): Decoder[A] =
+    private def primitiveDecoder[A >: StandardType[_]](standardType: StandardType[A]): Decoder[A] =
       standardType match {
         case StandardType.UnitType   => ((chunk: Chunk[Byte]) => Right((chunk, ()))).asInstanceOf[Decoder[A]]
-        case StandardType.StringType => stringDecoder.asInstanceOf[Decoder[A]]
-        case StandardType.BoolType   => packedDecoder(WireType.VarInt, varIntDecoder).map(_ != 0).asInstanceOf[Decoder[A]]
+        case StandardType.StringType => stringDecoder
+        case StandardType.BoolType   => packedDecoder(WireType.VarInt, varIntDecoder).map(_ != 0)
         case StandardType.ShortType =>
-          packedDecoder(WireType.VarInt, varIntDecoder).map(_.shortValue()).asInstanceOf[Decoder[A]]
+          packedDecoder(WireType.VarInt, varIntDecoder).map(_.shortValue())
         case StandardType.IntType =>
-          packedDecoder(WireType.VarInt, varIntDecoder).map(_.intValue()).asInstanceOf[Decoder[A]]
-        case StandardType.LongType   => packedDecoder(WireType.VarInt, varIntDecoder).asInstanceOf[Decoder[A]]
-        case StandardType.FloatType  => floatDecoder.asInstanceOf[Decoder[A]]
-        case StandardType.DoubleType => doubleDecoder.asInstanceOf[Decoder[A]]
-        case StandardType.BinaryType => binaryDecoder.asInstanceOf[Decoder[A]]
-        case StandardType.CharType   => stringDecoder.map(_.charAt(0)).asInstanceOf[Decoder[A]]
+          packedDecoder(WireType.VarInt, varIntDecoder).map(_.intValue())
+        case StandardType.LongType   => packedDecoder(WireType.VarInt, varIntDecoder)
+        case StandardType.FloatType  => floatDecoder
+        case StandardType.DoubleType => doubleDecoder
+        case StandardType.BinaryType => binaryDecoder
+        case StandardType.CharType   => stringDecoder.map(_.charAt(0))
         case StandardType.DayOfWeekType =>
-          packedDecoder(WireType.VarInt, varIntDecoder).map(_.intValue).map(DayOfWeek.of).asInstanceOf[Decoder[A]]
+          packedDecoder(WireType.VarInt, varIntDecoder).map(_.intValue).map(DayOfWeek.of)
         case StandardType.Month =>
-          packedDecoder(WireType.VarInt, varIntDecoder).map(_.intValue).map(Month.of).asInstanceOf[Decoder[A]]
+          packedDecoder(WireType.VarInt, varIntDecoder).map(_.intValue).map(Month.of)
         case StandardType.MonthDay =>
           recordDecoder(monthDayStructure())
             .map(
               data =>
                 MonthDay.of(data.getOrElse("month", 0).asInstanceOf[Int], data.getOrElse("day", 0).asInstanceOf[Int])
             )
-            .asInstanceOf[Decoder[A]]
+
         case StandardType.Period =>
           recordDecoder(periodStructure())
             .map(
@@ -487,7 +482,7 @@ object ProtobufCodec extends Codec {
                   data.getOrElse("days", 0).asInstanceOf[Int]
                 )
             )
-            .asInstanceOf[Decoder[A]]
+
         case StandardType.Year =>
           packedDecoder(WireType.VarInt, varIntDecoder).map(_.intValue).map(Year.of).asInstanceOf[Decoder[A]]
         case StandardType.YearMonth =>
@@ -496,13 +491,13 @@ object ProtobufCodec extends Codec {
               data =>
                 YearMonth.of(data.getOrElse("year", 0).asInstanceOf[Int], data.getOrElse("month", 0).asInstanceOf[Int])
             )
-            .asInstanceOf[Decoder[A]]
-        case StandardType.ZoneId => stringDecoder.map(ZoneId.of).asInstanceOf[Decoder[A]]
+
+        case StandardType.ZoneId => stringDecoder.map(ZoneId.of)
         case StandardType.ZoneOffset =>
           packedDecoder(WireType.VarInt, varIntDecoder)
             .map(_.intValue)
             .map(ZoneOffset.ofTotalSeconds)
-            .asInstanceOf[Decoder[A]]
+
         case StandardType.Duration(_) =>
           recordDecoder(durationStructure())
             .map(
@@ -512,21 +507,21 @@ object ProtobufCodec extends Codec {
                   data.getOrElse("nanos", 0).asInstanceOf[Int].toLong
                 )
             )
-            .asInstanceOf[Decoder[A]]
+
         case StandardType.Instant(formatter) =>
-          stringDecoder.map(v => Instant.from(formatter.parse(v))).asInstanceOf[Decoder[A]]
+          stringDecoder.map(v => Instant.from(formatter.parse(v)))
         case StandardType.LocalDate(formatter) =>
-          stringDecoder.map(LocalDate.parse(_, formatter)).asInstanceOf[Decoder[A]]
+          stringDecoder.map(LocalDate.parse(_, formatter))
         case StandardType.LocalTime(formatter) =>
-          stringDecoder.map(LocalTime.parse(_, formatter)).asInstanceOf[Decoder[A]]
+          stringDecoder.map(LocalTime.parse(_, formatter))
         case StandardType.LocalDateTime(formatter) =>
-          stringDecoder.map(LocalDateTime.parse(_, formatter)).asInstanceOf[Decoder[A]]
+          stringDecoder.map(LocalDateTime.parse(_, formatter))
         case StandardType.OffsetTime(formatter) =>
-          stringDecoder.map(OffsetTime.parse(_, formatter)).asInstanceOf[Decoder[A]]
+          stringDecoder.map(OffsetTime.parse(_, formatter))
         case StandardType.OffsetDateTime(formatter) =>
-          stringDecoder.map(OffsetDateTime.parse(_, formatter)).asInstanceOf[Decoder[A]]
+          stringDecoder.map(OffsetDateTime.parse(_, formatter))
         case StandardType.ZonedDateTime(formatter) =>
-          stringDecoder.map(ZonedDateTime.parse(_, formatter)).asInstanceOf[Decoder[A]]
+          stringDecoder.map(ZonedDateTime.parse(_, formatter))
         case _ =>
           (_, _) => Left("Unsupported primitive type")
       }
@@ -542,9 +537,9 @@ object ProtobufCodec extends Codec {
               }
         )
 
-    private def optionalDecoder[A](schema: Schema[_]): Decoder[Option[A]] =
+    private def optionalDecoder[A >: Option[_]](schema: Schema[A]): Decoder[Option[A]] =
       decoder(optionalSchema(schema))
-        .map(record => record.get("value").asInstanceOf[Option[A]])
+        .map(record => record.get("value"))
 
     private def stringDecoder: Decoder[String] = lengthDelimitedDecoder { length => (chunk, _) =>
       decodeChunk(length, chunk, bytes => new String(bytes.toArray, StandardCharsets.UTF_8))
@@ -638,9 +633,9 @@ object ProtobufCodec extends Codec {
       case _: Schema.Enumeration[_]       => None
       case Schema.Transform(codec, f, _)  => defaultValue(codec).flatMap(f(_).toOption)
       case Schema.Primitive(standardType) => defaultValue(standardType)
-      case Schema.Tuple(left, right) =>
-        if (defaultValue(left).isEmpty || defaultValue(right).isEmpty) Option.empty[A]
-        else Option[A]((left, right).asInstanceOf[A])
+      case Schema.Tuple(left, right) => {
+        if (defaultValue(left).isEmpty || defaultValue(right).isEmpty) Option.empty else Option((left, right))
+      }.asInstanceOf[Option[A]]
       case _: Schema.Optional[_] => Some(None)
     }
 
