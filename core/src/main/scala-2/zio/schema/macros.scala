@@ -19,7 +19,7 @@ object DeriveSchema {
             caseClass.parameters.map(p => p.label -> p.typeclass).toMap
           )
           .transformOrFail(
-            { map =>
+            { (map:  Map[String, _]) =>
               caseClass.parameters
                 .map(p => map.get(p.label).orElse(p.default).toRight(p.label))
                 .collect { case Left(fieldName) => fieldName }
@@ -30,7 +30,7 @@ object DeriveSchema {
                     map.get(p.label).map(_.asInstanceOf[p.PType]).orElse(p.default).get
                   })
               }
-            }, { cc =>
+            }, { (cc: A) =>
               Right(caseClass.parameters.map(p => p.label -> p.dereference(cc)).toMap)
             }
           )
@@ -88,7 +88,7 @@ object DeriveSchema {
     Schema
       .enumeration(sealedTrait.subtypes.map(s => s.typeName.short -> s.typeclass).toMap)
       .transformOrFail(
-        { map =>
+        { (map: Map[String, _]) =>
           val maybeSubtype = sealedTrait.subtypes
             .find(st => map.headOption.exists(_._1 == st.typeName.short))
           Either.cond(
@@ -98,7 +98,7 @@ object DeriveSchema {
             },
             s"""Expected one of following subtypes: ${sealedTrait.subtypes.map(_.typeName.short).mkString(", ")}"""
           )
-        }, { a =>
+        }, { (a: A) =>
           sealedTrait.dispatch(a) { subType =>
             Right(Map(subType.typeName.short -> subType.cast(a)))
           }

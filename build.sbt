@@ -56,11 +56,17 @@ lazy val core = project
   .settings(stdSettings("zio-schema-core"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"        %% "zio"          % zioVersion,
-      "dev.zio"        %% "zio-streams"  % zioVersion,
-      "com.propensive" %% "magnolia"     % magnoliaVersion,
-      "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
-    )
+      "dev.zio" %% "zio"         % zioVersion,
+      "dev.zio" %% "zio-streams" % zioVersion
+    ),
+    libraryDependencies ++= {
+      if (isDotty.value) Seq.empty
+      else
+        Seq(
+          "com.propensive" %% "magnolia"     % "0.17.0", //.exclude("org.scala-lang", "scala-compiler"),
+          "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+        )
+    }
   )
 
 lazy val docs = project
