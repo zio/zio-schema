@@ -6,7 +6,7 @@ import java.time.temporal.TemporalUnit
 
 import zio.Chunk
 
-sealed trait StandardType[A]
+sealed trait StandardType[+A]
 
 object StandardType {
   implicit object UnitType   extends StandardType[Unit]
@@ -37,4 +37,5 @@ object StandardType {
   final case class OffsetTime(formatter: DateTimeFormatter)     extends StandardType[java.time.OffsetTime]
   final case class OffsetDateTime(formatter: DateTimeFormatter) extends StandardType[java.time.OffsetDateTime]
   final case class ZonedDateTime(formatter: DateTimeFormatter)  extends StandardType[java.time.ZonedDateTime]
+
 }

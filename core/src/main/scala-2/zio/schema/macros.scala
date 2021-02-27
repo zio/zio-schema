@@ -19,7 +19,7 @@ object DeriveSchema {
             caseClass.parameters.map(p => p.label -> p.typeclass).toMap
           )
           .transformOrFail(
-            { (map:  Map[String, _]) =>
+            { (map: Map[String, _]) =>
               caseClass.parameters
                 .map(p => map.get(p.label).orElse(p.default).toRight(p.label))
                 .collect { case Left(fieldName) => fieldName }

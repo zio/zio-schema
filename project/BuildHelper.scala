@@ -221,9 +221,7 @@ object BuildHelper {
     Seq(
       name := s"$prjName",
       crossScalaVersions := Seq("2.13.4", "2.12.13", "2.11.12", "3.0.0-M3"),
-      // scalaVersion in ThisBuild := crossScalaVersions.value.last,
       scalaVersion in ThisBuild := crossScalaVersions.value.head,
-      //scalacOptions := compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       scalacOptions := stdOptions ++ extraOptions(scalaVersion.value, isDotty.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ testDeps,
       ThisBuild / semanticdbEnabled := !isDotty.value,

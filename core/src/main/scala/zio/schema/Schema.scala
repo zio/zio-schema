@@ -2,22 +2,22 @@ package zio.schema
 
 import zio.Chunk
 
-sealed trait Schema[A] { self =>
+sealed trait Schema[+A] { self =>
   def ? : Schema[Option[A]] = Schema.Optional(self)
 
-  def transform[B](f: A => B, g: B => A): Schema[B] =
-    Schema.Transform[A, B](self, a => Right(f(a)), b => Right(g(b)))
+  def transform[A2 >: A, B](f: A2 => B, g: B => A2): Schema.Transform[A2, B] =
+    Schema.Transform[A2, B](self, a => Right(f(a)), b => Right(g(b)))
 
-  def transformOrFail[B](f: A => Either[String, B], g: B => Either[String, A]): Schema[B] =
-    Schema.Transform[A, B](self, f, g)
+  def transformOrFail[A2 >: A, B](f: A2 => Either[String, B], g: B => Either[String, A2]): Schema[B] =
+    Schema.Transform[A2, B](self, f, g)
 
-  def zip[B](that: Schema[B]): Schema[(A, B)] = Schema.Tuple(self, that)
+  def zip[A2 >: A, B](that: Schema[B]): Schema[(A2, B)] = Schema.Tuple(self, that)
 }
 
 object Schema {
-  sealed case class Record(structure: Map[String, Schema[_]])      extends Schema[Map[String, _]]
-  sealed case class Sequence[A](element: Schema[A])                extends Schema[Chunk[A]]
-  sealed case class Enumeration(structure: Map[String, Schema[_]]) extends Schema[Map[String, _]]
+  sealed case class Record[A](structure: Map[String, Schema[A]])      extends Schema[Map[String, A]]
+  sealed case class Sequence[A](element: Schema[A])                   extends Schema[Chunk[A]]
+  sealed case class Enumeration[A](structure: Map[String, Schema[A]]) extends Schema[Map[String, A]]
   sealed case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
       extends Schema[B]
   sealed case class Primitive[A](standardType: StandardType[A])    extends Schema[A]
@@ -30,8 +30,8 @@ object Schema {
     Schema
       .record(Map(t1))
       .transformOrFail(
-        { map =>
-          val v1 = map(t1._1).asInstanceOf[A]
+        { (map: Map[String, A]) =>
+          val v1 = map(t1._1)
 
           Right(f(v1))
         }, { (z: Z) =>
@@ -46,9 +46,9 @@ object Schema {
     t2: (String, Schema[B])
   )(f: (A, B) => Z, g: Z => Option[(A, B)]): Schema[Z] =
     Schema
-      .record(Map[String, Schema[_]](t1, t2))
+      .record(Map[String, Schema[Any]](t1, t2))
       .transformOrFail(
-        { map =>
+        { (map: Map[String, Any]) =>
           val v1 = map(t1._1).asInstanceOf[A]
           val v2 = map(t2._1).asInstanceOf[B]
 
@@ -65,9 +65,9 @@ object Schema {
     t3: (String, Schema[C])
   )(f: (A, B, C) => Z, g: Z => Option[(A, B, C)]): Schema[Z] =
     Schema
-      .record(Map[String, Schema[_]](t1, t2, t3))
+      .record(Map[String, Schema[Any]](t1, t2, t3))
       .transformOrFail(
-        { map =>
+        { (map: Map[String, Any]) =>
           val v1 = map(t1._1).asInstanceOf[A]
           val v2 = map(t2._1).asInstanceOf[B]
           val v3 = map(t3._1).asInstanceOf[C]
@@ -81,26 +81,28 @@ object Schema {
 
   def either[A, B](left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
     enumeration(Map("Left" -> left, "Right" -> right)).transformOrFail(
-      { map =>
+      { (map: Map[String, Any]) =>
         map.headOption.map {
           case ("Left", v)  => Right(Left(v.asInstanceOf[A]))
           case ("Right", v) => Right(Right(v.asInstanceOf[B]))
           case _            => Left("Expected left or right of sum")
         }.getOrElse(Left("Expected left or right of sum"))
-      }, {
-        case Left(v)  => Right(Map("Left"  -> v))
-        case Right(v) => Right(Map("Right" -> v))
+      }, { (e: Either[A, B]) =>
+        e match {
+          case Left(v)  => Right(Map("Left"  -> v))
+          case Right(v) => Right(Map("Right" -> v))
+        }
       }
     )
 
-  def enumeration(structure: Map[String, Schema[_]]): Schema[Map[String, _]] =
+  def enumeration[A](structure: Map[String, Schema[A]]): Schema[Map[String, A]] =
     Enumeration(structure)
 
   def first[A](codec: Schema[(A, Unit)]): Schema[A] =
-    codec.transform[A](_._1, a => (a, ()))
+    codec.transform[(A, Unit), A](_._1, a => (a, ()))
 
   implicit def list[A](implicit element: Schema[A]): Schema[List[A]] =
-    sequence(element).transform(_.toList, Chunk.fromIterable(_))
+    sequence(element).transform((chunk: Chunk[A]) => chunk.toList, (list: List[A]) => Chunk.fromIterable(list))
 
   implicit def option[A](implicit element: Schema[A]): Schema[Option[A]] =
     Optional(element)
@@ -108,26 +110,36 @@ object Schema {
   implicit def primitive[A](implicit standardType: StandardType[A]): Schema[A] =
     Primitive(standardType)
 
-  def record(structure: Map[String, Schema[_]]): Schema[Map[String, _]] =
+  def record[A](structure: Map[String, Schema[A]]): Schema[Map[String, A]] =
     Record(structure)
 
   implicit def sequence[A](implicit element: Schema[A]): Schema[Chunk[A]] =
     Sequence(element)
 
   implicit def set[A](implicit element: Schema[A]): Schema[Set[A]] =
-    sequence(element).transform(_.toSet, Chunk.fromIterable(_))
+    sequence(element).transform((chunk: Chunk[A]) => chunk.toSet, (set: Set[A]) => Chunk.fromIterable(set))
 
   def second[A](codec: Schema[(Unit, A)]): Schema[A] =
-    codec.transform[A](_._2, a => ((), a))
+    codec.transform[(Unit, A), A](_._2, a => ((), a))
 
   implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
-    sequence(element).transform(_.toVector, Chunk.fromIterable(_))
+    sequence(element).transform((chunk: Chunk[A]) => chunk.toVector, (vec: Vector[A]) => Chunk.fromIterable(vec))
 
   implicit def zipN[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
     c1.zip(c2)
 
   implicit def zipN[A, B, C](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C]): Schema[(A, B, C)] =
-    c1.zip(c2).zip(c3).transform({ case ((a, b), c) => (a, b, c) }, { case (a, b, c) => ((a, b), c) })
+    c1.zip(c2)
+      .zip(c3)
+      .transform({ (el: ((A, B), C)) =>
+        el match {
+          case ((a, b), c) => (a, b, c)
+        }
+      }, { (el: (A, B, C)) =>
+        el match {
+          case (a, b, c) => ((a, b), c)
+        }
+      })
 
   implicit def zipN[A, B, C, D](
     implicit c1: Schema[A],
@@ -138,5 +150,14 @@ object Schema {
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
-      .transform({ case (((a, b), c), d) => (a, b, c, d) }, { case (a, b, c, d) => (((a, b), c), d) })
+      .transform(
+        { (el: (((A, B), C), D)) =>
+          (el._1._1._1, el._1._1._2, el._1._2, el._2)
+        }, { (el: (A, B, C, D)) =>
+          el match {
+            case (a, b, c, d) => (((a, b), c), d)
+          }
+        }
+      )
+
 }
