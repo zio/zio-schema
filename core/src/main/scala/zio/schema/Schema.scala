@@ -123,13 +123,13 @@ object Schema {
   implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
     sequence(element).transform(_.toVector, Chunk.fromIterable(_))
 
-  implicit def zipN[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
+  implicit def zip2[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
     c1.zip(c2)
 
-  implicit def zipN[A, B, C](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C]): Schema[(A, B, C)] =
+  implicit def zip3[A, B, C](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C]): Schema[(A, B, C)] =
     c1.zip(c2).zip(c3).transform({ case ((a, b), c) => (a, b, c) }, { case (a, b, c) => ((a, b), c) })
 
-  implicit def zipN[A, B, C, D](
+  implicit def zip4[A, B, C, D](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
