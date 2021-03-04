@@ -80,6 +80,7 @@ object ProtobufCodec extends Codec {
       case _: Schema.Primitive[_] => None
       case _: Schema.Tuple[_, _]  => None
       case _: Schema.Optional[_]  => None
+      case _: Schema.Fail[_]      => None
     }
 
     def tupleSchema[A, B](left: Schema[A], right: Schema[B]): Schema[Map[String, _]] =
@@ -292,6 +293,7 @@ object ProtobufCodec extends Codec {
       case Schema.Primitive(standardType) => canBePacked(standardType)
       case _: Schema.Tuple[_, _]          => false
       case _: Schema.Optional[_]          => false
+      case _: Schema.Fail[_]              => false
     }
 
     private def canBePacked(standardType: StandardType[_]): Boolean = standardType match {
@@ -343,6 +345,13 @@ object ProtobufCodec extends Codec {
           }
     }
 
+    object FailDecoder {
+
+      def apply[A](message: String): Decoder[A] = new Decoder[A] {
+        override def run(chunk: Chunk[Byte], wireType: WireType): Either[String, (Chunk[Byte], A)] = Left(message)
+      }
+    }
+
     def decode[A](schema: Schema[A], chunk: Chunk[Byte]): Either[String, A] =
       decoder(schema)
         .run(chunk, WireType.LengthDelimited(chunk.size))
@@ -358,6 +367,8 @@ object ProtobufCodec extends Codec {
         case Schema.Primitive(standardType) => primitiveDecoder(standardType)
         case Schema.Tuple(left, right)      => tupleDecoder(left, right).asInstanceOf[Decoder[A]]
         case Schema.Optional(codec)         => optionalDecoder(codec).asInstanceOf[Decoder[A]]
+        case Schema.Fail(message) =>
+          (_, _) => Left(message)
       }
 
     private def recordDecoder(structure: Map[String, Schema[_]]): Decoder[Map[String, _]] =
@@ -615,6 +626,7 @@ object ProtobufCodec extends Codec {
       case Schema.Tuple(left, right) =>
         if (defaultValue(left).isEmpty || defaultValue(right).isEmpty) None else Some((left, right))
       case _: Schema.Optional[_] => Some(None)
+      case _: Schema.Fail[_]     => Some(None)
     }
 
     private def defaultValue(standardType: StandardType[_]): Option[Any] = standardType match {

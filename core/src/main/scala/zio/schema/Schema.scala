@@ -12,6 +12,7 @@ sealed trait Schema[A] { self =>
     Schema.Transform[A, B](self, f, g)
 
   def zip[B](that: Schema[B]): Schema[(A, B)] = Schema.Tuple(self, that)
+
 }
 
 object Schema {
@@ -23,6 +24,9 @@ object Schema {
   sealed case class Primitive[A](standardType: StandardType[A])    extends Schema[A]
   sealed case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)]
   sealed case class Optional[A](codec: Schema[A])                  extends Schema[Option[A]]
+  final case class Fail[A](message: String)                        extends Schema[A]
+
+  def fail[A](message: String): Schema[A] = Fail(message)
 
   def apply[A](implicit codec: Schema[A]): Schema[A] = codec
 

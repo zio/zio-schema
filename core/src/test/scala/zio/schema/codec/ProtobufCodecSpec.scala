@@ -79,6 +79,11 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         assertM(encode(schemaEnumeration, Enumeration(IntValue(482))).map(toHex))(
           equalTo("10E203")
         )
+      },
+      testM("failure") {
+        assertM(encode(schemaFail, StringValue("foo")).map(_.size))(
+          equalTo(0)
+        )
       }
     ),
     suite("Should successfully encode and decode")(
@@ -290,6 +295,11 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         assertM(decode(schemaRecord, "10FF").run)(
           fails(equalTo("Unexpected end of chunk"))
         )
+      },
+      testM("fail schemas") {
+        assertM(decode(schemaFail, "0F").run)(
+          fails(equalTo("failing schema"))
+        )
       }
     )
   )
@@ -378,6 +388,8 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
 
   val schemaEnumeration: Schema[Enumeration] =
     Schema.caseClassN("value" -> schemaOneOf)(Enumeration, Enumeration.unapply)
+
+  val schemaFail: Schema[StringValue] = Schema.fail("failing schema")
 
   case class SearchRequest(query: String, pageNumber: Int, resultPerPage: Int)
 
