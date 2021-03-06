@@ -4,8 +4,8 @@ import java.nio.charset.StandardCharsets
 import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
 
-import zio.stream.ZTransducer
 import zio.schema._
+import zio.stream.ZTransducer
 import zio.{ Chunk, ZIO }
 
 object ProtobufCodec extends Codec {
@@ -80,6 +80,7 @@ object ProtobufCodec extends Codec {
       case _: Schema.Primitive[_] => None
       case _: Schema.Tuple[_, _]  => None
       case _: Schema.Optional[_]  => None
+      case _: Schema.Fail[_]      => None
     }
 
     def tupleSchema[A, B](left: Schema[A], right: Schema[B]): Schema[Map[String, _]] =
@@ -292,6 +293,7 @@ object ProtobufCodec extends Codec {
       case Schema.Primitive(standardType) => canBePacked(standardType)
       case _: Schema.Tuple[_, _]          => false
       case _: Schema.Optional[_]          => false
+      case _: Schema.Fail[_]              => false
     }
 
     private def canBePacked(standardType: StandardType[_]): Boolean = standardType match {
@@ -334,13 +336,20 @@ object ProtobufCodec extends Codec {
         (chunk: Chunk[Byte], wireType: WireType) =>
           self.run(chunk, wireType).map {
             case (remainder, value) => (remainder, f(value))
-        }
+          }
 
       def flatMap[B](f: A => Decoder[B]): Decoder[B] =
         (chunk: Chunk[Byte], wireType: WireType) =>
           self.run(chunk, wireType).flatMap {
             case (remainder, value) => f(value).run(remainder, wireType)
-        }
+          }
+    }
+
+    object FailDecoder {
+
+      def apply[A](message: String): Decoder[A] = new Decoder[A] {
+        override def run(chunk: Chunk[Byte], wireType: WireType): Either[String, (Chunk[Byte], A)] = Left(message)
+      }
     }
 
     def decode[A](schema: Schema[A], chunk: Chunk[Byte]): Either[String, A] =
@@ -353,12 +362,13 @@ object ProtobufCodec extends Codec {
         case Schema.Record(structure) => recordDecoder(structure).asInstanceOf[Decoder[A]]
         case Schema.Sequence(element) => sequenceDecoder(element).asInstanceOf[Decoder[A]]
         case Schema.Enumeration(_) =>
-          (_, _) =>
-            Left("oneof must be part of a message")
+          (_, _) => Left("oneof must be part of a message")
         case Schema.Transform(codec, f, _)  => transformDecoder(codec, f)
         case Schema.Primitive(standardType) => primitiveDecoder(standardType)
         case Schema.Tuple(left, right)      => tupleDecoder(left, right).asInstanceOf[Decoder[A]]
         case Schema.Optional(codec)         => optionalDecoder(codec).asInstanceOf[Decoder[A]]
+        case Schema.Fail(message) =>
+          (_, _) => Left(message)
       }
 
     private def recordDecoder(structure: Map[String, Schema[_]]): Decoder[Map[String, _]] =
@@ -373,7 +383,7 @@ object ProtobufCodec extends Codec {
           Right((chunk, result))
         } else {
           recordLoopStepDecoder(fields, result).run(chunk, wireType)
-      }
+        }
 
     private def recordLoopStepDecoder(
       fields: Map[Int, (String, Schema[_])],
@@ -410,7 +420,7 @@ object ProtobufCodec extends Codec {
             }
           case _ =>
             Left("Invalid wire type")
-      }
+        }
 
     private def sequenceLoopDecoder[A](schema: Schema[A], values: Chunk[A]): Decoder[Chunk[A]] =
       (chunk, wireType) =>
@@ -422,7 +432,7 @@ object ProtobufCodec extends Codec {
             .flatMap {
               case (remainder, value) =>
                 sequenceLoopDecoder(schema, values :+ value).run(remainder, wireType)
-          }
+            }
 
     private def transformDecoder[A, B](schema: Schema[B], f: B => Either[String, A]): Decoder[A] =
       decoder(schema).flatMap(a => (chunk, _) => f(a).map(b => (chunk, b)))
@@ -460,7 +470,7 @@ object ProtobufCodec extends Codec {
                   data.getOrElse("years", 0).asInstanceOf[Int],
                   data.getOrElse("months", 0).asInstanceOf[Int],
                   data.getOrElse("days", 0).asInstanceOf[Int]
-              )
+                )
             )
             .asInstanceOf[Decoder[A]]
         case StandardType.Year =>
@@ -482,8 +492,10 @@ object ProtobufCodec extends Codec {
           recordDecoder(durationStructure())
             .map(
               data =>
-                Duration.ofSeconds(data.getOrElse("seconds", 0).asInstanceOf[Long],
-                                   data.getOrElse("nanos", 0).asInstanceOf[Int].toLong)
+                Duration.ofSeconds(
+                  data.getOrElse("seconds", 0).asInstanceOf[Long],
+                  data.getOrElse("nanos", 0).asInstanceOf[Int].toLong
+                )
             )
             .asInstanceOf[Decoder[A]]
         case StandardType.Instant(formatter) =>
@@ -501,8 +513,7 @@ object ProtobufCodec extends Codec {
         case StandardType.ZonedDateTime(formatter) =>
           stringDecoder.map(ZonedDateTime.parse(_, formatter)).asInstanceOf[Decoder[A]]
         case _ =>
-          (_, _) =>
-            Left("Unsupported primitive type")
+          (_, _) => Left("Unsupported primitive type")
       }
 
     private def tupleDecoder[A, B](left: Schema[A], right: Schema[B]): Decoder[(A, B)] =
@@ -513,7 +524,7 @@ object ProtobufCodec extends Codec {
               (record.get("left"), record.get("right")) match {
                 case (Some(l), Some(r)) => Right((chunk, (l.asInstanceOf[A], r.asInstanceOf[B])))
                 case _                  => Left("Failed decoding tuple")
-          }
+              }
         )
 
     private def optionalDecoder[A](schema: Schema[_]): Decoder[Option[A]] =
@@ -557,7 +568,7 @@ object ProtobufCodec extends Codec {
         wireType match {
           case WireType.LengthDelimited(length) => decoder(length).run(chunk, wireType)
           case _                                => Left("Invalid wire type")
-      }
+        }
 
     private def packedDecoder[A](decoderWireType: WireType, decoder: Decoder[A]): Decoder[A] =
       (chunk, wireType) =>
@@ -565,7 +576,7 @@ object ProtobufCodec extends Codec {
           case WireType.LengthDelimited(_)      => decoder.run(chunk, wireType)
           case _ if decoderWireType == wireType => decoder.run(chunk, wireType)
           case _                                => Left("Invalid wire type")
-      }
+        }
 
     private def keyDecoder: Decoder[(WireType, Int)] =
       varIntDecoder.flatMap { key => (chunk, wireType) =>
@@ -598,7 +609,7 @@ object ProtobufCodec extends Codec {
             val value = chunk.take(length).foldRight(0L)((octet, v) => (v << 7) + (octet & 0x7F))
             Right((chunk.drop(length), value))
           }
-      }
+        }
 
     private def defaultMap(structure: Map[String, Schema[_]]): Map[String, _] =
       structure.foldLeft(Map[String, Any]())(
@@ -612,8 +623,10 @@ object ProtobufCodec extends Codec {
       case _: Schema.Enumeration          => None
       case Schema.Transform(codec, f, _)  => defaultValue(codec).flatMap(f(_).toOption)
       case Schema.Primitive(standardType) => defaultValue(standardType)
-      case Schema.Tuple(left, right)      => defaultValue(left).zip(defaultValue(right))
-      case _: Schema.Optional[_]          => Some(None)
+      case Schema.Tuple(left, right) =>
+        if (defaultValue(left).isEmpty || defaultValue(right).isEmpty) None else Some((left, right))
+      case _: Schema.Optional[_] => Some(None)
+      case _: Schema.Fail[_]     => Some(None)
     }
 
     private def defaultValue(standardType: StandardType[_]): Option[Any] = standardType match {

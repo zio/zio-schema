@@ -21,14 +21,14 @@ import java.time.{
   ZonedDateTime
 }
 
+import scala.util.Try
+
 import zio.Chunk
 import zio.schema.Schema.Primitive
+import zio.schema.{ Schema, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-import zio.schema.{ Schema, StandardType }
-
-import scala.util.Try
 
 // TODO: use generators instead of manual encode/decode
 object ProtobufCodecSpec extends DefaultRunnableSpec {
@@ -78,6 +78,11 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       testM("enumerations") {
         assertM(encode(schemaEnumeration, Enumeration(IntValue(482))).map(toHex))(
           equalTo("10E203")
+        )
+      },
+      testM("failure") {
+        assertM(encode(schemaFail, StringValue("foo")).map(_.size))(
+          equalTo(0)
         )
       }
     ),
@@ -290,6 +295,11 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         assertM(decode(schemaRecord, "10FF").run)(
           fails(equalTo("Unexpected end of chunk"))
         )
+      },
+      testM("fail schemas") {
+        assertM(decode(schemaFail, "0F").run)(
+          fails(equalTo("failing schema"))
+        )
       }
     )
   )
@@ -378,6 +388,8 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
 
   val schemaEnumeration: Schema[Enumeration] =
     Schema.caseClassN("value" -> schemaOneOf)(Enumeration, Enumeration.unapply)
+
+  val schemaFail: Schema[StringValue] = Schema.fail("failing schema")
 
   case class SearchRequest(query: String, pageNumber: Int, resultPerPage: Int)
 

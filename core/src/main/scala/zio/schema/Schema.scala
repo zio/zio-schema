@@ -12,6 +12,7 @@ sealed trait Schema[A] { self =>
     Schema.Transform[A, B](self, f, g)
 
   def zip[B](that: Schema[B]): Schema[(A, B)] = Schema.Tuple(self, that)
+
 }
 
 object Schema {
@@ -23,6 +24,9 @@ object Schema {
   sealed case class Primitive[A](standardType: StandardType[A])    extends Schema[A]
   sealed case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)]
   sealed case class Optional[A](codec: Schema[A])                  extends Schema[Option[A]]
+  final case class Fail[A](message: String)                        extends Schema[A]
+
+  def fail[A](message: String): Schema[A] = Fail(message)
 
   def apply[A](implicit codec: Schema[A]): Schema[A] = codec
 
@@ -123,13 +127,13 @@ object Schema {
   implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
     sequence(element).transform(_.toVector, Chunk.fromIterable(_))
 
-  implicit def zipN[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
+  implicit def zip2[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
     c1.zip(c2)
 
-  implicit def zipN[A, B, C](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C]): Schema[(A, B, C)] =
+  implicit def zip3[A, B, C](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C]): Schema[(A, B, C)] =
     c1.zip(c2).zip(c3).transform({ case ((a, b), c) => (a, b, c) }, { case (a, b, c) => ((a, b), c) })
 
-  implicit def zipN[A, B, C, D](
+  implicit def zip4[A, B, C, D](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
