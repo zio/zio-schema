@@ -12,7 +12,7 @@ object JsonCodec extends Codec {
     case Schema.Record(_)               => ???
     case Schema.Sequence(element)       => encoder(element)
     case Schema.Enumeration(_)          => ???
-    case Schema.Transform(_, _, _)      => ???
+    case Schema.Transform(codec, _, g)      => encoder(codec).contramapM(a => ZIO.fromEither(g(a)))
     case Schema.Primitive(standardType) => Encoder.primitiveEncoder(standardType)
     case Schema.Tuple(left, right)      => encoder(left) >>> encoder(right)
     case Schema.Optional(_)             => encoder(schema)
