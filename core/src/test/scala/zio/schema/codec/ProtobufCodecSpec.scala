@@ -23,12 +23,12 @@ import java.time.{
 
 import scala.util.Try
 
-import zio.Chunk
 import zio.schema.Schema.Primitive
 import zio.schema.{ Schema, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
+import zio.{ Chunk, ZIO }
 
 // TODO: use generators instead of manual encode/decode
 object ProtobufCodecSpec extends DefaultRunnableSpec {
@@ -36,270 +36,334 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
   def spec = suite("ProtobufCodec Spec")(
     suite("Should correctly encode")(
       testM("integers") {
-        assertM(encode(schemaBasicInt, BasicInt(150)).map(toHex))(
-          equalTo("089601")
-        )
+        for {
+          e  <- encode(schemaBasicInt, BasicInt(150)).map(toHex)
+          e2 <- encodeNS(schemaBasicInt, BasicInt(150)).map(toHex)
+        } yield assert(e)(equalTo("089601")) && assert(e2)(equalTo("089601"))
       },
       testM("strings") {
-        assertM(encode(schemaBasicString, BasicString("testing")).map(toHex))(
-          equalTo("0A0774657374696E67")
-        )
+        for {
+          e  <- encode(schemaBasicString, BasicString("testing")).map(toHex)
+          e2 <- encodeNS(schemaBasicString, BasicString("testing")).map(toHex)
+        } yield assert(e)(equalTo("0A0774657374696E67")) && assert(e2)(equalTo("0A0774657374696E67"))
       },
       testM("floats") {
-        assertM(encode(schemaBasicFloat, BasicFloat(0.001f)).map(toHex))(
-          equalTo("0D6F12833A")
-        )
+        for {
+          e  <- encode(schemaBasicFloat, BasicFloat(0.001f)).map(toHex)
+          e2 <- encodeNS(schemaBasicFloat, BasicFloat(0.001f)).map(toHex)
+        } yield assert(e)(equalTo("0D6F12833A")) && assert(e2)(equalTo("0D6F12833A"))
       },
       testM("doubles") {
-        assertM(encode(schemaBasicDouble, BasicDouble(0.001)).map(toHex))(
-          equalTo("09FCA9F1D24D62503F")
-        )
+        for {
+          e  <- encode(schemaBasicDouble, BasicDouble(0.001)).map(toHex)
+          e2 <- encodeNS(schemaBasicDouble, BasicDouble(0.001)).map(toHex)
+        } yield assert(e)(equalTo("09FCA9F1D24D62503F")) && assert(e2)(equalTo("09FCA9F1D24D62503F"))
       },
       testM("embedded messages") {
-        assertM(encode(schemaEmbedded, Embedded(BasicInt(150))).map(toHex))(
-          equalTo("0A03089601")
-        )
+        for {
+          e  <- encode(schemaEmbedded, Embedded(BasicInt(150))).map(toHex)
+          e2 <- encodeNS(schemaEmbedded, Embedded(BasicInt(150))).map(toHex)
+        } yield assert(e)(equalTo("0A03089601")) && assert(e2)(equalTo("0A03089601"))
       },
       testM("packed lists") {
-        assertM(encode(schemaPackedList, PackedList(List(3, 270, 86942))).map(toHex))(
-          equalTo("0A06038E029EA705")
-        )
+        for {
+          e  <- encode(schemaPackedList, PackedList(List(3, 270, 86942))).map(toHex)
+          e2 <- encodeNS(schemaPackedList, PackedList(List(3, 270, 86942))).map(toHex)
+        } yield assert(e)(equalTo("0A06038E029EA705")) && assert(e2)(equalTo("0A06038E029EA705"))
       },
       testM("unpacked lists") {
-        assertM(encode(schemaUnpackedList, UnpackedList(List("foo", "bar", "baz"))).map(toHex))(
+        for {
+          e  <- encode(schemaUnpackedList, UnpackedList(List("foo", "bar", "baz"))).map(toHex)
+          e2 <- encodeNS(schemaUnpackedList, UnpackedList(List("foo", "bar", "baz"))).map(toHex)
+        } yield assert(e)(equalTo("0A03666F6F0A036261720A0362617A")) && assert(e2)(
           equalTo("0A03666F6F0A036261720A0362617A")
         )
       },
       testM("records") {
-        assertM(encode(schemaRecord, Record("Foo", 123)).map(toHex))(
-          equalTo("0A03466F6F107B")
-        )
+        for {
+          e  <- encode(schemaRecord, Record("Foo", 123)).map(toHex)
+          e2 <- encodeNS(schemaRecord, Record("Foo", 123)).map(toHex)
+        } yield assert(e)(equalTo("0A03466F6F107B")) && assert(e2)(equalTo("0A03466F6F107B"))
       },
       testM("enumerations") {
-        assertM(encode(schemaEnumeration, Enumeration(IntValue(482))).map(toHex))(
-          equalTo("10E203")
-        )
+        for {
+          e  <- encode(schemaEnumeration, Enumeration(IntValue(482))).map(toHex)
+          e2 <- encodeNS(schemaEnumeration, Enumeration(IntValue(482))).map(toHex)
+        } yield assert(e)(equalTo("10E203")) && assert(e2)(equalTo("10E203"))
       },
       testM("failure") {
-        assertM(encode(schemaFail, StringValue("foo")).map(_.size))(
-          equalTo(0)
-        )
+        for {
+          e  <- encode(schemaFail, StringValue("foo")).map(_.size)
+          e2 <- encodeNS(schemaFail, StringValue("foo")).map(_.size)
+        } yield assert(e)(equalTo(0)) && assert(e2)(equalTo(0))
       }
     ),
     suite("Should successfully encode and decode")(
       testM("messages") {
-        assertM(encodeAndDecode(schema, message))(
-          equalTo(Chunk(message))
-        )
+        for {
+          ed  <- encodeAndDecode(schema, message)
+          ed2 <- encodeAndDecodeNS(schema, message)
+        } yield assert(ed)(equalTo(Chunk(message))) && assert(ed2)(equalTo(message))
       },
       testM("booleans") {
         val value = true
-        assertM(encodeAndDecode(Schema[Boolean], value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Schema[Boolean], value)
+          ed2 <- encodeAndDecodeNS(Schema[Boolean], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("shorts") {
         val value = 5.toShort
-        assertM(encodeAndDecode(Schema[Short], value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Schema[Short], value)
+          ed2 <- encodeAndDecodeNS(Schema[Short], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("longs") {
         val value = 1000L
-        assertM(encodeAndDecode(Schema[Long], value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Schema[Long], value)
+          ed2 <- encodeAndDecodeNS(Schema[Long], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("floats") {
         val value = 0.001f
-        assertM(encodeAndDecode(Schema[Float], value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Schema[Float], value)
+          ed2 <- encodeAndDecodeNS(Schema[Float], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("doubles") {
         val value = 0.001
-        assertM(encodeAndDecode(Schema[Double], value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Schema[Double], value)
+          ed2 <- encodeAndDecodeNS(Schema[Double], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("bytes") {
         val value = Chunk.fromArray("some bytes".getBytes)
-        assertM(encodeAndDecode(Schema[Chunk[Byte]], value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Schema[Chunk[Byte]], value)
+          ed2 <- encodeAndDecodeNS(Schema[Chunk[Byte]], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("chars") {
         val value = 'c'
-        assertM(encodeAndDecode(Schema[Char], value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Schema[Char], value)
+          ed2 <- encodeAndDecodeNS(Schema[Char], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("day of weeks") {
         val value = DayOfWeek.of(3)
-        assertM(encodeAndDecode(Schema[DayOfWeek], value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Schema[DayOfWeek], value)
+          ed2 <- encodeAndDecodeNS(Schema[DayOfWeek], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("months") {
         val value = Month.of(3)
-        assertM(encodeAndDecode(Schema[Month], value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Schema[Month], value)
+          ed2 <- encodeAndDecodeNS(Schema[Month], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("month days") {
         val value = MonthDay.of(1, 31)
-        assertM(encodeAndDecode(Schema[MonthDay], value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Schema[MonthDay], value)
+          ed2 <- encodeAndDecodeNS(Schema[MonthDay], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("periods") {
         val value = Period.of(5, 3, 1)
-        assertM(encodeAndDecode(Schema[Period], value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Schema[Period], value)
+          ed2 <- encodeAndDecodeNS(Schema[Period], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("years") {
         val value = Year.of(2020)
-        assertM(encodeAndDecode(Schema[Year], value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Schema[Year], value)
+          ed2 <- encodeAndDecodeNS(Schema[Year], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("year months") {
         val value = YearMonth.of(2020, 5)
-        assertM(encodeAndDecode(Schema[YearMonth], value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Schema[YearMonth], value)
+          ed2 <- encodeAndDecodeNS(Schema[YearMonth], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("zone ids") {
         val value = ZoneId.systemDefault()
-        assertM(encodeAndDecode(Schema[ZoneId], value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Schema[ZoneId], value)
+          ed2 <- encodeAndDecodeNS(Schema[ZoneId], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("zone offsets") {
         val value = ZoneOffset.ofHours(6)
-        assertM(encodeAndDecode(Schema[ZoneOffset], value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Schema[ZoneOffset], value)
+          ed2 <- encodeAndDecodeNS(Schema[ZoneOffset], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("durations") {
         val value = Duration.ofDays(12)
-        assertM(encodeAndDecode(Primitive(StandardType.Duration(ChronoUnit.DAYS)), value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Primitive(StandardType.Duration(ChronoUnit.DAYS)), value)
+          ed2 <- encodeAndDecodeNS(Primitive(StandardType.Duration(ChronoUnit.DAYS)), value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("instants") {
         val value = Instant.now()
-        assertM(encodeAndDecode(Primitive(StandardType.Instant(DateTimeFormatter.ISO_INSTANT)), value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Primitive(StandardType.Instant(DateTimeFormatter.ISO_INSTANT)), value)
+          ed2 <- encodeAndDecodeNS(Primitive(StandardType.Instant(DateTimeFormatter.ISO_INSTANT)), value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("local dates") {
         val value = LocalDate.now()
-        assertM(encodeAndDecode(Primitive(StandardType.LocalDate(DateTimeFormatter.ISO_LOCAL_DATE)), value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Primitive(StandardType.LocalDate(DateTimeFormatter.ISO_LOCAL_DATE)), value)
+          ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalDate(DateTimeFormatter.ISO_LOCAL_DATE)), value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("local times") {
         val value = LocalTime.now()
-        assertM(encodeAndDecode(Primitive(StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME)), value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Primitive(StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME)), value)
+          ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME)), value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("local date times") {
         val value = LocalDateTime.now()
-        assertM(encodeAndDecode(Primitive(StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME)), value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Primitive(StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME)), value)
+          ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME)), value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("offset times") {
         val value = OffsetTime.now()
-        assertM(encodeAndDecode(Primitive(StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME)), value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Primitive(StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME)), value)
+          ed2 <- encodeAndDecodeNS(Primitive(StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME)), value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("offset date times") {
-        val value = OffsetDateTime.now()
-        assertM(encodeAndDecode(Primitive(StandardType.OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME)), value))(
-          equalTo(Chunk(value))
-        )
+        val value            = OffsetDateTime.now()
+        val offsetDateSchema = Primitive(StandardType.OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+        for {
+          ed  <- encodeAndDecode(offsetDateSchema, value)
+          ed2 <- encodeAndDecodeNS(offsetDateSchema, value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("zoned date times") {
-        val value = ZonedDateTime.now()
-        assertM(encodeAndDecode(Primitive(StandardType.ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME)), value))(
-          equalTo(Chunk(value))
-        )
+        val zoneSchema = Primitive(StandardType.ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+        val now        = ZonedDateTime.now()
+        for {
+          ed  <- encodeAndDecode(zoneSchema, now)
+          ed2 <- encodeAndDecodeNS(zoneSchema, now)
+        } yield assert(ed)(equalTo(Chunk(now))) && assert(ed2)(equalTo(now))
       },
       testM("packed sequences") {
-        assertM(encodeAndDecode(schemaPackedList, PackedList(List(3, 270, 86942))))(
-          equalTo(Chunk(PackedList(List(3, 270, 86942))))
-        )
+        val list = PackedList(List(3, 270, 86942))
+        for {
+          ed  <- encodeAndDecode(schemaPackedList, list)
+          ed2 <- encodeAndDecodeNS(schemaPackedList, list)
+        } yield assert(ed)(equalTo(Chunk(list))) && assert(ed2)(equalTo(list))
       },
       testM("non-packed sequences") {
-        assertM(encodeAndDecode(schemaUnpackedList, UnpackedList(List("foo", "bar", "baz"))))(
-          equalTo(Chunk(UnpackedList(List("foo", "bar", "baz"))))
-        )
+        val list = UnpackedList(List("foo", "bar", "baz"))
+        for {
+          ed  <- encodeAndDecode(schemaUnpackedList, list)
+          ed2 <- encodeAndDecodeNS(schemaUnpackedList, list)
+        } yield assert(ed)(equalTo(Chunk(list))) && assert(ed2)(equalTo(list))
       },
       testM("enumerations") {
-        assertM(encodeAndDecode(schemaEnumeration, Enumeration(BooleanValue(true))))(
-          equalTo(Chunk(Enumeration(BooleanValue(true))))
+        for {
+          ed  <- encodeAndDecode(schemaEnumeration, Enumeration(BooleanValue(true)))
+          ed2 <- encodeAndDecodeNS(schemaEnumeration, Enumeration(BooleanValue(true)))
+        } yield assert(ed)(equalTo(Chunk(Enumeration(BooleanValue(true))))) && assert(ed2)(
+          equalTo(Enumeration(BooleanValue(true)))
         )
       },
       testM("tuples") {
         val value = (123, "foo")
-        assertM(encodeAndDecode(schemaTuple, value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(schemaTuple, value)
+          ed2 <- encodeAndDecodeNS(schemaTuple, value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("optionals") {
         val value = Some(123)
-        assertM(encodeAndDecode(Schema.Optional(Schema[Int]), value))(
-          equalTo(Chunk(value))
-        )
+        for {
+          ed  <- encodeAndDecode(Schema.Optional(Schema[Int]), value)
+          ed2 <- encodeAndDecodeNS(Schema.Optional(Schema[Int]), value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       }
     ),
     suite("Should successfully decode")(
       testM("incomplete messages using default values") {
-        assertM(decode(schemaRecord, "107B"))(
-          equalTo(Chunk(Record("", 123)))
-        )
+        for {
+          e  <- decode(schemaRecord, "107B")
+          e2 <- decodeNS(schemaRecord, "107B")
+        } yield assert(e)(equalTo(Chunk(Record("", 123)))) && assert(e2)(equalTo(Record("", 123)))
       },
       testM("incomplete tuples using default values") {
-        assertM(decode(schemaTuple, "087B"))(
-          equalTo(Chunk((123, "")))
-        )
+        for {
+          d  <- decode(schemaTuple, "087B")
+          d2 <- decodeNS(schemaTuple, "087B")
+        } yield assert(d)(equalTo(Chunk((123, "")))) && assert(d2)(equalTo((123, "")))
       },
       testM("empty input") {
         assertM(decode(Schema[Int], ""))(
           equalTo(Chunk.empty)
         )
+      },
+      testM("empty input by non streaming variant") {
+        assertM(decodeNS(Schema[Int], "").run)(
+          fails(equalTo("No bytes to decode"))
+        )
       }
     ),
     suite("Should fail to decode")(
       testM("unknown wire types") {
-        assertM(decode(schemaRecord, "0F").run)(
-          fails(equalTo("Failed decoding key: unknown wire type"))
-        )
+        for {
+          d  <- decode(schemaRecord, "0F").run
+          d2 <- decodeNS(schemaRecord, "0F").run
+        } yield assert(d)(fails(equalTo("Failed decoding key: unknown wire type"))) &&
+          assert(d2)(fails(equalTo("Failed decoding key: unknown wire type")))
       },
       testM("invalid field numbers") {
-        assertM(decode(schemaRecord, "00").run)(
-          fails(equalTo("Failed decoding key: invalid field number"))
-        )
+        for {
+          d  <- decode(schemaRecord, "00").run
+          d2 <- decodeNS(schemaRecord, "00").run
+        } yield assert(d)(fails(equalTo("Failed decoding key: invalid field number"))) &&
+          assert(d2)(fails(equalTo("Failed decoding key: invalid field number")))
       },
       testM("incomplete length delimited values") {
-        assertM(decode(schemaRecord, "0A0346").run)(
-          fails(equalTo("Unexpected end of chunk"))
-        )
+        for {
+          d  <- decode(schemaRecord, "0A0346").run
+          d2 <- decodeNS(schemaRecord, "0A0346").run
+        } yield assert(d)(fails(equalTo("Unexpected end of chunk"))) &&
+          assert(d2)(fails(equalTo("Unexpected end of chunk")))
       },
       testM("incomplete var ints") {
-        assertM(decode(schemaRecord, "10FF").run)(
+        for {
+          d  <- decode(schemaRecord, "10FF").run
+          d2 <- decodeNS(schemaRecord, "10FF").run
+        } yield assert(d)(fails(equalTo("Unexpected end of chunk"))) && assert(d2)(
           fails(equalTo("Unexpected end of chunk"))
         )
       },
       testM("fail schemas") {
-        assertM(decode(schemaFail, "0F").run)(
-          fails(equalTo("failing schema"))
-        )
+        for {
+          d  <- decode(schemaFail, "0F").run
+          d2 <- decodeNS(schemaFail, "0F").run
+        } yield assert(d)(fails(equalTo("failing schema"))) && assert(d2)(fails(equalTo("failing schema")))
       }
     )
   )
@@ -409,17 +473,25 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .map(Chunk.fromArray)
       .getOrElse(Chunk.empty)
 
-  def encode[A](schema: Schema[A], input: A) =
+  def encode[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
     ZStream
       .succeed(input)
       .transduce(ProtobufCodec.encoder(schema))
       .run(ZSink.collectAll)
 
-  def decode[A](schema: Schema[A], hex: String) =
+  //NS == non streaming variant of encode
+  def encodeNS[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
+    ZIO.succeed(ProtobufCodec.encode(schema)(input))
+
+  def decode[A](schema: Schema[A], hex: String): ZIO[Any, String, Chunk[A]] =
     ZStream
       .fromChunk(fromHex(hex))
       .transduce(ProtobufCodec.decoder(schema))
       .run(ZSink.collectAll)
+
+  //NS == non streaming variant of decode
+  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, String, A] =
+    ZIO.succeed(ProtobufCodec.decode(schema)(fromHex(hex))).absolve[String, A]
 
   def encodeAndDecode[A](schema: Schema[A], input: A) =
     ZStream
@@ -427,4 +499,12 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .transduce(ProtobufCodec.encoder(schema))
       .transduce(ProtobufCodec.decoder(schema))
       .run(ZSink.collectAll)
+
+  //NS == non streaming variant of encodeAndDecode
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A) =
+    ZIO
+      .succeed(input)
+      .map(a => ProtobufCodec.encode(schema)(a))
+      .map(ch => ProtobufCodec.decode(schema)(ch))
+      .absolve
 }
