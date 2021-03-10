@@ -260,10 +260,10 @@ object SchemaGen {
 
   lazy val anySchemaAndGen: Gen[Random with Sized, SchemaAndGen[_]] = {
     Gen.oneOf[Random with Sized, SchemaAndGen[_]](
-      anyPrimitiveAndGen
+      anyPrimitiveAndGen,
       // TODO: Add these back in.
 //      anyOptionalAndGen,
-//      anyTupleAndGen,
+//      anyTupleAndGen
 //      anySequenceAndGen,
 //      anyEnumerationAndGen,
 //      anyRecordAndGen,
@@ -276,12 +276,12 @@ object SchemaGen {
   lazy val anySchemaAndValue: Gen[Random with Sized, SchemaAndValue[_]] = {
     Gen.oneOf[Random with Sized, SchemaAndValue[_]](
       anyPrimitiveAndValue,
-      anyOptionalAndValue,
-      anyTupleAndValue,
-      anySequenceAndValue,
-      anyEnumerationAndValue,
-      anyRecordAndValue,
-      anyTransformAndValue
+//      anyOptionalAndValue,
+      anyTupleAndValue
+//      anySequenceAndValue,
+//      anyEnumerationAndValue,
+//      anyRecordAndValue,
+//      anyTransformAndValue
     )
   }
 }
