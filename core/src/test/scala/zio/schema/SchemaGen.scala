@@ -260,7 +260,7 @@ object SchemaGen {
 
   lazy val anySchemaAndGen: Gen[Random with Sized, SchemaAndGen[_]] = {
     Gen.oneOf[Random with Sized, SchemaAndGen[_]](
-      anyPrimitiveAndGen,
+      anyPrimitiveAndGen
       // TODO: Add these back in.
 //      anyOptionalAndGen,
 //      anyTupleAndGen
