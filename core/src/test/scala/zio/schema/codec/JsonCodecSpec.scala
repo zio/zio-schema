@@ -214,6 +214,9 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         assertEncodesThenDecodes(
           adtSchema,
           Enumeration(StringValue("foo"))
+        ) &> assertEncodesThenDecodes(adtSchema, Enumeration(IntValue(-1))) &> assertEncodesThenDecodes(
+          adtSchema,
+          Enumeration(BooleanValue(false))
         )
       }
     )
