@@ -15,11 +15,20 @@ object ProtobufCodec extends Codec {
         ZIO.succeed(opt.map(values => values.flatMap(Encoder.encode(None, schema, _))).getOrElse(Chunk.empty))
     )
 
+  override def encode[A](schema: Schema[A]): A => Chunk[Byte] = a => Encoder.encode(None, schema, a)
+
   override def decoder[A](schema: Schema[A]): ZTransducer[Any, String, Byte, A] =
     ZTransducer.fromPush(
       (opt: Option[Chunk[Byte]]) =>
         ZIO.fromEither(opt.map(chunk => Decoder.decode(schema, chunk).map(Chunk(_))).getOrElse(Right(Chunk.empty)))
     )
+
+  override def decode[A](schema: Schema[A]): Chunk[Byte] => Either[String, A] =
+    ch =>
+      if (ch.isEmpty)
+        Left("No bytes to decode")
+      else
+        Decoder.decode(schema, ch)
 
   object Protobuf {
 
