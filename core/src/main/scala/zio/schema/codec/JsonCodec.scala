@@ -28,6 +28,11 @@ object JsonCodec extends Codec {
       )
   }
 
+  override def encode[A](schema: Schema[A]): A => Chunk[Byte] = Encoder.encode(schema, _)
+
+  override def decode[A](schema: Schema[A]): Chunk[Byte] => Either[String, A] =
+    (chunk: Chunk[Byte]) => Decoder.decode(schema, new String(chunk.toArray, Encoder.CHARSET))
+
   object Codecs {
     protected[codec] val unitEncoder: JsonEncoder[Unit] = new JsonEncoder[Unit] {
       override def unsafeEncode(a: Unit, indent: Option[Int], out: Write): Unit = ()
@@ -76,7 +81,7 @@ object JsonCodec extends Codec {
     import Codecs._
     import JsonEncoder.{ bump, pad }
 
-    private val CHARSET = StandardCharsets.UTF_8
+    private[codec] val CHARSET = StandardCharsets.UTF_8
 
     final def encode[A](schema: Schema[A], value: A): Chunk[Byte] =
       charSequenceToByteChunk(schemaEncoder(schema, value).encodeJson(value, None))
