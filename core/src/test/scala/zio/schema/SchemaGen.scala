@@ -30,7 +30,7 @@ object SchemaGen {
   type OptionalAndGen[A] = (Schema.Optional[A], Gen[Random with Sized, Option[A]])
 
   val anyOptionalAndGen: Gen[Random with Sized, OptionalAndGen[_]] =
-    anySchemaAndGen.map {
+    anyPrimitiveAndGen.map {
       case (schema, gen) => Schema.Optional(schema) -> Gen.option(gen)
     }
 
@@ -51,8 +51,8 @@ object SchemaGen {
 
   val anyTupleAndGen: Gen[Random with Sized, TupleAndGen[_, _]] =
     for {
-      (schemaA, genA) <- anySchemaAndGen
-      (schemaB, genB) <- anySchemaAndGen
+      (schemaA, genA) <- anyPrimitiveAndGen
+      (schemaB, genB) <- anyPrimitiveAndGen
     } yield Schema.Tuple(schemaA, schemaB) -> genA.zip(genB)
 
   type TupleAndValue[A, B] = (Schema.Tuple[A, B], (A, B))
@@ -69,7 +69,7 @@ object SchemaGen {
   type SequenceAndGen[A] = (Schema.Sequence[A], Gen[Random with Sized, Chunk[A]])
 
   val anySequenceAndGen: Gen[Random with Sized, SequenceAndGen[_]] =
-    anySchemaAndGen.map {
+    anyPrimitiveAndGen.map {
       case (schema, gen) =>
         Schema.Sequence(schema) -> Gen.chunkOf(gen)
     }
@@ -89,7 +89,7 @@ object SchemaGen {
 
   val anyEnumerationAndGen: Gen[Random with Sized, EnumerationAndGen] =
     for {
-      keyToSchemaAndGen <- Gen.mapOf(Gen.anyString, anySchemaAndGen)
+      keyToSchemaAndGen <- Gen.mapOf(Gen.anyString, anyPrimitiveAndGen)
     } yield {
       val structure = keyToSchemaAndGen.view.mapValues {
         case (schema, _) => schema
@@ -116,7 +116,7 @@ object SchemaGen {
 
   val anyRecordAndGen: Gen[Random with Sized, RecordAndGen] =
     for {
-      keyToSchemaAndGen <- Gen.mapOf(Gen.anyString, anySchemaAndGen)
+      keyToSchemaAndGen <- Gen.mapOf(Gen.anyString, anyPrimitiveAndGen)
     } yield {
       val structure = keyToSchemaAndGen.view.mapValues {
         case (schema, _) => schema
@@ -142,6 +142,20 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
+  val anyRecordOfRecordsAndValue: Gen[Random with Sized, RecordAndValue] =
+    for {
+      (schema1, gen1) <- anyRecordAndGen
+      (schema2, gen2) <- anyRecordAndGen
+      (schema3, gen3) <- anyRecordAndGen
+      (key1, value1)  <- Gen.anyString.zip(gen1)
+      (key2, value2)  <- Gen.anyString.zip(gen2)
+      (key3, value3)  <- Gen.anyString.zip(gen3)
+    } yield Schema.Record(Map(key1 -> schema1, key2 -> schema2, key3 -> schema3)) -> Map(
+      (key1, value1),
+      (key2, value2),
+      (key3, value3)
+    )
+
   type SequenceTransform[A] = Schema.Transform[Chunk[A], List[A]]
 
   val anySequenceTransform: Gen[Random with Sized, SequenceTransform[_]] = {
@@ -151,7 +165,7 @@ object SchemaGen {
   type SequenceTransformAndGen[A] = (SequenceTransform[A], Gen[Random with Sized, List[A]])
 
   val anySequenceTransformAndGen: Gen[Random with Sized, SequenceTransformAndGen[_]] =
-    anySchemaAndGen.map {
+    anyPrimitiveAndGen.map {
       case (schema, gen) =>
         transformSequence(Schema.Sequence(schema)) -> Gen.listOf(gen)
     }
@@ -260,11 +274,11 @@ object SchemaGen {
 
   lazy val anySchemaAndGen: Gen[Random with Sized, SchemaAndGen[_]] = {
     Gen.oneOf[Random with Sized, SchemaAndGen[_]](
-      anyPrimitiveAndGen
+      anyPrimitiveAndGen,
       // TODO: Add these back in.
-//      anyOptionalAndGen,
-//      anyTupleAndGen
-//      anySequenceAndGen,
+      anyOptionalAndGen,
+      anyTupleAndGen,
+      anySequenceAndGen
 //      anyEnumerationAndGen,
 //      anyRecordAndGen,
 //      anyTransformAndGen
@@ -276,9 +290,9 @@ object SchemaGen {
   lazy val anySchemaAndValue: Gen[Random with Sized, SchemaAndValue[_]] = {
     Gen.oneOf[Random with Sized, SchemaAndValue[_]](
       anyPrimitiveAndValue,
-//      anyOptionalAndValue,
-      anyTupleAndValue
-//      anySequenceAndValue,
+      anyOptionalAndValue,
+      anyTupleAndValue,
+      anySequenceAndValue
 //      anyEnumerationAndValue,
 //      anyRecordAndValue,
 //      anyTransformAndValue

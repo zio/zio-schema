@@ -9,7 +9,7 @@ import zio.test.{ Gen, Sized }
 object StandardTypeGen {
 
   val anyStandardType: Gen[Random, StandardType[_]] = Gen.oneOf(
-    Gen.const(StandardType.UnitType),
+//    Gen.const(StandardType.UnitType),
     Gen.const(StandardType.StringType),
     Gen.const(StandardType.BoolType),
     Gen.const(StandardType.ShortType),

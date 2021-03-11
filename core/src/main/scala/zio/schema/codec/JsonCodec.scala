@@ -194,6 +194,13 @@ object JsonCodec extends Codec {
       case Schema.Enumeration(structure)  => enumDecoder(structure)
     }
 
+//    private def optionDecoder[A](codec: Schema[A]): JsonDecoder[Option[A]] = codec match {
+//      case Schema.Primitive(StandardType.UnitType) =>
+//        unitDecoder.map(Some(_))
+//      case codec =>
+//        JsonDecoder.option(schemaDecoder(codec))
+//    }
+
     private def recordDecoder(structure: Map[String, Schema[_]]): JsonDecoder[Map[String, _]] = {
       (trace: List[JsonError], in: RetractReader) =>
         {

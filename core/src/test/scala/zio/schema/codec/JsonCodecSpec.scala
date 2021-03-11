@@ -15,31 +15,25 @@ import zio.test.{ testM, _ }
 object JsonCodecSpec extends DefaultRunnableSpec {
 
   def spec: ZSpec[TestEnvironment, Any] =
-    suite("JsonCodecSpec")(
+    suite("JsonCodec Spec")(
       encoderSuite,
       decoderSuite,
-      encoderDecoderSuite,
-      decoderEncoderSuite
+      encoderDecoderSuite
     ) @@ timeout(90.seconds)
 
   // TODO: Add tests for the transducer contract.
 
-  private val encoderSuite = suite("encoder")(
+  private val encoderSuite = suite("Should correctly encode")(
     suite("primitive")(
       testM("unit") {
         assertEncodesUnit
       },
-      suite("string")(
-        testM("example") {
-          assertEncodesString("hello")
-        },
-        testM("any") {
-          checkM(Gen.anyString)(assertEncodesString)
-        }
+      testM("string")(
+        checkM(Gen.anyString)(assertEncodesString)
       )
     ),
     suite("optional")(
-      testM("primitive") {
+      testM("of primitives") {
         assertEncodesJson(
           Schema.Optional(Schema.Primitive(StandardType.StringType)),
           Some("value")
@@ -51,7 +45,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       }
     ),
     suite("tuple")(
-      testM("primitive tuple") {
+      testM("of primitives") {
         assertEncodesJson(
           Schema.Tuple(
             Schema.Primitive(StandardType.StringType),
@@ -62,7 +56,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       }
     ),
     suite("sequence")(
-      testM("primitive") {
+      testM("of primitives") {
         assertEncodesJson(
           Schema.Sequence(Schema.Primitive(StandardType.StringType)),
           Chunk("a", "b", "c")
@@ -70,14 +64,14 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       }
     ),
     suite("record")(
-      testM("basic record schema") {
+      testM("of primitives") {
         assertEncodes(
           recordSchema,
           Map[String, Any]("foo" -> "s", "bar" -> 1),
           JsonCodec.Encoder.charSequenceToByteChunk("""{"foo":"s","bar":1}""")
         )
       },
-      testM("nested record schema") {
+      testM("of records") {
         assertEncodes(
           nestedRecordSchema,
           Map[String, Any]("l1" -> "s", "l2" -> Map("foo" -> "s", "bar" -> 1)),
@@ -92,7 +86,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       }
     ),
     suite("enumeration")(
-      testM("primitive enum") {
+      testM("of primitives") {
         assertEncodes(
           enumSchema,
           Map[String, Any]("string" -> "foo"),
@@ -109,7 +103,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     )
   )
 
-  private val decoderSuite = suite("decoder")(
+  private val decoderSuite = suite("Should correctly decode")(
     suite("primitive")(
       testM("unit") {
         assertDecodesUnit
@@ -125,42 +119,92 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     )
   )
 
-  private val encoderDecoderSuite = suite("encoder -> decoder")(
+  private val encoderDecoderSuite = suite("Encoding then decoding")(
+    testM("unit") {
+      assertEncodesThenDecodes(Schema.Primitive(StandardType.UnitType), ())
+    },
     testM("primitive") {
       checkM(SchemaGen.anyPrimitiveAndValue) {
         case (schema, value) => assertEncodesThenDecodes(schema, value)
       }
     },
-//     suite("optional")(
-//       testM("any") {
-//         checkM(SchemaGen.anyOptionalAndValue) {
-//           case (schema, value) => assertEncodesThenDecodes(schema, value)
-//         }
-//       }
-//     ),
+    suite("optional")(
+      testM("of primitive") {
+        checkM(SchemaGen.anyOptionalAndValue) {
+          case (schema, value) => assertEncodesThenDecodes(schema, value)
+        }
+      },
+      testM("of tuple") {
+        checkM(SchemaGen.anyTupleAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(Schema.Optional(schema), Some(value)) &>
+              assertEncodesThenDecodes(Schema.Optional(schema), None)
+        }
+      },
+      testM("of record") {
+        checkM(SchemaGen.anyRecordAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(Schema.Optional(schema), Some(value)) &>
+              assertEncodesThenDecodes(Schema.Optional(schema), None)
+        }
+      },
+      testM("of enumeration") {
+        checkM(SchemaGen.anyEnumerationAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(Schema.Optional(schema), Some(value)) &>
+              assertEncodesThenDecodes(Schema.Optional(schema), None)
+        }
+      },
+      testM("of sequence") {
+        checkM(SchemaGen.anySequenceAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(Schema.Optional(schema), Some(value)) &>
+              assertEncodesThenDecodes(Schema.Optional(schema), None)
+        }
+      }
+    ),
+    testM("tuple") {
+      checkM(SchemaGen.anyTupleAndValue) {
+        case (schema, value) => assertEncodesThenDecodes(schema, value)
+      }
+    },
+    testM("sequence") {
+      checkM(SchemaGen.anySequenceAndValue) {
+        case (schema, value) => assertEncodesThenDecodes(schema, value)
+      }
+    },
     suite("record")(
-      testM("basic record schema") {
+      testM("any") {
+        checkM(SchemaGen.anyRecordAndValue) {
+          case (schema, value) => assertEncodesThenDecodes(schema, value)
+        }
+      },
+      testM("of records") {
+        checkM(SchemaGen.anyRecordOfRecordsAndValue) {
+          case (schema, value) => assertEncodesThenDecodes(schema, value)
+        }
+      },
+      testM("of primitives") {
         assertEncodesThenDecodes(
           recordSchema,
           Map[String, Any]("foo" -> "s", "bar" -> 1)
         )
       },
-      testM("nested record schema") {
-        assertEncodes(
+      testM("of record") {
+        assertEncodesThenDecodes(
           nestedRecordSchema,
-          Map[String, Any]("l1" -> "s", "l2" -> Map[String, Any]("foo" -> "s", "bar" -> 1)),
-          JsonCodec.Encoder.charSequenceToByteChunk("""{"l1":"s","l2":{"foo":"s","bar":1}}""")
+          Map[String, Any]("l1" -> "s", "l2" -> Map[String, Any]("foo" -> "s", "bar" -> 1))
         )
       },
       testM("case class") {
-        assertEncodesJson(
+        assertEncodesThenDecodes(
           searchRequestSchema,
           SearchRequest("query", 1, 2)
         )
       }
     ),
     suite("enumeration")(
-      testM("primitive enum") {
+      testM("of primitives") {
         assertEncodesThenDecodes(
           enumSchema,
           Map("string" -> "foo")
@@ -173,14 +217,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         )
       }
     )
-//     testM("any") {
-//       checkM(SchemaGen.anySchemaAndValue) {
-//         case (schema, value) => assertEncodesThenDecodes(schema, value)
-//       }
-//     }
   )
-
-  private val decoderEncoderSuite = suite("decoder -> encoder")()
 
   private def assertEncodesUnit = {
     val schema = Schema.Primitive(StandardType.UnitType)
