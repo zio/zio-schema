@@ -1,10 +1,13 @@
 package zio.schema.codec
 
 // import java.time.Year
+import java.time.{ ZoneId, ZoneOffset }
+
 import zio.Chunk
 import zio.duration._
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
-import zio.schema.{ Schema, SchemaGen, StandardType }
+import zio.random.Random
+import zio.schema.{ JavaTimeGen, Schema, SchemaGen, StandardType }
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -30,7 +33,13 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       },
       testM("string")(
         checkM(Gen.anyString)(assertEncodesString)
-      )
+      ),
+      testM("ZoneOffset") {
+        assertEncodesJson(Schema.Primitive(StandardType.ZoneOffset), ZoneOffset.UTC)
+      },
+      testM("ZoneId") {
+        assertEncodesJson(Schema.Primitive(StandardType.ZoneId), ZoneId.systemDefault())
+      }
     ),
     suite("optional")(
       testM("of primitives") {
@@ -173,6 +182,15 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         case (schema, value) => assertEncodesThenDecodes(schema, value)
       }
     },
+    testM("sequence of ZoneOffset") {
+      //FIXME test independently because including ZoneOffset in StandardTypeGen.anyStandardType wreaks havoc.
+      checkM(Gen.chunkOf(JavaTimeGen.anyZoneOffset)) { chunk =>
+        assertEncodesThenDecodes(
+          Schema.Sequence(Schema.Primitive(StandardType.ZoneOffset)),
+          chunk
+        )
+      }
+    },
     suite("record")(
       testM("any") {
         checkM(SchemaGen.anyRecordAndValue) {
@@ -190,6 +208,14 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           Map[String, Any]("foo" -> "s", "bar" -> 1)
         )
       },
+      testM("of ZoneOffsets") {
+        checkM(JavaTimeGen.anyZoneOffset) { zoneOffset =>
+          assertEncodesThenDecodes(
+            Schema.Record(Map("zoneOffset" -> Schema.Primitive(StandardType.ZoneOffset))),
+            Map[String, Any]("zoneOffset" -> zoneOffset)
+          )
+        }
+      },
       testM("of record") {
         assertEncodesThenDecodes(
           nestedRecordSchema,
@@ -197,10 +223,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         )
       },
       testM("case class") {
-        assertEncodesThenDecodes(
-          searchRequestSchema,
-          SearchRequest("query", 1, 2)
-        )
+        checkM(searchRequestGen)(assertEncodesThenDecodes(searchRequestSchema, _))
       }
     ),
     suite("enumeration")(
@@ -290,6 +313,13 @@ object JsonCodecSpec extends DefaultRunnableSpec {
   object SearchRequest {
     implicit val encoder: JsonEncoder[SearchRequest] = DeriveJsonEncoder.gen[SearchRequest]
   }
+
+  private val searchRequestGen: Gen[Random with Sized, SearchRequest] =
+    for {
+      query      <- Gen.anyString
+      pageNumber <- Gen.int(Int.MinValue, Int.MaxValue)
+      results    <- Gen.int(Int.MinValue, Int.MaxValue)
+    } yield SearchRequest(query, pageNumber, results)
 
   val searchRequestSchema: Schema[SearchRequest] = Schema.caseClassN(
     "query"         -> Schema[String],

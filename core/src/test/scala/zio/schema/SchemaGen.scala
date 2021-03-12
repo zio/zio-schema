@@ -269,33 +269,4 @@ object SchemaGen {
     anyRecord,
     anyTransform
   )
-
-  type SchemaAndGen[A] = (Schema[A], Gen[Random with Sized, A])
-
-  lazy val anySchemaAndGen: Gen[Random with Sized, SchemaAndGen[_]] = {
-    Gen.oneOf[Random with Sized, SchemaAndGen[_]](
-      anyPrimitiveAndGen,
-      // TODO: Add these back in.
-      anyOptionalAndGen,
-      anyTupleAndGen,
-      anySequenceAndGen
-//      anyEnumerationAndGen,
-//      anyRecordAndGen,
-//      anyTransformAndGen
-    )
-  }
-
-  type SchemaAndValue[A] = (Schema[A], A)
-
-  lazy val anySchemaAndValue: Gen[Random with Sized, SchemaAndValue[_]] = {
-    Gen.oneOf[Random with Sized, SchemaAndValue[_]](
-      anyPrimitiveAndValue,
-      anyOptionalAndValue,
-      anyTupleAndValue,
-      anySequenceAndValue
-//      anyEnumerationAndValue,
-//      anyRecordAndValue,
-//      anyTransformAndValue
-    )
-  }
 }
