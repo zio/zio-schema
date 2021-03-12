@@ -5,6 +5,7 @@ import java.time.{ ZoneId, ZoneOffset }
 
 import zio.Chunk
 import zio.duration._
+import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.random.Random
 import zio.schema.{ JavaTimeGen, Schema, SchemaGen, StandardType }
@@ -125,6 +126,26 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           checkM(Gen.anyString)(assertDecodesString)
         }
       )
+    ),
+    suite("transform")(
+      testM("string") {
+        val stringSchema    = Schema.Primitive(StandardType.StringType)
+        val transformSchema = stringSchema.transform[Int](_ => 1, _.toString)
+        assertDecodes(transformSchema, 1, stringify("string"))
+      },
+      testM("failed") {
+        val errorMessage = "I'm sorry Dave, I can't do that"
+        val schema: Schema[Int] = Schema
+          .Primitive(StandardType.StringType)
+          .transformOrFail[Int](_ => Left(errorMessage), i => Right(i.toString))
+        checkM(Gen.int(Int.MinValue, Int.MaxValue)) { int =>
+          assertDecodesToError(
+            schema,
+            JsonEncoder.string.encodeJson(int.toString, None),
+            JsonError.Message(errorMessage) :: Nil
+          )
+        }
+      }
     )
   )
 
@@ -242,6 +263,14 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           Enumeration(BooleanValue(false))
         )
       }
+    ),
+    suite("transform")(
+      testM("any") {
+        checkM(SchemaGen.anyTransformAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(schema, value)
+        }
+      }
     )
   )
 
@@ -274,6 +303,15 @@ object JsonCodecSpec extends DefaultRunnableSpec {
   private def assertDecodesUnit = {
     val schema = Schema.Primitive(StandardType.UnitType)
     assertDecodes(schema, (), Chunk.empty)
+  }
+
+  private def assertDecodesToError[A](schema: Schema[A], json: CharSequence, errors: List[JsonError]) = {
+    val stream = ZStream
+      .fromChunk(JsonCodec.Encoder.charSequenceToByteChunk(json))
+      .transduce(JsonCodec.decoder(schema))
+      .catchAll(ZStream.succeed[String](_))
+      .runHead
+    assertM(stream)(isSome(equalTo(JsonError.render(errors))))
   }
 
   private def assertDecodesString(value: String) = {
