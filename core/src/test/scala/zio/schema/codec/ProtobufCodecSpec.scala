@@ -91,12 +91,15 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           e  <- encode(schemaEnumeration, Enumeration(IntValue(482))).map(toHex)
           e2 <- encodeNS(schemaEnumeration, Enumeration(IntValue(482))).map(toHex)
         } yield assert(e)(equalTo("10E203")) && assert(e2)(equalTo("10E203"))
+<<<<<<< HEAD
       },
       testM("enums unwrapped") {
         for {
           e  <- encode(schemaOneOf, IntValue(482)).map(toHex)
           e2 <- encodeNS(schemaOneOf, IntValue(482)).map(toHex)
         } yield assert(e)(equalTo("10E203")) && assert(e2)(equalTo("10E203"))
+=======
+>>>>>>> upstream/main
       },
       testM("failure") {
         for {
@@ -295,6 +298,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(schemaEnumeration, Enumeration(BooleanValue(true)))
         } yield assert(ed)(equalTo(Chunk(Enumeration(BooleanValue(true))))) && assert(ed2)(
           equalTo(Enumeration(BooleanValue(true)))
+<<<<<<< HEAD
         )
       },
       testM("enums unwrapped") {
@@ -303,6 +307,8 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(schemaOneOf, BooleanValue(true))
         } yield assert(ed)(equalTo(Chunk(BooleanValue(true)))) && assert(ed2)(
           equalTo(BooleanValue(true))
+=======
+>>>>>>> upstream/main
         )
       },
       testM("enum within enum") {
@@ -318,6 +324,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed  <- encodeAndDecode(schemaTuple, value)
           ed2 <- encodeAndDecodeNS(schemaTuple, value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+<<<<<<< HEAD
       },
       testM("either left") {
         val either = Left(9)
@@ -339,6 +346,8 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed  <- encodeAndDecode(complexEitherSchema, either)
           ed2 <- encodeAndDecodeNS(complexEitherSchema, either)
         } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
+=======
+>>>>>>> upstream/main
       },
       testM("optionals") {
         val value = Some(123)
@@ -346,6 +355,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed  <- encodeAndDecode(Schema.Optional(Schema[Int]), value)
           ed2 <- encodeAndDecodeNS(Schema.Optional(Schema[Int]), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+<<<<<<< HEAD
       },
       testM("complex optionals with sum type") {
         val value = Some(BooleanValue(true))
@@ -360,6 +370,8 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed  <- encodeAndDecode(Schema.option(Schema.option(Schema[Boolean])), value)
           ed2 <- encodeAndDecodeNS(Schema.option(Schema.option(Schema[Boolean])), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+=======
+>>>>>>> upstream/main
       }
     ),
     suite("ignored tests - TODO fix & move to \"Should successfully encode and decode\" suite")(
