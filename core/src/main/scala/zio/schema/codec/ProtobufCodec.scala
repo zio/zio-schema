@@ -86,14 +86,30 @@ object ProtobufCodec extends Codec {
           case (fieldNumber, fieldAndSchema) =>
             (fieldNumber, (fieldAndSchema._1, Schema.Transform(fieldAndSchema._2.asInstanceOf[Schema[Any]], f, g)))
         })
-      case _: Schema.Primitive[_] => None
-      case _: Schema.Tuple[_, _]  => None
-      case _: Schema.Optional[_]  => None
-      case _: Schema.Fail[_]      => None
+      case _: Schema.Primitive[_]       => None
+      case _: Schema.Tuple[_, _]        => None
+      case _: Schema.Optional[_]        => None
+      case _: Schema.Fail[_]            => None
+      case _: Schema.EitherSchema[_, _] => None
     }
 
-    def tupleSchema[A, B](left: Schema[A], right: Schema[B]): Schema[Map[String, _]] =
-      Schema.record(Map("left" -> left, "right" -> right))
+    def tupleSchema[A, B](first: Schema[A], second: Schema[B]): Schema[Map[String, _]] =
+      Schema.record(Map("first" -> first, "second" -> second))
+
+    def eitherSchema[A, B](left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
+      Schema
+        .Enumeration(Map("left" -> left, "right" -> right))
+        .transformOrFail[Either[A, B]](
+          (value: Map[String, _]) =>
+            (value.get("left"), value.get("right")) match {
+              case (Some(value), None) => Right(Left(value.asInstanceOf[A]))
+              case (None, Some(value)) => Right(Right(value.asInstanceOf[B]))
+              case _                   => Left("Expecting left or right of the either.")
+            }, {
+            case Left(value)  => Right(Map("left"  -> value))
+            case Right(value) => Right(Map("right" -> value))
+          }
+        )
 
     def optionalSchema[A](codec: Schema[A]): Schema[Map[String, _]] = Schema.record(Map("value" -> codec))
 
@@ -118,14 +134,15 @@ object ProtobufCodec extends Codec {
 
     def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
       (schema, value) match {
-        case (Schema.Record(structure), v: Map[String, _])      => encodeRecord(fieldNumber, structure, v)
-        case (Schema.Sequence(element), v: Chunk[_])            => encodeSequence(fieldNumber, element, v)
-        case (Schema.Enumeration(structure), v: Map[String, _]) => encodeEnumeration(structure, v)
-        case (Schema.Transform(codec, _, g), _)                 => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
-        case (Schema.Primitive(standardType), v)                => encodePrimitive(fieldNumber, standardType, v)
-        case (Schema.Tuple(left, right), v @ (_, _))            => encodeTuple(fieldNumber, left, right, v)
-        case (Schema.Optional(codec), v: Option[_])             => encodeOptional(fieldNumber, codec, v)
-        case (_, _)                                             => Chunk.empty
+        case (Schema.Record(structure), v: Map[String, _])       => encodeRecord(fieldNumber, structure, v)
+        case (Schema.Sequence(element), v: Chunk[_])             => encodeSequence(fieldNumber, element, v)
+        case (Schema.Enumeration(structure), v: Map[String, _])  => encodeEnumeration(structure, v)
+        case (Schema.Transform(codec, _, g), _)                  => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
+        case (Schema.Primitive(standardType), v)                 => encodePrimitive(fieldNumber, standardType, v)
+        case (Schema.Tuple(left, right), v @ (_, _))             => encodeTuple(fieldNumber, left, right, v)
+        case (Schema.Optional(codec), v: Option[_])              => encodeOptional(fieldNumber, codec, v)
+        case (Schema.EitherSchema(left, right), v: Either[_, _]) => encodeEither(fieldNumber, left, right, v)
+        case (_, _)                                              => Chunk.empty
       }
 
     private def encodeRecord(
@@ -253,8 +270,20 @@ object ProtobufCodec extends Codec {
       encode(
         fieldNumber,
         tupleSchema(left, right),
-        Map[String, Any]("left" -> tuple._1, "right" -> tuple._2)
+        Map[String, Any]("first" -> tuple._1, "second" -> tuple._2)
       )
+
+    private def encodeEither[A, B](
+      fieldNumber: Option[Int],
+      left: Schema[A],
+      right: Schema[B],
+      either: Either[A, B]
+    ): Chunk[Byte] = either match {
+      case Left(value) =>
+        encode(fieldNumber, Schema.enumeration(Map("left" -> left, "right" -> right)), Map("left" -> value))
+      case Right(value) =>
+        encode(fieldNumber, Schema.enumeration(Map("left" -> left, "right" -> right)), Map("right" -> value))
+    }
 
     private def encodeOptional[A](fieldNumber: Option[Int], schema: Schema[A], value: Option[A]): Chunk[Byte] =
       value match {
@@ -303,6 +332,7 @@ object ProtobufCodec extends Codec {
       case _: Schema.Tuple[_, _]          => false
       case _: Schema.Optional[_]          => false
       case _: Schema.Fail[_]              => false
+      case _: Schema.EitherSchema[_, _]   => false
     }
 
     private def canBePacked(standardType: StandardType[_]): Boolean = standardType match {
@@ -355,10 +385,7 @@ object ProtobufCodec extends Codec {
     }
 
     object FailDecoder {
-
-      def apply[A](message: String): Decoder[A] = new Decoder[A] {
-        override def run(chunk: Chunk[Byte], wireType: WireType): Either[String, (Chunk[Byte], A)] = Left(message)
-      }
+      def apply[A](message: String): Decoder[A] = (_, _) => Left(message)
     }
 
     def decode[A](schema: Schema[A], chunk: Chunk[Byte]): Either[String, A] =
@@ -368,17 +395,20 @@ object ProtobufCodec extends Codec {
 
     private def decoder[A](schema: Schema[A]): Decoder[A] =
       schema match {
-        case Schema.Record(structure) => recordDecoder(structure).asInstanceOf[Decoder[A]]
-        case Schema.Sequence(element) => sequenceDecoder(element).asInstanceOf[Decoder[A]]
-        case Schema.Enumeration(_) =>
-          (_, _) => Left("oneof must be part of a message")
+        case Schema.Record(structure)       => recordDecoder(structure).asInstanceOf[Decoder[A]]
+        case Schema.Sequence(element)       => sequenceDecoder(element).asInstanceOf[Decoder[A]]
+        case Schema.Enumeration(structure)  => enumDecoder(structure).asInstanceOf[Decoder[A]]
         case Schema.Transform(codec, f, _)  => transformDecoder(codec, f)
         case Schema.Primitive(standardType) => primitiveDecoder(standardType)
         case Schema.Tuple(left, right)      => tupleDecoder(left, right).asInstanceOf[Decoder[A]]
         case Schema.Optional(codec)         => optionalDecoder(codec).asInstanceOf[Decoder[A]]
         case Schema.Fail(message) =>
           (_, _) => Left(message)
+        case Schema.EitherSchema(left, right) => eitherDecoder(left, right).asInstanceOf[Decoder[A]]
       }
+
+    private def enumDecoder(structure: Map[String, Schema[_]]): Decoder[Map[String, _]] =
+      recordLoopDecoder(flatFields(structure), Map())
 
     private def recordDecoder(structure: Map[String, Schema[_]]): Decoder[Map[String, _]] =
       recordLoopDecoder(flatFields(structure), defaultMap(structure))
@@ -530,11 +560,14 @@ object ProtobufCodec extends Codec {
         .flatMap(
           record =>
             (chunk, _) =>
-              (record.get("left"), record.get("right")) match {
-                case (Some(l), Some(r)) => Right((chunk, (l.asInstanceOf[A], r.asInstanceOf[B])))
-                case _                  => Left("Failed decoding tuple")
+              (record.get("first"), record.get("second")) match {
+                case (Some(first), Some(second)) => Right((chunk, (first.asInstanceOf[A], second.asInstanceOf[B])))
+                case _                           => Left("Error decoding tuple")
               }
         )
+
+    private def eitherDecoder[A, B](left: Schema[A], right: Schema[B]): Decoder[Either[A, B]] =
+      decoder(eitherSchema(left, right))
 
     private def optionalDecoder[A](schema: Schema[_]): Decoder[Option[A]] =
       decoder(optionalSchema(schema))
@@ -629,13 +662,18 @@ object ProtobufCodec extends Codec {
     private def defaultValue(schema: Schema[_]): Option[Any] = schema match {
       case Schema.Record(structure)       => Some(defaultMap(structure))
       case Schema.Sequence(_)             => Some(Chunk())
-      case _: Schema.Enumeration          => None
+      case Schema.Enumeration(structure)  => Some(defaultMap(structure))
       case Schema.Transform(codec, f, _)  => defaultValue(codec).flatMap(f(_).toOption)
       case Schema.Primitive(standardType) => defaultValue(standardType)
       case Schema.Tuple(left, right) =>
         if (defaultValue(left).isEmpty || defaultValue(right).isEmpty) None else Some((left, right))
-      case _: Schema.Optional[_] => Some(None)
-      case _: Schema.Fail[_]     => Some(None)
+      case Schema.Optional(schema) => defaultValue(schema)
+      case _: Schema.Fail[_]       => Some(None)
+      case Schema.EitherSchema(schema1, schema2) =>
+        defaultValue(schema1) match {
+          case s: Some[Any] => s
+          case None         => defaultValue(schema2)
+        }
     }
 
     private def defaultValue(standardType: StandardType[_]): Option[Any] = standardType match {
