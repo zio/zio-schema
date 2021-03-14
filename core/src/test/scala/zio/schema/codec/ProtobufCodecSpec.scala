@@ -27,6 +27,7 @@ import zio.schema.Schema.Primitive
 import zio.schema.{ Schema, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
+import zio.test.TestAspect._
 import zio.test._
 import zio.{ Chunk, ZIO }
 
@@ -89,6 +90,12 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         for {
           e  <- encode(schemaEnumeration, Enumeration(IntValue(482))).map(toHex)
           e2 <- encodeNS(schemaEnumeration, Enumeration(IntValue(482))).map(toHex)
+        } yield assert(e)(equalTo("10E203")) && assert(e2)(equalTo("10E203"))
+      },
+      testM("enums unwrapped") {
+        for {
+          e  <- encode(schemaOneOf, IntValue(482)).map(toHex)
+          e2 <- encodeNS(schemaOneOf, IntValue(482)).map(toHex)
         } yield assert(e)(equalTo("10E203")) && assert(e2)(equalTo("10E203"))
       },
       testM("failure") {
@@ -290,6 +297,21 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           equalTo(Enumeration(BooleanValue(true)))
         )
       },
+      testM("enums unwrapped") {
+        for {
+          ed  <- encodeAndDecode(schemaOneOf, BooleanValue(true))
+          ed2 <- encodeAndDecodeNS(schemaOneOf, BooleanValue(true))
+        } yield assert(ed)(equalTo(Chunk(BooleanValue(true)))) && assert(ed2)(
+          equalTo(BooleanValue(true))
+        )
+      },
+      testM("enum within enum") {
+        val oneOf = RichSum.AnotherSum(BooleanValue(false))
+        for {
+          ed  <- encodeAndDecode(richSumSchema, oneOf)
+          ed2 <- encodeAndDecodeNS(richSumSchema, oneOf)
+        } yield assert(ed)(equalTo(Chunk(oneOf))) && assert(ed2)(equalTo(oneOf))
+      },
       testM("tuples") {
         val value = (123, "foo")
         for {
@@ -297,13 +319,100 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(schemaTuple, value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
+      testM("either left") {
+        val either = Left(9)
+        for {
+          ed  <- encodeAndDecode(eitherSchema, either)
+          ed2 <- encodeAndDecodeNS(eitherSchema, either)
+        } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
+      },
+      testM("either right") {
+        val either = Right("hello")
+        for {
+          ed  <- encodeAndDecode(eitherSchema, either)
+          ed2 <- encodeAndDecodeNS(eitherSchema, either)
+        } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
+      },
+      testM("complex either with sum type") {
+        val either = Right(BooleanValue(false))
+        for {
+          ed  <- encodeAndDecode(complexEitherSchema, either)
+          ed2 <- encodeAndDecodeNS(complexEitherSchema, either)
+        } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
+      },
       testM("optionals") {
         val value = Some(123)
         for {
           ed  <- encodeAndDecode(Schema.Optional(Schema[Int]), value)
           ed2 <- encodeAndDecodeNS(Schema.Optional(Schema[Int]), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+      },
+      testM("complex optionals with sum type") {
+        val value = Some(BooleanValue(true))
+        for {
+          ed  <- encodeAndDecode(Schema.Optional(schemaOneOf), value)
+          ed2 <- encodeAndDecodeNS(Schema.Optional(schemaOneOf), value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+      },
+      testM("option within option") {
+        val value = Some(Some(true))
+        for {
+          ed  <- encodeAndDecode(Schema.option(Schema.option(Schema[Boolean])), value)
+          ed2 <- encodeAndDecodeNS(Schema.option(Schema.option(Schema[Boolean])), value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       }
+    ),
+    suite("ignored tests - TODO fix & move to \"Should successfully encode and decode\" suite")(
+      testM("product type with inner product type") {
+        val richProduct = RichProduct(StringValue("sum_type"), BasicString("string"), Record("value", 47))
+        for {
+          ed  <- encodeAndDecode(richProductSchema, richProduct)
+          ed2 <- encodeAndDecodeNS(richProductSchema, richProduct)
+        } yield assert(ed)(equalTo(Chunk(richProduct))) && assert(ed2)(equalTo(richProduct))
+      } @@ ignore,
+      testM("complex sum type with nested product") {
+        val richSum = RichSum.Person("hello", 10)
+        for {
+          ed  <- encodeAndDecode(richSumSchema, richSum)
+          ed2 <- encodeAndDecodeNS(richSumSchema, richSum)
+        } yield assert(ed)(equalTo(Chunk(richSum))) && assert(ed2)(equalTo(richSum))
+      } @@ ignore,
+      testM("complex sum type with nested long primitive") {
+        val long = RichSum.LongWrapper(100L)
+        for {
+          ed  <- encodeAndDecode(richSumSchema, long)
+          ed2 <- encodeAndDecodeNS(richSumSchema, long)
+        } yield assert(ed)(equalTo(Chunk(long))) && assert(ed2)(equalTo(long))
+      } @@ ignore,
+      testM("complex either with product type") {
+        val either = Left(Record("hello world", 100))
+        for {
+          ed  <- encodeAndDecode(complexEitherSchema, either)
+          ed2 <- encodeAndDecodeNS(complexEitherSchema, either)
+        } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
+      } @@ ignore,
+      testM("complex tuples") {
+        val value = (Record("hello world", 100), BooleanValue(true))
+        for {
+          ed  <- encodeAndDecode(complexTupleSchema, value)
+          ed2 <- encodeAndDecodeNS(complexTupleSchema, value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+      } @@ ignore,
+      testM("complex optionals with product type") {
+        val value = Some(Record("hello earth", 21))
+        for {
+          ed  <- encodeAndDecode(Schema.Optional(schemaRecord), value)
+          ed2 <- encodeAndDecodeNS(Schema.Optional(schemaRecord), value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+      } @@ ignore,
+      testM("either within either") {
+        val either = Right(Left(BooleanValue(true)))
+        val schema = Schema.either(Schema[Int], Schema.either(schemaOneOf, Schema[String]))
+        for {
+          ed  <- encodeAndDecode(schema, either)
+          ed2 <- encodeAndDecodeNS(schema, either)
+        } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
+      } @@ ignore
     ),
     suite("Should successfully decode")(
       testM("incomplete messages using default values") {
@@ -445,6 +554,56 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       case StringValue(v)  => Right(Map("string"  -> v))
       case IntValue(v)     => Right(Map("int"     -> v))
       case BooleanValue(v) => Right(Map("boolean" -> v))
+    }
+  )
+
+  val complexTupleSchema: Schema.Tuple[Record, OneOf] = Schema.Tuple(schemaRecord, schemaOneOf)
+
+  val eitherSchema: Schema.EitherSchema[Int, String] = Schema.EitherSchema(Schema[Int], Schema[String])
+
+  val complexEitherSchema: Schema.EitherSchema[Record, OneOf] =
+    Schema.EitherSchema(schemaRecord, schemaOneOf)
+
+  case class RichProduct(stringOneOf: OneOf, basicString: BasicString, record: Record)
+
+  val richProductSchema: Schema[RichProduct] = Schema.caseClassN(
+    "stringOneOf" -> schemaOneOf,
+    "basicString" -> schemaBasicString,
+    "record"      -> schemaRecord
+  )(RichProduct, RichProduct.unapply)
+
+  sealed trait RichSum
+
+  object RichSum {
+    case class Person(name: String, age: Int) extends RichSum
+    case class AnotherSum(oneOf: OneOf)       extends RichSum
+    case class LongWrapper(long: Long)        extends RichSum
+  }
+
+  val personSchema: Schema[RichSum.Person] = Schema.caseClassN(
+    ("name" -> Schema[String]),
+    ("age"  -> Schema[Int])
+  )(RichSum.Person, RichSum.Person.unapply)
+
+  val richSumSchema: Schema[RichSum] = Schema.Transform(
+    Schema.enumeration(
+      Map(
+        "person" -> personSchema,
+        "oneOf"  -> schemaOneOf,
+        "long"   -> Schema[Long]
+      )
+    ),
+    (value: Map[String, _]) => {
+      value
+        .get("person")
+        .map(v => Right(v.asInstanceOf[RichSum.Person]))
+        .orElse(value.get("oneOf").map(v => Right(RichSum.AnotherSum(v.asInstanceOf[OneOf]))))
+        .orElse(value.get("long").map(v => Right(RichSum.LongWrapper(v.asInstanceOf[Long]))))
+        .getOrElse(Left("No value found"))
+    }, {
+      case p: RichSum.Person         => Right(Map("person" -> p))
+      case RichSum.AnotherSum(oneOf) => Right(Map("oneOf"  -> oneOf))
+      case RichSum.LongWrapper(long) => Right(Map("long"   -> long))
     }
   )
 
