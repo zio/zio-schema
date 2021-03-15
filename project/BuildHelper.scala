@@ -11,7 +11,7 @@ object BuildHelper {
 
   val zioVersion      = "1.0.3"
   val zioNioVersion   = "1.0.0-RC9"
-  val zioJsonVersion  = "0.1+20-386be0e9+20210308-1347-SNAPSHOT" //FIXME: Need to build from zio-json develop for char encoding fix
+  val zioJsonVersion  = "0.1.1"
   val silencerVersion = "1.7.1"
   val magnoliaVersion = "0.16.0"
 
