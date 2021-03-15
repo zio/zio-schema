@@ -91,8 +91,8 @@ object SchemaGen {
     for {
       keyToSchemaAndGen <- Gen.mapOf(Gen.anyString, anyPrimitiveAndGen)
     } yield {
-      val structure = keyToSchemaAndGen.view.mapValues {
-        case (schema, _) => schema
+      val structure = keyToSchemaAndGen.toSeq.map {
+        case (k, (schema, _)) => k -> schema
       }.toMap
       val keyValueGenerators = keyToSchemaAndGen.map {
         case (key, (_, gen)) => Gen.const(key).zip(gen)
@@ -118,8 +118,8 @@ object SchemaGen {
     for {
       keyToSchemaAndGen <- Gen.mapOf(Gen.anyString, anyPrimitiveAndGen)
     } yield {
-      val structure = keyToSchemaAndGen.view.mapValues {
-        case (schema, _) => schema
+      val structure = keyToSchemaAndGen.toSeq.map {
+        case (s, (schema, _)) => s -> schema
       }.toMap
       val keyValueGenerators = keyToSchemaAndGen.map {
         case (key, (_, gen)) => Gen.const(key).zip(gen)

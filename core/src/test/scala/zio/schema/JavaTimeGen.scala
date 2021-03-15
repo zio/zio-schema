@@ -60,7 +60,7 @@ object JavaTimeGen {
     Gen.long(range.getMinimum, range.getMaximum)
   }
 
-  val anyDuration: Gen[Random, Duration] = Gen.anyLong.zipWith(Gen.long(0, 999_999_999L)) { (seconds, nanos) =>
+  val anyDuration: Gen[Random, Duration] = Gen.anyLong.zipWith(Gen.long(0, 999999999L)) { (seconds, nanos) =>
     Duration.ofSeconds(seconds, nanos)
   }
 

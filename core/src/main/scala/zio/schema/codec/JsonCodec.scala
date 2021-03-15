@@ -199,10 +199,10 @@ object JsonCodec extends Codec {
       case Schema.Enumeration(structure)  => enumDecoder(structure)
     }
 
-    private def recordDecoder(structure: Map[String, Schema[_]]): JsonDecoder[Map[String, _]] = {
+    private def recordDecoder(structure: Map[String, Schema[_]]): JsonDecoder[Map[String, Any]] = {
       (trace: List[JsonError], in: RetractReader) =>
         {
-          val builder: ChunkBuilder[(String, _)] = zio.ChunkBuilder.make[(String, _)](structure.size)
+          val builder: ChunkBuilder[(String, Any)] = zio.ChunkBuilder.make[(String, Any)](structure.size)
           Lexer.char(trace, in, '{')
           if (Lexer.firstField(trace, in))
             do {
@@ -216,10 +216,10 @@ object JsonCodec extends Codec {
         }
     }
 
-    private def enumDecoder(structure: Map[String, Schema[_]]): JsonDecoder[Map[String, _]] = {
+    private def enumDecoder(structure: Map[String, Schema[_]]): JsonDecoder[Map[String, Any]] = {
       (trace: List[JsonError], in: RetractReader) =>
         {
-          val builder: ChunkBuilder[(String, _)] = zio.ChunkBuilder.make[(String, _)](structure.size)
+          val builder: ChunkBuilder[(String, Any)] = zio.ChunkBuilder.make[(String, Any)](structure.size)
           Lexer.char(trace, in, '{')
           if (Lexer.firstField(trace, in)) {
             val field  = Lexer.string(trace, in).toString
