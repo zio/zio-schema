@@ -3,7 +3,6 @@ package zio.schema.codec
 // import java.time.Year
 import java.time.{ ZoneId, ZoneOffset }
 
-import zio.Chunk
 import zio.duration._
 import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
@@ -14,6 +13,7 @@ import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test.environment.TestEnvironment
 import zio.test.{ testM, _ }
+import zio.{ Chunk, ZIO }
 
 //TODO encode and decode specs
 object JsonCodecSpec extends DefaultRunnableSpec {
@@ -218,7 +218,16 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
         }
       },
-      testM("of records") {
+      testM("minimal test case") {
+        SchemaGen.anyRecordAndValue.runHead.flatMap {
+          case Some((schema, value)) =>
+            val key      = new String(Array('\u0007', '\n'))
+            val embedded = Schema.Record(Map(key -> schema))
+            assertEncodesThenDecodes(embedded, Map(key -> value))
+          case None => ZIO.fail("Should never happen!")
+        }
+      },
+      testM("record of records") {
         checkM(SchemaGen.anyRecordOfRecordsAndValue) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
         }
