@@ -26,6 +26,12 @@ object Schema {
   sealed case class Optional[A](codec: Schema[A])                  extends Schema[Option[A]]
   final case class Fail[A](message: String)                        extends Schema[A]
 
+  sealed trait CaseClass[Z] extends Schema[Z] {
+    def toRecord: Record
+  }
+  abstract case class CaseClass1[A,Z <: Product1[A]](field: (String,Schema[A]), construct: A => Z) extends CaseClass[Z]
+  abstract case class CaseClass2[A1,A2,Z <: Product2[A1,A2]](field1: (String,Schema[A1]),field2: (String,Schema[A2]),construct: (A1,A2) => Z) extends CaseClass[Z]
+
   def fail[A](message: String): Schema[A] = Fail(message)
 
   def apply[A](implicit codec: Schema[A]): Schema[A] = codec

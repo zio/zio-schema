@@ -47,6 +47,39 @@ object DeriveSchema {
     )
   }
 
+  private def caseClass1[Z](caseClass: CaseClass[Typeclass,Z]): Typeclass[Z] = {
+    val param = caseClass.parameters.head
+
+    new Schema.CaseClass1[param.PType,Z](
+      field = (param.label,param.typeclass),
+      construct = (p: param.PType) => caseClass.construct(_ => p)
+    ) {
+      override def toRecord: Schema.Record = Schema.Record(Map(param.label -> param.typeclass))
+    }
+  }
+
+  private def caseClass2[Z](caseClass: CaseClass[Typeclass,Z]): Typeclass[Z] = {
+    val param1 = caseClass.parameters.head
+    val param2 = caseClass.parameters(0)
+
+    new Schema.CaseClass2[param1.PType,param2.PType,Z](
+      field1 = param1.label -> param1.typeclass,
+      field2 = param2.label -> param2.typeclass,
+      construct = (p1: param1.PType, p2: param2.PType) => caseClass.construct(_.index match {
+          case 0 => p1
+          case 1 => p2
+        }
+      )
+    ) {
+      override def toRecord: Schema.Record = Schema.Record(
+        Map(
+          param1.label -> param1.typeclass,
+          param2.label -> param2.typeclass
+        )
+      )
+    }
+  }
+
   private def caseClassN2[A](caseClass: CaseClass[Typeclass, A]): Typeclass[A] = {
     val param1 = caseClass.parameters.head
     val param2 = caseClass.parameters(1)
