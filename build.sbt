@@ -47,13 +47,11 @@ lazy val root = project
     name := "zio-schema",
     skip in publish := true
   )
-  .aggregate(
-    core
-  )
+  .aggregate(core)
 
 lazy val core = project
   .in(file("core"))
-  .settings(stdSettings("zio-schema-core"))
+  .settings(stdSettings("zio-schema"))
   .settings(
     libraryDependencies ++= Seq(
       "dev.zio"        %% "zio"          % zioVersion,
