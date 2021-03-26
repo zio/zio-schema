@@ -58,6 +58,8 @@ object JsonCodec extends Codec {
         case StandardType.DoubleType        => ZJsonCodec.double
         case StandardType.BinaryType        => ZJsonCodec.chunk(ZJsonCodec.byte)
         case StandardType.CharType          => ZJsonCodec.char
+        case StandardType.BigIntegerType    => ZJsonCodec.bigInteger
+        case StandardType.BigDecimalType    => ZJsonCodec.bigDecimal
         case StandardType.DayOfWeekType     => ZJsonCodec.dayOfWeek // ZJsonCodec[java.time.DayOfWeek]
         case StandardType.Duration(_)       => ZJsonCodec.duration //ZJsonCodec[java.time.Duration]
         case StandardType.Instant(_)        => ZJsonCodec.instant //ZJsonCodec[java.time.Instant]
