@@ -3,7 +3,6 @@ package zio.schema
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalUnit
-
 import zio.Chunk
 
 sealed trait StandardType[A]
@@ -19,6 +18,9 @@ object StandardType {
   implicit object DoubleType extends StandardType[Double]
   implicit object BinaryType extends StandardType[Chunk[Byte]]
   implicit object CharType   extends StandardType[Char]
+
+  implicit object BigDecimalType extends StandardType[java.math.BigDecimal]
+  implicit object BigIntegerType extends StandardType[java.math.BigInteger]
 
   //java.time specific types
   implicit object DayOfWeekType                                 extends StandardType[DayOfWeek]
