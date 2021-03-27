@@ -346,6 +346,8 @@ object ProtobufCodec extends Codec {
       case StandardType.DoubleType        => true
       case StandardType.BinaryType        => false
       case StandardType.CharType          => true
+      case StandardType.BigIntegerType    => false
+      case StandardType.BigDecimalType    => false
       case StandardType.DayOfWeekType     => true
       case StandardType.Month             => true
       case StandardType.MonthDay          => false
@@ -687,6 +689,8 @@ object ProtobufCodec extends Codec {
       case StandardType.DoubleType        => Some(0.0)
       case StandardType.BinaryType        => Some(Chunk.empty)
       case StandardType.CharType          => None
+      case StandardType.BigIntegerType    => Some(java.math.BigInteger.ZERO)
+      case StandardType.BigDecimalType    => Some(java.math.BigDecimal.ZERO)
       case StandardType.DayOfWeekType     => None
       case StandardType.Month             => None
       case StandardType.MonthDay          => None

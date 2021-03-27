@@ -31,6 +31,9 @@ object Schema {
 
   def apply[A](implicit codec: Schema[A]): Schema[A] = codec
 
+  implicit val bigInt: Schema[BigInt]         = primitive[java.math.BigInteger].transform(BigInt(_), _.bigInteger)
+  implicit val bigDecimal: Schema[BigDecimal] = primitive[java.math.BigDecimal].transform(BigDecimal(_), _.bigDecimal)
+
   def caseClassN[A, Z](t1: (String, Schema[A]))(f: A => Z, g: Z => Option[A]): Schema[Z] =
     Schema
       .record(Map(t1))

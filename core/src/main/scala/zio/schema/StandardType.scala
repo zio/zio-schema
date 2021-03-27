@@ -20,6 +20,9 @@ object StandardType {
   implicit object BinaryType extends StandardType[Chunk[Byte]]
   implicit object CharType   extends StandardType[Char]
 
+  implicit object BigDecimalType extends StandardType[java.math.BigDecimal]
+  implicit object BigIntegerType extends StandardType[java.math.BigInteger]
+
   //java.time specific types
   implicit object DayOfWeekType                                 extends StandardType[DayOfWeek]
   implicit object Month                                         extends StandardType[java.time.Month]
