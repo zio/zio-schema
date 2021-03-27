@@ -7,6 +7,7 @@ import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.internal.{ Lexer, RetractReader, Write }
 import zio.json.{ JsonCodec => ZJsonCodec, JsonDecoder, JsonEncoder, JsonFieldDecoder, JsonFieldEncoder }
+import zio.schema.Schema.EitherSchema
 import zio.schema.{ StandardType, _ }
 import zio.stream.ZTransducer
 import zio.{ Chunk, ChunkBuilder, ZIO }
@@ -102,7 +103,18 @@ object JsonCodec extends Codec {
       case Schema.Fail(_)                 => unitEncoder.contramap(_ => ())
       case Schema.Record(structure)       => recordEncoder(structure, value)
       case Schema.Enumeration(structure)  => enumEncoder(structure, value)
+      case EitherSchema(left, right)      => eitherEncoder(left, right, value)
     }
+
+    private def eitherEncoder[A, B](
+      leftSchema: Schema[A],
+      rightSchema: Schema[B],
+      value: Either[A, B]
+    ): JsonEncoder[Either[A, B]] =
+      value match {
+        case Left(a)  => schemaEncoder(leftSchema, a).either(schemaEncoder(rightSchema, a.asInstanceOf[B]))
+        case Right(b) => schemaEncoder(leftSchema, b.asInstanceOf[A]).either(schemaEncoder(rightSchema, b))
+      }
 
     private def tupleEncoder[A, B](schema: Schema.Tuple[A, B], value: (A, B)): JsonEncoder[(A, B)] =
       schemaEncoder(schema.left, value._1).both(schemaEncoder(schema.right, value._2))
@@ -199,6 +211,7 @@ object JsonCodec extends Codec {
       case Schema.Fail(message)           => failDecoder(message)
       case Schema.Record(structure)       => recordDecoder(structure)
       case Schema.Enumeration(structure)  => enumDecoder(structure)
+      case EitherSchema(left, right)      => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
     }
 
     private def recordDecoder(structure: Map[String, Schema[_]]): JsonDecoder[Map[String, Any]] = {
