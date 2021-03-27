@@ -1,119 +1,67 @@
 package zio.schema
 
 import scala.language.experimental.macros
-
 import magnolia._
 
 object DeriveSchema {
 
   type Typeclass[A] = Schema[A]
 
-  def combine[A](caseClass: CaseClass[Schema, A]): Schema[A] =
-    caseClass.parameters.size match {
-      case 1 => caseClassN1(caseClass)
-      case 2 => caseClassN2(caseClass)
-      case 3 => caseClassN3(caseClass)
+  def combine[A](ctx: CaseClass[Schema, A]): Schema[A] =
+    ctx.parameters.size match {
+      case 1 => caseClass1(ctx)
+      case 2 => caseClass2(ctx)
+      case 3 => caseClass3(ctx)
       case _ =>
         Schema
           .record(
-            caseClass.parameters.map(p => p.label -> p.typeclass).toMap
+            ctx.parameters.map(p => p.label -> p.typeclass).toMap
           )
           .transformOrFail(
             { map =>
-              caseClass.parameters
+              ctx.parameters
                 .map(p => map.get(p.label).orElse(p.default).toRight(p.label))
                 .collect { case Left(fieldName) => fieldName }
                 .toList match {
                 case ::(head, next) => Left(s"""Missing field(s): ${(head :: next).mkString(", ")}.""")
                 case Nil =>
-                  Right(caseClass.construct { p =>
+                  Right(ctx.construct { p =>
                     map.get(p.label).map(_.asInstanceOf[p.PType]).orElse(p.default).get
                   })
               }
             }, { cc =>
-              Right(caseClass.parameters.map(p => p.label -> p.dereference(cc)).toMap)
+              Right(ctx.parameters.map(p => p.label -> p.dereference(cc)).toMap)
             }
           )
     }
 
-  private def caseClassN1[A](caseClass: CaseClass[Typeclass, A]): Typeclass[A] = {
-    val param = caseClass.parameters.head
-
-    Schema.caseClassN[param.PType, A](
-      param.label -> param.typeclass
-    )(
-      p => caseClass.construct(_ => p),
-      cc => Option(param.dereference(cc))
+  private def caseClass1[Z](ctx: CaseClass[Typeclass,Z]): Typeclass[Z] = {
+    val param = ctx.parameters.head
+    Schema.CaseClass1[param.PType,Z](
+      field = (param.label,param.typeclass),
+      construct = (p: param.PType) => ctx.construct(_ => p)
     )
   }
 
-  private def caseClass1[Z](caseClass: CaseClass[Typeclass,Z]): Typeclass[Z] = {
-    val param = caseClass.parameters.head
-
-    new Schema.CaseClass1[param.PType,Z](
-      field = (param.label,param.typeclass),
-      construct = (p: param.PType) => caseClass.construct(_ => p)
-    ) {
-      override def toRecord: Schema.Record = Schema.Record(Map(param.label -> param.typeclass))
-    }
-  }
-
-  private def caseClass2[Z](caseClass: CaseClass[Typeclass,Z]): Typeclass[Z] = {
-    val param1 = caseClass.parameters.head
-    val param2 = caseClass.parameters(0)
-
+  private def caseClass2[Z](ctx: CaseClass[Typeclass,Z]): Typeclass[Z] = {
+    val param1 = ctx.parameters.head
+    val param2 = ctx.parameters(1)
     new Schema.CaseClass2[param1.PType,param2.PType,Z](
       field1 = param1.label -> param1.typeclass,
       field2 = param2.label -> param2.typeclass,
-      construct = (p1: param1.PType, p2: param2.PType) => caseClass.construct(_.index match {
-          case 0 => p1
-          case 1 => p2
-        }
-      )
-    ) {
-      override def toRecord: Schema.Record = Schema.Record(
-        Map(
-          param1.label -> param1.typeclass,
-          param2.label -> param2.typeclass
-        )
-      )
-    }
-  }
-
-  private def caseClassN2[A](caseClass: CaseClass[Typeclass, A]): Typeclass[A] = {
-    val param1 = caseClass.parameters.head
-    val param2 = caseClass.parameters(1)
-
-    Schema.caseClassN[param1.PType, param2.PType, A](
-      param1.label -> param1.typeclass,
-      param2.label -> param2.typeclass
-    )(
-      (p1, p2) =>
-        caseClass.construct(_.index match {
-          case 0 => p1
-          case 1 => p2
-        }),
-      cc => Option((param1.dereference(cc), param2.dereference(cc)))
+      construct = (p1: param1.PType, p2: param2.PType) => ctx.rawConstruct(Seq(p1,p2))
     )
   }
 
-  private def caseClassN3[A](caseClass: CaseClass[Typeclass, A]): Typeclass[A] = {
-    val param1 = caseClass.parameters.head
-    val param2 = caseClass.parameters(1)
-    val param3 = caseClass.parameters(2)
-
-    Schema.caseClassN[param1.PType, param2.PType, param3.PType, A](
-      param1.label -> param1.typeclass,
-      param2.label -> param2.typeclass,
-      param3.label -> param3.typeclass
-    )(
-      (p1, p2, p3) =>
-        caseClass.construct(_.index match {
-          case 0 => p1
-          case 1 => p2
-          case 2 => p3
-        }),
-      cc => Option((param1.dereference(cc), param2.dereference(cc), param3.dereference(cc)))
+  private def caseClass3[Z](ctx: CaseClass[Typeclass,Z]): Typeclass[Z] = {
+    val param1 = ctx.parameters.head
+    val param2 = ctx.parameters(1)
+    val param3 = ctx.parameters(2)
+    new Schema.CaseClass3[param1.PType,param2.PType,param3.PType,Z](
+      field1 = param1.label -> param1.typeclass,
+      field2 = param2.label -> param2.typeclass,
+      field3 = param3.label -> param3.typeclass,
+      construct = (p1: param1.PType, p2: param2.PType, p3: param3.PType) => ctx.rawConstruct(Seq(p1,p2,p3))
     )
   }
 

@@ -29,8 +29,25 @@ object Schema {
   sealed trait CaseClass[Z] extends Schema[Z] {
     def toRecord: Record
   }
-  abstract case class CaseClass1[A,Z <: Product1[A]](field: (String,Schema[A]), construct: A => Z) extends CaseClass[Z]
-  abstract case class CaseClass2[A1,A2,Z <: Product2[A1,A2]](field1: (String,Schema[A1]),field2: (String,Schema[A2]),construct: (A1,A2) => Z) extends CaseClass[Z]
+  case class CaseClass1[A,Z](field: (String,Schema[A]),
+                             construct: A => Z,
+                             extract: Z => A) extends CaseClass[Z]  {
+    override def toRecord: Record = Record(Map(field))
+  }
+  case class CaseClass2[A1,A2,Z](field1: (String,Schema[A1]),
+                                                             field2: (String,Schema[A2]),
+                                                             construct: (A1,A2) => Z,
+                                 extract: Z => (A1,A2)) extends CaseClass[Z] {
+    override def toRecord: Record = Record(Map(field1,field2))
+  }
+  case class CaseClass3[A1,A2,A3,Z](
+                                                                    field1: (String,Schema[A1]),
+                                                                    field2: (String,Schema[A2]),
+                                                                    field3: (String,Schema[A3]),
+                                                                    construct: (A1,A2,A3) => Z,
+                                                                    extract: Z => (A1,A2,A3)) extends CaseClass[Z] {
+    override def toRecord: Record = Record(Map(field1,field2,field3))
+  }
 
   def fail[A](message: String): Schema[A] = Fail(message)
 

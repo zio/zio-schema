@@ -90,6 +90,7 @@ object ProtobufCodec extends Codec {
       case _: Schema.Tuple[_, _]  => None
       case _: Schema.Optional[_]  => None
       case _: Schema.Fail[_]      => None
+      case _ => ???
     }
 
     def tupleSchema[A, B](left: Schema[A], right: Schema[B]): Schema[Map[String, _]] =
@@ -303,6 +304,7 @@ object ProtobufCodec extends Codec {
       case _: Schema.Tuple[_, _]          => false
       case _: Schema.Optional[_]          => false
       case _: Schema.Fail[_]              => false
+      case _ => ???
     }
 
     private def canBePacked(standardType: StandardType[_]): Boolean = standardType match {
@@ -378,6 +380,7 @@ object ProtobufCodec extends Codec {
         case Schema.Optional(codec)         => optionalDecoder(codec).asInstanceOf[Decoder[A]]
         case Schema.Fail(message) =>
           (_, _) => Left(message)
+        case _ => ???
       }
 
     private def recordDecoder(structure: Map[String, Schema[_]]): Decoder[Map[String, _]] =
@@ -636,6 +639,7 @@ object ProtobufCodec extends Codec {
         if (defaultValue(left).isEmpty || defaultValue(right).isEmpty) None else Some((left, right))
       case _: Schema.Optional[_] => Some(None)
       case _: Schema.Fail[_]     => Some(None)
+      case _ => ???
     }
 
     private def defaultValue(standardType: StandardType[_]): Option[Any] = standardType match {
