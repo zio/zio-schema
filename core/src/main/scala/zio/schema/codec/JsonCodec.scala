@@ -112,8 +112,10 @@ object JsonCodec extends Codec {
       value: Either[A, B]
     ): JsonEncoder[Either[A, B]] =
       value match {
-        case Left(a)  => schemaEncoder(leftSchema, a).either(schemaEncoder(rightSchema, a.asInstanceOf[B]))
-        case Right(b) => schemaEncoder(leftSchema, b.asInstanceOf[A]).either(schemaEncoder(rightSchema, b))
+        case Left(a) =>
+          JsonEncoder.either(schemaEncoder(leftSchema, a), (_, _, _) => throw new NotImplementedError())
+        case Right(b) =>
+          JsonEncoder.either((_, _, _) => throw new NotImplementedError(), schemaEncoder(rightSchema, b))
       }
 
     private def tupleEncoder[A, B](schema: Schema.Tuple[A, B], value: (A, B)): JsonEncoder[(A, B)] =

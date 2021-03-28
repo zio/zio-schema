@@ -165,18 +165,36 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         }
       },
       testM("of tuples") {
-        checkM(for {
-          (left, _)  <- SchemaGen.anyTupleAndValue
-          (right, b) <- SchemaGen.anyTupleAndValue
-        } yield (Schema.EitherSchema(left, right), Right(b))) {
+        checkM(
+          for {
+            left  <- SchemaGen.anyTupleAndValue
+            right <- SchemaGen.anyTupleAndValue
+          } yield (
+            Schema.EitherSchema(left._1.asInstanceOf[Schema[(Any, Any)]], right._1.asInstanceOf[Schema[(Any, Any)]]),
+            Right(right._2)
+          )
+        ) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
         }
       },
       testM("of enums") {
         checkM(for {
-          (left, a)  <- SchemaGen.anyEnumerationAndValue
-          (right, _) <- SchemaGen.anyEnumerationAndValue
-        } yield (Schema.EitherSchema(left, right), Left(a))) {
+          (left, value) <- SchemaGen.anyEnumerationAndValue
+          (right, _)    <- SchemaGen.anyEnumerationAndValue
+        } yield (Schema.EitherSchema(left, right), Left(value))) {
+          case (schema, value) => assertEncodesThenDecodes(schema, value)
+        }
+      },
+      testM("of sequence") {
+        checkM(
+          for {
+            left  <- SchemaGen.anySequenceAndValue
+            right <- SchemaGen.anySequenceAndValue
+          } yield (
+            Schema.EitherSchema(left._1.asInstanceOf[Schema[Chunk[Any]]], right._1.asInstanceOf[Schema[Chunk[Any]]]),
+            Left(left._2)
+          )
+        ) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
         }
       },
@@ -185,14 +203,6 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           (left, a)       <- SchemaGen.anyRecordAndValue
           primitiveSchema <- SchemaGen.anyPrimitive
         } yield (Schema.EitherSchema(left, primitiveSchema), Left(a))) {
-          case (schema, value) => assertEncodesThenDecodes(schema, value)
-        }
-      },
-      testM("of sequence") {
-        checkM(for {
-          (left, a)  <- SchemaGen.anySequenceAndValue
-          (right, _) <- SchemaGen.anySequenceAndValue
-        } yield (Schema.EitherSchema(left, right), Left(a))) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
         }
       },
@@ -206,9 +216,9 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       },
       testM("mixed") {
         checkM(for {
-          (left, a)  <- SchemaGen.anyEnumerationAndValue
-          (right, _) <- SchemaGen.anySequenceAndValue
-        } yield (Schema.EitherSchema(left, right), Left(a))) {
+          (left, _)      <- SchemaGen.anyEnumerationAndValue
+          (right, value) <- SchemaGen.anySequenceAndValue
+        } yield (Schema.EitherSchema(left, right), Right(value))) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
         }
       }
