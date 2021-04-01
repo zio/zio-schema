@@ -19,7 +19,8 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
 
       val userIdSchema: Schema[UserId] = DeriveSchema.gen
 
-      val expectedSchema: Schema[UserId] = Schema.CaseClass1(field = "id" -> Schema.Primitive(StandardType.StringType), UserId.apply)
+      val expectedSchema: Schema[UserId] =
+        Schema.CaseClass1(field = "id" -> Schema.Primitive(StandardType.StringType), UserId.apply)
 
       assert(userIdSchema)(hasSameSchema(expectedSchema))
     },

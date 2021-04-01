@@ -32,8 +32,9 @@ object SchemaAssertions {
       case (Schema.Tuple(left1, right1), Schema.Tuple(left2, right2)) =>
         equalsSchema(left1, left2) && equalsSchema(right1, right2)
       case (Schema.Optional(codec1), Schema.Optional(codec2)) => equalsSchema(codec1, codec2)
-      case (Schema.CaseClass1(field1,_),Schema.CaseClass1(field2,_)) => field1._1 == field2._1 && equalsSchema(field1._2,field2._2)
-      case _                                                  => false
+      case (Schema.CaseClass1(field1, _), Schema.CaseClass1(field2, _)) =>
+        field1._1 == field2._1 && equalsSchema(field1._2, field2._2)
+      case _ => false
     }
 
   private def hasSameKeys[K, V](map1: Map[K, V], map2: Map[K, V]): Boolean =

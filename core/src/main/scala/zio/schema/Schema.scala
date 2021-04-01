@@ -29,25 +29,405 @@ object Schema {
   sealed trait CaseClass[Z] extends Schema[Z] {
     def toRecord: Record
   }
-  case class CaseClass1[A,Z](field: (String,Schema[A]),
-                             construct: A => Z,
-                             extract: Z => A) extends CaseClass[Z]  {
+  case class CaseClass1[A, Z](field: (String, Schema[A]), construct: A => Z, extract: Z => Tuple1[A])
+      extends CaseClass[Z] {
     override def toRecord: Record = Record(Map(field))
   }
-  case class CaseClass2[A1,A2,Z](field1: (String,Schema[A1]),
-                                                             field2: (String,Schema[A2]),
-                                                             construct: (A1,A2) => Z,
-                                 extract: Z => (A1,A2)) extends CaseClass[Z] {
-    override def toRecord: Record = Record(Map(field1,field2))
+  case class CaseClass2[A1, A2, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    construct: (A1, A2) => Z,
+    extract: Z => (A1, A2)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record = Record(Map(field1, field2))
   }
-  case class CaseClass3[A1,A2,A3,Z](
-                                                                    field1: (String,Schema[A1]),
-                                                                    field2: (String,Schema[A2]),
-                                                                    field3: (String,Schema[A3]),
-                                                                    construct: (A1,A2,A3) => Z,
-                                                                    extract: Z => (A1,A2,A3)) extends CaseClass[Z] {
-    override def toRecord: Record = Record(Map(field1,field2,field3))
+  case class CaseClass3[A1, A2, A3, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    construct: (A1, A2, A3) => Z,
+    extract: Z => (A1, A2, A3)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record = Record(Map(field1, field2, field3))
   }
+  case class CaseClass4[A1, A2, A3, A4, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    construct: (A1, A2, A3, A4) => Z,
+    extract: Z => (A1, A2, A3, A4)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record = Record(Map(field1, field2, field3, field4))
+  }
+  case class CaseClass5[A1, A2, A3, A4, A5, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    construct: (A1, A2, A3, A4, A5) => Z,
+    extract: Z => (A1, A2, A3, A4, A5)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record = Record(Map(field1, field2, field3, field4, field5))
+  }
+  case class CaseClass6[A1, A2, A3, A4, A5, A6, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    construct: (A1, A2, A3, A4, A5, A6) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record = Record(Map(field1, field2, field3, field4, field5, field6))
+  }
+  case class CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    field7: (String, Schema[A7]),
+    construct: (A1, A2, A3, A4, A5, A6, A7) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6, A7)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record = Record(Map(field1, field2, field3, field4, field5, field6, field7))
+  }
+  case class CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    field7: (String, Schema[A7]),
+    field8: (String, Schema[A8]),
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6, A7, A8)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record = Record(Map(field1, field2, field3, field4, field5, field6, field7, field8))
+  }
+  case class CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    field7: (String, Schema[A7]),
+    field8: (String, Schema[A8]),
+    field9: (String, Schema[A9]),
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6, A7, A8, A9)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record = Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9))
+  }
+  case class CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    field7: (String, Schema[A7]),
+    field8: (String, Schema[A8]),
+    field9: (String, Schema[A9]),
+    field10: (String, Schema[A10]),
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record =
+      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10))
+  }
+  case class CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    field7: (String, Schema[A7]),
+    field8: (String, Schema[A8]),
+    field9: (String, Schema[A9]),
+    field10: (String, Schema[A10]),
+    field11: (String, Schema[A11]),
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record =
+      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11))
+  }
+  case class CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    field7: (String, Schema[A7]),
+    field8: (String, Schema[A8]),
+    field9: (String, Schema[A9]),
+    field10: (String, Schema[A10]),
+    field11: (String, Schema[A11]),
+    field12: (String, Schema[A12]),
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record =
+      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12))
+  }
+  case class CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    field7: (String, Schema[A7]),
+    field8: (String, Schema[A8]),
+    field9: (String, Schema[A9]),
+    field10: (String, Schema[A10]),
+    field11: (String, Schema[A11]),
+    field12: (String, Schema[A12]),
+    field13: (String, Schema[A13]),
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record =
+      Record(
+        Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13)
+      )
+  }
+  // format: off
+  case class CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    field7: (String, Schema[A7]),
+    field8: (String, Schema[A8]),
+    field9: (String, Schema[A9]),
+    field10: (String, Schema[A10]),
+    field11: (String, Schema[A11]),
+    field12: (String, Schema[A12]),
+    field13: (String, Schema[A13]),
+    field14: (String, Schema[A14]),
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record =
+      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14))
+  }
+  case class CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    field7: (String, Schema[A7]),
+    field8: (String, Schema[A8]),
+    field9: (String, Schema[A9]),
+    field10: (String, Schema[A10]),
+    field11: (String, Schema[A11]),
+    field12: (String, Schema[A12]),
+    field13: (String, Schema[A13]),
+    field14: (String, Schema[A14]),
+    field15: (String, Schema[A15]),
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record =
+      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15))
+  }
+  case class CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    field7: (String, Schema[A7]),
+    field8: (String, Schema[A8]),
+    field9: (String, Schema[A9]),
+    field10: (String, Schema[A10]),
+    field11: (String, Schema[A11]),
+    field12: (String, Schema[A12]),
+    field13: (String, Schema[A13]),
+    field14: (String, Schema[A14]),
+    field15: (String, Schema[A15]),
+    field16: (String, Schema[A16]),
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record =
+      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16))
+  }
+  case class CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    field7: (String, Schema[A7]),
+    field8: (String, Schema[A8]),
+    field9: (String, Schema[A9]),
+    field10: (String, Schema[A10]),
+    field11: (String, Schema[A11]),
+    field12: (String, Schema[A12]),
+    field13: (String, Schema[A13]),
+    field14: (String, Schema[A14]),
+    field15: (String, Schema[A15]),
+    field16: (String, Schema[A16]),
+    field17: (String, Schema[A17]),
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record =
+      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17))
+  }
+  case class CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    field7: (String, Schema[A7]),
+    field8: (String, Schema[A8]),
+    field9: (String, Schema[A9]),
+    field10: (String, Schema[A10]),
+    field11: (String, Schema[A11]),
+    field12: (String, Schema[A12]),
+    field13: (String, Schema[A13]),
+    field14: (String, Schema[A14]),
+    field15: (String, Schema[A15]),
+    field16: (String, Schema[A16]),
+    field17: (String, Schema[A17]),
+    field18: (String, Schema[A18]),
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record =
+      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18))
+  }
+  case class CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    field7: (String, Schema[A7]),
+    field8: (String, Schema[A8]),
+    field9: (String, Schema[A9]),
+    field10: (String, Schema[A10]),
+    field11: (String, Schema[A11]),
+    field12: (String, Schema[A12]),
+    field13: (String, Schema[A13]),
+    field14: (String, Schema[A14]),
+    field15: (String, Schema[A15]),
+    field16: (String, Schema[A16]),
+    field17: (String, Schema[A17]),
+    field18: (String, Schema[A18]),
+    field19: (String, Schema[A19]),
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record =
+      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19))
+  }
+  case class CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    field7: (String, Schema[A7]),
+    field8: (String, Schema[A8]),
+    field9: (String, Schema[A9]),
+    field10: (String, Schema[A10]),
+    field11: (String, Schema[A11]),
+    field12: (String, Schema[A12]),
+    field13: (String, Schema[A13]),
+    field14: (String, Schema[A14]),
+    field15: (String, Schema[A15]),
+    field16: (String, Schema[A16]),
+    field17: (String, Schema[A17]),
+    field18: (String, Schema[A18]),
+    field19: (String, Schema[A19]),
+    field20: (String, Schema[A20]),
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record =
+      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20))
+  }
+  case class CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19,A20, A21, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    field7: (String, Schema[A7]),
+    field8: (String, Schema[A8]),
+    field9: (String, Schema[A9]),
+    field10: (String, Schema[A10]),
+    field11: (String, Schema[A11]),
+    field12: (String, Schema[A12]),
+    field13: (String, Schema[A13]),
+    field14: (String, Schema[A14]),
+    field15: (String, Schema[A15]),
+    field16: (String, Schema[A16]),
+    field17: (String, Schema[A17]),
+    field18: (String, Schema[A18]),
+    field19: (String, Schema[A19]),
+    field20: (String, Schema[A20]),
+    field21: (String, Schema[A21]),
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record =
+      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20, field21))
+  }
+  case class CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](
+    field1: (String, Schema[A1]),
+    field2: (String, Schema[A2]),
+    field3: (String, Schema[A3]),
+    field4: (String, Schema[A4]),
+    field5: (String, Schema[A5]),
+    field6: (String, Schema[A6]),
+    field7: (String, Schema[A7]),
+    field8: (String, Schema[A8]),
+    field9: (String, Schema[A9]),
+    field10: (String, Schema[A10]),
+    field11: (String, Schema[A11]),
+    field12: (String, Schema[A12]),
+    field13: (String, Schema[A13]),
+    field14: (String, Schema[A14]),
+    field15: (String, Schema[A15]),
+    field16: (String, Schema[A16]),
+    field17: (String, Schema[A17]),
+    field18: (String, Schema[A18]),
+    field19: (String, Schema[A19]),
+    field20: (String, Schema[A20]),
+    field21: (String, Schema[A21]),
+    field22: (String, Schema[A22]),
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22) => Z,
+    extract: Z => (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22)
+  ) extends CaseClass[Z] {
+    override def toRecord: Record =
+      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20, field21, field22))
+  }
+  // format: on
 
   def fail[A](message: String): Schema[A] = Fail(message)
 
