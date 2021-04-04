@@ -269,13 +269,10 @@ object ProtobufCodec extends Codec {
       encodeVarInt(value.toLong)
 
     private def encodeVarInt(value: Long): Chunk[Byte] = {
-      // 0 -> 127 -> number, 128 => 0, 129 => 1
-      val base128 = value & 0x7F
-      //0 -> 128 => 0, 128 -> 255 => 1, 256 -> 383 => 2
+      val base128    = value & 0x7F
       val higherBits = value >>> 7
-      // if value is not in range 0 -> 127
+
       if (higherBits != 0x00) {
-        // base to 128 - 255 range, 0 => 128, 127 => 255
         (0x80 | base128).byteValue() +: encodeVarInt(higherBits)
       } else {
         Chunk(base128.byteValue())
@@ -284,13 +281,13 @@ object ProtobufCodec extends Codec {
 
     /**
      * Encodes key. Key contains field number out of flatten schema structure and wire type.
+     * 1 << 3 => 8, 2 << 3 => 16, 3 << 3 => 24
      *
      * More info:
      * https://developers.google.com/protocol-buffers/docs/encoding#structure
      */
     private def encodeKey(wireType: WireType, fieldNumber: Option[Int]): Chunk[Byte] =
       fieldNumber.map { fieldNumber =>
-        // 1 << 3 => 8, 2 << 3 => 16, 3 << 3 => 24
         val encode = (baseWireType: Int) => encodeVarInt(fieldNumber << 3 | baseWireType)
         wireType match {
           case WireType.VarInt                  => encode(0)
