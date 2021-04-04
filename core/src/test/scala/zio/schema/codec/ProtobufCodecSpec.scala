@@ -1,16 +1,17 @@
 package zio.schema.codec
 
+import java.time._
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+
+import scala.util.Try
+
 import zio.schema.Schema.Primitive
 import zio.schema.{ Schema, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
 import zio.{ Chunk, ZIO }
-
-import java.time._
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
-import scala.util.Try
 
 // TODO: use generators instead of manual encode/decode
 object ProtobufCodecSpec extends DefaultRunnableSpec {

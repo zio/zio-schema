@@ -1,12 +1,12 @@
 package zio.schema.codec
 
-import zio.schema._
-import zio.stream.ZTransducer
-import zio.{ Chunk, ZIO }
-
 import java.nio.charset.StandardCharsets
 import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
+
+import zio.schema._
+import zio.stream.ZTransducer
+import zio.{ Chunk, ZIO }
 
 object ProtobufCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
