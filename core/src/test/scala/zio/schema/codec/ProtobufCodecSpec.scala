@@ -1,25 +1,8 @@
 package zio.schema.codec
 
+import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.time.{
-  DayOfWeek,
-  Duration,
-  Instant,
-  LocalDate,
-  LocalDateTime,
-  LocalTime,
-  Month,
-  MonthDay,
-  OffsetDateTime,
-  OffsetTime,
-  Period,
-  Year,
-  YearMonth,
-  ZoneId,
-  ZoneOffset,
-  ZonedDateTime
-}
 
 import scala.util.Try
 
@@ -89,6 +72,12 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         for {
           e  <- encode(schemaEnumeration, Enumeration(IntValue(482))).map(toHex)
           e2 <- encodeNS(schemaEnumeration, Enumeration(IntValue(482))).map(toHex)
+        } yield assert(e)(equalTo("0A0310E203")) && assert(e2)(equalTo("0A0310E203"))
+      },
+      testM("enums unwrapped") {
+        for {
+          e  <- encode(schemaOneOf, IntValue(482)).map(toHex)
+          e2 <- encodeNS(schemaOneOf, IntValue(482)).map(toHex)
         } yield assert(e)(equalTo("10E203")) && assert(e2)(equalTo("10E203"))
       },
       testM("failure") {
@@ -99,11 +88,35 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       }
     ),
     suite("Should successfully encode and decode")(
-      testM("messages") {
+      testM("integer") {
         for {
-          ed  <- encodeAndDecode(schema, message)
+          ed2 <- encodeAndDecodeNS(schemaBasicInt, BasicInt(150))
+        } yield assert(ed2)(equalTo(BasicInt(150)))
+      },
+      testM("integer inside wrapper class") {
+        for {
+          ed2 <- encodeAndDecodeNS(basicIntWrapperSchema, BasicIntWrapper(BasicInt(150)))
+        } yield assert(ed2)(equalTo(BasicIntWrapper(BasicInt(150))))
+      },
+      testM("two integers") {
+        for {
+          ed2 <- encodeAndDecodeNS(schemaBasicTwoInts, BasicTwoInts(150, 151))
+        } yield assert(ed2)(equalTo(BasicTwoInts(150, 151)))
+      },
+      testM("two integers inside wrapper class") {
+        for {
+          ed2 <- encodeAndDecodeNS(basicTwoIntWrapperSchema, BasicTwoIntWrapper(BasicTwoInts(150, 151)))
+        } yield assert(ed2)(equalTo(BasicTwoIntWrapper(BasicTwoInts(150, 151))))
+      },
+      testM("two wrapped integers inside wrapper class") {
+        for {
+          e2 <- encodeAndDecodeNS(separateWrapper, SeparateWrapper(BasicInt(150), BasicInt(151)))
+        } yield assert(e2)(equalTo(SeparateWrapper(BasicInt(150), BasicInt(151))))
+      },
+      testM("complex product and string and integer") {
+        for {
           ed2 <- encodeAndDecodeNS(schema, message)
-        } yield assert(ed)(equalTo(Chunk(message))) && assert(ed2)(equalTo(message))
+        } yield assert(ed2)(equalTo(message))
       },
       testM("booleans") {
         val value = true
@@ -285,10 +298,26 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       testM("enumerations") {
         for {
           ed  <- encodeAndDecode(schemaEnumeration, Enumeration(BooleanValue(true)))
-          ed2 <- encodeAndDecodeNS(schemaEnumeration, Enumeration(BooleanValue(true)))
+          ed2 <- encodeAndDecodeNS(schemaEnumeration, Enumeration(IntValue(482)))
         } yield assert(ed)(equalTo(Chunk(Enumeration(BooleanValue(true))))) && assert(ed2)(
-          equalTo(Enumeration(BooleanValue(true)))
+          equalTo(Enumeration(IntValue(482)))
         )
+      },
+      testM("enums unwrapped") {
+        for {
+          ed  <- encodeAndDecode(schemaOneOf, BooleanValue(true))
+          ed2 <- encodeAndDecodeNS(schemaOneOf, BooleanValue(true))
+        } yield assert(ed)(equalTo(Chunk(BooleanValue(true)))) && assert(ed2)(
+          equalTo(BooleanValue(true))
+        )
+      },
+      testM("enum within enum") {
+        val oneOf   = RichSum.AnotherSum(BooleanValue(false))
+        val wrapper = RichSum.LongWrapper(150L)
+        for {
+          ed  <- encodeAndDecode(richSumSchema, wrapper)
+          ed2 <- encodeAndDecodeNS(richSumSchema, oneOf)
+        } yield assert(ed)(equalTo(Chunk(wrapper))) && assert(ed2)(equalTo(oneOf))
       },
       testM("tuples") {
         val value = (123, "foo")
@@ -297,12 +326,119 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(schemaTuple, value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
+      testM("either left") {
+        val either = Left(9)
+        for {
+          ed  <- encodeAndDecode(eitherSchema, either)
+          ed2 <- encodeAndDecodeNS(eitherSchema, either)
+        } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
+      },
+      testM("either right") {
+        val either = Right("hello")
+        for {
+          ed  <- encodeAndDecode(eitherSchema, either)
+          ed2 <- encodeAndDecodeNS(eitherSchema, either)
+        } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
+      },
+      testM("either with product type") {
+        val eitherLeft = Left(MyRecord(150))
+        for {
+          ed  <- encodeAndDecode(complexEitherSchema2, eitherLeft)
+          ed2 <- encodeAndDecodeNS(complexEitherSchema2, eitherLeft)
+        } yield assert(ed)(equalTo(Chunk(eitherLeft))) && assert(ed2)(equalTo(eitherLeft))
+      },
+      testM("either with sum type") {
+        val eitherRight  = Right(BooleanValue(true))
+        val eitherRight2 = Right(StringValue("hello"))
+        for {
+          ed  <- encodeAndDecode(complexEitherSchema, eitherRight2)
+          ed2 <- encodeAndDecodeNS(complexEitherSchema, eitherRight)
+        } yield assert(ed)(equalTo(Chunk(eitherRight2))) && assert(ed2)(equalTo(eitherRight))
+      },
       testM("optionals") {
         val value = Some(123)
         for {
           ed  <- encodeAndDecode(Schema.Optional(Schema[Int]), value)
           ed2 <- encodeAndDecodeNS(Schema.Optional(Schema[Int]), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+      },
+      testM("complex optionals with sum type") {
+        val value = Some(BooleanValue(true))
+        for {
+          ed  <- encodeAndDecode(Schema.Optional(schemaOneOf), value)
+          ed2 <- encodeAndDecodeNS(Schema.Optional(schemaOneOf), value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+      },
+      testM("option within option") {
+        val value = Some(Some(true))
+        for {
+          ed  <- encodeAndDecode(Schema.option(Schema.option(Schema[Boolean])), value)
+          ed2 <- encodeAndDecodeNS(Schema.option(Schema.option(Schema[Boolean])), value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+      },
+      testM("product type with inner product type") {
+        val richProduct = RichProduct(StringValue("sum_type"), BasicString("string"), Record("value", 47))
+        for {
+          ed  <- encodeAndDecode(richProductSchema, richProduct)
+          ed2 <- encodeAndDecodeNS(richProductSchema, richProduct)
+        } yield assert(ed)(equalTo(Chunk(richProduct))) && assert(ed2)(equalTo(richProduct))
+      },
+      testM("complex sum type with nested product") {
+        val richSum = RichSum.Person("hello", 10)
+        for {
+          ed  <- encodeAndDecode(richSumSchema, richSum)
+          ed2 <- encodeAndDecodeNS(richSumSchema, richSum)
+        } yield assert(ed)(equalTo(Chunk(richSum))) && assert(ed2)(equalTo(richSum))
+      },
+      testM("complex sum type with nested long primitive") {
+        val long = RichSum.LongWrapper(100L)
+        for {
+          ed  <- encodeAndDecode(richSumSchema, long)
+          ed2 <- encodeAndDecodeNS(richSumSchema, long)
+        } yield assert(ed)(equalTo(Chunk(long))) && assert(ed2)(equalTo(long))
+      },
+      testM("complex either with product type") {
+        val either = Left(Record("hello world", 100))
+        for {
+          ed  <- encodeAndDecode(complexEitherSchema, either)
+          ed2 <- encodeAndDecodeNS(complexEitherSchema, either)
+        } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
+      },
+      testM("complex tuples") {
+        val value = (Record("hello world", 100), BooleanValue(true))
+        for {
+          ed  <- encodeAndDecode(complexTupleSchema, value)
+          ed2 <- encodeAndDecodeNS(complexTupleSchema, value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+      },
+      testM("complex optionals with product type") {
+        val value = Some(Record("hello earth", 21))
+        for {
+          ed  <- encodeAndDecode(Schema.Optional(schemaRecord), value)
+          ed2 <- encodeAndDecodeNS(Schema.Optional(schemaRecord), value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+      },
+      testM("optional of product type within optional") {
+        val value = Some(Some(Record("hello", 10)))
+        for {
+          ed  <- encodeAndDecode(Schema.Optional(Schema.Optional(schemaRecord)), value)
+          ed2 <- encodeAndDecodeNS(Schema.Optional(Schema.Optional(schemaRecord)), value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+      },
+      testM("optional of sum type within optional") {
+        val value = Some(Some(BooleanValue(true)))
+        for {
+          ed  <- encodeAndDecode(Schema.Optional(Schema.Optional(schemaOneOf)), value)
+          ed2 <- encodeAndDecodeNS(Schema.Optional(Schema.Optional(schemaOneOf)), value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+      },
+      testM("either within either") {
+        val either = Right(Left(BooleanValue(true)))
+        val schema = Schema.either(Schema[Int], Schema.either(schemaOneOf, Schema[String]))
+        for {
+          ed  <- encodeAndDecode(schema, either)
+          ed2 <- encodeAndDecodeNS(schema, either)
+        } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
       }
     ),
     suite("Should successfully decode")(
@@ -355,9 +491,8 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         for {
           d  <- decode(schemaRecord, "10FF").run
           d2 <- decodeNS(schemaRecord, "10FF").run
-        } yield assert(d)(fails(equalTo("Unexpected end of chunk"))) && assert(d2)(
-          fails(equalTo("Unexpected end of chunk"))
-        )
+        } yield assert(d)(fails(equalTo("Unexpected end of chunk"))) &&
+          assert(d2)(fails(equalTo("Unexpected end of chunk")))
       },
       testM("fail schemas") {
         for {
@@ -372,15 +507,39 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
 
   case class BasicInt(value: Int)
 
+  case class BasicTwoInts(value1: Int, value2: Int)
+
+  val schemaBasicTwoInts: Schema[BasicTwoInts] = Schema.caseClassN(
+    "value1" -> Schema[Int],
+    "value2" -> Schema[Int]
+  )(BasicTwoInts, BasicTwoInts.unapply)
+
   val schemaBasicInt: Schema[BasicInt] = Schema.caseClassN(
     "value" -> Schema[Int]
   )(BasicInt, BasicInt.unapply)
+
+  case class BasicTwoIntWrapper(basic: BasicTwoInts)
+  case class BasicIntWrapper(basic: BasicInt)
+  case class SeparateWrapper(basic1: BasicInt, basic2: BasicInt)
+
+  val basicIntWrapperSchema: Schema[BasicIntWrapper] = Schema.caseClassN(
+    "basic" -> schemaBasicInt
+  )(BasicIntWrapper, BasicIntWrapper.unapply)
+
+  val basicTwoIntWrapperSchema: Schema[BasicTwoIntWrapper] = Schema.caseClassN(
+    "basic" -> schemaBasicTwoInts
+  )(BasicTwoIntWrapper, BasicTwoIntWrapper.unapply)
 
   case class BasicString(value: String)
 
   val schemaBasicString: Schema[BasicString] = Schema.caseClassN(
     "value" -> Schema[String]
   )(BasicString, BasicString.unapply)
+
+  val separateWrapper: Schema[SeparateWrapper] = Schema.caseClassN(
+    "basic1" -> schemaBasicInt,
+    "basic2" -> schemaBasicInt
+  )(SeparateWrapper, SeparateWrapper.unapply)
 
   case class BasicFloat(value: Float)
 
@@ -448,6 +607,65 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
     }
   )
 
+  case class MyRecord(age: Int)
+
+  val myRecord: Schema[MyRecord] = Schema.caseClassN(
+    "age" -> Schema[Int]
+  )(MyRecord, MyRecord.unapply)
+
+  val complexTupleSchema: Schema.Tuple[Record, OneOf] = Schema.Tuple(schemaRecord, schemaOneOf)
+
+  val eitherSchema: Schema.EitherSchema[Int, String] = Schema.EitherSchema(Schema[Int], Schema[String])
+
+  val complexEitherSchema: Schema.EitherSchema[Record, OneOf] =
+    Schema.EitherSchema(schemaRecord, schemaOneOf)
+
+  val complexEitherSchema2: Schema.EitherSchema[MyRecord, MyRecord] =
+    Schema.EitherSchema(myRecord, myRecord)
+
+  case class RichProduct(stringOneOf: OneOf, basicString: BasicString, record: Record)
+
+  val richProductSchema: Schema[RichProduct] = Schema.caseClassN(
+    "stringOneOf" -> schemaOneOf,
+    "basicString" -> schemaBasicString,
+    "record"      -> schemaRecord
+  )(RichProduct, RichProduct.unapply)
+
+  sealed trait RichSum
+
+  object RichSum {
+    case class Person(name: String, age: Int) extends RichSum
+    case class AnotherSum(oneOf: OneOf)       extends RichSum
+    case class LongWrapper(long: Long)        extends RichSum
+  }
+
+  val personSchema: Schema[RichSum.Person] = Schema.caseClassN(
+    ("name" -> Schema[String]),
+    ("age"  -> Schema[Int])
+  )(RichSum.Person, RichSum.Person.unapply)
+
+  val richSumSchema: Schema[RichSum] = Schema.Transform(
+    Schema.enumeration(
+      Map(
+        "person" -> personSchema,
+        "oneOf"  -> schemaOneOf,
+        "long"   -> Schema[Long]
+      )
+    ),
+    (value: Map[String, _]) => {
+      value
+        .get("person")
+        .map(v => Right(v.asInstanceOf[RichSum.Person]))
+        .orElse(value.get("oneOf").map(v => Right(RichSum.AnotherSum(v.asInstanceOf[OneOf]))))
+        .orElse(value.get("long").map(v => Right(RichSum.LongWrapper(v.asInstanceOf[Long]))))
+        .getOrElse(Left("No value found"))
+    }, {
+      case p: RichSum.Person         => Right(Map("person" -> p))
+      case RichSum.AnotherSum(oneOf) => Right(Map("oneOf"  -> oneOf))
+      case RichSum.LongWrapper(long) => Right(Map("long"   -> long))
+    }
+  )
+
   case class Enumeration(oneOf: OneOf)
 
   val schemaEnumeration: Schema[Enumeration] =
@@ -455,15 +673,22 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
 
   val schemaFail: Schema[StringValue] = Schema.fail("failing schema")
 
-  case class SearchRequest(query: String, pageNumber: Int, resultPerPage: Int)
+  case class RequestVars(someString: String, second: Int)
+
+  val rvSchema: Schema[RequestVars] = Schema.caseClassN(
+    "someString" -> Schema[String],
+    "second"     -> Schema[Int]
+  )(RequestVars, RequestVars.unapply)
+
+  case class SearchRequest(query: String, pageNumber: RequestVars, resultPerPage: Int)
 
   val schema: Schema[SearchRequest] = Schema.caseClassN(
     "query"         -> Schema[String],
-    "pageNumber"    -> Schema[Int],
+    "pageNumber"    -> rvSchema,
     "resultPerPage" -> Schema[Int]
   )(SearchRequest, SearchRequest.unapply)
 
-  val message: SearchRequest = SearchRequest("bitcoins", 1, 100)
+  val message: SearchRequest = SearchRequest("bitcoins", RequestVars("varValue", 1), 100)
 
   def toHex(chunk: Chunk[Byte]): String =
     chunk.toArray.map("%02X".format(_)).mkString

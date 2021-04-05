@@ -42,6 +42,28 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
+  val anyEither: Gen[Random with Sized, Schema.EitherSchema[_, _]] =
+    for {
+      left  <- anyPrimitive
+      right <- anyPrimitive
+    } yield Schema.EitherSchema(left, right)
+
+  type EitherAndGen[A, B] = (Schema.EitherSchema[A, B], Gen[Random with Sized, Either[A, B]])
+
+  val anyEitherAndGen: Gen[Random with Sized, EitherAndGen[_, _]] =
+    for {
+      (leftSchema, leftGen)   <- anyPrimitiveAndGen
+      (rightSchema, rightGen) <- anyPrimitiveAndGen
+    } yield (Schema.EitherSchema(leftSchema, rightSchema), Gen.either(leftGen, rightGen))
+
+  type EitherAndValue[A, B] = (Schema.EitherSchema[A, B], Either[A, B])
+
+  val anyEitherAndValue: Gen[Random with Sized, EitherAndValue[_, _]] =
+    for {
+      (schema, gen) <- anyEitherAndGen
+      value         <- gen
+    } yield (schema, value)
+
   val anyTuple: Gen[Random with Sized, Schema.Tuple[_, _]] =
     anySchema.zipWith(anySchema) { (a, b) =>
       Schema.Tuple(a, b)
@@ -267,6 +289,7 @@ object SchemaGen {
     anySequence,
     anyEnumeration,
     anyRecord,
-    anyTransform
+    anyTransform,
+    anyEither
   )
 }

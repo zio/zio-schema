@@ -21,10 +21,11 @@ object Schema {
   sealed case class Enumeration(structure: Map[String, Schema[_]]) extends Schema[Map[String, _]]
   sealed case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
       extends Schema[B]
-  sealed case class Primitive[A](standardType: StandardType[A])    extends Schema[A]
-  sealed case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)]
-  sealed case class Optional[A](codec: Schema[A])                  extends Schema[Option[A]]
-  final case class Fail[A](message: String)                        extends Schema[A]
+  sealed case class Primitive[A](standardType: StandardType[A])          extends Schema[A]
+  sealed case class Optional[A](codec: Schema[A])                        extends Schema[Option[A]]
+  final case class Fail[A](message: String)                              extends Schema[A]
+  sealed case class Tuple[A, B](left: Schema[A], right: Schema[B])       extends Schema[(A, B)]
+  final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]]
 
   def fail[A](message: String): Schema[A] = Fail(message)
 
@@ -87,18 +88,10 @@ object Schema {
       )
 
   def either[A, B](left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
-    enumeration(Map("Left" -> left, "Right" -> right)).transformOrFail(
-      { map =>
-        map.headOption.map {
-          case ("Left", v)  => Right(Left(v.asInstanceOf[A]))
-          case ("Right", v) => Right(Right(v.asInstanceOf[B]))
-          case _            => Left("Expected left or right of sum")
-        }.getOrElse(Left("Expected left or right of sum"))
-      }, {
-        case Left(v)  => Right(Map("Left"  -> v))
-        case Right(v) => Right(Map("Right" -> v))
-      }
-    )
+    EitherSchema(left, right)
+
+  def tuple[A, B](left: Schema[A], right: Schema[B]): Schema[(A, B)] =
+    Tuple(left, right)
 
   def enumeration(structure: Map[String, Schema[_]]): Schema[Map[String, _]] =
     Enumeration(structure)
