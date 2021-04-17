@@ -326,9 +326,6 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           Map[String, Any]("l1" -> "s", "l2" -> Map[String, Any]("foo" -> "s", "bar" -> 1))
         )
       }
-//      testM("case class") {
-//        checkM(searchRequestGen)(assertEncodesThenDecodes(searchRequestSchema, _))
-//      }
     ),
     suite("enumeration")(
       testM("of primitives") {
