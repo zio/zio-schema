@@ -1,18 +1,18 @@
 package zio.schema.codec
 
 // import java.time.Year
-import java.time.{ZoneId, ZoneOffset}
+import java.time.{ ZoneId, ZoneOffset }
 import zio.duration._
 import zio.json.JsonDecoder.JsonError
-import zio.json.{DeriveJsonEncoder, JsonEncoder}
+import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.random.Random
-import zio.schema.{DeriveSchema, JavaTimeGen, Schema, SchemaGen, StandardType}
+import zio.schema.{ DeriveSchema, JavaTimeGen, Schema, SchemaGen, StandardType }
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test.environment.TestEnvironment
-import zio.test.{testM, _}
-import zio.{Chunk, ZIO}
+import zio.test.{ testM, _ }
+import zio.{ Chunk, ZIO }
 
 //TODO encode and decode specs
 object JsonCodecSpec extends DefaultRunnableSpec {
@@ -213,6 +213,13 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         )
       }
     },
+    suite("case class") {
+      testM("basic") {
+        checkM(searchRequestGen) { value =>
+          assertEncodesThenDecodes(searchRequestSchema, value)
+        }
+      }
+    },
     suite("record")(
       testM("any") {
         checkM(SchemaGen.anyRecordAndValue) {
@@ -252,7 +259,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           nestedRecordSchema,
           Map[String, Any]("l1" -> "s", "l2" -> Map[String, Any]("foo" -> "s", "bar" -> 1))
         )
-      },
+      }
 //      testM("case class") {
 //        checkM(searchRequestGen)(assertEncodesThenDecodes(searchRequestSchema, _))
 //      }
@@ -357,8 +364,6 @@ object JsonCodecSpec extends DefaultRunnableSpec {
   }
 
   case class SearchRequest(query: String, pageNumber: Int, resultPerPage: Int)
-
-
 
   object SearchRequest {
     implicit val encoder: JsonEncoder[SearchRequest] = DeriveJsonEncoder.gen[SearchRequest]

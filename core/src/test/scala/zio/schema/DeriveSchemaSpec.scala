@@ -1,12 +1,14 @@
 package zio.schema
 
-import zio.Chunk
+//import zio.Chunk
 import zio.schema.SchemaAssertions.hasSameSchema
 import zio.test.{ DefaultRunnableSpec, ZSpec, assert, suite, test }
 
 object DeriveSchemaSpec extends DefaultRunnableSpec {
 
   sealed case class UserId(id: String)
+
+  sealed case class User(name: String, id: UserId)
 
   sealed trait Status
   case class Ok(response: List[String]) extends Status
@@ -20,9 +22,31 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       val userIdSchema: Schema[UserId] = DeriveSchema.gen
 
       val expectedSchema: Schema[UserId] =
-        Schema.CaseClass1(field = "id" -> Schema.Primitive(StandardType.StringType), UserId.apply, (uid: UserId) => Tuple1(uid.id))
+        Schema.CaseClass1(
+          field = "id" -> Schema.Primitive(StandardType.StringType),
+          UserId.apply,
+          (uid: UserId) => Tuple1(uid.id)
+        )
 
       assert(userIdSchema)(hasSameSchema(expectedSchema))
+    },
+    test("DeriveSchema correctly derives schema for case class with nested case classes") {
+      val derived: Schema[User] = DeriveSchema.gen
+      val expected: Schema[User] =
+        Schema.CaseClass2(
+          field1 = ("name", Schema.Primitive(StandardType.StringType)),
+          field2 = (
+            "id",
+            Schema.CaseClass1(
+              field = "id" -> Schema.Primitive(StandardType.StringType),
+              UserId.apply,
+              (uid: UserId) => Tuple1(uid.id)
+            )
+          ),
+          User.apply,
+          (u: User) => User.unapply(u).get
+        )
+      assert(derived)(hasSameSchema(expected))
     },
     test("DeriveSchema correctly derives schema for complex ADT") {
 
@@ -32,36 +56,9 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         Schema.Transform[Map[String, Any], Status](
           Schema.Enumeration(
             Map(
-              "Ok" -> Schema.Transform[Map[String, Any], Ok](
-                Schema.Record(
-                  Map(
-                    "response" -> Schema.Transform[Chunk[String], List[String]](
-                      Schema.Sequence(Schema.Primitive(StandardType.StringType)),
-                      chunk => Right(chunk.toList),                   // ignored in equality comparison
-                      elements => Right(Chunk.fromIterable(elements)) // ignored in equality comparison
-                    )
-                  )
-                ),
-                map => Right(Ok(response = List(map.toString))), // ignored in equality comparison
-                ok => Right(Map("response" -> ok.response)) // ignored in equality comparison
-              ),
-              "Failed" -> Schema.Transform[Map[String, Any], Failed](
-                Schema.Record(
-                  Map(
-                    "code"                  -> Schema.Primitive(StandardType.IntType),
-                    "reason"                -> Schema.Primitive(StandardType.StringType),
-                    "additionalExplanation" -> Schema.option(Schema.Primitive(StandardType.StringType)),
-                    "remark"                -> Schema.Primitive(StandardType.StringType)
-                  )
-                ),
-                _ => Right(Failed(1, "a", None)), // ignored in equality comparison
-                failed => Right(Map("code" -> failed.code, "reason" -> failed.reason)) // ignored in equality comparison
-              ),
-              "Pending" -> Schema.Transform[Map[String, Any], Pending.type](
-                Schema.Record(Map()),
-                _ => Right(Pending), // ignored in equality comparison
-                _ => Right(Map())    // ignored in equality comparison
-              )
+              "Ok"      -> DeriveSchema.gen[Ok],
+              "Failed"  -> DeriveSchema.gen[Failed],
+              "Pending" -> DeriveSchema.gen[Pending.type]
             )
           ),
           _ => Right(Pending), // ignored in equality comparison
