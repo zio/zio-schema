@@ -58,8 +58,8 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         for {
           e  <- encode(schemaUnpackedList, UnpackedList(List("foo", "bar", "baz"))).map(toHex)
           e2 <- encodeNS(schemaUnpackedList, UnpackedList(List("foo", "bar", "baz"))).map(toHex)
-        } yield assert(e)(equalTo("0A03666F6F0A036261720A0362617A")) && assert(e2)(
-          equalTo("0A03666F6F0A036261720A0362617A")
+        } yield assert(e)(equalTo("0A0F0A03666F6F12036261721A0362617A")) && assert(e2)(
+          equalTo("0A0F0A03666F6F12036261721A0362617A")
         )
       },
       testM("records") {
@@ -88,6 +88,11 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       }
     ),
     suite("Should successfully encode and decode")(
+      testM("records") {
+        for {
+          ed2 <- encodeAndDecodeNS(schemaRecord, Record("hello", 150))
+        } yield assert(ed2)(equalTo(Record("hello", 150)))
+      },
       testM("integer") {
         for {
           ed2 <- encodeAndDecodeNS(schemaBasicInt, BasicInt(150))
@@ -439,21 +444,27 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed  <- encodeAndDecode(schema, either)
           ed2 <- encodeAndDecodeNS(schema, either)
         } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
+      },
+      testM("sequence of products") {
+        val richSequence = SequenceOfProduct(
+          "hello",
+          List(Record("Jan", 30), Record("xxx", 40), Record("Peter", 22)),
+          RichSum.LongWrapper(150L)
+        )
+        for {
+          ed  <- encodeAndDecode(sequenceOfProductSchema, richSequence)
+          ed2 <- encodeAndDecodeNS(sequenceOfProductSchema, richSequence)
+        } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
+      },
+      testM("seqzzzxxxuence of sums") {
+        val richSequence = SequenceOfSum("hello", List(RichSum.LongWrapper(150L), RichSum.LongWrapper(150L)))
+        for {
+          ed  <- encodeAndDecode(sequenceOfSumSchema, richSequence)
+          ed2 <- encodeAndDecodeNS(sequenceOfSumSchema, richSequence)
+        } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
       }
     ),
     suite("Should successfully decode")(
-      testM("incomplete messages using default values") {
-        for {
-          e  <- decode(schemaRecord, "107B")
-          e2 <- decodeNS(schemaRecord, "107B")
-        } yield assert(e)(equalTo(Chunk(Record("", 123)))) && assert(e2)(equalTo(Record("", 123)))
-      },
-      testM("incomplete tuples using default values") {
-        for {
-          d  <- decode(schemaTuple, "087B")
-          d2 <- decodeNS(schemaTuple, "087B")
-        } yield assert(d)(equalTo(Chunk((123, "")))) && assert(d2)(equalTo((123, "")))
-      },
       testM("empty input") {
         assertM(decode(Schema[Int], ""))(
           equalTo(Chunk.empty)
@@ -484,8 +495,8 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         for {
           d  <- decode(schemaRecord, "0A0346").run
           d2 <- decodeNS(schemaRecord, "0A0346").run
-        } yield assert(d)(fails(equalTo("Unexpected end of chunk"))) &&
-          assert(d2)(fails(equalTo("Unexpected end of chunk")))
+        } yield assert(d)(fails(equalTo("Unexpected end of bytes"))) &&
+          assert(d2)(fails(equalTo("Unexpected end of bytes")))
       },
       testM("incomplete var ints") {
         for {
@@ -689,6 +700,20 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
   )(SearchRequest, SearchRequest.unapply)
 
   val message: SearchRequest = SearchRequest("bitcoins", RequestVars("varValue", 1), 100)
+
+  case class SequenceOfProduct(name: String, records: List[Record], richSum: RichSum)
+  case class SequenceOfSum(value: String, enums: List[RichSum])
+
+  val sequenceOfProductSchema: Schema[SequenceOfProduct] = Schema.caseClassN(
+    "name"    -> Schema[String],
+    "records" -> Schema.list(schemaRecord),
+    "richSum" -> richSumSchema
+  )(SequenceOfProduct, SequenceOfProduct.unapply)
+
+  val sequenceOfSumSchema: Schema[SequenceOfSum] = Schema.caseClassN(
+    "value" -> Schema[String],
+    "enums" -> Schema.list(richSumSchema)
+  )(SequenceOfSum, SequenceOfSum.unapply)
 
   def toHex(chunk: Chunk[Byte]): String =
     chunk.toArray.map("%02X".format(_)).mkString
