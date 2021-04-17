@@ -160,6 +160,71 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         case (schema, value) => assertEncodesThenDecodes(schema, value)
       }
     },
+    suite("either")(
+      testM("of primitives") {
+        checkM(SchemaGen.anyEitherAndValue) {
+          case (schema, value) => assertEncodesThenDecodes(schema, value)
+        }
+      },
+      testM("of tuples") {
+        checkM(
+          for {
+            left  <- SchemaGen.anyTupleAndValue
+            right <- SchemaGen.anyTupleAndValue
+          } yield (
+            Schema.EitherSchema(left._1.asInstanceOf[Schema[(Any, Any)]], right._1.asInstanceOf[Schema[(Any, Any)]]),
+            Right(right._2)
+          )
+        ) {
+          case (schema, value) => assertEncodesThenDecodes(schema, value)
+        }
+      },
+      testM("of enums") {
+        checkM(for {
+          (left, value) <- SchemaGen.anyEnumerationAndValue
+          (right, _)    <- SchemaGen.anyEnumerationAndValue
+        } yield (Schema.EitherSchema(left, right), Left(value))) {
+          case (schema, value) => assertEncodesThenDecodes(schema, value)
+        }
+      },
+      testM("of sequence") {
+        checkM(
+          for {
+            left  <- SchemaGen.anySequenceAndValue
+            right <- SchemaGen.anySequenceAndValue
+          } yield (
+            Schema.EitherSchema(left._1.asInstanceOf[Schema[Chunk[Any]]], right._1.asInstanceOf[Schema[Chunk[Any]]]),
+            Left(left._2)
+          )
+        ) {
+          case (schema, value) => assertEncodesThenDecodes(schema, value)
+        }
+      },
+      testM("of records") {
+        checkM(for {
+          (left, a)       <- SchemaGen.anyRecordAndValue
+          primitiveSchema <- SchemaGen.anyPrimitive
+        } yield (Schema.EitherSchema(left, primitiveSchema), Left(a))) {
+          case (schema, value) => assertEncodesThenDecodes(schema, value)
+        }
+      },
+      testM("of records of records") {
+        checkM(for {
+          (left, _)  <- SchemaGen.anyRecordOfRecordsAndValue
+          (right, b) <- SchemaGen.anyRecordOfRecordsAndValue
+        } yield (Schema.EitherSchema(left, right), Right(b))) {
+          case (schema, value) => assertEncodesThenDecodes(schema, value)
+        }
+      },
+      testM("mixed") {
+        checkM(for {
+          (left, _)      <- SchemaGen.anyEnumerationAndValue
+          (right, value) <- SchemaGen.anySequenceAndValue
+        } yield (Schema.EitherSchema(left, right), Right(value))) {
+          case (schema, value) => assertEncodesThenDecodes(schema, value)
+        }
+      }
+    ),
     suite("optional")(
       testM("of primitive") {
         checkM(SchemaGen.anyOptionalAndValue) {
