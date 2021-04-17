@@ -456,7 +456,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(sequenceOfProductSchema, richSequence)
         } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
       },
-      testM("seqzzzxxxuence of sums") {
+      testM("sequence of sums") {
         val richSequence = SequenceOfSum("hello", List(RichSum.LongWrapper(150L), RichSum.LongWrapper(150L)))
         for {
           ed  <- encodeAndDecode(sequenceOfSumSchema, richSequence)
