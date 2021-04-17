@@ -1,6 +1,5 @@
 package zio.schema
 
-//import zio.Chunk
 import zio.schema.SchemaAssertions.hasSameSchema
 import zio.test.{ DefaultRunnableSpec, ZSpec, assert, suite, test }
 

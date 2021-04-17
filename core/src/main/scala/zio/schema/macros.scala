@@ -1,6 +1,7 @@
 package zio.schema
 
 import scala.language.experimental.macros
+
 import magnolia._
 
 object DeriveSchema {

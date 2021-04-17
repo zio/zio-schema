@@ -32,10 +32,6 @@ object Schema {
   case class CaseClass1[A, Z](field: (String, Schema[A]), construct: A => Z, extract: Z => Tuple1[A])
       extends CaseClass[Z] {
     override def toRecord: Record = Record(Map(field))
-    override def equals(obj: Any): Boolean = obj match {
-      case CaseClass1(f, _, _) => field == f
-      case _                   => false
-    }
   }
   case class CaseClass2[A1, A2, Z](
     field1: (String, Schema[A1]),
@@ -44,10 +40,6 @@ object Schema {
     extract: Z => (A1, A2)
   ) extends CaseClass[Z] {
     override def toRecord: Record = Record(Map(field1, field2))
-    override def equals(obj: Any): Boolean = obj match {
-      case CaseClass2(f1, f2, _, _) => field1 == f1 && field2 == f2
-      case _                        => false
-    }
   }
 
   case class CaseClass3[A1, A2, A3, Z](
@@ -58,10 +50,6 @@ object Schema {
     extract: Z => (A1, A2, A3)
   ) extends CaseClass[Z] {
     override def toRecord: Record = Record(Map(field1, field2, field3))
-    override def equals(obj: Any): Boolean = obj match {
-      case CaseClass3(f1, f2, f3, _, _) => field1 == f1 && field2 == f2 && field3 == f3
-      case _                            => false
-    }
   }
   case class CaseClass4[A1, A2, A3, A4, Z](
     field1: (String, Schema[A1]),
@@ -72,10 +60,6 @@ object Schema {
     extract: Z => (A1, A2, A3, A4)
   ) extends CaseClass[Z] {
     override def toRecord: Record = Record(Map(field1, field2, field3, field4))
-    override def equals(obj: Any): Boolean = obj match {
-      case CaseClass4(f1, f2, f3, f4, _, _) => field1 == f1 && field2 == f2 && field3 == f3 && field4 == f4
-      case _                                => false
-    }
   }
   case class CaseClass5[A1, A2, A3, A4, A5, Z](
     field1: (String, Schema[A1]),
