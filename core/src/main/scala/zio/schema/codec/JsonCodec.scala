@@ -2,14 +2,15 @@ package zio.schema.codec
 
 import java.nio.CharBuffer
 import java.nio.charset.StandardCharsets
+
 import zio.json.JsonCodec._
-import zio.json.JsonDecoder.{JsonError, UnsafeJson}
+import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.internal.{ Lexer, RetractReader, StringMatrix, Write }
-import zio.json.{JsonDecoder, JsonEncoder, JsonFieldDecoder, JsonFieldEncoder, JsonCodec => ZJsonCodec}
+import zio.json.{ JsonCodec => ZJsonCodec, JsonDecoder, JsonEncoder, JsonFieldDecoder, JsonFieldEncoder }
 import zio.schema.Schema.EitherSchema
-import zio.schema.{StandardType, _}
+import zio.schema.{ StandardType, _ }
 import zio.stream.ZTransducer
-import zio.{Chunk, ChunkBuilder, ZIO}
+import zio.{ Chunk, ChunkBuilder, ZIO }
 
 object JsonCodec extends Codec {
 
@@ -102,24 +103,12 @@ object JsonCodec extends Codec {
       case Schema.Fail(_)                        => unitEncoder.contramap(_ => ())
       case Schema.Record(structure)              => recordEncoder(structure)
       case Schema.Enumeration(structure)         => enumEncoder(structure)
-      case EitherSchema(left, right)      => eitherEncoder(left, right, value)
+      case EitherSchema(left, right)             => JsonEncoder.either(schemaEncoder(left), schemaEncoder(right))
       case Schema.CaseClass1(f, _, ext)          => caseClassEncoder(ext, f)
       case Schema.CaseClass2(f1, f2, _, ext)     => caseClassEncoder(ext, f1, f2)
       case Schema.CaseClass3(f1, f2, f3, _, ext) => caseClassEncoder(ext, f1, f2, f3)
       case _                                     => ???
     }
-
-    private def eitherEncoder[A, B](
-      leftSchema: Schema[A],
-      rightSchema: Schema[B],
-      value: Either[A, B]
-    ): JsonEncoder[Either[A, B]] =
-      value match {
-        case Left(a) =>
-          JsonEncoder.either(schemaEncoder(leftSchema, a), (_, _, _) => throw new NotImplementedError())
-        case Right(b) =>
-          JsonEncoder.either((_, _, _) => throw new NotImplementedError(), schemaEncoder(rightSchema, b))
-      }
 
     private def transformEncoder[A, B](schema: Schema[A], g: B => Either[String, A]): JsonEncoder[B] = {
       (b: B, indent: Option[Int], out: Write) =>
@@ -236,8 +225,7 @@ object JsonCodec extends Codec {
       case Schema.Fail(message)                                                               => failDecoder(message)
       case Schema.Record(structure)                                                           => recordDecoder(structure)
       case Schema.Enumeration(structure)                                                      => enumDecoder(structure)
-      case EitherSchema(left, right)      => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
-
+      case EitherSchema(left, right)                                                          => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
       case s @ Schema.CaseClass1(_, _, _)                                                     => caseClass1Decoder(s)
       case s @ Schema.CaseClass2(_, _, _, _)                                                  => caseClass2Decoder(s)
       case s @ Schema.CaseClass3(_, _, _, _, _)                                               => caseClass3Decoder(s)
