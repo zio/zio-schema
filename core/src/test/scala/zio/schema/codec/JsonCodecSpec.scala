@@ -379,12 +379,6 @@ object JsonCodecSpec extends DefaultRunnableSpec {
 
   val searchRequestSchema: Schema[SearchRequest] = DeriveSchema.gen[SearchRequest]
 
-//  val searchRequestSchema: Schema[SearchRequest] = Schema.caseClassN(
-//    "query"         -> Schema[String],
-//    "pageNumber"    -> Schema[Int],
-//    "resultPerPage" -> Schema[Int]
-//  )(SearchRequest.apply, SearchRequest.unapply)
-
   val recordSchema: Schema.Record = Schema.Record(
     Map(
       "foo" -> Schema.Primitive(StandardType.StringType),
