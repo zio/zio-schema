@@ -60,7 +60,7 @@ object DeriveSchema {
     new Schema.CaseClass1[param.PType, Z](
       field = (param.label, param.typeclass),
       construct = (p: param.PType) => ctx.construct(_ => p),
-      extract = (z: Z) => Tuple1(param.dereference(z))
+      extractField = (z: Z) => param.dereference(z)
     )
   }
 
@@ -71,7 +71,8 @@ object DeriveSchema {
       field1 = param1.label -> param1.typeclass,
       field2 = param2.label -> param2.typeclass,
       construct = (p1: param1.PType, p2: param2.PType) => ctx.rawConstruct(Seq(p1, p2)),
-      extract = (z: Z) => (param1.dereference(z), param2.dereference(z))
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z)
     )
   }
 
@@ -84,7 +85,9 @@ object DeriveSchema {
       field2 = param2.label -> param2.typeclass,
       field3 = param3.label -> param3.typeclass,
       construct = (p1: param1.PType, p2: param2.PType, p3: param3.PType) => ctx.rawConstruct(Seq(p1, p2, p3)),
-      extract = (z: Z) => (param1.dereference(z), param2.dereference(z), param3.dereference(z))
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z)
     )
   }
 
@@ -100,7 +103,10 @@ object DeriveSchema {
       field4 = param4.label -> param4.typeclass,
       construct = (p1: param1.PType, p2: param2.PType, p3: param3.PType, p4: param4.PType) =>
         ctx.rawConstruct(Seq(p1, p2, p3, p4)),
-      extract = (z: Z) => (param1.dereference(z), param2.dereference(z), param3.dereference(z), param4.dereference(z))
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z)
     )
   }
 
@@ -118,14 +124,11 @@ object DeriveSchema {
       field5 = param5.label -> param5.typeclass,
       construct = (p1: param1.PType, p2: param2.PType, p3: param3.PType, p4: param4.PType, p5: param5.PType) =>
         ctx.rawConstruct(Seq(p1, p2, p3, p4, p5)),
-      extract = (z: Z) =>
-        (
-          param1.dereference(z),
-          param2.dereference(z),
-          param3.dereference(z),
-          param4.dereference(z),
-          param5.dereference(z)
-        )
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z)
     )
   }
 
@@ -146,15 +149,12 @@ object DeriveSchema {
       construct =
         (p1: param1.PType, p2: param2.PType, p3: param3.PType, p4: param4.PType, p5: param5.PType, p6: param6.PType) =>
           ctx.rawConstruct(Seq(p1, p2, p3, p4, p5, p6)),
-      extract = (z: Z) =>
-        (
-          param1.dereference(z),
-          param2.dereference(z),
-          param3.dereference(z),
-          param4.dereference(z),
-          param5.dereference(z),
-          param6.dereference(z)
-        )
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z)
     )
   }
 
@@ -192,16 +192,13 @@ object DeriveSchema {
         p6: param6.PType,
         p7: param7.PType
       ) => ctx.rawConstruct(Seq(p1, p2, p3, p4, p5, p6, p7)),
-      extract = (z: Z) =>
-        (
-          param1.dereference(z),
-          param2.dereference(z),
-          param3.dereference(z),
-          param4.dereference(z),
-          param5.dereference(z),
-          param6.dereference(z),
-          param7.dereference(z)
-        )
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z),
+      extractField7 = (z: Z) => param7.dereference(z)
     )
   }
 
@@ -243,17 +240,14 @@ object DeriveSchema {
         p7: param7.PType,
         p8: param8.PType
       ) => ctx.rawConstruct(Seq(p1, p2, p3, p4, p5, p6, p7, p8)),
-      extract = (z: Z) =>
-        (
-          param1.dereference(z),
-          param2.dereference(z),
-          param3.dereference(z),
-          param4.dereference(z),
-          param5.dereference(z),
-          param6.dereference(z),
-          param7.dereference(z),
-          param8.dereference(z)
-        )
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z),
+      extractField7 = (z: Z) => param7.dereference(z),
+      extractField8 = (z: Z) => param8.dereference(z)
     )
   }
 
@@ -299,18 +293,15 @@ object DeriveSchema {
         p8: param8.PType,
         p9: param9.PType
       ) => ctx.rawConstruct(Seq(p1, p2, p3, p4, p5, p6, p7, p8, p9)),
-      extract = (z: Z) =>
-        (
-          param1.dereference(z),
-          param2.dereference(z),
-          param3.dereference(z),
-          param4.dereference(z),
-          param5.dereference(z),
-          param6.dereference(z),
-          param7.dereference(z),
-          param8.dereference(z),
-          param9.dereference(z)
-        )
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z),
+      extractField7 = (z: Z) => param7.dereference(z),
+      extractField8 = (z: Z) => param8.dereference(z),
+      extractField9 = (z: Z) => param9.dereference(z)
     )
   }
 
@@ -360,19 +351,16 @@ object DeriveSchema {
         p9: param9.PType,
         p10: param10.PType
       ) => ctx.rawConstruct(Seq(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10)),
-      extract = (z: Z) =>
-        (
-          param1.dereference(z),
-          param2.dereference(z),
-          param3.dereference(z),
-          param4.dereference(z),
-          param5.dereference(z),
-          param6.dereference(z),
-          param7.dereference(z),
-          param8.dereference(z),
-          param9.dereference(z),
-          param10.dereference(z)
-        )
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z),
+      extractField7 = (z: Z) => param7.dereference(z),
+      extractField8 = (z: Z) => param8.dereference(z),
+      extractField9 = (z: Z) => param9.dereference(z),
+      extractField10 = (z: Z) => param10.dereference(z)
     )
   }
 
@@ -426,20 +414,17 @@ object DeriveSchema {
         p10: param10.PType,
         p11: param11.PType
       ) => ctx.rawConstruct(Seq(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11)),
-      extract = (z: Z) =>
-        (
-          param1.dereference(z),
-          param2.dereference(z),
-          param3.dereference(z),
-          param4.dereference(z),
-          param5.dereference(z),
-          param6.dereference(z),
-          param7.dereference(z),
-          param8.dereference(z),
-          param9.dereference(z),
-          param10.dereference(z),
-          param11.dereference(z)
-        )
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z),
+      extractField7 = (z: Z) => param7.dereference(z),
+      extractField8 = (z: Z) => param8.dereference(z),
+      extractField9 = (z: Z) => param9.dereference(z),
+      extractField10 = (z: Z) => param10.dereference(z),
+      extractField11 = (z: Z) => param11.dereference(z)
     )
   }
 
@@ -497,21 +482,18 @@ object DeriveSchema {
         p11: param11.PType,
         p12: param12.PType
       ) => ctx.rawConstruct(Seq(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12)),
-      extract = (z: Z) =>
-        (
-          param1.dereference(z),
-          param2.dereference(z),
-          param3.dereference(z),
-          param4.dereference(z),
-          param5.dereference(z),
-          param6.dereference(z),
-          param7.dereference(z),
-          param8.dereference(z),
-          param9.dereference(z),
-          param10.dereference(z),
-          param11.dereference(z),
-          param12.dereference(z)
-        )
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z),
+      extractField7 = (z: Z) => param7.dereference(z),
+      extractField8 = (z: Z) => param8.dereference(z),
+      extractField9 = (z: Z) => param9.dereference(z),
+      extractField10 = (z: Z) => param10.dereference(z),
+      extractField11 = (z: Z) => param11.dereference(z),
+      extractField12 = (z: Z) => param12.dereference(z)
     )
   }
 
@@ -573,22 +555,19 @@ object DeriveSchema {
         p12: param12.PType,
         p13: param13.PType
       ) => ctx.rawConstruct(Seq(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13)),
-      extract = (z: Z) =>
-        (
-          param1.dereference(z),
-          param2.dereference(z),
-          param3.dereference(z),
-          param4.dereference(z),
-          param5.dereference(z),
-          param6.dereference(z),
-          param7.dereference(z),
-          param8.dereference(z),
-          param9.dereference(z),
-          param10.dereference(z),
-          param11.dereference(z),
-          param12.dereference(z),
-          param13.dereference(z)
-        )
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z),
+      extractField7 = (z: Z) => param7.dereference(z),
+      extractField8 = (z: Z) => param8.dereference(z),
+      extractField9 = (z: Z) => param9.dereference(z),
+      extractField10 = (z: Z) => param10.dereference(z),
+      extractField11 = (z: Z) => param11.dereference(z),
+      extractField12 = (z: Z) => param12.dereference(z),
+      extractField13 = (z: Z) => param13.dereference(z)
     )
   }
 
@@ -654,23 +633,20 @@ object DeriveSchema {
         p13: param13.PType,
         p14: param14.PType
       ) => ctx.rawConstruct(Seq(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14)),
-      extract = (z: Z) =>
-        (
-          param1.dereference(z),
-          param2.dereference(z),
-          param3.dereference(z),
-          param4.dereference(z),
-          param5.dereference(z),
-          param6.dereference(z),
-          param7.dereference(z),
-          param8.dereference(z),
-          param9.dereference(z),
-          param10.dereference(z),
-          param11.dereference(z),
-          param12.dereference(z),
-          param13.dereference(z),
-          param14.dereference(z)
-        )
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z),
+      extractField7 = (z: Z) => param7.dereference(z),
+      extractField8 = (z: Z) => param8.dereference(z),
+      extractField9 = (z: Z) => param9.dereference(z),
+      extractField10 = (z: Z) => param10.dereference(z),
+      extractField11 = (z: Z) => param11.dereference(z),
+      extractField12 = (z: Z) => param12.dereference(z),
+      extractField13 = (z: Z) => param13.dereference(z),
+      extractField14 = (z: Z) => param14.dereference(z)
     )
   }
 
@@ -740,24 +716,21 @@ object DeriveSchema {
         p14: param14.PType,
         p15: param15.PType
       ) => ctx.rawConstruct(Seq(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15)),
-      extract = (z: Z) =>
-        (
-          param1.dereference(z),
-          param2.dereference(z),
-          param3.dereference(z),
-          param4.dereference(z),
-          param5.dereference(z),
-          param6.dereference(z),
-          param7.dereference(z),
-          param8.dereference(z),
-          param9.dereference(z),
-          param10.dereference(z),
-          param11.dereference(z),
-          param12.dereference(z),
-          param13.dereference(z),
-          param14.dereference(z),
-          param15.dereference(z)
-        )
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z),
+      extractField7 = (z: Z) => param7.dereference(z),
+      extractField8 = (z: Z) => param8.dereference(z),
+      extractField9 = (z: Z) => param9.dereference(z),
+      extractField10 = (z: Z) => param10.dereference(z),
+      extractField11 = (z: Z) => param11.dereference(z),
+      extractField12 = (z: Z) => param12.dereference(z),
+      extractField13 = (z: Z) => param13.dereference(z),
+      extractField14 = (z: Z) => param14.dereference(z),
+      extractField15 = (z: Z) => param15.dereference(z)
     )
   }
 
@@ -831,25 +804,22 @@ object DeriveSchema {
         p15: param15.PType,
         p16: param16.PType
       ) => ctx.rawConstruct(Seq(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16)),
-      extract = (z: Z) =>
-        (
-          param1.dereference(z),
-          param2.dereference(z),
-          param3.dereference(z),
-          param4.dereference(z),
-          param5.dereference(z),
-          param6.dereference(z),
-          param7.dereference(z),
-          param8.dereference(z),
-          param9.dereference(z),
-          param10.dereference(z),
-          param11.dereference(z),
-          param12.dereference(z),
-          param13.dereference(z),
-          param14.dereference(z),
-          param15.dereference(z),
-          param16.dereference(z)
-        )
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z),
+      extractField7 = (z: Z) => param7.dereference(z),
+      extractField8 = (z: Z) => param8.dereference(z),
+      extractField9 = (z: Z) => param9.dereference(z),
+      extractField10 = (z: Z) => param10.dereference(z),
+      extractField11 = (z: Z) => param11.dereference(z),
+      extractField12 = (z: Z) => param12.dereference(z),
+      extractField13 = (z: Z) => param13.dereference(z),
+      extractField14 = (z: Z) => param14.dereference(z),
+      extractField15 = (z: Z) => param15.dereference(z),
+      extractField16 = (z: Z) => param16.dereference(z)
     )
   }
 
@@ -927,26 +897,23 @@ object DeriveSchema {
         p16: param16.PType,
         p17: param17.PType
       ) => ctx.rawConstruct(Seq(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17)),
-      extract = (z: Z) =>
-        (
-          param1.dereference(z),
-          param2.dereference(z),
-          param3.dereference(z),
-          param4.dereference(z),
-          param5.dereference(z),
-          param6.dereference(z),
-          param7.dereference(z),
-          param8.dereference(z),
-          param9.dereference(z),
-          param10.dereference(z),
-          param11.dereference(z),
-          param12.dereference(z),
-          param13.dereference(z),
-          param14.dereference(z),
-          param15.dereference(z),
-          param16.dereference(z),
-          param17.dereference(z)
-        )
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z),
+      extractField7 = (z: Z) => param7.dereference(z),
+      extractField8 = (z: Z) => param8.dereference(z),
+      extractField9 = (z: Z) => param9.dereference(z),
+      extractField10 = (z: Z) => param10.dereference(z),
+      extractField11 = (z: Z) => param11.dereference(z),
+      extractField12 = (z: Z) => param12.dereference(z),
+      extractField13 = (z: Z) => param13.dereference(z),
+      extractField14 = (z: Z) => param14.dereference(z),
+      extractField15 = (z: Z) => param15.dereference(z),
+      extractField16 = (z: Z) => param16.dereference(z),
+      extractField17 = (z: Z) => param17.dereference(z)
     )
   }
 
@@ -1028,27 +995,24 @@ object DeriveSchema {
         p17: param17.PType,
         p18: param18.PType
       ) => ctx.rawConstruct(Seq(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18)),
-      extract = (z: Z) =>
-        (
-          param1.dereference(z),
-          param2.dereference(z),
-          param3.dereference(z),
-          param4.dereference(z),
-          param5.dereference(z),
-          param6.dereference(z),
-          param7.dereference(z),
-          param8.dereference(z),
-          param9.dereference(z),
-          param10.dereference(z),
-          param11.dereference(z),
-          param12.dereference(z),
-          param13.dereference(z),
-          param14.dereference(z),
-          param15.dereference(z),
-          param16.dereference(z),
-          param17.dereference(z),
-          param18.dereference(z)
-        )
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z),
+      extractField7 = (z: Z) => param7.dereference(z),
+      extractField8 = (z: Z) => param8.dereference(z),
+      extractField9 = (z: Z) => param9.dereference(z),
+      extractField10 = (z: Z) => param10.dereference(z),
+      extractField11 = (z: Z) => param11.dereference(z),
+      extractField12 = (z: Z) => param12.dereference(z),
+      extractField13 = (z: Z) => param13.dereference(z),
+      extractField14 = (z: Z) => param14.dereference(z),
+      extractField15 = (z: Z) => param15.dereference(z),
+      extractField16 = (z: Z) => param16.dereference(z),
+      extractField17 = (z: Z) => param17.dereference(z),
+      extractField18 = (z: Z) => param18.dereference(z)
     )
   }
 
@@ -1094,7 +1058,25 @@ object DeriveSchema {
       field18 = param18.label -> param18.typeclass,
       field19 = param19.label -> param19.typeclass,
       construct = (p1: param1.PType, p2: param2.PType, p3: param3.PType, p4: param4.PType, p5: param5.PType,p6: param6.PType,p7: param7.PType,p8: param8.PType,p9: param9.PType,p10: param10.PType,p11: param11.PType,p12: param12.PType,p13: param13.PType,p14: param14.PType,p15: param15.PType,p16: param16.PType,p17: param17.PType,p18: param18.PType,p19: param19.PType) => ctx.rawConstruct(Seq(p1, p2, p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14,p15,p16,p17,p18,p19)),
-      extract = (z: Z) => (param1.dereference(z), param2.dereference(z), param3.dereference(z),param4.dereference(z), param5.dereference(z),param6.dereference(z),param7.dereference(z),param8.dereference(z),param9.dereference(z),param10.dereference(z),param11.dereference(z),param12.dereference(z),param13.dereference(z),param14.dereference(z),param15.dereference(z),param16.dereference(z),param17.dereference(z),param18.dereference(z),param19.dereference(z))
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z),
+      extractField7 = (z: Z) => param7.dereference(z),
+      extractField8 = (z: Z) => param8.dereference(z),
+      extractField9 = (z: Z) => param9.dereference(z),
+      extractField10 = (z: Z) => param10.dereference(z),
+      extractField11 = (z: Z) => param11.dereference(z),
+      extractField12 = (z: Z) => param12.dereference(z),
+      extractField13 = (z: Z) => param13.dereference(z),
+      extractField14 = (z: Z) => param14.dereference(z),
+      extractField15 = (z: Z) => param15.dereference(z),
+      extractField16 = (z: Z) => param16.dereference(z),
+      extractField17 = (z: Z) => param17.dereference(z),
+      extractField18 = (z: Z) => param18.dereference(z),
+      extractField19 = (z: Z) => param19.dereference(z)
     )
   }
 
@@ -1141,7 +1123,26 @@ object DeriveSchema {
       field19 = param19.label -> param19.typeclass,
       field20 = param20.label -> param20.typeclass,
       construct = (p1: param1.PType, p2: param2.PType, p3: param3.PType, p4: param4.PType, p5: param5.PType,p6: param6.PType,p7: param7.PType,p8: param8.PType,p9: param9.PType,p10: param10.PType,p11: param11.PType,p12: param12.PType,p13: param13.PType,p14: param14.PType,p15: param15.PType,p16: param16.PType,p17: param17.PType,p18: param18.PType,p19: param19.PType,p20: param20.PType) => ctx.rawConstruct(Seq(p1, p2, p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14,p15,p16,p17,p18,p19,p20)),
-      extract = (z: Z) => (param1.dereference(z), param2.dereference(z), param3.dereference(z),param4.dereference(z), param5.dereference(z),param6.dereference(z),param7.dereference(z),param8.dereference(z),param9.dereference(z),param10.dereference(z),param11.dereference(z),param12.dereference(z),param13.dereference(z),param14.dereference(z),param15.dereference(z),param16.dereference(z),param17.dereference(z),param18.dereference(z),param19.dereference(z),param20.dereference(z))
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z),
+      extractField7 = (z: Z) => param7.dereference(z),
+      extractField8 = (z: Z) => param8.dereference(z),
+      extractField9 = (z: Z) => param9.dereference(z),
+      extractField10 = (z: Z) => param10.dereference(z),
+      extractField11 = (z: Z) => param11.dereference(z),
+      extractField12 = (z: Z) => param12.dereference(z),
+      extractField13 = (z: Z) => param13.dereference(z),
+      extractField14 = (z: Z) => param14.dereference(z),
+      extractField15 = (z: Z) => param15.dereference(z),
+      extractField16 = (z: Z) => param16.dereference(z),
+      extractField17 = (z: Z) => param17.dereference(z),
+      extractField18 = (z: Z) => param18.dereference(z),
+      extractField19 = (z: Z) => param19.dereference(z),
+      extractField20 = (z: Z) => param20.dereference(z)
     )
   }
 
@@ -1190,7 +1191,27 @@ object DeriveSchema {
       field20 = param20.label -> param20.typeclass,
       field21 = param21.label -> param21.typeclass,
       construct = (p1: param1.PType, p2: param2.PType, p3: param3.PType, p4: param4.PType, p5: param5.PType,p6: param6.PType,p7: param7.PType,p8: param8.PType,p9: param9.PType,p10: param10.PType,p11: param11.PType,p12: param12.PType,p13: param13.PType,p14: param14.PType,p15: param15.PType,p16: param16.PType,p17: param17.PType,p18: param18.PType,p19: param19.PType,p20: param20.PType,p21: param21.PType) => ctx.rawConstruct(Seq(p1, p2, p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14,p15,p16,p17,p18,p19,p20,p21)),
-      extract = (z: Z) => (param1.dereference(z), param2.dereference(z), param3.dereference(z),param4.dereference(z), param5.dereference(z),param6.dereference(z),param7.dereference(z),param8.dereference(z),param9.dereference(z),param10.dereference(z),param11.dereference(z),param12.dereference(z),param13.dereference(z),param14.dereference(z),param15.dereference(z),param16.dereference(z),param17.dereference(z),param18.dereference(z),param19.dereference(z),param20.dereference(z),param21.dereference(z))
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z),
+      extractField7 = (z: Z) => param7.dereference(z),
+      extractField8 = (z: Z) => param8.dereference(z),
+      extractField9 = (z: Z) => param9.dereference(z),
+      extractField10 = (z: Z) => param10.dereference(z),
+      extractField11 = (z: Z) => param11.dereference(z),
+      extractField12 = (z: Z) => param12.dereference(z),
+      extractField13 = (z: Z) => param13.dereference(z),
+      extractField14 = (z: Z) => param14.dereference(z),
+      extractField15 = (z: Z) => param15.dereference(z),
+      extractField16 = (z: Z) => param16.dereference(z),
+      extractField17 = (z: Z) => param17.dereference(z),
+      extractField18 = (z: Z) => param18.dereference(z),
+      extractField19 = (z: Z) => param19.dereference(z),
+      extractField20 = (z: Z) => param20.dereference(z),
+      extractField21 = (z: Z) => param21.dereference(z)
     )
   }
 
@@ -1242,7 +1263,28 @@ object DeriveSchema {
       field21 = param21.label -> param21.typeclass,
       field22 = param22.label -> param22.typeclass,
       construct = (p1: param1.PType, p2: param2.PType, p3: param3.PType, p4: param4.PType, p5: param5.PType,p6: param6.PType,p7: param7.PType,p8: param8.PType,p9: param9.PType,p10: param10.PType,p11: param11.PType,p12: param12.PType,p13: param13.PType,p14: param14.PType,p15: param15.PType,p16: param16.PType,p17: param17.PType,p18: param18.PType,p19: param19.PType,p20: param20.PType,p21: param21.PType,p22: param22.PType) => ctx.rawConstruct(Seq(p1, p2, p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14,p15,p16,p17,p18,p19,p20,p21,p22)),
-      extract = (z: Z) => (param1.dereference(z), param2.dereference(z), param3.dereference(z),param4.dereference(z), param5.dereference(z),param6.dereference(z),param7.dereference(z),param8.dereference(z),param9.dereference(z),param10.dereference(z),param11.dereference(z),param12.dereference(z),param13.dereference(z),param14.dereference(z),param15.dereference(z),param16.dereference(z),param17.dereference(z),param18.dereference(z),param19.dereference(z),param20.dereference(z),param21.dereference(z),param22.dereference(z))
+      extractField1 = (z: Z) => param1.dereference(z),
+      extractField2 = (z: Z) => param2.dereference(z),
+      extractField3 = (z: Z) => param3.dereference(z),
+      extractField4 = (z: Z) => param4.dereference(z),
+      extractField5 = (z: Z) => param5.dereference(z),
+      extractField6 = (z: Z) => param6.dereference(z),
+      extractField7 = (z: Z) => param7.dereference(z),
+      extractField8 = (z: Z) => param8.dereference(z),
+      extractField9 = (z: Z) => param9.dereference(z),
+      extractField10 = (z: Z) => param10.dereference(z),
+      extractField11 = (z: Z) => param11.dereference(z),
+      extractField12 = (z: Z) => param12.dereference(z),
+      extractField13 = (z: Z) => param13.dereference(z),
+      extractField14 = (z: Z) => param14.dereference(z),
+      extractField15 = (z: Z) => param15.dereference(z),
+      extractField16 = (z: Z) => param16.dereference(z),
+      extractField17 = (z: Z) => param17.dereference(z),
+      extractField18 = (z: Z) => param18.dereference(z),
+      extractField19 = (z: Z) => param19.dereference(z),
+      extractField20 = (z: Z) => param20.dereference(z),
+      extractField21 = (z: Z) => param21.dereference(z),
+      extractField22 = (z: Z) => param22.dereference(z)
     )
   }
   // format: on

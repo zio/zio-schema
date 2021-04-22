@@ -33,11 +33,11 @@ object SchemaAssertions {
         equalsSchema(left1, left2) && equalsSchema(right1, right2)
       case (Schema.Optional(codec1), Schema.Optional(codec2))       => equalsSchema(codec1, codec2)
       case (Schema.CaseClass1(l, _, _), Schema.CaseClass1(r, _, _)) => equalsField(l, r)
-      case (Schema.CaseClass2(l1, l2, _, _), Schema.CaseClass2(r1, r2, _, _)) =>
+      case (Schema.CaseClass2(l1, l2, _, _, _), Schema.CaseClass2(r1, r2, _, _, _)) =>
         equalsField(l1, r1) && equalsField(l2, r2)
-      case (Schema.CaseClass3(l1, l2, l3, _, _), Schema.CaseClass3(r1, r2, r3, _, _)) =>
+      case (Schema.CaseClass3(l1, l2, l3, _, _, _, _), Schema.CaseClass3(r1, r2, r3, _, _, _, _)) =>
         equalsField(l1, r1) && equalsField(l2, r2) && equalsField(l3, r3)
-      case (Schema.CaseClass4(l1, l2, l3, l4, _, _), Schema.CaseClass4(r1, r2, r3, r4, _, _)) =>
+      case (Schema.CaseClass4(l1, l2, l3, l4, _, _, _, _, _), Schema.CaseClass4(r1, r2, r3, r4, _, _, _, _, _)) =>
         equalsField(l1, r1) && equalsField(l2, r2) && equalsField(l3, r3) && equalsField(l4, r4)
       case _ => false
     }

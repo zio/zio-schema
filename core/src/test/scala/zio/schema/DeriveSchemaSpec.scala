@@ -24,7 +24,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         Schema.CaseClass1(
           field = "id" -> Schema.Primitive(StandardType.StringType),
           UserId.apply,
-          (uid: UserId) => Tuple1(uid.id)
+          (uid: UserId) => uid.id
         )
 
       assert(userIdSchema)(hasSameSchema(expectedSchema))
@@ -39,11 +39,12 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
             Schema.CaseClass1(
               field = "id" -> Schema.Primitive(StandardType.StringType),
               UserId.apply,
-              (uid: UserId) => Tuple1(uid.id)
+              (uid: UserId) => uid.id
             )
           ),
           User.apply,
-          (u: User) => User.unapply(u).get
+          (u: User) => u.name,
+          (u: User) => u.id
         )
       assert(derived)(hasSameSchema(expected))
     },

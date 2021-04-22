@@ -384,7 +384,7 @@ object ProtobufCodec extends Codec {
         case Schema.Optional(codec)           => optionalDecoder(codec).asInstanceOf[Decoder[A]]
         case Schema.Fail(message)             => (_, _) => Left(message)
         case Schema.EitherSchema(left, right) => eitherDecoder(left, right).asInstanceOf[Decoder[A]]
-        case _                                => ???
+        case _: Schema.CaseClass[A]           => ???
       }
 
     private def enumDecoder(structure: Map[String, Schema[_]]): Decoder[Map[String, _]] =
