@@ -105,6 +105,7 @@ object ProtobufCodec extends Codec {
       case _: Schema.Optional[_]          => false
       case _: Schema.Fail[_]              => false
       case _: Schema.EitherSchema[_, _]   => false
+      case _: Schema.CaseClass[_]         => false
     }
 
     private def canBePacked(standardType: StandardType[_]): Boolean = standardType match {
@@ -429,6 +430,8 @@ object ProtobufCodec extends Codec {
         case Schema.Optional(codec)           => optionalDecoder(codec)
         case Schema.Fail(message)             => fail(message)
         case Schema.EitherSchema(left, right) => eitherDecoder(left, right)
+        case _: Schema.CaseClass[A]           => ???
+
       }
 
     private def enumDecoder(fields: Map[Int, (String, Schema[_])]): Decoder[Map[String, _]] =

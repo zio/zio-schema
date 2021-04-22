@@ -7,7 +7,7 @@ import zio.duration._
 import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.random.Random
-import zio.schema.{ JavaTimeGen, Schema, SchemaGen, StandardType }
+import zio.schema.{ DeriveSchema, JavaTimeGen, Schema, SchemaGen, StandardType }
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -89,10 +89,12 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         )
       },
       testM("case class") {
-        assertEncodesJson(
-          searchRequestSchema,
-          SearchRequest("query", 1, 2)
-        )
+        checkM(searchRequestGen) { searchRequest =>
+          assertEncodesJson(
+            searchRequestSchema,
+            searchRequest
+          )
+        }
       }
     ),
     suite("enumeration")(
@@ -277,6 +279,13 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         )
       }
     },
+    suite("case class") {
+      testM("basic") {
+        checkM(searchRequestGen) { value =>
+          assertEncodesThenDecodes(searchRequestSchema, value)
+        }
+      }
+    },
     suite("record")(
       testM("any") {
         checkM(SchemaGen.anyRecordAndValue) {
@@ -316,9 +325,6 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           nestedRecordSchema,
           Map[String, Any]("l1" -> "s", "l2" -> Map[String, Any]("foo" -> "s", "bar" -> 1))
         )
-      },
-      testM("case class") {
-        checkM(searchRequestGen)(assertEncodesThenDecodes(searchRequestSchema, _))
       }
     ),
     suite("enumeration")(
@@ -433,11 +439,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       results    <- Gen.int(Int.MinValue, Int.MaxValue)
     } yield SearchRequest(query, pageNumber, results)
 
-  val searchRequestSchema: Schema[SearchRequest] = Schema.caseClassN(
-    "query"         -> Schema[String],
-    "pageNumber"    -> Schema[Int],
-    "resultPerPage" -> Schema[Int]
-  )(SearchRequest.apply, SearchRequest.unapply)
+  val searchRequestSchema: Schema[SearchRequest] = DeriveSchema.gen[SearchRequest]
 
   val recordSchema: Schema.Record = Schema.Record(
     Map(
