@@ -11,8 +11,8 @@ import zio.schema.{ DeriveSchema, JavaTimeGen, Schema, SchemaGen, StandardType }
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
+import zio.test._
 import zio.test.environment.TestEnvironment
-import zio.test.{ testM, _ }
 import zio.{ Chunk, ZIO }
 
 //TODO encode and decode specs

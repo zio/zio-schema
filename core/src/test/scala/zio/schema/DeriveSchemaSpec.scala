@@ -1,7 +1,7 @@
 package zio.schema
 
 import zio.schema.SchemaAssertions.hasSameSchema
-import zio.test.{ DefaultRunnableSpec, ZSpec, assert, suite, test }
+import zio.test._
 
 object DeriveSchemaSpec extends DefaultRunnableSpec {
 
