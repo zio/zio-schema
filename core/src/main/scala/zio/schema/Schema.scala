@@ -26,6 +26,7 @@ object Schema {
   final case class Fail[A](message: String)                              extends Schema[A]
   sealed case class Tuple[A, B](left: Schema[A], right: Schema[B])       extends Schema[(A, B)]
   final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]]
+  final case class ListSchema[A](codec: Schema[A])                       extends Schema[List[A]]
 
   sealed trait CaseClass[Z] extends Schema[Z] {
     def toRecord: Record

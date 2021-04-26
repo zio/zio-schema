@@ -7,7 +7,7 @@ import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.internal.{ Lexer, RetractReader, StringMatrix, Write }
 import zio.json.{ JsonCodec => ZJsonCodec, JsonDecoder, JsonEncoder, JsonFieldDecoder, JsonFieldEncoder }
-import zio.schema.Schema.EitherSchema
+import zio.schema.Schema.{ EitherSchema, ListSchema }
 import zio.schema.{ StandardType, _ }
 import zio.stream.ZTransducer
 import zio.{ Chunk, ChunkBuilder, ZIO }
@@ -104,6 +104,7 @@ object JsonCodec extends Codec {
       case Schema.Record(structure)                           => recordEncoder(structure)
       case Schema.Enumeration(structure)                      => enumEncoder(structure)
       case EitherSchema(left, right)                          => JsonEncoder.either(schemaEncoder(left), schemaEncoder(right))
+      case ListSchema(codec)                                  => JsonEncoder.list(schemaEncoder(codec))
       case Schema.CaseClass1(f, _, ext)                       => caseClassEncoder(f -> ext)
       case Schema.CaseClass2(f1, f2, _, ext1, ext2)           => caseClassEncoder(f1 -> ext1, f2 -> ext2)
       case Schema.CaseClass3(f1, f2, f3, _, ext1, ext2, ext3) => caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3)
@@ -937,6 +938,7 @@ object JsonCodec extends Codec {
       case Schema.Record(structure)                                                       => recordDecoder(structure)
       case Schema.Enumeration(structure)                                                  => enumDecoder(structure)
       case EitherSchema(left, right)                                                      => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
+      case Schema.ListSchema(codec)                                                       => JsonDecoder.list(schemaDecoder(codec))
       case s @ Schema.CaseClass1(_, _, _)                                                 => caseClass1Decoder(s)
       case s @ Schema.CaseClass2(_, _, _, _, _)                                           => caseClass2Decoder(s)
       case s @ Schema.CaseClass3(_, _, _, _, _, _, _)                                     => caseClass3Decoder(s)
