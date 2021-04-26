@@ -74,7 +74,7 @@ object ProtobufCodec extends Codec {
     def tupleSchema[A, B](first: Schema[A], second: Schema[B]): Schema[Map[String, _]] =
       Schema.record(Map("first" -> first, "second" -> second))
 
-    def optionalSchema[A](codec: Schema[A]): Schema[Map[String, _]] = Schema.record(Map("value" -> codec))
+    def singleSchema[A](codec: Schema[A]): Schema[Map[String, _]] = Schema.record(Map("value" -> codec))
 
     def monthDayStructure(): Map[String, Schema[Int]] =
       Map("month" -> Schema.Primitive(StandardType.IntType), "day" -> Schema.Primitive(StandardType.IntType))
@@ -105,6 +105,7 @@ object ProtobufCodec extends Codec {
       case _: Schema.Optional[_]          => false
       case _: Schema.Fail[_]              => false
       case _: Schema.EitherSchema[_, _]   => false
+      case _: Schema.ListSchema[_]        => false
       case _: Schema.CaseClass[_]         => false
     }
 
@@ -311,7 +312,7 @@ object ProtobufCodec extends Codec {
         case Some(v) =>
           encode(
             fieldNumber,
-            optionalSchema(schema),
+            singleSchema(schema),
             Map("value" -> v)
           )
         case None => Chunk.empty
@@ -430,6 +431,7 @@ object ProtobufCodec extends Codec {
         case Schema.Optional(codec)           => optionalDecoder(codec)
         case Schema.Fail(message)             => fail(message)
         case Schema.EitherSchema(left, right) => eitherDecoder(left, right)
+        case Schema.ListSchema(codec)         => listDecoder(codec)
         case _: Schema.CaseClass[A]           => ???
 
       }
@@ -506,8 +508,12 @@ object ProtobufCodec extends Codec {
       }
 
     private def optionalDecoder[A](schema: Schema[A]): Decoder[Option[A]] =
-      decoder(optionalSchema(schema))
+      decoder(singleSchema(schema))
         .map(record => record.get("value").asInstanceOf[Option[A]])
+
+    private def listDecoder[A](codec: Schema[A]): Decoder[List[A]] =
+      decoder(singleSchema(codec))
+        .map(record => record.get("value").asInstanceOf[List[A]])
 
     private def floatDecoder: Decoder[Float] =
       Decoder(bytes => {
