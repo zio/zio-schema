@@ -669,6 +669,8 @@ object Schema {
 
   implicit val bigInt: Schema[BigInt]         = primitive[java.math.BigInteger].transform(BigInt(_), _.bigInteger)
   implicit val bigDecimal: Schema[BigDecimal] = primitive[java.math.BigDecimal].transform(BigDecimal(_), _.bigDecimal)
+  implicit val nilSchema: Schema[Nil.type]    = Schema[Unit].transform(_ => Nil, _ => ())
+  implicit val noneSchema: Schema[None.type]  = Schema[Unit].transform(_ => None, _ => ())
 
   def caseClassN[A, Z](t1: (String, Schema[A]))(f: A => Z, g: Z => Option[A]): Schema[Z] =
     Schema
