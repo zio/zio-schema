@@ -1278,6 +1278,7 @@ object ProtobufCodec extends Codec {
         case Schema.Optional(codec)                                                            => optionalDecoder(codec)
         case Schema.Fail(message)                                                              => fail(message)
         case Schema.EitherSchema(left, right)                                                  => eitherDecoder(left, right)
+        case Schema.ListSchema(codec)                                                          => listDecoder(codec)
         case s: Schema.CaseClass1[_, A]                                                        => caseClass1Decoder(s)
         case s: Schema.CaseClass2[_, _, A]                                                     => caseClass2Decoder(s)
         case s: Schema.CaseClass3[_, _, _, A]                                                  => caseClass3Decoder(s)
