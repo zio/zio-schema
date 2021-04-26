@@ -741,6 +741,11 @@ object Schema {
     }
   )
 
+  implicit def leftSchema[A, B](implicit schemaA: Schema[A]): Schema[Left[A, Nothing]] =
+    schemaA.transform(Left(_), _.value)
+  implicit def rightSchema[A, B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
+    schemaB.transform(Right(_), _.value)
+
   def caseClassN[A, Z](t1: (String, Schema[A]))(f: A => Z, g: Z => Option[A]): Schema[Z] =
     Schema
       .record(Map(t1))
