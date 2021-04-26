@@ -1,8 +1,11 @@
 package zio.schema
 
+import java.time.temporal.ChronoUnit
+
 import zio.Chunk
 
-sealed trait Schema[A] { self =>
+sealed trait Schema[A] {
+  self =>
   def ? : Schema[Option[A]] = Schema.Optional(self)
 
   def transform[B](f: A => B, g: B => A): Schema[B] =
@@ -16,25 +19,37 @@ sealed trait Schema[A] { self =>
 }
 
 object Schema {
-  sealed case class Record(structure: Map[String, Schema[_]])      extends Schema[Map[String, _]]
-  sealed case class Sequence[A](element: Schema[A])                extends Schema[Chunk[A]]
+
+  sealed case class Record(structure: Map[String, Schema[_]]) extends Schema[Map[String, _]]
+
+  sealed case class Sequence[A](element: Schema[A]) extends Schema[Chunk[A]]
+
   sealed case class Enumeration(structure: Map[String, Schema[_]]) extends Schema[Map[String, _]]
+
   sealed case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
       extends Schema[B]
-  sealed case class Primitive[A](standardType: StandardType[A])          extends Schema[A]
-  sealed case class Optional[A](codec: Schema[A])                        extends Schema[Option[A]]
-  final case class Fail[A](message: String)                              extends Schema[A]
-  sealed case class Tuple[A, B](left: Schema[A], right: Schema[B])       extends Schema[(A, B)]
+
+  sealed case class Primitive[A](standardType: StandardType[A]) extends Schema[A]
+
+  sealed case class Optional[A](codec: Schema[A]) extends Schema[Option[A]]
+
+  final case class Fail[A](message: String) extends Schema[A]
+
+  sealed case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)]
+
   final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]]
-  final case class ListSchema[A](codec: Schema[A])                       extends Schema[List[A]]
+
+  final case class ListSchema[A](codec: Schema[A]) extends Schema[List[A]]
 
   sealed trait CaseClass[Z] extends Schema[Z] {
     def toRecord: Record
   }
+
   final case class CaseClass1[A, Z](field: (String, Schema[A]), construct: A => Z, extractField: Z => A)
       extends CaseClass[Z] {
     override def toRecord: Record = Record(Map(field))
   }
+
   final case class CaseClass2[A1, A2, Z](
     field1: (String, Schema[A1]),
     field2: (String, Schema[A2]),
@@ -56,6 +71,7 @@ object Schema {
   ) extends CaseClass[Z] {
     override def toRecord: Record = Record(Map(field1, field2, field3))
   }
+
   final case class CaseClass4[A1, A2, A3, A4, Z](
     field1: (String, Schema[A1]),
     field2: (String, Schema[A2]),
@@ -69,6 +85,7 @@ object Schema {
   ) extends CaseClass[Z] {
     override def toRecord: Record = Record(Map(field1, field2, field3, field4))
   }
+
   final case class CaseClass5[A1, A2, A3, A4, A5, Z](
     field1: (String, Schema[A1]),
     field2: (String, Schema[A2]),
@@ -84,6 +101,7 @@ object Schema {
   ) extends CaseClass[Z] {
     override def toRecord: Record = Record(Map(field1, field2, field3, field4, field5))
   }
+
   final case class CaseClass6[A1, A2, A3, A4, A5, A6, Z](
     field1: (String, Schema[A1]),
     field2: (String, Schema[A2]),
@@ -101,6 +119,7 @@ object Schema {
   ) extends CaseClass[Z] {
     override def toRecord: Record = Record(Map(field1, field2, field3, field4, field5, field6))
   }
+
   final case class CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z](
     field1: (String, Schema[A1]),
     field2: (String, Schema[A2]),
@@ -120,6 +139,7 @@ object Schema {
   ) extends CaseClass[Z] {
     override def toRecord: Record = Record(Map(field1, field2, field3, field4, field5, field6, field7))
   }
+
   final case class CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
     field1: (String, Schema[A1]),
     field2: (String, Schema[A2]),
@@ -141,6 +161,7 @@ object Schema {
   ) extends CaseClass[Z] {
     override def toRecord: Record = Record(Map(field1, field2, field3, field4, field5, field6, field7, field8))
   }
+
   final case class CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
     field1: (String, Schema[A1]),
     field2: (String, Schema[A2]),
@@ -164,6 +185,7 @@ object Schema {
   ) extends CaseClass[Z] {
     override def toRecord: Record = Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9))
   }
+
   final case class CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
     field1: (String, Schema[A1]),
     field2: (String, Schema[A2]),
@@ -190,6 +212,7 @@ object Schema {
     override def toRecord: Record =
       Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10))
   }
+
   final case class CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
     field1: (String, Schema[A1]),
     field2: (String, Schema[A2]),
@@ -218,6 +241,7 @@ object Schema {
     override def toRecord: Record =
       Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11))
   }
+
   final case class CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
     field1: (String, Schema[A1]),
     field2: (String, Schema[A2]),
@@ -248,6 +272,7 @@ object Schema {
     override def toRecord: Record =
       Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12))
   }
+
   final case class CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
     field1: (String, Schema[A1]),
     field2: (String, Schema[A2]),
@@ -282,385 +307,395 @@ object Schema {
         Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13)
       )
   }
+
   // format: off
   final case class CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
-    field1: (String, Schema[A1]),
-    field2: (String, Schema[A2]),
-    field3: (String, Schema[A3]),
-    field4: (String, Schema[A4]),
-    field5: (String, Schema[A5]),
-    field6: (String, Schema[A6]),
-    field7: (String, Schema[A7]),
-    field8: (String, Schema[A8]),
-    field9: (String, Schema[A9]),
-    field10: (String, Schema[A10]),
-    field11: (String, Schema[A11]),
-    field12: (String, Schema[A12]),
-    field13: (String, Schema[A13]),
-    field14: (String, Schema[A14]),
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14
-  ) extends CaseClass[Z] {
+                                                                                                field1: (String, Schema[A1]),
+                                                                                                field2: (String, Schema[A2]),
+                                                                                                field3: (String, Schema[A3]),
+                                                                                                field4: (String, Schema[A4]),
+                                                                                                field5: (String, Schema[A5]),
+                                                                                                field6: (String, Schema[A6]),
+                                                                                                field7: (String, Schema[A7]),
+                                                                                                field8: (String, Schema[A8]),
+                                                                                                field9: (String, Schema[A9]),
+                                                                                                field10: (String, Schema[A10]),
+                                                                                                field11: (String, Schema[A11]),
+                                                                                                field12: (String, Schema[A12]),
+                                                                                                field13: (String, Schema[A13]),
+                                                                                                field14: (String, Schema[A14]),
+                                                                                                construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14) => Z,
+                                                                                                extractField1: Z => A1,
+                                                                                                extractField2: Z => A2,
+                                                                                                extractField3: Z => A3,
+                                                                                                extractField4: Z => A4,
+                                                                                                extractField5: Z => A5,
+                                                                                                extractField6: Z => A6,
+                                                                                                extractField7: Z => A7,
+                                                                                                extractField8: Z => A8,
+                                                                                                extractField9: Z => A9,
+                                                                                                extractField10: Z => A10,
+                                                                                                extractField11: Z => A11,
+                                                                                                extractField12: Z => A12,
+                                                                                                extractField13: Z => A13,
+                                                                                                extractField14: Z => A14
+                                                                                              ) extends CaseClass[Z] {
     override def toRecord: Record =
       Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14))
   }
+
   final case class CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
-    field1: (String, Schema[A1]),
-    field2: (String, Schema[A2]),
-    field3: (String, Schema[A3]),
-    field4: (String, Schema[A4]),
-    field5: (String, Schema[A5]),
-    field6: (String, Schema[A6]),
-    field7: (String, Schema[A7]),
-    field8: (String, Schema[A8]),
-    field9: (String, Schema[A9]),
-    field10: (String, Schema[A10]),
-    field11: (String, Schema[A11]),
-    field12: (String, Schema[A12]),
-    field13: (String, Schema[A13]),
-    field14: (String, Schema[A14]),
-    field15: (String, Schema[A15]),
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
-    extractField15: Z => A15
-  ) extends CaseClass[Z] {
+                                                                                                     field1: (String, Schema[A1]),
+                                                                                                     field2: (String, Schema[A2]),
+                                                                                                     field3: (String, Schema[A3]),
+                                                                                                     field4: (String, Schema[A4]),
+                                                                                                     field5: (String, Schema[A5]),
+                                                                                                     field6: (String, Schema[A6]),
+                                                                                                     field7: (String, Schema[A7]),
+                                                                                                     field8: (String, Schema[A8]),
+                                                                                                     field9: (String, Schema[A9]),
+                                                                                                     field10: (String, Schema[A10]),
+                                                                                                     field11: (String, Schema[A11]),
+                                                                                                     field12: (String, Schema[A12]),
+                                                                                                     field13: (String, Schema[A13]),
+                                                                                                     field14: (String, Schema[A14]),
+                                                                                                     field15: (String, Schema[A15]),
+                                                                                                     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15) => Z,
+                                                                                                     extractField1: Z => A1,
+                                                                                                     extractField2: Z => A2,
+                                                                                                     extractField3: Z => A3,
+                                                                                                     extractField4: Z => A4,
+                                                                                                     extractField5: Z => A5,
+                                                                                                     extractField6: Z => A6,
+                                                                                                     extractField7: Z => A7,
+                                                                                                     extractField8: Z => A8,
+                                                                                                     extractField9: Z => A9,
+                                                                                                     extractField10: Z => A10,
+                                                                                                     extractField11: Z => A11,
+                                                                                                     extractField12: Z => A12,
+                                                                                                     extractField13: Z => A13,
+                                                                                                     extractField14: Z => A14,
+                                                                                                     extractField15: Z => A15
+                                                                                                   ) extends CaseClass[Z] {
     override def toRecord: Record =
       Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15))
   }
+
   final case class CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
-    field1: (String, Schema[A1]),
-    field2: (String, Schema[A2]),
-    field3: (String, Schema[A3]),
-    field4: (String, Schema[A4]),
-    field5: (String, Schema[A5]),
-    field6: (String, Schema[A6]),
-    field7: (String, Schema[A7]),
-    field8: (String, Schema[A8]),
-    field9: (String, Schema[A9]),
-    field10: (String, Schema[A10]),
-    field11: (String, Schema[A11]),
-    field12: (String, Schema[A12]),
-    field13: (String, Schema[A13]),
-    field14: (String, Schema[A14]),
-    field15: (String, Schema[A15]),
-    field16: (String, Schema[A16]),
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
-    extractField15: Z => A15,
-    extractField16: Z => A16
-  ) extends CaseClass[Z] {
+                                                                                                          field1: (String, Schema[A1]),
+                                                                                                          field2: (String, Schema[A2]),
+                                                                                                          field3: (String, Schema[A3]),
+                                                                                                          field4: (String, Schema[A4]),
+                                                                                                          field5: (String, Schema[A5]),
+                                                                                                          field6: (String, Schema[A6]),
+                                                                                                          field7: (String, Schema[A7]),
+                                                                                                          field8: (String, Schema[A8]),
+                                                                                                          field9: (String, Schema[A9]),
+                                                                                                          field10: (String, Schema[A10]),
+                                                                                                          field11: (String, Schema[A11]),
+                                                                                                          field12: (String, Schema[A12]),
+                                                                                                          field13: (String, Schema[A13]),
+                                                                                                          field14: (String, Schema[A14]),
+                                                                                                          field15: (String, Schema[A15]),
+                                                                                                          field16: (String, Schema[A16]),
+                                                                                                          construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) => Z,
+                                                                                                          extractField1: Z => A1,
+                                                                                                          extractField2: Z => A2,
+                                                                                                          extractField3: Z => A3,
+                                                                                                          extractField4: Z => A4,
+                                                                                                          extractField5: Z => A5,
+                                                                                                          extractField6: Z => A6,
+                                                                                                          extractField7: Z => A7,
+                                                                                                          extractField8: Z => A8,
+                                                                                                          extractField9: Z => A9,
+                                                                                                          extractField10: Z => A10,
+                                                                                                          extractField11: Z => A11,
+                                                                                                          extractField12: Z => A12,
+                                                                                                          extractField13: Z => A13,
+                                                                                                          extractField14: Z => A14,
+                                                                                                          extractField15: Z => A15,
+                                                                                                          extractField16: Z => A16
+                                                                                                        ) extends CaseClass[Z] {
     override def toRecord: Record =
       Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16))
   }
+
   final case class CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
-    field1: (String, Schema[A1]),
-    field2: (String, Schema[A2]),
-    field3: (String, Schema[A3]),
-    field4: (String, Schema[A4]),
-    field5: (String, Schema[A5]),
-    field6: (String, Schema[A6]),
-    field7: (String, Schema[A7]),
-    field8: (String, Schema[A8]),
-    field9: (String, Schema[A9]),
-    field10: (String, Schema[A10]),
-    field11: (String, Schema[A11]),
-    field12: (String, Schema[A12]),
-    field13: (String, Schema[A13]),
-    field14: (String, Schema[A14]),
-    field15: (String, Schema[A15]),
-    field16: (String, Schema[A16]),
-    field17: (String, Schema[A17]),
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
-    extractField15: Z => A15,
-    extractField16: Z => A16,
-    extractField17: Z => A17
-  ) extends CaseClass[Z] {
+                                                                                                               field1: (String, Schema[A1]),
+                                                                                                               field2: (String, Schema[A2]),
+                                                                                                               field3: (String, Schema[A3]),
+                                                                                                               field4: (String, Schema[A4]),
+                                                                                                               field5: (String, Schema[A5]),
+                                                                                                               field6: (String, Schema[A6]),
+                                                                                                               field7: (String, Schema[A7]),
+                                                                                                               field8: (String, Schema[A8]),
+                                                                                                               field9: (String, Schema[A9]),
+                                                                                                               field10: (String, Schema[A10]),
+                                                                                                               field11: (String, Schema[A11]),
+                                                                                                               field12: (String, Schema[A12]),
+                                                                                                               field13: (String, Schema[A13]),
+                                                                                                               field14: (String, Schema[A14]),
+                                                                                                               field15: (String, Schema[A15]),
+                                                                                                               field16: (String, Schema[A16]),
+                                                                                                               field17: (String, Schema[A17]),
+                                                                                                               construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17) => Z,
+                                                                                                               extractField1: Z => A1,
+                                                                                                               extractField2: Z => A2,
+                                                                                                               extractField3: Z => A3,
+                                                                                                               extractField4: Z => A4,
+                                                                                                               extractField5: Z => A5,
+                                                                                                               extractField6: Z => A6,
+                                                                                                               extractField7: Z => A7,
+                                                                                                               extractField8: Z => A8,
+                                                                                                               extractField9: Z => A9,
+                                                                                                               extractField10: Z => A10,
+                                                                                                               extractField11: Z => A11,
+                                                                                                               extractField12: Z => A12,
+                                                                                                               extractField13: Z => A13,
+                                                                                                               extractField14: Z => A14,
+                                                                                                               extractField15: Z => A15,
+                                                                                                               extractField16: Z => A16,
+                                                                                                               extractField17: Z => A17
+                                                                                                             ) extends CaseClass[Z] {
     override def toRecord: Record =
       Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17))
   }
+
   final case class CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
-    field1: (String, Schema[A1]),
-    field2: (String, Schema[A2]),
-    field3: (String, Schema[A3]),
-    field4: (String, Schema[A4]),
-    field5: (String, Schema[A5]),
-    field6: (String, Schema[A6]),
-    field7: (String, Schema[A7]),
-    field8: (String, Schema[A8]),
-    field9: (String, Schema[A9]),
-    field10: (String, Schema[A10]),
-    field11: (String, Schema[A11]),
-    field12: (String, Schema[A12]),
-    field13: (String, Schema[A13]),
-    field14: (String, Schema[A14]),
-    field15: (String, Schema[A15]),
-    field16: (String, Schema[A16]),
-    field17: (String, Schema[A17]),
-    field18: (String, Schema[A18]),
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
-    extractField15: Z => A15,
-    extractField16: Z => A16,
-    extractField17: Z => A17,
-    extractField18: Z => A18
-  ) extends CaseClass[Z] {
+                                                                                                                    field1: (String, Schema[A1]),
+                                                                                                                    field2: (String, Schema[A2]),
+                                                                                                                    field3: (String, Schema[A3]),
+                                                                                                                    field4: (String, Schema[A4]),
+                                                                                                                    field5: (String, Schema[A5]),
+                                                                                                                    field6: (String, Schema[A6]),
+                                                                                                                    field7: (String, Schema[A7]),
+                                                                                                                    field8: (String, Schema[A8]),
+                                                                                                                    field9: (String, Schema[A9]),
+                                                                                                                    field10: (String, Schema[A10]),
+                                                                                                                    field11: (String, Schema[A11]),
+                                                                                                                    field12: (String, Schema[A12]),
+                                                                                                                    field13: (String, Schema[A13]),
+                                                                                                                    field14: (String, Schema[A14]),
+                                                                                                                    field15: (String, Schema[A15]),
+                                                                                                                    field16: (String, Schema[A16]),
+                                                                                                                    field17: (String, Schema[A17]),
+                                                                                                                    field18: (String, Schema[A18]),
+                                                                                                                    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18) => Z,
+                                                                                                                    extractField1: Z => A1,
+                                                                                                                    extractField2: Z => A2,
+                                                                                                                    extractField3: Z => A3,
+                                                                                                                    extractField4: Z => A4,
+                                                                                                                    extractField5: Z => A5,
+                                                                                                                    extractField6: Z => A6,
+                                                                                                                    extractField7: Z => A7,
+                                                                                                                    extractField8: Z => A8,
+                                                                                                                    extractField9: Z => A9,
+                                                                                                                    extractField10: Z => A10,
+                                                                                                                    extractField11: Z => A11,
+                                                                                                                    extractField12: Z => A12,
+                                                                                                                    extractField13: Z => A13,
+                                                                                                                    extractField14: Z => A14,
+                                                                                                                    extractField15: Z => A15,
+                                                                                                                    extractField16: Z => A16,
+                                                                                                                    extractField17: Z => A17,
+                                                                                                                    extractField18: Z => A18
+                                                                                                                  ) extends CaseClass[Z] {
     override def toRecord: Record =
       Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18))
   }
+
   final case class CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
-    field1: (String, Schema[A1]),
-    field2: (String, Schema[A2]),
-    field3: (String, Schema[A3]),
-    field4: (String, Schema[A4]),
-    field5: (String, Schema[A5]),
-    field6: (String, Schema[A6]),
-    field7: (String, Schema[A7]),
-    field8: (String, Schema[A8]),
-    field9: (String, Schema[A9]),
-    field10: (String, Schema[A10]),
-    field11: (String, Schema[A11]),
-    field12: (String, Schema[A12]),
-    field13: (String, Schema[A13]),
-    field14: (String, Schema[A14]),
-    field15: (String, Schema[A15]),
-    field16: (String, Schema[A16]),
-    field17: (String, Schema[A17]),
-    field18: (String, Schema[A18]),
-    field19: (String, Schema[A19]),
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
-    extractField15: Z => A15,
-    extractField16: Z => A16,
-    extractField17: Z => A17,
-    extractField18: Z => A18,
-    extractField19: Z => A19
-  ) extends CaseClass[Z] {
+                                                                                                                         field1: (String, Schema[A1]),
+                                                                                                                         field2: (String, Schema[A2]),
+                                                                                                                         field3: (String, Schema[A3]),
+                                                                                                                         field4: (String, Schema[A4]),
+                                                                                                                         field5: (String, Schema[A5]),
+                                                                                                                         field6: (String, Schema[A6]),
+                                                                                                                         field7: (String, Schema[A7]),
+                                                                                                                         field8: (String, Schema[A8]),
+                                                                                                                         field9: (String, Schema[A9]),
+                                                                                                                         field10: (String, Schema[A10]),
+                                                                                                                         field11: (String, Schema[A11]),
+                                                                                                                         field12: (String, Schema[A12]),
+                                                                                                                         field13: (String, Schema[A13]),
+                                                                                                                         field14: (String, Schema[A14]),
+                                                                                                                         field15: (String, Schema[A15]),
+                                                                                                                         field16: (String, Schema[A16]),
+                                                                                                                         field17: (String, Schema[A17]),
+                                                                                                                         field18: (String, Schema[A18]),
+                                                                                                                         field19: (String, Schema[A19]),
+                                                                                                                         construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19) => Z,
+                                                                                                                         extractField1: Z => A1,
+                                                                                                                         extractField2: Z => A2,
+                                                                                                                         extractField3: Z => A3,
+                                                                                                                         extractField4: Z => A4,
+                                                                                                                         extractField5: Z => A5,
+                                                                                                                         extractField6: Z => A6,
+                                                                                                                         extractField7: Z => A7,
+                                                                                                                         extractField8: Z => A8,
+                                                                                                                         extractField9: Z => A9,
+                                                                                                                         extractField10: Z => A10,
+                                                                                                                         extractField11: Z => A11,
+                                                                                                                         extractField12: Z => A12,
+                                                                                                                         extractField13: Z => A13,
+                                                                                                                         extractField14: Z => A14,
+                                                                                                                         extractField15: Z => A15,
+                                                                                                                         extractField16: Z => A16,
+                                                                                                                         extractField17: Z => A17,
+                                                                                                                         extractField18: Z => A18,
+                                                                                                                         extractField19: Z => A19
+                                                                                                                       ) extends CaseClass[Z] {
     override def toRecord: Record =
       Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19))
   }
+
   final case class CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](
-    field1: (String, Schema[A1]),
-    field2: (String, Schema[A2]),
-    field3: (String, Schema[A3]),
-    field4: (String, Schema[A4]),
-    field5: (String, Schema[A5]),
-    field6: (String, Schema[A6]),
-    field7: (String, Schema[A7]),
-    field8: (String, Schema[A8]),
-    field9: (String, Schema[A9]),
-    field10: (String, Schema[A10]),
-    field11: (String, Schema[A11]),
-    field12: (String, Schema[A12]),
-    field13: (String, Schema[A13]),
-    field14: (String, Schema[A14]),
-    field15: (String, Schema[A15]),
-    field16: (String, Schema[A16]),
-    field17: (String, Schema[A17]),
-    field18: (String, Schema[A18]),
-    field19: (String, Schema[A19]),
-    field20: (String, Schema[A20]),
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
-    extractField15: Z => A15,
-    extractField16: Z => A16,
-    extractField17: Z => A17,
-    extractField18: Z => A18,
-    extractField19: Z => A19,
-    extractField20: Z => A20
-  ) extends CaseClass[Z] {
+                                                                                                                              field1: (String, Schema[A1]),
+                                                                                                                              field2: (String, Schema[A2]),
+                                                                                                                              field3: (String, Schema[A3]),
+                                                                                                                              field4: (String, Schema[A4]),
+                                                                                                                              field5: (String, Schema[A5]),
+                                                                                                                              field6: (String, Schema[A6]),
+                                                                                                                              field7: (String, Schema[A7]),
+                                                                                                                              field8: (String, Schema[A8]),
+                                                                                                                              field9: (String, Schema[A9]),
+                                                                                                                              field10: (String, Schema[A10]),
+                                                                                                                              field11: (String, Schema[A11]),
+                                                                                                                              field12: (String, Schema[A12]),
+                                                                                                                              field13: (String, Schema[A13]),
+                                                                                                                              field14: (String, Schema[A14]),
+                                                                                                                              field15: (String, Schema[A15]),
+                                                                                                                              field16: (String, Schema[A16]),
+                                                                                                                              field17: (String, Schema[A17]),
+                                                                                                                              field18: (String, Schema[A18]),
+                                                                                                                              field19: (String, Schema[A19]),
+                                                                                                                              field20: (String, Schema[A20]),
+                                                                                                                              construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) => Z,
+                                                                                                                              extractField1: Z => A1,
+                                                                                                                              extractField2: Z => A2,
+                                                                                                                              extractField3: Z => A3,
+                                                                                                                              extractField4: Z => A4,
+                                                                                                                              extractField5: Z => A5,
+                                                                                                                              extractField6: Z => A6,
+                                                                                                                              extractField7: Z => A7,
+                                                                                                                              extractField8: Z => A8,
+                                                                                                                              extractField9: Z => A9,
+                                                                                                                              extractField10: Z => A10,
+                                                                                                                              extractField11: Z => A11,
+                                                                                                                              extractField12: Z => A12,
+                                                                                                                              extractField13: Z => A13,
+                                                                                                                              extractField14: Z => A14,
+                                                                                                                              extractField15: Z => A15,
+                                                                                                                              extractField16: Z => A16,
+                                                                                                                              extractField17: Z => A17,
+                                                                                                                              extractField18: Z => A18,
+                                                                                                                              extractField19: Z => A19,
+                                                                                                                              extractField20: Z => A20
+                                                                                                                            ) extends CaseClass[Z] {
     override def toRecord: Record =
       Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20))
   }
-  final case class CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19,A20, A21, Z](
-    field1: (String, Schema[A1]),
-    field2: (String, Schema[A2]),
-    field3: (String, Schema[A3]),
-    field4: (String, Schema[A4]),
-    field5: (String, Schema[A5]),
-    field6: (String, Schema[A6]),
-    field7: (String, Schema[A7]),
-    field8: (String, Schema[A8]),
-    field9: (String, Schema[A9]),
-    field10: (String, Schema[A10]),
-    field11: (String, Schema[A11]),
-    field12: (String, Schema[A12]),
-    field13: (String, Schema[A13]),
-    field14: (String, Schema[A14]),
-    field15: (String, Schema[A15]),
-    field16: (String, Schema[A16]),
-    field17: (String, Schema[A17]),
-    field18: (String, Schema[A18]),
-    field19: (String, Schema[A19]),
-    field20: (String, Schema[A20]),
-    field21: (String, Schema[A21]),
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
-    extractField15: Z => A15,
-    extractField16: Z => A16,
-    extractField17: Z => A17,
-    extractField18: Z => A18,
-    extractField19: Z => A19,
-    extractField20: Z => A20,
-    extractField21: Z => A21
-  ) extends CaseClass[Z] {
+
+  final case class CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](
+                                                                                                                                   field1: (String, Schema[A1]),
+                                                                                                                                   field2: (String, Schema[A2]),
+                                                                                                                                   field3: (String, Schema[A3]),
+                                                                                                                                   field4: (String, Schema[A4]),
+                                                                                                                                   field5: (String, Schema[A5]),
+                                                                                                                                   field6: (String, Schema[A6]),
+                                                                                                                                   field7: (String, Schema[A7]),
+                                                                                                                                   field8: (String, Schema[A8]),
+                                                                                                                                   field9: (String, Schema[A9]),
+                                                                                                                                   field10: (String, Schema[A10]),
+                                                                                                                                   field11: (String, Schema[A11]),
+                                                                                                                                   field12: (String, Schema[A12]),
+                                                                                                                                   field13: (String, Schema[A13]),
+                                                                                                                                   field14: (String, Schema[A14]),
+                                                                                                                                   field15: (String, Schema[A15]),
+                                                                                                                                   field16: (String, Schema[A16]),
+                                                                                                                                   field17: (String, Schema[A17]),
+                                                                                                                                   field18: (String, Schema[A18]),
+                                                                                                                                   field19: (String, Schema[A19]),
+                                                                                                                                   field20: (String, Schema[A20]),
+                                                                                                                                   field21: (String, Schema[A21]),
+                                                                                                                                   construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z,
+                                                                                                                                   extractField1: Z => A1,
+                                                                                                                                   extractField2: Z => A2,
+                                                                                                                                   extractField3: Z => A3,
+                                                                                                                                   extractField4: Z => A4,
+                                                                                                                                   extractField5: Z => A5,
+                                                                                                                                   extractField6: Z => A6,
+                                                                                                                                   extractField7: Z => A7,
+                                                                                                                                   extractField8: Z => A8,
+                                                                                                                                   extractField9: Z => A9,
+                                                                                                                                   extractField10: Z => A10,
+                                                                                                                                   extractField11: Z => A11,
+                                                                                                                                   extractField12: Z => A12,
+                                                                                                                                   extractField13: Z => A13,
+                                                                                                                                   extractField14: Z => A14,
+                                                                                                                                   extractField15: Z => A15,
+                                                                                                                                   extractField16: Z => A16,
+                                                                                                                                   extractField17: Z => A17,
+                                                                                                                                   extractField18: Z => A18,
+                                                                                                                                   extractField19: Z => A19,
+                                                                                                                                   extractField20: Z => A20,
+                                                                                                                                   extractField21: Z => A21
+                                                                                                                                 ) extends CaseClass[Z] {
     override def toRecord: Record =
       Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20, field21))
   }
+
   final case class CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](
-    field1: (String, Schema[A1]),
-    field2: (String, Schema[A2]),
-    field3: (String, Schema[A3]),
-    field4: (String, Schema[A4]),
-    field5: (String, Schema[A5]),
-    field6: (String, Schema[A6]),
-    field7: (String, Schema[A7]),
-    field8: (String, Schema[A8]),
-    field9: (String, Schema[A9]),
-    field10: (String, Schema[A10]),
-    field11: (String, Schema[A11]),
-    field12: (String, Schema[A12]),
-    field13: (String, Schema[A13]),
-    field14: (String, Schema[A14]),
-    field15: (String, Schema[A15]),
-    field16: (String, Schema[A16]),
-    field17: (String, Schema[A17]),
-    field18: (String, Schema[A18]),
-    field19: (String, Schema[A19]),
-    field20: (String, Schema[A20]),
-    field21: (String, Schema[A21]),
-    field22: (String, Schema[A22]),
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
-    extractField15: Z => A15,
-    extractField16: Z => A16,
-    extractField17: Z => A17,
-    extractField18: Z => A18,
-    extractField19: Z => A19,
-    extractField20: Z => A20,
-    extractField21: Z => A21,
-    extractField22: Z => A22
-  ) extends CaseClass[Z] {
+                                                                                                                                        field1: (String, Schema[A1]),
+                                                                                                                                        field2: (String, Schema[A2]),
+                                                                                                                                        field3: (String, Schema[A3]),
+                                                                                                                                        field4: (String, Schema[A4]),
+                                                                                                                                        field5: (String, Schema[A5]),
+                                                                                                                                        field6: (String, Schema[A6]),
+                                                                                                                                        field7: (String, Schema[A7]),
+                                                                                                                                        field8: (String, Schema[A8]),
+                                                                                                                                        field9: (String, Schema[A9]),
+                                                                                                                                        field10: (String, Schema[A10]),
+                                                                                                                                        field11: (String, Schema[A11]),
+                                                                                                                                        field12: (String, Schema[A12]),
+                                                                                                                                        field13: (String, Schema[A13]),
+                                                                                                                                        field14: (String, Schema[A14]),
+                                                                                                                                        field15: (String, Schema[A15]),
+                                                                                                                                        field16: (String, Schema[A16]),
+                                                                                                                                        field17: (String, Schema[A17]),
+                                                                                                                                        field18: (String, Schema[A18]),
+                                                                                                                                        field19: (String, Schema[A19]),
+                                                                                                                                        field20: (String, Schema[A20]),
+                                                                                                                                        field21: (String, Schema[A21]),
+                                                                                                                                        field22: (String, Schema[A22]),
+                                                                                                                                        construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22) => Z,
+                                                                                                                                        extractField1: Z => A1,
+                                                                                                                                        extractField2: Z => A2,
+                                                                                                                                        extractField3: Z => A3,
+                                                                                                                                        extractField4: Z => A4,
+                                                                                                                                        extractField5: Z => A5,
+                                                                                                                                        extractField6: Z => A6,
+                                                                                                                                        extractField7: Z => A7,
+                                                                                                                                        extractField8: Z => A8,
+                                                                                                                                        extractField9: Z => A9,
+                                                                                                                                        extractField10: Z => A10,
+                                                                                                                                        extractField11: Z => A11,
+                                                                                                                                        extractField12: Z => A12,
+                                                                                                                                        extractField13: Z => A13,
+                                                                                                                                        extractField14: Z => A14,
+                                                                                                                                        extractField15: Z => A15,
+                                                                                                                                        extractField16: Z => A16,
+                                                                                                                                        extractField17: Z => A17,
+                                                                                                                                        extractField18: Z => A18,
+                                                                                                                                        extractField19: Z => A19,
+                                                                                                                                        extractField20: Z => A20,
+                                                                                                                                        extractField21: Z => A21,
+                                                                                                                                        extractField22: Z => A22
+                                                                                                                                      ) extends CaseClass[Z] {
     override def toRecord: Record =
       Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20, field21, field22))
   }
+
   // format: on
 
   def fail[A](message: String): Schema[A] = Fail(message)
@@ -671,6 +706,40 @@ object Schema {
   implicit val bigDecimal: Schema[BigDecimal] = primitive[java.math.BigDecimal].transform(BigDecimal(_), _.bigDecimal)
   implicit val nilSchema: Schema[Nil.type]    = Schema[Unit].transform(_ => Nil, _ => ())
   implicit val noneSchema: Schema[None.type]  = Schema[Unit].transform(_ => None, _ => ())
+
+  implicit val chronoUnitSchema: Schema[ChronoUnit] = Schema[String].transformOrFail(
+    {
+      case "SECONDS"   => Right(ChronoUnit.SECONDS)
+      case "CENTURIES" => Right(ChronoUnit.CENTURIES)
+      case "DAYS"      => Right(ChronoUnit.DAYS)
+      case "DECADES"   => Right(ChronoUnit.DECADES)
+      case "FOREVER"   => Right(ChronoUnit.FOREVER)
+      case "HOURS"     => Right(ChronoUnit.HOURS)
+      case "MICROS"    => Right(ChronoUnit.MICROS)
+      case "MILLIS"    => Right(ChronoUnit.MILLIS)
+      case "MINUTES"   => Right(ChronoUnit.MINUTES)
+      case "MONTHS"    => Right(ChronoUnit.MONTHS)
+      case "NANOS"     => Right(ChronoUnit.NANOS)
+      case "WEEKS"     => Right(ChronoUnit.WEEKS)
+      case "YEARS"     => Right(ChronoUnit.YEARS)
+      case _           => Left("Failed")
+    }, {
+      case ChronoUnit.SECONDS   => Right("SECONDS")
+      case ChronoUnit.CENTURIES => Right("CENTURIES")
+      case ChronoUnit.DAYS      => Right("DAYS")
+      case ChronoUnit.DECADES   => Right("DECADES")
+      case ChronoUnit.FOREVER   => Right("FOREVER")
+      case ChronoUnit.HOURS     => Right("HOURS")
+      case ChronoUnit.MICROS    => Right("MICROS")
+      case ChronoUnit.MILLIS    => Right("MILLIS")
+      case ChronoUnit.MINUTES   => Right("MINUTES")
+      case ChronoUnit.MONTHS    => Right("MONTHS")
+      case ChronoUnit.NANOS     => Right("NANOS")
+      case ChronoUnit.WEEKS     => Right("WEEKS")
+      case ChronoUnit.YEARS     => Right("YEARS")
+      case _                    => Left("Failed")
+    }
+  )
 
   def caseClassN[A, Z](t1: (String, Schema[A]))(f: A => Z, g: Z => Option[A]): Schema[Z] =
     Schema
