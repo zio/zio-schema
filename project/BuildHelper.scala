@@ -1,8 +1,8 @@
-import BuildHelper.{crossPlatformSources, platformSpecificSources}
+import BuildHelper.{ crossPlatformSources, platformSpecificSources }
 import sbt._
 import Keys._
 import explicitdeps.ExplicitDepsPlugin.autoImport._
-import sbtcrossproject.CrossPlugin.autoImport.{CrossType, crossProjectPlatform}
+import sbtcrossproject.CrossPlugin.autoImport.{ CrossType, crossProjectPlatform }
 import sbtbuildinfo._
 import BuildInfoKeys._
 import scalafix.sbt.ScalafixPlugin.autoImport._
@@ -86,12 +86,13 @@ object BuildHelper {
     stdOptions ++ extraOptions
   }
 
-  def platformSpecificSources(platform: String, conf: String, baseDirectory: File)(versions: String*) = for {
-    platform <- List("shared", platform)
-    version  <- "scala" :: versions.toList.map("scala-" + _)
-    result    = baseDirectory.getParentFile / platform.toLowerCase / "src" / conf / version
-    if result.exists
-  } yield result
+  def platformSpecificSources(platform: String, conf: String, baseDirectory: File)(versions: String*) =
+    for {
+      platform <- List("shared", platform)
+      version  <- "scala" :: versions.toList.map("scala-" + _)
+      result   = baseDirectory.getParentFile / platform.toLowerCase / "src" / conf / version
+      if result.exists
+    } yield result
 
   def crossPlatformSources(scalaVer: String, platform: String, conf: String, baseDir: File) = {
     val versions = CrossVersion.partialVersion(scalaVer) match {
@@ -101,7 +102,7 @@ object BuildHelper {
         List("2.12", "2.11+", "2.12+", "2.11-2.12", "2.12-2.13", "2.x")
       case Some((2, 13)) =>
         List("2.13", "2.11+", "2.12+", "2.13+", "2.12-2.13", "2.x")
-      case _             =>
+      case _ =>
         List()
     }
     platformSpecificSources(platform, conf, baseDir)(versions: _*)

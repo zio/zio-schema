@@ -1,5 +1,5 @@
 import sbtcrossproject.CrossPlugin.autoImport.crossProject
-import BuildHelper.{crossProjectSettings, _}
+import BuildHelper.{ crossProjectSettings, _ }
 import explicitdeps.ExplicitDepsPlugin.autoImport.unusedCompileDependenciesFilter
 import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport.scalaJSUseMainModuleInitializer
 import sbt.moduleFilter
@@ -63,10 +63,10 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings("zio.schema"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio" % zioVersion,
-      "dev.zio" %% "zio-streams" % zioVersion,
-      "dev.zio" %% "zio-json" % zioJsonVersion,
-      "com.propensive" %% "magnolia" % magnoliaVersion,
+      "dev.zio"        %% "zio"          % zioVersion,
+      "dev.zio"        %% "zio-streams"  % zioVersion,
+      "dev.zio"        %% "zio-json"     % zioJsonVersion,
+      "com.propensive" %% "magnolia"     % magnoliaVersion,
       "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
     )
   )
@@ -86,9 +86,9 @@ lazy val docs = project
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio" % zioVersion
     ),
-    unidocProjectFilter in(ScalaUnidoc, unidoc) := inProjects(root),
-    target in(ScalaUnidoc, unidoc) := (baseDirectory in LocalRootProject).value / "website" / "static" / "api",
-    cleanFiles += (target in(ScalaUnidoc, unidoc)).value,
+    unidocProjectFilter in (ScalaUnidoc, unidoc) := inProjects(root),
+    target in (ScalaUnidoc, unidoc) := (baseDirectory in LocalRootProject).value / "website" / "static" / "api",
+    cleanFiles += (target in (ScalaUnidoc, unidoc)).value,
     docusaurusCreateSite := docusaurusCreateSite.dependsOn(unidoc in Compile).value,
     docusaurusPublishGhpages := docusaurusPublishGhpages.dependsOn(unidoc in Compile).value
   )
