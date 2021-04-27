@@ -15,6 +15,11 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       extends Status
   case object Pending extends Status
 
+  sealed trait OneOf
+  case class StringValue(value: String)   extends OneOf
+  case class IntValue(value: Int)         extends OneOf
+  case class BooleanValue(value: Boolean) extends OneOf
+
   override def spec: ZSpec[Environment, Failure] = suite("DeriveSchemaSpec")(
     test("DeriveSchema correctly derives schema for UserId case class") {
 

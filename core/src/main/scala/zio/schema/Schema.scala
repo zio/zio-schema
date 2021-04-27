@@ -746,59 +746,6 @@ object Schema {
   implicit def rightSchema[A, B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
     schemaB.transform(Right(_), _.value)
 
-  def caseClassN[A, Z](t1: (String, Schema[A]))(f: A => Z, g: Z => Option[A]): Schema[Z] =
-    Schema
-      .record(Map(t1))
-      .transformOrFail(
-        { map =>
-          val v1 = map(t1._1).asInstanceOf[A]
-
-          Right(f(v1))
-        }, { (z: Z) =>
-          g(z).map { a =>
-            Map(t1._1 -> a)
-          }.toRight("Cannot deconstruct case class")
-        }
-      )
-
-  def caseClassN[A, B, Z](
-    t1: (String, Schema[A]),
-    t2: (String, Schema[B])
-  )(f: (A, B) => Z, g: Z => Option[(A, B)]): Schema[Z] =
-    Schema
-      .record(Map[String, Schema[_]](t1, t2))
-      .transformOrFail(
-        { map =>
-          val v1 = map(t1._1).asInstanceOf[A]
-          val v2 = map(t2._1).asInstanceOf[B]
-
-          Right(f(v1, v2))
-        }, { (z: Z) =>
-          g(z).map { case (a, b) => Map(t1._1 -> a, t2._1 -> b) }
-            .toRight("Cannot deconstruct case class")
-        }
-      )
-
-  def caseClassN[A, B, C, Z](
-    t1: (String, Schema[A]),
-    t2: (String, Schema[B]),
-    t3: (String, Schema[C])
-  )(f: (A, B, C) => Z, g: Z => Option[(A, B, C)]): Schema[Z] =
-    Schema
-      .record(Map[String, Schema[_]](t1, t2, t3))
-      .transformOrFail(
-        { map =>
-          val v1 = map(t1._1).asInstanceOf[A]
-          val v2 = map(t2._1).asInstanceOf[B]
-          val v3 = map(t3._1).asInstanceOf[C]
-
-          Right(f(v1, v2, v3))
-        }, { (z: Z) =>
-          g(z).map { case (a, b, c) => Map(t1._1 -> a, t2._1 -> b, t3._1 -> c) }
-            .toRight("Cannot deconstruct case class")
-        }
-      )
-
   def either[A, B](left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
     EitherSchema(left, right)
 

@@ -109,7 +109,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         assertEncodes(
           adtSchema,
           Enumeration(StringValue("foo")),
-          JsonCodec.Encoder.charSequenceToByteChunk("""{"value":{"string":"foo"}}""")
+          JsonCodec.Encoder.charSequenceToByteChunk("""{"oneOf":{"StringValue":{"value":"foo"}}}""")
         )
       }
     )
@@ -492,7 +492,6 @@ object JsonCodecSpec extends DefaultRunnableSpec {
 
   case class Enumeration(oneOf: OneOf)
 
-  val adtSchema: Schema[Enumeration] =
-    Schema.caseClassN("value" -> schemaOneOf)(Enumeration, Enumeration.unapply)
+  val adtSchema: Schema[Enumeration] = DeriveSchema.gen[Enumeration]
 
 }

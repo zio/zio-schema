@@ -1215,7 +1215,6 @@ object DeriveSchema {
     )
   }
 
-
   private def caseClass22[Z](ctx: CaseClass[Typeclass, Z]): Typeclass[Z] = {
     val param1 = ctx.parameters.head
     val param2 = ctx.parameters(1)
