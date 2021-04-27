@@ -10,3 +10,7 @@ addSbtPlugin("com.jsuereth"       % "sbt-pgp"                   % "1.1.2")
 addSbtPlugin("org.xerial.sbt"     % "sbt-sonatype"              % "3.8")
 addSbtPlugin("org.scalameta"      % "sbt-mdoc"                  % "2.2.16")
 addSbtPlugin("com.eed3si9n"       % "sbt-unidoc"                % "0.4.3")
+addSbtPlugin("org.portable-scala"                % "sbt-scala-native-crossproject" % "1.0.0")
+addSbtPlugin("org.scala-native"                  % "sbt-scala-native"              % "0.4.0")
+
+

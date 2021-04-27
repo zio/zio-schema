@@ -1,5 +1,8 @@
 import sbtcrossproject.CrossPlugin.autoImport.crossProject
-import BuildHelper._
+import BuildHelper.{crossProjectSettings, _}
+import explicitdeps.ExplicitDepsPlugin.autoImport.unusedCompileDependenciesFilter
+import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport.scalaJSUseMainModuleInitializer
+import sbt.moduleFilter
 
 inThisBuild(
   List(
@@ -33,7 +36,7 @@ inThisBuild(
   )
 )
 
-ThisBuild / publishTo := sonatypePublishToBundle.value
+//ThisBuild / publishTo := sonatypePublishToBundle.value
 
 addCommandAlias("prepare", "fix; fmt")
 addCommandAlias("fmt", "all scalafmtSbt scalafmtAll")
@@ -45,22 +48,33 @@ lazy val root = project
   .in(file("."))
   .settings(
     name := "zio-schema",
-    skip in publish := true
+    skip in publish := true,
+    unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
-  .aggregate(core)
+  .aggregate(
+    zioSchemaJVM,
+    zioSchemaJS
+  )
 
-lazy val core = project
-  .in(file("core"))
+lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-schema"))
   .settings(stdSettings("zio-schema"))
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"        %% "zio"          % zioVersion,
-      "dev.zio"        %% "zio-streams"  % zioVersion,
-      "dev.zio"        %% "zio-json"     % zioJsonVersion,
-      "com.propensive" %% "magnolia"     % magnoliaVersion,
+      "dev.zio" %% "zio" % zioVersion,
+      "dev.zio" %% "zio-streams" % zioVersion,
+      "dev.zio" %% "zio-json" % zioJsonVersion,
+      "com.propensive" %% "magnolia" % magnoliaVersion,
       "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
     )
   )
+
+lazy val zioSchemaJS = zioSchema.js
+  .settings(scalaJSUseMainModuleInitializer := true)
+
+lazy val zioSchemaJVM = zioSchema.jvm
 
 lazy val docs = project
   .in(file("zio-schema-docs"))
@@ -72,11 +86,11 @@ lazy val docs = project
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio" % zioVersion
     ),
-    unidocProjectFilter in (ScalaUnidoc, unidoc) := inProjects(root),
-    target in (ScalaUnidoc, unidoc) := (baseDirectory in LocalRootProject).value / "website" / "static" / "api",
-    cleanFiles += (target in (ScalaUnidoc, unidoc)).value,
+    unidocProjectFilter in(ScalaUnidoc, unidoc) := inProjects(root),
+    target in(ScalaUnidoc, unidoc) := (baseDirectory in LocalRootProject).value / "website" / "static" / "api",
+    cleanFiles += (target in(ScalaUnidoc, unidoc)).value,
     docusaurusCreateSite := docusaurusCreateSite.dependsOn(unidoc in Compile).value,
     docusaurusPublishGhpages := docusaurusPublishGhpages.dependsOn(unidoc in Compile).value
   )
-  .dependsOn(root)
+  .dependsOn(zioSchemaJVM)
   .enablePlugins(MdocPlugin, DocusaurusPlugin, ScalaUnidocPlugin)
