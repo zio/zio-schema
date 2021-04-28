@@ -38,19 +38,12 @@ object ProtobufCodec extends Codec {
     sealed trait WireType
 
     object WireType {
-
-      case object VarInt extends WireType
-
-      case object Bit64 extends WireType
-
+      case object VarInt                     extends WireType
+      case object Bit64                      extends WireType
       case class LengthDelimited(width: Int) extends WireType
-
-      case object StartGroup extends WireType
-
-      case object EndGroup extends WireType
-
-      case object Bit32 extends WireType
-
+      case object StartGroup                 extends WireType
+      case object EndGroup                   extends WireType
+      case object Bit32                      extends WireType
     }
 
     def flatFields(

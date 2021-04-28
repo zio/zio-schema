@@ -68,17 +68,6 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
             (_: Status) => None
           )
         )
-//        Schema.Transform[Map[String, Any], Status](
-//          Schema.Enumeration(
-//            Map(
-//              "Ok"      -> DeriveSchema.gen[Ok],
-//              "Failed"  -> DeriveSchema.gen[Failed],
-//              "Pending" -> DeriveSchema.gen[Pending.type]
-//            )
-//          ),
-//          _ => Right(Pending), // ignored in equality comparison
-//          _ => Right(Map("Pending" -> Pending)) // ignored in equality comparison
-//        )
 
       assert(statusSchema)(hasSameSchema(expectedSchema))
     }
