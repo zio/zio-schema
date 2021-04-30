@@ -25,8 +25,6 @@ object Schema {
   final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
       extends Schema[Col[A]]
 
-  //final case class Sequence[A](schemaA: Schema[A]) extends Schema[Chunk[A]]
-
   sealed case class Enumeration(structure: Map[String, Schema[_]]) extends Schema[Map[String, _]]
 
   sealed case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
@@ -742,7 +740,8 @@ object Schema {
     }
   )
 
-  //implicit def schemaList[A](implicit schemaA: Schema[A]): Schema[List[A]] = Schema.Sequence(schemaA, _.toList, Chunk.fromIterable(_))
+  implicit def schemaList[A](implicit schemaA: Schema[A]): Schema[List[A]] =
+    Schema.Sequence(schemaA, _.toList, Chunk.fromIterable(_))
 
   implicit def schemaChunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
     Schema.Sequence(schemaA, identity, identity)
@@ -764,9 +763,6 @@ object Schema {
 
   def first[A](codec: Schema[(A, Unit)]): Schema[A] =
     codec.transform[A](_._1, a => (a, ()))
-
-  implicit def list[A](implicit element: Schema[A]): Schema[List[A]] =
-    sequence(element).transform(_.toList, Chunk.fromIterable(_))
 
   implicit def option[A](implicit element: Schema[A]): Schema[Option[A]] =
     Optional(element)
