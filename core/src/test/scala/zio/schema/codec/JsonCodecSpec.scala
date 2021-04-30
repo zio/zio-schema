@@ -68,7 +68,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     suite("sequence")(
       testM("of primitives") {
         assertEncodesJson(
-          Schema.Sequence(Schema.Primitive(StandardType.StringType)),
+          Schema.schemaChunk(Schema.Primitive(StandardType.StringType)),
           Chunk("a", "b", "c")
         )
       }
@@ -274,7 +274,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       //FIXME test independently because including ZoneOffset in StandardTypeGen.anyStandardType wreaks havoc.
       checkM(Gen.chunkOf(JavaTimeGen.anyZoneOffset)) { chunk =>
         assertEncodesThenDecodes(
-          Schema.Sequence(Schema.Primitive(StandardType.ZoneOffset)),
+          Schema.schemaChunk(Schema.Primitive(StandardType.ZoneOffset)),
           chunk
         )
       }

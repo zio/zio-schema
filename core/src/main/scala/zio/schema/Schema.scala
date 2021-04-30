@@ -22,7 +22,10 @@ object Schema {
 
   sealed case class Record(structure: Map[String, Schema[_]]) extends Schema[Map[String, _]]
 
-  sealed case class Sequence[A](element: Schema[A]) extends Schema[Chunk[A]]
+  final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
+      extends Schema[Col[A]]
+
+  //final case class Sequence[A](schemaA: Schema[A]) extends Schema[Chunk[A]]
 
   sealed case class Enumeration(structure: Map[String, Schema[_]]) extends Schema[Map[String, _]]
 
@@ -38,8 +41,6 @@ object Schema {
   sealed case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)]
 
   final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]]
-
-  final case class ListSchema[A](codec: Schema[A]) extends Schema[List[A]]
 
   sealed trait CaseClass[Z] extends Schema[Z] {
     def toRecord: Record
@@ -741,8 +742,14 @@ object Schema {
     }
   )
 
+  //implicit def schemaList[A](implicit schemaA: Schema[A]): Schema[List[A]] = Schema.Sequence(schemaA, _.toList, Chunk.fromIterable(_))
+
+  implicit def schemaChunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
+    Schema.Sequence(schemaA, identity, identity)
+
   implicit def leftSchema[A, B](implicit schemaA: Schema[A]): Schema[Left[A, Nothing]] =
     schemaA.transform(Left(_), _.value)
+
   implicit def rightSchema[A, B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
     schemaB.transform(Right(_), _.value)
 
@@ -771,7 +778,7 @@ object Schema {
     Record(structure)
 
   implicit def sequence[A](implicit element: Schema[A]): Schema[Chunk[A]] =
-    Sequence(element)
+    Sequence(element, (c: Chunk[A]) => c, (c: Chunk[A]) => c)
 
   implicit def set[A](implicit element: Schema[A]): Schema[Set[A]] =
     sequence(element).transform(_.toSet, Chunk.fromIterable(_))
