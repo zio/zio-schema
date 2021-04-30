@@ -1,5 +1,5 @@
 import sbtcrossproject.CrossPlugin.autoImport.crossProject
-import BuildHelper.{crossProjectSettings, _}
+import BuildHelper.{ crossProjectSettings, _ }
 import explicitdeps.ExplicitDepsPlugin.autoImport.unusedCompileDependenciesFilter
 import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport.scalaJSUseMainModuleInitializer
 import sbt.moduleFilter
