@@ -4,8 +4,18 @@
 | --- | --- | --- | --- |
 | ![CI][Badge-CI] | [![Release Artifacts][Badge-SonatypeReleases]][Link-SonatypeReleases] | [![Average time to resolve an issue][badge-iim]][link-iim] | [![badge-discord]][link-discord] |
 
-ZIO Schema:
-TODO
+_ZIO Schema_ is a [ZIO](https://zio.dev)-based library for modeling the schema of data structures as first-class values.
+
+With schema descriptions that can be automatically derived for case classes and sealed traits, _ZIO Schema_ provide powerful features for free:
+
+ - Codecs for any supported protocol (JSON, protobuf, etc.), so data structures can be serialized and deserialized in a principled way
+ - Diffing, patching, merging, and other generic-data-based operations (_TODO_)
+ - Migration of data structures from one schema to another compatible schema (_TODO_)
+ - Derivation of arbitrary type classes (`Eq`, `Show`, `Ord`, etc.) from the structure of the data (_TODO_)
+
+When your data structures need to be serialized, deserialized, persisted, or transported across the wire, then _ZIO Schema_ lets you focus on data modeling and automatically tackle all the low-level, messy details for you.
+
+_ZIO Schema_ is used by a growing number of ZIO libraries, including _ZIO Flow_, _ZIO Redis_, and _ZIO Web_.
 
 ## Installation
 
