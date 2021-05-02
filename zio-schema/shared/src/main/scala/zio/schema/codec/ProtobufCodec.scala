@@ -1000,7 +1000,11 @@ object ProtobufCodec extends Codec {
           Chunk.empty
         } else {
           val subtypeCase = cases(fieldIndex)
-          encode(Some(fieldIndex + 1), subtypeCase.codec.asInstanceOf[Schema[Any]], subtypeCase.unsafeDeconstruct(value))
+          encode(
+            Some(fieldIndex + 1),
+            subtypeCase.codec.asInstanceOf[Schema[Any]],
+            subtypeCase.unsafeDeconstruct(value)
+          )
         }
       )
       encodeKey(WireType.LengthDelimited(encoded.size), fieldNumber) ++ encoded
@@ -1332,16 +1336,15 @@ object ProtobufCodec extends Codec {
     private def enumDecoder[Z](cases: Schema.Case[_, Z]*): Decoder[Z] =
       keyDecoder.flatMap {
         case (wt, fieldNumber) if fieldNumber <= cases.length =>
-          val subtypeCase    = cases(fieldNumber - 1)
-          val cons: Any => Z = subtypeCase.construct.asInstanceOf[Any => Z]
+          val subtypeCase = cases(fieldNumber - 1)
           wt match {
             case LengthDelimited(width) =>
               decoder(subtypeCase.codec)
                 .take(width)
-                .map(fieldValue => cons(fieldValue))
+                .asInstanceOf[Decoder[Z]]
             case _ =>
               decoder(subtypeCase.codec)
-                .map(fieldValue => cons(fieldValue))
+                .asInstanceOf[Decoder[Z]]
           }
         case (_, fieldNumber) =>
           fail(s"Schema doesn't contain field number $fieldNumber.")

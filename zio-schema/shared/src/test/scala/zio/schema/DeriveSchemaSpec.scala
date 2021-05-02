@@ -59,12 +59,11 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
 
       val expectedSchema: Schema[Status] =
         Schema.Enum3(
-          Schema.Case("Failed", DeriveSchema.gen[Failed], (v: Failed) => v.asInstanceOf[Status], (s: Status) => s.asInstanceOf[Failed]),
-          Schema.Case("Ok", DeriveSchema.gen[Ok], (v: Ok) => v.asInstanceOf[Status], (s: Status) => s.asInstanceOf[Ok]),
+          Schema.Case("Failed", DeriveSchema.gen[Failed], (s: Status) => s.asInstanceOf[Failed]),
+          Schema.Case("Ok", DeriveSchema.gen[Ok], (s: Status) => s.asInstanceOf[Ok]),
           Schema.Case(
             "Pending",
             DeriveSchema.gen[Pending.type],
-            (v: Pending.type) => v.asInstanceOf[Status],
             (s: Status) => s.asInstanceOf[Pending.type]
           )
         )

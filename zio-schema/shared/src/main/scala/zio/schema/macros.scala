@@ -1288,13 +1288,14 @@ object DeriveSchema {
   }
   // format: on
 
-  def dispatch[A](sealedTrait: SealedTrait[Schema, A]): Schema[A] =
-    sealedTrait.subtypes.sortBy(_.typeName.short).map { subtype =>
-      Schema.Case[subtype.SType,A](
+  def dispatch[A](sealedTrait: SealedTrait[Schema, A]): Schema[A] = {
+    type S = Subtype[Schema, A]#SType
+    sealedTrait.subtypes.sortBy(_.typeName.short).map { subtype: Subtype[Schema, A] =>
+      Schema.Case[S, A](
         id = subtype.typeName.short,
-        codec = subtype.typeclass,
-        construct = (s: subtype.SType) => s.asInstanceOf[A],
-        unsafeDeconstruct = (a: A) => if (subtype.cast.isDefinedAt(a)) subtype.cast(a) else throw new IllegalArgumentException
+        codec = subtype.typeclass.asInstanceOf[Schema[S]],
+        unsafeDeconstruct =
+          (a: A) => if (subtype.cast.isDefinedAt(a)) subtype.cast(a) else throw new IllegalArgumentException
       )
     } match {
       case Seq(c)          => Schema.Enum1(c)
@@ -1302,6 +1303,7 @@ object DeriveSchema {
       case Seq(c1, c2, c3) => Schema.Enum3(c1, c2, c3)
       case cases           => Schema.EnumN(cases)
     }
+  }
 
   implicit def gen[T]: Schema[T] = macro Magnolia.gen[T]
 }
