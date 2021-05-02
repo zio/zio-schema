@@ -877,23 +877,6 @@ object JsonCodec extends Codec {
         } else {
           out.write("{}")
         }
-//        var matched = false
-//        cases
-//          .map(c => c -> c.deconstruct(value))
-//          .foreach {
-//            case (c, Some(cast)) =>
-//              matched = true
-//              out.write('{')
-//              val indent_ = bump(indent)
-//              pad(indent_, out)
-//              string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(c.id), indent_, out)
-//              if (indent.isEmpty) out.write(':')
-//              else out.write(" : ")
-//              schemaEncoder(c.codec.asInstanceOf[Schema[Any]]).unsafeEncode(cast, indent, out)
-//              out.write('}')
-//            case _ => ()
-//          }
-//        if (!matched) out.write("{}")
       }
 
     private def recordEncoder(structure: Map[String, Schema[_]]): JsonEncoder[Map[String, _]] = {
