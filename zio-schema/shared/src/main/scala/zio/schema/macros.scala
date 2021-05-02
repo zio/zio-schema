@@ -1290,11 +1290,11 @@ object DeriveSchema {
 
   def dispatch[A](sealedTrait: SealedTrait[Schema, A]): Schema[A] =
     sealedTrait.subtypes.sortBy(_.typeName.short).map { subtype =>
-      Schema.Case(
+      Schema.Case[subtype.SType,A](
         id = subtype.typeName.short,
         codec = subtype.typeclass,
         construct = (s: subtype.SType) => s.asInstanceOf[A],
-        deconstruct = (a: A) => subtype.cast.lift(a)
+        unsafeDeconstruct = (a: A) => if (subtype.cast.isDefinedAt(a)) subtype.cast(a) else throw new IllegalArgumentException
       )
     } match {
       case Seq(c)          => Schema.Enum1(c)

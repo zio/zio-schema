@@ -1000,7 +1000,7 @@ object ProtobufCodec extends Codec {
           Chunk.empty
         } else {
           val subtypeCase = cases(fieldIndex)
-          encode(Some(fieldIndex + 1), subtypeCase.codec.asInstanceOf[Schema[Any]], subtypeCase.deconstruct(value).get)
+          encode(Some(fieldIndex + 1), subtypeCase.codec.asInstanceOf[Schema[Any]], subtypeCase.unsafeDeconstruct(value))
         }
       )
       encodeKey(WireType.LengthDelimited(encoded.size), fieldNumber) ++ encoded
