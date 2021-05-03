@@ -7,7 +7,7 @@ import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.internal.{ Lexer, RetractReader, StringMatrix, Write }
 import zio.json.{ JsonCodec => ZJsonCodec, JsonDecoder, JsonEncoder, JsonFieldDecoder, JsonFieldEncoder }
-import zio.schema.Schema.{ EitherSchema, ListSchema }
+import zio.schema.Schema.EitherSchema
 import zio.schema.{ StandardType, _ }
 import zio.stream.ZTransducer
 import zio.{ Chunk, ChunkBuilder, ZIO }
@@ -37,7 +37,8 @@ object JsonCodec extends Codec {
   object Codecs {
     protected[codec] val unitEncoder: JsonEncoder[Unit] = new JsonEncoder[Unit] {
       override def unsafeEncode(a: Unit, indent: Option[Int], out: Write): Unit = ()
-      override def isNothing(a: Unit): Boolean                                  = true
+
+      override def isNothing(a: Unit): Boolean = true
     }
     protected[codec] val unitDecoder: JsonDecoder[Unit] =
       (_: List[JsonDecoder.JsonError], _: RetractReader) => ()
@@ -81,6 +82,7 @@ object JsonCodec extends Codec {
   }
 
   object Encoder {
+
     import Codecs._
     import JsonEncoder.{ bump, pad }
 
@@ -96,7 +98,7 @@ object JsonCodec extends Codec {
 
     private def schemaEncoder[A](schema: Schema[A]): JsonEncoder[A] = schema match {
       case Schema.Primitive(standardType)                     => primitiveCodec(standardType)
-      case Schema.Sequence(schema)                            => JsonEncoder.chunk(schemaEncoder(schema))
+      case Schema.Sequence(schema, _, g)                      => JsonEncoder.chunk(schemaEncoder(schema)).contramap(g)
       case Schema.Transform(c, _, g)                          => transformEncoder(c, g)
       case Schema.Tuple(l, r)                                 => schemaEncoder(l).both(schemaEncoder(r))
       case Schema.Optional(schema)                            => JsonEncoder.option(schemaEncoder(schema))
@@ -104,7 +106,6 @@ object JsonCodec extends Codec {
       case Schema.Record(structure)                           => recordEncoder(structure)
       case Schema.Enumeration(structure)                      => enumEncoder(structure)
       case EitherSchema(left, right)                          => JsonEncoder.either(schemaEncoder(left), schemaEncoder(right))
-      case ListSchema(codec)                                  => JsonEncoder.list(schemaEncoder(codec))
       case Schema.CaseClass1(f, _, ext)                       => caseClassEncoder(f -> ext)
       case Schema.CaseClass2(f1, f2, _, ext1, ext2)           => caseClassEncoder(f1 -> ext1, f2 -> ext2)
       case Schema.CaseClass3(f1, f2, f3, _, ext1, ext2, ext3) => caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3)
@@ -820,7 +821,6 @@ object JsonCodec extends Codec {
           f21 -> ext21,
           f22 -> ext22
         )
-
     }
 
     private def transformEncoder[A, B](schema: Schema[A], g: B => Either[String, A]): JsonEncoder[B] = {
@@ -879,7 +879,6 @@ object JsonCodec extends Codec {
                   if (indent.isDefined)
                     JsonEncoder.pad(indent_, out)
                 }
-
                 string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(k), indent_, out)
                 if (indent.isEmpty) out.write(':')
                 else out.write(" : ")
@@ -888,7 +887,6 @@ object JsonCodec extends Codec {
             pad(indent, out)
             out.write('}')
           }
-
         }
     }
 
@@ -921,10 +919,13 @@ object JsonCodec extends Codec {
           }
         }
     }
+
   }
 
   object Decoder {
+
     import Codecs._
+
     final def decode[A](schema: Schema[A], json: String): Either[String, A] =
       schemaDecoder(schema).decodeJson(json)
 
@@ -933,12 +934,11 @@ object JsonCodec extends Codec {
       case Schema.Optional(codec)                                                         => JsonDecoder.option(schemaDecoder(codec))
       case Schema.Tuple(left, right)                                                      => JsonDecoder.tuple2(schemaDecoder(left), schemaDecoder(right))
       case Schema.Transform(codec, f, _)                                                  => schemaDecoder(codec).mapOrFail(f)
-      case Schema.Sequence(codec)                                                         => JsonDecoder.chunk(schemaDecoder(codec))
+      case Schema.Sequence(codec, f, _)                                                   => JsonDecoder.chunk(schemaDecoder(codec)).map(f)
       case Schema.Fail(message)                                                           => failDecoder(message)
       case Schema.Record(structure)                                                       => recordDecoder(structure)
       case Schema.Enumeration(structure)                                                  => enumDecoder(structure)
       case EitherSchema(left, right)                                                      => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
-      case Schema.ListSchema(codec)                                                       => JsonDecoder.list(schemaDecoder(codec))
       case s @ Schema.CaseClass1(_, _, _)                                                 => caseClass1Decoder(s)
       case s @ Schema.CaseClass2(_, _, _, _, _)                                           => caseClass2Decoder(s)
       case s @ Schema.CaseClass3(_, _, _, _, _, _, _)                                     => caseClass3Decoder(s)
@@ -2256,4 +2256,5 @@ object JsonCodec extends Codec {
         }
     }
   }
+
 }

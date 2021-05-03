@@ -85,18 +85,18 @@ object SchemaGen {
       (valueA, valueB) <- gen
     } yield schema -> ((valueA, valueB))
 
-  val anySequence: Gen[Random with Sized, Schema.Sequence[_]] =
-    anySchema.map(Schema.Sequence(_))
+  val anySequence: Gen[Random with Sized, Schema[Chunk[Any]]] =
+    anySchema.map(Schema.schemaChunk(_).asInstanceOf[Schema[Chunk[Any]]])
 
-  type SequenceAndGen[A] = (Schema.Sequence[A], Gen[Random with Sized, Chunk[A]])
+  type SequenceAndGen[A] = (Schema[Chunk[A]], Gen[Random with Sized, Chunk[A]])
 
   val anySequenceAndGen: Gen[Random with Sized, SequenceAndGen[_]] =
     anyPrimitiveAndGen.map {
       case (schema, gen) =>
-        Schema.Sequence(schema) -> Gen.chunkOf(gen)
+        Schema.schemaChunk(schema) -> Gen.chunkOf(gen)
     }
 
-  type SequenceAndValue[A] = (Schema.Sequence[A], Chunk[A])
+  type SequenceAndValue[A] = (Schema[Chunk[A]], Chunk[A])
 
   val anySequenceAndValue: Gen[Random with Sized, SequenceAndValue[_]] =
     for {
@@ -189,11 +189,11 @@ object SchemaGen {
   val anySequenceTransformAndGen: Gen[Random with Sized, SequenceTransformAndGen[_]] =
     anyPrimitiveAndGen.map {
       case (schema, gen) =>
-        transformSequence(Schema.Sequence(schema)) -> Gen.listOf(gen)
+        transformSequence(Schema.schemaChunk(schema)) -> Gen.listOf(gen)
     }
 
   // TODO: Add some random Left values.
-  private def transformSequence[A](schema: Schema.Sequence[A]): SequenceTransform[A] =
+  private def transformSequence[A](schema: Schema[Chunk[A]]): SequenceTransform[A] =
     Schema.Transform[Chunk[A], List[A]](schema, chunk => Right(chunk.toList), list => Right(Chunk.fromIterable(list)))
 
   type SequenceTransformAndValue[A] = (SequenceTransform[A], List[A])
@@ -215,9 +215,9 @@ object SchemaGen {
   // TODO: How do we generate a value of a type that we know nothing about?
   val anyRecordTransformAndGen: Gen[Random with Sized, RecordTransformAndGen[_]] =
     Gen.empty
-//    anyRecordAndGen.map {
-//      case (schema, gen) => transformRecord(schema) -> gen
-//    }
+  //    anyRecordAndGen.map {
+  //      case (schema, gen) => transformRecord(schema) -> gen
+  //    }
 
   // TODO: Dynamically generate a case class.
   def transformRecord[A](schema: Schema.Record): RecordTransform[A] =
@@ -242,9 +242,9 @@ object SchemaGen {
   // TODO: How do we generate a value of a type that we know nothing about?
   val anyEnumerationTransformAndGen: Gen[Random with Sized, EnumerationTransformAndGen[_]] =
     Gen.empty
-//    anyEnumerationAndGen.map {
-//      case (schema, gen) => transformEnumeration(schema) -> gen
-//    }
+  //    anyEnumerationAndGen.map {
+  //      case (schema, gen) => transformEnumeration(schema) -> gen
+  //    }
 
   // TODO: Dynamically generate a sealed trait and case/value classes.
   def transformEnumeration[A](schema: Schema.Enumeration): EnumerationTransform[_] =

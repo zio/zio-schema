@@ -19,7 +19,7 @@ object SchemaAssertions {
             val right: Schema[Any] = structure2(keyAndSchema._1).asInstanceOf[Schema[Any]]
             equalsSchema(left, right)
           }
-      case (Schema.Sequence(element1), Schema.Sequence(element2)) => equalsSchema(element1, element2)
+      case (Schema.Sequence(element1, _, _), Schema.Sequence(element2, _, _)) => equalsSchema(element1, element2)
       case (Schema.Enumeration(structure1), Schema.Enumeration(structure2)) =>
         hasSameKeys(structure1, structure2) &&
           structure1.forall { keyAndSchema =>
