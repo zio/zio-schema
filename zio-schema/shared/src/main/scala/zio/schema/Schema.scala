@@ -39,8 +39,9 @@ object Schema {
   sealed case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)]
 
   final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]]
-\
+
   final case class Case[A <: Z, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A) {
+
     def deconstruct(z: Z): Option[A] =
       try {
         Some(unsafeDeconstruct(z))
