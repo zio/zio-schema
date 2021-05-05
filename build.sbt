@@ -94,3 +94,8 @@ lazy val docs = project
   )
   .dependsOn(zioSchemaJVM)
   .enablePlugins(MdocPlugin, DocusaurusPlugin, ScalaUnidocPlugin)
+
+lazy val benchmarks = project
+  .in(file("benchmarks"))
+  .dependsOn(zioSchemaJVM)
+  .enablePlugins(JmhPlugin)

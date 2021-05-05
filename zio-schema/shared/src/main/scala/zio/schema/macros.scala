@@ -1288,26 +1288,22 @@ object DeriveSchema {
   }
   // format: on
 
-  def dispatch[A](sealedTrait: SealedTrait[Schema, A]): Schema[A] =
-    Schema
-      .enumeration(sealedTrait.subtypes.map(s => s.typeName.short -> s.typeclass).toMap)
-      .transformOrFail(
-        { map =>
-          val maybeSubtype = sealedTrait.subtypes
-            .find(st => map.headOption.exists(_._1 == st.typeName.short))
-          Either.cond(
-            maybeSubtype.nonEmpty, {
-              val st = maybeSubtype.get
-              map(st.typeName.short).asInstanceOf[st.SType]
-            },
-            s"""Expected one of following subtypes: ${sealedTrait.subtypes.map(_.typeName.short).mkString(", ")}"""
-          )
-        }, { a =>
-          sealedTrait.dispatch(a) { subType =>
-            Right(Map(subType.typeName.short -> subType.cast(a)))
-          }
-        }
+  def dispatch[A](sealedTrait: SealedTrait[Schema, A]): Schema[A] = {
+    type S = Subtype[Schema, A]#SType
+    sealedTrait.subtypes.sortBy(_.typeName.short).map { subtype: Subtype[Schema, A] =>
+      Schema.Case[S, A](
+        id = subtype.typeName.short,
+        codec = subtype.typeclass.asInstanceOf[Schema[S]],
+        unsafeDeconstruct =
+          (a: A) => if (subtype.cast.isDefinedAt(a)) subtype.cast(a) else throw new IllegalArgumentException
       )
+    } match {
+      case Seq(c)          => Schema.Enum1(c)
+      case Seq(c1, c2)     => Schema.Enum2(c1, c2)
+      case Seq(c1, c2, c3) => Schema.Enum3(c1, c2, c3)
+      case cases           => Schema.EnumN(cases)
+    }
+  }
 
   implicit def gen[T]: Schema[T] = macro Magnolia.gen[T]
 }

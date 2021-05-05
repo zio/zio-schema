@@ -38,19 +38,12 @@ object ProtobufCodec extends Codec {
     sealed trait WireType
 
     object WireType {
-
-      case object VarInt extends WireType
-
-      case object Bit64 extends WireType
-
+      case object VarInt                     extends WireType
+      case object Bit64                      extends WireType
       case class LengthDelimited(width: Int) extends WireType
-
-      case object StartGroup extends WireType
-
-      case object EndGroup extends WireType
-
-      case object Bit32 extends WireType
-
+      case object StartGroup                 extends WireType
+      case object EndGroup                   extends WireType
+      case object Bit32                      extends WireType
     }
 
     def flatFields(
@@ -115,6 +108,7 @@ object ProtobufCodec extends Codec {
       case _: Schema.Fail[_]              => false
       case _: Schema.EitherSchema[_, _]   => false
       case _: Schema.CaseClass[_]         => false
+      case _                              => false
     }
 
     private def canBePacked(standardType: StandardType[_]): Boolean = standardType match {
@@ -992,8 +986,29 @@ object ProtobufCodec extends Codec {
             f21 -> ext21,
             f22 -> ext22
           )
-        case (_, _) => Chunk.empty
+        case (Schema.Enum1(c), v)          => encodeEnum(fieldNumber, v, c)
+        case (Schema.Enum2(c1, c2), v)     => encodeEnum(fieldNumber, v, c1, c2)
+        case (Schema.Enum3(c1, c2, c3), v) => encodeEnum(fieldNumber, v, c1, c2, c3)
+        case (Schema.EnumN(cs), v)         => encodeEnum(fieldNumber, v, cs: _*)
+        case (_, _)                        => Chunk.empty
       }
+
+    private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[_, Z]*): Chunk[Byte] = {
+      val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
+      val encoded = Chunk.fromIterable(
+        if (fieldIndex == -1) {
+          Chunk.empty
+        } else {
+          val subtypeCase = cases(fieldIndex)
+          encode(
+            Some(fieldIndex + 1),
+            subtypeCase.codec.asInstanceOf[Schema[Any]],
+            subtypeCase.unsafeDeconstruct(value)
+          )
+        }
+      )
+      encodeKey(WireType.LengthDelimited(encoded.size), fieldNumber) ++ encoded
+    }
 
     private def encodeCaseClass[Z](
       fieldNumber: Option[Int],
@@ -1280,7 +1295,7 @@ object ProtobufCodec extends Codec {
         case Schema.Record(structure) => recordDecoder(flatFields(structure))
         case Schema.Sequence(element, f, _) =>
           if (canBePacked(element)) packedSequenceDecoder(element).map(f) else nonPackedSequenceDecoder(element).map(f)
-        case Schema.Enumeration(structure)                                                     => enumDecoder(flatFields(structure))
+        case Schema.Enumeration(structure)                                                     => enumerationDecoder(flatFields(structure))
         case Schema.Transform(codec, f, _)                                                     => transformDecoder(codec, f)
         case Schema.Primitive(standardType)                                                    => primitiveDecoder(standardType)
         case Schema.Tuple(left, right)                                                         => tupleDecoder(left, right)
@@ -1312,6 +1327,27 @@ object ProtobufCodec extends Codec {
           caseClass21Decoder(s)
         case s: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
           caseClass22Decoder(s)
+        case Schema.Enum1(c)          => enumDecoder(c)
+        case Schema.Enum2(c1, c2)     => enumDecoder(c1, c2)
+        case Schema.Enum3(c1, c2, c3) => enumDecoder(c1, c2, c3)
+        case Schema.EnumN(cs)         => enumDecoder(cs: _*)
+      }
+
+    private def enumDecoder[Z](cases: Schema.Case[_, Z]*): Decoder[Z] =
+      keyDecoder.flatMap {
+        case (wt, fieldNumber) if fieldNumber <= cases.length =>
+          val subtypeCase = cases(fieldNumber - 1)
+          wt match {
+            case LengthDelimited(width) =>
+              decoder(subtypeCase.codec)
+                .take(width)
+                .asInstanceOf[Decoder[Z]]
+            case _ =>
+              decoder(subtypeCase.codec)
+                .asInstanceOf[Decoder[Z]]
+          }
+        case (_, fieldNumber) =>
+          fail(s"Schema doesn't contain field number $fieldNumber.")
       }
 
     private def caseClass1Decoder[A, Z](schema: Schema.CaseClass1[A, Z]): Decoder[Z] =
@@ -2247,7 +2283,7 @@ object ProtobufCodec extends Codec {
           }
       }
 
-    private def enumDecoder(fields: Map[Int, (String, Schema[_])]): Decoder[Map[String, _]] =
+    private def enumerationDecoder(fields: Map[Int, (String, Schema[_])]): Decoder[Map[String, _]] =
       keyDecoder.flatMap {
         case (_, fieldNumber) =>
           if (fields.contains(fieldNumber)) {

@@ -58,16 +58,14 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       val statusSchema: Schema[Status] = DeriveSchema.gen[Status]
 
       val expectedSchema: Schema[Status] =
-        Schema.Transform[Map[String, Any], Status](
-          Schema.Enumeration(
-            Map(
-              "Ok"      -> DeriveSchema.gen[Ok],
-              "Failed"  -> DeriveSchema.gen[Failed],
-              "Pending" -> DeriveSchema.gen[Pending.type]
-            )
-          ),
-          _ => Right(Pending), // ignored in equality comparison
-          _ => Right(Map("Pending" -> Pending)) // ignored in equality comparison
+        Schema.Enum3(
+          Schema.Case("Failed", DeriveSchema.gen[Failed], (s: Status) => s.asInstanceOf[Failed]),
+          Schema.Case("Ok", DeriveSchema.gen[Ok], (s: Status) => s.asInstanceOf[Ok]),
+          Schema.Case(
+            "Pending",
+            DeriveSchema.gen[Pending.type],
+            (s: Status) => s.asInstanceOf[Pending.type]
+          )
         )
 
       assert(statusSchema)(hasSameSchema(expectedSchema))

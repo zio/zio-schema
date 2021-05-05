@@ -39,8 +39,20 @@ object SchemaAssertions {
         equalsField(l1, r1) && equalsField(l2, r2) && equalsField(l3, r3)
       case (Schema.CaseClass4(l1, l2, l3, l4, _, _, _, _, _), Schema.CaseClass4(r1, r2, r3, r4, _, _, _, _, _)) =>
         equalsField(l1, r1) && equalsField(l2, r2) && equalsField(l3, r3) && equalsField(l4, r4)
-      case _ => false
+      case (Schema.Enum1(l), Schema.Enum1(r))                   => equalsCase(l, r)
+      case (Schema.Enum2(l1, l2), Schema.Enum2(r1, r2))         => hasSameCases(Seq(l1, l2), Seq(r1, r2))
+      case (Schema.Enum3(l1, l2, l3), Schema.Enum3(r1, r2, r3)) => hasSameCases(Seq(l1, l2, l3), Seq(r1, r2, r3))
+      case (Schema.EnumN(ls), Schema.EnumN(rs))                 => hasSameCases(ls, rs)
+      case _                                                    => false
     }
+
+  private def equalsCase(left: Schema.Case[_, _], right: Schema.Case[_, _]): Boolean =
+    left.id == right.id && equalsSchema(left.codec.asInstanceOf[Schema[Any]], right.codec.asInstanceOf[Schema[Any]])
+
+  private def hasSameCases(ls: Seq[Schema.Case[_, _]], rs: Seq[Schema.Case[_, _]]): Boolean =
+    ls.map(l => rs.exists(r => equalsCase(l, r))).reduce(_ && _) && rs
+      .map(r => ls.exists(l => equalsCase(l, r)))
+      .reduce(_ && _)
 
   private def equalsField[A](left: (String, Schema[A]), right: (String, Schema[A])): Boolean =
     left._1 == right._1 && equalsSchema(left._2, right._2)

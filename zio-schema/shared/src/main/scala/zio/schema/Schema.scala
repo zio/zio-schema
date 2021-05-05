@@ -40,6 +40,20 @@ object Schema {
 
   final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]]
 
+  final case class Case[A <: Z, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A) {
+
+    def deconstruct(z: Z): Option[A] =
+      try {
+        Some(unsafeDeconstruct(z))
+      } catch { case _: IllegalArgumentException => None }
+  }
+
+  final case class Enum1[A <: Z, Z](case1: Case[A, Z])                                extends Schema[Z]
+  final case class Enum2[A1 <: Z, A2 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z]) extends Schema[Z]
+  final case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z])
+      extends Schema[Z]
+  final case class EnumN[Z](cases: Seq[Case[_, Z]]) extends Schema[Z]
+
   sealed trait CaseClass[Z] extends Schema[Z] {
     def toRecord: Record
   }

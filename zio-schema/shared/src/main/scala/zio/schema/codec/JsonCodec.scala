@@ -104,7 +104,7 @@ object JsonCodec extends Codec {
       case Schema.Optional(schema)                            => JsonEncoder.option(schemaEncoder(schema))
       case Schema.Fail(_)                                     => unitEncoder.contramap(_ => ())
       case Schema.Record(structure)                           => recordEncoder(structure)
-      case Schema.Enumeration(structure)                      => enumEncoder(structure)
+      case Schema.Enumeration(structure)                      => enumerationEncoder(structure)
       case EitherSchema(left, right)                          => JsonEncoder.either(schemaEncoder(left), schemaEncoder(right))
       case Schema.CaseClass1(f, _, ext)                       => caseClassEncoder(f -> ext)
       case Schema.CaseClass2(f1, f2, _, ext1, ext2)           => caseClassEncoder(f1 -> ext1, f2 -> ext2)
@@ -821,6 +821,10 @@ object JsonCodec extends Codec {
           f21 -> ext21,
           f22 -> ext22
         )
+      case Schema.Enum1(c)          => enumEncoder(c)
+      case Schema.Enum2(c1, c2)     => enumEncoder(c1, c2)
+      case Schema.Enum3(c1, c2, c3) => enumEncoder(c1, c2, c3)
+      case Schema.EnumN(cs)         => enumEncoder(cs: _*)
     }
 
     private def transformEncoder[A, B](schema: Schema[A], g: B => Either[String, A]): JsonEncoder[B] = {
@@ -832,30 +836,46 @@ object JsonCodec extends Codec {
     }
 
     private def caseClassEncoder[Z](fields: ((String, Schema[_]), Z => Any)*): JsonEncoder[Z] =
-      new JsonEncoder[Z] {
-        override def unsafeEncode(a: Z, indent: Option[Int], out: Write): Unit = {
+      (a: Z, indent: Option[Int], out: Write) => {
+        out.write('{')
+        val indent_ = bump(indent)
+        pad(indent_, out)
+        var first = true
+        fields.foreach {
+          case ((key, schema), ext) =>
+            val enc = schemaEncoder(schema.asInstanceOf[Schema[Any]])
+            if (first)
+              first = false
+            else {
+              out.write(',')
+              if (indent.isDefined)
+                JsonEncoder.pad(indent_, out)
+            }
+
+            string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(key), indent_, out)
+            if (indent.isEmpty) out.write(':')
+            else out.write(" : ")
+            enc.unsafeEncode(ext(a), indent_, out)
+        }
+        pad(indent, out)
+        out.write('}')
+      }
+
+    private def enumEncoder[Z](cases: Schema.Case[_, Z]*): JsonEncoder[Z] =
+      (value: Z, indent: Option[Int], out: Write) => {
+        val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
+        if (fieldIndex > -1) {
+          val case_ = cases(fieldIndex)
           out.write('{')
           val indent_ = bump(indent)
           pad(indent_, out)
-          var first = true
-          fields.foreach {
-            case ((key, schema), ext) =>
-              val enc = schemaEncoder(schema.asInstanceOf[Schema[Any]])
-              if (first)
-                first = false
-              else {
-                out.write(',')
-                if (indent.isDefined)
-                  JsonEncoder.pad(indent_, out)
-              }
-
-              string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(key), indent_, out)
-              if (indent.isEmpty) out.write(':')
-              else out.write(" : ")
-              enc.unsafeEncode(ext(a), indent_, out)
-          }
-          pad(indent, out)
+          string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(case_.id), indent_, out)
+          if (indent.isEmpty) out.write(':')
+          else out.write(" : ")
+          schemaEncoder(case_.codec.asInstanceOf[Schema[Any]]).unsafeEncode(case_.unsafeDeconstruct(value), indent, out)
           out.write('}')
+        } else {
+          out.write("{}")
         }
       }
 
@@ -890,7 +910,7 @@ object JsonCodec extends Codec {
         }
     }
 
-    private def enumEncoder(structure: Map[String, Schema[_]]): JsonEncoder[Map[String, _]] = {
+    private def enumerationEncoder(structure: Map[String, Schema[_]]): JsonEncoder[Map[String, _]] = {
       (a: Map[String, _], indent: Option[Int], out: Write) =>
         {
           if (structure.isEmpty) {
@@ -937,7 +957,7 @@ object JsonCodec extends Codec {
       case Schema.Sequence(codec, f, _)                                                   => JsonDecoder.chunk(schemaDecoder(codec)).map(f)
       case Schema.Fail(message)                                                           => failDecoder(message)
       case Schema.Record(structure)                                                       => recordDecoder(structure)
-      case Schema.Enumeration(structure)                                                  => enumDecoder(structure)
+      case Schema.Enumeration(structure)                                                  => enumerationDecoder(structure)
       case EitherSchema(left, right)                                                      => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
       case s @ Schema.CaseClass1(_, _, _)                                                 => caseClass1Decoder(s)
       case s @ Schema.CaseClass2(_, _, _, _, _)                                           => caseClass2Decoder(s)
@@ -1256,6 +1276,30 @@ object JsonCodec extends Codec {
             _
           ) =>
         caseClass22Decoder(s)
+      case Schema.Enum1(c)          => enumDecoder(c)
+      case Schema.Enum2(c1, c2)     => enumDecoder(c1, c2)
+      case Schema.Enum3(c1, c2, c3) => enumDecoder(c1, c2, c3)
+      case Schema.EnumN(cs)         => enumDecoder(cs: _*)
+    }
+
+    private def enumDecoder[Z](cases: Schema.Case[_, Z]*): JsonDecoder[Z] = {
+      (trace: List[JsonError], in: RetractReader) =>
+        {
+          Lexer.char(trace, in, '{')
+          if (Lexer.firstField(trace, in)) {
+            val subtype = Lexer.string(trace, in).toString
+            val trace_  = JsonError.ObjectAccess(subtype) :: trace
+            Lexer.char(trace_, in, ':')
+            cases.find(_.id == subtype) match {
+              case Some(c) =>
+                schemaDecoder(c.codec).unsafeDecode(trace_, in).asInstanceOf[Z]
+              case None =>
+                throw UnsafeJson(JsonError.Message("unrecognized subtype") :: trace_)
+            }
+          } else {
+            throw UnsafeJson(JsonError.Message("missing subtype") :: trace)
+          }
+        }
     }
 
     private def caseClass1Decoder[A, Z](schema: Schema.CaseClass1[A, Z]): JsonDecoder[Z] = {
@@ -2240,7 +2284,7 @@ object JsonCodec extends Codec {
         }
     }
 
-    private def enumDecoder(structure: Map[String, Schema[_]]): JsonDecoder[Map[String, Any]] = {
+    private def enumerationDecoder(structure: Map[String, Schema[_]]): JsonDecoder[Map[String, Any]] = {
       (trace: List[JsonError], in: RetractReader) =>
         {
           val builder: ChunkBuilder[(String, Any)] = zio.ChunkBuilder.make[(String, Any)](structure.size)
