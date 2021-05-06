@@ -11,7 +11,7 @@ object SchemaSpec extends DefaultRunnableSpec {
         assert(schemaUnit)(equalTo(schemaUnit))
       },
       test("sequence") {
-        assert(Schema.schemaChunk(schemaUnit))(equalTo(Schema.schemaChunk(schemaUnit)))
+        assert(Schema.chunk(schemaUnit))(equalTo(Schema.chunk(schemaUnit)))
       },
       test("tuple") {
         assert(Schema.Tuple(schemaUnit, schemaUnit))(equalTo(Schema.Tuple(schemaUnit, schemaUnit)))
