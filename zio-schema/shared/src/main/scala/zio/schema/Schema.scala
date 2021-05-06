@@ -4,16 +4,72 @@ import java.time.temporal.ChronoUnit
 
 import zio.Chunk
 
+/**
+ * A `Schema[A]` describes the structure of some data type `A`, in terms of case classes,
+ * enumerations (sealed traits), collections, and various primitive types (including not only
+ * Scala's own primitive types, but enhanced with java.time and big integers / decimals).
+ *
+ * Schemas models the structure of data types as first class values, so they can be introspected,
+ * transformed, and combined using ordinary Scala code, without macros, metaprogramming, or codegen.
+ *
+ * There are implicit schemas provided for all standard Scala types, and you can automatically
+ * derive schemas for your own data types by using `DeriveSchema.gen[A]`. Whether you write them
+ * by hand by using constructors and operators,
+ *
+ * {{{
+ * final case class Person(name: String, age: Int)
+ * object Person {
+ *   implicit val personSchema: Schema[Person] = DeriveSchema.gen[Person]
+ * }
+ * }}}
+ */
 sealed trait Schema[A] {
   self =>
-  def ? : Schema[Option[A]] = Schema.Optional(self)
 
+  /**
+   * A symbolic operator for [[optional]].
+   */
+  def ? : Schema[Option[A]] = self.optional
+
+  /**
+   * A symbolic operator for [[zip]].
+   */
+  def <*>[B](that: Schema[B]): Schema[(A, B)] = self.zip(that)
+
+  /**
+   * A symbolic operator for [[orElseEither]].
+   */
+  def <+>[B](that: Schema[B]): Schema[Either[A, B]] = self.orElseEither(that)
+
+  /**
+   * Returns a new schema that modifies the type produced by this schema to be optional.
+   */
+  def optional: Schema[Option[A]] = Schema.Optional(self)
+
+  /**
+   * Returns a new schema that combines this schema and the specified schema together, modeling
+   * their either composition.
+   */
+  def orElseEither[B](that: Schema[B]): Schema[Either[A, B]] = Schema.EitherSchema(self, that)
+
+  /**
+   * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
+   * between `A` and `B`, without possibility of failure.
+   */
   def transform[B](f: A => B, g: B => A): Schema[B] =
     Schema.Transform[A, B](self, a => Right(f(a)), b => Right(g(b)))
 
+  /**
+   * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
+   * between `A` and `B` (possibly failing in some cases).
+   */
   def transformOrFail[B](f: A => Either[String, B], g: B => Either[String, A]): Schema[B] =
     Schema.Transform[A, B](self, f, g)
 
+  /**
+   * Returns a new schema that combines this schema and the specified schema together, modeling
+   * their tuple composition.
+   */
   def zip[B](that: Schema[B]): Schema[(A, B)] = Schema.Tuple(self, that)
 
 }
