@@ -75,6 +75,107 @@ sealed trait Schema[A] {
 }
 
 object Schema {
+  def apply[A](implicit schema: Schema[A]): Schema[A] = schema
+
+  def fail[A](message: String): Schema[A] = Fail(message)
+
+  implicit val bigInt: Schema[BigInt] = primitive[java.math.BigInteger].transform(BigInt(_), _.bigInteger)
+
+  implicit val bigDecimal: Schema[BigDecimal] = primitive[java.math.BigDecimal].transform(BigDecimal(_), _.bigDecimal)
+
+  implicit val nil: Schema[Nil.type] = Schema[Unit].transform(_ => Nil, _ => ())
+
+  implicit val none: Schema[None.type] = Schema[Unit].transform(_ => None, _ => ())
+
+  implicit val chronoUnit: Schema[ChronoUnit] = Schema[String].transformOrFail(
+    {
+      case "SECONDS"   => Right(ChronoUnit.SECONDS)
+      case "CENTURIES" => Right(ChronoUnit.CENTURIES)
+      case "DAYS"      => Right(ChronoUnit.DAYS)
+      case "DECADES"   => Right(ChronoUnit.DECADES)
+      case "FOREVER"   => Right(ChronoUnit.FOREVER)
+      case "HOURS"     => Right(ChronoUnit.HOURS)
+      case "MICROS"    => Right(ChronoUnit.MICROS)
+      case "MILLIS"    => Right(ChronoUnit.MILLIS)
+      case "MINUTES"   => Right(ChronoUnit.MINUTES)
+      case "MONTHS"    => Right(ChronoUnit.MONTHS)
+      case "NANOS"     => Right(ChronoUnit.NANOS)
+      case "WEEKS"     => Right(ChronoUnit.WEEKS)
+      case "YEARS"     => Right(ChronoUnit.YEARS)
+      case _           => Left("Failed")
+    }, {
+      case ChronoUnit.SECONDS   => Right("SECONDS")
+      case ChronoUnit.CENTURIES => Right("CENTURIES")
+      case ChronoUnit.DAYS      => Right("DAYS")
+      case ChronoUnit.DECADES   => Right("DECADES")
+      case ChronoUnit.FOREVER   => Right("FOREVER")
+      case ChronoUnit.HOURS     => Right("HOURS")
+      case ChronoUnit.MICROS    => Right("MICROS")
+      case ChronoUnit.MILLIS    => Right("MILLIS")
+      case ChronoUnit.MINUTES   => Right("MINUTES")
+      case ChronoUnit.MONTHS    => Right("MONTHS")
+      case ChronoUnit.NANOS     => Right("NANOS")
+      case ChronoUnit.WEEKS     => Right("WEEKS")
+      case ChronoUnit.YEARS     => Right("YEARS")
+      case _                    => Left("Failed")
+    }
+  )
+
+  implicit def left[A, B](implicit schemaA: Schema[A]): Schema[Left[A, Nothing]] =
+    schemaA.transform(Left(_), _.value)
+
+  implicit def right[A, B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
+    schemaB.transform(Right(_), _.value)
+
+  implicit def either[A, B](left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
+    EitherSchema(left, right)
+
+  def enumeration(structure: Map[String, Schema[_]]): Schema[Map[String, _]] =
+    Enumeration(structure)
+
+  def first[A](codec: Schema[(A, Unit)]): Schema[A] =
+    codec.transform[A](_._1, a => (a, ()))
+
+  implicit def option[A](implicit element: Schema[A]): Schema[Option[A]] =
+    Optional(element)
+
+  implicit def primitive[A](implicit standardType: StandardType[A]): Schema[A] =
+    Primitive(standardType)
+
+  def record(structure: Map[String, Schema[_]]): Schema[Map[String, _]] =
+    Record(structure)
+
+  implicit def list[A](implicit schemaA: Schema[A]): Schema[List[A]] =
+    Schema.Sequence(schemaA, _.toList, Chunk.fromIterable(_))
+
+  implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
+    Schema.Sequence(schemaA, identity, identity)
+
+  implicit def set[A](implicit element: Schema[A]): Schema[Set[A]] =
+    sequence(element).transform(_.toSet, Chunk.fromIterable(_))
+
+  def second[A](codec: Schema[(Unit, A)]): Schema[A] =
+    codec.transform[A](_._2, a => ((), a))
+
+  implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
+    sequence(element).transform(_.toVector, Chunk.fromIterable(_))
+
+  implicit def tuple2[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
+    c1.zip(c2)
+
+  implicit def tuple3[A, B, C](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C]): Schema[(A, B, C)] =
+    c1.zip(c2).zip(c3).transform({ case ((a, b), c) => (a, b, c) }, { case (a, b, c) => ((a, b), c) })
+
+  implicit def tuple4[A, B, C, D](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D]
+  ): Schema[(A, B, C, D)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .transform({ case (((a, b), c), d) => (a, b, c, d) }, { case (a, b, c, d) => (((a, b), c), d) })
 
   sealed case class Record(structure: Map[String, Schema[_]]) extends Schema[Map[String, _]]
 
@@ -766,109 +867,4 @@ object Schema {
   }
 
   // format: on
-
-  def fail[A](message: String): Schema[A] = Fail(message)
-
-  def apply[A](implicit codec: Schema[A]): Schema[A] = codec
-
-  implicit val bigInt: Schema[BigInt]         = primitive[java.math.BigInteger].transform(BigInt(_), _.bigInteger)
-  implicit val bigDecimal: Schema[BigDecimal] = primitive[java.math.BigDecimal].transform(BigDecimal(_), _.bigDecimal)
-  implicit val nilSchema: Schema[Nil.type]    = Schema[Unit].transform(_ => Nil, _ => ())
-  implicit val noneSchema: Schema[None.type]  = Schema[Unit].transform(_ => None, _ => ())
-
-  implicit val chronoUnitSchema: Schema[ChronoUnit] = Schema[String].transformOrFail(
-    {
-      case "SECONDS"   => Right(ChronoUnit.SECONDS)
-      case "CENTURIES" => Right(ChronoUnit.CENTURIES)
-      case "DAYS"      => Right(ChronoUnit.DAYS)
-      case "DECADES"   => Right(ChronoUnit.DECADES)
-      case "FOREVER"   => Right(ChronoUnit.FOREVER)
-      case "HOURS"     => Right(ChronoUnit.HOURS)
-      case "MICROS"    => Right(ChronoUnit.MICROS)
-      case "MILLIS"    => Right(ChronoUnit.MILLIS)
-      case "MINUTES"   => Right(ChronoUnit.MINUTES)
-      case "MONTHS"    => Right(ChronoUnit.MONTHS)
-      case "NANOS"     => Right(ChronoUnit.NANOS)
-      case "WEEKS"     => Right(ChronoUnit.WEEKS)
-      case "YEARS"     => Right(ChronoUnit.YEARS)
-      case _           => Left("Failed")
-    }, {
-      case ChronoUnit.SECONDS   => Right("SECONDS")
-      case ChronoUnit.CENTURIES => Right("CENTURIES")
-      case ChronoUnit.DAYS      => Right("DAYS")
-      case ChronoUnit.DECADES   => Right("DECADES")
-      case ChronoUnit.FOREVER   => Right("FOREVER")
-      case ChronoUnit.HOURS     => Right("HOURS")
-      case ChronoUnit.MICROS    => Right("MICROS")
-      case ChronoUnit.MILLIS    => Right("MILLIS")
-      case ChronoUnit.MINUTES   => Right("MINUTES")
-      case ChronoUnit.MONTHS    => Right("MONTHS")
-      case ChronoUnit.NANOS     => Right("NANOS")
-      case ChronoUnit.WEEKS     => Right("WEEKS")
-      case ChronoUnit.YEARS     => Right("YEARS")
-      case _                    => Left("Failed")
-    }
-  )
-
-  implicit def schemaList[A](implicit schemaA: Schema[A]): Schema[List[A]] =
-    Schema.Sequence(schemaA, _.toList, Chunk.fromIterable(_))
-
-  implicit def schemaChunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
-    Schema.Sequence(schemaA, identity, identity)
-
-  implicit def leftSchema[A, B](implicit schemaA: Schema[A]): Schema[Left[A, Nothing]] =
-    schemaA.transform(Left(_), _.value)
-
-  implicit def rightSchema[A, B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
-    schemaB.transform(Right(_), _.value)
-
-  def either[A, B](left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
-    EitherSchema(left, right)
-
-  def tuple[A, B](left: Schema[A], right: Schema[B]): Schema[(A, B)] =
-    Tuple(left, right)
-
-  def enumeration(structure: Map[String, Schema[_]]): Schema[Map[String, _]] =
-    Enumeration(structure)
-
-  def first[A](codec: Schema[(A, Unit)]): Schema[A] =
-    codec.transform[A](_._1, a => (a, ()))
-
-  implicit def option[A](implicit element: Schema[A]): Schema[Option[A]] =
-    Optional(element)
-
-  implicit def primitive[A](implicit standardType: StandardType[A]): Schema[A] =
-    Primitive(standardType)
-
-  def record(structure: Map[String, Schema[_]]): Schema[Map[String, _]] =
-    Record(structure)
-
-  implicit def sequence[A](implicit element: Schema[A]): Schema[Chunk[A]] =
-    Sequence(element, (c: Chunk[A]) => c, (c: Chunk[A]) => c)
-
-  implicit def set[A](implicit element: Schema[A]): Schema[Set[A]] =
-    sequence(element).transform(_.toSet, Chunk.fromIterable(_))
-
-  def second[A](codec: Schema[(Unit, A)]): Schema[A] =
-    codec.transform[A](_._2, a => ((), a))
-
-  implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
-    sequence(element).transform(_.toVector, Chunk.fromIterable(_))
-
-  implicit def zip2[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
-    c1.zip(c2)
-
-  implicit def zip3[A, B, C](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C]): Schema[(A, B, C)] =
-    c1.zip(c2).zip(c3).transform({ case ((a, b), c) => (a, b, c) }, { case (a, b, c) => ((a, b), c) })
-
-  implicit def zip4[A, B, C, D](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D]
-  ): Schema[(A, B, C, D)] =
-    c1.zip(c2)
-      .zip(c3)
-      .zip(c4)
-      .transform({ case (((a, b), c), d) => (a, b, c, d) }, { case (a, b, c, d) => (((a, b), c), d) })
 }
