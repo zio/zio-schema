@@ -152,13 +152,13 @@ object Schema {
     Schema.Sequence(schemaA, identity, identity)
 
   implicit def set[A](implicit element: Schema[A]): Schema[Set[A]] =
-    sequence(element).transform(_.toSet, Chunk.fromIterable(_))
+    chunk(element).transform(_.toSet, Chunk.fromIterable(_))
 
   def second[A](codec: Schema[(Unit, A)]): Schema[A] =
     codec.transform[A](_._2, a => ((), a))
 
   implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
-    sequence(element).transform(_.toVector, Chunk.fromIterable(_))
+    chunk(element).transform(_.toVector, Chunk.fromIterable(_))
 
   implicit def tuple2[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
     c1.zip(c2)

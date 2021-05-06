@@ -86,14 +86,14 @@ object SchemaGen {
     } yield schema -> ((valueA, valueB))
 
   val anySequence: Gen[Random with Sized, Schema[Chunk[Any]]] =
-    anySchema.map(Schema.schemaChunk(_).asInstanceOf[Schema[Chunk[Any]]])
+    anySchema.map(Schema.chunk(_).asInstanceOf[Schema[Chunk[Any]]])
 
   type SequenceAndGen[A] = (Schema[Chunk[A]], Gen[Random with Sized, Chunk[A]])
 
   val anySequenceAndGen: Gen[Random with Sized, SequenceAndGen[_]] =
     anyPrimitiveAndGen.map {
       case (schema, gen) =>
-        Schema.schemaChunk(schema) -> Gen.chunkOf(gen)
+        Schema.chunk(schema) -> Gen.chunkOf(gen)
     }
 
   type SequenceAndValue[A] = (Schema[Chunk[A]], Chunk[A])
@@ -189,7 +189,7 @@ object SchemaGen {
   val anySequenceTransformAndGen: Gen[Random with Sized, SequenceTransformAndGen[_]] =
     anyPrimitiveAndGen.map {
       case (schema, gen) =>
-        transformSequence(Schema.schemaChunk(schema)) -> Gen.listOf(gen)
+        transformSequence(Schema.chunk(schema)) -> Gen.listOf(gen)
     }
 
   // TODO: Add some random Left values.
