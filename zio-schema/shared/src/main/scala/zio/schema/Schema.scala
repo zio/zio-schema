@@ -8,6 +8,12 @@ sealed trait Schema[A] {
   self =>
   def ? : Schema[Option[A]] = Schema.Optional(self)
 
+  def toGeneric(value: A): Generic =
+    Generic.fromSchemaAndValue(self, value)
+
+  def fromGeneric(generic: Generic): Either[String, A] =
+    generic.toTypedValue(self)
+
   def transform[B](f: A => B, g: B => A): Schema[B] =
     Schema.Transform[A, B](self, a => Right(f(a)), b => Right(g(b)))
 
