@@ -43,6 +43,7 @@ object SchemaAssertions {
       case (Schema.Enum2(l1, l2), Schema.Enum2(r1, r2))         => hasSameCases(Seq(l1, l2), Seq(r1, r2))
       case (Schema.Enum3(l1, l2, l3), Schema.Enum3(r1, r2, r3)) => hasSameCases(Seq(l1, l2, l3), Seq(r1, r2, r3))
       case (Schema.EnumN(ls), Schema.EnumN(rs))                 => hasSameCases(ls, rs)
+      case (Schema.CaseObject(l), Schema.CaseObject(r))         => l == r
       case _                                                    => false
     }
 

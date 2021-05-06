@@ -104,10 +104,10 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  val anyEnumeration: Gen[Random with Sized, Schema.Enumeration] =
-    Gen.mapOf(Gen.anyString, anySchema).map(Schema.Enumeration)
+  val anyEnumeration: Gen[Random with Sized, Schema[Map[String, _]]] =
+    Gen.mapOf(Gen.anyString, anySchema).map(Schema.enumeration)
 
-  type EnumerationAndGen = (Schema.Enumeration, Gen[Random with Sized, Map[String, _]])
+  type EnumerationAndGen = (Schema[Map[String, _]], Gen[Random with Sized, Map[String, _]])
 
   val anyEnumerationAndGen: Gen[Random with Sized, EnumerationAndGen] =
     for {
@@ -120,10 +120,10 @@ object SchemaGen {
         case (key, (_, gen)) => Gen.const(key).zip(gen)
       }.toSeq
       val gen = Gen.oneOf(keyValueGenerators: _*).map(Map(_))
-      Schema.Enumeration(structure) -> gen
+      Schema.enumeration(structure) -> gen
     }
 
-  type EnumerationAndValue = (Schema.Enumeration, Map[String, _])
+  type EnumerationAndValue = (Schema[Map[String, _]], Map[String, _])
 
   val anyEnumerationAndValue: Gen[Random with Sized, EnumerationAndValue] =
     for {
@@ -131,10 +131,10 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  val anyRecord: Gen[Random with Sized, Schema.Record] =
-    Gen.mapOf(Gen.anyString, anySchema).map(Schema.Record)
+  val anyRecord: Gen[Random with Sized, Schema[Map[String, _]]] =
+    Gen.mapOf(Gen.anyString, anySchema).map(Schema.record)
 
-  type RecordAndGen = (Schema.Record, Gen[Random with Sized, Map[String, _]])
+  type RecordAndGen = (Schema[Map[String, _]], Gen[Random with Sized, Map[String, _]])
 
   val anyRecordAndGen: Gen[Random with Sized, RecordAndGen] =
     for {
@@ -153,10 +153,10 @@ object SchemaGen {
             keyValue <- gen
           } yield map + keyValue
       }
-      Schema.Record(structure) -> gen
+      Schema.record(structure) -> gen
     }
 
-  type RecordAndValue = (Schema.Record, Map[String, _])
+  type RecordAndValue = (Schema[Map[String, _]], Map[String, _])
 
   val anyRecordAndValue: Gen[Random with Sized, RecordAndValue] =
     for {
@@ -172,7 +172,7 @@ object SchemaGen {
       (key1, value1)  <- Gen.anyString.zip(gen1)
       (key2, value2)  <- Gen.anyString.zip(gen2)
       (key3, value3)  <- Gen.anyString.zip(gen3)
-    } yield Schema.Record(Map(key1 -> schema1, key2 -> schema2, key3 -> schema3)) -> Map(
+    } yield Schema.record(Map(key1 -> schema1, key2 -> schema2, key3 -> schema3)) -> Map(
       (key1, value1),
       (key2, value2),
       (key3, value3)
@@ -220,7 +220,7 @@ object SchemaGen {
   //    }
 
   // TODO: Dynamically generate a case class.
-  def transformRecord[A](schema: Schema.Record): RecordTransform[A] =
+  def transformRecord[A](schema: Schema[Map[String, _]]): RecordTransform[A] =
     Schema.Transform[Map[String, _], A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."))
 
   type RecordTransformAndValue[A] = (RecordTransform[A], A)
@@ -247,7 +247,7 @@ object SchemaGen {
   //    }
 
   // TODO: Dynamically generate a sealed trait and case/value classes.
-  def transformEnumeration[A](schema: Schema.Enumeration): EnumerationTransform[_] =
+  def transformEnumeration[A](schema: Schema[Map[String, _]]): EnumerationTransform[_] =
     Schema.Transform[Map[String, _], A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."))
 
   type EnumerationTransformAndValue[A] = (EnumerationTransform[A], A)

@@ -93,6 +93,18 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(Record.schemaRecord, Record("hello", 150))
         } yield assert(ed2)(equalTo(Record("hello", 150)))
       },
+      testM("record with field order preserved") {
+        for {
+          ed2 <- encodeAndDecodeNS(Record.genericRecord, Record.genericRecordSorted, Map("a" -> 0, "b" -> 1, "c" -> 2))
+        } yield assert(ed2.asInstanceOf[Map[String, Int]])(
+          equalTo(Map("a" -> 0, "b" -> 1, "c" -> 2))
+        )
+      },
+      testM("records with arity greater than 22") {
+        for {
+          ed <- encodeAndDecodeNS(schemaHighArityRecord, HighArity())
+        } yield assert(ed)(equalTo(HighArity()))
+      },
       testM("integer") {
         for {
           ed2 <- encodeAndDecodeNS(schemaBasicInt, BasicInt(150))
@@ -307,6 +319,14 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         } yield assert(ed)(equalTo(Chunk(Enumeration(BooleanValue(true))))) && assert(ed2)(
           equalTo(Enumeration(IntValue(482)))
         )
+      },
+      testM("enumerations preserving type order") {
+        for {
+          s1 <- encodeAndDecode(schemaGenericEnumeration, Map("string"       -> "s"))
+          i1 <- encodeAndDecode(schemaGenericEnumeration, Map("int"          -> 1))
+          s2 <- encodeAndDecode(schemaGenericEnumerationSorted, Map("string" -> "s"))
+          i2 <- encodeAndDecode(schemaGenericEnumerationSorted, Map("int"    -> 1))
+        } yield assert(s1)(equalTo(s2)) && assert(i1)(equalTo(i2))
       },
       testM("enums unwrapped") {
         for {
@@ -561,6 +581,22 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
 
   object Record {
     implicit val schemaRecord: Schema[Record] = DeriveSchema.gen[Record]
+
+    val genericRecord: Schema[Map[String, _]] = Schema.record(
+      Map(
+        "c" -> Schema.Primitive(StandardType.IntType),
+        "b" -> Schema.Primitive(StandardType.IntType),
+        "a" -> Schema.Primitive(StandardType.IntType)
+      )
+    )
+
+    val genericRecordSorted: Schema[Map[String, _]] = Schema.record(
+      Map(
+        "a" -> Schema.Primitive(StandardType.IntType),
+        "b" -> Schema.Primitive(StandardType.IntType),
+        "c" -> Schema.Primitive(StandardType.IntType)
+      )
+    )
   }
 
   val schemaTuple: Schema.Tuple[Int, String] = Schema.Tuple(Schema[Int], Schema[String])
@@ -569,6 +605,35 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
   case class StringValue(value: String)   extends OneOf
   case class IntValue(value: Int)         extends OneOf
   case class BooleanValue(value: Boolean) extends OneOf
+
+  case class HighArity(
+    f1: Int = 1,
+    f2: Int = 2,
+    f3: Int = 3,
+    f4: Int = 4,
+    f5: Int = 5,
+    f6: Int = 6,
+    f7: Int = 7,
+    f8: Int = 8,
+    f9: Int = 9,
+    f10: Int = 10,
+    f11: Int = 11,
+    f12: Int = 12,
+    f13: Int = 13,
+    f14: Int = 14,
+    f15: Int = 15,
+    f16: Int = 16,
+    f17: Int = 17,
+    f18: Int = 18,
+    f19: Int = 19,
+    f20: Int = 20,
+    f21: Int = 21,
+    f22: Int = 22,
+    f23: Int = 23,
+    f24: Int = 24
+  )
+
+  lazy val schemaHighArityRecord: Schema[HighArity] = DeriveSchema.gen[HighArity]
 
   lazy val schemaOneOf: Schema[OneOf] = DeriveSchema.gen[OneOf]
 
@@ -603,6 +668,20 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
   case class Enumeration(oneOf: OneOf)
 
   lazy val schemaEnumeration: Schema[Enumeration] = DeriveSchema.gen[Enumeration]
+
+  lazy val schemaGenericEnumeration: Schema[Map[String, _]] = Schema.enumeration(
+    Map(
+      "string" -> Schema.primitive(StandardType.StringType),
+      "int"    -> Schema.primitive(StandardType.IntType)
+    )
+  )
+
+  lazy val schemaGenericEnumerationSorted: Schema[Map[String, _]] = Schema.enumeration(
+    Map(
+      "int"    -> Schema.primitive(StandardType.IntType),
+      "string" -> Schema.primitive(StandardType.StringType)
+    )
+  )
 
   val schemaFail: Schema[StringValue] = Schema.fail("failing schema")
 
@@ -660,11 +739,25 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .transduce(ProtobufCodec.decoder(schema))
       .run(ZSink.collectAll)
 
+  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A) =
+    ZStream
+      .succeed(input)
+      .transduce(ProtobufCodec.encoder(encodeSchema))
+      .transduce(ProtobufCodec.decoder(decodeSchema))
+      .run(ZSink.collectAll)
+
   //NS == non streaming variant of encodeAndDecode
   def encodeAndDecodeNS[A](schema: Schema[A], input: A) =
     ZIO
       .succeed(input)
       .map(a => ProtobufCodec.encode(schema)(a))
       .map(ch => ProtobufCodec.decode(schema)(ch))
+      .absolve
+
+  def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, A] =
+    ZIO
+      .succeed(input)
+      .map(a => ProtobufCodec.encode(encodeSchema)(a))
+      .map(ch => ProtobufCodec.decode(decodeSchema)(ch))
       .absolve
 }

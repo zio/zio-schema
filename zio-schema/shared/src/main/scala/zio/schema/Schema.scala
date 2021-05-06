@@ -2,6 +2,8 @@ package zio.schema
 
 import java.time.temporal.ChronoUnit
 
+import scala.collection.immutable.SortedMap
+
 import zio.Chunk
 
 /**
@@ -131,7 +133,7 @@ object Schema {
     EitherSchema(left, right)
 
   def enumeration(structure: Map[String, Schema[_]]): Schema[Map[String, _]] =
-    Enumeration(structure)
+    Enumeration(SortedMap.empty[String, Schema[_]] ++ structure)
 
   def first[A](codec: Schema[(A, Unit)]): Schema[A] =
     codec.transform[A](_._1, a => (a, ()))
@@ -143,7 +145,7 @@ object Schema {
     Primitive(standardType)
 
   def record(structure: Map[String, Schema[_]]): Schema[Map[String, _]] =
-    Record(structure)
+    Record(SortedMap.empty[String, Schema[_]] ++ structure)
 
   implicit def list[A](implicit schemaA: Schema[A]): Schema[List[A]] =
     Schema.Sequence(schemaA, _.toList, Chunk.fromIterable(_))
@@ -177,23 +179,25 @@ object Schema {
       .zip(c4)
       .transform({ case (((a, b), c), d) => (a, b, c, d) }, { case (a, b, c, d) => (((a, b), c), d) })
 
-  sealed case class Record(structure: Map[String, Schema[_]]) extends Schema[Map[String, _]]
+  final case class Record(structure: SortedMap[String, Schema[_]]) extends Schema[Map[String, _]]
+
+  final private[schema] case class UnorderedRecord(structure: Map[String, Schema[_]]) extends Schema[Map[String, _]]
 
   final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
       extends Schema[Col[A]]
 
-  sealed case class Enumeration(structure: Map[String, Schema[_]]) extends Schema[Map[String, _]]
+  final case class Enumeration(structure: SortedMap[String, Schema[_]]) extends Schema[Map[String, _]]
 
-  sealed case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
+  final case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
       extends Schema[B]
 
-  sealed case class Primitive[A](standardType: StandardType[A]) extends Schema[A]
+  final case class Primitive[A](standardType: StandardType[A]) extends Schema[A]
 
-  sealed case class Optional[A](codec: Schema[A]) extends Schema[Option[A]]
+  final case class Optional[A](codec: Schema[A]) extends Schema[Option[A]]
 
   final case class Fail[A](message: String) extends Schema[A]
 
-  sealed case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)]
+  final case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)]
 
   final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]]
 
@@ -212,12 +216,14 @@ object Schema {
   final case class EnumN[Z](cases: Seq[Case[_, Z]]) extends Schema[Z]
 
   sealed trait CaseClass[Z] extends Schema[Z] {
-    def toRecord: Record
+    def toRecord: Schema[Map[String, _]]
   }
+
+  final case class CaseObject[Z](instance: Z) extends Schema[Z]
 
   final case class CaseClass1[A, Z](field: (String, Schema[A]), construct: A => Z, extractField: Z => A)
       extends CaseClass[Z] {
-    override def toRecord: Record = Record(Map(field))
+    override def toRecord: Schema[Map[String, _]] = record(Map(field))
   }
 
   final case class CaseClass2[A1, A2, Z](
@@ -227,7 +233,7 @@ object Schema {
     extractField1: Z => A1,
     extractField2: Z => A2
   ) extends CaseClass[Z] {
-    override def toRecord: Record = Record(Map(field1, field2))
+    override def toRecord: Schema[Map[String, _]] = record(Map(field1, field2))
   }
 
   final case class CaseClass3[A1, A2, A3, Z](
@@ -239,7 +245,7 @@ object Schema {
     extractField2: Z => A2,
     extractField3: Z => A3
   ) extends CaseClass[Z] {
-    override def toRecord: Record = Record(Map(field1, field2, field3))
+    override def toRecord: Schema[Map[String, _]] = record(Map(field1, field2, field3))
   }
 
   final case class CaseClass4[A1, A2, A3, A4, Z](
@@ -253,7 +259,7 @@ object Schema {
     extractField3: Z => A3,
     extractField4: Z => A4
   ) extends CaseClass[Z] {
-    override def toRecord: Record = Record(Map(field1, field2, field3, field4))
+    override def toRecord: Schema[Map[String, _]] = record(Map(field1, field2, field3, field4))
   }
 
   final case class CaseClass5[A1, A2, A3, A4, A5, Z](
@@ -269,7 +275,7 @@ object Schema {
     extractField4: Z => A4,
     extractField5: Z => A5
   ) extends CaseClass[Z] {
-    override def toRecord: Record = Record(Map(field1, field2, field3, field4, field5))
+    override def toRecord: Schema[Map[String, _]] = record(Map(field1, field2, field3, field4, field5))
   }
 
   final case class CaseClass6[A1, A2, A3, A4, A5, A6, Z](
@@ -287,7 +293,7 @@ object Schema {
     extractField5: Z => A5,
     extractField6: Z => A6
   ) extends CaseClass[Z] {
-    override def toRecord: Record = Record(Map(field1, field2, field3, field4, field5, field6))
+    override def toRecord: Schema[Map[String, _]] = record(Map(field1, field2, field3, field4, field5, field6))
   }
 
   final case class CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z](
@@ -307,7 +313,7 @@ object Schema {
     extractField6: Z => A6,
     extractField7: Z => A7
   ) extends CaseClass[Z] {
-    override def toRecord: Record = Record(Map(field1, field2, field3, field4, field5, field6, field7))
+    override def toRecord: Schema[Map[String, _]] = record(Map(field1, field2, field3, field4, field5, field6, field7))
   }
 
   final case class CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
@@ -329,7 +335,8 @@ object Schema {
     extractField7: Z => A7,
     extractField8: Z => A8
   ) extends CaseClass[Z] {
-    override def toRecord: Record = Record(Map(field1, field2, field3, field4, field5, field6, field7, field8))
+    override def toRecord: Schema[Map[String, _]] =
+      record(Map(field1, field2, field3, field4, field5, field6, field7, field8))
   }
 
   final case class CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
@@ -353,7 +360,8 @@ object Schema {
     extractField8: Z => A8,
     extractField9: Z => A9
   ) extends CaseClass[Z] {
-    override def toRecord: Record = Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9))
+    override def toRecord: Schema[Map[String, _]] =
+      record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9))
   }
 
   final case class CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
@@ -379,8 +387,8 @@ object Schema {
     extractField9: Z => A9,
     extractField10: Z => A10
   ) extends CaseClass[Z] {
-    override def toRecord: Record =
-      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10))
+    override def toRecord: Schema[Map[String, _]] =
+      record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10))
   }
 
   final case class CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
@@ -408,8 +416,8 @@ object Schema {
     extractField10: Z => A10,
     extractField11: Z => A11
   ) extends CaseClass[Z] {
-    override def toRecord: Record =
-      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11))
+    override def toRecord: Schema[Map[String, _]] =
+      record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11))
   }
 
   final case class CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
@@ -439,8 +447,8 @@ object Schema {
     extractField11: Z => A11,
     extractField12: Z => A12
   ) extends CaseClass[Z] {
-    override def toRecord: Record =
-      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12))
+    override def toRecord: Schema[Map[String, _]] =
+      record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12))
   }
 
   final case class CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
@@ -472,8 +480,8 @@ object Schema {
     extractField12: Z => A12,
     extractField13: Z => A13
   ) extends CaseClass[Z] {
-    override def toRecord: Record =
-      Record(
+    override def toRecord: Schema[Map[String, _]] =
+      record(
         Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13)
       )
   }
@@ -510,8 +518,8 @@ object Schema {
                                                                                                 extractField13: Z => A13,
                                                                                                 extractField14: Z => A14
                                                                                               ) extends CaseClass[Z] {
-    override def toRecord: Record =
-      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14))
+    override def toRecord: Schema[Map[String,_]] =
+      record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14))
   }
 
   final case class CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
@@ -547,8 +555,8 @@ object Schema {
                                                                                                      extractField14: Z => A14,
                                                                                                      extractField15: Z => A15
                                                                                                    ) extends CaseClass[Z] {
-    override def toRecord: Record =
-      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15))
+    override def toRecord: Schema[Map[String,_]] =
+      record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15))
   }
 
   final case class CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
@@ -586,8 +594,8 @@ object Schema {
                                                                                                           extractField15: Z => A15,
                                                                                                           extractField16: Z => A16
                                                                                                         ) extends CaseClass[Z] {
-    override def toRecord: Record =
-      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16))
+    override def toRecord: Schema[Map[String,_]] =
+      record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16))
   }
 
   final case class CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
@@ -627,8 +635,8 @@ object Schema {
                                                                                                                extractField16: Z => A16,
                                                                                                                extractField17: Z => A17
                                                                                                              ) extends CaseClass[Z] {
-    override def toRecord: Record =
-      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17))
+    override def toRecord: Schema[Map[String,_]] =
+      record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17))
   }
 
   final case class CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
@@ -670,8 +678,8 @@ object Schema {
                                                                                                                     extractField17: Z => A17,
                                                                                                                     extractField18: Z => A18
                                                                                                                   ) extends CaseClass[Z] {
-    override def toRecord: Record =
-      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18))
+    override def toRecord: Schema[Map[String,_]] =
+      record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18))
   }
 
   final case class CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
@@ -715,8 +723,8 @@ object Schema {
                                                                                                                          extractField18: Z => A18,
                                                                                                                          extractField19: Z => A19
                                                                                                                        ) extends CaseClass[Z] {
-    override def toRecord: Record =
-      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19))
+    override def toRecord: Schema[Map[String,_]] =
+      record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19))
   }
 
   final case class CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](
@@ -762,8 +770,8 @@ object Schema {
                                                                                                                               extractField19: Z => A19,
                                                                                                                               extractField20: Z => A20
                                                                                                                             ) extends CaseClass[Z] {
-    override def toRecord: Record =
-      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20))
+    override def toRecord: Schema[Map[String,_]] =
+      record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20))
   }
 
   final case class CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](
@@ -811,8 +819,8 @@ object Schema {
                                                                                                                                    extractField20: Z => A20,
                                                                                                                                    extractField21: Z => A21
                                                                                                                                  ) extends CaseClass[Z] {
-    override def toRecord: Record =
-      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20, field21))
+    override def toRecord: Schema[Map[String,_]] =
+      record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20, field21))
   }
 
   final case class CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](
@@ -862,9 +870,113 @@ object Schema {
                                                                                                                                         extractField21: Z => A21,
                                                                                                                                         extractField22: Z => A22
                                                                                                                                       ) extends CaseClass[Z] {
-    override def toRecord: Record =
-      Record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20, field21, field22))
+    override def toRecord: Schema[Map[String,_]] =
+      record(Map(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20, field21, field22))
   }
-
   // format: on
+
+  def fail[A](message: String): Schema[A] = Fail(message)
+
+  def apply[A](implicit codec: Schema[A]): Schema[A] = codec
+
+  implicit val bigInt: Schema[BigInt]         = primitive[java.math.BigInteger].transform(BigInt(_), _.bigInteger)
+  implicit val bigDecimal: Schema[BigDecimal] = primitive[java.math.BigDecimal].transform(BigDecimal(_), _.bigDecimal)
+  implicit val nilSchema: Schema[Nil.type]    = Schema[Unit].transform(_ => Nil, _ => ())
+  implicit val noneSchema: Schema[None.type]  = Schema[Unit].transform(_ => None, _ => ())
+
+  implicit val chronoUnitSchema: Schema[ChronoUnit] = Schema[String].transformOrFail(
+    {
+      case "SECONDS"   => Right(ChronoUnit.SECONDS)
+      case "CENTURIES" => Right(ChronoUnit.CENTURIES)
+      case "DAYS"      => Right(ChronoUnit.DAYS)
+      case "DECADES"   => Right(ChronoUnit.DECADES)
+      case "FOREVER"   => Right(ChronoUnit.FOREVER)
+      case "HOURS"     => Right(ChronoUnit.HOURS)
+      case "MICROS"    => Right(ChronoUnit.MICROS)
+      case "MILLIS"    => Right(ChronoUnit.MILLIS)
+      case "MINUTES"   => Right(ChronoUnit.MINUTES)
+      case "MONTHS"    => Right(ChronoUnit.MONTHS)
+      case "NANOS"     => Right(ChronoUnit.NANOS)
+      case "WEEKS"     => Right(ChronoUnit.WEEKS)
+      case "YEARS"     => Right(ChronoUnit.YEARS)
+      case _           => Left("Failed")
+    }, {
+      case ChronoUnit.SECONDS   => Right("SECONDS")
+      case ChronoUnit.CENTURIES => Right("CENTURIES")
+      case ChronoUnit.DAYS      => Right("DAYS")
+      case ChronoUnit.DECADES   => Right("DECADES")
+      case ChronoUnit.FOREVER   => Right("FOREVER")
+      case ChronoUnit.HOURS     => Right("HOURS")
+      case ChronoUnit.MICROS    => Right("MICROS")
+      case ChronoUnit.MILLIS    => Right("MILLIS")
+      case ChronoUnit.MINUTES   => Right("MINUTES")
+      case ChronoUnit.MONTHS    => Right("MONTHS")
+      case ChronoUnit.NANOS     => Right("NANOS")
+      case ChronoUnit.WEEKS     => Right("WEEKS")
+      case ChronoUnit.YEARS     => Right("YEARS")
+      case _                    => Left("Failed")
+    }
+  )
+
+  implicit def schemaList[A](implicit schemaA: Schema[A]): Schema[List[A]] =
+    Schema.Sequence(schemaA, _.toList, Chunk.fromIterable(_))
+
+  implicit def schemaChunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
+    Schema.Sequence(schemaA, identity, identity)
+
+  implicit def leftSchema[A, B](implicit schemaA: Schema[A]): Schema[Left[A, Nothing]] =
+    schemaA.transform(Left(_), _.value)
+
+  implicit def rightSchema[A, B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
+    schemaB.transform(Right(_), _.value)
+
+  def either[A, B](left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
+    EitherSchema(left, right)
+
+  def tuple[A, B](left: Schema[A], right: Schema[B]): Schema[(A, B)] =
+    Tuple(left, right)
+
+  def enumeration(structure: Map[String, Schema[_]]): Schema[Map[String, _]] =
+    Enumeration(SortedMap.empty[String, Schema[_]] ++ structure)
+
+  def first[A](codec: Schema[(A, Unit)]): Schema[A] =
+    codec.transform[A](_._1, a => (a, ()))
+
+  implicit def option[A](implicit element: Schema[A]): Schema[Option[A]] =
+    Optional(element)
+
+  implicit def primitive[A](implicit standardType: StandardType[A]): Schema[A] =
+    Primitive(standardType)
+
+  def record(structure: Map[String, Schema[_]]): Schema[Map[String, _]] =
+    Record(SortedMap.empty[String, Schema[_]] ++ structure)
+
+  implicit def sequence[A](implicit element: Schema[A]): Schema[Chunk[A]] =
+    Sequence(element, (c: Chunk[A]) => c, (c: Chunk[A]) => c)
+
+  implicit def set[A](implicit element: Schema[A]): Schema[Set[A]] =
+    sequence(element).transform(_.toSet, Chunk.fromIterable(_))
+
+  def second[A](codec: Schema[(Unit, A)]): Schema[A] =
+    codec.transform[A](_._2, a => ((), a))
+
+  implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
+    sequence(element).transform(_.toVector, Chunk.fromIterable(_))
+
+  implicit def zip2[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
+    c1.zip(c2)
+
+  implicit def zip3[A, B, C](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C]): Schema[(A, B, C)] =
+    c1.zip(c2).zip(c3).transform({ case ((a, b), c) => (a, b, c) }, { case (a, b, c) => ((a, b), c) })
+
+  implicit def zip4[A, B, C, D](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D]
+  ): Schema[(A, B, C, D)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .transform({ case (((a, b), c), d) => (a, b, c, d) }, { case (a, b, c, d) => (((a, b), c), d) })
 }

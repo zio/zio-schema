@@ -20,19 +20,25 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   case class IntValue(value: Int)         extends OneOf
   case class BooleanValue(value: Boolean) extends OneOf
 
+  case object Singleton
+
   override def spec: ZSpec[Environment, Failure] = suite("DeriveSchemaSpec")(
     test("DeriveSchema correctly derives schema for UserId case class") {
-
-      val userIdSchema: Schema[UserId] = DeriveSchema.gen
-
-      val expectedSchema: Schema[UserId] =
+      val derived: Schema[UserId] = DeriveSchema.gen
+      val expected: Schema[UserId] =
         Schema.CaseClass1(
           field = "id" -> Schema.Primitive(StandardType.StringType),
           UserId.apply,
           (uid: UserId) => uid.id
         )
 
-      assert(userIdSchema)(hasSameSchema(expectedSchema))
+      assert(derived)(hasSameSchema(expected))
+    },
+    test("DeriveSchema correctly derivs schema for Singleton case object") {
+      val derived: Schema[Singleton.type]             = DeriveSchema.gen[Singleton.type]
+      val expected: Schema.CaseObject[Singleton.type] = Schema.CaseObject(Singleton)
+
+      assert(derived)(hasSameSchema(expected))
     },
     test("DeriveSchema correctly derives schema for case class with nested case classes") {
       val derived: Schema[User] = DeriveSchema.gen
@@ -54,10 +60,8 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       assert(derived)(hasSameSchema(expected))
     },
     test("DeriveSchema correctly derives schema for complex ADT") {
-
-      val statusSchema: Schema[Status] = DeriveSchema.gen[Status]
-
-      val expectedSchema: Schema[Status] =
+      val derived: Schema[Status] = DeriveSchema.gen[Status]
+      val expected: Schema[Status] =
         Schema.Enum3(
           Schema.Case("Failed", DeriveSchema.gen[Failed], (s: Status) => s.asInstanceOf[Failed]),
           Schema.Case("Ok", DeriveSchema.gen[Ok], (s: Status) => s.asInstanceOf[Ok]),
@@ -68,7 +72,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
           )
         )
 
-      assert(statusSchema)(hasSameSchema(expectedSchema))
+      assert(derived)(hasSameSchema(expected))
     }
   )
 }

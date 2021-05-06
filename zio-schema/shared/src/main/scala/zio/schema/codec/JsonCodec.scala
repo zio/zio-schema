@@ -45,6 +45,10 @@ object JsonCodec extends Codec {
 
     protected[codec] val unitCodec: ZJsonCodec[Unit] = ZJsonCodec(unitEncoder, unitDecoder)
 
+    protected[codec] def objectEncoder[Z]: JsonEncoder[Z] = { (_: Z, _: Option[Int], out: Write) =>
+      out.write("{}")
+    }
+
     protected[codec] def failDecoder[A](message: String): JsonDecoder[A] =
       (trace: List[JsonDecoder.JsonError], _: RetractReader) => throw UnsafeJson(JsonError.Message(message) :: trace)
 
@@ -106,6 +110,8 @@ object JsonCodec extends Codec {
       case Schema.Record(structure)                           => recordEncoder(structure)
       case Schema.Enumeration(structure)                      => enumerationEncoder(structure)
       case EitherSchema(left, right)                          => JsonEncoder.either(schemaEncoder(left), schemaEncoder(right))
+      case Schema.UnorderedRecord(structure)                  => recordEncoder(structure)
+      case Schema.CaseObject(_)                               => objectEncoder[A]
       case Schema.CaseClass1(f, _, ext)                       => caseClassEncoder(f -> ext)
       case Schema.CaseClass2(f1, f2, _, ext1, ext2)           => caseClassEncoder(f1 -> ext1, f2 -> ext2)
       case Schema.CaseClass3(f1, f2, f3, _, ext1, ext2, ext3) => caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3)
@@ -959,6 +965,8 @@ object JsonCodec extends Codec {
       case Schema.Record(structure)                                                       => recordDecoder(structure)
       case Schema.Enumeration(structure)                                                  => enumerationDecoder(structure)
       case EitherSchema(left, right)                                                      => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
+      case Schema.UnorderedRecord(structure)                                              => recordDecoder(structure)
+      case Schema.CaseObject(instance)                                                    => caseObjectDecoder(instance)
       case s @ Schema.CaseClass1(_, _, _)                                                 => caseClass1Decoder(s)
       case s @ Schema.CaseClass2(_, _, _, _, _)                                           => caseClass2Decoder(s)
       case s @ Schema.CaseClass3(_, _, _, _, _, _, _)                                     => caseClass3Decoder(s)
@@ -1300,6 +1308,16 @@ object JsonCodec extends Codec {
             throw UnsafeJson(JsonError.Message("missing subtype") :: trace)
           }
         }
+    }
+
+    private def caseObjectDecoder[Z](instance: Z): JsonDecoder[Z] = { (trace: List[JsonError], in: RetractReader) =>
+      {
+        Lexer.char(trace, in, '{')
+        if (!Lexer.firstField(trace, in))
+          instance
+        else
+          throw UnsafeJson(JsonError.Message("invalid field") :: trace)
+      }
     }
 
     private def caseClass1Decoder[A, Z](schema: Schema.CaseClass1[A, Z]): JsonDecoder[Z] = {
