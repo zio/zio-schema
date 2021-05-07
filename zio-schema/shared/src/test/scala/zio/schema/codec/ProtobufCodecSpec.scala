@@ -4,6 +4,7 @@ import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
+import scala.collection.immutable.ListMap
 import scala.util.Try
 
 import zio.schema.{ DeriveSchema, Schema, StandardType }
@@ -92,13 +93,6 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         for {
           ed2 <- encodeAndDecodeNS(Record.schemaRecord, Record("hello", 150))
         } yield assert(ed2)(equalTo(Record("hello", 150)))
-      },
-      testM("record with field order preserved") {
-        for {
-          ed2 <- encodeAndDecodeNS(Record.genericRecord, Record.genericRecordSorted, Map("a" -> 0, "b" -> 1, "c" -> 2))
-        } yield assert(ed2.asInstanceOf[Map[String, Int]])(
-          equalTo(Map("a" -> 0, "b" -> 1, "c" -> 2))
-        )
       },
       testM("records with arity greater than 22") {
         for {
@@ -322,10 +316,10 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       },
       testM("enumerations preserving type order") {
         for {
-          s1 <- encodeAndDecode(schemaGenericEnumeration, Map("string"       -> "s"))
-          i1 <- encodeAndDecode(schemaGenericEnumeration, Map("int"          -> 1))
-          s2 <- encodeAndDecode(schemaGenericEnumerationSorted, Map("string" -> "s"))
-          i2 <- encodeAndDecode(schemaGenericEnumerationSorted, Map("int"    -> 1))
+          s1 <- encodeAndDecode(schemaGenericEnumeration, ListMap("string"       -> "s"))
+          i1 <- encodeAndDecode(schemaGenericEnumeration, ListMap("int"          -> 1))
+          s2 <- encodeAndDecode(schemaGenericEnumerationSorted, ListMap("string" -> "s"))
+          i2 <- encodeAndDecode(schemaGenericEnumerationSorted, ListMap("int"    -> 1))
         } yield assert(s1)(equalTo(s2)) && assert(i1)(equalTo(i2))
       },
       testM("enums unwrapped") {
@@ -582,16 +576,16 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
   object Record {
     implicit val schemaRecord: Schema[Record] = DeriveSchema.gen[Record]
 
-    val genericRecord: Schema[Map[String, _]] = Schema.record(
-      Map(
+    val genericRecord: Schema[ListMap[String, _]] = Schema.record(
+      ListMap(
         "c" -> Schema.Primitive(StandardType.IntType),
         "b" -> Schema.Primitive(StandardType.IntType),
         "a" -> Schema.Primitive(StandardType.IntType)
       )
     )
 
-    val genericRecordSorted: Schema[Map[String, _]] = Schema.record(
-      Map(
+    val genericRecordSorted: Schema[ListMap[String, _]] = Schema.record(
+      ListMap(
         "a" -> Schema.Primitive(StandardType.IntType),
         "b" -> Schema.Primitive(StandardType.IntType),
         "c" -> Schema.Primitive(StandardType.IntType)
@@ -669,15 +663,15 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
 
   lazy val schemaEnumeration: Schema[Enumeration] = DeriveSchema.gen[Enumeration]
 
-  lazy val schemaGenericEnumeration: Schema[Map[String, _]] = Schema.enumeration(
-    Map(
+  lazy val schemaGenericEnumeration: Schema[ListMap[String, _]] = Schema.enumeration(
+    ListMap(
       "string" -> Schema.primitive(StandardType.StringType),
       "int"    -> Schema.primitive(StandardType.IntType)
     )
   )
 
-  lazy val schemaGenericEnumerationSorted: Schema[Map[String, _]] = Schema.enumeration(
-    Map(
+  lazy val schemaGenericEnumerationSorted: Schema[ListMap[String, _]] = Schema.enumeration(
+    ListMap(
       "int"    -> Schema.primitive(StandardType.IntType),
       "string" -> Schema.primitive(StandardType.StringType)
     )

@@ -36,7 +36,7 @@ object DeriveSchema {
       case 22 => caseClass22(ctx)
       case _ =>
         Schema
-          .UnorderedRecord(
+          .GenericRecord(
             ListMap.empty[String, Schema[_]] ++ ctx.parameters.map(p => p.label -> p.typeclass)
           )
           .transformOrFail(
@@ -52,7 +52,7 @@ object DeriveSchema {
                   })
               }
             }, { cc =>
-              Right(ctx.parameters.map(p => p.label -> p.dereference(cc)).toMap)
+              Right(ListMap.empty ++ ctx.parameters.map(p => p.label -> p.dereference(cc)))
             }
           )
     }

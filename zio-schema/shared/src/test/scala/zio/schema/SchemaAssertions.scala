@@ -12,7 +12,7 @@ object SchemaAssertions {
     (left: Schema[_], right: Schema[_]) match {
       case (Schema.Transform(codec1, _, _), Schema.Transform(codec2, _, _)) =>
         equalsSchema(codec1, codec2)
-      case (Schema.Record(structure1), Schema.Record(structure2)) =>
+      case (Schema.GenericRecord(structure1), Schema.GenericRecord(structure2)) =>
         hasSameKeys(structure1, structure2) &&
           structure1.forall { keyAndSchema =>
             val left: Schema[Any]  = keyAndSchema._2.asInstanceOf[Schema[Any]]
