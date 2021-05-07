@@ -179,6 +179,644 @@ object Schema {
       .zip(c4)
       .transform({ case (((a, b), c), d) => (a, b, c, d) }, { case (a, b, c, d) => (((a, b), c), d) })
 
+  implicit def tuple5[A, B, C, D, E](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E]
+  ): Schema[(A, B, C, D, E)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .transform({ case ((((a, b), c), d), e) => (a, b, c, d, e) }, { case (a, b, c, d, e) => ((((a, b), c), d), e) })
+
+  implicit def tuple6[A, B, C, D, E, F](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F]
+  ): Schema[(A, B, C, D, E, F)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .transform({ case (((((a, b), c), d), e), f) => (a, b, c, d, e, f) }, {
+        case (a, b, c, d, e, f)                    => (((((a, b), c), d), e), f)
+      })
+
+  implicit def tuple7[A, B, C, D, E, F, G](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G]
+  ): Schema[(A, B, C, D, E, F, G)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .zip(c7)
+      .transform({ case ((((((a, b), c), d), e), f), g) => (a, b, c, d, e, f, g) }, {
+        case (a, b, c, d, e, f, g)                      => ((((((a, b), c), d), e), f), g)
+      })
+
+  implicit def tuple8[A, B, C, D, E, F, G, H](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H]
+  ): Schema[(A, B, C, D, E, F, G, H)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .zip(c7)
+      .zip(c8)
+      .transform({ case (((((((a, b), c), d), e), f), g), h) => (a, b, c, d, e, f, g, h) }, {
+        case (a, b, c, d, e, f, g, h)                        => (((((((a, b), c), d), e), f), g), h)
+      })
+
+  implicit def tuple9[A, B, C, D, E, F, G, H, I](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I]
+  ): Schema[(A, B, C, D, E, F, G, H, I)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .zip(c7)
+      .zip(c8)
+      .zip(c9)
+      .transform({ case ((((((((a, b), c), d), e), f), g), h), i) => (a, b, c, d, e, f, g, h, i) }, {
+        case (a, b, c, d, e, f, g, h, i)                          => ((((((((a, b), c), d), e), f), g), h), i)
+      })
+
+  implicit def tuple10[A, B, C, D, E, F, G, H, I, J](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I],
+    c10: Schema[J]
+  ): Schema[(A, B, C, D, E, F, G, H, I, J)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .zip(c7)
+      .zip(c8)
+      .zip(c9)
+      .zip(c10)
+      .transform({ case (((((((((a, b), c), d), e), f), g), h), i), j) => (a, b, c, d, e, f, g, h, i, j) }, {
+        case (a, b, c, d, e, f, g, h, i, j)                            => (((((((((a, b), c), d), e), f), g), h), i), j)
+      })
+
+  implicit def tuple11[A, B, C, D, E, F, G, H, I, J, K](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I],
+    c10: Schema[J],
+    c11: Schema[K]
+  ): Schema[(A, B, C, D, E, F, G, H, I, J, K)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .zip(c7)
+      .zip(c8)
+      .zip(c9)
+      .zip(c10)
+      .zip(c11)
+      .transform({ case ((((((((((a, b), c), d), e), f), g), h), i), j), k) => (a, b, c, d, e, f, g, h, i, j, k) }, {
+        case (a, b, c, d, e, f, g, h, i, j, k)                              => ((((((((((a, b), c), d), e), f), g), h), i), j), k)
+      })
+
+  implicit def tuple12[A, B, C, D, E, F, G, H, I, J, K, L](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I],
+    c10: Schema[J],
+    c11: Schema[K],
+    c12: Schema[L]
+  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .zip(c7)
+      .zip(c8)
+      .zip(c9)
+      .zip(c10)
+      .zip(c11)
+      .zip(c12)
+      .transform(
+        { case (((((((((((a, b), c), d), e), f), g), h), i), j), k), l) => (a, b, c, d, e, f, g, h, i, j, k, l) }, {
+          case (a, b, c, d, e, f, g, h, i, j, k, l)                     => (((((((((((a, b), c), d), e), f), g), h), i), j), k), l)
+        }
+      )
+
+  implicit def tuple13[A, B, C, D, E, F, G, H, I, J, K, L, M](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I],
+    c10: Schema[J],
+    c11: Schema[K],
+    c12: Schema[L],
+    c13: Schema[M]
+  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .zip(c7)
+      .zip(c8)
+      .zip(c9)
+      .zip(c10)
+      .zip(c11)
+      .zip(c12)
+      .zip(c13)
+      .transform(
+        {
+          case ((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m) => (a, b, c, d, e, f, g, h, i, j, k, l, m)
+        }, {
+          case (a, b, c, d, e, f, g, h, i, j, k, l, m) => ((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m)
+        }
+      )
+
+  implicit def tuple14[A, B, C, D, E, F, G, H, I, J, K, L, M, N](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I],
+    c10: Schema[J],
+    c11: Schema[K],
+    c12: Schema[L],
+    c13: Schema[M],
+    c14: Schema[N]
+  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .zip(c7)
+      .zip(c8)
+      .zip(c9)
+      .zip(c10)
+      .zip(c11)
+      .zip(c12)
+      .zip(c13)
+      .zip(c14)
+      .transform(
+        {
+          case (((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n) =>
+            (a, b, c, d, e, f, g, h, i, j, k, l, m, n)
+        }, {
+          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n) =>
+            (((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n)
+        }
+      )
+
+  implicit def tuple15[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I],
+    c10: Schema[J],
+    c11: Schema[K],
+    c12: Schema[L],
+    c13: Schema[M],
+    c14: Schema[N],
+    c15: Schema[O]
+  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .zip(c7)
+      .zip(c8)
+      .zip(c9)
+      .zip(c10)
+      .zip(c11)
+      .zip(c12)
+      .zip(c13)
+      .zip(c14)
+      .zip(c15)
+      .transform(
+        {
+          case ((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o) =>
+            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)
+        }, {
+          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) =>
+            ((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o)
+        }
+      )
+
+  implicit def tuple16[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I],
+    c10: Schema[J],
+    c11: Schema[K],
+    c12: Schema[L],
+    c13: Schema[M],
+    c14: Schema[N],
+    c15: Schema[O],
+    c16: Schema[P]
+  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .zip(c7)
+      .zip(c8)
+      .zip(c9)
+      .zip(c10)
+      .zip(c11)
+      .zip(c12)
+      .zip(c13)
+      .zip(c14)
+      .zip(c15)
+      .zip(c16)
+      .transform(
+        {
+          case (((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p) =>
+            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)
+        }, {
+          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) =>
+            (((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p)
+        }
+      )
+
+  implicit def tuple17[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I],
+    c10: Schema[J],
+    c11: Schema[K],
+    c12: Schema[L],
+    c13: Schema[M],
+    c14: Schema[N],
+    c15: Schema[O],
+    c16: Schema[P],
+    c17: Schema[Q]
+  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .zip(c7)
+      .zip(c8)
+      .zip(c9)
+      .zip(c10)
+      .zip(c11)
+      .zip(c12)
+      .zip(c13)
+      .zip(c14)
+      .zip(c15)
+      .zip(c16)
+      .zip(c17)
+      .transform(
+        {
+          case ((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q) =>
+            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q)
+        }, {
+          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q) =>
+            ((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q)
+        }
+      )
+
+  implicit def tuple18[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I],
+    c10: Schema[J],
+    c11: Schema[K],
+    c12: Schema[L],
+    c13: Schema[M],
+    c14: Schema[N],
+    c15: Schema[O],
+    c16: Schema[P],
+    c17: Schema[Q],
+    c18: Schema[R]
+  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .zip(c7)
+      .zip(c8)
+      .zip(c9)
+      .zip(c10)
+      .zip(c11)
+      .zip(c12)
+      .zip(c13)
+      .zip(c14)
+      .zip(c15)
+      .zip(c16)
+      .zip(c17)
+      .zip(c18)
+      .transform(
+        {
+          case (((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r) =>
+            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r)
+        }, {
+          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r) =>
+            (((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r)
+        }
+      )
+
+  implicit def tuple19[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I],
+    c10: Schema[J],
+    c11: Schema[K],
+    c12: Schema[L],
+    c13: Schema[M],
+    c14: Schema[N],
+    c15: Schema[O],
+    c16: Schema[P],
+    c17: Schema[Q],
+    c18: Schema[R],
+    c19: Schema[S]
+  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .zip(c7)
+      .zip(c8)
+      .zip(c9)
+      .zip(c10)
+      .zip(c11)
+      .zip(c12)
+      .zip(c13)
+      .zip(c14)
+      .zip(c15)
+      .zip(c16)
+      .zip(c17)
+      .zip(c18)
+      .zip(c19)
+      .transform(
+        {
+          case ((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s) =>
+            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s)
+        }, {
+          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s) =>
+            ((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s)
+        }
+      )
+
+  implicit def tuple20[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I],
+    c10: Schema[J],
+    c11: Schema[K],
+    c12: Schema[L],
+    c13: Schema[M],
+    c14: Schema[N],
+    c15: Schema[O],
+    c16: Schema[P],
+    c17: Schema[Q],
+    c18: Schema[R],
+    c19: Schema[S],
+    c20: Schema[T]
+  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .zip(c7)
+      .zip(c8)
+      .zip(c9)
+      .zip(c10)
+      .zip(c11)
+      .zip(c12)
+      .zip(c13)
+      .zip(c14)
+      .zip(c15)
+      .zip(c16)
+      .zip(c17)
+      .zip(c18)
+      .zip(c19)
+      .zip(c20)
+      .transform(
+        {
+          case (((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t) =>
+            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t)
+        }, {
+          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t) =>
+            (((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t)
+        }
+      )
+
+  implicit def tuple21[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I],
+    c10: Schema[J],
+    c11: Schema[K],
+    c12: Schema[L],
+    c13: Schema[M],
+    c14: Schema[N],
+    c15: Schema[O],
+    c16: Schema[P],
+    c17: Schema[Q],
+    c18: Schema[R],
+    c19: Schema[S],
+    c20: Schema[T],
+    c21: Schema[U]
+  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .zip(c7)
+      .zip(c8)
+      .zip(c9)
+      .zip(c10)
+      .zip(c11)
+      .zip(c12)
+      .zip(c13)
+      .zip(c14)
+      .zip(c15)
+      .zip(c16)
+      .zip(c17)
+      .zip(c18)
+      .zip(c19)
+      .zip(c20)
+      .zip(c21)
+      .transform(
+        {
+          case ((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u) =>
+            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u)
+        }, {
+          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u) =>
+            ((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u)
+        }
+      )
+
+  implicit def tuple22[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V](
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I],
+    c10: Schema[J],
+    c11: Schema[K],
+    c12: Schema[L],
+    c13: Schema[M],
+    c14: Schema[N],
+    c15: Schema[O],
+    c16: Schema[P],
+    c17: Schema[Q],
+    c18: Schema[R],
+    c19: Schema[S],
+    c20: Schema[T],
+    c21: Schema[U],
+    c22: Schema[V]
+  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V)] =
+    c1.zip(c2)
+      .zip(c3)
+      .zip(c4)
+      .zip(c5)
+      .zip(c6)
+      .zip(c7)
+      .zip(c8)
+      .zip(c9)
+      .zip(c10)
+      .zip(c11)
+      .zip(c12)
+      .zip(c13)
+      .zip(c14)
+      .zip(c15)
+      .zip(c16)
+      .zip(c17)
+      .zip(c18)
+      .zip(c19)
+      .zip(c20)
+      .zip(c21)
+      .zip(c22)
+      .transform(
+        {
+          case (
+              ((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u),
+              v
+              ) =>
+            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v)
+        }, {
+          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v) =>
+            (((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u), v)
+        }
+      )
+
+  sealed case class Record(structure: Map[String, Schema[_]]) extends Schema[Map[String, _]]
   sealed trait Record[A] extends Schema[A] {
     def structure: ListMap[String, Schema[_]]
   }
