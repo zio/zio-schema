@@ -1,51 +1,97 @@
 package zio.schema
 
 import zio._
+import zio.random.Random
+import zio.schema.Schema.Primitive
 import zio.test._
 import zio.test.Assertion._
+
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 object GenericSpec extends DefaultRunnableSpec {
 
   def spec =
     suite("GenericSpec")(
-      testM("round-trips Ints") {
-        val schema: Schema[Int] = Schema.primitive[Int]
-        genericLaw(Gen.anyInt, schema)
-      },
-      testM("round-trips Doubles") {
-        val schema: Schema[Double] = Schema.primitive[Double]
-        genericLaw(Gen.anyDouble, schema)
-      },
-      testM("round-trips String") {
-        val schema: Schema[String] = Schema.primitive[String]
-        genericLaw(Gen.anyString, schema)
-      },
-      testM("round-trips Boolean") {
-        val schema: Schema[Boolean] = Schema.primitive[Boolean]
-        genericLaw(Gen.boolean, schema)
-      },
-      testM("round-trips Floats") {
-        val schema: Schema[Float] = Schema.primitive[Float]
-        genericLaw(Gen.anyFloat, schema)
-      },
+      suite("Primitives")(primitiveTests: _*),
       testM("round-trips Records") {
-        val schema: Schema[Map[String, _]] =
-          Schema.record(
-            Map("name" -> Schema.primitive(StandardType.StringType), "age" -> Schema.primitive(StandardType.IntType))
-          )
-
-        val recordGen = for {
-          name <- Gen.anyString
-          age  <- Gen.anyInt
-        } yield Map[String, Any]("name" -> name, "age" -> age)
-
-        genericLaw(recordGen, schema)
+        check(SchemaGen.anyRecordOfRecordsAndValue) {
+          case (schema, a) => assert(schema.fromGeneric(schema.toGeneric(a)))(isRight(equalTo(a)))
+        }
       }
     )
 
-  def genericLaw[R <: TestConfig, A](gen: Gen[R, A], schema: Schema[A]): URIO[R, TestResult] =
+  private val primitiveTests = schemasAndGens.map {
+    case SchemaTest(name, schema, gen) =>
+      testM(s"round-trips $name") {
+        genericLaw(gen, schema)
+      }
+  }
+
+  private def genericLaw[R, A](gen: Gen[R, A], schema: Schema[A]): URIO[R with TestConfig, TestResult] =
     check(gen) { a =>
       assert(schema.fromGeneric(schema.toGeneric(a)))(isRight(equalTo(a)))
     }
+
+  final private case class SchemaTest[A](name: String, schema: Schema[A], gen: Gen[Sized with Random, A])
+
+  private def schemasAndGens: List[SchemaTest[_]] = List(
+    SchemaTest("String", Primitive(StandardType.StringType), Gen.anyString),
+    SchemaTest("Bool", Primitive(StandardType.BoolType), Gen.boolean),
+    SchemaTest("Short", Primitive(StandardType.ShortType), Gen.anyShort),
+    SchemaTest("Int", Primitive(StandardType.IntType), Gen.anyInt),
+    SchemaTest("Long", Primitive(StandardType.LongType), Gen.anyLong),
+    SchemaTest("Float", Primitive(StandardType.FloatType), Gen.anyFloat),
+    SchemaTest("Double", Primitive(StandardType.DoubleType), Gen.anyDouble),
+    SchemaTest("Binary", Primitive(StandardType.BinaryType), Gen.chunkOf(Gen.anyByte)),
+    SchemaTest("Char", Primitive(StandardType.CharType), Gen.anyASCIIChar),
+    SchemaTest(
+      "BigDecimal",
+      Primitive(StandardType.BigDecimalType),
+      Gen.anyDouble.map(d => java.math.BigDecimal.valueOf(d))
+    ),
+    SchemaTest(
+      "BigInteger",
+      Primitive(StandardType.BigIntegerType),
+      Gen.anyLong.map(n => java.math.BigInteger.valueOf(n))
+    ),
+    SchemaTest("DayOfWeek", Primitive(StandardType.DayOfWeekType), JavaTimeGen.anyDayOfWeek),
+    SchemaTest("Duration", Primitive(StandardType.Duration(ChronoUnit.SECONDS)), JavaTimeGen.anyDuration),
+    SchemaTest("Instant", Primitive(StandardType.Instant(DateTimeFormatter.ISO_DATE_TIME)), JavaTimeGen.anyInstant),
+    SchemaTest("LocalDate", Primitive(StandardType.LocalDate(DateTimeFormatter.ISO_DATE)), JavaTimeGen.anyLocalDate),
+    SchemaTest(
+      "LocalDateTime",
+      Primitive(StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME)),
+      JavaTimeGen.anyLocalDateTime
+    ),
+    SchemaTest(
+      "LocalTime",
+      Primitive(StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME)),
+      JavaTimeGen.anyLocalTime
+    ),
+    SchemaTest("Month", Primitive(StandardType.Month), JavaTimeGen.anyMonth),
+    SchemaTest("MonthDay", Primitive(StandardType.MonthDay), JavaTimeGen.anyMonthDay),
+    SchemaTest(
+      "OffsetDateTime",
+      Primitive(StandardType.OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
+      JavaTimeGen.anyOffsetDateTime
+    ),
+    SchemaTest(
+      "OffsetTime",
+      Primitive(StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME)),
+      JavaTimeGen.anyOffsetTime
+    ),
+    SchemaTest("Period", Primitive(StandardType.Period), JavaTimeGen.anyPeriod),
+    SchemaTest("Year", Primitive(StandardType.Year), JavaTimeGen.anyYear),
+    SchemaTest("YearMonth", Primitive(StandardType.YearMonth), JavaTimeGen.anyYearMonth),
+    SchemaTest(
+      "ZonedDateTime",
+      Primitive(StandardType.ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME)),
+      JavaTimeGen.anyZonedDateTime
+    ),
+    SchemaTest("ZoneId", Primitive(StandardType.ZoneId), JavaTimeGen.anyZoneId),
+    SchemaTest("ZoneOffset", Primitive(StandardType.ZoneOffset), JavaTimeGen.anyZoneOffset),
+    SchemaTest("UnitType", Primitive(StandardType.UnitType), Gen.unit)
+  )
 
 }
