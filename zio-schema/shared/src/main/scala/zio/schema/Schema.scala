@@ -816,7 +816,6 @@ object Schema {
         }
       )
 
-  sealed case class Record(structure: Map[String, Schema[_]]) extends Schema[Map[String, _]]
   sealed trait Record[A] extends Schema[A] {
     def structure: ListMap[String, Schema[_]]
   }
