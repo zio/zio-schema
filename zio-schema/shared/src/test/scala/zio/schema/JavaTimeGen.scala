@@ -35,7 +35,7 @@ object JavaTimeGen {
 
   val anyNanoOfDay: Gen[Random, Long] = chronoFieldValue(ChronoField.NANO_OF_DAY)
 
-  val anyEpochDay: Gen[Random, Long] = chronoFieldValue(ChronoField.EPOCH_DAY)
+  val anyEpochDay: Gen[Random, Long] = Gen.long(LocalDate.MIN.toEpochDay, LocalDate.MAX.toEpochDay)
 
   val anyMonthOfYear: Gen[Random, Int] = chronoFieldValue(ChronoField.MONTH_OF_YEAR).map(_.toInt)
 
