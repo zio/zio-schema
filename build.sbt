@@ -99,3 +99,20 @@ lazy val benchmarks = project
   .in(file("benchmarks"))
   .dependsOn(zioSchemaJVM)
   .enablePlugins(JmhPlugin)
+
+lazy val zioSchemaGen = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-schema-zio-test"))
+  .settings(stdSettings("zio-schema-zio-test"))
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio"      % zioVersion,
+      "dev.zio" %% "zio-test" % zioVersion
+    )
+  )
+  .dependsOn(zioSchema)
+
+lazy val zioSchemaGenJVM = zioSchemaGen.jvm
+
+lazy val zioSchemaGenJS = zioSchemaGen.js
