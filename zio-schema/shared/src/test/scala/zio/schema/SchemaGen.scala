@@ -107,7 +107,7 @@ object SchemaGen {
   val anyEnumeration: Gen[Random with Sized, Schema.Enumeration] =
     Gen.mapOf(Gen.anyString, anySchema).map(Schema.Enumeration)
 
-  type EnumerationAndGen = (Schema.Enumeration, Gen[Random with Sized, Map[String, _]])
+  type EnumerationAndGen = (Schema.Enumeration, Gen[Random with Sized, (String, _)])
 
   val anyEnumerationAndGen: Gen[Random with Sized, EnumerationAndGen] =
     for {
@@ -119,11 +119,11 @@ object SchemaGen {
       val keyValueGenerators = keyToSchemaAndGen.map {
         case (key, (_, gen)) => Gen.const(key).zip(gen)
       }.toSeq
-      val gen = Gen.oneOf(keyValueGenerators: _*).map(Map(_))
+      val gen = Gen.oneOf(keyValueGenerators: _*)
       Schema.Enumeration(structure) -> gen
     }
 
-  type EnumerationAndValue = (Schema.Enumeration, Map[String, _])
+  type EnumerationAndValue = (Schema.Enumeration, (String, _))
 
   val anyEnumerationAndValue: Gen[Random with Sized, EnumerationAndValue] =
     for {
@@ -231,7 +231,7 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  type EnumerationTransform[A] = Schema.Transform[Map[String, _], A]
+  type EnumerationTransform[A] = Schema.Transform[(String, _), A]
 
   val anyEnumerationTransform: Gen[Random with Sized, EnumerationTransform[_]] = {
     anyEnumeration.map(schema => transformEnumeration(schema))
@@ -248,7 +248,7 @@ object SchemaGen {
 
   // TODO: Dynamically generate a sealed trait and case/value classes.
   def transformEnumeration[A](schema: Schema.Enumeration): EnumerationTransform[_] =
-    Schema.Transform[Map[String, _], A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."))
+    Schema.Transform[(String, _), A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."))
 
   type EnumerationTransformAndValue[A] = (EnumerationTransform[A], A)
 
@@ -268,7 +268,7 @@ object SchemaGen {
 
   val anyTransformAndValue: Gen[Random with Sized, TransformAndValue[_]] =
     Gen.oneOf[Random with Sized, TransformAndValue[_]](
-      anySequenceTransformAndValue,
+      // anySequenceTransformAndValue,
       anyRecordTransformAndValue,
       anyEnumerationTransformAndValue
     )

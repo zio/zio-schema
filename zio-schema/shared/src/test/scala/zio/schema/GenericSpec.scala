@@ -18,10 +18,36 @@ object GenericSpec extends DefaultRunnableSpec {
         check(SchemaGen.anyRecordOfRecordsAndValue) {
           case (schema, a) => assert(schema.fromGeneric(schema.toGeneric(a)))(isRight(equalTo(a)))
         }
+      },
+      testM("round-trips Enumerations") {
+        check(SchemaGen.anyEnumerationAndValue) {
+          case (schema, a) =>
+            assert(schema.fromGeneric(schema.toGeneric(a)))(isRight(equalTo(a)))
+        }
+      },
+      testM("round-trips Eithers") {
+        check(SchemaGen.anyEitherAndValue) {
+          case (schema, a) => assert(schema.fromGeneric(schema.toGeneric(a)))(isRight(equalTo(a)))
+        }
+      },
+      testM("round-trips Tuples") {
+        check(SchemaGen.anyTupleAndValue) {
+          case (schema, a) => assert(schema.fromGeneric(schema.toGeneric(a)))(isRight(equalTo(a)))
+        }
+      },
+      testM("round-trips Optionals") {
+        check(SchemaGen.anyOptionalAndValue) {
+          case (schema, a) => assert(schema.fromGeneric(schema.toGeneric(a)))(isRight(equalTo(a)))
+        }
+      },
+      testM("round-trips Transform") {
+        check(SchemaGen.anyTransformAndValue) {
+          case (schema, a) => assert(schema.fromGeneric(schema.toGeneric(a)))(isRight(equalTo(a)))
+        }
       }
     )
 
-  private val primitiveTests = schemasAndGens.map {
+  val primitiveTests = schemasAndGens.map {
     case SchemaTest(name, schema, gen) =>
       testM(s"round-trips $name") {
         genericLaw(gen, schema)

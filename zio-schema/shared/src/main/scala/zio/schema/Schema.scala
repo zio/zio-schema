@@ -31,7 +31,7 @@ object Schema {
   final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
       extends Schema[Col[A]]
 
-  sealed case class Enumeration(structure: Map[String, Schema[_]]) extends Schema[Map[String, _]]
+  sealed case class Enumeration(structure: Map[String, Schema[_]]) extends Schema[(String, _)]
 
   sealed case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
       extends Schema[B]
@@ -778,7 +778,7 @@ object Schema {
   def tuple[A, B](left: Schema[A], right: Schema[B]): Schema[(A, B)] =
     Tuple(left, right)
 
-  def enumeration(structure: Map[String, Schema[_]]): Schema[Map[String, _]] =
+  def enumeration(structure: Map[String, Schema[_]]): Schema[(String, _)] =
     Enumeration(structure)
 
   def first[A](codec: Schema[(A, Unit)]): Schema[A] =

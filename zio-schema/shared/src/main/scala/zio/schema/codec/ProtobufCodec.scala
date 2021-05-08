@@ -151,7 +151,7 @@ object ProtobufCodec extends Codec {
       (schema, value) match {
         case (Schema.Record(structure), v: Map[String, _])       => encodeRecord(fieldNumber, structure, v)
         case (Schema.Sequence(element, _, g), v)                 => encodeSequence(fieldNumber, element, g(v))
-        case (Schema.Enumeration(structure), v: Map[String, _])  => encodeEnumeration(fieldNumber, structure, v)
+        case (Schema.Enumeration(structure), v: (String, _))     => encodeEnumeration(fieldNumber, structure, v)
         case (Schema.Transform(codec, _, g), _)                  => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
         case (Schema.Primitive(standardType), v)                 => encodePrimitive(fieldNumber, standardType, v)
         case (Schema.Tuple(left, right), v @ (_, _))             => encodeTuple(fieldNumber, left, right, v)
@@ -1062,17 +1062,13 @@ object ProtobufCodec extends Codec {
     private def encodeEnumeration(
       fieldNumber: Option[Int],
       structure: Map[String, Schema[_]],
-      valueMap: Map[String, _]
+      value0: (String, _)
     ): Chunk[Byte] = {
-      val encodedEnum = if (valueMap.isEmpty) {
-        Chunk.empty
-      } else {
-        val (field, value) = valueMap.toSeq.head
-        structure.zipWithIndex
-          .find(v => v._1._1 == field)
-          .map(v => encode(Some(v._2 + 1), v._1._2.asInstanceOf[Schema[Any]], value))
-          .getOrElse(Chunk.empty)
-      }
+      val (field, value) = value0
+      val encodedEnum = structure.zipWithIndex
+        .find(v => v._1._1 == field)
+        .map(v => encode(Some(v._2 + 1), v._1._2.asInstanceOf[Schema[Any]], value))
+        .getOrElse(Chunk.empty)
       encodeKey(WireType.LengthDelimited(encodedEnum.size), fieldNumber) ++ encodedEnum
     }
 
@@ -2283,13 +2279,13 @@ object ProtobufCodec extends Codec {
           }
       }
 
-    private def enumerationDecoder(fields: Map[Int, (String, Schema[_])]): Decoder[Map[String, _]] =
+    private def enumerationDecoder(fields: Map[Int, (String, Schema[_])]): Decoder[(String, _)] =
       keyDecoder.flatMap {
         case (_, fieldNumber) =>
           if (fields.contains(fieldNumber)) {
             val (fieldName, schema) = fields(fieldNumber)
 
-            decoder(schema).map(fieldValue => Map(fieldName -> fieldValue))
+            decoder(schema).map(fieldValue => fieldName -> fieldValue)
           } else {
             fail(s"Schema doesn't contain field number $fieldNumber.")
           }

@@ -101,7 +101,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       testM("of primitives") {
         assertEncodes(
           enumSchema,
-          Map[String, Any]("string" -> "foo"),
+          ("string" -> "foo"),
           JsonCodec.Encoder.charSequenceToByteChunk("""{"string":"foo"}""")
         )
       },
@@ -331,7 +331,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       testM("of primitives") {
         assertEncodesThenDecodes(
           enumSchema,
-          Map("string" -> "foo")
+          "string" -> "foo"
         )
       },
       testM("ADT") {
@@ -476,17 +476,18 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         "boolean" -> Schema[Boolean]
       )
     ),
-    (value: Map[String, _]) => {
-      value
-        .get("string")
-        .map(v => Right(StringValue(v.asInstanceOf[String])))
-        .orElse(value.get("int").map(v => Right(IntValue(v.asInstanceOf[Int]))))
-        .orElse(value.get("boolean").map(v => Right(BooleanValue(v.asInstanceOf[Boolean]))))
-        .getOrElse(Left("No value found"))
+    (value: (String, Any)) => {
+      val (string, v) = value
+      string match {
+        case "int"     => Right(IntValue(v.asInstanceOf[Int]))
+        case "boolean" => Right(BooleanValue(v.asInstanceOf[Boolean]))
+        case "string"  => Right(StringValue(v.asInstanceOf[String]))
+        case _         => Left("No value found")
+      }
     }, {
-      case StringValue(v)  => Right(Map("string"  -> v))
-      case IntValue(v)     => Right(Map("int"     -> v))
-      case BooleanValue(v) => Right(Map("boolean" -> v))
+      case StringValue(v)  => Right("string"  -> v)
+      case IntValue(v)     => Right("int"     -> v)
+      case BooleanValue(v) => Right("boolean" -> v)
     }
   )
 
