@@ -3,6 +3,8 @@ package zio.schema.codec
 // import java.time.Year
 import java.time.{ ZoneId, ZoneOffset }
 
+import scala.collection.immutable.ListMap
+
 import zio.duration._
 import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
@@ -77,14 +79,14 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       testM("of primitives") {
         assertEncodes(
           recordSchema,
-          Map[String, Any]("foo" -> "s", "bar" -> 1),
+          ListMap[String, Any]("foo" -> "s", "bar" -> 1),
           JsonCodec.Encoder.charSequenceToByteChunk("""{"foo":"s","bar":1}""")
         )
       },
       testM("of records") {
         assertEncodes(
           nestedRecordSchema,
-          Map[String, Any]("l1" -> "s", "l2" -> Map("foo" -> "s", "bar" -> 1)),
+          ListMap[String, Any]("l1" -> "s", "l2" -> ListMap("foo" -> "s", "bar" -> 1)),
           JsonCodec.Encoder.charSequenceToByteChunk("""{"l1":"s","l2":{"foo":"s","bar":1}}""")
         )
       },
@@ -95,13 +97,20 @@ object JsonCodecSpec extends DefaultRunnableSpec {
             searchRequest
           )
         }
+      },
+      testM("case object") {
+        assertEncodes(
+          schemaObject,
+          Singleton,
+          JsonCodec.Encoder.charSequenceToByteChunk("{}")
+        )
       }
     ),
     suite("enumeration")(
       testM("of primitives") {
         assertEncodes(
           enumSchema,
-          Map[String, Any]("string" -> "foo"),
+          ListMap[String, Any]("string" -> "foo"),
           JsonCodec.Encoder.charSequenceToByteChunk("""{"string":"foo"}""")
         )
       },
@@ -147,6 +156,11 @@ object JsonCodecSpec extends DefaultRunnableSpec {
             JsonError.Message(errorMessage) :: Nil
           )
         }
+      }
+    ),
+    suite("case class")(
+      testM("case object") {
+        assertDecodes(schemaObject, Singleton, JsonCodec.Encoder.charSequenceToByteChunk("{}"))
       }
     )
   )
@@ -279,13 +293,16 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         )
       }
     },
-    suite("case class") {
+    suite("case class")(
       testM("basic") {
         checkM(searchRequestGen) { value =>
           assertEncodesThenDecodes(searchRequestSchema, value)
         }
+      },
+      testM("object") {
+        assertEncodesThenDecodes(schemaObject, Singleton)
       }
-    },
+    ),
     suite("record")(
       testM("any") {
         checkM(SchemaGen.anyRecordAndValue) {
@@ -296,8 +313,8 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         SchemaGen.anyRecordAndValue.runHead.flatMap {
           case Some((schema, value)) =>
             val key      = new String(Array('\u0007', '\n'))
-            val embedded = Schema.Record(Map(key -> schema))
-            assertEncodesThenDecodes(embedded, Map(key -> value))
+            val embedded = Schema.record(ListMap(key -> schema))
+            assertEncodesThenDecodes(embedded, ListMap(key -> value))
           case None => ZIO.fail("Should never happen!")
         }
       },
@@ -309,21 +326,21 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       testM("of primitives") {
         assertEncodesThenDecodes(
           recordSchema,
-          Map[String, Any]("foo" -> "s", "bar" -> 1)
+          ListMap[String, Any]("foo" -> "s", "bar" -> 1)
         )
       },
       testM("of ZoneOffsets") {
         checkM(JavaTimeGen.anyZoneOffset) { zoneOffset =>
           assertEncodesThenDecodes(
-            Schema.Record(Map("zoneOffset" -> Schema.Primitive(StandardType.ZoneOffset))),
-            Map[String, Any]("zoneOffset" -> zoneOffset)
+            Schema.record(ListMap("zoneOffset" -> Schema.Primitive(StandardType.ZoneOffset))),
+            ListMap[String, Any]("zoneOffset" -> zoneOffset)
           )
         }
       },
       testM("of record") {
         assertEncodesThenDecodes(
           nestedRecordSchema,
-          Map[String, Any]("l1" -> "s", "l2" -> Map[String, Any]("foo" -> "s", "bar" -> 1))
+          ListMap[String, Any]("l1" -> "s", "l2" -> ListMap[String, Any]("foo" -> "s", "bar" -> 1))
         )
       }
     ),
@@ -331,7 +348,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       testM("of primitives") {
         assertEncodesThenDecodes(
           enumSchema,
-          Map("string" -> "foo")
+          ListMap("string" -> "foo")
         )
       },
       testM("ADT") {
@@ -441,22 +458,22 @@ object JsonCodecSpec extends DefaultRunnableSpec {
 
   val searchRequestSchema: Schema[SearchRequest] = DeriveSchema.gen[SearchRequest]
 
-  val recordSchema: Schema.Record = Schema.Record(
-    Map(
+  val recordSchema: Schema[ListMap[String, _]] = Schema.record(
+    ListMap(
       "foo" -> Schema.Primitive(StandardType.StringType),
       "bar" -> Schema.Primitive(StandardType.IntType)
     )
   )
 
-  val nestedRecordSchema: Schema.Record = Schema.Record(
-    Map(
+  val nestedRecordSchema: Schema[ListMap[String, _]] = Schema.record(
+    ListMap(
       "l1" -> Schema.Primitive(StandardType.StringType),
       "l2" -> recordSchema
     )
   )
 
-  val enumSchema: Schema.Enumeration = Schema.Enumeration(
-    Map(
+  val enumSchema: Schema[ListMap[String, _]] = Schema.enumeration(
+    ListMap(
       "string"  -> Schema.Primitive(StandardType.StringType),
       "int"     -> Schema.Primitive(StandardType.IntType),
       "boolean" -> Schema.Primitive(StandardType.BoolType)
@@ -468,30 +485,13 @@ object JsonCodecSpec extends DefaultRunnableSpec {
   case class IntValue(value: Int)         extends OneOf
   case class BooleanValue(value: Boolean) extends OneOf
 
-  val schemaOneOf: Schema[OneOf] = Schema.Transform(
-    Schema.enumeration(
-      Map(
-        "string"  -> Schema[String],
-        "int"     -> Schema[Int],
-        "boolean" -> Schema[Boolean]
-      )
-    ),
-    (value: Map[String, _]) => {
-      value
-        .get("string")
-        .map(v => Right(StringValue(v.asInstanceOf[String])))
-        .orElse(value.get("int").map(v => Right(IntValue(v.asInstanceOf[Int]))))
-        .orElse(value.get("boolean").map(v => Right(BooleanValue(v.asInstanceOf[Boolean]))))
-        .getOrElse(Left("No value found"))
-    }, {
-      case StringValue(v)  => Right(Map("string"  -> v))
-      case IntValue(v)     => Right(Map("int"     -> v))
-      case BooleanValue(v) => Right(Map("boolean" -> v))
-    }
-  )
+  val schemaOneOf: Schema[OneOf] = DeriveSchema.gen[OneOf]
 
   case class Enumeration(oneOf: OneOf)
 
   val adtSchema: Schema[Enumeration] = DeriveSchema.gen[Enumeration]
 
+  case object Singleton
+
+  val schemaObject: Schema[Singleton.type] = DeriveSchema.gen[Singleton.type]
 }

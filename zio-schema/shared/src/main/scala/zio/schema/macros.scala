@@ -1,5 +1,6 @@
 package zio.schema
 
+import scala.collection.immutable.ListMap
 import scala.language.experimental.macros
 
 import magnolia._
@@ -10,6 +11,7 @@ object DeriveSchema {
 
   def combine[A](ctx: CaseClass[Schema, A]): Schema[A] =
     ctx.parameters.size match {
+      case 0  => Schema.CaseObject[A](instance = ctx.rawConstruct(Seq.empty))
       case 1  => caseClass1(ctx)
       case 2  => caseClass2(ctx)
       case 3  => caseClass3(ctx)
@@ -34,8 +36,8 @@ object DeriveSchema {
       case 22 => caseClass22(ctx)
       case _ =>
         Schema
-          .record(
-            ctx.parameters.map(p => p.label -> p.typeclass).toMap
+          .GenericRecord(
+            ListMap.empty[String, Schema[_]] ++ ctx.parameters.map(p => p.label -> p.typeclass)
           )
           .transformOrFail(
             { map =>
@@ -50,7 +52,7 @@ object DeriveSchema {
                   })
               }
             }, { cc =>
-              Right(ctx.parameters.map(p => p.label -> p.dereference(cc)).toMap)
+              Right(ListMap.empty ++ ctx.parameters.map(p => p.label -> p.dereference(cc)))
             }
           )
     }
