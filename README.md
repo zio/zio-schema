@@ -1,8 +1,8 @@
 # ZIO-SCHEMA
 
-| CI | Release | Issues |  Discord |
-| --- | --- | --- | --- |
-| ![CI][Badge-CI] | [![Release Artifacts][Badge-SonatypeReleases]][Link-SonatypeReleases] | [![Average time to resolve an issue][badge-iim]][link-iim] | [![badge-discord]][link-discord] |
+| Project Stage | CI | Release | Issues |  Discord |
+| --- | --- | --- | --- | --- |
+| [![Project stage][Stage]][Stage-Page] | ![CI][Badge-CI] | [![Release Artifacts][Badge-SonatypeReleases]][Link-SonatypeReleases] | [![Average time to resolve an issue][badge-iim]][link-iim] | [![badge-discord]][link-discord] |
 
 _ZIO Schema_ is a [ZIO](https://zio.dev)-based library for modeling the schema of data structures as first-class values.
 
@@ -35,3 +35,5 @@ libraryDependencies += "dev.zio" %% "zio-schema" % "<version>"
 [link-iim]: https://isitmaintained.com/project/zio/zio-schema
 [badge-discord]: https://img.shields.io/discord/630498701860929559?logo=discord "chat ondiscord"
 [link-discord]: https://discord.gg/2ccFBr4 "Discord"
+[Stage]: https://img.shields.io/badge/Project%20Stage-Development-yellowgreen.svg
+[Stage-Page]: https://github.com/zio/zio/wiki/Project-Stages
