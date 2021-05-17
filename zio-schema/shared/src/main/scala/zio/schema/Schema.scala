@@ -54,10 +54,16 @@ sealed trait Schema[A] {
    */
   def orElseEither[B](that: Schema[B]): Schema[Either[A, B]] = Schema.EitherSchema(self, that)
 
+  def toGeneric(value: A): Generic =
+    Generic.fromSchemaAndValue(self, value)
+
+  def fromGeneric(generic: Generic): Either[String, A] =
+    generic.toTypedValue(self)
+
   /**
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
    * between `A` and `B`, without possibility of failure.
-   */
+  */
   def transform[B](f: A => B, g: B => A): Schema[B] =
     Schema.Transform[A, B](self, a => Right(f(a)), b => Right(g(b)))
 
