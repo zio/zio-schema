@@ -63,7 +63,7 @@ object DeriveSchema {
 
   private def caseClass1[Z](ctx: CaseClass[Typeclass, Z]): Typeclass[Z] = {
     val param = ctx.parameters.head
-    new Schema.CaseClass1[param.PType,  Z](
+    new Schema.CaseClass1[param.PType, Z](
       annotations = Chunk.fromIterable(ctx.annotations),
       field = Schema.Field(param.label, param.typeclass, Chunk.fromIterable(param.annotations)),
       construct = (p: param.PType) => ctx.construct(_ => p),
