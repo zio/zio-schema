@@ -145,7 +145,7 @@ object Schema {
     Primitive(standardType)
 
   def record(field: Field[_]*): Schema[ListMap[String, _]] =
-    GenericRecord(field)
+    GenericRecord(Chunk.fromIterable(field))
 
   implicit def list[A](implicit schemaA: Schema[A]): Schema[List[A]] =
     Schema.Sequence(schemaA, _.toList, Chunk.fromIterable(_))
@@ -816,14 +816,14 @@ object Schema {
         }
       )
 
-  final case class Field[A](label: String, schema: Schema[A], annotations: Seq[Any] = Nil)
+  final case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty)
 
   sealed trait Record[R] extends Schema[R] {
-    def structure: Seq[Field[_]]
-    def annotations: Seq[Any] = Nil
+    def structure: Chunk[Field[_]]
+    def annotations: Chunk[Any] = Chunk.empty
   }
 
-  final case class GenericRecord(override val structure: Seq[Field[_]]) extends Record[ListMap[String, _]]
+  final case class GenericRecord(override val structure: Chunk[Field[_]]) extends Record[ListMap[String, _]]
 
   final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
       extends Schema[Col[A]]
@@ -860,27 +860,27 @@ object Schema {
   final case class CaseObject[Z](instance: Z) extends Schema[Z]
 
   final case class CaseClass1[A, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field: Field[A],
     construct: A => Z,
     extractField: Z => A
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] = Seq(field)
+    override def structure: Chunk[Field[_]] = Chunk(field)
   }
 
   final case class CaseClass2[A1, A2, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     construct: (A1, A2) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] = Seq(field1, field2)
+    override def structure: Chunk[Field[_]] = Chunk(field1, field2)
   }
 
   final case class CaseClass3[A1, A2, A3, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -889,11 +889,11 @@ object Schema {
     extractField2: Z => A2,
     extractField3: Z => A3
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] = Seq(field1, field2, field3)
+    override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3)
   }
 
   final case class CaseClass4[A1, A2, A3, A4, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -904,11 +904,11 @@ object Schema {
     extractField3: Z => A3,
     extractField4: Z => A4
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] = Seq(field1, field2, field3, field4)
+    override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4)
   }
 
   final case class CaseClass5[A1, A2, A3, A4, A5, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -921,11 +921,11 @@ object Schema {
     extractField4: Z => A4,
     extractField5: Z => A5
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] = Seq(field1, field2, field3, field4, field5)
+    override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5)
   }
 
   final case class CaseClass6[A1, A2, A3, A4, A5, A6, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -940,11 +940,11 @@ object Schema {
     extractField5: Z => A5,
     extractField6: Z => A6
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] = Seq(field1, field2, field3, field4, field5, field6)
+    override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6)
   }
 
   final case class CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -961,11 +961,11 @@ object Schema {
     extractField6: Z => A6,
     extractField7: Z => A7
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] = Seq(field1, field2, field3, field4, field5, field6, field7)
+    override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6, field7)
   }
 
   final case class CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -984,11 +984,11 @@ object Schema {
     extractField7: Z => A7,
     extractField8: Z => A8
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] = Seq(field1, field2, field3, field4, field5, field6, field7, field8)
+    override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6, field7, field8)
   }
 
   final case class CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -1009,11 +1009,12 @@ object Schema {
     extractField8: Z => A8,
     extractField9: Z => A9
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] = Seq(field1, field2, field3, field4, field5, field6, field7, field8, field9)
+    override def structure: Chunk[Field[_]] =
+      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9)
   }
 
   final case class CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -1036,12 +1037,12 @@ object Schema {
     extractField9: Z => A9,
     extractField10: Z => A10
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] =
-      Seq(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10)
+    override def structure: Chunk[Field[_]] =
+      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10)
   }
 
   final case class CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -1066,12 +1067,12 @@ object Schema {
     extractField10: Z => A10,
     extractField11: Z => A11
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] =
-      Seq(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11)
+    override def structure: Chunk[Field[_]] =
+      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11)
   }
 
   final case class CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -1098,12 +1099,12 @@ object Schema {
     extractField11: Z => A11,
     extractField12: Z => A12
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] =
-      Seq(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12)
+    override def structure: Chunk[Field[_]] =
+      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12)
   }
 
   final case class CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -1132,12 +1133,12 @@ object Schema {
     extractField12: Z => A12,
     extractField13: Z => A13
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] =
-      Seq(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13)
+    override def structure: Chunk[Field[_]] =
+      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13)
   }
 
   final case class CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -1168,8 +1169,8 @@ object Schema {
     extractField13: Z => A13,
     extractField14: Z => A14
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] =
-      Seq(
+    override def structure: Chunk[Field[_]] =
+      Chunk(
         field1,
         field2,
         field3,
@@ -1188,7 +1189,7 @@ object Schema {
   }
 
   final case class CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -1221,8 +1222,8 @@ object Schema {
     extractField14: Z => A14,
     extractField15: Z => A15
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] =
-      Seq(
+    override def structure: Chunk[Field[_]] =
+      Chunk(
         field1,
         field2,
         field3,
@@ -1242,7 +1243,7 @@ object Schema {
   }
 
   final case class CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -1277,8 +1278,8 @@ object Schema {
     extractField15: Z => A15,
     extractField16: Z => A16
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] =
-      Seq(
+    override def structure: Chunk[Field[_]] =
+      Chunk(
         field1,
         field2,
         field3,
@@ -1299,7 +1300,7 @@ object Schema {
   }
 
   final case class CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -1336,8 +1337,8 @@ object Schema {
     extractField16: Z => A16,
     extractField17: Z => A17
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] =
-      Seq(
+    override def structure: Chunk[Field[_]] =
+      Chunk(
         field1,
         field2,
         field3,
@@ -1359,7 +1360,7 @@ object Schema {
   }
 
   final case class CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -1398,8 +1399,8 @@ object Schema {
     extractField17: Z => A17,
     extractField18: Z => A18
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] =
-      Seq(
+    override def structure: Chunk[Field[_]] =
+      Chunk(
         field1,
         field2,
         field3,
@@ -1422,7 +1423,7 @@ object Schema {
   }
 
   final case class CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -1463,8 +1464,8 @@ object Schema {
     extractField18: Z => A18,
     extractField19: Z => A19
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] =
-      Seq(
+    override def structure: Chunk[Field[_]] =
+      Chunk(
         field1,
         field2,
         field3,
@@ -1510,7 +1511,7 @@ object Schema {
     A20,
     Z
   ](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -1553,8 +1554,8 @@ object Schema {
     extractField19: Z => A19,
     extractField20: Z => A20
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] =
-      Seq(
+    override def structure: Chunk[Field[_]] =
+      Chunk(
         field1,
         field2,
         field3,
@@ -1602,7 +1603,7 @@ object Schema {
     A21,
     Z
   ](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -1647,8 +1648,8 @@ object Schema {
     extractField20: Z => A20,
     extractField21: Z => A21
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] =
-      Seq(
+    override def structure: Chunk[Field[_]] =
+      Chunk(
         field1,
         field2,
         field3,
@@ -1698,7 +1699,7 @@ object Schema {
     A22,
     Z
   ](
-    override val annotations: Seq[Any] = Nil,
+    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -1768,8 +1769,8 @@ object Schema {
     extractField21: Z => A21,
     extractField22: Z => A22
   ) extends Record[Z] {
-    override def structure: Seq[Field[_]] =
-      Seq(
+    override def structure: Chunk[Field[_]] =
+      Chunk(
         field1,
         field2,
         field3,
