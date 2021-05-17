@@ -110,7 +110,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       testM("of primitives") {
         assertEncodes(
           enumSchema,
-          ListMap[String, Any]("string" -> "foo"),
+          ("string" -> "foo"),
           JsonCodec.Encoder.charSequenceToByteChunk("""{"string":"foo"}""")
         )
       },
@@ -349,7 +349,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       testM("of primitives") {
         assertEncodesThenDecodes(
           enumSchema,
-          ListMap("string" -> "foo")
+          "string" -> "foo"
         )
       },
       testM("ADT") {

@@ -1,5 +1,5 @@
 {
-    "files.watcherExclude": {
-        "**/target": true
-    }
+  "files.watcherExclude": {
+    "**/target": true
+  }
 }

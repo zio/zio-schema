@@ -9,8 +9,10 @@ trait Generic { self =>
     (self, schema) match {
       case (Generic.Primitive(value, p), Schema.Primitive(p2)) if p == p2 =>
         Right(value.asInstanceOf[A])
+
       case (Generic.Record(generics), Schema.Record(schemas)) if (generics.keySet != schemas.keySet) =>
         Left(s"$generics and $schema have incompatible shape")
+
       case (Generic.Record(generics), Schema.Record(schemas)) =>
         val keys = generics.keySet
         keys.foldLeft[Either[String, Map[String, Any]]](Right(Map.empty)) {
@@ -23,6 +25,39 @@ trait Generic { self =>
             }
           case (Left(string), _) => Left(string)
         }
+
+      case (Generic.Enumeration((key, generic)), Schema.Enumeration(cases)) =>
+        cases.get(key) match {
+          case Some(schema) =>
+            generic.toTypedValue(schema).asInstanceOf[Either[String, A]].map(key -> _)
+          case None => Left(s"Failed to find case $key in enumeration $schema")
+        }
+
+      case (Generic.GenericLeft(generic), Schema.EitherSchema(schema1, _)) =>
+        generic.toTypedValue(schema1).map(Left(_))
+
+      case (Generic.GenericRight(generic), Schema.EitherSchema(_, schema1)) =>
+        generic.toTypedValue(schema1).map(Right(_))
+
+      case (Generic.GenericTuple(leftGeneric, rightGeneric), Schema.Tuple(leftSchema, rightSchema)) =>
+        val typedLeft  = leftGeneric.toTypedValue(leftSchema)
+        val typedRight = rightGeneric.toTypedValue(rightSchema)
+        (typedLeft, typedRight) match {
+          case (Left(e1), Left(e2)) => Left(s"Converting generic tuple to typed value failed with errors $e1 and $e2")
+          case (_, Left(e))         => Left(e)
+          case (Left(e), _)         => Left(e)
+          case (Right(a), Right(b)) => Right(a -> b)
+        }
+
+      case (Generic.GenericSome(generic), Schema.Optional(schema: Schema[_])) =>
+        generic.toTypedValue(schema).map(Some(_))
+
+      case (Generic.GenericNone, Schema.Optional(_)) =>
+        Right(None)
+
+      case (Generic.Transform(generic), Schema.Transform(schema, f, _)) =>
+        generic.toTypedValue(schema).flatMap(f)
+
       case _ =>
         Left(s"Failed to cast $self to schema $schema")
     }
@@ -32,13 +67,46 @@ object Generic {
 
   def fromSchemaAndValue[A](schema: Schema[A], value: A): Generic =
     schema match {
+
       case Schema.Primitive(p) => Generic.Primitive(value, p)
+
       case Schema.Record(schemas) =>
         val map: Map[String, _] = value
         Generic.Record(schemas.map {
           case (key, schema: Schema[a]) =>
             key -> fromSchemaAndValue(schema, map(key).asInstanceOf[a])
         })
+
+      case Schema.Enumeration(map) =>
+        val (key, v) = value
+        map(key) match {
+          case schema: Schema[a] =>
+            val nestedValue = fromSchemaAndValue(schema, v.asInstanceOf[a])
+            Generic.Enumeration(key -> nestedValue)
+        }
+
+      case Schema.EitherSchema(left, right) =>
+        value match {
+          case Left(a)  => Generic.GenericLeft(fromSchemaAndValue(left, a))
+          case Right(b) => Generic.GenericRight(fromSchemaAndValue(right, b))
+        }
+
+      case Schema.Tuple(schemaA, schemaB) =>
+        val (a, b) = value
+        Generic.GenericTuple(fromSchemaAndValue(schemaA, a), fromSchemaAndValue(schemaB, b))
+
+      case Schema.Optional(schema) =>
+        value match {
+          case Some(value) => Generic.GenericSome(fromSchemaAndValue(schema, value))
+          case None        => Generic.GenericNone
+        }
+
+      case Schema.Transform(schema, _, g) =>
+        g(value) match {
+          case Left(_)  => ???
+          case Right(a) => Generic.Transform(fromSchemaAndValue(schema, a))
+        }
+
       case _ => ???
     }
 
@@ -46,25 +114,30 @@ object Generic {
   final case class Record(values: Map[String, Generic])  extends Generic
   final case class Enumeration(value: (String, Generic)) extends Generic
 
-  // sealed case class Record(structure: Map[String, Schema[_]]) extends Schema[Map[String, _]]
-
   // final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
   //     extends Schema[Col[A]]
 
-  // sealed case class Enumeration(structure: Map[String, Schema[_]]) extends Schema[Map[String, _]]
+  // sealed case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
+  //     extends Schema[B]
 
   // sealed case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
   //     extends Schema[B]
 
   sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends Generic
 
-  // sealed case class Optional[A](codec: Schema[A]) extends Schema[Option[A]]
+  final case class GenericSome(value: Generic) extends Generic
+
+  final case class Transform(value: Generic) extends Generic
+
+  case object GenericNone extends Generic
 
   // final case class Fail[A](message: String) extends Schema[A]
 
-  // sealed case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)]
+  sealed case class GenericTuple(left: Generic, right: Generic) extends Generic
 
-  // final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]]
+  final case class GenericLeft(value: Generic) extends Generic
+
+  final case class GenericRight(value: Generic) extends Generic
 
   // final case class Case[A <: Z, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A) {
 

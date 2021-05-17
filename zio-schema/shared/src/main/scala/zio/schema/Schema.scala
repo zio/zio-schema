@@ -834,7 +834,7 @@ object Schema {
   final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
       extends Schema[Col[A]]
 
-  final case class Enumeration(structure: ListMap[String, Schema[_]]) extends Schema[ListMap[String, _]]
+  sealed case class Enumeration(structure: Map[String, Schema[_]]) extends Schema[(String, _)]
 
   final case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
       extends Schema[B]

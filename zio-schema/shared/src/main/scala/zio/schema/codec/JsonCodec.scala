@@ -951,8 +951,8 @@ object JsonCodec extends Codec {
         }
     }
 
-    private def enumerationEncoder(structure: ListMap[String, Schema[_]]): JsonEncoder[ListMap[String, _]] = {
-      (a: ListMap[String, _], indent: Option[Int], out: Write) =>
+    private def enumerationEncoder(structure: Map[String, Schema[_]]): JsonEncoder[(String, _)] = {
+      (a: (String, _), indent: Option[Int], out: Write) =>
         {
           if (structure.isEmpty) {
             out.write("{}")
@@ -961,7 +961,7 @@ object JsonCodec extends Codec {
             val indent_ = bump(indent)
             pad(indent_, out)
             var first  = true
-            val (k, v) = a.toSeq.head
+            val (k, v) = a
             val enc    = schemaEncoder(structure(k).asInstanceOf[Schema[Any]])
             if (first)
               first = false
@@ -2383,19 +2383,16 @@ object JsonCodec extends Codec {
         }
     }
 
-    private def enumerationDecoder(structure: ListMap[String, Schema[_]]): JsonDecoder[ListMap[String, Any]] = {
+    private def enumerationDecoder(structure: Map[String, Schema[_]]): JsonDecoder[(String, Any)] = {
       (trace: List[JsonError], in: RetractReader) =>
         {
-          val builder: ChunkBuilder[(String, Any)] = zio.ChunkBuilder.make[(String, Any)](structure.size)
           Lexer.char(trace, in, '{')
-          if (Lexer.firstField(trace, in)) {
-            val field  = Lexer.string(trace, in).toString
-            val trace_ = JsonError.ObjectAccess(field) :: trace
-            Lexer.char(trace_, in, ':')
-            val value = schemaDecoder(structure(field)).unsafeDecode(trace_, in)
-            builder += ((JsonFieldDecoder.string.unsafeDecodeField(trace_, field), value))
-          }
-          (ListMap.newBuilder[String, Any] ++= builder.result()).result()
+          Lexer.firstField(trace, in)
+          val field  = Lexer.string(trace, in).toString
+          val trace_ = JsonError.ObjectAccess(field) :: trace
+          Lexer.char(trace_, in, ':')
+          val value = schemaDecoder(structure(field)).unsafeDecode(trace_, in)
+          (JsonFieldDecoder.string.unsafeDecodeField(trace_, field), value)
         }
     }
   }

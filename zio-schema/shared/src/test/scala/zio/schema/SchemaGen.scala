@@ -131,7 +131,7 @@ object SchemaGen {
   val anyEnumeration: Gen[Random with Sized, Schema[ListMap[String, _]]] =
     anyEnumeration(anySchema).map(Schema.enumeration)
 
-  type EnumerationAndGen = (Schema[ListMap[String, _]], Gen[Random with Sized, ListMap[String, _]])
+  type EnumerationAndGen = (Schema.Enumeration, Gen[Random with Sized, (String, _)])
 
   val anyEnumerationAndGen: Gen[Random with Sized, EnumerationAndGen] =
     for {
@@ -139,11 +139,11 @@ object SchemaGen {
       structure       <- anyEnumeration(primitiveAndGen._1)
       primitiveValue  <- primitiveAndGen._2
     } yield {
-      val gen = Gen.oneOf(structure.keys.map(Gen.const(_)).toSeq: _*).map(l => ListMap(l -> primitiveValue))
+      val gen = Gen.oneOf(structure.keys.map(Gen.const(_)).toSeq: _*).map(l => l -> primitiveValue)
       Schema.enumeration(structure) -> gen
     }
 
-  type EnumerationAndValue = (Schema[ListMap[String, _]], ListMap[String, _])
+  type EnumerationAndValue = (Schema[ListMap[String, _]], (String, _))
 
   val anyEnumerationAndValue: Gen[Random with Sized, EnumerationAndValue] =
     for {
@@ -249,7 +249,7 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  type EnumerationTransform[A] = Schema.Transform[ListMap[String, _], A]
+  type EnumerationTransform[A] = Schema.Transform[(String, _), A]
 
   val anyEnumerationTransform: Gen[Random with Sized, EnumerationTransform[_]] = {
     anyEnumeration.map(schema => transformEnumeration(schema))
@@ -265,8 +265,8 @@ object SchemaGen {
   //    }
 
   // TODO: Dynamically generate a sealed trait and case/value classes.
-  def transformEnumeration[A](schema: Schema[ListMap[String, _]]): EnumerationTransform[_] =
-    Schema.Transform[ListMap[String, _], A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."))
+  def transformEnumeration[A](schema: Schema.Enumeration): EnumerationTransform[_] =
+    Schema.Transform[(String, _), A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."))
 
   type EnumerationTransformAndValue[A] = (EnumerationTransform[A], A)
 
@@ -286,7 +286,7 @@ object SchemaGen {
 
   val anyTransformAndValue: Gen[Random with Sized, TransformAndValue[_]] =
     Gen.oneOf[Random with Sized, TransformAndValue[_]](
-      anySequenceTransformAndValue,
+      // anySequenceTransformAndValue,
       anyRecordTransformAndValue,
       anyEnumerationTransformAndValue
     )
