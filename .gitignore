@@ -407,6 +407,7 @@ project/plugins/project/
 
 .metals/
 project/metals.sbt
+**/metals.sbt
 .bloop/
 .bsp/
 project/secret

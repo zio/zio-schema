@@ -8,8 +8,27 @@ import zio.test.{ Gen, Sized }
 
 object SchemaGen {
 
-  def anyStructure[A](valueGen: Gen[Random with Sized, A]): Gen[Random with Sized, ListMap[String, A]] =
-    Gen.listOf(Gen.anyString.zip(valueGen)).map(seq => ListMap(seq: _*))
+  def anyStructure(schemaGen: Gen[Random with Sized, Schema[_]]): Gen[Random with Sized, Seq[Schema.Field[_]]] =
+    Gen.listOf(
+      Gen.anyString.zip(schemaGen).map {
+        case ((label, schema)) => Schema.Field(label, schema)
+      }
+    )
+
+  def anyStructure[A](schema: Schema[A]): Gen[Random with Sized, Seq[Schema.Field[A]]] =
+    Gen.listOf(
+      Gen.anyString.map(Schema.Field(_, schema))
+    )
+
+  def anyEnumeration(schemaGen: Gen[Random with Sized, Schema[_]]): Gen[Random with Sized, ListMap[String, Schema[_]]] =
+    Gen
+      .listOf(
+        Gen.anyString.zip(schemaGen)
+      )
+      .map(ListMap.empty ++ _)
+
+  def anyEnumeration[A](schema: Schema[A]): Gen[Random with Sized, ListMap[String, Schema[A]]] =
+    Gen.listOf(Gen.anyString.map(_ -> schema)).map(ListMap.empty ++ _)
 
   val anyPrimitive: Gen[Random, Schema.Primitive[_]] =
     StandardTypeGen.anyStandardType.map(Schema.Primitive(_))
@@ -110,23 +129,17 @@ object SchemaGen {
     } yield schema -> value
 
   val anyEnumeration: Gen[Random with Sized, Schema[ListMap[String, _]]] =
-    anyStructure(anySchema).map(Schema.enumeration)
+    anyEnumeration(anySchema).map(Schema.enumeration)
 
   type EnumerationAndGen = (Schema[ListMap[String, _]], Gen[Random with Sized, ListMap[String, _]])
 
   val anyEnumerationAndGen: Gen[Random with Sized, EnumerationAndGen] =
     for {
-      keyToSchemaAndGen <- anyStructure(anyPrimitiveAndGen)
+      primitiveAndGen <- anyPrimitiveAndGen
+      structure       <- anyEnumeration(primitiveAndGen._1)
+      primitiveValue  <- primitiveAndGen._2
     } yield {
-      val structure = ListMap(
-        keyToSchemaAndGen.toSeq.map {
-          case (k, (schema, _)) => k -> schema
-        }: _*
-      )
-      val keyValueGenerators = keyToSchemaAndGen.map {
-        case (key, (_, gen)) => Gen.const(key).zip(gen)
-      }.toSeq
-      val gen = Gen.oneOf(keyValueGenerators: _*).map(ListMap(_))
+      val gen = Gen.oneOf(structure.keys.map(Gen.const(_)).toSeq: _*).map(l => ListMap(l -> primitiveValue))
       Schema.enumeration(structure) -> gen
     }
 
@@ -141,47 +154,43 @@ object SchemaGen {
   val anyRecord: Gen[Random with Sized, Schema[ListMap[String, _]]] =
     anyStructure(anySchema).map(Schema.record)
 
-  type RecordAndGen = (Schema[ListMap[String, _]], Gen[Random with Sized, ListMap[String, _]])
+  type GenericRecordAndGen = (Schema[ListMap[String, _]], Gen[Random with Sized, ListMap[String, _]])
 
-  val anyRecordAndGen: Gen[Random with Sized, RecordAndGen] =
+  val anyGenericRecordAndGen: Gen[Random with Sized, GenericRecordAndGen] =
     for {
-      keyToSchemaAndGen <- anyStructure(anyPrimitiveAndGen)
+      (schema, gen) <- anyPrimitiveAndGen
+      structure     <- anyStructure(schema)
     } yield {
-      val structure = ListMap(
-        keyToSchemaAndGen.toSeq.map {
-          case (s, (schema, _)) => s -> schema
-        }: _*
-      )
-      val keyValueGenerators = keyToSchemaAndGen.map {
-        case (key, (_, gen)) => Gen.const(key).zip(gen)
-      }.toSeq
-      val gen = keyValueGenerators.foldLeft[Gen[Random with Sized, ListMap[String, _]]](Gen.const(ListMap.empty)) {
-        (acc, gen) =>
-          for {
-            map      <- acc
-            keyValue <- gen
-          } yield map + keyValue
-      }
-      Schema.record(structure) -> gen
+      val valueGen = Gen
+        .const(structure.map(_.label))
+        .zip(Gen.listOfN(structure.size)(gen))
+        .map {
+          case (labels, values) =>
+            labels.zip(values)
+        }
+        .map(ListMap.empty ++ _)
+
+      Schema.record(structure: _*) -> valueGen
     }
 
   type RecordAndValue = (Schema[ListMap[String, _]], ListMap[String, _])
 
   val anyRecordAndValue: Gen[Random with Sized, RecordAndValue] =
     for {
-      (schema, gen) <- anyRecordAndGen
+      (schema, gen) <- anyGenericRecordAndGen
       value         <- gen
     } yield schema -> value
 
   val anyRecordOfRecordsAndValue: Gen[Random with Sized, RecordAndValue] =
     for {
-      (schema1, gen1) <- anyRecordAndGen
-      (schema2, gen2) <- anyRecordAndGen
-      (schema3, gen3) <- anyRecordAndGen
-      (key1, value1)  <- Gen.anyString.zip(gen1)
-      (key2, value2)  <- Gen.anyString.zip(gen2)
-      (key3, value3)  <- Gen.anyString.zip(gen3)
-    } yield Schema.record(ListMap(key1 -> schema1, key2 -> schema2, key3 -> schema3)) -> ListMap(
+      (schema1, gen1) <- anyGenericRecordAndGen
+      (schema2, gen2) <- anyGenericRecordAndGen
+      (schema3, gen3) <- anyGenericRecordAndGen
+      keys            <- Gen.listOfN(3)(Gen.anyString.filter(_.length() > 0))
+      (key1, value1)  <- Gen.const(keys(0)).zip(gen1)
+      (key2, value2)  <- Gen.const(keys(1)).zip(gen2)
+      (key3, value3)  <- Gen.const(keys(2)).zip(gen3)
+    } yield Schema.record(Schema.Field(key1, schema1), Schema.Field(key2, schema2), Schema.Field(key3, schema3)) -> ListMap(
       (key1, value1),
       (key2, value2),
       (key3, value3)

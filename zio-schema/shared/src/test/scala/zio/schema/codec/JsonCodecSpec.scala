@@ -227,7 +227,8 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           (left, _)  <- SchemaGen.anyRecordOfRecordsAndValue
           (right, b) <- SchemaGen.anyRecordOfRecordsAndValue
         } yield (Schema.EitherSchema(left, right), Right(b))) {
-          case (schema, value) => assertEncodesThenDecodes(schema, value)
+          case (schema, value) =>
+            assertEncodesThenDecodes(schema, value)
         }
       },
       testM("mixed") {
@@ -313,26 +314,26 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         SchemaGen.anyRecordAndValue.runHead.flatMap {
           case Some((schema, value)) =>
             val key      = new String(Array('\u0007', '\n'))
-            val embedded = Schema.record(ListMap(key -> schema))
+            val embedded = Schema.record(Schema.Field(key, schema))
             assertEncodesThenDecodes(embedded, ListMap(key -> value))
           case None => ZIO.fail("Should never happen!")
         }
       },
       testM("record of records") {
         checkM(SchemaGen.anyRecordOfRecordsAndValue) {
-          case (schema, value) => assertEncodesThenDecodes(schema, value)
+          case (schema, value) =>
+            assertEncodesThenDecodes(schema, value)
         }
       },
       testM("of primitives") {
-        assertEncodesThenDecodes(
-          recordSchema,
-          ListMap[String, Any]("foo" -> "s", "bar" -> 1)
-        )
+        checkM(SchemaGen.anyRecordAndValue) {
+          case (schema, value) => assertEncodesThenDecodes(schema, value)
+        }
       },
       testM("of ZoneOffsets") {
         checkM(JavaTimeGen.anyZoneOffset) { zoneOffset =>
           assertEncodesThenDecodes(
-            Schema.record(ListMap("zoneOffset" -> Schema.Primitive(StandardType.ZoneOffset))),
+            Schema.record(Schema.Field("zoneOffset", Schema.Primitive(StandardType.ZoneOffset))),
             ListMap[String, Any]("zoneOffset" -> zoneOffset)
           )
         }
@@ -459,17 +460,13 @@ object JsonCodecSpec extends DefaultRunnableSpec {
   val searchRequestSchema: Schema[SearchRequest] = DeriveSchema.gen[SearchRequest]
 
   val recordSchema: Schema[ListMap[String, _]] = Schema.record(
-    ListMap(
-      "foo" -> Schema.Primitive(StandardType.StringType),
-      "bar" -> Schema.Primitive(StandardType.IntType)
-    )
+    Schema.Field("foo", Schema.Primitive(StandardType.StringType)),
+    Schema.Field("bar", Schema.Primitive(StandardType.IntType))
   )
 
   val nestedRecordSchema: Schema[ListMap[String, _]] = Schema.record(
-    ListMap(
-      "l1" -> Schema.Primitive(StandardType.StringType),
-      "l2" -> recordSchema
-    )
+    Schema.Field("l1", Schema.Primitive(StandardType.StringType)),
+    Schema.Field("l2", recordSchema)
   )
 
   val enumSchema: Schema[ListMap[String, _]] = Schema.enumeration(

@@ -577,19 +577,15 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
     implicit val schemaRecord: Schema[Record] = DeriveSchema.gen[Record]
 
     val genericRecord: Schema[ListMap[String, _]] = Schema.record(
-      ListMap(
-        "c" -> Schema.Primitive(StandardType.IntType),
-        "b" -> Schema.Primitive(StandardType.IntType),
-        "a" -> Schema.Primitive(StandardType.IntType)
-      )
+      Schema.Field("c", Schema.Primitive(StandardType.IntType)),
+      Schema.Field("b", Schema.Primitive(StandardType.IntType)),
+      Schema.Field("a", Schema.Primitive(StandardType.IntType))
     )
 
     val genericRecordSorted: Schema[ListMap[String, _]] = Schema.record(
-      ListMap(
-        "a" -> Schema.Primitive(StandardType.IntType),
-        "b" -> Schema.Primitive(StandardType.IntType),
-        "c" -> Schema.Primitive(StandardType.IntType)
-      )
+      Schema.Field("a", Schema.Primitive(StandardType.IntType)),
+      Schema.Field("b", Schema.Primitive(StandardType.IntType)),
+      Schema.Field("c", Schema.Primitive(StandardType.IntType))
     )
   }
 

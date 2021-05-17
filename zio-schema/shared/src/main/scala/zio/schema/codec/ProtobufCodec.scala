@@ -47,52 +47,60 @@ object ProtobufCodec extends Codec {
       case object Bit32                      extends WireType
     }
 
-    def flatFields(
-      structure: ListMap[String, Schema[_]],
-      nextFieldNumber: Int = 1
-    ): ListMap[Int, (String, Schema[_])] =
-      structure.toSeq
-        .foldLeft((nextFieldNumber, ListMap[Int, (String, Schema[_])]())) { (numAndMap, fieldAndSchema) =>
-          nestedFields(fieldAndSchema._1, fieldAndSchema._2, nextFieldNumber) match {
-            case Some(fields) => (numAndMap._1 + fields.size, numAndMap._2 ++ fields)
-            case None         => (numAndMap._1 + 1, numAndMap._2 + (numAndMap._1 -> fieldAndSchema))
-          }
-        }
-        ._2
+    // def flatFields(
+    //   structure: Seq[Schema.Field[_]]
+    // ): Seq[Schema.Field[_]] =
+    //   structure
+    //     .foldLeft(Seq.empty[Schema.Field[_]]) { (struct, field) =>
+    //       nestedFields(field.label, field.schema, nextFieldNumber) match {
+    //         case Some(fields) => (numAndMap._1 + fields.size, numAndMap._2 ++ fields)
+    //         case None         => (numAndMap._1 + 1, numAndMap._2 + (numAndMap._1 -> field))
+    //       }
+    //     }
+    //     ._2
 
-    private def nestedFields(
-      baseField: String,
-      schema: Schema[_],
-      nextFieldNumber: Int
-    ): Option[ListMap[Int, (String, Schema[_])]] =
-      schema match {
-        case Schema.Transform(codec, f, g) =>
-          nestedFields(baseField, codec, nextFieldNumber).map(_.map {
-            case (fieldNumber, fieldAndSchema) =>
-              (fieldNumber, (fieldAndSchema._1, Schema.Transform(fieldAndSchema._2.asInstanceOf[Schema[Any]], f, g)))
-          })
-        case _ => None
-      }
+    // private def nestedFields(
+    //   baseField: String,
+    //   schema: Schema[_],
+    //   nextFieldNumber: Int
+    // ): Seq[Schema.Field[_]] =
+    //   schema match {
+    //     case Schema.Transform(codec, f, g) =>
+    //       nestedFields(baseField, codec, nextFieldNumber).map(_.map {
+    //         case (fieldNumber, field) =>
+    //           (fieldNumber, Schema.Field(field.label, Schema.Transform(field.schema.asInstanceOf[Schema[Any]], f, g)))
+    //       })
+    //     case _ => None
+    //   }
 
     def tupleSchema[A, B](first: Schema[A], second: Schema[B]): Schema[ListMap[String, _]] =
-      Schema.record(ListMap("first" -> first, "second" -> second))
+      Schema.record(Schema.Field("first", first), Schema.Field("second", second))
 
-    def singleSchema[A](codec: Schema[A]): Schema[ListMap[String, _]] = Schema.record(ListMap("value" -> codec))
+    def singleSchema[A](codec: Schema[A]): Schema[ListMap[String, _]] = Schema.record(Schema.Field("value", codec))
 
-    def monthDayStructure(): ListMap[String, Schema[Int]] =
-      ListMap("month" -> Schema.Primitive(StandardType.IntType), "day" -> Schema.Primitive(StandardType.IntType))
+    def monthDayStructure(): Seq[Schema.Field[Int]] =
+      Seq(
+        Schema.Field("month", Schema.Primitive(StandardType.IntType)),
+        Schema.Field("day", Schema.Primitive(StandardType.IntType))
+      )
 
-    def periodStructure(): ListMap[String, Schema[Int]] = ListMap(
-      "years"  -> Schema.Primitive(StandardType.IntType),
-      "months" -> Schema.Primitive(StandardType.IntType),
-      "days"   -> Schema.Primitive(StandardType.IntType)
+    def periodStructure(): Seq[Schema.Field[Int]] = Seq(
+      Schema.Field("years", Schema.Primitive(StandardType.IntType)),
+      Schema.Field("months", Schema.Primitive(StandardType.IntType)),
+      Schema.Field("days", Schema.Primitive(StandardType.IntType))
     )
 
-    def yearMonthStructure(): ListMap[String, Schema[Int]] =
-      ListMap("year" -> Schema.Primitive(StandardType.IntType), "month" -> Schema.Primitive(StandardType.IntType))
+    def yearMonthStructure(): Seq[Schema.Field[Int]] =
+      Seq(
+        Schema.Field("year", Schema.Primitive(StandardType.IntType)),
+        Schema.Field("month", Schema.Primitive(StandardType.IntType))
+      )
 
-    def durationStructure(): ListMap[String, Schema[_]] =
-      ListMap("seconds" -> Schema.Primitive(StandardType.LongType), "nanos" -> Schema.Primitive(StandardType.IntType))
+    def durationStructure(): Seq[Schema.Field[_]] =
+      Seq(
+        Schema.Field("seconds", Schema.Primitive(StandardType.LongType)),
+        Schema.Field("nanos", Schema.Primitive(StandardType.IntType))
+      )
 
     /**
      * Used when encoding sequence of values to decide whether each value need its own key or values can be packed together without keys (for example numbers).
@@ -107,7 +115,6 @@ object ProtobufCodec extends Codec {
       case _: Schema.Optional[_]          => false
       case _: Schema.Fail[_]              => false
       case _: Schema.EitherSchema[_, _]   => false
-      case _: Schema.CaseClass[_]         => false
       case _                              => false
     }
 
@@ -158,17 +165,17 @@ object ProtobufCodec extends Codec {
         case (Schema.Optional(codec), v: Option[_])               => encodeOptional(fieldNumber, codec, v)
         case (Schema.EitherSchema(left, right), v: Either[_, _])  => encodeEither(fieldNumber, left, right, v)
         case (Schema.CaseObject(_), _)                            => encodeCaseObject(fieldNumber)
-        case (Schema.CaseClass1(f, _, ext), v)                    => encodeCaseClass(fieldNumber, v, f -> ext)
-        case (Schema.CaseClass2(f1, f2, _, ext1, ext2), v)        => encodeCaseClass(fieldNumber, v, f1 -> ext1, f2 -> ext2)
-        case (Schema.CaseClass3(f1, f2, f3, _, ext1, ext2, ext3), v) =>
+        case (Schema.CaseClass1(_, f, _, ext), v)                 => encodeCaseClass(fieldNumber, v, f -> ext)
+        case (Schema.CaseClass2(_, f1, f2, _, ext1, ext2), v)     => encodeCaseClass(fieldNumber, v, f1 -> ext1, f2 -> ext2)
+        case (Schema.CaseClass3(_, f1, f2, f3, _, ext1, ext2, ext3), v) =>
           encodeCaseClass(fieldNumber, v, f1 -> ext1, f2 -> ext2, f3 -> ext3)
-        case (Schema.CaseClass4(f1, f2, f3, f4, _, ext1, ext2, ext3, ext4), v) =>
+        case (Schema.CaseClass4(_, f1, f2, f3, f4, _, ext1, ext2, ext3, ext4), v) =>
           encodeCaseClass(fieldNumber, v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4)
-        case (Schema.CaseClass5(f1, f2, f3, f4, f5, _, ext1, ext2, ext3, ext4, ext5), v) =>
+        case (Schema.CaseClass5(_, f1, f2, f3, f4, f5, _, ext1, ext2, ext3, ext4, ext5), v) =>
           encodeCaseClass(fieldNumber, v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5)
-        case (Schema.CaseClass6(f1, f2, f3, f4, f5, f6, _, ext1, ext2, ext3, ext4, ext5, ext6), v) =>
+        case (Schema.CaseClass6(_, f1, f2, f3, f4, f5, f6, _, ext1, ext2, ext3, ext4, ext5, ext6), v) =>
           encodeCaseClass(fieldNumber, v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6)
-        case (Schema.CaseClass7(f1, f2, f3, f4, f5, f6, f7, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7), v) =>
+        case (Schema.CaseClass7(_, f1, f2, f3, f4, f5, f6, f7, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7), v) =>
           encodeCaseClass(
             fieldNumber,
             v,
@@ -181,7 +188,7 @@ object ProtobufCodec extends Codec {
             f7 -> ext7
           )
         case (
-            Schema.CaseClass8(f1, f2, f3, f4, f5, f6, f7, f8, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8),
+            Schema.CaseClass8(_, f1, f2, f3, f4, f5, f6, f7, f8, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8),
             v
             ) =>
           encodeCaseClass(
@@ -198,6 +205,7 @@ object ProtobufCodec extends Codec {
           )
         case (
             Schema.CaseClass9(
+              _,
               f1,
               f2,
               f3,
@@ -235,6 +243,7 @@ object ProtobufCodec extends Codec {
           )
         case (
             Schema.CaseClass10(
+              _,
               f1,
               f2,
               f3,
@@ -275,6 +284,7 @@ object ProtobufCodec extends Codec {
           )
         case (
             Schema.CaseClass11(
+              _,
               f1,
               f2,
               f3,
@@ -318,6 +328,7 @@ object ProtobufCodec extends Codec {
           )
         case (
             Schema.CaseClass12(
+              _,
               f1,
               f2,
               f3,
@@ -364,6 +375,7 @@ object ProtobufCodec extends Codec {
           )
         case (
             Schema.CaseClass13(
+              _,
               f1,
               f2,
               f3,
@@ -413,6 +425,7 @@ object ProtobufCodec extends Codec {
           )
         case (
             Schema.CaseClass14(
+              _,
               f1,
               f2,
               f3,
@@ -465,6 +478,7 @@ object ProtobufCodec extends Codec {
           )
         case (
             Schema.CaseClass15(
+              _,
               f1,
               f2,
               f3,
@@ -520,6 +534,7 @@ object ProtobufCodec extends Codec {
           )
         case (
             Schema.CaseClass16(
+              _,
               f1,
               f2,
               f3,
@@ -578,6 +593,7 @@ object ProtobufCodec extends Codec {
           )
         case (
             Schema.CaseClass17(
+              _,
               f1,
               f2,
               f3,
@@ -639,6 +655,7 @@ object ProtobufCodec extends Codec {
           )
         case (
             Schema.CaseClass18(
+              _,
               f1,
               f2,
               f3,
@@ -703,6 +720,7 @@ object ProtobufCodec extends Codec {
           )
         case (
             Schema.CaseClass19(
+              _,
               f1,
               f2,
               f3,
@@ -770,6 +788,7 @@ object ProtobufCodec extends Codec {
           )
         case (
             Schema.CaseClass20(
+              _,
               f1,
               f2,
               f3,
@@ -840,6 +859,7 @@ object ProtobufCodec extends Codec {
           )
         case (
             Schema.CaseClass21(
+              _,
               f1,
               f2,
               f3,
@@ -913,6 +933,7 @@ object ProtobufCodec extends Codec {
           )
         case (
             Schema.CaseClass22(
+              _,
               f1,
               f2,
               f3,
@@ -1017,12 +1038,12 @@ object ProtobufCodec extends Codec {
     private def encodeCaseClass[Z](
       fieldNumber: Option[Int],
       value: Z,
-      fields: ((String, Schema[_]), Z => Any)*
+      fields: (Schema.Field[_], Z => Any)*
     ): Chunk[Byte] = {
       val encoded = Chunk
         .fromIterable(
           fields.zipWithIndex.map {
-            case (((_, schema), ext), fieldNumber) =>
+            case ((Schema.Field(_, schema, _), ext), fieldNumber) =>
               encode(Some(fieldNumber + 1), schema.asInstanceOf[Schema[Any]], ext(value))
           }
         )
@@ -1032,15 +1053,15 @@ object ProtobufCodec extends Codec {
 
     private def encodeRecord(
       fieldNumber: Option[Int],
-      structure: ListMap[String, Schema[_]],
+      structure: Seq[Schema.Field[_]],
       data: ListMap[String, _]
     ): Chunk[Byte] = {
       val encodedRecord = Chunk
-        .fromIterable(flatFields(structure).toSeq.map {
-          case (fieldNumber, (field, schema)) =>
+        .fromIterable(structure.zipWithIndex.map {
+          case (Schema.Field(label, schema, _), fieldNumber) =>
             data
-              .get(field)
-              .map(value => encode(Some(fieldNumber), schema.asInstanceOf[Schema[Any]], value))
+              .get(label)
+              .map(value => encode(Some(fieldNumber + 1), schema.asInstanceOf[Schema[Any]], value))
               .getOrElse(Chunk.empty)
         })
         .flatten
@@ -1296,10 +1317,10 @@ object ProtobufCodec extends Codec {
 
     private def decoder[A](schema: Schema[A]): Decoder[A] =
       schema match {
-        case Schema.GenericRecord(structure) => recordDecoder(flatFields(structure))
+        case Schema.GenericRecord(structure) => recordDecoder(structure)
         case Schema.Sequence(element, f, _) =>
           if (canBePacked(element)) packedSequenceDecoder(element).map(f) else nonPackedSequenceDecoder(element).map(f)
-        case Schema.Enumeration(structure)                                                     => enumerationDecoder(flatFields(structure))
+        case Schema.Enumeration(structure)                                                     => enumerationDecoder(structure)
         case Schema.Transform(codec, f, _)                                                     => transformDecoder(codec, f)
         case Schema.Primitive(standardType)                                                    => primitiveDecoder(standardType)
         case Schema.Tuple(left, right)                                                         => tupleDecoder(left, right)
@@ -2262,16 +2283,16 @@ object ProtobufCodec extends Codec {
       else
         validateBuffer(index + 1, buffer)
 
-    private def unsafeDecodeFields(buffer: Array[Any], fields: (String, Schema[_])*): Decoder[Array[Any]] =
+    private def unsafeDecodeFields(buffer: Array[Any], fields: Schema.Field[_]*): Decoder[Array[Any]] =
       keyDecoder.flatMap {
         case (wt, fieldNumber) if fieldNumber == fields.length =>
           wt match {
             case LengthDelimited(width) =>
-              decoder(fields(fieldNumber - 1)._2)
+              decoder(fields(fieldNumber - 1).schema)
                 .take(width)
                 .map(fieldValue => buffer.updated(fieldNumber - 1, fieldValue))
             case _ =>
-              decoder(fields(fieldNumber - 1)._2)
+              decoder(fields(fieldNumber - 1).schema)
                 .map(fieldValue => buffer.updated(fieldNumber - 1, fieldValue))
           }
         case (wt, fieldNumber) =>
@@ -2279,12 +2300,12 @@ object ProtobufCodec extends Codec {
             wt match {
               case LengthDelimited(width) =>
                 for {
-                  fieldValue <- decoder(fields(fieldNumber - 1)._2).take(width)
+                  fieldValue <- decoder(fields(fieldNumber - 1).schema).take(width)
                   remainder  <- unsafeDecodeFields(buffer, fields: _*)
                 } yield remainder.updated(fieldNumber - 1, fieldValue)
               case _ =>
                 for {
-                  fieldValue <- decoder(fields(fieldNumber - 1)._2)
+                  fieldValue <- decoder(fields(fieldNumber - 1).schema)
                   remainder  <- unsafeDecodeFields(buffer, fields: _*)
                 } yield remainder.updated(fieldNumber - 1, fieldValue)
             }
@@ -2293,38 +2314,37 @@ object ProtobufCodec extends Codec {
           }
       }
 
-    private def enumerationDecoder(fields: ListMap[Int, (String, Schema[_])]): Decoder[ListMap[String, _]] =
+    private def enumerationDecoder(fields: ListMap[String, Schema[_]]): Decoder[ListMap[String, _]] =
       keyDecoder.flatMap {
         case (_, fieldNumber) =>
-          if (fields.contains(fieldNumber)) {
-            val (fieldName, schema) = fields(fieldNumber)
-
+          if (fieldNumber <= fields.size) {
+            val (fieldName, schema) = fields.toSeq(fieldNumber - 1)
             decoder(schema).map(fieldValue => ListMap(fieldName -> fieldValue))
           } else {
             fail(s"Schema doesn't contain field number $fieldNumber.")
           }
       }
 
-    private def recordDecoder(fields: ListMap[Int, (String, Schema[_])]): Decoder[ListMap[String, _]] =
-      if (fields.isEmpty)
+    private def recordDecoder(fields: Seq[Schema.Field[_]], decoded: Int = 0): Decoder[ListMap[String, _]] =
+      if (fields.isEmpty || (fields.size == decoded))
         Decoder.succeed(ListMap.empty)
       else
         keyDecoder.flatMap {
           case (wt, fieldNumber) =>
-            if (fields.contains(fieldNumber)) {
-              val (fieldName, schema) = fields(fieldNumber)
+            if (fields.isDefinedAt(fieldNumber - 1)) {
+              val Schema.Field(fieldName, schema, _) = fields(fieldNumber - 1)
 
               wt match {
                 case LengthDelimited(width) =>
                   for {
                     fieldValue <- decoder(schema).take(width)
-                    remainder  <- recordDecoder(fields - fieldNumber)
+                    remainder  <- recordDecoder(fields, decoded + 1)
                   } yield (remainder.updated(fieldName, fieldValue))
 
                 case _ =>
                   for {
                     fieldValue <- decoder(schema)
-                    remainder  <- recordDecoder(fields - fieldNumber)
+                    remainder  <- recordDecoder(fields, decoded + 1)
                   } yield (remainder.updated(fieldName, fieldValue))
               }
             } else {
@@ -2408,13 +2428,13 @@ object ProtobufCodec extends Codec {
         case StandardType.Month =>
           varIntDecoder.map(_.intValue).map(Month.of)
         case StandardType.MonthDay =>
-          recordDecoder(flatFields(monthDayStructure()))
+          recordDecoder(monthDayStructure())
             .map(
               data =>
                 MonthDay.of(data.getOrElse("month", 0).asInstanceOf[Int], data.getOrElse("day", 0).asInstanceOf[Int])
             )
         case StandardType.Period =>
-          recordDecoder(flatFields(periodStructure()))
+          recordDecoder(periodStructure())
             .map(
               data =>
                 Period.of(
@@ -2426,7 +2446,7 @@ object ProtobufCodec extends Codec {
         case StandardType.Year =>
           varIntDecoder.map(_.intValue).map(Year.of)
         case StandardType.YearMonth =>
-          recordDecoder(flatFields(yearMonthStructure()))
+          recordDecoder(yearMonthStructure())
             .map(
               data =>
                 YearMonth.of(data.getOrElse("year", 0).asInstanceOf[Int], data.getOrElse("month", 0).asInstanceOf[Int])
@@ -2437,7 +2457,7 @@ object ProtobufCodec extends Codec {
             .map(_.intValue)
             .map(ZoneOffset.ofTotalSeconds)
         case StandardType.Duration(_) =>
-          recordDecoder(flatFields(durationStructure()))
+          recordDecoder(durationStructure())
             .map(
               data =>
                 Duration.ofSeconds(
