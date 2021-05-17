@@ -1,13 +1,18 @@
 package zio.schema
 
+import scala.annotation.Annotation
+
 import zio.schema.SchemaAssertions.hasSameSchema
 import zio.test._
 
 object DeriveSchemaSpec extends DefaultRunnableSpec {
 
+  final case class annotation1(value: String) extends Annotation
+  final case class annotation2(value: String) extends Annotation
+
   sealed case class UserId(id: String)
 
-  sealed case class User(name: String, id: UserId)
+  sealed case class User(name: String, @annotation1("foo") @annotation2("bar") id: UserId)
 
   sealed trait Status
   case class Ok(response: List[String]) extends Status
@@ -27,7 +32,8 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       val derived: Schema[UserId] = DeriveSchema.gen
       val expected: Schema[UserId] =
         Schema.CaseClass1(
-          field = "id" -> Schema.Primitive(StandardType.StringType),
+          annotations = Nil,
+          field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
           UserId.apply,
           (uid: UserId) => uid.id
         )
@@ -44,14 +50,17 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       val derived: Schema[User] = DeriveSchema.gen
       val expected: Schema[User] =
         Schema.CaseClass2(
-          field1 = ("name", Schema.Primitive(StandardType.StringType)),
-          field2 = (
+          annotations = Nil,
+          field1 = Schema.Field("name", Schema.Primitive(StandardType.StringType)),
+          field2 = Schema.Field(
             "id",
             Schema.CaseClass1(
-              field = "id" -> Schema.Primitive(StandardType.StringType),
+              annotations = Nil,
+              field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
               UserId.apply,
               (uid: UserId) => uid.id
-            )
+            ),
+            Seq(annotation1("foo"), annotation2("bar"))
           ),
           User.apply,
           (u: User) => u.name,
