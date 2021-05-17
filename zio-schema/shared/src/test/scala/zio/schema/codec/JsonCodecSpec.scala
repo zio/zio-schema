@@ -469,7 +469,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     Schema.Field("l2", recordSchema)
   )
 
-  val enumSchema: Schema[ListMap[String, _]] = Schema.enumeration(
+  val enumSchema: Schema[(String, _)] = Schema.enumeration(
     ListMap(
       "string"  -> Schema.Primitive(StandardType.StringType),
       "int"     -> Schema.Primitive(StandardType.IntType),

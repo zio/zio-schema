@@ -164,6 +164,7 @@ object ProtobufCodec extends Codec {
         case (Schema.Tuple(left, right), v @ (_, _))             => encodeTuple(fieldNumber, left, right, v)
         case (Schema.Optional(codec), v: Option[_])              => encodeOptional(fieldNumber, codec, v)
         case (Schema.EitherSchema(left, right), v: Either[_, _]) => encodeEither(fieldNumber, left, right, v)
+        case (Schema.CaseObject(_),_) => encodeCaseObject(fieldNumber)
         case (Schema.CaseClass1(_,f, _, ext), v)                   => encodeCaseClass(fieldNumber, v, f -> ext)
         case (Schema.CaseClass2(_,f1, f2, _, ext1, ext2), v)       => encodeCaseClass(fieldNumber, v, f1 -> ext1, f2 -> ext2)
         case (Schema.CaseClass3(_,f1, f2, f3, _, ext1, ext2, ext3), v) =>

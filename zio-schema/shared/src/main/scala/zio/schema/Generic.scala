@@ -1,4 +1,6 @@
 package zio.schema
+
+import scala.collection.immutable.ListMap
 // import zio.schema.Schema.Primitive
 
 trait Generic { self =>
@@ -10,21 +12,27 @@ trait Generic { self =>
       case (Generic.Primitive(value, p), Schema.Primitive(p2)) if p == p2 =>
         Right(value.asInstanceOf[A])
 
-      case (Generic.Record(generics), Schema.Record(schemas)) if (generics.keySet != schemas.keySet) =>
-        Left(s"$generics and $schema have incompatible shape")
-
-      case (Generic.Record(generics), Schema.Record(schemas)) =>
+      case (Generic.Record(generics), Schema.GenericRecord(structure)) =>
         val keys = generics.keySet
-        keys.foldLeft[Either[String, Map[String, Any]]](Right(Map.empty)) {
+        keys.foldLeft[Either[String, Map[String, Any]]](Right(ListMap.empty)) {
           case (Right(map), key) =>
-            val generic = generics(key)
-            val schema  = schemas(key)
-            generic.toTypedValue(schema) match {
-              case Left(error)  => Left(error)
-              case Right(value) => Right(map + (key -> value))
+            structure.find(_.label == key).zip(generics.get(key)).headOption match {
+              case Some((field,generic)) =>
+                generic.toTypedValue(field.schema) match {
+                  case Left(error) => Left(error)
+                  case Right(value) => Right(map + (key -> value))
+                }
+              case None =>
+                Left(s"$generics and $schema have incompatible shape")
             }
+            // val generic = generics(key)
+            // val schema  = schemas(key)
+            // generic.toTypedValue(schema) match {
+            //   case Left(error)  => Left(error)
+            //   case Right(value) => Right(map + (key -> value))
+            // }
           case (Left(string), _) => Left(string)
-        }
+        }.asInstanceOf[Either[String,A]]
 
       case (Generic.Enumeration((key, generic)), Schema.Enumeration(cases)) =>
         cases.get(key) match {
@@ -70,12 +78,14 @@ object Generic {
 
       case Schema.Primitive(p) => Generic.Primitive(value, p)
 
-      case Schema.Record(schemas) =>
-        val map: Map[String, _] = value
-        Generic.Record(schemas.map {
-          case (key, schema: Schema[a]) =>
-            key -> fromSchemaAndValue(schema, map(key).asInstanceOf[a])
-        })
+      case Schema.GenericRecord(structure) => 
+        val map: ListMap[String,_] = value
+        Generic.Record(
+          ListMap.empty ++ structure.map {
+            case Schema.Field(key,schema: Schema[a],_) =>
+              key -> fromSchemaAndValue(schema,map(key).asInstanceOf[a])
+          }
+        )
 
       case Schema.Enumeration(map) =>
         val (key, v) = value
@@ -107,11 +117,13 @@ object Generic {
           case Right(a) => Generic.Transform(fromSchemaAndValue(schema, a))
         }
 
+      case s: Schema.Record[A] => s.toGeneric(value)
+
       case _ => ???
     }
 
   // final case class Integer(value: Int)                   extends Generic
-  final case class Record(values: Map[String, Generic])  extends Generic
+  final case class Record(values: ListMap[String, Generic])  extends Generic
   final case class Enumeration(value: (String, Generic)) extends Generic
 
   // final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])

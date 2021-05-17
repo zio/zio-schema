@@ -128,10 +128,10 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  val anyEnumeration: Gen[Random with Sized, Schema[ListMap[String, _]]] =
+  val anyEnumeration: Gen[Random with Sized, Schema[(String, _)]] =
     anyEnumeration(anySchema).map(Schema.enumeration)
 
-  type EnumerationAndGen = (Schema.Enumeration, Gen[Random with Sized, (String, _)])
+  type EnumerationAndGen = (Schema[(String,_)], Gen[Random with Sized, (String, _)])
 
   val anyEnumerationAndGen: Gen[Random with Sized, EnumerationAndGen] =
     for {
@@ -143,7 +143,7 @@ object SchemaGen {
       Schema.enumeration(structure) -> gen
     }
 
-  type EnumerationAndValue = (Schema[ListMap[String, _]], (String, _))
+  type EnumerationAndValue = (Schema[(String, _)], (String, _))
 
   val anyEnumerationAndValue: Gen[Random with Sized, EnumerationAndValue] =
     for {
@@ -265,7 +265,7 @@ object SchemaGen {
   //    }
 
   // TODO: Dynamically generate a sealed trait and case/value classes.
-  def transformEnumeration[A](schema: Schema.Enumeration): EnumerationTransform[_] =
+  def transformEnumeration[A](schema: Schema[(String,_)]): EnumerationTransform[_] =
     Schema.Transform[(String, _), A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."))
 
   type EnumerationTransformAndValue[A] = (EnumerationTransform[A], A)

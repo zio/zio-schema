@@ -138,7 +138,7 @@ object Schema {
   implicit def either[A, B](left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
     EitherSchema(left, right)
 
-  def enumeration(structure: ListMap[String, Schema[_]]): Schema[ListMap[String, _]] =
+  def enumeration(structure: ListMap[String, Schema[_]]): Schema[(String, _)] =
     Enumeration(structure)
 
   def first[A](codec: Schema[(A, Unit)]): Schema[A] =
@@ -834,7 +834,7 @@ object Schema {
   final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
       extends Schema[Col[A]]
 
-  sealed case class Enumeration(structure: Map[String, Schema[_]]) extends Schema[(String, _)]
+  sealed case class Enumeration(structure: ListMap[String, Schema[_]]) extends Schema[(String, _)]
 
   final case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
       extends Schema[B]
@@ -872,6 +872,7 @@ object Schema {
     extractField: Z => A
   ) extends Record[Z] {
     override def structure: Seq[Field[_]] = Seq(field)
+    override def toGeneric(value: Z): Generic = Generic.Record(ListMap(field.label -> Generic.fromSchemaAndValue(field.schema,extractField(value))))
   }
 
   final case class CaseClass2[A1, A2, Z](
