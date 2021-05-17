@@ -156,18 +156,18 @@ object ProtobufCodec extends Codec {
 
     def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
       (schema, value) match {
-        case (Schema.GenericRecord(structure), v: Map[String, _])       => encodeRecord(fieldNumber, structure, v)
-        case (Schema.Sequence(element, _, g), v)                 => encodeSequence(fieldNumber, element, g(v))
-        case (Schema.Enumeration(structure), v: (String, _))     => encodeEnumeration(fieldNumber, structure, v)
-        case (Schema.Transform(codec, _, g), _)                  => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
-        case (Schema.Primitive(standardType), v)                 => encodePrimitive(fieldNumber, standardType, v)
-        case (Schema.Tuple(left, right), v @ (_, _))             => encodeTuple(fieldNumber, left, right, v)
-        case (Schema.Optional(codec), v: Option[_])              => encodeOptional(fieldNumber, codec, v)
-        case (Schema.EitherSchema(left, right), v: Either[_, _]) => encodeEither(fieldNumber, left, right, v)
-        case (Schema.CaseObject(_),_) => encodeCaseObject(fieldNumber)
-        case (Schema.CaseClass1(_,f, _, ext), v)                   => encodeCaseClass(fieldNumber, v, f -> ext)
-        case (Schema.CaseClass2(_,f1, f2, _, ext1, ext2), v)       => encodeCaseClass(fieldNumber, v, f1 -> ext1, f2 -> ext2)
-        case (Schema.CaseClass3(_,f1, f2, f3, _, ext1, ext2, ext3), v) =>
+        case (Schema.GenericRecord(structure), v: Map[String, _]) => encodeRecord(fieldNumber, structure, v)
+        case (Schema.Sequence(element, _, g), v)                  => encodeSequence(fieldNumber, element, g(v))
+        case (Schema.Enumeration(structure), v: (String, _))   => encodeEnumeration(fieldNumber, structure, v)
+        case (Schema.Transform(codec, _, g), _)                   => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
+        case (Schema.Primitive(standardType), v)                  => encodePrimitive(fieldNumber, standardType, v)
+        case (Schema.Tuple(left, right), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)
+        case (Schema.Optional(codec), v: Option[_])               => encodeOptional(fieldNumber, codec, v)
+        case (Schema.EitherSchema(left, right), v: Either[_, _])  => encodeEither(fieldNumber, left, right, v)
+        case (Schema.CaseObject(_), _)                            => encodeCaseObject(fieldNumber)
+        case (Schema.CaseClass1(_, f, _, ext), v)                 => encodeCaseClass(fieldNumber, v, f -> ext)
+        case (Schema.CaseClass2(_, f1, f2, _, ext1, ext2), v)     => encodeCaseClass(fieldNumber, v, f1 -> ext1, f2 -> ext2)
+        case (Schema.CaseClass3(_, f1, f2, f3, _, ext1, ext2, ext3), v) =>
           encodeCaseClass(fieldNumber, v, f1 -> ext1, f2 -> ext2, f3 -> ext3)
         case (Schema.CaseClass4(_, f1, f2, f3, f4, _, ext1, ext2, ext3, ext4), v) =>
           encodeCaseClass(fieldNumber, v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4)

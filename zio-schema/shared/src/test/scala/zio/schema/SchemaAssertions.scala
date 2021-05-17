@@ -1,5 +1,6 @@
 package zio.schema
 
+import zio.Chunk
 import zio.test.Assertion
 import zio.test.AssertionM.Render.param
 
@@ -69,7 +70,7 @@ object SchemaAssertions {
       right.annotations
     )
 
-  private def hasSameAnnotations(left: Seq[Any], right: Seq[Any]): Boolean =
+  private def hasSameAnnotations(left: Chunk[Any], right: Chunk[Any]): Boolean =
     left.map(right.contains(_)).foldRight(true)(_ && _)
 
   private def hasSameFields(left: Seq[Schema.Field[_]], right: Seq[Schema.Field[_]]): Boolean =

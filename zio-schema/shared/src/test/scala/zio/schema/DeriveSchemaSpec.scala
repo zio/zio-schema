@@ -2,6 +2,7 @@ package zio.schema
 
 import scala.annotation.Annotation
 
+import zio.Chunk
 import zio.schema.SchemaAssertions.hasSameSchema
 import zio.test._
 
@@ -32,7 +33,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       val derived: Schema[UserId] = DeriveSchema.gen
       val expected: Schema[UserId] =
         Schema.CaseClass1(
-          annotations = Nil,
+          annotations = Chunk.empty,
           field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
           UserId.apply,
           (uid: UserId) => uid.id
@@ -50,17 +51,17 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       val derived: Schema[User] = DeriveSchema.gen
       val expected: Schema[User] =
         Schema.CaseClass2(
-          annotations = Nil,
+          annotations = Chunk.empty,
           field1 = Schema.Field("name", Schema.Primitive(StandardType.StringType)),
           field2 = Schema.Field(
             "id",
             Schema.CaseClass1(
-              annotations = Nil,
+              annotations = Chunk.empty,
               field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
               UserId.apply,
               (uid: UserId) => uid.id
             ),
-            Seq(annotation1("foo"), annotation2("bar"))
+            Chunk(annotation1("foo"), annotation2("bar"))
           ),
           User.apply,
           (u: User) => u.name,
