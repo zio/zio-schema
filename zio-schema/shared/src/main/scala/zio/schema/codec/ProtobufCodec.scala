@@ -158,7 +158,7 @@ object ProtobufCodec extends Codec {
       (schema, value) match {
         case (Schema.GenericRecord(structure), v: Map[String, _]) => encodeRecord(fieldNumber, structure, v)
         case (Schema.Sequence(element, _, g), v)                  => encodeSequence(fieldNumber, element, g(v))
-        case (Schema.Enumeration(structure), v: (String, _))   => encodeEnumeration(fieldNumber, structure, v)
+        case (Schema.Enumeration(structure), v: (String, _))      => encodeEnumeration(fieldNumber, structure, v)
         case (Schema.Transform(codec, _, g), _)                   => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
         case (Schema.Primitive(standardType), v)                  => encodePrimitive(fieldNumber, standardType, v)
         case (Schema.Tuple(left, right), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)

@@ -42,7 +42,7 @@ object SchemaSpec extends DefaultRunnableSpec {
   def schemaInt: Schema.Primitive[Int]   = Schema.Primitive(StandardType.IntType)
 
   def schemaRecord(key: String): Schema[ListMap[String, _]] = Schema.record(Schema.Field(key, schemaUnit))
-  def schemaEnum(key: String): Schema[ListMap[String, _]]   = Schema.enumeration(ListMap(key -> schemaUnit))
+  def schemaEnum(key: String): Schema[(String, _)]          = Schema.enumeration(ListMap(key -> schemaUnit))
 
   val f: Unit => Either[String, Int] = _ => Right(0)
   val g: Int => Either[String, Unit] = _ => Right(())

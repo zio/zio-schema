@@ -316,10 +316,10 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       },
       testM("enumerations preserving type order") {
         for {
-          s1 <- encodeAndDecode(schemaGenericEnumeration, ListMap("string"       -> "s"))
-          i1 <- encodeAndDecode(schemaGenericEnumeration, ListMap("int"          -> 1))
-          s2 <- encodeAndDecode(schemaGenericEnumerationSorted, ListMap("string" -> "s"))
-          i2 <- encodeAndDecode(schemaGenericEnumerationSorted, ListMap("int"    -> 1))
+          s1 <- encodeAndDecode(schemaGenericEnumeration, "string"       -> "s")
+          i1 <- encodeAndDecode(schemaGenericEnumeration, "int"          -> 1)
+          s2 <- encodeAndDecode(schemaGenericEnumerationSorted, "string" -> "s")
+          i2 <- encodeAndDecode(schemaGenericEnumerationSorted, "int"    -> 1)
         } yield assert(s1)(equalTo(s2)) && assert(i1)(equalTo(i2))
       },
       testM("enums unwrapped") {
@@ -659,14 +659,14 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
 
   lazy val schemaEnumeration: Schema[Enumeration] = DeriveSchema.gen[Enumeration]
 
-  lazy val schemaGenericEnumeration: Schema[ListMap[String, _]] = Schema.enumeration(
+  lazy val schemaGenericEnumeration: Schema[(String, _)] = Schema.enumeration(
     ListMap(
       "string" -> Schema.primitive(StandardType.StringType),
       "int"    -> Schema.primitive(StandardType.IntType)
     )
   )
 
-  lazy val schemaGenericEnumerationSorted: Schema[ListMap[String, _]] = Schema.enumeration(
+  lazy val schemaGenericEnumerationSorted: Schema[(String, _)] = Schema.enumeration(
     ListMap(
       "int"    -> Schema.primitive(StandardType.IntType),
       "string" -> Schema.primitive(StandardType.StringType)

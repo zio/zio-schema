@@ -17,7 +17,6 @@ import zio.test._
 import zio.test.environment.TestEnvironment
 import zio.{ Chunk, ZIO }
 
-//TODO encode and decode specs
 object JsonCodecSpec extends DefaultRunnableSpec {
 
   def spec: ZSpec[TestEnvironment, Any] =
@@ -369,6 +368,20 @@ object JsonCodecSpec extends DefaultRunnableSpec {
             assertEncodesThenDecodes(schema, value)
         }
       }
+    ),
+    suite("any schema")(
+      testM("leaf") {
+        checkM(SchemaGen.anyLeafAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(schema, value)
+        }
+      },
+      testM("recursive schema") {
+        checkM(SchemaGen.anyTreeAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(schema, value)
+        }
+      }
     )
   )
 
@@ -433,7 +446,13 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           .transduce(JsonCodec.decoder(schema))
           .runCollect
       }
-    assertM(result)(equalTo(Chunk(value)))
+    assertM(result)(equalTo(Chunk(flatten(value))))
+  }
+
+  private def flatten[A](value: A): A = value match {
+    case Some(None)    => None.asInstanceOf[A]
+    case Some(Some(a)) => flatten(Some(flatten(a))).asInstanceOf[A]
+    case _             => value
   }
 
   private def jsonEncoded[A](value: A)(implicit enc: JsonEncoder[A]): Chunk[Byte] =

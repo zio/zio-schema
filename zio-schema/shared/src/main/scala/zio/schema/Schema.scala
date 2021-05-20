@@ -54,16 +54,16 @@ sealed trait Schema[A] {
    */
   def orElseEither[B](that: Schema[B]): Schema[Either[A, B]] = Schema.EitherSchema(self, that)
 
-  def toGeneric(value: A): Generic =
-    Generic.fromSchemaAndValue(self, value)
+  def toDynamic(value: A): DynamicValue =
+    DynamicValue.fromSchemaAndValue(self, value)
 
-  def fromGeneric(generic: Generic): Either[String, A] =
-    generic.toTypedValue(self)
+  def fromDynamic(value: DynamicValue): Either[String, A] =
+    value.toTypedValue(self)
 
   /**
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
    * between `A` and `B`, without possibility of failure.
-  */
+   */
   def transform[B](f: A => B, g: B => A): Schema[B] =
     Schema.Transform[A, B](self, a => Right(f(a)), b => Right(g(b)))
 
@@ -822,14 +822,23 @@ object Schema {
         }
       )
 
-  final case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty)
+  final case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) {
+    override def toString: String = s"Field($label,$schema)"
+  }
 
   sealed trait Record[R] extends Schema[R] {
     def structure: Chunk[Field[_]]
     def annotations: Chunk[Any] = Chunk.empty
+    def rawConstruct(values: Chunk[Any]): Either[String, R]
   }
 
-  final case class GenericRecord(override val structure: Chunk[Field[_]]) extends Record[ListMap[String, _]]
+  final case class GenericRecord(override val structure: Chunk[Field[_]]) extends Record[ListMap[String, _]] {
+    override def rawConstruct(values: Chunk[Any]): Either[String, ListMap[String, _]] =
+      if (values.size == structure.size)
+        Right(ListMap(structure.map(_.label).zip(values): _*))
+      else
+        Left(s"wrong number of values for $structure")
+  }
 
   final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
       extends Schema[Col[A]]
@@ -870,8 +879,17 @@ object Schema {
     field: Field[A],
     construct: A => Z,
     extractField: Z => A
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
     override def structure: Chunk[Field[_]] = Chunk(field)
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 1)
+        try {
+          Right(construct(values(0).asInstanceOf[A]))
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
+
   }
 
   final case class CaseClass2[A1, A2, Z](
@@ -883,6 +901,14 @@ object Schema {
     extractField2: Z => A2
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2)
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 2)
+        try {
+          Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2]))
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass3[A1, A2, A3, Z](
@@ -896,6 +922,14 @@ object Schema {
     extractField3: Z => A3
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3)
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 3)
+        try {
+          Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3]))
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass4[A1, A2, A3, A4, Z](
@@ -911,6 +945,21 @@ object Schema {
     extractField4: Z => A4
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4)
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 4)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass5[A1, A2, A3, A4, A5, Z](
@@ -928,6 +977,22 @@ object Schema {
     extractField5: Z => A5
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5)
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 5)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass6[A1, A2, A3, A4, A5, A6, Z](
@@ -947,6 +1012,23 @@ object Schema {
     extractField6: Z => A6
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6)
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 6)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z](
@@ -968,6 +1050,24 @@ object Schema {
     extractField7: Z => A7
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6, field7)
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 7)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6],
+              values(6).asInstanceOf[A7]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
@@ -991,6 +1091,25 @@ object Schema {
     extractField8: Z => A8
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6, field7, field8)
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 8)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6],
+              values(6).asInstanceOf[A7],
+              values(7).asInstanceOf[A8]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
@@ -1017,6 +1136,26 @@ object Schema {
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9)
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 9)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6],
+              values(6).asInstanceOf[A7],
+              values(7).asInstanceOf[A8],
+              values(8).asInstanceOf[A9]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
@@ -1045,6 +1184,27 @@ object Schema {
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10)
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 10)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6],
+              values(6).asInstanceOf[A7],
+              values(7).asInstanceOf[A8],
+              values(8).asInstanceOf[A9],
+              values(9).asInstanceOf[A10]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
@@ -1075,6 +1235,28 @@ object Schema {
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11)
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 11)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6],
+              values(6).asInstanceOf[A7],
+              values(7).asInstanceOf[A8],
+              values(8).asInstanceOf[A9],
+              values(9).asInstanceOf[A10],
+              values(10).asInstanceOf[A11]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
@@ -1107,6 +1289,29 @@ object Schema {
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12)
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 12)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6],
+              values(6).asInstanceOf[A7],
+              values(7).asInstanceOf[A8],
+              values(8).asInstanceOf[A9],
+              values(9).asInstanceOf[A10],
+              values(10).asInstanceOf[A11],
+              values(11).asInstanceOf[A12]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
@@ -1141,6 +1346,30 @@ object Schema {
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13)
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 13)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6],
+              values(6).asInstanceOf[A7],
+              values(7).asInstanceOf[A8],
+              values(8).asInstanceOf[A9],
+              values(9).asInstanceOf[A10],
+              values(10).asInstanceOf[A11],
+              values(11).asInstanceOf[A12],
+              values(12).asInstanceOf[A13]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
@@ -1192,6 +1421,31 @@ object Schema {
         field13,
         field14
       )
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 14)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6],
+              values(6).asInstanceOf[A7],
+              values(7).asInstanceOf[A8],
+              values(8).asInstanceOf[A9],
+              values(9).asInstanceOf[A10],
+              values(10).asInstanceOf[A11],
+              values(11).asInstanceOf[A12],
+              values(12).asInstanceOf[A13],
+              values(13).asInstanceOf[A14]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
@@ -1246,6 +1500,32 @@ object Schema {
         field14,
         field15
       )
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 15)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6],
+              values(6).asInstanceOf[A7],
+              values(7).asInstanceOf[A8],
+              values(8).asInstanceOf[A9],
+              values(9).asInstanceOf[A10],
+              values(10).asInstanceOf[A11],
+              values(11).asInstanceOf[A12],
+              values(12).asInstanceOf[A13],
+              values(13).asInstanceOf[A14],
+              values(14).asInstanceOf[A15]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
@@ -1303,6 +1583,33 @@ object Schema {
         field15,
         field16
       )
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 16)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6],
+              values(6).asInstanceOf[A7],
+              values(7).asInstanceOf[A8],
+              values(8).asInstanceOf[A9],
+              values(9).asInstanceOf[A10],
+              values(10).asInstanceOf[A11],
+              values(11).asInstanceOf[A12],
+              values(12).asInstanceOf[A13],
+              values(13).asInstanceOf[A14],
+              values(14).asInstanceOf[A15],
+              values(15).asInstanceOf[A16]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
@@ -1363,6 +1670,34 @@ object Schema {
         field16,
         field17
       )
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 17)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6],
+              values(6).asInstanceOf[A7],
+              values(7).asInstanceOf[A8],
+              values(8).asInstanceOf[A9],
+              values(9).asInstanceOf[A10],
+              values(10).asInstanceOf[A11],
+              values(11).asInstanceOf[A12],
+              values(12).asInstanceOf[A13],
+              values(13).asInstanceOf[A14],
+              values(14).asInstanceOf[A15],
+              values(15).asInstanceOf[A16],
+              values(16).asInstanceOf[A17]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
@@ -1426,6 +1761,35 @@ object Schema {
         field17,
         field18
       )
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 18)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6],
+              values(6).asInstanceOf[A7],
+              values(7).asInstanceOf[A8],
+              values(8).asInstanceOf[A9],
+              values(9).asInstanceOf[A10],
+              values(10).asInstanceOf[A11],
+              values(11).asInstanceOf[A12],
+              values(12).asInstanceOf[A13],
+              values(13).asInstanceOf[A14],
+              values(14).asInstanceOf[A15],
+              values(15).asInstanceOf[A16],
+              values(16).asInstanceOf[A17],
+              values(17).asInstanceOf[A18]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
@@ -1492,6 +1856,36 @@ object Schema {
         field18,
         field19
       )
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 19)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6],
+              values(6).asInstanceOf[A7],
+              values(7).asInstanceOf[A8],
+              values(8).asInstanceOf[A9],
+              values(9).asInstanceOf[A10],
+              values(10).asInstanceOf[A11],
+              values(11).asInstanceOf[A12],
+              values(12).asInstanceOf[A13],
+              values(13).asInstanceOf[A14],
+              values(14).asInstanceOf[A15],
+              values(15).asInstanceOf[A16],
+              values(16).asInstanceOf[A17],
+              values(17).asInstanceOf[A18],
+              values(18).asInstanceOf[A19]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass20[
@@ -1583,6 +1977,37 @@ object Schema {
         field19,
         field20
       )
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 20)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6],
+              values(6).asInstanceOf[A7],
+              values(7).asInstanceOf[A8],
+              values(8).asInstanceOf[A9],
+              values(9).asInstanceOf[A10],
+              values(10).asInstanceOf[A11],
+              values(11).asInstanceOf[A12],
+              values(12).asInstanceOf[A13],
+              values(13).asInstanceOf[A14],
+              values(14).asInstanceOf[A15],
+              values(15).asInstanceOf[A16],
+              values(16).asInstanceOf[A17],
+              values(17).asInstanceOf[A18],
+              values(18).asInstanceOf[A19],
+              values(19).asInstanceOf[A20]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass21[
@@ -1678,6 +2103,38 @@ object Schema {
         field20,
         field21
       )
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 21)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6],
+              values(6).asInstanceOf[A7],
+              values(7).asInstanceOf[A8],
+              values(8).asInstanceOf[A9],
+              values(9).asInstanceOf[A10],
+              values(10).asInstanceOf[A11],
+              values(11).asInstanceOf[A12],
+              values(12).asInstanceOf[A13],
+              values(13).asInstanceOf[A14],
+              values(14).asInstanceOf[A15],
+              values(15).asInstanceOf[A16],
+              values(16).asInstanceOf[A17],
+              values(17).asInstanceOf[A18],
+              values(18).asInstanceOf[A19],
+              values(19).asInstanceOf[A20],
+              values(20).asInstanceOf[A21]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 
   final case class CaseClass22[
@@ -1800,5 +2257,38 @@ object Schema {
         field21,
         field22
       )
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 22)
+        try {
+          Right(
+            construct(
+              values(0).asInstanceOf[A1],
+              values(1).asInstanceOf[A2],
+              values(2).asInstanceOf[A3],
+              values(3).asInstanceOf[A4],
+              values(4).asInstanceOf[A5],
+              values(5).asInstanceOf[A6],
+              values(6).asInstanceOf[A7],
+              values(7).asInstanceOf[A8],
+              values(8).asInstanceOf[A9],
+              values(9).asInstanceOf[A10],
+              values(10).asInstanceOf[A11],
+              values(11).asInstanceOf[A12],
+              values(12).asInstanceOf[A13],
+              values(13).asInstanceOf[A14],
+              values(14).asInstanceOf[A15],
+              values(15).asInstanceOf[A16],
+              values(16).asInstanceOf[A17],
+              values(17).asInstanceOf[A18],
+              values(18).asInstanceOf[A19],
+              values(19).asInstanceOf[A20],
+              values(20).asInstanceOf[A21],
+              values(21).asInstanceOf[A22]
+            )
+          )
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
   }
 }
