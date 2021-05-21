@@ -1028,13 +1028,13 @@ object DynamicValue {
     val keys = values.keySet
     keys.foldLeft[Either[String, ListMap[String, Any]]](Right(ListMap.empty)) {
       case (Right(record), key) =>
-        structure.find(_.label == key).zip(values.get(key)).headOption match {
-          case Some((field, value)) =>
+        (structure.find(_.label == key), values.get(key)) match {
+          case (Some(field), Some(value)) =>
             value.toTypedValue(field.schema) match {
               case Left(error)  => Left(error)
               case Right(value) => Right(record + (key -> value))
             }
-          case None =>
+          case _ =>
             Left(s"$values and $structure have incompatible shape")
         }
       case (Left(string), _) => Left(string)
@@ -1062,10 +1062,5 @@ object DynamicValue {
 
   final case class RightValue(value: DynamicValue) extends DynamicValue
 
-  /**
-   * Required to deal with Transform schemas when transformation fails
-   *
-   * @param message
-   */
   final case class Error(message: String) extends DynamicValue
 }
