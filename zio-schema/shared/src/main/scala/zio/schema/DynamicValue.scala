@@ -1028,7 +1028,7 @@ object DynamicValue {
     val keys = values.keySet
     keys.foldLeft[Either[String, ListMap[String, Any]]](Right(ListMap.empty)) {
       case (Right(record), key) =>
-        structure.find(_.label == key).zip(values.get(key)) match {
+        structure.find(_.label == key).zip(values.get(key)).headOption match {
           case Some((field, value)) =>
             value.toTypedValue(field.schema) match {
               case Left(error)  => Left(error)
