@@ -51,16 +51,6 @@ object SchemaGen {
   def anyOptional(schemaGen: Gen[Random with Sized, Schema[_]]): Gen[Random with Sized, Schema.Optional[_]] =
     schemaGen.map(Schema.Optional(_))
 
-  // def anyNestedOptionalOf(schemaGen: Gen[Random with Sized,Schema[_]], depth: Int = 2): Gen[Random with Sized, Schema.Optional[_]] = {
-  //   def nest(currentSchema: Schema[_],remaining: Int): Gen[Random with Sized, Schema.Optional[_]] =
-  //     if (remaining == 0)
-  //       Gen.const(Schema.Optional(currentSchema))
-  //     else
-  //       nest(Schema.Optional(currentSchema),remaining - 1)
-
-  //   schemaGen.flatMap(nest(_,depth))
-  // }
-
   type OptionalAndGen[A] = (Schema.Optional[A], Gen[Random with Sized, Option[A]])
 
   val anyOptionalAndGen: Gen[Random with Sized, OptionalAndGen[_]] =
@@ -311,16 +301,16 @@ object SchemaGen {
     )
 
   lazy val anySchema: Gen[Random with Sized, Schema[_]] = Gen.oneOf(
-    // anyPrimitive,
-    anyOptional(anyPrimitive)
-    // anyTuple,
-    // anySequence,
-    // anyEnumeration,
-    // anyRecord,
-    // // anyTransform,
-    // anyEither,
-    // anyCaseClassSchema,
-    // anyEnumSchema
+    anyPrimitive,
+    anyOptional(anyPrimitive),
+    anyTuple,
+    anySequence,
+    anyEnumeration,
+    anyRecord,
+    anyTransform,
+    anyEither,
+    anyCaseClassSchema,
+    anyEnumSchema
   )
 
   def anyValueForSchema[A](schema: Schema[A]): Gen[Random with Sized, (Schema[A], A)] =
