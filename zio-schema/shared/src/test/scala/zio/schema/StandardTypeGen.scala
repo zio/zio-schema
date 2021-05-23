@@ -8,33 +8,35 @@ import zio.test.{ Gen, Sized }
 
 object StandardTypeGen {
 
-  val anyStandardType: Gen[Random, StandardType[_]] = Gen.oneOf(
-    Gen.const(StandardType.StringType),
-    Gen.const(StandardType.BoolType),
-    Gen.const(StandardType.ShortType),
-    Gen.const(StandardType.IntType),
-    Gen.const(StandardType.LongType),
-    Gen.const(StandardType.FloatType),
-    Gen.const(StandardType.DoubleType),
-    Gen.const(StandardType.BinaryType),
-    Gen.const(StandardType.BigDecimalType),
-    Gen.const(StandardType.BigIntegerType),
-    Gen.const(StandardType.CharType),
-    Gen.const(StandardType.DayOfWeekType),
-    Gen.const(StandardType.Duration(ChronoUnit.SECONDS)),
-    Gen.const(StandardType.Instant(DateTimeFormatter.ISO_DATE_TIME)),
-    Gen.const(StandardType.LocalDate(DateTimeFormatter.ISO_DATE)),
-    Gen.const(StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME)),
-    Gen.const(StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME)),
-    Gen.const(StandardType.Month),
-    Gen.const(StandardType.MonthDay),
-    Gen.const(StandardType.OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
-    Gen.const(StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME)),
-    Gen.const(StandardType.Period),
-    Gen.const(StandardType.Year),
-    Gen.const(StandardType.YearMonth),
-    Gen.const(StandardType.ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME)),
-    Gen.const(StandardType.ZoneId)
+  val anyStandardType: Gen[Random, StandardType[_]] = Gen.fromIterable(
+    List(
+      (StandardType.StringType),
+      (StandardType.BoolType),
+      (StandardType.ShortType),
+      (StandardType.IntType),
+      (StandardType.LongType),
+      (StandardType.FloatType),
+      (StandardType.DoubleType),
+      (StandardType.BinaryType),
+      (StandardType.BigDecimalType),
+      (StandardType.BigIntegerType),
+      (StandardType.CharType),
+      (StandardType.DayOfWeekType),
+      (StandardType.Duration(ChronoUnit.SECONDS)),
+      (StandardType.Instant(DateTimeFormatter.ISO_DATE_TIME)),
+      (StandardType.LocalDate(DateTimeFormatter.ISO_DATE)),
+      (StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME)),
+      (StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME)),
+      (StandardType.Month),
+      (StandardType.MonthDay),
+      (StandardType.OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME)),
+      (StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME)),
+      (StandardType.Period),
+      (StandardType.Year),
+      (StandardType.YearMonth),
+      (StandardType.ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME)),
+      (StandardType.ZoneId)
+    )
     //FIXME For some reason adding this causes other unrelated tests to break.
 //    Gen.const(StandardType.ZoneOffset)
   )
