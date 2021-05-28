@@ -16,7 +16,7 @@ object DeriveGen {
       case Schema.Enumeration(structure)      => Gen.oneOf(structure.toList.map { case (k, v) => gen(v).map(k -> _) }: _*)
       case Transform(codec, f, _)             => gen(codec).flatMap(f(_).fold(_ => Gen.empty, Gen.const(_)))
       case Primitive(standardType)            => PrimitiveGen(standardType).map(_.asInstanceOf[A])
-      case Optional(codec)                    => gen(codec).map(_.asInstanceOf[A])
+      case Optional(codec)                    => Gen.option(gen(codec))
       case Fail(_)                            => Gen.empty
       case Tuple(left, right)                 => gen(left).zip(gen(right))
       case EitherSchema(left, right)          => Gen.either(gen(left), gen(right))
