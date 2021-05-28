@@ -136,7 +136,7 @@ object BuildHelper {
     Seq(
       name := s"$prjName",
       crossScalaVersions := Seq("2.13.3", "2.12.12"),
-      scalaVersion in ThisBuild := crossScalaVersions.value.head,
+      ThisBuild / scalaVersion := crossScalaVersions.value.head,
       scalacOptions := compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ testDeps,
       ThisBuild / semanticdbEnabled := true,
@@ -147,7 +147,7 @@ object BuildHelper {
         "com.github.liancheng" %% "organize-imports" % "0.4.4",
         "com.github.vovapolu"  %% "scaluzzi"         % "0.1.17"
       ),
-      parallelExecution in Test := true,
+      Test / parallelExecution := true,
       incOptions ~= (_.withLogRecompileOnMacro(true)),
       autoAPIMappings := true,
       testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
