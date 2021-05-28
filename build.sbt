@@ -53,7 +53,9 @@ lazy val root = project
   )
   .aggregate(
     zioSchemaJVM,
-    zioSchemaJS
+    zioSchemaJS,
+    zioSchemaGenJVM,
+    zioSchemaGenJS
   )
 
 lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)

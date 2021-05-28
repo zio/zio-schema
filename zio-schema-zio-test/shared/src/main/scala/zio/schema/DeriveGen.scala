@@ -1,28 +1,31 @@
 package zio.schema
 
+import zio.Chunk
 import zio.random.Random
 import zio.schema.Schema._
 import zio.test._
+
+import scala.collection.immutable.ListMap
 
 object DeriveGen {
 
   def gen[A](implicit schema: Schema[A]): Gen[Sized with Random, A] =
     schema match {
-      case GenericRecord(structure)             => StructureGen.listMap(structure)(gen(_))
-      case Sequence(schemaA, fromChunk, _)      => Gen.chunkOfBounded(10, 100)(gen(schemaA)).map(fromChunk)
-      case Schema.Enumeration(_ /*structure*/ ) => ??? //TODO
-      case Transform(codec, f, _)               => gen(codec).flatMap(f(_).fold(_ => Gen.empty, Gen.const(_)))
-      case Primitive(standardType)              => PrimitiveGen(standardType).map(_.asInstanceOf[A])
-      case Optional(codec)                      => gen(codec).map(_.asInstanceOf[A])
-      case Fail(_)                              => Gen.empty
-      case Tuple(left, right)                   => gen(left).zip(gen(right))
-      case EitherSchema(left, right)            => Gen.either(gen(left), gen(right))
-      case Enum1(case1)                         => gen(case1.codec)
-      case Enum2(case1, case2)                  => Gen.oneOf(gen(case1.codec), gen(case2.codec))
-      case Enum3(case1, case2, case3)           => Gen.oneOf(gen(case1.codec), gen(case2.codec), gen(case3.codec))
-      case enumN: EnumN[a]                      => Gen.oneOf(enumN.cases.map(c => gen(c.codec).map(_.asInstanceOf[a])): _*)
-      case CaseObject(instance)                 => Gen.const(instance)
-      case CaseClass1(_, field, construct, _)   => gen(field.schema).map(construct(_))
+      case GenericRecord(structure)           => listMap(structure)(gen(_))
+      case Sequence(schemaA, fromChunk, _)    => Gen.chunkOf(gen(schemaA)).map(fromChunk)
+      case Schema.Enumeration(structure)      => Gen.oneOf(structure.toList.map { case (k, v) => gen(v).map(k -> _) }: _*)
+      case Transform(codec, f, _)             => gen(codec).flatMap(f(_).fold(_ => Gen.empty, Gen.const(_)))
+      case Primitive(standardType)            => PrimitiveGen(standardType).map(_.asInstanceOf[A])
+      case Optional(codec)                    => gen(codec).map(_.asInstanceOf[A])
+      case Fail(_)                            => Gen.empty
+      case Tuple(left, right)                 => gen(left).zip(gen(right))
+      case EitherSchema(left, right)          => Gen.either(gen(left), gen(right))
+      case Enum1(case1)                       => gen(case1.codec)
+      case Enum2(case1, case2)                => Gen.oneOf(gen(case1.codec), gen(case2.codec))
+      case Enum3(case1, case2, case3)         => Gen.oneOf(gen(case1.codec), gen(case2.codec), gen(case3.codec))
+      case enumN: EnumN[a]                    => Gen.oneOf(enumN.cases.map(c => gen(c.codec).map(_.asInstanceOf[a])): _*)
+      case CaseObject(instance)               => Gen.const(instance)
+      case CaseClass1(_, field, construct, _) => gen(field.schema).map(construct(_))
       case CaseClass2(_, field1, field2, construct, _, _) =>
         gen(field1.schema).zip(gen(field2.schema)).map { case (a1, a2) => construct(a1, a2) }
       case CaseClass3(_, field1, field2, field3, construct, _, _, _) =>
@@ -1018,5 +1021,14 @@ object DeriveGen {
                 a22
               )
           }
+    }
+
+  private def listMap[R](structure: Chunk[Schema.Field[_]])(gen: Schema[_] => Gen[R, _]): Gen[R, ListMap[String, _]] =
+    structure.foldLeft[Gen[R, ListMap[String, _]]](Gen.const(ListMap.empty)) {
+      case (genMap, field) =>
+        for {
+          map   <- genMap
+          value <- gen(field.schema)
+        } yield map.updated(field.label, value)
     }
 }
