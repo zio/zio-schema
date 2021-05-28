@@ -1,11 +1,11 @@
 package zio.schema
 
+import scala.collection.immutable.ListMap
+
 import zio.Chunk
 import zio.random.Random
 import zio.schema.Schema._
 import zio.test._
-
-import scala.collection.immutable.ListMap
 
 object DeriveGen {
 

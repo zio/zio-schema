@@ -1,14 +1,14 @@
 package zio.schema
 
-import zio.random.Random
-import zio.test._
-
 import java.math.{ BigDecimal, BigInteger }
 import java.time._
 
 import scala.collection.JavaConverters._
 
 import com.github.ghik.silencer.silent
+
+import zio.random.Random
+import zio.test._
 
 object PrimitiveGen {
 
