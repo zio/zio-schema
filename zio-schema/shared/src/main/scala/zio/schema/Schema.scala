@@ -141,6 +141,8 @@ object Schema {
   def enumeration(structure: ListMap[String, Schema[_]]): Schema[(String, _)] =
     Enumeration(structure)
 
+  def defer[A](schema: => Schema[A]): Schema[A] = Lazy(() => schema)
+
   def first[A](codec: Schema[(A, Unit)]): Schema[A] =
     codec.transform[A](_._1, a => (a, ()))
 
@@ -857,6 +859,8 @@ object Schema {
   final case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)]
 
   final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]]
+
+  final case class Lazy[A](schema: () => Schema[A]) extends Schema[A]
 
   final case class Case[A <: Z, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A) {
 

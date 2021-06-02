@@ -91,6 +91,9 @@ trait DynamicValue { self =>
       case (DynamicValue.Transform(value), Schema.Transform(schema, f, _)) =>
         value.toTypedValue(schema).flatMap(f)
 
+      case (_, Schema.Lazy(f)) =>
+        toTypedValue(f())
+
       case (DynamicValue.Error(message), _) =>
         Left(message)
 
@@ -104,6 +107,8 @@ object DynamicValue {
 
   def fromSchemaAndValue[A](schema: Schema[A], value: A): DynamicValue =
     schema match {
+
+      case Schema.Lazy(f) => fromSchemaAndValue(f(), value)
 
       case Schema.Primitive(p) => DynamicValue.Primitive(value, p)
 

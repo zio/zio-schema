@@ -4,6 +4,7 @@ import scala.annotation.Annotation
 
 import zio.Chunk
 import zio.schema.SchemaAssertions.hasSameSchema
+import zio.test.Assertion._
 import zio.test._
 
 object DeriveSchemaSpec extends DefaultRunnableSpec {
@@ -27,6 +28,8 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   case class BooleanValue(value: Boolean) extends OneOf
 
   case object Singleton
+
+  case class Recursive(field: Option[Recursive])
 
   override def spec: ZSpec[Environment, Failure] = suite("DeriveSchemaSpec")(
     test("DeriveSchema correctly derives schema for UserId case class") {
@@ -83,6 +86,9 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         )
 
       assert(derived)(hasSameSchema(expected))
+    },
+    test("Deriveschema correctly derives for case classes with recursive types") {
+      assert(DeriveSchema.gen[Recursive])(anything)
     }
   )
 }
