@@ -113,7 +113,7 @@ lazy val zioSchemaGen = crossProject(JSPlatform, JVMPlatform)
       "dev.zio" %% "zio-test" % zioVersion
     )
   )
-  .dependsOn(zioSchema)
+  .dependsOn(zioSchema % "test->test;compile->compile")
 
 lazy val zioSchemaGenJVM = zioSchemaGen.jvm
 

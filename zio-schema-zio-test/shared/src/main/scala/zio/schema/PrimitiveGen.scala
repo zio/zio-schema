@@ -10,7 +10,7 @@ import com.github.ghik.silencer.silent
 import zio.random.Random
 import zio.test._
 
-object PrimitiveGen {
+private[schema] object PrimitiveGen {
 
   def apply(standardType: StandardType[_]): Gen[Sized with Random, _] =
     standardType match {

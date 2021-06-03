@@ -6,11 +6,8 @@ import zio.test.Assertion._
 import zio.test._
 
 object GenUtil {
-  final case class TestData[A](name: String, schema: Schema[A]) {
-    def gen: Gen[Random with Sized, A] = DeriveGen.gen(schema)
-  }
 
-  def checkGenValue[A](schema: Schema[A]): URIO[TestConfig with Sized with Random, TestResult] = {
+  def checkSchema[A](schema: Schema[A]): URIO[TestConfig with Sized with Random, TestResult] = {
     val gen = DeriveGen.gen(schema)
 
     check(gen) { a =>
@@ -18,6 +15,20 @@ object GenUtil {
       assert(result.toTypedValue(schema))(isRight(equalTo(a)))
     }
   }
-  // def testGen[A](data: TestData[A]): ZSpec[TestConfig with Random with Sized, Nothing] =
-  //   testGen(data.name)(data.schema)
+
+  def checkGenSchema[A](
+    schemaGen: Gen[Random with Sized, Schema[A]]
+  ): URIO[TestConfig with Random with Sized, TestResult] = {
+    val schemaAndGen =
+      for {
+        schema <- schemaGen
+        result <- DeriveGen.gen(schema)
+      } yield schema -> result
+
+    check(schemaAndGen) {
+      case (schema, a) =>
+        val result = DynamicValue.fromSchemaAndValue(schema, a)
+        assert(result.toTypedValue(schema))(isRight(equalTo(a)))
+    }
+  }
 }
