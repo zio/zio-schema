@@ -41,12 +41,12 @@ object SchemaAssertions {
       case (Schema.Enum3(l1, l2, l3), Schema.Enum3(r1, r2, r3)) => hasSameCases(Seq(l1, l2, l3), Seq(r1, r2, r3))
       case (Schema.EnumN(ls), Schema.EnumN(rs))                 => hasSameCases(ls, rs)
       case (Schema.CaseObject(l), Schema.CaseObject(r))         => l == r
-      case (Schema.Lazy(f), Schema.Lazy(g)) =>
-        equalsSchema(f().asInstanceOf[Schema[Any]], g().asInstanceOf[Schema[Any]])
-      case (Schema.Lazy(f), eagerSchema) =>
-        equalsSchema(f().asInstanceOf[Schema[Any]], eagerSchema.asInstanceOf[Schema[Any]])
-      case (eagerSchema, Schema.Lazy(f)) =>
-        equalsSchema(f().asInstanceOf[Schema[Any]], eagerSchema.asInstanceOf[Schema[Any]])
+      case (l @ Schema.Lazy(_), r @ Schema.Lazy(_)) =>
+        equalsSchema(l.schema.asInstanceOf[Schema[Any]], r.schema.asInstanceOf[Schema[Any]])
+      case (lazySchema @ Schema.Lazy(_), eagerSchema) =>
+        equalsSchema(lazySchema.schema.asInstanceOf[Schema[Any]], eagerSchema.asInstanceOf[Schema[Any]])
+      case (eagerSchema, lazySchema @ Schema.Lazy(_)) =>
+        equalsSchema(lazySchema.asInstanceOf[Schema[Any]], eagerSchema.asInstanceOf[Schema[Any]])
       case _ => false
     }
 

@@ -860,7 +860,9 @@ object Schema {
 
   final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]]
 
-  final case class Lazy[A](schema: () => Schema[A]) extends Schema[A]
+  final case class Lazy[A](private val schema0: () => Schema[A]) extends Schema[A] {
+    lazy val schema: Schema[A] = schema0()
+  }
 
   final case class Case[A <: Z, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A) {
 
