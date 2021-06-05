@@ -98,6 +98,101 @@ trait DynamicValue { self =>
         Left(s"Failed to cast $self to schema $schema")
     }
 
+  def toCompatibleTypedValue[A](schema: Schema[A]): Either[String, A] =
+    (self, schema) match {
+      case (DynamicValue.Primitive(value, p), Schema.Primitive(p2)) if p == p2 =>
+        Right(value.asInstanceOf[A])
+
+      case (DynamicValue.Record(values), Schema.GenericRecord(structure)) =>
+        DynamicValue.decodeStructureOfMatchingFields(values, structure).asInstanceOf[Either[String, A]]
+
+      case (DynamicValue.Record(values), s: Schema.Record[A]) =>
+        DynamicValue
+          .decodeStructureOfMatchingFields(values, s.structure)
+          .map(m => Chunk.fromIterable(m.values))
+          .flatMap(s.rawConstruct)
+
+      case (DynamicValue.Singleton(l), Schema.CaseObject(r)) if l == r =>
+        Right(r)
+
+      case (DynamicValue.Enumeration((key, value)), Schema.Enumeration(cases)) =>
+        cases.get(key) match {
+          case Some(schema) =>
+            value.toCompatibleTypedValue(schema).asInstanceOf[Either[String, A]].map(key -> _)
+          case None => Left(s"Failed to find case $key in enumeration $schema")
+        }
+
+      case (DynamicValue.Enumeration((key, value)), s @ Schema.Enum1(case1)) =>
+        if (case1.id == key)
+          value.toCompatibleTypedValue(case1.codec)
+        else
+          Left(s"Failed to find case $key in enum $s")
+
+      case (DynamicValue.Enumeration((key, value)), s @ Schema.Enum2(case1, case2)) =>
+        Chunk(case1, case2)
+          .find(_.id == key) match {
+          case Some(c) => value.toCompatibleTypedValue(c.codec)
+          case None    => Left(s"Failed to find case $key in enum $s")
+        }
+
+      case (DynamicValue.Enumeration((key, value)), s @ Schema.Enum3(case1, case2, case3)) =>
+        Chunk(case1, case2, case3)
+          .find(_.id == key) match {
+          case Some(c) => value.toCompatibleTypedValue(c.codec)
+          case None    => Left(s"Failed to find case $key in enum $s")
+        }
+
+      case (DynamicValue.Enumeration((key, value)), s @ Schema.EnumN(cases)) =>
+        cases
+          .find(_.id == key) match {
+          case Some(c) => value.toCompatibleTypedValue(c.codec).asInstanceOf[Either[String, A]]
+          case None    => Left(s"Failed to find case $key in enum $s")
+        }
+
+      case (DynamicValue.LeftValue(value), Schema.EitherSchema(schema1, _)) =>
+        value.toCompatibleTypedValue(schema1).map(Left(_))
+
+      case (DynamicValue.RightValue(value), Schema.EitherSchema(_, schema1)) =>
+        value.toCompatibleTypedValue(schema1).map(Right(_))
+
+      case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple(leftSchema, rightSchema)) =>
+        val typedLeft  = leftValue.toCompatibleTypedValue(leftSchema)
+        val typedRight = rightValue.toCompatibleTypedValue(rightSchema)
+        (typedLeft, typedRight) match {
+          case (Left(e1), Left(e2)) => Left(s"Converting generic tuple to typed value failed with errors $e1 and $e2")
+          case (_, Left(e))         => Left(e)
+          case (Left(e), _)         => Left(e)
+          case (Right(a), Right(b)) => Right(a -> b)
+        }
+
+      case (DynamicValue.Sequence(values), Schema.Sequence(schema, f, _)) =>
+        values
+          .foldLeft[Either[String, Chunk[_]]](Right[String, Chunk[A]](Chunk.empty)) {
+            case (err @ Left(_), _) => err
+            case (Right(values), value) =>
+              value.toCompatibleTypedValue(schema).map(values :+ _)
+          }
+          .map(f)
+
+      case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_])) =>
+        value.toCompatibleTypedValue(schema).map(Some(_))
+
+      case (DynamicValue.NoneValue, Schema.Optional(_)) =>
+        Right(None)
+
+      case (DynamicValue.Transform(DynamicValue.Error(message)), Schema.Transform(_, _, _)) =>
+        Left(message)
+
+      case (DynamicValue.Transform(value), Schema.Transform(schema, f, _)) =>
+        value.toCompatibleTypedValue(schema).flatMap(f)
+
+      case (DynamicValue.Error(message), _) =>
+        Left(message)
+
+      case _ =>
+        Left(s"Failed to cast $self to schema $schema")
+    }
+
 }
 
 object DynamicValue {
@@ -1036,6 +1131,25 @@ object DynamicValue {
             }
           case _ =>
             Left(s"$values and $structure have incompatible shape")
+        }
+      case (Left(string), _) => Left(string)
+    }
+  }
+
+  def decodeStructureOfMatchingFields(
+    values: ListMap[String, DynamicValue],
+    structure: Chunk[Schema.Field[_]]
+  ): Either[String, ListMap[String, _]] = {
+    val keys = values.keySet
+    keys.foldLeft[Either[String, ListMap[String, Any]]](Right(ListMap.empty)) {
+      case (Right(record), key) =>
+        (structure.find(_.label == key), values.get(key)) match {
+          case (Some(field), Some(value)) =>
+            value.toCompatibleTypedValue(field.schema) match {
+              case Left(error)  => Left(error)
+              case Right(value) => Right(record + (key -> value))
+            }
+          case _ => Right(record)
         }
       case (Left(string), _) => Left(string)
     }

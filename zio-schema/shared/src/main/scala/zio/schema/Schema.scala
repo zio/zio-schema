@@ -80,6 +80,13 @@ sealed trait Schema[A] {
    */
   def zip[B](that: Schema[B]): Schema[(A, B)] = Schema.Tuple(self, that)
 
+  def migrate[B](newSchema: Schema[B]): Either[String, A => Either[String, B]] =
+    (self, newSchema) match {
+      case (left: Schema[A], right: Schema[B]) =>
+        Right((a: A) => DynamicValue.fromSchemaAndValue(left, a).toCompatibleTypedValue(right))
+      case _ => Left(s"migration from $self to $newSchema is currently not possible")
+    }
+
 }
 
 object Schema {
