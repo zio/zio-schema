@@ -14,7 +14,7 @@ jobs:
       - uses: olafurpg/setup-scala@v12
       - run: |
           echo '#!/usr/bin/env bash' > /tmp/foo.sh
-          echo 'echo "hello world!" >> /tmp/foo.sh
+          echo 'echo "hello world!"' >> /tmp/foo.sh
           chmod +x /tmp/foo.sh
           bash /tmp/foo.sh
         env:
