@@ -1,9 +1,7 @@
 {
   "overview-sidebar": {
     "Overview": [
-      "overview/overview_index",
-      "overview/overview_decoding",
-      "overview/overview_encoding"
+      "overview/overview_index"
     ]
   },
   "about-sidebar": {
