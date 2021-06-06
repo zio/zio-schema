@@ -64,7 +64,6 @@ class HomeSplash extends React.Component {
                     <ProjectTitle siteConfig={siteConfig}/>
                     <PromoSection>
                         <Button href={docUrl('overview/overview_index')}>Overview</Button>
-                        <Button href={docUrl('interop/interop_index')}>Interop modules</Button>
                         <Button href="https://github.com/zio/zio-schema" target="_blank">GitHub</Button>
                     </PromoSection>
                 </div>
