@@ -38,8 +38,8 @@ object SchemaSpec extends DefaultRunnableSpec {
     )
   )
 
-  def schemaUnit: Schema.Primitive[Unit] = Schema.Primitive(StandardType.UnitType)
-  def schemaInt: Schema.Primitive[Int]   = Schema.Primitive(StandardType.IntType)
+  def schemaUnit: Schema[Unit] = Schema[Unit]
+  def schemaInt: Schema[Int]   = Schema[Int]
 
   def schemaRecord(key: String): Schema[ListMap[String, _]] = Schema.record(Schema.Field(key, schemaUnit))
   def schemaEnum(key: String): Schema[(String, _)]          = Schema.enumeration(ListMap(key -> schemaUnit))

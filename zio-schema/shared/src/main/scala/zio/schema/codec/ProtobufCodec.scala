@@ -167,6 +167,7 @@ object ProtobufCodec extends Codec {
         case (Schema.CaseObject(_), _)                            => encodeCaseObject(fieldNumber)
         case (Schema.CaseClass1(_, f, _, ext), v)                 => encodeCaseClass(fieldNumber, v, f -> ext)
         case (Schema.CaseClass2(_, f1, f2, _, ext1, ext2), v)     => encodeCaseClass(fieldNumber, v, f1 -> ext1, f2 -> ext2)
+        case (l @ Schema.Lazy(_), v)                              => encode(fieldNumber, l.schema, v)
         case (Schema.CaseClass3(_, f1, f2, f3, _, ext1, ext2, ext3), v) =>
           encodeCaseClass(fieldNumber, v, f1 -> ext1, f2 -> ext2, f3 -> ext3)
         case (Schema.CaseClass4(_, f1, f2, f3, f4, _, ext1, ext2, ext3, ext4), v) =>
@@ -1323,6 +1324,7 @@ object ProtobufCodec extends Codec {
         case Schema.Optional(codec)                                                            => optionalDecoder(codec)
         case Schema.Fail(message)                                                              => fail(message)
         case Schema.EitherSchema(left, right)                                                  => eitherDecoder(left, right)
+        case l @ Schema.Lazy(_)                                                                => decoder(l.schema)
         case Schema.CaseObject(instance)                                                       => caseObjectDecoder(instance)
         case s: Schema.CaseClass1[_, A]                                                        => caseClass1Decoder(s)
         case s: Schema.CaseClass2[_, _, A]                                                     => caseClass2Decoder(s)
