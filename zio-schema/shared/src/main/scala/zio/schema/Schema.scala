@@ -43,6 +43,9 @@ sealed trait Schema[A] {
    */
   def <+>[B](that: Schema[B]): Schema[Either[A, B]] = self.orElseEither(that)
 
+  def fromDynamic(value: DynamicValue): Either[String, A] =
+    value.toTypedValue(self)
+
   /**
    * Returns a new schema that modifies the type produced by this schema to be optional.
    */
@@ -56,9 +59,6 @@ sealed trait Schema[A] {
 
   def toDynamic(value: A): DynamicValue =
     DynamicValue.fromSchemaAndValue(self, value)
-
-  def fromDynamic(value: DynamicValue): Either[String, A] =
-    value.toTypedValue(self)
 
   /**
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
@@ -85,15 +85,25 @@ sealed trait Schema[A] {
 object Schema {
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
+  def defer[A](schema: => Schema[A]): Schema[A] = Lazy(() => schema)
+
+  def enumeration(structure: ListMap[String, Schema[_]]): Schema[(String, _)] =
+    Enumeration(structure)
+
   def fail[A](message: String): Schema[A] = Fail(message)
 
-  implicit val bigInt: Schema[BigInt] = primitive[java.math.BigInteger].transform(BigInt(_), _.bigInteger)
+  def first[A](codec: Schema[(A, Unit)]): Schema[A] =
+    codec.transform[A](_._1, a => (a, ()))
+
+  def record(field: Field[_]*): Schema[ListMap[String, _]] =
+    GenericRecord(Chunk.fromIterable(field))
+
+  def second[A](codec: Schema[(Unit, A)]): Schema[A] =
+    codec.transform[A](_._2, a => ((), a))
 
   implicit val bigDecimal: Schema[BigDecimal] = primitive[java.math.BigDecimal].transform(BigDecimal(_), _.bigDecimal)
 
-  implicit val nil: Schema[Nil.type] = Schema[Unit].transform(_ => Nil, _ => ())
-
-  implicit val none: Schema[None.type] = Schema[Unit].transform(_ => None, _ => ())
+  implicit val bigInt: Schema[BigInt] = primitive[java.math.BigInteger].transform(BigInt(_), _.bigInteger)
 
   implicit val chronoUnit: Schema[ChronoUnit] = Schema[String].transformOrFail(
     {
@@ -129,22 +139,21 @@ object Schema {
     }
   )
 
-  implicit def left[A, B](implicit schemaA: Schema[A]): Schema[Left[A, Nothing]] =
-    schemaA.transform(Left(_), _.value)
+  implicit val nil: Schema[Nil.type] = Schema[Unit].transform(_ => Nil, _ => ())
 
-  implicit def right[A, B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
-    schemaB.transform(Right(_), _.value)
+  implicit val none: Schema[None.type] = Schema[Unit].transform(_ => None, _ => ())
+
+  implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
+    Schema.Sequence(schemaA, identity, identity)
 
   implicit def either[A, B](left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
     EitherSchema(left, right)
 
-  def enumeration(structure: ListMap[String, Schema[_]]): Schema[(String, _)] =
-    Enumeration(structure)
+  implicit def left[A, B](implicit schemaA: Schema[A]): Schema[Left[A, Nothing]] =
+    schemaA.transform(Left(_), _.value)
 
-  def defer[A](schema: => Schema[A]): Schema[A] = Lazy(() => schema)
-
-  def first[A](codec: Schema[(A, Unit)]): Schema[A] =
-    codec.transform[A](_._1, a => (a, ()))
+  implicit def list[A](implicit schemaA: Schema[A]): Schema[List[A]] =
+    Schema.Sequence(schemaA, _.toList, Chunk.fromIterable(_))
 
   implicit def option[A](implicit element: Schema[A]): Schema[Option[A]] =
     Optional(element)
@@ -152,23 +161,11 @@ object Schema {
   implicit def primitive[A](implicit standardType: StandardType[A]): Schema[A] =
     Primitive(standardType)
 
-  def record(field: Field[_]*): Schema[ListMap[String, _]] =
-    GenericRecord(Chunk.fromIterable(field))
-
-  implicit def list[A](implicit schemaA: Schema[A]): Schema[List[A]] =
-    Schema.Sequence(schemaA, _.toList, Chunk.fromIterable(_))
-
-  implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
-    Schema.Sequence(schemaA, identity, identity)
+  implicit def right[A, B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
+    schemaB.transform(Right(_), _.value)
 
   implicit def set[A](implicit element: Schema[A]): Schema[Set[A]] =
     chunk(element).transform(_.toSet, Chunk.fromIterable(_))
-
-  def second[A](codec: Schema[(Unit, A)]): Schema[A] =
-    codec.transform[A](_._2, a => ((), a))
-
-  implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
-    chunk(element).transform(_.toVector, Chunk.fromIterable(_))
 
   implicit def tuple2[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
     c1.zip(c2)
@@ -823,6 +820,9 @@ object Schema {
             (((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u), v)
         }
       )
+
+  implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
+    chunk(element).transform(_.toVector, Chunk.fromIterable(_))
 
   final case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) {
     override def toString: String = s"Field($label,$schema)"
