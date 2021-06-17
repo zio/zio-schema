@@ -9,27 +9,27 @@ import scala.concurrent.duration.TimeUnit
 
 import zio.Chunk
 
-trait DiffAlgorithm[A] { self =>
+trait Differ[A] { self =>
 
   def apply(thisValue: A, thatValue: A): Diff
 
   /**
    * A symbolic operator for [[zip]].
    */
-  def <*>[B](that: DiffAlgorithm[B]): DiffAlgorithm[(A, B)] = self.zip(that)
+  def <*>[B](that: Differ[B]): Differ[(A, B)] = self.zip(that)
 
-  def zip[B](that: DiffAlgorithm[B]): DiffAlgorithm[(A, B)] = DiffAlgorithm.tuple(self, that)
+  def zip[B](that: Differ[B]): Differ[(A, B)] = Differ.tuple(self, that)
 
-  def transform[B](f: B => A): DiffAlgorithm[B] = (thisValue: B, thatValue: B) => self.apply(f(thisValue), f(thatValue))
+  def transform[B](f: B => A): Differ[B] = (thisValue: B, thatValue: B) => self.apply(f(thisValue), f(thatValue))
 
-  def transformOrFail[B](f: B => Either[String, A]): DiffAlgorithm[B] =
+  def transformOrFail[B](f: B => Either[String, A]): Differ[B] =
     (thisValue: B, thatValue: B) =>
       f(thisValue) -> f(thatValue) match {
         case (Right(l), Right(r)) => self(l, r)
         case _                    => Diff.NotComparable
       }
 
-  def foreach[Col[_]](toChunk: Col[A] => Chunk[A]): DiffAlgorithm[Col[A]] =
+  def foreach[Col[_]](toChunk: Col[A] => Chunk[A]): Differ[Col[A]] =
     (theseAs: Col[A], thoseAs: Col[A]) => {
       val sequenceDiff = Diff.Sequence(
         toChunk(theseAs).zipAll(toChunk(thoseAs)).map {
@@ -42,7 +42,7 @@ trait DiffAlgorithm[A] { self =>
       if (sequenceDiff.differences.forall(_ == Diff.Identical)) Diff.Identical else sequenceDiff
     }
 
-  def optional: DiffAlgorithm[Option[A]] = DiffAlgorithm.instancePartial {
+  def optional: Differ[Option[A]] = Differ.instancePartial {
     case (Some(l), Some(r)) => self(l, r)
     case (Some(l), None)    => Diff.Total(l, Diff.Tag.Left)
     case (None, Some(r))    => Diff.Total(r, Diff.Tag.Right)
@@ -50,9 +50,9 @@ trait DiffAlgorithm[A] { self =>
   }
 }
 
-object DiffAlgorithm {
+object Differ {
 
-  def fromSchema[A](schema: Schema[A]): DiffAlgorithm[A] = schema match {
+  def fromSchema[A](schema: Schema[A]): Differ[A] = schema match {
     case Schema.Primitive(StandardType.IntType)        => numeric[Int]
     case Schema.Primitive(StandardType.ShortType)      => numeric[Short]
     case Schema.Primitive(StandardType.DoubleType)     => numeric[Double]
@@ -79,17 +79,17 @@ object DiffAlgorithm {
     case _                                            => string.transform(_.toString)
   }
 
-  def numeric[A](implicit numeric: Numeric[A]): DiffAlgorithm[A] =
+  def numeric[A](implicit numeric: Numeric[A]): Differ[A] =
     (thisValue: A, thatValue: A) =>
       numeric.minus(thisValue, thatValue) match {
         case distance if distance == numeric.zero => Diff.Identical
         case distance                             => Diff.Number(distance)
       }
 
-  def temporal[A](units: TimeUnit)(metric: (A, A) => Long): DiffAlgorithm[A] =
+  def temporal[A](units: TimeUnit)(metric: (A, A) => Long): Differ[A] =
     (thisValue: A, thatValue: A) => Diff.Temporal(metric(thisValue, thatValue), units)
 
-  val dayOfWeek: DiffAlgorithm[DayOfWeek] =
+  val dayOfWeek: Differ[DayOfWeek] =
     (thisValue: DayOfWeek, thatValue: DayOfWeek) => {
       var distance = 0L
       do {
@@ -98,37 +98,37 @@ object DiffAlgorithm {
       Diff.Temporal(distance, TimeUnit.DAYS)
     }
 
-  val bigInt: DiffAlgorithm[BigInteger] =
+  val bigInt: Differ[BigInteger] =
     (thisValue: BigInteger, thatValue: BigInteger) =>
       thisValue.subtract(thatValue) match {
         case BigInteger.ZERO => Diff.Identical
         case distance        => Diff.BigInt(distance)
       }
 
-  val bigDecimal: DiffAlgorithm[java.math.BigDecimal] =
+  val bigDecimal: Differ[java.math.BigDecimal] =
     (thisValue: java.math.BigDecimal, thatValue: java.math.BigDecimal) =>
       thisValue.subtract(thatValue) match {
         case d if d.compareTo(java.math.BigDecimal.ZERO) == 0 => Diff.Identical
         case distance                                         => Diff.BigDecimal(distance)
       }
 
-  def tuple[A, B](left: DiffAlgorithm[A], right: DiffAlgorithm[B]): DiffAlgorithm[(A, B)] =
+  def tuple[A, B](left: Differ[A], right: Differ[B]): Differ[(A, B)] =
     (thisValue: (A, B), thatValue: (A, B)) =>
       (thisValue, thatValue) match {
         case ((thisA, thisB), (thatA, thatB)) =>
           left(thisA, thatA) <*> right(thisB, thatB)
       }
 
-  def either[A, B](left: DiffAlgorithm[A], right: DiffAlgorithm[B]) =
+  def either[A, B](left: Differ[A], right: Differ[B]) =
     instancePartial[Either[A, B]] {
       case (Left(l), Left(r))   => left(l, r)
       case (Right(l), Right(r)) => right(l, r)
     }
 
-  def fail[A]: DiffAlgorithm[A] = (_: A, _: A) => Diff.NotComparable
+  def fail[A]: Differ[A] = (_: A, _: A) => Diff.NotComparable
 
   // TODO This assumes for the moment that both maps conform to the schema structure
-  def record(structure: Chunk[Schema.Field[_]]): DiffAlgorithm[ListMap[String, _]] =
+  def record(structure: Chunk[Schema.Field[_]]): Differ[ListMap[String, _]] =
     (thisValue: ListMap[String, _], thatValue: ListMap[String, _]) =>
       if (thisValue == thatValue)
         Diff.Identical
@@ -137,12 +137,12 @@ object DiffAlgorithm {
           ListMap.empty ++ thisValue.toList.zip(thatValue.toList).zipWithIndex.map {
             case (((thisKey, thisValue), (_, thatValue)), fieldIndex) =>
               thisKey -> fromSchema(structure(fieldIndex).schema)
-                .asInstanceOf[DiffAlgorithm[Any]]
+                .asInstanceOf[Differ[Any]]
                 .apply(thisValue, thatValue)
           }
         )
 
-  def caseClass1[A, Z](schema: Schema.CaseClass1[A, Z]): DiffAlgorithm[Z] =
+  def caseClass1[A, Z](schema: Schema.CaseClass1[A, Z]): Differ[Z] =
     (thisA: Z, thatA: Z) =>
       if (thisA == thatA)
         Diff.Identical
@@ -159,10 +159,10 @@ object DiffAlgorithm {
   /**
    * Port implementation of Myers diff algorithm from zio-test here
    */
-  val string: DiffAlgorithm[String] = fail[String]
+  val string: Differ[String] = fail[String]
 
   def instancePartial[A](f: PartialFunction[(A, A), Diff]) =
-    new DiffAlgorithm[A] {
+    new Differ[A] {
       override def apply(thisValue: A, thatValue: A): Diff =
         f.applyOrElse((thisValue, thatValue), (_: (A, A)) => Diff.NotComparable)
     }

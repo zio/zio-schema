@@ -80,9 +80,9 @@ sealed trait Schema[A] {
    */
   def zip[B](that: Schema[B]): Schema[(A, B)] = Schema.Tuple(self, that)
 
-  def diff(thisValue: A, thatValue: A, algorithm: Option[DiffAlgorithm[A]] = None): Diff = algorithm match {
-    case Some(algo) => algo(thisValue, thatValue)
-    case None       => DiffAlgorithm.fromSchema(self)(thisValue, thatValue)
+  def diff(thisValue: A, thatValue: A, differ: Option[Differ[A]] = None): Diff = differ match {
+    case Some(differ) => differ(thisValue, thatValue)
+    case None         => Differ.fromSchema(self)(thisValue, thatValue)
   }
 }
 
