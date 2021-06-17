@@ -1,10 +1,9 @@
 package zio.schema
 
-import java.time.temporal.ChronoUnit
-
-import scala.collection.immutable.ListMap
-
 import zio.Chunk
+
+import java.time.temporal.ChronoUnit
+import scala.collection.immutable.ListMap
 
 /**
  * A `Schema[A]` describes the structure of some data type `A`, in terms of case classes,
@@ -27,6 +26,11 @@ import zio.Chunk
  */
 sealed trait Schema[A] {
   self =>
+
+  /**
+   * The default value for a `Schema` of type `A`.
+   */
+  def defaultValue: Either[String, A]
 
   /**
    * A symbolic operator for [[optional]].
@@ -828,9 +832,10 @@ object Schema {
     override def toString: String = s"Field($label,$schema)"
   }
 
-  sealed trait Record[R] extends Schema[R] {
+  sealed trait Record[R] extends Schema[R] { self =>
     def structure: Chunk[Field[_]]
-    def annotations: Chunk[Any] = Chunk.empty
+    def annotations: Chunk[Any]         = Chunk.empty
+    def defaultValue: Either[String, R] = self.rawConstruct(structure.map(_.schema.defaultValue.getOrElse(())))
     def rawConstruct(values: Chunk[Any]): Either[String, R]
   }
 
@@ -843,25 +848,54 @@ object Schema {
   }
 
   final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
-      extends Schema[Col[A]]
+      extends Schema[Col[A]] {
+    def defaultValue: Either[String, Col[A]] = schemaA.defaultValue.map(Chunk(_)).map(fromChunk)
+  }
 
-  sealed case class Enumeration(structure: ListMap[String, Schema[_]]) extends Schema[(String, _)]
+  sealed case class Enumeration(structure: ListMap[String, Schema[_]]) extends Schema[(String, _)] {
+
+    def defaultValue: Either[String, (String, _)] =
+      if (structure.isEmpty)
+        Left(s"cannot access default value for enumeration with no members")
+      else
+        Right(structure.head)
+  }
 
   final case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
-      extends Schema[B]
+      extends Schema[B] {
+    def defaultValue: Either[String, B] = codec.defaultValue.flatMap(f)
+  }
 
-  final case class Primitive[A](standardType: StandardType[A]) extends Schema[A]
+  final case class Primitive[A](standardType: StandardType[A]) extends Schema[A] {
 
-  final case class Optional[A](codec: Schema[A]) extends Schema[Option[A]]
+    def defaultValue: Either[String, A] = standardType.defaultValue
+  }
 
-  final case class Fail[A](message: String) extends Schema[A]
+  final case class Optional[A](codec: Schema[A]) extends Schema[Option[A]] {
+    def defaultValue: Either[String, Option[A]] = Right(None)
+  }
 
-  final case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)]
+  final case class Fail[A](message: String) extends Schema[A] {
+    def defaultValue: Either[String, A] = Left(message)
+  }
 
-  final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]]
+  final case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)] {
+    def defaultValue: Either[String, (A, B)] = left.defaultValue.flatMap(a => right.defaultValue.map(b => (a, b)))
+  }
+
+  final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]] {
+
+    def defaultValue: Either[String, Either[A, B]] =
+      left.defaultValue
+        .map(Left(_))
+        .orElse(right.defaultValue.map(Right(_)))
+        .orElse(Left("unable to extract default value for EitherSchema"))
+  }
 
   final case class Lazy[A](private val schema0: () => Schema[A]) extends Schema[A] {
     lazy val schema: Schema[A] = schema0()
+
+    def defaultValue: Either[String, A] = schema.defaultValue
   }
 
   final case class Case[A <: Z, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A) {
@@ -869,24 +903,46 @@ object Schema {
     def deconstruct(z: Z): Option[A] =
       try {
         Some(unsafeDeconstruct(z))
-      } catch { case _: IllegalArgumentException => None }
+      } catch {
+        case _: IllegalArgumentException => None
+      }
   }
 
-  final case class Enum1[A <: Z, Z](case1: Case[A, Z])                                extends Schema[Z]
-  final case class Enum2[A1 <: Z, A2 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z]) extends Schema[Z]
-  final case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z])
-      extends Schema[Z]
-  final case class EnumN[Z](cases: Seq[Case[_, Z]]) extends Schema[Z]
+  final case class Enum1[A <: Z, Z](case1: Case[A, Z]) extends Schema[Z] {
+    def defaultValue: Either[String, Z] = case1.codec.defaultValue
+  }
 
-  final case class CaseObject[Z](instance: Z) extends Schema[Z]
+  final case class Enum2[A1 <: Z, A2 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z]) extends Schema[Z] {
+    def defaultValue: Either[String, Z] = case1.codec.defaultValue
+  }
+
+  final case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z])
+      extends Schema[Z] {
+    def defaultValue: Either[String, Z] = case1.codec.defaultValue
+  }
+
+  final case class EnumN[Z](cases: Seq[Case[_, Z]]) extends Schema[Z] {
+
+    def defaultValue: Either[String, Z] =
+      if (cases.isEmpty)
+        Left("cannot access default value for enum with no members")
+      else
+        cases.head.codec.defaultValue.asInstanceOf[Either[String, Z]]
+  }
+
+  final case class CaseObject[Z](instance: Z) extends Schema[Z] {
+    def defaultValue: Either[String, Z] = Right(instance)
+  }
 
   final case class CaseClass1[A, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field: Field[A],
     construct: A => Z,
     extractField: Z => A
-  ) extends Record[Z] { self =>
+  ) extends Record[Z] {
+    self =>
     override def structure: Chunk[Field[_]] = Chunk(field)
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 1)
         try {
@@ -907,6 +963,7 @@ object Schema {
     extractField2: Z => A2
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2)
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 2)
         try {
@@ -928,6 +985,7 @@ object Schema {
     extractField3: Z => A3
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3)
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 3)
         try {
@@ -951,6 +1009,7 @@ object Schema {
     extractField4: Z => A4
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4)
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 4)
         try {
@@ -983,6 +1042,7 @@ object Schema {
     extractField5: Z => A5
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5)
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 5)
         try {
@@ -1018,6 +1078,7 @@ object Schema {
     extractField6: Z => A6
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6)
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 6)
         try {
@@ -1056,6 +1117,7 @@ object Schema {
     extractField7: Z => A7
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6, field7)
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 7)
         try {
@@ -1097,6 +1159,7 @@ object Schema {
     extractField8: Z => A8
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6, field7, field8)
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 8)
         try {
@@ -1142,6 +1205,7 @@ object Schema {
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9)
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 9)
         try {
@@ -1190,6 +1254,7 @@ object Schema {
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10)
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 10)
         try {
@@ -1241,6 +1306,7 @@ object Schema {
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11)
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 11)
         try {
@@ -1295,6 +1361,7 @@ object Schema {
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12)
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 12)
         try {
@@ -1352,6 +1419,7 @@ object Schema {
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13)
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 13)
         try {
@@ -1427,6 +1495,7 @@ object Schema {
         field13,
         field14
       )
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 14)
         try {
@@ -1506,6 +1575,7 @@ object Schema {
         field14,
         field15
       )
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 15)
         try {
@@ -1589,6 +1659,7 @@ object Schema {
         field15,
         field16
       )
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 16)
         try {
@@ -1676,6 +1747,7 @@ object Schema {
         field16,
         field17
       )
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 17)
         try {
@@ -1767,6 +1839,7 @@ object Schema {
         field17,
         field18
       )
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 18)
         try {
@@ -1862,6 +1935,7 @@ object Schema {
         field18,
         field19
       )
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 19)
         try {
@@ -1983,6 +2057,7 @@ object Schema {
         field19,
         field20
       )
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 20)
         try {
@@ -2109,6 +2184,7 @@ object Schema {
         field20,
         field21
       )
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 21)
         try {
@@ -2263,6 +2339,7 @@ object Schema {
         field21,
         field22
       )
+
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 22)
         try {
