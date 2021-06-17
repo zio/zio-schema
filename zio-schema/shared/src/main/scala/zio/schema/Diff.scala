@@ -30,17 +30,17 @@ trait Differ[A] { self =>
       }
 
   def foreach[Col[_]](toChunk: Col[A] => Chunk[A]): Differ[Col[A]] =
-    (theseAs: Col[A], thoseAs: Col[A]) => {
-      val sequenceDiff = Diff.Sequence(
-        toChunk(theseAs).zipAll(toChunk(thoseAs)).map {
-          case (Some(left), Some(right)) => self.apply(left, right)
-          case (None, Some(right))       => Diff.Total(right, Diff.Tag.Right)
-          case (Some(left), None)        => Diff.Total(left, Diff.Tag.Left)
-          case (None, None)              => Diff.Identical
-        }
-      )
-      if (sequenceDiff.differences.forall(_ == Diff.Identical)) Diff.Identical else sequenceDiff
-    }
+    (theseAs: Col[A], thoseAs: Col[A]) =>
+      Diff
+        .Sequence(
+          toChunk(theseAs).zipAll(toChunk(thoseAs)).map {
+            case (Some(left), Some(right)) => self.apply(left, right)
+            case (None, Some(right))       => Diff.Total(right, Diff.Tag.Right)
+            case (Some(left), None)        => Diff.Total(left, Diff.Tag.Left)
+            case (None, None)              => Diff.Identical
+          }
+        )
+        .orIdentical
 
   def optional: Differ[Option[A]] = Differ.instancePartial {
     case (Some(l), Some(r)) => self(l, r)
@@ -75,7 +75,12 @@ object Differ {
     case Schema.Transform(schema, f, _)               => fromSchema(schema).transformOrFail(f)
     case Schema.Fail(_)                               => fail
     case Schema.GenericRecord(structure)              => record(structure)
-    case s: Schema.CaseClass1[_, A]                   => caseClass1(s)
+    case ProductDiffer(differ)                        => differ
+    case Schema.Enum1(c)                              => enum(c)
+    case Schema.Enum2(c1, c2)                         => enum(c1, c2)
+    case Schema.Enum3(c1, c2, c3)                     => enum(c1, c2, c3)
+    case Schema.EnumN(cs)                             => enum(cs: _*)
+    case Schema.Enumeration(structure)                => enumeration(structure)
     case _                                            => string.transform(_.toString)
   }
 
@@ -125,15 +130,15 @@ object Differ {
       case (Right(l), Right(r)) => right(l, r)
     }
 
+  def identitcal[A]: Differ[A] = (_: A, _: A) => Diff.Identical
+
   def fail[A]: Differ[A] = (_: A, _: A) => Diff.NotComparable
 
   // TODO This assumes for the moment that both maps conform to the schema structure
   def record(structure: Chunk[Schema.Field[_]]): Differ[ListMap[String, _]] =
     (thisValue: ListMap[String, _], thatValue: ListMap[String, _]) =>
-      if (thisValue == thatValue)
-        Diff.Identical
-      else
-        Diff.Record(
+      Diff
+        .Record(
           ListMap.empty ++ thisValue.toList.zip(thatValue.toList).zipWithIndex.map {
             case (((thisKey, thisValue), (_, thatValue)), fieldIndex) =>
               thisKey -> fromSchema(structure(fieldIndex).schema)
@@ -141,20 +146,30 @@ object Differ {
                 .apply(thisValue, thatValue)
           }
         )
+        .orIdentical
 
-  def caseClass1[A, Z](schema: Schema.CaseClass1[A, Z]): Differ[Z] =
-    (thisA: Z, thatA: Z) =>
-      if (thisA == thatA)
-        Diff.Identical
-      else
-        Diff.Record(
-          ListMap(
-            schema.field.label -> fromSchema(schema.field.schema)(
-              schema.extractField(thisA),
-              schema.extractField(thatA)
-            )
-          )
-        )
+  def enum[Z](cases: Schema.Case[_ <: Z, Z]*): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      cases
+        .foldRight[Option[Diff]](None) {
+          case (_, diff @ Some(_)) => diff
+          case (subtype, _) =>
+            subtype.deconstruct(thisZ) -> (subtype.deconstruct(thatZ)) match {
+              case (Some(thisA), Some(thatA)) =>
+                Some(fromSchema(subtype.codec)(thisA, thatA))
+              case _ => None
+            }
+        }
+        .getOrElse(Diff.NotComparable)
+
+  def enumeration(structure: ListMap[String, Schema[_]]): Differ[(String, _)] =
+    instancePartial[(String, _)] {
+      case ((thisKey, thisValue), (thatKey, thatValue)) if thisKey == thatKey =>
+        structure
+          .get(thisKey)
+          .map(fromSchema(_).asInstanceOf[Differ[Any]].apply(thisValue, thatValue))
+          .getOrElse(Diff.NotComparable)
+    }
 
   /**
    * Port implementation of Myers diff algorithm from zio-test here
@@ -210,18 +225,32 @@ object Diff {
    * of differences will be a total diff with the element and a tag representing which
    * input was missing the ith index.
    */
-  final case class Sequence(differences: Chunk[Diff]) extends Diff
+  final case class Sequence(differences: Chunk[Diff]) extends Diff { self =>
+
+    def orIdentical: Diff =
+      if (differences.forall(_ == Diff.Identical))
+        Diff.Identical
+      else
+        self
+  }
 
   /**
    * Set of elements which differ between two sets.
    */
-  final case class Set[A](differences: Set[(A, Tag, Diff)]) extends Diff
+  final case class Set[A](differences: Set[Total[A]]) extends Diff
 
   /**
    * Map of field-level diffs between two records. The map of differences
    * is keyed to the records field names.
    */
-  final case class Record(differences: ListMap[String, Diff]) extends Diff
+  final case class Record(differences: ListMap[String, Diff]) extends Diff { self =>
+
+    def orIdentical: Diff =
+      if (differences.values.forall(_ == Diff.Identical))
+        Diff.Identical
+      else
+        self
+  }
 
   sealed trait Tag
 
@@ -229,4 +258,588 @@ object Diff {
     case object Left  extends Tag
     case object Right extends Tag
   }
+}
+
+object ProductDiffer {
+
+  def unapply[A](schema: Schema[A]): Option[Differ[A]] = schema match {
+    case Schema.CaseObject(_)                                                                    => Some(Differ.identitcal[A])
+    case s: Schema.CaseClass1[_, A]                                                              => Some(product1(s))
+    case s: Schema.CaseClass2[_, _, A]                                                           => Some(product2(s))
+    case s: Schema.CaseClass3[_, _, _, A]                                                        => Some(product3(s))
+    case s: Schema.CaseClass4[_, _, _, _, A]                                                     => Some(product4(s))
+    case s: Schema.CaseClass5[_, _, _, _, _, A]                                                  => Some(product5(s))
+    case s: Schema.CaseClass6[_, _, _, _, _, _, A]                                               => Some(product6(s))
+    case s: Schema.CaseClass7[_, _, _, _, _, _, _, A]                                            => Some(product7(s))
+    case s: Schema.CaseClass8[_, _, _, _, _, _, _, _, A]                                         => Some(product8(s))
+    case s: Schema.CaseClass9[_, _, _, _, _, _, _, _, _, A]                                      => Some(product9(s))
+    case s: Schema.CaseClass10[_, _, _, _, _, _, _, _, _, _, A]                                  => Some(product10(s))
+    case s: Schema.CaseClass11[_, _, _, _, _, _, _, _, _, _, _, A]                               => Some(product11(s))
+    case s: Schema.CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, A]                            => Some(product12(s))
+    case s: Schema.CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, A]                         => Some(product13(s))
+    case s: Schema.CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                      => Some(product14(s))
+    case s: Schema.CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                   => Some(product15(s))
+    case s: Schema.CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                => Some(product16(s))
+    case s: Schema.CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]             => Some(product17(s))
+    case s: Schema.CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]          => Some(product18(s))
+    case s: Schema.CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]       => Some(product19(s))
+    case s: Schema.CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]    => Some(product20(s))
+    case s: Schema.CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] => Some(product21(s))
+    case s: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
+      Some(product22(s))
+    case _ => None
+  }
+
+  def product1[A, Z](schema: Schema.CaseClass1[A, Z]): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap(
+            fieldDiffer(schema.field, schema.extractField)(thisZ, thatZ)
+          )
+        )
+        .orIdentical
+
+  def product2[A1, A2, Z](schema: Schema.CaseClass2[A1, A2, Z]): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product3[A1, A2, A3, Z](schema: Schema.CaseClass3[A1, A2, A3, Z]): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product4[A1, A2, A3, A4, Z](schema: Schema.CaseClass4[A1, A2, A3, A4, Z]): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product5[A1, A2, A3, A4, A5, Z](schema: Schema.CaseClass5[A1, A2, A3, A4, A5, Z]): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product6[A1, A2, A3, A4, A5, A6, Z](schema: Schema.CaseClass6[A1, A2, A3, A4, A5, A6, Z]): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product7[A1, A2, A3, A4, A5, A6, A7, Z](schema: Schema.CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z]): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6),
+            fieldDiffer(schema.field7, schema.extractField7)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
+    schema: Schema.CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z]
+  ): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6),
+            fieldDiffer(schema.field7, schema.extractField7),
+            fieldDiffer(schema.field8, schema.extractField8)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
+    schema: Schema.CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]
+  ): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6),
+            fieldDiffer(schema.field7, schema.extractField7),
+            fieldDiffer(schema.field8, schema.extractField8),
+            fieldDiffer(schema.field9, schema.extractField9)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
+    schema: Schema.CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]
+  ): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6),
+            fieldDiffer(schema.field7, schema.extractField7),
+            fieldDiffer(schema.field8, schema.extractField8),
+            fieldDiffer(schema.field9, schema.extractField9),
+            fieldDiffer(schema.field10, schema.extractField10)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
+    schema: Schema.CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]
+  ): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6),
+            fieldDiffer(schema.field7, schema.extractField7),
+            fieldDiffer(schema.field8, schema.extractField8),
+            fieldDiffer(schema.field9, schema.extractField9),
+            fieldDiffer(schema.field10, schema.extractField10),
+            fieldDiffer(schema.field11, schema.extractField11)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
+    schema: Schema.CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]
+  ): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6),
+            fieldDiffer(schema.field7, schema.extractField7),
+            fieldDiffer(schema.field8, schema.extractField8),
+            fieldDiffer(schema.field9, schema.extractField9),
+            fieldDiffer(schema.field10, schema.extractField10),
+            fieldDiffer(schema.field11, schema.extractField11),
+            fieldDiffer(schema.field12, schema.extractField12)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
+    schema: Schema.CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]
+  ): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6),
+            fieldDiffer(schema.field7, schema.extractField7),
+            fieldDiffer(schema.field8, schema.extractField8),
+            fieldDiffer(schema.field9, schema.extractField9),
+            fieldDiffer(schema.field10, schema.extractField10),
+            fieldDiffer(schema.field11, schema.extractField11),
+            fieldDiffer(schema.field12, schema.extractField12),
+            fieldDiffer(schema.field13, schema.extractField13)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
+    schema: Schema.CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]
+  ): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6),
+            fieldDiffer(schema.field7, schema.extractField7),
+            fieldDiffer(schema.field8, schema.extractField8),
+            fieldDiffer(schema.field9, schema.extractField9),
+            fieldDiffer(schema.field10, schema.extractField10),
+            fieldDiffer(schema.field11, schema.extractField11),
+            fieldDiffer(schema.field12, schema.extractField12),
+            fieldDiffer(schema.field13, schema.extractField13),
+            fieldDiffer(schema.field14, schema.extractField14)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
+    schema: Schema.CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]
+  ): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6),
+            fieldDiffer(schema.field7, schema.extractField7),
+            fieldDiffer(schema.field8, schema.extractField8),
+            fieldDiffer(schema.field9, schema.extractField9),
+            fieldDiffer(schema.field10, schema.extractField10),
+            fieldDiffer(schema.field11, schema.extractField11),
+            fieldDiffer(schema.field12, schema.extractField12),
+            fieldDiffer(schema.field13, schema.extractField13),
+            fieldDiffer(schema.field14, schema.extractField14),
+            fieldDiffer(schema.field15, schema.extractField15)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
+    schema: Schema.CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]
+  ): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6),
+            fieldDiffer(schema.field7, schema.extractField7),
+            fieldDiffer(schema.field8, schema.extractField8),
+            fieldDiffer(schema.field9, schema.extractField9),
+            fieldDiffer(schema.field10, schema.extractField10),
+            fieldDiffer(schema.field11, schema.extractField11),
+            fieldDiffer(schema.field12, schema.extractField12),
+            fieldDiffer(schema.field13, schema.extractField13),
+            fieldDiffer(schema.field14, schema.extractField14),
+            fieldDiffer(schema.field15, schema.extractField15),
+            fieldDiffer(schema.field16, schema.extractField16)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
+    schema: Schema.CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]
+  ): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6),
+            fieldDiffer(schema.field7, schema.extractField7),
+            fieldDiffer(schema.field8, schema.extractField8),
+            fieldDiffer(schema.field9, schema.extractField9),
+            fieldDiffer(schema.field10, schema.extractField10),
+            fieldDiffer(schema.field11, schema.extractField11),
+            fieldDiffer(schema.field12, schema.extractField12),
+            fieldDiffer(schema.field13, schema.extractField13),
+            fieldDiffer(schema.field14, schema.extractField14),
+            fieldDiffer(schema.field15, schema.extractField15),
+            fieldDiffer(schema.field16, schema.extractField16),
+            fieldDiffer(schema.field17, schema.extractField17)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
+    schema: Schema.CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]
+  ): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6),
+            fieldDiffer(schema.field7, schema.extractField7),
+            fieldDiffer(schema.field8, schema.extractField8),
+            fieldDiffer(schema.field9, schema.extractField9),
+            fieldDiffer(schema.field10, schema.extractField10),
+            fieldDiffer(schema.field11, schema.extractField11),
+            fieldDiffer(schema.field12, schema.extractField12),
+            fieldDiffer(schema.field13, schema.extractField13),
+            fieldDiffer(schema.field14, schema.extractField14),
+            fieldDiffer(schema.field15, schema.extractField15),
+            fieldDiffer(schema.field16, schema.extractField16),
+            fieldDiffer(schema.field17, schema.extractField17),
+            fieldDiffer(schema.field18, schema.extractField18)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
+    schema: Schema.CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]
+  ): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6),
+            fieldDiffer(schema.field7, schema.extractField7),
+            fieldDiffer(schema.field8, schema.extractField8),
+            fieldDiffer(schema.field9, schema.extractField9),
+            fieldDiffer(schema.field10, schema.extractField10),
+            fieldDiffer(schema.field11, schema.extractField11),
+            fieldDiffer(schema.field12, schema.extractField12),
+            fieldDiffer(schema.field13, schema.extractField13),
+            fieldDiffer(schema.field14, schema.extractField14),
+            fieldDiffer(schema.field15, schema.extractField15),
+            fieldDiffer(schema.field16, schema.extractField16),
+            fieldDiffer(schema.field17, schema.extractField17),
+            fieldDiffer(schema.field18, schema.extractField18),
+            fieldDiffer(schema.field19, schema.extractField19)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](
+    schema: Schema.CaseClass20[
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      A19,
+      A20,
+      Z
+    ]
+  ): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6),
+            fieldDiffer(schema.field7, schema.extractField7),
+            fieldDiffer(schema.field8, schema.extractField8),
+            fieldDiffer(schema.field9, schema.extractField9),
+            fieldDiffer(schema.field10, schema.extractField10),
+            fieldDiffer(schema.field11, schema.extractField11),
+            fieldDiffer(schema.field12, schema.extractField12),
+            fieldDiffer(schema.field13, schema.extractField13),
+            fieldDiffer(schema.field14, schema.extractField14),
+            fieldDiffer(schema.field15, schema.extractField15),
+            fieldDiffer(schema.field16, schema.extractField16),
+            fieldDiffer(schema.field17, schema.extractField17),
+            fieldDiffer(schema.field18, schema.extractField18),
+            fieldDiffer(schema.field19, schema.extractField19),
+            fieldDiffer(schema.field20, schema.extractField20)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](
+    schema: Schema.CaseClass21[
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      A19,
+      A20,
+      A21,
+      Z
+    ]
+  ): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6),
+            fieldDiffer(schema.field7, schema.extractField7),
+            fieldDiffer(schema.field8, schema.extractField8),
+            fieldDiffer(schema.field9, schema.extractField9),
+            fieldDiffer(schema.field10, schema.extractField10),
+            fieldDiffer(schema.field11, schema.extractField11),
+            fieldDiffer(schema.field12, schema.extractField12),
+            fieldDiffer(schema.field13, schema.extractField13),
+            fieldDiffer(schema.field14, schema.extractField14),
+            fieldDiffer(schema.field15, schema.extractField15),
+            fieldDiffer(schema.field16, schema.extractField16),
+            fieldDiffer(schema.field17, schema.extractField17),
+            fieldDiffer(schema.field18, schema.extractField18),
+            fieldDiffer(schema.field19, schema.extractField19),
+            fieldDiffer(schema.field20, schema.extractField20),
+            fieldDiffer(schema.field21, schema.extractField21)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  def product22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](
+    schema: Schema.CaseClass22[
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      A19,
+      A20,
+      A21,
+      A22,
+      Z
+    ]
+  ): Differ[Z] =
+    (thisZ: Z, thatZ: Z) =>
+      Diff
+        .Record(
+          ListMap.empty ++ Chunk(
+            fieldDiffer(schema.field1, schema.extractField1),
+            fieldDiffer(schema.field2, schema.extractField2),
+            fieldDiffer(schema.field3, schema.extractField3),
+            fieldDiffer(schema.field4, schema.extractField4),
+            fieldDiffer(schema.field5, schema.extractField5),
+            fieldDiffer(schema.field6, schema.extractField6),
+            fieldDiffer(schema.field7, schema.extractField7),
+            fieldDiffer(schema.field8, schema.extractField8),
+            fieldDiffer(schema.field9, schema.extractField9),
+            fieldDiffer(schema.field10, schema.extractField10),
+            fieldDiffer(schema.field11, schema.extractField11),
+            fieldDiffer(schema.field12, schema.extractField12),
+            fieldDiffer(schema.field13, schema.extractField13),
+            fieldDiffer(schema.field14, schema.extractField14),
+            fieldDiffer(schema.field15, schema.extractField15),
+            fieldDiffer(schema.field16, schema.extractField16),
+            fieldDiffer(schema.field17, schema.extractField17),
+            fieldDiffer(schema.field18, schema.extractField18),
+            fieldDiffer(schema.field19, schema.extractField19),
+            fieldDiffer(schema.field20, schema.extractField20),
+            fieldDiffer(schema.field21, schema.extractField21),
+            fieldDiffer(schema.field22, schema.extractField22)
+          ).map(_.apply(thisZ, thatZ))
+        )
+        .orIdentical
+
+  private def fieldDiffer[A, Z](field: Schema.Field[A], extract: Z => A): (Z, Z) => (String, Diff) =
+    (thisZ: Z, thatZ: Z) => field.label -> Differ.fromSchema(field.schema)(extract(thisZ), extract(thatZ))
 }

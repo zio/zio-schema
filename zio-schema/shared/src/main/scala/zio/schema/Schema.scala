@@ -880,7 +880,7 @@ object Schema {
   final case class Enum2[A1 <: Z, A2 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z]) extends Schema[Z]
   final case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z])
       extends Schema[Z]
-  final case class EnumN[Z](cases: Seq[Case[_, Z]]) extends Schema[Z]
+  final case class EnumN[Z](cases: Seq[Case[_ <: Z, Z]]) extends Schema[Z]
 
   final case class CaseObject[Z](instance: Z) extends Schema[Z]
 
