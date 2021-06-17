@@ -1,14 +1,15 @@
 package zio.schema
 
+import java.math.BigInteger
+
 import zio.Chunk
+import zio.random.Random
 import zio.schema.syntax._
 import zio.test.{ DefaultRunnableSpec, Diff => _, _ }
-import java.math.BigInteger
-import zio.random.Random
 
 object DiffSpec extends DefaultRunnableSpec {
 
-  def spec: ZSpec[Environment, Failure] = suite("DiffAlgorithm")(
+  def spec: ZSpec[Environment, Failure] = suite("Differ")(
     suite("standard types")(
       testM("int") {
         check(Gen.anyInt <*> Gen.anyInt) {
