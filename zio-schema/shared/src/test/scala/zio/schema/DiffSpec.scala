@@ -1,6 +1,8 @@
 package zio.schema
 
 import java.math.BigInteger
+import java.time.temporal.ChronoUnit
+import java.time.{ DayOfWeek, MonthDay }
 
 import scala.collection.immutable.ListMap
 
@@ -134,6 +136,50 @@ object DiffSpec extends DefaultRunnableSpec {
             assertTrue(str.diffEach(str + ch.toString) == expected)
         }
       }
+    ),
+    suite("temporal")(
+      testM("day of week") {
+        check(Gen.elements(1, 2, 3, 4, 5, 6, 7) <*> Gen.elements(1, 2, 3, 4, 5, 6, 7)) {
+          case (i1, i2) =>
+            val expected = if (i1 == i2) Diff.Identical else Diff.Temporal((i2 - i1).toLong, ChronoUnit.DAYS)
+            assertTrue(DayOfWeek.of(i1).diff(DayOfWeek.of(i2)) == expected)
+        }
+      },
+      testM("month") {
+        check(Gen.anyMonth <*> Gen.anyMonth) {
+          case (thisMonth, thatMonth) =>
+            val expected =
+              if (thisMonth == thatMonth) Diff.Identical
+              else Diff.Temporal((thatMonth.getValue - thisMonth.getValue).toLong, ChronoUnit.MONTHS)
+            assertTrue(thisMonth.diff(thatMonth) == expected)
+        }
+      },
+      suite("month day")(
+        test("leap year adjustment") {
+          val expected     = Diff.MonthDays(1, 2)
+          val thisMonthDay = MonthDay.of(2, 28)
+          val thatMonthDay = MonthDay.of(3, 1)
+          assertTrue(thisMonthDay.diff(thatMonthDay) == expected)
+        },
+        test("no leap year adjustment") {
+          val expected     = Diff.MonthDays(-1, -1)
+          val thisMonthDay = MonthDay.of(2, 1)
+          val thatMonthDay = MonthDay.of(1, 31)
+          assertTrue(thisMonthDay.diff(thatMonthDay) == expected)
+        },
+        testM("any") {
+          check(Gen.anyMonthDay <*> Gen.anyMonthDay) {
+            case (thisMonthDay, thatMonthDay) if thisMonthDay == thatMonthDay =>
+              assertTrue(thisMonthDay.diff(thatMonthDay) == Diff.Identical)
+            case (thisMonthDay, thatMonthDay) =>
+              val expected = Diff.MonthDays(
+                ChronoUnit.DAYS.between(thisMonthDay.atYear(2001), thatMonthDay.atYear(2001)).toInt,
+                ChronoUnit.DAYS.between(thisMonthDay.atYear(2000), thatMonthDay.atYear(2000)).toInt
+              )
+              assertTrue(thisMonthDay.diff(thatMonthDay) == expected)
+          }
+        }
+      )
     ),
     suite("collections") {
       testM("list of primitives of equal length") {

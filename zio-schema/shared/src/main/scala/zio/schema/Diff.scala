@@ -1,11 +1,25 @@
 package zio.schema
 
 import java.math.BigInteger
-import java.time.{ DayOfWeek, Instant }
-import java.util.concurrent.TimeUnit
+import java.time.temporal.{ ChronoUnit, Temporal => JTemporal, TemporalAmount, TemporalUnit }
+import java.time.{
+  DayOfWeek,
+  Duration => JDuration,
+  Instant,
+  LocalDate,
+  LocalDateTime,
+  LocalTime,
+  Month => JMonth,
+  MonthDay,
+  OffsetDateTime,
+  OffsetTime,
+  Year,
+  YearMonth,
+  ZoneId,
+  ZonedDateTime
+}
 
 import scala.collection.immutable.ListMap
-import scala.concurrent.duration.TimeUnit
 
 import zio.Chunk
 import zio.schema.internal.MyersDiff
@@ -60,16 +74,37 @@ object Differ {
     case Schema.Primitive(StandardType.DoubleType)     => numeric[Double]
     case Schema.Primitive(StandardType.FloatType)      => numeric[Float]
     case Schema.Primitive(StandardType.LongType)       => numeric[Long]
+    case Schema.Primitive(StandardType.CharType)       => numeric[Char]
+    case Schema.Primitive(StandardType.BoolType)       => bool
     case Schema.Primitive(StandardType.BigDecimalType) => bigDecimal
     case Schema.Primitive(StandardType.BigIntegerType) => bigInt
     case Schema.Primitive(StandardType.StringType)     => string
-    case Schema.Primitive(StandardType.Duration(_)) =>
-      temporal[java.time.Duration](TimeUnit.MILLISECONDS)(
-        (d1: java.time.Duration, d2: java.time.Duration) => d1.minus(d2).toMillis
-      )
-    case Schema.Primitive(StandardType.DayOfWeekType) => dayOfWeek
+    case Schema.Primitive(StandardType.DayOfWeekType)  => dayOfWeek
+//      periodic(7L, (w1: DayOfWeek, w2: DayOfWeek, step: Long) => w1.plus(step) == w2)
+    case Schema.Primitive(StandardType.Month) => month
+//      periodic(12L, (m1: JMonth, m2: JMonth, step: Long) => m1.plus(step) == m2)
+    case Schema.Primitive(StandardType.MonthDay) => monthDay
+    case Schema.Primitive(StandardType.Year) =>
+      temporal[Year](ChronoUnit.YEARS)
+    case Schema.Primitive(StandardType.YearMonth) =>
+      temporal[YearMonth](ChronoUnit.MONTHS)
+    case Schema.Primitive(StandardType.ZoneId) => string.transform[ZoneId](_.getId)
     case Schema.Primitive(StandardType.Instant(_)) =>
-      temporal[Instant](TimeUnit.MILLISECONDS)((i1, i2) => i1.toEpochMilli - i2.toEpochMilli)
+      temporal[Instant](ChronoUnit.MILLIS)
+    case Schema.Primitive(StandardType.Duration(_)) =>
+      temporalAmount[JDuration](ChronoUnit.MILLIS)
+    case Schema.Primitive(StandardType.LocalDate(_)) =>
+      temporal[LocalDate](ChronoUnit.DAYS)
+    case Schema.Primitive(StandardType.LocalTime(_)) =>
+      temporal[LocalTime](ChronoUnit.MILLIS)
+    case Schema.Primitive(StandardType.LocalDateTime(_)) =>
+      temporal[LocalDateTime](ChronoUnit.MILLIS)
+    case Schema.Primitive(StandardType.OffsetTime(_)) =>
+      temporal[OffsetTime](ChronoUnit.MILLIS)
+    case Schema.Primitive(StandardType.OffsetDateTime(_)) =>
+      temporal[OffsetDateTime](ChronoUnit.MILLIS)
+    case Schema.Primitive(StandardType.ZonedDateTime(_)) =>
+      temporal[ZonedDateTime](ChronoUnit.MILLIS)
     case Schema.Tuple(leftSchema, rightSchema)        => fromSchema(leftSchema) <*> fromSchema(rightSchema)
     case Schema.Optional(schema)                      => fromSchema(schema).optional
     case Schema.Sequence(schema, _, f)                => fromSchema(schema).foreach(f)
@@ -84,7 +119,6 @@ object Differ {
     case Schema.Enum3(c1, c2, c3)                     => enum(c1, c2, c3)
     case Schema.EnumN(cs)                             => enum(cs: _*)
     case Schema.Enumeration(structure)                => enumeration(structure)
-    case _                                            => string.transform(_.toString)
   }
 
   def binary: Differ[Chunk[Byte]] =
@@ -98,6 +132,9 @@ object Differ {
         }
       }.orIdentical
 
+  def bool: Differ[Boolean] =
+    (thisBool: Boolean, thatBool: Boolean) => Diff.Bool(thisBool ^ thatBool)
+
   def numeric[A](implicit numeric: Numeric[A]): Differ[A] =
     (thisValue: A, thatValue: A) =>
       numeric.minus(thisValue, thatValue) match {
@@ -105,17 +142,35 @@ object Differ {
         case distance                             => Diff.Number(distance)
       }
 
-  def temporal[A](units: TimeUnit)(metric: (A, A) => Long): Differ[A] =
-    (thisValue: A, thatValue: A) => Diff.Temporal(metric(thisValue, thatValue), units)
+  def temporalAmount[A <: TemporalAmount](units: TemporalUnit): Differ[A] =
+    (thisA: A, thatA: A) => Diff.TemporalAmount(thisA.get(units) - thatA.get(units), units)
+
+  def temporal[A <: JTemporal](units: ChronoUnit): Differ[A] =
+    (thisA: A, thatA: A) => Diff.Temporal(units.between(thisA, thatA), units)
 
   val dayOfWeek: Differ[DayOfWeek] =
-    (thisValue: DayOfWeek, thatValue: DayOfWeek) => {
-      var distance = 0L
-      do {
-        distance += 1
-      } while (!thisValue.plus(distance).equals(thatValue))
-      Diff.Temporal(distance, TimeUnit.DAYS)
-    }
+    (thisDay: DayOfWeek, thatDay: DayOfWeek) =>
+      if (thisDay == thatDay)
+        Diff.Identical
+      else
+        Diff.Temporal((thatDay.getValue - thisDay.getValue).toLong, ChronoUnit.DAYS)
+
+  val month: Differ[JMonth] =
+    (thisMonth: JMonth, thatMonth: JMonth) =>
+      if (thisMonth == thatMonth)
+        Diff.Identical
+      else
+        Diff.Temporal((thatMonth.getValue - thisMonth.getValue).toLong, ChronoUnit.MONTHS)
+
+  val monthDay: Differ[MonthDay] =
+    (thisMonthDay: MonthDay, thatMonthDay: MonthDay) =>
+      if (thisMonthDay == thatMonthDay)
+        Diff.Identical
+      else
+        Diff.MonthDays(
+          ChronoUnit.DAYS.between(thisMonthDay.atYear(2001), thatMonthDay.atYear(2001)).toInt,
+          ChronoUnit.DAYS.between(thisMonthDay.atYear(2000), thatMonthDay.atYear(2000)).toInt
+        )
 
   val bigInt: Differ[BigInteger] =
     (thisValue: BigInteger, thatValue: BigInteger) =>
@@ -144,7 +199,7 @@ object Differ {
       case (Right(l), Right(r)) => right(l, r)
     }
 
-  def identitcal[A]: Differ[A] = (_: A, _: A) => Diff.Identical
+  def identical[A]: Differ[A] = (_: A, _: A) => Diff.Identical
 
   def fail[A]: Differ[A] = (_: A, _: A) => Diff.NotComparable
 
@@ -213,13 +268,19 @@ object Diff {
 
   final case class Binary(xor: Int) extends Diff
 
+  final case class Bool(xor: Boolean) extends Diff
+
   final case class Number[A: Numeric](distance: A) extends Diff
 
   final case class BigInt(distance: BigInteger) extends Diff
 
   final case class BigDecimal(distance: java.math.BigDecimal) extends Diff
 
-  final case class Temporal(distance: Long, timeUnit: TimeUnit) extends Diff
+  final case class Temporal(distance: Long, timeUnit: TemporalUnit) extends Diff
+
+  final case class TemporalAmount(difference: Long, units: TemporalUnit) extends Diff
+
+  final case class MonthDays(difference: Int, leapYearDifference: Int) extends Diff
 
   final case class Tuple(leftDifference: Diff, rightDifference: Diff) extends Diff
 
@@ -289,7 +350,7 @@ object Diff {
 object ProductDiffer {
 
   def unapply[A](schema: Schema[A]): Option[Differ[A]] = schema match {
-    case Schema.CaseObject(_)                                                                    => Some(Differ.identitcal[A])
+    case Schema.CaseObject(_)                                                                    => Some(Differ.identical[A])
     case s: Schema.CaseClass1[_, A]                                                              => Some(product1(s))
     case s: Schema.CaseClass2[_, _, A]                                                           => Some(product2(s))
     case s: Schema.CaseClass3[_, _, _, A]                                                        => Some(product3(s))
