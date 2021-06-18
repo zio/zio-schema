@@ -80,9 +80,7 @@ object Differ {
     case Schema.Primitive(StandardType.BigIntegerType) => bigInt
     case Schema.Primitive(StandardType.StringType)     => string
     case Schema.Primitive(StandardType.DayOfWeekType)  => dayOfWeek
-//      periodic(7L, (w1: DayOfWeek, w2: DayOfWeek, step: Long) => w1.plus(step) == w2)
     case Schema.Primitive(StandardType.Month) => month
-//      periodic(12L, (m1: JMonth, m2: JMonth, step: Long) => m1.plus(step) == m2)
     case Schema.Primitive(StandardType.MonthDay) => monthDay
     case Schema.Primitive(StandardType.Year) =>
       temporal[Year](ChronoUnit.YEARS)
@@ -240,9 +238,6 @@ object Differ {
           .getOrElse(Diff.NotComparable)
     }
 
-  /**
-   * Port implementation of Myers diff algorithm from zio-test here
-   */
   val string: Differ[String] = MyersDiff
 
   def instancePartial[A](f: PartialFunction[(A, A), Diff]) =
