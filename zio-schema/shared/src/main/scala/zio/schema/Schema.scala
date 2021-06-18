@@ -834,7 +834,8 @@ object Schema {
 
   sealed trait Record[R] extends Schema[R] { self =>
     def structure: Chunk[Field[_]]
-    def annotations: Chunk[Any]         = Chunk.empty
+    def annotations: Chunk[Any] = Chunk.empty
+    // TODO: make this much more robust
     def defaultValue: Either[String, R] = self.rawConstruct(structure.map(_.schema.defaultValue.getOrElse(())))
     def rawConstruct(values: Chunk[Any]): Either[String, R]
   }
@@ -849,7 +850,7 @@ object Schema {
 
   final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
       extends Schema[Col[A]] {
-    def defaultValue: Either[String, Col[A]] = schemaA.defaultValue.map(Chunk(_)).map(fromChunk)
+    def defaultValue: Either[String, Col[A]] = schemaA.defaultValue.map(fromChunk.compose(Chunk(_)))
   }
 
   sealed case class Enumeration(structure: ListMap[String, Schema[_]]) extends Schema[(String, _)] {
@@ -858,11 +859,12 @@ object Schema {
       if (structure.isEmpty)
         Left(s"cannot access default value for enumeration with no members")
       else
-        Right(structure.head)
+        structure.head._2.defaultValue.map((structure.head._1, _))
   }
 
   final case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
       extends Schema[B] {
+
     def defaultValue: Either[String, B] = codec.defaultValue.flatMap(f)
   }
 

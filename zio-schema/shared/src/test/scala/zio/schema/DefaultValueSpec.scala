@@ -1,18 +1,28 @@
 package zio.schema
 
 import zio._
-import zio.schema.DeriveSchema.gen
-import zio.schema.Schema.Primitive
+import zio.schema.Schema._
 import zio.test.Assertion._
 import zio.test._
 
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import scala.collection.immutable.ListMap
 
 object DefaultValueSpec extends DefaultRunnableSpec {
+  // Record Tests
+  sealed case class UserId(id: String)
+  sealed case class User(id: UserId, name: String, age: Int)
+
+  // Enum Tests
+  sealed trait Status
+  case class Ok(response: List[String]) extends Status
+  case class Failed(code: Int, reason: String, additionalExplanation: Option[String], remark: String = "oops")
+      extends Status
+  case object Pending extends Status
 
   def spec: ZSpec[Environment, Failure] = suite("Default Value Spec")(
-    suite("Primitives")(
+    suite("Primitive")(
       test("UnitType default value") {
         assert(Primitive(StandardType.UnitType).defaultValue)(isRight(equalTo(())))
       },
@@ -120,29 +130,22 @@ object DefaultValueSpec extends DefaultRunnableSpec {
         )
       }
     ),
-    suite("Records")(
-      test("un-nested") {
-        sealed case class UserId(id: String)
-
-        val expected: Schema[UserId] =
+    suite("Record")(
+      test("basic") {
+        val schema: Schema[UserId] =
           Schema.CaseClass1(
             annotations = Chunk.empty,
             field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
             UserId.apply,
             (uid: UserId) => uid.id
           )
-
-        assert(expected.defaultValue)(isRight(equalTo(UserId(""))))
+        assert(schema.defaultValue)(isRight(equalTo(UserId(""))))
       },
-      test("nested") {
-        sealed case class UserId(id: String)
-        sealed case class User(name: String, id: UserId)
-
+      test("recursive") {
         val expected: Schema[User] =
-          Schema.CaseClass2(
+          Schema.CaseClass3(
             annotations = Chunk.empty,
-            field1 = Schema.Field("name", Schema.Primitive(StandardType.StringType)),
-            field2 = Schema.Field(
+            field1 = Schema.Field(
               "id",
               Schema.CaseClass1(
                 annotations = Chunk.empty,
@@ -151,23 +154,71 @@ object DefaultValueSpec extends DefaultRunnableSpec {
                 (uid: UserId) => uid.id
               )
             ),
+            field2 = Schema.Field("name", Schema.Primitive(StandardType.StringType)),
+            field3 = Schema.Field("age", Schema.Primitive(StandardType.IntType)),
             User.apply,
+            (u: User) => u.id,
             (u: User) => u.name,
-            (u: User) => u.id
+            (u: User) => u.age
           )
-
-        assert(expected.defaultValue)(isRight(equalTo(User("", UserId("")))))
+        assert(expected.defaultValue)(isRight(equalTo(User(UserId(""), "", 0))))
+      }
+    ),
+    suite("Sequence")(
+      test("chunk") {
+        assert(Schema.chunk[Int].defaultValue)(isRight(equalTo(Chunk(0))))
+      },
+      test("list") {
+        assert(Schema.list[Int].defaultValue)(isRight(equalTo(List(0))))
+      }
+    ),
+    suite("Enumeration")(
+      test("defaults to first case") {
+        val schema: Schema[(String, _)] = Schema.enumeration(
+          ListMap(
+            "myInt"    -> Schema.primitive(StandardType.IntType),
+            "myString" -> Schema.primitive(StandardType.StringType)
+          )
+        )
+        assert(schema.defaultValue)(isRight(equalTo(("myInt", 0))))
+      }
+    ),
+    suite("Transform")(
+      test("returns transformed default value") {
+        val schema: Schema[String] = Schema.primitive(StandardType.IntType).transform[String](_.toString, _.toInt)
+        assert(schema.defaultValue)(isRight(equalTo("0")))
+      }
+    ),
+    suite("Optional")(
+      test("defaults to None") {
+        val schema: Schema[Option[Int]] = Schema.option[Int]
+        assert(schema.defaultValue)(isRight(isNone))
+      }
+    ),
+    suite("Fail")(
+      test("defaults to the error message") {
+        val schema: Schema[Nothing] = Schema.fail("failing")
+        assert(schema.defaultValue)(isLeft(equalTo("failing")))
+      }
+    ),
+    suite("Tuple")(
+      test("defaults to default value of tuple members") {
+        val schema: Schema[(Int, String)] =
+          Schema.tuple2(Schema.primitive(StandardType.IntType), Schema.primitive(StandardType.StringType))
+        assert(schema.defaultValue)(isRight(equalTo((0, ""))))
+      }
+    ),
+    suite("Lazy")(
+      test("calls the schema thunk") {
+        val schema: Lazy[Int] = Schema.Lazy(() => Schema.primitive(StandardType.IntType))
+        assert(schema.defaultValue)(isRight(equalTo(0)))
       }
     ),
     suite("Enum")(
-      test("basic") {
-        sealed trait Status
-        case class Ok(response: List[String]) extends Status
-        case class Failed(code: Int, reason: String, additionalExplanation: Option[String], remark: String = "oops")
-            extends Status
-        case object Pending extends Status
+      test("defaults to first case") {
+        import zio.schema.DeriveSchema._
 
-        val expected: Schema[Status] =
+        val schema: Schema[Status] =
           Schema.Enum3(
             Schema.Case("Failed", Schema[Failed], (s: Status) => s.asInstanceOf[Failed]),
             Schema.Case("Ok", Schema[Ok], (s: Status) => s.asInstanceOf[Ok]),
@@ -177,17 +228,23 @@ object DefaultValueSpec extends DefaultRunnableSpec {
               (s: Status) => s.asInstanceOf[Pending.type]
             )
           )
-
-        assert(expected.defaultValue)(isRight(equalTo(Failed(0, "", None, ""))))
+        assert(schema.defaultValue)(isRight(equalTo(Failed(0, "", None, ""))))
       }
     ),
     suite("EitherSchema")(
+      test("either") {
+        val eitherSchema: Schema[Either[Int, String]] = Schema.either(
+          Schema.primitive(StandardType.IntType),
+          Schema.primitive(StandardType.StringType)
+        )
+        assert(eitherSchema.defaultValue)(isRight(isLeft(equalTo(0))))
+      },
       test("left") {
-        val leftSchema = Schema.left(Schema.primitive(StandardType.IntType))
+        val leftSchema: Schema[Left[Int, Nothing]] = Schema.left(Schema.primitive(StandardType.IntType))
         assert(leftSchema.defaultValue)(isRight(isLeft(equalTo(0))))
       },
       test("right") {
-        val rightSchema = Schema.right(Schema.primitive(StandardType.StringType))
+        val rightSchema: Schema[Right[Nothing, String]] = Schema.right(Schema.primitive(StandardType.StringType))
         assert(rightSchema.defaultValue)(isRight(isRight(equalTo(""))))
       }
     )
