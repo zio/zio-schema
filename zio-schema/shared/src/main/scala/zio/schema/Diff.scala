@@ -80,8 +80,8 @@ object Differ {
     case Schema.Primitive(StandardType.BigIntegerType) => bigInt
     case Schema.Primitive(StandardType.StringType)     => string
     case Schema.Primitive(StandardType.DayOfWeekType)  => dayOfWeek
-    case Schema.Primitive(StandardType.Month) => month
-    case Schema.Primitive(StandardType.MonthDay) => monthDay
+    case Schema.Primitive(StandardType.Month)          => month
+    case Schema.Primitive(StandardType.MonthDay)       => monthDay
     case Schema.Primitive(StandardType.Year) =>
       temporal[Year](ChronoUnit.YEARS)
     case Schema.Primitive(StandardType.YearMonth) =>
@@ -108,7 +108,7 @@ object Differ {
     case Schema.Sequence(schema, _, f)                => fromSchema(schema).foreach(f)
     case Schema.EitherSchema(leftSchema, rightSchema) => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                           => fromSchema(s.schema)
-    case Schema.Transform(schema, f, _)               => fromSchema(schema).transformOrFail(f)
+    case Schema.Transform(schema, _, f)               => fromSchema(schema).transformOrFail(f)
     case Schema.Fail(_)                               => fail
     case Schema.GenericRecord(structure)              => record(structure)
     case ProductDiffer(differ)                        => differ
@@ -201,19 +201,27 @@ object Differ {
 
   def fail[A]: Differ[A] = (_: A, _: A) => Diff.NotComparable
 
-  // TODO This assumes for the moment that both maps conform to the schema structure
   def record(structure: Chunk[Schema.Field[_]]): Differ[ListMap[String, _]] =
     (thisValue: ListMap[String, _], thatValue: ListMap[String, _]) =>
-      Diff
-        .Record(
-          ListMap.empty ++ thisValue.toList.zip(thatValue.toList).zipWithIndex.map {
-            case (((thisKey, thisValue), (_, thatValue)), fieldIndex) =>
-              thisKey -> fromSchema(structure(fieldIndex).schema)
-                .asInstanceOf[Differ[Any]]
-                .apply(thisValue, thatValue)
-          }
-        )
-        .orIdentical
+      if (!(conformsToStructure(thisValue, structure) && conformsToStructure(thatValue, structure)))
+        Diff.NotComparable
+      else
+        Diff
+          .Record(
+            ListMap.empty ++ thisValue.toList.zip(thatValue.toList).zipWithIndex.map {
+              case (((thisKey, thisValue), (_, thatValue)), fieldIndex) =>
+                thisKey -> fromSchema(structure(fieldIndex).schema)
+                  .asInstanceOf[Differ[Any]]
+                  .apply(thisValue, thatValue)
+            }
+          )
+          .orIdentical
+
+  private def conformsToStructure(map: ListMap[String, _], structure: Chunk[Schema.Field[_]]): Boolean =
+    structure.foldRight(true) {
+      case (_, false)                  => false
+      case (field: Schema.Field[a], _) => map.get(field.label).map(_.isInstanceOf[a]).getOrElse(false)
+    }
 
   def enum[Z](cases: Schema.Case[_ <: Z, Z]*): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
