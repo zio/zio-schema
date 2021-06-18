@@ -14,6 +14,62 @@ object DiffSpec extends DefaultRunnableSpec {
 
   def spec: ZSpec[Environment, Failure] = suite("Differ")(
     suite("standard types")(
+      suite("binary")(
+        testM("same length") {
+          check(Gen.chunkOfN(10)(Gen.anyByte) <*> Gen.chunkOfN(10)(Gen.anyByte)) {
+            case (theseBytes, thoseBytes) =>
+              val expected =
+                if (theseBytes == thoseBytes)
+                  Diff.Identical
+                else
+                  Diff.Sequence(
+                    theseBytes
+                      .zip(thoseBytes)
+                      .map(b => b._1 ^ b._2)
+                      .map {
+                        case 0 => Diff.Identical
+                        case i => Diff.Binary(i)
+                      }
+                  )
+
+              assertTrue(theseBytes.diffEach(thoseBytes) == expected)
+          }
+        },
+        testM("that is longer") {
+          check(Gen.chunkOfN(10)(Gen.anyByte) <*> Gen.chunkOfN(12)(Gen.anyByte)) {
+            case (theseBytes, thoseBytes) =>
+              val expected =
+                Diff.Sequence(
+                  theseBytes
+                    .zip(thoseBytes)
+                    .map(b => b._1 ^ b._2)
+                    .map {
+                      case 0 => Diff.Identical
+                      case i => Diff.Binary(i)
+                    } ++ Chunk(Diff.Total(thoseBytes(10), Diff.Tag.Right), Diff.Total(thoseBytes(11), Diff.Tag.Right))
+                )
+
+              assertTrue(theseBytes.diffEach(thoseBytes) == expected)
+          }
+        },
+        testM("this is longer") {
+          check(Gen.chunkOfN(12)(Gen.anyByte) <*> Gen.chunkOfN(10)(Gen.anyByte)) {
+            case (theseBytes, thoseBytes) =>
+              val expected =
+                Diff.Sequence(
+                  theseBytes
+                    .zip(thoseBytes)
+                    .map(b => b._1 ^ b._2)
+                    .map {
+                      case 0 => Diff.Identical
+                      case i => Diff.Binary(i)
+                    } ++ Chunk(Diff.Total(theseBytes(10), Diff.Tag.Left), Diff.Total(theseBytes(11), Diff.Tag.Left))
+                )
+
+              assertTrue(theseBytes.diffEach(thoseBytes) == expected)
+          }
+        }
+      ),
       testM("int") {
         check(Gen.anyInt <*> Gen.anyInt) {
           case (left, right) =>
@@ -61,6 +117,21 @@ object DiffSpec extends DefaultRunnableSpec {
           case (left, right) =>
             assertTrue(left.diff(right) == Diff.BigDecimal(left.subtract(right)))
             assertTrue(left.diff(left) == Diff.Identical)
+        }
+      }
+    ),
+    suite("string")(
+      testM("identical") {
+        check(Gen.anyString) { s =>
+          assertTrue(s.diffEach(s) == Diff.Identical)
+        }
+      },
+      testM("append character") {
+        check(Gen.anyString <*> Gen.anyChar) {
+          case (str, ch) =>
+            val expected =
+              Diff.Myers(Chunk.fromIterable(str.map(c => Diff.Edit.Keep(c.toString))) :+ Diff.Edit.Insert(ch.toString))
+            assertTrue(str.diffEach(str + ch.toString) == expected)
         }
       }
     ),

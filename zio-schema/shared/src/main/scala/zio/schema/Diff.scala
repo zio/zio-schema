@@ -54,6 +54,7 @@ trait Differ[A] { self =>
 object Differ {
 
   def fromSchema[A](schema: Schema[A]): Differ[A] = schema match {
+    case Schema.Primitive(StandardType.BinaryType)     => binary
     case Schema.Primitive(StandardType.IntType)        => numeric[Int]
     case Schema.Primitive(StandardType.ShortType)      => numeric[Short]
     case Schema.Primitive(StandardType.DoubleType)     => numeric[Double]
@@ -61,6 +62,7 @@ object Differ {
     case Schema.Primitive(StandardType.LongType)       => numeric[Long]
     case Schema.Primitive(StandardType.BigDecimalType) => bigDecimal
     case Schema.Primitive(StandardType.BigIntegerType) => bigInt
+    case Schema.Primitive(StandardType.StringType)     => string
     case Schema.Primitive(StandardType.Duration(_)) =>
       temporal[java.time.Duration](TimeUnit.MILLISECONDS)(
         (d1: java.time.Duration, d2: java.time.Duration) => d1.minus(d2).toMillis
@@ -84,6 +86,17 @@ object Differ {
     case Schema.Enumeration(structure)                => enumeration(structure)
     case _                                            => string.transform(_.toString)
   }
+
+  def binary: Differ[Chunk[Byte]] =
+    (theseBytes: Chunk[Byte], thoseBytes: Chunk[Byte]) =>
+      Diff.Sequence {
+        theseBytes.zipAll(thoseBytes).map {
+          case (Some(thisByte), Some(thatByte)) if (thisByte ^ thatByte) != 0 => Diff.Binary(thisByte ^ thatByte)
+          case (Some(_), Some(_))                                             => Diff.Identical
+          case (None, Some(thatByte))                                         => Diff.Total(thatByte, Diff.Tag.Right)
+          case (Some(thisByte), None)                                         => Diff.Total(thisByte, Diff.Tag.Left)
+        }
+      }.orIdentical
 
   def numeric[A](implicit numeric: Numeric[A]): Differ[A] =
     (thisValue: A, thatValue: A) =>
@@ -198,6 +211,8 @@ sealed trait Diff { self =>
 object Diff {
   final case object Identical extends Diff
 
+  final case class Binary(xor: Int) extends Diff
+
   final case class Number[A: Numeric](distance: A) extends Diff
 
   final case class BigInt(distance: BigInteger) extends Diff
@@ -265,15 +280,9 @@ object Diff {
   sealed trait Edit
 
   object Edit {
-    final case class Delete(s: String) extends Edit {
-      override def toString: String = s"-$s"
-    }
-    final case class Insert(s: String) extends Edit {
-      override def toString: String = s"+$s"
-    }
-    final case class Keep(s: String) extends Edit {
-      override def toString: String = s
-    }
+    final case class Delete(s: String) extends Edit
+    final case class Insert(s: String) extends Edit
+    final case class Keep(s: String)   extends Edit
   }
 }
 
