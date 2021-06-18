@@ -11,7 +11,7 @@ object MyersDiff extends Differ[String] {
     var varModified                    = modified
     var longestCommonSubstring: String = getLongestCommonSubsequence(original, modified)
 
-    var actions: Chunk[Diff.Edit] = Chunk.empty
+    var edits: Chunk[Diff.Edit] = Chunk.empty
 
     while (longestCommonSubstring.size > 0) {
       val headOfLongestCommonSubstring = longestCommonSubstring(0)
@@ -24,7 +24,7 @@ object MyersDiff extends Differ[String] {
         headOfModified = varModified(0)
         varModified = varModified.drop(1)
         if (headOfModified != headOfLongestCommonSubstring)
-          actions = actions :+ Diff.Edit.Insert(headOfModified.toString)
+          edits = edits :+ Diff.Edit.Insert(headOfModified.toString)
 
         loop = varModified.size > 0 && headOfModified != headOfLongestCommonSubstring
       }
@@ -36,28 +36,34 @@ object MyersDiff extends Differ[String] {
         headOfOriginal = varOriginal(0)
         varOriginal = varOriginal.drop(1)
         if (headOfOriginal != headOfLongestCommonSubstring)
-          actions = actions :+ Diff.Edit.Delete(headOfOriginal.toString)
+          edits = edits :+ Diff.Edit.Delete(headOfOriginal.toString)
 
         loop = varOriginal.size > 0 && headOfOriginal != headOfLongestCommonSubstring
       }
 
-      actions = actions :+ Diff.Edit.Keep(headOfLongestCommonSubstring.toString)
+      edits = edits :+ Diff.Edit.Keep(headOfLongestCommonSubstring.toString)
     }
 
     while (varModified.size > 0) {
       val headOfModified = varModified(0)
       varModified = varModified.drop(1)
-      actions = actions :+ Diff.Edit.Insert(headOfModified.toString)
+      edits = edits :+ Diff.Edit.Insert(headOfModified.toString)
     }
 
     while (varOriginal.size > 0) {
       val headOfOriginal = varOriginal(0)
       varOriginal = varOriginal.drop(1)
-      actions = actions :+ Diff.Edit.Delete(headOfOriginal.toString)
+      edits = edits :+ Diff.Edit.Delete(headOfOriginal.toString)
     }
 
-    Diff.Myers(actions)
+    if (isIdentical(edits)) Diff.Identical else Diff.Myers(edits)
   }
+
+  private def isIdentical(edits: Chunk[Diff.Edit]): Boolean =
+    edits.isEmpty || edits.forall {
+      case Diff.Edit.Keep(_) => true
+      case _                 => false
+    }
 
   def getLongestCommonSubsequence(original: String, modified: String): String =
     if (original == null || original.length() == 0 || modified == null || modified.length() == 0) ""
