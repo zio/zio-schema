@@ -8,7 +8,7 @@ import scala.collection.immutable.ListMap
 
 import zio.Chunk
 import zio.random.Random
-import zio.schema.SchemaGen.Arity1
+import zio.schema.SchemaGen.{ Arity1, Arity24 }
 import zio.schema.syntax._
 import zio.test.{ DefaultRunnableSpec, Diff => _, _ }
 
@@ -181,7 +181,7 @@ object DiffSpec extends DefaultRunnableSpec {
         }
       )
     ),
-    suite("collections") {
+    suite("collections")(
       testM("list of primitives of equal length") {
         check(Gen.listOfN(10)(Gen.anyInt) <*> Gen.listOfN(10)(Gen.anyInt)) {
           case (ls, rs) =>
@@ -192,16 +192,104 @@ object DiffSpec extends DefaultRunnableSpec {
             assertTrue(Schema[List[Int]].diff(ls, rs) == expected)
             assertTrue(Schema[List[Int]].diff(ls, ls) == Diff.Identical)
         }
+      },
+      testM("list of primitive where that list is longer") {
+        check(Gen.listOfN(10)(Gen.anyInt) <*> Gen.listOfN(12)(Gen.anyInt)) {
+          case (ls, rs) =>
+            val expected = Diff.Sequence(
+              Chunk
+                .fromIterable(
+                  ls.zip(rs).map(p => p._1 - p._2).map(d => if (d != 0) Diff.Number(d) else Diff.Identical)
+                ) ++ Chunk(Diff.Total(rs(10), Diff.Tag.Right), Diff.Total(rs(11), Diff.Tag.Right))
+            )
+            assertTrue(Schema[List[Int]].diff(ls, rs) == expected)
+        }
+      },
+      testM("list of primitive where this list is longer") {
+        check(Gen.listOfN(12)(Gen.anyInt) <*> Gen.listOfN(10)(Gen.anyInt)) {
+          case (ls, rs) =>
+            val expected = Diff.Sequence(
+              Chunk
+                .fromIterable(
+                  ls.zip(rs).map(p => p._1 - p._2).map(d => if (d != 0) Diff.Number(d) else Diff.Identical)
+                ) ++ Chunk(Diff.Total(ls(10), Diff.Tag.Left), Diff.Total(ls(11), Diff.Tag.Left))
+            )
+            assertTrue(Schema[List[Int]].diff(ls, rs) == expected)
+        }
+      },
+      testM("any list of primitives") {
+        check(Gen.chunkOf(Gen.anyInt) <*> Gen.chunkOf(Gen.anyInt)) {
+          case (ls, rs) =>
+            val expected =
+              if (ls == rs)
+                Diff.Identical
+              else
+                Diff.Sequence(ls.zipAll(rs).map(p => p._1.diff(p._2)))
+            assertTrue(ls.diffEach(rs) == expected)
+        }
       }
-    },
+    ),
+    suite("records")(
+      testM("records with invalid structure not be comparable") {
+        check(Gen.mapOf(Gen.anyString, Gen.anyInt) <*> Gen.mapOf(Gen.anyString, Gen.anyInt)) {
+          case (thisMap, thatMap) =>
+            val diff = Schema
+              .GenericRecord(Chunk(Schema.Field("key", Schema[String])))
+              .diff(ListMap.empty ++ thisMap, ListMap.empty ++ thatMap)
+            assertTrue(diff == Diff.NotComparable)
+        }
+      }
+    ),
     suite("product type")(
       testM("arity 1") {
         check(Gen.anyInt) { i =>
           assertTrue(Arity1(i).diff(Arity1(i - 1)) == Diff.Record(ListMap("value" -> Diff.Number[Int](1))))
         }
       },
+      testM("arity 2") {
+        check(SchemaGen.anyArity2 <*> SchemaGen.anyArity2) {
+          case (thisA, thatA) =>
+            val expected =
+              if (thisA == thatA)
+                Diff.Identical
+              else
+                Diff.Record(
+                  ListMap("value1" -> thisA.value1.diffEach(thatA.value1), "value2" -> thisA.value2.diff(thatA.value2))
+                )
+            assertTrue(thisA.diff(thatA) == expected)
+        }
+      },
+      testM("arity greater than 22") {
+        check(SchemaGen.anyArity24 <*> SchemaGen.anyArity24) {
+          case (thisA, thatA) =>
+            val expected =
+              if (thisA == thatA)
+                Diff.Identical
+              else {
+                Diff.Record(
+                  ListMap.empty ++ Schema[Arity24]
+                    .asInstanceOf[Schema.Transform[ListMap[String, _], Arity24]]
+                    .codec
+                    .asInstanceOf[Schema.GenericRecord]
+                    .structure
+                    .zipWithIndex
+                    .map {
+                      case (field, index) =>
+                        field.label -> Differ
+                          .fromSchema(field.schema)
+                          .asInstanceOf[Differ[Any]](
+                            thisA.asInstanceOf[Product].productElement(index),
+                            thatA.asInstanceOf[Product].productElement(index)
+                          )
+                    }
+                    .toList
+                )
+              }
+            assertTrue(thisA.diff(thatA) == expected)
+        }
+      },
       testM("identical") {
-        check(SchemaGen.anyArity1) { value =>
+        check(SchemaGen.anyArity) { value =>
           assertTrue(value.diff(value) == Diff.Identical)
         }
       }
