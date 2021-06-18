@@ -8,6 +8,7 @@ import scala.collection.immutable.ListMap
 import scala.concurrent.duration.TimeUnit
 
 import zio.Chunk
+import zio.schema.internal.MyersDiff
 
 trait Differ[A] { self =>
 
@@ -174,7 +175,7 @@ object Differ {
   /**
    * Port implementation of Myers diff algorithm from zio-test here
    */
-  val string: Differ[String] = fail[String]
+  val string: Differ[String] = MyersDiff
 
   def instancePartial[A](f: PartialFunction[(A, A), Diff]) =
     new Differ[A] {
@@ -206,6 +207,8 @@ object Diff {
   final case class Temporal(distance: Long, timeUnit: TimeUnit) extends Diff
 
   final case class Tuple(leftDifference: Diff, rightDifference: Diff) extends Diff
+
+  final case class Myers(edits: Chunk[Edit]) extends Diff
 
   final case class Total[A](value: A, tag: Tag) extends Diff
 
@@ -257,6 +260,20 @@ object Diff {
   object Tag {
     case object Left  extends Tag
     case object Right extends Tag
+  }
+
+  sealed trait Edit
+
+  object Edit {
+    final case class Delete(s: String) extends Edit {
+      override def toString: String = s"-$s"
+    }
+    final case class Insert(s: String) extends Edit {
+      override def toString: String = s"+$s"
+    }
+    final case class Keep(s: String) extends Edit {
+      override def toString: String = s
+    }
   }
 }
 

@@ -2,8 +2,11 @@ package zio.schema
 
 import java.math.BigInteger
 
+import scala.collection.immutable.ListMap
+
 import zio.Chunk
 import zio.random.Random
+import zio.schema.SchemaGen.Arity1
 import zio.schema.syntax._
 import zio.test.{ DefaultRunnableSpec, Diff => _, _ }
 
@@ -73,7 +76,19 @@ object DiffSpec extends DefaultRunnableSpec {
             assertTrue(Schema[List[Int]].diff(ls, ls) == Diff.Identical)
         }
       }
-    }
+    },
+    suite("product type")(
+      testM("arity 1") {
+        check(Gen.anyInt) { i =>
+          assertTrue(Arity1(i).diff(Arity1(i - 1)) == Diff.Record(ListMap("value" -> Diff.Number[Int](1))))
+        }
+      },
+      testM("identical") {
+        check(SchemaGen.anyArity1) { value =>
+          assertTrue(value.diff(value) == Diff.Identical)
+        }
+      }
+    )
   )
 
   val bigIntegerGen: Gen[Random, BigInteger]           = Gen.anyLong.map(d => java.math.BigInteger.valueOf(d))

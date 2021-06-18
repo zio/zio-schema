@@ -329,10 +329,22 @@ object SchemaGen {
     } yield (schema -> schema.fromDynamic(dynamic).toOption.get).asInstanceOf[SchemaAndValue[Any]]
 
   sealed trait Arity
-  case object Arity0                                                      extends Arity
-  final case class Arity1(value: Int)                                     extends Arity
-  final case class Arity2(value1: String, value2: Arity1)                 extends Arity
+  case object Arity0                  extends Arity
+  final case class Arity1(value: Int) extends Arity
+
+  object Arity1 {
+    implicit val schema: Schema[Arity1] = DeriveSchema.gen[Arity1]
+  }
+  final case class Arity2(value1: String, value2: Arity1) extends Arity
+
+  object Arity2 {
+    implicit val schema: Schema[Arity2] = DeriveSchema.gen[Arity2]
+  }
   final case class Arity3(value1: String, value2: Arity2, value3: Arity1) extends Arity
+
+  object Arity3 {
+    implicit val schema: Schema[Arity3] = DeriveSchema.gen[Arity3]
+  }
   final case class Arity24(
     a1: Arity1,
     a2: Arity2,
@@ -360,12 +372,12 @@ object SchemaGen {
     f24: Int = 24
   ) extends Arity
 
+  object Arity24 {
+    implicit val schema: Schema[Arity24] = DeriveSchema.gen[Arity24]
+  }
+
   object Arity {
-    val arity1Schema: Schema[Arity1]     = DeriveSchema.gen[Arity1]
-    val arity2Schema: Schema[Arity2]     = DeriveSchema.gen[Arity2]
-    val arity3Schema: Schema[Arity3]     = DeriveSchema.gen[Arity3]
-    val highAritySchema: Schema[Arity24] = DeriveSchema.gen[Arity24]
-    val arityEnumSchema: Schema[Arity]   = DeriveSchema.gen[Arity]
+    implicit val arityEnumSchema: Schema[Arity] = DeriveSchema.gen[Arity]
   }
 
   val anyArity1: Gen[Random with Sized, Arity1] = Gen.anyInt.map(Arity1(_))
@@ -398,10 +410,10 @@ object SchemaGen {
 
   val anyCaseClassSchema: Gen[Random with Sized, Schema[_]] =
     Gen.oneOf(
-      Gen.const(Arity.arity1Schema),
-      Gen.const(Arity.arity2Schema),
-      Gen.const(Arity.arity3Schema),
-      Gen.const(Arity.highAritySchema)
+      Gen.const(Schema[Arity1]),
+      Gen.const(Schema[Arity2]),
+      Gen.const(Schema[Arity3]),
+      Gen.const(Schema[Arity24])
     )
 
   val anyCaseClassAndGen: Gen[Random with Sized, CaseClassAndGen[_]] =
