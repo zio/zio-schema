@@ -31,7 +31,7 @@ sealed trait Schema[A] {
   /**
    * A symbolic operator for [[optional]].
    */
-  def ? : Schema[Option[A]] = self.optional
+  def ?(implicit ev: CanBeOptional[A]): Schema[Option[A]] = self.optional
 
   /**
    * A symbolic operator for [[zip]].
@@ -60,7 +60,10 @@ sealed trait Schema[A] {
   /**
    * Returns a new schema that modifies the type produced by this schema to be optional.
    */
-  def optional: Schema[Option[A]] = Schema.Optional(self)
+  def optional(implicit ev: CanBeOptional[A]): Schema[Option[A]] = {
+    val _ = ev
+    Schema.Optional(self)
+  }
 
   /**
    * Returns a new schema that combines this schema and the specified schema together, modeling
@@ -165,7 +168,7 @@ object Schema {
   implicit def list[A](implicit schemaA: Schema[A]): Schema[List[A]] =
     Schema.Sequence(schemaA, _.toList, Chunk.fromIterable(_))
 
-  implicit def option[A](implicit element: Schema[A]): Schema[Option[A]] =
+  implicit def option[A: CanBeOptional](implicit element: Schema[A]): Schema[Option[A]] =
     Optional(element)
 
   implicit def primitive[A](implicit standardType: StandardType[A]): Schema[A] =
@@ -862,7 +865,7 @@ object Schema {
 
   final case class Primitive[A](standardType: StandardType[A]) extends Schema[A]
 
-  final case class Optional[A](codec: Schema[A]) extends Schema[Option[A]]
+  final case class Optional[A: CanBeOptional](codec: Schema[A]) extends Schema[Option[A]]
 
   final case class Fail[A](message: String) extends Schema[A]
 
