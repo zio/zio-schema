@@ -30,7 +30,7 @@ object DefaultValueSpec extends DefaultRunnableSpec {
         assert(Primitive(StandardType.StringType).defaultValue)(isRight(equalTo("")))
       },
       test("BoolType default value") {
-        assert(Primitive(StandardType.BoolType).defaultValue)(isRight(equalTo(true)))
+        assert(Primitive(StandardType.BoolType).defaultValue)(isRight(equalTo(false)))
       },
       test("ShortType default value") {
         assert(Primitive(StandardType.ShortType).defaultValue)(isRight(equalTo(0.asInstanceOf[Short])))

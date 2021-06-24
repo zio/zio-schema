@@ -20,7 +20,7 @@ object StandardType {
   }
 
   implicit object BoolType extends StandardType[Boolean] {
-    def defaultValue: Either[String, Boolean] = Right(true)
+    def defaultValue: Either[String, Boolean] = Right(false)
   }
 
   implicit object ShortType extends StandardType[Short] {
