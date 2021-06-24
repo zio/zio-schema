@@ -835,9 +835,17 @@ object Schema {
   sealed trait Record[R] extends Schema[R] { self =>
     def structure: Chunk[Field[_]]
     def annotations: Chunk[Any] = Chunk.empty
-    // TODO: make this much more robust
-    def defaultValue: Either[String, R] = self.rawConstruct(structure.map(_.schema.defaultValue.getOrElse(())))
     def rawConstruct(values: Chunk[Any]): Either[String, R]
+
+    def defaultValue: Either[String, R] =
+      self.structure
+        .map(_.schema.defaultValue)
+        .foldLeft[Either[String, Chunk[R]]](Right(Chunk.empty)) {
+          case (e @ Left(_), _)              => e
+          case (_, Left(e))                  => Left[String, Chunk[R]](e)
+          case (Right(values), Right(value)) => Right[String, Chunk[R]](values :+ value.asInstanceOf[R])
+        }
+        .flatMap(self.rawConstruct)
   }
 
   final case class GenericRecord(override val structure: Chunk[Field[_]]) extends Record[ListMap[String, _]] {
