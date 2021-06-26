@@ -82,6 +82,13 @@ lazy val docs = project
   .in(file("zio-schema-docs"))
   .settings(
     skip.in(publish) := true,
+    mdocVariables := Map(
+      "SNAPSHOT_VERSION" -> version.value,
+      "RELEASE_VERSION"  -> previousStableVersion.value.getOrElse("can't find release"),
+      "ORG"              -> organization.value,
+      "NAME"             -> (zioSchemaJVM / name).value,
+      "CROSS_VERSIONS"   -> (zioSchemaJVM / crossScalaVersions).value.mkString(", ")
+    ),
     moduleName := "zio-schema-docs",
     scalacOptions -= "-Yno-imports",
     scalacOptions -= "-Xfatal-warnings",
@@ -94,7 +101,7 @@ lazy val docs = project
     docusaurusCreateSite := docusaurusCreateSite.dependsOn(unidoc in Compile).value,
     docusaurusPublishGhpages := docusaurusPublishGhpages.dependsOn(unidoc in Compile).value
   )
-  .dependsOn(zioSchemaJVM)
+  .dependsOn(root)
   .enablePlugins(MdocPlugin, DocusaurusPlugin, ScalaUnidocPlugin)
 
 lazy val benchmarks = project
