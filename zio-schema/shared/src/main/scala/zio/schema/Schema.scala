@@ -47,6 +47,17 @@ sealed trait Schema[A] {
    */
   def <+>[B](that: Schema[B]): Schema[Either[A, B]] = self.orElseEither(that)
 
+  /**
+   * Performs a diff between thisValue and thatValue. See [[zio.schema.Differ]] for details
+   * on the default diff algorithms.
+   *
+   * A custom [[zio.schema.Differ]] can be supplied if the default behavior is not acceptable.
+   */
+  def diff(thisValue: A, thatValue: A, differ: Option[Differ[A]] = None): Diff = differ match {
+    case Some(differ) => differ(thisValue, thatValue)
+    case None         => Differ.fromSchema(self)(thisValue, thatValue)
+  }
+
   def fromDynamic(value: DynamicValue): Either[String, A] =
     value.toTypedValue(self)
 
@@ -83,7 +94,6 @@ sealed trait Schema[A] {
    * their tuple composition.
    */
   def zip[B](that: Schema[B]): Schema[(A, B)] = Schema.Tuple(self, that)
-
 }
 
 object Schema {
@@ -931,7 +941,7 @@ object Schema {
     def defaultValue: Either[String, Z] = case1.codec.defaultValue
   }
 
-  final case class EnumN[Z](cases: Seq[Case[_, Z]]) extends Schema[Z] {
+  final case class EnumN[Z](cases: Seq[Case[_ <: Z, Z]]) extends Schema[Z] {
 
     def defaultValue: Either[String, Z] =
       if (cases.isEmpty)
