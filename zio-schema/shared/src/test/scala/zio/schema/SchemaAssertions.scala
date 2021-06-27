@@ -44,36 +44,6 @@ object SchemaAssertions {
       equalsMetaSchema(expected, actualSchema)
     case (Schema.Transform(expected, _, _), actual) =>
       equalsMetaSchema(expected, actual)
-    // case (Schema.Enumeration(expectedStructure), Schema.Enumeration(actualStructure)) =>
-    //   Chunk.fromIterable(expectedStructure).zipAll(Chunk.fromIterable(actualStructure)).forall {
-    //     case (Some((expectedId, expectedSchema)), Some((actualId, actualSchema))) =>
-    //       expectedId == actualId && equalsMetaSchema(expectedSchema, actualSchema)
-    //     case _ => false
-    //   }
-    // case (Schema.Enum1(expectedCase), Schema.Enum1(actualCase)) =>
-    //   expectedCase.id == actualCase.id && equalsMetaSchema(expectedCase.codec, actualCase.codec)
-    // case (Schema.Enum1(expectedCase), Schema.Enumeration(actualCases)) =>
-    //   actualCases.size == 1 && actualCases.get(expectedCase.id).exists(equalsMetaSchema(expectedCase.codec,_))
-    // case (Schema.Enum2(expectedCase1, expectedCase2), Schema.Enum2(actualCase1, actualCase2)) =>
-    //   expectedCase1.id == actualCase1.id && equalsMetaSchema(expectedCase1.codec, actualCase1.codec) &&
-    //     expectedCase2.id == actualCase2.id && equalsMetaSchema(expectedCase2.codec, actualCase2.codec)
-    // case (Schema.Enum2(expectedCase1,expectedCase2), Schema.Enumeration(actualCases)) =>
-    //   actualCases.size == 2 &&
-    //     actualCases.get(expectedCase1.id).exists(equalsMetaSchema(expectedCase1.codec,_)) &&
-    //     actualCases.get(expectedCase2.id).exists(equalsMetaSchema(expectedCase2.codec,_))
-    // case (
-    //     Schema.Enum3(expectedCase1, expectedCase2, expectedCase3),
-    //     Schema.Enum3(actualCase1, actualCase2, actualCase3)
-    //     ) =>
-    //   expectedCase1.id == actualCase1.id && equalsMetaSchema(expectedCase1.codec, actualCase1.codec) &&
-    //     expectedCase2.id == actualCase2.id && equalsMetaSchema(expectedCase2.codec, actualCase2.codec) &&
-    //     expectedCase3.id == actualCase3.id && equalsMetaSchema(expectedCase3.codec, actualCase3.codec)
-    // case (Schema.EnumN(expectedCases), Schema.EnumN(actualCases)) =>
-    //   Chunk.fromIterable(expectedCases).zipAll(Chunk.fromIterable(actualCases)).forall {
-    //     case (Some(expectedCase), Some(actualCase)) =>
-    //       expectedCase.id == actualCase.id && equalsMetaSchema(expectedCase.codec, actualCase.codec)
-    //     case _ => false
-    //   }
     case (expected: Schema.Lazy[_], actual)           => equalsMetaSchema(expected.schema, actual)
     case (expected, actual: Schema.Lazy[_])           => equalsMetaSchema(expected, actual.schema)
     case (Schema.CaseObject(_), Schema.CaseObject(_)) => true
