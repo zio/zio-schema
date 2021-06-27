@@ -47,32 +47,6 @@ object ProtobufCodec extends Codec {
       case object Bit32                      extends WireType
     }
 
-    // def flatFields(
-    //   structure: Seq[Schema.Field[_]]
-    // ): Seq[Schema.Field[_]] =
-    //   structure
-    //     .foldLeft(Seq.empty[Schema.Field[_]]) { (struct, field) =>
-    //       nestedFields(field.label, field.schema, nextFieldNumber) match {
-    //         case Some(fields) => (numAndMap._1 + fields.size, numAndMap._2 ++ fields)
-    //         case None         => (numAndMap._1 + 1, numAndMap._2 + (numAndMap._1 -> field))
-    //       }
-    //     }
-    //     ._2
-
-    // private def nestedFields(
-    //   baseField: String,
-    //   schema: Schema[_],
-    //   nextFieldNumber: Int
-    // ): Seq[Schema.Field[_]] =
-    //   schema match {
-    //     case Schema.Transform(codec, f, g) =>
-    //       nestedFields(baseField, codec, nextFieldNumber).map(_.map {
-    //         case (fieldNumber, field) =>
-    //           (fieldNumber, Schema.Field(field.label, Schema.Transform(field.schema.asInstanceOf[Schema[Any]], f, g)))
-    //       })
-    //     case _ => None
-    //   }
-
     def tupleSchema[A, B](first: Schema[A], second: Schema[B]): Schema[ListMap[String, _]] =
       Schema.record(Schema.Field("first", first), Schema.Field("second", second))
 
@@ -168,6 +142,7 @@ object ProtobufCodec extends Codec {
         case (Schema.CaseClass1(_, f, _, ext), v)                 => encodeCaseClass(fieldNumber, v, f -> ext)
         case (Schema.CaseClass2(_, f1, f2, _, ext1, ext2), v)     => encodeCaseClass(fieldNumber, v, f1 -> ext1, f2 -> ext2)
         case (l @ Schema.Lazy(_), v)                              => encode(fieldNumber, l.schema, v)
+        case (Schema.Meta(spec), _)                               => encode(fieldNumber, Schema[MetaSchema], spec)
         case (Schema.CaseClass3(_, f1, f2, f3, _, ext1, ext2, ext3), v) =>
           encodeCaseClass(fieldNumber, v, f1 -> ext1, f2 -> ext2, f3 -> ext3)
         case (Schema.CaseClass4(_, f1, f2, f3, f4, _, ext1, ext2, ext3, ext4), v) =>
@@ -1325,6 +1300,7 @@ object ProtobufCodec extends Codec {
         case Schema.Fail(message)                                                              => fail(message)
         case Schema.EitherSchema(left, right)                                                  => eitherDecoder(left, right)
         case l @ Schema.Lazy(_)                                                                => decoder(l.schema)
+        case Schema.Meta(_)                                                                    => metaSchemaDecoder
         case Schema.CaseObject(instance)                                                       => caseObjectDecoder(instance)
         case s: Schema.CaseClass1[_, A]                                                        => caseClass1Decoder(s)
         case s: Schema.CaseClass2[_, _, A]                                                     => caseClass2Decoder(s)
@@ -1355,6 +1331,14 @@ object ProtobufCodec extends Codec {
         case Schema.Enum2(c1, c2)     => enumDecoder(c1, c2)
         case Schema.Enum3(c1, c2, c3) => enumDecoder(c1, c2, c3)
         case Schema.EnumN(cs)         => enumDecoder(cs: _*)
+      }
+
+    private val metaSchemaDecoder: Decoder[Schema[_]] =
+      decoder(Schema[MetaSchema]).flatMap { metaSchema =>
+        metaSchema.toSchema match {
+          case Left(error)   => fail(error)
+          case Right(schema) => succeed(schema)
+        }
       }
 
     private def enumDecoder[Z](cases: Schema.Case[_, Z]*): Decoder[Z] =

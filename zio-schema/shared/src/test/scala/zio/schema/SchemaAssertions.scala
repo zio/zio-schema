@@ -9,6 +9,77 @@ object SchemaAssertions {
   def hasSameSchema[A](expected: Schema[A]): Assertion[Schema[A]] =
     Assertion.assertion("hasSameSchema")(param(expected))(actual => equalsSchema(expected, actual))
 
+  def hasSameMetaSchema(expected: Schema[_]): Assertion[Schema[_]] =
+    Assertion.assertion("hasSameMetaSchema")(param(expected))(actual => equalsMetaSchema(expected, actual))
+
+  private def equalsMetaSchema(expected: Schema[_], actual: Schema[_]): Boolean = (expected, actual) match {
+    case (Schema.Primitive(StandardType.Duration(_)), Schema.Primitive(StandardType.Duration(_)))             => true
+    case (Schema.Primitive(StandardType.Instant(_)), Schema.Primitive(StandardType.Instant(_)))               => true
+    case (Schema.Primitive(StandardType.LocalDate(_)), Schema.Primitive(StandardType.LocalDate(_)))           => true
+    case (Schema.Primitive(StandardType.LocalTime(_)), Schema.Primitive(StandardType.LocalTime(_)))           => true
+    case (Schema.Primitive(StandardType.LocalDateTime(_)), Schema.Primitive(StandardType.LocalDateTime(_)))   => true
+    case (Schema.Primitive(StandardType.ZonedDateTime(_)), Schema.Primitive(StandardType.ZonedDateTime(_)))   => true
+    case (Schema.Primitive(StandardType.OffsetTime(_)), Schema.Primitive(StandardType.OffsetTime(_)))         => true
+    case (Schema.Primitive(StandardType.OffsetDateTime(_)), Schema.Primitive(StandardType.OffsetDateTime(_))) => true
+    case (Schema.Primitive(tpe1), Schema.Primitive(tpe2))                                                     => tpe1 == tpe2
+    case (Schema.Optional(expected), Schema.Optional(actual))                                                 => equalsMetaSchema(expected, actual)
+    case (Schema.Tuple(expectedLeft, expectedRight), Schema.Tuple(actualLeft, actualRight)) =>
+      equalsMetaSchema(expectedLeft, actualLeft) && equalsMetaSchema(expectedRight, actualRight)
+    case (Schema.EitherSchema(expectedLeft, expectedRight), Schema.EitherSchema(actualLeft, actualRight)) =>
+      equalsMetaSchema(expectedLeft, actualLeft) && equalsMetaSchema(expectedRight, actualRight)
+    case (Schema.Sequence(expected, _, _), Schema.Sequence(actual, _, _)) => equalsMetaSchema(expected, actual)
+    case (expected: Schema.Record[_], actual: Schema.Record[_]) =>
+      expected.structure.zipAll(actual.structure).forall {
+        case (Some(Schema.Field(expectedLabel, expectedSchema, _)), Some(Schema.Field(actualLabel, actualSchema, _))) =>
+          expectedLabel == actualLabel && equalsMetaSchema(expectedSchema, actualSchema)
+        case _ => false
+      }
+    case (expected: Schema.Enum[_], actual: Schema.Enum[_]) =>
+      Chunk.fromIterable(expected.structure).zipAll(Chunk.fromIterable(actual.structure)).forall {
+        case (Some((expectedId, expectedSchema)), Some((actualId, actualSchema))) =>
+          actualId == expectedId && equalsMetaSchema(expectedSchema, actualSchema)
+        case _ => false
+      }
+    case (expected, Schema.Transform(actualSchema, _, _)) =>
+      equalsMetaSchema(expected, actualSchema)
+    case (Schema.Transform(expected, _, _), actual) =>
+      equalsMetaSchema(expected, actual)
+    // case (Schema.Enumeration(expectedStructure), Schema.Enumeration(actualStructure)) =>
+    //   Chunk.fromIterable(expectedStructure).zipAll(Chunk.fromIterable(actualStructure)).forall {
+    //     case (Some((expectedId, expectedSchema)), Some((actualId, actualSchema))) =>
+    //       expectedId == actualId && equalsMetaSchema(expectedSchema, actualSchema)
+    //     case _ => false
+    //   }
+    // case (Schema.Enum1(expectedCase), Schema.Enum1(actualCase)) =>
+    //   expectedCase.id == actualCase.id && equalsMetaSchema(expectedCase.codec, actualCase.codec)
+    // case (Schema.Enum1(expectedCase), Schema.Enumeration(actualCases)) =>
+    //   actualCases.size == 1 && actualCases.get(expectedCase.id).exists(equalsMetaSchema(expectedCase.codec,_))
+    // case (Schema.Enum2(expectedCase1, expectedCase2), Schema.Enum2(actualCase1, actualCase2)) =>
+    //   expectedCase1.id == actualCase1.id && equalsMetaSchema(expectedCase1.codec, actualCase1.codec) &&
+    //     expectedCase2.id == actualCase2.id && equalsMetaSchema(expectedCase2.codec, actualCase2.codec)
+    // case (Schema.Enum2(expectedCase1,expectedCase2), Schema.Enumeration(actualCases)) =>
+    //   actualCases.size == 2 &&
+    //     actualCases.get(expectedCase1.id).exists(equalsMetaSchema(expectedCase1.codec,_)) &&
+    //     actualCases.get(expectedCase2.id).exists(equalsMetaSchema(expectedCase2.codec,_))
+    // case (
+    //     Schema.Enum3(expectedCase1, expectedCase2, expectedCase3),
+    //     Schema.Enum3(actualCase1, actualCase2, actualCase3)
+    //     ) =>
+    //   expectedCase1.id == actualCase1.id && equalsMetaSchema(expectedCase1.codec, actualCase1.codec) &&
+    //     expectedCase2.id == actualCase2.id && equalsMetaSchema(expectedCase2.codec, actualCase2.codec) &&
+    //     expectedCase3.id == actualCase3.id && equalsMetaSchema(expectedCase3.codec, actualCase3.codec)
+    // case (Schema.EnumN(expectedCases), Schema.EnumN(actualCases)) =>
+    //   Chunk.fromIterable(expectedCases).zipAll(Chunk.fromIterable(actualCases)).forall {
+    //     case (Some(expectedCase), Some(actualCase)) =>
+    //       expectedCase.id == actualCase.id && equalsMetaSchema(expectedCase.codec, actualCase.codec)
+    //     case _ => false
+    //   }
+    case (expected: Schema.Lazy[_], actual)           => equalsMetaSchema(expected.schema, actual)
+    case (expected, actual: Schema.Lazy[_])           => equalsMetaSchema(expected, actual.schema)
+    case (Schema.CaseObject(_), Schema.CaseObject(_)) => true
+    case _                                            => false
+  }
+
   private def equalsSchema[A](left: Schema[A], right: Schema[A]): Boolean =
     (left: Schema[_], right: Schema[_]) match {
       case (Schema.Transform(codec1, _, _), Schema.Transform(codec2, _, _)) =>

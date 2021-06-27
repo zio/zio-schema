@@ -61,6 +61,7 @@ object DynamicValueGen {
       case Schema.Transform(schema, _, _) => anyDynamicValueOfSchema(schema).map(DynamicValue.Transform(_))
       case Schema.Fail(message)           => Gen.const(DynamicValue.Error(message))
       case l @ Schema.Lazy(_)             => anyDynamicValueOfSchema(l.schema)
+      case Schema.Meta(meta)              => anyDynamicValueOfSchema(meta.toSchema.toOption.get)
     }
 
   def anyDynamicLeftValueOfSchema[A](schema: Schema[A]): Gen[Random with Sized, DynamicValue.LeftValue] =

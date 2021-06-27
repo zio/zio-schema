@@ -113,6 +113,7 @@ object JsonCodec extends Codec {
       case Schema.Enumeration(structure)                         => enumerationEncoder(structure)
       case EitherSchema(left, right)                             => JsonEncoder.either(schemaEncoder(left), schemaEncoder(right))
       case l @ Schema.Lazy(_)                                    => schemaEncoder(l.schema)
+      case Schema.Meta(_)                                        => metaSchemaEncoder
       case Schema.CaseObject(_)                                  => objectEncoder[A]
       case Schema.CaseClass1(_, f, _, ext)                       => caseClassEncoder(f -> ext)
       case Schema.CaseClass2(_, f1, f2, _, ext1, ext2)           => caseClassEncoder(f1 -> ext1, f2 -> ext2)
@@ -869,6 +870,10 @@ object JsonCodec extends Codec {
       case Schema.EnumN(cs)         => enumEncoder(cs: _*)
     }
 
+    private val metaSchemaEncoder: JsonEncoder[Schema[_]] =
+      (schema: Schema[_], indent: Option[Int], out: Write) =>
+        schemaEncoder(Schema[MetaSchema]).unsafeEncode(MetaSchema.fromSchema(schema), indent, out)
+
     private def transformEncoder[A, B](schema: Schema[A], g: B => Either[String, A]): JsonEncoder[B] = {
       (b: B, indent: Option[Int], out: Write) =>
         g(b) match {
@@ -1002,6 +1007,7 @@ object JsonCodec extends Codec {
       case Schema.Enumeration(structure)                                                     => enumerationDecoder(structure)
       case EitherSchema(left, right)                                                         => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
       case l @ Schema.Lazy(_)                                                                => schemaDecoder(l.schema)
+      case Schema.Meta(_)                                                                    => metaSchemaDecoder
       case Schema.CaseObject(instance)                                                       => caseObjectDecoder(instance)
       case s @ Schema.CaseClass1(_, _, _, _)                                                 => caseClass1Decoder(s)
       case s @ Schema.CaseClass2(_, _, _, _, _, _)                                           => caseClass2Decoder(s)
@@ -1365,6 +1371,9 @@ object JsonCodec extends Codec {
       case Schema.Enum3(c1, c2, c3) => enumDecoder(c1, c2, c3)
       case Schema.EnumN(cs)         => enumDecoder(cs: _*)
     }
+
+    private def metaSchemaDecoder: JsonDecoder[Schema[_]] =
+      schemaDecoder(Schema[MetaSchema]).mapOrFail(metaSchema => metaSchema.toSchema)
 
     private def enumDecoder[Z](cases: Schema.Case[_, Z]*): JsonDecoder[Z] = {
       (trace: List[JsonError], in: RetractReader) =>

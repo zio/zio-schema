@@ -68,6 +68,8 @@ sealed trait Schema[A] {
    */
   def orElseEither[B](that: Schema[B]): Schema[Either[A, B]] = Schema.EitherSchema(self, that)
 
+  def serializable: Schema[Schema[_]] = Schema.Meta(MetaSchema.fromSchema(self))
+
   def toDynamic(value: A): DynamicValue =
     DynamicValue.fromSchemaAndValue(self, value)
 
@@ -855,10 +857,11 @@ object Schema {
   final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
       extends Schema[Col[A]]
 
-  sealed case class Enumeration(structure: ListMap[String, Schema[_]]) extends Schema[(String, _)]
-
   final case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
-      extends Schema[B]
+      extends Schema[B] {
+    override def serializable: Schema[Schema[_]] = Meta(MetaSchema.fromSchema(codec))
+    override def toString: String                = s"Transform($codec)"
+  }
 
   final case class Primitive[A](standardType: StandardType[A]) extends Schema[A]
 
@@ -872,7 +875,15 @@ object Schema {
 
   final case class Lazy[A](private val schema0: () => Schema[A]) extends Schema[A] {
     lazy val schema: Schema[A] = schema0()
+
+    override def toString: String = s"Lazy($schema)"
   }
+
+  sealed trait Enum[A] extends Schema[A] {
+    def structure: ListMap[String, Schema[_]]
+  }
+
+  final case class Enumeration(override val structure: ListMap[String, Schema[_]]) extends Enum[(String, _)]
 
   final case class Case[A <: Z, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A) {
 
@@ -880,13 +891,38 @@ object Schema {
       try {
         Some(unsafeDeconstruct(z))
       } catch { case _: IllegalArgumentException => None }
+
+    override def toString: String = s"Case($id,$codec)"
   }
 
-  final case class Enum1[A <: Z, Z](case1: Case[A, Z])                                extends Schema[Z]
-  final case class Enum2[A1 <: Z, A2 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z]) extends Schema[Z]
+  final case class Enum1[A <: Z, Z](case1: Case[A, Z]) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id -> case1.codec
+      )
+  }
+  final case class Enum2[A1 <: Z, A2 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z]) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id -> case1.codec,
+        case2.id -> case2.codec
+      )
+  }
   final case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z])
-      extends Schema[Z]
-  final case class EnumN[Z](cases: Seq[Case[_ <: Z, Z]]) extends Schema[Z]
+      extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id -> case1.codec,
+        case2.id -> case2.codec,
+        case3.id -> case3.codec
+      )
+  }
+  final case class EnumN[Z](cases: Seq[Case[_ <: Z, Z]]) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap.empty ++ cases.map(c => c.id -> c.codec)
+  }
+
+  final case class Meta(spec: MetaSchema) extends Schema[Schema[_]]
 
   final case class CaseObject[Z](instance: Z) extends Schema[Z]
 
@@ -905,7 +941,7 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
-
+    override def toString: String = s"CaseClass1(${structure.mkString(",")})"
   }
 
   final case class CaseClass2[A1, A2, Z](
@@ -925,6 +961,8 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+    override def toString: String = s"CaseClass2(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass3[A1, A2, A3, Z](
@@ -946,6 +984,9 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass3(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass4[A1, A2, A3, A4, Z](
@@ -976,6 +1017,9 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass4(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass5[A1, A2, A3, A4, A5, Z](
@@ -1009,6 +1053,8 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass5(${structure.mkString(",")})"
   }
 
   final case class CaseClass6[A1, A2, A3, A4, A5, A6, Z](
@@ -1045,6 +1091,9 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass6(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z](
@@ -1084,6 +1133,9 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass7(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
@@ -1126,6 +1178,9 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass8(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
@@ -1172,6 +1227,9 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass9(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
@@ -1221,6 +1279,8 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+    override def toString: String = s"CaseClass10(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
@@ -1273,6 +1333,8 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+    override def toString: String = s"CaseClass11(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
@@ -1328,6 +1390,8 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+    override def toString: String = s"CaseClass12(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
@@ -1386,6 +1450,8 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+    override def toString: String = s"CaseClass13(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
@@ -1462,6 +1528,9 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass14(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
@@ -1542,6 +1611,9 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass15(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
@@ -1626,6 +1698,9 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass16(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
@@ -1714,6 +1789,9 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass17(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
@@ -1806,6 +1884,9 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass18(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
@@ -1902,6 +1983,9 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass19(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass20[
@@ -2024,6 +2108,9 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass20(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass21[
@@ -2151,6 +2238,9 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass21(${structure.mkString(",")})"
+
   }
 
   final case class CaseClass22[
@@ -2306,5 +2396,8 @@ object Schema {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass22(${structure.mkString(",")})"
+
   }
 }

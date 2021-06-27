@@ -120,6 +120,24 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           JsonCodec.Encoder.charSequenceToByteChunk("""{"oneOf":{"StringValue":{"value":"foo"}}}""")
         )
       }
+    ),
+    suite("meta schema")(
+      testM("primitive") {
+        checkM(SchemaGen.anyPrimitive) {
+          case schema @ Schema.Primitive(StandardType.Duration(units)) =>
+            assertEncodes(
+              schema.serializable,
+              schema,
+              JsonCodec.Encoder.charSequenceToByteChunk(s"""{"Duration":{"units":"$units"}}""")
+            )
+          case schema @ Schema.Primitive(tpe) =>
+            assertEncodes(
+              schema.serializable,
+              schema,
+              JsonCodec.Encoder.charSequenceToByteChunk(s"""{"Value":{"type":"${tpe.tag}"}}""")
+            )
+        }
+      }
     )
   )
 
