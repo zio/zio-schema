@@ -50,7 +50,9 @@ object BuildHelper {
       "-Xsource:2.13",
       "-Xlint:_,-type-parameter-shadow",
       "-Ywarn-numeric-widen",
-      "-Ywarn-value-discard"
+      "-Ywarn-value-discard",
+      "-Ypatmat-exhaust-depth",
+      "off"
     )
 
     val optimizerOptions =

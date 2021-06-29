@@ -18,9 +18,9 @@ object MetaSchemaSpec extends DefaultRunnableSpec {
       testM("standard types") {
         check(StandardTypeGen.anyStandardType) {
           case tpe @ StandardType.Duration(units) =>
-            assertSerializesTo(Schema.Primitive(tpe), MetaSchema.Duration(units.toString))
+            assertSerializesTo(Schema.Primitive(tpe), MetaSchema.Duration(units))
           case tpe =>
-            assertSerializesTo(Schema.Primitive(tpe), MetaSchema.Value(tpe.tag))
+            assertSerializesTo(Schema.Primitive(tpe), MetaSchema.Value(tpe))
 
         }
       },
@@ -71,44 +71,44 @@ object MetaSchemaSpec extends DefaultRunnableSpec {
       testM("standard types") {
         check(StandardTypeGen.anyStandardType) {
           case tpe @ StandardType.Duration(units) =>
-            assertDeserializesTo(MetaSchema.Duration(units.toString), Schema.Primitive(tpe))
+            assertDeserializesTo(MetaSchema.Duration(units), Schema.Primitive(tpe))
           case tpe @ StandardType.Instant(_) =>
             assertDeserializesTo(
-              MetaSchema.Value(tpe.tag),
+              MetaSchema.Value(tpe),
               Schema.Primitive(StandardType.Instant(DateTimeFormatter.ISO_INSTANT))
             )
           case tpe @ StandardType.LocalTime(_) =>
             assertDeserializesTo(
-              MetaSchema.Value(tpe.tag),
+              MetaSchema.Value(tpe),
               Schema.Primitive(StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME))
             )
           case tpe @ StandardType.LocalDateTime(_) =>
             assertDeserializesTo(
-              MetaSchema.Value(tpe.tag),
+              MetaSchema.Value(tpe),
               Schema.Primitive(StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
             )
           case tpe @ StandardType.LocalDate(_) =>
             assertDeserializesTo(
-              MetaSchema.Value(tpe.tag),
+              MetaSchema.Value(tpe),
               Schema.Primitive(StandardType.LocalDate(DateTimeFormatter.ISO_LOCAL_DATE))
             )
           case tpe @ StandardType.ZonedDateTime(_) =>
             assertDeserializesTo(
-              MetaSchema.Value(tpe.tag),
+              MetaSchema.Value(tpe),
               Schema.Primitive(StandardType.ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME))
             )
           case tpe @ StandardType.OffsetTime(_) =>
             assertDeserializesTo(
-              MetaSchema.Value(tpe.tag),
+              MetaSchema.Value(tpe),
               Schema.Primitive(StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME))
             )
           case tpe @ StandardType.OffsetDateTime(_) =>
             assertDeserializesTo(
-              MetaSchema.Value(tpe.tag),
+              MetaSchema.Value(tpe),
               Schema.Primitive(StandardType.OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
             )
           case tpe =>
-            assertDeserializesTo(MetaSchema.Value(tpe.tag), Schema.Primitive(tpe))
+            assertDeserializesTo(MetaSchema.Value(tpe), Schema.Primitive(tpe))
         }
       },
       testM("optional") {
@@ -167,6 +167,6 @@ object MetaSchemaSpec extends DefaultRunnableSpec {
   }
 
   def assertDeserializesTo(spec: MetaSchema, expectedSchema: Schema[_]): TestResult =
-    assert(spec.toSchema)(isRight(hasSameMetaSchema(expectedSchema)))
+    assert(spec.toSchema)(hasSameMetaSchema(expectedSchema))
 
 }

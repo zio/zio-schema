@@ -1,55 +1,33 @@
 package zio.schema
 
+import java.time.temporal.{ ChronoUnit, TemporalUnit }
+
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
-import zio.schema.MetaSchema.Singleton
 
 sealed trait MetaSchema { self =>
 
-  def toSchema: Either[String, Schema[_]] = self match {
-    case MetaSchema.Duration(units) =>
-      StandardType.fromTemporalUnits(units).map(Schema.Primitive(_)).toRight(s"invalid temporal units $units")
-    case MetaSchema.Value(tpe) =>
-      StandardType.fromString(tpe).map(Schema.Primitive(_)).toRight(s"unknown type $tpe")
-    case MetaSchema.Fail(message)  => Right(Schema.Fail(message))
-    case MetaSchema.Optional(meta) => meta.toSchema.map(_.optional)
-    case MetaSchema.EitherMeta(left, right) =>
-      for {
-        leftSchema  <- left.toSchema
-        rightSchema <- right.toSchema
-      } yield leftSchema <+> rightSchema
-    case MetaSchema.TupleMeta(left, right) =>
-      for {
-        leftSchema  <- left.toSchema
-        rightSchema <- right.toSchema
-      } yield leftSchema <*> rightSchema
+  def toSchema: Schema[_] = self match {
+    case MetaSchema.Duration(units)         => Schema.Primitive(StandardType.Duration(units))
+    case MetaSchema.Value(tpe)              => Schema.Primitive(tpe)
+    case MetaSchema.Fail(message)           => Schema.Fail(message)
+    case MetaSchema.Optional(meta)          => meta.toSchema.optional
+    case MetaSchema.EitherMeta(left, right) => left.toSchema <+> right.toSchema
+    case MetaSchema.TupleMeta(left, right)  => left.toSchema <*> right.toSchema
     case MetaSchema.Record(structure) =>
-      structure
-        .foldLeft[Either[String, Chunk[Schema.Field[_]]]](Right(Chunk.empty)) {
-          case (error @ Left(_), _) => error
-          case (Right(structure), MetaSchema.MetaField(label, meta)) =>
-            meta.toSchema.map(schema => structure :+ Schema.Field(label, schema))
-        }
-        .map(s => Schema.GenericRecord(s))
+      Schema.GenericRecord(structure.map(metaField => Schema.Field(metaField.label, metaField.fieldType.toSchema)))
     case MetaSchema.Enum(cases) =>
-      cases
-        .foldLeft[Either[String, Chunk[(String, Schema[_])]]](Right(Chunk.empty)) {
-          case (error @ Left(_), _) => error
-          case (Right(structure), MetaSchema.MetaCase(label, meta)) =>
-            meta.toSchema.map(schema => structure :+ label -> schema)
-        }
-        .map(s => Schema.Enumeration(ListMap.empty ++ s))
-    case MetaSchema.Sequence(tpe) => tpe.toSchema.map(Schema.chunk(_))
-    case MetaSchema.Singleton     => Right(Schema.CaseObject(Singleton))
+      Schema.Enumeration(ListMap.empty ++ cases.map(metaCase => metaCase.id -> metaCase.subType.toSchema))
+    case MetaSchema.Sequence(tpe) => Schema.chunk(tpe.toSchema)
   }
 }
 
 object MetaSchema {
 
   def fromSchema[A](schema: Schema[A]): MetaSchema = schema match {
-    case Schema.Primitive(StandardType.Duration(units)) => Duration(units.toString)
-    case Schema.Primitive(tpe)                          => Value(tpe.tag)
+    case Schema.Primitive(StandardType.Duration(units)) => Duration(units)
+    case Schema.Primitive(tpe)                          => Value(tpe)
     case Schema.Optional(schema)                        => Optional(fromSchema(schema))
     case Schema.EitherSchema(left, right)               => EitherMeta(fromSchema(left), fromSchema(right))
     case Schema.Tuple(left, right)                      => TupleMeta(fromSchema(left), fromSchema(right))
@@ -57,7 +35,6 @@ object MetaSchema {
     case Schema.Fail(message)                           => Fail(message)
     case Schema.Transform(schema, _, _)                 => fromSchema(schema)
     case lzy @ Schema.Lazy(_)                           => fromSchema(lzy.schema)
-    case Schema.CaseObject(_)                           => Singleton
     case s: Schema.Record[A] =>
       Record(s.structure.map(field => MetaField(field.label, fromSchema(field.schema))))
     case Schema.Enumeration(structure) =>
@@ -95,25 +72,55 @@ object MetaSchema {
 
   implicit val schema: Schema[MetaSchema] = DeriveSchema.gen[MetaSchema]
 
-  final case class MetaField(label: String, `type`: MetaSchema)
+  final case class MetaField(label: String, fieldType: MetaSchema)
 
   object MetaField {
-    implicit val schema: Schema[MetaField]             = DeriveSchema.gen[MetaField]
-    implicit val chunkSchema: Schema[Chunk[MetaField]] = Schema.chunk[MetaField]
+    implicit val schema: Schema[MetaField] =
+      Schema.CaseClass2(
+        field1 = Schema.Field("label", Schema[String]),
+        field2 = Schema.Field("fieldType", Schema.defer(MetaSchema.schema)),
+        construct = (label: String, fieldType: MetaSchema) => MetaField(label, fieldType),
+        extractField1 = _.label,
+        extractField2 = _.fieldType
+      )
+    implicit val chunkSchema: Schema[Chunk[MetaField]] = Schema.chunk(schema)
   }
-  final case class MetaCase(id: String, `type`: MetaSchema)
+  final case class MetaCase(id: String, subType: MetaSchema)
 
   object MetaCase {
-    implicit val schema: Schema[MetaCase]             = DeriveSchema.gen[MetaCase]
-    implicit val chunkSchema: Schema[Chunk[MetaCase]] = Schema.chunk[MetaCase]
+    implicit val schema: Schema[MetaCase] =
+      Schema.CaseClass2(
+        field1 = Schema.Field("id", Schema[String]),
+        field2 = Schema.Field("subType", Schema.defer(MetaSchema.schema)),
+        construct = (label: String, subType: MetaSchema) => MetaCase(label, subType),
+        extractField1 = _.id,
+        extractField2 = _.subType
+      )
+    implicit val chunkSchema: Schema[Chunk[MetaCase]] = Schema.chunk(schema)
   }
 
-  final case object Singleton                                      extends MetaSchema
-  final case class Value(`type`: String)                           extends MetaSchema
-  final case class Duration(units: String)                         extends MetaSchema
+  final case class Value(valueType: StandardType[_]) extends MetaSchema
+
+  object Value {
+    implicit val schema: Schema[Value] = Schema[String].transformOrFail(
+      termType => StandardType.fromString(termType).map(Value(_)).toRight(s"$termType is not valid type"),
+      value => Right(value.valueType.tag)
+    )
+  }
+  final case class Duration(units: TemporalUnit) extends MetaSchema
+
+  object Duration {
+    implicit val schema: Schema[Duration] = Schema[String].transformOrFail(
+      units =>
+        try {
+          Right(Duration(ChronoUnit.valueOf(units.toUpperCase())))
+        } catch { case _: Throwable => Left(s"$units is not valid temporal unit") },
+      duration => Right(duration.units.toString())
+    )
+  }
   final case class Fail(message: String)                           extends MetaSchema
-  final case class Sequence(`type`: MetaSchema)                    extends MetaSchema
-  final case class Optional(`type`: MetaSchema)                    extends MetaSchema
+  final case class Sequence(elementType: MetaSchema)               extends MetaSchema
+  final case class Optional(valueType: MetaSchema)                 extends MetaSchema
   final case class EitherMeta(left: MetaSchema, right: MetaSchema) extends MetaSchema
   final case class TupleMeta(left: MetaSchema, right: MetaSchema)  extends MetaSchema
   final case class Enum(cases: Chunk[MetaCase])                    extends MetaSchema

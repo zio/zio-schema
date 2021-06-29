@@ -57,11 +57,10 @@ object DynamicValueGen {
       case Schema.Tuple(left, right)         => anyDynamicTupleValue(left, right)
       case Schema.EitherSchema(left, right) =>
         Gen.oneOf(anyDynamicLeftValueOfSchema(left), anyDynamicRightValueOfSchema(right))
-      case Schema.CaseObject(instance)    => Gen.const(DynamicValue.Singleton(instance))
       case Schema.Transform(schema, _, _) => anyDynamicValueOfSchema(schema).map(DynamicValue.Transform(_))
       case Schema.Fail(message)           => Gen.const(DynamicValue.Error(message))
       case l @ Schema.Lazy(_)             => anyDynamicValueOfSchema(l.schema)
-      case Schema.Meta(meta)              => anyDynamicValueOfSchema(meta.toSchema.toOption.get)
+      case Schema.Meta(meta)              => anyDynamicValueOfSchema(meta.toSchema)
     }
 
   def anyDynamicLeftValueOfSchema[A](schema: Schema[A]): Gen[Random with Sized, DynamicValue.LeftValue] =

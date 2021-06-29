@@ -44,10 +44,9 @@ object SchemaAssertions {
       equalsMetaSchema(expected, actualSchema)
     case (Schema.Transform(expected, _, _), actual) =>
       equalsMetaSchema(expected, actual)
-    case (expected: Schema.Lazy[_], actual)           => equalsMetaSchema(expected.schema, actual)
-    case (expected, actual: Schema.Lazy[_])           => equalsMetaSchema(expected, actual.schema)
-    case (Schema.CaseObject(_), Schema.CaseObject(_)) => true
-    case _                                            => false
+    case (expected: Schema.Lazy[_], actual) => equalsMetaSchema(expected.schema, actual)
+    case (expected, actual: Schema.Lazy[_]) => equalsMetaSchema(expected, actual.schema)
+    case _                                  => false
   }
 
   private def equalsSchema[A](left: Schema[A], right: Schema[A]): Boolean =
@@ -81,7 +80,6 @@ object SchemaAssertions {
       case (Schema.Enum2(l1, l2), Schema.Enum2(r1, r2))         => hasSameCases(Seq(l1, l2), Seq(r1, r2))
       case (Schema.Enum3(l1, l2, l3), Schema.Enum3(r1, r2, r3)) => hasSameCases(Seq(l1, l2, l3), Seq(r1, r2, r3))
       case (Schema.EnumN(ls), Schema.EnumN(rs))                 => hasSameCases(ls, rs)
-      case (Schema.CaseObject(l), Schema.CaseObject(r))         => l == r
       case (l @ Schema.Lazy(_), r @ Schema.Lazy(_)) =>
         equalsSchema(l.schema.asInstanceOf[Schema[Any]], r.schema.asInstanceOf[Schema[Any]])
       case (lazySchema @ Schema.Lazy(_), eagerSchema) =>

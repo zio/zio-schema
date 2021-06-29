@@ -138,7 +138,6 @@ object ProtobufCodec extends Codec {
         case (Schema.Tuple(left, right), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)
         case (Schema.Optional(codec), v: Option[_])               => encodeOptional(fieldNumber, codec, v)
         case (Schema.EitherSchema(left, right), v: Either[_, _])  => encodeEither(fieldNumber, left, right, v)
-        case (Schema.CaseObject(_), _)                            => encodeCaseObject(fieldNumber)
         case (Schema.CaseClass1(_, f, _, ext), v)                 => encodeCaseClass(fieldNumber, v, f -> ext)
         case (Schema.CaseClass2(_, f1, f2, _, ext1, ext2), v)     => encodeCaseClass(fieldNumber, v, f1 -> ext1, f2 -> ext2)
         case (l @ Schema.Lazy(_), v)                              => encode(fieldNumber, l.schema, v)
@@ -1008,9 +1007,6 @@ object ProtobufCodec extends Codec {
       encodeKey(WireType.LengthDelimited(encoded.size), fieldNumber) ++ encoded
     }
 
-    private def encodeCaseObject[Z](fieldNumber: Option[Int]): Chunk[Byte] =
-      encodeKey(WireType.LengthDelimited(0), fieldNumber)
-
     private def encodeCaseClass[Z](
       fieldNumber: Option[Int],
       value: Z,
@@ -1301,7 +1297,6 @@ object ProtobufCodec extends Codec {
         case Schema.EitherSchema(left, right)                                                  => eitherDecoder(left, right)
         case l @ Schema.Lazy(_)                                                                => decoder(l.schema)
         case Schema.Meta(_)                                                                    => metaSchemaDecoder
-        case Schema.CaseObject(instance)                                                       => caseObjectDecoder(instance)
         case s: Schema.CaseClass1[_, A]                                                        => caseClass1Decoder(s)
         case s: Schema.CaseClass2[_, _, A]                                                     => caseClass2Decoder(s)
         case s: Schema.CaseClass3[_, _, _, A]                                                  => caseClass3Decoder(s)
@@ -1334,12 +1329,7 @@ object ProtobufCodec extends Codec {
       }
 
     private val metaSchemaDecoder: Decoder[Schema[_]] =
-      decoder(Schema[MetaSchema]).flatMap { metaSchema =>
-        metaSchema.toSchema match {
-          case Left(error)   => fail(error)
-          case Right(schema) => succeed(schema)
-        }
-      }
+      decoder(Schema[MetaSchema]).map(_.toSchema)
 
     private def enumDecoder[Z](cases: Schema.Case[_, Z]*): Decoder[Z] =
       keyDecoder.flatMap {
@@ -1357,11 +1347,6 @@ object ProtobufCodec extends Codec {
         case (_, fieldNumber) =>
           fail(s"Schema doesn't contain field number $fieldNumber.")
       }
-
-    private def caseObjectDecoder[Z](instance: Z): Decoder[Z] = keyDecoder.flatMap {
-      case (LengthDelimited(0), _) => succeed(instance)
-      case _                       => fail(s"Expected length-delimited field with length 0")
-    }
 
     private def caseClass1Decoder[A, Z](schema: Schema.CaseClass1[A, Z]): Decoder[Z] =
       unsafeDecodeFields(Array.ofDim[Any](1), schema.field).flatMap { buffer =>

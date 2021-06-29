@@ -55,8 +55,8 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         assert(derived)(hasSameSchema(expected))
       },
       test("correctly derives schema for Singleton case object") {
-        val derived: Schema[Singleton.type]             = Schema[Singleton.type]
-        val expected: Schema.CaseObject[Singleton.type] = Schema.CaseObject(Singleton)
+        val derived: Schema[Singleton.type]  = Schema[Singleton.type]
+        val expected: Schema[Singleton.type] = Schema[Unit].transform(_ => Singleton, _ => ())
 
         assert(derived)(hasSameSchema(expected))
       },

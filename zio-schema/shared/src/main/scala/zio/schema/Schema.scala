@@ -94,7 +94,7 @@ sealed trait Schema[A] {
   def zip[B](that: Schema[B]): Schema[(A, B)] = Schema.Tuple(self, that)
 }
 
-object Schema {
+object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
   def defer[A](schema: => Schema[A]): Schema[A] = Lazy(() => schema)
@@ -112,6 +112,8 @@ object Schema {
 
   def second[A](codec: Schema[(Unit, A)]): Schema[A] =
     codec.transform[A](_._2, a => ((), a))
+
+  def singleton[A](instance: A): Schema[A] = Schema[Unit].transform(_ => instance, _ => ())
 
   implicit val bigDecimal: Schema[BigDecimal] = primitive[java.math.BigDecimal].transform(BigDecimal(_), _.bigDecimal)
 
@@ -179,6 +181,92 @@ object Schema {
   implicit def set[A](implicit element: Schema[A]): Schema[Set[A]] =
     chunk(element).transform(_.toSet, Chunk.fromIterable(_))
 
+  implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
+    chunk(element).transform(_.toVector, Chunk.fromIterable(_))
+
+  sealed trait Enum[A] extends Schema[A] {
+    def structure: ListMap[String, Schema[_]]
+  }
+
+  final case class Enumeration(override val structure: ListMap[String, Schema[_]]) extends Enum[(String, _)]
+
+  sealed trait Record[R] extends Schema[R] {
+    def structure: Chunk[Field[_]]
+    def annotations: Chunk[Any] = Chunk.empty
+    def rawConstruct(values: Chunk[Any]): Either[String, R]
+  }
+
+  final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
+      extends Schema[Col[A]]
+
+  final case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
+      extends Schema[B] {
+    override def serializable: Schema[Schema[_]] = Meta(MetaSchema.fromSchema(codec))
+    override def toString: String                = s"Transform($codec)"
+  }
+
+  final case class Primitive[A](standardType: StandardType[A]) extends Schema[A]
+
+  final case class Optional[A](codec: Schema[A]) extends Schema[Option[A]]
+
+  final case class Fail[A](message: String) extends Schema[A]
+
+  final case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)]
+
+  final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]]
+
+  final case class Lazy[A](private val schema0: () => Schema[A]) extends Schema[A] {
+    lazy val schema: Schema[A] = schema0()
+
+    override def toString: String = s"Lazy($schema)"
+  }
+
+  final case class Meta(spec: MetaSchema) extends Schema[Schema[_]]
+}
+
+sealed trait EnumSchemas { self: Schema.type =>
+
+  sealed case class Case[A <: Z, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A) {
+
+    def deconstruct(z: Z): Option[A] =
+      try {
+        Some(unsafeDeconstruct(z))
+      } catch { case _: IllegalArgumentException => None }
+
+    override def toString: String = s"Case($id,$codec)"
+  }
+
+  sealed case class Enum1[A <: Z, Z](case1: Case[A, Z]) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id -> case1.codec
+      )
+  }
+
+  sealed case class Enum2[A1 <: Z, A2 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z]) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id -> case1.codec,
+        case2.id -> case2.codec
+      )
+  }
+
+  sealed case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z])
+      extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id -> case1.codec,
+        case2.id -> case2.codec,
+        case3.id -> case3.codec
+      )
+  }
+  sealed case class EnumN[Z](cases: Seq[Case[_ <: Z, Z]]) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap.empty ++ cases.map(c => c.id -> c.codec)
+  }
+}
+
+sealed trait TupleSchemas {
   implicit def tuple2[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
     c1.zip(c2)
 
@@ -832,21 +920,15 @@ object Schema {
             (((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u), v)
         }
       )
+}
 
-  implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
-    chunk(element).transform(_.toVector, Chunk.fromIterable(_))
+sealed trait RecordSchemas { self: Schema.type =>
 
-  final case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) {
+  sealed case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) {
     override def toString: String = s"Field($label,$schema)"
   }
 
-  sealed trait Record[R] extends Schema[R] {
-    def structure: Chunk[Field[_]]
-    def annotations: Chunk[Any] = Chunk.empty
-    def rawConstruct(values: Chunk[Any]): Either[String, R]
-  }
-
-  final case class GenericRecord(override val structure: Chunk[Field[_]]) extends Record[ListMap[String, _]] {
+  sealed case class GenericRecord(override val structure: Chunk[Field[_]]) extends Record[ListMap[String, _]] {
     override def rawConstruct(values: Chunk[Any]): Either[String, ListMap[String, _]] =
       if (values.size == structure.size)
         Right(ListMap(structure.map(_.label).zip(values): _*))
@@ -854,79 +936,7 @@ object Schema {
         Left(s"wrong number of values for $structure")
   }
 
-  final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
-      extends Schema[Col[A]]
-
-  final case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
-      extends Schema[B] {
-    override def serializable: Schema[Schema[_]] = Meta(MetaSchema.fromSchema(codec))
-    override def toString: String                = s"Transform($codec)"
-  }
-
-  final case class Primitive[A](standardType: StandardType[A]) extends Schema[A]
-
-  final case class Optional[A](codec: Schema[A]) extends Schema[Option[A]]
-
-  final case class Fail[A](message: String) extends Schema[A]
-
-  final case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)]
-
-  final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]]
-
-  final case class Lazy[A](private val schema0: () => Schema[A]) extends Schema[A] {
-    lazy val schema: Schema[A] = schema0()
-
-    override def toString: String = s"Lazy($schema)"
-  }
-
-  sealed trait Enum[A] extends Schema[A] {
-    def structure: ListMap[String, Schema[_]]
-  }
-
-  final case class Enumeration(override val structure: ListMap[String, Schema[_]]) extends Enum[(String, _)]
-
-  final case class Case[A <: Z, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A) {
-
-    def deconstruct(z: Z): Option[A] =
-      try {
-        Some(unsafeDeconstruct(z))
-      } catch { case _: IllegalArgumentException => None }
-
-    override def toString: String = s"Case($id,$codec)"
-  }
-
-  final case class Enum1[A <: Z, Z](case1: Case[A, Z]) extends Enum[Z] {
-    override def structure: ListMap[String, Schema[_]] =
-      ListMap(
-        case1.id -> case1.codec
-      )
-  }
-  final case class Enum2[A1 <: Z, A2 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z]) extends Enum[Z] {
-    override def structure: ListMap[String, Schema[_]] =
-      ListMap(
-        case1.id -> case1.codec,
-        case2.id -> case2.codec
-      )
-  }
-  final case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z])
-      extends Enum[Z] {
-    override def structure: ListMap[String, Schema[_]] =
-      ListMap(
-        case1.id -> case1.codec,
-        case2.id -> case2.codec,
-        case3.id -> case3.codec
-      )
-  }
-  final case class EnumN[Z](cases: Seq[Case[_ <: Z, Z]]) extends Enum[Z] {
-    override def structure: ListMap[String, Schema[_]] =
-      ListMap.empty ++ cases.map(c => c.id -> c.codec)
-  }
-
-  final case class Meta(spec: MetaSchema) extends Schema[Schema[_]]
-
-  final case class CaseObject[Z](instance: Z) extends Schema[Z]
-
-  final case class CaseClass1[A, Z](
+  sealed case class CaseClass1[A, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field: Field[A],
     construct: A => Z,
@@ -944,7 +954,7 @@ object Schema {
     override def toString: String = s"CaseClass1(${structure.mkString(",")})"
   }
 
-  final case class CaseClass2[A1, A2, Z](
+  sealed case class CaseClass2[A1, A2, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -965,7 +975,7 @@ object Schema {
 
   }
 
-  final case class CaseClass3[A1, A2, A3, Z](
+  sealed case class CaseClass3[A1, A2, A3, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -989,7 +999,7 @@ object Schema {
 
   }
 
-  final case class CaseClass4[A1, A2, A3, A4, Z](
+  sealed case class CaseClass4[A1, A2, A3, A4, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -1022,7 +1032,7 @@ object Schema {
 
   }
 
-  final case class CaseClass5[A1, A2, A3, A4, A5, Z](
+  sealed case class CaseClass5[A1, A2, A3, A4, A5, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -1057,7 +1067,7 @@ object Schema {
     override def toString: String = s"CaseClass5(${structure.mkString(",")})"
   }
 
-  final case class CaseClass6[A1, A2, A3, A4, A5, A6, Z](
+  sealed case class CaseClass6[A1, A2, A3, A4, A5, A6, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -1096,7 +1106,7 @@ object Schema {
 
   }
 
-  final case class CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z](
+  sealed case class CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -1138,7 +1148,7 @@ object Schema {
 
   }
 
-  final case class CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
+  sealed case class CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -1183,7 +1193,7 @@ object Schema {
 
   }
 
-  final case class CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
+  sealed case class CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -1232,7 +1242,7 @@ object Schema {
 
   }
 
-  final case class CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
+  sealed case class CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -1283,7 +1293,7 @@ object Schema {
 
   }
 
-  final case class CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
+  sealed case class CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -1337,7 +1347,7 @@ object Schema {
 
   }
 
-  final case class CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
+  sealed case class CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -1394,7 +1404,7 @@ object Schema {
 
   }
 
-  final case class CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
+  sealed case class CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -1454,7 +1464,7 @@ object Schema {
 
   }
 
-  final case class CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
+  sealed case class CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -1533,7 +1543,7 @@ object Schema {
 
   }
 
-  final case class CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
+  sealed case class CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -1616,7 +1626,7 @@ object Schema {
 
   }
 
-  final case class CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
+  sealed case class CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -1703,7 +1713,7 @@ object Schema {
 
   }
 
-  final case class CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
+  sealed case class CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -1794,7 +1804,7 @@ object Schema {
 
   }
 
-  final case class CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
+  sealed case class CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -1889,7 +1899,7 @@ object Schema {
 
   }
 
-  final case class CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
+  sealed case class CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -1988,7 +1998,7 @@ object Schema {
 
   }
 
-  final case class CaseClass20[
+  sealed case class CaseClass20[
     A1,
     A2,
     A3,
@@ -2113,7 +2123,7 @@ object Schema {
 
   }
 
-  final case class CaseClass21[
+  sealed case class CaseClass21[
     A1,
     A2,
     A3,
@@ -2243,7 +2253,7 @@ object Schema {
 
   }
 
-  final case class CaseClass22[
+  sealed case class CaseClass22[
     A1,
     A2,
     A3,

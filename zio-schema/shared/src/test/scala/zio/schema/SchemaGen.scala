@@ -450,7 +450,7 @@ object SchemaGen {
       anyPrimitive,
       anyPrimitive.map(Schema.list(_)),
       anyPrimitive.map(_.optional),
-      anyPrimitive.zip(anyPrimitive).map { case (l, r) => Schema.either(l, r) },
+      // anyPrimitive.zip(anyPrimitive).map { case (l, r) => Schema.either(l, r) },
       anyPrimitive.zip(anyPrimitive).map { case (l, r) => Schema.tuple2(l, r) },
       anyStructure(anyPrimitive).map(fields => Schema.GenericRecord(Chunk.fromIterable(fields))),
       anyEnumeration(anyPrimitive).map(Schema.enumeration(_)),

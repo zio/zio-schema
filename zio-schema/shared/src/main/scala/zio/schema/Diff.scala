@@ -353,7 +353,6 @@ object Diff {
 object ProductDiffer {
 
   def unapply[A](schema: Schema[A]): Option[Differ[A]] = schema match {
-    case Schema.CaseObject(_)                                                                    => Some(Differ.identical[A])
     case s: Schema.CaseClass1[_, A]                                                              => Some(product1(s))
     case s: Schema.CaseClass2[_, _, A]                                                           => Some(product2(s))
     case s: Schema.CaseClass3[_, _, _, A]                                                        => Some(product3(s))
