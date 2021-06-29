@@ -266,6 +266,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   }
 }
 
+//scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
 sealed trait TupleSchemas {
   implicit def tuple2[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
     c1.zip(c2)
@@ -273,38 +274,20 @@ sealed trait TupleSchemas {
   implicit def tuple3[A, B, C](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C]): Schema[(A, B, C)] =
     c1.zip(c2).zip(c3).transform({ case ((a, b), c) => (a, b, c) }, { case (a, b, c) => ((a, b), c) })
 
-  implicit def tuple4[A, B, C, D](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D]
-  ): Schema[(A, B, C, D)] =
+  implicit def tuple4[A, B, C, D](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D]): Schema[(A, B, C, D)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
       .transform({ case (((a, b), c), d) => (a, b, c, d) }, { case (a, b, c, d) => (((a, b), c), d) })
 
-  implicit def tuple5[A, B, C, D, E](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D],
-    c5: Schema[E]
-  ): Schema[(A, B, C, D, E)] =
+  implicit def tuple5[A, B, C, D, E](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E]): Schema[(A, B, C, D, E)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
       .zip(c5)
       .transform({ case ((((a, b), c), d), e) => (a, b, c, d, e) }, { case (a, b, c, d, e) => ((((a, b), c), d), e) })
 
-  implicit def tuple6[A, B, C, D, E, F](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D],
-    c5: Schema[E],
-    c6: Schema[F]
-  ): Schema[(A, B, C, D, E, F)] =
+  implicit def tuple6[A, B, C, D, E, F](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F]): Schema[(A, B, C, D, E, F)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -314,15 +297,7 @@ sealed trait TupleSchemas {
         case (a, b, c, d, e, f)                    => (((((a, b), c), d), e), f)
       })
 
-  implicit def tuple7[A, B, C, D, E, F, G](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D],
-    c5: Schema[E],
-    c6: Schema[F],
-    c7: Schema[G]
-  ): Schema[(A, B, C, D, E, F, G)] =
+  implicit def tuple7[A, B, C, D, E, F, G](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F], c7: Schema[G]): Schema[(A, B, C, D, E, F, G)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -333,16 +308,7 @@ sealed trait TupleSchemas {
         case (a, b, c, d, e, f, g)                      => ((((((a, b), c), d), e), f), g)
       })
 
-  implicit def tuple8[A, B, C, D, E, F, G, H](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D],
-    c5: Schema[E],
-    c6: Schema[F],
-    c7: Schema[G],
-    c8: Schema[H]
-  ): Schema[(A, B, C, D, E, F, G, H)] =
+  implicit def tuple8[A, B, C, D, E, F, G, H](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F], c7: Schema[G], c8: Schema[H]): Schema[(A, B, C, D, E, F, G, H)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -354,17 +320,7 @@ sealed trait TupleSchemas {
         case (a, b, c, d, e, f, g, h)                        => (((((((a, b), c), d), e), f), g), h)
       })
 
-  implicit def tuple9[A, B, C, D, E, F, G, H, I](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D],
-    c5: Schema[E],
-    c6: Schema[F],
-    c7: Schema[G],
-    c8: Schema[H],
-    c9: Schema[I]
-  ): Schema[(A, B, C, D, E, F, G, H, I)] =
+  implicit def tuple9[A, B, C, D, E, F, G, H, I](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F], c7: Schema[G], c8: Schema[H], c9: Schema[I]): Schema[(A, B, C, D, E, F, G, H, I)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -377,18 +333,7 @@ sealed trait TupleSchemas {
         case (a, b, c, d, e, f, g, h, i)                          => ((((((((a, b), c), d), e), f), g), h), i)
       })
 
-  implicit def tuple10[A, B, C, D, E, F, G, H, I, J](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D],
-    c5: Schema[E],
-    c6: Schema[F],
-    c7: Schema[G],
-    c8: Schema[H],
-    c9: Schema[I],
-    c10: Schema[J]
-  ): Schema[(A, B, C, D, E, F, G, H, I, J)] =
+  implicit def tuple10[A, B, C, D, E, F, G, H, I, J](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F], c7: Schema[G], c8: Schema[H], c9: Schema[I], c10: Schema[J]): Schema[(A, B, C, D, E, F, G, H, I, J)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -402,19 +347,7 @@ sealed trait TupleSchemas {
         case (a, b, c, d, e, f, g, h, i, j)                            => (((((((((a, b), c), d), e), f), g), h), i), j)
       })
 
-  implicit def tuple11[A, B, C, D, E, F, G, H, I, J, K](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D],
-    c5: Schema[E],
-    c6: Schema[F],
-    c7: Schema[G],
-    c8: Schema[H],
-    c9: Schema[I],
-    c10: Schema[J],
-    c11: Schema[K]
-  ): Schema[(A, B, C, D, E, F, G, H, I, J, K)] =
+  implicit def tuple11[A, B, C, D, E, F, G, H, I, J, K](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F], c7: Schema[G], c8: Schema[H], c9: Schema[I], c10: Schema[J], c11: Schema[K]): Schema[(A, B, C, D, E, F, G, H, I, J, K)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -429,20 +362,7 @@ sealed trait TupleSchemas {
         case (a, b, c, d, e, f, g, h, i, j, k)                              => ((((((((((a, b), c), d), e), f), g), h), i), j), k)
       })
 
-  implicit def tuple12[A, B, C, D, E, F, G, H, I, J, K, L](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D],
-    c5: Schema[E],
-    c6: Schema[F],
-    c7: Schema[G],
-    c8: Schema[H],
-    c9: Schema[I],
-    c10: Schema[J],
-    c11: Schema[K],
-    c12: Schema[L]
-  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L)] =
+  implicit def tuple12[A, B, C, D, E, F, G, H, I, J, K, L](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F], c7: Schema[G], c8: Schema[H], c9: Schema[I], c10: Schema[J], c11: Schema[K], c12: Schema[L]): Schema[(A, B, C, D, E, F, G, H, I, J, K, L)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -454,27 +374,11 @@ sealed trait TupleSchemas {
       .zip(c10)
       .zip(c11)
       .zip(c12)
-      .transform(
-        { case (((((((((((a, b), c), d), e), f), g), h), i), j), k), l) => (a, b, c, d, e, f, g, h, i, j, k, l) }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l)                     => (((((((((((a, b), c), d), e), f), g), h), i), j), k), l)
-        }
-      )
+      .transform({ case (((((((((((a, b), c), d), e), f), g), h), i), j), k), l) => (a, b, c, d, e, f, g, h, i, j, k, l) }, {
+        case (a, b, c, d, e, f, g, h, i, j, k, l)                                => (((((((((((a, b), c), d), e), f), g), h), i), j), k), l)
+      })
 
-  implicit def tuple13[A, B, C, D, E, F, G, H, I, J, K, L, M](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D],
-    c5: Schema[E],
-    c6: Schema[F],
-    c7: Schema[G],
-    c8: Schema[H],
-    c9: Schema[I],
-    c10: Schema[J],
-    c11: Schema[K],
-    c12: Schema[L],
-    c13: Schema[M]
-  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M)] =
+  implicit def tuple13[A, B, C, D, E, F, G, H, I, J, K, L, M](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F], c7: Schema[G], c8: Schema[H], c9: Schema[I], c10: Schema[J], c11: Schema[K], c12: Schema[L], c13: Schema[M]): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -487,30 +391,13 @@ sealed trait TupleSchemas {
       .zip(c11)
       .zip(c12)
       .zip(c13)
-      .transform(
-        {
-          case ((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m) => (a, b, c, d, e, f, g, h, i, j, k, l, m)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m) => ((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m)
-        }
-      )
+      .transform({
+        case ((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m) => (a, b, c, d, e, f, g, h, i, j, k, l, m)
+      }, {
+        case (a, b, c, d, e, f, g, h, i, j, k, l, m) => ((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m)
+      })
 
-  implicit def tuple14[A, B, C, D, E, F, G, H, I, J, K, L, M, N](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D],
-    c5: Schema[E],
-    c6: Schema[F],
-    c7: Schema[G],
-    c8: Schema[H],
-    c9: Schema[I],
-    c10: Schema[J],
-    c11: Schema[K],
-    c12: Schema[L],
-    c13: Schema[M],
-    c14: Schema[N]
-  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N)] =
+  implicit def tuple14[A, B, C, D, E, F, G, H, I, J, K, L, M, N](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F], c7: Schema[G], c8: Schema[H], c9: Schema[I], c10: Schema[J], c11: Schema[K], c12: Schema[L], c13: Schema[M], c14: Schema[N]): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -524,33 +411,15 @@ sealed trait TupleSchemas {
       .zip(c12)
       .zip(c13)
       .zip(c14)
-      .transform(
-        {
-          case (((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n) =>
-            (((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n)
-        }
-      )
+      .transform({
+        case (((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n)
+      }, {
+        case (a, b, c, d, e, f, g, h, i, j, k, l, m, n) =>
+          (((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n)
+      })
 
-  implicit def tuple15[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D],
-    c5: Schema[E],
-    c6: Schema[F],
-    c7: Schema[G],
-    c8: Schema[H],
-    c9: Schema[I],
-    c10: Schema[J],
-    c11: Schema[K],
-    c12: Schema[L],
-    c13: Schema[M],
-    c14: Schema[N],
-    c15: Schema[O]
-  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)] =
+  implicit def tuple15[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F], c7: Schema[G], c8: Schema[H], c9: Schema[I], c10: Schema[J], c11: Schema[K], c12: Schema[L], c13: Schema[M], c14: Schema[N], c15: Schema[O]): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -565,34 +434,15 @@ sealed trait TupleSchemas {
       .zip(c13)
       .zip(c14)
       .zip(c15)
-      .transform(
-        {
-          case ((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) =>
-            ((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o)
-        }
-      )
+      .transform({
+        case ((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)
+      }, {
+        case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) =>
+          ((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o)
+      })
 
-  implicit def tuple16[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D],
-    c5: Schema[E],
-    c6: Schema[F],
-    c7: Schema[G],
-    c8: Schema[H],
-    c9: Schema[I],
-    c10: Schema[J],
-    c11: Schema[K],
-    c12: Schema[L],
-    c13: Schema[M],
-    c14: Schema[N],
-    c15: Schema[O],
-    c16: Schema[P]
-  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P)] =
+  implicit def tuple16[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F], c7: Schema[G], c8: Schema[H], c9: Schema[I], c10: Schema[J], c11: Schema[K], c12: Schema[L], c13: Schema[M], c14: Schema[N], c15: Schema[O], c16: Schema[P]): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -608,35 +458,16 @@ sealed trait TupleSchemas {
       .zip(c14)
       .zip(c15)
       .zip(c16)
-      .transform(
-        {
-          case (((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) =>
-            (((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p)
-        }
-      )
+      .transform({
+        case (((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)
+      }, {
+        case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p) =>
+          (((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p)
+      })
 
-  implicit def tuple17[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D],
-    c5: Schema[E],
-    c6: Schema[F],
-    c7: Schema[G],
-    c8: Schema[H],
-    c9: Schema[I],
-    c10: Schema[J],
-    c11: Schema[K],
-    c12: Schema[L],
-    c13: Schema[M],
-    c14: Schema[N],
-    c15: Schema[O],
-    c16: Schema[P],
-    c17: Schema[Q]
-  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q)] =
+  implicit def tuple17[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F], c7: Schema[G], c8: Schema[H], c9: Schema[I], c10: Schema[J], c11: Schema[K], c12: Schema[L], c13: Schema[M], c14: Schema[N], c15: Schema[O], c16: Schema[P], c17: Schema[Q])
+    : Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -653,36 +484,16 @@ sealed trait TupleSchemas {
       .zip(c15)
       .zip(c16)
       .zip(c17)
-      .transform(
-        {
-          case ((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q) =>
-            ((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q)
-        }
-      )
+      .transform({
+        case ((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q)
+      }, {
+        case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q) =>
+          ((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q)
+      })
 
-  implicit def tuple18[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D],
-    c5: Schema[E],
-    c6: Schema[F],
-    c7: Schema[G],
-    c8: Schema[H],
-    c9: Schema[I],
-    c10: Schema[J],
-    c11: Schema[K],
-    c12: Schema[L],
-    c13: Schema[M],
-    c14: Schema[N],
-    c15: Schema[O],
-    c16: Schema[P],
-    c17: Schema[Q],
-    c18: Schema[R]
-  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R)] =
+  implicit def tuple18[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F], c7: Schema[G], c8: Schema[H], c9: Schema[I], c10: Schema[J], c11: Schema[K], c12: Schema[L], c13: Schema[M], c14: Schema[N], c15: Schema[O], c16: Schema[P], c17: Schema[Q], c18: Schema[R])
+    : Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -700,37 +511,16 @@ sealed trait TupleSchemas {
       .zip(c16)
       .zip(c17)
       .zip(c18)
-      .transform(
-        {
-          case (((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r) =>
-            (((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r)
-        }
-      )
+      .transform({
+        case (((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r)
+      }, {
+        case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r) =>
+          (((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r)
+      })
 
-  implicit def tuple19[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S](
-    implicit c1: Schema[A],
-    c2: Schema[B],
-    c3: Schema[C],
-    c4: Schema[D],
-    c5: Schema[E],
-    c6: Schema[F],
-    c7: Schema[G],
-    c8: Schema[H],
-    c9: Schema[I],
-    c10: Schema[J],
-    c11: Schema[K],
-    c12: Schema[L],
-    c13: Schema[M],
-    c14: Schema[N],
-    c15: Schema[O],
-    c16: Schema[P],
-    c17: Schema[Q],
-    c18: Schema[R],
-    c19: Schema[S]
-  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S)] =
+  implicit def tuple19[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F], c7: Schema[G], c8: Schema[H], c9: Schema[I], c10: Schema[J], c11: Schema[K], c12: Schema[L], c13: Schema[M], c14: Schema[N], c15: Schema[O], c16: Schema[P], c17: Schema[Q], c18: Schema[R], c19: Schema[S])
+    : Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -749,15 +539,13 @@ sealed trait TupleSchemas {
       .zip(c17)
       .zip(c18)
       .zip(c19)
-      .transform(
-        {
-          case ((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s) =>
-            ((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s)
-        }
-      )
+      .transform({
+        case ((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s)
+      }, {
+        case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s) =>
+          ((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s)
+      })
 
   implicit def tuple20[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T](
     implicit c1: Schema[A],
@@ -800,15 +588,13 @@ sealed trait TupleSchemas {
       .zip(c18)
       .zip(c19)
       .zip(c20)
-      .transform(
-        {
-          case (((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t) =>
-            (((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t)
-        }
-      )
+      .transform({
+        case (((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t)
+      }, {
+        case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t) =>
+          (((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t)
+      })
 
   implicit def tuple21[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U](
     implicit c1: Schema[A],
@@ -853,15 +639,13 @@ sealed trait TupleSchemas {
       .zip(c19)
       .zip(c20)
       .zip(c21)
-      .transform(
-        {
-          case ((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u) =>
-            ((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u)
-        }
-      )
+      .transform({
+        case ((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u)
+      }, {
+        case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u) =>
+          ((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u)
+      })
 
   implicit def tuple22[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V](
     implicit c1: Schema[A],
@@ -908,20 +692,16 @@ sealed trait TupleSchemas {
       .zip(c20)
       .zip(c21)
       .zip(c22)
-      .transform(
-        {
-          case (
-              ((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u),
-              v
-              ) =>
-            (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v)
-        }, {
-          case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v) =>
-            (((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u), v)
-        }
-      )
+      .transform({
+        case (((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u), v) =>
+          (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v)
+      }, {
+        case (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v) =>
+          (((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u), v)
+      })
 }
 
+//scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
 sealed trait RecordSchemas { self: Schema.type =>
 
   sealed case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) {
@@ -936,12 +716,7 @@ sealed trait RecordSchemas { self: Schema.type =>
         Left(s"wrong number of values for $structure")
   }
 
-  sealed case class CaseClass1[A, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
-    field: Field[A],
-    construct: A => Z,
-    extractField: Z => A
-  ) extends Record[Z] { self =>
+  sealed case class CaseClass1[A, Z](override val annotations: Chunk[Any] = Chunk.empty, field: Field[A], construct: A => Z, extractField: Z => A) extends Record[Z] { self =>
     override def structure: Chunk[Field[_]] = Chunk(field)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 1)
@@ -954,14 +729,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     override def toString: String = s"CaseClass1(${structure.mkString(",")})"
   }
 
-  sealed case class CaseClass2[A1, A2, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
-    field1: Field[A1],
-    field2: Field[A2],
-    construct: (A1, A2) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2
-  ) extends Record[Z] {
+  sealed case class CaseClass2[A1, A2, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], construct: (A1, A2) => Z, extractField1: Z => A1, extractField2: Z => A2) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 2)
@@ -975,16 +743,7 @@ sealed trait RecordSchemas { self: Schema.type =>
 
   }
 
-  sealed case class CaseClass3[A1, A2, A3, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    construct: (A1, A2, A3) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3
-  ) extends Record[Z] {
+  sealed case class CaseClass3[A1, A2, A3, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], field3: Field[A3], construct: (A1, A2, A3) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 3)
@@ -999,30 +758,12 @@ sealed trait RecordSchemas { self: Schema.type =>
 
   }
 
-  sealed case class CaseClass4[A1, A2, A3, A4, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    construct: (A1, A2, A3, A4) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4
-  ) extends Record[Z] {
+  sealed case class CaseClass4[A1, A2, A3, A4, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], field3: Field[A3], field4: Field[A4], construct: (A1, A2, A3, A4) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3, extractField4: Z => A4) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 4)
         try {
-          Right(
-            construct(
-              values(0).asInstanceOf[A1],
-              values(1).asInstanceOf[A2],
-              values(2).asInstanceOf[A3],
-              values(3).asInstanceOf[A4]
-            )
-          )
+          Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3], values(3).asInstanceOf[A4]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
@@ -1032,33 +773,12 @@ sealed trait RecordSchemas { self: Schema.type =>
 
   }
 
-  sealed case class CaseClass5[A1, A2, A3, A4, A5, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    construct: (A1, A2, A3, A4, A5) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5
-  ) extends Record[Z] {
+  sealed case class CaseClass5[A1, A2, A3, A4, A5, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], field3: Field[A3], field4: Field[A4], field5: Field[A5], construct: (A1, A2, A3, A4, A5) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3, extractField4: Z => A4, extractField5: Z => A5) extends Record[Z] {
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 5)
         try {
-          Right(
-            construct(
-              values(0).asInstanceOf[A1],
-              values(1).asInstanceOf[A2],
-              values(2).asInstanceOf[A3],
-              values(3).asInstanceOf[A4],
-              values(4).asInstanceOf[A5]
-            )
-          )
+          Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3], values(3).asInstanceOf[A4], values(4).asInstanceOf[A5]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
@@ -1087,16 +807,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 6)
         try {
-          Right(
-            construct(
-              values(0).asInstanceOf[A1],
-              values(1).asInstanceOf[A2],
-              values(2).asInstanceOf[A3],
-              values(3).asInstanceOf[A4],
-              values(4).asInstanceOf[A5],
-              values(5).asInstanceOf[A6]
-            )
-          )
+          Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3], values(3).asInstanceOf[A4], values(4).asInstanceOf[A5], values(5).asInstanceOf[A6]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
@@ -1128,17 +839,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 7)
         try {
-          Right(
-            construct(
-              values(0).asInstanceOf[A1],
-              values(1).asInstanceOf[A2],
-              values(2).asInstanceOf[A3],
-              values(3).asInstanceOf[A4],
-              values(4).asInstanceOf[A5],
-              values(5).asInstanceOf[A6],
-              values(6).asInstanceOf[A7]
-            )
-          )
+          Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3], values(3).asInstanceOf[A4], values(4).asInstanceOf[A5], values(5).asInstanceOf[A6], values(6).asInstanceOf[A7]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
@@ -1172,18 +873,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 8)
         try {
-          Right(
-            construct(
-              values(0).asInstanceOf[A1],
-              values(1).asInstanceOf[A2],
-              values(2).asInstanceOf[A3],
-              values(3).asInstanceOf[A4],
-              values(4).asInstanceOf[A5],
-              values(5).asInstanceOf[A6],
-              values(6).asInstanceOf[A7],
-              values(7).asInstanceOf[A8]
-            )
-          )
+          Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3], values(3).asInstanceOf[A4], values(4).asInstanceOf[A5], values(5).asInstanceOf[A6], values(6).asInstanceOf[A7], values(7).asInstanceOf[A8]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
@@ -1220,19 +910,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 9)
         try {
-          Right(
-            construct(
-              values(0).asInstanceOf[A1],
-              values(1).asInstanceOf[A2],
-              values(2).asInstanceOf[A3],
-              values(3).asInstanceOf[A4],
-              values(4).asInstanceOf[A5],
-              values(5).asInstanceOf[A6],
-              values(6).asInstanceOf[A7],
-              values(7).asInstanceOf[A8],
-              values(8).asInstanceOf[A9]
-            )
-          )
+          Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3], values(3).asInstanceOf[A4], values(4).asInstanceOf[A5], values(5).asInstanceOf[A6], values(6).asInstanceOf[A7], values(7).asInstanceOf[A8], values(8).asInstanceOf[A9]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
@@ -1271,20 +949,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 10)
         try {
-          Right(
-            construct(
-              values(0).asInstanceOf[A1],
-              values(1).asInstanceOf[A2],
-              values(2).asInstanceOf[A3],
-              values(3).asInstanceOf[A4],
-              values(4).asInstanceOf[A5],
-              values(5).asInstanceOf[A6],
-              values(6).asInstanceOf[A7],
-              values(7).asInstanceOf[A8],
-              values(8).asInstanceOf[A9],
-              values(9).asInstanceOf[A10]
-            )
-          )
+          Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3], values(3).asInstanceOf[A4], values(4).asInstanceOf[A5], values(5).asInstanceOf[A6], values(6).asInstanceOf[A7], values(7).asInstanceOf[A8], values(8).asInstanceOf[A9], values(9).asInstanceOf[A10]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
@@ -1324,21 +989,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 11)
         try {
-          Right(
-            construct(
-              values(0).asInstanceOf[A1],
-              values(1).asInstanceOf[A2],
-              values(2).asInstanceOf[A3],
-              values(3).asInstanceOf[A4],
-              values(4).asInstanceOf[A5],
-              values(5).asInstanceOf[A6],
-              values(6).asInstanceOf[A7],
-              values(7).asInstanceOf[A8],
-              values(8).asInstanceOf[A9],
-              values(9).asInstanceOf[A10],
-              values(10).asInstanceOf[A11]
-            )
-          )
+          Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3], values(3).asInstanceOf[A4], values(4).asInstanceOf[A5], values(5).asInstanceOf[A6], values(6).asInstanceOf[A7], values(7).asInstanceOf[A8], values(8).asInstanceOf[A9], values(9).asInstanceOf[A10], values(10).asInstanceOf[A11]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
@@ -1380,22 +1031,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 12)
         try {
-          Right(
-            construct(
-              values(0).asInstanceOf[A1],
-              values(1).asInstanceOf[A2],
-              values(2).asInstanceOf[A3],
-              values(3).asInstanceOf[A4],
-              values(4).asInstanceOf[A5],
-              values(5).asInstanceOf[A6],
-              values(6).asInstanceOf[A7],
-              values(7).asInstanceOf[A8],
-              values(8).asInstanceOf[A9],
-              values(9).asInstanceOf[A10],
-              values(10).asInstanceOf[A11],
-              values(11).asInstanceOf[A12]
-            )
-          )
+          Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3], values(3).asInstanceOf[A4], values(4).asInstanceOf[A5], values(5).asInstanceOf[A6], values(6).asInstanceOf[A7], values(7).asInstanceOf[A8], values(8).asInstanceOf[A9], values(9).asInstanceOf[A10], values(10).asInstanceOf[A11], values(11).asInstanceOf[A12]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
@@ -1439,23 +1075,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 13)
         try {
-          Right(
-            construct(
-              values(0).asInstanceOf[A1],
-              values(1).asInstanceOf[A2],
-              values(2).asInstanceOf[A3],
-              values(3).asInstanceOf[A4],
-              values(4).asInstanceOf[A5],
-              values(5).asInstanceOf[A6],
-              values(6).asInstanceOf[A7],
-              values(7).asInstanceOf[A8],
-              values(8).asInstanceOf[A9],
-              values(9).asInstanceOf[A10],
-              values(10).asInstanceOf[A11],
-              values(11).asInstanceOf[A12],
-              values(12).asInstanceOf[A13]
-            )
-          )
+          Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3], values(3).asInstanceOf[A4], values(4).asInstanceOf[A5], values(5).asInstanceOf[A6], values(6).asInstanceOf[A7], values(7).asInstanceOf[A8], values(8).asInstanceOf[A9], values(9).asInstanceOf[A10], values(10).asInstanceOf[A11], values(11).asInstanceOf[A12], values(12).asInstanceOf[A13]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
@@ -1497,22 +1117,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField14: Z => A14
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
-      Chunk(
-        field1,
-        field2,
-        field3,
-        field4,
-        field5,
-        field6,
-        field7,
-        field8,
-        field9,
-        field10,
-        field11,
-        field12,
-        field13,
-        field14
-      )
+      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 14)
         try {
@@ -1578,23 +1183,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField15: Z => A15
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
-      Chunk(
-        field1,
-        field2,
-        field3,
-        field4,
-        field5,
-        field6,
-        field7,
-        field8,
-        field9,
-        field10,
-        field11,
-        field12,
-        field13,
-        field14,
-        field15
-      )
+      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 15)
         try {
@@ -1663,24 +1252,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField16: Z => A16
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
-      Chunk(
-        field1,
-        field2,
-        field3,
-        field4,
-        field5,
-        field6,
-        field7,
-        field8,
-        field9,
-        field10,
-        field11,
-        field12,
-        field13,
-        field14,
-        field15,
-        field16
-      )
+      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 16)
         try {
@@ -1752,25 +1324,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField17: Z => A17
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
-      Chunk(
-        field1,
-        field2,
-        field3,
-        field4,
-        field5,
-        field6,
-        field7,
-        field8,
-        field9,
-        field10,
-        field11,
-        field12,
-        field13,
-        field14,
-        field15,
-        field16,
-        field17
-      )
+      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 17)
         try {
@@ -1845,26 +1399,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField18: Z => A18
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
-      Chunk(
-        field1,
-        field2,
-        field3,
-        field4,
-        field5,
-        field6,
-        field7,
-        field8,
-        field9,
-        field10,
-        field11,
-        field12,
-        field13,
-        field14,
-        field15,
-        field16,
-        field17,
-        field18
-      )
+      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 18)
         try {
@@ -1942,27 +1477,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField19: Z => A19
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
-      Chunk(
-        field1,
-        field2,
-        field3,
-        field4,
-        field5,
-        field6,
-        field7,
-        field8,
-        field9,
-        field10,
-        field11,
-        field12,
-        field13,
-        field14,
-        field15,
-        field16,
-        field17,
-        field18,
-        field19
-      )
+      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 19)
         try {
@@ -1998,29 +1513,7 @@ sealed trait RecordSchemas { self: Schema.type =>
 
   }
 
-  sealed case class CaseClass20[
-    A1,
-    A2,
-    A3,
-    A4,
-    A5,
-    A6,
-    A7,
-    A8,
-    A9,
-    A10,
-    A11,
-    A12,
-    A13,
-    A14,
-    A15,
-    A16,
-    A17,
-    A18,
-    A19,
-    A20,
-    Z
-  ](
+  sealed case class CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -2065,28 +1558,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField20: Z => A20
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
-      Chunk(
-        field1,
-        field2,
-        field3,
-        field4,
-        field5,
-        field6,
-        field7,
-        field8,
-        field9,
-        field10,
-        field11,
-        field12,
-        field13,
-        field14,
-        field15,
-        field16,
-        field17,
-        field18,
-        field19,
-        field20
-      )
+      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 20)
         try {
@@ -2123,30 +1595,7 @@ sealed trait RecordSchemas { self: Schema.type =>
 
   }
 
-  sealed case class CaseClass21[
-    A1,
-    A2,
-    A3,
-    A4,
-    A5,
-    A6,
-    A7,
-    A8,
-    A9,
-    A10,
-    A11,
-    A12,
-    A13,
-    A14,
-    A15,
-    A16,
-    A17,
-    A18,
-    A19,
-    A20,
-    A21,
-    Z
-  ](
+  sealed case class CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -2193,29 +1642,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField21: Z => A21
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
-      Chunk(
-        field1,
-        field2,
-        field3,
-        field4,
-        field5,
-        field6,
-        field7,
-        field8,
-        field9,
-        field10,
-        field11,
-        field12,
-        field13,
-        field14,
-        field15,
-        field16,
-        field17,
-        field18,
-        field19,
-        field20,
-        field21
-      )
+      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20, field21)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 21)
         try {
@@ -2253,31 +1680,7 @@ sealed trait RecordSchemas { self: Schema.type =>
 
   }
 
-  sealed case class CaseClass22[
-    A1,
-    A2,
-    A3,
-    A4,
-    A5,
-    A6,
-    A7,
-    A8,
-    A9,
-    A10,
-    A11,
-    A12,
-    A13,
-    A14,
-    A15,
-    A16,
-    A17,
-    A18,
-    A19,
-    A20,
-    A21,
-    A22,
-    Z
-  ](
+  sealed case class CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](
     override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
@@ -2301,30 +1704,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     field20: Field[A20],
     field21: Field[A21],
     field22: Field[A22],
-    construct: (
-      A1,
-      A2,
-      A3,
-      A4,
-      A5,
-      A6,
-      A7,
-      A8,
-      A9,
-      A10,
-      A11,
-      A12,
-      A13,
-      A14,
-      A15,
-      A16,
-      A17,
-      A18,
-      A19,
-      A20,
-      A21,
-      A22
-    ) => Z,
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
     extractField3: Z => A3,
@@ -2349,30 +1729,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField22: Z => A22
   ) extends Record[Z] {
     override def structure: Chunk[Field[_]] =
-      Chunk(
-        field1,
-        field2,
-        field3,
-        field4,
-        field5,
-        field6,
-        field7,
-        field8,
-        field9,
-        field10,
-        field11,
-        field12,
-        field13,
-        field14,
-        field15,
-        field16,
-        field17,
-        field18,
-        field19,
-        field20,
-        field21,
-        field22
-      )
+      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20, field21, field22)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 22)
         try {
