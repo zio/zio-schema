@@ -1351,10 +1351,90 @@ object ProtobufCodec extends Codec {
           caseClass21Decoder(s)
         case s: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
           caseClass22Decoder(s)
-        case Schema.Enum1(c)          => enumDecoder(c)
-        case Schema.Enum2(c1, c2)     => enumDecoder(c1, c2)
-        case Schema.Enum3(c1, c2, c3) => enumDecoder(c1, c2, c3)
-        case Schema.EnumN(cs)         => enumDecoder(cs: _*)
+        case Schema.Enum1(c)                                  => enumDecoder(c)
+        case Schema.Enum2(c1, c2)                             => enumDecoder(c1, c2)
+        case Schema.Enum3(c1, c2, c3)                         => enumDecoder(c1, c2, c3)
+        case Schema.Enum4(c1, c2, c3, c4)                     => enumDecoder(c1, c2, c3, c4)
+        case Schema.Enum5(c1, c2, c3, c4, c5)                 => enumDecoder(c1, c2, c3, c4, c5)
+        case Schema.Enum6(c1, c2, c3, c4, c5, c6)             => enumDecoder(c1, c2, c3, c4, c5, c6)
+        case Schema.Enum7(c1, c2, c3, c4, c5, c6, c7)         => enumDecoder(c1, c2, c3, c4, c5, c6, c7)
+        case Schema.Enum8(c1, c2, c3, c4, c5, c6, c7, c8)     => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8)
+        case Schema.Enum9(c1, c2, c3, c4, c5, c6, c7, c8, c9) => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9)
+        case Schema.Enum10(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10) =>
+          enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
+        case Schema.Enum11(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11) =>
+          enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
+        case Schema.Enum12(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12) =>
+          enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
+        case Schema.Enum13(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13) =>
+          enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
+        case Schema.Enum14(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14) =>
+          enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
+        case Schema.Enum15(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15) =>
+          enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+        case Schema.Enum16(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16) =>
+          enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
+        case Schema.Enum17(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17) =>
+          enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
+        case Schema.Enum18(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18) =>
+          enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
+        case Schema.Enum19(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19) =>
+          enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
+        case Schema.Enum20(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20) =>
+          enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
+        case Schema
+              .Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21) =>
+          enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
+        case Schema.Enum22(
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            c9,
+            c10,
+            c11,
+            c12,
+            c13,
+            c14,
+            c15,
+            c16,
+            c17,
+            c18,
+            c19,
+            c20,
+            c21,
+            c22
+            ) =>
+          enumDecoder(
+            c1,
+            c2,
+            c3,
+            c4,
+            c5,
+            c6,
+            c7,
+            c8,
+            c9,
+            c10,
+            c11,
+            c12,
+            c13,
+            c14,
+            c15,
+            c16,
+            c17,
+            c18,
+            c19,
+            c20,
+            c21,
+            c22
+          )
+
+        case Schema.EnumN(cs) => enumDecoder(cs: _*)
       }
 
     private def enumDecoder[Z](cases: Schema.Case[_, Z]*): Decoder[Z] =
