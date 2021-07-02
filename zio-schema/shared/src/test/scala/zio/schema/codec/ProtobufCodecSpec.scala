@@ -7,9 +7,10 @@ import java.time.temporal.ChronoUnit
 import scala.collection.immutable.ListMap
 import scala.util.Try
 
-import zio.schema.{ DeriveSchema, Schema, StandardType }
+import zio.schema.{ DeriveSchema, Schema, SchemaGen, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
+import zio.test.TestAspect._
 import zio.test._
 import zio.{ Chunk, ZIO }
 
@@ -476,7 +477,16 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed  <- encodeAndDecode(sequenceOfSumSchema, richSequence)
           ed2 <- encodeAndDecodeNS(sequenceOfSumSchema, richSequence)
         } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
-      }
+      },
+      testM("recursive data types") {
+        checkM(SchemaGen.anyRecursiveTypeAndValue) {
+          case (schema, value) =>
+            for {
+              ed  <- encodeAndDecode(schema, value)
+              ed2 <- encodeAndDecodeNS(schema, value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+        }
+      } @@ ignore
     ),
     suite("Should successfully decode")(
       testM("empty input") {

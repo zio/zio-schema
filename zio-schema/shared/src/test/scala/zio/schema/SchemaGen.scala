@@ -485,4 +485,36 @@ object SchemaGen {
       value  <- DynamicValueGen.anyDynamicValueOfSchema(schema)
     } yield (schema -> schema.fromDynamic(value).toOption.get).asInstanceOf[SchemaAndValue[Any]]
 
+  sealed trait Json
+  case object JNull                                extends Json
+  case class JString(s: String)                    extends Json
+  case class JNumber(l: Double)                    extends Json
+  case class JObject(fields: List[(String, Json)]) extends Json
+
+  object Json {
+    implicit val schema: Schema[Json] = DeriveSchema.gen[Json]
+
+    val leafGen: Gen[Random with Sized, Json] =
+      Gen.oneOf(
+        Gen.const(JNull),
+        Gen.anyString.map(JString(_)),
+        Gen.anyDouble.map(JNumber(_))
+      )
+
+    val gen: Gen[Random with Sized, Json] =
+      for {
+        keys   <- Gen.setOfN(3)(Gen.anyString)
+        values <- Gen.setOfN(3)(leafGen)
+      } yield JObject(keys.zip(values).toList)
+  }
+
+  lazy val anyRecursiveType: Gen[Random with Sized, Schema[_]] =
+    Gen.const(Schema[Json])
+
+  lazy val anyRecursiveTypeAndValue: Gen[Random with Sized, SchemaAndValue[_]] =
+    for {
+      schema <- Gen.const(Schema[Json])
+      value  <- Json.gen
+    } yield (schema, value)
+
 }

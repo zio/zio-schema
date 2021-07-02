@@ -2,10 +2,12 @@ package zio.schema
 
 import java.time.format.DateTimeFormatter
 
+import zio.Chunk
 import zio.test.Assertion._
+import zio.test._
+import zio.ZEnv
+import zio.test.{ Annotations, Sized, TestConfig, ZSpec }
 import zio.test.environment.{ Live, TestClock, TestConsole, TestRandom, TestSystem }
-import zio.test.{ Annotations, Sized, TestConfig, ZSpec, _ }
-import zio.{ Chunk, ZEnv }
 
 object MetaSchemaSpec extends DefaultRunnableSpec {
   import SchemaAssertions._

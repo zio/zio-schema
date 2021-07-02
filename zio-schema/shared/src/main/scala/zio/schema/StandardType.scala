@@ -4,8 +4,6 @@ import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.{ ChronoUnit, TemporalUnit }
 
-import scala.annotation.switch
-
 import zio.Chunk
 
 sealed trait StandardType[A] {
@@ -47,7 +45,7 @@ object StandardType {
   }
 
   def fromString(tag: String): Option[StandardType[_]] =
-    (tag: @switch) match {
+    tag match {
       case Tags.UNIT             => Some(UnitType)
       case Tags.STRING           => Some(StringType)
       case Tags.BOOL             => Some(BoolType)
