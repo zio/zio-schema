@@ -10,7 +10,6 @@ import scala.util.Try
 import zio.schema.{ DeriveSchema, Schema, SchemaGen, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
-import zio.test.TestAspect._
 import zio.test._
 import zio.{ Chunk, ZIO }
 
@@ -486,7 +485,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
               ed2 <- encodeAndDecodeNS(schema, value)
             } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         }
-      } @@ ignore
+      } @@ TestAspect.ignore
     ),
     suite("Should successfully decode")(
       testM("empty input") {
@@ -512,8 +511,8 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         for {
           d  <- decode(Record.schemaRecord, "00").run
           d2 <- decodeNS(Record.schemaRecord, "00").run
-        } yield assert(d)(fails(equalTo("Failed decoding key: invalid field number"))) &&
-          assert(d2)(fails(equalTo("Failed decoding key: invalid field number")))
+        } yield assert(d)(fails(equalTo("Failed decoding key: invalid field number 0"))) &&
+          assert(d2)(fails(equalTo("Failed decoding key: invalid field number 0")))
       },
       testM("incomplete length delimited values") {
         for {

@@ -68,7 +68,9 @@ sealed trait Schema[A] {
    */
   def orElseEither[B](that: Schema[B]): Schema[Either[A, B]] = Schema.EitherSchema(self, that)
 
-  def serializable: Schema[Schema[_]] = Schema.Meta(MetaSchema.fromSchema(self))
+  def ref: String = self.getClass().getName
+
+  def serializable: Schema[Schema[_]] = Schema.Meta(Ast.fromSchema(self))
 
   def toDynamic(value: A): DynamicValue =
     DynamicValue.fromSchemaAndValue(self, value)
@@ -157,32 +159,32 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   implicit val none: Schema[None.type] = Schema[Unit].transform(_ => None, _ => ())
 
-  implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
+  implicit def chunk[A](implicit schemaA: => Schema[A]): Schema[Chunk[A]] =
     Schema.Sequence(schemaA, identity, identity)
 
-  implicit def either[A, B](left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
-    EitherSchema(left, right)
+  implicit def either[A, B](left: => Schema[A], right: => Schema[B]): Schema[Either[A, B]] =
+    EitherSchema(defer(left), defer(right))
 
-  implicit def left[A, B](implicit schemaA: Schema[A]): Schema[Left[A, Nothing]] =
-    schemaA.transform(Left(_), _.value)
+  implicit def left[A, B](implicit schemaA: => Schema[A]): Schema[Left[A, Nothing]] =
+    defer(schemaA).transform(Left(_), _.value)
 
-  implicit def list[A](implicit schemaA: Schema[A]): Schema[List[A]] =
-    Schema.Sequence(schemaA, _.toList, Chunk.fromIterable(_))
+  implicit def list[A](implicit schemaA: => Schema[A]): Schema[List[A]] =
+    Schema.Sequence(defer(schemaA), _.toList, Chunk.fromIterable(_))
 
-  implicit def option[A](implicit element: Schema[A]): Schema[Option[A]] =
-    Optional(element)
+  implicit def option[A](implicit element: => Schema[A]): Schema[Option[A]] =
+    Optional(defer(element))
 
   implicit def primitive[A](implicit standardType: StandardType[A]): Schema[A] =
     Primitive(standardType)
 
-  implicit def right[A, B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
-    schemaB.transform(Right(_), _.value)
+  implicit def right[A, B](implicit schemaB: => Schema[B]): Schema[Right[Nothing, B]] =
+    defer(schemaB).transform(Right(_), _.value)
 
-  implicit def set[A](implicit element: Schema[A]): Schema[Set[A]] =
-    chunk(element).transform(_.toSet, Chunk.fromIterable(_))
+  implicit def set[A](implicit element: => Schema[A]): Schema[Set[A]] =
+    chunk(defer(element)).transform(_.toSet, Chunk.fromIterable(_))
 
-  implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
-    chunk(element).transform(_.toVector, Chunk.fromIterable(_))
+  implicit def vector[A](implicit element: => Schema[A]): Schema[Vector[A]] =
+    chunk(defer(element)).transform(_.toVector, Chunk.fromIterable(_))
 
   sealed trait Enum[A] extends Schema[A] {
     def structure: ListMap[String, Schema[_]]
@@ -197,11 +199,13 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   }
 
   final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
-      extends Schema[Col[A]]
+      extends Schema[Col[A]] {
+    override def toString: String = s"Sequence($schemaA)"
+  }
 
   final case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
       extends Schema[B] {
-    override def serializable: Schema[Schema[_]] = Meta(MetaSchema.fromSchema(codec))
+    override def serializable: Schema[Schema[_]] = Meta(Ast.fromSchema(codec))
     override def toString: String                = s"Transform($codec)"
   }
 
@@ -217,11 +221,9 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   final case class Lazy[A](private val schema0: () => Schema[A]) extends Schema[A] {
     lazy val schema: Schema[A] = schema0()
-
-    override def toString: String = s"Lazy($schema)"
   }
 
-  final case class Meta(spec: MetaSchema) extends Schema[Schema[_]]
+  final case class Meta(ast: Ast) extends Schema[Schema[_]]
 }
 
 sealed trait EnumSchemas { self: Schema.type =>

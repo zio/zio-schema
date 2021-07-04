@@ -496,7 +496,7 @@ object SchemaGen {
 
     val leafGen: Gen[Random with Sized, Json] =
       Gen.oneOf(
-        Gen.const(JNull),
+        // Gen.const(JNull),
         Gen.anyString.map(JString(_)),
         Gen.anyDouble.map(JNumber(_))
       )

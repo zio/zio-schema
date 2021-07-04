@@ -73,7 +73,10 @@ object StandardType {
       case Tags.OFFSET_TIME      => Some(OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME))
       case Tags.OFFSET_DATE_TIME => Some(OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
       case Tags.ZONED_DATE_TIME  => Some(ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME))
-      case _                     => None
+      case units =>
+        try {
+          Some(Duration(ChronoUnit.valueOf(units)))
+        } catch { case _: Throwable => None }
     }
 
   def fromTemporalUnits(units: String): Option[StandardType[java.time.Duration]] =
@@ -103,7 +106,7 @@ object StandardType {
   implicit object ZoneId        extends StandardType[java.time.ZoneId]     { override def tag = Tags.ZONE_ID     }
   implicit object ZoneOffset    extends StandardType[java.time.ZoneOffset] { override def tag = Tags.ZONE_OFFSET }
   final case class Duration(temporalUnit: TemporalUnit) extends StandardType[java.time.Duration] {
-    override def tag = Tags.DURATION
+    override def tag: String = temporalUnit.toString().toUpperCase()
   }
   final case class Instant(formatter: DateTimeFormatter) extends StandardType[java.time.Instant] {
     override def tag = Tags.INSTANT

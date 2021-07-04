@@ -183,7 +183,7 @@ object DynamicValue {
           case Right(a)      => DynamicValue.Transform(fromSchemaAndValue(schema, a))
         }
 
-      case Schema.Meta(spec) => DynamicValue.DynamicSchema(spec)
+      case Schema.Meta(ast) => DynamicValue.DynamicAst(ast)
 
       case Schema.CaseClass1(_, f, _, ext) =>
         DynamicValue.Record(ListMap(f.label -> fromSchemaAndValue(f.schema, ext(value))))
@@ -1064,7 +1064,7 @@ object DynamicValue {
 
   final case class RightValue(value: DynamicValue) extends DynamicValue
 
-  final case class DynamicSchema(spec: MetaSchema) extends DynamicValue
+  final case class DynamicAst(ast: Ast) extends DynamicValue
 
   final case class Error(message: String) extends DynamicValue
 }

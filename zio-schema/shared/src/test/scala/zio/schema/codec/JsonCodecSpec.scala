@@ -25,7 +25,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       encoderSuite,
       decoderSuite,
       encoderDecoderSuite,
-      metaSchemaSuite
+      metaSchemaSuite @@ ignore
     ) @@ timeout(90.seconds)
 
   // TODO: Add tests for the transducer contract.
@@ -388,13 +388,13 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           case (schema, value) =>
             assertEncodesThenDecodes(schema, value)
         }
-      } @@ ignore,
+      },
       testM("recursive data type") {
         checkM(SchemaGen.anyRecursiveTypeAndValue) {
           case (schema, value) =>
             assertEncodesThenDecodes(schema, value)
         }
-      } @@ ignore
+      }
     )
   )
 
@@ -475,6 +475,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
   private def assertEncodesThenDecodes[A](schema: Schema[A], value: A, print: Boolean = false) = {
     val result = ZStream
       .succeed(value)
+      .tap(value => putStrLn(s"Input Value: $value").when(print).ignore)
       .transduce(JsonCodec.encoder(schema))
       .runCollect
       .tap(encoded => putStrLn(s"Encoded: ${new String(encoded.toArray)}").when(print).ignore)

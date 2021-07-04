@@ -89,6 +89,7 @@ object ProtobufCodec extends Codec {
       case _: Schema.Optional[_]          => false
       case _: Schema.Fail[_]              => false
       case _: Schema.EitherSchema[_, _]   => false
+      case lzy @ Schema.Lazy(_)           => canBePacked(lzy.schema)
       case _                              => false
     }
 
@@ -139,7 +140,7 @@ object ProtobufCodec extends Codec {
         case (Schema.Optional(codec), v: Option[_])               => encodeOptional(fieldNumber, codec, v)
         case (Schema.EitherSchema(left, right), v: Either[_, _])  => encodeEither(fieldNumber, left, right, v)
         case (l @ Schema.Lazy(_), v)                              => encode(fieldNumber, l.schema, v)
-        case (Schema.Meta(spec), _)                               => encode(fieldNumber, Schema[MetaSchema], spec)
+        case (Schema.Meta(ast), _)                                => encode(fieldNumber, Schema[Ast], ast)
         case ProductEncoder(encode)                               => encode(fieldNumber)
         case (Schema.Enum1(c), v)                                 => encodeEnum(fieldNumber, v, c)
         case (Schema.Enum2(c1, c2), v)                            => encodeEnum(fieldNumber, v, c1, c2)
@@ -438,7 +439,7 @@ object ProtobufCodec extends Codec {
         case Schema.Fail(message)             => fail(message)
         case Schema.EitherSchema(left, right) => eitherDecoder(left, right)
         case l @ Schema.Lazy(_)               => decoder(l.schema)
-        case Schema.Meta(_)                   => metaSchemaDecoder
+        case Schema.Meta(_)                   => astDecoder
         case ProductDecoder(decoder)          => decoder
         case Schema.Enum1(c)                  => enumDecoder(c)
         case Schema.Enum2(c1, c2)             => enumDecoder(c1, c2)
@@ -446,8 +447,8 @@ object ProtobufCodec extends Codec {
         case Schema.EnumN(cs)                 => enumDecoder(cs: _*)
       }
 
-    private val metaSchemaDecoder: Decoder[Schema[_]] =
-      decoder(Schema[MetaSchema]).map(_.toSchema)
+    private val astDecoder: Decoder[Schema[_]] =
+      decoder(Schema[Ast]).map(_.toSchema)
 
     private def enumDecoder[Z](cases: Schema.Case[_, Z]*): Decoder[Z] =
       keyDecoder.flatMap {
@@ -644,7 +645,7 @@ object ProtobufCodec extends Codec {
       varIntDecoder.flatMap { key =>
         val fieldNumber = (key >>> 3).toInt
         if (fieldNumber < 1) {
-          fail("Failed decoding key: invalid field number")
+          fail(s"Failed decoding key: invalid field number $fieldNumber")
         } else {
           key & 0x07 match {
             case 0 => succeed((WireType.VarInt, fieldNumber))
