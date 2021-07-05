@@ -561,16 +561,17 @@ object ProtobufCodec extends Codec {
         }
       }).take(8)
 
-    private def transformDecoder[A, B](schema: Schema[B], f: B => Either[String, A]): Decoder[A] = schema match {
-      case Schema.Primitive(typ) if typ == StandardType.UnitType =>
-        Decoder { (chunk: Chunk[Byte]) =>
-          f(().asInstanceOf[B]) match {
-            case Left(err) => Left(err)
-            case Right(b)  => Right(chunk -> b)
+    private def transformDecoder[A, B](schema: Schema[B], f: B => Either[String, A]): Decoder[A] =
+      schema match {
+        case Schema.Primitive(typ) if typ == StandardType.UnitType =>
+          Decoder { (chunk: Chunk[Byte]) =>
+            f(().asInstanceOf[B]) match {
+              case Left(err) => Left(err)
+              case Right(b)  => Right(chunk -> b)
+            }
           }
-        }
-      case _ => decoder(schema).flatMap(a => Decoder(chunk => f(a).map(b => (chunk, b))))
-    }
+        case _ => decoder(schema).flatMap(a => Decoder(chunk => f(a).map(b => (chunk, b))))
+      }
 
     private def primitiveDecoder[A](standardType: StandardType[A]): Decoder[A] =
       standardType match {

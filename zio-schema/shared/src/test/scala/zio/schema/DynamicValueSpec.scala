@@ -7,7 +7,6 @@ import zio._
 import zio.random.Random
 import zio.schema.Schema.Primitive
 import zio.test.Assertion._
-import zio.test.TestAspect._
 import zio.test._
 
 object DynamicValueSpec extends DefaultRunnableSpec {
@@ -72,7 +71,7 @@ object DynamicValueSpec extends DefaultRunnableSpec {
           case (schema, a) =>
             assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
         }
-      } @@ ignore
+      }
     )
 
   val primitiveTests: List[ZSpec[Sized with Random with TestConfig, Nothing]] = schemasAndGens.map {
