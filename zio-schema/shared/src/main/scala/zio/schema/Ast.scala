@@ -2,11 +2,18 @@ package zio.schema
 
 import zio.{ Chunk, ChunkBuilder }
 
-sealed trait Ast {
+sealed trait Ast { self =>
   def id: Int
   def lineage: Chunk[Int]
 
-  def toSchema: Schema[_] = ???
+  def toSchema: Schema[_] = self match {
+    case Ast.Value(typ, false, false) => Schema.Primitive(typ)
+    case Ast.Value(typ, true, false)  => Schema.Primitive(typ).optional
+    case Ast.Value(typ, false, true)  => Schema.chunk(Schema.Primitive(typ))
+    case Ast.Value(typ, true, true)   => Schema.chunk(Schema.Primitive(typ)).optional
+    case Ast.FailNode(msg, _, _)      => Schema.Fail(msg)
+    case _                            => ???
+  }
 }
 
 object Ast {

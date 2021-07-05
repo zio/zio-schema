@@ -7,17 +7,23 @@ import java.time.temporal.ChronoUnit
 import scala.collection.immutable.ListMap
 import scala.util.Try
 
+import zio._
+import zio.console._
 import zio.schema.{ DeriveSchema, Schema, SchemaGen, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, ZIO }
 
 // TODO: use generators instead of manual encode/decode
 object ProtobufCodecSpec extends DefaultRunnableSpec {
   import Schema._
 
-  def spec = suite("ProtobufCodec Spec")(
+  def spec = suite("all")(
+    codecSuite,
+    suite2
+  )
+
+  val codecSuite = suite("ProtobufCodec Spec")(
     suite("Should correctly encode")(
       testM("integers") {
         for {
@@ -485,7 +491,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
               ed2 <- encodeAndDecodeNS(schema, value)
             } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         }
-      } @@ TestAspect.ignore
+      }
     ),
     suite("Should successfully decode")(
       testM("empty input") {
@@ -535,6 +541,17 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         } yield assert(d)(fails(equalTo("failing schema"))) && assert(d2)(fails(equalTo("failing schema")))
       }
     )
+  )
+
+  val suite2 = suite("example")(
+    testM("recursive test") {
+      val json = SchemaGen.JArray(List(SchemaGen.JString("bar"), SchemaGen.JDecimal(1)))
+      encodeAndDecodeNS(
+        Schema[SchemaGen.Json],
+        json,
+        print = false
+      ).map(v => assert(v)(equalTo(json)))
+    }
   )
 
   // some tests are based on https://developers.google.com/protocol-buffers/docs/encoding
@@ -746,10 +763,12 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A) =
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false) =
     ZIO
       .succeed(input)
+      .tap(value => putStrLn(s"Input Value: $value").when(print).ignore)
       .map(a => ProtobufCodec.encode(schema)(a))
+      .tap(encoded => putStrLn(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
       .map(ch => ProtobufCodec.decode(schema)(ch))
       .absolve
 
@@ -759,4 +778,5 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .map(a => ProtobufCodec.encode(encodeSchema)(a))
       .map(ch => ProtobufCodec.decode(decodeSchema)(ch))
       .absolve
+
 }

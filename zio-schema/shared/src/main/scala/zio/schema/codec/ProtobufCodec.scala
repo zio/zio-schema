@@ -139,7 +139,7 @@ object ProtobufCodec extends Codec {
         case (Schema.Tuple(left, right), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)
         case (Schema.Optional(codec), v: Option[_])               => encodeOptional(fieldNumber, codec, v)
         case (Schema.EitherSchema(left, right), v: Either[_, _])  => encodeEither(fieldNumber, left, right, v)
-        case (l @ Schema.Lazy(_), v)                              => encode(fieldNumber, l.schema, v)
+        case (lzy @ Schema.Lazy(_), v)                            => encode(fieldNumber, lzy.schema, v)
         case (Schema.Meta(ast), _)                                => encode(fieldNumber, Schema[Ast], ast)
         case ProductEncoder(encode)                               => encode(fieldNumber)
         case (Schema.Enum1(c), v)                                 => encodeEnum(fieldNumber, v, c)
@@ -220,7 +220,7 @@ object ProtobufCodec extends Codec {
     ): Chunk[Byte] =
       (standardType, value) match {
         case (StandardType.UnitType, _) =>
-          Chunk.empty
+          encodeKey(WireType.LengthDelimited(0), fieldNumber)
         case (StandardType.StringType, str: String) =>
           val encoded = Chunk.fromArray(str.getBytes(StandardCharsets.UTF_8))
           encodeKey(WireType.LengthDelimited(encoded.size), fieldNumber) ++ encoded
@@ -362,24 +362,24 @@ object ProtobufCodec extends Codec {
     self =>
 
     def map[B](f: A => B): Decoder[B] =
-      Decoder(
-        bytes =>
-          self.run(bytes).map {
-            case (remainder, a) => (remainder, f(a))
-          }
-      )
+      Decoder { bytes =>
+        self.run(bytes).map {
+          case (remainder, a) =>
+            (remainder, f(a))
+        }
+      }
 
     def flatMap[B](f: A => Decoder[B]): Decoder[B] =
-      Decoder(
-        bytes =>
-          if (bytes.isEmpty) {
-            Left("Unexpected end of bytes")
-          } else {
-            self.run(bytes).flatMap {
-              case (remainder, a) => f(a).run(remainder)
-            }
+      Decoder { bytes =>
+        if (bytes.isEmpty) {
+          Left("Unexpected end of bytes")
+        } else {
+          self.run(bytes).flatMap {
+            case (remainder, a) =>
+              f(a).run(remainder)
           }
-      )
+        }
+      }
 
     def loop: Decoder[Chunk[A]] =
       self.flatMap(
@@ -400,8 +400,8 @@ object ProtobufCodec extends Codec {
       Decoder(bytes => {
         val (before, after) = bytes.splitAt(n)
         self.run(before) match {
-          case Left(value)           => Left(value)
-          case Right((remainder, a)) => Right((remainder ++ after, a))
+          case Left(value)   => Left(value)
+          case Right((_, a)) => Right((after, a))
         }
       })
   }
@@ -438,7 +438,7 @@ object ProtobufCodec extends Codec {
         case Schema.Optional(codec)           => optionalDecoder(codec)
         case Schema.Fail(message)             => fail(message)
         case Schema.EitherSchema(left, right) => eitherDecoder(left, right)
-        case l @ Schema.Lazy(_)               => decoder(l.schema)
+        case lzy @ Schema.Lazy(_)             => decoder(lzy.schema)
         case Schema.Meta(_)                   => astDecoder
         case ProductDecoder(decoder)          => decoder
         case Schema.Enum1(c)                  => enumDecoder(c)
@@ -505,8 +505,10 @@ object ProtobufCodec extends Codec {
             }
         }
 
-    private def packedSequenceDecoder[A](schema: Schema[A]): Decoder[Chunk[A]] =
-      decoder(schema).loop
+    private def packedSequenceDecoder[A](schema: Schema[A]): Decoder[Chunk[A]] = schema match {
+      case lzy @ Schema.Lazy(_) => decoder(lzy.schema).loop
+      case _                    => decoder(schema).loop
+    }
 
     private def nonPackedSequenceDecoder[A](schema: Schema[A]): Decoder[Chunk[A]] =
       keyDecoder.flatMap {
@@ -559,12 +561,20 @@ object ProtobufCodec extends Codec {
         }
       }).take(8)
 
-    private def transformDecoder[A, B](schema: Schema[B], f: B => Either[String, A]): Decoder[A] =
-      decoder(schema).flatMap(a => Decoder(chunk => f(a).map(b => (chunk, b))))
+    private def transformDecoder[A, B](schema: Schema[B], f: B => Either[String, A]): Decoder[A] = schema match {
+      case Schema.Primitive(typ) if typ == StandardType.UnitType =>
+        Decoder { (chunk: Chunk[Byte]) =>
+          f(().asInstanceOf[B]) match {
+            case Left(err) => Left(err)
+            case Right(b)  => Right(chunk -> b)
+          }
+        }
+      case _ => decoder(schema).flatMap(a => Decoder(chunk => f(a).map(b => (chunk, b))))
+    }
 
     private def primitiveDecoder[A](standardType: StandardType[A]): Decoder[A] =
       standardType match {
-        case StandardType.UnitType   => ((chunk: Chunk[Byte]) => Right((chunk, ()))).asInstanceOf[Decoder[A]]
+        case StandardType.UnitType   => Decoder((chunk: Chunk[Byte]) => Right((chunk, ())))
         case StandardType.StringType => stringDecoder
         case StandardType.BoolType   => varIntDecoder.map(_ != 0)
         case StandardType.ShortType =>

@@ -488,17 +488,19 @@ object SchemaGen {
   sealed trait Json
   case object JNull                                extends Json
   case class JString(s: String)                    extends Json
-  case class JNumber(l: Double)                    extends Json
+  case class JNumber(l: Int)                       extends Json
+  case class JDecimal(d: Double)                   extends Json
   case class JObject(fields: List[(String, Json)]) extends Json
+  case class JArray(fields: List[Json])            extends Json
 
   object Json {
     implicit val schema: Schema[Json] = DeriveSchema.gen[Json]
 
     val leafGen: Gen[Random with Sized, Json] =
       Gen.oneOf(
-        // Gen.const(JNull),
+        Gen.const(JNull),
         Gen.anyString.map(JString(_)),
-        Gen.anyDouble.map(JNumber(_))
+        Gen.anyInt.map(JNumber(_))
       )
 
     val gen: Gen[Random with Sized, Json] =

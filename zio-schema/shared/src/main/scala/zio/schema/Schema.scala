@@ -221,6 +221,8 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   final case class Lazy[A](private val schema0: () => Schema[A]) extends Schema[A] {
     lazy val schema: Schema[A] = schema0()
+
+    override def toString: String = "Lazy(lambda)"
   }
 
   final case class Meta(ast: Ast) extends Schema[Schema[_]]
