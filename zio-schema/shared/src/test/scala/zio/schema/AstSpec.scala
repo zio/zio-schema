@@ -90,7 +90,7 @@ object AstSpec extends DefaultRunnableSpec {
   case class Recursive(id: String, r: Option[Recursive])
 
   object Recursive {
-    implicit val schema: Schema[Recursive] = DeriveSchema.gen[Recursive]
+    implicit lazy val schema: Schema[Recursive] = DeriveSchema.gen[Recursive]
   }
 
 }

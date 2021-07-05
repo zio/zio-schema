@@ -72,12 +72,12 @@ object Ast {
     private val children: ChunkBuilder[Ast] = ChunkBuilder.make[Ast]()
 
     def addSubtree(schema: Schema[_]): NodeBuilder = {
-      children.addOne(subtree(schema, lineage :+ id))
+      children += (subtree(schema, lineage :+ id))
       self
     }
 
     def addLabelledSubtree(label: String, schema: Schema[_]): NodeBuilder = {
-      children.addOne(labelledSubtree(label, schema, lineage :+ id))
+      children += (labelledSubtree(label, schema, lineage :+ id))
       self
     }
 

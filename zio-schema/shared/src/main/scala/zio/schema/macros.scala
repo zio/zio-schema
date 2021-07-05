@@ -1334,4 +1334,12 @@ object DeriveSchema {
   }
 
   implicit def gen[T]: Schema[T] = macro Magnolia.gen[T]
+
+  // def genImpl[T: c.WeakTypeTag](c: whitebox.Context): c.Tree = {
+  //   import c.universe._
+
+  //   val tpe = weakTypeOf[T]
+
+  //   tpe.
+  // }
 }

@@ -159,32 +159,32 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   implicit val none: Schema[None.type] = Schema[Unit].transform(_ => None, _ => ())
 
-  implicit def chunk[A](implicit schemaA: => Schema[A]): Schema[Chunk[A]] =
+  implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
     Schema.Sequence(schemaA, identity, identity)
 
-  implicit def either[A, B](left: => Schema[A], right: => Schema[B]): Schema[Either[A, B]] =
-    EitherSchema(defer(left), defer(right))
+  implicit def either[A, B](implicit left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
+    EitherSchema(left, right)
 
-  implicit def left[A, B](implicit schemaA: => Schema[A]): Schema[Left[A, Nothing]] =
-    defer(schemaA).transform(Left(_), _.value)
+  implicit def left[A, B](implicit schemaA: Schema[A]): Schema[Left[A, Nothing]] =
+    schemaA.transform(Left(_), _.value)
 
-  implicit def list[A](implicit schemaA: => Schema[A]): Schema[List[A]] =
-    Schema.Sequence(defer(schemaA), _.toList, Chunk.fromIterable(_))
+  implicit def list[A](implicit schemaA: Schema[A]): Schema[List[A]] =
+    Schema.Sequence(schemaA, _.toList, Chunk.fromIterable(_))
 
-  implicit def option[A](implicit element: => Schema[A]): Schema[Option[A]] =
-    Optional(defer(element))
+  implicit def option[A](implicit element: Schema[A]): Schema[Option[A]] =
+    Optional(element)
 
   implicit def primitive[A](implicit standardType: StandardType[A]): Schema[A] =
     Primitive(standardType)
 
-  implicit def right[A, B](implicit schemaB: => Schema[B]): Schema[Right[Nothing, B]] =
-    defer(schemaB).transform(Right(_), _.value)
+  implicit def right[A, B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
+    schemaB.transform(Right(_), _.value)
 
-  implicit def set[A](implicit element: => Schema[A]): Schema[Set[A]] =
-    chunk(defer(element)).transform(_.toSet, Chunk.fromIterable(_))
+  implicit def set[A](implicit element: Schema[A]): Schema[Set[A]] =
+    chunk(element).transform(_.toSet, Chunk.fromIterable(_))
 
-  implicit def vector[A](implicit element: => Schema[A]): Schema[Vector[A]] =
-    chunk(defer(element)).transform(_.toVector, Chunk.fromIterable(_))
+  implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
+    chunk(element).transform(_.toVector, Chunk.fromIterable(_))
 
   sealed trait Enum[A] extends Schema[A] {
     def structure: ListMap[String, Schema[_]]
