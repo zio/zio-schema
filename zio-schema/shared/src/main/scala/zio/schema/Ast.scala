@@ -172,7 +172,7 @@ object Ast {
       Schema.GenericRecord(
         elems.map {
           case (label, ast) =>
-            Schema.Field(label, materialize(ast, Map(id -> n)))
+            Schema.Field(label, materialize(ast, refs + (id -> n)))
         }
       )
     case n @ Ast.Product(id, _, elems, true, false) =>
@@ -180,7 +180,7 @@ object Ast {
         .GenericRecord(
           elems.map {
             case (label, ast) =>
-              Schema.Field(label, materialize(ast, Map(id -> n)))
+              Schema.Field(label, materialize(ast, refs + (id -> n)))
           }
         )
         .optional
@@ -189,7 +189,7 @@ object Ast {
         .GenericRecord(
           elems.map {
             case (label, ast) =>
-              Schema.Field(label, materialize(ast, Map(id -> n)))
+              Schema.Field(label, materialize(ast, refs + (id -> n)))
           }
         )
         .repeated
@@ -197,7 +197,7 @@ object Ast {
       Schema.Enumeration(
         ListMap.empty ++ elems.map {
           case (label, ast) =>
-            (label, materialize(ast, Map(id -> n)))
+            (label, materialize(ast, refs + (id -> n)))
         }
       )
     case n @ Ast.Sum(id, _, elems, true, false) =>
@@ -205,7 +205,7 @@ object Ast {
         .Enumeration(
           ListMap.empty ++ elems.map {
             case (label, ast) =>
-              (label, materialize(ast, Map(id -> n)))
+              (label, materialize(ast, refs + (id -> n)))
           }
         )
         .optional
@@ -214,7 +214,7 @@ object Ast {
         .Enumeration(
           ListMap.empty ++ elems.map {
             case (label, ast) =>
-              (label, materialize(ast, Map(id -> n)))
+              (label, materialize(ast, refs + (id -> n)))
           }
         )
         .repeated
