@@ -68,8 +68,6 @@ sealed trait Schema[A] {
    */
   def orElseEither[B](that: Schema[B]): Schema[Either[A, B]] = Schema.EitherSchema(self, that)
 
-  def ref: String = self.getClass().getName
-
   def repeated: Schema[Chunk[A]] = Schema.chunk(self)
 
   def serializable: Schema[Schema[_]] = Schema.Meta(Ast.fromSchema(self))
