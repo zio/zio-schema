@@ -1,37 +1,37 @@
 package zio.schema
 
+import scala.collection.immutable.ListMap
+
 import zio.{ Chunk, ChunkBuilder }
 
 sealed trait Ast { self =>
   def id: Int
   def lineage: Chunk[Int]
 
-  def toSchema: Schema[_] = self match {
-    case Ast.Value(typ, false, false) => Schema.Primitive(typ)
-    case Ast.Value(typ, true, false)  => Schema.Primitive(typ).optional
-    case Ast.Value(typ, false, true)  => Schema.chunk(Schema.Primitive(typ))
-    case Ast.Value(typ, true, true)   => Schema.chunk(Schema.Primitive(typ)).optional
-    case Ast.FailNode(msg, _, _)      => Schema.Fail(msg)
-    case _                            => ???
-  }
+  def toSchema: Schema[_] = Ast.materialize(self)
 }
 
 object Ast {
+  type Labelled = (String, Ast)
+
   final case object Root extends Ast {
     def id: Int             = 0
     def lineage: Chunk[Int] = Chunk.empty
   }
-  final case class Node(
+  final case class Product(
     override val id: Int,
     override val lineage: Chunk[Int],
-    children: Chunk[Ast] = Chunk.empty,
+    elements: Chunk[Labelled] = Chunk.empty,
     optional: Boolean = false,
     repeated: Boolean = false
   ) extends Ast
-  final case class LabelledNode(label: String, node: Ast) extends Ast {
-    def id: Int             = node.id
-    def lineage: Chunk[Int] = node.lineage
-  }
+  final case class Sum(
+    override val id: Int,
+    override val lineage: Chunk[Int],
+    cases: Chunk[Labelled] = Chunk.empty,
+    optional: Boolean = false,
+    repeated: Boolean = false
+  ) extends Ast
   final case class FailNode(message: String, optional: Boolean = false, repeated: Boolean = false) extends Ast {
     def id: Int             = 0
     def lineage: Chunk[Int] = Chunk.empty
@@ -69,19 +69,16 @@ object Ast {
     optional: Boolean = false,
     repeated: Boolean = false
   ) { self =>
-    private val children: ChunkBuilder[Ast] = ChunkBuilder.make[Ast]()
-
-    def addSubtree(schema: Schema[_]): NodeBuilder = {
-      children += (subtree(schema, lineage :+ id))
-      self
-    }
+    private val children: ChunkBuilder[Labelled] = ChunkBuilder.make[Labelled]()
 
     def addLabelledSubtree(label: String, schema: Schema[_]): NodeBuilder = {
-      children += (labelledSubtree(label, schema, lineage :+ id))
+      children += (label -> subtree(schema, lineage :+ id))
       self
     }
 
-    def build(): Node = Node(id, lineage, children.result(), optional, repeated)
+    def buildProduct(): Product = Product(id, lineage, children.result(), optional, repeated)
+
+    def buildSum(): Sum = Sum(id, lineage, children.result(), optional, repeated)
   }
 
   def fromSchema[A](schema: Schema[A]): Ast = schema match {
@@ -89,9 +86,15 @@ object Ast {
     case Schema.Fail(message)    => FailNode(message)
     case Schema.Optional(schema) => subtree(schema, Chunk.empty, optional = true)
     case s @ Schema.EitherSchema(left, right) =>
-      NodeBuilder(s.hashCode(), Chunk.empty).addLabelledSubtree("left", left).addLabelledSubtree("right", right).build()
+      NodeBuilder(s.hashCode(), Chunk.empty)
+        .addLabelledSubtree("left", left)
+        .addLabelledSubtree("right", right)
+        .buildSum()
     case s @ Schema.Tuple(left, right) =>
-      NodeBuilder(s.hashCode(), Chunk.empty).addLabelledSubtree("left", left).addLabelledSubtree("right", right).build()
+      NodeBuilder(s.hashCode(), Chunk.empty)
+        .addLabelledSubtree("left", left)
+        .addLabelledSubtree("right", right)
+        .buildProduct()
     case Schema.Sequence(schema, _, _) =>
       subtree(schema, Chunk.empty, repeated = true)
     case Schema.Transform(schema, _, _) => subtree(schema, Chunk.empty)
@@ -101,14 +104,14 @@ object Ast {
         .foldLeft(NodeBuilder(s.hashCode(), Chunk.empty)) { (node, field) =>
           node.addLabelledSubtree(field.label, field.schema)
         }
-        .build()
+        .buildProduct()
     case s: Schema.Enum[A] =>
       s.structure
         .foldLeft(NodeBuilder(s.hashCode(), Chunk.empty)) {
           case (node, (id, schema)) =>
             node.addLabelledSubtree(id, schema)
         }
-        .build()
+        .buildSum()
     case Schema.Meta(ast) => ast
   }
 
@@ -126,43 +129,98 @@ object Ast {
             NodeBuilder(s.hashCode(), lineage)
               .addLabelledSubtree("left", left)
               .addLabelledSubtree("right", right)
-              .build()
+              .buildSum()
           case s @ Schema.Tuple(left, right) =>
             NodeBuilder(s.hashCode(), lineage)
               .addLabelledSubtree("left", left)
               .addLabelledSubtree("right", right)
-              .build()
+              .buildProduct()
           case Schema.Sequence(schema, _, _) =>
             subtree(schema, lineage, optional = false, repeated = true)
           case Schema.Transform(schema, _, _) => subtree(schema, lineage, optional = false, repeated = false)
           case lzy @ Schema.Lazy(_)           => subtree(lzy.schema, lineage, optional, repeated)
           case s: Schema.Record[_] =>
             s.structure
-              .foldRight(NodeBuilder(s.hashCode(), lineage)) { (field, node) =>
+              .foldLeft(NodeBuilder(s.hashCode(), lineage)) { (node, field) =>
                 node.addLabelledSubtree(field.label, field.schema)
               }
-              .build()
+              .buildProduct()
           case s: Schema.Enum[_] =>
             s.structure
-              .foldRight(NodeBuilder(s.hashCode(), lineage)) {
-                case ((id, schema), node) =>
+              .foldLeft(NodeBuilder(s.hashCode(), lineage)) {
+                case (node, (id, schema)) =>
                   node.addLabelledSubtree(id, schema)
               }
-              .build()
+              .buildSum()
           case Schema.Fail(message) => FailNode(message)
           case Schema.Meta(ast)     => ast
         }
       }
 
-  def labelledSubtree(
-    label: String,
-    schema: Schema[_],
-    lineage: Chunk[Int],
-    optional: Boolean = false,
-    repeated: Boolean = false
-  ): Ast =
-    LabelledNode(label, subtree(schema, lineage, optional, repeated))
+  def materialize(ast: Ast, refs: Map[Int, Ast] = Map.empty): Schema[_] = ast match {
+    case Ast.Value(typ, false, false) => Schema.Primitive(typ)
+    case Ast.Value(typ, true, false)  => Schema.Primitive(typ).optional
+    case Ast.Value(typ, false, true)  => Schema.chunk(Schema.Primitive(typ))
+    case Ast.Value(typ, true, true)   => Schema.chunk(Schema.Primitive(typ)).optional
+    case Ast.FailNode(msg, _, _)      => Schema.Fail(msg)
+    case Ast.Ref(id, _, _, _) =>
+      refs
+        .get(id)
+        .map(astRef => Schema.defer(materialize(astRef, Map.empty)))
+        .getOrElse(Schema.Fail(s"invalid ref $id"))
+    case n @ Ast.Product(id, _, elems, false, false) =>
+      Schema.GenericRecord(
+        elems.map {
+          case (label, ast) =>
+            Schema.Field(label, materialize(ast, Map(id -> n)))
+        }
+      )
+    case n @ Ast.Product(id, _, elems, true, false) =>
+      Schema
+        .GenericRecord(
+          elems.map {
+            case (label, ast) =>
+              Schema.Field(label, materialize(ast, Map(id -> n)))
+          }
+        )
+        .optional
+    case n @ Ast.Product(id, _, elems, false, true) =>
+      Schema
+        .GenericRecord(
+          elems.map {
+            case (label, ast) =>
+              Schema.Field(label, materialize(ast, Map(id -> n)))
+          }
+        )
+        .repeated
+    case n @ Ast.Sum(id, _, elems, false, false) =>
+      Schema.Enumeration(
+        ListMap.empty ++ elems.map {
+          case (label, ast) =>
+            (label, materialize(ast, Map(id -> n)))
+        }
+      )
+    case n @ Ast.Sum(id, _, elems, true, false) =>
+      Schema
+        .Enumeration(
+          ListMap.empty ++ elems.map {
+            case (label, ast) =>
+              (label, materialize(ast, Map(id -> n)))
+          }
+        )
+        .optional
+    case n @ Ast.Sum(id, _, elems, false, true) =>
+      Schema
+        .Enumeration(
+          ListMap.empty ++ elems.map {
+            case (label, ast) =>
+              (label, materialize(ast, Map(id -> n)))
+          }
+        )
+        .repeated
+    case _ => Schema.Fail("AST cannot be materiazlied to a Schema")
+  }
 
-  implicit val schema: Schema[Ast] = DeriveSchema.gen[Ast]
+  implicit lazy val schema: Schema[Ast] = DeriveSchema.gen[Ast]
 
 }

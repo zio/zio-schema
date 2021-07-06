@@ -70,6 +70,8 @@ sealed trait Schema[A] {
 
   def ref: String = self.getClass().getName
 
+  def repeated: Schema[Chunk[A]] = Schema.chunk(self)
+
   def serializable: Schema[Schema[_]] = Schema.Meta(Ast.fromSchema(self))
 
   def toDynamic(value: A): DynamicValue =

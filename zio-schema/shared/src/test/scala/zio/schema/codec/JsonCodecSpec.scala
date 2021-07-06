@@ -507,7 +507,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       }
       .tap(decoded => putStrLn(s"Decoded: $decoded").when(print).ignore)
 
-    assertM(result)(isSome(SchemaAssertions.hasSameMetaSchema(schema)))
+    assertM(result)(isSome(SchemaAssertions.hasSameAst(schema)))
   }
 
   private def flatten[A](value: A): A = value match {

@@ -9,10 +9,10 @@ object SchemaAssertions {
   def hasSameSchema[A](expected: Schema[A]): Assertion[Schema[A]] =
     Assertion.assertion("hasSameSchema")(param(expected))(actual => equalsSchema(expected, actual))
 
-  def hasSameMetaSchema(expected: Schema[_]): Assertion[Schema[_]] =
-    Assertion.assertion("hasSameMetaSchema")(param(expected))(actual => equalsMetaSchema(expected, actual))
+  def hasSameAst(expected: Schema[_]): Assertion[Schema[_]] =
+    Assertion.assertion("hasSameMetaSchema")(param(expected))(actual => equalsAst(expected, actual))
 
-  private def equalsMetaSchema(expected: Schema[_], actual: Schema[_]): Boolean = (expected, actual) match {
+  private def equalsAst(expected: Schema[_], actual: Schema[_]): Boolean = (expected, actual) match {
     case (Schema.Primitive(StandardType.Duration(_)), Schema.Primitive(StandardType.Duration(_)))             => true
     case (Schema.Primitive(StandardType.Instant(_)), Schema.Primitive(StandardType.Instant(_)))               => true
     case (Schema.Primitive(StandardType.LocalDate(_)), Schema.Primitive(StandardType.LocalDate(_)))           => true
@@ -22,30 +22,30 @@ object SchemaAssertions {
     case (Schema.Primitive(StandardType.OffsetTime(_)), Schema.Primitive(StandardType.OffsetTime(_)))         => true
     case (Schema.Primitive(StandardType.OffsetDateTime(_)), Schema.Primitive(StandardType.OffsetDateTime(_))) => true
     case (Schema.Primitive(tpe1), Schema.Primitive(tpe2))                                                     => tpe1 == tpe2
-    case (Schema.Optional(expected), Schema.Optional(actual))                                                 => equalsMetaSchema(expected, actual)
+    case (Schema.Optional(expected), Schema.Optional(actual))                                                 => equalsAst(expected, actual)
     case (Schema.Tuple(expectedLeft, expectedRight), Schema.Tuple(actualLeft, actualRight)) =>
-      equalsMetaSchema(expectedLeft, actualLeft) && equalsMetaSchema(expectedRight, actualRight)
+      equalsAst(expectedLeft, actualLeft) && equalsAst(expectedRight, actualRight)
     case (Schema.EitherSchema(expectedLeft, expectedRight), Schema.EitherSchema(actualLeft, actualRight)) =>
-      equalsMetaSchema(expectedLeft, actualLeft) && equalsMetaSchema(expectedRight, actualRight)
-    case (Schema.Sequence(expected, _, _), Schema.Sequence(actual, _, _)) => equalsMetaSchema(expected, actual)
+      equalsAst(expectedLeft, actualLeft) && equalsAst(expectedRight, actualRight)
+    case (Schema.Sequence(expected, _, _), Schema.Sequence(actual, _, _)) => equalsAst(expected, actual)
     case (expected: Schema.Record[_], actual: Schema.Record[_]) =>
       expected.structure.zipAll(actual.structure).forall {
         case (Some(Schema.Field(expectedLabel, expectedSchema, _)), Some(Schema.Field(actualLabel, actualSchema, _))) =>
-          expectedLabel == actualLabel && equalsMetaSchema(expectedSchema, actualSchema)
+          expectedLabel == actualLabel && equalsAst(expectedSchema, actualSchema)
         case _ => false
       }
     case (expected: Schema.Enum[_], actual: Schema.Enum[_]) =>
       Chunk.fromIterable(expected.structure).zipAll(Chunk.fromIterable(actual.structure)).forall {
         case (Some((expectedId, expectedSchema)), Some((actualId, actualSchema))) =>
-          actualId == expectedId && equalsMetaSchema(expectedSchema, actualSchema)
+          actualId == expectedId && equalsAst(expectedSchema, actualSchema)
         case _ => false
       }
     case (expected, Schema.Transform(actualSchema, _, _)) =>
-      equalsMetaSchema(expected, actualSchema)
+      equalsAst(expected, actualSchema)
     case (Schema.Transform(expected, _, _), actual) =>
-      equalsMetaSchema(expected, actual)
-    case (expected: Schema.Lazy[_], actual) => equalsMetaSchema(expected.schema, actual)
-    case (expected, actual: Schema.Lazy[_]) => equalsMetaSchema(expected, actual.schema)
+      equalsAst(expected, actual)
+    case (expected: Schema.Lazy[_], actual) => equalsAst(expected.schema, actual)
+    case (expected, actual: Schema.Lazy[_]) => equalsAst(expected, actual.schema)
     case _                                  => false
   }
 
