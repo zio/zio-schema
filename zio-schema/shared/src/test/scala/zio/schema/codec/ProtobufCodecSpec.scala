@@ -18,12 +18,7 @@ import zio.test._
 object ProtobufCodecSpec extends DefaultRunnableSpec {
   import Schema._
 
-  def spec = suite("all")(
-    codecSuite,
-    suite2
-  )
-
-  val codecSuite = suite("ProtobufCodec Spec")(
+  def spec = suite("ProtobufCodec Spec")(
     suite("Should correctly encode")(
       testM("integers") {
         for {
@@ -541,17 +536,6 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         } yield assert(d)(fails(equalTo("failing schema"))) && assert(d2)(fails(equalTo("failing schema")))
       }
     )
-  )
-
-  val suite2 = suite("example")(
-    testM("recursive test") {
-      val json = SchemaGen.JArray(List(SchemaGen.JString("bar"), SchemaGen.JDecimal(1)))
-      encodeAndDecodeNS(
-        Schema[SchemaGen.Json],
-        json,
-        print = false
-      ).map(v => assert(v)(equalTo(json)))
-    }
   )
 
   // some tests are based on https://developers.google.com/protocol-buffers/docs/encoding
