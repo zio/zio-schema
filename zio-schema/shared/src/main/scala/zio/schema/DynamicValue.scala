@@ -1064,7 +1064,7 @@ object DynamicValue {
 
   final case class RightValue(value: DynamicValue) extends DynamicValue
 
-  final case class DynamicAst(ast: Ast) extends DynamicValue
+  final case class DynamicAst(ast: SchemaAst) extends DynamicValue
 
   final case class Error(message: String) extends DynamicValue
 }

@@ -117,7 +117,7 @@ object JsonCodec extends Codec {
 
     private val astEncoder: JsonEncoder[Schema[_]] =
       (schema: Schema[_], indent: Option[Int], out: Write) =>
-        schemaEncoder(Schema[Ast]).unsafeEncode(Ast.fromSchema(schema), indent, out)
+        schemaEncoder(Schema[SchemaAst]).unsafeEncode(SchemaAst.fromSchema(schema), indent, out)
 
     private def transformEncoder[A, B](schema: Schema[A], g: B => Either[String, A]): JsonEncoder[B] = {
       (b: B, indent: Option[Int], out: Write) =>
@@ -235,7 +235,7 @@ object JsonCodec extends Codec {
     }
 
     private def astDecoder: JsonDecoder[Schema[_]] =
-      schemaDecoder(Schema[Ast]).map(ast => ast.toSchema)
+      schemaDecoder(Schema[SchemaAst]).map(ast => ast.toSchema)
 
     private def enumDecoder[Z](cases: Schema.Case[_, Z]*): JsonDecoder[Z] = {
       (trace: List[JsonError], in: RetractReader) =>

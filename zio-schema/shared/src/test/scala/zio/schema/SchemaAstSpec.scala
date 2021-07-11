@@ -6,14 +6,14 @@ import zio._
 import zio.schema.SchemaAssertions._
 import zio.test._
 
-object AstSpec extends DefaultRunnableSpec {
+object SchemaAstSpec extends DefaultRunnableSpec {
 
-  def spec: ZSpec[Environment, Failure] = suite("AST")(
+  def spec: ZSpec[Environment, Failure] = suite("SchemaAst")(
     suite("from schema")(
       testM("primitive") {
         check(SchemaGen.anyPrimitive) {
           case s @ Schema.Primitive(typ) =>
-            assertTrue(Ast.fromSchema(s) == Ast.Value(typ))
+            assertTrue(SchemaAst.fromSchema(s) == SchemaAst.Value(typ))
         }
       }
     ),
@@ -21,7 +21,7 @@ object AstSpec extends DefaultRunnableSpec {
       testM("primitive") {
         check(SchemaGen.anyPrimitive) {
           case s @ Schema.Primitive(typ) =>
-            assertTrue(Ast.fromSchema(s.optional) == Ast.Value(typ, optional = true))
+            assertTrue(SchemaAst.fromSchema(s.optional) == SchemaAst.Value(typ, optional = true))
         }
       }
     ),
@@ -29,7 +29,7 @@ object AstSpec extends DefaultRunnableSpec {
       testM("primitive") {
         check(SchemaGen.anyPrimitive) {
           case s @ Schema.Primitive(typ) =>
-            assertTrue(Ast.fromSchema(Schema.chunk(s)) == Ast.Value(typ, dimensions = 1))
+            assertTrue(SchemaAst.fromSchema(Schema.chunk(s)) == SchemaAst.Value(typ, dimensions = 1))
         }
       }
     ),
@@ -43,42 +43,42 @@ object AstSpec extends DefaultRunnableSpec {
             )
           )
         val expectedAst =
-          Ast.Product(
+          SchemaAst.Product(
             id = schema.hashCode(),
             lineage = Chunk.empty,
-            elements = Chunk(
-              ("a", Ast.fromSchema(Schema[String])),
-              ("b", Ast.fromSchema(Schema[Int]))
+            fields = Chunk(
+              ("a", SchemaAst.fromSchema(Schema[String])),
+              ("b", SchemaAst.fromSchema(Schema[Int]))
             )
           )
-        assertTrue(Ast.fromSchema(schema) == expectedAst)
+        assertTrue(SchemaAst.fromSchema(schema) == expectedAst)
       },
       test("case class") {
         val schema = Schema[SchemaGen.Arity2]
         val expectedAst =
-          Ast.Product(
+          SchemaAst.Product(
             id = schema.hashCode(),
             lineage = Chunk.empty,
-            elements = Chunk(
-              "value1" -> Ast.fromSchema(Schema[String]),
-              "value2" -> Ast.Product(
+            fields = Chunk(
+              "value1" -> SchemaAst.fromSchema(Schema[String]),
+              "value2" -> SchemaAst.Product(
                 id = Schema[SchemaGen.Arity1].hashCode(),
                 lineage = Chunk(schema.hashCode()),
-                elements = Chunk(
-                  "value" -> Ast.Value(StandardType.IntType)
+                fields = Chunk(
+                  "value" -> SchemaAst.Value(StandardType.IntType)
                 )
               )
             )
           )
 
-        assertTrue(Ast.fromSchema(schema) == expectedAst)
+        assertTrue(SchemaAst.fromSchema(schema) == expectedAst)
       },
       test("recursive case class") {
         val schema = Schema[Recursive]
-        val ast    = Ast.fromSchema(schema)
+        val ast    = SchemaAst.fromSchema(schema)
 
-        val recursiveRef: Option[Ast] = ast match {
-          case Ast.Product(_, _, elements, _, _) =>
+        val recursiveRef: Option[SchemaAst] = ast match {
+          case SchemaAst.Product(_, _, elements, _, _) =>
             elements.find {
               case ("r", _) => true
               case _        => false
@@ -95,106 +95,106 @@ object AstSpec extends DefaultRunnableSpec {
         val schema =
           Schema.Enumeration(ListMap("type1" -> Schema[SchemaGen.Arity1], "type2" -> Schema[SchemaGen.Arity2]))
         val expectedAst =
-          Ast.Sum(
+          SchemaAst.Sum(
             id = schema.hashCode(),
             lineage = Chunk.empty,
             cases = Chunk(
-              "type1" -> Ast.Product(
+              "type1" -> SchemaAst.Product(
                 id = Schema[SchemaGen.Arity1].hashCode(),
                 lineage = Chunk(schema.hashCode()),
-                elements = Chunk(
-                  "value" -> Ast.Value(StandardType.IntType)
+                fields = Chunk(
+                  "value" -> SchemaAst.Value(StandardType.IntType)
                 )
               ),
-              "type2" -> Ast.Product(
+              "type2" -> SchemaAst.Product(
                 id = Schema[SchemaGen.Arity2].hashCode(),
                 lineage = Chunk(schema.hashCode()),
-                elements = Chunk(
-                  "value1" -> Ast.Value(StandardType.StringType),
-                  "value2" -> Ast.Product(
+                fields = Chunk(
+                  "value1" -> SchemaAst.Value(StandardType.StringType),
+                  "value2" -> SchemaAst.Product(
                     id = Schema[SchemaGen.Arity1].hashCode(),
                     lineage = Chunk(schema.hashCode(), Schema[SchemaGen.Arity2].hashCode()),
-                    elements = Chunk(
-                      "value" -> Ast.Value(StandardType.IntType)
+                    fields = Chunk(
+                      "value" -> SchemaAst.Value(StandardType.IntType)
                     )
                   )
                 )
               )
             )
           )
-        assertTrue(Ast.fromSchema(schema) == expectedAst)
+        assertTrue(SchemaAst.fromSchema(schema) == expectedAst)
       },
       test("sealed trait") {
         val schema = Schema[Pet]
-        val expectedAst = Ast.Sum(
+        val expectedAst = SchemaAst.Sum(
           id = schema.hashCode(),
           lineage = Chunk.empty,
           cases = Chunk(
-            "Cat" -> Ast.Product(
+            "Cat" -> SchemaAst.Product(
               id = Schema[Cat].hashCode(),
               lineage = Chunk(schema.hashCode()),
-              elements = Chunk(
-                "name"    -> Ast.Value(StandardType.StringType),
-                "hasHair" -> Ast.Value(StandardType.BoolType)
+              fields = Chunk(
+                "name"    -> SchemaAst.Value(StandardType.StringType),
+                "hasHair" -> SchemaAst.Value(StandardType.BoolType)
               )
             ),
-            "Dog" -> Ast.Product(
+            "Dog" -> SchemaAst.Product(
               id = Schema[Dog].hashCode(),
               lineage = Chunk(schema.hashCode()),
-              elements = Chunk("name" -> Ast.Value(StandardType.StringType))
+              fields = Chunk("name" -> SchemaAst.Value(StandardType.StringType))
             ),
-            "Rock" -> Ast.Value(StandardType.UnitType)
+            "Rock" -> SchemaAst.Value(StandardType.UnitType)
           )
         )
-        assertTrue(Ast.fromSchema(schema) == expectedAst)
+        assertTrue(SchemaAst.fromSchema(schema) == expectedAst)
       }
     ),
     suite("materialization")(
       testM("primitive") {
         check(SchemaGen.anyPrimitive) { schema =>
-          assert(Ast.fromSchema(schema).toSchema)(hasSameAst(schema))
+          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameAst(schema))
         }
       },
       testM("optional") {
         check(SchemaGen.anyPrimitive) { schema =>
-          assert(Ast.fromSchema(schema.optional).toSchema)(hasSameAst(schema.optional))
+          assert(SchemaAst.fromSchema(schema.optional).toSchema)(hasSameAst(schema.optional))
         }
       },
       testM("sequence") {
         check(SchemaGen.anyPrimitive) { schema =>
-          assert(Ast.fromSchema(schema.repeated).toSchema)(hasSameAst(schema.repeated))
+          assert(SchemaAst.fromSchema(schema.repeated).toSchema)(hasSameAst(schema.repeated))
         }
       },
       testM("tuple") {
         check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
           case (left, right) =>
-            assert(Ast.fromSchema(left <*> right).toSchema)(hasSameAst(left <*> right))
+            assert(SchemaAst.fromSchema(left <*> right).toSchema)(hasSameAst(left <*> right))
         }
       },
       testM("either") {
         check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
           case (left, right) =>
-            assert(Ast.fromSchema(left <+> right).toSchema)(hasSameAst(left <+> right))
+            assert(SchemaAst.fromSchema(left <+> right).toSchema)(hasSameAst(left <+> right))
         }
       },
       testM("case class") {
         check(SchemaGen.anyCaseClassSchema) { schema =>
-          assert(Ast.fromSchema(schema).toSchema)(hasSameAst(schema))
+          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameAst(schema))
         }
       },
       testM("sealed trait") {
         check(SchemaGen.anyEnumSchema) { schema =>
-          assert(Ast.fromSchema(schema).toSchema)(hasSameAst(schema))
+          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameAst(schema))
         }
       },
       testM("recursive type") {
         check(SchemaGen.anyRecursiveType) { schema =>
-          assert(Ast.fromSchema(schema).toSchema)(hasSameAst(schema))
+          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameAst(schema))
         }
       },
       testM("any schema") {
         check(SchemaGen.anySchema) { schema =>
-          assert(Ast.fromSchema(schema).toSchema)(hasSameAst(schema))
+          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameAst(schema))
         }
       } @@ TestAspect.shrinks(0)
     )

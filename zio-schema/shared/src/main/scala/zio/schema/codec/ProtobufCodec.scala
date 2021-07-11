@@ -140,7 +140,7 @@ object ProtobufCodec extends Codec {
         case (Schema.Optional(codec), v: Option[_])               => encodeOptional(fieldNumber, codec, v)
         case (Schema.EitherSchema(left, right), v: Either[_, _])  => encodeEither(fieldNumber, left, right, v)
         case (lzy @ Schema.Lazy(_), v)                            => encode(fieldNumber, lzy.schema, v)
-        case (Schema.Meta(ast), _)                                => encode(fieldNumber, Schema[Ast], ast)
+        case (Schema.Meta(ast), _)                                => encode(fieldNumber, Schema[SchemaAst], ast)
         case ProductEncoder(encode)                               => encode(fieldNumber)
         case (Schema.Enum1(c), v)                                 => encodeEnum(fieldNumber, v, c)
         case (Schema.Enum2(c1, c2), v)                            => encodeEnum(fieldNumber, v, c1, c2)
@@ -448,7 +448,7 @@ object ProtobufCodec extends Codec {
       }
 
     private val astDecoder: Decoder[Schema[_]] =
-      decoder(Schema[Ast]).map(_.toSchema)
+      decoder(Schema[SchemaAst]).map(_.toSchema)
 
     private def enumDecoder[Z](cases: Schema.Case[_, Z]*): Decoder[Z] =
       keyDecoder.flatMap {

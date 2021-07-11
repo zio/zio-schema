@@ -70,7 +70,7 @@ sealed trait Schema[A] {
 
   def repeated: Schema[Chunk[A]] = Schema.chunk(self)
 
-  def serializable: Schema[Schema[_]] = Schema.Meta(Ast.fromSchema(self))
+  def serializable: Schema[Schema[_]] = Schema.Meta(SchemaAst.fromSchema(self))
 
   def toDynamic(value: A): DynamicValue =
     DynamicValue.fromSchemaAndValue(self, value)
@@ -205,7 +205,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   final case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
       extends Schema[B] {
-    override def serializable: Schema[Schema[_]] = Meta(Ast.fromSchema(codec))
+    override def serializable: Schema[Schema[_]] = Meta(SchemaAst.fromSchema(codec))
     override def toString: String                = s"Transform($codec)"
   }
 
@@ -225,7 +225,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     override def toString: String = "Lazy(lambda)"
   }
 
-  final case class Meta(ast: Ast) extends Schema[Schema[_]]
+  final case class Meta(ast: SchemaAst) extends Schema[Schema[_]]
 }
 
 sealed trait EnumSchemas { self: Schema.type =>
