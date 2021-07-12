@@ -285,7 +285,7 @@ object SchemaAst {
   }
 
   implicit lazy val schema: Schema[SchemaAst] =
-    Schema.EnumN(
+    Schema.EnumN[SchemaAst](
       Seq(
         Schema.Case("Value", Schema[Value], _.asInstanceOf[Value]),
         Schema.Case("Sum", Schema[Sum], _.asInstanceOf[Sum]),
