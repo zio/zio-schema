@@ -40,11 +40,11 @@ object DynamicValueSpec extends DefaultRunnableSpec {
           case (schema, a) => assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
         }
       },
-      // testM("round-trips Transform") {
-      //   check(SchemaGen.anySuccessfulTransformAndValue) {
-      //     case (schema, a) => assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
-      //   }
-      // },
+      testM("round-trips Transform") {
+        check(SchemaGen.anyTransformAndValue) {
+          case (schema, a) => assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
+        }
+      },
       testM("round-trips CaseClass") {
         check(SchemaGen.anyCaseClassAndValue) {
           case (schema, a) => assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
@@ -64,6 +64,12 @@ object DynamicValueSpec extends DefaultRunnableSpec {
         check(SchemaGen.anyTree(1).flatMap(s => DynamicValueGen.anyDynamicValueOfSchema(s).map(s -> _))) {
           case (schema, dynamic) =>
             assert(schema.fromDynamic(dynamic))(isRight)
+        }
+      },
+      testM("round-trips recursive data types") {
+        check(SchemaGen.anyRecursiveTypeAndValue) {
+          case (schema, a) =>
+            assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
         }
       }
     )

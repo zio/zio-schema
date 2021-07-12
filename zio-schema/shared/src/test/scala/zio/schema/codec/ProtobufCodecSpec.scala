@@ -7,11 +7,12 @@ import java.time.temporal.ChronoUnit
 import scala.collection.immutable.ListMap
 import scala.util.Try
 
-import zio.schema.{ DeriveSchema, Schema, StandardType }
+import zio._
+import zio.console._
+import zio.schema.{ DeriveSchema, Schema, SchemaGen, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, ZIO }
 
 // TODO: use generators instead of manual encode/decode
 object ProtobufCodecSpec extends DefaultRunnableSpec {
@@ -476,6 +477,15 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed  <- encodeAndDecode(sequenceOfSumSchema, richSequence)
           ed2 <- encodeAndDecodeNS(sequenceOfSumSchema, richSequence)
         } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
+      },
+      testM("recursive data types") {
+        checkM(SchemaGen.anyRecursiveTypeAndValue) {
+          case (schema, value) =>
+            for {
+              ed  <- encodeAndDecode(schema, value)
+              ed2 <- encodeAndDecodeNS(schema, value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+        }
       }
     ),
     suite("Should successfully decode")(
@@ -502,8 +512,8 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         for {
           d  <- decode(Record.schemaRecord, "00").run
           d2 <- decodeNS(Record.schemaRecord, "00").run
-        } yield assert(d)(fails(equalTo("Failed decoding key: invalid field number"))) &&
-          assert(d2)(fails(equalTo("Failed decoding key: invalid field number")))
+        } yield assert(d)(fails(equalTo("Failed decoding key: invalid field number 0"))) &&
+          assert(d2)(fails(equalTo("Failed decoding key: invalid field number 0")))
       },
       testM("incomplete length delimited values") {
         for {
@@ -737,10 +747,12 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A) =
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false) =
     ZIO
       .succeed(input)
+      .tap(value => putStrLn(s"Input Value: $value").when(print).ignore)
       .map(a => ProtobufCodec.encode(schema)(a))
+      .tap(encoded => putStrLn(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
       .map(ch => ProtobufCodec.decode(schema)(ch))
       .absolve
 
@@ -750,4 +762,5 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .map(a => ProtobufCodec.encode(encodeSchema)(a))
       .map(ch => ProtobufCodec.decode(decodeSchema)(ch))
       .absolve
+
 }

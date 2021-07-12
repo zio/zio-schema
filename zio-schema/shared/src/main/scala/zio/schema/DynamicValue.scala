@@ -17,9 +17,6 @@ trait DynamicValue { self =>
       case (DynamicValue.Record(values), s: Schema.Record[A]) =>
         DynamicValue.decodeStructure(values, s.structure).map(m => Chunk.fromIterable(m.values)).flatMap(s.rawConstruct)
 
-      case (DynamicValue.Singleton(l), Schema.CaseObject(r)) if l == r =>
-        Right(r)
-
       case (DynamicValue.Enumeration((key, value)), Schema.Enumeration(cases)) =>
         cases.get(key) match {
           case Some(schema) =>
@@ -186,7 +183,7 @@ object DynamicValue {
           case Right(a)      => DynamicValue.Transform(fromSchemaAndValue(schema, a))
         }
 
-      case Schema.CaseObject(instance) => DynamicValue.Singleton(instance)
+      case Schema.Meta(ast) => DynamicValue.DynamicAst(ast)
 
       case Schema.CaseClass1(_, f, _, ext) =>
         DynamicValue.Record(ListMap(f.label -> fromSchemaAndValue(f.schema, ext(value))))
@@ -1066,6 +1063,8 @@ object DynamicValue {
   final case class LeftValue(value: DynamicValue) extends DynamicValue
 
   final case class RightValue(value: DynamicValue) extends DynamicValue
+
+  final case class DynamicAst(ast: SchemaAst) extends DynamicValue
 
   final case class Error(message: String) extends DynamicValue
 }

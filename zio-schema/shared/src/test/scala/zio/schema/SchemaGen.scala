@@ -9,16 +9,23 @@ import zio.test.{ Gen, Sized }
 object SchemaGen {
 
   def anyStructure(schemaGen: Gen[Random with Sized, Schema[_]]): Gen[Random with Sized, Seq[Schema.Field[_]]] =
-    Gen.listOfBounded(1, 30)(
-      Gen.anyString.zip(schemaGen).map {
-        case ((label, schema)) => Schema.Field(label, schema)
+    Gen.setOfBounded(1, 30)(Gen.anyString.filter(_.isEmpty)).flatMap { keySet =>
+      Gen.setOfN(keySet.size)(schemaGen).map { schemas =>
+        keySet
+          .zip(schemas)
+          .map {
+            case (label, schema) => Schema.Field(label, schema)
+          }
+          .toSeq
       }
-    )
+    }
 
   def anyStructure[A](schema: Schema[A]): Gen[Random with Sized, Seq[Schema.Field[A]]] =
-    Gen.listOfBounded(1, 30)(
-      Gen.anyString.map(Schema.Field(_, schema))
-    )
+    Gen
+      .setOfBounded(1, 30)(
+        Gen.anyString.map(Schema.Field(_, schema))
+      )
+      .map(_.toSeq)
 
   def anyEnumeration(schemaGen: Gen[Random with Sized, Schema[_]]): Gen[Random with Sized, ListMap[String, Schema[_]]] =
     Gen
@@ -88,7 +95,7 @@ object SchemaGen {
       value         <- gen
     } yield (schema, value)
 
-  val anyTuple: Gen[Random with Sized, Schema.Tuple[_, _]] =
+  lazy val anyTuple: Gen[Random with Sized, Schema.Tuple[_, _]] =
     anySchema.zipWith(anySchema) { (a, b) =>
       Schema.Tuple(a, b)
     }
@@ -300,18 +307,11 @@ object SchemaGen {
       anyEnumerationTransformAndGen
     )
 
-  lazy val anySchema: Gen[Random with Sized, Schema[_]] = Gen.oneOf(
-    anyPrimitive,
-    anyOptional(anyPrimitive),
-    anyTuple,
-    anySequence,
-    anyEnumeration,
-    anyRecord,
-    anyTransform,
-    anyEither,
-    anyCaseClassSchema,
-    anyEnumSchema
-  )
+  lazy val anySchema: Gen[Random with Sized, Schema[_]] =
+    for {
+      treeDepth <- Gen.bounded(0, 2)(Gen.const(_))
+      tree      <- anyTree(treeDepth)
+    } yield tree
 
   def anyValueForSchema[A](schema: Schema[A]): Gen[Random with Sized, (Schema[A], A)] =
     DynamicValueGen
@@ -380,35 +380,35 @@ object SchemaGen {
     implicit val arityEnumSchema: Schema[Arity] = DeriveSchema.gen[Arity]
   }
 
-  val anyArity1: Gen[Random with Sized, Arity1] = Gen.anyInt.map(Arity1(_))
+  lazy val anyArity1: Gen[Random with Sized, Arity1] = Gen.anyInt.map(Arity1(_))
 
-  val anyArity2: Gen[Random with Sized, Arity2] =
+  lazy val anyArity2: Gen[Random with Sized, Arity2] =
     for {
       s  <- Gen.anyString
       a1 <- anyArity1
     } yield Arity2(s, a1)
 
-  val anyArity3: Gen[Random with Sized, Arity3] =
+  lazy val anyArity3: Gen[Random with Sized, Arity3] =
     for {
       s  <- Gen.anyString
       a1 <- anyArity1
       a2 <- anyArity2
     } yield Arity3(s, a2, a1)
 
-  val anyArity24: Gen[Random with Sized, Arity24] =
+  lazy val anyArity24: Gen[Random with Sized, Arity24] =
     for {
       a1 <- anyArity1
       a2 <- anyArity2
       a3 <- anyArity3
     } yield Arity24(a1, a2, a3)
 
-  val anyArity: Gen[Random with Sized, Arity] = Gen.oneOf(anyArity1, anyArity2, anyArity3, anyArity24)
+  lazy val anyArity: Gen[Random with Sized, Arity] = Gen.oneOf(anyArity1, anyArity2, anyArity3, anyArity24)
 
   type CaseClassAndGen[A] = (Schema[A], Gen[Sized with Random, A])
 
   type CaseClassAndValue[A] = (Schema[A], A)
 
-  val anyCaseClassSchema: Gen[Random with Sized, Schema[_]] =
+  lazy val anyCaseClassSchema: Gen[Random with Sized, Schema[_]] =
     Gen.oneOf(
       Gen.const(Schema[Arity1]),
       Gen.const(Schema[Arity2]),
@@ -434,7 +434,7 @@ object SchemaGen {
 
   type EnumAndValue[A] = (Schema[A], A)
 
-  val anyEnumSchema: Gen[Any, Schema[Arity]] = Gen.const(Arity.arityEnumSchema)
+  lazy val anyEnumSchema: Gen[Any, Schema[Arity]] = Gen.const(Arity.arityEnumSchema)
 
   val anyEnumAndGen: Gen[Random with Sized, EnumAndGen[_]] =
     anyEnumSchema.map(_ -> anyArity)
@@ -445,12 +445,12 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  val anyLeaf: Gen[Random with Sized, Schema[_]] =
+  lazy val anyLeaf: Gen[Random with Sized, Schema[_]] =
     Gen.oneOf(
       anyPrimitive,
       anyPrimitive.map(Schema.list(_)),
       anyPrimitive.map(_.optional),
-      anyPrimitive.zip(anyPrimitive).map { case (l, r) => Schema.either(l, r) },
+      // anyPrimitive.zip(anyPrimitive).map { case (l, r) => Schema.either(l, r) },
       anyPrimitive.zip(anyPrimitive).map { case (l, r) => Schema.tuple2(l, r) },
       anyStructure(anyPrimitive).map(fields => Schema.GenericRecord(Chunk.fromIterable(fields))),
       anyEnumeration(anyPrimitive).map(Schema.enumeration(_)),
@@ -473,16 +473,50 @@ object SchemaGen {
 
   type SchemaAndDerivedValue[A] = (Schema[A], Either[String, A])
 
-  val anyLeafAndValue: Gen[Random with Sized, SchemaAndValue[_]] =
+  lazy val anyLeafAndValue: Gen[Random with Sized, SchemaAndValue[_]] =
     for {
       schema <- anyLeaf
       value  <- DynamicValueGen.anyDynamicValueOfSchema(schema)
     } yield (schema -> schema.fromDynamic(value).toOption.get).asInstanceOf[SchemaAndValue[Any]]
 
-  val anyTreeAndValue: Gen[Random with Sized, SchemaAndValue[_]] =
+  lazy val anyTreeAndValue: Gen[Random with Sized, SchemaAndValue[_]] =
     for {
       schema <- anyTree(1)
       value  <- DynamicValueGen.anyDynamicValueOfSchema(schema)
     } yield (schema -> schema.fromDynamic(value).toOption.get).asInstanceOf[SchemaAndValue[Any]]
+
+  sealed trait Json
+  case object JNull                                extends Json
+  case class JString(s: String)                    extends Json
+  case class JNumber(l: Int)                       extends Json
+  case class JDecimal(d: Double)                   extends Json
+  case class JObject(fields: List[(String, Json)]) extends Json
+  case class JArray(fields: List[Json])            extends Json
+
+  object Json {
+    implicit lazy val schema: Schema[Json] = DeriveSchema.gen[Json]
+
+    val leafGen: Gen[Random with Sized, Json] =
+      Gen.oneOf(
+        Gen.const(JNull),
+        Gen.anyString.map(JString(_)),
+        Gen.anyInt.map(JNumber(_))
+      )
+
+    val gen: Gen[Random with Sized, Json] =
+      for {
+        keys   <- Gen.setOfN(3)(Gen.anyString)
+        values <- Gen.setOfN(3)(leafGen)
+      } yield JObject(keys.zip(values).toList)
+  }
+
+  lazy val anyRecursiveType: Gen[Random with Sized, Schema[_]] =
+    Gen.const(Schema[Json])
+
+  lazy val anyRecursiveTypeAndValue: Gen[Random with Sized, SchemaAndValue[_]] =
+    for {
+      schema <- Gen.const(Schema[Json])
+      value  <- Json.gen
+    } yield (schema, value)
 
 }

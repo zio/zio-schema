@@ -11,9 +11,9 @@ object BuildHelper {
 
   val zioVersion      = "1.0.9"
   val zioNioVersion   = "1.0.0-RC9"
-  val zioJsonVersion  = "0.1.2"
+  val zioJsonVersion  = "0.1.5"
   val silencerVersion = "1.7.1"
-  val magnoliaVersion = "0.16.0"
+  val magnoliaVersion = "0.17.0"
 
   private val testDeps = Seq(
     "dev.zio" %% "zio-test"     % zioVersion % "test",
@@ -50,7 +50,9 @@ object BuildHelper {
       "-Xsource:2.13",
       "-Xlint:_,-type-parameter-shadow",
       "-Ywarn-numeric-widen",
-      "-Ywarn-value-discard"
+      "-Ywarn-value-discard",
+      "-Ypatmat-exhaust-depth",
+      "off"
     )
 
     val optimizerOptions =

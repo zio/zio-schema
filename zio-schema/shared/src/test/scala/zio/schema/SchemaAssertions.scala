@@ -9,6 +9,54 @@ object SchemaAssertions {
   def hasSameSchema[A](expected: Schema[A]): Assertion[Schema[A]] =
     Assertion.assertion("hasSameSchema")(param(expected))(actual => equalsSchema(expected, actual))
 
+  def hasSameAst(expected: Schema[_]): Assertion[Schema[_]] =
+    Assertion.assertion("hasSameAst")(param(expected))(actual => equalsAst(expected, actual))
+
+  private def equalsAst(expected: Schema[_], actual: Schema[_], depth: Int = 0): Boolean = (expected, actual) match {
+    case (Schema.Primitive(StandardType.Duration(_)), Schema.Primitive(StandardType.Duration(_)))             => true
+    case (Schema.Primitive(StandardType.Instant(_)), Schema.Primitive(StandardType.Instant(_)))               => true
+    case (Schema.Primitive(StandardType.LocalDate(_)), Schema.Primitive(StandardType.LocalDate(_)))           => true
+    case (Schema.Primitive(StandardType.LocalTime(_)), Schema.Primitive(StandardType.LocalTime(_)))           => true
+    case (Schema.Primitive(StandardType.LocalDateTime(_)), Schema.Primitive(StandardType.LocalDateTime(_)))   => true
+    case (Schema.Primitive(StandardType.ZonedDateTime(_)), Schema.Primitive(StandardType.ZonedDateTime(_)))   => true
+    case (Schema.Primitive(StandardType.OffsetTime(_)), Schema.Primitive(StandardType.OffsetTime(_)))         => true
+    case (Schema.Primitive(StandardType.OffsetDateTime(_)), Schema.Primitive(StandardType.OffsetDateTime(_))) => true
+    case (Schema.Primitive(tpe1), Schema.Primitive(tpe2))                                                     => tpe1 == tpe2
+    case (Schema.Optional(expected), Schema.Optional(actual))                                                 => equalsAst(expected, actual, depth)
+    case (Schema.Tuple(expectedLeft, expectedRight), Schema.Tuple(actualLeft, actualRight)) =>
+      equalsAst(expectedLeft, actualLeft, depth) && equalsAst(expectedRight, actualRight, depth)
+    case (Schema.Tuple(expectedLeft, expectedRight), Schema.GenericRecord(structure)) =>
+      structure.size == 2 &&
+        structure.find(_.label == "left").exists(f => equalsAst(expectedLeft, f.schema, depth)) &&
+        structure.find(_.label == "right").exists(f => equalsAst(expectedRight, f.schema, depth))
+    case (Schema.EitherSchema(expectedLeft, expectedRight), Schema.EitherSchema(actualLeft, actualRight)) =>
+      equalsAst(expectedLeft, actualLeft, depth) && equalsAst(expectedRight, actualRight, depth)
+    case (Schema.EitherSchema(expectedLeft, expectedRight), Schema.Enumeration(structure)) =>
+      structure.size == 2 &&
+        structure.get("left").exists(actualLeft => equalsAst(expectedLeft, actualLeft, depth)) &&
+        structure.get("right").exists(actualRight => equalsAst(expectedRight, actualRight, depth))
+    case (Schema.Sequence(expected, _, _), Schema.Sequence(actual, _, _)) => equalsAst(expected, actual, depth)
+    case (expected: Schema.Record[_], actual: Schema.Record[_]) =>
+      expected.structure.zipAll(actual.structure).forall {
+        case (Some(Schema.Field(expectedLabel, expectedSchema, _)), Some(Schema.Field(actualLabel, actualSchema, _))) =>
+          expectedLabel == actualLabel && equalsAst(expectedSchema, actualSchema, depth)
+        case _ => false
+      }
+    case (expected: Schema.Enum[_], actual: Schema.Enum[_]) =>
+      Chunk.fromIterable(expected.structure).zipAll(Chunk.fromIterable(actual.structure)).forall {
+        case (Some((expectedId, expectedSchema)), Some((actualId, actualSchema))) =>
+          actualId == expectedId && equalsAst(expectedSchema, actualSchema, depth)
+        case _ => false
+      }
+    case (expected, Schema.Transform(actualSchema, _, _)) =>
+      equalsAst(expected, actualSchema, depth)
+    case (Schema.Transform(expected, _, _), actual) =>
+      equalsAst(expected, actual, depth)
+    case (expected: Schema.Lazy[_], actual) => if (depth > 10) true else equalsAst(expected.schema, actual, depth + 1)
+    case (expected, actual: Schema.Lazy[_]) => if (depth > 10) true else equalsAst(expected, actual.schema, depth + 1)
+    case _                                  => false
+  }
+
   private def equalsSchema[A](left: Schema[A], right: Schema[A]): Boolean =
     (left: Schema[_], right: Schema[_]) match {
       case (Schema.Transform(codec1, _, _), Schema.Transform(codec2, _, _)) =>
@@ -40,7 +88,6 @@ object SchemaAssertions {
       case (Schema.Enum2(l1, l2), Schema.Enum2(r1, r2))         => hasSameCases(Seq(l1, l2), Seq(r1, r2))
       case (Schema.Enum3(l1, l2, l3), Schema.Enum3(r1, r2, r3)) => hasSameCases(Seq(l1, l2, l3), Seq(r1, r2, r3))
       case (Schema.EnumN(ls), Schema.EnumN(rs))                 => hasSameCases(ls, rs)
-      case (Schema.CaseObject(l), Schema.CaseObject(r))         => l == r
       case (l @ Schema.Lazy(_), r @ Schema.Lazy(_)) =>
         equalsSchema(l.schema.asInstanceOf[Schema[Any]], r.schema.asInstanceOf[Schema[Any]])
       case (lazySchema @ Schema.Lazy(_), eagerSchema) =>

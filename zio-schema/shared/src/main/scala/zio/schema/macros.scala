@@ -13,7 +13,7 @@ object DeriveSchema {
 
   def combine[A](ctx: CaseClass[Schema, A]): Schema[A] =
     ctx.parameters.size match {
-      case 0  => Schema.CaseObject[A](instance = ctx.rawConstruct(Seq.empty))
+      case 0  => Schema.singleton(ctx.rawConstruct(Seq.empty))
       case 1  => caseClass1(ctx)
       case 2  => caseClass2(ctx)
       case 3  => caseClass3(ctx)
@@ -1334,4 +1334,12 @@ object DeriveSchema {
   }
 
   implicit def gen[T]: Schema[T] = macro Magnolia.gen[T]
+
+  // def genImpl[T: c.WeakTypeTag](c: whitebox.Context): c.Tree = {
+  //   import c.universe._
+
+  //   val tpe = weakTypeOf[T]
+
+  //   tpe.
+  // }
 }
