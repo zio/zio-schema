@@ -3,15 +3,15 @@ package zio.schema.codec
 import java.nio.charset.StandardCharsets
 import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
-
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
-
 import zio.schema._
 import zio.schema.ast.SchemaAst
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZTransducer
 import zio.{ Chunk, ZIO }
+
+import java.util.UUID
 
 object ProtobufCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
@@ -107,6 +107,7 @@ object ProtobufCodec extends Codec {
       case StandardType.CharType          => true
       case StandardType.BigIntegerType    => false
       case StandardType.BigDecimalType    => false
+      case StandardType.UUIDType          => false
       case StandardType.DayOfWeekType     => true
       case StandardType.Month             => true
       case StandardType.MonthDay          => false
@@ -247,6 +248,8 @@ object ProtobufCodec extends Codec {
           encodeKey(WireType.LengthDelimited(bytes.length), fieldNumber) ++ bytes
         case (StandardType.CharType, c: Char) =>
           encodePrimitive(fieldNumber, StandardType.StringType, c.toString)
+        case (StandardType.UUIDType, u: UUID) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, u.toString)
         case (StandardType.DayOfWeekType, v: DayOfWeek) =>
           encodePrimitive(fieldNumber, StandardType.IntType, v.getValue)
         case (StandardType.Month, v: Month) =>
@@ -588,6 +591,7 @@ object ProtobufCodec extends Codec {
         case StandardType.DoubleType => doubleDecoder
         case StandardType.BinaryType => binaryDecoder
         case StandardType.CharType   => stringDecoder.map(_.charAt(0))
+        case StandardType.UUIDType   => stringDecoder.map(UUID.fromString)
         case StandardType.DayOfWeekType =>
           varIntDecoder.map(_.intValue).map(DayOfWeek.of)
         case StandardType.Month =>

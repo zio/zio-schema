@@ -42,6 +42,7 @@ object StandardType {
     final val OFFSET_TIME      = "offsetTime"
     final val OFFSET_DATE_TIME = "offsetDateTime"
     final val ZONED_DATE_TIME  = "zonedDateTime"
+    final val UUID             = "uuid"
   }
 
   def fromString(tag: String): Option[StandardType[_]] =
@@ -73,6 +74,7 @@ object StandardType {
       case Tags.OFFSET_TIME      => Some(OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME))
       case Tags.OFFSET_DATE_TIME => Some(OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
       case Tags.ZONED_DATE_TIME  => Some(ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+      case Tags.UUID             => Some(UUIDType)
       case units =>
         try {
           Some(Duration(ChronoUnit.valueOf(units)))
@@ -82,16 +84,17 @@ object StandardType {
   def fromTemporalUnits(units: String): Option[StandardType[java.time.Duration]] =
     ChronoUnit.values().find(_.toString == units).map(Duration(_))
 
-  implicit object UnitType   extends StandardType[Unit]        { override def tag = Tags.UNIT   }
-  implicit object StringType extends StandardType[String]      { override def tag = Tags.STRING }
-  implicit object BoolType   extends StandardType[Boolean]     { override def tag = Tags.BOOL   }
-  implicit object ShortType  extends StandardType[Short]       { override def tag = Tags.SHORT  }
-  implicit object IntType    extends StandardType[Int]         { override def tag = Tags.INT    }
-  implicit object LongType   extends StandardType[Long]        { override def tag = Tags.LONG   }
-  implicit object FloatType  extends StandardType[Float]       { override def tag = Tags.FLOAT  }
-  implicit object DoubleType extends StandardType[Double]      { override def tag = Tags.DOUBLE }
-  implicit object BinaryType extends StandardType[Chunk[Byte]] { override def tag = Tags.BINARY }
-  implicit object CharType   extends StandardType[Char]        { override def tag = Tags.CHAR   }
+  implicit object UnitType   extends StandardType[Unit]           { override def tag = Tags.UNIT   }
+  implicit object StringType extends StandardType[String]         { override def tag = Tags.STRING }
+  implicit object BoolType   extends StandardType[Boolean]        { override def tag = Tags.BOOL   }
+  implicit object ShortType  extends StandardType[Short]          { override def tag = Tags.SHORT  }
+  implicit object IntType    extends StandardType[Int]            { override def tag = Tags.INT    }
+  implicit object LongType   extends StandardType[Long]           { override def tag = Tags.LONG   }
+  implicit object FloatType  extends StandardType[Float]          { override def tag = Tags.FLOAT  }
+  implicit object DoubleType extends StandardType[Double]         { override def tag = Tags.DOUBLE }
+  implicit object BinaryType extends StandardType[Chunk[Byte]]    { override def tag = Tags.BINARY }
+  implicit object CharType   extends StandardType[Char]           { override def tag = Tags.CHAR   }
+  implicit object UUIDType   extends StandardType[java.util.UUID] { override def tag = Tags.UUID   }
 
   implicit object BigDecimalType extends StandardType[java.math.BigDecimal] { override def tag = Tags.BIG_DECIMAL }
   implicit object BigIntegerType extends StandardType[java.math.BigInteger] { override def tag = Tags.BIG_INTEGER }
@@ -129,4 +132,5 @@ object StandardType {
   final case class ZonedDateTime(formatter: DateTimeFormatter) extends StandardType[java.time.ZonedDateTime] {
     override def tag = Tags.ZONED_DATE_TIME
   }
+
 }
