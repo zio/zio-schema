@@ -1,16 +1,14 @@
 package zio.schema.codec
 
+import zio.schema.{ Schema, SchemaAst, StandardType }
+import zio.stream.ZTransducer
+import zio.{ Chunk, ZIO }
+
 import java.nio.charset.StandardCharsets
 import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
-
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
-
-import zio.schema._
-import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
-import zio.stream.ZTransducer
-import zio.{ Chunk, ZIO }
 
 object ProtobufCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
@@ -455,7 +453,7 @@ object ProtobufCodec extends Codec {
         case (wt, fieldNumber) if fieldNumber <= cases.length =>
           val subtypeCase = cases(fieldNumber - 1)
           wt match {
-            case LengthDelimited(width) =>
+            case WireType.LengthDelimited(width) =>
               decoder(subtypeCase.codec)
                 .take(width)
                 .asInstanceOf[Decoder[Z]]
@@ -488,7 +486,7 @@ object ProtobufCodec extends Codec {
               val Schema.Field(fieldName, schema, _) = fields(fieldNumber - 1)
 
               wt match {
-                case LengthDelimited(width) =>
+                case WireType.LengthDelimited(width) =>
                   for {
                     fieldValue <- decoder(schema).take(width)
                     remainder  <- recordDecoder(fields, decoded + 1)
@@ -514,7 +512,7 @@ object ProtobufCodec extends Codec {
       keyDecoder.flatMap {
         case (wt, _) =>
           wt match {
-            case LengthDelimited(width) => decoder(schema).take(width)
+            case WireType.LengthDelimited(width) => decoder(schema).take(width)
             case _                      => fail("Unexpected wire type")
           }
       }.loop
