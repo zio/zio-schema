@@ -87,8 +87,15 @@ lazy val zioSchemaProtobuf = crossProject(JSPlatform, JVMPlatform)
 
 lazy val zioSchemaJS = zioSchema.js
   .settings(scalaJSUseMainModuleInitializer := true)
+lazy val zioSchemaJsonJS = zioSchemaJson.js
+  .settings(scalaJSUseMainModuleInitializer := true)
+lazy val zioSchemaProtobufJS = zioSchemaProtobuf.js
+  .settings(scalaJSUseMainModuleInitializer := true)
 
 lazy val zioSchemaJVM = zioSchema.jvm
+lazy val zioSchemaJsonJVM = zioSchemaJson.jvm
+lazy val zioSchemaProtobufJVM = zioSchemaProtobuf.jvm
+
 lazy val docs = project
   .in(file("zio-schema-docs"))
   .settings(
@@ -117,5 +124,5 @@ lazy val docs = project
 
 lazy val benchmarks = project
   .in(file("benchmarks"))
-  .dependsOn(zioSchemaJVM, zioSchemaProtobuf.jvm)
+  .dependsOn(zioSchemaJVM, zioSchemaProtobufJVM, zioSchemaJsonJVM)
   .enablePlugins(JmhPlugin)
