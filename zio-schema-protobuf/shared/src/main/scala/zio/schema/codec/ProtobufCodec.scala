@@ -1,14 +1,15 @@
 package zio.schema.codec
 
-import zio.schema.{ Schema, SchemaAst, StandardType }
-import zio.stream.ZTransducer
-import zio.{ Chunk, ZIO }
-
 import java.nio.charset.StandardCharsets
 import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
+
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
+
+import zio.schema.{ Schema, SchemaAst, StandardType }
+import zio.stream.ZTransducer
+import zio.{ Chunk, ZIO }
 
 object ProtobufCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
@@ -513,7 +514,7 @@ object ProtobufCodec extends Codec {
         case (wt, _) =>
           wt match {
             case WireType.LengthDelimited(width) => decoder(schema).take(width)
-            case _                      => fail("Unexpected wire type")
+            case _                               => fail("Unexpected wire type")
           }
       }.loop
 
