@@ -228,6 +228,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   final case class Meta(ast: SchemaAst) extends Schema[Schema[_]]
 }
 
+//scalafmt: { maxColumn = 400 }
 sealed trait EnumSchemas { self: Schema.type =>
 
   sealed case class Case[A <: Z, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A) {
@@ -242,26 +243,533 @@ sealed trait EnumSchemas { self: Schema.type =>
 
   sealed case class Enum1[A <: Z, Z](case1: Case[A, Z]) extends Enum[Z] {
     override def structure: ListMap[String, Schema[_]] =
-      ListMap(
-        case1.id -> case1.codec
-      )
+      ListMap(case1.id -> case1.codec)
   }
 
   sealed case class Enum2[A1 <: Z, A2 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z]) extends Enum[Z] {
     override def structure: ListMap[String, Schema[_]] =
-      ListMap(
-        case1.id -> case1.codec,
-        case2.id -> case2.codec
-      )
+      ListMap(case1.id -> case1.codec, case2.id -> case2.codec)
   }
 
-  sealed case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z])
-      extends Enum[Z] {
+  sealed case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z]) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(case1.id -> case1.codec, case2.id -> case2.codec, case3.id -> case3.codec)
+  }
+
+  sealed case class Enum4[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z]) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(case1.id -> case1.codec, case2.id -> case2.codec, case3.id -> case3.codec, case4.id -> case4.codec)
+  }
+
+  sealed case class Enum5[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z]) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(case1.id -> case1.codec, case2.id -> case2.codec, case3.id -> case3.codec, case4.id -> case4.codec, case5.id -> case5.codec)
+  }
+
+  sealed case class Enum6[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z]) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(case1.id -> case1.codec, case2.id -> case2.codec, case3.id -> case3.codec, case4.id -> case4.codec, case5.id -> case5.codec, case6.id -> case6.codec)
+  }
+
+  sealed case class Enum7[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z]) extends Enum[Z] {
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id -> case1.codec,
         case2.id -> case2.codec,
-        case3.id -> case3.codec
+        case3.id -> case3.codec,
+        case4.id -> case4.codec,
+        case5.id -> case5.codec,
+        case6.id -> case6.codec,
+        case7.id -> case7.codec
+      )
+  }
+
+  sealed case class Enum8[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z]) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id -> case1.codec,
+        case2.id -> case2.codec,
+        case3.id -> case3.codec,
+        case4.id -> case4.codec,
+        case5.id -> case5.codec,
+        case6.id -> case6.codec,
+        case7.id -> case7.codec,
+        case8.id -> case8.codec
+      )
+  }
+
+  sealed case class Enum9[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z]) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id -> case1.codec,
+        case2.id -> case2.codec,
+        case3.id -> case3.codec,
+        case4.id -> case4.codec,
+        case5.id -> case5.codec,
+        case6.id -> case6.codec,
+        case7.id -> case7.codec,
+        case8.id -> case8.codec,
+        case9.id -> case9.codec
+      )
+  }
+  sealed case class Enum10[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], case10: Case[A10, Z]) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id  -> case1.codec,
+        case2.id  -> case2.codec,
+        case3.id  -> case3.codec,
+        case4.id  -> case4.codec,
+        case5.id  -> case5.codec,
+        case6.id  -> case6.codec,
+        case7.id  -> case7.codec,
+        case8.id  -> case8.codec,
+        case9.id  -> case9.codec,
+        case10.id -> case10.codec
+      )
+  }
+  sealed case class Enum11[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], case10: Case[A10, Z], case11: Case[A11, Z]) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id  -> case1.codec,
+        case2.id  -> case2.codec,
+        case3.id  -> case3.codec,
+        case4.id  -> case4.codec,
+        case5.id  -> case5.codec,
+        case6.id  -> case6.codec,
+        case7.id  -> case7.codec,
+        case8.id  -> case8.codec,
+        case9.id  -> case9.codec,
+        case10.id -> case10.codec,
+        case11.id -> case11.codec
+      )
+  }
+  sealed case class Enum12[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], case10: Case[A10, Z], case11: Case[A11, Z], case12: Case[A12, Z])
+      extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id  -> case1.codec,
+        case2.id  -> case2.codec,
+        case3.id  -> case3.codec,
+        case4.id  -> case4.codec,
+        case5.id  -> case5.codec,
+        case6.id  -> case6.codec,
+        case7.id  -> case7.codec,
+        case8.id  -> case8.codec,
+        case9.id  -> case9.codec,
+        case10.id -> case10.codec,
+        case11.id -> case11.codec,
+        case12.id -> case12.codec
+      )
+  }
+  sealed case class Enum13[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, Z](
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z]
+  ) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id  -> case1.codec,
+        case2.id  -> case2.codec,
+        case3.id  -> case3.codec,
+        case4.id  -> case4.codec,
+        case5.id  -> case5.codec,
+        case6.id  -> case6.codec,
+        case7.id  -> case7.codec,
+        case8.id  -> case8.codec,
+        case9.id  -> case9.codec,
+        case10.id -> case10.codec,
+        case11.id -> case11.codec,
+        case12.id -> case12.codec,
+        case13.id -> case13.codec
+      )
+  }
+
+  sealed case class Enum14[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, Z](
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z]
+  ) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id  -> case1.codec,
+        case2.id  -> case2.codec,
+        case3.id  -> case3.codec,
+        case4.id  -> case4.codec,
+        case5.id  -> case5.codec,
+        case6.id  -> case6.codec,
+        case7.id  -> case7.codec,
+        case8.id  -> case8.codec,
+        case9.id  -> case9.codec,
+        case10.id -> case10.codec,
+        case11.id -> case11.codec,
+        case12.id -> case12.codec,
+        case13.id -> case13.codec,
+        case14.id -> case14.codec
+      )
+  }
+  sealed case class Enum15[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, A15 <: Z, Z](
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z],
+    case15: Case[A15, Z]
+  ) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id  -> case1.codec,
+        case2.id  -> case2.codec,
+        case3.id  -> case3.codec,
+        case4.id  -> case4.codec,
+        case5.id  -> case5.codec,
+        case6.id  -> case6.codec,
+        case7.id  -> case7.codec,
+        case8.id  -> case8.codec,
+        case9.id  -> case9.codec,
+        case10.id -> case10.codec,
+        case11.id -> case11.codec,
+        case12.id -> case12.codec,
+        case13.id -> case13.codec,
+        case14.id -> case14.codec,
+        case15.id -> case15.codec
+      )
+  }
+  sealed case class Enum16[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, A15 <: Z, A16 <: Z, Z](
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z],
+    case15: Case[A15, Z],
+    case16: Case[A16, Z]
+  ) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id  -> case1.codec,
+        case2.id  -> case2.codec,
+        case3.id  -> case3.codec,
+        case4.id  -> case4.codec,
+        case5.id  -> case5.codec,
+        case6.id  -> case6.codec,
+        case7.id  -> case7.codec,
+        case8.id  -> case8.codec,
+        case9.id  -> case9.codec,
+        case10.id -> case10.codec,
+        case11.id -> case11.codec,
+        case12.id -> case12.codec,
+        case13.id -> case13.codec,
+        case14.id -> case14.codec,
+        case15.id -> case15.codec,
+        case16.id -> case16.codec
+      )
+  }
+  sealed case class Enum17[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, A15 <: Z, A16 <: Z, A17 <: Z, Z](
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z],
+    case15: Case[A15, Z],
+    case16: Case[A16, Z],
+    case17: Case[A17, Z]
+  ) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id  -> case1.codec,
+        case2.id  -> case2.codec,
+        case3.id  -> case3.codec,
+        case4.id  -> case4.codec,
+        case5.id  -> case5.codec,
+        case6.id  -> case6.codec,
+        case7.id  -> case7.codec,
+        case8.id  -> case8.codec,
+        case9.id  -> case9.codec,
+        case10.id -> case10.codec,
+        case11.id -> case11.codec,
+        case12.id -> case12.codec,
+        case13.id -> case13.codec,
+        case14.id -> case14.codec,
+        case15.id -> case15.codec,
+        case16.id -> case16.codec,
+        case17.id -> case17.codec
+      )
+  }
+  sealed case class Enum18[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, A15 <: Z, A16 <: Z, A17 <: Z, A18 <: Z, Z](
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z],
+    case15: Case[A15, Z],
+    case16: Case[A16, Z],
+    case17: Case[A17, Z],
+    case18: Case[A18, Z]
+  ) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id  -> case1.codec,
+        case2.id  -> case2.codec,
+        case3.id  -> case3.codec,
+        case4.id  -> case4.codec,
+        case5.id  -> case5.codec,
+        case6.id  -> case6.codec,
+        case7.id  -> case7.codec,
+        case8.id  -> case8.codec,
+        case9.id  -> case9.codec,
+        case10.id -> case10.codec,
+        case11.id -> case11.codec,
+        case12.id -> case12.codec,
+        case13.id -> case13.codec,
+        case14.id -> case14.codec,
+        case15.id -> case15.codec,
+        case16.id -> case16.codec,
+        case17.id -> case17.codec,
+        case18.id -> case18.codec
+      )
+  }
+  sealed case class Enum19[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, A15 <: Z, A16 <: Z, A17 <: Z, A18 <: Z, A19 <: Z, Z](
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z],
+    case15: Case[A15, Z],
+    case16: Case[A16, Z],
+    case17: Case[A17, Z],
+    case18: Case[A18, Z],
+    case19: Case[A19, Z]
+  ) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id  -> case1.codec,
+        case2.id  -> case2.codec,
+        case3.id  -> case3.codec,
+        case4.id  -> case4.codec,
+        case5.id  -> case5.codec,
+        case6.id  -> case6.codec,
+        case7.id  -> case7.codec,
+        case8.id  -> case8.codec,
+        case9.id  -> case9.codec,
+        case10.id -> case10.codec,
+        case11.id -> case11.codec,
+        case12.id -> case12.codec,
+        case13.id -> case13.codec,
+        case14.id -> case14.codec,
+        case15.id -> case15.codec,
+        case16.id -> case16.codec,
+        case17.id -> case17.codec,
+        case18.id -> case18.codec,
+        case19.id -> case19.codec
+      )
+  }
+  sealed case class Enum20[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, A15 <: Z, A16 <: Z, A17 <: Z, A18 <: Z, A19 <: Z, A20 <: Z, Z](
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z],
+    case15: Case[A15, Z],
+    case16: Case[A16, Z],
+    case17: Case[A17, Z],
+    case18: Case[A18, Z],
+    case19: Case[A19, Z],
+    case20: Case[A20, Z]
+  ) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id  -> case1.codec,
+        case2.id  -> case2.codec,
+        case3.id  -> case3.codec,
+        case4.id  -> case4.codec,
+        case5.id  -> case5.codec,
+        case6.id  -> case6.codec,
+        case7.id  -> case7.codec,
+        case8.id  -> case8.codec,
+        case9.id  -> case9.codec,
+        case10.id -> case10.codec,
+        case11.id -> case11.codec,
+        case12.id -> case12.codec,
+        case13.id -> case13.codec,
+        case14.id -> case14.codec,
+        case15.id -> case15.codec,
+        case16.id -> case16.codec,
+        case17.id -> case17.codec,
+        case18.id -> case18.codec,
+        case19.id -> case19.codec,
+        case20.id -> case20.codec
+      )
+  }
+  sealed case class Enum21[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, A15 <: Z, A16 <: Z, A17 <: Z, A18 <: Z, A19 <: Z, A20 <: Z, A21 <: Z, Z](
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z],
+    case15: Case[A15, Z],
+    case16: Case[A16, Z],
+    case17: Case[A17, Z],
+    case18: Case[A18, Z],
+    case19: Case[A19, Z],
+    case20: Case[A20, Z],
+    case21: Case[A21, Z]
+  ) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id  -> case1.codec,
+        case2.id  -> case2.codec,
+        case3.id  -> case3.codec,
+        case4.id  -> case4.codec,
+        case5.id  -> case5.codec,
+        case6.id  -> case6.codec,
+        case7.id  -> case7.codec,
+        case8.id  -> case8.codec,
+        case9.id  -> case9.codec,
+        case10.id -> case10.codec,
+        case11.id -> case11.codec,
+        case12.id -> case12.codec,
+        case13.id -> case13.codec,
+        case14.id -> case14.codec,
+        case15.id -> case15.codec,
+        case16.id -> case16.codec,
+        case17.id -> case17.codec,
+        case18.id -> case18.codec,
+        case19.id -> case19.codec,
+        case20.id -> case20.codec,
+        case21.id -> case21.codec
+      )
+  }
+  sealed case class Enum22[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, A15 <: Z, A16 <: Z, A17 <: Z, A18 <: Z, A19 <: Z, A20 <: Z, A21 <: Z, A22 <: Z, Z](
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z],
+    case15: Case[A15, Z],
+    case16: Case[A16, Z],
+    case17: Case[A17, Z],
+    case18: Case[A18, Z],
+    case19: Case[A19, Z],
+    case20: Case[A20, Z],
+    case21: Case[A21, Z],
+    case22: Case[A22, Z]
+  ) extends Enum[Z] {
+    override def structure: ListMap[String, Schema[_]] =
+      ListMap(
+        case1.id  -> case1.codec,
+        case2.id  -> case2.codec,
+        case3.id  -> case3.codec,
+        case4.id  -> case4.codec,
+        case5.id  -> case5.codec,
+        case6.id  -> case6.codec,
+        case7.id  -> case7.codec,
+        case8.id  -> case8.codec,
+        case9.id  -> case9.codec,
+        case10.id -> case10.codec,
+        case11.id -> case11.codec,
+        case12.id -> case12.codec,
+        case13.id -> case13.codec,
+        case14.id -> case14.codec,
+        case15.id -> case15.codec,
+        case16.id -> case16.codec,
+        case17.id -> case17.codec,
+        case18.id -> case18.codec,
+        case19.id -> case19.codec,
+        case20.id -> case20.codec,
+        case21.id -> case21.codec,
+        case22.id -> case22.codec
       )
   }
   sealed case class EnumN[Z](cases: Seq[Case[_ <: Z, Z]]) extends Enum[Z] {
