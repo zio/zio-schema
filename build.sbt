@@ -71,11 +71,17 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
     )
   )
 
+lazy val zioSchemaJson = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-schema-json"))
+  .settings(stdSettings("zio-schema-json"))
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema.json"))
+  .dependsOn(zioSchema % "test->test;compile->compile")
+
 lazy val zioSchemaJS = zioSchema.js
   .settings(scalaJSUseMainModuleInitializer := true)
 
 lazy val zioSchemaJVM = zioSchema.jvm
-
 lazy val docs = project
   .in(file("zio-schema-docs"))
   .settings(
