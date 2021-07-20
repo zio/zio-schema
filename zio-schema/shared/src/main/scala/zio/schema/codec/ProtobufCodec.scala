@@ -12,6 +12,7 @@ import zio.stream.ZTransducer
 import zio.{ Chunk, ZIO }
 
 import java.util.UUID
+import scala.util.control.NonFatal
 
 object ProtobufCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
@@ -416,6 +417,8 @@ object ProtobufCodec extends Codec {
 
     def fail(failure: String): Decoder[Nothing] = Decoder(_ => Left(failure))
 
+    def succeedNow[A](a: A): Decoder[A] = Decoder(bytes => Right((bytes, a)))
+
     def succeed[A](a: => A): Decoder[A] = Decoder(bytes => Right((bytes, a)))
 
     def binaryDecoder: Decoder[Chunk[Byte]] = Decoder(bytes => Right((Chunk.empty, bytes)))
@@ -591,7 +594,13 @@ object ProtobufCodec extends Codec {
         case StandardType.DoubleType => doubleDecoder
         case StandardType.BinaryType => binaryDecoder
         case StandardType.CharType   => stringDecoder.map(_.charAt(0))
-        case StandardType.UUIDType   => stringDecoder.map(UUID.fromString)
+        case StandardType.UUIDType =>
+          stringDecoder.flatMap { uuid =>
+            try succeedNow(UUID.fromString(uuid))
+            catch {
+              case NonFatal(_) => fail("Invalid UUID string")
+            }
+          }
         case StandardType.DayOfWeekType =>
           varIntDecoder.map(_.intValue).map(DayOfWeek.of)
         case StandardType.Month =>
