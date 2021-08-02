@@ -11,7 +11,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v2
-      - uses: olafurpg/setup-scala@v10
+      - uses: olafurpg/setup-scala@v13
       - uses: olafurpg/setup-gpg@v3
       - run: sbt docs/docusaurusPublishGhpages
         env:
