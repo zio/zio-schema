@@ -62,6 +62,9 @@ sealed trait Schema[A] {
    */
   def optional: Schema[Option[A]] = Schema.Optional(self)
 
+  def ordering:Ordering[A] = SchemaOrdering.ordering(this)
+
+
   /**
    * Returns a new schema that combines this schema and the specified schema together, modeling
    * their either composition.
