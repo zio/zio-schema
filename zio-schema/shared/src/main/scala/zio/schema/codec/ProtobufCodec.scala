@@ -35,6 +35,7 @@ object ProtobufCodec extends Codec {
         Decoder.decode(schema, ch)
 
   object Protobuf {
+    import FieldSet._
 
     sealed trait WireType
 
@@ -47,34 +48,27 @@ object ProtobufCodec extends Codec {
       case object Bit32                      extends WireType
     }
 
-    def tupleSchema[A, B](first: Schema[A], second: Schema[B]): Schema[ListMap[String, _]] =
+    def tupleSchema[A, B](first: Schema[A], second: Schema[B]): Schema[Struct] =
       Schema.record(Schema.Field("first", first), Schema.Field("second", second))
 
-    def singleSchema[A](codec: Schema[A]): Schema[ListMap[String, _]] = Schema.record(Schema.Field("value", codec))
+    def singleSchema[A](codec: Schema[A]): Schema[Struct] = Schema.record(Schema.Field("value", codec))
 
-    def monthDayStructure(): Seq[Schema.Field[Int]] =
-      Seq(
-        Schema.Field("month", Schema.Primitive(StandardType.IntType)),
-        Schema.Field("day", Schema.Primitive(StandardType.IntType))
-      )
+    val monthDayStructure: FieldSet =
+      Schema.Field("month", Schema.Primitive(StandardType.IntType)) :*:
+        Schema.Field("day", Schema.Primitive(StandardType.IntType)) :*: Empty
 
-    def periodStructure(): Seq[Schema.Field[Int]] = Seq(
-      Schema.Field("years", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("months", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("days", Schema.Primitive(StandardType.IntType))
-    )
+    val periodStructure: FieldSet =
+      Schema.Field("years", Schema.Primitive(StandardType.IntType)) :*:
+        Schema.Field("months", Schema.Primitive(StandardType.IntType)) :*:
+        Schema.Field("days", Schema.Primitive(StandardType.IntType)) :*: Empty
 
-    def yearMonthStructure(): Seq[Schema.Field[Int]] =
-      Seq(
-        Schema.Field("year", Schema.Primitive(StandardType.IntType)),
-        Schema.Field("month", Schema.Primitive(StandardType.IntType))
-      )
+    val yearMonthStructure: FieldSet =
+      Schema.Field("year", Schema.Primitive(StandardType.IntType)) :*:
+        Schema.Field("month", Schema.Primitive(StandardType.IntType)) :*: Empty
 
-    def durationStructure(): Seq[Schema.Field[_]] =
-      Seq(
-        Schema.Field("seconds", Schema.Primitive(StandardType.LongType)),
-        Schema.Field("nanos", Schema.Primitive(StandardType.IntType))
-      )
+    val durationStructure: FieldSet =
+      Schema.Field("seconds", Schema.Primitive(StandardType.LongType)) :*:
+        Schema.Field("nanos", Schema.Primitive(StandardType.IntType)) :*: Empty
 
     /**
      * Used when encoding sequence of values to decide whether each value need its own key or values can be packed together without keys (for example numbers).
@@ -126,27 +120,28 @@ object ProtobufCodec extends Codec {
   }
 
   object Encoder {
+    import Struct._
 
     import Protobuf._
 
     def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
       (schema, value) match {
-        case (Schema.GenericRecord(structure), v: Map[String, _]) => encodeRecord(fieldNumber, structure, v)
-        case (Schema.Sequence(element, _, g), v)                  => encodeSequence(fieldNumber, element, g(v))
-        case (Schema.Enumeration(structure), v: (String, _))      => encodeEnumeration(fieldNumber, structure, v)
-        case (Schema.Transform(codec, _, g), _)                   => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
-        case (Schema.Primitive(standardType), v)                  => encodePrimitive(fieldNumber, standardType, v)
-        case (Schema.Tuple(left, right), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)
-        case (Schema.Optional(codec), v: Option[_])               => encodeOptional(fieldNumber, codec, v)
-        case (Schema.EitherSchema(left, right), v: Either[_, _])  => encodeEither(fieldNumber, left, right, v)
-        case (lzy @ Schema.Lazy(_), v)                            => encode(fieldNumber, lzy.schema, v)
-        case (Schema.Meta(ast), _)                                => encode(fieldNumber, Schema[SchemaAst], ast)
-        case ProductEncoder(encode)                               => encode(fieldNumber)
-        case (Schema.Enum1(c), v)                                 => encodeEnum(fieldNumber, v, c)
-        case (Schema.Enum2(c1, c2), v)                            => encodeEnum(fieldNumber, v, c1, c2)
-        case (Schema.Enum3(c1, c2, c3), v)                        => encodeEnum(fieldNumber, v, c1, c2, c3)
-        case (Schema.EnumN(cs), v)                                => encodeEnum(fieldNumber, v, cs: _*)
-        case (_, _)                                               => Chunk.empty
+        case (s @ Schema.GenericRecord(_), v: Struct)            => encodeRecord(fieldNumber, s.fieldSet, v)
+        case (Schema.Sequence(element, _, g), v)                 => encodeSequence(fieldNumber, element, g(v))
+        case (Schema.Enumeration(structure), v: (String, _))     => encodeEnumeration(fieldNumber, structure, v)
+        case (Schema.Transform(codec, _, g), _)                  => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
+        case (Schema.Primitive(standardType), v)                 => encodePrimitive(fieldNumber, standardType, v)
+        case (Schema.Tuple(left, right), v @ (_, _))             => encodeTuple(fieldNumber, left, right, v)
+        case (Schema.Optional(codec), v: Option[_])              => encodeOptional(fieldNumber, codec, v)
+        case (Schema.EitherSchema(left, right), v: Either[_, _]) => encodeEither(fieldNumber, left, right, v)
+        case (lzy @ Schema.Lazy(_), v)                           => encode(fieldNumber, lzy.schema, v)
+        case (Schema.Meta(ast), _)                               => encode(fieldNumber, Schema[SchemaAst], ast)
+        case ProductEncoder(encode)                              => encode(fieldNumber)
+        case (Schema.Enum1(c), v)                                => encodeEnum(fieldNumber, v, c)
+        case (Schema.Enum2(c1, c2), v)                           => encodeEnum(fieldNumber, v, c1, c2)
+        case (Schema.Enum3(c1, c2, c3), v)                       => encodeEnum(fieldNumber, v, c1, c2, c3)
+        case (Schema.EnumN(cs), v)                               => encodeEnum(fieldNumber, v, cs: _*)
+        case (_, _)                                              => Chunk.empty
       }
 
     private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[_, Z]*): Chunk[Byte] = {
@@ -168,21 +163,21 @@ object ProtobufCodec extends Codec {
 
     private def encodeRecord(
       fieldNumber: Option[Int],
-      structure: Seq[Schema.Field[_]],
-      data: ListMap[String, _]
-    ): Chunk[Byte] = {
-      val encodedRecord = Chunk
-        .fromIterable(structure.zipWithIndex.map {
-          case (Schema.Field(label, schema, _), fieldNumber) =>
-            data
-              .get(label)
-              .map(value => encode(Some(fieldNumber + 1), schema.asInstanceOf[Schema[Any]], value))
-              .getOrElse(Chunk.empty)
-        })
-        .flatten
+      fieldSet: FieldSet,
+      data: Struct
+    ): Chunk[Byte] =
+      // val encodedRecord = Chunk
+      //   .fromIterable(structure.zipWithIndex.map {
+      //     case (Schema.Field(label, schema, _), fieldNumber) =>
+      //       data
+      //         .get(label)
+      //         .map(value => encode(Some(fieldNumber + 1), schema.asInstanceOf[Schema[Any]], value))
+      //         .getOrElse(Chunk.empty)
+      //   })
+      //   .flatten
 
-      encodeKey(WireType.LengthDelimited(encodedRecord.size), fieldNumber) ++ encodedRecord
-    }
+      // encodeKey(WireType.LengthDelimited(encodedRecord.size), fieldNumber) ++ encodedRecord
+      ???
 
     private def encodeSequence[A](
       fieldNumber: Option[Int],
@@ -251,23 +246,23 @@ object ProtobufCodec extends Codec {
         case (StandardType.Month, v: Month) =>
           encodePrimitive(fieldNumber, StandardType.IntType, v.getValue)
         case (StandardType.MonthDay, v: MonthDay) =>
-          encodeRecord(fieldNumber, monthDayStructure(), ListMap("month" -> v.getMonthValue, "day" -> v.getDayOfMonth))
+          encodeRecord(fieldNumber, monthDayStructure, "month" -> v.getMonthValue :+: "day" -> v.getDayOfMonth :+: SNil)
         case (StandardType.Period, v: Period) =>
           encodeRecord(
             fieldNumber,
-            periodStructure(),
-            ListMap("years" -> v.getYears, "months" -> v.getMonths, "days" -> v.getDays)
+            periodStructure,
+            "years" -> v.getYears :+: "months" -> v.getMonths :+: "days" -> v.getDays :+: SNil
           )
         case (StandardType.Year, v: Year) =>
           encodePrimitive(fieldNumber, StandardType.IntType, v.getValue)
         case (StandardType.YearMonth, v: YearMonth) =>
-          encodeRecord(fieldNumber, yearMonthStructure(), ListMap("year" -> v.getYear, "month" -> v.getMonthValue))
+          encodeRecord(fieldNumber, yearMonthStructure, "year" -> v.getYear :+: "month" -> v.getMonthValue :+: SNil)
         case (StandardType.ZoneId, v: ZoneId) =>
           encodePrimitive(fieldNumber, StandardType.StringType, v.getId)
         case (StandardType.ZoneOffset, v: ZoneOffset) =>
           encodePrimitive(fieldNumber, StandardType.IntType, v.getTotalSeconds)
         case (StandardType.Duration(_), v: Duration) =>
-          encodeRecord(fieldNumber, durationStructure(), ListMap("seconds" -> v.getSeconds, "nanos" -> v.getNano))
+          encodeRecord(fieldNumber, durationStructure, "seconds" -> v.getSeconds :+: "nanos" -> v.getNano :+: SNil)
         case (StandardType.Instant(formatter), v: Instant) =>
           encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
         case (StandardType.LocalDate(formatter), v: LocalDate) =>
@@ -295,7 +290,7 @@ object ProtobufCodec extends Codec {
       encode(
         fieldNumber,
         tupleSchema(left, right),
-        ListMap[String, Any]("first" -> tuple._1, "second" -> tuple._2)
+        "first" -> tuple._1 :+: "second" -> tuple._2 :+: SNil
       )
 
     private def encodeEither[A, B](
@@ -318,7 +313,7 @@ object ProtobufCodec extends Codec {
           encode(
             fieldNumber,
             singleSchema(schema),
-            ListMap("value" -> v)
+            "value" -> v :+: SNil
           )
         case None => Chunk.empty
       }
@@ -407,6 +402,7 @@ object ProtobufCodec extends Codec {
   }
 
   object Decoder {
+    import Struct._
 
     import Protobuf._
 
@@ -428,7 +424,7 @@ object ProtobufCodec extends Codec {
 
     private[codec] def decoder[A](schema: Schema[A]): Decoder[A] =
       schema match {
-        case Schema.GenericRecord(structure) => recordDecoder(structure)
+        case s @ Schema.GenericRecord(_) => structDecoder(s.fieldSet)
         case Schema.Sequence(element, f, _) =>
           if (canBePacked(element)) packedSequenceDecoder(element).map(f) else nonPackedSequenceDecoder(element).map(f)
         case Schema.Enumeration(structure)    => enumerationDecoder(structure)
@@ -449,6 +445,8 @@ object ProtobufCodec extends Codec {
 
     private val astDecoder: Decoder[Schema[_]] =
       decoder(Schema[SchemaAst]).map(_.toSchema)
+
+    private def structDecoder(fieldSet: FieldSet): Decoder[Struct] = ???
 
     private def enumDecoder[Z](cases: Schema.Case[_, Z]*): Decoder[Z] =
       keyDecoder.flatMap {
@@ -478,32 +476,33 @@ object ProtobufCodec extends Codec {
           }
       }
 
-    private def recordDecoder(fields: Seq[Schema.Field[_]], decoded: Int = 0): Decoder[ListMap[String, _]] =
-      if (fields.isEmpty || (fields.size == decoded))
-        Decoder.succeed(ListMap.empty)
-      else
-        keyDecoder.flatMap {
-          case (wt, fieldNumber) =>
-            if (fields.isDefinedAt(fieldNumber - 1)) {
-              val Schema.Field(fieldName, schema, _) = fields(fieldNumber - 1)
+    private def recordDecoder(fieldSet: FieldSet, decoded: Int = 0): Decoder[ListMap[String, _]] =
+      ???
+    // if (fields.isEmpty || (fields.size == decoded))
+    //   Decoder.succeed(ListMap.empty)
+    // else
+    //   keyDecoder.flatMap {
+    //     case (wt, fieldNumber) =>
+    //       if (fields.isDefinedAt(fieldNumber - 1)) {
+    //         val Schema.Field(fieldName, schema, _) = fields(fieldNumber - 1)
 
-              wt match {
-                case LengthDelimited(width) =>
-                  for {
-                    fieldValue <- decoder(schema).take(width)
-                    remainder  <- recordDecoder(fields, decoded + 1)
-                  } yield (remainder.updated(fieldName, fieldValue))
+    //         wt match {
+    //           case LengthDelimited(width) =>
+    //             for {
+    //               fieldValue <- decoder(schema).take(width)
+    //               remainder  <- recordDecoder(fields, decoded + 1)
+    //             } yield (remainder.updated(fieldName, fieldValue))
 
-                case _ =>
-                  for {
-                    fieldValue <- decoder(schema)
-                    remainder  <- recordDecoder(fields, decoded + 1)
-                  } yield (remainder.updated(fieldName, fieldValue))
-              }
-            } else {
-              fail(s"Schema doesn't contain field number $fieldNumber.")
-            }
-        }
+    //           case _ =>
+    //             for {
+    //               fieldValue <- decoder(schema)
+    //               remainder  <- recordDecoder(fields, decoded + 1)
+    //             } yield (remainder.updated(fieldName, fieldValue))
+    //         }
+    //       } else {
+    //         fail(s"Schema doesn't contain field number $fieldNumber.")
+    //       }
+    //   }
 
     private def packedSequenceDecoder[A](schema: Schema[A]): Decoder[Chunk[A]] = schema match {
       case lzy @ Schema.Lazy(_) => decoder(lzy.schema).loop
@@ -523,11 +522,19 @@ object ProtobufCodec extends Codec {
       decoder(tupleSchema(left, right))
         .flatMap(
           record =>
+            // new Decoder(
+            //   chunk =>
+            //     (record.get("first"), record.get("second")) match {
+            //       case (Some(first), Some(second)) => Right((chunk, (first.asInstanceOf[A], second.asInstanceOf[B])))
+            //       case _                           => Left("Error while decoding tuple.")
+            //     }
+            // )
             new Decoder(
               chunk =>
-                (record.get("first"), record.get("second")) match {
-                  case (Some(first), Some(second)) => Right((chunk, (first.asInstanceOf[A], second.asInstanceOf[B])))
-                  case _                           => Left("Error while decoding tuple.")
+                record match {
+                  case ("first", first) :+: ("second", second) :+: SNil =>
+                    Right((chunk, (first.asInstanceOf[A], second.asInstanceOf[B])))
+                  case _ => Left("Error while decoding tuple.")
                 }
             )
         )
@@ -540,8 +547,10 @@ object ProtobufCodec extends Codec {
       }
 
     private def optionalDecoder[A](schema: Schema[A]): Decoder[Option[A]] =
-      decoder(singleSchema(schema))
-        .map(record => record.get("value").asInstanceOf[Option[A]])
+      decoder(singleSchema(schema)).map {
+        case ("value", a) :+: SNil => a.asInstanceOf[Option[A]]
+        case _                     => None
+      }
 
     private def floatDecoder: Decoder[Float] =
       Decoder(bytes => {
@@ -592,13 +601,13 @@ object ProtobufCodec extends Codec {
         case StandardType.Month =>
           varIntDecoder.map(_.intValue).map(Month.of)
         case StandardType.MonthDay =>
-          recordDecoder(monthDayStructure())
+          recordDecoder(monthDayStructure)
             .map(
               data =>
                 MonthDay.of(data.getOrElse("month", 0).asInstanceOf[Int], data.getOrElse("day", 0).asInstanceOf[Int])
             )
         case StandardType.Period =>
-          recordDecoder(periodStructure())
+          recordDecoder(periodStructure)
             .map(
               data =>
                 Period.of(
@@ -610,7 +619,7 @@ object ProtobufCodec extends Codec {
         case StandardType.Year =>
           varIntDecoder.map(_.intValue).map(Year.of)
         case StandardType.YearMonth =>
-          recordDecoder(yearMonthStructure())
+          recordDecoder(yearMonthStructure)
             .map(
               data =>
                 YearMonth.of(data.getOrElse("year", 0).asInstanceOf[Int], data.getOrElse("month", 0).asInstanceOf[Int])
@@ -621,7 +630,7 @@ object ProtobufCodec extends Codec {
             .map(_.intValue)
             .map(ZoneOffset.ofTotalSeconds)
         case StandardType.Duration(_) =>
-          recordDecoder(durationStructure())
+          recordDecoder(durationStructure)
             .map(
               data =>
                 Duration.ofSeconds(

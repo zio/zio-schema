@@ -109,7 +109,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   def first[A](codec: Schema[(A, Unit)]): Schema[A] =
     codec.transform[A](_._1, a => (a, ()))
 
-  def record(field: Field[_]*): Schema[ListMap[String, _]] =
+  def record(field: Field[_]*): Schema[Struct] =
     GenericRecord(Chunk.fromIterable(field))
 
   def second[A](codec: Schema[(Unit, A)]): Schema[A] =
@@ -196,6 +196,8 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     def structure: Chunk[Field[_]]
     def annotations: Chunk[Any] = Chunk.empty
     def rawConstruct(values: Chunk[Any]): Either[String, R]
+
+    def fieldSet: FieldSet = FieldSet(structure)
   }
 
   final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
@@ -1215,16 +1217,31 @@ sealed trait TupleSchemas {
 
 //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
 sealed trait RecordSchemas { self: Schema.type =>
+  import Struct._
+  import FieldSet._
 
   sealed case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) {
     override def toString: String = s"Field($label,$schema)"
   }
 
-  sealed case class GenericRecord(override val structure: Chunk[Field[_]]) extends Record[ListMap[String, _]] {
-    override def rawConstruct(values: Chunk[Any]): Either[String, ListMap[String, _]] =
+  sealed case class GenericRecord(override val structure: Chunk[Field[_]]) extends Record[Struct] {
+    override def rawConstruct(values: Chunk[Any]): Either[String, Struct] =
       if (values.size == structure.size)
-        Right(ListMap(structure.map(_.label).zip(values): _*))
-      else
+        try {
+          val (_, struct) = values.foldLeft[(FieldSet, Struct)](fieldSet -> SNil) {
+            case ((fields, struct), value) =>
+              fields match {
+                case head :*: tail =>
+                  (tail, (head.label, value.asInstanceOf[fields.Head]) :+: struct)
+                case _ => throw new IllegalArgumentException
+              }
+
+          }
+          Right(struct)
+
+        } catch {
+          case _: Throwable => Left(s"Invalid types for record")
+        } else
         Left(s"wrong number of values for $structure")
   }
 

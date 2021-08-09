@@ -7,6 +7,7 @@ import zio.random.Random
 import zio.test.{ Gen, Sized }
 
 object SchemaGen {
+  import Struct._
 
   def anyStructure(schemaGen: Gen[Random with Sized, Schema[_]]): Gen[Random with Sized, Seq[Schema.Field[_]]] =
     Gen.setOfBounded(1, 30)(Gen.anyString.filter(_.isEmpty)).flatMap { keySet =>
@@ -23,7 +24,7 @@ object SchemaGen {
   def anyStructure[A](schema: Schema[A]): Gen[Random with Sized, Seq[Schema.Field[A]]] =
     Gen
       .setOfBounded(1, 30)(
-        Gen.anyString.map(Schema.Field(_, schema))
+        Gen.anyASCIIString.filter(_.nonEmpty).map(Schema.Field(_, schema))
       )
       .map(_.toSeq)
 
@@ -158,10 +159,10 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  val anyRecord: Gen[Random with Sized, Schema[ListMap[String, _]]] =
+  val anyRecord: Gen[Random with Sized, Schema[Struct]] =
     anyStructure(anySchema).map(Schema.record)
 
-  type GenericRecordAndGen = (Schema[ListMap[String, _]], Gen[Random with Sized, ListMap[String, _]])
+  type GenericRecordAndGen = (Schema[Struct], Gen[Random with Sized, Struct])
 
   val anyGenericRecordAndGen: Gen[Random with Sized, GenericRecordAndGen] =
     for {
@@ -175,12 +176,14 @@ object SchemaGen {
           case (labels, values) =>
             labels.zip(values)
         }
-        .map(ListMap.empty ++ _)
+        .map { fields =>
+          fields.foldRight[Struct](SNil)((field, acc) => field :+: acc)
+        }
 
       Schema.record(structure: _*) -> valueGen
     }
 
-  type RecordAndValue = (Schema[ListMap[String, _]], ListMap[String, _])
+  type RecordAndValue = (Schema[Struct], Struct)
 
   val anyRecordAndValue: Gen[Random with Sized, RecordAndValue] =
     for {
@@ -197,11 +200,12 @@ object SchemaGen {
       (key1, value1)  <- Gen.const(keys(0)).zip(gen1)
       (key2, value2)  <- Gen.const(keys(1)).zip(gen2)
       (key3, value3)  <- Gen.const(keys(2)).zip(gen3)
-    } yield Schema.record(Schema.Field(key1, schema1), Schema.Field(key2, schema2), Schema.Field(key3, schema3)) -> ListMap(
-      (key1, value1),
-      (key2, value2),
-      (key3, value3)
-    )
+    } yield {
+      (
+        Schema.record(Schema.Field(key1, schema1), Schema.Field(key2, schema2), Schema.Field(key3, schema3)),
+        (key1, value1) :+: (key2, value2) :+: (key3, value3) :+: SNil
+      )
+    }
 
   type SequenceTransform[A] = Schema.Transform[Chunk[A], List[A]]
 
@@ -229,7 +233,7 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  type RecordTransform[A] = Schema.Transform[ListMap[String, _], A]
+  type RecordTransform[A] = Schema.Transform[Struct, A]
 
   val anyRecordTransform: Gen[Random with Sized, RecordTransform[_]] = {
     anyRecord.map(schema => transformRecord(schema))
@@ -245,8 +249,8 @@ object SchemaGen {
   //    }
 
   // TODO: Dynamically generate a case class.
-  def transformRecord[A](schema: Schema[ListMap[String, _]]): RecordTransform[A] =
-    Schema.Transform[ListMap[String, _], A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."))
+  def transformRecord[A](schema: Schema[Struct]): RecordTransform[A] =
+    Schema.Transform[Struct, A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."))
 
   type RecordTransformAndValue[A] = (RecordTransform[A], A)
 
@@ -483,6 +487,10 @@ object SchemaGen {
     for {
       schema <- anyTree(1)
       value  <- DynamicValueGen.anyDynamicValueOfSchema(schema)
+      _ = schema.fromDynamic(value) match {
+        case Left(err) => println(s"Invalid dynamic value: $err\nSchema: ${schema.serializable}\nDynamic value: $value")
+        case _         => ()
+      }
     } yield (schema -> schema.fromDynamic(value).toOption.get).asInstanceOf[SchemaAndValue[Any]]
 
   sealed trait Json

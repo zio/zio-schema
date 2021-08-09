@@ -7,6 +7,7 @@ import zio.random.Random
 import zio.test._
 
 object DynamicValueGen {
+  import Struct._
 
   def anyPrimitiveDynamicValue[A](standardType: StandardType[A]): Gen[Random with Sized, DynamicValue.Primitive[A]] = {
     def gen[A1](typ: StandardType[A1], gen: Gen[Random with Sized, A1]) = gen.map(DynamicValue.Primitive(_, typ))
@@ -119,7 +120,7 @@ object DynamicValueGen {
           .map(field => Gen.const(field.label).zip(anyDynamicValueOfSchema(field.schema)))
       )
       .map { values =>
-        DynamicValue.Record(ListMap.empty ++ values)
+        DynamicValue.Record(values.foldRight[Struct](SNil)((value, acc) => value :+: acc))
       }
 
 }

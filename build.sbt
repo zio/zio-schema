@@ -6,7 +6,6 @@ import sbt.moduleFilter
 import java.nio.file.Files
 import scala.sys.process.Process
 
-
 inThisBuild(
   List(
     name := "zio-schema",
@@ -103,8 +102,8 @@ lazy val docs = project
     docusaurusPublishGhpages := docusaurusPublishGhpages.dependsOn(unidoc in Compile).value,
     tempFileTask := {
       val tmp = {
-        val tmp = Files.createTempFile("docusaurus","install_ssh.sh")
-        Files.write(tmp,testScript.getBytes())
+        val tmp = Files.createTempFile("docusaurus", "install_ssh.sh")
+        Files.write(tmp, testScript.getBytes())
         tmp
       }
       println(s"tmp is at ${tmp.toString}")
@@ -126,5 +125,3 @@ val testScript = """|#!/usr/bin/env bash
                     |echo 'I am running!'""".stripMargin
 
 val tempFileTask = taskKey[Unit]("Create temp file and execute it")
-
-

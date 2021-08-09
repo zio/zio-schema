@@ -41,8 +41,8 @@ object SchemaSpec extends DefaultRunnableSpec {
   def schemaUnit: Schema[Unit] = Schema[Unit]
   def schemaInt: Schema[Int]   = Schema[Int]
 
-  def schemaRecord(key: String): Schema[ListMap[String, _]] = Schema.record(Schema.Field(key, schemaUnit))
-  def schemaEnum(key: String): Schema[(String, _)]          = Schema.enumeration(ListMap(key -> schemaUnit))
+  def schemaRecord(key: String): Schema[Struct]    = Schema.record(Schema.Field(key, schemaUnit))
+  def schemaEnum(key: String): Schema[(String, _)] = Schema.enumeration(ListMap(key -> schemaUnit))
 
   val f: Unit => Either[String, Int] = _ => Right(0)
   val g: Int => Either[String, Unit] = _ => Right(())

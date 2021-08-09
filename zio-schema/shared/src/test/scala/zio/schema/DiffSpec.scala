@@ -229,17 +229,17 @@ object DiffSpec extends DefaultRunnableSpec {
         }
       }
     ),
-    suite("records")(
-      testM("records with invalid structure not be comparable") {
-        check(Gen.mapOf(Gen.anyString, Gen.anyInt) <*> Gen.mapOf(Gen.anyString, Gen.anyInt)) {
-          case (thisMap, thatMap) =>
-            val diff = Schema
-              .GenericRecord(Chunk(Schema.Field("key", Schema[String])))
-              .diff(ListMap.empty ++ thisMap, ListMap.empty ++ thatMap)
-            assertTrue(diff == Diff.NotComparable)
-        }
-      }
-    ),
+    // suite("records")(
+    //   testM("records with invalid structure not be comparable") {
+    //     check(Gen.mapOf(Gen.anyString, Gen.anyInt) <*> Gen.mapOf(Gen.anyString, Gen.anyInt)) {
+    //       case (thisMap, thatMap) =>
+    //         val diff = Schema
+    //           .GenericRecord(Chunk(Schema.Field("key", Schema[String])))
+    //           .diff(ListMap.empty ++ thisMap, ListMap.empty ++ thatMap)
+    //         assertTrue(diff == Diff.NotComparable)
+    //     }
+    //   }
+    // ),
     suite("product type")(
       testM("arity 1") {
         check(Gen.anyInt) { i =>

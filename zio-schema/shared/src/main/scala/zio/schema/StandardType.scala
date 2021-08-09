@@ -129,4 +129,5 @@ object StandardType {
   final case class ZonedDateTime(formatter: DateTimeFormatter) extends StandardType[java.time.ZonedDateTime] {
     override def tag = Tags.ZONED_DATE_TIME
   }
+
 }

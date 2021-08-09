@@ -1,6 +1,6 @@
 package zio.schema
 
-import scala.collection.immutable.ListMap
+// import scala.collection.immutable.ListMap
 import scala.language.experimental.macros
 
 import magnolia._
@@ -8,6 +8,7 @@ import magnolia._
 import zio.Chunk
 
 object DeriveSchema {
+  import Struct._
 
   type Typeclass[A] = Schema[A]
 
@@ -44,19 +45,28 @@ object DeriveSchema {
             )
           )
           .transformOrFail(
-            { map =>
-              ctx.parameters
-                .map(p => map.get(p.label).orElse(p.default).toRight(p.label))
-                .collect { case Left(fieldName) => fieldName }
-                .toList match {
-                case ::(head, next) => Left(s"""Missing field(s): ${(head :: next).mkString(", ")}.""")
-                case Nil =>
-                  Right(ctx.construct { p =>
-                    map.get(p.label).map(_.asInstanceOf[p.PType]).orElse(p.default).get
-                  })
-              }
+            { struct =>
+              try {
+                // println(struct.rawValues)
+                Right(ctx.rawConstruct(struct.rawValues))
+              } catch { case _: Throwable => Left(s"Struct $struct cannot be mapped to ${ctx.typeName.full}") }
+            // ctx.parameters
+            //   .map(p => map.get(p.label).orElse(p.default).toRight(p.label))
+            //   .collect { case Left(fieldName) => fieldName }
+            //   .toList match {
+            //   case ::(head, next) => Left(s"""Missing field(s): ${(head :: next).mkString(", ")}.""")
+            //   case Nil =>
+            //     Right(ctx.construct { p =>
+            //       map.get(p.label).map(_.asInstanceOf[p.PType]).orElse(p.default).get
+            //     })
+            // }
             }, { cc =>
-              Right(ListMap.empty ++ ctx.parameters.map(p => p.label -> p.dereference(cc)))
+              Right(
+                ctx.parameters
+                  .map(p => p.label -> p.dereference(cc))
+                  .foldRight[Struct](SNil)((field, acc) => field :+: acc)
+              )
+            // Right(ListMap.empty ++ ctx.parameters.map(p => p.label -> p.dereference(cc)))
             }
           )
     }

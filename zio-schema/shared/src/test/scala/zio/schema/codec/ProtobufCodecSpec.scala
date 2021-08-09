@@ -9,7 +9,7 @@ import scala.util.Try
 
 import zio._
 import zio.console._
-import zio.schema.{ DeriveSchema, Schema, SchemaGen, StandardType }
+import zio.schema.{ DeriveSchema, Schema, SchemaGen, StandardType, Struct }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
@@ -586,13 +586,13 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
   object Record {
     implicit val schemaRecord: Schema[Record] = DeriveSchema.gen[Record]
 
-    val genericRecord: Schema[ListMap[String, _]] = Schema.record(
+    val genericRecord: Schema[Struct] = Schema.record(
       Schema.Field("c", Schema.Primitive(StandardType.IntType)),
       Schema.Field("b", Schema.Primitive(StandardType.IntType)),
       Schema.Field("a", Schema.Primitive(StandardType.IntType))
     )
 
-    val genericRecordSorted: Schema[ListMap[String, _]] = Schema.record(
+    val genericRecordSorted: Schema[Struct] = Schema.record(
       Schema.Field("a", Schema.Primitive(StandardType.IntType)),
       Schema.Field("b", Schema.Primitive(StandardType.IntType)),
       Schema.Field("c", Schema.Primitive(StandardType.IntType))

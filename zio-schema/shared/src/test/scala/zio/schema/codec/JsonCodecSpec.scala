@@ -10,7 +10,7 @@ import zio.duration._
 import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.random.Random
-import zio.schema.{ DeriveSchema, JavaTimeGen, Schema, SchemaGen, StandardType }
+import zio.schema.{ DeriveSchema, JavaTimeGen, Schema, SchemaGen, StandardType, Struct }
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -19,15 +19,32 @@ import zio.test.environment.TestEnvironment
 import zio.{ Chunk, ZIO }
 
 object JsonCodecSpec extends DefaultRunnableSpec {
+  import Struct._
 
   def spec: ZSpec[TestEnvironment, Any] =
     suite("JsonCodec Spec")(
       encoderSuite,
       decoderSuite,
-      encoderDecoderSuite
+      encoderDecoderSuite,
+      recordSuite @@ TestAspect.ignore
     ) @@ timeout(90.seconds)
 
   // TODO: Add tests for the transducer contract.
+
+  private val recordSuite = suite("sequence")(
+    testM("of records") {
+      checkM(SchemaGen.anyCaseClassAndValue) {
+        case (schema, value) =>
+          assertEncodesThenDecodes(Schema.chunk(schema), Chunk.fill(3)(value))
+      }
+    },
+    testM("recursive schema") {
+      checkM(SchemaGen.anyTreeAndValue) {
+        case (schema, value) =>
+          assertEncodesThenDecodes(schema, value)
+      }
+    }
+  )
 
   private val encoderSuite = suite("encoding")(
     suite("primitive")(
@@ -79,14 +96,14 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       testM("of primitives") {
         assertEncodes(
           recordSchema,
-          ListMap[String, Any]("foo" -> "s", "bar" -> 1),
+          "foo" -> "s" :+: "bar" -> 1 :+: SNil,
           JsonCodec.Encoder.charSequenceToByteChunk("""{"foo":"s","bar":1}""")
         )
       },
       testM("of records") {
         assertEncodes(
           nestedRecordSchema,
-          ListMap[String, Any]("l1" -> "s", "l2" -> ListMap("foo" -> "s", "bar" -> 1)),
+          "l1" -> "s" :+: "l2" -> ("foo" -> "s" :+: "bar" -> 1 :+: SNil) :+: SNil,
           JsonCodec.Encoder.charSequenceToByteChunk("""{"l1":"s","l2":{"foo":"s","bar":1}}""")
         )
       },
@@ -320,7 +337,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           case Some((schema, value)) =>
             val key      = new String(Array('\u0007', '\n'))
             val embedded = Schema.record(Schema.Field(key, schema))
-            assertEncodesThenDecodes(embedded, ListMap(key -> value))
+            assertEncodesThenDecodes(embedded, key -> value :+: SNil)
           case None => ZIO.fail("Should never happen!")
         }
       },
@@ -339,14 +356,14 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         checkM(JavaTimeGen.anyZoneOffset) { zoneOffset =>
           assertEncodesThenDecodes(
             Schema.record(Schema.Field("zoneOffset", Schema.Primitive(StandardType.ZoneOffset))),
-            ListMap[String, Any]("zoneOffset" -> zoneOffset)
+            "zoneOffset" -> zoneOffset :+: SNil
           )
         }
       },
       testM("of record") {
         assertEncodesThenDecodes(
           nestedRecordSchema,
-          ListMap[String, Any]("l1" -> "s", "l2" -> ListMap[String, Any]("foo" -> "s", "bar" -> 1))
+          "l1" -> "s" :+: "l2" -> ("foo" -> "s" :+: "bar" -> 1 :+: SNil) :+: SNil
         )
       }
     ),
@@ -397,20 +414,22 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     )
   )
 
-  private def assertEncodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {
+  private def assertEncodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte], print: Boolean = false) = {
     val stream = ZStream
       .succeed(value)
       .transduce(JsonCodec.encoder(schema))
       .runCollect
+      .tap(b => putStr(new String(b.toArray)).when(print))
     assertM(stream)(equalTo(chunk))
   }
 
-  private def assertEncodesJson[A](schema: Schema[A], value: A, json: String) = {
+  private def assertEncodesJson[A](schema: Schema[A], value: A, json: String, print: Boolean = false) = {
     val stream = ZStream
       .succeed(value)
       .transduce(JsonCodec.encoder(schema))
       .runCollect
       .map(chunk => new String(chunk.toArray))
+      .tap(s => putStr(s).when(print))
     assertM(stream)(equalTo(json))
   }
 
@@ -439,7 +458,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
   private def assertEncodesThenDecodes[A](schema: Schema[A], value: A, print: Boolean = false) = {
     val result = ZStream
       .succeed(value)
-      .tap(value => putStrLn(s"Input Value: $value").when(print).ignore)
+      .tap(value => putStrLn(s"Input Value: $value\nSchema: ${schema.serializable}").when(print).ignore)
       .transduce(JsonCodec.encoder(schema))
       .runCollect
       .tap(encoded => putStrLn(s"Encoded: ${new String(encoded.toArray)}").when(print).ignore)
@@ -486,12 +505,12 @@ object JsonCodecSpec extends DefaultRunnableSpec {
 
   val searchRequestSchema: Schema[SearchRequest] = DeriveSchema.gen[SearchRequest]
 
-  val recordSchema: Schema[ListMap[String, _]] = Schema.record(
+  val recordSchema: Schema[Struct] = Schema.record(
     Schema.Field("foo", Schema.Primitive(StandardType.StringType)),
     Schema.Field("bar", Schema.Primitive(StandardType.IntType))
   )
 
-  val nestedRecordSchema: Schema[ListMap[String, _]] = Schema.record(
+  val nestedRecordSchema: Schema[Struct] = Schema.record(
     Schema.Field("l1", Schema.Primitive(StandardType.StringType)),
     Schema.Field("l2", recordSchema)
   )

@@ -110,7 +110,7 @@ object Differ {
     case s @ Schema.Lazy(_)                           => fromSchema(s.schema)
     case Schema.Transform(schema, _, f)               => fromSchema(schema).transformOrFail(f)
     case Schema.Fail(_)                               => fail
-    case Schema.GenericRecord(structure)              => record(structure)
+    case s @ Schema.GenericRecord(_)                  => record(s.fieldSet)
     case ProductDiffer(differ)                        => differ
     case Schema.Enum1(c)                              => enum(c)
     case Schema.Enum2(c1, c2)                         => enum(c1, c2)
@@ -201,27 +201,27 @@ object Differ {
 
   def fail[A]: Differ[A] = (_: A, _: A) => Diff.NotComparable
 
-  def record(structure: Chunk[Schema.Field[_]]): Differ[ListMap[String, _]] =
-    (thisValue: ListMap[String, _], thatValue: ListMap[String, _]) =>
-      if (!(conformsToStructure(thisValue, structure) && conformsToStructure(thatValue, structure)))
-        Diff.NotComparable
-      else
-        Diff
-          .Record(
-            ListMap.empty ++ thisValue.toList.zip(thatValue.toList).zipWithIndex.map {
-              case (((thisKey, thisValue), (_, thatValue)), fieldIndex) =>
-                thisKey -> fromSchema(structure(fieldIndex).schema)
-                  .asInstanceOf[Differ[Any]]
-                  .apply(thisValue, thatValue)
-            }
-          )
-          .orIdentical
+  def record(fieldSet: FieldSet): Differ[Struct] = ???
+  // (thisValue: ListMap[String, _], thatValue: ListMap[String, _]) =>
+  //   if (!(conformsToStructure(thisValue, structure) && conformsToStructure(thatValue, structure)))
+  //     Diff.NotComparable
+  //   else
+  //     Diff
+  //       .Record(
+  //         ListMap.empty ++ thisValue.toList.zip(thatValue.toList).zipWithIndex.map {
+  //           case (((thisKey, thisValue), (_, thatValue)), fieldIndex) =>
+  //             thisKey -> fromSchema(structure(fieldIndex).schema)
+  //               .asInstanceOf[Differ[Any]]
+  //               .apply(thisValue, thatValue)
+  //         }
+  //       )
+  //       .orIdentical
 
-  private def conformsToStructure(map: ListMap[String, _], structure: Chunk[Schema.Field[_]]): Boolean =
-    structure.foldRight(true) {
-      case (_, false)                  => false
-      case (field: Schema.Field[a], _) => map.get(field.label).map(_.isInstanceOf[a]).getOrElse(false)
-    }
+  // private def conformsToStructure(map: ListMap[String, _], structure: Chunk[Schema.Field[_]]): Boolean =
+  //   structure.foldRight(true) {
+  //     case (_, false)                  => false
+  //     case (field: Schema.Field[a], _) => map.get(field.label).map(_.isInstanceOf[a]).getOrElse(false)
+  //   }
 
   def enum[Z](cases: Schema.Case[_ <: Z, Z]*): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
