@@ -45,9 +45,8 @@ object SchemaOrdering {
         compareBySchema(cases.find(_.id==lField).get.codec)(lVal,rVal)
     case (Schema.EnumN(cases), Enumeration((lField,_)), Enumeration((rField,_))) =>
         cases.indexWhere(_.id ==lField).compareTo(cases.indexWhere(_.id ==rField))
-    case (r:Schema.Record[_],Record(lVals),Record(rVals)) => {
+    case (r:Schema.Record[_],Record(lVals),Record(rVals)) =>
       compareRecords(r, lVals, rVals)
-    }
     case _ => 0
   }
 
