@@ -20,7 +20,7 @@ object SchemaSpec extends DefaultRunnableSpec {
         assert(Schema.Tuple(schemaTransform, schemaTransform))(equalTo(Schema.Tuple(schemaTransform, schemaTransform)))
       },
       test("record") {
-        assert(schemaRecord("key"))(equalTo(schemaRecord("key2")))
+        assert(schemaRecord("key"))(equalTo(schemaRecord("key")))
         assert(schemaRecord("key1"))(not(equalTo(schemaRecord("key2"))))
       },
       test("transform") {
