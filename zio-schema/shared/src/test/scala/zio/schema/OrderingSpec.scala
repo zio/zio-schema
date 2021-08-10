@@ -1,14 +1,11 @@
 package zio.schema
 
-//import zio._
 import zio.URIO
 import zio.random._
 import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen.{SchemaTest, schemasAndGens}
 import zio.test.Assertion._
 import zio.test._
-//import zio.console._
-//import zio.schema.SchemaSpec.{schemaUnit, suite, test}
 import zio.schema.DeriveSchema._
 
 object OrderingSpec extends DefaultRunnableSpec {
@@ -21,7 +18,6 @@ object OrderingSpec extends DefaultRunnableSpec {
       testM("tuples"){
         checkM(sortedTuples)(input => {
           val schema = Schema[(Int,Double)]
-//          println(s"tuple schema: ${schema}")
           val result =
             shuffle(input)
               .map(_.sorted(schema.ordering))
@@ -31,7 +27,6 @@ object OrderingSpec extends DefaultRunnableSpec {
       testM("nested tuples"){
         checkM(sortedTuplesNested)(input => {
           val schema = Schema[((Int,Short),Double)]
-//          println(s"nested tuple schema: ${schema}")
           val result =
             shuffle(input)
               .map(_.sorted(schema.ordering))
@@ -50,7 +45,6 @@ object OrderingSpec extends DefaultRunnableSpec {
       testM("either"){
         checkM(sortedEithers)(input => {
           val schema = Schema[Either[Int,String]]
-//          println(s"either schema: ${schema}")
           val result = shuffle(input).map(_.sorted(schema.ordering))
           assertM(result)(equalTo(input))
         })
@@ -59,7 +53,6 @@ object OrderingSpec extends DefaultRunnableSpec {
       testM("option"){
         checkM(sortedOptions)(input => {
           val schema = DeriveSchema.gen[Option[String]]
-//          println(s"option schema: ${schema}")
           val result = shuffle(input).map(_.sorted(schema.ordering))
           assertM(result)(equalTo(input))
         })
