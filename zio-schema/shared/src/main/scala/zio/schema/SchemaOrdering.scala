@@ -38,13 +38,13 @@ object SchemaOrdering {
     case (Schema.Fail(_), Error(lVal), Error(rVal) ) => lVal.compareTo(rVal)
     case (Schema.Transform(schemaA,_,_), Transform(lVal), Transform(rVal) ) =>
       compareBySchema(schemaA)(lVal,rVal)
-    case (Schema.Enum1(c),_,_) => compareBySchema(Schema.EnumN(Seq(c)))(l,r)
-    case (Schema.Enum2(c1,c2),_, _) => compareBySchema(Schema.EnumN(Seq(c1,c2)))(l,r)
-    case (Schema.Enum3(c1,c2,c3),_, _) => compareBySchema(Schema.EnumN(Seq(c1,c2,c3)))(l,r)
-    case (Schema.EnumN(cases), Enumeration((lField,lVal)), Enumeration((rField,rVal))) if lField==rField =>
-        compareBySchema(cases.find(_.id==lField).get.codec)(lVal,rVal)
-    case (Schema.EnumN(cases), Enumeration((lField,_)), Enumeration((rField,_))) =>
-        cases.indexWhere(_.id ==lField).compareTo(cases.indexWhere(_.id ==rField))
+    case (e:Schema.Enum[_], Enumeration((lField,lVal)), Enumeration((rField,rVal)))  if lField==rField => {
+      compareBySchema(e.structure(lField))(lVal,rVal)
+    }
+    case (e:Schema.Enum[_], Enumeration((lField,_)), Enumeration((rField,_))) => {
+      val fields = e.structure.keys.toList
+      fields.indexOf(lField).compareTo(fields.indexOf(rField))
+    }
     case (r:Schema.Record[_],Record(lVals),Record(rVals)) =>
       compareRecords(r, lVals, rVals)
     case _ => 0
