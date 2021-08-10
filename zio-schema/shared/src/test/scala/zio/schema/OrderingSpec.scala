@@ -1,62 +1,35 @@
 package zio.schema
 
-import zio.URIO
+import zio.{Chunk, URIO}
 import zio.random._
 import zio.schema.Schema.Primitive
-import zio.schema.SchemaGen.{SchemaTest, schemasAndGens}
+import zio.schema.SchemaGen.{SchemaTest, anySchema, anySchemaAndValue, schemasAndGens}
 import zio.test.Assertion._
 import zio.test._
-import zio.schema.DeriveSchema._
 
 object OrderingSpec extends DefaultRunnableSpec {
 
   override def spec: ZSpec[Environment, Any] =
-    suite("should correctly sort")(
+    suite("schemas should generate correct orderings")(
 
       suite("primitives")(primitiveOrderingTests:_*),
 
-      testM("tuples"){
-        checkM(sortedTuples)(input => {
-          val schema = Schema[(Int,Double)]
-          val result =
-            shuffle(input)
-              .map(_.sorted(schema.ordering))
-          assertM(result)(equalTo(input))
-        })
-      },
-      testM("nested tuples"){
-        checkM(sortedTuplesNested)(input => {
-          val schema = Schema[((Int,Short),Double)]
-          val result =
-            shuffle(input)
-              .map(_.sorted(schema.ordering))
-          assertM(result)(equalTo(input))
-        })
-      },
+      suite("structures")(structureTestCases.map(structureOrderingTest):_*),
 
-      testM("records"){
-        checkM(sortedRecords)(input => {
-          val schema = Schema[Rec]
-          val result = shuffle(input).map(_.sorted(schema.ordering))
-          assertM(result)(equalTo(input))
-        })
-      },
+      suite("laws")(
+        testM("reflexivity"){
+          check(anySchemaAndValue)( _ match {
+            case (schema, a) => assert(schema.ordering.compare(a,a))(equalTo(0))
+          })
+        },
+        testM("antisymmetry"){
+          check(genAnyOrderedPair)( _ match {
+            case (schema, x, y) => assert(schema.ordering.compare(y,x))(isGreaterThan(0))
+          })
+        }
+        // todo transitivity
+      ),
 
-      testM("either"){
-        checkM(sortedEithers)(input => {
-          val schema = Schema[Either[Int,String]]
-          val result = shuffle(input).map(_.sorted(schema.ordering))
-          assertM(result)(equalTo(input))
-        })
-      },
-
-      testM("option"){
-        checkM(sortedOptions)(input => {
-          val schema = DeriveSchema.gen[Option[String]]
-          val result = shuffle(input).map(_.sorted(schema.ordering))
-          assertM(result)(equalTo(input))
-        })
-      }
     )
 
   val primitiveOrderingTests: List[ZSpec[Sized with Random with TestConfig, Nothing]] = schemasAndGens.map {
@@ -67,69 +40,125 @@ object OrderingSpec extends DefaultRunnableSpec {
   }
 
   private def primitiveOrderingLaw[R,A](gen:Gen[R,A], standardType:StandardType[A]): URIO[R with Random with TestConfig, TestResult] = {
-    check(Gen.listOfN(100)(gen)) { lst =>
+    check(Gen.listOfN(2)(gen)) { lst =>
       val schema = Primitive(standardType)
       val schemaOrdering = schema.ordering
-      assert(lst.sorted(schemaOrdering))(equalTo(lst.sorted(standardType)))
+      val l = lst(0)
+      val r = lst(1)
+      assert(schemaOrdering.compare(l,r))(equalTo(standardType.compare(l,r)))
     }
   }
 
-  def sortedEithers:Gen[Random with Sized,List[Either[Int,String]]] = {
+
+  case class StructureTestCase(name:String,increasingPairGen:Gen[Random with Sized,SchemaAndPair[_]])
+
+  private val structureTestCases =
+    Seq(
+      StructureTestCase("either",genAnyOrderedPairEither),
+      StructureTestCase("tuple", genAnyOrderedPairTuple),
+      StructureTestCase("sequence", genOrderedPairOfChunks),
+    )
+
+  def structureOrderingTest(t:StructureTestCase) = {
+    testM(t.name)(check(t.increasingPairGen)( _ match {
+      case (schema, l, r) => assert(schema.ordering.compare(l,r))(isLessThan(0))
+    }))
+  }
+
+  def genOrderedPairOfChunks:Gen[Random with Sized,SchemaAndPair[_]] =
+    anySchema.flatMap(genOrderedPairChunk(_))
+
+
+  def genOrderedPairChunk[A](schema:Schema[A]):Gen[Random with Sized,SchemaAndPair[Chunk[A]]] = {
     for {
-      x <- Gen.listOf(Gen.anyInt)
-      y <- Gen.listOf(Gen.anyString)
-    } yield ( x.sorted.map(Left(_)) ++ y.sorted.map(Right(_)) )
+      init  <- Gen.chunkOf(genFromSchema(schema))
+      rems <- Gen.oneOf(
+      genChunkPairWithOrderedFirstElement(schema),
+      genChunkPairWithOnlyFirstEmpty(schema)
+      )
+    } yield (Schema.chunk(schema),init++rems._1,init++rems._2)
   }
 
-  case class Rec(s:Short, i:Int, d:Double)
-
-  def sortedRecords:Gen[Random with Sized, List[Rec]] = {
-    for{
-      shorts <- Gen.listOf(Gen.anyShort)
-      ints <- Gen.listOf(Gen.anyInt)
-      doubles <- Gen.listOf(Gen.anyDouble)
-    } yield {
-      for{
-        s <- shorts.sorted
-        i <- ints.sorted
-        d <- doubles.sorted
-      } yield Rec(s,i,d)
-    }
-  }
-
-  def sortedTuplesNested:Gen[Random with Sized, List[((Int,Short),Double)]] = {
-    for{
-      doubles <- Gen.listOf(Gen.anyDouble)
-      ints <- Gen.listOf(Gen.anyInt)
-      ss <- Gen.listOf(Gen.anyShort)
-    } yield {
-      for{
-        i <- ints.sorted
-        s <- ss.sorted
-        d <- doubles.sorted
-      } yield ((i,s),d)
-    }
-  }
-
-  def sortedTuples:Gen[Random with Sized, List[(Int,Double)]] = {
-    for{
-      doubles <- Gen.listOf(Gen.anyDouble)
-      ints <- Gen.listOf(Gen.anyInt)
-    } yield {
-      for{
-        i <- ints.sorted
-        d <- doubles.sorted
-      } yield (i,d)
-    }
-  }
-
-  def sortedOptions:Gen[Random with Sized,List[Option[String]]] = {
+  def genChunkPairWithOrderedFirstElement[A](schema:Schema[A]):Gen[Random with Sized,(Chunk[A],Chunk[A]) ] = {
     for {
-      x <- Gen.listOf(Gen.elements(None))
-      y <- Gen.listOf(Gen.anyString)
-    } yield x ++ y.sorted.map(Some(_))
+      inits <- genOrderedPair(schema)
+      remL <- Gen.chunkOf(genFromSchema(schema))
+      remR <- Gen.chunkOf(genFromSchema(schema))
+    } yield (remL.prepended(inits._1),remR.prepended(inits._2))
   }
 
 
+  def genChunkPairWithOnlyFirstEmpty[A](schema:Schema[A]):Gen[Random with Sized,(Chunk[A],Chunk[A]) ] = {
+    for {
+      init <- genFromSchema(schema)
+      rem <- Gen.chunkOf(genFromSchema(schema))
+    } yield (Chunk(), init +: rem )
+  }
+
+
+  def genAnyOrderedPairEither:Gen[Random with Sized, SchemaAndPair[Either[_,_]]] = {
+    for{
+      leftSchema <- anySchema
+      rightSchema <- anySchema
+      (l,r) <- genOrderedPairEither(leftSchema,rightSchema)
+    } yield (Schema.EitherSchema(leftSchema,rightSchema),l,r).asInstanceOf[SchemaAndPair[Either[_,_]]]
+  }
+
+  def genOrderedPairEither[A,B](lSchema:Schema[A], rSchema:Schema[B]):Gen[Random with Sized,(Either[A,B],Either[A,B]) ] = Gen.oneOf(
+    for{
+      (small,large) <- genOrderedPair(lSchema)
+    } yield (Left(small),Left(large)),
+    for{
+      (small,large) <- genOrderedPair(rSchema)
+    } yield (Right(small),Right(large)),
+    for{
+      l <- genFromSchema(lSchema)
+      r <- genFromSchema(rSchema)
+    } yield (Left(l),Right(r))
+  )
+
+  def genAnyOrderedPairTuple:Gen[Random with Sized, SchemaAndPair[_]] = {
+    for{
+      xSchema <- anySchema
+      ySchema <- anySchema
+      (l,r) <- genOrderedPairTuple(xSchema,ySchema)
+    } yield (Schema.Tuple(xSchema,ySchema),l,r).asInstanceOf[SchemaAndPair[Either[_,_]]]
+  }
+
+  def genOrderedPairTuple[A,B](xSchema:Schema[A], ySchema:Schema[B]):Gen[Random with Sized,((A,B),(A,B)) ] =
+    Gen.oneOf(
+      for{
+        (smallX,largeX) <- genOrderedPair(xSchema)
+        leftY <- genFromSchema(ySchema)
+        rightY <- genFromSchema(ySchema)
+      } yield ((smallX,leftY),(largeX,rightY)),
+      for{
+        x <- genFromSchema(xSchema)
+        (smallY, largeY) <- genOrderedPair(ySchema)
+      } yield ((x,smallY),(x,largeY))
+  )
+
+
+  type SchemaAndPair[A] = (Schema[A], A, A)
+
+  def genFromSchema[A](schema:Schema[A]):Gen[Random with Sized, A] = {
+    DynamicValueGen.anyDynamicValueOfSchema(schema)
+      .map(d => schema.fromDynamic(d).toOption.get)
+  }
+
+
+  def genAnyOrderedPair:Gen[Random with Sized, SchemaAndPair[_]] = {
+    for{
+      schema <- anySchema
+      pair <- genOrderedPair(schema)
+    } yield ( schema, pair._1, pair._2 ).asInstanceOf[(Schema[Any],Any,Any)]
+  }
+
+  def genOrderedPair[A](schema:Schema[A]):Gen[Random with Sized, (A,A)] = {
+    (genFromSchema(schema) <*> genFromSchema(schema))
+      .withFilter{ case (l,r) => {
+        schema.ordering.compare(l,r) < 0
+      }}
+  }
 
 }

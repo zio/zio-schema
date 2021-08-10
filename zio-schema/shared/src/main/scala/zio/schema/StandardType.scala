@@ -6,7 +6,6 @@ import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.{ ChronoUnit, TemporalUnit }
 
-import scala.annotation.tailrec
 import zio.Chunk
 
 sealed trait StandardType[A] extends  Ordering[A]{
@@ -126,20 +125,7 @@ object StandardType {
   }
 
   implicit object BinaryType extends StandardType[Chunk[Byte]] {
-    override def compare(x: Chunk[Byte], y: Chunk[Byte]): Int = {
-      val j = x.length
-      val k = y.length
-      @tailrec
-      def loop(i: Int): Int =
-        if (i == j && i == k) 0
-        else if (i == j) -1
-        else if (i == k) 1
-        else {
-          val compare = x(i).compareTo(y(i))
-          if (compare == 0) loop(i + 1) else compare
-        }
-      loop(0)
-    }
+    override def compare(x: Chunk[Byte], y: Chunk[Byte]): Int = x.sum.compare(y.sum)
     override def tag = Tags.BINARY
   }
 
@@ -175,7 +161,10 @@ object StandardType {
   }
 
   implicit object Period        extends StandardType[java.time.Period]     {
-    override def compare(x: Period, y: Period): Int = 0 //TODO how to do this? in general not comperable because months vary in days
+    override def compare(x: Period, y: Period): Int = {
+      val startDate = time.LocalDate.of(0,1,1)
+      startDate.plus(x).compareTo(startDate.plus(y))
+    }
     override def tag = Tags.PERIOD
   }
 
