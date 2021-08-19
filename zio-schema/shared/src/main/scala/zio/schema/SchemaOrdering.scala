@@ -8,8 +8,9 @@ import zio.schema.StandardType.UnitType
 
 object SchemaOrdering {
 
-  def ordering[A](schema:Schema[A]):Ordering[A] = (l: A, r: A) =>
+  def ordering[A](schema:Schema[A]):Ordering[A] = (l: A, r: A) => {
     compareBySchema(schema)(schema.toDynamic(l),schema.toDynamic(r))
+  }
 
   private def compareBySchema[A](schema:Schema[A])(l:DynamicValue,r:DynamicValue):Int = (schema,l,r) match {
     case (schema:Schema.Lazy[_], l, r) => compareBySchema(schema.schema)(l,r)
