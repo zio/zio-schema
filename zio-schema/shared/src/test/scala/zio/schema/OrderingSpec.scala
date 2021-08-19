@@ -65,7 +65,8 @@ object OrderingSpec extends DefaultRunnableSpec {
       StructureTestCase("sequence", genAnyOrderedPairChunks),
       StructureTestCase("option", genAnyOrderedPairOption),
       StructureTestCase("transform", genAnyOrderedPairTransform),
-      StructureTestCase("record",genAnyOrderedPairRecord)
+      StructureTestCase("record",genAnyOrderedPairRecord),
+      //TODO enums
     )
 
   def structureOrderingTest(t:StructureTestCase) = {
@@ -96,14 +97,12 @@ object OrderingSpec extends DefaultRunnableSpec {
     } yield (remL.prepended(inits._1),remR.prepended(inits._2))
   }
 
-
   def genChunkPairWithOnlyFirstEmpty[A](schema:Schema[A]):Gen[Random with Sized,(Chunk[A],Chunk[A]) ] = {
     for {
       init <- genFromSchema(schema)
       rem <- Gen.chunkOf(genFromSchema(schema))
     } yield (Chunk(), init +: rem )
   }
-
 
   def genAnyOrderedPairEither:Gen[Random with Sized, SchemaAndPair[Either[_,_]]] = {
     for{
@@ -182,7 +181,7 @@ object OrderingSpec extends DefaultRunnableSpec {
   def genAnyOrderedPairRecord:Gen[Random with Sized, SchemaAndPair[_]] = {
     for {
       schema <- anyStructure(anyTree(1)).map(fields => Schema.GenericRecord(Chunk.fromIterable(fields)))
-      pair <- genOrderedPairTransform(schema)
+      pair <- genOrderedPairRecord(schema)
     } yield pair
   }
 
@@ -199,7 +198,7 @@ object OrderingSpec extends DefaultRunnableSpec {
       val yFields = allFields.map{ case (label, _, value) => (label,value)}
       val x = DynamicValue.Record(ListMap(xFields:_*)).toTypedValue(schema).toOption.get
       val y = DynamicValue.Record(ListMap(yFields:_*)).toTypedValue(schema).toOption.get
-      (schema, y, x)
+      (schema, x, y)
     }
   }
 
@@ -212,9 +211,6 @@ object OrderingSpec extends DefaultRunnableSpec {
         d = DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]],x)
         rem <- genEqualFields(fields,currentInd+1,diffInd)
       } yield (field.label, d, d) +: rem
-//      genFromSchema(schema)
-//        .map(x => DynamicValue.fromSchemaAndValue(schema,x))
-//        .map(x => (fields(currentInd).label,x,x)).fl
     }
   }
 
@@ -240,23 +236,6 @@ object OrderingSpec extends DefaultRunnableSpec {
       } yield (field.label, dx, dy) +: rem
     }
   }
-
-
-  /*
-    case (Schema.Fail(_), Error(lVal), Error(rVal) ) => lVal.compareTo(rVal)
-    case (Schema.Transform(schemaA,_,_), Transform(lVal), Transform(rVal) ) =>
-      compareBySchema(schemaA)(lVal,rVal)
-    case (e:Schema.Enum[_], Enumeration((lField,lVal)), Enumeration((rField,rVal)))  if lField==rField => {
-      compareBySchema(e.structure(lField))(lVal,rVal)
-    }
-    case (e:Schema.Enum[_], Enumeration((lField,_)), Enumeration((rField,_))) => {
-      val fields = e.structure.keys.toList
-      fields.indexOf(lField).compareTo(fields.indexOf(rField))
-    }
-    case (r:Schema.Record[_],Record(lVals),Record(rVals)) =>
-      compareRecords(r, lVals, rVals)
-   */
-
 
   type SchemaAndPair[A] = (Schema[A], A, A)
   type SchemaAndTriplet[A] = (Schema[A], A, A, A)
@@ -294,7 +273,5 @@ object OrderingSpec extends DefaultRunnableSpec {
         .withFilter{ cur => schema.ordering.compare(y,cur) < 0 }
     } yield (x,y,z)
   }
-
-
 
 }
