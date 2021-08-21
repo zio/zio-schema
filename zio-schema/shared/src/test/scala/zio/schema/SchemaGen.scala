@@ -379,7 +379,7 @@ object SchemaGen {
   }
 
   object Arity {
-    implicit val arityEnumSchema: Schema[Arity] = DeriveSchema.gen[Arity]
+    implicit val arityEnumSchema: Schema.Enum[Arity] = DeriveSchema.gen[Arity].asInstanceOf[Schema.Enum[Arity]]
   }
 
   lazy val anyArity1: Gen[Random with Sized, Arity1] = Gen.anyInt.map(Arity1(_))
@@ -436,7 +436,7 @@ object SchemaGen {
 
   type EnumAndValue[A] = (Schema[A], A)
 
-  lazy val anyEnumSchema: Gen[Any, Schema[Arity]] = Gen.const(Arity.arityEnumSchema)
+  lazy val anyEnumSchema: Gen[Any, Schema.Enum[Arity]] = Gen.const(Arity.arityEnumSchema)
 
   val anyEnumAndGen: Gen[Random with Sized, EnumAndGen[_]] =
     anyEnumSchema.map(_ -> anyArity)
