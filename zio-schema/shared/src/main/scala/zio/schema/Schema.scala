@@ -44,6 +44,18 @@ sealed trait Schema[A] {
   def <+>[B](that: Schema[B]): Schema[Either[A, B]] = self.orElseEither(that)
 
   /**
+   *  Convert to Schema[B] iff B and A are homomorphic.
+   *
+   *  This can be used to e.g convert between a case class and it's
+   *  "generic" representation as a ListMap[String,_]
+   */
+  def cast[B](newSchema: Schema[B]): Either[String, Schema[B]] =
+    for {
+      f <- self.migrate(newSchema)
+      g <- newSchema.migrate(self)
+    } yield self.transformOrFail(f, g)
+
+  /**
    * Performs a diff between thisValue and thatValue. See [[zio.schema.Differ]] for details
    * on the default diff algorithms.
    *
@@ -56,6 +68,15 @@ sealed trait Schema[A] {
 
   def fromDynamic(value: DynamicValue): Either[String, A] =
     value.toTypedValue(self)
+
+  /**
+   *  Generate a homomorphism from A to B iff A and B are homomorphic
+   */
+  def migrate[B](newSchema: Schema[B]): Either[String, A => Either[String, B]] =
+    AstTransformation.tryDerive(SchemaAst.fromSchema(self), SchemaAst.fromSchema(newSchema)).map {
+      transforms => (a: A) =>
+        self.toDynamic(a).applyTransforms(transforms).flatMap(newSchema.fromDynamic)
+    }
 
   /**
    * Returns a new schema that modifies the type produced by this schema to be optional.
