@@ -4,6 +4,7 @@ import scala.collection.immutable.ListMap
 
 import zio._
 import zio.schema.syntax._
+import zio.test.AssertionM.Render.param
 import zio.test._
 
 object AstTransformationSpec extends DefaultRunnableSpec {
@@ -99,66 +100,58 @@ object AstTransformationSpec extends DefaultRunnableSpec {
     ),
     suite("Tranformation")(
       test("delete node from record") {
-        val tranformation = AstTransformation.DeleteNode(Chunk("v2"))
-
-        val expected = DynamicValue.Record(ListMap("v1" -> DynamicValue.Primitive(0, StandardType.IntType)))
-
-        val value = Nested1(0, "foo").dynamic
-
-        assertTrue(tranformation.transformDynamic(value) == Right(expected))
+        assert(AstTransformation.DeleteNode(Chunk("v2")))(
+          tranformsValueTo(
+            Nested1(0, "foo"),
+            DynamicValue.Record(ListMap("v1" -> DynamicValue.Primitive(0, StandardType.IntType)))
+          )
+        )
       },
       test("delete node from nested record") {
-        val tranformation = AstTransformation.DeleteNode(Chunk("v2", "v2"))
-
-        val expected = DynamicValue.Record(
-          ListMap(
-            "v1" -> DynamicValue.Primitive("foo", StandardType.StringType),
-            "v2" -> DynamicValue.Record(
+        assert(AstTransformation.DeleteNode(Chunk("v2", "v2")))(
+          tranformsValueTo(
+            Outer1("foo", Nested1(0, "bar")),
+            DynamicValue.Record(
               ListMap(
-                "v1" -> DynamicValue.Primitive(0, StandardType.IntType)
+                "v1" -> DynamicValue.Primitive("foo", StandardType.StringType),
+                "v2" -> DynamicValue.Record(
+                  ListMap(
+                    "v1" -> DynamicValue.Primitive(0, StandardType.IntType)
+                  )
+                )
               )
             )
           )
         )
-
-        val value = Outer1("foo", Nested1(0, "bar")).dynamic
-
-        assertTrue(tranformation.transformDynamic(value) == Right(expected))
       },
       test("require node") {
-        val transformation = AstTransformation.Require(Chunk("v2"))
-
-        val expected = DynamicValue.Record(
-          ListMap(
-            "v1" -> DynamicValue.Primitive(0, StandardType.IntType),
-            "v2" -> DynamicValue.Primitive("foo", StandardType.StringType)
+        assert(AstTransformation.Require(Chunk("v2")))(
+          tranformsValueTo(
+            OptionalField(0, Some("foo")),
+            DynamicValue.Record(
+              ListMap(
+                "v1" -> DynamicValue.Primitive(0, StandardType.IntType),
+                "v2" -> DynamicValue.Primitive("foo", StandardType.StringType)
+              )
+            )
           )
         )
-
-        val value = OptionalField(0, Some("foo")).dynamic
-
-        assertTrue(transformation.transformDynamic(value) == Right(expected))
       },
       test("require node fails") {
-        val transformation = AstTransformation.Require(Chunk("v2"))
-
-        val value = OptionalField(0, None).dynamic
-
-        assert(transformation.transformDynamic(value))(Assertion.isLeft)
+        assert(AstTransformation.Require(Chunk("v2")))(failsToTransform(OptionalField(0, None)))
       },
       test("optional") {
-        val transformation = AstTransformation.Optional(Chunk("v2"))
-
-        val expected = DynamicValue.Record(
-          ListMap(
-            "v1" -> DynamicValue.Primitive(0, StandardType.IntType),
-            "v2" -> DynamicValue.SomeValue(DynamicValue.Primitive("foo", StandardType.StringType))
+        assert(AstTransformation.Optional(Chunk("v2")))(
+          tranformsValueTo(
+            Nested1(0, "foo"),
+            DynamicValue.Record(
+              ListMap(
+                "v1" -> DynamicValue.Primitive(0, StandardType.IntType),
+                "v2" -> DynamicValue.SomeValue(DynamicValue.Primitive("foo", StandardType.StringType))
+              )
+            )
           )
         )
-
-        val value = Nested1(0, "foo").dynamic
-
-        assertTrue(transformation.transformDynamic(value) == Right(expected))
       }
     )
   )
@@ -190,6 +183,16 @@ object AstTransformationSpec extends DefaultRunnableSpec {
         }
       )
       .getOrElse(false)
+
+  def tranformsValueTo[A: Schema](value: A, expected: DynamicValue): Assertion[AstTransformation] =
+    Assertion.assertion("transformsValueTo")(param(value), param(expected)) { transform =>
+      transform.transformDynamic(value.dynamic) == Right(expected)
+    }
+
+  def failsToTransform[A: Schema](value: A): Assertion[AstTransformation] =
+    Assertion.assertion("failsToTransform")(param(value)) { transform =>
+      transform.transformDynamic(value.dynamic).isLeft
+    }
 
   case class Nested1(v1: Int, v2: String)
 
