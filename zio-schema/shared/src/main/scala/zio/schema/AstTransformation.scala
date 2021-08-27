@@ -160,15 +160,15 @@ object AstTransformation {
       case (DynamicValue.Record(values), leafLabel :: Nil) if values.keySet.contains(leafLabel) =>
         op(leafLabel, values(leafLabel)).map {
           case Some((newLeafLabel, newLeafValue)) if newLeafLabel == leafLabel =>
-            DynamicValue.Record(values.updated(leafLabel, newLeafValue))
+            DynamicValue.Record(values + (leafLabel -> newLeafValue))
           case Some((newLeafLabel, newLeafValue)) =>
-            DynamicValue.Record(values.removed(leafLabel).updated(newLeafLabel, newLeafValue))
+            DynamicValue.Record(values - leafLabel + (newLeafLabel -> newLeafValue))
           case None =>
-            DynamicValue.Record(values.removed(leafLabel))
+            DynamicValue.Record(values - leafLabel)
         }
       case (DynamicValue.Record(values), nextLabel :: remainder) if values.keySet.contains(nextLabel) =>
         updateLeaf(values(nextLabel), remainder, trace :+ nextLabel)(op).map { updatedValue =>
-          DynamicValue.Record(values.updated(nextLabel, updatedValue))
+          DynamicValue.Record(values + (nextLabel -> updatedValue))
         }
       case (DynamicValue.Record(_), nextLabel :: _) =>
         Left(s"Expected label $nextLabel not found at path ${renderPath(trace)}")
