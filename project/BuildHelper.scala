@@ -9,7 +9,7 @@ import scalafix.sbt.ScalafixPlugin.autoImport._
 
 object BuildHelper {
 
-  val zioVersion      = "1.0.9"
+  val zioVersion      = "1.0.11"
   val zioNioVersion   = "1.0.0-RC9"
   val zioJsonVersion  = "0.1.5"
   val silencerVersion = "1.7.1"
