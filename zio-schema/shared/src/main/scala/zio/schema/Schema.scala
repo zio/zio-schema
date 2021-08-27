@@ -75,7 +75,7 @@ sealed trait Schema[A] {
   def migrate[B](newSchema: Schema[B]): Either[String, A => Either[String, B]] =
     AstTransformation.tryDerive(SchemaAst.fromSchema(self), SchemaAst.fromSchema(newSchema)).map {
       transforms => (a: A) =>
-        self.toDynamic(a).applyTransforms(transforms).flatMap(newSchema.fromDynamic)
+        self.toDynamic(a).transform(transforms).flatMap(newSchema.fromDynamic)
     }
 
   /**

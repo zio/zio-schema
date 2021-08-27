@@ -6,16 +6,9 @@ import zio.Chunk
 
 trait DynamicValue { self =>
 
-  def applyTransform(transformation: AstTransformation): Either[String, DynamicValue] =
-    (self, transformation) match {
-      case (DynamicValue.SomeValue(v), AstTransformation.Require(Chunk.empty)) => Right(v)
-      case (DynamicValue.NoneValue, AstTransformation.Require(Chunk.empty))    => Left(s"Required value is missing")
-      case _                                                                   => Left(s"Transformation cannot by applied to dynamic value")
-    }
-
-  def applyTransforms(transforms: Chunk[AstTransformation]): Either[String, DynamicValue] =
+  def transform(transforms: Chunk[AstTransformation]): Either[String, DynamicValue] =
     transforms.foldRight[Either[String, DynamicValue]](Right(self)) {
-      case (transform, Right(value)) => value.applyTransform(transform)
+      case (transform, Right(value)) => transform.transformDynamic(value)
       case (_, error @ Left(_))      => error
     }
 
