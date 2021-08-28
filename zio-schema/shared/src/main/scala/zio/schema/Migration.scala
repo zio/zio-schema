@@ -2,55 +2,55 @@ package zio.schema
 
 import zio.{ Chunk, ChunkBuilder }
 
-sealed trait AstTransformation { self =>
+sealed trait Migration { self =>
 
-  def transformDynamic(value: DynamicValue): Either[String, DynamicValue] =
+  def migrate(value: DynamicValue): Either[String, DynamicValue] =
     self match {
-      case AstTransformation.Require(path)  => AstTransformation.tryRequire(value, path.toList)
-      case AstTransformation.Optional(path) => AstTransformation.tryMakeOptional(value, path.toList)
-      case AstTransformation.ChangeType(path, _) =>
+      case Migration.Require(path)  => Migration.tryRequire(value, path.toList)
+      case Migration.Optional(path) => Migration.tryMakeOptional(value, path.toList)
+      case Migration.ChangeType(path, _) =>
         Left(
-          s"Cannot change type of node at path ${AstTransformation.renderPath(path)}: No type conversion is available"
+          s"Cannot change type of node at path ${Migration.renderPath(path)}: No type conversion is available"
         )
-      case AstTransformation.DeleteNode(path) => AstTransformation.tryDeleteNode(value, path.toList)
-      case AstTransformation.AddNode(path, _) =>
-        Left(s"Cannot add node at path ${AstTransformation.renderPath(path)}: No default value is available")
-      case AstTransformation.Relabel(path, transform) => AstTransformation.tryRelabel(value, path.toList, transform)
-      case AstTransformation.IncrementDimensions(path, n) =>
-        AstTransformation.tryIncrementDimension(value, path.toList, n)
-      case AstTransformation.DecrementDimensions(path, n) =>
-        AstTransformation.tryDecrementDimensions(value, path.toList, n)
-      case AstTransformation.UpdateFail(path, newMessage) =>
-        AstTransformation.tryUpdateFail(value, path.toList, newMessage)
+      case Migration.DeleteNode(path) => Migration.tryDeleteNode(value, path.toList)
+      case Migration.AddNode(path, _) =>
+        Left(s"Cannot add node at path ${Migration.renderPath(path)}: No default value is available")
+      case Migration.Relabel(path, transform) => Migration.tryRelabel(value, path.toList, transform)
+      case Migration.IncrementDimensions(path, n) =>
+        Migration.tryIncrementDimension(value, path.toList, n)
+      case Migration.DecrementDimensions(path, n) =>
+        Migration.tryDecrementDimensions(value, path.toList, n)
+      case Migration.UpdateFail(path, newMessage) =>
+        Migration.tryUpdateFail(value, path.toList, newMessage)
     }
 }
 
-object AstTransformation {
-  case class UpdateFail(path: Chunk[String], message: String) extends AstTransformation
+object Migration {
+  final case class UpdateFail(path: Chunk[String], message: String) extends Migration
 
-  case class Optional(path: Chunk[String]) extends AstTransformation
+  final case class Optional(path: Chunk[String]) extends Migration
 
-  case class Require(path: Chunk[String]) extends AstTransformation
+  final case class Require(path: Chunk[String]) extends Migration
 
-  case class ChangeType(path: Chunk[String], value: StandardType[_]) extends AstTransformation
+  final case class ChangeType(path: Chunk[String], value: StandardType[_]) extends Migration
 
-  case class AddNode(path: Chunk[String], node: SchemaAst) extends AstTransformation
+  final case class AddNode(path: Chunk[String], node: SchemaAst) extends Migration
 
-  case class DeleteNode(path: Chunk[String]) extends AstTransformation
+  final case class DeleteNode(path: Chunk[String]) extends Migration
 
-  case class Relabel(path: Chunk[String], tranform: LabelTansformation) extends AstTransformation
+  final case class Relabel(path: Chunk[String], tranform: LabelTransformation) extends Migration
 
-  case class IncrementDimensions(path: Chunk[String], n: Int) extends AstTransformation
+  final case class IncrementDimensions(path: Chunk[String], n: Int) extends Migration
 
-  case class DecrementDimensions(path: Chunk[String], n: Int) extends AstTransformation
+  final case class DecrementDimensions(path: Chunk[String], n: Int) extends Migration
 
-  def tryDerive(from: SchemaAst, to: SchemaAst): Either[String, Chunk[AstTransformation]] = {
+  def derive(from: SchemaAst, to: SchemaAst): Either[String, Chunk[Migration]] = {
     def go(
-      acc: Chunk[AstTransformation],
+      acc: Chunk[Migration],
       path: Chunk[String],
       fromSubtree: SchemaAst,
       toSubtree: SchemaAst
-    ): Either[String, Chunk[AstTransformation]] = (fromSubtree, toSubtree) match {
+    ): Either[String, Chunk[Migration]] = (fromSubtree, toSubtree) match {
       case (f: SchemaAst.FailNode, t: SchemaAst.FailNode) =>
         Right(
           if (f.message == t.message)
@@ -61,7 +61,7 @@ object AstTransformation {
       case (f @ SchemaAst.Product(_, _, ffields, _, _), t @ SchemaAst.Product(_, _, tfields, _, _)) =>
         matchedSubtrees(ffields, tfields).map {
           case ((nextPath, fs), (_, ts)) => go(Chunk.empty, path :+ nextPath, fs, ts)
-        }.reduce[Either[String, Chunk[AstTransformation]]] {
+        }.reduce[Either[String, Chunk[Migration]]] {
             case (err @ Left(_), Right(_)) => err
             case (Right(_), err @ Left(_)) => err
             case (Left(e1), Left(e2))      => Left(s"$e1;\n$e2")
@@ -73,7 +73,7 @@ object AstTransformation {
       case (f @ SchemaAst.Sum(_, _, fcases, _, _), t @ SchemaAst.Sum(_, _, tcases, _, _)) =>
         matchedSubtrees(fcases, tcases).map {
           case ((nextPath, fs), (_, ts)) => go(Chunk.empty, path :+ nextPath, fs, ts)
-        }.reduce[Either[String, Chunk[AstTransformation]]] {
+        }.reduce[Either[String, Chunk[Migration]]] {
             case (err @ Left(_), Right(_)) => err
             case (Right(_), err @ Left(_)) => err
             case (Left(e1), Left(e2))      => Left(s"$e1;\n$e2")
@@ -97,11 +97,11 @@ object AstTransformation {
    * unambiguous string transformations applued to field and case labels.
    * For example, convering from snake to camel case (or vica versa)
    */
-  sealed trait LabelTansformation {
+  sealed trait LabelTransformation {
     def apply(label: String): Either[String, String]
   }
 
-  object LabelTansformation {}
+  object LabelTransformation {}
 
   private def matchedSubtrees(
     from: Chunk[SchemaAst.Labelled],
@@ -117,8 +117,8 @@ object AstTransformation {
     path: Chunk[String],
     from: Chunk[SchemaAst.Labelled],
     to: Chunk[SchemaAst.Labelled]
-  ): Chunk[AstTransformation] =
-    to.foldRight[Chunk[AstTransformation]](Chunk.empty) {
+  ): Chunk[Migration] =
+    to.foldRight[Chunk[Migration]](Chunk.empty) {
       case ((nodeLabel, _), acc) if from.exists(_._1 == nodeLabel) => acc
       case ((nodeLabel, ast), acc)                                 => acc :+ AddNode(path :+ nodeLabel, ast)
     }
@@ -127,14 +127,14 @@ object AstTransformation {
     path: Chunk[String],
     from: Chunk[SchemaAst.Labelled],
     to: Chunk[SchemaAst.Labelled]
-  ): Chunk[AstTransformation] =
-    from.foldRight[Chunk[AstTransformation]](Chunk.empty) {
+  ): Chunk[Migration] =
+    from.foldRight[Chunk[Migration]](Chunk.empty) {
       case ((nodeLabel, _), acc) if !to.exists(_._1 == nodeLabel) => acc :+ DeleteNode(path :+ nodeLabel)
       case (_, acc)                                               => acc
     }
 
-  private def transformShape(path: Chunk[String], from: SchemaAst, to: SchemaAst): Chunk[AstTransformation] = {
-    val builder = ChunkBuilder.make[AstTransformation]()
+  private def transformShape(path: Chunk[String], from: SchemaAst, to: SchemaAst): Chunk[Migration] = {
+    val builder = ChunkBuilder.make[Migration]()
 
     if (from.optional && !to.optional)
       builder += Require(path)
@@ -288,7 +288,7 @@ object AstTransformation {
   protected[schema] def tryRelabel(
     value: DynamicValue,
     path: List[String],
-    transformation: LabelTansformation
+    transformation: LabelTransformation
   ): Either[String, DynamicValue] =
     path match {
       case Nil => Left(s"Cannot relabel node: Path was empty")

@@ -6,9 +6,9 @@ import zio.Chunk
 
 trait DynamicValue { self =>
 
-  def transform(transforms: Chunk[AstTransformation]): Either[String, DynamicValue] =
+  def transform(transforms: Chunk[Migration]): Either[String, DynamicValue] =
     transforms.foldRight[Either[String, DynamicValue]](Right(self)) {
-      case (transform, Right(value)) => transform.transformDynamic(value)
+      case (transform, Right(value)) => transform.migrate(value)
       case (_, error @ Left(_))      => error
     }
 

@@ -7,61 +7,61 @@ import zio.schema.syntax._
 import zio.test.AssertionM.Render.param
 import zio.test._
 
-object AstTransformationSpec extends DefaultRunnableSpec {
+object MigrationSpec extends DefaultRunnableSpec {
 
   override def spec: ZSpec[Environment, Failure] = suite("AstTransformation Spec")(
     suite("Derivation")(
       suite("Value")(
         test("change type") {
-          val from = SchemaAst.Value(StandardType.IntType, false, 0)
-          val to   = SchemaAst.Value(StandardType.StringType, false, 0)
+          val from = SchemaAst.Value(StandardType.IntType, optional = false, 0)
+          val to   = SchemaAst.Value(StandardType.StringType, optional = false, 0)
 
           assertTrue(
-            AstTransformation
-              .tryDerive(from, to) == Right(Chunk(AstTransformation.ChangeType(Chunk.empty, StandardType.StringType)))
+            Migration
+              .derive(from, to) == Right(Chunk(Migration.ChangeType(Chunk.empty, StandardType.StringType)))
           )
         },
         test("optional") {
-          val from = SchemaAst.Value(StandardType.IntType, false, 0)
-          val to   = SchemaAst.Value(StandardType.IntType, true, 0)
+          val from = SchemaAst.Value(StandardType.IntType, optional = false, 0)
+          val to   = SchemaAst.Value(StandardType.IntType, optional = true, 0)
 
           assertTrue(
-            AstTransformation
-              .tryDerive(from, to) == Right(Chunk(AstTransformation.Optional(Chunk.empty)))
+            Migration
+              .derive(from, to) == Right(Chunk(Migration.Optional(Chunk.empty)))
           )
         },
         test("require") {
-          val from = SchemaAst.Value(StandardType.IntType, true, 0)
-          val to   = SchemaAst.Value(StandardType.IntType, false, 0)
+          val from = SchemaAst.Value(StandardType.IntType, optional = true, 0)
+          val to   = SchemaAst.Value(StandardType.IntType, optional = false, 0)
 
           assertTrue(
-            AstTransformation
-              .tryDerive(from, to) == Right(Chunk(AstTransformation.Require(Chunk.empty)))
+            Migration
+              .derive(from, to) == Right(Chunk(Migration.Require(Chunk.empty)))
           )
         },
         test("increment dimensions") {
-          val from = SchemaAst.Value(StandardType.IntType, true, 0)
-          val to   = SchemaAst.Value(StandardType.IntType, true, 2)
+          val from = SchemaAst.Value(StandardType.IntType, optional = true, 0)
+          val to   = SchemaAst.Value(StandardType.IntType, optional = true, 2)
 
           assertTrue(
-            AstTransformation
-              .tryDerive(from, to) == Right(Chunk(AstTransformation.IncrementDimensions(Chunk.empty, 2)))
+            Migration
+              .derive(from, to) == Right(Chunk(Migration.IncrementDimensions(Chunk.empty, 2)))
           )
         },
         test("decrement dimensions") {
-          val from = SchemaAst.Value(StandardType.IntType, true, 2)
-          val to   = SchemaAst.Value(StandardType.IntType, true, 0)
+          val from = SchemaAst.Value(StandardType.IntType, optional = true, 2)
+          val to   = SchemaAst.Value(StandardType.IntType, optional = true, 0)
 
           assertTrue(
-            AstTransformation
-              .tryDerive(from, to) == Right(Chunk(AstTransformation.DecrementDimensions(Chunk.empty, 2)))
+            Migration
+              .derive(from, to) == Right(Chunk(Migration.DecrementDimensions(Chunk.empty, 2)))
           )
         }
       ),
       suite("Record")(
         test("change field type") {
           assertTrue(
-            containsTransformation[Nested1, Nested2](AstTransformation.ChangeType(Chunk("v2"), StandardType.IntType))
+            containsTransformation[Nested1, Nested2](Migration.ChangeType(Chunk("v2"), StandardType.IntType))
           )
         },
         test("add node") {
@@ -98,9 +98,9 @@ object AstTransformationSpec extends DefaultRunnableSpec {
         }
       )
     ),
-    suite("Tranformation")(
+    suite("Transformation")(
       test("delete node from record") {
-        assert(AstTransformation.DeleteNode(Chunk("v2")))(
+        assert(Migration.DeleteNode(Chunk("v2")))(
           tranformsValueTo(
             Nested1(0, "foo"),
             DynamicValue.Record(ListMap("v1" -> DynamicValue.Primitive(0, StandardType.IntType)))
@@ -108,7 +108,7 @@ object AstTransformationSpec extends DefaultRunnableSpec {
         )
       },
       test("delete node from nested record") {
-        assert(AstTransformation.DeleteNode(Chunk("v2", "v2")))(
+        assert(Migration.DeleteNode(Chunk("v2", "v2")))(
           tranformsValueTo(
             Outer1("foo", Nested1(0, "bar")),
             DynamicValue.Record(
@@ -125,7 +125,7 @@ object AstTransformationSpec extends DefaultRunnableSpec {
         )
       },
       test("require node") {
-        assert(AstTransformation.Require(Chunk("v2")))(
+        assert(Migration.Require(Chunk("v2")))(
           tranformsValueTo(
             OptionalField(0, Some("foo")),
             DynamicValue.Record(
@@ -138,10 +138,10 @@ object AstTransformationSpec extends DefaultRunnableSpec {
         )
       },
       test("require node fails") {
-        assert(AstTransformation.Require(Chunk("v2")))(failsToTransform(OptionalField(0, None)))
+        assert(Migration.Require(Chunk("v2")))(failsToTransform(OptionalField(0, None)))
       },
       test("optional") {
-        assert(AstTransformation.Optional(Chunk("v2")))(
+        assert(Migration.Optional(Chunk("v2")))(
           tranformsValueTo(
             Nested1(0, "foo"),
             DynamicValue.Record(
@@ -156,42 +156,42 @@ object AstTransformationSpec extends DefaultRunnableSpec {
     )
   )
 
-  def containsTransformation[From: Schema, To: Schema](expectedTransform: AstTransformation): Boolean =
-    AstTransformation
-      .tryDerive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
+  def containsTransformation[From: Schema, To: Schema](expectedTransform: Migration): Boolean =
+    Migration
+      .derive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
       .map(_.contains(expectedTransform))
       .getOrElse(false)
 
   def addsNode[From: Schema, To: Schema](expectedPath: Chunk[String]): Boolean =
-    AstTransformation
-      .tryDerive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
+    Migration
+      .derive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
       .map(
         _.exists {
-          case AstTransformation.AddNode(path, _) => path == expectedPath
-          case _                                  => false
+          case Migration.AddNode(path, _) => path == expectedPath
+          case _                          => false
         }
       )
       .getOrElse(false)
 
   def deletesNode[From: Schema, To: Schema](expectedPath: Chunk[String]): Boolean =
-    AstTransformation
-      .tryDerive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
+    Migration
+      .derive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
       .map(
         _.exists {
-          case AstTransformation.DeleteNode(path) => path == expectedPath
-          case _                                  => false
+          case Migration.DeleteNode(path) => path == expectedPath
+          case _                          => false
         }
       )
       .getOrElse(false)
 
-  def tranformsValueTo[A: Schema](value: A, expected: DynamicValue): Assertion[AstTransformation] =
+  def tranformsValueTo[A: Schema](value: A, expected: DynamicValue): Assertion[Migration] =
     Assertion.assertion("transformsValueTo")(param(value), param(expected)) { transform =>
-      transform.transformDynamic(value.dynamic) == Right(expected)
+      transform.migrate(value.dynamic) == Right(expected)
     }
 
-  def failsToTransform[A: Schema](value: A): Assertion[AstTransformation] =
+  def failsToTransform[A: Schema](value: A): Assertion[Migration] =
     Assertion.assertion("failsToTransform")(param(value)) { transform =>
-      transform.transformDynamic(value.dynamic).isLeft
+      transform.migrate(value.dynamic).isLeft
     }
 
   case class Nested1(v1: Int, v2: String)

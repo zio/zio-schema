@@ -73,9 +73,8 @@ sealed trait Schema[A] {
    *  Generate a homomorphism from A to B iff A and B are homomorphic
    */
   def migrate[B](newSchema: Schema[B]): Either[String, A => Either[String, B]] =
-    AstTransformation.tryDerive(SchemaAst.fromSchema(self), SchemaAst.fromSchema(newSchema)).map {
-      transforms => (a: A) =>
-        self.toDynamic(a).transform(transforms).flatMap(newSchema.fromDynamic)
+    Migration.derive(SchemaAst.fromSchema(self), SchemaAst.fromSchema(newSchema)).map { transforms => (a: A) =>
+      self.toDynamic(a).transform(transforms).flatMap(newSchema.fromDynamic)
     }
 
   /**
