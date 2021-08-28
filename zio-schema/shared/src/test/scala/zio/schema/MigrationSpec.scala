@@ -9,7 +9,7 @@ import zio.test._
 
 object MigrationSpec extends DefaultRunnableSpec {
 
-  override def spec: ZSpec[Environment, Failure] = suite("AstTransformation Spec")(
+  override def spec: ZSpec[Environment, Failure] = suite("Migration Spec")(
     suite("Derivation")(
       suite("Value")(
         test("change type") {
@@ -101,7 +101,7 @@ object MigrationSpec extends DefaultRunnableSpec {
     suite("Transformation")(
       test("delete node from record") {
         assert(Migration.DeleteNode(Chunk("v2")))(
-          tranformsValueTo(
+          transformsValueTo(
             Nested1(0, "foo"),
             DynamicValue.Record(ListMap("v1" -> DynamicValue.Primitive(0, StandardType.IntType)))
           )
@@ -109,7 +109,7 @@ object MigrationSpec extends DefaultRunnableSpec {
       },
       test("delete node from nested record") {
         assert(Migration.DeleteNode(Chunk("v2", "v2")))(
-          tranformsValueTo(
+          transformsValueTo(
             Outer1("foo", Nested1(0, "bar")),
             DynamicValue.Record(
               ListMap(
@@ -126,7 +126,7 @@ object MigrationSpec extends DefaultRunnableSpec {
       },
       test("require node") {
         assert(Migration.Require(Chunk("v2")))(
-          tranformsValueTo(
+          transformsValueTo(
             OptionalField(0, Some("foo")),
             DynamicValue.Record(
               ListMap(
@@ -142,7 +142,7 @@ object MigrationSpec extends DefaultRunnableSpec {
       },
       test("optional") {
         assert(Migration.Optional(Chunk("v2")))(
-          tranformsValueTo(
+          transformsValueTo(
             Nested1(0, "foo"),
             DynamicValue.Record(
               ListMap(
@@ -184,7 +184,7 @@ object MigrationSpec extends DefaultRunnableSpec {
       )
       .getOrElse(false)
 
-  def tranformsValueTo[A: Schema](value: A, expected: DynamicValue): Assertion[Migration] =
+  def transformsValueTo[A: Schema](value: A, expected: DynamicValue): Assertion[Migration] =
     Assertion.assertion("transformsValueTo")(param(value), param(expected)) { transform =>
       transform.migrate(value.dynamic) == Right(expected)
     }

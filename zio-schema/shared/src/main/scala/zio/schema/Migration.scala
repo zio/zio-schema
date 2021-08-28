@@ -84,7 +84,9 @@ object Migration {
         Right(acc ++ transformShape(path, f, t) :+ ChangeType(path, ttype))
       case (f @ SchemaAst.Value(_, _, _), t @ SchemaAst.Value(_, _, _)) =>
         Right(acc ++ transformShape(path, f, t))
-      case _ => Left(s"Subtrees at path ${path.mkString("->")} are not homomorphic")
+      case (f: SchemaAst.Ref, t: SchemaAst.Ref) =>
+        Right(acc ++ transformShape(path, f, t))
+      case (f, t) => Left(s"Subtrees at path ${path.mkString("->")} are not homomorphic: $f cannot be mapped to $t")
     }
 
     go(Chunk.empty, Chunk.empty, from, to)
