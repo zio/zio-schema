@@ -2325,7 +2325,7 @@ discontinuous-range@1.0.0:
   resolved "https://registry.yarnpkg.com/discontinuous-range/-/discontinuous-range-1.0.0.tgz#e38331f0844bba49b9a9cb71c771585aab1bc65a"
   integrity sha1-44Mx8IRLukm5qctxx3FYWqsbxlo=
 
-docusaurus@^1.12.0:
+docusaurus@1.14.7:
   version "1.14.7"
   resolved "https://registry.yarnpkg.com/docusaurus/-/docusaurus-1.14.7.tgz#f51858ab643b29ec52264d6dd85e0d629e5b3a4a"
   integrity sha512-UWqar4ZX0lEcpLc5Tg+MwZ2jhF/1n1toCQRSeoxDON/D+E9ToLr+vTRFVMP/Tk84NXSVjZFRlrjWwM2pXzvLsQ==
@@ -5703,7 +5703,7 @@ react-is@^16.13.1, react-is@^16.8.1, react-is@^16.8.6:
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-16.13.1.tgz#789729a4dc36de2999dc156dd6c1d9c18cea56a4"
   integrity sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==
 
-react-sidecar@^0.1.1:
+react-sidecar@0.1.1:
   version "0.1.1"
   resolved "https://registry.yarnpkg.com/react-sidecar/-/react-sidecar-0.1.1.tgz#e4970bc95e495f1688d2727f948efc257555884e"
   integrity sha1-5JcLyV5JXxaI0nJ/lI78JXVViE4=
