@@ -49,7 +49,7 @@ sealed trait Schema[A] {
    *  This can be used to e.g convert between a case class and it's
    *  "generic" representation as a ListMap[String,_]
    */
-  def cast[B](newSchema: Schema[B]): Either[String, Schema[B]] =
+  def coerce[B](newSchema: Schema[B]): Either[String, Schema[B]] =
     for {
       f <- self.migrate(newSchema)
       g <- newSchema.migrate(self)

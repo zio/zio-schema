@@ -9,7 +9,45 @@ import zio.test.environment.TestEnvironment
 object SchemaMigrationSpec extends DefaultRunnableSpec {
   override def spec: ZSpec[TestEnvironment, Failure] = suite("Schema Migration Spec")(
     suite("case class")(
-      suite("isomorphisms")(isomorphismTests: _*)
+      suite("isomorphisms")(isomorphismTests: _*),
+      test("delete field recursively") {
+        val original = Recursive1(
+          0,
+          "0",
+          Some(
+            Recursive1(
+              1,
+              "1",
+              Some(
+                Recursive1(
+                  2,
+                  "2",
+                  None
+                )
+              )
+            )
+          )
+        )
+
+        val expectedMigration = Recursive3(
+          0,
+          Some(
+            Recursive3(
+              1,
+              Some(
+                Recursive3(
+                  2,
+                  None
+                )
+              )
+            )
+          )
+        )
+
+        val actualMigration = Schema[Recursive1].migrate(Schema[Recursive3]).flatMap(f => f(original))
+
+        assert(actualMigration)(isRight(equalTo(expectedMigration)))
+      }
     )
   )
 
@@ -39,31 +77,37 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
       assert(roundTrip)(isRight(equalTo(a)))
     }
 
-  case class Recursive1(level: Int, r: Option[Recursive1])
+  case class Recursive1(level: Int, value: String, r: Option[Recursive1])
 
   object Recursive1 {
     implicit lazy val schema: Schema[Recursive1] = DeriveSchema.gen
 
     def genTree(depth: Int): Recursive1 =
       if (depth == 0)
-        Recursive1(0, None)
-      else Recursive1(depth, Some(genTree(depth - 1)))
+        Recursive1(0, "foo", None)
+      else Recursive1(depth, "foo", Some(genTree(depth - 1)))
 
     def gen: Gen[Random with Sized, Recursive1] =
       Gen.int(2, 10).map(genTree)
   }
-  case class Recursive2(level: Int, r: Option[Recursive2])
+  case class Recursive2(level: Int, value: String, r: Option[Recursive2])
 
   object Recursive2 {
     implicit lazy val schema: Schema[Recursive2] = DeriveSchema.gen
 
     def genTree(depth: Int): Recursive2 =
       if (depth == 0)
-        Recursive2(0, None)
-      else Recursive2(depth, Some(genTree(depth - 1)))
+        Recursive2(0, "foo", None)
+      else Recursive2(depth, "foo", Some(genTree(depth - 1)))
 
     def gen: Gen[Random with Sized, Recursive2] =
       Gen.int(2, 10).map(genTree)
+  }
+
+  case class Recursive3(level: Int, r: Option[Recursive3])
+
+  object Recursive3 {
+    implicit lazy val schema: Schema[Recursive3] = DeriveSchema.gen
   }
 
   sealed trait PetFood

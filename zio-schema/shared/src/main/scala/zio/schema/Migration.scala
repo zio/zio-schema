@@ -22,6 +22,7 @@ sealed trait Migration { self =>
         Migration.tryDecrementDimensions(value, path.toList, n)
       case Migration.UpdateFail(path, newMessage) =>
         Migration.tryUpdateFail(value, path.toList, newMessage)
+      case Migration.Recursive(_, _) => ???
     }
 }
 
@@ -44,6 +45,8 @@ object Migration {
 
   final case class DecrementDimensions(path: Chunk[String], n: Int) extends Migration
 
+  final case class Recursive(refPath: Chunk[String], migrations: Chunk[Migration]) extends Migration
+
   def derive(from: SchemaAst, to: SchemaAst): Either[String, Chunk[Migration]] = {
     def go(
       acc: Chunk[Migration],
@@ -58,7 +61,7 @@ object Migration {
           else
             acc ++ transformShape(path, f, t) :+ UpdateFail(path, t.message)
         )
-      case (f @ SchemaAst.Product(_, _, ffields, _, _), t @ SchemaAst.Product(_, _, tfields, _, _)) =>
+      case (f @ SchemaAst.Product(_, ffields, _, _), t @ SchemaAst.Product(_, tfields, _, _)) =>
         matchedSubtrees(ffields, tfields).map {
           case ((nextPath, fs), (_, ts)) => go(Chunk.empty, path :+ nextPath, fs, ts)
         }.reduce[Either[String, Chunk[Migration]]] {
@@ -70,7 +73,7 @@ object Migration {
           .map(
             _ ++ transformShape(path, f, t) ++ insertions(path, ffields, tfields) ++ deletions(path, ffields, tfields)
           )
-      case (f @ SchemaAst.Sum(_, _, fcases, _, _), t @ SchemaAst.Sum(_, _, tcases, _, _)) =>
+      case (f @ SchemaAst.Sum(_, fcases, _, _), t @ SchemaAst.Sum(_, tcases, _, _)) =>
         matchedSubtrees(fcases, tcases).map {
           case ((nextPath, fs), (_, ts)) => go(Chunk.empty, path :+ nextPath, fs, ts)
         }.reduce[Either[String, Chunk[Migration]]] {
@@ -80,13 +83,13 @@ object Migration {
             case (Right(t1), Right(t2))    => Right(t1 ++ t2)
           }
           .map(_ ++ transformShape(path, f, t) ++ insertions(path, fcases, tcases) ++ deletions(path, fcases, tcases))
-      case (f @ SchemaAst.Value(ftype, _, _), t @ SchemaAst.Value(ttype, _, _)) if ttype != ftype =>
+      case (f @ SchemaAst.Value(ftype, _, _, _), t @ SchemaAst.Value(ttype, _, _, _)) if ttype != ftype =>
         Right(acc ++ transformShape(path, f, t) :+ ChangeType(path, ttype))
-      case (f @ SchemaAst.Value(_, _, _), t @ SchemaAst.Value(_, _, _)) =>
+      case (f @ SchemaAst.Value(_, _, _, _), t @ SchemaAst.Value(_, _, _, _)) =>
         Right(acc ++ transformShape(path, f, t))
-      case (f: SchemaAst.Ref, t: SchemaAst.Ref) =>
-        Right(acc ++ transformShape(path, f, t))
-      case (f, t) => Left(s"Subtrees at path ${path.mkString("->")} are not homomorphic: $f cannot be mapped to $t")
+      case (SchemaAst.Ref(fromRef, _, _, _), SchemaAst.Ref(toRef, _, _, _)) if fromRef == toRef => ???
+      // Right(acc ++ transformShape(path, f, t))
+      case (f, t) => Left(s"Subtrees at path ${renderPath(path)} are not homomorphic: $f cannot be mapped to $t")
     }
 
     go(Chunk.empty, Chunk.empty, from, to)
@@ -181,7 +184,7 @@ object Migration {
           case Some(newCase) => Right(DynamicValue.Enumeration(newCase))
           case None =>
             Left(
-              s"Failed to update leaf node at path ${renderPath(trace :+ nextLabel)}: Cannot remove instatiated case"
+              s"Failed to update leaf node at path ${renderPath(trace :+ nextLabel)}: Cannot remove instantiated case"
             )
         }
       case (DynamicValue.Enumeration((caseLabel, caseValue)), nextLabel :: remainder) if caseLabel == nextLabel =>
@@ -327,6 +330,6 @@ object Migration {
         updateLeaf(value, path)((_, _) => Right(None))
     }
 
-  private def renderPath(path: Iterable[String]): String = path.mkString("~>")
+  private def renderPath(path: Iterable[String]): String = path.mkString("/")
 
 }

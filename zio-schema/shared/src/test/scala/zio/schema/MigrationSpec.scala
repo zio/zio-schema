@@ -13,8 +13,8 @@ object MigrationSpec extends DefaultRunnableSpec {
     suite("Derivation")(
       suite("Value")(
         test("change type") {
-          val from = SchemaAst.Value(StandardType.IntType, optional = false, 0)
-          val to   = SchemaAst.Value(StandardType.StringType, optional = false, 0)
+          val from = SchemaAst.Value(StandardType.IntType, Chunk.empty)
+          val to   = SchemaAst.Value(StandardType.StringType, Chunk.empty)
 
           assertTrue(
             Migration
@@ -22,8 +22,8 @@ object MigrationSpec extends DefaultRunnableSpec {
           )
         },
         test("optional") {
-          val from = SchemaAst.Value(StandardType.IntType, optional = false, 0)
-          val to   = SchemaAst.Value(StandardType.IntType, optional = true, 0)
+          val from = SchemaAst.Value(StandardType.IntType, Chunk.empty, optional = false)
+          val to   = SchemaAst.Value(StandardType.IntType, Chunk.empty, optional = true)
 
           assertTrue(
             Migration
@@ -31,8 +31,8 @@ object MigrationSpec extends DefaultRunnableSpec {
           )
         },
         test("require") {
-          val from = SchemaAst.Value(StandardType.IntType, optional = true, 0)
-          val to   = SchemaAst.Value(StandardType.IntType, optional = false, 0)
+          val from = SchemaAst.Value(StandardType.IntType, Chunk.empty, optional = true)
+          val to   = SchemaAst.Value(StandardType.IntType, Chunk.empty, optional = false)
 
           assertTrue(
             Migration
@@ -40,8 +40,8 @@ object MigrationSpec extends DefaultRunnableSpec {
           )
         },
         test("increment dimensions") {
-          val from = SchemaAst.Value(StandardType.IntType, optional = true, 0)
-          val to   = SchemaAst.Value(StandardType.IntType, optional = true, 2)
+          val from = SchemaAst.Value(StandardType.IntType, Chunk.empty, optional = true, dimensions = 0)
+          val to   = SchemaAst.Value(StandardType.IntType, Chunk.empty, optional = true, dimensions = 2)
 
           assertTrue(
             Migration
@@ -49,8 +49,8 @@ object MigrationSpec extends DefaultRunnableSpec {
           )
         },
         test("decrement dimensions") {
-          val from = SchemaAst.Value(StandardType.IntType, optional = true, 2)
-          val to   = SchemaAst.Value(StandardType.IntType, optional = true, 0)
+          val from = SchemaAst.Value(StandardType.IntType, Chunk.empty, optional = true, dimensions = 2)
+          val to   = SchemaAst.Value(StandardType.IntType, Chunk.empty, optional = true, dimensions = 0)
 
           assertTrue(
             Migration

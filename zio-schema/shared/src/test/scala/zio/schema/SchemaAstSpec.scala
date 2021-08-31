@@ -44,11 +44,10 @@ object SchemaAstSpec extends DefaultRunnableSpec {
           )
         val expectedAst =
           SchemaAst.Product(
-            id = schema.hashCode(),
-            lineage = Chunk.empty,
+            path = Chunk.empty,
             fields = Chunk(
-              ("a", SchemaAst.fromSchema(Schema[String])),
-              ("b", SchemaAst.fromSchema(Schema[Int]))
+              ("a", SchemaAst.Value(StandardType.StringType, Chunk("a"))),
+              ("b", SchemaAst.Value(StandardType.IntType, Chunk("b")))
             )
           )
         assertTrue(SchemaAst.fromSchema(schema) == expectedAst)
@@ -57,15 +56,13 @@ object SchemaAstSpec extends DefaultRunnableSpec {
         val schema = Schema[SchemaGen.Arity2]
         val expectedAst =
           SchemaAst.Product(
-            id = schema.hashCode(),
-            lineage = Chunk.empty,
+            path = Chunk.empty,
             fields = Chunk(
-              "value1" -> SchemaAst.fromSchema(Schema[String]),
+              "value1" -> SchemaAst.Value(StandardType.StringType, Chunk("value1")),
               "value2" -> SchemaAst.Product(
-                id = Schema[SchemaGen.Arity1].hashCode(),
-                lineage = Chunk(schema.hashCode()),
+                path = Chunk("value2"),
                 fields = Chunk(
-                  "value" -> SchemaAst.Value(StandardType.IntType)
+                  "value" -> SchemaAst.Value(StandardType.IntType, Chunk("value2", "value"))
                 )
               )
             )
@@ -78,7 +75,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
         val ast    = SchemaAst.fromSchema(schema)
 
         val recursiveRef: Option[SchemaAst] = ast match {
-          case SchemaAst.Product(_, _, elements, _, _) =>
+          case SchemaAst.Product(_, elements, _, _) =>
             elements.find {
               case ("r", _) => true
               case _        => false
@@ -86,7 +83,10 @@ object SchemaAstSpec extends DefaultRunnableSpec {
           case _ => None
         }
         assertTrue(
-          recursiveRef.exists(_.id == ast.id)
+          recursiveRef.exists {
+            case SchemaAst.Ref(pathRef, _, _, _) => pathRef == Chunk.empty
+            case _                               => false
+          }
         )
       }
     ),
@@ -96,26 +96,22 @@ object SchemaAstSpec extends DefaultRunnableSpec {
           Schema.Enumeration(ListMap("type1" -> Schema[SchemaGen.Arity1], "type2" -> Schema[SchemaGen.Arity2]))
         val expectedAst =
           SchemaAst.Sum(
-            id = schema.hashCode(),
-            lineage = Chunk.empty,
+            path = Chunk.empty,
             cases = Chunk(
               "type1" -> SchemaAst.Product(
-                id = Schema[SchemaGen.Arity1].hashCode(),
-                lineage = Chunk(schema.hashCode()),
+                path = Chunk("type1"),
                 fields = Chunk(
-                  "value" -> SchemaAst.Value(StandardType.IntType)
+                  "value" -> SchemaAst.Value(StandardType.IntType, Chunk("type1", "value"))
                 )
               ),
               "type2" -> SchemaAst.Product(
-                id = Schema[SchemaGen.Arity2].hashCode(),
-                lineage = Chunk(schema.hashCode()),
+                path = Chunk("type2"),
                 fields = Chunk(
-                  "value1" -> SchemaAst.Value(StandardType.StringType),
+                  "value1" -> SchemaAst.Value(StandardType.StringType, Chunk("type2", "value1")),
                   "value2" -> SchemaAst.Product(
-                    id = Schema[SchemaGen.Arity1].hashCode(),
-                    lineage = Chunk(schema.hashCode(), Schema[SchemaGen.Arity2].hashCode()),
+                    path = Chunk("type2", "value2"),
                     fields = Chunk(
-                      "value" -> SchemaAst.Value(StandardType.IntType)
+                      "value" -> SchemaAst.Value(StandardType.IntType, Chunk("type2", "value2", "value"))
                     )
                   )
                 )
@@ -127,23 +123,20 @@ object SchemaAstSpec extends DefaultRunnableSpec {
       test("sealed trait") {
         val schema = Schema[Pet]
         val expectedAst = SchemaAst.Sum(
-          id = schema.hashCode(),
-          lineage = Chunk.empty,
+          path = Chunk.empty,
           cases = Chunk(
             "Cat" -> SchemaAst.Product(
-              id = Schema[Cat].hashCode(),
-              lineage = Chunk(schema.hashCode()),
+              path = Chunk("Cat"),
               fields = Chunk(
-                "name"    -> SchemaAst.Value(StandardType.StringType),
-                "hasHair" -> SchemaAst.Value(StandardType.BoolType)
+                "name"    -> SchemaAst.Value(StandardType.StringType, Chunk("Cat", "name")),
+                "hasHair" -> SchemaAst.Value(StandardType.BoolType, Chunk("Cat", "hasHair"))
               )
             ),
             "Dog" -> SchemaAst.Product(
-              id = Schema[Dog].hashCode(),
-              lineage = Chunk(schema.hashCode()),
-              fields = Chunk("name" -> SchemaAst.Value(StandardType.StringType))
+              path = Chunk("Dog"),
+              fields = Chunk("name" -> SchemaAst.Value(StandardType.StringType, Chunk("Dog", "name")))
             ),
-            "Rock" -> SchemaAst.Value(StandardType.UnitType)
+            "Rock" -> SchemaAst.Value(StandardType.UnitType, Chunk("Rock"))
           )
         )
         assertTrue(SchemaAst.fromSchema(schema) == expectedAst)
