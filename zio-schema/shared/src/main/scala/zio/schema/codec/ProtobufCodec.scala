@@ -8,6 +8,7 @@ import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 
 import zio.schema._
+import zio.schema.ast.SchemaAst
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZTransducer
 import zio.{ Chunk, ZIO }

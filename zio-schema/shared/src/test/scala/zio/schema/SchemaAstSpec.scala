@@ -4,6 +4,7 @@ import scala.collection.immutable.ListMap
 
 import zio._
 import zio.schema.SchemaAssertions._
+import zio.schema.ast._
 import zio.test._
 
 object SchemaAstSpec extends DefaultRunnableSpec {
@@ -44,10 +45,10 @@ object SchemaAstSpec extends DefaultRunnableSpec {
           )
         val expectedAst =
           SchemaAst.Product(
-            path = Chunk.empty,
+            path = NodePath.root,
             fields = Chunk(
-              ("a", SchemaAst.Value(StandardType.StringType, Chunk("a"))),
-              ("b", SchemaAst.Value(StandardType.IntType, Chunk("b")))
+              ("a", SchemaAst.Value(StandardType.StringType, NodePath.root / "a")),
+              ("b", SchemaAst.Value(StandardType.IntType, NodePath.root / "b"))
             )
           )
         assertTrue(SchemaAst.fromSchema(schema) == expectedAst)
@@ -56,13 +57,13 @@ object SchemaAstSpec extends DefaultRunnableSpec {
         val schema = Schema[SchemaGen.Arity2]
         val expectedAst =
           SchemaAst.Product(
-            path = Chunk.empty,
+            path = NodePath.root,
             fields = Chunk(
-              "value1" -> SchemaAst.Value(StandardType.StringType, Chunk("value1")),
+              "value1" -> SchemaAst.Value(StandardType.StringType, NodePath.root / "value1"),
               "value2" -> SchemaAst.Product(
-                path = Chunk("value2"),
+                path = NodePath.root / "value2",
                 fields = Chunk(
-                  "value" -> SchemaAst.Value(StandardType.IntType, Chunk("value2", "value"))
+                  "value" -> SchemaAst.Value(StandardType.IntType, NodePath.root / "value2" / "value")
                 )
               )
             )
@@ -96,22 +97,23 @@ object SchemaAstSpec extends DefaultRunnableSpec {
           Schema.Enumeration(ListMap("type1" -> Schema[SchemaGen.Arity1], "type2" -> Schema[SchemaGen.Arity2]))
         val expectedAst =
           SchemaAst.Sum(
-            path = Chunk.empty,
+            path = NodePath.root,
             cases = Chunk(
               "type1" -> SchemaAst.Product(
-                path = Chunk("type1"),
+                path = NodePath.root / "type1",
                 fields = Chunk(
-                  "value" -> SchemaAst.Value(StandardType.IntType, Chunk("type1", "value"))
+                  "value" -> SchemaAst.Value(StandardType.IntType, NodePath.root / "type1" / "value")
                 )
               ),
               "type2" -> SchemaAst.Product(
-                path = Chunk("type2"),
+                path = NodePath.root / "type2",
                 fields = Chunk(
-                  "value1" -> SchemaAst.Value(StandardType.StringType, Chunk("type2", "value1")),
+                  "value1" -> SchemaAst.Value(StandardType.StringType, NodePath.root / "type2" / "value1"),
                   "value2" -> SchemaAst.Product(
-                    path = Chunk("type2", "value2"),
+                    path = NodePath.root / "type2" / "value2",
                     fields = Chunk(
-                      "value" -> SchemaAst.Value(StandardType.IntType, Chunk("type2", "value2", "value"))
+                      "value" -> SchemaAst
+                        .Value(StandardType.IntType, NodePath.root / "type2" / "value2" / "value")
                     )
                   )
                 )
@@ -123,20 +125,20 @@ object SchemaAstSpec extends DefaultRunnableSpec {
       test("sealed trait") {
         val schema = Schema[Pet]
         val expectedAst = SchemaAst.Sum(
-          path = Chunk.empty,
+          path = NodePath.root,
           cases = Chunk(
             "Cat" -> SchemaAst.Product(
-              path = Chunk("Cat"),
+              path = NodePath.root / "Cat",
               fields = Chunk(
-                "name"    -> SchemaAst.Value(StandardType.StringType, Chunk("Cat", "name")),
-                "hasHair" -> SchemaAst.Value(StandardType.BoolType, Chunk("Cat", "hasHair"))
+                "name"    -> SchemaAst.Value(StandardType.StringType, NodePath.root / "Cat" / "name"),
+                "hasHair" -> SchemaAst.Value(StandardType.BoolType, NodePath.root / "Cat" / "hasHair")
               )
             ),
             "Dog" -> SchemaAst.Product(
-              path = Chunk("Dog"),
-              fields = Chunk("name" -> SchemaAst.Value(StandardType.StringType, Chunk("Dog", "name")))
+              path = NodePath.root / "Dog",
+              fields = Chunk("name" -> SchemaAst.Value(StandardType.StringType, NodePath.root / "Dog" / "name"))
             ),
-            "Rock" -> SchemaAst.Value(StandardType.UnitType, Chunk("Rock"))
+            "Rock" -> SchemaAst.Value(StandardType.UnitType, NodePath.root / "Rock")
           )
         )
         assertTrue(SchemaAst.fromSchema(schema) == expectedAst)

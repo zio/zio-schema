@@ -1,69 +1,75 @@
-package zio.schema
+package zio.schema.ast
 
+import zio.schema.{ DynamicValue, StandardType }
 import zio.{ Chunk, ChunkBuilder }
 
 sealed trait Migration { self =>
 
+  def path: NodePath
+
   def migrate(value: DynamicValue): Either[String, DynamicValue] =
     self match {
-      case Migration.Require(path)  => Migration.tryRequire(value, path.toList)
-      case Migration.Optional(path) => Migration.tryMakeOptional(value, path.toList)
+      case Migration.Require(path)  => Migration.require(value, path.toList)
+      case Migration.Optional(path) => Migration.makeOptional(value, path.toList)
       case Migration.ChangeType(path, _) =>
         Left(
-          s"Cannot change type of node at path ${Migration.renderPath(path)}: No type conversion is available"
+          s"Cannot change type of node at path ${path.render}: No type conversion is available"
         )
-      case Migration.DeleteNode(path) => Migration.tryDeleteNode(value, path.toList)
+      case Migration.DeleteNode(path) => Migration.deleteNode(value, path.toList)
       case Migration.AddNode(path, _) =>
-        Left(s"Cannot add node at path ${Migration.renderPath(path)}: No default value is available")
-      case Migration.Relabel(path, transform) => Migration.tryRelabel(value, path.toList, transform)
+        Left(s"Cannot add node at path ${path.render}: No default value is available")
+      case Migration.Relabel(path, transform) => Migration.relabel(value, path.toList, transform)
       case Migration.IncrementDimensions(path, n) =>
-        Migration.tryIncrementDimension(value, path.toList, n)
+        Migration.incrementDimension(value, path.toList, n)
       case Migration.DecrementDimensions(path, n) =>
-        Migration.tryDecrementDimensions(value, path.toList, n)
+        Migration.decrementDimensions(value, path.toList, n)
       case Migration.UpdateFail(path, newMessage) =>
-        Migration.tryUpdateFail(value, path.toList, newMessage)
-      case Migration.Recursive(_, _) => ???
+        Migration.updateFail(value, path.toList, newMessage)
+      case m @ Migration.Recursive(_, _, _) =>
+        Migration.migrateRecursive(value, m)
     }
 }
 
 object Migration {
-  final case class UpdateFail(path: Chunk[String], message: String) extends Migration
+  final case class UpdateFail(override val path: NodePath, message: String) extends Migration
 
-  final case class Optional(path: Chunk[String]) extends Migration
+  final case class Optional(override val path: NodePath) extends Migration
 
-  final case class Require(path: Chunk[String]) extends Migration
+  final case class Require(override val path: NodePath) extends Migration
 
-  final case class ChangeType(path: Chunk[String], value: StandardType[_]) extends Migration
+  final case class ChangeType(override val path: NodePath, value: StandardType[_]) extends Migration
 
-  final case class AddNode(path: Chunk[String], node: SchemaAst) extends Migration
+  final case class AddNode(override val path: NodePath, node: SchemaAst) extends Migration
 
-  final case class DeleteNode(path: Chunk[String]) extends Migration
+  final case class DeleteNode(override val path: NodePath) extends Migration
 
-  final case class Relabel(path: Chunk[String], tranform: LabelTransformation) extends Migration
+  final case class Relabel(override val path: NodePath, tranform: LabelTransformation) extends Migration
 
-  final case class IncrementDimensions(path: Chunk[String], n: Int) extends Migration
+  final case class IncrementDimensions(override val path: NodePath, n: Int) extends Migration
 
-  final case class DecrementDimensions(path: Chunk[String], n: Int) extends Migration
+  final case class DecrementDimensions(override val path: NodePath, n: Int) extends Migration
 
-  final case class Recursive(refPath: Chunk[String], migrations: Chunk[Migration]) extends Migration
+  final case class Recursive(override val path: NodePath, relativeNodePath: NodePath, relativeMigration: Migration)
+      extends Migration
 
   def derive(from: SchemaAst, to: SchemaAst): Either[String, Chunk[Migration]] = {
     def go(
       acc: Chunk[Migration],
-      path: Chunk[String],
+      path: NodePath,
       fromSubtree: SchemaAst,
-      toSubtree: SchemaAst
+      toSubtree: SchemaAst,
+      ignoreRefs: Boolean
     ): Either[String, Chunk[Migration]] = (fromSubtree, toSubtree) match {
       case (f: SchemaAst.FailNode, t: SchemaAst.FailNode) =>
         Right(
           if (f.message == t.message)
-            acc
+            Chunk.empty
           else
-            acc ++ transformShape(path, f, t) :+ UpdateFail(path, t.message)
+            transformShape(path, f, t) :+ UpdateFail(path, t.message)
         )
       case (f @ SchemaAst.Product(_, ffields, _, _), t @ SchemaAst.Product(_, tfields, _, _)) =>
         matchedSubtrees(ffields, tfields).map {
-          case ((nextPath, fs), (_, ts)) => go(Chunk.empty, path :+ nextPath, fs, ts)
+          case ((nextPath, fs), (_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
         }.reduce[Either[String, Chunk[Migration]]] {
             case (err @ Left(_), Right(_)) => err
             case (Right(_), err @ Left(_)) => err
@@ -71,29 +77,72 @@ object Migration {
             case (Right(t1), Right(t2))    => Right(t1 ++ t2)
           }
           .map(
-            _ ++ transformShape(path, f, t) ++ insertions(path, ffields, tfields) ++ deletions(path, ffields, tfields)
+            _ ++ acc ++ transformShape(path, f, t) ++ insertions(path, ffields, tfields) ++ deletions(
+              path,
+              ffields,
+              tfields
+            )
           )
       case (f @ SchemaAst.Sum(_, fcases, _, _), t @ SchemaAst.Sum(_, tcases, _, _)) =>
         matchedSubtrees(fcases, tcases).map {
-          case ((nextPath, fs), (_, ts)) => go(Chunk.empty, path :+ nextPath, fs, ts)
+          case ((nextPath, fs), (_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
         }.reduce[Either[String, Chunk[Migration]]] {
             case (err @ Left(_), Right(_)) => err
             case (Right(_), err @ Left(_)) => err
             case (Left(e1), Left(e2))      => Left(s"$e1;\n$e2")
             case (Right(t1), Right(t2))    => Right(t1 ++ t2)
           }
-          .map(_ ++ transformShape(path, f, t) ++ insertions(path, fcases, tcases) ++ deletions(path, fcases, tcases))
+          .map(
+            _ ++ acc ++ transformShape(path, f, t) ++ insertions(path, fcases, tcases) ++ deletions(
+              path,
+              fcases,
+              tcases
+            )
+          )
       case (f @ SchemaAst.Value(ftype, _, _, _), t @ SchemaAst.Value(ttype, _, _, _)) if ttype != ftype =>
-        Right(acc ++ transformShape(path, f, t) :+ ChangeType(path, ttype))
+        Right(transformShape(path, f, t) :+ ChangeType(path, ttype))
       case (f @ SchemaAst.Value(_, _, _, _), t @ SchemaAst.Value(_, _, _, _)) =>
-        Right(acc ++ transformShape(path, f, t))
-      case (SchemaAst.Ref(fromRef, _, _, _), SchemaAst.Ref(toRef, _, _, _)) if fromRef == toRef => ???
-      // Right(acc ++ transformShape(path, f, t))
+        Right(transformShape(path, f, t))
+      case (f @ SchemaAst.Ref(fromRef, nodePath, _, _), t @ SchemaAst.Ref(toRef, _, _, _)) if fromRef == toRef =>
+        if (ignoreRefs) Right(Chunk.empty)
+        else {
+          val recursiveMigrations = acc
+            .filter(_.path.isSubpathOf(fromRef))
+            .map(relativize(fromRef, nodePath.relativeTo(fromRef)))
+          Right(recursiveMigrations ++ transformShape(path, f, t))
+        }
       case (f, t) => Left(s"Subtrees at path ${renderPath(path)} are not homomorphic: $f cannot be mapped to $t")
     }
 
-    go(Chunk.empty, Chunk.empty, from, to)
+    for {
+      ignoringRefs <- go(Chunk.empty, NodePath.root, from, to, ignoreRefs = true)
+      withRefs     <- go(ignoringRefs, NodePath.root, from, to, ignoreRefs = false)
+    } yield (withRefs ++ ignoringRefs).distinct
   }
+
+  private def relativize(refPath: NodePath, relativeNodePath: NodePath)(migration: Migration): Migration =
+    migration match {
+      case m: UpdateFail =>
+        Recursive(refPath, relativeNodePath, m.copy(path = m.path.relativeTo(refPath)))
+      case m: Optional =>
+        Recursive(refPath, relativeNodePath, m.copy(path = m.path.relativeTo(refPath)))
+      case m: Require =>
+        Recursive(refPath, relativeNodePath, m.copy(path = m.path.relativeTo(refPath)))
+      case m: ChangeType =>
+        Recursive(refPath, relativeNodePath, m.copy(path = m.path.relativeTo(refPath)))
+      case m: AddNode =>
+        Recursive(refPath, relativeNodePath, m.copy(path = m.path.relativeTo(refPath)))
+      case m: DeleteNode =>
+        Recursive(refPath, relativeNodePath, m.copy(path = m.path.relativeTo(refPath)))
+      case m: Relabel =>
+        Recursive(refPath, relativeNodePath, m.copy(path = m.path.relativeTo(refPath)))
+      case m: IncrementDimensions =>
+        Recursive(refPath, relativeNodePath, m.copy(path = m.path.relativeTo(refPath)))
+      case m: DecrementDimensions =>
+        Recursive(refPath, relativeNodePath, m.copy(path = m.path.relativeTo(refPath)))
+      case m: Recursive =>
+        Recursive(refPath, relativeNodePath, m.copy(path = m.path.relativeTo(refPath)))
+    }
 
   /**
    * Represents a valid label transformation.
@@ -119,26 +168,26 @@ object Migration {
     }
 
   private def insertions(
-    path: Chunk[String],
+    path: NodePath,
     from: Chunk[SchemaAst.Labelled],
     to: Chunk[SchemaAst.Labelled]
   ): Chunk[Migration] =
     to.foldRight[Chunk[Migration]](Chunk.empty) {
       case ((nodeLabel, _), acc) if from.exists(_._1 == nodeLabel) => acc
-      case ((nodeLabel, ast), acc)                                 => acc :+ AddNode(path :+ nodeLabel, ast)
+      case ((nodeLabel, ast), acc)                                 => acc :+ AddNode(path / nodeLabel, ast)
     }
 
   private def deletions(
-    path: Chunk[String],
+    path: NodePath,
     from: Chunk[SchemaAst.Labelled],
     to: Chunk[SchemaAst.Labelled]
   ): Chunk[Migration] =
     from.foldRight[Chunk[Migration]](Chunk.empty) {
-      case ((nodeLabel, _), acc) if !to.exists(_._1 == nodeLabel) => acc :+ DeleteNode(path :+ nodeLabel)
+      case ((nodeLabel, _), acc) if !to.exists(_._1 == nodeLabel) => acc :+ DeleteNode(path / nodeLabel)
       case (_, acc)                                               => acc
     }
 
-  private def transformShape(path: Chunk[String], from: SchemaAst, to: SchemaAst): Chunk[Migration] = {
+  private def transformShape(path: NodePath, from: SchemaAst, to: SchemaAst): Chunk[Migration] = {
     val builder = ChunkBuilder.make[Migration]()
 
     if (from.optional && !to.optional)
@@ -162,6 +211,34 @@ object Migration {
     trace: Chunk[String] = Chunk.empty
   )(op: (String, DynamicValue) => Either[String, Option[(String, DynamicValue)]]): Either[String, DynamicValue] =
     (value, path) match {
+      case (DynamicValue.Transform(value), _) =>
+        updateLeaf(value, path, trace)(op).map(DynamicValue.Transform(_))
+      case (DynamicValue.SomeValue(value), _) =>
+        updateLeaf(value, path, trace)(op).map(DynamicValue.SomeValue(_))
+      case (DynamicValue.NoneValue, _) => Right(DynamicValue.NoneValue)
+      case (DynamicValue.Sequence(values), _) =>
+        values.map(v => updateLeaf(v, path, trace)(op)).reduce[Either[String, DynamicValue]] {
+          case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
+          case (Left(e), Right(_))  => Left(e)
+          case (Right(_), Left(e))  => Left(e)
+          case (Right(DynamicValue.Sequence(v1s)), Right(DynamicValue.Sequence(v2s))) =>
+            Right(DynamicValue.Sequence(v1s ++ v2s))
+          case (Right(DynamicValue.Sequence(v1s)), Right(v2)) => Right(DynamicValue.Sequence(v1s :+ v2))
+          case (Right(v1), Right(DynamicValue.Sequence(v2s))) => Right(DynamicValue.Sequence(v2s :+ v1))
+          case (Right(v1), Right(v2))                         => Right(DynamicValue.Sequence(Chunk(v1, v2)))
+        }
+      case (DynamicValue.Tuple(l, r), "left" :: remainder) =>
+        updateLeaf(l, remainder, trace :+ "left")(op).map(newLeft => DynamicValue.Tuple(newLeft, r))
+      case (DynamicValue.Tuple(l, r), "right" :: remainder) =>
+        updateLeaf(r, remainder, trace :+ "right")(op).map(newRight => DynamicValue.Tuple(l, newRight))
+      case (DynamicValue.LeftValue(l), "left" :: remainder) =>
+        updateLeaf(l, remainder, trace :+ "left")(op).map(DynamicValue.LeftValue(_))
+      case (value @ DynamicValue.LeftValue(_), "right" :: _) =>
+        Right(value)
+      case (DynamicValue.RightValue(r), "right" :: remainder) =>
+        updateLeaf(r, remainder, trace :+ "right")(op).map(DynamicValue.RightValue(_))
+      case (value @ DynamicValue.RightValue(_), "left" :: _) =>
+        Right(value)
       case (DynamicValue.Record(values), leafLabel :: Nil) if values.keySet.contains(leafLabel) =>
         op(leafLabel, values(leafLabel)).map {
           case Some((newLeafLabel, newLeafValue)) if newLeafLabel == leafLabel =>
@@ -195,7 +272,46 @@ object Migration {
         Left(s"Failed to update leaf at path ${renderPath(trace ++ path)}: Unexpected node at ${renderPath(trace)}")
     }
 
-  protected[schema] def tryUpdateFail(
+  private def materializeRecursive(depth: Int)(migration: Recursive): Migration = {
+    def appendRecursiveN(n: Int)(relativePath: NodePath): NodePath =
+      (0 until n).foldRight(NodePath.root)((_, path) => path / relativePath)
+
+    migration match {
+      case Recursive(refPath, relativeNodePath, m: UpdateFail) =>
+        m.copy(path = refPath / appendRecursiveN(depth)(relativeNodePath) / m.path)
+      case Recursive(refPath, relativeNodePath, m: Optional) =>
+        m.copy(path = refPath / appendRecursiveN(depth)(relativeNodePath) / m.path)
+      case Recursive(refPath, relativeNodePath, m: Require) =>
+        m.copy(path = refPath / appendRecursiveN(depth)(relativeNodePath) / m.path)
+      case Recursive(refPath, relativeNodePath, m: ChangeType) =>
+        m.copy(path = refPath / appendRecursiveN(depth)(relativeNodePath) / m.path)
+      case Recursive(refPath, relativeNodePath, m: AddNode) =>
+        m.copy(path = refPath / appendRecursiveN(depth)(relativeNodePath) / m.path)
+      case Recursive(refPath, relativeNodePath, m: DeleteNode) =>
+        m.copy(path = refPath / appendRecursiveN(depth)(relativeNodePath) / m.path)
+      case Recursive(refPath, relativeNodePath, m: Relabel) =>
+        m.copy(path = refPath / appendRecursiveN(depth)(relativeNodePath) / m.path)
+      case Recursive(refPath, relativeNodePath, m: IncrementDimensions) =>
+        m.copy(path = refPath / appendRecursiveN(depth)(relativeNodePath) / m.path)
+      case Recursive(refPath, relativeNodePath, m: DecrementDimensions) =>
+        m.copy(path = refPath / appendRecursiveN(depth)(relativeNodePath) / m.path)
+      case Recursive(refPath, relativeNodePath, m: Recursive) =>
+        m.copy(path = refPath / appendRecursiveN(depth)(relativeNodePath) / m.path)
+    }
+  }
+
+  protected[schema] def migrateRecursive(value: DynamicValue, migration: Recursive): Either[String, DynamicValue] = {
+    def go(lastValue: DynamicValue, depth: Int): Either[String, DynamicValue] =
+      materializeRecursive(depth)(migration).migrate(lastValue).flatMap { thisValue =>
+        if (thisValue == lastValue)
+          Right(thisValue)
+        else go(thisValue, depth + 1)
+      }
+
+    go(value, 1)
+  }
+
+  protected[schema] def updateFail(
     value: DynamicValue,
     path: List[String],
     newMessage: String
@@ -212,7 +328,7 @@ object Migration {
         }
     }
 
-  protected[schema] def tryIncrementDimension(
+  protected[schema] def incrementDimension(
     value: DynamicValue,
     path: List[String],
     n: Int
@@ -239,7 +355,7 @@ object Migration {
         }
     }
 
-  protected[schema] def tryDecrementDimensions(
+  protected[schema] def decrementDimensions(
     value: DynamicValue,
     path: List[String],
     n: Int
@@ -269,7 +385,7 @@ object Migration {
         }
     }
 
-  protected[schema] def tryRequire(
+  protected[schema] def require(
     value: DynamicValue,
     path: List[String]
   ): Either[String, DynamicValue] =
@@ -290,7 +406,7 @@ object Migration {
         }
     }
 
-  protected[schema] def tryRelabel(
+  protected[schema] def relabel(
     value: DynamicValue,
     path: List[String],
     transformation: LabelTransformation
@@ -307,7 +423,7 @@ object Migration {
         }
     }
 
-  protected[schema] def tryMakeOptional(
+  protected[schema] def makeOptional(
     value: DynamicValue,
     path: List[String]
   ): Either[String, DynamicValue] =
@@ -320,7 +436,7 @@ object Migration {
         }
     }
 
-  protected[schema] def tryDeleteNode(
+  protected[schema] def deleteNode(
     value: DynamicValue,
     path: List[String]
   ): Either[String, DynamicValue] =

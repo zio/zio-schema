@@ -5,6 +5,7 @@ import java.time.temporal.ChronoUnit
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
+import zio.schema.ast._
 
 /**
  * A `Schema[A]` describes the structure of some data type `A`, in terms of case classes,

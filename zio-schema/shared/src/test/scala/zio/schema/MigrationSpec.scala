@@ -3,6 +3,7 @@ package zio.schema
 import scala.collection.immutable.ListMap
 
 import zio._
+import zio.schema.ast._
 import zio.schema.syntax._
 import zio.test.AssertionM.Render.param
 import zio.test._
@@ -13,55 +14,57 @@ object MigrationSpec extends DefaultRunnableSpec {
     suite("Derivation")(
       suite("Value")(
         test("change type") {
-          val from = SchemaAst.Value(StandardType.IntType, Chunk.empty)
-          val to   = SchemaAst.Value(StandardType.StringType, Chunk.empty)
+          val from = SchemaAst.Value(StandardType.IntType, NodePath.root)
+          val to   = SchemaAst.Value(StandardType.StringType, NodePath.root)
 
           assertTrue(
             Migration
-              .derive(from, to) == Right(Chunk(Migration.ChangeType(Chunk.empty, StandardType.StringType)))
+              .derive(from, to) == Right(Chunk(Migration.ChangeType(NodePath.root, StandardType.StringType)))
           )
         },
         test("optional") {
-          val from = SchemaAst.Value(StandardType.IntType, Chunk.empty, optional = false)
-          val to   = SchemaAst.Value(StandardType.IntType, Chunk.empty, optional = true)
+          val from = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = false)
+          val to   = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true)
 
           assertTrue(
             Migration
-              .derive(from, to) == Right(Chunk(Migration.Optional(Chunk.empty)))
+              .derive(from, to) == Right(Chunk(Migration.Optional(NodePath.root)))
           )
         },
         test("require") {
-          val from = SchemaAst.Value(StandardType.IntType, Chunk.empty, optional = true)
-          val to   = SchemaAst.Value(StandardType.IntType, Chunk.empty, optional = false)
+          val from = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true)
+          val to   = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = false)
 
           assertTrue(
             Migration
-              .derive(from, to) == Right(Chunk(Migration.Require(Chunk.empty)))
+              .derive(from, to) == Right(Chunk(Migration.Require(NodePath.root)))
           )
         },
         test("increment dimensions") {
-          val from = SchemaAst.Value(StandardType.IntType, Chunk.empty, optional = true, dimensions = 0)
-          val to   = SchemaAst.Value(StandardType.IntType, Chunk.empty, optional = true, dimensions = 2)
+          val from = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true, dimensions = 0)
+          val to   = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true, dimensions = 2)
 
           assertTrue(
             Migration
-              .derive(from, to) == Right(Chunk(Migration.IncrementDimensions(Chunk.empty, 2)))
+              .derive(from, to) == Right(Chunk(Migration.IncrementDimensions(NodePath.root, 2)))
           )
         },
         test("decrement dimensions") {
-          val from = SchemaAst.Value(StandardType.IntType, Chunk.empty, optional = true, dimensions = 2)
-          val to   = SchemaAst.Value(StandardType.IntType, Chunk.empty, optional = true, dimensions = 0)
+          val from = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true, dimensions = 2)
+          val to   = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true, dimensions = 0)
 
           assertTrue(
             Migration
-              .derive(from, to) == Right(Chunk(Migration.DecrementDimensions(Chunk.empty, 2)))
+              .derive(from, to) == Right(Chunk(Migration.DecrementDimensions(NodePath.root, 2)))
           )
         }
       ),
       suite("Record")(
         test("change field type") {
           assertTrue(
-            containsTransformation[Nested1, Nested2](Migration.ChangeType(Chunk("v2"), StandardType.IntType))
+            containsTransformation[Nested1, Nested2](
+              Migration.ChangeType(NodePath.root / "v2", StandardType.IntType)
+            )
           )
         },
         test("add node") {
@@ -83,6 +86,13 @@ object MigrationSpec extends DefaultRunnableSpec {
           assertTrue(
             deletesNode[Outer2, Outer1](Chunk("v2", "v3"))
           )
+        },
+        test("delete recursive node") {
+          assertTrue(
+            includesMigration[Recursive1, Recursive2](
+              Migration.Recursive(NodePath.root, NodePath.root / "r", Migration.DeleteNode(NodePath.root / "v2"))
+            )
+          )
         }
       ),
       suite("Sum")(
@@ -100,7 +110,7 @@ object MigrationSpec extends DefaultRunnableSpec {
     ),
     suite("Transformation")(
       test("delete node from record") {
-        assert(Migration.DeleteNode(Chunk("v2")))(
+        assert(Migration.DeleteNode(NodePath.root / "v2"))(
           transformsValueTo(
             Nested1(0, "foo"),
             DynamicValue.Record(ListMap("v1" -> DynamicValue.Primitive(0, StandardType.IntType)))
@@ -108,7 +118,7 @@ object MigrationSpec extends DefaultRunnableSpec {
         )
       },
       test("delete node from nested record") {
-        assert(Migration.DeleteNode(Chunk("v2", "v2")))(
+        assert(Migration.DeleteNode(NodePath.root / "v2" / "v2"))(
           transformsValueTo(
             Outer1("foo", Nested1(0, "bar")),
             DynamicValue.Record(
@@ -124,8 +134,36 @@ object MigrationSpec extends DefaultRunnableSpec {
           )
         )
       },
+      test("delete node recursively") {
+        assert(Migration.Recursive(NodePath.root, NodePath.root / "r", Migration.DeleteNode(NodePath.root / "v2")))(
+          transformsValueTo(
+            Recursive1(0, "", Some(Recursive1(1, "", Some(Recursive1(2, "", None))))),
+            DynamicValue.Record(
+              ListMap(
+                "v1" -> DynamicValue.Primitive(0, StandardType.IntType),
+                "v2" -> DynamicValue.Primitive("", StandardType.StringType),
+                "r" -> DynamicValue.SomeValue(
+                  DynamicValue.Record(
+                    ListMap(
+                      "v1" -> DynamicValue.Primitive(1, StandardType.IntType),
+                      "r" -> DynamicValue.SomeValue(
+                        DynamicValue.Record(
+                          ListMap(
+                            "v1" -> DynamicValue.Primitive(2, StandardType.IntType),
+                            "r"  -> DynamicValue.NoneValue
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      },
       test("require node") {
-        assert(Migration.Require(Chunk("v2")))(
+        assert(Migration.Require(NodePath.root / "v2"))(
           transformsValueTo(
             OptionalField(0, Some("foo")),
             DynamicValue.Record(
@@ -138,10 +176,10 @@ object MigrationSpec extends DefaultRunnableSpec {
         )
       },
       test("require node fails") {
-        assert(Migration.Require(Chunk("v2")))(failsToTransform(OptionalField(0, None)))
+        assert(Migration.Require(NodePath.root / "v2"))(failsToTransform(OptionalField(0, None)))
       },
       test("optional") {
-        assert(Migration.Optional(Chunk("v2")))(
+        assert(Migration.Optional(NodePath.root / "v2"))(
           transformsValueTo(
             Nested1(0, "foo"),
             DynamicValue.Record(
@@ -184,15 +222,36 @@ object MigrationSpec extends DefaultRunnableSpec {
       )
       .getOrElse(false)
 
+  def includesMigration[From: Schema, To: Schema](m: Migration): Boolean =
+    Migration
+      .derive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
+      .map(
+        _.contains(m)
+      )
+      .getOrElse(false)
+
   def transformsValueTo[A: Schema](value: A, expected: DynamicValue): Assertion[Migration] =
     Assertion.assertion("transformsValueTo")(param(value), param(expected)) { transform =>
-      transform.migrate(value.dynamic) == Right(expected)
+      val transformed = transform.migrate(value.dynamic)
+      transformed == Right(expected)
     }
 
   def failsToTransform[A: Schema](value: A): Assertion[Migration] =
     Assertion.assertion("failsToTransform")(param(value)) { transform =>
       transform.migrate(value.dynamic).isLeft
     }
+
+  case class Recursive1(v1: Int, v2: String, r: Option[Recursive1])
+
+  object Recursive1 {
+    implicit lazy val schema: Schema[Recursive1] = DeriveSchema.gen
+  }
+
+  case class Recursive2(v1: Int, r: Option[Recursive2])
+
+  object Recursive2 {
+    implicit lazy val schema: Schema[Recursive2] = DeriveSchema.gen
+  }
 
   case class Nested1(v1: Int, v2: String)
 

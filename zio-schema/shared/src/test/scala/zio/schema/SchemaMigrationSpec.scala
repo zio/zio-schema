@@ -2,6 +2,7 @@ package zio.schema
 
 import zio._
 import zio.random.Random
+import zio.schema.syntax._
 import zio.test.Assertion._
 import zio.test._
 import zio.test.environment.TestEnvironment
@@ -44,7 +45,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
           )
         )
 
-        val actualMigration = Schema[Recursive1].migrate(Schema[Recursive3]).flatMap(f => f(original))
+        val actualMigration = original.migrate[Recursive3]
 
         assert(actualMigration)(isRight(equalTo(expectedMigration)))
       }
@@ -70,9 +71,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
     genA: Gen[Random with Sized, A]
   ): URIO[R with Random with Sized with TestConfig, TestResult] =
     check(genA) { a =>
-      val AtoB      = Schema[A].migrate(Schema[B])
-      val BtoA      = Schema[B].migrate(Schema[A])
-      val roundTrip = AtoB.flatMap(f => f(a)).flatMap(b => BtoA.flatMap(g => g(b)))
+      val roundTrip = a.migrate[B].flatMap(_.migrate[A])
 
       assert(roundTrip)(isRight(equalTo(a)))
     }

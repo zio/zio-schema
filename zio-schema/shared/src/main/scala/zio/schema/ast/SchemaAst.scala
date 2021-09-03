@@ -1,12 +1,13 @@
-package zio.schema
+package zio.schema.ast
 
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 
+import zio.schema._
 import zio.{ Chunk, ChunkBuilder }
 
 sealed trait SchemaAst { self =>
-  def path: Chunk[String]
+  def path: NodePath
   def optional: Boolean
   def dimensions: Int
 
@@ -17,13 +18,14 @@ sealed trait SchemaAst { self =>
 
 object SchemaAst {
   type Labelled = (String, SchemaAst)
-  type Path     = Chunk[String]
-  type Lineage  = Chunk[(Int, Path)]
+  type Lineage  = Chunk[(Int, NodePath)]
 
-  private val ROOT: Path = Chunk.empty
+  implicit val nodePathSchema: Schema[NodePath] =
+    Schema[String].repeated
+      .transform(NodePath(_), NodePath.unwrap)
 
   final case class Product(
-    override val path: Path,
+    override val path: NodePath,
     fields: Chunk[Labelled] = Chunk.empty,
     override val optional: Boolean = false,
     override val dimensions: Int = 0
@@ -37,8 +39,8 @@ object SchemaAst {
         field2 = Schema.Field("fields", Schema[Labelled].repeated),
         field3 = Schema.Field("optional", Schema[Boolean]),
         field4 = Schema.Field("dimensions", Schema[Int]),
-        (path: Path, fields: Chunk[Labelled], optional: Boolean, dimensions: Int) =>
-          Product(path, fields, optional, dimensions),
+        (path: Chunk[String], fields: Chunk[Labelled], optional: Boolean, dimensions: Int) =>
+          Product(NodePath(path), fields, optional, dimensions),
         _.path,
         _.fields,
         _.optional,
@@ -47,7 +49,7 @@ object SchemaAst {
     }
   }
   final case class Sum(
-    override val path: Path,
+    override val path: NodePath,
     cases: Chunk[Labelled] = Chunk.empty,
     override val optional: Boolean = false,
     override val dimensions: Int = 0
@@ -61,8 +63,8 @@ object SchemaAst {
         field2 = Schema.Field("cases", Schema[Labelled].repeated),
         field3 = Schema.Field("optional", Schema[Boolean]),
         field4 = Schema.Field("dimensions", Schema[Int]),
-        (path: Path, fields: Chunk[Labelled], optional: Boolean, dimensions: Int) =>
-          Sum(path, fields, optional, dimensions),
+        (path: Chunk[String], fields: Chunk[Labelled], optional: Boolean, dimensions: Int) =>
+          Sum(NodePath(path), fields, optional, dimensions),
         _.path,
         _.cases,
         _.optional,
@@ -71,7 +73,7 @@ object SchemaAst {
   }
   final case class FailNode(
     message: String,
-    override val path: Path,
+    override val path: NodePath,
     override val optional: Boolean = false,
     override val dimensions: Int = 0
   ) extends SchemaAst
@@ -83,7 +85,8 @@ object SchemaAst {
       field2 = Schema.Field("path", Schema[String].repeated),
       field3 = Schema.Field("optional", Schema[Boolean]),
       field4 = Schema.Field("dimensions", Schema[Int]),
-      (m: String, path: Path, optional: Boolean, dimensions: Int) => FailNode(m, path, optional, dimensions),
+      (m: String, path: Chunk[String], optional: Boolean, dimensions: Int) =>
+        FailNode(m, NodePath(path), optional, dimensions),
       _.message,
       _.path,
       _.optional,
@@ -92,7 +95,7 @@ object SchemaAst {
   }
   final case class Value(
     valueType: StandardType[_],
-    override val path: Path = Chunk.empty,
+    override val path: NodePath = NodePath.root,
     override val optional: Boolean = false,
     override val dimensions: Int = 0
   ) extends SchemaAst
@@ -100,7 +103,7 @@ object SchemaAst {
   object Value {
     implicit val schema: Schema[Value] =
       Schema
-        .CaseClass4[String, Path, Boolean, Int, (String, Path, Boolean, Int)](
+        .CaseClass4[String, Chunk[String], Boolean, Int, (String, Chunk[String], Boolean, Int)](
           annotations = Chunk.empty,
           field1 = Schema.Field("valueType", Schema[String]),
           field2 = Schema.Field("path", Schema[String].repeated),
@@ -114,20 +117,20 @@ object SchemaAst {
         )
         .transformOrFail(fromTuple, tupled)
 
-    private def tupled(value: Value): Either[String, (String, Path, Boolean, Int)] =
+    private def tupled(value: Value): Either[String, (String, Chunk[String], Boolean, Int)] =
       Right((value.valueType.tag, value.path, value.optional, value.dimensions))
 
-    private def fromTuple(tuple: (String, Path, Boolean, Int)): Either[String, Value] = tuple match {
+    private def fromTuple(tuple: (String, Chunk[String], Boolean, Int)): Either[String, Value] = tuple match {
       case (s, path, optional, dimensions) =>
         StandardType
           .fromString(s)
-          .map(typ => Value(typ, path, optional, dimensions))
+          .map(typ => Value(typ, NodePath(path), optional, dimensions))
           .toRight(s"unkown standard type $s")
     }
   }
   final case class Ref(
-    refPath: Path,
-    override val path: Path,
+    refPath: NodePath,
+    override val path: NodePath,
     optional: Boolean = false,
     dimensions: Int = 0
   ) extends SchemaAst
@@ -140,7 +143,8 @@ object SchemaAst {
         field2 = Schema.Field("path", Schema[String].repeated),
         field3 = Schema.Field("optional", Schema[Boolean]),
         field4 = Schema.Field("dimensions", Schema[Int]),
-        (refPath: Path, path: Path, optional: Boolean, dimensions: Int) => Ref(refPath, path, optional, dimensions),
+        (refPath: Chunk[String], path: Chunk[String], optional: Boolean, dimensions: Int) =>
+          Ref(NodePath(refPath), NodePath(path), optional, dimensions),
         _.refPath,
         _.path,
         _.optional,
@@ -149,7 +153,7 @@ object SchemaAst {
   }
 
   final private[schema] case class NodeBuilder(
-    path: Path,
+    path: NodePath,
     lineage: Lineage,
     optional: Boolean = false,
     dimensions: Int = 0
@@ -157,7 +161,7 @@ object SchemaAst {
     private val children: ChunkBuilder[Labelled] = ChunkBuilder.make[Labelled]()
 
     def addLabelledSubtree(label: String, schema: Schema[_]): NodeBuilder = {
-      children += (label -> subtree(path :+ label, lineage, schema))
+      children += (label -> subtree(path / label, lineage, schema))
       self
     }
 
@@ -168,32 +172,32 @@ object SchemaAst {
 
   @tailrec
   def fromSchema[A](schema: Schema[A]): SchemaAst = schema match {
-    case Schema.Primitive(typ)   => Value(typ, Chunk.empty)
-    case Schema.Fail(message)    => FailNode(message, Chunk.empty)
-    case Schema.Optional(schema) => subtree(Chunk.empty, Chunk.empty, schema, optional = true)
+    case Schema.Primitive(typ)   => Value(typ, NodePath.root)
+    case Schema.Fail(message)    => FailNode(message, NodePath.root)
+    case Schema.Optional(schema) => subtree(NodePath.root, Chunk.empty, schema, optional = true)
     case Schema.EitherSchema(left, right) =>
-      NodeBuilder(Chunk.empty, Chunk.empty)
+      NodeBuilder(NodePath.root, Chunk.empty)
         .addLabelledSubtree("left", left)
         .addLabelledSubtree("right", right)
         .buildSum()
     case Schema.Tuple(left, right) =>
-      NodeBuilder(Chunk.empty, Chunk.empty)
+      NodeBuilder(NodePath.root, Chunk.empty)
         .addLabelledSubtree("left", left)
         .addLabelledSubtree("right", right)
         .buildProduct()
     case Schema.Sequence(schema, _, _) =>
-      subtree(Chunk.empty, Chunk.empty, schema, dimensions = 1)
-    case Schema.Transform(schema, _, _) => subtree(Chunk.empty, Chunk.empty, schema)
+      subtree(NodePath.root, Chunk.empty, schema, dimensions = 1)
+    case Schema.Transform(schema, _, _) => subtree(NodePath.root, Chunk.empty, schema)
     case lzy @ Schema.Lazy(_)           => fromSchema(lzy.schema)
     case s: Schema.Record[A] =>
       s.structure
-        .foldLeft(NodeBuilder(Chunk.empty, Chunk(s.hashCode() -> ROOT))) { (node, field) =>
+        .foldLeft(NodeBuilder(NodePath.root, Chunk(s.hashCode() -> NodePath.root))) { (node, field) =>
           node.addLabelledSubtree(field.label, field.schema)
         }
         .buildProduct()
     case s: Schema.Enum[A] =>
       s.structure
-        .foldLeft(NodeBuilder(Chunk.empty, Chunk(s.hashCode() -> ROOT))) {
+        .foldLeft(NodeBuilder(NodePath.root, Chunk(s.hashCode() -> NodePath.root))) {
           case (node, (id, schema)) =>
             node.addLabelledSubtree(id, schema)
         }
@@ -202,7 +206,7 @@ object SchemaAst {
   }
 
   private[schema] def subtree(
-    path: Path,
+    path: NodePath,
     lineage: Lineage,
     schema: Schema[_],
     optional: Boolean = false,
@@ -250,7 +254,7 @@ object SchemaAst {
         }
       }
 
-  private[schema] def materialize(ast: SchemaAst, refs: Map[Path, SchemaAst] = Map.empty): Schema[_] = {
+  private[schema] def materialize(ast: SchemaAst, refs: Map[NodePath, SchemaAst] = Map.empty): Schema[_] = {
     val baseSchema = ast match {
       case SchemaAst.Value(typ, _, _, _) =>
         Schema.Primitive(typ)
@@ -259,7 +263,7 @@ object SchemaAst {
         refs
           .get(refPath)
           .map(astRef => Schema.defer(materialize(astRef, Map.empty)))
-          .getOrElse(Schema.Fail(s"invalid ref path ${AstRenderer.renderPath(refPath)}"))
+          .getOrElse(Schema.Fail(s"invalid ref path $refPath"))
       case n @ SchemaAst.Product(path, elems, _, _) =>
         Schema.GenericRecord(
           elems.map {
@@ -317,11 +321,9 @@ private[schema] object AstRenderer {
     case SchemaAst.Ref(refPath, _, optional, dimensions) =>
       val buffer = new StringBuffer()
       if (optional) buffer.append("?")
-      buffer.append(s"{ref#${renderPath(refPath)}}").append(renderDimensions(dimensions))
+      buffer.append(s"{ref#${refPath.render}}").append(renderDimensions(dimensions))
       buffer.toString
   }
-
-  def renderPath(path: SchemaAst.Path): String = path.mkString("/")
 
   def renderField(value: SchemaAst.Labelled, indent: Int): String = {
     val buffer = new StringBuffer()
@@ -346,7 +348,7 @@ private[schema] object AstRenderer {
         pad(buffer, indent)
         buffer.append(s"$label: ")
         if (optional) buffer.append("?")
-        buffer.append(s"{ref#${renderPath(refPath)}}").append(renderDimensions(dimensions)).toString
+        buffer.append(s"{ref#${refPath.render}}").append(renderDimensions(dimensions)).toString
     }
   }
 
