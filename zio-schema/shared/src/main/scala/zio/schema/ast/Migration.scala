@@ -16,12 +16,9 @@ sealed trait Migration { self =>
           s"Cannot change type of node at path ${path.render}: No type conversion is available"
         )
       case Migration.DeleteNode(path) => Migration.deleteNode(value, path.toList)
+      case Migration.AddCase(_, _)    => Right(value)
       case Migration.AddNode(path, _) =>
-        value match {
-          case DynamicValue.Enumeration(_) => Right(value)
-          case _ =>
-            Left(s"Cannot add node at path ${path.render}: No default value is available")
-        }
+        Left(s"Cannot add node at path ${path.render}: No default value is available")
       case Migration.Relabel(path, transform) => Migration.relabel(value, path.toList, transform)
       case Migration.IncrementDimensions(path, n) =>
         Migration.incrementDimension(value, path.toList, n)
@@ -44,6 +41,8 @@ object Migration {
   final case class ChangeType(override val path: NodePath, value: StandardType[_]) extends Migration
 
   final case class AddNode(override val path: NodePath, node: SchemaAst) extends Migration
+
+  final case class AddCase(override val path: NodePath, node: SchemaAst) extends Migration
 
   final case class DeleteNode(override val path: NodePath) extends Migration
 
@@ -97,7 +96,7 @@ object Migration {
             case (Right(t1), Right(t2))    => Right(t1 ++ t2)
           }
           .map(
-            _ ++ acc ++ transformShape(path, f, t) ++ insertions(path, fcases, tcases) ++ deletions(
+            _ ++ acc ++ transformShape(path, f, t) ++ caseInsertions(path, fcases, tcases) ++ deletions(
               path,
               fcases,
               tcases
@@ -135,6 +134,8 @@ object Migration {
       case m: ChangeType =>
         Recursive(refPath, relativeNodePath, m.copy(path = m.path.relativeTo(refPath)))
       case m: AddNode =>
+        Recursive(refPath, relativeNodePath, m.copy(path = m.path.relativeTo(refPath)))
+      case m: AddCase =>
         Recursive(refPath, relativeNodePath, m.copy(path = m.path.relativeTo(refPath)))
       case m: DeleteNode =>
         Recursive(refPath, relativeNodePath, m.copy(path = m.path.relativeTo(refPath)))
@@ -179,6 +180,16 @@ object Migration {
     to.foldRight[Chunk[Migration]](Chunk.empty) {
       case ((nodeLabel, _), acc) if from.exists(_._1 == nodeLabel) => acc
       case ((nodeLabel, ast), acc)                                 => acc :+ AddNode(path / nodeLabel, ast)
+    }
+
+  private def caseInsertions(
+    path: NodePath,
+    from: Chunk[SchemaAst.Labelled],
+    to: Chunk[SchemaAst.Labelled]
+  ): Chunk[Migration] =
+    to.foldRight[Chunk[Migration]](Chunk.empty) {
+      case ((nodeLabel, _), acc) if from.exists(_._1 == nodeLabel) => acc
+      case ((nodeLabel, ast), acc)                                 => acc :+ AddCase(path / nodeLabel, ast)
     }
 
   private def deletions(
@@ -291,6 +302,8 @@ object Migration {
       case Recursive(refPath, relativeNodePath, m: ChangeType) =>
         m.copy(path = refPath / appendRecursiveN(depth)(relativeNodePath) / m.path)
       case Recursive(refPath, relativeNodePath, m: AddNode) =>
+        m.copy(path = refPath / appendRecursiveN(depth)(relativeNodePath) / m.path)
+      case Recursive(refPath, relativeNodePath, m: AddCase) =>
         m.copy(path = refPath / appendRecursiveN(depth)(relativeNodePath) / m.path)
       case Recursive(refPath, relativeNodePath, m: DeleteNode) =>
         m.copy(path = refPath / appendRecursiveN(depth)(relativeNodePath) / m.path)

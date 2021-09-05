@@ -96,9 +96,9 @@ object MigrationSpec extends DefaultRunnableSpec {
         }
       ),
       suite("Sum")(
-        test("add node") {
+        test("add case") {
           assertTrue(
-            addsNode[Pet1, Pet2](Chunk("Hamster"))
+            addsCase[Pet1, Pet2](Chunk("Hamster"))
           )
         },
         test("delete node") {
@@ -190,6 +190,19 @@ object MigrationSpec extends DefaultRunnableSpec {
             )
           )
         )
+      },
+      test("ignore add case") {
+        val value: Pet1  = Pet1.Dog("name")
+        val dynamicValue = value.dynamic
+        assert(Migration.AddCase(NodePath.root, SchemaAst.Value(StandardType.UnitType, NodePath.root)))(
+          transformsValueTo(value, dynamicValue)
+        )
+      },
+      test("fail to remove instantiated case") {
+        val value: Pet2  = Pet2.Hamster("name")
+        val dynamicValue = value.dynamic
+
+        assertTrue(Migration.DeleteNode(NodePath.root / "Hamster").migrate(dynamicValue).isLeft)
       }
     )
   )
@@ -206,6 +219,17 @@ object MigrationSpec extends DefaultRunnableSpec {
       .map(
         _.exists {
           case Migration.AddNode(path, _) => path == expectedPath
+          case _                          => false
+        }
+      )
+      .getOrElse(false)
+
+  def addsCase[From: Schema, To: Schema](expectedPath: Chunk[String]): Boolean =
+    Migration
+      .derive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
+      .map(
+        _.exists {
+          case Migration.AddCase(path, _) => path == expectedPath
           case _                          => false
         }
       )
@@ -284,8 +308,8 @@ object MigrationSpec extends DefaultRunnableSpec {
   sealed trait Pet1
 
   object Pet1 {
-    case object Dog extends Pet1
-    case object Cat extends Pet1
+    case class Dog(name: String) extends Pet1
+    case class Cat(name: String) extends Pet1
 
     implicit def schema: Schema[Pet1] = DeriveSchema.gen
   }
@@ -293,9 +317,9 @@ object MigrationSpec extends DefaultRunnableSpec {
   sealed trait Pet2
 
   object Pet2 {
-    case object Dog     extends Pet2
-    case object Cat     extends Pet2
-    case object Hamster extends Pet2
+    case class Dog(name: String)     extends Pet2
+    case class Cat(name: String)     extends Pet2
+    case class Hamster(name: String) extends Pet2
 
     implicit def schema: Schema[Pet2] = DeriveSchema.gen
   }

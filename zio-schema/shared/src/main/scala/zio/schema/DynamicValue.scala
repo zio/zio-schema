@@ -128,7 +128,7 @@ object DynamicValue {
         (case1.deconstruct(value), case2.deconstruct(value), case3.deconstruct(value)) match {
           case (Some(v1), _, _) => DynamicValue.Enumeration(case1.id -> fromSchemaAndValue(case1.codec, v1))
           case (_, Some(v2), _) => DynamicValue.Enumeration(case2.id -> fromSchemaAndValue(case2.codec, v2))
-          case (_, _, Some(v3)) => DynamicValue.Enumeration(case1.id -> fromSchemaAndValue(case3.codec, v3))
+          case (_, _, Some(v3)) => DynamicValue.Enumeration(case3.id -> fromSchemaAndValue(case3.codec, v3))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
