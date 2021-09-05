@@ -17,7 +17,11 @@ sealed trait Migration { self =>
         )
       case Migration.DeleteNode(path) => Migration.deleteNode(value, path.toList)
       case Migration.AddNode(path, _) =>
-        Left(s"Cannot add node at path ${path.render}: No default value is available")
+        value match {
+          case DynamicValue.Enumeration(_) => Right(value)
+          case _ =>
+            Left(s"Cannot add node at path ${path.render}: No default value is available")
+        }
       case Migration.Relabel(path, transform) => Migration.relabel(value, path.toList, transform)
       case Migration.IncrementDimensions(path, n) =>
         Migration.incrementDimension(value, path.toList, n)
@@ -70,7 +74,7 @@ object Migration {
       case (f @ SchemaAst.Product(_, ffields, _, _), t @ SchemaAst.Product(_, tfields, _, _)) =>
         matchedSubtrees(ffields, tfields).map {
           case ((nextPath, fs), (_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
-        }.reduce[Either[String, Chunk[Migration]]] {
+        }.foldRight[Either[String, Chunk[Migration]]](Right(Chunk.empty)) {
             case (err @ Left(_), Right(_)) => err
             case (Right(_), err @ Left(_)) => err
             case (Left(e1), Left(e2))      => Left(s"$e1;\n$e2")
@@ -86,7 +90,7 @@ object Migration {
       case (f @ SchemaAst.Sum(_, fcases, _, _), t @ SchemaAst.Sum(_, tcases, _, _)) =>
         matchedSubtrees(fcases, tcases).map {
           case ((nextPath, fs), (_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
-        }.reduce[Either[String, Chunk[Migration]]] {
+        }.foldRight[Either[String, Chunk[Migration]]](Right(Chunk.empty)) {
             case (err @ Left(_), Right(_)) => err
             case (Right(_), err @ Left(_)) => err
             case (Left(e1), Left(e2))      => Left(s"$e1;\n$e2")
@@ -217,16 +221,17 @@ object Migration {
         updateLeaf(value, path, trace)(op).map(DynamicValue.SomeValue(_))
       case (DynamicValue.NoneValue, _) => Right(DynamicValue.NoneValue)
       case (DynamicValue.Sequence(values), _) =>
-        values.map(v => updateLeaf(v, path, trace)(op)).reduce[Either[String, DynamicValue]] {
-          case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
-          case (Left(e), Right(_))  => Left(e)
-          case (Right(_), Left(e))  => Left(e)
-          case (Right(DynamicValue.Sequence(v1s)), Right(DynamicValue.Sequence(v2s))) =>
-            Right(DynamicValue.Sequence(v1s ++ v2s))
-          case (Right(DynamicValue.Sequence(v1s)), Right(v2)) => Right(DynamicValue.Sequence(v1s :+ v2))
-          case (Right(v1), Right(DynamicValue.Sequence(v2s))) => Right(DynamicValue.Sequence(v2s :+ v1))
-          case (Right(v1), Right(v2))                         => Right(DynamicValue.Sequence(Chunk(v1, v2)))
-        }
+        values
+          .map(v => updateLeaf(v, path, trace)(op))
+          .foldRight[Either[String, DynamicValue.Sequence]](Right(DynamicValue.Sequence(Chunk.empty))) {
+            case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
+            case (Left(e), Right(_))  => Left(e)
+            case (Right(_), Left(e))  => Left(e)
+            case (Right(DynamicValue.Sequence(v1s)), Right(DynamicValue.Sequence(v2s))) =>
+              Right(DynamicValue.Sequence(v1s ++ v2s))
+            case (Right(v1), Right(DynamicValue.Sequence(v2s))) => Right(DynamicValue.Sequence(v1 +: v2s))
+
+          }
       case (DynamicValue.Tuple(l, r), "left" :: remainder) =>
         updateLeaf(l, remainder, trace :+ "left")(op).map(newLeft => DynamicValue.Tuple(newLeft, r))
       case (DynamicValue.Tuple(l, r), "right" :: remainder) =>
