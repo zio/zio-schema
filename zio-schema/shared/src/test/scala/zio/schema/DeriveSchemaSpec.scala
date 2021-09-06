@@ -40,6 +40,14 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   case class Leaf[A](value: A)                        extends Tree[A]
   case object Root                                    extends Tree[Nothing]
 
+  sealed trait RecursiveEnum
+  case class RecursiveEnum1(label: String, rs: List[RecursiveEnum]) extends RecursiveEnum
+  case object RecursiveEnum2                                        extends RecursiveEnum
+
+  object RecursiveEnum {
+    implicit lazy val schema: Schema[RecursiveEnum] = DeriveSchema.gen
+  }
+
   override def spec: ZSpec[Environment, Failure] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("correctly derives schema for UserId case class") {
@@ -105,6 +113,10 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       },
       test("correctly derives Tree") {
         assert(DeriveSchema.gen[Tree[Recursive]])(anything)
+      },
+      test("correctly derives recursive ADT") {
+        assert(DeriveSchema.gen[RecursiveEnum])(anything)
+
       }
     )
   )

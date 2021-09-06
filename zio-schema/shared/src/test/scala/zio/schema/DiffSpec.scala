@@ -10,7 +10,7 @@ import zio.Chunk
 import zio.random.Random
 import zio.schema.SchemaGen.{ Arity1, Arity24 }
 import zio.schema.syntax._
-import zio.test.{ DefaultRunnableSpec, Diff => _, _ }
+import zio.test._
 
 object DiffSpec extends DefaultRunnableSpec {
 
