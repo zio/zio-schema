@@ -1,5 +1,7 @@
 package zio.schema.ast
 
+import scala.collection.immutable.ListMap
+
 import zio.schema.{ DynamicValue, StandardType }
 import zio.{ Chunk, ChunkBuilder }
 
@@ -241,7 +243,6 @@ object Migration {
             case (Right(DynamicValue.Sequence(v1s)), Right(DynamicValue.Sequence(v2s))) =>
               Right(DynamicValue.Sequence(v1s ++ v2s))
             case (Right(v1), Right(DynamicValue.Sequence(v2s))) => Right(DynamicValue.Sequence(v1 +: v2s))
-
           }
       case (DynamicValue.Tuple(l, r), "left" :: remainder) =>
         updateLeaf(l, remainder, trace :+ "left")(op).map(newLeft => DynamicValue.Tuple(newLeft, r))
@@ -257,16 +258,13 @@ object Migration {
         Right(value)
       case (DynamicValue.Record(values), leafLabel :: Nil) if values.keySet.contains(leafLabel) =>
         op(leafLabel, values(leafLabel)).map {
-          case Some((newLeafLabel, newLeafValue)) if newLeafLabel == leafLabel =>
-            DynamicValue.Record(values + (leafLabel -> newLeafValue))
           case Some((newLeafLabel, newLeafValue)) =>
-            DynamicValue.Record(values - leafLabel + (newLeafLabel -> newLeafValue))
-          case None =>
-            DynamicValue.Record(values - leafLabel)
+            DynamicValue.Record(spliceRecord(values, leafLabel, newLeafLabel -> newLeafValue))
+          case None => DynamicValue.Record(values - leafLabel)
         }
       case (DynamicValue.Record(values), nextLabel :: remainder) if values.keySet.contains(nextLabel) =>
         updateLeaf(values(nextLabel), remainder, trace :+ nextLabel)(op).map { updatedValue =>
-          DynamicValue.Record(values + (nextLabel -> updatedValue))
+          DynamicValue.Record(spliceRecord(values, nextLabel, nextLabel -> updatedValue))
         }
       case (DynamicValue.Record(_), nextLabel :: _) =>
         Left(s"Expected label $nextLabel not found at path ${renderPath(trace)}")
@@ -286,6 +284,16 @@ object Migration {
         }
       case _ =>
         Left(s"Failed to update leaf at path ${renderPath(trace ++ path)}: Unexpected node at ${renderPath(trace)}")
+    }
+
+  private def spliceRecord(
+    fields: ListMap[String, DynamicValue],
+    label: String,
+    splicedField: (String, DynamicValue)
+  ): ListMap[String, DynamicValue] =
+    fields.foldLeft[ListMap[String, DynamicValue]](ListMap.empty) {
+      case (acc, (nextLabel, _)) if nextLabel == label => acc + splicedField
+      case (acc, nextField)                            => acc + nextField
     }
 
   private def materializeRecursive(depth: Int)(migration: Recursive): Migration = {

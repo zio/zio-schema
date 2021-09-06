@@ -10,12 +10,8 @@ object SchemaAssertions {
   def migratesTo[A: Schema, B: Schema](expected: B): Assertion[A] =
     Assertion.assertion("migratesTo")(param(expected)) { value =>
       value.migrate[B] match {
-        case Left(err) =>
-          println(s"Migrationg failed with error: $err")
-          false
-        case Right(m) if m != expected =>
-          println(s"Unexpeected migration value: $m\nExpected $expected")
-          false
+        case Left(_)                   => false
+        case Right(m) if m != expected => false
         case _ =>
           true
       }
