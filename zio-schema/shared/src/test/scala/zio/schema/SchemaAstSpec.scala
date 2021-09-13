@@ -1,8 +1,9 @@
 package zio.schema
 
-import scala.collection.immutable.ListMap
+// import scala.collection.immutable.ListMap
 
 import zio._
+import zio.schema.CaseSet._
 import zio.schema.SchemaAssertions._
 import zio.schema.ast._
 import zio.test._
@@ -37,11 +38,11 @@ object SchemaAstSpec extends DefaultRunnableSpec {
     suite("record")(
       test("generic") {
         val schema =
-          Schema.GenericRecord(
+          Schema.record(
             Chunk(
               Schema.Field("a", Schema[String]),
               Schema.Field("b", Schema[Int])
-            )
+            ): _*
           )
         val expectedAst =
           SchemaAst.Product(
@@ -94,7 +95,11 @@ object SchemaAstSpec extends DefaultRunnableSpec {
     suite("enumeration")(
       test("generic") {
         val schema =
-          Schema.Enumeration(ListMap("type1" -> Schema[SchemaGen.Arity1], "type2" -> Schema[SchemaGen.Arity2]))
+          Schema.enumeration[Any, CaseSet.Aux[Any]](
+            caseOf[SchemaGen.Arity1, Any]("type1")(_.asInstanceOf[SchemaGen.Arity1]) ++ caseOf[SchemaGen.Arity2, Any](
+              "type2"
+            )(_.asInstanceOf[SchemaGen.Arity2])
+          )
         val expectedAst =
           SchemaAst.Sum(
             path = NodePath.root,

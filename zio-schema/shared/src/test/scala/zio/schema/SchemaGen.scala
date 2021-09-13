@@ -135,10 +135,17 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  val anyEnumeration: Gen[Random with Sized, Schema[(String, _)]] =
-    anyEnumeration(anySchema).map(Schema.enumeration)
+  def toCaseSet(cases: ListMap[String, Schema[_]]): CaseSet.Aux[Any] =
+    cases.foldRight[CaseSet.Aux[Any]](CaseSet.Empty[Any]()) {
+      case ((id, codec), acc) =>
+        val _case = Schema.Case[Any, Any](id, codec.asInstanceOf[Schema[Any]], _.asInstanceOf[Any])
+        CaseSet.Cons(_case, acc)
+    }
 
-  type EnumerationAndGen = (Schema[(String, _)], Gen[Random with Sized, (String, _)])
+  val anyEnumeration: Gen[Random with Sized, Schema[Any]] =
+    anyEnumeration(anySchema).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_))
+
+  type EnumerationAndGen = (Schema[Any], Gen[Random with Sized, Any])
 
   val anyEnumerationAndGen: Gen[Random with Sized, EnumerationAndGen] =
     for {
@@ -146,11 +153,11 @@ object SchemaGen {
       structure       <- anyEnumeration(primitiveAndGen._1)
       primitiveValue  <- primitiveAndGen._2
     } yield {
-      val gen = Gen.oneOf(structure.keys.map(Gen.const(_)).toSeq: _*).map(l => l -> primitiveValue)
-      Schema.enumeration(structure) -> gen
+      val gen = Gen.oneOf(structure.keys.map(Gen.const(_)).toSeq: _*).map(_ => primitiveValue)
+      Schema.enumeration[Any, CaseSet.Aux[Any]](toCaseSet(structure)) -> gen
     }
 
-  type EnumerationAndValue = (Schema[(String, _)], (String, _))
+  type EnumerationAndValue = (Schema[Any], Any)
 
   val anyEnumerationAndValue: Gen[Random with Sized, EnumerationAndValue] =
     for {
@@ -256,7 +263,7 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  type EnumerationTransform[A] = Schema.Transform[(String, _), A]
+  type EnumerationTransform[A] = Schema.Transform[Any, A]
 
   val anyEnumerationTransform: Gen[Random with Sized, EnumerationTransform[_]] = {
     anyEnumeration.map(schema => transformEnumeration(schema))
@@ -272,8 +279,8 @@ object SchemaGen {
   //    }
 
   // TODO: Dynamically generate a sealed trait and case/value classes.
-  def transformEnumeration[A](schema: Schema[(String, _)]): EnumerationTransform[_] =
-    Schema.Transform[(String, _), A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."))
+  def transformEnumeration[A](schema: Schema[Any]): EnumerationTransform[_] =
+    Schema.Transform[Any, A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."))
 
   type EnumerationTransformAndValue[A] = (EnumerationTransform[A], A)
 
@@ -449,11 +456,11 @@ object SchemaGen {
     Gen.oneOf(
       anyPrimitive,
       anyPrimitive.map(Schema.list(_)),
-      anyPrimitive.map(_.optional),
+//      anyPrimitive.map(_.optional),
       // anyPrimitive.zip(anyPrimitive).map { case (l, r) => Schema.either(l, r) },
       anyPrimitive.zip(anyPrimitive).map { case (l, r) => Schema.tuple2(l, r) },
-      anyStructure(anyPrimitive).map(fields => Schema.GenericRecord(Chunk.fromIterable(fields))),
-      anyEnumeration(anyPrimitive).map(Schema.enumeration(_)),
+      anyStructure(anyPrimitive).map(fields => Schema.record(fields: _*)),
+//      anyEnumeration(anyPrimitive).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_)),
       anyCaseClassSchema,
       anyEnumSchema
     )
@@ -464,11 +471,11 @@ object SchemaGen {
     else
       Gen.oneOf(
         anyTree(depth - 1).map(Schema.list(_)),
-        anyTree(depth - 1).map(_.optional),
+//        anyTree(depth - 1).map(_.optional),
         anyTree(depth - 1).zip(anyTree(depth - 1)).map { case (l, r) => Schema.either(l, r) },
         anyTree(depth - 1).zip(anyTree(depth - 1)).map { case (l, r) => Schema.tuple2(l, r) },
-        anyStructure(anyTree(depth - 1)).map(fields => Schema.GenericRecord(Chunk.fromIterable(fields))),
-        anyEnumeration(anyTree(depth - 1)).map(Schema.enumeration(_))
+        anyStructure(anyTree(depth - 1)).map(fields => Schema.record(fields: _*))
+//        anyEnumeration(anyTree(depth - 1)).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_))
       )
 
   type SchemaAndDerivedValue[A] = (Schema[A], Either[String, A])

@@ -1,7 +1,7 @@
 package zio.schema.ast
 
 import scala.annotation.tailrec
-import scala.collection.immutable.ListMap
+// import scala.collection.immutable.ListMap
 
 import zio.schema._
 import zio.{ Chunk, ChunkBuilder }
@@ -17,6 +17,8 @@ sealed trait SchemaAst { self =>
 }
 
 object SchemaAst {
+  import CaseSet._
+
   type Labelled = (String, SchemaAst)
   type Lineage  = Chunk[(Int, NodePath)]
 
@@ -265,17 +267,19 @@ object SchemaAst {
           .map(astRef => Schema.defer(materialize(astRef, Map.empty)))
           .getOrElse(Schema.Fail(s"invalid ref path $refPath"))
       case n @ SchemaAst.Product(path, elems, _, _) =>
-        Schema.GenericRecord(
+        Schema.record(
           elems.map {
             case (label, ast) =>
               Schema.Field(label, materialize(ast, refs + (path -> n)))
-          }
+          }: _*
         )
       case n @ SchemaAst.Sum(path, elems, _, _) =>
-        Schema.Enumeration(
-          ListMap.empty ++ elems.map {
-            case (label, ast) =>
-              (label, materialize(ast, refs + (path -> n)))
+        Schema.enumeration[Any, CaseSet.Aux[Any]](
+          elems.foldRight[CaseSet.Aux[Any]](CaseSet.Empty[Any]()) {
+            case ((label, ast), acc) =>
+              val _case: Schema.Case[Any, Any] = Schema
+                .Case[Any, Any](label, materialize(ast, refs + (path -> n)).asInstanceOf[Schema[Any]], identity[Any])
+              CaseSet.Cons(_case, acc)
           }
         )
       case ast => Schema.Fail(s"AST cannot be materialized to a Schema:\n$ast")
@@ -291,13 +295,11 @@ object SchemaAst {
   }
 
   implicit lazy val schema: Schema[SchemaAst] =
-    Schema.EnumN[SchemaAst](
-      Seq(
-        Schema.Case("Value", Schema[Value], _.asInstanceOf[Value]),
-        Schema.Case("Sum", Schema[Sum], _.asInstanceOf[Sum]),
-        Schema.Case("Product", Schema[Product], _.asInstanceOf[Product]),
-        Schema.Case("Ref", Schema[Ref], _.asInstanceOf[Ref])
-      )
+    Schema.EnumN[SchemaAst, CaseSet.Aux[SchemaAst]](
+      caseOf[Value, SchemaAst]("Value")(_.asInstanceOf[Value]) ++
+        caseOf[Sum, SchemaAst]("Sum")(_.asInstanceOf[Sum]) ++
+        caseOf[Product, SchemaAst]("Product")(_.asInstanceOf[Product]) ++
+        caseOf[Ref, SchemaAst]("Ref")(_.asInstanceOf[Ref])
     )
 
 }

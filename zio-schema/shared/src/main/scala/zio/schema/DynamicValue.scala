@@ -19,18 +19,18 @@ trait DynamicValue { self =>
         Right(value.asInstanceOf[A])
 
       case (DynamicValue.Record(values), Schema.GenericRecord(structure)) =>
-        DynamicValue.decodeStructure(values, structure).asInstanceOf[Either[String, A]]
+        DynamicValue.decodeStructure(values, structure.toChunk).asInstanceOf[Either[String, A]]
 
       case (DynamicValue.Record(values), s: Schema.Record[A]) =>
         DynamicValue.decodeStructure(values, s.structure).map(m => Chunk.fromIterable(m.values)).flatMap(s.rawConstruct)
 
-      case (DynamicValue.Enumeration((key, value)), Schema.Enumeration(cases)) =>
-        cases.get(key) match {
-          case Some(schema) =>
-            value.toTypedValue(schema).asInstanceOf[Either[String, A]].map(key -> _)
-          case None => Left(s"Failed to find case $key in enumeration $schema")
-        }
-
+//      case (DynamicValue.Enumeration((key, value)), Schema.Enumeration(cases)) =>
+//        cases.toMap.get(key) match {
+//          case Some(schema) =>
+//            value.toTypedValue(schema).asInstanceOf[Either[String, A]].map(key -> _)
+//          case None => Left(s"Failed to find case $key in enumeration $schema")
+//        }
+//
       case (DynamicValue.Enumeration((key, value)), s: Schema.Enum[A]) =>
         s.structure.get(key) match {
           case Some(schema) => value.toTypedValue(schema).asInstanceOf[Either[String, A]]
@@ -99,19 +99,19 @@ object DynamicValue {
       case Schema.GenericRecord(structure) =>
         val map: ListMap[String, _] = value
         DynamicValue.Record(
-          ListMap.empty ++ structure.map {
+          ListMap.empty ++ structure.toChunk.map {
             case Schema.Field(key, schema: Schema[a], _) =>
               key -> fromSchemaAndValue(schema, map(key).asInstanceOf[a])
           }
         )
 
-      case Schema.Enumeration(map) =>
-        val (key, v) = value
-        map(key) match {
-          case schema: Schema[a] =>
-            val nestedValue = fromSchemaAndValue(schema, v.asInstanceOf[a])
-            DynamicValue.Enumeration(key -> nestedValue)
-        }
+//      case Schema.Enumeration(cases) =>
+//        val (key, v) = value
+//        cases.toMap(key) match {
+//          case schema: Schema[a] =>
+//            val nestedValue = fromSchemaAndValue(schema, v.asInstanceOf[a])
+//            DynamicValue.Enumeration(key -> nestedValue)
+//        }
 
       case Schema.Enum1(case1) =>
         DynamicValue.Enumeration(case1.id -> fromSchemaAndValue(case1.codec, case1.unsafeDeconstruct(value)))
@@ -953,7 +953,7 @@ object DynamicValue {
       //scalafmt: { maxColumn = 120 }
 
       case Schema.EnumN(cases) =>
-        cases
+        cases.toSeq
           .find(_.deconstruct(value).isDefined) match {
           case Some(c) =>
             DynamicValue.Enumeration(

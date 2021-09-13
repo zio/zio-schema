@@ -42,15 +42,15 @@ object SchemaAssertions {
     case (Schema.Tuple(expectedLeft, expectedRight), Schema.Tuple(actualLeft, actualRight)) =>
       equalsAst(expectedLeft, actualLeft, depth) && equalsAst(expectedRight, actualRight, depth)
     case (Schema.Tuple(expectedLeft, expectedRight), Schema.GenericRecord(structure)) =>
-      structure.size == 2 &&
-        structure.find(_.label == "left").exists(f => equalsAst(expectedLeft, f.schema, depth)) &&
-        structure.find(_.label == "right").exists(f => equalsAst(expectedRight, f.schema, depth))
+      structure.toChunk.size == 2 &&
+        structure.toChunk.find(_.label == "left").exists(f => equalsAst(expectedLeft, f.schema, depth)) &&
+        structure.toChunk.find(_.label == "right").exists(f => equalsAst(expectedRight, f.schema, depth))
     case (Schema.EitherSchema(expectedLeft, expectedRight), Schema.EitherSchema(actualLeft, actualRight)) =>
       equalsAst(expectedLeft, actualLeft, depth) && equalsAst(expectedRight, actualRight, depth)
-    case (Schema.EitherSchema(expectedLeft, expectedRight), Schema.Enumeration(structure)) =>
-      structure.size == 2 &&
-        structure.get("left").exists(actualLeft => equalsAst(expectedLeft, actualLeft, depth)) &&
-        structure.get("right").exists(actualRight => equalsAst(expectedRight, actualRight, depth))
+    case (Schema.EitherSchema(expectedLeft, expectedRight), right: Schema.Enum[_]) =>
+      right.structure.size == 2 &&
+        right.structure.get("left").exists(actualLeft => equalsAst(expectedLeft, actualLeft, depth)) &&
+        right.structure.get("right").exists(actualRight => equalsAst(expectedRight, actualRight, depth))
     case (Schema.Sequence(expected, _, _), Schema.Sequence(actual, _, _)) => equalsAst(expected, actual, depth)
     case (expected: Schema.Record[_], actual: Schema.Record[_]) =>
       expected.structure.zipAll(actual.structure).forall {
@@ -78,23 +78,23 @@ object SchemaAssertions {
       case (Schema.Transform(codec1, _, _), Schema.Transform(codec2, _, _)) =>
         equalsSchema(codec1, codec2)
       case (Schema.GenericRecord(structure1), Schema.GenericRecord(structure2)) =>
-        hasSameFields(structure1, structure2) &&
-          structure1.forall {
+        hasSameFields(structure1.toChunk, structure2.toChunk) &&
+          structure1.toChunk.forall {
             case Schema.Field(label, schema, _) =>
               val left: Schema[Any]  = schema.asInstanceOf[Schema[Any]]
-              val right: Schema[Any] = structure2.find(_.label == label).asInstanceOf[Schema[Any]]
+              val right: Schema[Any] = structure2.toChunk.find(_.label == label).asInstanceOf[Schema[Any]]
               equalsSchema(left, right)
           }
       case (left: Schema.Record[_], right: Schema.Record[_]) =>
         hasSameStructure(left.asInstanceOf[Schema.Record[A]], right.asInstanceOf[Schema.Record[A]])
       case (Schema.Sequence(element1, _, _), Schema.Sequence(element2, _, _)) => equalsSchema(element1, element2)
-      case (Schema.Enumeration(structure1), Schema.Enumeration(structure2)) =>
-        hasSameKeys(structure1, structure2) &&
-          structure1.forall { keyAndSchema =>
-            val left: Schema[Any]  = keyAndSchema._2.asInstanceOf[Schema[Any]]
-            val right: Schema[Any] = structure2(keyAndSchema._1).asInstanceOf[Schema[Any]]
-            equalsSchema(left, right)
-          }
+//      case (Schema.Enumeration(structure1), Schema.Enumeration(structure2)) =>
+//        hasSameKeys(structure1.toMap, structure2.toMap) &&
+//          structure1.toMap.forall { keyAndSchema =>
+//            val left: Schema[Any]  = keyAndSchema._2.asInstanceOf[Schema[Any]]
+//            val right: Schema[Any] = structure2.toMap(keyAndSchema._1).asInstanceOf[Schema[Any]]
+//            equalsSchema(left, right)
+//          }
       case (Schema.Primitive(standardType1), Schema.Primitive(standardType2)) =>
         standardType1 == standardType2
       case (Schema.Tuple(left1, right1), Schema.Tuple(left2, right2)) =>
@@ -103,7 +103,7 @@ object SchemaAssertions {
       case (Schema.Enum1(l), Schema.Enum1(r))                   => equalsCase(l, r)
       case (Schema.Enum2(l1, l2), Schema.Enum2(r1, r2))         => hasSameCases(Seq(l1, l2), Seq(r1, r2))
       case (Schema.Enum3(l1, l2, l3), Schema.Enum3(r1, r2, r3)) => hasSameCases(Seq(l1, l2, l3), Seq(r1, r2, r3))
-      case (Schema.EnumN(ls), Schema.EnumN(rs))                 => hasSameCases(ls, rs)
+      case (Schema.EnumN(ls), Schema.EnumN(rs))                 => hasSameCases(ls.toSeq, rs.toSeq)
       case (l @ Schema.Lazy(_), r @ Schema.Lazy(_)) =>
         equalsSchema(l.schema.asInstanceOf[Schema[Any]], r.schema.asInstanceOf[Schema[Any]])
       case (lazySchema @ Schema.Lazy(_), eagerSchema) =>
@@ -130,6 +130,6 @@ object SchemaAssertions {
   private def hasSameFields(left: Chunk[Schema.Field[_]], right: Chunk[Schema.Field[_]]): Boolean =
     left.map(_.label) == right.map(_.label)
 
-  private def hasSameKeys[K, V](map1: Map[K, V], map2: Map[K, V]): Boolean =
-    map1.keySet.diff(map2.keySet).isEmpty
+//  private def hasSameKeys[K, V](map1: Map[K, V], map2: Map[K, V]): Boolean =
+//    map1.keySet.diff(map2.keySet).isEmpty
 }
