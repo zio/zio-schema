@@ -255,7 +255,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   final case class Optional[A](codec: Schema[A]) extends Schema[Option[A]] { self =>
 
-    val someCodec: Schema[Some[A]] = codec.transformOrFail(a => Right(Some(a)), _.toRight("value is not Some"))
+    val someCodec: Schema[Some[A]] = codec.transform(a => Some(a), _.get)
 
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] =
       (Prism[Option[A], Some[A]], Prism[Option[A], None.type])
