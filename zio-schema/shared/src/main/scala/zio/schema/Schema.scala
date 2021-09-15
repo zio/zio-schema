@@ -250,21 +250,18 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   final case class Optional[A](codec: Schema[A]) extends Schema[Option[A]] { self =>
 
-    val someCodec: Schema[Some[A]] = codec.transform(a => Some(a), _.get)
+    private[schema] val someCodec: Schema[Some[A]] = codec.transform(a => Some(a), _.get)
 
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] =
       (Prism[Option[A], Some[A]], Prism[Option[A], None.type])
 
-    def toEnum: Enum[Option[A]] = Enum2(
+    val toEnum: Enum2[Some[A], None.type, Option[A]] = Enum2(
       Case[Some[A], Option[A]]("Some", someCodec, _.asInstanceOf[Some[A]]),
       Case[None.type, Option[A]]("None", singleton(None), _.asInstanceOf[None.type])
     )
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Option[A], Some[A]], b.Prism[Option[A], None.type]) =
-      b.makePrism(self.toEnum, Case[Some[A], Option[A]]("Some", someCodec, _.asInstanceOf[Some[A]])) -> b.makePrism(
-        self.toEnum,
-        Case[None.type, Option[A]]("None", Schema.singleton(None), _.asInstanceOf[None.type])
-      )
+      b.makePrism(toEnum, toEnum.case1) -> b.makePrism(toEnum, toEnum.case2)
   }
 
   final case class Fail[A](message: String) extends Schema[A] {
@@ -276,7 +273,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   final case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[(A, B), A], Lens[(A, B), B])
 
-    def toRecord: Record[(A, B)] = CaseClass2[A, B, (A, B)](
+    val toRecord: CaseClass2[A, B, (A, B)] = CaseClass2[A, B, (A, B)](
       field1 = Field("_1", left),
       field2 = Field("_2", right),
       construct = (a, b) => (a, b),
@@ -285,7 +282,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     )
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[(A, B), A], b.Lens[(A, B), B]) =
-      b.makeLens(self.toRecord, Field("_1", left)) -> b.makeLens(self.toRecord, Field("_2", right))
+      b.makeLens(toRecord, toRecord.field1) -> b.makeLens(toRecord, toRecord.field2)
   }
 
   final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]] { self =>
@@ -295,19 +292,15 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     val rightSchema: Schema[Right[Nothing, B]] = right.transform(b => Right(b), _.value)
     val leftSchema: Schema[Left[A, Nothing]]   = left.transform(a => Left(a), _.value)
 
-    def toEnum: Enum[Either[A, B]] = Enum2(
-      Case[Right[Nothing, B], Either[A, B]]("Right", rightSchema, _.asInstanceOf[Right[Nothing, B]]),
-      Case[Left[A, Nothing], Either[A, B]]("Left", leftSchema, _.asInstanceOf[Left[A, Nothing]])
+    val toEnum: Enum2[Right[Nothing, B], Left[A, Nothing], Either[A, B]] = Enum2(
+      Case("Right", rightSchema, _.asInstanceOf[Right[Nothing, B]]),
+      Case("Left", leftSchema, _.asInstanceOf[Left[A, Nothing]])
     )
 
     override def makeAccessors(
       b: AccessorBuilder
     ): (b.Prism[Either[A, B], Right[Nothing, B]], b.Prism[Either[A, B], Left[A, Nothing]]) =
-      b.makePrism(
-        toEnum,
-        Case[Right[Nothing, B], Either[A, B]]("Right", rightSchema, _.asInstanceOf[Right[Nothing, B]])
-      ) ->
-        b.makePrism(toEnum, Case[Left[A, Nothing], Either[A, B]]("Left", leftSchema, _.asInstanceOf[Left[A, Nothing]]))
+      b.makePrism(toEnum, toEnum.case1) -> b.makePrism(toEnum, toEnum.case2)
   }
 
   final case class Lazy[A](private val schema0: () => Schema[A]) extends Schema[A] {
