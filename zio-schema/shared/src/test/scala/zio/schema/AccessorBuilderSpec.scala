@@ -5,17 +5,17 @@ import zio.test._
 
 object AccessorBuilderSpec extends DefaultRunnableSpec {
   import TestAccessorBuilder._
+  import Assertion._
 
   private val builder: TestAccessorBuilder = new TestAccessorBuilder
 
   override def spec: ZSpec[Environment, Failure] = suite("AccessorBuilder")(
     test("fail") {
-      val accessor: Any = Schema.fail("error").makeAccessors(builder)
-      assertTrue(accessor == ())
+      assert(Schema.fail("error").makeAccessors(builder).asInstanceOf[Unit])(isUnit)
     },
     testM("primitive") {
       check(SchemaGen.anyPrimitive) { schema =>
-        assertTrue(schema.makeAccessors(builder) == ())
+        assert(schema.makeAccessors(builder))(isUnit)
       }
     },
     testM("sequence") {
@@ -23,13 +23,13 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
         val collectionSchema = elementSchema.repeated
         val traversal        = collectionSchema.makeAccessors(builder)
 
-        assertTrue(
+        assert(
           traversal match {
             case Traversal(col, elem) =>
               col == collectionSchema && elem == elementSchema
             case _ => false
           }
-        )
+        )(isTrue)
       }
     },
     testM("transform") {
@@ -39,9 +39,9 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
         val transformAccessor: Any = transform.makeAccessors(builder).asInstanceOf[Any]
         val schemaAccessor: Any    = schema.makeAccessors(builder).asInstanceOf[Any]
 
-        assertTrue(
+        assert(
           transformAccessor == schemaAccessor
-        )
+        )(isTrue)
       }
     },
     testM("optional") {
@@ -50,7 +50,7 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
         val enumSchema                         = optionalSchema.toEnum
         val accessor                           = optionalSchema.makeAccessors(builder)
 
-        assertTrue(
+        assert(
           accessor match {
             case (
                 Prism(e1, Case("Some", c1, _)),
@@ -59,7 +59,7 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
               e1 == e2 && e2 == enumSchema && c1 == optionalSchema.someCodec
             case _ => false
           }
-        )
+        )(isTrue)
       }
     },
     testM("tuple") {
@@ -69,7 +69,7 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
 
           val accessor = tupleSchema.makeAccessors(builder)
 
-          assertTrue(
+          assert(
             accessor match {
               case (Lens(r1, f1), Lens(r2, f2)) =>
                 r1 == r2 && r2 == tupleSchema.toRecord &&
@@ -77,7 +77,7 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
                   f2.label == "_2" && f2.schema == rightSchema
               case _ => false
             }
-          )
+          )(isTrue)
       }
     },
     testM("either") {
@@ -87,7 +87,7 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
             (rightSchema <+> leftSchema).asInstanceOf[Schema.EitherSchema[_, _]]
           val accessor = eitherSchema.makeAccessors(builder)
 
-          assertTrue(
+          assert(
             accessor match {
               case (
                   Prism(e1, Case("Right", c1, _)),
@@ -99,7 +99,7 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
                 println(s"fallthrough $a")
                 false
             }
-          )
+          )(isTrue)
       }
     },
     testM("lazy") {
@@ -108,7 +108,7 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
         val eagerAccessor: Any = schema.makeAccessors(builder)
         val lazyAccessor: Any  = lazySchema.makeAccessors(builder)
 
-        assertTrue(eagerAccessor == lazyAccessor)
+        assert(eagerAccessor == lazyAccessor)(isTrue)
       }
     },
     test("case class") {
@@ -131,7 +131,7 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
       val cases                      = schema.structure
       val accessor                   = schema.makeAccessors(builder)
 
-      assertTrue(
+      assert(
         accessor match {
           case (
               Prism(s1, c1),
@@ -146,7 +146,7 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
               c6.codec == cases("JString")
           case _ => false
         }
-      )
+      )(isTrue)
     }
   )
 }
