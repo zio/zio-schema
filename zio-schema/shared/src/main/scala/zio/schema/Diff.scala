@@ -117,7 +117,6 @@ object Differ {
     case Schema.Enum2(c1, c2)                         => enum(c1, c2)
     case Schema.Enum3(c1, c2, c3)                     => enum(c1, c2, c3)
     case Schema.EnumN(cs)                             => enum(cs.toSeq: _*)
-//    case Schema.Enumeration(structure)                => enumeration(structure.toMap)
   }
 
   def binary: Differ[Chunk[Byte]] =

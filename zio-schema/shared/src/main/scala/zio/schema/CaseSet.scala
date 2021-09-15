@@ -1,8 +1,8 @@
 package zio.schema
 
-import Schema._
-
 import scala.collection.immutable.ListMap
+
+import zio.schema.Schema._
 
 sealed trait CaseSet {
 
@@ -81,7 +81,7 @@ object CaseSet {
   }
   val :+: = Cons
 
-  def caseOf[A: Schema, Z >: A](id: String)(unsafeDeconstruct: Z => A) =
+  def caseOf[A: Schema, Z >: A](id: String)(unsafeDeconstruct: Z => A): Cons[A, Empty[Z], Z] =
     Cons(Case(id, Schema[A], unsafeDeconstruct), Empty[Z]())
 
 }

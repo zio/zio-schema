@@ -29,8 +29,8 @@ object SchemaGen {
 
   def anyEnumeration(schemaGen: Gen[Random with Sized, Schema[_]]): Gen[Random with Sized, ListMap[String, Schema[_]]] =
     Gen
-      .listOfBounded(1, 10)(
-        Gen.anyString.zip(schemaGen)
+      .setOfBounded(1, 10)(
+        Gen.anyASCIIString.filter(_.nonEmpty).zip(schemaGen)
       )
       .map(ListMap.empty ++ _)
 
@@ -456,10 +456,11 @@ object SchemaGen {
     Gen.oneOf(
       anyPrimitive,
       anyPrimitive.map(Schema.list(_)),
-//      anyPrimitive.map(_.optional),
-      // anyPrimitive.zip(anyPrimitive).map { case (l, r) => Schema.either(l, r) },
+      anyPrimitive.map(_.optional),
+      anyPrimitive.zip(anyPrimitive).map { case (l, r) => Schema.either(l, r) },
       anyPrimitive.zip(anyPrimitive).map { case (l, r) => Schema.tuple2(l, r) },
       anyStructure(anyPrimitive).map(fields => Schema.record(fields: _*)),
+      Gen.const(Schema[Json]),
 //      anyEnumeration(anyPrimitive).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_)),
       anyCaseClassSchema,
       anyEnumSchema
@@ -471,10 +472,15 @@ object SchemaGen {
     else
       Gen.oneOf(
         anyTree(depth - 1).map(Schema.list(_)),
-//        anyTree(depth - 1).map(_.optional),
+        // Nested optional cause some issues. Ignore them for now: See https://github.com/zio/zio-schema/issues/68
+        anyTree(depth - 1).map {
+          case s @ Schema.Optional(_) => s
+          case s                      => Schema.option(s)
+        },
         anyTree(depth - 1).zip(anyTree(depth - 1)).map { case (l, r) => Schema.either(l, r) },
         anyTree(depth - 1).zip(anyTree(depth - 1)).map { case (l, r) => Schema.tuple2(l, r) },
-        anyStructure(anyTree(depth - 1)).map(fields => Schema.record(fields: _*))
+        anyStructure(anyTree(depth - 1)).map(fields => Schema.record(fields: _*)),
+        Gen.const(Schema[Json])
 //        anyEnumeration(anyTree(depth - 1)).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_))
       )
 

@@ -1,7 +1,9 @@
 package zio.schema
 
 import java.time.temporal.ChronoUnit
+
 import scala.collection.immutable.ListMap
+
 import zio.Chunk
 import zio.schema.ast._
 
@@ -215,13 +217,6 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     def structure: ListMap[String, Schema[_]]
   }
 
-//  final case class Enumeration[A, C <: CaseSet.Aux[A]](caseSet: C) extends Enum[(String, A)] { self =>
-////    override type Accessors[Lens[_,_],Prism[_,_],Traversal[_,_]] = caseSet.Accessors[A,Lens,Prism,Traversal]
-//
-////    override def makeAccessors(b: AccessorBuilder): caseSet.Accessors[A, b.Lens, b.Prism, b.Traversal] = caseSet.makeAccessors(self,b)
-//    override def structure: ListMap[String, Schema[_]] = caseSet.toMap
-//  }
-
   sealed trait Record[R] extends Schema[R] {
     def structure: Chunk[Field[_]]
     def annotations: Chunk[Any] = Chunk.empty
@@ -341,7 +336,7 @@ sealed trait EnumSchemas { self: Schema.type =>
     def deconstruct(z: Z): Option[A] =
       try {
         Some(unsafeDeconstruct(z))
-      } catch { case _: IllegalArgumentException => None }
+      } catch { case _: Throwable => None }
 
     override def toString: String = s"Case($id,$codec)"
   }

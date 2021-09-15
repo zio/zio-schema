@@ -10,13 +10,11 @@ import scala.util.Try
 
 import zio._
 import zio.console._
-import zio.schema.{ DeriveSchema, Schema, SchemaGen, StandardType }
+import zio.schema.CaseSet._
+import zio.schema.{ CaseSet, DeriveSchema, Schema, SchemaGen, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-
-import zio.schema.CaseSet
-import CaseSet._
 
 // TODO: use generators instead of manual encode/decode
 object ProtobufCodecSpec extends DefaultRunnableSpec {
@@ -333,7 +331,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           s2 <- encodeAndDecode(schemaGenericEnumerationSorted, "s")
           i2 <- encodeAndDecode(schemaGenericEnumerationSorted, 1)
         } yield assert(s1)(equalTo(s2)) && assert(i1)(equalTo(i2))
-      } @@ TestAspect.ignore,
+      },
       testM("enums unwrapped") {
         for {
           ed  <- encodeAndDecode(schemaOneOf, BooleanValue(true))

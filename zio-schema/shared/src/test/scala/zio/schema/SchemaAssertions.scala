@@ -88,13 +88,6 @@ object SchemaAssertions {
       case (left: Schema.Record[_], right: Schema.Record[_]) =>
         hasSameStructure(left.asInstanceOf[Schema.Record[A]], right.asInstanceOf[Schema.Record[A]])
       case (Schema.Sequence(element1, _, _), Schema.Sequence(element2, _, _)) => equalsSchema(element1, element2)
-//      case (Schema.Enumeration(structure1), Schema.Enumeration(structure2)) =>
-//        hasSameKeys(structure1.toMap, structure2.toMap) &&
-//          structure1.toMap.forall { keyAndSchema =>
-//            val left: Schema[Any]  = keyAndSchema._2.asInstanceOf[Schema[Any]]
-//            val right: Schema[Any] = structure2.toMap(keyAndSchema._1).asInstanceOf[Schema[Any]]
-//            equalsSchema(left, right)
-//          }
       case (Schema.Primitive(standardType1), Schema.Primitive(standardType2)) =>
         standardType1 == standardType2
       case (Schema.Tuple(left1, right1), Schema.Tuple(left2, right2)) =>
@@ -130,6 +123,4 @@ object SchemaAssertions {
   private def hasSameFields(left: Chunk[Schema.Field[_]], right: Chunk[Schema.Field[_]]): Boolean =
     left.map(_.label) == right.map(_.label)
 
-//  private def hasSameKeys[K, V](map1: Map[K, V], map2: Map[K, V]): Boolean =
-//    map1.keySet.diff(map2.keySet).isEmpty
 }

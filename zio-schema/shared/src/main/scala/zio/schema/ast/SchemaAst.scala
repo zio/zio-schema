@@ -1,7 +1,6 @@
 package zio.schema.ast
 
 import scala.annotation.tailrec
-// import scala.collection.immutable.ListMap
 
 import zio.schema._
 import zio.{ Chunk, ChunkBuilder }
@@ -270,7 +269,7 @@ object SchemaAst {
         Schema.record(
           elems.map {
             case (label, ast) =>
-              Schema.Field(label, materialize(ast, refs + (path -> n)))
+              Schema.Field(label, materialize(ast, refs + (path -> n.copy(optional = false, dimensions = 0))))
           }: _*
         )
       case n @ SchemaAst.Sum(path, elems, _, _) =>
@@ -278,7 +277,11 @@ object SchemaAst {
           elems.foldRight[CaseSet.Aux[Any]](CaseSet.Empty[Any]()) {
             case ((label, ast), acc) =>
               val _case: Schema.Case[Any, Any] = Schema
-                .Case[Any, Any](label, materialize(ast, refs + (path -> n)).asInstanceOf[Schema[Any]], identity[Any])
+                .Case[Any, Any](
+                  label,
+                  materialize(ast, refs + (path -> n.copy(optional = false, dimensions = 0))).asInstanceOf[Schema[Any]],
+                  identity[Any]
+                )
               CaseSet.Cons(_case, acc)
           }
         )

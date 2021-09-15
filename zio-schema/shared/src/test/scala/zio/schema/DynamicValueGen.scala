@@ -14,7 +14,7 @@ object DynamicValueGen {
     standardType match {
       case typ: StandardType.BinaryType.type     => gen(typ, Gen.chunkOf(Gen.anyByte))
       case typ: StandardType.BoolType.type       => gen(typ, Gen.oneOf(Gen.const(true), Gen.const(false)))
-      case typ: StandardType.CharType.type       => gen(typ, Gen.anyChar)
+      case typ: StandardType.CharType.type       => gen(typ, Gen.anyASCIIChar)
       case typ: StandardType.DoubleType.type     => gen(typ, Gen.anyDouble)
       case typ: StandardType.StringType.type     => gen(typ, Gen.anyString)
       case typ: StandardType.ShortType.type      => gen(typ, Gen.anyShort)
@@ -47,9 +47,8 @@ object DynamicValueGen {
   //scalafmt: { maxColumn = 400 }
   def anyDynamicValueOfSchema[A](schema: Schema[A]): Gen[Random with Sized, DynamicValue] =
     schema match {
-      case Schema.Primitive(standardType) => anyPrimitiveDynamicValue(standardType)
-      case s: Schema.Record[A]            => anyDynamicValueWithStructure(s.structure)
-//      case Schema.Enumeration(structure)                                                                                                                                                        => anyDynamicValueOfEnumeration(structure.toMap)
+      case Schema.Primitive(standardType)                                                                                                                                                       => anyPrimitiveDynamicValue(standardType)
+      case s: Schema.Record[A]                                                                                                                                                                  => anyDynamicValueWithStructure(s.structure)
       case Schema.Enum1(case1)                                                                                                                                                                  => anyDynamicValueOfEnum(Chunk(case1))
       case Schema.Enum2(case1, case2)                                                                                                                                                           => anyDynamicValueOfEnum(Chunk(case1, case2))
       case Schema.Enum3(case1, case2, case3)                                                                                                                                                    => anyDynamicValueOfEnum(Chunk(case1, case2, case3))

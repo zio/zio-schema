@@ -1,7 +1,7 @@
 package zio.schema
 
 import zio.Chunk
-import Schema._
+import zio.schema.Schema._
 
 sealed trait FieldSet {
   type Accessors[Whole, Lens[_, _], Prism[_, _], Traversal[_, _]]

@@ -1,7 +1,5 @@
 package zio.schema
 
-// import scala.collection.immutable.ListMap
-
 import zio._
 import zio.schema.CaseSet._
 import zio.schema.SchemaAssertions._

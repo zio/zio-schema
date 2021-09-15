@@ -24,13 +24,6 @@ trait DynamicValue { self =>
       case (DynamicValue.Record(values), s: Schema.Record[A]) =>
         DynamicValue.decodeStructure(values, s.structure).map(m => Chunk.fromIterable(m.values)).flatMap(s.rawConstruct)
 
-//      case (DynamicValue.Enumeration((key, value)), Schema.Enumeration(cases)) =>
-//        cases.toMap.get(key) match {
-//          case Some(schema) =>
-//            value.toTypedValue(schema).asInstanceOf[Either[String, A]].map(key -> _)
-//          case None => Left(s"Failed to find case $key in enumeration $schema")
-//        }
-//
       case (DynamicValue.Enumeration((key, value)), s: Schema.Enum[A]) =>
         s.structure.get(key) match {
           case Some(schema) => value.toTypedValue(schema).asInstanceOf[Either[String, A]]
@@ -104,14 +97,6 @@ object DynamicValue {
               key -> fromSchemaAndValue(schema, map(key).asInstanceOf[a])
           }
         )
-
-//      case Schema.Enumeration(cases) =>
-//        val (key, v) = value
-//        cases.toMap(key) match {
-//          case schema: Schema[a] =>
-//            val nestedValue = fromSchemaAndValue(schema, v.asInstanceOf[a])
-//            DynamicValue.Enumeration(key -> nestedValue)
-//        }
 
       case Schema.Enum1(case1) =>
         DynamicValue.Enumeration(case1.id -> fromSchemaAndValue(case1.codec, case1.unsafeDeconstruct(value)))

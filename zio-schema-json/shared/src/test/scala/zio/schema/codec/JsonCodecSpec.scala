@@ -382,7 +382,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           case (schema, value) =>
             assertEncodesThenDecodes(schema, value)
         }
-      } @@ TestAspect.ignore,
+      },
       testM("recursive schema") {
         checkM(SchemaGen.anyTreeAndValue) {
           case (schema, value) =>
