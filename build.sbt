@@ -67,6 +67,7 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
       "dev.zio"        %% "zio-streams"  % zioVersion,
       "dev.zio"        %% "zio-json"     % zioJsonVersion,
       "com.propensive" %% "magnolia"     % magnoliaVersion,
+      "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
       "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
     )
   )

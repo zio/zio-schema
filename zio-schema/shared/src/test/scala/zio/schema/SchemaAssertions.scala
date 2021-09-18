@@ -1,10 +1,26 @@
 package zio.schema
 
 import zio.Chunk
+import zio.schema.syntax._
 import zio.test.Assertion
 import zio.test.AssertionM.Render.param
 
 object SchemaAssertions {
+
+  def migratesTo[A: Schema, B: Schema](expected: B): Assertion[A] =
+    Assertion.assertion("migratesTo")(param(expected)) { value =>
+      value.migrate[B] match {
+        case Left(_)                   => false
+        case Right(m) if m != expected => false
+        case _ =>
+          true
+      }
+    }
+
+  def cannotMigrateValue[A: Schema, B: Schema]: Assertion[A] =
+    Assertion.assertion("cannotMigrateTo")() { value =>
+      value.migrate[B].isLeft
+    }
 
   def hasSameSchema[A](expected: Schema[A]): Assertion[Schema[A]] =
     Assertion.assertion("hasSameSchema")(param(expected))(actual => equalsSchema(expected, actual))

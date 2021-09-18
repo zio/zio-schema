@@ -15,4 +15,10 @@ trait SchemaSyntax {
   implicit class DynamicValueOps[A: Schema](a: A) {
     def dynamic: DynamicValue = Schema[A].toDynamic(a)
   }
+
+  implicit class MigrationOps[A: Schema](a: A) {
+
+    def migrate[B: Schema]: Either[String, B] =
+      Schema[A].migrate(Schema[B]).flatMap(f => f(a))
+  }
 }
