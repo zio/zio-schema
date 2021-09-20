@@ -3,7 +3,6 @@ package zio.schema
 import scala.annotation.tailrec
 import zio.Chunk
 import zio.schema.DynamicValue._
-import zio.schema.Schema
 import zio.schema.StandardType.UnitType
 
 object SchemaOrdering {

@@ -142,7 +142,7 @@ object OrderingSpec extends DefaultRunnableSpec {
   def genAnyOrderedPairChunks:Gen[Random with Sized,SchemaAndPair[_]] =
     anySchema.flatMap(genOrderedPairChunk(_))
 
-  def genOrderedPairChunk[A](schema:Schema[A]):Gen[Random with Sized,SchemaAndPair[Chunk[A]]] = {
+  def genOrderedPairChunk[A](schema:Schema[A]):Gen[Random with Sized,SchemaAndPair[_]] = {
     for {
       init  <- Gen.chunkOf(genFromSchema(schema))
       rems <- Gen.oneOf(
@@ -157,7 +157,7 @@ object OrderingSpec extends DefaultRunnableSpec {
       inits <- genOrderedPair(schema)
       remL <- Gen.chunkOf(genFromSchema(schema))
       remR <- Gen.chunkOf(genFromSchema(schema))
-    } yield (remL.prepended(inits._1),remR.prepended(inits._2))
+    } yield (inits._1 +: remL,inits._2 +: remR)
   }
 
   def genChunkPairWithOnlyFirstEmpty[A](schema:Schema[A]):Gen[Random with Sized,(Chunk[A],Chunk[A]) ] = {
@@ -175,7 +175,7 @@ object OrderingSpec extends DefaultRunnableSpec {
     )
   }
 
-  def genOrderedPairIdentityTransform[A](schema:Schema[A]):Gen[Random with Sized, SchemaAndPair[A]] = {
+  def genOrderedPairIdentityTransform[A](schema:Schema[A]):Gen[Random with Sized, SchemaAndPair[_]] = {
     for {
       (small, large) <- genOrderedPair(schema)
     } yield (Schema.Transform(schema,{a:A=>Right(a)},{a:A=>Right(a)}),small,large)
@@ -222,7 +222,7 @@ object OrderingSpec extends DefaultRunnableSpec {
       orderedFields <- genOrderedField(fields(diffInd))
       randomFields <- genRandomFields(fields,diffInd+1)
     } yield {
-      val allFields = equalFields.appended(orderedFields) ++ randomFields
+      val allFields = (equalFields :+ orderedFields) ++ randomFields
       val xFields = allFields.map{ case (label, value, _) => (label,value)}
       val yFields = allFields.map{ case (label, _, value) => (label,value)}
       val x = DynamicValue.Record(ListMap(xFields:_*)).toTypedValue(schema).toOption.get
