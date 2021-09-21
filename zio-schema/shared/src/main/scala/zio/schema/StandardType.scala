@@ -8,7 +8,7 @@ import java.time.temporal.{ ChronoUnit, TemporalUnit }
 
 import zio.Chunk
 
-sealed trait StandardType[A] extends  Ordering[A]{
+sealed trait StandardType[A] extends Ordering[A] {
   def tag: String
   override def toString: String = tag
 }
@@ -84,148 +84,148 @@ object StandardType {
   def fromTemporalUnits(units: String): Option[StandardType[java.time.Duration]] =
     ChronoUnit.values().find(_.toString == units).map(Duration(_))
 
-  implicit object UnitType   extends StandardType[Unit]        {
+  implicit object UnitType extends StandardType[Unit] {
     override def compare(x: Unit, y: Unit): Int = 0
-    override def tag = Tags.UNIT
+    override def tag                            = Tags.UNIT
   }
 
-  implicit object StringType extends StandardType[String]      {
+  implicit object StringType extends StandardType[String] {
     override def compare(x: String, y: String): Int = x.compareTo(y)
-    override def tag = Tags.STRING
+    override def tag                                = Tags.STRING
   }
 
-  implicit object BoolType   extends StandardType[Boolean]     {
+  implicit object BoolType extends StandardType[Boolean] {
     override def compare(x: Boolean, y: Boolean): Int = x.compareTo(y)
-    override def tag = Tags.BOOL
+    override def tag                                  = Tags.BOOL
   }
 
-  implicit object ShortType  extends StandardType[Short]       {
+  implicit object ShortType extends StandardType[Short] {
     override def compare(x: Short, y: Short): Int = x.compareTo(y)
-    override def tag = Tags.SHORT
+    override def tag                              = Tags.SHORT
   }
 
-  implicit object IntType    extends StandardType[Int]         {
+  implicit object IntType extends StandardType[Int] {
     override def compare(x: Int, y: Int): Int = x.compareTo(y)
-    override def tag = Tags.INT
+    override def tag                          = Tags.INT
   }
 
-  implicit object LongType   extends StandardType[Long]        {
+  implicit object LongType extends StandardType[Long] {
     override def compare(x: Long, y: Long): Int = x.compareTo(y)
-    override def tag = Tags.LONG
+    override def tag                            = Tags.LONG
   }
 
-  implicit object FloatType  extends StandardType[Float]       {
+  implicit object FloatType extends StandardType[Float] {
     override def compare(x: Float, y: Float): Int = x.compareTo(y)
-    override def tag = Tags.FLOAT
+    override def tag                              = Tags.FLOAT
   }
 
-  implicit object DoubleType extends StandardType[Double]      {
+  implicit object DoubleType extends StandardType[Double] {
     override def compare(x: Double, y: Double): Int = x.compareTo(y)
-    override def tag = Tags.DOUBLE
+    override def tag                                = Tags.DOUBLE
   }
 
   implicit object BinaryType extends StandardType[Chunk[Byte]] {
     override def compare(x: Chunk[Byte], y: Chunk[Byte]): Int = x.sum.compare(y.sum)
-    override def tag = Tags.BINARY
+    override def tag                                          = Tags.BINARY
   }
 
-  implicit object CharType   extends StandardType[Char]        {
+  implicit object CharType extends StandardType[Char] {
     override def compare(x: Char, y: Char): Int = x.compareTo(y)
-    override def tag = Tags.CHAR
+    override def tag                            = Tags.CHAR
   }
 
   implicit object BigDecimalType extends StandardType[java.math.BigDecimal] {
     override def compare(x: java.math.BigDecimal, y: java.math.BigDecimal): Int = x.compareTo(y)
-    override def tag = Tags.BIG_DECIMAL
+    override def tag                                                            = Tags.BIG_DECIMAL
   }
 
   implicit object BigIntegerType extends StandardType[java.math.BigInteger] {
     override def compare(x: BigInteger, y: BigInteger): Int = x.compareTo(y)
-    override def tag = Tags.BIG_INTEGER
+    override def tag                                        = Tags.BIG_INTEGER
   }
 
   //java.time specific types
-  implicit object DayOfWeekType extends StandardType[DayOfWeek]            {
+  implicit object DayOfWeekType extends StandardType[DayOfWeek] {
     override def compare(x: DayOfWeek, y: DayOfWeek): Int = x.getValue.compareTo(y.getValue)
-    override def tag = Tags.DAY_OF_WEEK
+    override def tag                                      = Tags.DAY_OF_WEEK
   }
 
-  implicit object Month         extends StandardType[java.time.Month]      {
+  implicit object Month extends StandardType[java.time.Month] {
     override def compare(x: Month, y: Month): Int = x.getValue.compareTo(y.getValue)
-    override def tag = Tags.MONTH
+    override def tag                              = Tags.MONTH
   }
 
-  implicit object MonthDay      extends StandardType[java.time.MonthDay]   {
+  implicit object MonthDay extends StandardType[java.time.MonthDay] {
     override def compare(x: MonthDay, y: MonthDay): Int = x.compareTo(y)
-    override def tag = Tags.MONTH_DAY
+    override def tag                                    = Tags.MONTH_DAY
   }
 
-  implicit object Period        extends StandardType[java.time.Period]     {
+  implicit object Period extends StandardType[java.time.Period] {
     override def compare(x: Period, y: Period): Int = {
-      val startDate = time.LocalDate.of(0,1,1)
+      val startDate = time.LocalDate.of(0, 1, 1)
       startDate.plus(x).compareTo(startDate.plus(y))
     }
     override def tag = Tags.PERIOD
   }
 
-  implicit object Year          extends StandardType[java.time.Year]       {
+  implicit object Year extends StandardType[java.time.Year] {
     override def compare(x: Year, y: Year): Int = x.getValue.compareTo(y.getValue)
-    override def tag = Tags.YEAR
+    override def tag                            = Tags.YEAR
   }
 
-  implicit object YearMonth     extends StandardType[java.time.YearMonth]  {
+  implicit object YearMonth extends StandardType[java.time.YearMonth] {
     override def compare(x: YearMonth, y: YearMonth): Int = x.compareTo(y)
-    override def tag = Tags.YEAR_MONTH
+    override def tag                                      = Tags.YEAR_MONTH
   }
 
-  implicit object ZoneId        extends StandardType[java.time.ZoneId]     {
+  implicit object ZoneId extends StandardType[java.time.ZoneId] {
     override def compare(x: ZoneId, y: ZoneId): Int = x.getId.compareTo(y.getId) //TODO is there a better comparison
-    override def tag = Tags.ZONE_ID
+    override def tag                                = Tags.ZONE_ID
   }
 
-  implicit object ZoneOffset    extends StandardType[java.time.ZoneOffset] {
+  implicit object ZoneOffset extends StandardType[java.time.ZoneOffset] {
     override def compare(x: ZoneOffset, y: ZoneOffset): Int = x.compareTo(y)
-    override def tag = Tags.ZONE_OFFSET
+    override def tag                                        = Tags.ZONE_OFFSET
   }
 
   final case class Duration(temporalUnit: TemporalUnit) extends StandardType[java.time.Duration] {
     override def compare(x: time.Duration, y: time.Duration): Int = x.compareTo(y)
-    override def tag: String = temporalUnit.toString().toUpperCase()
+    override def tag: String                                      = temporalUnit.toString().toUpperCase()
   }
 
   final case class Instant(formatter: DateTimeFormatter) extends StandardType[java.time.Instant] {
     override def compare(x: time.Instant, y: time.Instant): Int = x.compareTo(y)
-    override def tag = Tags.INSTANT
+    override def tag                                            = Tags.INSTANT
   }
 
   final case class LocalDate(formatter: DateTimeFormatter) extends StandardType[java.time.LocalDate] {
     override def compare(x: time.LocalDate, y: time.LocalDate): Int = x.compareTo(y)
-    override def tag = Tags.LOCAL_DATE
+    override def tag                                                = Tags.LOCAL_DATE
   }
 
   final case class LocalTime(formatter: DateTimeFormatter) extends StandardType[java.time.LocalTime] {
     override def compare(x: time.LocalTime, y: time.LocalTime): Int = x.compareTo(y)
-    override def tag = Tags.LOCAL_TIME
+    override def tag                                                = Tags.LOCAL_TIME
   }
 
   final case class LocalDateTime(formatter: DateTimeFormatter) extends StandardType[java.time.LocalDateTime] {
     override def compare(x: time.LocalDateTime, y: time.LocalDateTime): Int = x.compareTo(y)
-    override def tag = Tags.LOCAL_DATE_TIME
+    override def tag                                                        = Tags.LOCAL_DATE_TIME
   }
 
   final case class OffsetTime(formatter: DateTimeFormatter) extends StandardType[java.time.OffsetTime] {
     override def compare(x: time.OffsetTime, y: time.OffsetTime): Int = x.compareTo(y)
-    override def tag = Tags.OFFSET_TIME
+    override def tag                                                  = Tags.OFFSET_TIME
   }
 
   final case class OffsetDateTime(formatter: DateTimeFormatter) extends StandardType[java.time.OffsetDateTime] {
     override def compare(x: time.OffsetDateTime, y: time.OffsetDateTime): Int = x.compareTo(y)
-    override def tag = Tags.OFFSET_DATE_TIME
+    override def tag                                                          = Tags.OFFSET_DATE_TIME
   }
 
   final case class ZonedDateTime(formatter: DateTimeFormatter) extends StandardType[java.time.ZonedDateTime] {
     override def compare(x: time.ZonedDateTime, y: time.ZonedDateTime): Int = x.compareTo(y)
-    override def tag = Tags.ZONED_DATE_TIME
+    override def tag                                                        = Tags.ZONED_DATE_TIME
   }
 
 }

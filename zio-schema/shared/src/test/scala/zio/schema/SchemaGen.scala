@@ -4,6 +4,7 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
 import scala.collection.immutable.ListMap
+
 import zio.Chunk
 import zio.random.Random
 import zio.test.{ Gen, Sized }
@@ -473,10 +474,7 @@ object SchemaGen {
         anyEnumeration(anyTree(depth - 1)).map(Schema.enumeration(_))
       )
 
-  type SchemaAndDerivedValue[A,B] = (Schema[A], Schema[B], Chunk[Either[A,B]])
-
-
-
+  type SchemaAndDerivedValue[A, B] = (Schema[A], Schema[B], Chunk[Either[A, B]])
 
   lazy val anyLeafAndValue: Gen[Random with Sized, SchemaAndValue[_]] =
     for {

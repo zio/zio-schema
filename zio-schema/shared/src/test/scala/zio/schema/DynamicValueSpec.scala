@@ -84,6 +84,4 @@ object DynamicValueSpec extends DefaultRunnableSpec {
       assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
     }
 
-
-
 }
