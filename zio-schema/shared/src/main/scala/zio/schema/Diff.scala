@@ -1,24 +1,26 @@
 package zio.schema
 
 import java.math.BigInteger
-import java.time.temporal.{ ChronoUnit, TemporalAmount, TemporalUnit, Temporal => JTemporal }
+import java.time.temporal.{ ChronoUnit, Temporal => JTemporal, TemporalAmount, TemporalUnit }
 import java.time.{
   DayOfWeek,
+  Duration => JDuration,
   Instant,
   LocalDate,
   LocalDateTime,
   LocalTime,
+  Month => JMonth,
   MonthDay,
   OffsetDateTime,
   OffsetTime,
   Year,
   YearMonth,
   ZoneId,
-  ZonedDateTime,
-  Duration => JDuration,
-  Month => JMonth
+  ZonedDateTime
 }
+
 import scala.collection.immutable.ListMap
+
 import zio.Chunk
 import zio.schema.internal.MyersDiff
 

@@ -3,16 +3,17 @@ package zio.schema.codec
 import java.nio.charset.StandardCharsets
 import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
+import java.util.UUID
+
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
+import scala.util.control.NonFatal
+
 import zio.schema._
 import zio.schema.ast.SchemaAst
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZTransducer
 import zio.{ Chunk, ZIO }
-
-import java.util.UUID
-import scala.util.control.NonFatal
 
 object ProtobufCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
