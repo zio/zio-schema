@@ -136,11 +136,10 @@ object StandardType {
     override def tag                            = Tags.CHAR
   }
 
-  implicit object UUIDType extends StandardType[java.util.UUID]{
+  implicit object UUIDType extends StandardType[java.util.UUID] {
     override def compare(x: java.util.UUID, y: java.util.UUID): Int = x.compareTo(y)
-    override def tag                            = Tags.UUID
+    override def tag                                                = Tags.UUID
   }
-
 
   implicit object BigDecimalType extends StandardType[java.math.BigDecimal] {
     override def compare(x: java.math.BigDecimal, y: java.math.BigDecimal): Int = x.compareTo(y)
