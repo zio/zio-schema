@@ -44,6 +44,7 @@ object StandardType {
     final val OFFSET_TIME      = "offsetTime"
     final val OFFSET_DATE_TIME = "offsetDateTime"
     final val ZONED_DATE_TIME  = "zonedDateTime"
+    final val UUID             = "uuid"
   }
 
   def fromString(tag: String): Option[StandardType[_]] =
@@ -75,6 +76,7 @@ object StandardType {
       case Tags.OFFSET_TIME      => Some(OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME))
       case Tags.OFFSET_DATE_TIME => Some(OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
       case Tags.ZONED_DATE_TIME  => Some(ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+      case Tags.UUID             => Some(UUIDType)
       case units =>
         try {
           Some(Duration(ChronoUnit.valueOf(units)))
@@ -133,6 +135,12 @@ object StandardType {
     override def compare(x: Char, y: Char): Int = x.compareTo(y)
     override def tag                            = Tags.CHAR
   }
+
+  implicit object UUIDType extends StandardType[java.util.UUID]{
+    override def compare(x: java.util.UUID, y: java.util.UUID): Int = x.compareTo(y)
+    override def tag                            = Tags.UUID
+  }
+
 
   implicit object BigDecimalType extends StandardType[java.math.BigDecimal] {
     override def compare(x: java.math.BigDecimal, y: java.math.BigDecimal): Int = x.compareTo(y)

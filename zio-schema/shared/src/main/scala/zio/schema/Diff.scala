@@ -79,6 +79,7 @@ object Differ {
     case Schema.Primitive(StandardType.BigDecimalType) => bigDecimal
     case Schema.Primitive(StandardType.BigIntegerType) => bigInt
     case Schema.Primitive(StandardType.StringType)     => string
+    case Schema.Primitive(StandardType.UUIDType)       => string.transform(_.toString)
     case Schema.Primitive(StandardType.DayOfWeekType)  => dayOfWeek
     case Schema.Primitive(StandardType.Month)          => month
     case Schema.Primitive(StandardType.MonthDay)       => monthDay

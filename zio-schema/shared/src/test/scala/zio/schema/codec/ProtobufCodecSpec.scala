@@ -3,6 +3,7 @@ package zio.schema.codec
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import java.util.UUID
 
 import scala.collection.immutable.ListMap
 import scala.util.Try
@@ -177,6 +178,13 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         for {
           ed  <- encodeAndDecode(Schema[Char], value)
           ed2 <- encodeAndDecodeNS(Schema[Char], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+      },
+      testM("uuids") {
+        val value = UUID.randomUUID
+        for {
+          ed  <- encodeAndDecode(Schema[UUID], value)
+          ed2 <- encodeAndDecodeNS(Schema[UUID], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("day of weeks") {
