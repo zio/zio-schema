@@ -40,6 +40,7 @@ object DynamicValueGen {
       case typ: StandardType.ZoneId.type         => gen(typ, JavaTimeGen.anyZoneId)
       case typ: StandardType.ZoneOffset.type     => gen(typ, JavaTimeGen.anyZoneOffset)
       case typ: StandardType.UnitType.type       => Gen.const(DynamicValue.Primitive((), typ))
+      case typ: StandardType.UUIDType.type       => gen(typ, Gen.anyUUID)
     }
   }
 

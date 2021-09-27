@@ -21,6 +21,7 @@ object StandardTypeGen {
       (StandardType.BigDecimalType),
       (StandardType.BigIntegerType),
       (StandardType.CharType),
+      (StandardType.UUIDType),
       (StandardType.DayOfWeekType),
       (StandardType.Duration(ChronoUnit.SECONDS)),
       (StandardType.Instant(DateTimeFormatter.ISO_DATE_TIME)),
@@ -54,6 +55,7 @@ object StandardTypeGen {
       case typ: StandardType.DoubleType.type     => typ -> Gen.anyDouble
       case typ: StandardType.BinaryType.type     => typ -> Gen.chunkOf(Gen.anyByte)
       case typ: StandardType.CharType.type       => typ -> Gen.anyASCIIChar
+      case typ: StandardType.UUIDType.type       => typ -> Gen.anyUUID
       case typ: StandardType.BigDecimalType.type => typ -> Gen.anyDouble.map(d => java.math.BigDecimal.valueOf(d))
       case typ: StandardType.BigIntegerType.type => typ -> Gen.anyLong.map(n => java.math.BigInteger.valueOf(n))
       case typ: StandardType.DayOfWeekType.type  => typ -> JavaTimeGen.anyDayOfWeek
