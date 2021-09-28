@@ -65,7 +65,6 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
     libraryDependencies ++= Seq(
       "dev.zio"        %% "zio"          % zioVersion,
       "dev.zio"        %% "zio-streams"  % zioVersion,
-      "dev.zio"        %% "zio-json"     % zioJsonVersion,
       "com.propensive" %% "magnolia"     % magnoliaVersion,
       "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
       "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
@@ -76,6 +75,28 @@ lazy val zioSchemaJS = zioSchema.js
   .settings(scalaJSUseMainModuleInitializer := true)
 
 lazy val zioSchemaJVM = zioSchema.jvm
+
+lazy val zioSchemaJson = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-schema-json"))
+  .dependsOn(zioSchema)
+  .settings(stdSettings("zio-schema-json"))
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema.json"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio"        %% "zio"          % zioVersion,
+      "dev.zio"        %% "zio-streams"  % zioVersion,
+      "dev.zio"        %% "zio-json"     % zioJsonVersion,
+      "com.propensive" %% "magnolia"     % magnoliaVersion,
+      "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
+      "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+    )
+  )
+
+lazy val zioSchemaJsonJS = zioSchemaJson.js
+  .settings(scalaJSUseMainModuleInitializer := true)
+
+lazy val zioSchemaJsonJVM = zioSchemaJson.jvm
 
 lazy val docs = project
   .in(file("zio-schema-docs"))
