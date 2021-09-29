@@ -1,21 +1,26 @@
 package zio.schema
 
-import zio.Chunk
-import java.util.UUID
-import java.time.DayOfWeek
-import java.time.Month
-import java.time.MonthDay
-import java.time.Period
-import java.time.Year
-import java.time.YearMonth
-import java.time.ZoneId
-import java.time.ZoneOffset
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZonedDateTime
-import java.time.OffsetTime
-import java.time.OffsetDateTime
 import java.time.temporal.ChronoUnit
+import java.time.{
+  DayOfWeek,
+  Instant,
+  LocalDate,
+  Month,
+  MonthDay,
+  OffsetDateTime,
+  OffsetTime,
+  Period,
+  Year,
+  YearMonth,
+  ZoneId,
+  ZoneOffset,
+  ZonedDateTime
+}
+import java.util.UUID
+
+import zio.Chunk
+import zio.random.Random
+import zio.test.{ Gen, Sized }
 
 object types {
 
@@ -148,6 +153,8 @@ object types {
     }
 
     implicit lazy val schema: Schema[Arities] = DeriveSchema.gen
+
+    implicit val genBytes: Gen[Random with Sized, Chunk[Byte]] = Gen.chunkOf(Gen.anyByte)
   }
   //scalafmt: { maxColumn = 120 }
 
@@ -171,7 +178,6 @@ object types {
     }
 
     implicit lazy val schema: Schema[Recursive] = DeriveSchema.gen
-
   }
 
   case class EitherVariants(
@@ -222,7 +228,7 @@ object types {
   )
 
   object SequenceVariants {
-    implicit lazy  val schema: Schema[SequenceVariants] = DeriveSchema.gen
+    implicit lazy val schema: Schema[SequenceVariants] = DeriveSchema.gen
   }
 
   type ValueAndGen[A] = (Schema[A], A)

@@ -8,8 +8,10 @@ import zio.test.{ Gen, Sized }
 
 object SchemaGen {
 
+  val anyLabel: Gen[Random with Sized, String] = Gen.alphaNumericStringBounded(1, 3)
+
   def anyStructure(schemaGen: Gen[Random with Sized, Schema[_]]): Gen[Random with Sized, Seq[Schema.Field[_]]] =
-    Gen.setOfBounded(1, 30)(Gen.anyString.filter(_.isEmpty)).flatMap { keySet =>
+    Gen.setOfBounded(1, 8)(anyLabel).flatMap { keySet =>
       Gen.setOfN(keySet.size)(schemaGen).map { schemas =>
         keySet
           .zip(schemas)
@@ -22,20 +24,20 @@ object SchemaGen {
 
   def anyStructure[A](schema: Schema[A]): Gen[Random with Sized, Seq[Schema.Field[A]]] =
     Gen
-      .setOfBounded(1, 30)(
-        Gen.anyString.map(Schema.Field(_, schema))
+      .setOfBounded(1, 8)(
+        anyLabel.map(Schema.Field(_, schema))
       )
       .map(_.toSeq)
 
   def anyEnumeration(schemaGen: Gen[Random with Sized, Schema[_]]): Gen[Random with Sized, ListMap[String, Schema[_]]] =
     Gen
-      .setOfBounded(1, 10)(
-        Gen.anyASCIIString.filter(_.nonEmpty).zip(schemaGen)
+      .setOfBounded(1, 8)(
+        anyLabel.zip(schemaGen)
       )
       .map(ListMap.empty ++ _)
 
   def anyEnumeration[A](schema: Schema[A]): Gen[Random with Sized, ListMap[String, Schema[A]]] =
-    Gen.listOfBounded(1, 10)(Gen.anyString.map(_ -> schema)).map(ListMap.empty ++ _)
+    Gen.setOfBounded(1, 8)(anyLabel.map(_ -> schema)).map(ListMap.empty ++ _)
 
   val anyPrimitive: Gen[Random, Schema.Primitive[_]] =
     StandardTypeGen.anyStandardType.map(Schema.Primitive(_))
@@ -200,7 +202,7 @@ object SchemaGen {
       (schema1, gen1) <- anyGenericRecordAndGen
       (schema2, gen2) <- anyGenericRecordAndGen
       (schema3, gen3) <- anyGenericRecordAndGen
-      keys            <- Gen.listOfN(3)(Gen.anyString.filter(_.length() > 0))
+      keys            <- Gen.setOfN(3)(anyLabel).map(_.toSeq)
       (key1, value1)  <- Gen.const(keys(0)).zip(gen1)
       (key2, value2)  <- Gen.const(keys(1)).zip(gen2)
       (key3, value3)  <- Gen.const(keys(2)).zip(gen3)
