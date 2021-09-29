@@ -30,7 +30,7 @@ object BuildHelper {
   val zioNioVersion     = "1.0.0-RC9"
   val zioJsonVersion    = "0.2.0-M1"
   val zioPreludeVersion = "1.0.0-RC6"
-  val silencerVersion   = "1.7.5"
+  val silencerVersion   = "1.7.6"
   val magnoliaVersion   = "1.0.0-M5"
 
   private val testDeps = Seq(
@@ -78,7 +78,9 @@ object BuildHelper {
       "-encoding",
       "UTF-8",
       "-feature",
-      "-unchecked"
+      "-unchecked",
+      "-language:higherKinds",
+      "-language:existentials"
     ) ++ {
       if (sys.env.contains("CI")) {
         Seq("-Xfatal-warnings")
@@ -88,13 +90,12 @@ object BuildHelper {
     }
 
     val std2xOptions = Seq(
-      "-language:higherKinds",
-      "-language:existentials",
       "-explaintypes",
       "-Yrangepos",
       "-Xlint:_,-missing-interpolator,-type-parameter-shadow",
       "-Ywarn-numeric-widen",
-      "-Ywarn-value-discard"
+      "-Ywarn-value-discard",
+      "-Xsource:3.0"
     )
 
     val optimizerOptions =
