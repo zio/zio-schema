@@ -8,7 +8,7 @@ import zio.schema.StandardType.UnitType
 
 object SchemaOrdering {
 
-  def ordering[A](schema: Schema[A]): Ordering[A] = (l: A, r: A) => {
+  private[schema] def ordering[A](schema: Schema[A]): Ordering[A] = (l: A, r: A) => {
     compareBySchema(schema)(schema.toDynamic(l), schema.toDynamic(r))
   }
 
@@ -54,7 +54,11 @@ object SchemaOrdering {
     case _ => 0
   }
 
-  def compareRecords(r: Schema.Record[_], lVals: Map[String, DynamicValue], rVals: Map[String, DynamicValue]): Int = {
+  private def compareRecords(
+    r: Schema.Record[_],
+    lVals: Map[String, DynamicValue],
+    rVals: Map[String, DynamicValue]
+  ): Int = {
     val j = r.structure.length
     @tailrec
     def loop(i: Int): Int =
@@ -67,7 +71,11 @@ object SchemaOrdering {
     loop(0)
   }
 
-  def compareSequences(l: Chunk[DynamicValue], r: Chunk[DynamicValue], f: (DynamicValue, DynamicValue) => Int): Int = {
+  private def compareSequences(
+    l: Chunk[DynamicValue],
+    r: Chunk[DynamicValue],
+    f: (DynamicValue, DynamicValue) => Int
+  ): Int = {
     val j = l.length
     val k = r.length
 

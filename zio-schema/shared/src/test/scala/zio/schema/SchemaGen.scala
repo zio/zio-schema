@@ -534,6 +534,7 @@ object SchemaGen {
     SchemaTest("Double", StandardType.DoubleType, Gen.anyDouble),
     SchemaTest("Binary", StandardType.BinaryType, Gen.chunkOf(Gen.anyByte)),
     SchemaTest("Char", StandardType.CharType, Gen.anyASCIIChar),
+    SchemaTest("UUID", StandardType.UUIDType, Gen.anyUUID),
     SchemaTest(
       "BigDecimal",
       StandardType.BigDecimalType,
