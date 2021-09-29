@@ -53,7 +53,9 @@ lazy val root = project
   )
   .aggregate(
     zioSchemaJVM,
-    zioSchemaJS
+    zioSchemaJS,
+    zioSchemaJsonJVM,
+    zioSchemaJsonJS
   )
 
 lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
@@ -78,7 +80,7 @@ lazy val zioSchemaJVM = zioSchema.jvm
 
 lazy val zioSchemaJson = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-json"))
-  .dependsOn(zioSchema)
+  .dependsOn(zioSchema, zioSchema % "test->test")
   .settings(stdSettings("zio-schema-json"))
   .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema.json"))
@@ -115,11 +117,11 @@ lazy val docs = project
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio" % zioVersion
     ),
-    unidocProjectFilter in (ScalaUnidoc, unidoc) := inProjects(root),
-    target in (ScalaUnidoc, unidoc) := (baseDirectory in LocalRootProject).value / "website" / "static" / "api",
-    cleanFiles += (target in (ScalaUnidoc, unidoc)).value,
-    docusaurusCreateSite := docusaurusCreateSite.dependsOn(unidoc in Compile).value,
-    docusaurusPublishGhpages := docusaurusPublishGhpages.dependsOn(unidoc in Compile).value
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(root),
+    ScalaUnidoc / unidoc / target := (LocalRootProject / baseDirectory).value / "website" / "static" / "api",
+    cleanFiles += (ScalaUnidoc / unidoc / target).value,
+    docusaurusCreateSite := docusaurusCreateSite.dependsOn(Compile / unidoc).value,
+    docusaurusPublishGhpages := docusaurusPublishGhpages.dependsOn(Compile / unidoc).value
   )
   .dependsOn(root)
   .enablePlugins(MdocPlugin, DocusaurusPlugin, ScalaUnidocPlugin)
