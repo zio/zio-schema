@@ -48,7 +48,7 @@ lazy val root = project
   .in(file("."))
   .settings(
     name := "zio-schema",
-    skip in publish := true,
+    publish / skip := true,
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
   .aggregate(
@@ -62,15 +62,24 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema"))
   .settings(stdSettings("zio-schema"))
   .settings(crossProjectSettings)
+  .settings(dottySettings)
   .settings(buildInfoSettings("zio.schema"))
+  .settings(macroDefinitionSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"        %% "zio"          % zioVersion,
-      "dev.zio"        %% "zio-streams"  % zioVersion,
-      "com.propensive" %% "magnolia"     % magnoliaVersion,
-      "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
-      "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+      "dev.zio" %% "zio"         % zioVersion,
+      "dev.zio" %% "zio-streams" % zioVersion,
+      "dev.zio" %% "zio-prelude" % zioPreludeVersion
     )
+  )
+  .settings(
+    libraryDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, _)) => Seq("com.softwaremill.magnolia1_2" %% "magnolia" % magnoliaVersion)
+        case Some((3, _)) => Seq("com.softwaremill.magnolia1_3" %% "magnolia" % magnoliaVersion)
+        case _            => Seq()
+      }
+    }
   )
 
 lazy val zioSchemaJS = zioSchema.js
@@ -82,17 +91,25 @@ lazy val zioSchemaJson = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-json"))
   .dependsOn(zioSchema, zioSchema % "test->test")
   .settings(stdSettings("zio-schema-json"))
+  .settings(dottySettings)
   .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema.json"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"        %% "zio"          % zioVersion,
-      "dev.zio"        %% "zio-streams"  % zioVersion,
-      "dev.zio"        %% "zio-json"     % zioJsonVersion,
-      "com.propensive" %% "magnolia"     % magnoliaVersion,
-      "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
-      "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+      "dev.zio" %% "zio"         % zioVersion,
+      "dev.zio" %% "zio-streams" % zioVersion,
+      "dev.zio" %% "zio-json"    % zioJsonVersion,
+      "dev.zio" %% "zio-prelude" % zioPreludeVersion
     )
+  )
+  .settings(
+    libraryDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, _)) => Seq("com.softwaremill.magnolia1_2" %% "magnolia" % magnoliaVersion)
+        case Some((3, _)) => Seq("com.softwaremill.magnolia1_3" %% "magnolia" % magnoliaVersion)
+        case _            => Seq()
+      }
+    }
   )
 
 lazy val zioSchemaJsonJS = zioSchemaJson.js
@@ -103,7 +120,7 @@ lazy val zioSchemaJsonJVM = zioSchemaJson.jvm
 lazy val docs = project
   .in(file("zio-schema-docs"))
   .settings(
-    skip.in(publish) := true,
+    publish / skip := true,
     mdocVariables := Map(
       "SNAPSHOT_VERSION" -> version.value,
       "RELEASE_VERSION"  -> previousStableVersion.value.getOrElse("can't find release"),
