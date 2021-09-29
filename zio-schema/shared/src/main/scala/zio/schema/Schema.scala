@@ -72,7 +72,7 @@ sealed trait Schema[A] {
   def fromDynamic(value: DynamicValue): Either[String, A] =
     value.toTypedValue(self)
 
-  def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal] = ???
+  def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal]
 
   /**
    *  Generate a homomorphism from A to B iff A and B are homomorphic
