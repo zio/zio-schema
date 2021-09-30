@@ -79,7 +79,6 @@ object BuildHelper {
       "UTF-8",
       "-feature",
       "-unchecked",
-      "-language:higherKinds",
       "-language:existentials"
     ) ++ {
       if (sys.env.contains("CI")) {
@@ -90,6 +89,7 @@ object BuildHelper {
     }
 
     val std2xOptions = Seq(
+      "-language:higherKinds",
       "-explaintypes",
       "-Yrangepos",
       "-Xlint:_,-missing-interpolator,-type-parameter-shadow",
@@ -109,7 +109,8 @@ object BuildHelper {
       case Some((3, 0)) =>
         Seq(
           "-language:implicitConversions",
-          "-Xignore-scala2-macros"
+          "-Xignore-scala2-macros",
+          "-Ykind-projector"
         )
       case Some((2, 13)) =>
         Seq(

@@ -106,7 +106,7 @@ object DynamicValue {
         )
 
       case Schema.Enumeration(map) =>
-        val (key, v) = value
+        val (key: String, v) = value
         map(key) match {
           case schema: Schema[a] =>
             val nestedValue = fromSchemaAndValue(schema, v.asInstanceOf[a])
