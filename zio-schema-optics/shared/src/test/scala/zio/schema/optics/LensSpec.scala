@@ -12,9 +12,9 @@ object LensSpec extends DefaultRunnableSpec {
     suite("constructors")(
       testM("first")(lensLaws(Gen.anyInt.zip(Gen.anyInt), Gen.anyInt)(Lens.first)),
       testM("second")(lensLaws(Gen.anyInt.zip(Gen.anyInt), Gen.anyInt)(Lens.second)),
-      testM("field1")(lensLaws(TestClass.gen, Gen.anyInt)(field1)),
-      testM("field2")(lensLaws(TestClass.gen, Gen.anyString)(field2)),
-      testM("field2")(lensLaws(TestClass.gen, Gen.anyLong)(field3))
+      testM("field1")(lensLaws(TestClass.gen, Gen.anyInt)(TestClass.field1)),
+      testM("field2")(lensLaws(TestClass.gen, Gen.anyString)(TestClass.field2)),
+      testM("field2")(lensLaws(TestClass.gen, Gen.anyLong)(TestClass.field3))
     )
   )
 
@@ -63,8 +63,8 @@ object LensSpec extends DefaultRunnableSpec {
       f2 <- Gen.anyString
       f3 <- Gen.anyLong
     } yield TestClass(f1, f2, f3)
-  }
 
-  val (field1, field2, field3) = TestClass.schema.makeAccessors(ZioOpticsBuilder)
+    val (field1, field2, field3) = schema.makeAccessors(ZioOpticsBuilder)
+  }
 
 }
