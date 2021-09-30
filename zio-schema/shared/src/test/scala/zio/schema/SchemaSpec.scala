@@ -2,6 +2,7 @@ package zio.schema
 
 import scala.collection.immutable.ListMap
 
+import zio.schema.CaseSet._
 import zio.test.Assertion._
 import zio.test.{ ZSpec, _ }
 
@@ -42,7 +43,9 @@ object SchemaSpec extends DefaultRunnableSpec {
   def schemaInt: Schema[Int]   = Schema[Int]
 
   def schemaRecord(key: String): Schema[ListMap[String, _]] = Schema.record(Schema.Field(key, schemaUnit))
-  def schemaEnum(key: String): Schema[(String, _)]          = Schema.enumeration(ListMap(key -> schemaUnit))
+
+  def schemaEnum(key: String): Schema[Any] =
+    Schema.enumeration[Any, CaseSet.Aux[Any]](caseOf[Unit, Any](key)(_ => ()))
 
   val f: Unit => Either[String, Int] = _ => Right(0)
   val g: Int => Either[String, Unit] = _ => Right(())

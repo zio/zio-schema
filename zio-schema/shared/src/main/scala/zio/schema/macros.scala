@@ -38,10 +38,10 @@ object DeriveSchema {
       case 22 => caseClass22(ctx)
       case _ =>
         Schema
-          .GenericRecord(
+          .record(
             Chunk.fromIterable(
               ctx.parameters.map(p => Schema.Field(p.label, p.typeclass, Chunk.fromIterable(p.annotations)))
-            )
+            ): _*
           )
           .transformOrFail(
             { map =>
@@ -1314,7 +1314,6 @@ object DeriveSchema {
       extractField22 = (z: Z) => param22.dereference(z)
     )
   }
-  // format: on
 
   def dispatch[A](sealedTrait: SealedTrait[Schema, A]): Schema[A] = {
     type S = Subtype[Schema, A]#SType
@@ -1329,17 +1328,16 @@ object DeriveSchema {
       case Seq(c)          => Schema.Enum1(c)
       case Seq(c1, c2)     => Schema.Enum2(c1, c2)
       case Seq(c1, c2, c3) => Schema.Enum3(c1, c2, c3)
-      case cases           => Schema.EnumN(cases)
+      case cases           =>
+        Schema.EnumN(
+          cases.foldRight[CaseSet.Aux[A]](CaseSet.Empty[A]()) {
+            case (c, acc) => CaseSet.Cons(c,acc)
+          }
+        )
     }
   }
+  // format: on
 
   implicit def gen[T]: Schema[T] = macro Magnolia.gen[T]
 
-  // def genImpl[T: c.WeakTypeTag](c: whitebox.Context): c.Tree = {
-  //   import c.universe._
-
-  //   val tpe = weakTypeOf[T]
-
-  //   tpe.
-  // }
 }

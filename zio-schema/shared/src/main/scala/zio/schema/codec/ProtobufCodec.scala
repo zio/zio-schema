@@ -85,7 +85,6 @@ object ProtobufCodec extends Codec {
     @scala.annotation.tailrec
     def canBePacked(schema: Schema[_]): Boolean = schema match {
       case Schema.Sequence(element, _, _) => canBePacked(element)
-      case _: Schema.Enumeration          => false
       case Schema.Transform(codec, _, _)  => canBePacked(codec)
       case Schema.Primitive(standardType) => canBePacked(standardType)
       case _: Schema.Tuple[_, _]          => false
@@ -135,9 +134,8 @@ object ProtobufCodec extends Codec {
 
     def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
       (schema, value) match {
-        case (Schema.GenericRecord(structure), v: Map[String, _]) => encodeRecord(fieldNumber, structure, v)
+        case (Schema.GenericRecord(structure), v: Map[String, _]) => encodeRecord(fieldNumber, structure.toChunk, v)
         case (Schema.Sequence(element, _, g), v)                  => encodeSequence(fieldNumber, element, g(v))
-        case (Schema.Enumeration(structure), v: (String, _))      => encodeEnumeration(fieldNumber, structure, v)
         case (Schema.Transform(codec, _, g), _)                   => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
         case (Schema.Primitive(standardType), v)                  => encodePrimitive(fieldNumber, standardType, v)
         case (Schema.Tuple(left, right), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)
@@ -149,7 +147,7 @@ object ProtobufCodec extends Codec {
         case (Schema.Enum1(c), v)                                 => encodeEnum(fieldNumber, v, c)
         case (Schema.Enum2(c1, c2), v)                            => encodeEnum(fieldNumber, v, c1, c2)
         case (Schema.Enum3(c1, c2, c3), v)                        => encodeEnum(fieldNumber, v, c1, c2, c3)
-        case (Schema.EnumN(cs), v)                                => encodeEnum(fieldNumber, v, cs: _*)
+        case (Schema.EnumN(cs), v)                                => encodeEnum(fieldNumber, v, cs.toSeq: _*)
         case (_, _)                                               => Chunk.empty
       }
 
@@ -202,19 +200,6 @@ object ProtobufCodec extends Codec {
         }
         encodeKey(WireType.LengthDelimited(chunk.size), fieldNumber) ++ chunk
       }
-
-    private def encodeEnumeration(
-      fieldNumber: Option[Int],
-      structure: Map[String, Schema[_]],
-      value0: (String, _)
-    ): Chunk[Byte] = {
-      val (field, value) = value0
-      val encodedEnum = structure.zipWithIndex
-        .find(v => v._1._1 == field)
-        .map(v => encode(Some(v._2 + 1), v._1._2.asInstanceOf[Schema[Any]], value))
-        .getOrElse(Chunk.empty)
-      encodeKey(WireType.LengthDelimited(encodedEnum.size), fieldNumber) ++ encodedEnum
-    }
 
     @scala.annotation.tailrec
     private def encodePrimitive[A](
@@ -436,10 +421,9 @@ object ProtobufCodec extends Codec {
 
     private[codec] def decoder[A](schema: Schema[A]): Decoder[A] =
       schema match {
-        case Schema.GenericRecord(structure) => recordDecoder(structure)
+        case Schema.GenericRecord(structure) => recordDecoder(structure.toChunk)
         case Schema.Sequence(element, f, _) =>
           if (canBePacked(element)) packedSequenceDecoder(element).map(f) else nonPackedSequenceDecoder(element).map(f)
-        case Schema.Enumeration(structure)    => enumerationDecoder(structure)
         case Schema.Transform(codec, f, _)    => transformDecoder(codec, f)
         case Schema.Primitive(standardType)   => primitiveDecoder(standardType)
         case Schema.Tuple(left, right)        => tupleDecoder(left, right)
@@ -452,7 +436,7 @@ object ProtobufCodec extends Codec {
         case Schema.Enum1(c)                  => enumDecoder(c)
         case Schema.Enum2(c1, c2)             => enumDecoder(c1, c2)
         case Schema.Enum3(c1, c2, c3)         => enumDecoder(c1, c2, c3)
-        case Schema.EnumN(cs)                 => enumDecoder(cs: _*)
+        case Schema.EnumN(cs)                 => enumDecoder(cs.toSeq: _*)
       }
 
     private val astDecoder: Decoder[Schema[_]] =
@@ -473,17 +457,6 @@ object ProtobufCodec extends Codec {
           }
         case (_, fieldNumber) =>
           fail(s"Schema doesn't contain field number $fieldNumber.")
-      }
-
-    private def enumerationDecoder(fields: ListMap[String, Schema[_]]): Decoder[(String, _)] =
-      keyDecoder.flatMap {
-        case (_, fieldNumber) =>
-          if (fieldNumber <= fields.size) {
-            val (fieldName, schema) = fields.toSeq(fieldNumber - 1)
-            decoder(schema).map(fieldValue => fieldName -> fieldValue)
-          } else {
-            fail(s"Schema doesn't contain field number $fieldNumber.")
-          }
       }
 
     private def recordDecoder(fields: Seq[Schema.Field[_]], decoded: Int = 0): Decoder[ListMap[String, _]] =

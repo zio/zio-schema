@@ -134,3 +134,20 @@ object StandardType {
   }
 
 }
+
+trait DefaultJavaTimeSchemas {
+  implicit val instantSchema: Schema[java.time.Instant] =
+    Schema.primitive(StandardType.Instant(DateTimeFormatter.ISO_INSTANT))
+  implicit val localDateSchema: Schema[java.time.LocalDate] =
+    Schema.primitive(StandardType.LocalDate(DateTimeFormatter.ISO_LOCAL_DATE))
+  implicit val localTimeSchema: Schema[java.time.LocalTime] =
+    Schema.primitive(StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME))
+  implicit val localDateTimeSchema: Schema[java.time.LocalDateTime] =
+    Schema.primitive(StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+  implicit val offsetTimeSchema: Schema[java.time.OffsetTime] =
+    Schema.primitive(StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME))
+  implicit val offsetDateTimeSchema: Schema[java.time.OffsetDateTime] =
+    Schema.primitive(StandardType.OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+  implicit val zonedDateTimeSchema: Schema[java.time.ZonedDateTime] =
+    Schema.primitive(StandardType.ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+}

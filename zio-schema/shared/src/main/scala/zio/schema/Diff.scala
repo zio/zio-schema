@@ -111,13 +111,12 @@ object Differ {
     case s @ Schema.Lazy(_)                           => fromSchema(s.schema)
     case Schema.Transform(schema, _, f)               => fromSchema(schema).transformOrFail(f)
     case Schema.Fail(_)                               => fail
-    case Schema.GenericRecord(structure)              => record(structure)
+    case Schema.GenericRecord(structure)              => record(structure.toChunk)
     case ProductDiffer(differ)                        => differ
     case Schema.Enum1(c)                              => enum(c)
     case Schema.Enum2(c1, c2)                         => enum(c1, c2)
     case Schema.Enum3(c1, c2, c3)                     => enum(c1, c2, c3)
-    case Schema.EnumN(cs)                             => enum(cs: _*)
-    case Schema.Enumeration(structure)                => enumeration(structure)
+    case Schema.EnumN(cs)                             => enum(cs.toSeq: _*)
   }
 
   def binary: Differ[Chunk[Byte]] =
@@ -224,7 +223,7 @@ object Differ {
       case (field: Schema.Field[a], _) => map.get(field.label).map(_.isInstanceOf[a]).getOrElse(false)
     }
 
-  def enum[Z](cases: Schema.Case[_ <: Z, Z]*): Differ[Z] =
+  def enum[Z](cases: Schema.Case[_, Z]*): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       cases
         .foldRight[Option[Diff]](None) {

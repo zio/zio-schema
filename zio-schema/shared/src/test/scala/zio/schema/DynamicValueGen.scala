@@ -14,7 +14,7 @@ object DynamicValueGen {
     standardType match {
       case typ: StandardType.BinaryType.type     => gen(typ, Gen.chunkOf(Gen.anyByte))
       case typ: StandardType.BoolType.type       => gen(typ, Gen.oneOf(Gen.const(true), Gen.const(false)))
-      case typ: StandardType.CharType.type       => gen(typ, Gen.anyChar)
+      case typ: StandardType.CharType.type       => gen(typ, Gen.anyASCIIChar)
       case typ: StandardType.DoubleType.type     => gen(typ, Gen.anyDouble)
       case typ: StandardType.StringType.type     => gen(typ, Gen.anyString)
       case typ: StandardType.ShortType.type      => gen(typ, Gen.anyShort)
@@ -49,7 +49,6 @@ object DynamicValueGen {
     schema match {
       case Schema.Primitive(standardType)                                                                                                                                                       => anyPrimitiveDynamicValue(standardType)
       case s: Schema.Record[A]                                                                                                                                                                  => anyDynamicValueWithStructure(s.structure)
-      case Schema.Enumeration(structure)                                                                                                                                                        => anyDynamicValueOfEnumeration(structure)
       case Schema.Enum1(case1)                                                                                                                                                                  => anyDynamicValueOfEnum(Chunk(case1))
       case Schema.Enum2(case1, case2)                                                                                                                                                           => anyDynamicValueOfEnum(Chunk(case1, case2))
       case Schema.Enum3(case1, case2, case3)                                                                                                                                                    => anyDynamicValueOfEnum(Chunk(case1, case2, case3))
@@ -72,8 +71,8 @@ object DynamicValueGen {
       case Schema.Enum20(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20)                 => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20))
       case Schema.Enum21(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21)         => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21))
       case Schema.Enum22(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, case22) => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, case22))
-      case Schema.EnumN(cases)                                                                                                                                                                  => anyDynamicValueOfEnum(Chunk.fromIterable(cases))
-      case Schema.Sequence(schema, _, _)                                                                                                                                                        => Gen.chunkOf(anyDynamicValueOfSchema(schema)).map(DynamicValue.Sequence(_))
+      case Schema.EnumN(cases)                                                                                                                                                                  => anyDynamicValueOfEnum(Chunk.fromIterable(cases.toSeq))
+      case Schema.Sequence(schema, _, _)                                                                                                                                                        => Gen.chunkOfBounded(0, 2)(anyDynamicValueOfSchema(schema)).map(DynamicValue.Sequence(_))
       case Schema.Optional(schema)                                                                                                                                                              => Gen.oneOf(anyDynamicSomeValueOfSchema(schema), Gen.const(DynamicValue.NoneValue))
       case Schema.Tuple(left, right)                                                                                                                                                            => anyDynamicTupleValue(left, right)
       case Schema.EitherSchema(left, right) =>
