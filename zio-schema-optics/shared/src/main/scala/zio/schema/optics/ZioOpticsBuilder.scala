@@ -1,7 +1,9 @@
 package zio.schema.optics
 
+import scala.collection.immutable.ListMap
+
 import zio.optics._
-import zio.schema.{ AccessorBuilder, _ }
+import zio.schema._
 import zio.{ Chunk, ChunkBuilder }
 
 /**
@@ -69,7 +71,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
   ): A => S => Either[(OpticFailure, S), S] = { piece: A => whole: S =>
     product.toDynamic(whole) match {
       case DynamicValue.Record(values) =>
-        val updated = values.updated(term.label, term.schema.toDynamic(piece))
+        val updated = spliceRecord(values, term.label, term.label -> term.schema.toDynamic(piece))
         product.fromDynamic(DynamicValue.Record(updated)) match {
           case Left(error)  => Left(OpticFailure(error) -> whole)
           case Right(value) => Right(value)
@@ -108,5 +110,15 @@ object ZioOpticsBuilder extends AccessorBuilder {
     }
     Right(collection.fromChunk(builder.result()))
   }
+
+  private def spliceRecord(
+    fields: ListMap[String, DynamicValue],
+    label: String,
+    splicedField: (String, DynamicValue)
+  ): ListMap[String, DynamicValue] =
+    fields.foldLeft[ListMap[String, DynamicValue]](ListMap.empty) {
+      case (acc, (nextLabel, _)) if nextLabel == label => acc + splicedField
+      case (acc, nextField)                            => acc + nextField
+    }
 
 }
