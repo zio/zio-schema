@@ -84,7 +84,7 @@ object ProtobufCodec extends Codec {
      */
     @scala.annotation.tailrec
     def canBePacked(schema: Schema[_]): Boolean = schema match {
-      case Schema.Sequence(element, _, _) => canBePacked(element)
+      case Schema.Sequence(element, _)    => canBePacked(element)
       case _: Schema.Enumeration          => false
       case Schema.Transform(codec, _, _)  => canBePacked(codec)
       case Schema.Primitive(standardType) => canBePacked(standardType)
@@ -136,21 +136,27 @@ object ProtobufCodec extends Codec {
     def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
       (schema, value) match {
         case (Schema.GenericRecord(structure), v: Map[String, _]) => encodeRecord(fieldNumber, structure, v)
-        case (Schema.Sequence(element, _, g), v)                  => encodeSequence(fieldNumber, element, g(v))
-        case (Schema.Enumeration(structure), v: (String, _))      => encodeEnumeration(fieldNumber, structure, v)
-        case (Schema.Transform(codec, _, g), _)                   => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
-        case (Schema.Primitive(standardType), v)                  => encodePrimitive(fieldNumber, standardType, v)
-        case (Schema.Tuple(left, right), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)
-        case (Schema.Optional(codec), v: Option[_])               => encodeOptional(fieldNumber, codec, v)
-        case (Schema.EitherSchema(left, right), v: Either[_, _])  => encodeEither(fieldNumber, left, right, v)
-        case (lzy @ Schema.Lazy(_), v)                            => encode(fieldNumber, lzy.schema, v)
-        case (Schema.Meta(ast), _)                                => encode(fieldNumber, Schema[SchemaAst], ast)
-        case ProductEncoder(encode)                               => encode(fieldNumber)
-        case (Schema.Enum1(c), v)                                 => encodeEnum(fieldNumber, v, c)
-        case (Schema.Enum2(c1, c2), v)                            => encodeEnum(fieldNumber, v, c1, c2)
-        case (Schema.Enum3(c1, c2, c3), v)                        => encodeEnum(fieldNumber, v, c1, c2, c3)
-        case (Schema.EnumN(cs), v)                                => encodeEnum(fieldNumber, v, cs: _*)
-        case (_, _)                                               => Chunk.empty
+        case (s @ Schema.Sequence(element, chunkLike), v) =>
+          encodeSequence(
+            fieldNumber,
+            element.asInstanceOf[Schema[s.ElementType]],
+            chunkLike.toChunk(v.asInstanceOf[s.ColType])
+          )
+        case (Schema.Enumeration(structure), v: (String, _)) => encodeEnumeration(fieldNumber, structure, v)
+        case (Schema.Transform(codec, _, g), _)              => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
+        case (Schema.Primitive(standardType), v)             => encodePrimitive(fieldNumber, standardType, v)
+        case (Schema.Tuple(left, right), v @ (_, _))         => encodeTuple(fieldNumber, left, right, v)
+        case (Schema.Optional(codec), v: Option[_]) =>
+          encodeOptional(fieldNumber, codec.asInstanceOf[Schema[Option[Any]]], v)
+        case (Schema.EitherSchema(left, right), v: Either[_, _]) => encodeEither(fieldNumber, left, right, v)
+        case (lzy @ Schema.Lazy(_), v)                           => encode(fieldNumber, lzy.schema, v)
+        case (Schema.Meta(ast), _)                               => encode(fieldNumber, Schema[SchemaAst], ast)
+        case ProductEncoder(encode)                              => encode(fieldNumber)
+        case (Schema.Enum1(c), v)                                => encodeEnum(fieldNumber, v, c)
+        case (Schema.Enum2(c1, c2), v)                           => encodeEnum(fieldNumber, v, c1, c2)
+        case (Schema.Enum3(c1, c2, c3), v)                       => encodeEnum(fieldNumber, v, c1, c2, c3)
+        case (Schema.EnumN(cs), v)                               => encodeEnum(fieldNumber, v, cs: _*)
+        case (_, _)                                              => Chunk.empty
       }
 
     private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[_, Z]*): Chunk[Byte] = {
