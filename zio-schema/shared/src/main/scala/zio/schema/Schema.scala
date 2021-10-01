@@ -96,6 +96,8 @@ sealed trait Schema[A] {
   def toDynamic(value: A): DynamicValue =
     DynamicValue.fromSchemaAndValue(self, value)
 
+  def toTransparent: TransparentSchema.Of[A] = TransparentSchema(self)
+
   /**
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
    * between `A` and `B`, without possibility of failure.
@@ -181,7 +183,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   implicit val none: Schema[None.type] = Schema[Unit].transform(_ => None, _ => ())
 
   implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
-    Schema.Sequence(schemaA, identity, identity)
+    Schema.Sequence(schemaA, ChunkLike.forAnyChunk)
 
   implicit def either[A, B](implicit left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
     EitherSchema(left, right)
@@ -190,7 +192,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     schemaA.transform(Left(_), _.value)
 
   implicit def list[A](implicit schemaA: Schema[A]): Schema[List[A]] =
-    Schema.Sequence(schemaA, _.toList, Chunk.fromIterable(_))
+    Schema.Sequence(schemaA, ChunkLike.forAnyList)
 
   implicit def option[A](implicit element: Schema[A]): Schema[Option[A]] =
     Optional(element)
@@ -219,8 +221,9 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     def rawConstruct(values: Chunk[Any]): Either[String, R]
   }
 
-  final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
-      extends Schema[Col[A]] {
+  final case class Sequence[Col[_], A](schemaA: Schema[A], chunkLike: ChunkLike[Col]) extends Schema[Col[A]] {
+    final type ElementType       = A
+    final type CollectionType[T] = Col[T]
     override def toString: String = s"Sequence($schemaA)"
   }
 
@@ -247,6 +250,29 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   }
 
   final case class Meta(ast: SchemaAst) extends Schema[Schema[_]]
+
+  //TODO: Try Representing as a trait in Scala 2 and as a Higher Order function or MatchType in Scala3
+  trait ChunkLike[Col[+_]] {
+    def toChunk[A](col: Col[A]): Chunk[A]
+    def fromChunk[A](chunk: Chunk[A]): Col[A]
+  }
+
+  object ChunkLike {
+
+    implicit val forAnyChunk: ChunkLike[Chunk] = new ChunkLike[Chunk] {
+      def toChunk[A](col: Chunk[A]): Chunk[A]     = col
+      def fromChunk[A](chunk: Chunk[A]): Chunk[A] = chunk
+    }
+    implicit val forAnyList: ChunkLike[List] = new ChunkLike[List] {
+      def toChunk[A](col: List[A]): Chunk[A]     = Chunk.fromIterable(col)
+      def fromChunk[A](chunk: Chunk[A]): List[A] = chunk.toList
+    }
+
+    implicit val forAnyVector: ChunkLike[Vector] = new ChunkLike[Vector] {
+      def toChunk[A](col: Vector[A]): Chunk[A]     = Chunk.fromIterable(col)
+      def fromChunk[A](chunk: Chunk[A]): Vector[A] = chunk.toVector
+    }
+  }
 }
 
 //scalafmt: { maxColumn = 400 }
@@ -2300,4 +2326,23 @@ sealed trait RecordSchemas { self: Schema.type =>
     override def toString: String = s"CaseClass22(${structure.mkString(",")})"
 
   }
+}
+
+sealed trait TransparentSchema {
+  type Type
+  def toSchema: Schema[Type]
+}
+
+object TransparentSchema {
+
+  type Of[A] = TransparentSchema {
+    type Type = A
+  }
+
+  def apply[A](schema: Schema[A]): TransparentSchema.Of[A] = new TransparentSchema {
+    final type Type = A
+    def toSchema: Schema[Type] = schema
+  }
+
+  implicit def toSchema[A](transparentSchema: TransparentSchema.Of[A]): Schema[A] = transparentSchema.toSchema
 }

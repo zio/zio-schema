@@ -84,7 +84,7 @@ object ProtobufCodec extends Codec {
      */
     @scala.annotation.tailrec
     def canBePacked(schema: Schema[_]): Boolean = schema match {
-      case Schema.Sequence(element, _, _) => canBePacked(element)
+      case Schema.Sequence(element, _)    => canBePacked(element)
       case _: Schema.Enumeration          => false
       case Schema.Transform(codec, _, _)  => canBePacked(codec)
       case Schema.Primitive(standardType) => canBePacked(standardType)

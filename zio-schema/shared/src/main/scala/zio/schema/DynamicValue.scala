@@ -4,6 +4,7 @@ import scala.collection.immutable.ListMap
 
 import zio.Chunk
 import zio.schema.ast.{ Migration, SchemaAst }
+import zio.ChunkLike
 
 trait DynamicValue { self =>
 
@@ -53,14 +54,15 @@ trait DynamicValue { self =>
           case (Right(a), Right(b)) => Right(a -> b)
         }
 
-      case (DynamicValue.Sequence(values), Schema.Sequence(schema, f, _)) =>
-        values
+      case (DynamicValue.Sequence(values), Schema.Sequence(schema, chunkLike)) =>
+        val typedValues = values
           .foldLeft[Either[String, Chunk[_]]](Right[String, Chunk[A]](Chunk.empty)) {
             case (err @ Left(_), _) => err
             case (Right(values), value) =>
               value.toTypedValue(schema).map(values :+ _)
           }
-          .map(f)
+          .asInstanceOf[Either[String, Chunk[Any]]]
+        typedValues.map(chunkLike.fromChunk).asInstanceOf[Either[String, A]]
 
       case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_])) =>
         value.toTypedValue(schema).map(Some(_))
@@ -964,8 +966,10 @@ object DynamicValue {
 
       case Schema.Fail(message) => DynamicValue.Error(message)
 
-      case Schema.Sequence(schema, _, toChunk) =>
-        DynamicValue.Sequence(toChunk(value).map(fromSchemaAndValue(schema, _)))
+      case s @ Schema.Sequence(schema, chunkLike) =>
+        val typedSchema = schema.asInstanceOf[Schema[s.ElementType]]
+        val collection  = value.asInstanceOf[s.CollectionType[s.ElementType]]
+        DynamicValue.Sequence(chunkLike.toChunk(collection).map(fromSchemaAndValue(typedSchema, _)))
 
       case Schema.EitherSchema(left, right) =>
         value match {

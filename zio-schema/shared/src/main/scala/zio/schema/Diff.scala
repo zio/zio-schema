@@ -106,7 +106,7 @@ object Differ {
       temporal[ZonedDateTime](ChronoUnit.MILLIS)
     case Schema.Tuple(leftSchema, rightSchema)        => fromSchema(leftSchema) <*> fromSchema(rightSchema)
     case Schema.Optional(schema)                      => fromSchema(schema).optional
-    case Schema.Sequence(schema, _, f)                => fromSchema(schema).foreach(f).asInstanceOf[Differ[A]]
+    case Schema.Sequence(schema, chunkLike)           => fromSchema(schema).foreach(chunkLike.toChunk).asInstanceOf[Differ[A]]
     case Schema.EitherSchema(leftSchema, rightSchema) => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                           => fromSchema(s.schema)
     case Schema.Transform(schema, _, f)               => fromSchema(schema).transformOrFail(f)
