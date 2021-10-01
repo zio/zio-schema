@@ -225,7 +225,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     final type ElementType       = A
     final type CollectionType[T] = Col[T]
     final type ColType           = CollectionType[ElementType]
-    override def toString: String                              = s"Sequence($schemaA)"
+    override def toString: String = s"Sequence($schemaA)"
   }
 
   final case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
