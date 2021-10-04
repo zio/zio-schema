@@ -7,14 +7,15 @@ import zio.test.Assertion._
 import zio.test._
 
 object LensSpec extends DefaultRunnableSpec {
+  import SchemaDerivation._
 
   def spec: ZSpec[Environment, Failure] = suite("LensSpec")(
     suite("constructors")(
       testM("first")(lensLaws(Gen.anyInt.zip(Gen.anyInt), Gen.anyInt)(Lens.first)),
       testM("second")(lensLaws(Gen.anyInt.zip(Gen.anyInt), Gen.anyInt)(Lens.second)),
-      testM("field1")(lensLaws(TestClass.gen, Gen.anyInt)(TestClass.field1)),
-      testM("field2")(lensLaws(TestClass.gen, Gen.anyString)(TestClass.field2)),
-      testM("field2")(lensLaws(TestClass.gen, Gen.anyLong)(TestClass.field3))
+      testM("field1")(lensLaws(testClassGen, Gen.anyInt)(field1)),
+      testM("field2")(lensLaws(testClassGen, Gen.anyString)(field2)),
+      testM("field2")(lensLaws(testClassGen, Gen.anyLong)(field3))
     )
   )
 
@@ -54,17 +55,54 @@ object LensSpec extends DefaultRunnableSpec {
 
   case class TestClass(field1: Int, field2: String, field3: Long)
 
-  object TestClass {
-    implicit val schema: Schema.CaseClass3[Int, String, Long, TestClass] =
-      DeriveSchema.gen[TestClass].asInstanceOf[Schema.CaseClass3[Int, String, Long, TestClass]]
 
-    val gen: Gen[Random with Sized, TestClass] = for {
+      val testClassGen: Gen[Random with Sized, TestClass] = for {
       f1 <- Gen.anyInt
       f2 <- Gen.anyString
       f3 <- Gen.anyLong
     } yield TestClass(f1, f2, f3)
 
-    val (field1, field2, field3) = schema.makeAccessors(ZioOpticsBuilder)
+  // case class TestClass(field1: Int, field2: String, field3: Long)
+
+  val s = gen[TestClass]
+
+  case class Foo(a: Int, b: String)
+  // object Foo {
+  //   implicit val schema =  gen[Foo]
+  // }
+  case class Bar(a: Foo, b: String)
+
+  val s1 = {
+    val s = gen[Bar]
+    println(s"Schema:\n$s")
+    s
   }
+
+  val (field1, field2, field3) = s.makeAccessors(ZioOpticsBuilder)
+
+  // object TestClass {
+  //   implicit val schema: Schema.CaseClass3[Int, String, Long, TestClass] =
+  //     DeriveSchema.gen[TestClass].asInstanceOf[Schema.CaseClass3[Int, String, Long, TestClass]]
+
+  //   val s: Schema.CaseClass3[Int, String, Long, TestClass] = 
+  //     Schema.CaseClass3[Int,String,Long,TestClass](
+  //       annotations = Chunk.empty,
+  //       field1 = Schema.Field("field1", Schema.primitive(StandardType.IntType)),
+  //       field2 = Schema.Field("field2", Schema.primitive(StandardType.StringType)),
+  //       field3 = Schema.Field("field3", Schema.primitive(StandardType.LongType)),
+  //       (_1: Int, _2: String, _3: Long) => TestClass(_1,_2,_3),
+  //       (t: TestClass) => t.field1,
+  //       (t: TestClass) => t.field2,
+  //       (t: TestClass) => t.field3,
+  //     )
+
+  //   val gen: Gen[Random with Sized, TestClass] = for {
+  //     f1 <- Gen.anyInt
+  //     f2 <- Gen.anyString
+  //     f3 <- Gen.anyLong
+  //   } yield TestClass(f1, f2, f3)
+
+  //   val (field1, field2, field3) = s.makeAccessors(ZioOpticsBuilder)
+  // }
 
 }
