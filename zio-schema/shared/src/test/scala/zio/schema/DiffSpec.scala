@@ -234,7 +234,7 @@ object DiffSpec extends DefaultRunnableSpec {
         check(Gen.mapOf(Gen.anyString, Gen.anyInt) <*> Gen.mapOf(Gen.anyString, Gen.anyInt)) {
           case (thisMap, thatMap) =>
             val diff = Schema
-              .GenericRecord(Chunk(Schema.Field("key", Schema[String])))
+              .record(Schema.Field("key", Schema[String]))
               .diff(ListMap.empty ++ thisMap, ListMap.empty ++ thatMap)
             assertTrue(diff == Diff.NotComparable)
         }

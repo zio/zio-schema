@@ -10,7 +10,8 @@ import scala.util.Try
 
 import zio._
 import zio.console._
-import zio.schema.{ DeriveSchema, Schema, SchemaGen, StandardType }
+import zio.schema.CaseSet._
+import zio.schema.{ CaseSet, DeriveSchema, Schema, SchemaGen, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
@@ -325,10 +326,10 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       },
       testM("enumerations preserving type order") {
         for {
-          s1 <- encodeAndDecode(schemaGenericEnumeration, "string"       -> "s")
-          i1 <- encodeAndDecode(schemaGenericEnumeration, "int"          -> 1)
-          s2 <- encodeAndDecode(schemaGenericEnumerationSorted, "string" -> "s")
-          i2 <- encodeAndDecode(schemaGenericEnumerationSorted, "int"    -> 1)
+          s1 <- encodeAndDecode(schemaGenericEnumeration, "s")
+          i1 <- encodeAndDecode(schemaGenericEnumeration, 1)
+          s2 <- encodeAndDecode(schemaGenericEnumerationSorted, "s")
+          i2 <- encodeAndDecode(schemaGenericEnumerationSorted, 1)
         } yield assert(s1)(equalTo(s2)) && assert(i1)(equalTo(i2))
       },
       testM("enums unwrapped") {
@@ -677,18 +678,12 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
 
   lazy val schemaEnumeration: Schema[Enumeration] = DeriveSchema.gen[Enumeration]
 
-  lazy val schemaGenericEnumeration: Schema[(String, _)] = Schema.enumeration(
-    ListMap(
-      "string" -> Schema.primitive(StandardType.StringType),
-      "int"    -> Schema.primitive(StandardType.IntType)
-    )
+  lazy val schemaGenericEnumeration: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
+    caseOf[String, Any]("string")(_.asInstanceOf[String]) ++ caseOf[Int, Any]("int")(_.asInstanceOf[Int])
   )
 
-  lazy val schemaGenericEnumerationSorted: Schema[(String, _)] = Schema.enumeration(
-    ListMap(
-      "int"    -> Schema.primitive(StandardType.IntType),
-      "string" -> Schema.primitive(StandardType.StringType)
-    )
+  lazy val schemaGenericEnumerationSorted: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
+    caseOf[Int, Any]("int")(_.asInstanceOf[Int]) ++ caseOf[String, Any]("string")(_.asInstanceOf[String])
   )
 
   val schemaFail: Schema[StringValue] = Schema.fail("failing schema")

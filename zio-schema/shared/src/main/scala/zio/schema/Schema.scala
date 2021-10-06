@@ -29,6 +29,8 @@ import zio.schema.ast._
 sealed trait Schema[A] {
   self =>
 
+  type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]]
+
   /**
    * A symbolic operator for [[optional]].
    */
@@ -69,6 +71,8 @@ sealed trait Schema[A] {
 
   def fromDynamic(value: DynamicValue): Either[String, A] =
     value.toTypedValue(self)
+
+  def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal]
 
   /**
    *  Generate a homomorphism from A to B iff A and B are homomorphic
@@ -124,8 +128,8 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   def defer[A](schema: => Schema[A]): Schema[A] = Lazy(() => schema)
 
-  def enumeration(structure: ListMap[String, Schema[_]]): Schema[(String, _)] =
-    Enumeration(structure)
+  def enumeration[A, C <: CaseSet.Aux[A]](caseSet: C): Schema[A] =
+    EnumN(caseSet)
 
   def fail[A](message: String): Schema[A] = Fail(message)
 
@@ -133,7 +137,9 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     codec.transform[A](_._1, a => (a, ()))
 
   def record(field: Field[_]*): Schema[ListMap[String, _]] =
-    GenericRecord(Chunk.fromIterable(field))
+    GenericRecord(
+      field.foldRight[FieldSet](FieldSet.Empty)((field, acc) => field :*: acc)
+    )
 
   def second[A](codec: Schema[(Unit, A)]): Schema[A] =
     codec.transform[A](_._2, a => ((), a))
@@ -213,8 +219,6 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     def structure: ListMap[String, Schema[_]]
   }
 
-  final case class Enumeration(override val structure: ListMap[String, Schema[_]]) extends Enum[(String, _)]
-
   sealed trait Record[R] extends Schema[R] {
     def structure: Chunk[Field[_]]
     def annotations: Chunk[Any] = Chunk.empty
@@ -222,79 +226,181 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   }
 
   final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
-      extends Schema[Col[A]] {
-    override def toString: String = s"Sequence($schemaA)"
+      extends Schema[Col[A]] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = Traversal[Col, A]
+
+    override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, A] = b.makeTraversal(self, schemaA)
+    override def toString: String                                       = s"Sequence($schemaA)"
   }
 
   final case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
       extends Schema[B] {
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = codec.Accessors[Lens, Prism, Traversal]
+
+    override def makeAccessors(b: AccessorBuilder): codec.Accessors[b.Lens, b.Prism, b.Traversal] =
+      codec.makeAccessors(b)
+
     override def serializable: Schema[Schema[_]] = Meta(SchemaAst.fromSchema(codec))
     override def toString: String                = s"Transform($codec)"
   }
 
-  final case class Primitive[A](standardType: StandardType[A]) extends Schema[A]
+  final case class Primitive[A](standardType: StandardType[A]) extends Schema[A] {
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = Unit
 
-  final case class Optional[A](codec: Schema[A]) extends Schema[Option[A]]
-
-  final case class Fail[A](message: String) extends Schema[A]
-
-  final case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)]
-
-  final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]]
-
-  final case class Lazy[A](private val schema0: () => Schema[A]) extends Schema[A] {
-    lazy val schema: Schema[A] = schema0()
-
-    override def toString: String = "Lazy(lambda)"
+    override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
 
-  final case class Meta(ast: SchemaAst) extends Schema[Schema[_]]
+  final case class Optional[A](codec: Schema[A]) extends Schema[Option[A]] { self =>
+
+    private[schema] val someCodec: Schema[Some[A]] = codec.transform(a => Some(a), _.get)
+
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] =
+      (Prism[Option[A], Some[A]], Prism[Option[A], None.type])
+
+    val toEnum: Enum2[Some[A], None.type, Option[A]] = Enum2(
+      Case[Some[A], Option[A]]("Some", someCodec, _.asInstanceOf[Some[A]]),
+      Case[None.type, Option[A]]("None", singleton(None), _.asInstanceOf[None.type])
+    )
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Option[A], Some[A]], b.Prism[Option[A], None.type]) =
+      b.makePrism(toEnum, toEnum.case1) -> b.makePrism(toEnum, toEnum.case2)
+  }
+
+  final case class Fail[A](message: String) extends Schema[A] {
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = Unit
+
+    override def makeAccessors(b: AccessorBuilder): Unit = ()
+  }
+
+  final case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[(A, B), A], Lens[(A, B), B])
+
+    val toRecord: CaseClass2[A, B, (A, B)] = CaseClass2[A, B, (A, B)](
+      field1 = Field("_1", left),
+      field2 = Field("_2", right),
+      construct = (a, b) => (a, b),
+      extractField1 = _._1,
+      extractField2 = _._2
+    )
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[(A, B), A], b.Lens[(A, B), B]) =
+      b.makeLens(toRecord, toRecord.field1) -> b.makeLens(toRecord, toRecord.field2)
+  }
+
+  final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] =
+      (Prism[Either[A, B], Right[Nothing, B]], Prism[Either[A, B], Left[A, Nothing]])
+
+    val rightSchema: Schema[Right[Nothing, B]] = right.transform(b => Right(b), _.value)
+    val leftSchema: Schema[Left[A, Nothing]]   = left.transform(a => Left(a), _.value)
+
+    val toEnum: Enum2[Right[Nothing, B], Left[A, Nothing], Either[A, B]] = Enum2(
+      Case("Right", rightSchema, _.asInstanceOf[Right[Nothing, B]]),
+      Case("Left", leftSchema, _.asInstanceOf[Left[A, Nothing]])
+    )
+
+    override def makeAccessors(
+      b: AccessorBuilder
+    ): (b.Prism[Either[A, B], Right[Nothing, B]], b.Prism[Either[A, B], Left[A, Nothing]]) =
+      b.makePrism(toEnum, toEnum.case1) -> b.makePrism(toEnum, toEnum.case2)
+  }
+
+  final case class Lazy[A](private val schema0: () => Schema[A]) extends Schema[A] {
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = schema.Accessors[Lens, Prism, Traversal]
+
+    lazy val schema: Schema[A] = schema0()
+
+    override def makeAccessors(b: AccessorBuilder): schema.Accessors[b.Lens, b.Prism, b.Traversal] =
+      schema.makeAccessors(b)
+
+    override def toString: String = "$Lazy$"
+  }
+
+  final case class Meta(ast: SchemaAst) extends Schema[Schema[_]] {
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = Unit
+
+    override def makeAccessors(b: AccessorBuilder): Unit = ()
+  }
 }
 
 //scalafmt: { maxColumn = 400 }
 sealed trait EnumSchemas { self: Schema.type =>
 
-  sealed case class Case[A <: Z, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A) {
+  sealed case class Case[A, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A) {
 
     def deconstruct(z: Z): Option[A] =
       try {
         Some(unsafeDeconstruct(z))
-      } catch { case _: IllegalArgumentException => None }
+      } catch { case _: Throwable => None }
 
     override def toString: String = s"Case($id,$codec)"
   }
 
-  sealed case class Enum1[A <: Z, Z](case1: Case[A, Z]) extends Enum[Z] {
+  sealed case class Enum1[A <: Z, Z](case1: Case[A, Z]) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = Prism[Z, A]
+
+    override def makeAccessors(b: AccessorBuilder): b.Prism[Z, A] = b.makePrism(self, case1)
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(case1.id -> case1.codec)
   }
 
-  sealed case class Enum2[A1 <: Z, A2 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z]) extends Enum[Z] {
+  sealed case class Enum2[A1 <: Z, A2 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z]) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2]) =
+      (b.makePrism(self, case1), b.makePrism(self, case2))
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(case1.id -> case1.codec, case2.id -> case2.codec)
   }
 
-  sealed case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z]) extends Enum[Z] {
+  sealed case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z]) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3]) =
+      (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3))
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(case1.id -> case1.codec, case2.id -> case2.codec, case3.id -> case3.codec)
   }
 
-  sealed case class Enum4[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z]) extends Enum[Z] {
+  sealed case class Enum4[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z]) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4]) =
+      (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4))
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(case1.id -> case1.codec, case2.id -> case2.codec, case3.id -> case3.codec, case4.id -> case4.codec)
   }
 
-  sealed case class Enum5[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z]) extends Enum[Z] {
+  sealed case class Enum5[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z]) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5]) =
+      (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5))
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(case1.id -> case1.codec, case2.id -> case2.codec, case3.id -> case3.codec, case4.id -> case4.codec, case5.id -> case5.codec)
   }
 
-  sealed case class Enum6[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z]) extends Enum[Z] {
+  sealed case class Enum6[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z]) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6]) =
+      (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6))
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(case1.id -> case1.codec, case2.id -> case2.codec, case3.id -> case3.codec, case4.id -> case4.codec, case5.id -> case5.codec, case6.id -> case6.codec)
   }
 
-  sealed case class Enum7[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z]) extends Enum[Z] {
+  sealed case class Enum7[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z]) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7]) =
+      (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6), b.makePrism(self, case7))
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id -> case1.codec,
@@ -307,7 +413,12 @@ sealed trait EnumSchemas { self: Schema.type =>
       )
   }
 
-  sealed case class Enum8[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z]) extends Enum[Z] {
+  sealed case class Enum8[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z]) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8]) =
+      (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6), b.makePrism(self, case7), b.makePrism(self, case8))
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id -> case1.codec,
@@ -321,7 +432,12 @@ sealed trait EnumSchemas { self: Schema.type =>
       )
   }
 
-  sealed case class Enum9[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z]) extends Enum[Z] {
+  sealed case class Enum9[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z]) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9]) =
+      (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6), b.makePrism(self, case7), b.makePrism(self, case8), b.makePrism(self, case9))
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id -> case1.codec,
@@ -335,7 +451,12 @@ sealed trait EnumSchemas { self: Schema.type =>
         case9.id -> case9.codec
       )
   }
-  sealed case class Enum10[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], case10: Case[A10, Z]) extends Enum[Z] {
+  sealed case class Enum10[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], case10: Case[A10, Z]) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10]) =
+      (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6), b.makePrism(self, case7), b.makePrism(self, case8), b.makePrism(self, case9), b.makePrism(self, case10))
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id  -> case1.codec,
@@ -350,7 +471,12 @@ sealed trait EnumSchemas { self: Schema.type =>
         case10.id -> case10.codec
       )
   }
-  sealed case class Enum11[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], case10: Case[A10, Z], case11: Case[A11, Z]) extends Enum[Z] {
+  sealed case class Enum11[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], case10: Case[A10, Z], case11: Case[A11, Z]) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11]) =
+      (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6), b.makePrism(self, case7), b.makePrism(self, case8), b.makePrism(self, case9), b.makePrism(self, case10), b.makePrism(self, case11))
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id  -> case1.codec,
@@ -367,7 +493,12 @@ sealed trait EnumSchemas { self: Schema.type =>
       )
   }
   sealed case class Enum12[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], case10: Case[A10, Z], case11: Case[A11, Z], case12: Case[A12, Z])
-      extends Enum[Z] {
+      extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12]) =
+      (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6), b.makePrism(self, case7), b.makePrism(self, case8), b.makePrism(self, case9), b.makePrism(self, case10), b.makePrism(self, case11), b.makePrism(self, case12))
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id  -> case1.codec,
@@ -398,7 +529,12 @@ sealed trait EnumSchemas { self: Schema.type =>
     case11: Case[A11, Z],
     case12: Case[A12, Z],
     case13: Case[A13, Z]
-  ) extends Enum[Z] {
+  ) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13]) =
+      (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6), b.makePrism(self, case7), b.makePrism(self, case8), b.makePrism(self, case9), b.makePrism(self, case10), b.makePrism(self, case11), b.makePrism(self, case12), b.makePrism(self, case13))
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id  -> case1.codec,
@@ -432,7 +568,12 @@ sealed trait EnumSchemas { self: Schema.type =>
     case12: Case[A12, Z],
     case13: Case[A13, Z],
     case14: Case[A14, Z]
-  ) extends Enum[Z] {
+  ) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14]) =
+      (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6), b.makePrism(self, case7), b.makePrism(self, case8), b.makePrism(self, case9), b.makePrism(self, case10), b.makePrism(self, case11), b.makePrism(self, case12), b.makePrism(self, case13), b.makePrism(self, case14))
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id  -> case1.codec,
@@ -467,7 +608,28 @@ sealed trait EnumSchemas { self: Schema.type =>
     case13: Case[A13, Z],
     case14: Case[A14, Z],
     case15: Case[A15, Z]
-  ) extends Enum[Z] {
+  ) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15]) =
+      (
+        b.makePrism(self, case1),
+        b.makePrism(self, case2),
+        b.makePrism(self, case3),
+        b.makePrism(self, case4),
+        b.makePrism(self, case5),
+        b.makePrism(self, case6),
+        b.makePrism(self, case7),
+        b.makePrism(self, case8),
+        b.makePrism(self, case9),
+        b.makePrism(self, case10),
+        b.makePrism(self, case11),
+        b.makePrism(self, case12),
+        b.makePrism(self, case13),
+        b.makePrism(self, case14),
+        b.makePrism(self, case15)
+      )
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id  -> case1.codec,
@@ -504,7 +666,29 @@ sealed trait EnumSchemas { self: Schema.type =>
     case14: Case[A14, Z],
     case15: Case[A15, Z],
     case16: Case[A16, Z]
-  ) extends Enum[Z] {
+  ) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16]) =
+      (
+        b.makePrism(self, case1),
+        b.makePrism(self, case2),
+        b.makePrism(self, case3),
+        b.makePrism(self, case4),
+        b.makePrism(self, case5),
+        b.makePrism(self, case6),
+        b.makePrism(self, case7),
+        b.makePrism(self, case8),
+        b.makePrism(self, case9),
+        b.makePrism(self, case10),
+        b.makePrism(self, case11),
+        b.makePrism(self, case12),
+        b.makePrism(self, case13),
+        b.makePrism(self, case14),
+        b.makePrism(self, case15),
+        b.makePrism(self, case16)
+      )
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id  -> case1.codec,
@@ -543,7 +727,30 @@ sealed trait EnumSchemas { self: Schema.type =>
     case15: Case[A15, Z],
     case16: Case[A16, Z],
     case17: Case[A17, Z]
-  ) extends Enum[Z] {
+  ) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17]) =
+      (
+        b.makePrism(self, case1),
+        b.makePrism(self, case2),
+        b.makePrism(self, case3),
+        b.makePrism(self, case4),
+        b.makePrism(self, case5),
+        b.makePrism(self, case6),
+        b.makePrism(self, case7),
+        b.makePrism(self, case8),
+        b.makePrism(self, case9),
+        b.makePrism(self, case10),
+        b.makePrism(self, case11),
+        b.makePrism(self, case12),
+        b.makePrism(self, case13),
+        b.makePrism(self, case14),
+        b.makePrism(self, case15),
+        b.makePrism(self, case16),
+        b.makePrism(self, case17)
+      )
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id  -> case1.codec,
@@ -584,7 +791,31 @@ sealed trait EnumSchemas { self: Schema.type =>
     case16: Case[A16, Z],
     case17: Case[A17, Z],
     case18: Case[A18, Z]
-  ) extends Enum[Z] {
+  ) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17], b.Prism[Z, A18]) =
+      (
+        b.makePrism(self, case1),
+        b.makePrism(self, case2),
+        b.makePrism(self, case3),
+        b.makePrism(self, case4),
+        b.makePrism(self, case5),
+        b.makePrism(self, case6),
+        b.makePrism(self, case7),
+        b.makePrism(self, case8),
+        b.makePrism(self, case9),
+        b.makePrism(self, case10),
+        b.makePrism(self, case11),
+        b.makePrism(self, case12),
+        b.makePrism(self, case13),
+        b.makePrism(self, case14),
+        b.makePrism(self, case15),
+        b.makePrism(self, case16),
+        b.makePrism(self, case17),
+        b.makePrism(self, case18)
+      )
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id  -> case1.codec,
@@ -627,7 +858,32 @@ sealed trait EnumSchemas { self: Schema.type =>
     case17: Case[A17, Z],
     case18: Case[A18, Z],
     case19: Case[A19, Z]
-  ) extends Enum[Z] {
+  ) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18], Prism[Z, A19])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17], b.Prism[Z, A18], b.Prism[Z, A19]) =
+      (
+        b.makePrism(self, case1),
+        b.makePrism(self, case2),
+        b.makePrism(self, case3),
+        b.makePrism(self, case4),
+        b.makePrism(self, case5),
+        b.makePrism(self, case6),
+        b.makePrism(self, case7),
+        b.makePrism(self, case8),
+        b.makePrism(self, case9),
+        b.makePrism(self, case10),
+        b.makePrism(self, case11),
+        b.makePrism(self, case12),
+        b.makePrism(self, case13),
+        b.makePrism(self, case14),
+        b.makePrism(self, case15),
+        b.makePrism(self, case16),
+        b.makePrism(self, case17),
+        b.makePrism(self, case18),
+        b.makePrism(self, case19)
+      )
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id  -> case1.codec,
@@ -672,7 +928,33 @@ sealed trait EnumSchemas { self: Schema.type =>
     case18: Case[A18, Z],
     case19: Case[A19, Z],
     case20: Case[A20, Z]
-  ) extends Enum[Z] {
+  ) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18], Prism[Z, A19], Prism[Z, A20])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17], b.Prism[Z, A18], b.Prism[Z, A19], b.Prism[Z, A20]) =
+      (
+        b.makePrism(self, case1),
+        b.makePrism(self, case2),
+        b.makePrism(self, case3),
+        b.makePrism(self, case4),
+        b.makePrism(self, case5),
+        b.makePrism(self, case6),
+        b.makePrism(self, case7),
+        b.makePrism(self, case8),
+        b.makePrism(self, case9),
+        b.makePrism(self, case10),
+        b.makePrism(self, case11),
+        b.makePrism(self, case12),
+        b.makePrism(self, case13),
+        b.makePrism(self, case14),
+        b.makePrism(self, case15),
+        b.makePrism(self, case16),
+        b.makePrism(self, case17),
+        b.makePrism(self, case18),
+        b.makePrism(self, case19),
+        b.makePrism(self, case20)
+      )
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id  -> case1.codec,
@@ -719,7 +1001,36 @@ sealed trait EnumSchemas { self: Schema.type =>
     case19: Case[A19, Z],
     case20: Case[A20, Z],
     case21: Case[A21, Z]
-  ) extends Enum[Z] {
+  ) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18], Prism[Z, A19], Prism[Z, A20], Prism[Z, A21])
+
+    override def makeAccessors(
+      b: AccessorBuilder
+    ): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17], b.Prism[Z, A18], b.Prism[Z, A19], b.Prism[Z, A20], b.Prism[Z, A21]) =
+      (
+        b.makePrism(self, case1),
+        b.makePrism(self, case2),
+        b.makePrism(self, case3),
+        b.makePrism(self, case4),
+        b.makePrism(self, case5),
+        b.makePrism(self, case6),
+        b.makePrism(self, case7),
+        b.makePrism(self, case8),
+        b.makePrism(self, case9),
+        b.makePrism(self, case10),
+        b.makePrism(self, case11),
+        b.makePrism(self, case12),
+        b.makePrism(self, case13),
+        b.makePrism(self, case14),
+        b.makePrism(self, case15),
+        b.makePrism(self, case16),
+        b.makePrism(self, case17),
+        b.makePrism(self, case18),
+        b.makePrism(self, case19),
+        b.makePrism(self, case20),
+        b.makePrism(self, case21)
+      )
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id  -> case1.codec,
@@ -768,7 +1079,37 @@ sealed trait EnumSchemas { self: Schema.type =>
     case20: Case[A20, Z],
     case21: Case[A21, Z],
     case22: Case[A22, Z]
-  ) extends Enum[Z] {
+  ) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18], Prism[Z, A19], Prism[Z, A20], Prism[Z, A21], Prism[Z, A22])
+
+    override def makeAccessors(
+      b: AccessorBuilder
+    ): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17], b.Prism[Z, A18], b.Prism[Z, A19], b.Prism[Z, A20], b.Prism[Z, A21], b.Prism[Z, A22]) =
+      (
+        b.makePrism(self, case1),
+        b.makePrism(self, case2),
+        b.makePrism(self, case3),
+        b.makePrism(self, case4),
+        b.makePrism(self, case5),
+        b.makePrism(self, case6),
+        b.makePrism(self, case7),
+        b.makePrism(self, case8),
+        b.makePrism(self, case9),
+        b.makePrism(self, case10),
+        b.makePrism(self, case11),
+        b.makePrism(self, case12),
+        b.makePrism(self, case13),
+        b.makePrism(self, case14),
+        b.makePrism(self, case15),
+        b.makePrism(self, case16),
+        b.makePrism(self, case17),
+        b.makePrism(self, case18),
+        b.makePrism(self, case19),
+        b.makePrism(self, case20),
+        b.makePrism(self, case21),
+        b.makePrism(self, case22)
+      )
+
     override def structure: ListMap[String, Schema[_]] =
       ListMap(
         case1.id  -> case1.codec,
@@ -795,9 +1136,12 @@ sealed trait EnumSchemas { self: Schema.type =>
         case22.id -> case22.codec
       )
   }
-  sealed case class EnumN[Z](cases: Seq[Case[_ <: Z, Z]]) extends Enum[Z] {
-    override def structure: ListMap[String, Schema[_]] =
-      ListMap.empty ++ cases.map(c => c.id -> c.codec)
+  sealed case class EnumN[Z, C <: CaseSet.Aux[Z]](caseSet: C) extends Enum[Z] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = caseSet.Accessors[Z, Lens, Prism, Traversal]
+
+    override def structure: ListMap[String, Schema[_]] = caseSet.toMap
+
+    override def makeAccessors(b: AccessorBuilder): caseSet.Accessors[Z, b.Lens, b.Prism, b.Traversal] = caseSet.makeAccessors(self, b)
   }
 }
 
@@ -1243,7 +1587,14 @@ sealed trait RecordSchemas { self: Schema.type =>
     override def toString: String = s"Field($label,$schema)"
   }
 
-  sealed case class GenericRecord(override val structure: Chunk[Field[_]]) extends Record[ListMap[String, _]] {
+  sealed case class GenericRecord(fieldSet: FieldSet) extends Record[ListMap[String, _]] { self =>
+
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = fieldSet.Accessors[ListMap[String, _], Lens, Prism, Traversal]
+
+    override def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal] = fieldSet.makeAccessors(self, b)
+
+    override def structure: Chunk[Field[_]] = fieldSet.toChunk
+
     override def rawConstruct(values: Chunk[Any]): Either[String, ListMap[String, _]] =
       if (values.size == structure.size)
         Right(ListMap(structure.map(_.label).zip(values): _*))
@@ -1252,6 +1603,11 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass1[A, Z](override val annotations: Chunk[Any] = Chunk.empty, field: Field[A], construct: A => Z, extractField: Z => A) extends Record[Z] { self =>
+
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = Lens[Z, A]
+
+    override def makeAccessors(b: AccessorBuilder): b.Lens[Z, A] = b.makeLens(self, field)
+
     override def structure: Chunk[Field[_]] = Chunk(field)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 1)
@@ -1264,7 +1620,12 @@ sealed trait RecordSchemas { self: Schema.type =>
     override def toString: String = s"CaseClass1(${structure.mkString(",")})"
   }
 
-  sealed case class CaseClass2[A1, A2, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], construct: (A1, A2) => Z, extractField1: Z => A1, extractField2: Z => A2) extends Record[Z] {
+  sealed case class CaseClass2[A1, A2, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], construct: (A1, A2) => Z, extractField1: Z => A1, extractField2: Z => A2) extends Record[Z] { self =>
+
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2]) = (b.makeLens(self, field1), b.makeLens(self, field2))
+
     override def structure: Chunk[Field[_]] = Chunk(field1, field2)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 2)
@@ -1278,7 +1639,12 @@ sealed trait RecordSchemas { self: Schema.type =>
 
   }
 
-  sealed case class CaseClass3[A1, A2, A3, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], field3: Field[A3], construct: (A1, A2, A3) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3) extends Record[Z] {
+  sealed case class CaseClass3[A1, A2, A3, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], field3: Field[A3], construct: (A1, A2, A3) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3]) =
+      (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3))
+
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 3)
@@ -1293,7 +1659,12 @@ sealed trait RecordSchemas { self: Schema.type =>
 
   }
 
-  sealed case class CaseClass4[A1, A2, A3, A4, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], field3: Field[A3], field4: Field[A4], construct: (A1, A2, A3, A4) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3, extractField4: Z => A4) extends Record[Z] {
+  sealed case class CaseClass4[A1, A2, A3, A4, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], field3: Field[A3], field4: Field[A4], construct: (A1, A2, A3, A4) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3, extractField4: Z => A4) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4]) =
+      (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4))
+
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 4)
@@ -1308,7 +1679,12 @@ sealed trait RecordSchemas { self: Schema.type =>
 
   }
 
-  sealed case class CaseClass5[A1, A2, A3, A4, A5, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], field3: Field[A3], field4: Field[A4], field5: Field[A5], construct: (A1, A2, A3, A4, A5) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3, extractField4: Z => A4, extractField5: Z => A5) extends Record[Z] {
+  sealed case class CaseClass5[A1, A2, A3, A4, A5, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], field3: Field[A3], field4: Field[A4], field5: Field[A5], construct: (A1, A2, A3, A4, A5) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3, extractField4: Z => A4, extractField5: Z => A5) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5]) =
+      (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5))
+
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 5)
@@ -1337,7 +1713,12 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField4: Z => A4,
     extractField5: Z => A5,
     extractField6: Z => A6
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6]) =
+      (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6))
+
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 6)
@@ -1369,7 +1750,12 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField5: Z => A5,
     extractField6: Z => A6,
     extractField7: Z => A7
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7]) =
+      (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6), b.makeLens(self, field7))
+
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6, field7)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 7)
@@ -1403,7 +1789,12 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField6: Z => A6,
     extractField7: Z => A7,
     extractField8: Z => A8
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8]) =
+      (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6), b.makeLens(self, field7), b.makeLens(self, field8))
+
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6, field7, field8)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
       if (values.size == 8)
@@ -1439,7 +1830,11 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField7: Z => A7,
     extractField8: Z => A8,
     extractField9: Z => A9
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9]) =
+      (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6), b.makeLens(self, field7), b.makeLens(self, field8), b.makeLens(self, field9))
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
@@ -1478,7 +1873,12 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField8: Z => A8,
     extractField9: Z => A9,
     extractField10: Z => A10
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10]) =
+      (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6), b.makeLens(self, field7), b.makeLens(self, field8), b.makeLens(self, field9), b.makeLens(self, field10))
+
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
@@ -1518,7 +1918,12 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField9: Z => A9,
     extractField10: Z => A10,
     extractField11: Z => A11
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11]) =
+      (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6), b.makeLens(self, field7), b.makeLens(self, field8), b.makeLens(self, field9), b.makeLens(self, field10), b.makeLens(self, field11))
+
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
@@ -1560,7 +1965,12 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField10: Z => A10,
     extractField11: Z => A11,
     extractField12: Z => A12
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12]) =
+      (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6), b.makeLens(self, field7), b.makeLens(self, field8), b.makeLens(self, field9), b.makeLens(self, field10), b.makeLens(self, field11), b.makeLens(self, field12))
+
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
@@ -1604,7 +2014,12 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField11: Z => A11,
     extractField12: Z => A12,
     extractField13: Z => A13
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13]) =
+      (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6), b.makeLens(self, field7), b.makeLens(self, field8), b.makeLens(self, field9), b.makeLens(self, field10), b.makeLens(self, field11), b.makeLens(self, field12), b.makeLens(self, field13))
+
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
@@ -1650,7 +2065,12 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField12: Z => A12,
     extractField13: Z => A13,
     extractField14: Z => A14
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14]) =
+      (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6), b.makeLens(self, field7), b.makeLens(self, field8), b.makeLens(self, field9), b.makeLens(self, field10), b.makeLens(self, field11), b.makeLens(self, field12), b.makeLens(self, field13), b.makeLens(self, field14))
+
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
@@ -1716,7 +2136,28 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField13: Z => A13,
     extractField14: Z => A14,
     extractField15: Z => A15
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15]) =
+      (
+        b.makeLens(self, field1),
+        b.makeLens(self, field2),
+        b.makeLens(self, field3),
+        b.makeLens(self, field4),
+        b.makeLens(self, field5),
+        b.makeLens(self, field6),
+        b.makeLens(self, field7),
+        b.makeLens(self, field8),
+        b.makeLens(self, field9),
+        b.makeLens(self, field10),
+        b.makeLens(self, field11),
+        b.makeLens(self, field12),
+        b.makeLens(self, field13),
+        b.makeLens(self, field14),
+        b.makeLens(self, field15)
+      )
+
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
@@ -1785,7 +2226,29 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField14: Z => A14,
     extractField15: Z => A15,
     extractField16: Z => A16
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16]) =
+      (
+        b.makeLens(self, field1),
+        b.makeLens(self, field2),
+        b.makeLens(self, field3),
+        b.makeLens(self, field4),
+        b.makeLens(self, field5),
+        b.makeLens(self, field6),
+        b.makeLens(self, field7),
+        b.makeLens(self, field8),
+        b.makeLens(self, field9),
+        b.makeLens(self, field10),
+        b.makeLens(self, field11),
+        b.makeLens(self, field12),
+        b.makeLens(self, field13),
+        b.makeLens(self, field14),
+        b.makeLens(self, field15),
+        b.makeLens(self, field16)
+      )
+
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
@@ -1857,7 +2320,30 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField15: Z => A15,
     extractField16: Z => A16,
     extractField17: Z => A17
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17]) =
+      (
+        b.makeLens(self, field1),
+        b.makeLens(self, field2),
+        b.makeLens(self, field3),
+        b.makeLens(self, field4),
+        b.makeLens(self, field5),
+        b.makeLens(self, field6),
+        b.makeLens(self, field7),
+        b.makeLens(self, field8),
+        b.makeLens(self, field9),
+        b.makeLens(self, field10),
+        b.makeLens(self, field11),
+        b.makeLens(self, field12),
+        b.makeLens(self, field13),
+        b.makeLens(self, field14),
+        b.makeLens(self, field15),
+        b.makeLens(self, field16),
+        b.makeLens(self, field17)
+      )
+
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
@@ -1932,7 +2418,31 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField16: Z => A16,
     extractField17: Z => A17,
     extractField18: Z => A18
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17], b.Lens[Z, A18]) =
+      (
+        b.makeLens(self, field1),
+        b.makeLens(self, field2),
+        b.makeLens(self, field3),
+        b.makeLens(self, field4),
+        b.makeLens(self, field5),
+        b.makeLens(self, field6),
+        b.makeLens(self, field7),
+        b.makeLens(self, field8),
+        b.makeLens(self, field9),
+        b.makeLens(self, field10),
+        b.makeLens(self, field11),
+        b.makeLens(self, field12),
+        b.makeLens(self, field13),
+        b.makeLens(self, field14),
+        b.makeLens(self, field15),
+        b.makeLens(self, field16),
+        b.makeLens(self, field17),
+        b.makeLens(self, field18)
+      )
+
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
@@ -2010,7 +2520,32 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField17: Z => A17,
     extractField18: Z => A18,
     extractField19: Z => A19
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18], Lens[Z, A19])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17], b.Lens[Z, A18], b.Lens[Z, A19]) =
+      (
+        b.makeLens(self, field1),
+        b.makeLens(self, field2),
+        b.makeLens(self, field3),
+        b.makeLens(self, field4),
+        b.makeLens(self, field5),
+        b.makeLens(self, field6),
+        b.makeLens(self, field7),
+        b.makeLens(self, field8),
+        b.makeLens(self, field9),
+        b.makeLens(self, field10),
+        b.makeLens(self, field11),
+        b.makeLens(self, field12),
+        b.makeLens(self, field13),
+        b.makeLens(self, field14),
+        b.makeLens(self, field15),
+        b.makeLens(self, field16),
+        b.makeLens(self, field17),
+        b.makeLens(self, field18),
+        b.makeLens(self, field19)
+      )
+
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
@@ -2091,7 +2626,33 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField18: Z => A18,
     extractField19: Z => A19,
     extractField20: Z => A20
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18], Lens[Z, A19], Lens[Z, A20])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17], b.Lens[Z, A18], b.Lens[Z, A19], b.Lens[Z, A20]) =
+      (
+        b.makeLens(self, field1),
+        b.makeLens(self, field2),
+        b.makeLens(self, field3),
+        b.makeLens(self, field4),
+        b.makeLens(self, field5),
+        b.makeLens(self, field6),
+        b.makeLens(self, field7),
+        b.makeLens(self, field8),
+        b.makeLens(self, field9),
+        b.makeLens(self, field10),
+        b.makeLens(self, field11),
+        b.makeLens(self, field12),
+        b.makeLens(self, field13),
+        b.makeLens(self, field14),
+        b.makeLens(self, field15),
+        b.makeLens(self, field16),
+        b.makeLens(self, field17),
+        b.makeLens(self, field18),
+        b.makeLens(self, field19),
+        b.makeLens(self, field20)
+      )
+
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
@@ -2175,7 +2736,34 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField19: Z => A19,
     extractField20: Z => A20,
     extractField21: Z => A21
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18], Lens[Z, A19], Lens[Z, A20], Lens[Z, A21])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17], b.Lens[Z, A18], b.Lens[Z, A19], b.Lens[Z, A20], b.Lens[Z, A21]) =
+      (
+        b.makeLens(self, field1),
+        b.makeLens(self, field2),
+        b.makeLens(self, field3),
+        b.makeLens(self, field4),
+        b.makeLens(self, field5),
+        b.makeLens(self, field6),
+        b.makeLens(self, field7),
+        b.makeLens(self, field8),
+        b.makeLens(self, field9),
+        b.makeLens(self, field10),
+        b.makeLens(self, field11),
+        b.makeLens(self, field12),
+        b.makeLens(self, field13),
+        b.makeLens(self, field14),
+        b.makeLens(self, field15),
+        b.makeLens(self, field16),
+        b.makeLens(self, field17),
+        b.makeLens(self, field18),
+        b.makeLens(self, field19),
+        b.makeLens(self, field20),
+        b.makeLens(self, field21)
+      )
+
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20, field21)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
@@ -2262,7 +2850,35 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField20: Z => A20,
     extractField21: Z => A21,
     extractField22: Z => A22
-  ) extends Record[Z] {
+  ) extends Record[Z] { self =>
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18], Lens[Z, A19], Lens[Z, A20], Lens[Z, A21], Lens[Z, A22])
+
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17], b.Lens[Z, A18], b.Lens[Z, A19], b.Lens[Z, A20], b.Lens[Z, A21], b.Lens[Z, A22]) =
+      (
+        b.makeLens(self, field1),
+        b.makeLens(self, field2),
+        b.makeLens(self, field3),
+        b.makeLens(self, field4),
+        b.makeLens(self, field5),
+        b.makeLens(self, field6),
+        b.makeLens(self, field7),
+        b.makeLens(self, field8),
+        b.makeLens(self, field9),
+        b.makeLens(self, field10),
+        b.makeLens(self, field11),
+        b.makeLens(self, field12),
+        b.makeLens(self, field13),
+        b.makeLens(self, field14),
+        b.makeLens(self, field15),
+        b.makeLens(self, field16),
+        b.makeLens(self, field17),
+        b.makeLens(self, field18),
+        b.makeLens(self, field19),
+        b.makeLens(self, field20),
+        b.makeLens(self, field21),
+        b.makeLens(self, field22)
+      )
+
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13, field14, field15, field16, field17, field18, field19, field20, field21, field22)
     override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
