@@ -4,8 +4,7 @@ import scala.collection.immutable.ListMap
 
 import zio.random._
 import zio.schema.Schema.Primitive
-import zio.schema.SchemaGen.{ schemasAndGens, _ }
-import zio.schema.codec._
+import zio.schema.SchemaGen._
 import zio.test.Assertion._
 import zio.test._
 import zio.{ Chunk, URIO }
@@ -160,9 +159,8 @@ object OrderingSpec extends DefaultRunnableSpec {
 
   def genAnyOrderedPairTransform: Gen[Random with Sized, SchemaAndPair[_]] =
     Gen.oneOf(
-      anyTree(1).flatMap(genOrderedPairDecodeTransform(_)),
       anySchema.flatMap(genOrderedPairIdentityTransform(_)),
-      anySchema.flatMap(genOrderedPairErrorDecodeTransform(_))
+      anySchema.flatMap(genOrderedPairDecodeTransform(_))
     )
 
   def genOrderedPairIdentityTransform[A](schema: Schema[A]): Gen[Random with Sized, SchemaAndPair[_]] =
@@ -174,33 +172,24 @@ object OrderingSpec extends DefaultRunnableSpec {
       Right(a)
     }), small, large)
 
-  def genOrderedPairDecodeTransform[A](schema: Schema[A]): Gen[Random with Sized, SchemaAndPair[Chunk[Byte]]] =
+  def genOrderedPairDecodeTransform[A](schema: Schema[A]): Gen[Random with Sized, SchemaAndPair[DynamicValue]] =
     for {
-      codec               <- Gen.elements(JsonCodec)
       error               <- Gen.boolean
       (small, large)      <- genOrderedPair(schema)
-      encode              = codec.encode(schema).andThen(Right(_))
-      decode              = codec.decode(schema)
+      encode              = (a: A) => Right(schema.toDynamic(a))
+      decode              = schema.fromDynamic(_)
       smallEncoded        = encode(small).toOption.get
-      smallEncodedOrError = if (error) Chunk.fromArray("{{".getBytes()) ++ smallEncoded else smallEncoded
-      largeEncoded        = encode(large).toOption.get
-    } yield (Schema.Transform(schema, encode, decode), smallEncodedOrError, largeEncoded)
-
-  def genOrderedPairErrorDecodeTransform[A](schema: Schema[A]): Gen[Random with Sized, SchemaAndPair[Chunk[Byte]]] =
-    for {
-      codec               <- Gen.elements(JsonCodec)
-      (small, large)      <- genOrderedPair(schema)
-      encode              = codec.encode(schema).andThen(Right(_))
-      decode              = codec.decode(schema)
-      smallEncoded        = encode(small).toOption.get
-      smallEncodedOrError = Chunk.fromArray("{".getBytes()) ++ smallEncoded ++ Chunk.fromArray("}".getBytes())
+      smallEncodedOrError = if (error) DynamicValue.SomeValue(smallEncoded) else smallEncoded
       largeEncoded        = encode(large).toOption.get
     } yield (Schema.Transform(schema, encode, decode), smallEncodedOrError, largeEncoded)
 
   def genAnyOrderedPairRecord: Gen[Random with Sized, SchemaAndPair[_]] =
     for {
-      schema <- anyStructure(anyTree(1)).map(fields => Schema.GenericRecord(Chunk.fromIterable(fields)))
-      pair   <- genOrderedPairRecord(schema)
+      schema <- anyStructure(anyTree(1)).map(fields => {
+                 val fieldSet = fields.foldRight[FieldSet](FieldSet.Empty)((field, acc) => field :*: acc)
+                 Schema.GenericRecord(fieldSet)
+               })
+      pair <- genOrderedPairRecord(schema)
     } yield pair
 
   def genOrderedPairRecord[A](schema: Schema.Record[A]): Gen[Random with Sized, SchemaAndPair[A]] = {
