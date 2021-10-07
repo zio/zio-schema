@@ -106,17 +106,17 @@ object Differ {
       temporal[ZonedDateTime](ChronoUnit.MILLIS)
     case Schema.Tuple(leftSchema, rightSchema)        => fromSchema(leftSchema) <*> fromSchema(rightSchema)
     case Schema.Optional(schema)                      => fromSchema(schema).optional
-    case Schema.Sequence(schema, _, f)                => fromSchema(schema).foreach(f)
+    case Schema.Sequence(schema, _, f)                => fromSchema(schema).foreach(f).asInstanceOf[Differ[A]]
     case Schema.EitherSchema(leftSchema, rightSchema) => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                           => fromSchema(s.schema)
     case Schema.Transform(schema, _, f)               => fromSchema(schema).transformOrFail(f)
     case Schema.Fail(_)                               => fail
     case Schema.GenericRecord(structure)              => record(structure.toChunk)
     case ProductDiffer(differ)                        => differ
-    case Schema.Enum1(c)                              => enum(c)
-    case Schema.Enum2(c1, c2)                         => enum(c1, c2)
-    case Schema.Enum3(c1, c2, c3)                     => enum(c1, c2, c3)
-    case Schema.EnumN(cs)                             => enum(cs.toSeq: _*)
+    case Schema.Enum1(c)                              => enumN(c)
+    case Schema.Enum2(c1, c2)                         => enumN(c1, c2)
+    case Schema.Enum3(c1, c2, c3)                     => enumN(c1, c2, c3)
+    case Schema.EnumN(cs)                             => enumN(cs.toSeq: _*)
   }
 
   def binary: Differ[Chunk[Byte]] =
@@ -223,7 +223,7 @@ object Differ {
       case (field: Schema.Field[a], _) => map.get(field.label).map(_.isInstanceOf[a]).getOrElse(false)
     }
 
-  def enum[Z](cases: Schema.Case[_, Z]*): Differ[Z] =
+  def enumN[Z](cases: Schema.Case[_, Z]*): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       cases
         .foldRight[Option[Diff]](None) {
