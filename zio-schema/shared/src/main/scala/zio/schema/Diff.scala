@@ -267,7 +267,7 @@ sealed trait Diff { self =>
 }
 
 object Diff {
-  final case object Identical extends Diff
+  case object Identical extends Diff
 
   final case class Binary(xor: Int) extends Diff
 
