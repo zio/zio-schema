@@ -11,7 +11,7 @@ sealed trait CaseSet {
   type EnumType
 
   type Accessors[Whole, Lens[_, _], Prism[_, _], Traversal[_[_], _]]
-  type Append[That <: CaseSet.Aux[EnumType]] <: CaseSet.Aux[EnumType]
+  type Append[That <: CaseSet] <: CaseSet.Aux[EnumType]
 
   def :+:[A](head: Case[A, EnumType]): A :+: CaseSet.Aux[EnumType]
 

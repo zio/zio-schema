@@ -48,12 +48,14 @@ lazy val root = project
   .in(file("."))
   .settings(
     name := "zio-schema",
-    skip in publish := true,
+    publish / skip := true,
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
   .aggregate(
     zioSchemaJVM,
     zioSchemaJS,
+    zioSchemaDerivationJVM,
+    zioSchemaDerivationJS,
     zioSchemaJsonJVM,
     zioSchemaJsonJS,
     zioSchemaOpticsJS,
@@ -66,6 +68,28 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema"))
   .settings(stdSettings("zio-schema"))
   .settings(crossProjectSettings)
+  .settings(dottySettings)
+  .settings(buildInfoSettings("zio.schema"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio"         % zioVersion,
+      "dev.zio" %% "zio-streams" % zioVersion,
+      "dev.zio" %% "zio-prelude" % zioPreludeVersion
+    )
+  )
+
+lazy val zioSchemaJS = zioSchema.js
+  .settings(scalaJSUseMainModuleInitializer := true)
+
+lazy val zioSchemaJVM = zioSchema.jvm
+  .settings(Test / fork := true)
+
+lazy val zioSchemaDerivation = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-schema-derivation"))
+  .dependsOn(zioSchema, zioSchema % "test->test")
+  .settings(stdSettings("zio-schema"))
+  .settings(crossProjectSettings)
+  .settings(dottySettings)
   .settings(buildInfoSettings("zio.schema"))
   .settings(
     libraryDependencies ++= Seq(
@@ -76,11 +100,23 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
       "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
     )
   )
+  .settings(
+    libraryDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, _)) =>
+          Seq(
+            "com.propensive" %% "magnolia"     % magnoliaVersion,
+            "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+          )
+        case _ => Seq()
+      }
+    }
+  )
 
-lazy val zioSchemaJS = zioSchema.js
+lazy val zioSchemaDerivationJS = zioSchemaDerivation.js
   .settings(scalaJSUseMainModuleInitializer := true)
 
-lazy val zioSchemaJVM = zioSchema.jvm
+lazy val zioSchemaDerivationJVM = zioSchemaDerivation.jvm
   .settings(Test / fork := true)
 
 lazy val zioSchemaJson = crossProject(JSPlatform, JVMPlatform)
@@ -88,15 +124,15 @@ lazy val zioSchemaJson = crossProject(JSPlatform, JVMPlatform)
   .dependsOn(zioSchema, zioSchema % "test->test")
   .settings(stdSettings("zio-schema-json"))
   .settings(crossProjectSettings)
+  .settings(dottySettings)
+  .settings(macroDefinitionSettings)
   .settings(buildInfoSettings("zio.schema.json"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"        %% "zio"          % zioVersion,
-      "dev.zio"        %% "zio-streams"  % zioVersion,
-      "dev.zio"        %% "zio-json"     % zioJsonVersion,
-      "com.propensive" %% "magnolia"     % magnoliaVersion,
-      "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
-      "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+      "dev.zio" %% "zio"         % zioVersion,
+      "dev.zio" %% "zio-streams" % zioVersion,
+      "dev.zio" %% "zio-json"    % zioJsonVersion,
+      "dev.zio" %% "zio-prelude" % zioPreludeVersion
     )
   )
 

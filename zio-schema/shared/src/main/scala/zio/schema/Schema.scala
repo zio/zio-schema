@@ -1591,7 +1591,7 @@ sealed trait RecordSchemas { self: Schema.type =>
 
     override def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal] = fieldSet.makeAccessors(self, b)
 
-    override def structure: Chunk[Field[_]] = fieldSet.toChunk
+    override def structure: Chunk[Schema.Field[_]] = fieldSet.toChunk
 
     override def rawConstruct(values: Chunk[Any]): Either[String, ListMap[String, _]] =
       if (values.size == structure.size)

@@ -9,12 +9,29 @@ import scalafix.sbt.ScalafixPlugin.autoImport._
 
 object BuildHelper {
 
+  private val versions: Map[String, String] = {
+    import org.snakeyaml.engine.v2.api.{ Load, LoadSettings }
+
+    import java.util.{ List => JList, Map => JMap }
+    import scala.jdk.CollectionConverters._
+
+    val doc = new Load(LoadSettings.builder().build())
+      .loadFromReader(scala.io.Source.fromFile(".github/workflows/ci.yml").bufferedReader())
+    val yaml = doc.asInstanceOf[JMap[String, JMap[String, JMap[String, JMap[String, JMap[String, JList[String]]]]]]]
+    val list = yaml.get("jobs").get("build").get("strategy").get("matrix").get("scala").asScala
+    list.map(v => (v.split('.').take(2).mkString("."), v)).toMap
+  }
+
+  val Scala212: String   = versions("2.12")
+  val Scala213: String   = versions("2.13")
+  val ScalaDotty: String = versions("3.0")
+
   val zioVersion        = "1.0.12"
   val zioNioVersion     = "1.0.0-RC9"
   val zioJsonVersion    = "0.2.0-M1"
   val zioPreludeVersion = "1.0.0-RC6"
   val zioOpticsVersion  = "0.1.0"
-  val silencerVersion   = "1.7.1"
+  val silencerVersion   = "1.7.6"
   val magnoliaVersion   = "0.17.0"
 
   private val testDeps = Seq(
@@ -22,12 +39,31 @@ object BuildHelper {
     "dev.zio" %% "zio-test-sbt" % zioVersion % "test"
   )
 
+  def macroDefinitionSettings = Seq(
+    scalacOptions += "-language:experimental.macros",
+    libraryDependencies ++= {
+      if (scalaVersion.value == ScalaDotty) Seq()
+      else
+        Seq(
+          "org.scala-lang" % "scala-reflect"  % scalaVersion.value % "provided",
+          "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided"
+        )
+    }
+  )
+
   private def compileOnlyDeps(scalaVersion: String) = {
-    val stdCompileOnlyDeps = Seq(
-      ("com.github.ghik" % "silencer-lib" % silencerVersion % Provided).cross(CrossVersion.full),
-      compilerPlugin(("com.github.ghik" % "silencer-plugin" % silencerVersion).cross(CrossVersion.full)),
-      compilerPlugin(("org.typelevel"   %% "kind-projector" % "0.11.0").cross(CrossVersion.full))
-    )
+    val stdCompileOnlyDeps = {
+      if (scalaVersion == ScalaDotty)
+        Seq(
+          "com.github.ghik" % s"silencer-lib_$Scala213" % silencerVersion % Provided
+        )
+      else
+        Seq(
+          ("com.github.ghik" % "silencer-lib" % silencerVersion % Provided).cross(CrossVersion.full),
+          compilerPlugin(("com.github.ghik" % "silencer-plugin" % silencerVersion).cross(CrossVersion.full)),
+          compilerPlugin(("org.typelevel"   %% "kind-projector" % "0.11.0").cross(CrossVersion.full))
+        )
+    }
     CrossVersion.partialVersion(scalaVersion) match {
       case Some((2, x)) if x <= 12 =>
         stdCompileOnlyDeps ++ Seq(
@@ -44,17 +80,23 @@ object BuildHelper {
       "UTF-8",
       "-feature",
       "-unchecked",
-      "-Xfatal-warnings",
+      "-language:existentials"
+    ) ++ {
+      if (sys.env.contains("CI")) {
+        Seq("-Xfatal-warnings")
+      } else {
+        Nil // to enable Scalafix locally
+      }
+    }
+
+    val std2xOptions = Seq(
       "-language:higherKinds",
-      "-language:existentials",
       "-explaintypes",
       "-Yrangepos",
-      "-Xsource:2.13",
-      "-Xlint:_,-type-parameter-shadow",
+      "-Xlint:_,-missing-interpolator,-type-parameter-shadow",
       "-Ywarn-numeric-widen",
       "-Ywarn-value-discard",
-      "-Ypatmat-exhaust-depth",
-      "off"
+      "-Xsource:3.0"
     )
 
     val optimizerOptions =
@@ -65,13 +107,19 @@ object BuildHelper {
       else Seq.empty
 
     val extraOptions = CrossVersion.partialVersion(scalaVersion) match {
+      case Some((3, 0)) =>
+        Seq(
+          "-language:implicitConversions",
+          "-Xignore-scala2-macros",
+          "-Ykind-projector"
+        )
       case Some((2, 13)) =>
         Seq(
           "-opt-warnings",
           "-Ywarn-extra-implicit",
           "-Ywarn-unused",
           "-Ymacro-annotations"
-        ) ++ optimizerOptions
+        ) ++ std2xOptions ++ optimizerOptions
       case Some((2, 12)) =>
         Seq(
           "-Ypartial-unification",
@@ -83,12 +131,44 @@ object BuildHelper {
           "-Ywarn-infer-any",
           "-Ywarn-nullary-override",
           "-Ywarn-nullary-unit"
-        ) ++ optimizerOptions
+        ) ++ std2xOptions ++ optimizerOptions
       case _ => Seq.empty
     }
 
     stdOptions ++ extraOptions
   }
+
+  val dottySettings = Seq(
+    crossScalaVersions += ScalaDotty,
+    scalacOptions ++= {
+      if (scalaVersion.value == ScalaDotty)
+        Seq("-noindent")
+      else
+        Seq()
+    },
+    scalacOptions --= {
+      if (scalaVersion.value == ScalaDotty)
+        Seq("-Xfatal-warnings")
+      else
+        Seq()
+    },
+    Compile / doc / sources := {
+      val old = (Compile / doc / sources).value
+      if (scalaVersion.value == ScalaDotty) {
+        Nil
+      } else {
+        old
+      }
+    },
+    Test / parallelExecution := {
+      val old = (Test / parallelExecution).value
+      if (scalaVersion.value == ScalaDotty) {
+        false
+      } else {
+        old
+      }
+    }
+  )
 
   def platformSpecificSources(platform: String, conf: String, baseDirectory: File)(versions: String*) =
     for {
@@ -140,10 +220,10 @@ object BuildHelper {
     Seq(
       name := s"$prjName",
       crossScalaVersions := Seq("2.13.3", "2.12.12"),
-      scalaVersion in ThisBuild := crossScalaVersions.value.head,
+      ThisBuild / scalaVersion := ScalaDotty, //crossScalaVersions.value.head,
       scalacOptions := compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ testDeps,
-      ThisBuild / semanticdbEnabled := true,
+      ThisBuild / semanticdbEnabled := scalaVersion.value != ScalaDotty, // enable SemanticDB,
       ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
       ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
       ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
@@ -151,7 +231,7 @@ object BuildHelper {
         "com.github.liancheng" %% "organize-imports" % "0.5.0",
         "com.github.vovapolu"  %% "scaluzzi"         % "0.1.20"
       ),
-      parallelExecution in Test := true,
+      Test / parallelExecution := true,
       incOptions ~= (_.withLogRecompileOnMacro(true)),
       autoAPIMappings := true,
       testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
