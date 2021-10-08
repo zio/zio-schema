@@ -60,8 +60,7 @@ object BuildHelper {
       else
         Seq(
           ("com.github.ghik" % "silencer-lib" % silencerVersion % Provided).cross(CrossVersion.full),
-          compilerPlugin(("com.github.ghik" % "silencer-plugin" % silencerVersion).cross(CrossVersion.full)),
-          compilerPlugin(("org.typelevel"   %% "kind-projector" % "0.11.0").cross(CrossVersion.full))
+          compilerPlugin(("com.github.ghik" % "silencer-plugin" % silencerVersion).cross(CrossVersion.full))
         )
     }
     CrossVersion.partialVersion(scalaVersion) match {
@@ -110,8 +109,7 @@ object BuildHelper {
       case Some((3, 0)) =>
         Seq(
           "-language:implicitConversions",
-          "-Xignore-scala2-macros",
-          "-Ykind-projector"
+          "-Xignore-scala2-macros"
         )
       case Some((2, 13)) =>
         Seq(
@@ -219,7 +217,7 @@ object BuildHelper {
   def stdSettings(prjName: String) =
     Seq(
       name := s"$prjName",
-      crossScalaVersions := Seq("2.13.3", "2.12.12"),
+      crossScalaVersions := Seq(Scala213, Scala212),
       ThisBuild / scalaVersion := ScalaDotty, //crossScalaVersions.value.head,
       scalacOptions := compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ testDeps,
