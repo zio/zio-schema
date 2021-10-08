@@ -46,14 +46,14 @@ trait DynamicValue { self =>
           case (Right(a), Right(b)) => Right(a -> b)
         }
 
-      case (DynamicValue.Sequence(values), Schema.Sequence(schema, f, _)) =>
+      case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t]) =>
         values
-          .foldLeft[Either[String, Chunk[_]]](Right[String, Chunk[A]](Chunk.empty)) {
+          .foldLeft[Either[String, Chunk[t]]](Right[String, Chunk[t]](Chunk.empty)) {
             case (err @ Left(_), _) => err
             case (Right(values), value) =>
-              value.toTypedValue(schema).map(values :+ _)
+              value.toTypedValue(schema.schemaA).map(values :+ _)
           }
-          .map(f)
+          .map(schema.fromChunk)
 
       case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_])) =>
         value.toTypedValue(schema).map(Some(_))
@@ -82,7 +82,9 @@ trait DynamicValue { self =>
 object DynamicValue {
 
   //scalafmt: { maxColumn = 400 }
-  def fromSchemaAndValue[A](schema: Schema[A], value: A): DynamicValue =
+  def fromSchemaAndValue[A](schema: Schema[A], value: A): DynamicValue = {
+    def fromSchemaSequenceAndValue[Col[_], B](schema: Schema.Sequence[Col, B], value: Col[A]): DynamicValue =
+      ???
     schema match {
 
       case l @ Schema.Lazy(_) => fromSchemaAndValue(l.schema, value)
@@ -949,23 +951,25 @@ object DynamicValue {
 
       case Schema.Fail(message) => DynamicValue.Error(message)
 
-      case Schema.Sequence(schema, _, toChunk) =>
-        DynamicValue.Sequence(toChunk(value).map(fromSchemaAndValue(schema, _)))
+      case schema: Schema.Sequence[col, t] =>
+        DynamicValue.Sequence(schema.toChunk(value).map(fromSchemaAndValue(schema.schemaA, _)))
 
-      case Schema.EitherSchema(left, right) =>
+      case schema: Schema.EitherSchema[l, r] =>
+        type LeftType  = Left[l, Nothing]
+        type RightType = Right[Nothing, r]
         value match {
-          case Left(a)  => DynamicValue.LeftValue(fromSchemaAndValue(left, a))
-          case Right(b) => DynamicValue.RightValue(fromSchemaAndValue(right, b))
+          case left: LeftType   => DynamicValue.LeftValue(fromSchemaAndValue(schema.left, left.value))
+          case right: RightType => DynamicValue.RightValue(fromSchemaAndValue(schema.right, right.value))
         }
 
-      case Schema.Tuple(schemaA, schemaB) =>
-        val (a, b) = value
-        DynamicValue.Tuple(fromSchemaAndValue(schemaA, a), fromSchemaAndValue(schemaB, b))
+      case schema: Schema.Tuple[a, b] =>
+        val (a: a, b: b) = value
+        DynamicValue.Tuple(fromSchemaAndValue(schema.left, a), fromSchemaAndValue(schema.right, b))
 
-      case Schema.Optional(schema) =>
+      case schema: Schema.Optional[a] =>
         value match {
-          case Some(value) => DynamicValue.SomeValue(fromSchemaAndValue(schema, value))
-          case None        => DynamicValue.NoneValue
+          case Some(value: a) => DynamicValue.SomeValue(fromSchemaAndValue(schema.codec, value))
+          case None           => DynamicValue.NoneValue
         }
 
       case Schema.Transform(schema, _, g) =>
@@ -1813,6 +1817,7 @@ object DynamicValue {
           )
         )
     }
+  }
 
   def decodeStructure(
     values: ListMap[String, DynamicValue],

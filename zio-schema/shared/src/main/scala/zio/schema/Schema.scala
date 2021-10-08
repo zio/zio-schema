@@ -122,6 +122,11 @@ sealed trait Schema[A] {
 }
 
 object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
+
+  sealed case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) {
+    override def toString: String = s"Field($label,$schema)"
+  }
+
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
   def defer[A](schema: => Schema[A]): Schema[A] = Lazy(() => schema)
@@ -1580,10 +1585,6 @@ sealed trait TupleSchemas {
 
 //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
 sealed trait RecordSchemas { self: Schema.type =>
-
-  sealed case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) {
-    override def toString: String = s"Field($label,$schema)"
-  }
 
   sealed case class GenericRecord(fieldSet: FieldSet) extends Record[ListMap[String, _]] { self =>
 
