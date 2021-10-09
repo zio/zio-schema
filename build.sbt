@@ -57,7 +57,9 @@ lazy val root = project
     zioSchemaJsonJVM,
     zioSchemaJsonJS,
     zioSchemaOpticsJS,
-    zioSchemaOpticsJVM
+    zioSchemaOpticsJVM,
+    zioSchemaProtobufJS,
+    zioSchemaProtobufJVM
   )
 
 lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
@@ -102,6 +104,28 @@ lazy val zioSchemaJsonJS = zioSchemaJson.js
   .settings(scalaJSUseMainModuleInitializer := true)
 
 lazy val zioSchemaJsonJVM = zioSchemaJson.jvm
+
+lazy val zioSchemaProtobuf = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-schema-protobuf"))
+  .dependsOn(zioSchema, zioSchema % "test->test")
+  .settings(stdSettings("zio-schema-protobuf"))
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema.protobuf"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio"        %% "zio"          % zioVersion,
+      "dev.zio"        %% "zio-streams"  % zioVersion,
+      "com.propensive" %% "magnolia"     % magnoliaVersion,
+      "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
+      "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+    )
+  )
+
+lazy val zioSchemaProtobufJS = zioSchemaProtobuf.js
+  .settings(scalaJSUseMainModuleInitializer := true)
+
+lazy val zioSchemaProtobufJVM = zioSchemaProtobuf.jvm
+  .settings(Test / fork := true)
 
 lazy val zioSchemaOptics = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-optics"))
