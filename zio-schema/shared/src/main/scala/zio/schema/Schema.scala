@@ -235,7 +235,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   }
 
   final case class Sequence[Col[_], A](schemaA: Schema[A], fromChunk: Chunk[A] => Col[A], toChunk: Col[A] => Chunk[A])
-    extends Schema[Col[A]] { self =>
+      extends Schema[Col[A]] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = Traversal[Col, A]
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, A] = b.makeTraversal(self, schemaA)
@@ -243,7 +243,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   }
 
   final case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
-    extends Schema[B] {
+      extends Schema[B] {
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = codec.Accessors[Lens, Prism, Traversal]
 
     override def makeAccessors(b: AccessorBuilder): codec.Accessors[b.Lens, b.Prism, b.Traversal] =
@@ -309,8 +309,8 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     )
 
     override def makeAccessors(
-                                b: AccessorBuilder
-                              ): (b.Prism[Either[A, B], Right[Nothing, B]], b.Prism[Either[A, B], Left[A, Nothing]]) =
+      b: AccessorBuilder
+    ): (b.Prism[Either[A, B], Right[Nothing, B]], b.Prism[Either[A, B], Left[A, Nothing]]) =
       b.makePrism(toEnum, toEnum.case1) -> b.makePrism(toEnum, toEnum.case2)
   }
 
@@ -502,7 +502,7 @@ sealed trait EnumSchemas { self: Schema.type =>
       )
   }
   sealed case class Enum12[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], case10: Case[A10, Z], case11: Case[A11, Z], case12: Case[A12, Z])
-    extends Enum[Z] { self =>
+      extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12]) =
@@ -525,20 +525,20 @@ sealed trait EnumSchemas { self: Schema.type =>
       )
   }
   sealed case class Enum13[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, Z](
-                                                                                                                                                        case1: Case[A1, Z],
-                                                                                                                                                        case2: Case[A2, Z],
-                                                                                                                                                        case3: Case[A3, Z],
-                                                                                                                                                        case4: Case[A4, Z],
-                                                                                                                                                        case5: Case[A5, Z],
-                                                                                                                                                        case6: Case[A6, Z],
-                                                                                                                                                        case7: Case[A7, Z],
-                                                                                                                                                        case8: Case[A8, Z],
-                                                                                                                                                        case9: Case[A9, Z],
-                                                                                                                                                        case10: Case[A10, Z],
-                                                                                                                                                        case11: Case[A11, Z],
-                                                                                                                                                        case12: Case[A12, Z],
-                                                                                                                                                        case13: Case[A13, Z]
-                                                                                                                                                      ) extends Enum[Z] { self =>
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z]
+  ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13]) =
@@ -563,21 +563,21 @@ sealed trait EnumSchemas { self: Schema.type =>
   }
 
   sealed case class Enum14[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, Z](
-                                                                                                                                                                  case1: Case[A1, Z],
-                                                                                                                                                                  case2: Case[A2, Z],
-                                                                                                                                                                  case3: Case[A3, Z],
-                                                                                                                                                                  case4: Case[A4, Z],
-                                                                                                                                                                  case5: Case[A5, Z],
-                                                                                                                                                                  case6: Case[A6, Z],
-                                                                                                                                                                  case7: Case[A7, Z],
-                                                                                                                                                                  case8: Case[A8, Z],
-                                                                                                                                                                  case9: Case[A9, Z],
-                                                                                                                                                                  case10: Case[A10, Z],
-                                                                                                                                                                  case11: Case[A11, Z],
-                                                                                                                                                                  case12: Case[A12, Z],
-                                                                                                                                                                  case13: Case[A13, Z],
-                                                                                                                                                                  case14: Case[A14, Z]
-                                                                                                                                                                ) extends Enum[Z] { self =>
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z]
+  ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14]) =
@@ -602,22 +602,22 @@ sealed trait EnumSchemas { self: Schema.type =>
       )
   }
   sealed case class Enum15[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, A15 <: Z, Z](
-                                                                                                                                                                            case1: Case[A1, Z],
-                                                                                                                                                                            case2: Case[A2, Z],
-                                                                                                                                                                            case3: Case[A3, Z],
-                                                                                                                                                                            case4: Case[A4, Z],
-                                                                                                                                                                            case5: Case[A5, Z],
-                                                                                                                                                                            case6: Case[A6, Z],
-                                                                                                                                                                            case7: Case[A7, Z],
-                                                                                                                                                                            case8: Case[A8, Z],
-                                                                                                                                                                            case9: Case[A9, Z],
-                                                                                                                                                                            case10: Case[A10, Z],
-                                                                                                                                                                            case11: Case[A11, Z],
-                                                                                                                                                                            case12: Case[A12, Z],
-                                                                                                                                                                            case13: Case[A13, Z],
-                                                                                                                                                                            case14: Case[A14, Z],
-                                                                                                                                                                            case15: Case[A15, Z]
-                                                                                                                                                                          ) extends Enum[Z] { self =>
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z],
+    case15: Case[A15, Z]
+  ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15]) =
@@ -659,23 +659,23 @@ sealed trait EnumSchemas { self: Schema.type =>
       )
   }
   sealed case class Enum16[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, A15 <: Z, A16 <: Z, Z](
-                                                                                                                                                                                      case1: Case[A1, Z],
-                                                                                                                                                                                      case2: Case[A2, Z],
-                                                                                                                                                                                      case3: Case[A3, Z],
-                                                                                                                                                                                      case4: Case[A4, Z],
-                                                                                                                                                                                      case5: Case[A5, Z],
-                                                                                                                                                                                      case6: Case[A6, Z],
-                                                                                                                                                                                      case7: Case[A7, Z],
-                                                                                                                                                                                      case8: Case[A8, Z],
-                                                                                                                                                                                      case9: Case[A9, Z],
-                                                                                                                                                                                      case10: Case[A10, Z],
-                                                                                                                                                                                      case11: Case[A11, Z],
-                                                                                                                                                                                      case12: Case[A12, Z],
-                                                                                                                                                                                      case13: Case[A13, Z],
-                                                                                                                                                                                      case14: Case[A14, Z],
-                                                                                                                                                                                      case15: Case[A15, Z],
-                                                                                                                                                                                      case16: Case[A16, Z]
-                                                                                                                                                                                    ) extends Enum[Z] { self =>
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z],
+    case15: Case[A15, Z],
+    case16: Case[A16, Z]
+  ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16]) =
@@ -719,24 +719,24 @@ sealed trait EnumSchemas { self: Schema.type =>
       )
   }
   sealed case class Enum17[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, A15 <: Z, A16 <: Z, A17 <: Z, Z](
-                                                                                                                                                                                                case1: Case[A1, Z],
-                                                                                                                                                                                                case2: Case[A2, Z],
-                                                                                                                                                                                                case3: Case[A3, Z],
-                                                                                                                                                                                                case4: Case[A4, Z],
-                                                                                                                                                                                                case5: Case[A5, Z],
-                                                                                                                                                                                                case6: Case[A6, Z],
-                                                                                                                                                                                                case7: Case[A7, Z],
-                                                                                                                                                                                                case8: Case[A8, Z],
-                                                                                                                                                                                                case9: Case[A9, Z],
-                                                                                                                                                                                                case10: Case[A10, Z],
-                                                                                                                                                                                                case11: Case[A11, Z],
-                                                                                                                                                                                                case12: Case[A12, Z],
-                                                                                                                                                                                                case13: Case[A13, Z],
-                                                                                                                                                                                                case14: Case[A14, Z],
-                                                                                                                                                                                                case15: Case[A15, Z],
-                                                                                                                                                                                                case16: Case[A16, Z],
-                                                                                                                                                                                                case17: Case[A17, Z]
-                                                                                                                                                                                              ) extends Enum[Z] { self =>
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z],
+    case15: Case[A15, Z],
+    case16: Case[A16, Z],
+    case17: Case[A17, Z]
+  ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17]) =
@@ -782,25 +782,25 @@ sealed trait EnumSchemas { self: Schema.type =>
       )
   }
   sealed case class Enum18[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, A15 <: Z, A16 <: Z, A17 <: Z, A18 <: Z, Z](
-                                                                                                                                                                                                          case1: Case[A1, Z],
-                                                                                                                                                                                                          case2: Case[A2, Z],
-                                                                                                                                                                                                          case3: Case[A3, Z],
-                                                                                                                                                                                                          case4: Case[A4, Z],
-                                                                                                                                                                                                          case5: Case[A5, Z],
-                                                                                                                                                                                                          case6: Case[A6, Z],
-                                                                                                                                                                                                          case7: Case[A7, Z],
-                                                                                                                                                                                                          case8: Case[A8, Z],
-                                                                                                                                                                                                          case9: Case[A9, Z],
-                                                                                                                                                                                                          case10: Case[A10, Z],
-                                                                                                                                                                                                          case11: Case[A11, Z],
-                                                                                                                                                                                                          case12: Case[A12, Z],
-                                                                                                                                                                                                          case13: Case[A13, Z],
-                                                                                                                                                                                                          case14: Case[A14, Z],
-                                                                                                                                                                                                          case15: Case[A15, Z],
-                                                                                                                                                                                                          case16: Case[A16, Z],
-                                                                                                                                                                                                          case17: Case[A17, Z],
-                                                                                                                                                                                                          case18: Case[A18, Z]
-                                                                                                                                                                                                        ) extends Enum[Z] { self =>
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z],
+    case15: Case[A15, Z],
+    case16: Case[A16, Z],
+    case17: Case[A17, Z],
+    case18: Case[A18, Z]
+  ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17], b.Prism[Z, A18]) =
@@ -848,26 +848,26 @@ sealed trait EnumSchemas { self: Schema.type =>
       )
   }
   sealed case class Enum19[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, A15 <: Z, A16 <: Z, A17 <: Z, A18 <: Z, A19 <: Z, Z](
-                                                                                                                                                                                                                    case1: Case[A1, Z],
-                                                                                                                                                                                                                    case2: Case[A2, Z],
-                                                                                                                                                                                                                    case3: Case[A3, Z],
-                                                                                                                                                                                                                    case4: Case[A4, Z],
-                                                                                                                                                                                                                    case5: Case[A5, Z],
-                                                                                                                                                                                                                    case6: Case[A6, Z],
-                                                                                                                                                                                                                    case7: Case[A7, Z],
-                                                                                                                                                                                                                    case8: Case[A8, Z],
-                                                                                                                                                                                                                    case9: Case[A9, Z],
-                                                                                                                                                                                                                    case10: Case[A10, Z],
-                                                                                                                                                                                                                    case11: Case[A11, Z],
-                                                                                                                                                                                                                    case12: Case[A12, Z],
-                                                                                                                                                                                                                    case13: Case[A13, Z],
-                                                                                                                                                                                                                    case14: Case[A14, Z],
-                                                                                                                                                                                                                    case15: Case[A15, Z],
-                                                                                                                                                                                                                    case16: Case[A16, Z],
-                                                                                                                                                                                                                    case17: Case[A17, Z],
-                                                                                                                                                                                                                    case18: Case[A18, Z],
-                                                                                                                                                                                                                    case19: Case[A19, Z]
-                                                                                                                                                                                                                  ) extends Enum[Z] { self =>
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z],
+    case15: Case[A15, Z],
+    case16: Case[A16, Z],
+    case17: Case[A17, Z],
+    case18: Case[A18, Z],
+    case19: Case[A19, Z]
+  ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18], Prism[Z, A19])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17], b.Prism[Z, A18], b.Prism[Z, A19]) =
@@ -917,27 +917,27 @@ sealed trait EnumSchemas { self: Schema.type =>
       )
   }
   sealed case class Enum20[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, A15 <: Z, A16 <: Z, A17 <: Z, A18 <: Z, A19 <: Z, A20 <: Z, Z](
-                                                                                                                                                                                                                              case1: Case[A1, Z],
-                                                                                                                                                                                                                              case2: Case[A2, Z],
-                                                                                                                                                                                                                              case3: Case[A3, Z],
-                                                                                                                                                                                                                              case4: Case[A4, Z],
-                                                                                                                                                                                                                              case5: Case[A5, Z],
-                                                                                                                                                                                                                              case6: Case[A6, Z],
-                                                                                                                                                                                                                              case7: Case[A7, Z],
-                                                                                                                                                                                                                              case8: Case[A8, Z],
-                                                                                                                                                                                                                              case9: Case[A9, Z],
-                                                                                                                                                                                                                              case10: Case[A10, Z],
-                                                                                                                                                                                                                              case11: Case[A11, Z],
-                                                                                                                                                                                                                              case12: Case[A12, Z],
-                                                                                                                                                                                                                              case13: Case[A13, Z],
-                                                                                                                                                                                                                              case14: Case[A14, Z],
-                                                                                                                                                                                                                              case15: Case[A15, Z],
-                                                                                                                                                                                                                              case16: Case[A16, Z],
-                                                                                                                                                                                                                              case17: Case[A17, Z],
-                                                                                                                                                                                                                              case18: Case[A18, Z],
-                                                                                                                                                                                                                              case19: Case[A19, Z],
-                                                                                                                                                                                                                              case20: Case[A20, Z]
-                                                                                                                                                                                                                            ) extends Enum[Z] { self =>
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z],
+    case15: Case[A15, Z],
+    case16: Case[A16, Z],
+    case17: Case[A17, Z],
+    case18: Case[A18, Z],
+    case19: Case[A19, Z],
+    case20: Case[A20, Z]
+  ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18], Prism[Z, A19], Prism[Z, A20])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17], b.Prism[Z, A18], b.Prism[Z, A19], b.Prism[Z, A20]) =
@@ -989,33 +989,33 @@ sealed trait EnumSchemas { self: Schema.type =>
       )
   }
   sealed case class Enum21[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, A15 <: Z, A16 <: Z, A17 <: Z, A18 <: Z, A19 <: Z, A20 <: Z, A21 <: Z, Z](
-                                                                                                                                                                                                                                        case1: Case[A1, Z],
-                                                                                                                                                                                                                                        case2: Case[A2, Z],
-                                                                                                                                                                                                                                        case3: Case[A3, Z],
-                                                                                                                                                                                                                                        case4: Case[A4, Z],
-                                                                                                                                                                                                                                        case5: Case[A5, Z],
-                                                                                                                                                                                                                                        case6: Case[A6, Z],
-                                                                                                                                                                                                                                        case7: Case[A7, Z],
-                                                                                                                                                                                                                                        case8: Case[A8, Z],
-                                                                                                                                                                                                                                        case9: Case[A9, Z],
-                                                                                                                                                                                                                                        case10: Case[A10, Z],
-                                                                                                                                                                                                                                        case11: Case[A11, Z],
-                                                                                                                                                                                                                                        case12: Case[A12, Z],
-                                                                                                                                                                                                                                        case13: Case[A13, Z],
-                                                                                                                                                                                                                                        case14: Case[A14, Z],
-                                                                                                                                                                                                                                        case15: Case[A15, Z],
-                                                                                                                                                                                                                                        case16: Case[A16, Z],
-                                                                                                                                                                                                                                        case17: Case[A17, Z],
-                                                                                                                                                                                                                                        case18: Case[A18, Z],
-                                                                                                                                                                                                                                        case19: Case[A19, Z],
-                                                                                                                                                                                                                                        case20: Case[A20, Z],
-                                                                                                                                                                                                                                        case21: Case[A21, Z]
-                                                                                                                                                                                                                                      ) extends Enum[Z] { self =>
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z],
+    case15: Case[A15, Z],
+    case16: Case[A16, Z],
+    case17: Case[A17, Z],
+    case18: Case[A18, Z],
+    case19: Case[A19, Z],
+    case20: Case[A20, Z],
+    case21: Case[A21, Z]
+  ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18], Prism[Z, A19], Prism[Z, A20], Prism[Z, A21])
 
     override def makeAccessors(
-                                b: AccessorBuilder
-                              ): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17], b.Prism[Z, A18], b.Prism[Z, A19], b.Prism[Z, A20], b.Prism[Z, A21]) =
+      b: AccessorBuilder
+    ): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17], b.Prism[Z, A18], b.Prism[Z, A19], b.Prism[Z, A20], b.Prism[Z, A21]) =
       (
         b.makePrism(self, case1),
         b.makePrism(self, case2),
@@ -1066,34 +1066,34 @@ sealed trait EnumSchemas { self: Schema.type =>
       )
   }
   sealed case class Enum22[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, A12 <: Z, A13 <: Z, A14 <: Z, A15 <: Z, A16 <: Z, A17 <: Z, A18 <: Z, A19 <: Z, A20 <: Z, A21 <: Z, A22 <: Z, Z](
-                                                                                                                                                                                                                                                  case1: Case[A1, Z],
-                                                                                                                                                                                                                                                  case2: Case[A2, Z],
-                                                                                                                                                                                                                                                  case3: Case[A3, Z],
-                                                                                                                                                                                                                                                  case4: Case[A4, Z],
-                                                                                                                                                                                                                                                  case5: Case[A5, Z],
-                                                                                                                                                                                                                                                  case6: Case[A6, Z],
-                                                                                                                                                                                                                                                  case7: Case[A7, Z],
-                                                                                                                                                                                                                                                  case8: Case[A8, Z],
-                                                                                                                                                                                                                                                  case9: Case[A9, Z],
-                                                                                                                                                                                                                                                  case10: Case[A10, Z],
-                                                                                                                                                                                                                                                  case11: Case[A11, Z],
-                                                                                                                                                                                                                                                  case12: Case[A12, Z],
-                                                                                                                                                                                                                                                  case13: Case[A13, Z],
-                                                                                                                                                                                                                                                  case14: Case[A14, Z],
-                                                                                                                                                                                                                                                  case15: Case[A15, Z],
-                                                                                                                                                                                                                                                  case16: Case[A16, Z],
-                                                                                                                                                                                                                                                  case17: Case[A17, Z],
-                                                                                                                                                                                                                                                  case18: Case[A18, Z],
-                                                                                                                                                                                                                                                  case19: Case[A19, Z],
-                                                                                                                                                                                                                                                  case20: Case[A20, Z],
-                                                                                                                                                                                                                                                  case21: Case[A21, Z],
-                                                                                                                                                                                                                                                  case22: Case[A22, Z]
-                                                                                                                                                                                                                                                ) extends Enum[Z] { self =>
+    case1: Case[A1, Z],
+    case2: Case[A2, Z],
+    case3: Case[A3, Z],
+    case4: Case[A4, Z],
+    case5: Case[A5, Z],
+    case6: Case[A6, Z],
+    case7: Case[A7, Z],
+    case8: Case[A8, Z],
+    case9: Case[A9, Z],
+    case10: Case[A10, Z],
+    case11: Case[A11, Z],
+    case12: Case[A12, Z],
+    case13: Case[A13, Z],
+    case14: Case[A14, Z],
+    case15: Case[A15, Z],
+    case16: Case[A16, Z],
+    case17: Case[A17, Z],
+    case18: Case[A18, Z],
+    case19: Case[A19, Z],
+    case20: Case[A20, Z],
+    case21: Case[A21, Z],
+    case22: Case[A22, Z]
+  ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18], Prism[Z, A19], Prism[Z, A20], Prism[Z, A21], Prism[Z, A22])
 
     override def makeAccessors(
-                                b: AccessorBuilder
-                              ): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17], b.Prism[Z, A18], b.Prism[Z, A19], b.Prism[Z, A20], b.Prism[Z, A21], b.Prism[Z, A22]) =
+      b: AccessorBuilder
+    ): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17], b.Prism[Z, A18], b.Prism[Z, A19], b.Prism[Z, A20], b.Prism[Z, A21], b.Prism[Z, A22]) =
       (
         b.makePrism(self, case1),
         b.makePrism(self, case2),
@@ -1355,7 +1355,7 @@ sealed trait TupleSchemas {
       })
 
   implicit def tuple17[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F], c7: Schema[G], c8: Schema[H], c9: Schema[I], c10: Schema[J], c11: Schema[K], c12: Schema[L], c13: Schema[M], c14: Schema[N], c15: Schema[O], c16: Schema[P], c17: Schema[Q])
-  : Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q)] =
+    : Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -1381,7 +1381,7 @@ sealed trait TupleSchemas {
       })
 
   implicit def tuple18[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F], c7: Schema[G], c8: Schema[H], c9: Schema[I], c10: Schema[J], c11: Schema[K], c12: Schema[L], c13: Schema[M], c14: Schema[N], c15: Schema[O], c16: Schema[P], c17: Schema[Q], c18: Schema[R])
-  : Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R)] =
+    : Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -1408,7 +1408,7 @@ sealed trait TupleSchemas {
       })
 
   implicit def tuple19[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C], c4: Schema[D], c5: Schema[E], c6: Schema[F], c7: Schema[G], c8: Schema[H], c9: Schema[I], c10: Schema[J], c11: Schema[K], c12: Schema[L], c13: Schema[M], c14: Schema[N], c15: Schema[O], c16: Schema[P], c17: Schema[Q], c18: Schema[R], c19: Schema[S])
-  : Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S)] =
+    : Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -1436,27 +1436,27 @@ sealed trait TupleSchemas {
       })
 
   implicit def tuple20[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T](
-                                                                                    implicit c1: Schema[A],
-                                                                                    c2: Schema[B],
-                                                                                    c3: Schema[C],
-                                                                                    c4: Schema[D],
-                                                                                    c5: Schema[E],
-                                                                                    c6: Schema[F],
-                                                                                    c7: Schema[G],
-                                                                                    c8: Schema[H],
-                                                                                    c9: Schema[I],
-                                                                                    c10: Schema[J],
-                                                                                    c11: Schema[K],
-                                                                                    c12: Schema[L],
-                                                                                    c13: Schema[M],
-                                                                                    c14: Schema[N],
-                                                                                    c15: Schema[O],
-                                                                                    c16: Schema[P],
-                                                                                    c17: Schema[Q],
-                                                                                    c18: Schema[R],
-                                                                                    c19: Schema[S],
-                                                                                    c20: Schema[T]
-                                                                                  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T)] =
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I],
+    c10: Schema[J],
+    c11: Schema[K],
+    c12: Schema[L],
+    c13: Schema[M],
+    c14: Schema[N],
+    c15: Schema[O],
+    c16: Schema[P],
+    c17: Schema[Q],
+    c18: Schema[R],
+    c19: Schema[S],
+    c20: Schema[T]
+  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -1485,28 +1485,28 @@ sealed trait TupleSchemas {
       })
 
   implicit def tuple21[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U](
-                                                                                       implicit c1: Schema[A],
-                                                                                       c2: Schema[B],
-                                                                                       c3: Schema[C],
-                                                                                       c4: Schema[D],
-                                                                                       c5: Schema[E],
-                                                                                       c6: Schema[F],
-                                                                                       c7: Schema[G],
-                                                                                       c8: Schema[H],
-                                                                                       c9: Schema[I],
-                                                                                       c10: Schema[J],
-                                                                                       c11: Schema[K],
-                                                                                       c12: Schema[L],
-                                                                                       c13: Schema[M],
-                                                                                       c14: Schema[N],
-                                                                                       c15: Schema[O],
-                                                                                       c16: Schema[P],
-                                                                                       c17: Schema[Q],
-                                                                                       c18: Schema[R],
-                                                                                       c19: Schema[S],
-                                                                                       c20: Schema[T],
-                                                                                       c21: Schema[U]
-                                                                                     ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U)] =
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I],
+    c10: Schema[J],
+    c11: Schema[K],
+    c12: Schema[L],
+    c13: Schema[M],
+    c14: Schema[N],
+    c15: Schema[O],
+    c16: Schema[P],
+    c17: Schema[Q],
+    c18: Schema[R],
+    c19: Schema[S],
+    c20: Schema[T],
+    c21: Schema[U]
+  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -1536,29 +1536,29 @@ sealed trait TupleSchemas {
       })
 
   implicit def tuple22[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V](
-                                                                                          implicit c1: Schema[A],
-                                                                                          c2: Schema[B],
-                                                                                          c3: Schema[C],
-                                                                                          c4: Schema[D],
-                                                                                          c5: Schema[E],
-                                                                                          c6: Schema[F],
-                                                                                          c7: Schema[G],
-                                                                                          c8: Schema[H],
-                                                                                          c9: Schema[I],
-                                                                                          c10: Schema[J],
-                                                                                          c11: Schema[K],
-                                                                                          c12: Schema[L],
-                                                                                          c13: Schema[M],
-                                                                                          c14: Schema[N],
-                                                                                          c15: Schema[O],
-                                                                                          c16: Schema[P],
-                                                                                          c17: Schema[Q],
-                                                                                          c18: Schema[R],
-                                                                                          c19: Schema[S],
-                                                                                          c20: Schema[T],
-                                                                                          c21: Schema[U],
-                                                                                          c22: Schema[V]
-                                                                                        ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V)] =
+    implicit c1: Schema[A],
+    c2: Schema[B],
+    c3: Schema[C],
+    c4: Schema[D],
+    c5: Schema[E],
+    c6: Schema[F],
+    c7: Schema[G],
+    c8: Schema[H],
+    c9: Schema[I],
+    c10: Schema[J],
+    c11: Schema[K],
+    c12: Schema[L],
+    c13: Schema[M],
+    c14: Schema[N],
+    c15: Schema[O],
+    c16: Schema[P],
+    c17: Schema[Q],
+    c18: Schema[R],
+    c19: Schema[S],
+    c20: Schema[T],
+    c21: Schema[U],
+    c22: Schema[V]
+  ): Schema[(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V)] =
     c1.zip(c2)
       .zip(c3)
       .zip(c4)
@@ -1708,21 +1708,21 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass6[A1, A2, A3, A4, A5, A6, Z](
-                                                           override val annotations: Chunk[Any] = Chunk.empty,
-                                                           field1: Field[A1],
-                                                           field2: Field[A2],
-                                                           field3: Field[A3],
-                                                           field4: Field[A4],
-                                                           field5: Field[A5],
-                                                           field6: Field[A6],
-                                                           construct: (A1, A2, A3, A4, A5, A6) => Z,
-                                                           extractField1: Z => A1,
-                                                           extractField2: Z => A2,
-                                                           extractField3: Z => A3,
-                                                           extractField4: Z => A4,
-                                                           extractField5: Z => A5,
-                                                           extractField6: Z => A6
-                                                         ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    construct: (A1, A2, A3, A4, A5, A6) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6]) =
@@ -1743,23 +1743,23 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z](
-                                                               override val annotations: Chunk[Any] = Chunk.empty,
-                                                               field1: Field[A1],
-                                                               field2: Field[A2],
-                                                               field3: Field[A3],
-                                                               field4: Field[A4],
-                                                               field5: Field[A5],
-                                                               field6: Field[A6],
-                                                               field7: Field[A7],
-                                                               construct: (A1, A2, A3, A4, A5, A6, A7) => Z,
-                                                               extractField1: Z => A1,
-                                                               extractField2: Z => A2,
-                                                               extractField3: Z => A3,
-                                                               extractField4: Z => A4,
-                                                               extractField5: Z => A5,
-                                                               extractField6: Z => A6,
-                                                               extractField7: Z => A7
-                                                             ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    field7: Field[A7],
+    construct: (A1, A2, A3, A4, A5, A6, A7) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6,
+    extractField7: Z => A7
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7]) =
@@ -1780,25 +1780,25 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
-                                                                   override val annotations: Chunk[Any] = Chunk.empty,
-                                                                   field1: Field[A1],
-                                                                   field2: Field[A2],
-                                                                   field3: Field[A3],
-                                                                   field4: Field[A4],
-                                                                   field5: Field[A5],
-                                                                   field6: Field[A6],
-                                                                   field7: Field[A7],
-                                                                   field8: Field[A8],
-                                                                   construct: (A1, A2, A3, A4, A5, A6, A7, A8) => Z,
-                                                                   extractField1: Z => A1,
-                                                                   extractField2: Z => A2,
-                                                                   extractField3: Z => A3,
-                                                                   extractField4: Z => A4,
-                                                                   extractField5: Z => A5,
-                                                                   extractField6: Z => A6,
-                                                                   extractField7: Z => A7,
-                                                                   extractField8: Z => A8
-                                                                 ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    field7: Field[A7],
+    field8: Field[A8],
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6,
+    extractField7: Z => A7,
+    extractField8: Z => A8
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8]) =
@@ -1819,27 +1819,27 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
-                                                                       override val annotations: Chunk[Any] = Chunk.empty,
-                                                                       field1: Field[A1],
-                                                                       field2: Field[A2],
-                                                                       field3: Field[A3],
-                                                                       field4: Field[A4],
-                                                                       field5: Field[A5],
-                                                                       field6: Field[A6],
-                                                                       field7: Field[A7],
-                                                                       field8: Field[A8],
-                                                                       field9: Field[A9],
-                                                                       construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z,
-                                                                       extractField1: Z => A1,
-                                                                       extractField2: Z => A2,
-                                                                       extractField3: Z => A3,
-                                                                       extractField4: Z => A4,
-                                                                       extractField5: Z => A5,
-                                                                       extractField6: Z => A6,
-                                                                       extractField7: Z => A7,
-                                                                       extractField8: Z => A8,
-                                                                       extractField9: Z => A9
-                                                                     ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    field7: Field[A7],
+    field8: Field[A8],
+    field9: Field[A9],
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6,
+    extractField7: Z => A7,
+    extractField8: Z => A8,
+    extractField9: Z => A9
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9]) =
@@ -1860,29 +1860,29 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
-                                                                             override val annotations: Chunk[Any] = Chunk.empty,
-                                                                             field1: Field[A1],
-                                                                             field2: Field[A2],
-                                                                             field3: Field[A3],
-                                                                             field4: Field[A4],
-                                                                             field5: Field[A5],
-                                                                             field6: Field[A6],
-                                                                             field7: Field[A7],
-                                                                             field8: Field[A8],
-                                                                             field9: Field[A9],
-                                                                             field10: Field[A10],
-                                                                             construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) => Z,
-                                                                             extractField1: Z => A1,
-                                                                             extractField2: Z => A2,
-                                                                             extractField3: Z => A3,
-                                                                             extractField4: Z => A4,
-                                                                             extractField5: Z => A5,
-                                                                             extractField6: Z => A6,
-                                                                             extractField7: Z => A7,
-                                                                             extractField8: Z => A8,
-                                                                             extractField9: Z => A9,
-                                                                             extractField10: Z => A10
-                                                                           ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    field7: Field[A7],
+    field8: Field[A8],
+    field9: Field[A9],
+    field10: Field[A10],
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6,
+    extractField7: Z => A7,
+    extractField8: Z => A8,
+    extractField9: Z => A9,
+    extractField10: Z => A10
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10]) =
@@ -1903,31 +1903,31 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
-                                                                                  override val annotations: Chunk[Any] = Chunk.empty,
-                                                                                  field1: Field[A1],
-                                                                                  field2: Field[A2],
-                                                                                  field3: Field[A3],
-                                                                                  field4: Field[A4],
-                                                                                  field5: Field[A5],
-                                                                                  field6: Field[A6],
-                                                                                  field7: Field[A7],
-                                                                                  field8: Field[A8],
-                                                                                  field9: Field[A9],
-                                                                                  field10: Field[A10],
-                                                                                  field11: Field[A11],
-                                                                                  construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11) => Z,
-                                                                                  extractField1: Z => A1,
-                                                                                  extractField2: Z => A2,
-                                                                                  extractField3: Z => A3,
-                                                                                  extractField4: Z => A4,
-                                                                                  extractField5: Z => A5,
-                                                                                  extractField6: Z => A6,
-                                                                                  extractField7: Z => A7,
-                                                                                  extractField8: Z => A8,
-                                                                                  extractField9: Z => A9,
-                                                                                  extractField10: Z => A10,
-                                                                                  extractField11: Z => A11
-                                                                                ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    field7: Field[A7],
+    field8: Field[A8],
+    field9: Field[A9],
+    field10: Field[A10],
+    field11: Field[A11],
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6,
+    extractField7: Z => A7,
+    extractField8: Z => A8,
+    extractField9: Z => A9,
+    extractField10: Z => A10,
+    extractField11: Z => A11
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11]) =
@@ -1948,33 +1948,33 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
-                                                                                       override val annotations: Chunk[Any] = Chunk.empty,
-                                                                                       field1: Field[A1],
-                                                                                       field2: Field[A2],
-                                                                                       field3: Field[A3],
-                                                                                       field4: Field[A4],
-                                                                                       field5: Field[A5],
-                                                                                       field6: Field[A6],
-                                                                                       field7: Field[A7],
-                                                                                       field8: Field[A8],
-                                                                                       field9: Field[A9],
-                                                                                       field10: Field[A10],
-                                                                                       field11: Field[A11],
-                                                                                       field12: Field[A12],
-                                                                                       construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12) => Z,
-                                                                                       extractField1: Z => A1,
-                                                                                       extractField2: Z => A2,
-                                                                                       extractField3: Z => A3,
-                                                                                       extractField4: Z => A4,
-                                                                                       extractField5: Z => A5,
-                                                                                       extractField6: Z => A6,
-                                                                                       extractField7: Z => A7,
-                                                                                       extractField8: Z => A8,
-                                                                                       extractField9: Z => A9,
-                                                                                       extractField10: Z => A10,
-                                                                                       extractField11: Z => A11,
-                                                                                       extractField12: Z => A12
-                                                                                     ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    field7: Field[A7],
+    field8: Field[A8],
+    field9: Field[A9],
+    field10: Field[A10],
+    field11: Field[A11],
+    field12: Field[A12],
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6,
+    extractField7: Z => A7,
+    extractField8: Z => A8,
+    extractField9: Z => A9,
+    extractField10: Z => A10,
+    extractField11: Z => A11,
+    extractField12: Z => A12
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12]) =
@@ -1995,35 +1995,35 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
-                                                                                            override val annotations: Chunk[Any] = Chunk.empty,
-                                                                                            field1: Field[A1],
-                                                                                            field2: Field[A2],
-                                                                                            field3: Field[A3],
-                                                                                            field4: Field[A4],
-                                                                                            field5: Field[A5],
-                                                                                            field6: Field[A6],
-                                                                                            field7: Field[A7],
-                                                                                            field8: Field[A8],
-                                                                                            field9: Field[A9],
-                                                                                            field10: Field[A10],
-                                                                                            field11: Field[A11],
-                                                                                            field12: Field[A12],
-                                                                                            field13: Field[A13],
-                                                                                            construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13) => Z,
-                                                                                            extractField1: Z => A1,
-                                                                                            extractField2: Z => A2,
-                                                                                            extractField3: Z => A3,
-                                                                                            extractField4: Z => A4,
-                                                                                            extractField5: Z => A5,
-                                                                                            extractField6: Z => A6,
-                                                                                            extractField7: Z => A7,
-                                                                                            extractField8: Z => A8,
-                                                                                            extractField9: Z => A9,
-                                                                                            extractField10: Z => A10,
-                                                                                            extractField11: Z => A11,
-                                                                                            extractField12: Z => A12,
-                                                                                            extractField13: Z => A13
-                                                                                          ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    field7: Field[A7],
+    field8: Field[A8],
+    field9: Field[A9],
+    field10: Field[A10],
+    field11: Field[A11],
+    field12: Field[A12],
+    field13: Field[A13],
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6,
+    extractField7: Z => A7,
+    extractField8: Z => A8,
+    extractField9: Z => A9,
+    extractField10: Z => A10,
+    extractField11: Z => A11,
+    extractField12: Z => A12,
+    extractField13: Z => A13
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13]) =
@@ -2044,37 +2044,37 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
-                                                                                                 override val annotations: Chunk[Any] = Chunk.empty,
-                                                                                                 field1: Field[A1],
-                                                                                                 field2: Field[A2],
-                                                                                                 field3: Field[A3],
-                                                                                                 field4: Field[A4],
-                                                                                                 field5: Field[A5],
-                                                                                                 field6: Field[A6],
-                                                                                                 field7: Field[A7],
-                                                                                                 field8: Field[A8],
-                                                                                                 field9: Field[A9],
-                                                                                                 field10: Field[A10],
-                                                                                                 field11: Field[A11],
-                                                                                                 field12: Field[A12],
-                                                                                                 field13: Field[A13],
-                                                                                                 field14: Field[A14],
-                                                                                                 construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14) => Z,
-                                                                                                 extractField1: Z => A1,
-                                                                                                 extractField2: Z => A2,
-                                                                                                 extractField3: Z => A3,
-                                                                                                 extractField4: Z => A4,
-                                                                                                 extractField5: Z => A5,
-                                                                                                 extractField6: Z => A6,
-                                                                                                 extractField7: Z => A7,
-                                                                                                 extractField8: Z => A8,
-                                                                                                 extractField9: Z => A9,
-                                                                                                 extractField10: Z => A10,
-                                                                                                 extractField11: Z => A11,
-                                                                                                 extractField12: Z => A12,
-                                                                                                 extractField13: Z => A13,
-                                                                                                 extractField14: Z => A14
-                                                                                               ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    field7: Field[A7],
+    field8: Field[A8],
+    field9: Field[A9],
+    field10: Field[A10],
+    field11: Field[A11],
+    field12: Field[A12],
+    field13: Field[A13],
+    field14: Field[A14],
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6,
+    extractField7: Z => A7,
+    extractField8: Z => A8,
+    extractField9: Z => A9,
+    extractField10: Z => A10,
+    extractField11: Z => A11,
+    extractField12: Z => A12,
+    extractField13: Z => A13,
+    extractField14: Z => A14
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14]) =
@@ -2113,39 +2113,39 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
-                                                                                                      override val annotations: Chunk[Any] = Chunk.empty,
-                                                                                                      field1: Field[A1],
-                                                                                                      field2: Field[A2],
-                                                                                                      field3: Field[A3],
-                                                                                                      field4: Field[A4],
-                                                                                                      field5: Field[A5],
-                                                                                                      field6: Field[A6],
-                                                                                                      field7: Field[A7],
-                                                                                                      field8: Field[A8],
-                                                                                                      field9: Field[A9],
-                                                                                                      field10: Field[A10],
-                                                                                                      field11: Field[A11],
-                                                                                                      field12: Field[A12],
-                                                                                                      field13: Field[A13],
-                                                                                                      field14: Field[A14],
-                                                                                                      field15: Field[A15],
-                                                                                                      construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15) => Z,
-                                                                                                      extractField1: Z => A1,
-                                                                                                      extractField2: Z => A2,
-                                                                                                      extractField3: Z => A3,
-                                                                                                      extractField4: Z => A4,
-                                                                                                      extractField5: Z => A5,
-                                                                                                      extractField6: Z => A6,
-                                                                                                      extractField7: Z => A7,
-                                                                                                      extractField8: Z => A8,
-                                                                                                      extractField9: Z => A9,
-                                                                                                      extractField10: Z => A10,
-                                                                                                      extractField11: Z => A11,
-                                                                                                      extractField12: Z => A12,
-                                                                                                      extractField13: Z => A13,
-                                                                                                      extractField14: Z => A14,
-                                                                                                      extractField15: Z => A15
-                                                                                                    ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    field7: Field[A7],
+    field8: Field[A8],
+    field9: Field[A9],
+    field10: Field[A10],
+    field11: Field[A11],
+    field12: Field[A12],
+    field13: Field[A13],
+    field14: Field[A14],
+    field15: Field[A15],
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6,
+    extractField7: Z => A7,
+    extractField8: Z => A8,
+    extractField9: Z => A9,
+    extractField10: Z => A10,
+    extractField11: Z => A11,
+    extractField12: Z => A12,
+    extractField13: Z => A13,
+    extractField14: Z => A14,
+    extractField15: Z => A15
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15]) =
@@ -2201,41 +2201,41 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
-                                                                                                           override val annotations: Chunk[Any] = Chunk.empty,
-                                                                                                           field1: Field[A1],
-                                                                                                           field2: Field[A2],
-                                                                                                           field3: Field[A3],
-                                                                                                           field4: Field[A4],
-                                                                                                           field5: Field[A5],
-                                                                                                           field6: Field[A6],
-                                                                                                           field7: Field[A7],
-                                                                                                           field8: Field[A8],
-                                                                                                           field9: Field[A9],
-                                                                                                           field10: Field[A10],
-                                                                                                           field11: Field[A11],
-                                                                                                           field12: Field[A12],
-                                                                                                           field13: Field[A13],
-                                                                                                           field14: Field[A14],
-                                                                                                           field15: Field[A15],
-                                                                                                           field16: Field[A16],
-                                                                                                           construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) => Z,
-                                                                                                           extractField1: Z => A1,
-                                                                                                           extractField2: Z => A2,
-                                                                                                           extractField3: Z => A3,
-                                                                                                           extractField4: Z => A4,
-                                                                                                           extractField5: Z => A5,
-                                                                                                           extractField6: Z => A6,
-                                                                                                           extractField7: Z => A7,
-                                                                                                           extractField8: Z => A8,
-                                                                                                           extractField9: Z => A9,
-                                                                                                           extractField10: Z => A10,
-                                                                                                           extractField11: Z => A11,
-                                                                                                           extractField12: Z => A12,
-                                                                                                           extractField13: Z => A13,
-                                                                                                           extractField14: Z => A14,
-                                                                                                           extractField15: Z => A15,
-                                                                                                           extractField16: Z => A16
-                                                                                                         ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    field7: Field[A7],
+    field8: Field[A8],
+    field9: Field[A9],
+    field10: Field[A10],
+    field11: Field[A11],
+    field12: Field[A12],
+    field13: Field[A13],
+    field14: Field[A14],
+    field15: Field[A15],
+    field16: Field[A16],
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6,
+    extractField7: Z => A7,
+    extractField8: Z => A8,
+    extractField9: Z => A9,
+    extractField10: Z => A10,
+    extractField11: Z => A11,
+    extractField12: Z => A12,
+    extractField13: Z => A13,
+    extractField14: Z => A14,
+    extractField15: Z => A15,
+    extractField16: Z => A16
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16]) =
@@ -2293,43 +2293,43 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
-                                                                                                                override val annotations: Chunk[Any] = Chunk.empty,
-                                                                                                                field1: Field[A1],
-                                                                                                                field2: Field[A2],
-                                                                                                                field3: Field[A3],
-                                                                                                                field4: Field[A4],
-                                                                                                                field5: Field[A5],
-                                                                                                                field6: Field[A6],
-                                                                                                                field7: Field[A7],
-                                                                                                                field8: Field[A8],
-                                                                                                                field9: Field[A9],
-                                                                                                                field10: Field[A10],
-                                                                                                                field11: Field[A11],
-                                                                                                                field12: Field[A12],
-                                                                                                                field13: Field[A13],
-                                                                                                                field14: Field[A14],
-                                                                                                                field15: Field[A15],
-                                                                                                                field16: Field[A16],
-                                                                                                                field17: Field[A17],
-                                                                                                                construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17) => Z,
-                                                                                                                extractField1: Z => A1,
-                                                                                                                extractField2: Z => A2,
-                                                                                                                extractField3: Z => A3,
-                                                                                                                extractField4: Z => A4,
-                                                                                                                extractField5: Z => A5,
-                                                                                                                extractField6: Z => A6,
-                                                                                                                extractField7: Z => A7,
-                                                                                                                extractField8: Z => A8,
-                                                                                                                extractField9: Z => A9,
-                                                                                                                extractField10: Z => A10,
-                                                                                                                extractField11: Z => A11,
-                                                                                                                extractField12: Z => A12,
-                                                                                                                extractField13: Z => A13,
-                                                                                                                extractField14: Z => A14,
-                                                                                                                extractField15: Z => A15,
-                                                                                                                extractField16: Z => A16,
-                                                                                                                extractField17: Z => A17
-                                                                                                              ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    field7: Field[A7],
+    field8: Field[A8],
+    field9: Field[A9],
+    field10: Field[A10],
+    field11: Field[A11],
+    field12: Field[A12],
+    field13: Field[A13],
+    field14: Field[A14],
+    field15: Field[A15],
+    field16: Field[A16],
+    field17: Field[A17],
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6,
+    extractField7: Z => A7,
+    extractField8: Z => A8,
+    extractField9: Z => A9,
+    extractField10: Z => A10,
+    extractField11: Z => A11,
+    extractField12: Z => A12,
+    extractField13: Z => A13,
+    extractField14: Z => A14,
+    extractField15: Z => A15,
+    extractField16: Z => A16,
+    extractField17: Z => A17
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17]) =
@@ -2389,45 +2389,45 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
-                                                                                                                     override val annotations: Chunk[Any] = Chunk.empty,
-                                                                                                                     field1: Field[A1],
-                                                                                                                     field2: Field[A2],
-                                                                                                                     field3: Field[A3],
-                                                                                                                     field4: Field[A4],
-                                                                                                                     field5: Field[A5],
-                                                                                                                     field6: Field[A6],
-                                                                                                                     field7: Field[A7],
-                                                                                                                     field8: Field[A8],
-                                                                                                                     field9: Field[A9],
-                                                                                                                     field10: Field[A10],
-                                                                                                                     field11: Field[A11],
-                                                                                                                     field12: Field[A12],
-                                                                                                                     field13: Field[A13],
-                                                                                                                     field14: Field[A14],
-                                                                                                                     field15: Field[A15],
-                                                                                                                     field16: Field[A16],
-                                                                                                                     field17: Field[A17],
-                                                                                                                     field18: Field[A18],
-                                                                                                                     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18) => Z,
-                                                                                                                     extractField1: Z => A1,
-                                                                                                                     extractField2: Z => A2,
-                                                                                                                     extractField3: Z => A3,
-                                                                                                                     extractField4: Z => A4,
-                                                                                                                     extractField5: Z => A5,
-                                                                                                                     extractField6: Z => A6,
-                                                                                                                     extractField7: Z => A7,
-                                                                                                                     extractField8: Z => A8,
-                                                                                                                     extractField9: Z => A9,
-                                                                                                                     extractField10: Z => A10,
-                                                                                                                     extractField11: Z => A11,
-                                                                                                                     extractField12: Z => A12,
-                                                                                                                     extractField13: Z => A13,
-                                                                                                                     extractField14: Z => A14,
-                                                                                                                     extractField15: Z => A15,
-                                                                                                                     extractField16: Z => A16,
-                                                                                                                     extractField17: Z => A17,
-                                                                                                                     extractField18: Z => A18
-                                                                                                                   ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    field7: Field[A7],
+    field8: Field[A8],
+    field9: Field[A9],
+    field10: Field[A10],
+    field11: Field[A11],
+    field12: Field[A12],
+    field13: Field[A13],
+    field14: Field[A14],
+    field15: Field[A15],
+    field16: Field[A16],
+    field17: Field[A17],
+    field18: Field[A18],
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6,
+    extractField7: Z => A7,
+    extractField8: Z => A8,
+    extractField9: Z => A9,
+    extractField10: Z => A10,
+    extractField11: Z => A11,
+    extractField12: Z => A12,
+    extractField13: Z => A13,
+    extractField14: Z => A14,
+    extractField15: Z => A15,
+    extractField16: Z => A16,
+    extractField17: Z => A17,
+    extractField18: Z => A18
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17], b.Lens[Z, A18]) =
@@ -2489,47 +2489,47 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
-                                                                                                                          override val annotations: Chunk[Any] = Chunk.empty,
-                                                                                                                          field1: Field[A1],
-                                                                                                                          field2: Field[A2],
-                                                                                                                          field3: Field[A3],
-                                                                                                                          field4: Field[A4],
-                                                                                                                          field5: Field[A5],
-                                                                                                                          field6: Field[A6],
-                                                                                                                          field7: Field[A7],
-                                                                                                                          field8: Field[A8],
-                                                                                                                          field9: Field[A9],
-                                                                                                                          field10: Field[A10],
-                                                                                                                          field11: Field[A11],
-                                                                                                                          field12: Field[A12],
-                                                                                                                          field13: Field[A13],
-                                                                                                                          field14: Field[A14],
-                                                                                                                          field15: Field[A15],
-                                                                                                                          field16: Field[A16],
-                                                                                                                          field17: Field[A17],
-                                                                                                                          field18: Field[A18],
-                                                                                                                          field19: Field[A19],
-                                                                                                                          construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19) => Z,
-                                                                                                                          extractField1: Z => A1,
-                                                                                                                          extractField2: Z => A2,
-                                                                                                                          extractField3: Z => A3,
-                                                                                                                          extractField4: Z => A4,
-                                                                                                                          extractField5: Z => A5,
-                                                                                                                          extractField6: Z => A6,
-                                                                                                                          extractField7: Z => A7,
-                                                                                                                          extractField8: Z => A8,
-                                                                                                                          extractField9: Z => A9,
-                                                                                                                          extractField10: Z => A10,
-                                                                                                                          extractField11: Z => A11,
-                                                                                                                          extractField12: Z => A12,
-                                                                                                                          extractField13: Z => A13,
-                                                                                                                          extractField14: Z => A14,
-                                                                                                                          extractField15: Z => A15,
-                                                                                                                          extractField16: Z => A16,
-                                                                                                                          extractField17: Z => A17,
-                                                                                                                          extractField18: Z => A18,
-                                                                                                                          extractField19: Z => A19
-                                                                                                                        ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    field7: Field[A7],
+    field8: Field[A8],
+    field9: Field[A9],
+    field10: Field[A10],
+    field11: Field[A11],
+    field12: Field[A12],
+    field13: Field[A13],
+    field14: Field[A14],
+    field15: Field[A15],
+    field16: Field[A16],
+    field17: Field[A17],
+    field18: Field[A18],
+    field19: Field[A19],
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6,
+    extractField7: Z => A7,
+    extractField8: Z => A8,
+    extractField9: Z => A9,
+    extractField10: Z => A10,
+    extractField11: Z => A11,
+    extractField12: Z => A12,
+    extractField13: Z => A13,
+    extractField14: Z => A14,
+    extractField15: Z => A15,
+    extractField16: Z => A16,
+    extractField17: Z => A17,
+    extractField18: Z => A18,
+    extractField19: Z => A19
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18], Lens[Z, A19])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17], b.Lens[Z, A18], b.Lens[Z, A19]) =
@@ -2593,49 +2593,49 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](
-                                                                                                                               override val annotations: Chunk[Any] = Chunk.empty,
-                                                                                                                               field1: Field[A1],
-                                                                                                                               field2: Field[A2],
-                                                                                                                               field3: Field[A3],
-                                                                                                                               field4: Field[A4],
-                                                                                                                               field5: Field[A5],
-                                                                                                                               field6: Field[A6],
-                                                                                                                               field7: Field[A7],
-                                                                                                                               field8: Field[A8],
-                                                                                                                               field9: Field[A9],
-                                                                                                                               field10: Field[A10],
-                                                                                                                               field11: Field[A11],
-                                                                                                                               field12: Field[A12],
-                                                                                                                               field13: Field[A13],
-                                                                                                                               field14: Field[A14],
-                                                                                                                               field15: Field[A15],
-                                                                                                                               field16: Field[A16],
-                                                                                                                               field17: Field[A17],
-                                                                                                                               field18: Field[A18],
-                                                                                                                               field19: Field[A19],
-                                                                                                                               field20: Field[A20],
-                                                                                                                               construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) => Z,
-                                                                                                                               extractField1: Z => A1,
-                                                                                                                               extractField2: Z => A2,
-                                                                                                                               extractField3: Z => A3,
-                                                                                                                               extractField4: Z => A4,
-                                                                                                                               extractField5: Z => A5,
-                                                                                                                               extractField6: Z => A6,
-                                                                                                                               extractField7: Z => A7,
-                                                                                                                               extractField8: Z => A8,
-                                                                                                                               extractField9: Z => A9,
-                                                                                                                               extractField10: Z => A10,
-                                                                                                                               extractField11: Z => A11,
-                                                                                                                               extractField12: Z => A12,
-                                                                                                                               extractField13: Z => A13,
-                                                                                                                               extractField14: Z => A14,
-                                                                                                                               extractField15: Z => A15,
-                                                                                                                               extractField16: Z => A16,
-                                                                                                                               extractField17: Z => A17,
-                                                                                                                               extractField18: Z => A18,
-                                                                                                                               extractField19: Z => A19,
-                                                                                                                               extractField20: Z => A20
-                                                                                                                             ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    field7: Field[A7],
+    field8: Field[A8],
+    field9: Field[A9],
+    field10: Field[A10],
+    field11: Field[A11],
+    field12: Field[A12],
+    field13: Field[A13],
+    field14: Field[A14],
+    field15: Field[A15],
+    field16: Field[A16],
+    field17: Field[A17],
+    field18: Field[A18],
+    field19: Field[A19],
+    field20: Field[A20],
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6,
+    extractField7: Z => A7,
+    extractField8: Z => A8,
+    extractField9: Z => A9,
+    extractField10: Z => A10,
+    extractField11: Z => A11,
+    extractField12: Z => A12,
+    extractField13: Z => A13,
+    extractField14: Z => A14,
+    extractField15: Z => A15,
+    extractField16: Z => A16,
+    extractField17: Z => A17,
+    extractField18: Z => A18,
+    extractField19: Z => A19,
+    extractField20: Z => A20
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18], Lens[Z, A19], Lens[Z, A20])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17], b.Lens[Z, A18], b.Lens[Z, A19], b.Lens[Z, A20]) =
@@ -2701,51 +2701,51 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](
-                                                                                                                                    override val annotations: Chunk[Any] = Chunk.empty,
-                                                                                                                                    field1: Field[A1],
-                                                                                                                                    field2: Field[A2],
-                                                                                                                                    field3: Field[A3],
-                                                                                                                                    field4: Field[A4],
-                                                                                                                                    field5: Field[A5],
-                                                                                                                                    field6: Field[A6],
-                                                                                                                                    field7: Field[A7],
-                                                                                                                                    field8: Field[A8],
-                                                                                                                                    field9: Field[A9],
-                                                                                                                                    field10: Field[A10],
-                                                                                                                                    field11: Field[A11],
-                                                                                                                                    field12: Field[A12],
-                                                                                                                                    field13: Field[A13],
-                                                                                                                                    field14: Field[A14],
-                                                                                                                                    field15: Field[A15],
-                                                                                                                                    field16: Field[A16],
-                                                                                                                                    field17: Field[A17],
-                                                                                                                                    field18: Field[A18],
-                                                                                                                                    field19: Field[A19],
-                                                                                                                                    field20: Field[A20],
-                                                                                                                                    field21: Field[A21],
-                                                                                                                                    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z,
-                                                                                                                                    extractField1: Z => A1,
-                                                                                                                                    extractField2: Z => A2,
-                                                                                                                                    extractField3: Z => A3,
-                                                                                                                                    extractField4: Z => A4,
-                                                                                                                                    extractField5: Z => A5,
-                                                                                                                                    extractField6: Z => A6,
-                                                                                                                                    extractField7: Z => A7,
-                                                                                                                                    extractField8: Z => A8,
-                                                                                                                                    extractField9: Z => A9,
-                                                                                                                                    extractField10: Z => A10,
-                                                                                                                                    extractField11: Z => A11,
-                                                                                                                                    extractField12: Z => A12,
-                                                                                                                                    extractField13: Z => A13,
-                                                                                                                                    extractField14: Z => A14,
-                                                                                                                                    extractField15: Z => A15,
-                                                                                                                                    extractField16: Z => A16,
-                                                                                                                                    extractField17: Z => A17,
-                                                                                                                                    extractField18: Z => A18,
-                                                                                                                                    extractField19: Z => A19,
-                                                                                                                                    extractField20: Z => A20,
-                                                                                                                                    extractField21: Z => A21
-                                                                                                                                  ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    field7: Field[A7],
+    field8: Field[A8],
+    field9: Field[A9],
+    field10: Field[A10],
+    field11: Field[A11],
+    field12: Field[A12],
+    field13: Field[A13],
+    field14: Field[A14],
+    field15: Field[A15],
+    field16: Field[A16],
+    field17: Field[A17],
+    field18: Field[A18],
+    field19: Field[A19],
+    field20: Field[A20],
+    field21: Field[A21],
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6,
+    extractField7: Z => A7,
+    extractField8: Z => A8,
+    extractField9: Z => A9,
+    extractField10: Z => A10,
+    extractField11: Z => A11,
+    extractField12: Z => A12,
+    extractField13: Z => A13,
+    extractField14: Z => A14,
+    extractField15: Z => A15,
+    extractField16: Z => A16,
+    extractField17: Z => A17,
+    extractField18: Z => A18,
+    extractField19: Z => A19,
+    extractField20: Z => A20,
+    extractField21: Z => A21
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18], Lens[Z, A19], Lens[Z, A20], Lens[Z, A21])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17], b.Lens[Z, A18], b.Lens[Z, A19], b.Lens[Z, A20], b.Lens[Z, A21]) =
@@ -2813,53 +2813,53 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](
-                                                                                                                                         override val annotations: Chunk[Any] = Chunk.empty,
-                                                                                                                                         field1: Field[A1],
-                                                                                                                                         field2: Field[A2],
-                                                                                                                                         field3: Field[A3],
-                                                                                                                                         field4: Field[A4],
-                                                                                                                                         field5: Field[A5],
-                                                                                                                                         field6: Field[A6],
-                                                                                                                                         field7: Field[A7],
-                                                                                                                                         field8: Field[A8],
-                                                                                                                                         field9: Field[A9],
-                                                                                                                                         field10: Field[A10],
-                                                                                                                                         field11: Field[A11],
-                                                                                                                                         field12: Field[A12],
-                                                                                                                                         field13: Field[A13],
-                                                                                                                                         field14: Field[A14],
-                                                                                                                                         field15: Field[A15],
-                                                                                                                                         field16: Field[A16],
-                                                                                                                                         field17: Field[A17],
-                                                                                                                                         field18: Field[A18],
-                                                                                                                                         field19: Field[A19],
-                                                                                                                                         field20: Field[A20],
-                                                                                                                                         field21: Field[A21],
-                                                                                                                                         field22: Field[A22],
-                                                                                                                                         construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22) => Z,
-                                                                                                                                         extractField1: Z => A1,
-                                                                                                                                         extractField2: Z => A2,
-                                                                                                                                         extractField3: Z => A3,
-                                                                                                                                         extractField4: Z => A4,
-                                                                                                                                         extractField5: Z => A5,
-                                                                                                                                         extractField6: Z => A6,
-                                                                                                                                         extractField7: Z => A7,
-                                                                                                                                         extractField8: Z => A8,
-                                                                                                                                         extractField9: Z => A9,
-                                                                                                                                         extractField10: Z => A10,
-                                                                                                                                         extractField11: Z => A11,
-                                                                                                                                         extractField12: Z => A12,
-                                                                                                                                         extractField13: Z => A13,
-                                                                                                                                         extractField14: Z => A14,
-                                                                                                                                         extractField15: Z => A15,
-                                                                                                                                         extractField16: Z => A16,
-                                                                                                                                         extractField17: Z => A17,
-                                                                                                                                         extractField18: Z => A18,
-                                                                                                                                         extractField19: Z => A19,
-                                                                                                                                         extractField20: Z => A20,
-                                                                                                                                         extractField21: Z => A21,
-                                                                                                                                         extractField22: Z => A22
-                                                                                                                                       ) extends Record[Z] { self =>
+    override val annotations: Chunk[Any] = Chunk.empty,
+    field1: Field[A1],
+    field2: Field[A2],
+    field3: Field[A3],
+    field4: Field[A4],
+    field5: Field[A5],
+    field6: Field[A6],
+    field7: Field[A7],
+    field8: Field[A8],
+    field9: Field[A9],
+    field10: Field[A10],
+    field11: Field[A11],
+    field12: Field[A12],
+    field13: Field[A13],
+    field14: Field[A14],
+    field15: Field[A15],
+    field16: Field[A16],
+    field17: Field[A17],
+    field18: Field[A18],
+    field19: Field[A19],
+    field20: Field[A20],
+    field21: Field[A21],
+    field22: Field[A22],
+    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22) => Z,
+    extractField1: Z => A1,
+    extractField2: Z => A2,
+    extractField3: Z => A3,
+    extractField4: Z => A4,
+    extractField5: Z => A5,
+    extractField6: Z => A6,
+    extractField7: Z => A7,
+    extractField8: Z => A8,
+    extractField9: Z => A9,
+    extractField10: Z => A10,
+    extractField11: Z => A11,
+    extractField12: Z => A12,
+    extractField13: Z => A13,
+    extractField14: Z => A14,
+    extractField15: Z => A15,
+    extractField16: Z => A16,
+    extractField17: Z => A17,
+    extractField18: Z => A18,
+    extractField19: Z => A19,
+    extractField20: Z => A20,
+    extractField21: Z => A21,
+    extractField22: Z => A22
+  ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18], Lens[Z, A19], Lens[Z, A20], Lens[Z, A21], Lens[Z, A22])
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17], b.Lens[Z, A18], b.Lens[Z, A19], b.Lens[Z, A20], b.Lens[Z, A21], b.Lens[Z, A22]) =

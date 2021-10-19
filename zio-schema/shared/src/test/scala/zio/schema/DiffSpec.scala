@@ -1,5 +1,11 @@
 package zio.schema
 
+import java.math.BigInteger
+import java.time.temporal.ChronoUnit
+import java.time.{ DayOfWeek, MonthDay }
+
+import scala.collection.immutable.ListMap
+
 import zio.Chunk
 import zio.random.Random
 import zio.schema.SchemaGen.{ Arity1, Arity24 }
@@ -7,11 +13,6 @@ import zio.schema.StandardType._
 import zio.schema.syntax._
 import zio.schema.types.Arities._
 import zio.test._
-
-import java.math.BigInteger
-import java.time.temporal.ChronoUnit
-import java.time.{ DayOfWeek, MonthDay }
-import scala.collection.immutable.ListMap
 
 object DiffSpec extends DefaultRunnableSpec {
 
@@ -344,66 +345,66 @@ object DiffSpec extends DefaultRunnableSpec {
           }
         }
       ),
-//    TODO Bug -  This produces
-//    [info]         java.lang.ArithmeticException: long overflow
-//    [info]          at java.lang.Math.multiplyExact(Unknown Source)
-//    [info]          at java.time.LocalDateTime.until(Unknown Source)
-//    [info]          at java.time.temporal.ChronoUnit.between(Unknown Source)
-//    [info]          at zio.schema.Differ$.zio$schema$Differ$$$anonfun$temporal$1(Diff.scala:150)
-//    [info]          at zio.schema.Differ$$anonfun$temporal$2.apply(Diff.scala:150)
-//    [info]          at zio.schema.Differ$$anonfun$temporal$2.apply(Diff.scala:150)
-//    [info]          at zio.schema.Schema.diff(Schema.scala:69)
-//    Notes: All the temporal times with MILLIS can produce this error when doing unit.between(a, b)
-//           we should look for a different way to store time differences...
+      //    TODO Bug -  This produces
+      //    [info]         java.lang.ArithmeticException: long overflow
+      //    [info]          at java.lang.Math.multiplyExact(Unknown Source)
+      //    [info]          at java.time.LocalDateTime.until(Unknown Source)
+      //    [info]          at java.time.temporal.ChronoUnit.between(Unknown Source)
+      //    [info]          at zio.schema.Differ$.zio$schema$Differ$$$anonfun$temporal$1(Diff.scala:150)
+      //    [info]          at zio.schema.Differ$$anonfun$temporal$2.apply(Diff.scala:150)
+      //    [info]          at zio.schema.Differ$$anonfun$temporal$2.apply(Diff.scala:150)
+      //    [info]          at zio.schema.Schema.diff(Schema.scala:69)
+      //    Notes: All the temporal times with MILLIS can produce this error when doing unit.between(a, b)
+      //           we should look for a different way to store time differences...
 
-//       suite("LocalDateTime")(
-//         testM("identical") {
-//           check(Gen.anyLocalDateTime) { x =>
-//             val diff = x.diff(x)
-//             assertTrue(diff == Diff.Identical)
-//             assertTrue(x.runPatch(diff) == Right(x))
-//           }
-//         },
-//         testM("different") {
-//           check(Gen.anyLocalDateTime <*> Gen.anyLocalDateTime) {
-//             case (left, right) =>
-//               val unit = ChronoUnit.MILLIS
-//               val diff = left.diff(right)
-//               assertTrue(diff == Diff.Temporal(unit.between(left, right), unit))
-//               assertTrue(left.runPatch(diff) == Right(right))
-//           }
-//         }
-//       ),
+      //       suite("LocalDateTime")(
+      //         testM("identical") {
+      //           check(Gen.anyLocalDateTime) { x =>
+      //             val diff = x.diff(x)
+      //             assertTrue(diff == Diff.Identical)
+      //             assertTrue(x.runPatch(diff) == Right(x))
+      //           }
+      //         },
+      //         testM("different") {
+      //           check(Gen.anyLocalDateTime <*> Gen.anyLocalDateTime) {
+      //             case (left, right) =>
+      //               val unit = ChronoUnit.MILLIS
+      //               val diff = left.diff(right)
+      //               assertTrue(diff == Diff.Temporal(unit.between(left, right), unit))
+      //               assertTrue(left.runPatch(diff) == Right(right))
+      //           }
+      //         }
+      //       ),
 
       // TODO Bug - This produces:
-//    [info]         java.time.temporal.UnsupportedTemporalTypeException: Unsupported unit: Millis
-//    [info]          at java.time.Duration.get(Unknown Source)
-//    [info]          at zio.schema.Differ$.zio$schema$Differ$$$anonfun$temporalAmount$1(Diff.scala:147)
-//    [info]          at zio.schema.Differ$$anonfun$temporalAmount$2.apply(Diff.scala:147)
-//    [info]          at zio.schema.Differ$$anonfun$temporalAmount$2.apply(Diff.scala:147)
-//    [info]          at zio.schema.Schema.diff(Schema.scala:69)
-// Notes: java.time.Duration does not support Milliseconds
-//  as per https://docs.oracle.com/javase/8/docs/api/java/time/Duration.html
-//  it supports seconds and nanoseconds
+      //    [info]         java.time.temporal.UnsupportedTemporalTypeException: Unsupported unit: Millis
+      //    [info]          at java.time.Duration.get(Unknown Source)
+      //    [info]          at zio.schema.Differ$.zio$schema$Differ$$$anonfun$temporalAmount$1(Diff.scala:147)
+      //    [info]          at zio.schema.Differ$$anonfun$temporalAmount$2.apply(Diff.scala:147)
+      //    [info]          at zio.schema.Differ$$anonfun$temporalAmount$2.apply(Diff.scala:147)
+      //    [info]          at zio.schema.Schema.diff(Schema.scala:69)
+      // Notes: java.time.Duration does not support Milliseconds
+      //  as per https://docs.oracle.com/javase/8/docs/api/java/time/Duration.html
+      //  it supports seconds and nanoseconds
 
-//       suite("Duration")(
-//         testM("identical") {
-//           check(Gen.anyFiniteDuration) { x =>
-//             val diff = x.diff(x)
-//             assertTrue(diff == Diff.Identical)
-//             assertTrue(x.runPatch(diff) == Right(x))
-//           }
-//         },
-//         testM("different") {
-//           check(Gen.anyFiniteDuration <*> Gen.anyFiniteDuration) {
-//             case (left, right) =>
-//               val unit = ChronoUnit.MILLIS
-//               val diff = left.diff(right)
-//               assertTrue(diff == Diff.Temporal(left.get(unit) - right.get(unit), unit))
-//               assertTrue(left.runPatch(diff) == Right(right))
-//           }
-//         }
-//       ),
+      //       suite("Duration")(
+      //         testM("identical") {
+      //           check(Gen.anyFiniteDuration) { x =>
+      //             val diff = x.diff(x)
+      //             assertTrue(diff == Diff.Identical)
+      //             assertTrue(x.runPatch(diff) == Right(x))
+      //           }
+      //         },
+      //         testM("different") {
+      //           check(Gen.anyFiniteDuration <*> Gen.anyFiniteDuration) {
+      //             case (left, right) =>
+      //               val unit = ChronoUnit.MILLIS
+      //               val diff = left.diff(right)
+      //               assertTrue(diff == Diff.Temporal(left.get(unit) - right.get(unit), unit))
+      //               assertTrue(left.runPatch(diff) == Right(right))
+      //           }
+      //         }
+      //       ),
       testM("day of week") {
         check(Gen.elements(1, 2, 3, 4, 5, 6, 7) <*> Gen.elements(1, 2, 3, 4, 5, 6, 7)) {
           case (i1, i2) =>
