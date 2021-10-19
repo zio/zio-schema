@@ -1,11 +1,5 @@
 package zio.schema
 
-import java.math.BigInteger
-import java.time.temporal.ChronoUnit
-import java.time.{ DayOfWeek, MonthDay }
-
-import scala.collection.immutable.ListMap
-
 import zio.Chunk
 import zio.random.Random
 import zio.schema.SchemaGen.{ Arity1, Arity24 }
@@ -13,6 +7,11 @@ import zio.schema.StandardType._
 import zio.schema.syntax._
 import zio.schema.types.Arities._
 import zio.test._
+
+import java.math.BigInteger
+import java.time.temporal.ChronoUnit
+import java.time.{ DayOfWeek, MonthDay }
+import scala.collection.immutable.ListMap
 
 object DiffSpec extends DefaultRunnableSpec {
 
