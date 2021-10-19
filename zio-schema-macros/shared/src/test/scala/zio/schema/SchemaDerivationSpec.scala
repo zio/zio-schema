@@ -7,42 +7,39 @@ import zio.test._
 
 object SchemaDerivationSpec extends DefaultRunnableSpec {
   import Assertion._
+  import SchemaAssertions._
 
   final case class annotation1(value: String) extends Annotation
   final case class annotation2(value: String) extends Annotation
 
-  sealed case class UserId(id: String)
-
-//  object UserId {
-//    implicit lazy val schema: Schema[UserId] = SchemaDerivation.gen[UserId]
-//  }
+  val p = Chunk.apply[Any](new annotation1("foo"), new annotation2("bar"))
 
   final case class ContainerFields(field1: Option[String], field2: List[String])
 
-//  object ContainerFields {
-//    implicit lazy val schema: Schema[ContainerFields] = SchemaDerivation.gen[ContainerFields]
-//  }
+  object ContainerFields {
+    implicit lazy val schema: Schema[ContainerFields] = SchemaDerivation.gen[ContainerFields]
+  }
 
+  sealed case class UserId(id: String)
   sealed case class User(name: String, @annotation1("foo") @annotation2("bar") id: UserId)
 
   object User {
     implicit lazy val schema: Schema.CaseClass2[String, UserId, User] = SchemaDerivation.gen[User]
   }
 
-//  sealed trait Status
-//  case class Ok(response: List[String]) extends Status
-//  case class Failed(code: Int, reason: String, additionalExplanation: Option[String], remark: String = "oops")
-//      extends Status
-//  case object Pending extends Status
-//
-//  sealed trait OneOf
-//  case class StringValue(value: String)   extends OneOf
-//  case class IntValue(value: Int)         extends OneOf
-//  case class BooleanValue(value: Boolean) extends OneOf
-//
-//  case object Singleton
-//  implicit val singletonSchema = gen[Singleton.type]
-//
+  sealed trait Status
+  case class Ok(response: List[String]) extends Status
+  case class Failed(code: Int, reason: String, additionalExplanation: Option[String], remark: String = "oops")
+      extends Status
+  case object Pending extends Status
+
+  sealed trait OneOf
+  case class StringValue(value: String)   extends OneOf
+  case class IntValue(value: Int)         extends OneOf
+  case class BooleanValue(value: Boolean) extends OneOf
+
+  case object Singleton
+
   case class Recursive(
     field1: Int,
     field2: Option[Recursive] = None,
@@ -55,22 +52,15 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
   object Recursive {
     implicit lazy val schema: Schema[Recursive] = SchemaDerivation.gen[Recursive]
   }
-//
+
   case class Cyclic(field1: Long, child: CyclicChild1)
 
   object Cyclic {
     implicit lazy val schema: Schema.CaseClass2[Long, CyclicChild1, Cyclic] = SchemaDerivation.gen[Cyclic]
   }
+
   case class CyclicChild1(field1: Int, child: CyclicChild2)
-
-//  object CyclicChild1 {
-//    implicit lazy val schema = SchemaDerivation.gen[CyclicChild1]
-//  }
   case class CyclicChild2(field1: String, recursive: Option[Cyclic])
-
-//  object CyclicChild2 {
-//    implicit lazy val schema = SchemaDerivation.gen[CyclicChild2]
-//  }
 
   final case class Arity24(
     a1: String,
@@ -104,25 +94,25 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
   }
 
 //
-//  case class DependsOnA(a: DependsOnB)
-//
-//  object DependsOnA {
-//    implicit lazy val schema: Schema[DependsOnA] = gen[DependsOnA]
-//  }
-//  case class DependsOnB(b: DependsOnA)
-//
-//  object DependsOnB {
-//    implicit lazy val schema: Schema[DependsOnB] = gen[DependsOnB]
-//  }
+  case class DependsOnA(a: Option[DependsOnB])
+
+  object DependsOnA {
+    implicit lazy val schema: Schema[DependsOnA] = SchemaDerivation.gen[DependsOnA]
+  }
+  case class DependsOnB(b: Option[DependsOnA])
+
+  object DependsOnB {
+    implicit lazy val schema: Schema[DependsOnB] = SchemaDerivation.gen[DependsOnB]
+  }
 
   sealed trait Tree[+A]
   case class Branch[A](left: Tree[A], right: Tree[A]) extends Tree[A]
   case class Leaf[A](value: A)                        extends Tree[A]
   case object Root                                    extends Tree[Nothing]
 
-  // sealed trait RecursiveEnum
-  // case class RecursiveEnum1(label: String, rs: List[RecursiveEnum]) extends RecursiveEnum
-  // case object RecursiveEnum2                                        extends RecursiveEnum
+  sealed trait RecursiveEnum
+  case class RecursiveEnum1(label: String, rs: List[RecursiveEnum]) extends RecursiveEnum
+  case object RecursiveEnum2                                        extends RecursiveEnum
 
   // object RecursiveEnum {
   //   implicit lazy val schema: Schema[RecursiveEnum] = gen
@@ -131,60 +121,60 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
   override def spec: ZSpec[Environment, Failure] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("case class") {
-        println(Schema[User])
-        assert(Schema[User].toString)(not(containsString("null")))
+        assert(Schema[User].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
       test("case class with arity > 22") {
-        assert(Schema[Arity24].toString)(not(containsString("null")))
+        assert(Schema[Arity24].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
       test("recursive data structure") {
-        assert(Schema[Recursive].toString)(not(containsString("null")))
+        assert(Schema[Recursive].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
       test("cyclic recursion") {
         val c = Cyclic(1, CyclicChild1(2, CyclicChild2("3", None)))
         val _ = Schema[Cyclic].toDynamic(c)
-        assert(Schema[Cyclic].toString)(not(containsString("null")))
-      }
-      // test("correctly derives schema for UserId case class") {
-      //   val derived: Schema[UserId] = Schema[UserId]
-      //   val expected: Schema[UserId] =
-      //     Schema.CaseClass1(
-      //       annotations = Chunk.empty,
-      //       field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
-      //       UserId.apply,
-      //       (uid: UserId) => uid.id
-      //     )
+        assert(Schema[Cyclic].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+      },
+      test("correctly derives schema for UserId case class") {
+        println(User.schema.field2.annotations)
+        val derived: Schema[UserId] = SchemaDerivation.gen[UserId]
+        val expected: Schema[UserId] =
+          Schema.CaseClass1(
+            annotations = Chunk.empty,
+            field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
+            UserId.apply,
+            (uid: UserId) => uid.id
+          )
 
-      //   assert(derived)(hasSameSchema(expected))
-      // },
-      // test("correctly derives schema for Singleton case object") {
-      //   val derived: Schema[Singleton.type]  = Schema[Singleton.type]
-      //   val expected: Schema[Singleton.type] = Schema[Unit].transform(_ => Singleton, _ => ())
+        assert(derived)(hasSameSchema(expected))
+      },
+      test("correctly derives schema for Singleton case object") {
+        val derived: Schema[Singleton.type]  = SchemaDerivation.gen[Singleton.type]
+        val expected: Schema[Singleton.type] = Schema[Unit].transform(_ => Singleton, _ => ())
 
-      //   assert(derived)(hasSameSchema(expected))
-      // } @@ TestAspect.ignore,
-      // test("correctly derives schema for case class with nested case classes") {
-      //   val derived: Schema[User] = Schema[User]
-      //   val expected: Schema[User] =
-      //     Schema.CaseClass2(
-      //       annotations = Chunk.empty,
-      //       field1 = Schema.Field("name", Schema.Primitive(StandardType.StringType)),
-      //       field2 = Schema.Field(
-      //         "id",
-      //         Schema.CaseClass1(
-      //           annotations = Chunk.empty,
-      //           field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
-      //           UserId.apply,
-      //           (uid: UserId) => uid.id
-      //         ),
-      //         Chunk(annotation1("foo"), annotation2("bar"))
-      //       ),
-      //       User.apply,
-      //       (u: User) => u.name,
-      //       (u: User) => u.id
-      //     )
-      //   assert(derived)(hasSameSchema(expected))
-      // } @@ TestAspect.ignore,
+        assert(derived)(hasSameSchema(expected))
+      },
+      test("correctly derives schema for case class with nested case classes") {
+        val derived: Schema[User] = Schema[User]
+        val expected: Schema[User] =
+          Schema.CaseClass2(
+            annotations = Chunk.empty,
+            field1 = Schema.Field("name", Schema.Primitive(StandardType.StringType)),
+            field2 = Schema.Field(
+              "id",
+              Schema.CaseClass1(
+                annotations = Chunk.empty,
+                field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
+                UserId.apply,
+                (uid: UserId) => uid.id
+              )
+//               Chunk(annotation1("foo"), annotation2("bar"))
+            ),
+            User.apply,
+            (u: User) => u.name,
+            (u: User) => u.id
+          )
+        assert(derived)(hasSameSchema(expected))
+      },
       // test("correctly derives schema for complex ADT") {
       //   val derived: Schema[Status] = Schema[Status]
       //   val expected: Schema[Status] =
@@ -200,12 +190,20 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
 
       //   assert(derived)(hasSameSchema(expected))
       // } @@ TestAspect.ignore,
-      // test("correctly derives for case classes with recursive types") {
-      //   assert(gen[Recursive])(anything)
-      // } @@ TestAspect.ignore,
-      // test("correctly derives mutually recrusive case classes") {
-      //   assert(gen[DependsOnA] -> gen[DependsOnB])(anything)
-      // } @@ TestAspect.ignore,
+      test("correctly derives for case classes with recursive types") {
+        assert(Schema[Recursive].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+      },
+      test("correctly derives mutually recursive case classes") {
+        val a  = DependsOnA(Some(DependsOnB(None)))
+        val a0 = Schema[DependsOnA].fromDynamic(Schema[DependsOnA].toDynamic(a))
+        assert(Schema[DependsOnA])(anything)
+        assert(a0)(isRight(equalTo(a)))
+
+        val b = DependsOnB(Some(DependsOnA(None)))
+        val b0 = Schema[DependsOnB].fromDynamic(Schema[DependsOnB].toDynamic(b))
+        assert(Schema[DependsOnB])(anything)
+        assert(b0)(isRight(equalTo(b)))
+      }
       // test("correctly derives Tree") {
       //   assert(gen[Tree[Recursive]])(anything)
       // } @@ TestAspect.ignore,

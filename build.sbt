@@ -190,7 +190,6 @@ lazy val zioSchemaOpticsJS = zioSchemaOptics.js
 
 lazy val zioSchemaOpticsJVM = zioSchemaOptics.jvm
 
-
 lazy val docs = project
   .in(file("zio-schema-docs"))
   .settings(
