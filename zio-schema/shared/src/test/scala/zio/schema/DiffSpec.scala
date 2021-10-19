@@ -36,7 +36,7 @@ object DiffSpec extends DefaultRunnableSpec {
                       }
                   )
 
-              assertTrue(theseBytes.diffEach(thoseBytes) == expected)
+              assertTrue(theseBytes.diffEach(thoseBytes) == expected) &&
               assertTrue(theseBytes.runPatch(expected) == Right(thoseBytes))
           }
         },
@@ -54,7 +54,7 @@ object DiffSpec extends DefaultRunnableSpec {
                     } ++ Chunk(Diff.Total(thoseBytes(10), Diff.Tag.Right), Diff.Total(thoseBytes(11), Diff.Tag.Right))
                 )
 
-              assertTrue(theseBytes.diffEach(thoseBytes) == expected)
+              assertTrue(theseBytes.diffEach(thoseBytes) == expected) &&
               assertTrue(theseBytes.runPatch(expected) == Right(thoseBytes))
           }
         },
@@ -72,7 +72,7 @@ object DiffSpec extends DefaultRunnableSpec {
                     } ++ Chunk(Diff.Total(theseBytes(10), Diff.Tag.Left), Diff.Total(theseBytes(11), Diff.Tag.Left))
                 )
 
-              assertTrue(theseBytes.diffEach(thoseBytes) == expected)
+              assertTrue(theseBytes.diffEach(thoseBytes) == expected) &&
               assertTrue(theseBytes.runPatch(expected) == Right(thoseBytes))
           }
         }
@@ -81,7 +81,7 @@ object DiffSpec extends DefaultRunnableSpec {
         testM("identical") {
           check(Gen.anyInt) { x =>
             val diff = x.diff(x)
-            assertTrue(diff == Diff.Identical)
+            assertTrue(diff == Diff.Identical) &&
             assertTrue(x.runPatch(diff) == Right(x))
           }
         },
@@ -89,7 +89,7 @@ object DiffSpec extends DefaultRunnableSpec {
           check(Gen.anyInt <*> Gen.anyInt) {
             case (left, right) =>
               val diff = left.diff(right)
-              assertTrue(diff == Diff.Number(left - right))
+              assertTrue(diff == Diff.Number(left - right)) &&
               assertTrue(left.runPatch(diff) == Right(right))
           }
         }
@@ -98,7 +98,7 @@ object DiffSpec extends DefaultRunnableSpec {
         testM("identical") {
           check(Gen.anyDouble) { x =>
             val diff = x.diff(x)
-            assertTrue(diff == Diff.Identical)
+            assertTrue(diff == Diff.Identical) &&
             assertTrue(x.runPatch(diff) == Right(x))
           }
         },
@@ -106,7 +106,7 @@ object DiffSpec extends DefaultRunnableSpec {
           check(Gen.anyDouble <*> Gen.anyDouble) {
             case (left, right) =>
               val diff = left.diff(right)
-              assertTrue(diff == Diff.Number(left - right))
+              assertTrue(diff == Diff.Number(left - right)) &&
               assertTrue(left.runPatch(diff) == Right(right))
           }
         }
@@ -115,7 +115,7 @@ object DiffSpec extends DefaultRunnableSpec {
         testM("identical") {
           check(Gen.anyFloat) { x =>
             val diff = x.diff(x)
-            assertTrue(diff == Diff.Identical)
+            assertTrue(diff == Diff.Identical) &&
             assertTrue(x.runPatch(diff) == Right(x))
           }
         },
@@ -123,7 +123,7 @@ object DiffSpec extends DefaultRunnableSpec {
           check(Gen.anyFloat <*> Gen.anyFloat) {
             case (left, right) =>
               val diff = left.diff(right)
-              assertTrue(diff == Diff.Number(left - right))
+              assertTrue(diff == Diff.Number(left - right)) &&
               assertTrue(left.runPatch(diff) == Right(right))
           }
         }
@@ -132,7 +132,7 @@ object DiffSpec extends DefaultRunnableSpec {
         testM("identical") {
           check(Gen.anyLong) { x =>
             val diff = x.diff(x)
-            assertTrue(diff == Diff.Identical)
+            assertTrue(diff == Diff.Identical) &&
             assertTrue(x.runPatch(diff) == Right(x))
           }
         },
@@ -140,7 +140,7 @@ object DiffSpec extends DefaultRunnableSpec {
           check(Gen.anyLong <*> Gen.anyLong) {
             case (left, right) =>
               val diff = left.diff(right)
-              assertTrue(diff == Diff.Number(left - right))
+              assertTrue(diff == Diff.Number(left - right)) &&
               assertTrue(left.runPatch(diff) == Right(right))
           }
         }
@@ -149,7 +149,7 @@ object DiffSpec extends DefaultRunnableSpec {
         testM("identical") {
           check(Gen.anyShort) { x =>
             val diff = x.diff(x)
-            assertTrue(diff == Diff.Identical)
+            assertTrue(diff == Diff.Identical) &&
             assertTrue(x.runPatch(diff) == Right(x))
           }
         },
@@ -157,7 +157,7 @@ object DiffSpec extends DefaultRunnableSpec {
           check(Gen.anyShort <*> Gen.anyShort) {
             case (left, right) =>
               val diff = left.diff(right)
-              assertTrue(diff == Diff.Number(left - right))
+              assertTrue(diff == Diff.Number((left - right).asInstanceOf[Short])) &&
               assertTrue(left.runPatch(diff) == Right(right))
           }
         }
@@ -166,15 +166,15 @@ object DiffSpec extends DefaultRunnableSpec {
         testM("identical") {
           check(Gen.anyChar) { x =>
             val diff = x.diff(x)
-            assertTrue(diff == Diff.Identical)
+            assertTrue(diff == Diff.Identical) &&
             assertTrue(x.runPatch(diff) == Right(x))
           }
         },
         testM("different") {
           check(Gen.anyChar <*> Gen.anyChar) {
-            case (left, right) =>
+            case (left, right) if left != right =>
               val diff = left.diff(right)
-              assertTrue(diff == Diff.Number(left - right))
+              assertTrue(diff == Diff.Number((left - right).asInstanceOf[Char])) &&
               assertTrue(left.runPatch(diff) == Right(right))
           }
         }
@@ -183,7 +183,7 @@ object DiffSpec extends DefaultRunnableSpec {
         testM("identical") {
           check(bigIntegerGen) { x =>
             val diff = x.diff(x)
-            assertTrue(diff == Diff.Identical)
+            assertTrue(diff == Diff.Identical) &&
             assertTrue(x.runPatch(diff) == Right(x))
           }
         },
@@ -191,7 +191,7 @@ object DiffSpec extends DefaultRunnableSpec {
           check(bigIntegerGen <*> bigIntegerGen) {
             case (left, right) =>
               val diff = left.diff(right)
-              assertTrue(diff == Diff.BigInt(left.subtract(right)))
+              assertTrue(diff == Diff.BigInt(left.subtract(right))) &&
               assertTrue(left.runPatch(diff) == Right(right))
           }
         }
@@ -200,7 +200,7 @@ object DiffSpec extends DefaultRunnableSpec {
         testM("identical") {
           check(bigDecimalGen) { x =>
             val diff = x.diff(x)
-            assertTrue(diff == Diff.Identical)
+            assertTrue(diff == Diff.Identical) &&
             assertTrue(x.runPatch(diff) == Right(x))
           }
         },
@@ -208,7 +208,7 @@ object DiffSpec extends DefaultRunnableSpec {
           check(bigDecimalGen <*> bigDecimalGen) {
             case (left, right) =>
               val diff = left.diff(right)
-              assertTrue(diff == Diff.BigDecimal(left.subtract(right)))
+              assertTrue(diff == Diff.BigDecimal(left.subtract(right))) &&
               assertTrue(left.runPatch(diff).map(_.compareTo(right)) == Right(0))
           }
         }
@@ -218,7 +218,7 @@ object DiffSpec extends DefaultRunnableSpec {
       testM("identical") {
         check(Gen.anyString) { s =>
           val diff = s.diffEach(s)
-          assertTrue(diff == Diff.Identical)
+          assertTrue(diff == Diff.Identical) &&
           assertTrue(s.runPatch(diff) == Right(s))
         }
       },
@@ -229,7 +229,7 @@ object DiffSpec extends DefaultRunnableSpec {
             val diff =
               Diff.Myers(Chunk.fromIterable(str.map(c => Diff.Edit.Keep(c.toString))) :+ Diff.Edit.Insert(ch.toString))
 
-            assertTrue(str.diffEach(str2) == diff)
+            assertTrue(str.diffEach(str2) == diff) &&
             assertTrue(str.runPatch(diff) == Right(str2))
         }
       },
@@ -245,7 +245,7 @@ object DiffSpec extends DefaultRunnableSpec {
       testM("identical") {
         check(Gen.anyUUID) { uuid =>
           val diff = uuid.diffEach(uuid)
-          assertTrue(diff == Diff.Identical)
+          assertTrue(diff == Diff.Identical) &&
           assertTrue(uuid.runPatch(diff) == Right(uuid))
         }
       },
@@ -257,28 +257,22 @@ object DiffSpec extends DefaultRunnableSpec {
         }
       }
     ),
-    suite("boolean")(
-      test("identical") {
-        val diff = true.diff(true)
-        assertTrue(diff == Diff.Identical)
-        assertTrue(true.runPatch(diff) == Right(true))
-        assertTrue(false.runPatch(diff) == Right(false))
-      },
-      test("different") {
-        def boolChecker(from: Boolean, to: Boolean) = {
-          val diff = from.diff(to)
-          assertTrue(diff == Diff.Bool(to))
-          assertTrue(from.runPatch(diff) == Right(to))
-        }
-        boolChecker(true, false)
-        boolChecker(false, true)
+    test("boolean") {
+      def boolChecker(from: Boolean, to: Boolean) = {
+        val diff = from.diff(to)
+        assertTrue(diff == Diff.Bool(from ^ to)) &&
+        assertTrue(from.runPatch(diff) == Right(to))
       }
-    ),
+      boolChecker(true, true) &&
+      boolChecker(false, false) &&
+      boolChecker(true, false) &&
+      boolChecker(false, true)
+    },
     suite("ZoneId")(
       testM("identical") {
         check(Gen.anyZoneId) { x =>
           val diff = x.diff(x)
-          assertTrue(diff == Diff.Identical)
+          assertTrue(diff == Diff.Identical) &&
           assertTrue(x.runPatch(diff) == Right(x))
         }
       },
@@ -286,65 +280,39 @@ object DiffSpec extends DefaultRunnableSpec {
         check(Gen.anyZoneId <*> Gen.anyZoneId) {
           case (left, right) =>
             val diff = left.diff(right)
-            // assertTrue(diff == Diff.Number(left - right))
             assertTrue(left.runPatch(diff) == Right(right))
         }
       }
     ),
     suite("temporal")(
-      suite("Year")(
-        testM("identical") {
-          check(Gen.anyYear) { x =>
-            val diff = x.diff(x)
-            assertTrue(diff == Diff.Identical)
-            assertTrue(x.runPatch(diff) == Right(x))
-          }
-        },
-        testM("different") {
-          check(Gen.anyYear <*> Gen.anyYear) {
-            case (left, right) =>
-              val diff = left.diff(right)
-              assertTrue(diff == Diff.Temporal(ChronoUnit.YEARS.between(left, right), ChronoUnit.YEARS))
-              assertTrue(left.runPatch(diff) == Right(right))
-          }
+      testM("Year") {
+        check(Gen.anyYear <*> Gen.anyYear) {
+          case (left, right) =>
+            val unit = ChronoUnit.YEARS
+            val diff = left.diff(right)
+            assertTrue(diff == Diff.Temporal(unit.between(left, right), unit)) &&
+            assertTrue(left.runPatch(diff) == Right(right))
         }
-      ),
-      suite("YearMonth")(
-        testM("identical") {
-          check(Gen.anyYearMonth) { x =>
-            val diff = x.diff(x)
-            assertTrue(diff == Diff.Identical)
-            assertTrue(x.runPatch(diff) == Right(x))
-          }
-        },
-        testM("different") {
-          check(Gen.anyYearMonth <*> Gen.anyYearMonth) {
-            case (left, right) =>
-              val unit = ChronoUnit.MONTHS
-              val diff = left.diff(right)
-              assertTrue(diff == Diff.Temporal(unit.between(left, right), unit))
-              assertTrue(left.runPatch(diff) == Right(right))
-          }
+      },
+      testM("YearMonth") {
+        check(Gen.anyYearMonth <*> Gen.anyYearMonth) {
+          case (left, right) =>
+            val unit = ChronoUnit.MONTHS
+            val diff = left.diff(right)
+            assertTrue(diff == Diff.Temporal(unit.between(left, right), unit)) &&
+            assertTrue(left.runPatch(diff) == Right(right))
         }
-      ),
-      suite("LocalDate")(
-        testM("identical") {
-          check(Gen.anyLocalDate) { x =>
-            val diff = x.diff(x)
-            assertTrue(diff == Diff.Identical)
-            assertTrue(x.runPatch(diff) == Right(x))
-          }
-        },
-        testM("different") {
-          check(Gen.anyLocalDate <*> Gen.anyLocalDate) {
-            case (left, right) =>
-              val unit = ChronoUnit.DAYS
-              val diff = left.diff(right)
-              assertTrue(diff == Diff.Temporal(unit.between(left, right), unit))
-              assertTrue(left.runPatch(diff) == Right(right))
-          }
+      },
+      testM("LocalDate") {
+        check(Gen.anyLocalDate <*> Gen.anyLocalDate) {
+          case (left, right) =>
+            val unit = ChronoUnit.DAYS
+            val diff = left.diff(right)
+            assertTrue(diff == Diff.Temporal(unit.between(left, right), unit)) &&
+            assertTrue(left.runPatch(diff) == Right(right))
         }
-      ),
+      },
+
       //    TODO Bug -  This produces
       //    [info]         java.lang.ArithmeticException: long overflow
       //    [info]          at java.lang.Math.multiplyExact(Unknown Source)
@@ -357,24 +325,15 @@ object DiffSpec extends DefaultRunnableSpec {
       //    Notes: All the temporal times with MILLIS can produce this error when doing unit.between(a, b)
       //           we should look for a different way to store time differences...
 
-      //       suite("LocalDateTime")(
-      //         testM("identical") {
-      //           check(Gen.anyLocalDateTime) { x =>
-      //             val diff = x.diff(x)
-      //             assertTrue(diff == Diff.Identical)
-      //             assertTrue(x.runPatch(diff) == Right(x))
-      //           }
-      //         },
-      //         testM("different") {
-      //           check(Gen.anyLocalDateTime <*> Gen.anyLocalDateTime) {
-      //             case (left, right) =>
-      //               val unit = ChronoUnit.MILLIS
-      //               val diff = left.diff(right)
-      //               assertTrue(diff == Diff.Temporal(unit.between(left, right), unit))
-      //               assertTrue(left.runPatch(diff) == Right(right))
-      //           }
-      //         }
-      //       ),
+      // testM("LocalDateTime") {
+      //   check(Gen.anyLocalDateTime <*> Gen.anyLocalDateTime) {
+      //     case (left, right) =>
+      //       val unit = ChronoUnit.MILLIS
+      //       val diff = left.diff(right)
+      //       assertTrue(diff == Diff.Temporal(unit.between(left, right), unit)) &&
+      //       assertTrue(left.runPatch(diff) == Right(right))
+      //   }
+      // },
 
       // TODO Bug - This produces:
       //    [info]         java.time.temporal.UnsupportedTemporalTypeException: Unsupported unit: Millis
@@ -387,29 +346,21 @@ object DiffSpec extends DefaultRunnableSpec {
       //  as per https://docs.oracle.com/javase/8/docs/api/java/time/Duration.html
       //  it supports seconds and nanoseconds
 
-      //       suite("Duration")(
-      //         testM("identical") {
-      //           check(Gen.anyFiniteDuration) { x =>
-      //             val diff = x.diff(x)
-      //             assertTrue(diff == Diff.Identical)
-      //             assertTrue(x.runPatch(diff) == Right(x))
-      //           }
-      //         },
-      //         testM("different") {
-      //           check(Gen.anyFiniteDuration <*> Gen.anyFiniteDuration) {
-      //             case (left, right) =>
-      //               val unit = ChronoUnit.MILLIS
-      //               val diff = left.diff(right)
-      //               assertTrue(diff == Diff.Temporal(left.get(unit) - right.get(unit), unit))
-      //               assertTrue(left.runPatch(diff) == Right(right))
-      //           }
-      //         }
-      //       ),
+      // testM("Duration") {
+      //   check(Gen.anyFiniteDuration <*> Gen.anyFiniteDuration) {
+      //     case (left, right) =>
+      //       val unit = ChronoUnit.MILLIS
+      //       val diff = left.diff(right)
+      //       assertTrue(diff == Diff.Temporal(left.get(unit) - right.get(unit), unit)) &&
+      //       assertTrue(left.runPatch(diff) == Right(right))
+      //   }
+      // },
+
       testM("day of week") {
         check(Gen.elements(1, 2, 3, 4, 5, 6, 7) <*> Gen.elements(1, 2, 3, 4, 5, 6, 7)) {
           case (i1, i2) =>
             val expected = if (i1 == i2) Diff.Identical else Diff.Temporal((i2 - i1).toLong, ChronoUnit.DAYS)
-            assertTrue(DayOfWeek.of(i1).diff(DayOfWeek.of(i2)) == expected)
+            assertTrue(DayOfWeek.of(i1).diff(DayOfWeek.of(i2)) == expected) &&
             assertTrue(DayOfWeek.of(i1).runPatch(expected) == Right(DayOfWeek.of(i2)))
         }
       },
@@ -419,7 +370,7 @@ object DiffSpec extends DefaultRunnableSpec {
             val expected =
               if (thisMonth == thatMonth) Diff.Identical
               else Diff.Temporal((thatMonth.getValue - thisMonth.getValue).toLong, ChronoUnit.MONTHS)
-            assertTrue(thisMonth.diff(thatMonth) == expected)
+            assertTrue(thisMonth.diff(thatMonth) == expected) &&
             assertTrue(thisMonth.runPatch(expected) == Right(thatMonth))
         }
       },
@@ -428,20 +379,20 @@ object DiffSpec extends DefaultRunnableSpec {
           val expected     = Diff.MonthDays(1, 2)
           val thisMonthDay = MonthDay.of(2, 28)
           val thatMonthDay = MonthDay.of(3, 1)
-          assertTrue(thisMonthDay.diff(thatMonthDay) == expected)
+          assertTrue(thisMonthDay.diff(thatMonthDay) == expected) &&
           assertTrue(thisMonthDay.runPatch(expected) == Right(thatMonthDay))
         },
         test("no leap year adjustment") {
           val expected     = Diff.MonthDays(-1, -1)
           val thisMonthDay = MonthDay.of(2, 1)
           val thatMonthDay = MonthDay.of(1, 31)
-          assertTrue(thisMonthDay.diff(thatMonthDay) == expected)
+          assertTrue(thisMonthDay.diff(thatMonthDay) == expected) &&
           assertTrue(thisMonthDay.runPatch(expected) == Right(thatMonthDay))
         },
         testM("any") {
           check(Gen.anyMonthDay <*> Gen.anyMonthDay) {
             case (thisMonthDay, thatMonthDay) if thisMonthDay == thatMonthDay =>
-              assertTrue(thisMonthDay.diff(thatMonthDay) == Diff.Identical)
+              assertTrue(thisMonthDay.diff(thatMonthDay) == Diff.Identical) &&
               assertTrue(thisMonthDay.runPatch(Diff.Identical) == Right(thisMonthDay))
             case (thisMonthDay, thatMonthDay) =>
               val expected = Diff.MonthDays(
@@ -464,11 +415,11 @@ object DiffSpec extends DefaultRunnableSpec {
             )
 
             val diff = ls.diffEach(rs)
-            assertTrue(diff == expected)
-            assertTrue(ls.runPatch(diff) == Right(rs))
-
             val diffSame = ls.diffEach(ls)
-            assertTrue(diffSame == Diff.Identical)
+
+            assertTrue(diff == expected) &&
+            assertTrue(ls.runPatch(diff) == Right(rs)) &&
+            assertTrue(diffSame == Diff.Identical) &&
             assertTrue(ls.runPatch(diffSame) == Right(ls))
         }
       },
@@ -482,7 +433,7 @@ object DiffSpec extends DefaultRunnableSpec {
                 ) ++ Chunk(Diff.Total(rs(10), Diff.Tag.Right), Diff.Total(rs(11), Diff.Tag.Right))
             )
             val diff = ls.diffEach(rs)
-            assertTrue(diff == expected)
+            assertTrue(diff == expected) &&
             assertTrue(ls.runPatch(diff) == Right(rs))
         }
       },
@@ -496,7 +447,7 @@ object DiffSpec extends DefaultRunnableSpec {
                 ) ++ Chunk(Diff.Total(ls(10), Diff.Tag.Left), Diff.Total(ls(11), Diff.Tag.Left))
             )
             val diff = ls.diffEach(rs)
-            assertTrue(diff == expected)
+            assertTrue(diff == expected) &&
             assertTrue(ls.runPatch(diff) == Right(rs))
         }
       },
@@ -510,7 +461,7 @@ object DiffSpec extends DefaultRunnableSpec {
                 Diff.Sequence(ls.zipAll(rs).map(p => p._1.diff(p._2)))
 
             val diff = ls.diffEach(rs)
-            assertTrue(diff == expected)
+            assertTrue(diff == expected) &&
             assertTrue(ls.runPatch(diff) == Right(rs))
         }
       }
@@ -519,7 +470,7 @@ object DiffSpec extends DefaultRunnableSpec {
       testM("identical") {
         check(Gen.option(Gen.anyLong)) { x =>
           val diff = x.diff(x)
-          assertTrue(diff == Diff.Identical)
+          assertTrue(diff == Diff.Identical) &&
           assertTrue(x.runPatch(diff) == Right(x))
         }
       },
@@ -529,7 +480,7 @@ object DiffSpec extends DefaultRunnableSpec {
         val schemaInt          = Schema[Int]
         val schema             = Schema.Optional(schemaInt)
         val diff               = schema.diff(left, right)
-        assertTrue(diff == Diff.Total(2, Diff.Tag.Right))
+        assertTrue(diff == Diff.Total(2, Diff.Tag.Right)) &&
         assertTrue(left.runPatch(diff) == Right(right))
       },
       test("Some to None") {
@@ -538,7 +489,7 @@ object DiffSpec extends DefaultRunnableSpec {
         val schemaInt          = Schema[Int]
         val schema             = Schema.Optional(schemaInt)
         val diff               = schema.diff(left, right)
-        assertTrue(diff == Diff.Total(6, Diff.Tag.Left))
+        assertTrue(diff == Diff.Total(6, Diff.Tag.Left)) &&
         assertTrue(left.runPatch(diff) == Right(right))
       },
       test("Some to Some") {
@@ -547,7 +498,7 @@ object DiffSpec extends DefaultRunnableSpec {
         val schemaInt          = Schema[Int]
         val schema             = Schema.Optional(schemaInt)
         val diff               = schema.diff(left, right)
-        assertTrue(diff == Diff.Number(-18))
+        assertTrue(diff == Diff.Number(-18)) &&
         assertTrue(left.runPatch(diff) == Right(right))
       },
       testM("different") {
@@ -589,7 +540,7 @@ object DiffSpec extends DefaultRunnableSpec {
                 )
 
             val diff = thisA.diffEach(thatA)
-            assertTrue(diff == expected)
+            assertTrue(diff == expected) &&
             assertTrue(thisA.runPatch(diff) == Right(thatA))
         }
       },
@@ -620,39 +571,30 @@ object DiffSpec extends DefaultRunnableSpec {
                 )
               }
             val diff = thisA.diffEach(thatA)
-            assertTrue(diff == expected)
+            assertTrue(diff == expected) &&
             assertTrue(thisA.runPatch(diff) == Right(thatA))
         }
       },
       testM("identical") {
         check(SchemaGen.anyArity) { value =>
           val diff = value.diffEach(value)
-          assertTrue(diff == Diff.Identical)
+          assertTrue(diff == Diff.Identical) &&
           assertTrue(value.runPatch(diff) == Right(value))
         }
       }
     ),
-    suite("tuple")(
-      testM("identical") {
-        check(Gen.anyInt <*> Gen.anyString) {
-          case (left, right) =>
-            val tuple = (left, right)
-            val diff  = tuple.diff(tuple)
-            assertTrue(diff == Diff.Identical)
-            assertTrue(tuple.runPatch(diff) == Right(tuple))
-        }
-      },
-      testM("different") {
-        check(Gen.anyDouble <*> Gen.anyShort <*> Gen.anyDouble <*> Gen.anyShort) {
-          case (((left1, right1), left2), right2) =>
-            val tuple1 = (left1, right1)
-            val tuple2 = (left2, right2)
-            val diff   = tuple1.diff(tuple2)
-            assertTrue(diff == Diff.Tuple(Diff.Number(left1 - left2), Diff.Number(right1 - right2)))
-            assertTrue(tuple1.runPatch(diff) == Right(tuple2))
-        }
+    testM("tuple") {
+      check(Gen.anyDouble <*> Gen.anyLong <*> Gen.anyDouble <*> Gen.anyLong) {
+        case (((left1, right1), left2), right2) =>
+          val tuple1 = (left1, right1)
+          val tuple2 = (left2, right2)
+          val diff   = tuple1.diff(tuple2)
+          val expexted1 = if (left1 - left2 == 0) Diff.Identical else Diff.Number(left1 - left2)
+          val expexted2 = if (right1 - right2 == 0) Diff.Identical else Diff.Number(right1 - right2)
+          assertTrue(diff == Diff.Tuple(expexted1, expexted2)) &&
+          assertTrue(tuple1.runPatch(diff) == Right(tuple2))
       }
-    ),
+    },
     suite("transform")(
       test("different") {
         val f      = (i: Int) => Right(i.toString())
@@ -660,7 +602,7 @@ object DiffSpec extends DefaultRunnableSpec {
         val schema = Schema.Transform[Int, String](Schema[Int], f, g)
         val diff   = schema.diff("4", "6")
         val patch  = schema.patch(diff)
-        assertTrue(diff == Diff.Number(-2))
+        assertTrue(diff == Diff.Number(-2)) &&
         assertTrue(patch.flatMap(_.apply("4")) == Right("6"))
       }
     ),
@@ -671,7 +613,7 @@ object DiffSpec extends DefaultRunnableSpec {
         val schema: Schema[Pet] = DeriveSchema.gen
         val diff                = schema.diff(pet, pet)
         val patch               = schema.patch(diff)
-        assertTrue(diff == Diff.Identical)
+        assertTrue(diff == Diff.Identical) &&
         assertTrue(patch.flatMap(_.apply(pet)) == Right(pet))
       },
       test("different") {
@@ -682,10 +624,10 @@ object DiffSpec extends DefaultRunnableSpec {
         val schema: Schema[Pet] = DeriveSchema.gen
         val diff                = schema.diff(pet1, pet2)
         val patch               = schema.patch(diff)
-        val expected =
+        val expected = Diff.Record(ListMap("name"->
           Diff.Myers(Chunk(Keep("S"), Keep("p"), Insert("o"), Insert("t"), Delete("i"), Delete("k"), Delete("e")))
-
-        assertTrue(diff == expected)
+        ))
+        assertTrue(diff == expected) &&
         assertTrue(patch.flatMap(_.apply(pet1)) == Right(pet2))
       }
     ),
@@ -695,7 +637,7 @@ object DiffSpec extends DefaultRunnableSpec {
           case (thisA, thatA) =>
             val diff1 = thisA.diff(thatA)
             val diff2 = thatA.diff(thisA)
-            assertTrue(thisA.runPatch(diff1).flatMap(_.runPatch(diff2)) == Right(thisA))
+            assertTrue(thisA.runPatch(diff1).flatMap(_.runPatch(diff2)) == Right(thisA)) &&
             assertTrue(thatA.runPatch(diff2).flatMap(_.runPatch(diff1)) == Right(thatA))
         }
       }
