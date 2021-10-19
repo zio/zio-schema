@@ -1,13 +1,8 @@
 package zio.schema
 
-import zio.Chunk
-
 import scala.annotation.Annotation
 
-//import zio.Chunk
-// import zio.schema.DeriveSchema._
-//import zio.schema.SchemaAssertions.hasSameSchema
-// import zio.test.Assertion._
+import zio.Chunk
 import zio.test._
 
 object SchemaDerivationSpec extends DefaultRunnableSpec {
@@ -31,7 +26,7 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
   sealed case class User(name: String, @annotation1("foo") @annotation2("bar") id: UserId)
 
   object User {
-    implicit lazy val schema = SchemaDerivation.gen[User]
+    implicit lazy val schema: Schema.CaseClass2[String, UserId, User] = SchemaDerivation.gen[User]
   }
 
 //  sealed trait Status
@@ -64,7 +59,7 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
   case class Cyclic(field1: Long, child: CyclicChild1)
 
   object Cyclic {
-    implicit lazy val schema = SchemaDerivation.gen[Cyclic]
+    implicit lazy val schema: Schema.CaseClass2[Long, CyclicChild1, Cyclic] = SchemaDerivation.gen[Cyclic]
   }
   case class CyclicChild1(field1: Int, child: CyclicChild2)
 
@@ -105,7 +100,7 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
   )
 
   object Arity24 {
-    implicit lazy val schema = SchemaDerivation.gen[Arity24]
+    implicit lazy val schema: Schema[Arity24] = SchemaDerivation.gen[Arity24]
   }
 
 //
@@ -147,7 +142,7 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
       },
       test("cyclic recursion") {
         val c = Cyclic(1, CyclicChild1(2, CyclicChild2("3", None)))
-        val d = Schema[Cyclic].toDynamic(c)
+        val _ = Schema[Cyclic].toDynamic(c)
         assert(Schema[Cyclic].toString)(not(containsString("null")))
       }
       // test("correctly derives schema for UserId case class") {

@@ -1,9 +1,9 @@
 package zio.schema
 
-import zio.Chunk
-
 import scala.collection.mutable
 import scala.reflect.macros.whitebox
+
+import zio.Chunk
 
 object SchemaDerivation {
   import scala.language.experimental.macros
