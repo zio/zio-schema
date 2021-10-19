@@ -87,8 +87,8 @@ object MyersDiff extends Differ[String] {
         if (myersMatrix(originalPosition)(modifiedPosition) == myersMatrix(originalPosition - 1)(modifiedPosition)) {
           originalPosition -= 1
         } else if (myersMatrix(originalPosition)(modifiedPosition) == myersMatrix(originalPosition)(
-          modifiedPosition - 1
-        )) {
+                     modifiedPosition - 1
+                   )) {
           modifiedPosition -= 1
         } else {
           longestCommonSubsequence += original.charAt(originalPosition - 1)

@@ -421,10 +421,10 @@ object Differ {
     }
 
   def patchProductData(
-                        structure: Chunk[Schema.Field[_]],
-                        values: ListMap[String, DynamicValue],
-                        diffs: ListMap[String, Diff]
-                      ): Either[String, ListMap[String, Any]] =
+    structure: Chunk[Schema.Field[_]],
+    values: ListMap[String, DynamicValue],
+    diffs: ListMap[String, Diff]
+  ): Either[String, ListMap[String, Any]] =
     diffs.foldLeft[Either[String, ListMap[String, Any]]](Right(values)) {
       case (Right(record), (key, diff)) =>
         (structure.find(_.label == key).map(_.schema), values.get(key)) match {
