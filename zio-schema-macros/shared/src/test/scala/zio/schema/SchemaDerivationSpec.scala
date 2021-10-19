@@ -12,22 +12,21 @@ import zio.test._
 
 object SchemaDerivationSpec extends DefaultRunnableSpec {
   import Assertion._
-//  import SchemaDerivation._
 
   final case class annotation1(value: String) extends Annotation
   final case class annotation2(value: String) extends Annotation
 
   sealed case class UserId(id: String)
 
-  object UserId {
-    implicit lazy val schema: Schema[UserId] = SchemaDerivation.gen[UserId]
-  }
+//  object UserId {
+//    implicit lazy val schema: Schema[UserId] = SchemaDerivation.gen[UserId]
+//  }
 
   final case class ContainerFields(field1: Option[String], field2: List[String])
 
-  object ContainerFields {
-    implicit lazy val schema: Schema[ContainerFields] = SchemaDerivation.gen[ContainerFields]
-  }
+//  object ContainerFields {
+//    implicit lazy val schema: Schema[ContainerFields] = SchemaDerivation.gen[ContainerFields]
+//  }
 
   sealed case class User(name: String, @annotation1("foo") @annotation2("bar") id: UserId)
 
@@ -63,12 +62,52 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
   }
 //
   case class Cyclic(field1: Long, child: CyclicChild1)
-  case class CyclicChild1(field1: Int, child: CyclicChild2)
-  case class CyclicChild2(field1: String, recursive: Option[Cyclic])
 
   object Cyclic {
     implicit lazy val schema = SchemaDerivation.gen[Cyclic]
   }
+  case class CyclicChild1(field1: Int, child: CyclicChild2)
+
+//  object CyclicChild1 {
+//    implicit lazy val schema = SchemaDerivation.gen[CyclicChild1]
+//  }
+  case class CyclicChild2(field1: String, recursive: Option[Cyclic])
+
+//  object CyclicChild2 {
+//    implicit lazy val schema = SchemaDerivation.gen[CyclicChild2]
+//  }
+
+  final case class Arity24(
+    a1: String,
+    a2: Long,
+    a3: Boolean,
+    f4: Int = 4,
+    f5: Int = 5,
+    f6: Int = 6,
+    f7: Int = 7,
+    f8: Int = 8,
+    f9: Int = 9,
+    f10: Int = 10,
+    f11: Int = 11,
+    f12: Int = 12,
+    f13: Int = 13,
+    f14: Int = 14,
+    f15: Int = 15,
+    f16: Int = 16,
+    f17: Int = 17,
+    f18: Int = 18,
+    f19: Int = 19,
+    f20: Int = 20,
+    f21: Int = 21,
+    f22: Int = 22,
+    f23: Int = 23,
+    f24: Int = 24
+  )
+
+  object Arity24 {
+    implicit lazy val schema = SchemaDerivation.gen[Arity24]
+  }
+
 //
 //  case class DependsOnA(a: DependsOnB)
 //
@@ -97,12 +136,18 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
   override def spec: ZSpec[Environment, Failure] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("case class") {
+        println(Schema[User])
         assert(Schema[User].toString)(not(containsString("null")))
+      },
+      test("case class with arity > 22") {
+        assert(Schema[Arity24].toString)(not(containsString("null")))
       },
       test("recursive data structure") {
         assert(Schema[Recursive].toString)(not(containsString("null")))
       },
       test("cyclic recursion") {
+        val c = Cyclic(1, CyclicChild1(2, CyclicChild2("3", None)))
+        val d = Schema[Cyclic].toDynamic(c)
         assert(Schema[Cyclic].toString)(not(containsString("null")))
       }
       // test("correctly derives schema for UserId case class") {
