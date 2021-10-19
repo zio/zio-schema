@@ -10,6 +10,8 @@ trait SchemaSyntax {
      * alias for diff that does not conflict with scala stdlib
      */
     def diffEach(that: A): Diff = Schema[A].diff(a, that)
+
+    def runPatch(diff: Diff): Either[String, A] = Schema[A].patch(diff).flatMap(_.apply(a))
   }
 
   implicit class DynamicValueOps[A: Schema](a: A) {

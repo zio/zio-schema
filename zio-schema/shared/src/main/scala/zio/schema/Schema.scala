@@ -69,6 +69,17 @@ sealed trait Schema[A] {
     case None         => Differ.fromSchema(self)(thisValue, thatValue)
   }
 
+  /**
+   * Generate a patch function using a diff.
+   *   See [[zio.schema.Differ]] for details on the default diff algorithms.
+   *
+   * A custom [[zio.schema.Differ]] can be supplied if the default behavior is not acceptable.
+   */
+  def patch(diff: Diff, differ: Option[Differ[A]] = None): Either[String, A => Either[String, A]] = differ match {
+    case Some(differ) => differ.patch(self, diff)
+    case None         => Differ.patch(self, diff)
+  }
+
   def fromDynamic(value: DynamicValue): Either[String, A] =
     value.toTypedValue(self)
 
