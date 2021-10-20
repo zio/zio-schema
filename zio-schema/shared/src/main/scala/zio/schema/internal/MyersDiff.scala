@@ -1,12 +1,13 @@
 package zio.schema.internal
 
-import zio.Chunk
-import zio.schema.Diff.Edit._
-import zio.schema.{ Diff, Differ, Schema, StandardType }
-
 import java.time.ZoneId
 import java.util.UUID
+
 import scala.annotation.tailrec
+
+import zio.Chunk
+import zio.schema.Diff.Edit.{ Delete, Insert, Keep }
+import zio.schema.{ Diff, Differ, Schema, StandardType }
 
 object MyersDiff extends Differ[String] {
 
