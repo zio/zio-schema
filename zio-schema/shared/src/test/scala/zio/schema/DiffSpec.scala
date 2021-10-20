@@ -312,7 +312,6 @@ object DiffSpec extends DefaultRunnableSpec {
             assertTrue(left.runPatch(diff) == Right(right))
         }
       },
-
       //    TODO Bug -  This produces
       //    [info]         java.lang.ArithmeticException: long overflow
       //    [info]          at java.lang.Math.multiplyExact(Unknown Source)
@@ -355,7 +354,6 @@ object DiffSpec extends DefaultRunnableSpec {
       //       assertTrue(left.runPatch(diff) == Right(right))
       //   }
       // },
-
       testM("day of week") {
         check(Gen.elements(1, 2, 3, 4, 5, 6, 7) <*> Gen.elements(1, 2, 3, 4, 5, 6, 7)) {
           case (i1, i2) =>
@@ -393,7 +391,7 @@ object DiffSpec extends DefaultRunnableSpec {
           check(Gen.anyMonthDay <*> Gen.anyMonthDay) {
             case (thisMonthDay, thatMonthDay) if thisMonthDay == thatMonthDay =>
               assertTrue(thisMonthDay.diff(thatMonthDay) == Diff.Identical) &&
-              assertTrue(thisMonthDay.runPatch(Diff.Identical) == Right(thisMonthDay))
+                assertTrue(thisMonthDay.runPatch(Diff.Identical) == Right(thisMonthDay))
             case (thisMonthDay, thatMonthDay) =>
               val expected = Diff.MonthDays(
                 ChronoUnit.DAYS.between(thisMonthDay.atYear(2001), thatMonthDay.atYear(2001)).toInt,
@@ -414,7 +412,7 @@ object DiffSpec extends DefaultRunnableSpec {
                 .fromIterable(ls.zip(rs).map(p => p._1 - p._2).map(d => if (d != 0) Diff.Number(d) else Diff.Identical))
             )
 
-            val diff = ls.diffEach(rs)
+            val diff     = ls.diffEach(rs)
             val diffSame = ls.diffEach(ls)
 
             assertTrue(diff == expected) &&
@@ -586,9 +584,9 @@ object DiffSpec extends DefaultRunnableSpec {
     testM("tuple") {
       check(Gen.anyDouble <*> Gen.anyLong <*> Gen.anyDouble <*> Gen.anyLong) {
         case (((left1, right1), left2), right2) =>
-          val tuple1 = (left1, right1)
-          val tuple2 = (left2, right2)
-          val diff   = tuple1.diff(tuple2)
+          val tuple1    = (left1, right1)
+          val tuple2    = (left2, right2)
+          val diff      = tuple1.diff(tuple2)
           val expexted1 = if (left1 - left2 == 0) Diff.Identical else Diff.Number(left1 - left2)
           val expexted2 = if (right1 - right2 == 0) Diff.Identical else Diff.Number(right1 - right2)
           assertTrue(diff == Diff.Tuple(expexted1, expexted2)) &&
@@ -624,9 +622,12 @@ object DiffSpec extends DefaultRunnableSpec {
         val schema: Schema[Pet] = DeriveSchema.gen
         val diff                = schema.diff(pet1, pet2)
         val patch               = schema.patch(diff)
-        val expected = Diff.Record(ListMap("name"->
-          Diff.Myers(Chunk(Keep("S"), Keep("p"), Insert("o"), Insert("t"), Delete("i"), Delete("k"), Delete("e")))
-        ))
+        val expected = Diff.Record(
+          ListMap(
+            "name" ->
+              Diff.Myers(Chunk(Keep("S"), Keep("p"), Insert("o"), Insert("t"), Delete("i"), Delete("k"), Delete("e")))
+          )
+        )
         assertTrue(diff == expected) &&
         assertTrue(patch.flatMap(_.apply(pet1)) == Right(pet2))
       }
