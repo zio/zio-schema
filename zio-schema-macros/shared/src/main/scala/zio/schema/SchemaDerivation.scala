@@ -1,6 +1,5 @@
 package zio.schema
 
-import scala.collection.mutable
 import scala.reflect.macros.whitebox
 import zio.Chunk
 
@@ -12,13 +11,17 @@ object SchemaDerivation {
   def genImpl[T: c.WeakTypeTag](c: whitebox.Context): c.Tree = {
     import c.universe._
 
-    val JavaAnnotationTpe = typeOf[java.lang.annotation.Annotation]
-
-    val stack: mutable.Stack[Frame[c.type]] = new mutable.Stack[Frame[c.type]]()
+//    val JavaAnnotationTpe = typeOf[java.lang.annotation.Annotation]
 
     val tpe = weakTypeOf[T]
 
-    def resolveTermSchema(tpe: Type, term: TermSymbol, selfRefName: String, selfRef: Ident): Tree =
+    def resolveTermSchema(
+      tpe: Type,
+      term: TermSymbol,
+      selfRefName: String,
+      selfRef: Ident,
+      stack: List[Frame[c.type]]
+    ): Tree =
       stack
         .find(_.tpe =:= term.typeSignature)
         .map {
@@ -27,48 +30,52 @@ object SchemaDerivation {
             q"$refIdent"
         }
         .getOrElse {
+          val termType = term.typeSignature.asSeenFrom(tpe, tpe.typeSymbol)
           if (term.typeSignature =:= tpe)
             c.abort(c.enclosingPosition, "Direct recursion is not supported")
           else {
-            term.typeSignature.typeArgs match {
+            termType.typeArgs match {
               case typeArg :: _ if typeArg =:= tpe =>
-                if (term.typeSignature <:< c.typeOf[Option[_]])
+                if (termType <:< c.typeOf[Option[_]])
                   q"zio.schema.Schema.option($selfRef)"
-                else if (term.typeSignature <:< typeOf[List[_]])
+                else if (termType <:< typeOf[List[_]])
                   q"zio.schema.Schema.list($selfRef)"
-                else if (term.typeSignature <:< typeOf[Set[_]])
+                else if (termType <:< typeOf[Set[_]])
                   q"zio.schema.Schema.set($selfRef)"
-                else if (term.typeSignature <:< typeOf[Vector[_]])
+                else if (termType <:< typeOf[Vector[_]])
                   q"zio.schema.Schema.vector($selfRef)"
-                else if (term.typeSignature <:< typeOf[Chunk[_]])
+                else if (termType <:< typeOf[Chunk[_]])
                   q"zio.schema.Schema.chunk($selfRef)"
                 else
-                  c.abort(c.enclosingPosition, s"Cannot resolve schema for type ${show(term.typeSignature)}")
+                  c.abort(c.enclosingPosition, s"Cannot resolve schema for type ${show(termType)}")
 
               case typeArg :: _ if stack.exists(_.tpe =:= typeArg) =>
                 val ref      = stack.find(_.tpe =:= typeArg).get.ref
                 val refIdent = Ident(TermName(ref))
-                if (term.typeSignature <:< c.typeOf[Option[_]])
+                if (termType <:< c.typeOf[Option[_]])
                   q"zio.schema.Schema.option($refIdent)"
-                else if (term.typeSignature <:< typeOf[List[_]])
+                else if (termType <:< typeOf[List[_]])
                   q"zio.schema.Schema.list($refIdent)"
-                else if (term.typeSignature <:< typeOf[Set[_]])
+                else if (termType <:< typeOf[Set[_]])
                   q"zio.schema.Schema.set($refIdent)"
-                else if (term.typeSignature <:< typeOf[Vector[_]])
+                else if (termType <:< typeOf[Vector[_]])
                   q"zio.schema.Schema.vector($refIdent)"
-                else if (term.typeSignature <:< typeOf[Chunk[_]])
+                else if (termType <:< typeOf[Chunk[_]])
                   q"zio.schema.Schema.chunk($refIdent)"
                 else
                   c.abort(c.enclosingPosition, s"Cannot resolve schema for type ${show(term.typeSignature)}")
-
               case _ =>
                 c.inferImplicitValue(
-                  c.typecheck(tq"zio.schema.Schema[$term]", c.TYPEmode).tpe,
+                  c.typecheck(tq"zio.schema.Schema[$termType]", c.TYPEmode).tpe,
                   withMacrosDisabled = false
                 ) match {
                   case EmptyTree =>
-                    stack.push(Frame(c, selfRefName, tpe))
-                    deriveRecord(term.typeSignature)
+                    if (termType.typeSymbol.asClass.isModuleClass)
+                      q"zio.schema.Schema.singleton(${termType.typeSymbol.asClass.module})"
+                    else if (termType.typeSymbol.asClass.isCaseClass) deriveRecord(termType, stack)
+                    else if (termType.typeSymbol.asClass.isTrait && termType.typeSymbol.asClass.isSealed)
+                      deriveEnum(termType, Frame[c.type](c, selfRefName, tpe) +: stack)
+                    else c.abort(c.enclosingPosition, "Can only derive Schema for case class or sealed trait")
                   case tree =>
                     tree
                 }
@@ -76,7 +83,7 @@ object SchemaDerivation {
           }
         }
 
-    def deriveRecord(tpe: Type): c.Tree = stack.find(_.tpe =:= tpe) match {
+    def deriveRecord(tpe: Type, stack: List[Frame[c.type]]): Tree = stack.find(_.tpe =:= tpe) match {
       case Some(Frame(_, ref, _)) =>
         val refIdent = Ident(TermName(ref))
         q"$refIdent"
@@ -91,26 +98,29 @@ object SchemaDerivation {
         }
         val arity = fieldTypes.size
 
-        val typeArgs = fieldTypes.map(ft => q"${tpe.decl(ft.name).typeSignature}") ++ Iterable(q"$tpe")
+        val typeArgs = fieldTypes.map { ft =>
+          val fieldType = tpe.decl(ft.name).typeSignature.asSeenFrom(tpe, tpe.typeSymbol.asClass)
+          q"$fieldType"
+        } ++ Iterable(q"$tpe")
 
         val fieldAccessors = tpe.decls.collect {
           case p: TermSymbol if p.isCaseAccessor && p.isMethod => p.name
         }
 
-        val fieldAnnotations: List[List[Tree]] =
-          tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
-            symbols.map(_.annotations.collect {
-              case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
-                annotation.tree
-            })
-          }.getOrElse(Nil)
+        val fieldAnnotations: List[List[Tree]] = List.fill(arity)(Nil)
+//          tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
+//            symbols.map(_.annotations.collect {
+//              case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
+//                annotation.tree
+//            })
+//          }.getOrElse(Nil)
 
         if (arity > 22) {
           val fields = fieldTypes.zip(fieldAnnotations).map {
             case (termSymbol, annotations) =>
-              val fieldSchema = resolveTermSchema(tpe, termSymbol, selfRefName, selfRef)
+              val fieldSchema = resolveTermSchema(tpe, termSymbol, selfRefName, selfRef, stack)
               val fieldLabel  = termSymbol.name.toString.trim
-              q"zio.schema.Schema.Field[${termSymbol.typeSignature}]($fieldLabel,$fieldSchema,zio.Chunk.apply[Any](..$annotations))"
+              q"zio.schema.Schema.Field.apply($fieldLabel,$fieldSchema,zio.Chunk.apply[Any](..$annotations))"
           }
           val fromMap = {
             val casts = fieldTypes.map { termSymbol =>
@@ -160,20 +170,22 @@ object SchemaDerivation {
 
           val fieldDefs = fieldTypes.zip(fieldAnnotations).zipWithIndex.map {
             case ((termSymbol, annotations), idx) =>
-              val fieldSchema = resolveTermSchema(tpe, termSymbol, selfRefName, selfRef)
+              val fieldSchema = resolveTermSchema(tpe, termSymbol, selfRefName, selfRef, stack)
               val fieldArg    = if (fieldTypes.size > 1) TermName(s"field${idx + 1}") else TermName("field")
               val fieldLabel  = termSymbol.name.toString.trim
-              val _           = annotations
+              // TODO Adding the annotations here causes a compiler crash.
+              val _ = annotations
 //              if (annotations.nonEmpty)
 //                q"""$fieldArg = zio.schema.Schema.Field[${termSymbol.typeSignature}](label = $fieldLabel,schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations))"""
 //              else
-              q"""$fieldArg = zio.schema.Schema.Field[${termSymbol.typeSignature}](label = $fieldLabel,schema = zio.schema.Schema.defer($fieldSchema))"""
+//              q"""$fieldArg = zio.schema.Schema.Field[${termSymbol.typeSignature}](label = $fieldLabel,schema = zio.schema.Schema.defer($fieldSchema))"""
+              q"""$fieldArg = zio.schema.Schema.Field.apply(label = $fieldLabel,schema = zio.schema.Schema.defer($fieldSchema))"""
           }
 
           val constructArgs = fieldTypes.zipWithIndex.map {
             case (term, idx) =>
               val arg = TermName(s"_$idx")
-              q"$arg: ${term.typeSignature}"
+              q"$arg: ${term.typeSignature.asSeenFrom(tpe, tpe.typeSymbol.asClass)}"
           }
           val constructApplyArgs = fieldTypes.zipWithIndex.map {
             case (_, idx) =>
@@ -245,11 +257,111 @@ object SchemaDerivation {
         }
     }
 
-    def deriveEnum(tpe: Type): c.Tree = ???
+    def resolveCaseSchema(subtype: Type, stack: List[Frame[c.type]]): Tree = stack.find(_.tpe =:= subtype) match {
+      case Some(Frame(_, ref, _)) =>
+        val refIdent = Ident(TermName(ref))
+        q"$refIdent"
+      case None if subtype.typeSymbol.asClass.isModuleClass =>
+        q"zio.schema.Schema.singleton(${subtype.typeSymbol.asClass.module})"
+      case None =>
+        deriveRecord(subtype, stack)
+    }
+
+    def deriveEnum(tpe: Type, stack: List[Frame[c.type]]): Tree = {
+
+      val tpeArgs = tpe.typeArgs
+
+      def knownSubclassesOf(parent: ClassSymbol): Set[Type] = {
+        val (abstractChildren, concreteChildren) = parent.knownDirectSubclasses.partition(_.isAbstract)
+        for (child <- concreteChildren) {
+          child.typeSignature
+          if (!child.isFinal && !child.asClass.isCaseClass)
+            c.abort(c.enclosingPosition, s"child $child of $parent is neither final nor a case class")
+        }
+
+        concreteChildren.union(abstractChildren).flatMap { child =>
+          child.typeSignature
+          val childClass = child.asClass
+          if (childClass.isSealed && childClass.isTrait) knownSubclassesOf(childClass)
+          else if (childClass.isCaseClass) {
+            val st = child.asType.toType.asSeenFrom(parent.typeSignature, parent)
+            if (st.typeArgs.size == tpeArgs.size) Set(appliedType(st, tpeArgs: _*))
+            else Set(child.asType.toType)
+          } else c.abort(c.enclosingPosition, s"child $child of $parent is not a sealed trait or case class")
+        }
+      }
+
+      val selfRefName  = c.freshName("ref")
+      val selfRefIdent = Ident(TermName(selfRefName))
+
+      val subtypes = knownSubclassesOf(tpe.typeSymbol.asClass)
+
+      val typeArgs = subtypes ++ Iterable(tpe)
+
+      val cases = subtypes.map { subtype: Type =>
+        val caseLabel     = subtype.typeSymbol.name.toString.trim
+        val caseSchema    = resolveCaseSchema(subtype, Frame[c.type](c, selfRefName, tpe) +: stack)
+        val deconstructFn = q"(z: $tpe) => z.asInstanceOf[$subtype]"
+        q"zio.schema.Schema.Case.apply[$subtype,$tpe]($caseLabel,zio.schema.Schema.defer($caseSchema),$deconstructFn)"
+      }
+
+      cases.size match {
+        case 0 => c.abort(c.enclosingPosition, s"No subtypes found for ${show(tpe)}")
+        case 1 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum1[..$typeArgs] = zio.schema.Schema.Enum1[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 2 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum2[..$typeArgs] = zio.schema.Schema.Enum2[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 3 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum3[..$typeArgs] = zio.schema.Schema.Enum3[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 4 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum4[..$typeArgs] = zio.schema.Schema.Enum4[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 5 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum5[..$typeArgs] = zio.schema.Schema.Enum5[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 6 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum6[..$typeArgs] = zio.schema.Schema.Enum6[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 7 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum7[..$typeArgs] = zio.schema.Schema.Enum7[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 8 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum8[..$typeArgs] = zio.schema.Schema.Enum8[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 9 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum9[..$typeArgs] = zio.schema.Schema.Enum9[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 10 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum10[..$typeArgs] = zio.schema.Schema.Enum10[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 11 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum11[..$typeArgs] = zio.schema.Schema.Enum11[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 12 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum12[..$typeArgs] = zio.schema.Schema.Enum12[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 13 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum13[..$typeArgs] = zio.schema.Schema.Enum13[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 14 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum14[..$typeArgs] = zio.schema.Schema.Enum14[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 15 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum15[..$typeArgs] = zio.schema.Schema.Enum15[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 16 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum16[..$typeArgs] = zio.schema.Schema.Enum16[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 17 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum17[..$typeArgs] = zio.schema.Schema.Enum17[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 18 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum18[..$typeArgs] = zio.schema.Schema.Enum18[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 19 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum19[..$typeArgs] = zio.schema.Schema.Enum19[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 20 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum20[..$typeArgs] = zio.schema.Schema.Enum20[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 21 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum21[..$typeArgs] = zio.schema.Schema.Enum21[..$typeArgs](..$cases); $selfRefIdent}"""
+        case 22 =>
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum22[..$typeArgs] = zio.schema.Schema.Enum22[..$typeArgs](..$cases); $selfRefIdent}"""
+        case _ =>
+          val caseSet     = q"zio.schema.CaseSet.apply(..$cases).asInstanceOf[zio.schema.CaseSet.Aux[$tpe]]"
+          val caseSetType = c.typecheck(caseSet, c.TYPEmode).tpe
+          q"""{lazy val $selfRefIdent: zio.schema.Schema.EnumN[$tpe,$caseSetType] = zio.schema.Schema.EnumN.apply[$tpe,$caseSetType]($caseSet); $selfRefIdent}"""
+      }
+    }
 
     if (tpe.typeSymbol.asClass.isModuleClass) q"zio.schema.Schema.singleton(${tpe.typeSymbol.asClass.module})"
-    else if (tpe.typeSymbol.asClass.isCaseClass) deriveRecord(tpe)
-    else if (tpe.typeSymbol.asClass.isTrait && tpe.typeSymbol.asClass.isSealed) deriveEnum(tpe)
+    else if (tpe.typeSymbol.asClass.isCaseClass) deriveRecord(tpe, List.empty[Frame[c.type]])
+    else if (tpe.typeSymbol.asClass.isTrait && tpe.typeSymbol.asClass.isSealed)
+      deriveEnum(tpe, List.empty[Frame[c.type]])
     else c.abort(c.enclosingPosition, "Can only derive Schema for case class or sealed trait")
   }
 
