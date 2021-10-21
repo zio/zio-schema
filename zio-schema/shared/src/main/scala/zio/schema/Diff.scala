@@ -44,8 +44,8 @@ trait Differ[A] { self =>
         case _                    => Diff.NotComparable
       }
 
-  def foreach[Col[_]](toChunk: Col[A] => Chunk[A]): Differ[Col[A]] =
-    (theseAs: Col[A], thoseAs: Col[A]) =>
+  def foreach[Col](toChunk: Col => Chunk[A]): Differ[Col] =
+    (theseAs: Col, thoseAs: Col) =>
       Diff
         .Sequence(
           toChunk(theseAs).zipAll(toChunk(thoseAs)).map {
@@ -104,9 +104,11 @@ object Differ {
       temporal[OffsetDateTime](ChronoUnit.MILLIS)
     case Schema.Primitive(StandardType.ZonedDateTime(_)) =>
       temporal[ZonedDateTime](ChronoUnit.MILLIS)
-    case Schema.Tuple(leftSchema, rightSchema)        => fromSchema(leftSchema) <*> fromSchema(rightSchema)
-    case Schema.Optional(schema)                      => fromSchema(schema).optional
-    case Schema.Sequence(schema, _, f)                => fromSchema(schema).foreach(f)
+    case Schema.Tuple(leftSchema, rightSchema) => fromSchema(leftSchema) <*> fromSchema(rightSchema)
+    case Schema.Optional(schema)               => fromSchema(schema).optional
+    case Schema.Sequence(schema, _, f) =>
+      val elementDiffer = fromSchema(schema)
+      elementDiffer.foreach(f)
     case Schema.EitherSchema(leftSchema, rightSchema) => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                           => fromSchema(s.schema)
     case Schema.Transform(schema, _, f)               => fromSchema(schema).transformOrFail(f)

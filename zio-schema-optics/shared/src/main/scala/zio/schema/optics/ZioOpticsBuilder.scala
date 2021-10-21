@@ -15,9 +15,9 @@ import zio.{ Chunk, ChunkBuilder }
  */
 object ZioOpticsBuilder extends AccessorBuilder {
 
-  type Lens[S, A]         = Optic[S, S, A, OpticFailure, OpticFailure, A, S]
-  type Prism[S, A]        = ZPrism[S, S, A, A]
-  type Traversal[S[_], A] = ZTraversal[S[A], S[A], A, A]
+  type Lens[S, A]      = Optic[S, S, A, OpticFailure, OpticFailure, A, S]
+  type Prism[S, A]     = ZPrism[S, S, A, A]
+  type Traversal[S, A] = ZTraversal[S, S, A, A]
 
   override def makeLens[S, A](
     product: Schema.Record[S],
@@ -37,10 +37,10 @@ object ZioOpticsBuilder extends AccessorBuilder {
       set = (piece: A) => Right(piece.asInstanceOf[S])
     )
 
-  override def makeTraversal[S[_], A](
+  override def makeTraversal[S, A](
     collection: Schema.Sequence[S, A],
     element: Schema[A]
-  ): Optic[S[A], S[A], Chunk[A], OpticFailure, OpticFailure, Chunk[A], S[A]] =
+  ): Optic[S, S, Chunk[A], OpticFailure, OpticFailure, Chunk[A], S] =
     ZTraversal(
       ZioOpticsBuilder.makeTraversalGet(collection),
       ZioOpticsBuilder.makeTraversalSet(collection)
@@ -89,15 +89,15 @@ object ZioOpticsBuilder extends AccessorBuilder {
     }
   }
 
-  private[optics] def makeTraversalGet[S[_], A](
+  private[optics] def makeTraversalGet[S, A](
     collection: Schema.Sequence[S, A]
-  ): S[A] => Either[(OpticFailure, S[A]), Chunk[A]] = { whole: S[A] =>
+  ): S => Either[(OpticFailure, S), Chunk[A]] = { whole: S =>
     Right(collection.toChunk(whole))
   }
 
-  private[optics] def makeTraversalSet[S[_], A](
+  private[optics] def makeTraversalSet[S, A](
     collection: Schema.Sequence[S, A]
-  ): Chunk[A] => S[A] => Either[(OpticFailure, S[A]), S[A]] = { (piece: Chunk[A]) => (whole: S[A]) =>
+  ): Chunk[A] => S => Either[(OpticFailure, S), S] = { (piece: Chunk[A]) => (whole: S) =>
     val builder       = ChunkBuilder.make[A]()
     val leftIterator  = collection.toChunk(whole).iterator
     val rightIterator = piece.iterator
