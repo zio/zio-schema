@@ -368,17 +368,20 @@ object Differ {
         }
 
       case (Schema.EitherSchema(_, rightSchema), Diff.Either(diff, Diff.Tag.Right)) =>
-        patch(rightSchema, diff).map(f => (a: A) => Right(a.flatMap(f(_))))
+        patch(rightSchema, diff).map { f => (a: A) =>
+          a.flatMap(f(_)) match {
+            case Left(value)  => Left(value.toString)
+            case Right(value) => Right(Right(value))
+          }
+        }
 
       case (Schema.EitherSchema(leftSchema, _), Diff.Either(diff, Diff.Tag.Left)) =>
-        patch(leftSchema, diff).map(
-          f =>
-            (a: A) =>
-              Right(a.left.flatMap(f(_) match {
-                case Right(value) => Left(value)
-                case Left(value)  => Left(value)
-              }))
-        )
+        patch(leftSchema, diff).map { f => (a: A) =>
+          a.left.flatMap(f(_)) match {
+            case Left(value)  => Left(value)
+            case Right(value) => Right(Left(value))
+          }
+        }
 
       case (Schema.Transform(schema, f, g), diff) =>
         Right { (a: A) =>

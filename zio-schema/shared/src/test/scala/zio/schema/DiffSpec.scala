@@ -239,6 +239,18 @@ object DiffSpec extends DefaultRunnableSpec {
             val diff = left.diffEach(right)
             assertTrue(left.runPatch(diff) == Right(right))
         }
+      },
+      test("apply diff to different string should result in error") {
+        import Diff.Edit._
+        val joe      = "Joe"
+        val moe      = "Moe"
+        val bob      = "Bob"
+        val diff     = joe.diffEach(moe)
+        val expected = Diff.Myers(Chunk(Insert("M"), Delete("J"), Keep("o"), Keep("e")))
+        assertTrue(diff == expected) &&
+        assertTrue(joe.runPatch(diff) == Right(moe)) &&
+        assertTrue(moe.runPatch(diff).isLeft) &&
+        assertTrue(bob.runPatch(diff).isLeft)
       }
     ),
     suite("UUID")(
@@ -605,12 +617,11 @@ object DiffSpec extends DefaultRunnableSpec {
       }
     ),
     suite("either")(
-      test("right same") {
-        val from: Either[Int, Int] = Right(10)
-        val to: Either[Int, Int]   = Right(10)
-        val diff                   = from.diff(to)
+      test("right identical") {
+        val x: Either[Int, Int] = Right(10)
+        val diff                = x.diff(x)
         assertTrue(diff == Diff.Either(Diff.Identical, Diff.Tag.Right)) &&
-        assertTrue(from.runPatch(diff) == Right(to))
+        assertTrue(x.runPatch(diff) == Right(x))
       },
       test("right different") {
         val from: Either[Int, Int] = Right(10)
@@ -619,12 +630,11 @@ object DiffSpec extends DefaultRunnableSpec {
         assertTrue(diff == Diff.Either(Diff.Number(-10), Diff.Tag.Right)) &&
         assertTrue(from.runPatch(diff) == Right(to))
       },
-      test("left same") {
-        val from: Either[Long, Int] = Left(10L)
-        val to: Either[Long, Int]   = Left(10L)
-        val diff                    = from.diff(to)
+      test("left identical") {
+        val x: Either[Long, Int] = Left(10L)
+        val diff                 = x.diff(x)
         assertTrue(diff == Diff.Either(Diff.Identical, Diff.Tag.Left)) &&
-        assertTrue(from.runPatch(diff) == Right(to))
+        assertTrue(x.runPatch(diff) == Right(x))
       },
       test("left different") {
         val from: Either[Long, Int] = Left(10L)
@@ -633,25 +643,43 @@ object DiffSpec extends DefaultRunnableSpec {
         assertTrue(diff == Diff.Either(Diff.Number(-10L), Diff.Tag.Left)) &&
         assertTrue(from.runPatch(diff) == Right(to))
       },
-      test("left to right") {
+      test("left to right error") {
         val from: Either[Int, Int] = Left(10)
         val to: Either[Int, Int]   = Right(20)
         val diff                   = from.diff(to)
         assertTrue(diff == Diff.NotComparable) &&
-        assertTrue(from.runPatch(diff) match {
-          case Left(_)  => true
-          case Right(_) => false
-        })
+        assertTrue(from.runPatch(diff).isLeft)
       },
-      test("right to left") {
+      test("right to left error") {
         val from: Either[Int, Int] = Right(10)
         val to: Either[Int, Int]   = Left(20)
         val diff                   = from.diff(to)
         assertTrue(diff == Diff.NotComparable) &&
-        assertTrue(from.runPatch(diff) match {
-          case Left(_)  => true
-          case Right(_) => false
-        })
+        assertTrue(from.runPatch(diff).isLeft)
+      },
+      test("right - apply diff to different string should result in error") {
+        import Diff.Edit._
+        val joe: Either[Int, String] = Right("Joe")
+        val moe: Either[Int, String] = Right("Moe")
+        val bob: Either[Int, String] = Right("Bob")
+        val diff                     = joe.diffEach(moe)
+        val expected                 = Diff.Either(Diff.Myers(Chunk(Insert("M"), Delete("J"), Keep("o"), Keep("e"))), Diff.Tag.Right)
+        assertTrue(diff == expected) &&
+        assertTrue(joe.runPatch(diff) == Right(moe)) &&
+        assertTrue(moe.runPatch(diff).isLeft) &&
+        assertTrue(bob.runPatch(diff).isLeft)
+      },
+      test("left - apply diff to different string should result in error") {
+        import Diff.Edit._
+        val joe: Either[String, Long] = Left("Joe")
+        val moe: Either[String, Long] = Left("Moe")
+        val bob: Either[String, Long] = Left("Bob")
+        val diff                      = joe.diffEach(moe)
+        val expected                  = Diff.Either(Diff.Myers(Chunk(Insert("M"), Delete("J"), Keep("o"), Keep("e"))), Diff.Tag.Left)
+        assertTrue(diff == expected) &&
+        assertTrue(joe.runPatch(diff) == Right(moe)) &&
+        assertTrue(moe.runPatch(diff).isLeft) &&
+        assertTrue(bob.runPatch(diff).isLeft)
       }
     ),
     suite("enum")(
