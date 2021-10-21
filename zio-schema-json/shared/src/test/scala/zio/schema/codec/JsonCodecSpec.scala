@@ -11,7 +11,7 @@ import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.random.Random
 import zio.schema.CaseSet._
-import zio.schema.{ CaseSet, DeriveSchema, JavaTimeGen, Schema, SchemaGen, StandardType }
+import zio.schema._
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._

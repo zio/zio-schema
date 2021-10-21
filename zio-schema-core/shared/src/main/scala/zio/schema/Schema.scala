@@ -124,9 +124,6 @@ sealed trait Schema[A] {
 }
 
 object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
-
-  type Aux[A, Accessors0] = Schema[A] { type Accessors[Lens[_, _], Prism[_, _], Traversal[_[_], _]] = Accessors0 }
-
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
   def defer[A](schema: => Schema[A]): Schema[A] = Lazy(() => schema)
