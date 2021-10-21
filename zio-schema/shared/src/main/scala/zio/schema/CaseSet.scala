@@ -10,7 +10,7 @@ sealed trait CaseSet {
 
   type EnumType
 
-  type Accessors[Whole, Lens[_, _], Prism[_, _], Traversal[_[_], _]]
+  type Accessors[Whole, Lens[_, _], Prism[_, _], Traversal[_, _]]
   type Append[That <: CaseSet.Aux[EnumType]] <: CaseSet.Aux[EnumType]
 
   def :+:[A](head: Case[A, EnumType]): A :+: CaseSet.Aux[EnumType]
@@ -31,8 +31,8 @@ object CaseSet {
   final case class Empty[Z]() extends CaseSet { self =>
     type EnumType = Z
 
-    override type Accessors[Whole, Lens[_, _], Prism[_, _], Traversal[_[_], _]] = Unit
-    override type Append[That <: CaseSet.Aux[EnumType]]                         = That
+    override type Accessors[Whole, Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
+    override type Append[That <: CaseSet.Aux[EnumType]]                      = That
 
     override def :+:[A](head: Case[A, EnumType]): A :+: Empty[EnumType] = Cons(head, self)
 
@@ -57,7 +57,7 @@ object CaseSet {
   final case class Cons[A, +T <: CaseSet.Aux[Z], Z](head: Case[A, Z], tail: T) extends :+:[A, T] { self =>
     type EnumType = Z
 
-    override type Accessors[Whole, Lens[_, _], Prism[_, _], Traversal[_[_], _]] =
+    override type Accessors[Whole, Lens[_, _], Prism[_, _], Traversal[_, _]] =
       (Prism[Whole, A], tail.Accessors[Whole, Lens, Prism, Traversal])
 
     override type Append[That <: CaseSet.Aux[EnumType]] = Cons[A, tail.Append[That], Z]
