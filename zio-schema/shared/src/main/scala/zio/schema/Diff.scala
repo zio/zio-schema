@@ -197,8 +197,8 @@ object Differ {
 
   def either[A, B](left: Differ[A], right: Differ[B]): Differ[Either[A, B]] =
     instancePartial[Either[A, B]] {
-      case (Left(l), Left(r))   => left(l, r)
-      case (Right(l), Right(r)) => right(l, r)
+      case (Left(l), Left(r))   => Diff.Either(left(l, r), Diff.Tag.Left)
+      case (Right(l), Right(r)) => Diff.Either(right(l, r), Diff.Tag.Right)
     }
 
   def identical[A]: Differ[A] = (_: A, _: A) => Diff.Identical
@@ -367,9 +367,18 @@ object Differ {
           }
         }
 
-      // TODO - how do you tell if diff is from left or right?
-      case (Schema.EitherSchema(leftSchema, rightSchema @ _), diff) =>
-        patch(leftSchema, diff).map(f => (a: A) => Right(a.map(f(_))))
+      case (Schema.EitherSchema(_, rightSchema), Diff.Either(diff, Diff.Tag.Right)) =>
+        patch(rightSchema, diff).map(f => (a: A) => Right(a.flatMap(f(_))))
+
+      case (Schema.EitherSchema(leftSchema, _), Diff.Either(diff, Diff.Tag.Left)) =>
+        patch(leftSchema, diff).map(
+          f =>
+            (a: A) =>
+              Right(a.left.flatMap(f(_) match {
+                case Right(value) => Left(value)
+                case Left(value)  => Left(value)
+              }))
+        )
 
       case (Schema.Transform(schema, f, g), diff) =>
         Right { (a: A) =>
@@ -384,6 +393,7 @@ object Differ {
         Right { (a: A) =>
           val values: ListMap[String, DynamicValue] = schema.toDynamic(a) match {
             case DynamicValue.Record(values) => values
+            case _                           => ListMap.empty
           }
           patchProductData(structure.toChunk, values, diffs).asInstanceOf[Either[String, A]]
         }
@@ -392,6 +402,7 @@ object Differ {
         Right { (a: A) =>
           val values: ListMap[String, DynamicValue] = schema.toDynamic(a) match {
             case DynamicValue.Record(values) => values
+            case _                           => ListMap.empty
           }
           patchProductData(schema.structure, values, diffs)
             .map(m => Chunk.fromIterable(m.values))
@@ -483,6 +494,8 @@ object Diff {
   final case class Myers(edits: Chunk[Edit]) extends Diff
 
   final case class Total[A](value: A, tag: Tag) extends Diff
+
+  final case class Either(value: Diff, tag: Tag) extends Diff
 
   /**
    * Represents diff between incomparable values. For instance Left(1) and Right("a")

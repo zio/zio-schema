@@ -604,6 +604,56 @@ object DiffSpec extends DefaultRunnableSpec {
         assertTrue(patch.flatMap(_.apply("4")) == Right("6"))
       }
     ),
+    suite("either")(
+      test("right same") {
+        val from: Either[Int, Int] = Right(10)
+        val to: Either[Int, Int]   = Right(10)
+        val diff                   = from.diff(to)
+        assertTrue(diff == Diff.Either(Diff.Identical, Diff.Tag.Right)) &&
+        assertTrue(from.runPatch(diff) == Right(to))
+      },
+      test("right different") {
+        val from: Either[Int, Int] = Right(10)
+        val to: Either[Int, Int]   = Right(20)
+        val diff                   = from.diff(to)
+        assertTrue(diff == Diff.Either(Diff.Number(-10), Diff.Tag.Right)) &&
+        assertTrue(from.runPatch(diff) == Right(to))
+      },
+      test("left same") {
+        val from: Either[Long, Int] = Left(10L)
+        val to: Either[Long, Int]   = Left(10L)
+        val diff                    = from.diff(to)
+        assertTrue(diff == Diff.Either(Diff.Identical, Diff.Tag.Left)) &&
+        assertTrue(from.runPatch(diff) == Right(to))
+      },
+      test("left different") {
+        val from: Either[Long, Int] = Left(10L)
+        val to: Either[Long, Int]   = Left(20L)
+        val diff                    = from.diff(to)
+        assertTrue(diff == Diff.Either(Diff.Number(-10L), Diff.Tag.Left)) &&
+        assertTrue(from.runPatch(diff) == Right(to))
+      },
+      test("left to right") {
+        val from: Either[Int, Int] = Left(10)
+        val to: Either[Int, Int]   = Right(20)
+        val diff                   = from.diff(to)
+        assertTrue(diff == Diff.NotComparable) &&
+        assertTrue(from.runPatch(diff) match {
+          case Left(_)  => true
+          case Right(_) => false
+        })
+      },
+      test("right to left") {
+        val from: Either[Int, Int] = Right(10)
+        val to: Either[Int, Int]   = Left(20)
+        val diff                   = from.diff(to)
+        assertTrue(diff == Diff.NotComparable) &&
+        assertTrue(from.runPatch(diff) match {
+          case Left(_)  => true
+          case Right(_) => false
+        })
+      }
+    ),
     suite("enum")(
       test("identical") {
         import Pet._
