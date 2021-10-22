@@ -260,7 +260,7 @@ object Differ {
 
   def patch[A](schema: Schema[A], diff: Diff): Either[String, A => Either[String, A]] =
     (schema, diff) match {
-      case (_, Diff.NotComparable)                                                    => Left(s"Not comparable: Schema=[$schema]; diff=[$diff]")
+      case (_, Diff.NotComparable)                                                    => Left(s"Not Comparable: Schema=$schema and Diff=$diff.")
       case (_, Diff.Identical)                                                        => Right((a: A) => Right(a))
       case (Schema.Primitive(StandardType.StringType), diff)                          => string.patch[String](schema, diff)
       case (Schema.Primitive(StandardType.UUIDType), diff)                            => string.patch[UUID](schema, diff)
@@ -285,7 +285,7 @@ object Differ {
               case (Some(Diff.Total(_, Diff.Tag.Left)), _)            => None
               case (Some(Diff.Binary(xor)), Some(value: Byte))        => Some(Right((value ^ xor).toByte))
               case (Some(Diff.Identical), Some(value))                => Some(Right(value))
-              case (Some(diff), _)                                    => Some(Left(s"Schema=$schema should not contain diff=$diff."))
+              case (Some(diff), _)                                    => Some(Left(s"Schema=$schema should not contain Diff=$diff."))
               case (None, Some(value))                                => Some(Left(s"Diff missing for value=$value."))
               case (None, None)                                       => Some(Left(s"Unknown error in binary sequence."))
             }
@@ -334,13 +334,13 @@ object Differ {
 
       case (Schema.Tuple(leftSchema, rightSchema), Diff.Tuple(leftDiff, rightDiff)) => {
         patch(leftSchema, leftDiff) -> patch(rightSchema, rightDiff) match {
-          case (Left(e1), Left(e2)) => Left(s"Errors: $e1 and $e2")
+          case (Left(e1), Left(e2)) => Left(s"Errors: $e1 and $e2.")
           case (_, Left(e))         => Left(e)
           case (Left(e), _)         => Left(e)
           case (Right(f1), Right(f2)) =>
             Right((a: A) => {
               f1(a._1) -> f2(a._2) match {
-                case (Left(e1), Left(e2)) => Left(s"Errors: $e1 and $e2")
+                case (Left(e1), Left(e2)) => Left(s"Errors: $e1 and $e2.")
                 case (_, Left(e))         => Left(e)
                 case (Left(e), _)         => Left(e)
                 case (Right(l), Right(r)) => Right((l, r))
@@ -358,7 +358,7 @@ object Differ {
               case (Some(Diff.Total(_, Diff.Tag.Left)), _)      => None
               case (Some(diff), Some(value))                    => Some(patch(schema, diff).flatMap(f => f(value)))
               case (None, Some(value))                          => Some(Left(s"Diff missing for value=$value."))
-              case (Some(diff), None)                           => Some(Left(s"Value missing for diff=$diff."))
+              case (Some(diff), None)                           => Some(Left(s"Value missing for Diff=$diff."))
               case (None, None)                                 => Some(Left(s"Unknown error in sequence."))
             }
             .partitionMap(identity) match {
@@ -370,7 +370,7 @@ object Differ {
       case (Schema.EitherSchema(_, rightSchema), Diff.Either(diff, Diff.Tag.Right)) =>
         patch(rightSchema, diff).map { f => (a: A) =>
           a.flatMap(f(_)) match {
-            case Left(value)  => Left(value.toString)
+            case Left(error)  => Left(error.toString)
             case Right(value) => Right(Right(value))
           }
         }
@@ -378,7 +378,7 @@ object Differ {
       case (Schema.EitherSchema(leftSchema, _), Diff.Either(diff, Diff.Tag.Left)) =>
         patch(leftSchema, diff).map { f => (a: A) =>
           a.left.flatMap(f(_)) match {
-            case Left(value)  => Left(value)
+            case Left(error)  => Left(error)
             case Right(value) => Right(Left(value))
           }
         }
@@ -411,13 +411,14 @@ object Differ {
             .map(m => Chunk.fromIterable(m.values))
             .flatMap(schema.rawConstruct)
         }
+
       case (Schema.Enum1(c1), diff)         => patchEnumData(diff, c1)
       case (Schema.Enum2(c1, c2), diff)     => patchEnumData(diff, c1, c2)
       case (Schema.Enum3(c1, c2, c3), diff) => patchEnumData(diff, c1, c2, c3)
       case (Schema.EnumN(cases), diff)      => patchEnumData(diff, cases.toSeq: _*)
 
       case (schema @ Schema.Fail(_), _) => Left(s"Failed Schema=$schema cannot be patched.")
-      case (_, _)                       => Left(s"Incompatible schema=$schema and diff=$diff.")
+      case (_, _)                       => Left(s"Incompatible Schema=$schema and Diff=$diff.")
     }
 
   def patchEnumData[A](diff: Diff, cases: Schema.Case[_, A]*): Either[String, A => Either[String, A]] =

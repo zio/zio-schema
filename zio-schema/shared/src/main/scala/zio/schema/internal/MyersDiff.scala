@@ -134,7 +134,7 @@ object MyersDiff extends Differ[String] {
         Right((a: A) => calculateStringFromEdits(a.toString, edits).map(UUID.fromString))
       case (Schema.Primitive(StandardType.ZoneId), Diff.Myers(edits)) =>
         Right((a: A) => calculateStringFromEdits(a.getId(), edits).map(ZoneId.of))
-      case (schema, diff) => Left(s"Incorrect diff=$diff for schema=$schema.")
+      case (schema, diff) => Left(s"Incorrect Diff=$diff for Schema=$schema.")
     }
 
   def calculateStringFromEdits(input: String, edits: Chunk[Diff.Edit]): Either[String, String] = {

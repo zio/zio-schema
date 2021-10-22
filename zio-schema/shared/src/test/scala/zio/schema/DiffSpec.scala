@@ -591,20 +591,53 @@ object DiffSpec extends DefaultRunnableSpec {
           assertTrue(diff == Diff.Identical) &&
           assertTrue(value.runPatch(diff) == Right(value))
         }
+      },
+      test("error case") {
+        import Diff.Edit._
+        val joe                    = Person("Joe", 11)
+        val moe                    = Person("Moe", 15)
+        val bob                    = Person("Bob", 11)
+        val schema: Schema[Person] = DeriveSchema.gen
+        val diff                   = schema.diff(joe, moe)
+        val patch                  = schema.patch(diff)
+        val expected = Diff.Record(
+          ListMap(
+            "name" -> Diff.Myers(Chunk(Insert("M"), Delete("J"), Keep("o"), Keep("e"))),
+            "age"  -> Diff.Number(-4)
+          )
+        )
+        assertTrue(diff == expected) &&
+        assertTrue(patch.flatMap(_.apply(joe)) == Right(moe)) &&
+        assertTrue(patch.flatMap(_.apply(moe)).isLeft) &&
+        assertTrue(patch.flatMap(_.apply(bob)).isLeft)
       }
     ),
-    testM("tuple") {
-      check(Gen.anyDouble <*> Gen.anyLong <*> Gen.anyDouble <*> Gen.anyLong) {
-        case (((left1, right1), left2), right2) =>
-          val tuple1    = (left1, right1)
-          val tuple2    = (left2, right2)
-          val diff      = tuple1.diff(tuple2)
-          val expexted1 = if (left1 - left2 == 0) Diff.Identical else Diff.Number(left1 - left2)
-          val expexted2 = if (right1 - right2 == 0) Diff.Identical else Diff.Number(right1 - right2)
-          assertTrue(diff == Diff.Tuple(expexted1, expexted2)) &&
-          assertTrue(tuple1.runPatch(diff) == Right(tuple2))
+    suite("tuple")(
+      testM("success") {
+        check(Gen.anyDouble <*> Gen.anyLong <*> Gen.anyDouble <*> Gen.anyLong) {
+          case (((left1, right1), left2), right2) =>
+            val tuple1    = (left1, right1)
+            val tuple2    = (left2, right2)
+            val diff      = tuple1.diff(tuple2)
+            val expexted1 = if (left1 - left2 == 0) Diff.Identical else Diff.Number(left1 - left2)
+            val expexted2 = if (right1 - right2 == 0) Diff.Identical else Diff.Number(right1 - right2)
+            assertTrue(diff == Diff.Tuple(expexted1, expexted2)) &&
+            assertTrue(tuple1.runPatch(diff) == Right(tuple2))
+        }
+      },
+      test("error case") {
+        import Diff.Edit._
+        val joe      = ("Joe", 11)
+        val moe      = ("Moe", 15)
+        val bob      = ("Bob", 11)
+        val diff     = joe.diffEach(moe)
+        val expected = Diff.Tuple(Diff.Myers(Chunk(Insert("M"), Delete("J"), Keep("o"), Keep("e"))), Diff.Number(-4))
+        assertTrue(diff == expected) &&
+        assertTrue(joe.runPatch(diff) == Right(moe)) &&
+        assertTrue(moe.runPatch(diff).isLeft) &&
+        assertTrue(bob.runPatch(diff).isLeft)
       }
-    },
+    ),
     suite("transform")(
       test("different") {
         val f      = (i: Int) => Right(i.toString())
@@ -708,6 +741,36 @@ object DiffSpec extends DefaultRunnableSpec {
         )
         assertTrue(diff == expected) &&
         assertTrue(patch.flatMap(_.apply(pet1)) == Right(pet2))
+      },
+      test("different enum types - NotComparable") {
+        import Pet._
+        val pet1                = Dog("Spike")
+        val pet2                = Cat("Spot")
+        val schema: Schema[Pet] = DeriveSchema.gen
+        val diff                = schema.diff(pet1, pet2)
+        val patch               = schema.patch(diff)
+        assertTrue(diff == Diff.NotComparable) &&
+        assertTrue(patch.flatMap(_.apply(pet1)).isLeft)
+      },
+      test("error case") {
+        import Diff.Edit._
+        import Pet._
+        val pet1                = Dog("Spike")
+        val pet2                = Dog("Spot")
+        val pet3                = Dog("Zeeke")
+        val schema: Schema[Pet] = DeriveSchema.gen
+        val diff                = schema.diff(pet1, pet2)
+        val patch               = schema.patch(diff)
+        val expected = Diff.Record(
+          ListMap(
+            "name" ->
+              Diff.Myers(Chunk(Keep("S"), Keep("p"), Insert("o"), Insert("t"), Delete("i"), Delete("k"), Delete("e")))
+          )
+        )
+        assertTrue(diff == expected) &&
+        assertTrue(patch.flatMap(_.apply(pet1)) == Right(pet2)) &&
+        assertTrue(patch.flatMap(_.apply(pet2)).isLeft) &&
+        assertTrue(patch.flatMap(_.apply(pet3)).isLeft)
       }
     ),
     suite("patchLaws")(
@@ -733,4 +796,6 @@ object DiffSpec extends DefaultRunnableSpec {
     case class Cat(name: String)                     extends Pet
     case class Parrot(name: String, color: Int = 55) extends Pet
   }
+
+  case class Person(name: String, age: Int)
 }
