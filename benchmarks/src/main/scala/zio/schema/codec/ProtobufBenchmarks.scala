@@ -2,9 +2,7 @@ package zio.schema.codec
 
 import org.openjdk.jmh.annotations._
 import zio.internal.{Platform, Tracing}
-import zio.{BootstrapRuntime, Chunk}
-import zio.schema.{DeriveSchema, Schema}
-import zio.stream.{ZSink, ZStream}
+import zio.BootstrapRuntime
 
 import java.util.concurrent.TimeUnit
 

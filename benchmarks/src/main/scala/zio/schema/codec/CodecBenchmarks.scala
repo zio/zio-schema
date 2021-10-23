@@ -2,7 +2,8 @@ package zio.schema.codec
 
 import zio.{BootstrapRuntime, Chunk}
 import zio.internal.{Platform, Tracing}
-import zio.schema.{DeriveSchema, Schema}
+import zio.schema.{SchemaDerivation, Schema}
+import zio.schema.codec.ProtobufCodec
 
 import scala.util.Random
 
@@ -18,7 +19,7 @@ object CodecBenchmarks {
     extends Status
   case object Pending extends Status
 
-  val statusSchema: Schema[Status] = DeriveSchema.gen[Status]
+  val statusSchema: Schema[Status] = SchemaDerivation.gen[Status]
   val statusProtobufEncoder: Status => Chunk[Byte] = ProtobufCodec.encode(statusSchema)
   val statusProtobufDecoder: Chunk[Byte] => Either[String,Status] = ProtobufCodec.decode(statusSchema)
 

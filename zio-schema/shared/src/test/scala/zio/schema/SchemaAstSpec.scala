@@ -201,7 +201,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
   case class Recursive(id: String, r: Option[Recursive])
 
   object Recursive {
-    implicit lazy val schema: Schema[Recursive] = DeriveSchema.gen[Recursive]
+    implicit lazy val schema: Schema[Recursive] = SchemaDerivation.gen[Recursive]
   }
 
   sealed trait Pet
@@ -209,16 +209,16 @@ object SchemaAstSpec extends DefaultRunnableSpec {
   case class Dog(name: String) extends Pet
 
   object Dog {
-    implicit lazy val schema: Schema[Dog] = DeriveSchema.gen[Dog]
+    implicit lazy val schema: Schema[Dog] = SchemaDerivation.gen[Dog]
   }
   case class Cat(name: String, hasHair: Boolean) extends Pet
 
   object Cat {
-    implicit lazy val schema: Schema[Cat] = DeriveSchema.gen[Cat]
+    implicit lazy val schema: Schema[Cat] = SchemaDerivation.gen[Cat]
   }
 
   object Pet {
-    implicit lazy val schema: Schema[Pet] = DeriveSchema.gen[Pet]
+    implicit lazy val schema: Schema[Pet] = SchemaDerivation.gen[Pet]
   }
 
 }

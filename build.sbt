@@ -218,5 +218,5 @@ lazy val docs = project
 
 lazy val benchmarks = project
   .in(file("benchmarks"))
-  .dependsOn(zioSchemaJVM)
+  .dependsOn(zioSchemaJVM, zioSchemaProtobufJVM, zioSchemaJsonJVM)
   .enablePlugins(JmhPlugin)

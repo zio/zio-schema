@@ -1,11 +1,10 @@
 package zio.schema
 
+import magnolia._
+import zio.Chunk
+
 import scala.collection.immutable.ListMap
 import scala.language.experimental.macros
-
-import magnolia._
-
-import zio.Chunk
 
 object DeriveSchema {
 
@@ -1328,6 +1327,10 @@ object DeriveSchema {
       case Seq(c)          => Schema.Enum1(c)
       case Seq(c1, c2)     => Schema.Enum2(c1, c2)
       case Seq(c1, c2, c3) => Schema.Enum3(c1, c2, c3)
+      case Seq(c1, c2, c3,c4) => Schema.Enum4(c1, c2, c3,c4)
+      case Seq(c1, c2, c3,c4,c5) => Schema.Enum5(c1, c2, c3,c4,c5)
+      case Seq(c1, c2, c3,c4,c5,c6) => Schema.Enum6(c1, c2, c3,c4,c5,c6)
+
       case cases           =>
         Schema.EnumN(
           cases.foldRight[CaseSet.Aux[A]](CaseSet.Empty[A]()) {
@@ -1338,6 +1341,7 @@ object DeriveSchema {
   }
   // format: on
 
+  @deprecated(message = "Magnolia-based derivation is deprecated. Please use SchemaDerivation.gen instead", since = "0.1.3")
   implicit def gen[T]: Schema[T] = macro Magnolia.gen[T]
 
 }

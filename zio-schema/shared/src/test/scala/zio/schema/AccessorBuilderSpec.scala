@@ -127,15 +127,19 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
       )
     },
     test("sealed trait") {
-      val schema: Schema.EnumN[_, _] = Schema[SchemaGen.Json].asInstanceOf[Schema.EnumN[_, _]]
-      val cases                      = schema.structure
-      val accessor                   = schema.makeAccessors(builder)
+      val schema   = Schema[SchemaGen.Json].asInstanceOf[Schema.Enum[SchemaGen.Json]]
+      val cases    = schema.structure
+      val accessor = schema.makeAccessors(builder)
 
       assert(
         accessor match {
           case (
               Prism(s1, c1),
-              (Prism(s2, c2), (Prism(s3, c3), (Prism(s4, c4), (Prism(s5, c5), (Prism(s6, c6), ())))))
+              Prism(s2, c2),
+              Prism(s3, c3),
+              Prism(s4, c4),
+              Prism(s5, c5),
+              Prism(s6, c6)
               ) =>
             s1 == schema && s2 == schema && s3 == schema & s4 == schema && s5 == schema && s6 == schema &&
               c1.codec == cases("JArray") &&

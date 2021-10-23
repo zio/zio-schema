@@ -15,70 +15,145 @@ object SchemaDerivation {
 
     val tpe = weakTypeOf[T]
 
-    def resolveTermSchema(
-      tpe: Type,
-      term: TermSymbol,
-      selfRefName: String,
-      selfRef: Ident,
-      stack: List[Frame[c.type]]
-    ): Tree =
+    def concreteType(seenFrom: Type, tpe: Type): Type =
+      tpe.asSeenFrom(seenFrom, seenFrom.typeSymbol.asClass)
+
+    def isCaseObject(tpe: Type): Boolean = tpe.typeSymbol.asClass.isModuleClass
+
+    def isCaseClass(tpe: Type): Boolean = tpe.typeSymbol.asClass.isCaseClass
+
+    def isSealedTrait(tpe: Type): Boolean = tpe.typeSymbol.asClass.isTrait && tpe.typeSymbol.asClass.isSealed
+
+    def recurse(tpe: Type, stack: List[Frame[c.type]]): Tree =
+      if (isCaseObject(tpe))
+        q"zio.schema.Schema.singleton(${tpe.typeSymbol.asClass.module})"
+      else if (isCaseClass(tpe)) deriveRecord(tpe, stack)
+      else if (isSealedTrait(tpe))
+        deriveEnum(tpe, stack)
+      else
+        c.abort(
+          c.enclosingPosition,
+          s"Failed to derive schema for $tpe. Can only derive Schema for case class or sealed trait"
+        )
+
+    def directInferSchema(parentType: Type, schemaType: Type, stack: List[Frame[c.type]]): Tree =
       stack
-        .find(_.tpe =:= term.typeSignature)
+        .find(_.tpe =:= schemaType)
         .map {
           case Frame(_, ref, _) =>
             val refIdent = Ident(TermName(ref))
-            q"$refIdent"
+            q"zio.schema.Schema.defer($refIdent)"
         }
         .getOrElse {
-          val termType = term.typeSignature.asSeenFrom(tpe, tpe.typeSymbol)
-          if (term.typeSignature =:= tpe)
+          if (schemaType =:= parentType)
             c.abort(c.enclosingPosition, "Direct recursion is not supported")
           else {
-            termType.typeArgs match {
-              case typeArg :: _ if typeArg =:= tpe =>
-                if (termType <:< c.typeOf[Option[_]])
-                  q"zio.schema.Schema.option($selfRef)"
-                else if (termType <:< typeOf[List[_]])
-                  q"zio.schema.Schema.list($selfRef)"
-                else if (termType <:< typeOf[Set[_]])
-                  q"zio.schema.Schema.set($selfRef)"
-                else if (termType <:< typeOf[Vector[_]])
-                  q"zio.schema.Schema.vector($selfRef)"
-                else if (termType <:< typeOf[Chunk[_]])
-                  q"zio.schema.Schema.chunk($selfRef)"
-                else
-                  c.abort(c.enclosingPosition, s"Cannot resolve schema for type ${show(termType)}")
+            c.inferImplicitValue(
+              c.typecheck(tq"zio.schema.Schema[$schemaType]", c.TYPEmode).tpe,
+              withMacrosDisabled = false
+            ) match {
+              case EmptyTree =>
+                schemaType.typeArgs match {
+                  case Nil =>
+                    recurse(schemaType, stack)
+                  case typeArg1 :: Nil =>
+                    if (schemaType <:< c.typeOf[Option[_]])
+                      q"zio.schema.Schema.option(zio.schema.Schema.defer(${directInferSchema(parentType, concreteType(parentType, typeArg1), stack)}))"
+                    else if (schemaType <:< typeOf[List[_]])
+                      q"zio.schema.Schema.list(zio.schema.Schema.defer(${directInferSchema(parentType, concreteType(parentType, typeArg1), stack)}))"
+                    else if (schemaType <:< typeOf[Set[_]])
+                      q"zio.schema.Schema.set(zio.schema.Schema.defer(${directInferSchema(parentType, concreteType(parentType, typeArg1), stack)}))"
+                    else if (schemaType <:< typeOf[Vector[_]])
+                      q"zio.schema.Schema.vector(zio.schema.Schema.defer(${directInferSchema(parentType, concreteType(parentType, typeArg1), stack)}))"
+                    else if (schemaType <:< typeOf[Chunk[_]])
+                      q"zio.schema.Schema.chunk(zio.schema.Schema.defer(${directInferSchema(parentType, concreteType(parentType, typeArg1), stack)}))"
+                    else
+                      recurse(schemaType, stack)
+                  case typeArg1 :: typeArg2 :: Nil =>
+                    if (schemaType <:< typeOf[Either[_, _]])
+                      q"""zio.schema.Schema.either(
+                        zio.schema.Schema.defer(${directInferSchema(
+                        parentType,
+                        concreteType(parentType, typeArg1),
+                        stack
+                      )}),
+                        zio.schema.Schema.defer(${directInferSchema(
+                        parentType,
+                        concreteType(parentType, typeArg2),
+                        stack
+                      )})
+                      )
+                   """
+                    else if (schemaType <:< typeOf[(_, _)])
+                      q"""zio.schema.Schema.tuple2(
+                        zio.schema.Schema.defer(${directInferSchema(
+                        parentType,
+                        concreteType(parentType, typeArg1),
+                        stack
+                      )}),
+                        zio.schema.Schema.defer(${directInferSchema(
+                        parentType,
+                        concreteType(parentType, typeArg2),
+                        stack
+                      )})
+                      )
+                   """
+                    else
+                      recurse(schemaType, stack)
+                  case typeArg1 :: typeArg2 :: typeArg3 :: Nil =>
+                    if (schemaType <:< typeOf[(_, _, _)])
+                      q"""zio.schema.Schema.tuple3(
+                        zio.schema.Schema.defer(${directInferSchema(
+                        parentType,
+                        concreteType(parentType, typeArg1),
+                        stack
+                      )}),
+                        zio.schema.Schema.defer(${directInferSchema(
+                        parentType,
+                        concreteType(parentType, typeArg2),
+                        stack
+                      )}),
+                        zio.schema.Schema.defer(${directInferSchema(
+                        parentType,
+                        concreteType(parentType, typeArg3),
+                        stack
+                      )})
 
-              case typeArg :: _ if stack.exists(_.tpe =:= typeArg) =>
-                val ref      = stack.find(_.tpe =:= typeArg).get.ref
-                val refIdent = Ident(TermName(ref))
-                if (termType <:< c.typeOf[Option[_]])
-                  q"zio.schema.Schema.option($refIdent)"
-                else if (termType <:< typeOf[List[_]])
-                  q"zio.schema.Schema.list($refIdent)"
-                else if (termType <:< typeOf[Set[_]])
-                  q"zio.schema.Schema.set($refIdent)"
-                else if (termType <:< typeOf[Vector[_]])
-                  q"zio.schema.Schema.vector($refIdent)"
-                else if (termType <:< typeOf[Chunk[_]])
-                  q"zio.schema.Schema.chunk($refIdent)"
-                else
-                  c.abort(c.enclosingPosition, s"Cannot resolve schema for type ${show(term.typeSignature)}")
-              case _ =>
-                c.inferImplicitValue(
-                  c.typecheck(tq"zio.schema.Schema[$termType]", c.TYPEmode).tpe,
-                  withMacrosDisabled = false
-                ) match {
-                  case EmptyTree =>
-                    if (termType.typeSymbol.asClass.isModuleClass)
-                      q"zio.schema.Schema.singleton(${termType.typeSymbol.asClass.module})"
-                    else if (termType.typeSymbol.asClass.isCaseClass) deriveRecord(termType, stack)
-                    else if (termType.typeSymbol.asClass.isTrait && termType.typeSymbol.asClass.isSealed)
-                      deriveEnum(termType, Frame[c.type](c, selfRefName, tpe) +: stack)
-                    else c.abort(c.enclosingPosition, "Can only derive Schema for case class or sealed trait")
-                  case tree =>
-                    tree
+                      )
+                   """
+                    else
+                      recurse(schemaType, stack)
+                  case typeArg1 :: typeArg2 :: typeArg3 :: typeArg4 :: Nil =>
+                    if (schemaType <:< typeOf[(_, _, _)])
+                      q"""zio.schema.Schema.tuple4(
+                        zio.schema.Schema.defer(${directInferSchema(
+                        parentType,
+                        concreteType(parentType, typeArg1),
+                        stack
+                      )}),
+                        zio.schema.Schema.defer(${directInferSchema(
+                        parentType,
+                        concreteType(parentType, typeArg2),
+                        stack
+                      )}),
+                        zio.schema.Schema.defer(${directInferSchema(
+                        parentType,
+                        concreteType(parentType, typeArg3),
+                        stack
+                      )}),
+                        zio.schema.Schema.defer(${directInferSchema(
+                        parentType,
+                        concreteType(parentType, typeArg4),
+                        stack
+                      )})
+                      )
+                   """
+                    else
+                      recurse(schemaType, stack)
+                  case args => c.abort(c.enclosingPosition, s"Unhandled type args $args")
                 }
+              case tree =>
+                q"zio.schema.Schema.defer($tree)"
             }
           }
         }
@@ -93,13 +168,15 @@ object SchemaDerivation {
         val selfRefName = c.freshName("var")
         val selfRef     = Ident(TermName(selfRefName))
 
+        val currentFrame = Frame[c.type](c, selfRefName, tpe)
+
         val fieldTypes: Iterable[TermSymbol] = tpe.decls.collect {
           case p: TermSymbol if p.isCaseAccessor && !p.isMethod => p
         }
         val arity = fieldTypes.size
 
         val typeArgs = fieldTypes.map { ft =>
-          val fieldType = tpe.decl(ft.name).typeSignature.asSeenFrom(tpe, tpe.typeSymbol.asClass)
+          val fieldType = concreteType(tpe, tpe.decl(ft.name).typeSignature)
           q"$fieldType"
         } ++ Iterable(q"$tpe")
 
@@ -118,8 +195,12 @@ object SchemaDerivation {
         if (arity > 22) {
           val fields = fieldTypes.zip(fieldAnnotations).map {
             case (termSymbol, annotations) =>
-              val fieldSchema = resolveTermSchema(tpe, termSymbol, selfRefName, selfRef, stack)
-              val fieldLabel  = termSymbol.name.toString.trim
+              val fieldSchema = directInferSchema(
+                tpe,
+                concreteType(tpe, termSymbol.typeSignature),
+                currentFrame +: stack
+              ) //resolveTermSchema(tpe, termSymbol, selfRefName, selfRef, stack)
+              val fieldLabel = termSymbol.name.toString.trim
               q"zio.schema.Schema.Field.apply($fieldLabel,$fieldSchema,zio.Chunk.apply[Any](..$annotations))"
           }
           val fromMap = {
@@ -170,16 +251,20 @@ object SchemaDerivation {
 
           val fieldDefs = fieldTypes.zip(fieldAnnotations).zipWithIndex.map {
             case ((termSymbol, annotations), idx) =>
-              val fieldSchema = resolveTermSchema(tpe, termSymbol, selfRefName, selfRef, stack)
-              val fieldArg    = if (fieldTypes.size > 1) TermName(s"field${idx + 1}") else TermName("field")
-              val fieldLabel  = termSymbol.name.toString.trim
+              val fieldSchema = directInferSchema(
+                tpe,
+                concreteType(tpe, termSymbol.typeSignature),
+                currentFrame +: stack
+              ) //resolveTermSchema(tpe, termSymbol, selfRefName, selfRef, stack)
+              val fieldArg   = if (fieldTypes.size > 1) TermName(s"field${idx + 1}") else TermName("field")
+              val fieldLabel = termSymbol.name.toString.trim
               // TODO Adding the annotations here causes a compiler crash.
               val _ = annotations
 //              if (annotations.nonEmpty)
 //                q"""$fieldArg = zio.schema.Schema.Field[${termSymbol.typeSignature}](label = $fieldLabel,schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations))"""
 //              else
 //              q"""$fieldArg = zio.schema.Schema.Field[${termSymbol.typeSignature}](label = $fieldLabel,schema = zio.schema.Schema.defer($fieldSchema))"""
-              q"""$fieldArg = zio.schema.Schema.Field.apply(label = $fieldLabel,schema = zio.schema.Schema.defer($fieldSchema))"""
+              q"""$fieldArg = zio.schema.Schema.Field.apply(label = $fieldLabel,schema = $fieldSchema)"""
           }
 
           val constructArgs = fieldTypes.zipWithIndex.map {
@@ -257,19 +342,26 @@ object SchemaDerivation {
         }
     }
 
-    def resolveCaseSchema(subtype: Type, stack: List[Frame[c.type]]): Tree = stack.find(_.tpe =:= subtype) match {
-      case Some(Frame(_, ref, _)) =>
-        val refIdent = Ident(TermName(ref))
-        q"$refIdent"
-      case None if subtype.typeSymbol.asClass.isModuleClass =>
-        q"zio.schema.Schema.singleton(${subtype.typeSymbol.asClass.module})"
-      case None =>
-        deriveRecord(subtype, stack)
-    }
-
     def deriveEnum(tpe: Type, stack: List[Frame[c.type]]): Tree = {
 
-      val tpeArgs = tpe.typeArgs
+      val appliedTypeArgs: Map[String, Type] =
+        tpe.typeConstructor.typeParams.map(_.name.toString).zip(tpe.typeArgs).toMap
+
+      def appliedSubtype(subtype: Type): Type =
+        if (subtype.typeArgs.size == 0) subtype
+        else {
+          val appliedTypes = subtype.typeConstructor.typeParams.map(_.name.toString).map { typeParam =>
+            appliedTypeArgs.get(typeParam) match {
+              case None =>
+                c.abort(
+                  c.enclosingPosition,
+                  s"Unable to find applied type param  $typeParam for subtype $subtype of $tpe"
+                )
+              case Some(applyType) => applyType
+            }
+          }
+          appliedType(subtype, appliedTypes: _*)
+        }
 
       def knownSubclassesOf(parent: ClassSymbol): Set[Type] = {
         val (abstractChildren, concreteChildren) = parent.knownDirectSubclasses.partition(_.isAbstract)
@@ -284,9 +376,8 @@ object SchemaDerivation {
           val childClass = child.asClass
           if (childClass.isSealed && childClass.isTrait) knownSubclassesOf(childClass)
           else if (childClass.isCaseClass) {
-            val st = child.asType.toType.asSeenFrom(parent.typeSignature, parent)
-            if (st.typeArgs.size == tpeArgs.size) Set(appliedType(st, tpeArgs: _*))
-            else Set(child.asType.toType)
+            val st = concreteType(concreteType(tpe, parent.asType.toType), child.asType.toType)
+            Set(appliedSubtype(st))
           } else c.abort(c.enclosingPosition, s"child $child of $parent is not a sealed trait or case class")
         }
       }
@@ -294,15 +385,19 @@ object SchemaDerivation {
       val selfRefName  = c.freshName("ref")
       val selfRefIdent = Ident(TermName(selfRefName))
 
-      val subtypes = knownSubclassesOf(tpe.typeSymbol.asClass)
+      val currentFrame = Frame[c.type](c, selfRefName, tpe)
+
+      val subtypes = knownSubclassesOf(tpe.typeSymbol.asClass).toList
+        .sortBy(_.typeSymbol.asClass.name.toString.trim)
+        .map(concreteType(tpe, _))
 
       val typeArgs = subtypes ++ Iterable(tpe)
 
       val cases = subtypes.map { subtype: Type =>
         val caseLabel     = subtype.typeSymbol.name.toString.trim
-        val caseSchema    = resolveCaseSchema(subtype, Frame[c.type](c, selfRefName, tpe) +: stack)
+        val caseSchema    = directInferSchema(tpe, concreteType(tpe, subtype), currentFrame +: stack) //resolveCaseSchema(subtype, Frame[c.type](c, selfRefName, tpe) +: stack)
         val deconstructFn = q"(z: $tpe) => z.asInstanceOf[$subtype]"
-        q"zio.schema.Schema.Case.apply[$subtype,$tpe]($caseLabel,zio.schema.Schema.defer($caseSchema),$deconstructFn)"
+        q"zio.schema.Schema.Case.apply[$subtype,$tpe]($caseLabel,$caseSchema,$deconstructFn)"
       }
 
       cases.size match {
@@ -358,11 +453,15 @@ object SchemaDerivation {
       }
     }
 
-    if (tpe.typeSymbol.asClass.isModuleClass) q"zio.schema.Schema.singleton(${tpe.typeSymbol.asClass.module})"
-    else if (tpe.typeSymbol.asClass.isCaseClass) deriveRecord(tpe, List.empty[Frame[c.type]])
-    else if (tpe.typeSymbol.asClass.isTrait && tpe.typeSymbol.asClass.isSealed)
+    if (isCaseObject(tpe)) q"zio.schema.Schema.singleton(${tpe.typeSymbol.asClass.module})"
+    else if (isCaseClass(tpe)) deriveRecord(tpe, List.empty[Frame[c.type]])
+    else if (isSealedTrait(tpe))
       deriveEnum(tpe, List.empty[Frame[c.type]])
-    else c.abort(c.enclosingPosition, "Can only derive Schema for case class or sealed trait")
+    else
+      c.abort(
+        c.enclosingPosition,
+        s"Failed to derive schema for $tpe. Can only derive Schema for case class or sealed trait"
+      )
   }
 
   case class Frame[C <: whitebox.Context](ctx: C, ref: String, tpe: C#Type)

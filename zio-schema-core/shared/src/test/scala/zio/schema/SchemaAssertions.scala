@@ -1,5 +1,7 @@
 package zio.schema
 
+import scala.collection.immutable.ListMap
+
 import zio.Chunk
 import zio.schema.syntax._
 import zio.test.Assertion
@@ -92,11 +94,8 @@ object SchemaAssertions {
         standardType1 == standardType2
       case (Schema.Tuple(left1, right1), Schema.Tuple(left2, right2)) =>
         equalsSchema(left1, left2) && equalsSchema(right1, right2)
-      case (Schema.Optional(codec1), Schema.Optional(codec2))   => equalsSchema(codec1, codec2)
-      case (Schema.Enum1(l), Schema.Enum1(r))                   => equalsCase(l, r)
-      case (Schema.Enum2(l1, l2), Schema.Enum2(r1, r2))         => hasSameCases(Seq(l1, l2), Seq(r1, r2))
-      case (Schema.Enum3(l1, l2, l3), Schema.Enum3(r1, r2, r3)) => hasSameCases(Seq(l1, l2, l3), Seq(r1, r2, r3))
-      case (Schema.EnumN(ls), Schema.EnumN(rs))                 => hasSameCases(ls.toSeq, rs.toSeq)
+      case (Schema.Optional(codec1), Schema.Optional(codec2)) => equalsSchema(codec1, codec2)
+      case (l: Schema.Enum[_], r: Schema.Enum[_])             => hasSameCases(l.structure, r.structure)
       case (l @ Schema.Lazy(_), r @ Schema.Lazy(_)) =>
         equalsSchema(l.schema.asInstanceOf[Schema[Any]], r.schema.asInstanceOf[Schema[Any]])
       case (lazySchema @ Schema.Lazy(_), eagerSchema) =>
@@ -106,13 +105,11 @@ object SchemaAssertions {
       case _ => false
     }
 
-  private def equalsCase(left: Schema.Case[_, _], right: Schema.Case[_, _]): Boolean =
-    left.id == right.id && equalsSchema(left.codec.asInstanceOf[Schema[Any]], right.codec.asInstanceOf[Schema[Any]])
-
-  private def hasSameCases(ls: Seq[Schema.Case[_, _]], rs: Seq[Schema.Case[_, _]]): Boolean =
-    ls.map(l => rs.exists(r => equalsCase(l, r))).reduce(_ && _) && rs
-      .map(r => ls.exists(l => equalsCase(l, r)))
-      .reduce(_ && _)
+  private def hasSameCases(left: ListMap[String, Schema[_]], right: ListMap[String, Schema[_]]): Boolean =
+    left.zip(right).forall {
+      case ((lLabel, lSchema), (rLabel, rSchema)) =>
+        lLabel == rLabel && equalsSchema(lSchema.asInstanceOf[Schema[Any]], rSchema.asInstanceOf[Schema[Any]])
+    }
 
   private def hasSameStructure[A](left: Schema.Record[A], right: Schema.Record[A]): Boolean =
     left.structure.zip(right.structure).forall {

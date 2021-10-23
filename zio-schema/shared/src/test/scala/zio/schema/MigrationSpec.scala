@@ -268,41 +268,41 @@ object MigrationSpec extends DefaultRunnableSpec {
   case class Recursive1(v1: Int, v2: String, r: Option[Recursive1])
 
   object Recursive1 {
-    implicit lazy val schema: Schema[Recursive1] = DeriveSchema.gen
+    implicit lazy val schema: Schema[Recursive1] = SchemaDerivation.gen
   }
 
   case class Recursive2(v1: Int, r: Option[Recursive2])
 
   object Recursive2 {
-    implicit lazy val schema: Schema[Recursive2] = DeriveSchema.gen
+    implicit lazy val schema: Schema[Recursive2] = SchemaDerivation.gen
   }
 
   case class Nested1(v1: Int, v2: String)
 
   object Nested1 {
-    implicit def schema: Schema[Nested1] = DeriveSchema.gen
+    implicit def schema: Schema[Nested1] = SchemaDerivation.gen
   }
   case class Nested2(v1: Int, v2: Int, v3: String)
 
   object Nested2 {
-    implicit def schema: Schema[Nested2] = DeriveSchema.gen
+    implicit def schema: Schema[Nested2] = SchemaDerivation.gen
   }
 
   case class Outer1(v1: String, v2: Nested1)
 
   object Outer1 {
-    implicit def schema: Schema[Outer1] = DeriveSchema.gen
+    implicit def schema: Schema[Outer1] = SchemaDerivation.gen
   }
   case class Outer2(v1: Int, v2: Nested2)
 
   object Outer2 {
-    implicit def schema: Schema[Outer2] = DeriveSchema.gen
+    implicit def schema: Schema[Outer2] = SchemaDerivation.gen
   }
 
   case class OptionalField(v1: Int, v2: Option[String])
 
   object OptionalField {
-    implicit def schema: Schema[OptionalField] = DeriveSchema.gen
+    implicit def schema: Schema[OptionalField] = SchemaDerivation.gen
   }
 
   sealed trait Pet1
@@ -311,7 +311,7 @@ object MigrationSpec extends DefaultRunnableSpec {
     case class Dog(name: String) extends Pet1
     case class Cat(name: String) extends Pet1
 
-    implicit def schema: Schema[Pet1] = DeriveSchema.gen
+    implicit def schema: Schema[Pet1] = SchemaDerivation.gen
   }
 
   sealed trait Pet2
@@ -321,7 +321,7 @@ object MigrationSpec extends DefaultRunnableSpec {
     case class Cat(name: String)     extends Pet2
     case class Hamster(name: String) extends Pet2
 
-    implicit def schema: Schema[Pet2] = DeriveSchema.gen
+    implicit def schema: Schema[Pet2] = SchemaDerivation.gen
   }
 
 }

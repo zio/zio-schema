@@ -108,7 +108,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
   case class Recursive1(level: Int, value: String, r: Option[Recursive1])
 
   object Recursive1 {
-    implicit lazy val schema: Schema[Recursive1] = DeriveSchema.gen
+    implicit lazy val schema: Schema[Recursive1] = SchemaDerivation.gen
 
     def genTree(depth: Int): Recursive1 =
       if (depth == 0)
@@ -121,7 +121,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
   case class Recursive2(level: Int, value: String, r: Option[Recursive2])
 
   object Recursive2 {
-    implicit lazy val schema: Schema[Recursive2] = DeriveSchema.gen
+    implicit lazy val schema: Schema[Recursive2] = SchemaDerivation.gen
 
     def genTree(depth: Int): Recursive2 =
       if (depth == 0)
@@ -135,7 +135,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
   case class Recursive3(level: Int, r: Option[Recursive3])
 
   object Recursive3 {
-    implicit lazy val schema: Schema[Recursive3] = DeriveSchema.gen
+    implicit lazy val schema: Schema[Recursive3] = SchemaDerivation.gen
   }
 
   sealed trait PetFood
@@ -144,7 +144,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
     case class DogFood(ingredients: List[String], brand: Option[String]) extends PetFood
 
     object DogFood {
-      implicit lazy val schema: Schema[DogFood] = DeriveSchema.gen
+      implicit lazy val schema: Schema[DogFood] = SchemaDerivation.gen
 
       lazy val gen: Gen[Random with Sized, DogFood] =
         (Gen.listOf(Gen.anyString) <*> Gen.option(Gen.anyString)).map((DogFood.apply _).tupled)
@@ -152,7 +152,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
     case class CatFood(ingredients: List[String], brand: Option[String]) extends PetFood
 
     object CatFood {
-      implicit lazy val schema: Schema[CatFood] = DeriveSchema.gen
+      implicit lazy val schema: Schema[CatFood] = SchemaDerivation.gen
 
       lazy val gen: Gen[Random with Sized, CatFood] =
         (Gen.listOf(Gen.anyString) <*> Gen.option(Gen.anyString)).map((CatFood.apply _).tupled)
@@ -164,7 +164,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
       case _                                 => Left("error")
     }
 
-    implicit lazy val schema: Schema[PetFood] = DeriveSchema.gen
+    implicit lazy val schema: Schema[PetFood] = SchemaDerivation.gen
 
     val gen: Gen[Random with Sized, PetFood] =
       Gen.oneOf(
@@ -185,7 +185,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
     case class DogFood(ingredients: List[String], brand: String) extends BrandedPetFood
 
     object DogFood {
-      implicit lazy val schema: Schema[DogFood] = DeriveSchema.gen
+      implicit lazy val schema: Schema[DogFood] = SchemaDerivation.gen
 
       val gen: Gen[Random with Sized, DogFood] =
         (Gen.listOf(Gen.anyString) <*> Gen.anyString).map((DogFood.apply _).tupled)
@@ -193,7 +193,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
     case class CatFood(ingredients: List[String], brand: String) extends BrandedPetFood
 
     object CatFood {
-      implicit lazy val schema: Schema[CatFood] = DeriveSchema.gen
+      implicit lazy val schema: Schema[CatFood] = SchemaDerivation.gen
 
       val gen: Gen[Random with Sized, CatFood] =
         (Gen.listOf(Gen.anyString) <*> Gen.anyString).map((CatFood.apply _).tupled)
@@ -201,13 +201,13 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
     case class HamsterFood(ingredients: List[String], brand: String) extends BrandedPetFood
 
     object HamsterFood {
-      implicit lazy val schema: Schema[HamsterFood] = DeriveSchema.gen
+      implicit lazy val schema: Schema[HamsterFood] = SchemaDerivation.gen
 
       val gen: Gen[Random with Sized, HamsterFood] =
         (Gen.listOf(Gen.anyString) <*> Gen.anyString).map((HamsterFood.apply _).tupled)
     }
 
-    implicit lazy val schema: Schema[BrandedPetFood] = DeriveSchema.gen
+    implicit lazy val schema: Schema[BrandedPetFood] = SchemaDerivation.gen
 
     val gen: Gen[Random with Sized, BrandedPetFood] = Gen.oneOf(DogFood.gen, CatFood.gen, HamsterFood.gen)
 
@@ -219,15 +219,15 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
     case class Cat(color: String, breed: String, favoriteFood: Option[PetFood]) extends Pet
 
     object Cat {
-      implicit def schema: Schema[Cat] = DeriveSchema.gen
+      implicit def schema: Schema[Cat] = SchemaDerivation.gen
     }
     case class Dog(breed: String, legs: Int, favoriteFood: Option[PetFood]) extends Pet
 
     object Dog {
-      implicit def schema: Schema[Dog] = DeriveSchema.gen
+      implicit def schema: Schema[Dog] = SchemaDerivation.gen
     }
 
-    implicit def schema: Schema[Pet] = DeriveSchema.gen
+    implicit def schema: Schema[Pet] = SchemaDerivation.gen
   }
 
   sealed trait NamedPet
@@ -237,21 +237,21 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
         extends NamedPet
 
     object Cat {
-      implicit def schema: Schema[Cat] = DeriveSchema.gen
+      implicit def schema: Schema[Cat] = SchemaDerivation.gen
     }
     case class Dog(name: String, color: String, breed: String, weight: Int, favoriteFood: BrandedPetFood)
         extends NamedPet
 
     object Dog {
-      implicit def schema: Schema[Dog] = DeriveSchema.gen
+      implicit def schema: Schema[Dog] = SchemaDerivation.gen
     }
     case class Hamster(name: String, color: String, weight: Int, favoriteFood: BrandedPetFood) extends NamedPet
 
     object Hamster {
-      implicit def schema: Schema[Hamster] = DeriveSchema.gen
+      implicit def schema: Schema[Hamster] = SchemaDerivation.gen
     }
 
-    implicit def schema: Schema[NamedPet] = DeriveSchema.gen
+    implicit def schema: Schema[NamedPet] = SchemaDerivation.gen
   }
 
   sealed trait Version1
@@ -260,7 +260,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
 
     case class A1(v1: Int, v2: String, v3: Option[String], rs: List[Version1]) extends Version1
 
-    implicit lazy val schema: Schema[Version1] = DeriveSchema.gen
+    implicit lazy val schema: Schema[Version1] = SchemaDerivation.gen
 
     def genTree(depth: Int): Gen[Random with Sized, Version1] =
       for {
@@ -284,13 +284,13 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
   object Version2 {
     case class A1(v1: Int, v3: String, rs: List[Version2]) extends Version2
 
-    implicit lazy val schema: Schema[Version2] = DeriveSchema.gen
+    implicit lazy val schema: Schema[Version2] = SchemaDerivation.gen
   }
 
   case class NestedEither1(v1: Int, v2: Either[String, PetFood.DogFood])
 
   object NestedEither1 {
-    implicit lazy val schema: Schema[NestedEither1] = DeriveSchema.gen
+    implicit lazy val schema: Schema[NestedEither1] = SchemaDerivation.gen
 
     val gen: Gen[Random with Sized, NestedEither1] =
       for {
@@ -302,7 +302,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
   case class NestedEither2(v1: Int, v2: Either[String, PetFood.CatFood])
 
   object NestedEither2 {
-    implicit lazy val schema: Schema[NestedEither2] = DeriveSchema.gen
+    implicit lazy val schema: Schema[NestedEither2] = SchemaDerivation.gen
 
     val gen: Gen[Random with Sized, NestedEither2] =
       for {
@@ -314,7 +314,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
   case class NestedEnum1(v1: Int, v2: PetFood, v3: List[BrandedPetFood])
 
   object NestedEnum1 {
-    implicit lazy val schema: Schema[NestedEnum1] = DeriveSchema.gen
+    implicit lazy val schema: Schema[NestedEnum1] = SchemaDerivation.gen
 
     val gen: Gen[Random with Sized, NestedEnum1] =
       for {
@@ -339,7 +339,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
   case class NestedEnum2(v1: Int, v2: BrandedPetFood, v3: List[PetFood])
 
   object NestedEnum2 {
-    implicit lazy val schema: Schema[NestedEnum2] = DeriveSchema.gen
+    implicit lazy val schema: Schema[NestedEnum2] = SchemaDerivation.gen
 
     val gen: Gen[Random with Sized, NestedEnum2] =
       for {

@@ -67,6 +67,7 @@ trait Differ[A] { self =>
 
 object Differ {
 
+  //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   def fromSchema[A](schema: Schema[A]): Differ[A] = schema match {
     case Schema.Primitive(StandardType.BinaryType)     => binary
     case Schema.Primitive(StandardType.IntType)        => numeric[Int]
@@ -109,17 +110,38 @@ object Differ {
     case Schema.Sequence(schema, _, f) =>
       val elementDiffer = fromSchema(schema)
       elementDiffer.foreach(f)
-    case Schema.EitherSchema(leftSchema, rightSchema) => either(fromSchema(leftSchema), fromSchema(rightSchema))
-    case s @ Schema.Lazy(_)                           => fromSchema(s.schema)
-    case Schema.Transform(schema, _, f)               => fromSchema(schema).transformOrFail(f)
-    case Schema.Fail(_)                               => fail
-    case Schema.GenericRecord(structure)              => record(structure.toChunk)
-    case ProductDiffer(differ)                        => differ
-    case Schema.Enum1(c)                              => enum(c)
-    case Schema.Enum2(c1, c2)                         => enum(c1, c2)
-    case Schema.Enum3(c1, c2, c3)                     => enum(c1, c2, c3)
-    case Schema.EnumN(cs)                             => enum(cs.toSeq: _*)
+    case Schema.EitherSchema(leftSchema, rightSchema)                                                                       => either(fromSchema(leftSchema), fromSchema(rightSchema))
+    case s @ Schema.Lazy(_)                                                                                                 => fromSchema(s.schema)
+    case Schema.Transform(schema, _, f)                                                                                     => fromSchema(schema).transformOrFail(f)
+    case Schema.Fail(_)                                                                                                     => fail
+    case Schema.GenericRecord(structure)                                                                                    => record(structure.toChunk)
+    case ProductDiffer(differ)                                                                                              => differ
+    case Schema.Enum1(c)                                                                                                    => enum(c)
+    case Schema.Enum2(c1, c2)                                                                                               => enum(c1, c2)
+    case Schema.Enum3(c1, c2, c3)                                                                                           => enum(c1, c2, c3)
+    case Schema.Enum4(c1, c2, c3, c4)                                                                                       => enum(c1, c2, c3, c4)
+    case Schema.Enum5(c1, c2, c3, c4, c5)                                                                                   => enum(c1, c2, c3, c4, c5)
+    case Schema.Enum6(c1, c2, c3, c4, c5, c6)                                                                               => enum(c1, c2, c3, c4, c5, c6)
+    case Schema.Enum7(c1, c2, c3, c4, c5, c6, c7)                                                                           => enum(c1, c2, c3, c4, c5, c6, c7)
+    case Schema.Enum8(c1, c2, c3, c4, c5, c6, c7, c8)                                                                       => enum(c1, c2, c3, c4, c5, c6, c7, c8)
+    case Schema.Enum9(c1, c2, c3, c4, c5, c6, c7, c8, c9)                                                                   => enum(c1, c2, c3, c4, c5, c6, c7, c8, c9)
+    case Schema.Enum10(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)                                                             => enum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
+    case Schema.Enum11(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)                                                        => enum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
+    case Schema.Enum12(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)                                                   => enum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
+    case Schema.Enum13(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)                                              => enum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
+    case Schema.Enum14(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)                                         => enum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
+    case Schema.Enum15(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)                                    => enum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+    case Schema.Enum16(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)                               => enum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
+    case Schema.Enum17(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)                          => enum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
+    case Schema.Enum18(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)                     => enum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
+    case Schema.Enum19(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)                => enum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
+    case Schema.Enum20(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)           => enum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
+    case Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)      => enum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
+    case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22) => enum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
+
+    case Schema.EnumN(cs) => enum(cs.toSeq: _*)
   }
+  //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
   def binary: Differ[Chunk[Byte]] =
     (theseBytes: Chunk[Byte], thoseBytes: Chunk[Byte]) =>

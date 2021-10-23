@@ -345,17 +345,17 @@ object SchemaGen {
   final case class Arity1(value: Int) extends Arity
 
   object Arity1 {
-    implicit val schema: Schema[Arity1] = DeriveSchema.gen[Arity1]
+    implicit val schema: Schema[Arity1] = SchemaDerivation.gen[Arity1]
   }
   final case class Arity2(value1: String, value2: Arity1) extends Arity
 
   object Arity2 {
-    implicit val schema: Schema[Arity2] = DeriveSchema.gen[Arity2]
+    implicit val schema: Schema[Arity2] = SchemaDerivation.gen[Arity2]
   }
   final case class Arity3(value1: String, value2: Arity2, value3: Arity1) extends Arity
 
   object Arity3 {
-    implicit val schema: Schema[Arity3] = DeriveSchema.gen[Arity3]
+    implicit val schema: Schema[Arity3] = SchemaDerivation.gen[Arity3]
   }
   final case class Arity24(
     a1: Arity1,
@@ -385,11 +385,11 @@ object SchemaGen {
   ) extends Arity
 
   object Arity24 {
-    implicit val schema: Schema[Arity24] = DeriveSchema.gen[Arity24]
+    implicit val schema: Schema[Arity24] = SchemaDerivation.gen[Arity24]
   }
 
   object Arity {
-    implicit val arityEnumSchema: Schema.Enum[Arity] = DeriveSchema.gen[Arity].asInstanceOf[Schema.Enum[Arity]]
+    implicit val arityEnumSchema: Schema.Enum[Arity] = SchemaDerivation.gen[Arity]
   }
 
   lazy val anyArity1: Gen[Random with Sized, Arity1] = Gen.anyInt.map(Arity1(_))
@@ -512,7 +512,9 @@ object SchemaGen {
   case class JArray(fields: List[Json])            extends Json
 
   object Json {
-    implicit lazy val schema: Schema[Json] = DeriveSchema.gen[Json]
+    implicit lazy val schema
+      : Schema.Enum6[JArray, JDecimal, zio.schema.SchemaGen.JNull.type, JNumber, JObject, JString, Json] =
+      SchemaDerivation.gen[Json]
 
     val leafGen: Gen[Random with Sized, Json] =
       Gen.oneOf(

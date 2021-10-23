@@ -101,6 +101,36 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
     implicit lazy val schema: Schema[Arity24] = SchemaDerivation.gen[Arity24]
   }
 
+  //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
+  case class TupleArities(
+    arity2: (User, User),
+    arity3: (User, User, User),
+    arity4: (User, User, User, User),
+    arity5: (User, User, User, User, User),
+    arity6: (User, User, User, User, User, User),
+    arity7: (User, User, User, User, User, User, User),
+    arity8: (User, User, User, User, User, User, User, User),
+    arity9: (User, User, User, User, User, User, User, User, User),
+    arity10: (User, User, User, User, User, User, User, User, User, User),
+    arity11: (User, User, User, User, User, User, User, User, User, User, User),
+    arity12: (User, User, User, User, User, User, User, User, User, User, User, User),
+    arity13: (User, User, User, User, User, User, User, User, User, User, User, User, User),
+    arity14: (User, User, User, User, User, User, User, User, User, User, User, User, User, User),
+    arity15: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User),
+    arity16: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User),
+    arity17: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User),
+    arity18: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User),
+    arity19: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User),
+    arity20: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User),
+    arity21: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User),
+    arity22: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User)
+  )
+  //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
+
+  object TupleArities {
+    implicit lazy val schema = SchemaDerivation.gen[TupleArities]
+  }
+
   case class DependsOnA(a: Option[DependsOnB])
 
   object DependsOnA {
@@ -118,6 +148,14 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
     case class Branch[A](left: Tree[A], right: Tree[A]) extends Tree[A]
     case class Leaf[A](value: A)                        extends Tree[A]
     case object Root                                    extends Tree[Nothing]
+  }
+
+  sealed trait RBTree[+A, +B]
+
+  object RedBlackTree {
+    case class Branch[A, B](left: RBTree[A, B], right: RBTree[A, B]) extends RBTree[A, B]
+    case class RLeaf[A](value: A)                                    extends RBTree[A, Nothing]
+    case class BLeaf[B](value: B)                                    extends RBTree[Nothing, B]
   }
 
   sealed trait RecursiveEnum
@@ -169,6 +207,9 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
       },
       test("correctly derives recursive data structure") {
         assert(Schema[Recursive].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+      },
+      test("correctly derives tuple arities from 2 to 22") {
+        assert(Schema[TupleArities].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
       test("correctly derive mutually recursive data structure") {
         val c = Cyclic(1, CyclicChild1(2, CyclicChild2("3", None)))
@@ -244,11 +285,14 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
       test("correctly derives recursive Enum with type parameters") {
         assert(SchemaDerivation.gen[Tree[Recursive]])(anything)
       },
+      test("correctly derives recursive Enum with multiple type parameters") {
+        assert(SchemaDerivation.gen[RBTree[String, Int]])(anything)
+      },
       test("correctly derives recursive Enum") {
         assert(Schema[RecursiveEnum].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
       test("correctly derives Enum with > 22 cases") {
-        assert(Schema[RecursiveEnum].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+        assert(Schema[Enum23].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       }
     )
   )
