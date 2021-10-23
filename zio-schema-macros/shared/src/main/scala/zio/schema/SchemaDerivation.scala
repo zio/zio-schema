@@ -199,7 +199,7 @@ object SchemaDerivation {
                 tpe,
                 concreteType(tpe, termSymbol.typeSignature),
                 currentFrame +: stack
-              ) //resolveTermSchema(tpe, termSymbol, selfRefName, selfRef, stack)
+              )
               val fieldLabel = termSymbol.name.toString.trim
               q"zio.schema.Schema.Field.apply($fieldLabel,$fieldSchema,zio.Chunk.apply[Any](..$annotations))"
           }
@@ -395,7 +395,7 @@ object SchemaDerivation {
 
       val cases = subtypes.map { subtype: Type =>
         val caseLabel     = subtype.typeSymbol.name.toString.trim
-        val caseSchema    = directInferSchema(tpe, concreteType(tpe, subtype), currentFrame +: stack) //resolveCaseSchema(subtype, Frame[c.type](c, selfRefName, tpe) +: stack)
+        val caseSchema    = directInferSchema(tpe, concreteType(tpe, subtype), currentFrame +: stack)
         val deconstructFn = q"(z: $tpe) => z.asInstanceOf[$subtype]"
         q"zio.schema.Schema.Case.apply[$subtype,$tpe]($caseLabel,$caseSchema,$deconstructFn)"
       }
