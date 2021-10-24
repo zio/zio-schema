@@ -5,11 +5,13 @@ import java.time.{ ZoneId, ZoneOffset }
 
 import scala.collection.immutable.ListMap
 
+import zio.console._
 import zio.duration._
 import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.random.Random
-import zio.schema.{ DeriveSchema, JavaTimeGen, Schema, SchemaGen, StandardType }
+import zio.schema.CaseSet._
+import zio.schema.{ CaseSet, DeriveSchema, JavaTimeGen, Schema, SchemaGen, StandardType }
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -28,13 +30,13 @@ object JsonCodecSpec extends DefaultRunnableSpec {
 
   // TODO: Add tests for the transducer contract.
 
-  private val encoderSuite = suite("Should correctly encode")(
+  private val encoderSuite = suite("encoding")(
     suite("primitive")(
       testM("unit") {
-        assertEncodesUnit
+        assertEncodesJson(Schema[Unit], (), "{}")
       },
       testM("string")(
-        checkM(Gen.anyString)(assertEncodesString)
+        checkM(Gen.anyString)(s => assertEncodes(Schema[String], s, stringify(s)))
       ),
       testM("ZoneOffset") {
         assertEncodesJson(Schema.Primitive(StandardType.ZoneOffset), ZoneOffset.UTC)
@@ -98,10 +100,10 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         }
       },
       testM("case object") {
-        assertEncodes(
+        assertEncodesJson(
           schemaObject,
           Singleton,
-          JsonCodec.Encoder.charSequenceToByteChunk("{}")
+          "{}"
         )
       }
     ),
@@ -109,13 +111,13 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       testM("of primitives") {
         assertEncodes(
           enumSchema,
-          ("string" -> "foo"),
+          ("foo"),
           JsonCodec.Encoder.charSequenceToByteChunk("""{"string":"foo"}""")
         )
       },
       testM("ADT") {
         assertEncodes(
-          adtSchema,
+          Schema[Enumeration],
           Enumeration(StringValue("foo")),
           JsonCodec.Encoder.charSequenceToByteChunk("""{"oneOf":{"StringValue":{"value":"foo"}}}""")
         )
@@ -123,17 +125,14 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     )
   )
 
-  private val decoderSuite = suite("Should correctly decode")(
+  private val decoderSuite = suite("decoding")(
     suite("primitive")(
       testM("unit") {
-        assertDecodesUnit
+        assertEncodesJson(Schema[Unit], (), "{}")
       },
       suite("string")(
-        testM("example") {
-          assertDecodesString("hello")
-        },
         testM("any") {
-          checkM(Gen.anyString)(assertDecodesString)
+          checkM(Gen.anyString)(s => assertDecodes(Schema[String], s, stringify(s)))
         }
       )
     ),
@@ -164,9 +163,9 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     )
   )
 
-  private val encoderDecoderSuite = suite("Encoding then decoding")(
+  private val encoderDecoderSuite = suite("encoding then decoding")(
     testM("unit") {
-      assertEncodesThenDecodes(Schema.Primitive(StandardType.UnitType), ())
+      assertEncodesThenDecodes(Schema[Unit], ())
     },
     testM("primitive") {
       checkM(SchemaGen.anyPrimitiveAndValue) {
@@ -279,20 +278,28 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         case (schema, value) => assertEncodesThenDecodes(schema, value)
       }
     },
-    testM("sequence") {
-      checkM(SchemaGen.anySequenceAndValue) {
-        case (schema, value) => assertEncodesThenDecodes(schema, value)
+    suite("sequence")(
+      testM("of primitives") {
+        checkM(SchemaGen.anySequenceAndValue) {
+          case (schema, value) => assertEncodesThenDecodes(schema, value)
+        }
+      },
+      testM("of records") {
+        checkM(SchemaGen.anyCaseClassAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(Schema.chunk(schema), Chunk.fill(3)(value))
+        }
+      },
+      testM("of java.time.ZoneOffset") {
+        //FIXME test independently because including ZoneOffset in StandardTypeGen.anyStandardType wreaks havoc.
+        checkM(Gen.chunkOf(JavaTimeGen.anyZoneOffset)) { chunk =>
+          assertEncodesThenDecodes(
+            Schema.chunk(Schema.Primitive(StandardType.ZoneOffset)),
+            chunk
+          )
+        }
       }
-    },
-    testM("sequence of ZoneOffset") {
-      //FIXME test independently because including ZoneOffset in StandardTypeGen.anyStandardType wreaks havoc.
-      checkM(Gen.chunkOf(JavaTimeGen.anyZoneOffset)) { chunk =>
-        assertEncodesThenDecodes(
-          Schema.chunk(Schema.Primitive(StandardType.ZoneOffset)),
-          chunk
-        )
-      }
-    },
+    ),
     suite("case class")(
       testM("basic") {
         checkM(searchRequestGen) { value =>
@@ -348,15 +355,15 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       testM("of primitives") {
         assertEncodesThenDecodes(
           enumSchema,
-          "string" -> "foo"
+          "foo"
         )
       },
       testM("ADT") {
         assertEncodesThenDecodes(
-          adtSchema,
+          Schema[Enumeration],
           Enumeration(StringValue("foo"))
-        ) &> assertEncodesThenDecodes(adtSchema, Enumeration(IntValue(-1))) &> assertEncodesThenDecodes(
-          adtSchema,
+        ) &> assertEncodesThenDecodes(Schema[Enumeration], Enumeration(IntValue(-1))) &> assertEncodesThenDecodes(
+          Schema[Enumeration],
           Enumeration(BooleanValue(false))
         )
       }
@@ -381,19 +388,15 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           case (schema, value) =>
             assertEncodesThenDecodes(schema, value)
         }
+      },
+      testM("recursive data type") {
+        checkM(SchemaGen.anyRecursiveTypeAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(schema, value)
+        }
       }
     )
   )
-
-  private def assertEncodesUnit = {
-    val schema = Schema.Primitive(StandardType.UnitType)
-    assertEncodes(schema, (), Chunk.empty)
-  }
-
-  private def assertEncodesString(value: String) = {
-    val schema = Schema.Primitive(StandardType.StringType)
-    assertEncodes(schema, value, stringify(value))
-  }
 
   private def assertEncodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {
     val stream = ZStream
@@ -403,17 +406,21 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     assertM(stream)(equalTo(chunk))
   }
 
+  private def assertEncodesJson[A](schema: Schema[A], value: A, json: String) = {
+    val stream = ZStream
+      .succeed(value)
+      .transduce(JsonCodec.encoder(schema))
+      .runCollect
+      .map(chunk => new String(chunk.toArray))
+    assertM(stream)(equalTo(json))
+  }
+
   private def assertEncodesJson[A](schema: Schema[A], value: A)(implicit enc: JsonEncoder[A]) = {
     val stream = ZStream
       .succeed(value)
       .transduce(JsonCodec.encoder(schema))
       .runCollect
     assertM(stream)(equalTo(jsonEncoded(value)))
-  }
-
-  private def assertDecodesUnit = {
-    val schema = Schema.Primitive(StandardType.UnitType)
-    assertDecodes(schema, (), Chunk.empty)
   }
 
   private def assertDecodesToError[A](schema: Schema[A], json: CharSequence, errors: List[JsonError]) = {
@@ -425,28 +432,30 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     assertM(stream)(isSome(equalTo(JsonError.render(errors))))
   }
 
-  private def assertDecodesString(value: String) = {
-    val schema = Schema.Primitive(StandardType.StringType)
-    assertDecodes(schema, value, stringify(value))
-  }
-
   private def assertDecodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {
     val result = ZStream.fromChunk(chunk).transduce(JsonCodec.decoder(schema)).runCollect
     assertM(result)(equalTo(Chunk(value)))
   }
 
-  private def assertEncodesThenDecodes[A](schema: Schema[A], value: A) = {
+  private def assertEncodesThenDecodes[A](schema: Schema[A], value: A, print: Boolean = false) = {
     val result = ZStream
       .succeed(value)
+      .tap(value => putStrLn(s"Input Value: $value").when(print).ignore)
       .transduce(JsonCodec.encoder(schema))
       .runCollect
+      .tap(encoded => putStrLn(s"Encoded: ${new String(encoded.toArray)}").when(print).ignore)
       .flatMap { encoded =>
         ZStream
           .fromChunk(encoded)
           .transduce(JsonCodec.decoder(schema))
           .runCollect
+          .tapError { err =>
+            putStrLnErr(s"Decoding failed for input ${new String(encoded.toArray)}\nError Message: $err")
+          }
       }
-    assertM(result)(equalTo(Chunk(flatten(value))))
+      .tap(decoded => putStrLn(s"Decoded: $decoded").when(print).ignore)
+      .either
+    assertM(result)(isRight(equalTo(Chunk(value))))
   }
 
   private def flatten[A](value: A): A = value match {
@@ -488,12 +497,11 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     Schema.Field("l2", recordSchema)
   )
 
-  val enumSchema: Schema[(String, _)] = Schema.enumeration(
-    ListMap(
-      "string"  -> Schema.Primitive(StandardType.StringType),
-      "int"     -> Schema.Primitive(StandardType.IntType),
-      "boolean" -> Schema.Primitive(StandardType.BoolType)
-    )
+  val enumSchema: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
+    caseOf[String, Any]("string")(_.asInstanceOf[String]) ++ caseOf[Int, Any]("int")(_.asInstanceOf[Int]) ++ caseOf[
+      Boolean,
+      Any
+    ]("boolean")(_.asInstanceOf[Boolean])
   )
 
   sealed trait OneOf
@@ -501,13 +509,16 @@ object JsonCodecSpec extends DefaultRunnableSpec {
   case class IntValue(value: Int)         extends OneOf
   case class BooleanValue(value: Boolean) extends OneOf
 
-  val schemaOneOf: Schema[OneOf] = DeriveSchema.gen[OneOf]
+  object OneOf {
+    implicit val schema: Schema[OneOf] = DeriveSchema.gen[OneOf]
+  }
 
   case class Enumeration(oneOf: OneOf)
 
-  val adtSchema: Schema[Enumeration] = DeriveSchema.gen[Enumeration]
+  object Enumeration {
+    implicit val schema: Schema[Enumeration] = DeriveSchema.gen[Enumeration]
+  }
 
   case object Singleton
-
-  val schemaObject: Schema[Singleton.type] = DeriveSchema.gen[Singleton.type]
+  implicit val schemaObject: Schema[Singleton.type] = DeriveSchema.gen[Singleton.type]
 }

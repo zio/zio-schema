@@ -10,7 +10,7 @@ import zio.Chunk
 import zio.random.Random
 import zio.schema.SchemaGen.{ Arity1, Arity24 }
 import zio.schema.syntax._
-import zio.test.{ DefaultRunnableSpec, Diff => _, _ }
+import zio.test._
 
 object DiffSpec extends DefaultRunnableSpec {
 
@@ -234,7 +234,7 @@ object DiffSpec extends DefaultRunnableSpec {
         check(Gen.mapOf(Gen.anyString, Gen.anyInt) <*> Gen.mapOf(Gen.anyString, Gen.anyInt)) {
           case (thisMap, thatMap) =>
             val diff = Schema
-              .GenericRecord(Chunk(Schema.Field("key", Schema[String])))
+              .record(Schema.Field("key", Schema[String]))
               .diff(ListMap.empty ++ thisMap, ListMap.empty ++ thatMap)
             assertTrue(diff == Diff.NotComparable)
         }

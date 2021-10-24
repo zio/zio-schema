@@ -3,15 +3,18 @@ package zio.schema.codec
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import java.util.UUID
 
 import scala.collection.immutable.ListMap
 import scala.util.Try
 
-import zio.schema.{ DeriveSchema, Schema, StandardType }
+import zio._
+import zio.console._
+import zio.schema.CaseSet._
+import zio.schema.{ CaseSet, DeriveSchema, Schema, SchemaGen, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, ZIO }
 
 // TODO: use generators instead of manual encode/decode
 object ProtobufCodecSpec extends DefaultRunnableSpec {
@@ -178,6 +181,13 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(Schema[Char], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
+      testM("uuids") {
+        val value = UUID.randomUUID
+        for {
+          ed  <- encodeAndDecode(Schema[UUID], value)
+          ed2 <- encodeAndDecodeNS(Schema[UUID], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+      },
       testM("day of weeks") {
         val value = DayOfWeek.of(3)
         for {
@@ -316,10 +326,10 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       },
       testM("enumerations preserving type order") {
         for {
-          s1 <- encodeAndDecode(schemaGenericEnumeration, "string"       -> "s")
-          i1 <- encodeAndDecode(schemaGenericEnumeration, "int"          -> 1)
-          s2 <- encodeAndDecode(schemaGenericEnumerationSorted, "string" -> "s")
-          i2 <- encodeAndDecode(schemaGenericEnumerationSorted, "int"    -> 1)
+          s1 <- encodeAndDecode(schemaGenericEnumeration, "s")
+          i1 <- encodeAndDecode(schemaGenericEnumeration, 1)
+          s2 <- encodeAndDecode(schemaGenericEnumerationSorted, "s")
+          i2 <- encodeAndDecode(schemaGenericEnumerationSorted, 1)
         } yield assert(s1)(equalTo(s2)) && assert(i1)(equalTo(i2))
       },
       testM("enums unwrapped") {
@@ -476,6 +486,15 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed  <- encodeAndDecode(sequenceOfSumSchema, richSequence)
           ed2 <- encodeAndDecodeNS(sequenceOfSumSchema, richSequence)
         } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
+      },
+      testM("recursive data types") {
+        checkM(SchemaGen.anyRecursiveTypeAndValue) {
+          case (schema, value) =>
+            for {
+              ed  <- encodeAndDecode(schema, value)
+              ed2 <- encodeAndDecodeNS(schema, value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+        }
       }
     ),
     suite("Should successfully decode")(
@@ -502,8 +521,8 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         for {
           d  <- decode(Record.schemaRecord, "00").run
           d2 <- decodeNS(Record.schemaRecord, "00").run
-        } yield assert(d)(fails(equalTo("Failed decoding key: invalid field number"))) &&
-          assert(d2)(fails(equalTo("Failed decoding key: invalid field number")))
+        } yield assert(d)(fails(equalTo("Failed decoding key: invalid field number 0"))) &&
+          assert(d2)(fails(equalTo("Failed decoding key: invalid field number 0")))
       },
       testM("incomplete length delimited values") {
         for {
@@ -659,18 +678,12 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
 
   lazy val schemaEnumeration: Schema[Enumeration] = DeriveSchema.gen[Enumeration]
 
-  lazy val schemaGenericEnumeration: Schema[(String, _)] = Schema.enumeration(
-    ListMap(
-      "string" -> Schema.primitive(StandardType.StringType),
-      "int"    -> Schema.primitive(StandardType.IntType)
-    )
+  lazy val schemaGenericEnumeration: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
+    caseOf[String, Any]("string")(_.asInstanceOf[String]) ++ caseOf[Int, Any]("int")(_.asInstanceOf[Int])
   )
 
-  lazy val schemaGenericEnumerationSorted: Schema[(String, _)] = Schema.enumeration(
-    ListMap(
-      "int"    -> Schema.primitive(StandardType.IntType),
-      "string" -> Schema.primitive(StandardType.StringType)
-    )
+  lazy val schemaGenericEnumerationSorted: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
+    caseOf[Int, Any]("int")(_.asInstanceOf[Int]) ++ caseOf[String, Any]("string")(_.asInstanceOf[String])
   )
 
   val schemaFail: Schema[StringValue] = Schema.fail("failing schema")
@@ -737,10 +750,12 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A) =
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false) =
     ZIO
       .succeed(input)
+      .tap(value => putStrLn(s"Input Value: $value").when(print).ignore)
       .map(a => ProtobufCodec.encode(schema)(a))
+      .tap(encoded => putStrLn(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
       .map(ch => ProtobufCodec.decode(schema)(ch))
       .absolve
 
@@ -750,4 +765,5 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .map(a => ProtobufCodec.encode(encodeSchema)(a))
       .map(ch => ProtobufCodec.decode(decodeSchema)(ch))
       .absolve
+
 }

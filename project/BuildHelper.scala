@@ -9,11 +9,13 @@ import scalafix.sbt.ScalafixPlugin.autoImport._
 
 object BuildHelper {
 
-  val zioVersion      = "1.0.9"
-  val zioNioVersion   = "1.0.0-RC9"
-  val zioJsonVersion  = "0.1.2"
-  val silencerVersion = "1.7.1"
-  val magnoliaVersion = "0.16.0"
+  val zioVersion        = "1.0.12"
+  val zioNioVersion     = "1.0.0-RC9"
+  val zioJsonVersion    = "0.2.0-M1"
+  val zioPreludeVersion = "1.0.0-RC6"
+  val zioOpticsVersion  = "0.1.0"
+  val silencerVersion   = "1.7.1"
+  val magnoliaVersion   = "0.17.0"
 
   private val testDeps = Seq(
     "dev.zio" %% "zio-test"     % zioVersion % "test",
@@ -50,7 +52,9 @@ object BuildHelper {
       "-Xsource:2.13",
       "-Xlint:_,-type-parameter-shadow",
       "-Ywarn-numeric-widen",
-      "-Ywarn-value-discard"
+      "-Ywarn-value-discard",
+      "-Ypatmat-exhaust-depth",
+      "off"
     )
 
     val optimizerOptions =
@@ -144,8 +148,8 @@ object BuildHelper {
       ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
       ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
       ThisBuild / scalafixDependencies ++= List(
-        "com.github.liancheng" %% "organize-imports" % "0.4.4",
-        "com.github.vovapolu"  %% "scaluzzi"         % "0.1.17"
+        "com.github.liancheng" %% "organize-imports" % "0.5.0",
+        "com.github.vovapolu"  %% "scaluzzi"         % "0.1.20"
       ),
       parallelExecution in Test := true,
       incOptions ~= (_.withLogRecompileOnMacro(true)),

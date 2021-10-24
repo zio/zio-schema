@@ -53,7 +53,13 @@ lazy val root = project
   )
   .aggregate(
     zioSchemaJVM,
-    zioSchemaJS
+    zioSchemaJS,
+    zioSchemaJsonJVM,
+    zioSchemaJsonJS,
+    zioSchemaOpticsJS,
+    zioSchemaOpticsJVM,
+    zioSchemaProtobufJS,
+    zioSchemaProtobufJVM
   )
 
 lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
@@ -65,8 +71,8 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
     libraryDependencies ++= Seq(
       "dev.zio"        %% "zio"          % zioVersion,
       "dev.zio"        %% "zio-streams"  % zioVersion,
-      "dev.zio"        %% "zio-json"     % zioJsonVersion,
       "com.propensive" %% "magnolia"     % magnoliaVersion,
+      "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
       "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
     )
   )
@@ -75,6 +81,73 @@ lazy val zioSchemaJS = zioSchema.js
   .settings(scalaJSUseMainModuleInitializer := true)
 
 lazy val zioSchemaJVM = zioSchema.jvm
+  .settings(Test / fork := true)
+
+lazy val zioSchemaJson = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-schema-json"))
+  .dependsOn(zioSchema, zioSchema % "test->test")
+  .settings(stdSettings("zio-schema-json"))
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema.json"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio"        %% "zio"          % zioVersion,
+      "dev.zio"        %% "zio-streams"  % zioVersion,
+      "dev.zio"        %% "zio-json"     % zioJsonVersion,
+      "com.propensive" %% "magnolia"     % magnoliaVersion,
+      "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
+      "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+    )
+  )
+
+lazy val zioSchemaJsonJS = zioSchemaJson.js
+  .settings(scalaJSUseMainModuleInitializer := true)
+
+lazy val zioSchemaJsonJVM = zioSchemaJson.jvm
+
+lazy val zioSchemaProtobuf = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-schema-protobuf"))
+  .dependsOn(zioSchema, zioSchema % "test->test")
+  .settings(stdSettings("zio-schema-protobuf"))
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema.protobuf"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio"        %% "zio"          % zioVersion,
+      "dev.zio"        %% "zio-streams"  % zioVersion,
+      "com.propensive" %% "magnolia"     % magnoliaVersion,
+      "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
+      "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+    )
+  )
+
+lazy val zioSchemaProtobufJS = zioSchemaProtobuf.js
+  .settings(scalaJSUseMainModuleInitializer := true)
+
+lazy val zioSchemaProtobufJVM = zioSchemaProtobuf.jvm
+  .settings(Test / fork := true)
+
+lazy val zioSchemaOptics = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-schema-optics"))
+  .dependsOn(zioSchema, zioSchema % "test->test")
+  .settings(stdSettings("zio-schema-optics"))
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema.optics"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio"        %% "zio"          % zioVersion,
+      "dev.zio"        %% "zio-streams"  % zioVersion,
+      "dev.zio"        %% "zio-optics"   % zioOpticsVersion,
+      "com.propensive" %% "magnolia"     % magnoliaVersion,
+      "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
+      "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+    )
+  )
+
+lazy val zioSchemaOpticsJS = zioSchemaOptics.js
+  .settings(scalaJSUseMainModuleInitializer := true)
+
+lazy val zioSchemaOpticsJVM = zioSchemaOptics.jvm
 
 lazy val docs = project
   .in(file("zio-schema-docs"))
@@ -93,11 +166,11 @@ lazy val docs = project
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio" % zioVersion
     ),
-    unidocProjectFilter in (ScalaUnidoc, unidoc) := inProjects(root),
-    target in (ScalaUnidoc, unidoc) := (baseDirectory in LocalRootProject).value / "website" / "static" / "api",
-    cleanFiles += (target in (ScalaUnidoc, unidoc)).value,
-    docusaurusCreateSite := docusaurusCreateSite.dependsOn(unidoc in Compile).value,
-    docusaurusPublishGhpages := docusaurusPublishGhpages.dependsOn(unidoc in Compile).value
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(root),
+    ScalaUnidoc / unidoc / target := (LocalRootProject / baseDirectory).value / "website" / "static" / "api",
+    cleanFiles += (ScalaUnidoc / unidoc / target).value,
+    docusaurusCreateSite := docusaurusCreateSite.dependsOn(Compile / unidoc).value,
+    docusaurusPublishGhpages := docusaurusPublishGhpages.dependsOn(Compile / unidoc).value
   )
   .dependsOn(root)
   .enablePlugins(MdocPlugin, DocusaurusPlugin, ScalaUnidocPlugin)
