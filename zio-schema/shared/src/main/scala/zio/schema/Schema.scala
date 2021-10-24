@@ -1,7 +1,5 @@
 package zio.schema
 
-import zio.Chunk
-
 import java.time.temporal.ChronoUnit
 import scala.collection.immutable.ListMap
 
@@ -360,6 +358,8 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   final case class Meta(ast: SchemaAst) extends Schema[Schema[_]] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
+
+    def defaultValue: Either[String, Schema[_]] = ast.toSchema.defaultValue.asInstanceOf[Either[String, Schema[_]]]
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }

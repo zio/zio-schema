@@ -1,13 +1,13 @@
 package zio.schema
 
 import zio._
+import zio.schema.CaseSet._
 import zio.schema.Schema._
 import zio.test.Assertion._
 import zio.test._
 
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import scala.collection.immutable.ListMap
 
 object DefaultValueSpec extends DefaultRunnableSpec {
   // Record Tests
@@ -174,13 +174,10 @@ object DefaultValueSpec extends DefaultRunnableSpec {
     ),
     suite("Enumeration")(
       test("defaults to first case") {
-        val schema: Schema[(String, _)] = Schema.enumeration(
-          ListMap(
-            "myInt"    -> Schema.primitive(StandardType.IntType),
-            "myString" -> Schema.primitive(StandardType.StringType)
-          )
+        val schema = Schema.enumeration[Any, CaseSet.Aux[Any]](
+          caseOf[Int, Any]("myInt")(_.asInstanceOf[Int]) ++ caseOf[String, Any]("myString")(_.asInstanceOf[String])
         )
-        assert(schema.defaultValue)(isRight(equalTo(("myInt", 0))))
+        assert(schema.defaultValue)(isRight(equalTo(0)))
       }
     ),
     suite("Transform")(
