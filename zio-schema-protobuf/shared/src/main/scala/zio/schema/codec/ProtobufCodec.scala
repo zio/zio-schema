@@ -454,15 +454,15 @@ object ProtobufCodec extends Codec {
         case Schema.Sequence(elementSchema, fromChunk, _) =>
           Decoder[A](
             { bytes =>
-            {
-              if (bytes.isEmpty)
-                Right((Chunk.empty, fromChunk(Chunk.empty)))
-              else if (canBePacked(elementSchema)) {
-                packedSequenceDecoder(elementSchema).map(fromChunk).run(bytes)
-              } else {
-                nonPackedSequenceDecoder(elementSchema).map(fromChunk).run(bytes)
+              {
+                if (bytes.isEmpty)
+                  Right((Chunk.empty, fromChunk(Chunk.empty)))
+                else if (canBePacked(elementSchema)) {
+                  packedSequenceDecoder(elementSchema).map(fromChunk).run(bytes)
+                } else {
+                  nonPackedSequenceDecoder(elementSchema).map(fromChunk).run(bytes)
+                }
               }
-            }
             },
             true
           )
