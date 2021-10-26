@@ -92,6 +92,24 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       }
     ),
     suite("Should successfully encode and decode")(
+      testM("empty list") {
+        for {
+          ed <- encodeAndDecodeNS(DeriveSchema.gen[List[Int]], List.empty)
+        } yield assert(ed)(equalTo(List.empty))
+      },
+      testM("list of an empty list") {
+        for {
+          ed <- encodeAndDecodeNS(DeriveSchema.gen[List[List[Int]]], List(List.empty))
+        } yield assert(ed)(equalTo(List(List.empty)))
+      },
+      testM("tuple containing empty list & tuple containing list of an empty list") {
+        val value: (String, List[List[Int]], String) = ("first string", List(List.empty), "second string")
+        val value2: (String, List[Int], String)      = ("first string", List.empty, "second string")
+        for {
+          ed  <- encodeAndDecodeNS(DeriveSchema.gen[(String, List[List[Int]], String)], value)
+          ed2 <- encodeAndDecodeNS(DeriveSchema.gen[(String, List[Int], String)], value2)
+        } yield assert(ed)(equalTo(value)) && assert(ed2)(equalTo(value2))
+      },
       testM("records") {
         for {
           ed2 <- encodeAndDecodeNS(Record.schemaRecord, Record("hello", 150))
@@ -309,8 +327,22 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(schemaPackedList, list)
         } yield assert(ed)(equalTo(Chunk(list))) && assert(ed2)(equalTo(list))
       },
+      testM("empty packed sequence") {
+        val list = PackedList(List.empty)
+        for {
+          ed  <- encodeAndDecode(schemaPackedList, list)
+          ed2 <- encodeAndDecodeNS(schemaPackedList, list)
+        } yield assert(ed)(equalTo(Chunk(list))) && assert(ed2)(equalTo(list))
+      },
       testM("non-packed sequences") {
         val list = UnpackedList(List("foo", "bar", "baz"))
+        for {
+          ed  <- encodeAndDecode(schemaUnpackedList, list)
+          ed2 <- encodeAndDecodeNS(schemaUnpackedList, list)
+        } yield assert(ed)(equalTo(Chunk(list))) && assert(ed2)(equalTo(list))
+      },
+      testM("empty non-packed sequence") {
+        val list = UnpackedList(List.empty)
         for {
           ed  <- encodeAndDecode(schemaUnpackedList, list)
           ed2 <- encodeAndDecodeNS(schemaUnpackedList, list)
