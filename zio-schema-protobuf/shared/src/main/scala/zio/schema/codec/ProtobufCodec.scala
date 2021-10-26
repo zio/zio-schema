@@ -425,11 +425,14 @@ object ProtobufCodec extends Codec {
     private[codec] def decoder[A](schema: Schema[A]): Decoder[A] =
       schema match {
         case Schema.GenericRecord(structure) => recordDecoder(structure.toChunk)
+        case Schema.Sequence(elementSchema @ Schema.Sequence(_, _, _), fromChunk, _) =>
+          if (canBePacked(elementSchema)) packedSequenceDecoder(elementSchema).map(fromChunk)
+          else nonPackedSequenceDecoder(elementSchema).map(fromChunk)
         case Schema.Sequence(elementSchema, fromChunk, _) =>
           Decoder[A](
             { bytes =>
               {
-                if (bytes.isEmpty && !elementSchema.isInstanceOf[zio.schema.Schema.Sequence[_, _]])
+                if (bytes.isEmpty)
                   Right((Chunk.empty, fromChunk(Chunk.empty)))
                 else if (canBePacked(elementSchema)) {
                   packedSequenceDecoder(elementSchema).map(fromChunk).run(bytes)
