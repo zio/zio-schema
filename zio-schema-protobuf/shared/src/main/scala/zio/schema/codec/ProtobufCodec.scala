@@ -349,7 +349,10 @@ object ProtobufCodec extends Codec {
       }.getOrElse(Chunk.empty)
   }
 
-  final case class Decoder[+A](run: Chunk[Byte] => Either[String, (Chunk[Byte], A)]) {
+  final case class Decoder[+A](
+    run: Chunk[Byte] => Either[String, (Chunk[Byte], A)],
+    handlesEmptyChunk: Boolean = false
+  ) {
     self =>
 
     def map[B](f: A => B): Decoder[B] =
@@ -362,7 +365,7 @@ object ProtobufCodec extends Codec {
 
     def flatMap[B](f: A => Decoder[B]): Decoder[B] =
       Decoder { bytes =>
-        if (bytes.isEmpty) {
+        if (bytes.isEmpty && !handlesEmptyChunk) {
           Left("Unexpected end of bytes")
         } else {
           self.run(bytes).flatMap {
@@ -422,8 +425,24 @@ object ProtobufCodec extends Codec {
     private[codec] def decoder[A](schema: Schema[A]): Decoder[A] =
       schema match {
         case Schema.GenericRecord(structure) => recordDecoder(structure.toChunk)
-        case Schema.Sequence(element, f, _) =>
-          if (canBePacked(element)) packedSequenceDecoder(element).map(f) else nonPackedSequenceDecoder(element).map(f)
+        case Schema.Sequence(elementSchema @ Schema.Sequence(_, _, _), fromChunk, _) =>
+          if (canBePacked(elementSchema)) packedSequenceDecoder(elementSchema).map(fromChunk)
+          else nonPackedSequenceDecoder(elementSchema).map(fromChunk)
+        case Schema.Sequence(elementSchema, fromChunk, _) =>
+          Decoder[A](
+            { bytes =>
+              {
+                if (bytes.isEmpty)
+                  Right((Chunk.empty, fromChunk(Chunk.empty)))
+                else if (canBePacked(elementSchema)) {
+                  packedSequenceDecoder(elementSchema).map(fromChunk).run(bytes)
+                } else {
+                  nonPackedSequenceDecoder(elementSchema).map(fromChunk).run(bytes)
+                }
+              }
+            },
+            true
+          )
         case Schema.Transform(codec, f, _)    => transformDecoder(codec, f)
         case Schema.Primitive(standardType)   => primitiveDecoder(standardType)
         case Schema.Tuple(left, right)        => tupleDecoder(left, right)

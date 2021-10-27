@@ -46,8 +46,8 @@ trait Differ[A] { self =>
         case _                    => Diff.NotComparable
       }
 
-  def foreach[Col[_]](toChunk: Col[A] => Chunk[A]): Differ[Col[A]] =
-    (theseAs: Col[A], thoseAs: Col[A]) =>
+  def foreach[Col](toChunk: Col => Chunk[A]): Differ[Col] =
+    (theseAs: Col, thoseAs: Col) =>
       Diff
         .Sequence(
           toChunk(theseAs).zipAll(toChunk(thoseAs)).map {
