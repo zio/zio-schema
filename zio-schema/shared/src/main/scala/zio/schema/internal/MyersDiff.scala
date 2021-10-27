@@ -1,13 +1,7 @@
 package zio.schema.internal
 
-import java.time.ZoneId
-import java.util.UUID
-
-import scala.annotation.tailrec
-
 import zio.Chunk
-import zio.schema.Diff.Edit.{ Delete, Insert, Keep }
-import zio.schema.{ Diff, Differ, Schema, StandardType }
+import zio.schema.{ Diff, Differ }
 
 object MyersDiff extends Differ[String] {
 
@@ -124,33 +118,5 @@ object MyersDiff extends Differ[String] {
     }
 
     myersMatrix
-  }
-
-  override def patch[A](schema: Schema[A], diff: Diff): Either[String, A => Either[String, A]] =
-    (schema, diff) match {
-      case (Schema.Primitive(StandardType.StringType), Diff.Myers(edits)) =>
-        Right((a: A) => calculateStringFromEdits(a, edits))
-      case (Schema.Primitive(StandardType.UUIDType), Diff.Myers(edits)) =>
-        Right((a: A) => calculateStringFromEdits(a.toString, edits).map(UUID.fromString))
-      case (Schema.Primitive(StandardType.ZoneId), Diff.Myers(edits)) =>
-        Right((a: A) => calculateStringFromEdits(a.getId(), edits).map(ZoneId.of))
-      case (schema, diff) => Left(s"Incorrect Diff=$diff for Schema=$schema.")
-    }
-
-  def calculateStringFromEdits(input: String, edits: Chunk[Diff.Edit]): Either[String, String] = {
-    @tailrec
-    def calc(in: List[Char], edits: List[Diff.Edit], result: List[Char]): Either[String, String] = (in, edits) match {
-      case (_ :: _, Nil)                               => Left(s"Incorrect Diff - no istructions for these letters: ${in.mkString}.")
-      case (h :: _, Delete(s) :: _) if s != h.toString => Left(s"Cannot Delete $s - current letter is $h.")
-      case (Nil, Delete(s) :: _)                       => Left(s"Cannot Delete $s - no letters left to delete.")
-      case (_ :: t, Delete(_) :: tail)                 => calc(t, tail, result)
-      case (h :: _, Keep(s) :: _) if s != h.toString   => Left(s"Cannot Keep $s - current letter is $h.")
-      case (Nil, Keep(s) :: _)                         => Left(s"Cannot Keep $s - no letters left to keep.")
-      case (h :: t, Keep(_) :: tail)                   => calc(t, tail, result :+ h)
-      case (in, Insert(s) :: tail)                     => calc(in, tail, result ++ s.toList)
-      case (Nil, Nil)                                  => Right(result.mkString)
-    }
-
-    calc(input.toList, edits.toList, Nil)
   }
 }

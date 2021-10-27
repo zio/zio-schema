@@ -11,7 +11,7 @@ trait SchemaSyntax {
      */
     def diffEach(that: A): Diff = Schema[A].diff(a, that)
 
-    def runPatch(diff: Diff): Either[String, A] = Schema[A].patch(diff).flatMap(_.apply(a))
+    def runPatch(diff: Diff): Either[String, A] = Schema[A].patch(a, diff)
   }
 
   implicit class DynamicValueOps[A: Schema](a: A) {
