@@ -1,7 +1,7 @@
 package zio.schema
 
 import java.math.BigInteger
-import java.time.temporal.{ ChronoUnit, Temporal => JTemporal, TemporalAmount, TemporalUnit }
+import java.time.temporal.{ ChronoField, ChronoUnit, Temporal => JTemporal }
 import java.time.{
   DayOfWeek,
   Duration => JDuration,
@@ -16,6 +16,7 @@ import java.time.{
   Year,
   YearMonth,
   ZoneId,
+  ZoneOffset,
   ZonedDateTime
 }
 import java.util.UUID
@@ -72,55 +73,45 @@ trait Differ[A] { self =>
 object Differ {
 
   def fromSchema[A](schema: Schema[A]): Differ[A] = schema match {
-    case Schema.Primitive(StandardType.BinaryType)     => binary
-    case Schema.Primitive(StandardType.IntType)        => numeric[Int]
-    case Schema.Primitive(StandardType.ShortType)      => numeric[Short]
-    case Schema.Primitive(StandardType.DoubleType)     => numeric[Double]
-    case Schema.Primitive(StandardType.FloatType)      => numeric[Float]
-    case Schema.Primitive(StandardType.LongType)       => numeric[Long]
-    case Schema.Primitive(StandardType.CharType)       => numeric[Char]
-    case Schema.Primitive(StandardType.BoolType)       => bool
-    case Schema.Primitive(StandardType.BigDecimalType) => bigDecimal
-    case Schema.Primitive(StandardType.BigIntegerType) => bigInt
-    case Schema.Primitive(StandardType.StringType)     => string
-    case Schema.Primitive(StandardType.UUIDType)       => string.transform(_.toString)
-    case Schema.Primitive(StandardType.DayOfWeekType)  => dayOfWeek
-    case Schema.Primitive(StandardType.Month)          => month
-    case Schema.Primitive(StandardType.MonthDay)       => monthDay
-    case Schema.Primitive(StandardType.Year) =>
-      temporal[Year](ChronoUnit.YEARS)
-    case Schema.Primitive(StandardType.YearMonth) =>
-      temporal[YearMonth](ChronoUnit.MONTHS)
-    case Schema.Primitive(StandardType.ZoneId) => string.transform[ZoneId](_.getId)
-    case Schema.Primitive(StandardType.Instant(_)) =>
-      temporal[Instant](ChronoUnit.MILLIS)
-    case Schema.Primitive(StandardType.Duration(_)) =>
-      temporalAmount[JDuration](ChronoUnit.MILLIS)
-    case Schema.Primitive(StandardType.LocalDate(_)) =>
-      temporal[LocalDate](ChronoUnit.DAYS)
-    case Schema.Primitive(StandardType.LocalTime(_)) =>
-      temporal[LocalTime](ChronoUnit.MILLIS)
-    case Schema.Primitive(StandardType.LocalDateTime(_)) =>
-      temporal[LocalDateTime](ChronoUnit.MILLIS)
-    case Schema.Primitive(StandardType.OffsetTime(_)) =>
-      temporal[OffsetTime](ChronoUnit.MILLIS)
-    case Schema.Primitive(StandardType.OffsetDateTime(_)) =>
-      temporal[OffsetDateTime](ChronoUnit.MILLIS)
-    case Schema.Primitive(StandardType.ZonedDateTime(_)) =>
-      temporal[ZonedDateTime](ChronoUnit.MILLIS)
-    case Schema.Tuple(leftSchema, rightSchema)        => fromSchema(leftSchema) <*> fromSchema(rightSchema)
-    case Schema.Optional(schema)                      => fromSchema(schema).optional
-    case Schema.Sequence(schema, _, f)                => fromSchema(schema).foreach(f)
-    case Schema.EitherSchema(leftSchema, rightSchema) => either(fromSchema(leftSchema), fromSchema(rightSchema))
-    case s @ Schema.Lazy(_)                           => fromSchema(s.schema)
-    case Schema.Transform(schema, _, f)               => fromSchema(schema).transformOrFail(f)
-    case Schema.Fail(_)                               => fail
-    case Schema.GenericRecord(structure)              => record(structure.toChunk)
-    case ProductDiffer(differ)                        => differ
-    case Schema.Enum1(c)                              => enum(c)
-    case Schema.Enum2(c1, c2)                         => enum(c1, c2)
-    case Schema.Enum3(c1, c2, c3)                     => enum(c1, c2, c3)
-    case Schema.EnumN(cs)                             => enum(cs.toSeq: _*)
+    case Schema.Primitive(StandardType.BinaryType)        => binary
+    case Schema.Primitive(StandardType.IntType)           => numeric[Int]
+    case Schema.Primitive(StandardType.ShortType)         => numeric[Short]
+    case Schema.Primitive(StandardType.DoubleType)        => numeric[Double]
+    case Schema.Primitive(StandardType.FloatType)         => numeric[Float]
+    case Schema.Primitive(StandardType.LongType)          => numeric[Long]
+    case Schema.Primitive(StandardType.CharType)          => numeric[Char]
+    case Schema.Primitive(StandardType.BoolType)          => bool
+    case Schema.Primitive(StandardType.BigDecimalType)    => bigDecimal
+    case Schema.Primitive(StandardType.BigIntegerType)    => bigInt
+    case Schema.Primitive(StandardType.StringType)        => string
+    case Schema.Primitive(StandardType.UUIDType)          => string.transform(_.toString)
+    case Schema.Primitive(StandardType.ZoneId)            => string.transform[ZoneId](_.getId)
+    case Schema.Primitive(StandardType.DayOfWeekType)     => dayOfWeek
+    case Schema.Primitive(StandardType.Month)             => month
+    case Schema.Primitive(StandardType.MonthDay)          => monthDay
+    case Schema.Primitive(StandardType.Year)              => year
+    case Schema.Primitive(StandardType.YearMonth)         => yearMonth
+    case Schema.Primitive(StandardType.LocalDate(_))      => localDate
+    case Schema.Primitive(StandardType.Instant(_))        => instant
+    case Schema.Primitive(StandardType.Duration(_))       => duration
+    case Schema.Primitive(StandardType.LocalTime(_))      => localTime
+    case Schema.Primitive(StandardType.LocalDateTime(_))  => localDateTime
+    case Schema.Primitive(StandardType.OffsetTime(_))     => offsetTime
+    case Schema.Primitive(StandardType.OffsetDateTime(_)) => offsetDateTime
+    case Schema.Primitive(StandardType.ZonedDateTime(_))  => zonedDateTime
+    case Schema.Tuple(leftSchema, rightSchema)            => fromSchema(leftSchema) <*> fromSchema(rightSchema)
+    case Schema.Optional(schema)                          => fromSchema(schema).optional
+    case Schema.Sequence(schema, _, f)                    => fromSchema(schema).foreach(f)
+    case Schema.EitherSchema(leftSchema, rightSchema)     => either(fromSchema(leftSchema), fromSchema(rightSchema))
+    case s @ Schema.Lazy(_)                               => fromSchema(s.schema)
+    case Schema.Transform(schema, _, f)                   => fromSchema(schema).transformOrFail(f)
+    case Schema.Fail(_)                                   => fail
+    case Schema.GenericRecord(structure)                  => record(structure.toChunk)
+    case ProductDiffer(differ)                            => differ
+    case Schema.Enum1(c)                                  => enum(c)
+    case Schema.Enum2(c1, c2)                             => enum(c1, c2)
+    case Schema.Enum3(c1, c2, c3)                         => enum(c1, c2, c3)
+    case Schema.EnumN(cs)                                 => enum(cs.toSeq: _*)
   }
 
   def binary: Differ[Chunk[Byte]] =
@@ -144,34 +135,133 @@ object Differ {
         case distance                             => Diff.Number(distance)
       }
 
-  def temporalAmount[A <: TemporalAmount](units: TemporalUnit): Differ[A] =
-    (thisA: A, thatA: A) => Diff.TemporalAmount(thisA.get(units) - thatA.get(units), units)
+  val year: Differ[Year] =
+    (thisYear: Year, thatYear: Year) =>
+      if (thisYear == thatYear)
+        Diff.Identical
+      else
+        Diff.Temporal(List[Long]((thisYear.getValue - thatYear.getValue).toLong))
 
-  def temporal[A <: JTemporal](units: ChronoUnit): Differ[A] =
-    (thisA: A, thatA: A) => Diff.Temporal(units.between(thisA, thatA), units)
+  val yearMonth: Differ[YearMonth] =
+    (thisYearMonth: YearMonth, thatYearMonth: YearMonth) =>
+      if (thisYearMonth == thatYearMonth)
+        Diff.Identical
+      else
+        Diff.Temporal(
+          List[Long](
+            thisYearMonth.getLong(ChronoField.PROLEPTIC_MONTH) - thatYearMonth.getLong(ChronoField.PROLEPTIC_MONTH)
+          )
+        )
+
+  val localDate: Differ[LocalDate] =
+    (thisLocalDate: LocalDate, thatLocalDate: LocalDate) =>
+      if (thisLocalDate == thatLocalDate)
+        Diff.Identical
+      else
+        Diff.Temporal(List[Long](thisLocalDate.toEpochDay - thatLocalDate.toEpochDay))
+
+  val instant: Differ[Instant] =
+    (thisInstant: Instant, thatInstant: Instant) =>
+      if (thisInstant == thatInstant)
+        Diff.Identical
+      else
+        Diff.Temporal(
+          List[Long](
+            thisInstant.getEpochSecond - thatInstant.getEpochSecond,
+            (thisInstant.getNano - thatInstant.getNano).toLong
+          )
+        )
+
+  val duration: Differ[JDuration] =
+    (thisDuration: JDuration, thatDuration: JDuration) =>
+      if (thisDuration == thatDuration)
+        Diff.Identical
+      else
+        Diff.Temporal(
+          List[Long](
+            thisDuration.getSeconds - thatDuration.getSeconds,
+            (thisDuration.getNano - thatDuration.getNano).toLong
+          )
+        )
+
+  val localTime: Differ[LocalTime] =
+    (thisLocalTime: LocalTime, thatLocalTime: LocalTime) =>
+      if (thisLocalTime == thatLocalTime)
+        Diff.Identical
+      else
+        Diff.Temporal(List[Long](thisLocalTime.toNanoOfDay - thatLocalTime.toNanoOfDay))
+
+  val localDateTime: Differ[LocalDateTime] =
+    (thisLocalDateTime: LocalDateTime, thatLocalDateTime: LocalDateTime) =>
+      if (thisLocalDateTime == thatLocalDateTime)
+        Diff.Identical
+      else
+        Diff.Temporal(
+          List[Long](
+            thisLocalDateTime.toLocalDate.toEpochDay - thatLocalDateTime.toLocalDate.toEpochDay,
+            thisLocalDateTime.toLocalTime.toNanoOfDay - thatLocalDateTime.toLocalTime.toNanoOfDay
+          )
+        )
+
+  val offsetTime: Differ[OffsetTime] =
+    (thisOffsetTime: OffsetTime, thatOffsetTime: OffsetTime) =>
+      if (thisOffsetTime == thatOffsetTime)
+        Diff.Identical
+      else
+        Diff.Temporal(
+          List[Long](
+            thisOffsetTime.toLocalTime.toNanoOfDay - thatOffsetTime.toLocalTime.toNanoOfDay,
+            (thisOffsetTime.getOffset.getTotalSeconds - thatOffsetTime.getOffset.getTotalSeconds).toLong
+          )
+        )
+
+  val offsetDateTime: Differ[OffsetDateTime] =
+    (thisOffsetDateTime: OffsetDateTime, thatOffsetDateTime: OffsetDateTime) =>
+      if (thisOffsetDateTime == thatOffsetDateTime)
+        Diff.Identical
+      else
+        Diff.Temporal(
+          List[Long](
+            thisOffsetDateTime.toLocalDate.toEpochDay - thatOffsetDateTime.toLocalDate.toEpochDay,
+            thisOffsetDateTime.toLocalTime.toNanoOfDay - thatOffsetDateTime.toLocalTime.toNanoOfDay,
+            (thisOffsetDateTime.getOffset.getTotalSeconds - thatOffsetDateTime.getOffset.getTotalSeconds).toLong
+          )
+        )
+
+  val zonedDateTime: Differ[ZonedDateTime] =
+    (thisZonedDateTime: ZonedDateTime, thatZonedDateTime: ZonedDateTime) =>
+      if (thisZonedDateTime == thatZonedDateTime)
+        Diff.Identical
+      else
+        Diff.ZonedDateTime(
+          localDateTime(thisZonedDateTime.toLocalDateTime, thatZonedDateTime.toLocalDateTime),
+          MyersDiff(thisZonedDateTime.getZone.getId, thatZonedDateTime.getZone.getId)
+        )
 
   val dayOfWeek: Differ[DayOfWeek] =
     (thisDay: DayOfWeek, thatDay: DayOfWeek) =>
       if (thisDay == thatDay)
         Diff.Identical
       else
-        Diff.Temporal((thatDay.getValue - thisDay.getValue).toLong, ChronoUnit.DAYS)
+        Diff.Temporal(List[Long]((thatDay.getValue - thisDay.getValue).toLong))
 
   val month: Differ[JMonth] =
     (thisMonth: JMonth, thatMonth: JMonth) =>
       if (thisMonth == thatMonth)
         Diff.Identical
       else
-        Diff.Temporal((thatMonth.getValue - thisMonth.getValue).toLong, ChronoUnit.MONTHS)
+        Diff.Temporal(List[Long]((thatMonth.getValue - thisMonth.getValue).toLong))
 
   val monthDay: Differ[MonthDay] =
     (thisMonthDay: MonthDay, thatMonthDay: MonthDay) =>
       if (thisMonthDay == thatMonthDay)
         Diff.Identical
       else
-        Diff.MonthDays(
-          ChronoUnit.DAYS.between(thisMonthDay.atYear(2001), thatMonthDay.atYear(2001)).toInt,
-          ChronoUnit.DAYS.between(thisMonthDay.atYear(2000), thatMonthDay.atYear(2000)).toInt
+        Diff.Temporal(
+          List[Long](
+            ChronoUnit.DAYS.between(thisMonthDay.atYear(2001), thatMonthDay.atYear(2001)),
+            ChronoUnit.DAYS.between(thisMonthDay.atYear(2000), thatMonthDay.atYear(2000))
+          )
         )
 
   val bigInt: Differ[BigInteger] =
@@ -296,34 +386,99 @@ object Differ {
         }
 
       case (Schema.Primitive(StandardType.ZoneId), diff) => string.patch[ZoneId](schema, diff)
-      case (Schema.Primitive(StandardType.Year), Diff.Temporal(distance: Long, ChronoUnit.YEARS)) =>
-        patchTemporal[Year](ChronoUnit.YEARS, distance)
-      case (Schema.Primitive(StandardType.YearMonth), Diff.Temporal(distance: Long, ChronoUnit.MONTHS)) =>
-        patchTemporal[YearMonth](ChronoUnit.MONTHS, distance)
-      case (Schema.Primitive(StandardType.LocalDate(_)), Diff.Temporal(distance: Long, ChronoUnit.DAYS)) =>
-        patchTemporal[LocalDate](ChronoUnit.DAYS, distance)
-      case (Schema.Primitive(StandardType.Instant(_)), Diff.Temporal(distance: Long, ChronoUnit.MILLIS)) =>
-        patchTemporal[Instant](ChronoUnit.MILLIS, distance)
-      case (Schema.Primitive(StandardType.LocalTime(_)), Diff.Temporal(distance: Long, ChronoUnit.MILLIS)) =>
-        patchTemporal[LocalTime](ChronoUnit.MILLIS, distance)
-      case (Schema.Primitive(StandardType.LocalDateTime(_)), Diff.Temporal(distance: Long, ChronoUnit.MILLIS)) =>
-        patchTemporal[LocalDateTime](ChronoUnit.MILLIS, distance)
-      case (Schema.Primitive(StandardType.OffsetTime(_)), Diff.Temporal(distance: Long, ChronoUnit.MILLIS)) =>
-        patchTemporal[OffsetTime](ChronoUnit.MILLIS, distance)
-      case (Schema.Primitive(StandardType.OffsetDateTime(_)), Diff.Temporal(distance: Long, ChronoUnit.MILLIS)) =>
-        patchTemporal[OffsetDateTime](ChronoUnit.MILLIS, distance)
-      case (Schema.Primitive(StandardType.ZonedDateTime(_)), Diff.Temporal(distance: Long, ChronoUnit.MILLIS)) =>
-        patchTemporal[ZonedDateTime](ChronoUnit.MILLIS, distance)
+      case (Schema.Primitive(StandardType.Year), Diff.Temporal(distance :: Nil)) =>
+        Right((a: A) => Right(Year.of(a.getValue - distance.toInt)))
+      case (Schema.Primitive(StandardType.YearMonth), Diff.Temporal(distance :: Nil)) =>
+        Right { (a: A) =>
+          Right(YearMonth.now().`with`(ChronoField.PROLEPTIC_MONTH, a.getLong(ChronoField.PROLEPTIC_MONTH) - distance))
+        }
+      case (Schema.Primitive(StandardType.LocalDate(_)), Diff.Temporal(distance :: Nil)) =>
+        Right((a: A) => Right(LocalDate.ofEpochDay(a.toEpochDay - distance)))
+      case (Schema.Primitive(StandardType.Instant(_)), Diff.Temporal(dist1 :: dist2 :: Nil)) =>
+        Right((a: A) => Right(Instant.ofEpochSecond(a.getEpochSecond - dist1, a.getNano() - dist2)))
+      case (Schema.Primitive(StandardType.LocalTime(_)), Diff.Temporal(distance :: Nil)) =>
+        Right((a: A) => Right(LocalTime.ofNanoOfDay(a.toNanoOfDay - distance)))
+      case (Schema.Primitive(StandardType.LocalDateTime(_)), Diff.Temporal(dist1 :: dist2 :: Nil)) =>
+        Right { (a: A) =>
+          Right {
+            LocalDateTime.of(
+              LocalDate.ofEpochDay(a.toLocalDate.toEpochDay - dist1),
+              LocalTime.ofNanoOfDay(a.toLocalTime.toNanoOfDay - dist2)
+            )
+          }
+        }
+      case (Schema.Primitive(StandardType.OffsetTime(_)), Diff.Temporal(dist1 :: dist2 :: Nil)) =>
+        Right { (a: A) =>
+          Right {
+            OffsetTime.of(
+              LocalTime.ofNanoOfDay(a.toLocalTime.toNanoOfDay - dist1),
+              ZoneOffset.ofTotalSeconds(a.getOffset.getTotalSeconds - dist2.toInt)
+            )
+          }
+        }
+      case (Schema.Primitive(StandardType.OffsetDateTime(_)), Diff.Temporal(dist1 :: dist2 :: dist3 :: Nil)) =>
+        Right { (a: A) =>
+          Right {
+            OffsetDateTime.of(
+              LocalDate.ofEpochDay(a.toLocalDate.toEpochDay - dist1),
+              LocalTime.ofNanoOfDay(a.toLocalTime.toNanoOfDay - dist2),
+              ZoneOffset.ofTotalSeconds(a.getOffset.getTotalSeconds - dist3.toInt)
+            )
+          }
+        }
+      case (Schema.Primitive(StandardType.ZonedDateTime(_)), Diff.ZonedDateTime(Diff.Identical, Diff.Identical)) =>
+        Right((a: A) => Right(a))
+      case (Schema.Primitive(StandardType.ZonedDateTime(_)), Diff.ZonedDateTime(Diff.Identical, Diff.Myers(edits))) =>
+        Right { (a: A) =>
+          (
+            MyersDiff.calculateStringFromEdits(a.getZone.getId, edits).map { zoneIdString =>
+              ZonedDateTime.of(a.toLocalDateTime, ZoneId.of(zoneIdString))
+            }
+          )
+        }
+      case (
+          Schema.Primitive(StandardType.ZonedDateTime(_)),
+          Diff.ZonedDateTime(Diff.Temporal(dist1 :: dist2 :: Nil), Diff.Myers(edits))
+          ) =>
+        Right { (a: A) =>
+          {
+            val localDateTime = LocalDateTime.of(
+              LocalDate.ofEpochDay(a.toLocalDate.toEpochDay - dist1),
+              LocalTime.ofNanoOfDay(a.toLocalTime.toNanoOfDay - dist2)
+            )
 
-      case (Schema.Primitive(StandardType.DayOfWeekType), Diff.Temporal(distance: Long, ChronoUnit.DAYS)) =>
+            MyersDiff.calculateStringFromEdits(a.getZone.getId, edits).map { zoneIdString =>
+              ZonedDateTime.of(localDateTime, ZoneId.of(zoneIdString))
+            }
+          }
+        }
+      case (
+          Schema.Primitive(StandardType.ZonedDateTime(_)),
+          Diff.ZonedDateTime(Diff.Temporal(dist1 :: dist2 :: Nil), Diff.Identical)
+          ) =>
+        Right { (a: A) =>
+          {
+            val localDateTime = LocalDateTime.of(
+              LocalDate.ofEpochDay(a.toLocalDate.toEpochDay - dist1),
+              LocalTime.ofNanoOfDay(a.toLocalTime.toNanoOfDay - dist2)
+            )
+
+            Right {
+              ZonedDateTime.of(localDateTime, a.getZone)
+            }
+          }
+        }
+
+      case (Schema.Primitive(StandardType.DayOfWeekType), Diff.Temporal(distance :: Nil)) =>
         Right((a: A) => Right(a.plus(distance)))
-      case (Schema.Primitive(StandardType.Month), Diff.Temporal(distance: Long, ChronoUnit.MONTHS)) =>
+      case (Schema.Primitive(StandardType.Month), Diff.Temporal(distance :: Nil)) =>
         Right((a: A) => Right(a.plus(distance)))
-      case (Schema.Primitive(StandardType.Duration(_)), Diff.Temporal(distance: Long, ChronoUnit.MILLIS)) =>
-        Right((a: A) => Right(JDuration.of(a.get(ChronoUnit.MILLIS) + distance, ChronoUnit.MILLIS)))
+      case (Schema.Primitive(StandardType.Duration(_)), Diff.Temporal(dist1 :: dist2 :: Nil)) => {
+        Right((a: A) => Right(JDuration.ofSeconds(a.getSeconds - dist1, a.getNano() - dist2)))
+      }
 
       // TODO need to figure out how to deal with this -- which one to add regDiff or leapDiff?
-      case (Schema.Primitive(StandardType.MonthDay), Diff.MonthDays(regDiff, leapDiff @ _)) =>
+      case (Schema.Primitive(StandardType.MonthDay), Diff.Temporal(regDiff :: _ :: Nil)) =>
         Right((a: A) => Right(MonthDay.from(ChronoUnit.DAYS.addTo(a.atYear(2001), regDiff.toLong))))
 
       case (s @ Schema.Lazy(_), diff) => patch(s.schema, diff)
@@ -487,11 +642,9 @@ object Diff {
 
   final case class BigDecimal(distance: java.math.BigDecimal) extends Diff
 
-  final case class Temporal(distance: Long, timeUnit: TemporalUnit) extends Diff
+  final case class Temporal(distances: List[Long]) extends Diff
 
-  final case class TemporalAmount(difference: Long, units: TemporalUnit) extends Diff
-
-  final case class MonthDays(difference: Int, leapYearDifference: Int) extends Diff
+  final case class ZonedDateTime(localDateTimeDiff: Diff, zoneIdDiff: Diff) extends Diff
 
   final case class Tuple(leftDifference: Diff, rightDifference: Diff) extends Diff
 

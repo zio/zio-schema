@@ -1,7 +1,7 @@
 package zio.schema
 
 import java.math.BigInteger
-import java.time.temporal.ChronoUnit
+import java.time.temporal.{ ChronoField, ChronoUnit }
 import java.time.{ DayOfWeek, MonthDay }
 
 import scala.collection.immutable.ListMap
@@ -297,79 +297,210 @@ object DiffSpec extends DefaultRunnableSpec {
       }
     ),
     suite("temporal")(
-      testM("Year") {
-        check(Gen.anyYear <*> Gen.anyYear) {
-          case (left, right) =>
-            val unit = ChronoUnit.YEARS
-            val diff = left.diff(right)
-            assertTrue(diff == Diff.Temporal(unit.between(left, right), unit)) &&
-            assertTrue(left.runPatch(diff) == Right(right))
+      suite("Year")(
+        testM("identical") {
+          check(Gen.anyYear) { x =>
+            val diff = x.diff(x)
+            assertTrue(diff == Diff.Identical) &&
+            assertTrue(x.runPatch(diff) == Right(x))
+          }
+        },
+        testM("different") {
+          check(Gen.anyYear <*> Gen.anyYear) {
+            case (left, right) =>
+              val diff = left.diff(right)
+              assertTrue(diff == Diff.Temporal(List((left.getValue - right.getValue).toLong))) &&
+              assertTrue(left.runPatch(diff) == Right(right))
+          }
         }
-      },
-      testM("YearMonth") {
-        check(Gen.anyYearMonth <*> Gen.anyYearMonth) {
-          case (left, right) =>
-            val unit = ChronoUnit.MONTHS
-            val diff = left.diff(right)
-            assertTrue(diff == Diff.Temporal(unit.between(left, right), unit)) &&
-            assertTrue(left.runPatch(diff) == Right(right))
+      ),
+      suite("YearMonth")(
+        testM("identical") {
+          check(Gen.anyYearMonth) { x =>
+            val diff = x.diff(x)
+            assertTrue(diff == Diff.Identical) &&
+            assertTrue(x.runPatch(diff) == Right(x))
+          }
+        },
+        testM("different") {
+          check(Gen.anyYearMonth <*> Gen.anyYearMonth) {
+            case (left, right) =>
+              val diff = left.diff(right)
+              assertTrue(
+                diff == Diff.Temporal(
+                  List(left.getLong(ChronoField.PROLEPTIC_MONTH) - right.getLong(ChronoField.PROLEPTIC_MONTH))
+                )
+              ) &&
+              assertTrue(left.runPatch(diff) == Right(right))
+          }
         }
-      },
-      testM("LocalDate") {
-        check(Gen.anyLocalDate <*> Gen.anyLocalDate) {
-          case (left, right) =>
-            val unit = ChronoUnit.DAYS
-            val diff = left.diff(right)
-            assertTrue(diff == Diff.Temporal(unit.between(left, right), unit)) &&
-            assertTrue(left.runPatch(diff) == Right(right))
+      ),
+      suite("LocalDate")(
+        testM("identical") {
+          check(Gen.anyLocalDate) { x =>
+            val diff = x.diff(x)
+            assertTrue(diff == Diff.Identical) &&
+            assertTrue(x.runPatch(diff) == Right(x))
+          }
+        },
+        testM("different") {
+          check(Gen.anyLocalDate <*> Gen.anyLocalDate) {
+            case (left, right) =>
+              val diff = left.diff(right)
+              assertTrue(diff == Diff.Temporal(List(left.toEpochDay - right.toEpochDay))) &&
+              assertTrue(left.runPatch(diff) == Right(right))
+          }
         }
-      },
-      //    TODO Bug -  This produces
-      //    [info]         java.lang.ArithmeticException: long overflow
-      //    [info]          at java.lang.Math.multiplyExact(Unknown Source)
-      //    [info]          at java.time.LocalDateTime.until(Unknown Source)
-      //    [info]          at java.time.temporal.ChronoUnit.between(Unknown Source)
-      //    [info]          at zio.schema.Differ$.zio$schema$Differ$$$anonfun$temporal$1(Diff.scala:150)
-      //    [info]          at zio.schema.Differ$$anonfun$temporal$2.apply(Diff.scala:150)
-      //    [info]          at zio.schema.Differ$$anonfun$temporal$2.apply(Diff.scala:150)
-      //    [info]          at zio.schema.Schema.diff(Schema.scala:69)
-      //    Notes: All the temporal times with MILLIS can produce this error when doing unit.between(a, b)
-      //           we should look for a different way to store time differences...
-
-      // testM("LocalDateTime") {
-      //   check(Gen.anyLocalDateTime <*> Gen.anyLocalDateTime) {
-      //     case (left, right) =>
-      //       val unit = ChronoUnit.MILLIS
-      //       val diff = left.diff(right)
-      //       assertTrue(diff == Diff.Temporal(unit.between(left, right), unit)) &&
-      //       assertTrue(left.runPatch(diff) == Right(right))
-      //   }
-      // },
-
-      // TODO Bug - This produces:
-      //    [info]         java.time.temporal.UnsupportedTemporalTypeException: Unsupported unit: Millis
-      //    [info]          at java.time.Duration.get(Unknown Source)
-      //    [info]          at zio.schema.Differ$.zio$schema$Differ$$$anonfun$temporalAmount$1(Diff.scala:147)
-      //    [info]          at zio.schema.Differ$$anonfun$temporalAmount$2.apply(Diff.scala:147)
-      //    [info]          at zio.schema.Differ$$anonfun$temporalAmount$2.apply(Diff.scala:147)
-      //    [info]          at zio.schema.Schema.diff(Schema.scala:69)
-      // Notes: java.time.Duration does not support Milliseconds
-      //  as per https://docs.oracle.com/javase/8/docs/api/java/time/Duration.html
-      //  it supports seconds and nanoseconds
-
-      // testM("Duration") {
-      //   check(Gen.anyFiniteDuration <*> Gen.anyFiniteDuration) {
-      //     case (left, right) =>
-      //       val unit = ChronoUnit.MILLIS
-      //       val diff = left.diff(right)
-      //       assertTrue(diff == Diff.Temporal(left.get(unit) - right.get(unit), unit)) &&
-      //       assertTrue(left.runPatch(diff) == Right(right))
-      //   }
-      // },
+      ),
+      suite("LocalTime")(
+        testM("identical") {
+          check(Gen.anyLocalTime) { x =>
+            val diff = x.diff(x)
+            assertTrue(diff == Diff.Identical) &&
+            assertTrue(x.runPatch(diff) == Right(x))
+          }
+        },
+        testM("different") {
+          check(Gen.anyLocalTime <*> Gen.anyLocalTime) {
+            case (left, right) if (left != right) =>
+              val diff = left.diff(right)
+              assertTrue(diff == Diff.Temporal(List(left.toNanoOfDay() - right.toNanoOfDay()))) &&
+              assertTrue(left.runPatch(diff) == Right(right))
+          }
+        }
+      ),
+      suite("Instant")(
+        testM("identical") {
+          check(Gen.anyInstant) { x =>
+            val diff = x.diff(x)
+            assertTrue(diff == Diff.Identical) &&
+            assertTrue(x.runPatch(diff) == Right(x))
+          }
+        },
+        testM("different") {
+          check(Gen.anyInstant <*> Gen.anyInstant) {
+            case (left, right) =>
+              val diff = left.diff(right)
+              val expected =
+                Diff.Temporal(List(left.getEpochSecond - right.getEpochSecond, (left.getNano - right.getNano).toLong))
+              assertTrue(diff == expected) &&
+              assertTrue(left.runPatch(diff) == Right(right))
+          }
+        }
+      ),
+      suite("Duration")(
+        testM("identical") {
+          check(Gen.anyFiniteDuration) { x =>
+            val diff = x.diff(x)
+            assertTrue(diff == Diff.Identical) &&
+            assertTrue(x.runPatch(diff) == Right(x))
+          }
+        },
+        testM("different") {
+          check(Gen.anyFiniteDuration <*> Gen.anyFiniteDuration) {
+            case (left, right) =>
+              val diff = left.diff(right)
+              val expected =
+                Diff.Temporal(List(left.getSeconds - right.getSeconds, (left.getNano - right.getNano).toLong))
+              assertTrue(diff == expected) &&
+              assertTrue(left.runPatch(diff) == Right(right))
+          }
+        }
+      ),
+      suite("OffsetTime")(
+        testM("identical") {
+          check(Gen.anyOffsetTime) { x =>
+            val diff = x.diff(x)
+            assertTrue(diff == Diff.Identical) &&
+            assertTrue(x.runPatch(diff) == Right(x))
+          }
+        },
+        testM("different") {
+          check(Gen.anyOffsetTime <*> Gen.anyOffsetTime) {
+            case (left, right) =>
+              val diff = left.diff(right)
+              val expected = Diff.Temporal(
+                List(
+                  left.toLocalTime.toNanoOfDay - right.toLocalTime.toNanoOfDay,
+                  (left.getOffset.getTotalSeconds - right.getOffset.getTotalSeconds).toLong
+                )
+              )
+              assertTrue(diff == expected) &&
+              assertTrue(left.runPatch(diff) == Right(right))
+          }
+        }
+      ),
+      suite("LocalDateTime")(
+        testM("identical") {
+          check(Gen.anyLocalDateTime) { x =>
+            val diff = x.diff(x)
+            assertTrue(diff == Diff.Identical) &&
+            assertTrue(x.runPatch(diff) == Right(x))
+          }
+        },
+        testM("different") {
+          check(Gen.anyLocalDateTime <*> Gen.anyLocalDateTime) {
+            case (left, right) =>
+              val diff = left.diff(right)
+              val expected = Diff.Temporal(
+                List(
+                  left.toLocalDate.toEpochDay - right.toLocalDate.toEpochDay,
+                  left.toLocalTime.toNanoOfDay - right.toLocalTime.toNanoOfDay
+                )
+              )
+              assertTrue(diff == expected) &&
+              assertTrue(left.runPatch(diff) == Right(right))
+          }
+        }
+      ),
+      suite("OffsetDateTime")(
+        testM("identical") {
+          check(Gen.anyOffsetDateTime) { x =>
+            val diff = x.diff(x)
+            assertTrue(diff == Diff.Identical) &&
+            assertTrue(x.runPatch(diff) == Right(x))
+          }
+        },
+        testM("different") {
+          check(Gen.anyOffsetDateTime <*> Gen.anyOffsetDateTime) {
+            case (left, right) =>
+              val diff = left.diff(right)
+              val expected = Diff.Temporal(
+                List(
+                  left.toLocalDate.toEpochDay - right.toLocalDate.toEpochDay,
+                  left.toLocalTime.toNanoOfDay - right.toLocalTime.toNanoOfDay,
+                  (left.getOffset.getTotalSeconds - right.getOffset.getTotalSeconds).toLong
+                )
+              )
+              assertTrue(diff == expected) &&
+              assertTrue(left.runPatch(diff) == Right(right))
+          }
+        }
+      ),
+      suite("ZonedDateTime")(
+        testM("identical") {
+          check(Gen.anyZonedDateTime) { x =>
+            val diff = x.diff(x)
+            assertTrue(diff == Diff.Identical) &&
+            assertTrue(x.runPatch(diff) == Right(x))
+          }
+        },
+        testM("different") {
+          check(Gen.anyZonedDateTime <*> Gen.anyZonedDateTime) {
+            case (left, right) =>
+              val diff                    = left.diff(right)
+              val diffZoneId: Diff        = left.getZone.getId.diffEach(right.getZone.getId)
+              val diffLocalDateTime: Diff = left.toLocalDateTime.diff(right.toLocalDateTime)
+              val expected                = Diff.ZonedDateTime(diffLocalDateTime, diffZoneId)
+              assertTrue(diff == expected) &&
+              assertTrue(left.runPatch(diff) == Right(right))
+          }
+        }
+      ),
       testM("day of week") {
         check(Gen.elements(1, 2, 3, 4, 5, 6, 7) <*> Gen.elements(1, 2, 3, 4, 5, 6, 7)) {
           case (i1, i2) =>
-            val expected = if (i1 == i2) Diff.Identical else Diff.Temporal((i2 - i1).toLong, ChronoUnit.DAYS)
+            val expected = if (i1 == i2) Diff.Identical else Diff.Temporal(List[Long]((i2 - i1).toLong))
             assertTrue(DayOfWeek.of(i1).diff(DayOfWeek.of(i2)) == expected) &&
             assertTrue(DayOfWeek.of(i1).runPatch(expected) == Right(DayOfWeek.of(i2)))
         }
@@ -379,21 +510,21 @@ object DiffSpec extends DefaultRunnableSpec {
           case (thisMonth, thatMonth) =>
             val expected =
               if (thisMonth == thatMonth) Diff.Identical
-              else Diff.Temporal((thatMonth.getValue - thisMonth.getValue).toLong, ChronoUnit.MONTHS)
+              else Diff.Temporal(List[Long]((thatMonth.getValue - thisMonth.getValue).toLong))
             assertTrue(thisMonth.diff(thatMonth) == expected) &&
             assertTrue(thisMonth.runPatch(expected) == Right(thatMonth))
         }
       },
       suite("month day")(
         test("leap year adjustment") {
-          val expected     = Diff.MonthDays(1, 2)
+          val expected     = Diff.Temporal(List[Long](1L, 2L))
           val thisMonthDay = MonthDay.of(2, 28)
           val thatMonthDay = MonthDay.of(3, 1)
           assertTrue(thisMonthDay.diff(thatMonthDay) == expected) &&
           assertTrue(thisMonthDay.runPatch(expected) == Right(thatMonthDay))
         },
         test("no leap year adjustment") {
-          val expected     = Diff.MonthDays(-1, -1)
+          val expected     = Diff.Temporal(List[Long](-1L, -1L))
           val thisMonthDay = MonthDay.of(2, 1)
           val thatMonthDay = MonthDay.of(1, 31)
           assertTrue(thisMonthDay.diff(thatMonthDay) == expected) &&
@@ -405,9 +536,11 @@ object DiffSpec extends DefaultRunnableSpec {
               assertTrue(thisMonthDay.diff(thatMonthDay) == Diff.Identical) &&
                 assertTrue(thisMonthDay.runPatch(Diff.Identical) == Right(thisMonthDay))
             case (thisMonthDay, thatMonthDay) =>
-              val expected = Diff.MonthDays(
-                ChronoUnit.DAYS.between(thisMonthDay.atYear(2001), thatMonthDay.atYear(2001)).toInt,
-                ChronoUnit.DAYS.between(thisMonthDay.atYear(2000), thatMonthDay.atYear(2000)).toInt
+              val expected = Diff.Temporal(
+                List[Long](
+                  ChronoUnit.DAYS.between(thisMonthDay.atYear(2001), thatMonthDay.atYear(2001)),
+                  ChronoUnit.DAYS.between(thisMonthDay.atYear(2000), thatMonthDay.atYear(2000))
+                )
               )
               assertTrue(thisMonthDay.diff(thatMonthDay) == expected)
             //assertTrue(thisMonthDay.runPatch(expected) == Right(thatMonthDay))
