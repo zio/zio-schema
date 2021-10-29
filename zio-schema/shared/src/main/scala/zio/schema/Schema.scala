@@ -69,6 +69,11 @@ sealed trait Schema[A] {
     case None         => Differ.fromSchema(self)(thisValue, thatValue)
   }
 
+  /**
+   * Patch value with a Diff.
+   */
+  def patch(oldValue: A, diff: Diff): Either[String, A] = diff.patch(oldValue)(self)
+
   def fromDynamic(value: DynamicValue): Either[String, A] =
     value.toTypedValue(self)
 
