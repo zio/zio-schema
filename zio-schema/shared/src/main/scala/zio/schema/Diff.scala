@@ -66,9 +66,6 @@ trait Differ[A] { self =>
     case (None, Some(r))    => Diff.Total(r, Diff.Tag.Right)
     case (None, None)       => Diff.Identical
   }
-
-  def patch[A](oldValue: A, schema: Schema[A], diff: Diff): Either[String, A] =
-    diff.patch(oldValue)(schema)
 }
 
 object Differ {
