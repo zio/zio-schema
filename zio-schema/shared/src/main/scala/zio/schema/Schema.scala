@@ -225,11 +225,13 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     def rawConstruct(values: Chunk[Any]): Either[String, R]
   }
 
+  sealed trait Collection[Col, Elem] extends Schema[Col]
+
   final case class Sequence[Col, Elem](
     schemaA: Schema[Elem],
     fromChunk: Chunk[Elem] => Col,
     toChunk: Col => Chunk[Elem]
-  ) extends Schema[Col] { self =>
+  ) extends Collection[Col, Elem] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Traversal[Col, Elem]
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, schemaA)
@@ -323,6 +325,13 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
+  }
+
+  final case class MapSchema[K, V](ks: Schema[K], vs: Schema[V]) extends Collection[Map[K, V], (K, V)] { self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Traversal[Map[K, V], (K, V)]
+
+    override def makeAccessors(b: AccessorBuilder): b.Traversal[Map[K, V], (K, V)] =
+      b.makeTraversal(self, ks <*> vs)
   }
 }
 
