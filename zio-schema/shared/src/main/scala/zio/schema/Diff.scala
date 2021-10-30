@@ -106,7 +106,7 @@ object Differ {
     case Schema.Fail(_)                                   => fail
     case Schema.GenericRecord(structure)                  => record(structure.toChunk)
     case ProductDiffer(differ)                            => differ
-    case Schema.Enum1(c)                                  => enum(c)
+    case Schema.Enum1(c, _)                               => enum(c)
     case Schema.Enum2(c1, c2)                             => enum(c1, c2)
     case Schema.Enum3(c1, c2, c3)                         => enum(c1, c2, c3)
     case Schema.EnumN(cs)                                 => enum(cs.toSeq: _*)
@@ -515,7 +515,7 @@ sealed trait Diff { self =>
           .flatMap(schema.rawConstruct)
       }
 
-      case (Schema.Enum1(c1), diff)         => patchEnumData(a, diff, c1)
+      case (Schema.Enum1(c1, _), diff)         => patchEnumData(a, diff, c1)
       case (Schema.Enum2(c1, c2), diff)     => patchEnumData(a, diff, c1, c2)
       case (Schema.Enum3(c1, c2, c3), diff) => patchEnumData(a, diff, c1, c2, c3)
       case (Schema.EnumN(cases), diff)      => patchEnumData(a, diff, cases.toSeq: _*)

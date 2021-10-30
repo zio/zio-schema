@@ -93,7 +93,7 @@ object SchemaAssertions {
       case (Schema.Tuple(left1, right1), Schema.Tuple(left2, right2)) =>
         equalsSchema(left1, left2) && equalsSchema(right1, right2)
       case (Schema.Optional(codec1), Schema.Optional(codec2))   => equalsSchema(codec1, codec2)
-      case (Schema.Enum1(l), Schema.Enum1(r))                   => equalsCase(l, r)
+      case (Schema.Enum1(l, _), Schema.Enum1(r, _))                   => equalsCase(l, r)
       case (Schema.Enum2(l1, l2), Schema.Enum2(r1, r2))         => hasSameCases(Seq(l1, l2), Seq(r1, r2))
       case (Schema.Enum3(l1, l2, l3), Schema.Enum3(r1, r2, r3)) => hasSameCases(Seq(l1, l2, l3), Seq(r1, r2, r3))
       case (Schema.EnumN(ls), Schema.EnumN(rs))                 => hasSameCases(ls.toSeq, rs.toSeq)

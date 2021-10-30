@@ -49,7 +49,7 @@ object DynamicValueGen {
     schema match {
       case Schema.Primitive(standardType)                                                                                                                                                       => anyPrimitiveDynamicValue(standardType)
       case s: Schema.Record[A]                                                                                                                                                                  => anyDynamicValueWithStructure(s.structure)
-      case Schema.Enum1(case1)                                                                                                                                                                  => anyDynamicValueOfEnum(Chunk(case1))
+      case Schema.Enum1(case1, _)                                                                                                                                                                  => anyDynamicValueOfEnum(Chunk(case1))
       case Schema.Enum2(case1, case2)                                                                                                                                                           => anyDynamicValueOfEnum(Chunk(case1, case2))
       case Schema.Enum3(case1, case2, case3)                                                                                                                                                    => anyDynamicValueOfEnum(Chunk(case1, case2, case3))
       case Schema.Enum4(case1, case2, case3, case4)                                                                                                                                             => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4))

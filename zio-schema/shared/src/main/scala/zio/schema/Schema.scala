@@ -221,6 +221,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     chunk(element).transform(_.toVector, Chunk.fromIterable(_))
 
   sealed trait Enum[A] extends Schema[A] {
+    def annotations: Chunk[Any] = Chunk.empty
     def structure: ListMap[String, Schema[_]]
   }
 
@@ -344,7 +345,7 @@ sealed trait EnumSchemas { self: Schema.type =>
     override def toString: String = s"Case($id,$codec)"
   }
 
-  sealed case class Enum1[A <: Z, Z](case1: Case[A, Z]) extends Enum[Z] { self =>
+  sealed case class Enum1[A <: Z, Z](case1: Case[A, Z], override val annotations: Chunk[Any]) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Prism[Z, A]
 
     override def makeAccessors(b: AccessorBuilder): b.Prism[Z, A] = b.makePrism(self, case1)

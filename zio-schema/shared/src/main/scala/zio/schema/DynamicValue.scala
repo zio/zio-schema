@@ -98,7 +98,7 @@ object DynamicValue {
           }
         )
 
-      case Schema.Enum1(case1) =>
+      case Schema.Enum1(case1, _) =>
         DynamicValue.Enumeration(case1.id -> fromSchemaAndValue(case1.codec, case1.unsafeDeconstruct(value)))
 
       case Schema.Enum2(case1, case2) =>

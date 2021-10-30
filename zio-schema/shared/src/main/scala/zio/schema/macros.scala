@@ -1325,7 +1325,7 @@ object DeriveSchema {
           (a: A) => if (subtype.cast.isDefinedAt(a)) subtype.cast(a) else throw new IllegalArgumentException
       )
     } match {
-      case Seq(c)          => Schema.Enum1(c)
+      case Seq(c)          => Schema.Enum1(c, Chunk.fromIterable(sealedTrait.annotations))
       case Seq(c1, c2)     => Schema.Enum2(c1, c2)
       case Seq(c1, c2, c3) => Schema.Enum3(c1, c2, c3)
       case cases           =>
