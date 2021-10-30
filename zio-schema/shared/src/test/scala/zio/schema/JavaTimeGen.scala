@@ -70,7 +70,7 @@ object JavaTimeGen {
 
   val anyPeriod: Gen[Random, Period] =
     for {
-      years  <- Gen.anyInt
+      years  <- Gen.int(-99999, 99999)
       months <- Gen.anyInt
       days   <- Gen.anyInt
     } yield Period.of(years, months, days)
