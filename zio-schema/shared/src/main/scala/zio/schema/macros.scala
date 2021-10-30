@@ -1317,6 +1317,7 @@ object DeriveSchema {
 
   def dispatch[A](sealedTrait: SealedTrait[Schema, A]): Schema[A] = {
     type S = Subtype[Schema, A]#SType
+    val annotations = Chunk.fromIterable(sealedTrait.annotations)
     sealedTrait.subtypes.sortBy(_.typeName.short).map { subtype: Subtype[Schema, A] =>
       Schema.Case[S, A](
         id = subtype.typeName.short,
@@ -1325,14 +1326,15 @@ object DeriveSchema {
           (a: A) => if (subtype.cast.isDefinedAt(a)) subtype.cast(a) else throw new IllegalArgumentException
       )
     } match {
-      case Seq(c)          => Schema.Enum1(c, Chunk.fromIterable(sealedTrait.annotations))
-      case Seq(c1, c2)     => Schema.Enum2(c1, c2)
-      case Seq(c1, c2, c3) => Schema.Enum3(c1, c2, c3)
+      case Seq(c)          => Schema.Enum1(c, annotations)
+      case Seq(c1, c2)     => Schema.Enum2(c1, c2, annotations)
+      case Seq(c1, c2, c3) => Schema.Enum3(c1, c2, c3, annotations)
       case cases           =>
         Schema.EnumN(
           cases.foldRight[CaseSet.Aux[A]](CaseSet.Empty[A]()) {
             case (c, acc) => CaseSet.Cons(c,acc)
-          }
+          },
+          annotations
         )
     }
   }

@@ -302,7 +302,8 @@ object SchemaAst {
       caseOf[Value, SchemaAst]("Value")(_.asInstanceOf[Value]) ++
         caseOf[Sum, SchemaAst]("Sum")(_.asInstanceOf[Sum]) ++
         caseOf[Product, SchemaAst]("Product")(_.asInstanceOf[Product]) ++
-        caseOf[Ref, SchemaAst]("Ref")(_.asInstanceOf[Ref])
+        caseOf[Ref, SchemaAst]("Ref")(_.asInstanceOf[Ref]),
+      Chunk.empty
     )
 
 }

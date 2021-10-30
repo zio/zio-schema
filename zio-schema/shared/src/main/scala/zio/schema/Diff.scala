@@ -107,9 +107,9 @@ object Differ {
     case Schema.GenericRecord(structure)                  => record(structure.toChunk)
     case ProductDiffer(differ)                            => differ
     case Schema.Enum1(c, _)                               => enum(c)
-    case Schema.Enum2(c1, c2)                             => enum(c1, c2)
-    case Schema.Enum3(c1, c2, c3)                         => enum(c1, c2, c3)
-    case Schema.EnumN(cs)                                 => enum(cs.toSeq: _*)
+    case Schema.Enum2(c1, c2, _)                          => enum(c1, c2)
+    case Schema.Enum3(c1, c2, c3, _)                      => enum(c1, c2, c3)
+    case Schema.EnumN(cs, _)                              => enum(cs.toSeq: _*)
   }
 
   def binary: Differ[Chunk[Byte]] =
@@ -516,11 +516,11 @@ sealed trait Diff { self =>
       }
 
       case (Schema.Enum1(c1, _), diff)         => patchEnumData(a, diff, c1)
-      case (Schema.Enum2(c1, c2), diff)     => patchEnumData(a, diff, c1, c2)
-      case (Schema.Enum3(c1, c2, c3), diff) => patchEnumData(a, diff, c1, c2, c3)
-      case (Schema.EnumN(cases), diff)      => patchEnumData(a, diff, cases.toSeq: _*)
-      case (schema @ Fail(_), _)            => Left(s"Failed Schema=$schema cannot be patched.")
-      case (_, _)                           => Left(s"Incompatible Schema=$schema and Diff=$self.")
+      case (Schema.Enum2(c1, c2, _), diff)     => patchEnumData(a, diff, c1, c2)
+      case (Schema.Enum3(c1, c2, c3, _), diff) => patchEnumData(a, diff, c1, c2, c3)
+      case (Schema.EnumN(cases, _), diff)      => patchEnumData(a, diff, cases.toSeq: _*)
+      case (schema @ Fail(_), _)               => Left(s"Failed Schema=$schema cannot be patched.")
+      case (_, _)                              => Left(s"Incompatible Schema=$schema and Diff=$self.")
     }
   }
 

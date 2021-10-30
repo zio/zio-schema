@@ -100,7 +100,8 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
               "Pending",
               Schema[Pending.type],
               (s: Status) => s.asInstanceOf[Pending.type]
-            )
+            ),
+            Chunk.empty // TODO: Should include test for annotations probably
           )
 
         assert(derived)(hasSameSchema(expected))

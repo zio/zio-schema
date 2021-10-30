@@ -144,10 +144,10 @@ object ProtobufCodec extends Codec {
         case (lzy @ Schema.Lazy(_), v)                            => encode(fieldNumber, lzy.schema, v)
         case (Schema.Meta(ast), _)                                => encode(fieldNumber, Schema[SchemaAst], ast)
         case ProductEncoder(encode)                               => encode(fieldNumber)
-        case (Schema.Enum1(c, _), v)                                 => encodeEnum(fieldNumber, v, c)
-        case (Schema.Enum2(c1, c2), v)                            => encodeEnum(fieldNumber, v, c1, c2)
-        case (Schema.Enum3(c1, c2, c3), v)                        => encodeEnum(fieldNumber, v, c1, c2, c3)
-        case (Schema.EnumN(cs), v)                                => encodeEnum(fieldNumber, v, cs.toSeq: _*)
+        case (Schema.Enum1(c, _), v)                              => encodeEnum(fieldNumber, v, c)
+        case (Schema.Enum2(c1, c2, _), v)                         => encodeEnum(fieldNumber, v, c1, c2)
+        case (Schema.Enum3(c1, c2, c3, _), v)                     => encodeEnum(fieldNumber, v, c1, c2, c3)
+        case (Schema.EnumN(cs, _), v)                             => encodeEnum(fieldNumber, v, cs.toSeq: _*)
         case (_, _)                                               => Chunk.empty
       }
 
@@ -452,10 +452,10 @@ object ProtobufCodec extends Codec {
         case lzy @ Schema.Lazy(_)             => decoder(lzy.schema)
         case Schema.Meta(_)                   => astDecoder
         case ProductDecoder(decoder)          => decoder
-        case Schema.Enum1(c, _)                  => enumDecoder(c)
-        case Schema.Enum2(c1, c2)             => enumDecoder(c1, c2)
-        case Schema.Enum3(c1, c2, c3)         => enumDecoder(c1, c2, c3)
-        case Schema.EnumN(cs)                 => enumDecoder(cs.toSeq: _*)
+        case Schema.Enum1(c, _)               => enumDecoder(c)
+        case Schema.Enum2(c1, c2, _)          => enumDecoder(c1, c2)
+        case Schema.Enum3(c1, c2, c3, _)      => enumDecoder(c1, c2, c3)
+        case Schema.EnumN(cs, _)              => enumDecoder(cs.toSeq: _*)
       }
 
     private val astDecoder: Decoder[Schema[_]] =
