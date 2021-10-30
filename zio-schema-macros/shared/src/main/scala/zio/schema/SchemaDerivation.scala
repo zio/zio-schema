@@ -11,7 +11,7 @@ object SchemaDerivation {
   def genImpl[T: c.WeakTypeTag](c: whitebox.Context): c.Tree = {
     import c.universe._
 
-//    val JavaAnnotationTpe = typeOf[java.lang.annotation.Annotation]
+    val JavaAnnotationTpe = typeOf[java.lang.annotation.Annotation]
 
     val tpe = weakTypeOf[T]
 
@@ -184,13 +184,17 @@ object SchemaDerivation {
           case p: TermSymbol if p.isCaseAccessor && p.isMethod => p.name
         }
 
-        val fieldAnnotations: List[List[Tree]] = List.fill(arity)(Nil)
-//          tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
-//            symbols.map(_.annotations.collect {
-//              case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
-//                annotation.tree
-//            })
-//          }.getOrElse(Nil)
+        val fieldAnnotations: List[List[Tree]] = //List.fill(arity)(Nil)
+          tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
+            symbols.map(_.annotations.collect {
+              case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
+                annotation.tree match {
+                  case q"new $annConstructor(..$annotationArgs)" =>
+                    println(s"Unlifted $annConstructor, $annotationArgs")
+                    q"${annConstructor.tpe.typeSymbol.companion}.apply(..$annotationArgs)"
+                }
+            })
+          }.getOrElse(Nil)
 
         if (arity > 22) {
           val fields = fieldTypes.zip(fieldAnnotations).map {
@@ -258,13 +262,11 @@ object SchemaDerivation {
               ) //resolveTermSchema(tpe, termSymbol, selfRefName, selfRef, stack)
               val fieldArg   = if (fieldTypes.size > 1) TermName(s"field${idx + 1}") else TermName("field")
               val fieldLabel = termSymbol.name.toString.trim
-              // TODO Adding the annotations here causes a compiler crash.
-              val _ = annotations
-//              if (annotations.nonEmpty)
-//                q"""$fieldArg = zio.schema.Schema.Field[${termSymbol.typeSignature}](label = $fieldLabel,schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations))"""
-//              else
-//              q"""$fieldArg = zio.schema.Schema.Field[${termSymbol.typeSignature}](label = $fieldLabel,schema = zio.schema.Schema.defer($fieldSchema))"""
-              q"""$fieldArg = zio.schema.Schema.Field.apply(label = $fieldLabel,schema = $fieldSchema)"""
+
+              if (annotations.nonEmpty)
+                q"""$fieldArg = zio.schema.Schema.Field.apply(label = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations))"""
+              else
+                q"""$fieldArg = zio.schema.Schema.Field.apply(label = $fieldLabel, schema = $fieldSchema)"""
           }
 
           val constructArgs = fieldTypes.zipWithIndex.map {

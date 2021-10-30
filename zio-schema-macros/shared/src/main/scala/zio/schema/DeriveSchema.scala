@@ -1341,7 +1341,10 @@ object DeriveSchema {
   }
   // format: on
 
-  @deprecated(message = "Magnolia-based derivation is deprecated. Please use SchemaDerivation.gen instead", since = "0.1.3")
+  @deprecated(
+    message = "Magnolia-based derivation is deprecated. Please use SchemaDerivation.gen instead",
+    since = "0.1.3"
+  )
   implicit def gen[T]: Schema[T] = macro Magnolia.gen[T]
 
 }

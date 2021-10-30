@@ -12,6 +12,8 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
   final case class annotation1(value: String) extends Annotation
   final case class annotation2(value: String) extends Annotation
 
+  val fo = new annotation1("foo")
+
   final case class ContainerFields(field1: Option[String], field2: List[String])
 
   object ContainerFields {
@@ -255,7 +257,7 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
             (u: User) => u.id
           )
         assert(derived)(hasSameSchema(expected))
-      } @@ TestAspect.ignore,
+      },
       test("correctly derives Enum") {
         val derived: Schema[Status] = Schema[Status]
         val expected: Schema[Status] =
