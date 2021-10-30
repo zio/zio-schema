@@ -1324,7 +1324,7 @@ object DeriveSchema {
         codec = subtype.typeclass.asInstanceOf[Schema[S]],
         unsafeDeconstruct =
           (a: A) => if (subtype.cast.isDefinedAt(a)) subtype.cast(a) else throw new IllegalArgumentException,
-        annotations
+        annotations = Chunk.fromIterable(subtype.annotations)
       )
     } match {
       case Seq(c)          => Schema.Enum1(c, annotations)
