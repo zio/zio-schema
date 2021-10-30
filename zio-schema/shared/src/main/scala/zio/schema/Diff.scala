@@ -26,6 +26,7 @@ import scala.collection.immutable.ListMap
 
 import zio.Chunk
 import zio.schema.internal.MyersDiff
+import scala.runtime.ByteRef
 
 trait Differ[A] { self =>
 
@@ -379,7 +380,7 @@ sealed trait Diff { self =>
       case (Primitive(StandardType.BigIntegerType), BigInt(distance: java.math.BigInteger))     => Right(a.subtract(distance))
       case (Primitive(StandardType.BinaryType), Diff.Sequence(diffs)) =>
         diffs
-          .zipAll(a)
+          .zipAll(a.asInstanceOf[Chunk[Byte]])
           .flatMap {
             case (Some(Total(right: Byte, Tag.Right)), _) => Some(Right(right))
             case (Some(Total(_, Tag.Left)), _)            => None
@@ -442,29 +443,29 @@ sealed trait Diff { self =>
       case (Primitive(StandardType.MonthDay), Temporal(regDiff :: _ :: Nil)) => Right(MonthDay.from(ChronoUnit.DAYS.addTo(a.atYear(2001), regDiff.toLong)))
       case (s @ Schema.Lazy(_), diff)                                        => diff.patch(a)(s.schema)
       case (Optional(_), Total(_, Diff.Tag.Left))                            => Right(None)
-      case (Optional(_), Total(right, Diff.Tag.Right))                       => Right(Some(right))
-      case (Optional(schema), diff) =>
+      case (schema: Optional[t], Total(right, Diff.Tag.Right))               => Right(Some(right.asInstanceOf[t]))
+      case (schema: Optional[t], diff) =>
         a match {
-          case None    => Right(None)
-          case Some(b) => diff.patch(b)(schema).map(Some(_))
+          case None       => Right(None)
+          case Some(b: t) => diff.patch(b)(schema.codec).map(Some(_))
         }
 
-      case (EitherSchema(_, rightSchema), Diff.Either(diff, Diff.Tag.Right)) =>
+      case (schema: EitherSchema[_, r], Diff.Either(diff, Diff.Tag.Right)) =>
         a match {
-          case Right(b)    => diff.patch(b)(rightSchema).map(Right(_))
+          case Right(b: r) => diff.patch(b)(schema.right).map(Right(_))
           case e @ Left(_) => Left(s"Value should be Right not: $e.")
         }
 
-      case (EitherSchema(leftSchema, _), Diff.Either(diff, Diff.Tag.Left)) =>
+      case (schema: EitherSchema[l, _], Diff.Either(diff, Diff.Tag.Left)) =>
         a match {
-          case Left(b)      => diff.patch(b)(leftSchema).map(Left(_))
+          case Left(b: l)   => diff.patch(b)(schema.left).map(Left(_))
           case e @ Right(_) => Left(s"Value should be Left not: $e.")
         }
 
-      case (Schema.Tuple(leftSchema, rightSchema), Diff.Tuple(leftDiff, rightDiff)) => {
-        val (left, right) = a
-        val leftPatch     = leftDiff.patch(left)(leftSchema)
-        val rightPatch    = rightDiff.patch(right)(rightSchema)
+      case (schema: Schema.Tuple[l, r], Diff.Tuple(leftDiff, rightDiff)) => {
+        val (left: l, right: r) = a
+        val leftPatch           = leftDiff.patch(left)(schema.left)
+        val rightPatch          = rightDiff.patch(right)(schema.right)
 
         (leftPatch, rightPatch) match {
           case (Left(e1), Left(e2)) => Left(s"Errors: $e1 and $e2.")
@@ -474,19 +475,19 @@ sealed trait Diff { self =>
         }
       }
 
-      case (Schema.Sequence(schema, fromChunk, toChunk), Diff.Sequence(diffs)) =>
+      case (schema: Schema.Sequence[col, t], Diff.Sequence(diffs)) =>
         diffs
-          .zipAll(toChunk(a))
+          .zipAll(schema.toChunk(a))
           .flatMap {
             case (Some(Total(right, Tag.Right)), _) => Some(Right(right))
             case (Some(Total(_, Tag.Left)), _)      => None
-            case (Some(diff), Some(value))          => Some(diff.patch(value)(schema))
+            case (Some(diff), Some(value))          => Some(diff.patch(value)(schema.schemaA))
             case (None, Some(value))                => Some(Left(s"Diff missing for value=$value."))
             case (Some(diff), None)                 => Some(Left(s"Value missing for Diff=$diff."))
             case (None, None)                       => Some(Left(s"Unknown error in sequence."))
           }
           .partitionMap(identity) match {
-          case (Chunk.empty, values) => Right(fromChunk(values))
+          case (Chunk.empty, values) => Right(schema.fromChunk(values.asInstanceOf[Chunk[t]]))
           case (errors, _)           => Left(s"Running patch produced the following error(s): ${errors.toList}.")
         }
 
@@ -577,7 +578,7 @@ sealed trait Diff { self =>
 }
 
 object Diff {
-  final case object Identical extends Diff
+  case object Identical extends Diff
 
   final case class Binary(xor: Int) extends Diff
 
