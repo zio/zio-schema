@@ -679,7 +679,7 @@ object ProtobufCodec extends Codec {
       }
 
     /**
-     * Decodes bytes to following types: int32, int64, uint32, uint64, sint32, sint64, bool, enum.
+     * Decodes bytes to following types: int32, int64, uint32, uint64, sint32, sint64, bool, enumN.
      * Takes index of first byte which is inside 0 - 127 range.
      * Returns remainder of the bytes together with computed value.
      *

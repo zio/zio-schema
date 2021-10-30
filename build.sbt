@@ -54,6 +54,8 @@ lazy val root = project
   .aggregate(
     zioSchemaJVM,
     zioSchemaJS,
+    zioSchemaDerivationJVM,
+    zioSchemaDerivationJS,
     zioSchemaJsonJVM,
     zioSchemaJsonJS,
     zioSchemaOpticsJS,
@@ -66,14 +68,13 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema"))
   .settings(stdSettings("zio-schema"))
   .settings(crossProjectSettings)
+  .settings(dottySettings)
   .settings(buildInfoSettings("zio.schema"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"        %% "zio"          % zioVersion,
-      "dev.zio"        %% "zio-streams"  % zioVersion,
-      "com.propensive" %% "magnolia"     % magnoliaVersion,
-      "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
-      "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+      "dev.zio" %% "zio"         % zioVersion,
+      "dev.zio" %% "zio-streams" % zioVersion,
+      "dev.zio" %% "zio-prelude" % zioPreludeVersion
     )
   )
 

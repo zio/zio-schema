@@ -934,7 +934,7 @@ object DiffSpec extends DefaultRunnableSpec {
         assertTrue(bob.runPatch(diff).isLeft)
       }
     ),
-    suite("enum")(
+    suite("enumN")(
       test("identical") {
         import Pet._
         implicit val dogSchema: Schema[Dog] = DeriveSchema.gen
@@ -963,7 +963,7 @@ object DiffSpec extends DefaultRunnableSpec {
         assertTrue(diff.patch(pet1) == Right(pet2)) &&
         assertTrue(schema.patch(pet1, diff) == Right(pet2))
       },
-      test("different enum types - NotComparable") {
+      test("different enumN types - NotComparable") {
         import Pet._
         implicit val dogSchema: Schema[Dog] = DeriveSchema.gen
         val pet1                            = Dog("Spike")

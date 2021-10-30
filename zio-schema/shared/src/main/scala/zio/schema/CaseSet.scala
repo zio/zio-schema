@@ -4,18 +4,17 @@ import scala.collection.immutable.ListMap
 
 import zio.schema.Schema._
 
-sealed trait CaseSet {
+sealed trait CaseSet { self =>
 
   import CaseSet.{ :+: }
 
   type EnumType
 
   type Accessors[Whole, Lens[_, _], Prism[_, _], Traversal[_, _]]
-  type Append[That <: CaseSet.Aux[EnumType]] <: CaseSet.Aux[EnumType]
 
   def :+:[A](head: Case[A, EnumType]): A :+: CaseSet.Aux[EnumType]
 
-  def ++[That <: CaseSet.Aux[EnumType]](that: That): Append[That]
+  // def ++[That](that: That)(implicit append: Append[EnumType, self.type, That]): append.Out
 
   def toMap: ListMap[String, Schema[_]]
 
@@ -32,11 +31,11 @@ object CaseSet {
     type EnumType = Z
 
     override type Accessors[Whole, Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
-    override type Append[That <: CaseSet.Aux[EnumType]]                      = That
 
     override def :+:[A](head: Case[A, EnumType]): A :+: Empty[EnumType] = Cons(head, self)
 
-    override def ++[That <: CaseSet.Aux[EnumType]](that: That): Append[That] = that
+    def ++[That](that: That)(implicit append: Append[Z, Empty[Z], That]): append.Out =
+      append(self, that)
 
     override def toMap: ListMap[String, Schema[_]] = ListMap.empty
 
@@ -50,6 +49,10 @@ object CaseSet {
     override def toString: String = "Empty"
   }
 
+  object Empty {
+    type Aux[Z] = CaseSet.Empty[Z] { type EnumType = Z }
+  }
+
   sealed trait :+:[A, +T <: CaseSet] extends CaseSet {
     def head: Case[A, EnumType]
   }
@@ -60,11 +63,10 @@ object CaseSet {
     override type Accessors[Whole, Lens[_, _], Prism[_, _], Traversal[_, _]] =
       (Prism[Whole, A], tail.Accessors[Whole, Lens, Prism, Traversal])
 
-    override type Append[That <: CaseSet.Aux[EnumType]] = Cons[A, tail.Append[That], Z]
-
     override def :+:[B](head2: Case[B, Z]): Cons[B, Cons[A, T, Z], Z] = Cons(head2, self)
 
-    override def ++[That <: CaseSet.Aux[EnumType]](that: That): Append[That] = Cons(head, tail ++ that)
+    def ++[That](that: That)(implicit append: Append[Z, Cons[A, T, Z], That]): append.Out =
+      append(self, that)
 
     override def toMap: ListMap[String, Schema[_]] = ListMap(head.id -> head.codec) ++ tail.toMap
 
@@ -84,4 +86,46 @@ object CaseSet {
   def caseOf[A: Schema, Z >: A](id: String)(unsafeDeconstruct: Z => A): Cons[A, Empty[Z], Z] =
     Cons(Case(id, Schema[A], unsafeDeconstruct), Empty[Z]())
 
+}
+
+object Cons0 {
+  type Aux[A, T <: CaseSet.Aux[Z], Z] = CaseSet.Cons[A, T, Z] { type EnumType = Z }
+}
+
+sealed trait Append[EnumType, -Left, -Right] {
+  type Out <: CaseSet.Aux[EnumType]
+  def apply(left: Left, right: Right): Out
+}
+
+object Append extends AppendLowPriority {
+  import CaseSet._
+
+  type WithOut[EnumType, Left, Right, Out0] = Append[EnumType, Left, Right] { type Out = Out0 }
+
+  implicit def AppendCons[A, T <: CaseSet.Aux[Z], Z, That <: CaseSet.Aux[Z]](
+    implicit append: Append[Z, T, That]
+  ): Append.WithOut[Z, Cons[A, T, Z], That, Cons[A, append.Out, Z]] =
+    new Append[Z, Cons[A, T, Z], That] {
+      override type Out = Cons[A, append.Out, Z]
+
+      def apply(left: Cons[A, T, Z], right: That): Out =
+        Cons(left.head, append(left.tail, right))
+    }
+
+}
+
+trait AppendLowPriority extends AppendLowPriority2 {
+  implicit def AppendEmptyRight[T <: CaseSet.Aux[Z], Z]: Append.WithOut[Z, T, CaseSet.Empty[Z], T] =
+    new Append[Z, T, CaseSet.Empty[Z]] {
+      override type Out = T
+      def apply(left: T, right: CaseSet.Empty[Z]): Out = left
+    }
+}
+
+trait AppendLowPriority2 {
+  implicit def AppendEmptyLeft[T <: CaseSet.Aux[Z], Z]: Append.WithOut[Z, CaseSet.Empty[Z], T, T] =
+    new Append[Z, CaseSet.Empty[Z], T] {
+      override type Out = T
+      def apply(left: CaseSet.Empty[Z], right: T): Out = right
+    }
 }

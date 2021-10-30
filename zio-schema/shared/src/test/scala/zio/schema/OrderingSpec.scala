@@ -64,7 +64,7 @@ object OrderingSpec extends DefaultRunnableSpec {
       StructureTestCase("sequence", genAnyOrderedPairChunks),
       StructureTestCase("transform", genAnyOrderedPairTransform),
       StructureTestCase("record", genAnyOrderedPairRecord),
-      StructureTestCase("enum", genAnyOrderedPairEnum)
+      StructureTestCase("enumN", genAnyOrderedPairEnum)
     )
 
   def structureOrderingTest(t: StructureTestCase): ZSpec[TestConfig with Random with Sized, Nothing] =
