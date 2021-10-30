@@ -372,7 +372,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           equalTo(BooleanValue(true))
         )
       },
-      testM("enum within enum") {
+      testM("enumN within enumN") {
         val oneOf   = RichSum.AnotherSum(BooleanValue(false))
         val wrapper = RichSum.LongWrapper(150L)
         for {

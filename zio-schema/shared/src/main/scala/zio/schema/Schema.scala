@@ -241,6 +241,9 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   sealed trait Enum[A] extends Schema[A] {
     def structure: ListMap[String, Schema[_]]
   }
+  sealed case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) {
+    override def toString: String = s"Field($label,$schema)"
+  }
 
   sealed trait Record[R] extends Schema[R] { self =>
     def structure: Chunk[Field[_]]
@@ -1819,17 +1822,13 @@ sealed trait TupleSchemas {
 //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
 sealed trait RecordSchemas { self: Schema.type =>
 
-  sealed case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) {
-    override def toString: String = s"Field($label,$schema)"
-  }
-
-  sealed case class GenericRecord(fieldSet: FieldSet, annotations: Chunk[Any] = Chunk.empty) extends Record[ListMap[String, _]] { self =>
+  sealed case class GenericRecord(fieldSet: FieldSet) extends Record[ListMap[String, _]] { self =>
 
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = fieldSet.Accessors[ListMap[String, _], Lens, Prism, Traversal]
 
     override def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal] = fieldSet.makeAccessors(self, b)
 
-    override def structure: Chunk[Field[_]] = fieldSet.toChunk
+    override def structure: Chunk[Schema.Field[_]] = fieldSet.toChunk
 
     override def rawConstruct(values: Chunk[Any]): Either[String, ListMap[String, _]] =
       if (values.size == structure.size)
