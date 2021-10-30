@@ -93,10 +93,10 @@ object SchemaAssertions {
       case (Schema.Tuple(left1, right1), Schema.Tuple(left2, right2)) =>
         equalsSchema(left1, left2) && equalsSchema(right1, right2)
       case (Schema.Optional(codec1), Schema.Optional(codec2))   => equalsSchema(codec1, codec2)
-      case (Schema.Enum1(l, _), Schema.Enum1(r, _))                   => equalsCase(l, r) // TODO: Should equals compare annotations?
-      case (Schema.Enum2(l1, l2, _), Schema.Enum2(r1, r2, _))         => hasSameCases(Seq(l1, l2), Seq(r1, r2))
-      case (Schema.Enum3(l1, l2, l3, _), Schema.Enum3(r1, r2, r3, _)) => hasSameCases(Seq(l1, l2, l3), Seq(r1, r2, r3))
-      case (Schema.EnumN(ls, _), Schema.EnumN(rs, _))                 => hasSameCases(ls.toSeq, rs.toSeq)
+      case (Schema.Enum1(l, lA), Schema.Enum1(r, rA))                   => equalsCase(l, r) && lA.equals(rA)
+      case (Schema.Enum2(l1, l2, lA), Schema.Enum2(r1, r2, rA))         => hasSameCases(Seq(l1, l2), Seq(r1, r2)) && lA.equals(rA)
+      case (Schema.Enum3(l1, l2, l3, lA), Schema.Enum3(r1, r2, r3, rA)) => hasSameCases(Seq(l1, l2, l3), Seq(r1, r2, r3)) && lA.equals(rA)
+      case (Schema.EnumN(ls, lA), Schema.EnumN(rs, rA))                 => hasSameCases(ls.toSeq, rs.toSeq) && lA.equals(rA)
       case (l @ Schema.Lazy(_), r @ Schema.Lazy(_)) =>
         equalsSchema(l.schema.asInstanceOf[Schema[Any]], r.schema.asInstanceOf[Schema[Any]])
       case (lazySchema @ Schema.Lazy(_), eagerSchema) =>
