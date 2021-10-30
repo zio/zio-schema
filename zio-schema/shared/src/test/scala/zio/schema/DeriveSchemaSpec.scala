@@ -94,12 +94,13 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         val derived: Schema[Status] = Schema[Status]
         val expected: Schema[Status] =
           Schema.Enum3(
-            Schema.Case("Failed", Schema[Failed], (s: Status) => s.asInstanceOf[Failed]),
-            Schema.Case("Ok", Schema[Ok], (s: Status) => s.asInstanceOf[Ok]),
+            Schema.Case("Failed", Schema[Failed], (s: Status) => s.asInstanceOf[Failed], Chunk.empty),
+            Schema.Case("Ok", Schema[Ok], (s: Status) => s.asInstanceOf[Ok], Chunk.empty),
             Schema.Case(
               "Pending",
               Schema[Pending.type],
-              (s: Status) => s.asInstanceOf[Pending.type]
+              (s: Status) => s.asInstanceOf[Pending.type],
+              Chunk.empty
             ),
             Chunk.empty // TODO: Should include test for annotations probably
           )

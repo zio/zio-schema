@@ -267,8 +267,8 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
       (Prism[Option[A], Some[A]], Prism[Option[A], None.type])
 
     val toEnum: Enum2[Some[A], None.type, Option[A]] = Enum2(
-      Case[Some[A], Option[A]]("Some", someCodec, _.asInstanceOf[Some[A]]),
-      Case[None.type, Option[A]]("None", singleton(None), _.asInstanceOf[None.type]),
+      Case[Some[A], Option[A]]("Some", someCodec, _.asInstanceOf[Some[A]], Chunk.empty),
+      Case[None.type, Option[A]]("None", singleton(None), _.asInstanceOf[None.type], Chunk.empty),
       Chunk.empty
     )
 
@@ -305,8 +305,8 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     val leftSchema: Schema[Left[A, Nothing]]   = left.transform(a => Left(a), _.value)
 
     val toEnum: Enum2[Right[Nothing, B], Left[A, Nothing], Either[A, B]] = Enum2(
-      Case("Right", rightSchema, _.asInstanceOf[Right[Nothing, B]]),
-      Case("Left", leftSchema, _.asInstanceOf[Left[A, Nothing]]),
+      Case("Right", rightSchema, _.asInstanceOf[Right[Nothing, B]], Chunk.empty),
+      Case("Left", leftSchema, _.asInstanceOf[Left[A, Nothing]], Chunk.empty),
       Chunk.empty
     )
 
@@ -337,7 +337,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 //scalafmt: { maxColumn = 400 }
 sealed trait EnumSchemas { self: Schema.type =>
 
-  sealed case class Case[A, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A) {
+  sealed case class Case[A, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A, val annotations: Chunk[Any]) {
 
     def deconstruct(z: Z): Option[A] =
       try {

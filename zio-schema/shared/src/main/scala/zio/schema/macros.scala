@@ -1323,7 +1323,8 @@ object DeriveSchema {
         id = subtype.typeName.short,
         codec = subtype.typeclass.asInstanceOf[Schema[S]],
         unsafeDeconstruct =
-          (a: A) => if (subtype.cast.isDefinedAt(a)) subtype.cast(a) else throw new IllegalArgumentException
+          (a: A) => if (subtype.cast.isDefinedAt(a)) subtype.cast(a) else throw new IllegalArgumentException,
+        annotations
       )
     } match {
       case Seq(c)          => Schema.Enum1(c, annotations)

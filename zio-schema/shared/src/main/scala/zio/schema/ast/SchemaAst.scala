@@ -280,7 +280,8 @@ object SchemaAst {
                 .Case[Any, Any](
                   label,
                   materialize(ast, refs + (path -> n.copy(optional = false, dimensions = 0))).asInstanceOf[Schema[Any]],
-                  identity[Any]
+                  identity[Any],
+                  Chunk.empty
                 )
               CaseSet.Cons(_case, acc)
           }
