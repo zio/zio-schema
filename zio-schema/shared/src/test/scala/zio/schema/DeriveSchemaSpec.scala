@@ -1,6 +1,7 @@
 package zio.schema
 
 import scala.annotation.Annotation
+
 import zio.Chunk
 import zio.schema.DeriveSchema._
 import zio.schema.SchemaAssertions.hasSameSchema

@@ -1,8 +1,8 @@
 package zio.schema
 
-import zio.Chunk
-
 import scala.collection.immutable.ListMap
+
+import zio.Chunk
 import zio.schema.Schema._
 
 sealed trait CaseSet {
