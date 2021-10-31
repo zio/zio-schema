@@ -337,14 +337,14 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 //scalafmt: { maxColumn = 400 }
 sealed trait EnumSchemas { self: Schema.type =>
 
-  sealed case class Case[A, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A, val annotations: Chunk[Any]) {
+  sealed case class Case[A, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A, annotations: Chunk[Any]) {
 
     def deconstruct(z: Z): Option[A] =
       try {
         Some(unsafeDeconstruct(z))
       } catch { case _: Throwable => None }
 
-    override def toString: String = s"Case($id,$codec)"
+    override def toString: String = s"Case($id,$codec,$annotations)"
   }
 
   sealed case class Enum1[A <: Z, Z](case1: Case[A, Z], override val annotations: Chunk[Any]) extends Enum[Z] { self =>

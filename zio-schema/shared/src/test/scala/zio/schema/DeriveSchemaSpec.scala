@@ -1,7 +1,6 @@
 package zio.schema
 
 import scala.annotation.Annotation
-
 import zio.Chunk
 import zio.schema.DeriveSchema._
 import zio.schema.SchemaAssertions.hasSameSchema
@@ -12,9 +11,12 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
 
   final case class annotation1(value: String) extends Annotation
   final case class annotation2(value: String) extends Annotation
+  final case class annotation3(value: String) extends Annotation
 
+  @annotation1("bar")
   sealed case class UserId(id: String)
 
+  @annotation1("foo")
   sealed case class User(name: String, @annotation1("foo") @annotation2("bar") id: UserId)
 
   sealed trait Status
@@ -36,9 +38,23 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   case class DependsOnB(b: DependsOnA)
 
   sealed trait Tree[+A]
+
   case class Branch[A](left: Tree[A], right: Tree[A]) extends Tree[A]
   case class Leaf[A](value: A)                        extends Tree[A]
   case object Root                                    extends Tree[Nothing]
+
+  @annotation1("foo")
+  sealed trait AnnotatedSumType
+
+  @annotation2("bar")
+  case class AnnotatedSumType1(value: Int) extends AnnotatedSumType
+
+  @annotation3("baz")
+  case class AnnotatedSumType2(value: Int) extends AnnotatedSumType
+
+  object RecursiveAnnotatedSumTypeEnum {
+    implicit lazy val schema: Schema[AnnotatedSumType] = DeriveSchema.gen
+  }
 
   sealed trait RecursiveEnum
   case class RecursiveEnum1(label: String, rs: List[RecursiveEnum]) extends RecursiveEnum
@@ -79,14 +95,44 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
               Schema.CaseClass1(
                 annotations = Chunk.empty,
                 field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
-                UserId.apply,
-                (uid: UserId) => uid.id
+                construct = UserId.apply,
+                extractField = (uid: UserId) => uid.id
               ),
               Chunk(annotation1("foo"), annotation2("bar"))
             ),
             User.apply,
             (u: User) => u.name,
             (u: User) => u.id
+          )
+        assert(derived)(hasSameSchema(expected))
+      },
+      test("correctly derives schema for annotated sum type") {
+        val derived: Schema[AnnotatedSumType] = Schema[AnnotatedSumType]
+        lazy val expected: Schema[AnnotatedSumType] =
+          Schema.Enum2[AnnotatedSumType1, AnnotatedSumType2, AnnotatedSumType](
+            Schema.Case[AnnotatedSumType1, AnnotatedSumType](
+              id = "AnnotatedSumType1",
+              codec = Schema.CaseClass1(
+                annotations = Chunk.empty,
+                field = Schema.Field[Int]("value", Schema.Primitive(StandardType.IntType), Chunk.empty),
+                construct = AnnotatedSumType1.apply,
+                extractField = (a: AnnotatedSumType1) => a.value
+              ),
+              unsafeDeconstruct = _.asInstanceOf[AnnotatedSumType1],
+              annotations = Chunk(annotation2("bar"))
+            ),
+            Schema.Case[AnnotatedSumType2, AnnotatedSumType](
+              id = "AnnotatedSumType2",
+              codec = Schema.CaseClass1(
+                annotations = Chunk.empty,
+                field = Schema.Field[Int]("value", Schema.Primitive(StandardType.IntType), Chunk.empty),
+                construct = AnnotatedSumType2.apply,
+                extractField = (a: AnnotatedSumType2) => a.value
+              ),
+              unsafeDeconstruct = _.asInstanceOf[AnnotatedSumType2],
+              annotations = Chunk(annotation3("baz"))
+            ),
+            Chunk(annotation1("foo"))
           )
         assert(derived)(hasSameSchema(expected))
       },
