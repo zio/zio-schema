@@ -280,7 +280,8 @@ object SchemaAst {
                 .Case[Any, Any](
                   label,
                   materialize(ast, refs + (path -> n.copy(optional = false, dimensions = 0))).asInstanceOf[Schema[Any]],
-                  identity[Any]
+                  identity[Any],
+                  Chunk.empty
                 )
               CaseSet.Cons(_case, acc)
           }
@@ -302,7 +303,8 @@ object SchemaAst {
       caseOf[Value, SchemaAst]("Value")(_.asInstanceOf[Value]) ++
         caseOf[Sum, SchemaAst]("Sum")(_.asInstanceOf[Sum]) ++
         caseOf[Product, SchemaAst]("Product")(_.asInstanceOf[Product]) ++
-        caseOf[Ref, SchemaAst]("Ref")(_.asInstanceOf[Ref])
+        caseOf[Ref, SchemaAst]("Ref")(_.asInstanceOf[Ref]),
+      Chunk.empty
     )
 
 }

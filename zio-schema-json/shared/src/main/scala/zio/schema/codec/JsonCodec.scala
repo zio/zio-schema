@@ -112,10 +112,10 @@ object JsonCodec extends Codec {
       case l @ Schema.Lazy(_)              => schemaEncoder(l.schema)
       case Schema.Meta(_)                  => astEncoder
       case ProductEncoder(encoder)         => encoder
-      case Schema.Enum1(c)                 => enumEncoder(c)
-      case Schema.Enum2(c1, c2)            => enumEncoder(c1, c2)
-      case Schema.Enum3(c1, c2, c3)        => enumEncoder(c1, c2, c3)
-      case Schema.EnumN(cs)                => enumEncoder(cs.toSeq: _*)
+      case Schema.Enum1(c, _)              => enumEncoder(c)
+      case Schema.Enum2(c1, c2, _)         => enumEncoder(c1, c2)
+      case Schema.Enum3(c1, c2, c3, _)     => enumEncoder(c1, c2, c3)
+      case Schema.EnumN(cs, _)             => enumEncoder(cs.toSeq: _*)
     }
 
     private val astEncoder: JsonEncoder[Schema[_]] =
@@ -199,10 +199,10 @@ object JsonCodec extends Codec {
       case l @ Schema.Lazy(_)               => schemaDecoder(l.schema)
       case Schema.Meta(_)                   => astDecoder
       case ProductDecoder(decoder)          => decoder
-      case Schema.Enum1(c)                  => enumDecoder(c)
-      case Schema.Enum2(c1, c2)             => enumDecoder(c1, c2)
-      case Schema.Enum3(c1, c2, c3)         => enumDecoder(c1, c2, c3)
-      case Schema.EnumN(cs)                 => enumDecoder(cs.toSeq: _*)
+      case Schema.Enum1(c, _)               => enumDecoder(c)
+      case Schema.Enum2(c1, c2, _)          => enumDecoder(c1, c2)
+      case Schema.Enum3(c1, c2, c3, _)      => enumDecoder(c1, c2, c3)
+      case Schema.EnumN(cs, _)              => enumDecoder(cs.toSeq: _*)
     }
 
     private def astDecoder: JsonDecoder[Schema[_]] =

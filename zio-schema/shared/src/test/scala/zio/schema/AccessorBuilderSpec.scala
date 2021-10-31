@@ -53,8 +53,8 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
         assert(
           accessor match {
             case (
-                Prism(e1, Case("Some", c1, _)),
-                Prism(e2, Case("None", _, _))
+                Prism(e1, Case("Some", c1, _, _)),
+                Prism(e2, Case("None", _, _, _))
                 ) =>
               e1 == e2 && e2 == enumSchema && c1 == optionalSchema.someCodec
             case _ => false
@@ -90,8 +90,8 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
           assert(
             accessor match {
               case (
-                  Prism(e1, Case("Right", c1, _)),
-                  Prism(e2, Case("Left", c2, _))
+                  Prism(e1, Case("Right", c1, _, _)),
+                  Prism(e2, Case("Left", c2, _, _))
                   ) =>
                 e1 == e2 && e2 == eitherSchema.toEnum &&
                   c1 == eitherSchema.rightSchema && c2 == eitherSchema.leftSchema
