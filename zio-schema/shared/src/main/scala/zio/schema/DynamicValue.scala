@@ -953,11 +953,9 @@ object DynamicValue {
         DynamicValue.Sequence(toChunk(value).map(fromSchemaAndValue(schema, _)))
 
       case schema: Schema.EitherSchema[l, r] =>
-        type LeftType  = Left[l, Nothing]
-        type RightType = Right[Nothing, r]
         value match {
-          case left: LeftType   => DynamicValue.LeftValue(fromSchemaAndValue(schema.left, left.value))
-          case right: RightType => DynamicValue.RightValue(fromSchemaAndValue(schema.right, right.value))
+          case Left(value: l)  => DynamicValue.LeftValue(fromSchemaAndValue(schema.left, value))
+          case Right(value: r) => DynamicValue.RightValue(fromSchemaAndValue(schema.right, value))
         }
 
       case schema: Schema.Tuple[a, b] =>
