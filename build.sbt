@@ -145,10 +145,10 @@ lazy val zioSchemaAvro = crossProject(JSPlatform, JVMPlatform)
     )
   )
 
-lazy val zioSchemaAvroJS = zioSchemaProtobuf.js
+lazy val zioSchemaAvroJS = zioSchemaAvro.js
   .settings(scalaJSUseMainModuleInitializer := true)
 
-lazy val zioSchemaAvroJVM = zioSchemaProtobuf.jvm
+lazy val zioSchemaAvroJVM = zioSchemaAvro.jvm
   .settings(Test / fork := true)
 
 lazy val zioSchemaOptics = crossProject(JSPlatform, JVMPlatform)
