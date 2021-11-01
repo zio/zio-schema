@@ -953,8 +953,8 @@ object DynamicValue {
         DynamicValue.Sequence(toChunk(value).map(fromSchemaAndValue(schema, _)))
 
       case Schema.MapSchema(ks: Schema[k], vs: Schema[v]) =>
-        val entries = value.asInstanceOf[Map[k,v]].map {
-          case (key,value) => (fromSchemaAndValue(ks,key), fromSchemaAndValue(vs,value))
+        val entries = value.asInstanceOf[Map[k, v]].map {
+          case (key, value) => (fromSchemaAndValue(ks, key), fromSchemaAndValue(vs, value))
         }
         DynamicValue.Dictionary(Chunk.fromIterable(entries))
 
@@ -1845,7 +1845,7 @@ object DynamicValue {
 
   final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue
 
-  final case class Dictionary[K, V](entries: Chunk[(DynamicValue,DynamicValue)]) extends DynamicValue
+  final case class Dictionary[K, V](entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue
 
   sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue
 
