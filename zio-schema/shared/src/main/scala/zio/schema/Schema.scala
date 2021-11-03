@@ -31,6 +31,8 @@ sealed trait Schema[A] {
 
   type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]]
 
+  def annotations: Chunk[Any]
+
   /**
    * A symbolic operator for [[optional]].
    */
@@ -192,9 +194,9 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   implicit val nil: Schema[Nil.type] = Schema[Unit].transform(_ => Nil, _ => ())
 
   implicit val none: Schema[None.type] = Schema[Unit].transform(_ => None, _ => ())
-
+  // TODO: I don't think it seems right to copy the annotations from `schemaA`/`element` here.
   implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
-    Schema.Sequence[Chunk[A], A](schemaA, identity, identity)
+    Schema.Sequence[Chunk[A], A](schemaA, identity, identity, Chunk.empty)
 
   implicit def either[A, B](implicit left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
     EitherSchema(left, right)
@@ -203,7 +205,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     schemaA.transform(Left(_), _.value)
 
   implicit def list[A](implicit schemaA: Schema[A]): Schema[List[A]] =
-    Schema.Sequence[List[A], A](schemaA, _.toList, Chunk.fromIterable(_))
+    Schema.Sequence[List[A], A](schemaA, _.toList, Chunk.fromIterable(_), Chunk.empty)
 
   implicit def option[A](implicit element: Schema[A]): Schema[Option[A]] =
     Optional(element)
@@ -234,12 +236,14 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   final case class Sequence[Col, Elem](
     schemaA: Schema[Elem],
     fromChunk: Chunk[Elem] => Col,
-    toChunk: Col => Chunk[Elem]
+    toChunk: Col => Chunk[Elem],
+    override val annotations: Chunk[Any]
   ) extends Schema[Col] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Traversal[Col, Elem]
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, schemaA)
     override def toString: String                                          = s"Sequence($schemaA)"
+
   }
 
   final case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
@@ -251,12 +255,16 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
     override def serializable: Schema[Schema[_]] = Meta(SchemaAst.fromSchema(codec))
     override def toString: String                = s"Transform($codec)"
+
+    override def annotations: Chunk[Any] = ???
   }
 
   final case class Primitive[A](standardType: StandardType[A]) extends Schema[A] {
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
+
+    override def annotations: Chunk[Any] = ???
   }
 
   final case class Optional[A](codec: Schema[A]) extends Schema[Option[A]] { self =>
@@ -274,12 +282,16 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Option[A], Some[A]], b.Prism[Option[A], None.type]) =
       b.makePrism(toEnum, toEnum.case1) -> b.makePrism(toEnum, toEnum.case2)
+
+    override def annotations: Chunk[Any] = ???
   }
 
   final case class Fail[A](message: String) extends Schema[A] {
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
+
+    override def annotations: Chunk[Any] = ???
   }
 
   final case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)] { self =>
@@ -295,6 +307,8 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[(A, B), A], b.Lens[(A, B), B]) =
       b.makeLens(toRecord, toRecord.field1) -> b.makeLens(toRecord, toRecord.field2)
+
+    override def annotations: Chunk[Any] = ???
   }
 
   final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]] { self =>
@@ -314,6 +328,8 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
       b: AccessorBuilder
     ): (b.Prism[Either[A, B], Right[Nothing, B]], b.Prism[Either[A, B], Left[A, Nothing]]) =
       b.makePrism(toEnum, toEnum.case1) -> b.makePrism(toEnum, toEnum.case2)
+
+    override def annotations: Chunk[Any] = ???
   }
 
   final case class Lazy[A](private val schema0: () => Schema[A]) extends Schema[A] {
@@ -325,12 +341,16 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
       schema.makeAccessors(b)
 
     override def toString: String = "$Lazy$"
+
+    override def annotations: Chunk[Any] = ???
   }
 
   final case class Meta(ast: SchemaAst) extends Schema[Schema[_]] {
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
+
+    override def annotations: Chunk[Any] = ???
   }
 }
 

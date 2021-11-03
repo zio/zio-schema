@@ -84,15 +84,15 @@ object ProtobufCodec extends Codec {
      */
     @scala.annotation.tailrec
     def canBePacked(schema: Schema[_]): Boolean = schema match {
-      case Schema.Sequence(element, _, _) => canBePacked(element)
-      case Schema.Transform(codec, _, _)  => canBePacked(codec)
-      case Schema.Primitive(standardType) => canBePacked(standardType)
-      case _: Schema.Tuple[_, _]          => false
-      case _: Schema.Optional[_]          => false
-      case _: Schema.Fail[_]              => false
-      case _: Schema.EitherSchema[_, _]   => false
-      case lzy @ Schema.Lazy(_)           => canBePacked(lzy.schema)
-      case _                              => false
+      case Schema.Sequence(element, _, _, _) => canBePacked(element)
+      case Schema.Transform(codec, _, _)     => canBePacked(codec)
+      case Schema.Primitive(standardType)    => canBePacked(standardType)
+      case _: Schema.Tuple[_, _]             => false
+      case _: Schema.Optional[_]             => false
+      case _: Schema.Fail[_]                 => false
+      case _: Schema.EitherSchema[_, _]      => false
+      case lzy @ Schema.Lazy(_)              => canBePacked(lzy.schema)
+      case _                                 => false
     }
 
     private def canBePacked(standardType: StandardType[_]): Boolean = standardType match {
@@ -135,7 +135,7 @@ object ProtobufCodec extends Codec {
     def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
       (schema, value) match {
         case (Schema.GenericRecord(structure), v: Map[String, _]) => encodeRecord(fieldNumber, structure.toChunk, v)
-        case (Schema.Sequence(element, _, g), v)                  => encodeSequence(fieldNumber, element, g(v))
+        case (Schema.Sequence(element, _, g, _), v)               => encodeSequence(fieldNumber, element, g(v))
         case (Schema.Transform(codec, _, g), _)                   => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
         case (Schema.Primitive(standardType), v)                  => encodePrimitive(fieldNumber, standardType, v)
         case (Schema.Tuple(left, right), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)
@@ -425,10 +425,10 @@ object ProtobufCodec extends Codec {
     private[codec] def decoder[A](schema: Schema[A]): Decoder[A] =
       schema match {
         case Schema.GenericRecord(structure) => recordDecoder(structure.toChunk)
-        case Schema.Sequence(elementSchema @ Schema.Sequence(_, _, _), fromChunk, _) =>
+        case Schema.Sequence(elementSchema @ Schema.Sequence(_, _, _, _), fromChunk, _, _) =>
           if (canBePacked(elementSchema)) packedSequenceDecoder(elementSchema).map(fromChunk)
           else nonPackedSequenceDecoder(elementSchema).map(fromChunk)
-        case Schema.Sequence(elementSchema, fromChunk, _) =>
+        case Schema.Sequence(elementSchema, fromChunk, _, _) =>
           Decoder[A](
             { bytes =>
               {

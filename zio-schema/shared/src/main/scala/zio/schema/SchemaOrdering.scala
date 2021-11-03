@@ -35,7 +35,7 @@ object SchemaOrdering {
       else
         compareBySchema(rSchema)(l.right, r.right)
     }
-    case (Schema.Sequence(schema, _, _), Sequence(lVal), Sequence(rVal)) =>
+    case (Schema.Sequence(schema, _, _, _), Sequence(lVal), Sequence(rVal)) =>
       compareSequences(lVal, rVal, compareBySchema(schema))
     case (Schema.Fail(_), Error(lVal), Error(rVal))                                  => lVal.compareTo(rVal)
     case (Schema.Transform(_, _, _), Transform(Error(lval)), Transform(Error(rVal))) => lval.compareTo(rVal)

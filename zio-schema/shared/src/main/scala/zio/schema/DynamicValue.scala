@@ -46,7 +46,7 @@ trait DynamicValue { self =>
           case (Right(a), Right(b)) => Right(a -> b)
         }
 
-      case (DynamicValue.Sequence(values), Schema.Sequence(schema, f, _)) =>
+      case (DynamicValue.Sequence(values), Schema.Sequence(schema, f, _, _)) =>
         values
           .foldLeft[Either[String, Chunk[_]]](Right[String, Chunk[A]](Chunk.empty)) {
             case (err @ Left(_), _) => err
@@ -949,7 +949,7 @@ object DynamicValue {
 
       case Schema.Fail(message) => DynamicValue.Error(message)
 
-      case Schema.Sequence(schema, _, toChunk) =>
+      case Schema.Sequence(schema, _, toChunk, _) =>
         DynamicValue.Sequence(toChunk(value).map(fromSchemaAndValue(schema, _)))
 
       case Schema.EitherSchema(left, right) =>

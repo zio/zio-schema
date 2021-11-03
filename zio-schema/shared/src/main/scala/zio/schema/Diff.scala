@@ -99,7 +99,7 @@ object Differ {
     case Schema.Primitive(StandardType.ZonedDateTime(_))  => zonedDateTime
     case Schema.Tuple(leftSchema, rightSchema)            => fromSchema(leftSchema) <*> fromSchema(rightSchema)
     case Schema.Optional(schema)                          => fromSchema(schema).optional
-    case Schema.Sequence(schema, _, f)                    => fromSchema(schema).foreach(f)
+    case Schema.Sequence(schema, _, f, _)                 => fromSchema(schema).foreach(f)
     case Schema.EitherSchema(leftSchema, rightSchema)     => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                               => fromSchema(s.schema)
     case Schema.Transform(schema, _, f)                   => fromSchema(schema).transformOrFail(f)
@@ -474,7 +474,7 @@ sealed trait Diff { self =>
         }
       }
 
-      case (Schema.Sequence(schema, fromChunk, toChunk), Diff.Sequence(diffs)) =>
+      case (Schema.Sequence(schema, fromChunk, toChunk, _), Diff.Sequence(diffs)) =>
         diffs
           .zipAll(toChunk(a))
           .flatMap {

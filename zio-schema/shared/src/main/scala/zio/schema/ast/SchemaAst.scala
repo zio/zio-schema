@@ -186,7 +186,7 @@ object SchemaAst {
         .addLabelledSubtree("left", left)
         .addLabelledSubtree("right", right)
         .buildProduct()
-    case Schema.Sequence(schema, _, _) =>
+    case Schema.Sequence(schema, _, _, _) =>
       subtree(NodePath.root, Chunk.empty, schema, dimensions = 1)
     case Schema.Transform(schema, _, _) => subtree(NodePath.root, Chunk.empty, schema)
     case lzy @ Schema.Lazy(_)           => fromSchema(lzy.schema)
@@ -233,7 +233,7 @@ object SchemaAst {
               .addLabelledSubtree("left", left)
               .addLabelledSubtree("right", right)
               .buildProduct()
-          case Schema.Sequence(schema, _, _) =>
+          case Schema.Sequence(schema, _, _, _) =>
             subtree(path, lineage, schema, optional, dimensions + 1)
           case Schema.Transform(schema, _, _) => subtree(path, lineage, schema, optional, dimensions)
           case lzy @ Schema.Lazy(_)           => subtree(path, lineage, lzy.schema, optional, dimensions)
