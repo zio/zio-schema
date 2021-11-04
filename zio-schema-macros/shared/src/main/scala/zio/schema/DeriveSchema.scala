@@ -1,10 +1,11 @@
 package zio.schema
 
-import magnolia._
-import zio.Chunk
-
 import scala.collection.immutable.ListMap
 import scala.language.experimental.macros
+
+import magnolia._
+
+import zio.Chunk
 
 object DeriveSchema {
 

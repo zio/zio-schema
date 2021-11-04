@@ -11,6 +11,8 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
 
   final case class annotation1(value: String) extends Annotation
   final case class annotation2(value: String) extends Annotation
+  final class annotation3                     extends Annotation
+  final class annotation4(val value: Int)     extends Annotation
 
   val fo = new annotation1("foo")
 
@@ -21,7 +23,9 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
   }
 
   sealed case class UserId(id: String)
-  sealed case class User(name: String, @annotation1("foo") @annotation2("bar") id: UserId)
+
+  @annotation3
+  sealed case class User(name: String, @annotation1("foo") @annotation2("bar") @annotation3 @annotation4(0) id: UserId)
 
   object User {
     implicit lazy val schema: Schema.CaseClass2[String, UserId, User] = SchemaDerivation.gen[User]
@@ -35,7 +39,8 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
         extends Status
     case object Pending extends Status
 
-    implicit lazy val schema = SchemaDerivation.gen[Status]
+    implicit lazy val schema: Schema.Enum3[Failed, Ok, zio.schema.SchemaDerivationSpec.Status.Pending.type, Status] =
+      SchemaDerivation.gen[Status]
   }
 
   sealed trait OneOf
@@ -45,7 +50,7 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
     case class IntValue(value: Int)         extends OneOf
     case class BooleanValue(value: Boolean) extends OneOf
 
-    implicit lazy val schema = SchemaDerivation.gen[OneOf]
+    implicit lazy val schema: Schema.Enum3[BooleanValue, IntValue, StringValue, OneOf] = SchemaDerivation.gen[OneOf]
   }
 
   case object Singleton
@@ -130,7 +135,7 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
   //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
   object TupleArities {
-    implicit lazy val schema = SchemaDerivation.gen[TupleArities]
+    implicit lazy val schema: Schema[TupleArities] = SchemaDerivation.gen[TupleArities]
   }
 
   case class DependsOnA(a: Option[DependsOnB])
@@ -154,7 +159,7 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
 
   sealed trait RBTree[+A, +B]
 
-  object RedBlackTree {
+  object RBTree {
     case class Branch[A, B](left: RBTree[A, B], right: RBTree[A, B]) extends RBTree[A, B]
     case class RLeaf[A](value: A)                                    extends RBTree[A, Nothing]
     case class BLeaf[B](value: B)                                    extends RBTree[Nothing, B]
@@ -195,7 +200,7 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
     case object C22 extends Enum23
     case object C23 extends Enum23
 
-    implicit lazy val schema = SchemaDerivation.gen[Enum23]
+    implicit lazy val schema: Schema.EnumN[Enum23, CaseSet.Aux[Enum23]] = SchemaDerivation.gen[Enum23]
 
   }
 
@@ -238,9 +243,9 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
       },
       test("correctly captures annotations") {
         val derived: Schema[User] = Schema[User]
-        val expected: Schema[User] =
+        val expected: Schema[User] = {
           Schema.CaseClass2(
-            annotations = Chunk.empty,
+            annotations = Chunk(new annotation3),
             field1 = Schema.Field("name", Schema.Primitive(StandardType.StringType)),
             field2 = Schema.Field(
               "id",
@@ -250,12 +255,13 @@ object SchemaDerivationSpec extends DefaultRunnableSpec {
                 UserId.apply,
                 (uid: UserId) => uid.id
               ),
-              Chunk(annotation1("foo"), annotation2("bar"))
+              Chunk(annotation1("foo"), annotation2("bar"), new annotation3, new annotation4(0))
             ),
             User.apply,
             (u: User) => u.name,
             (u: User) => u.id
           )
+        }
         assert(derived)(hasSameSchema(expected))
       },
       test("correctly derives Enum") {

@@ -1,6 +1,8 @@
 package zio.schema
 
+import scala.annotation.nowarn
 import scala.reflect.macros.whitebox
+
 import zio.Chunk
 
 object SchemaDerivation {
@@ -184,16 +186,44 @@ object SchemaDerivation {
           case p: TermSymbol if p.isCaseAccessor && p.isMethod => p.name
         }
 
+        @nowarn
+        val typeAnnotations: List[Tree] =
+          tpe.typeSymbol.annotations.collect {
+            case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
+              annotation.tree match {
+                case q"new $annConstructor(..$annotationArgs)" =>
+                  q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
+                case q"new $annConstructor()" =>
+                  q"new ${annConstructor.tpe.typeSymbol}()"
+                case tree =>
+                  c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
+                  EmptyTree
+              }
+            case annotation =>
+              c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
+              EmptyTree
+          }.filter(_ != EmptyTree)
+
+        @nowarn
         val fieldAnnotations: List[List[Tree]] = //List.fill(arity)(Nil)
           tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
-            symbols.map(_.annotations.collect {
-              case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
-                annotation.tree match {
-                  case q"new $annConstructor(..$annotationArgs)" =>
-                    println(s"Unlifted $annConstructor, $annotationArgs")
-                    q"${annConstructor.tpe.typeSymbol.companion}.apply(..$annotationArgs)"
-                }
-            })
+            symbols
+              .map(_.annotations.collect {
+                case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
+                  annotation.tree match {
+                    case q"new $annConstructor(..$annotationArgs)" =>
+                      q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
+                    case q"new $annConstructor()" =>
+                      q"new ${annConstructor.tpe.typeSymbol}()"
+                    case tree =>
+                      c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
+                      EmptyTree
+                  }
+                case annotation =>
+                  c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
+                  EmptyTree
+              })
+              .filter(_ != EmptyTree)
           }.getOrElse(Nil)
 
         if (arity > 22) {
@@ -259,7 +289,7 @@ object SchemaDerivation {
                 tpe,
                 concreteType(tpe, termSymbol.typeSignature),
                 currentFrame +: stack
-              ) //resolveTermSchema(tpe, termSymbol, selfRefName, selfRef, stack)
+              )
               val fieldArg   = if (fieldTypes.size > 1) TermName(s"field${idx + 1}") else TermName("field")
               val fieldLabel = termSymbol.name.toString.trim
 
@@ -288,7 +318,11 @@ object SchemaDerivation {
               acc :+ q"$argName = (t: $tpe) => t.${TermName(fieldLabel)}"
           }
 
-          val applyArgs = Iterable(q"annotations = zio.Chunk.empty") ++ fieldDefs ++ Iterable(constructExpr) ++ extractors
+          val applyArgs =
+            if (typeAnnotations.isEmpty)
+              Iterable(q"annotations = zio.Chunk.empty") ++ fieldDefs ++ Iterable(constructExpr) ++ extractors
+            else
+              Iterable(q"annotations = zio.Chunk.apply(..$typeAnnotations)") ++ fieldDefs ++ Iterable(constructExpr) ++ extractors
 
           fieldTypes.size match {
             case 1 =>

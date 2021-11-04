@@ -88,7 +88,8 @@ object SchemaAssertions {
               equalsSchema(left, right)
           }
       case (left: Schema.Record[_], right: Schema.Record[_]) =>
-        hasSameStructure(left.asInstanceOf[Schema.Record[A]], right.asInstanceOf[Schema.Record[A]])
+        hasSameStructure(left.asInstanceOf[Schema.Record[A]], right.asInstanceOf[Schema.Record[A]]) &&
+          hasSameAnnotations(left.annotations.toList, right.annotations.toList)
       case (Schema.Sequence(element1, _, _), Schema.Sequence(element2, _, _)) => equalsSchema(element1, element2)
       case (Schema.Primitive(standardType1), Schema.Primitive(standardType2)) =>
         standardType1 == standardType2
@@ -114,10 +115,22 @@ object SchemaAssertions {
   private def hasSameStructure[A](left: Schema.Record[A], right: Schema.Record[A]): Boolean =
     left.structure.zip(right.structure).forall {
       case (Schema.Field(lLabel, lSchema, lAnnotations), Schema.Field(rLabel, rSchema, rAnnotations)) =>
-        lLabel == rLabel && lAnnotations.toSet == rAnnotations.toSet && equalsSchema(lSchema, rSchema)
+        lLabel == rLabel && hasSameAnnotations(lAnnotations.toList, rAnnotations.toList) && equalsSchema(
+          lSchema,
+          rSchema
+        )
     }
 
   private def hasSameFields(left: Chunk[Schema.Field[_]], right: Chunk[Schema.Field[_]]): Boolean =
     left.map(_.label) == right.map(_.label)
+
+  private def hasSameAnnotations(left: List[Any], right: List[Any]): Boolean = (left, right) match {
+    case (Nil, Nil) => true
+    case (lhead :: ltail, rhead :: rtail) if lhead.isInstanceOf[Product] && rhead.isInstanceOf[Product] =>
+      (lhead == rhead) && hasSameAnnotations(ltail, rtail)
+    case (lhead :: ltail, rhead :: rtail) =>
+      (lhead.getClass.getCanonicalName == rhead.getClass.getCanonicalName) && hasSameAnnotations(ltail, rtail)
+    case _ => false
+  }
 
 }
