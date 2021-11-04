@@ -42,9 +42,9 @@ object SchemaAssertions {
       true
     case (Schema.Primitive(tpe1, _), Schema.Primitive(tpe2, _))     => tpe1 == tpe2
     case (Schema.Optional(expected, _), Schema.Optional(actual, _)) => equalsAst(expected, actual, depth)
-    case (Schema.Tuple(expectedLeft, expectedRight), Schema.Tuple(actualLeft, actualRight)) =>
+    case (Schema.Tuple(expectedLeft, expectedRight, _), Schema.Tuple(actualLeft, actualRight, _)) =>
       equalsAst(expectedLeft, actualLeft, depth) && equalsAst(expectedRight, actualRight, depth)
-    case (Schema.Tuple(expectedLeft, expectedRight), Schema.GenericRecord(structure)) =>
+    case (Schema.Tuple(expectedLeft, expectedRight, _), Schema.GenericRecord(structure)) =>
       structure.toChunk.size == 2 &&
         structure.toChunk.find(_.label == "left").exists(f => equalsAst(expectedLeft, f.schema, depth)) &&
         structure.toChunk.find(_.label == "right").exists(f => equalsAst(expectedRight, f.schema, depth))
@@ -96,7 +96,7 @@ object SchemaAssertions {
       case (Schema.Sequence(element1, _, _, _), Schema.Sequence(element2, _, _, _)) => equalsSchema(element1, element2)
       case (Schema.Primitive(standardType1, a1), Schema.Primitive(standardType2, a2)) =>
         standardType1 == standardType2 && equalsAnnotations(a1, a2)
-      case (Schema.Tuple(left1, right1), Schema.Tuple(left2, right2)) =>
+      case (Schema.Tuple(left1, right1, _), Schema.Tuple(left2, right2, _)) =>
         equalsSchema(left1, left2) && equalsSchema(right1, right2)
       case (Schema.Optional(codec1, a1), Schema.Optional(codec2, a2)) =>
         equalsSchema(codec1, codec2) && equalsAnnotations(a1, a2)

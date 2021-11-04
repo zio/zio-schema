@@ -181,7 +181,7 @@ object SchemaAst {
         .addLabelledSubtree("left", left)
         .addLabelledSubtree("right", right)
         .buildSum()
-    case Schema.Tuple(left, right) =>
+    case Schema.Tuple(left, right, _) =>
       NodeBuilder(NodePath.root, Chunk.empty)
         .addLabelledSubtree("left", left)
         .addLabelledSubtree("right", right)
@@ -228,7 +228,7 @@ object SchemaAst {
               .addLabelledSubtree("left", left)
               .addLabelledSubtree("right", right)
               .buildSum()
-          case Schema.Tuple(left, right) =>
+          case Schema.Tuple(left, right, _) =>
             NodeBuilder(path, lineage, optional, dimensions)
               .addLabelledSubtree("left", left)
               .addLabelledSubtree("right", right)

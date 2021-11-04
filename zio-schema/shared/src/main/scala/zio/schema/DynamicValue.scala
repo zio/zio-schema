@@ -36,7 +36,7 @@ trait DynamicValue { self =>
       case (DynamicValue.RightValue(value), Schema.EitherSchema(_, schema1)) =>
         value.toTypedValue(schema1).map(Right(_))
 
-      case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple(leftSchema, rightSchema)) =>
+      case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple(leftSchema, rightSchema, _)) =>
         val typedLeft  = leftValue.toTypedValue(leftSchema)
         val typedRight = rightValue.toTypedValue(rightSchema)
         (typedLeft, typedRight) match {
@@ -958,7 +958,7 @@ object DynamicValue {
           case Right(b) => DynamicValue.RightValue(fromSchemaAndValue(right, b))
         }
 
-      case Schema.Tuple(schemaA, schemaB) =>
+      case Schema.Tuple(schemaA, schemaB, _) =>
         val (a, b) = value
         DynamicValue.Tuple(fromSchemaAndValue(schemaA, a), fromSchemaAndValue(schemaB, b))
 

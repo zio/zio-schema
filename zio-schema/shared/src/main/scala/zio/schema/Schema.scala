@@ -294,7 +294,8 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
 
-  final case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)] { self =>
+  final case class Tuple[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
+      extends Schema[(A, B)] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[(A, B), A], Lens[(A, B), B])
 
     val toRecord: CaseClass2[A, B, (A, B)] = CaseClass2[A, B, (A, B)](
@@ -308,7 +309,6 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     override def makeAccessors(b: AccessorBuilder): (b.Lens[(A, B), A], b.Lens[(A, B), B]) =
       b.makeLens(toRecord, toRecord.field1) -> b.makeLens(toRecord, toRecord.field2)
 
-    override def annotations: Chunk[Any] = ???
   }
 
   final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]] { self =>

@@ -97,7 +97,7 @@ object Differ {
     case Schema.Primitive(StandardType.OffsetTime(_), _)     => offsetTime
     case Schema.Primitive(StandardType.OffsetDateTime(_), _) => offsetDateTime
     case Schema.Primitive(StandardType.ZonedDateTime(_), _)  => zonedDateTime
-    case Schema.Tuple(leftSchema, rightSchema)               => fromSchema(leftSchema) <*> fromSchema(rightSchema)
+    case Schema.Tuple(leftSchema, rightSchema, _)            => fromSchema(leftSchema) <*> fromSchema(rightSchema)
     case Schema.Optional(schema, _)                          => fromSchema(schema).optional
     case Schema.Sequence(schema, _, f, _)                    => fromSchema(schema).foreach(f)
     case Schema.EitherSchema(leftSchema, rightSchema)        => either(fromSchema(leftSchema), fromSchema(rightSchema))
@@ -461,7 +461,7 @@ sealed trait Diff { self =>
           case e @ Right(_) => Left(s"Value should be Left not: $e.")
         }
 
-      case (Schema.Tuple(leftSchema, rightSchema), Diff.Tuple(leftDiff, rightDiff)) => {
+      case (Schema.Tuple(leftSchema, rightSchema, _), Diff.Tuple(leftDiff, rightDiff)) => {
         val (left, right) = a
         val leftPatch     = leftDiff.patch(left)(leftSchema)
         val rightPatch    = rightDiff.patch(right)(rightSchema)

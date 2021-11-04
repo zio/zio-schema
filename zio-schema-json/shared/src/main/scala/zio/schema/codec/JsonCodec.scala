@@ -104,7 +104,7 @@ object JsonCodec extends Codec {
       case Schema.Primitive(standardType, _) => primitiveCodec(standardType)
       case Schema.Sequence(schema, _, g, _)  => JsonEncoder.chunk(schemaEncoder(schema)).contramap(g)
       case Schema.Transform(c, _, g, _)      => transformEncoder(c, g)
-      case Schema.Tuple(l, r)                => JsonEncoder.tuple2(schemaEncoder(l), schemaEncoder(r))
+      case Schema.Tuple(l, r, _)             => JsonEncoder.tuple2(schemaEncoder(l), schemaEncoder(r))
       case Schema.Optional(schema, _)        => JsonEncoder.option(schemaEncoder(schema))
       case Schema.Fail(_, _)                 => unitEncoder.contramap(_ => ())
       case Schema.GenericRecord(structure)   => recordEncoder(structure.toChunk)
@@ -190,7 +190,7 @@ object JsonCodec extends Codec {
     private[codec] def schemaDecoder[A](schema: Schema[A]): JsonDecoder[A] = schema match {
       case Schema.Primitive(standardType, _) => primitiveCodec(standardType)
       case Schema.Optional(codec, _)         => JsonDecoder.option(schemaDecoder(codec))
-      case Schema.Tuple(left, right)         => JsonDecoder.tuple2(schemaDecoder(left), schemaDecoder(right))
+      case Schema.Tuple(left, right, _)      => JsonDecoder.tuple2(schemaDecoder(left), schemaDecoder(right))
       case Schema.Transform(codec, f, _, _)  => schemaDecoder(codec).mapOrFail(f)
       case Schema.Sequence(codec, f, _, _)   => JsonDecoder.chunk(schemaDecoder(codec)).map(f)
       case Schema.Fail(message, _)           => failDecoder(message)

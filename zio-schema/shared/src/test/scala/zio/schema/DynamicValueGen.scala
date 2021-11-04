@@ -74,7 +74,7 @@ object DynamicValueGen {
       case Schema.EnumN(cases, _)                                                                                                                                                                  => anyDynamicValueOfEnum(Chunk.fromIterable(cases.toSeq))
       case Schema.Sequence(schema, _, _, _)                                                                                                                                                        => Gen.chunkOfBounded(0, 2)(anyDynamicValueOfSchema(schema)).map(DynamicValue.Sequence(_))
       case Schema.Optional(schema, _)                                                                                                                                                              => Gen.oneOf(anyDynamicSomeValueOfSchema(schema), Gen.const(DynamicValue.NoneValue))
-      case Schema.Tuple(left, right)                                                                                                                                                               => anyDynamicTupleValue(left, right)
+      case Schema.Tuple(left, right, _)                                                                                                                                                            => anyDynamicTupleValue(left, right)
       case Schema.EitherSchema(left, right) =>
         Gen.oneOf(anyDynamicLeftValueOfSchema(left), anyDynamicRightValueOfSchema(right))
       case Schema.Transform(schema, _, _, _) => anyDynamicValueOfSchema(schema).map(DynamicValue.Transform(_))
