@@ -29,16 +29,19 @@ object SchemaAssertions {
     Assertion.assertion("hasSameAst")(param(expected))(actual => equalsAst(expected, actual))
 
   private def equalsAst(expected: Schema[_], actual: Schema[_], depth: Int = 0): Boolean = (expected, actual) match {
-    case (Schema.Primitive(StandardType.Duration(_)), Schema.Primitive(StandardType.Duration(_)))             => true
-    case (Schema.Primitive(StandardType.Instant(_)), Schema.Primitive(StandardType.Instant(_)))               => true
-    case (Schema.Primitive(StandardType.LocalDate(_)), Schema.Primitive(StandardType.LocalDate(_)))           => true
-    case (Schema.Primitive(StandardType.LocalTime(_)), Schema.Primitive(StandardType.LocalTime(_)))           => true
-    case (Schema.Primitive(StandardType.LocalDateTime(_)), Schema.Primitive(StandardType.LocalDateTime(_)))   => true
-    case (Schema.Primitive(StandardType.ZonedDateTime(_)), Schema.Primitive(StandardType.ZonedDateTime(_)))   => true
-    case (Schema.Primitive(StandardType.OffsetTime(_)), Schema.Primitive(StandardType.OffsetTime(_)))         => true
-    case (Schema.Primitive(StandardType.OffsetDateTime(_)), Schema.Primitive(StandardType.OffsetDateTime(_))) => true
-    case (Schema.Primitive(tpe1), Schema.Primitive(tpe2))                                                     => tpe1 == tpe2
-    case (Schema.Optional(expected), Schema.Optional(actual))                                                 => equalsAst(expected, actual, depth)
+    case (Schema.Primitive(StandardType.Duration(_), _), Schema.Primitive(StandardType.Duration(_), _))   => true
+    case (Schema.Primitive(StandardType.Instant(_), _), Schema.Primitive(StandardType.Instant(_), _))     => true
+    case (Schema.Primitive(StandardType.LocalDate(_), _), Schema.Primitive(StandardType.LocalDate(_), _)) => true
+    case (Schema.Primitive(StandardType.LocalTime(_), _), Schema.Primitive(StandardType.LocalTime(_), _)) => true
+    case (Schema.Primitive(StandardType.LocalDateTime(_), _), Schema.Primitive(StandardType.LocalDateTime(_), _)) =>
+      true
+    case (Schema.Primitive(StandardType.ZonedDateTime(_), _), Schema.Primitive(StandardType.ZonedDateTime(_), _)) =>
+      true
+    case (Schema.Primitive(StandardType.OffsetTime(_), _), Schema.Primitive(StandardType.OffsetTime(_), _)) => true
+    case (Schema.Primitive(StandardType.OffsetDateTime(_), _), Schema.Primitive(StandardType.OffsetDateTime(_), _)) =>
+      true
+    case (Schema.Primitive(tpe1, _), Schema.Primitive(tpe2, _)) => tpe1 == tpe2
+    case (Schema.Optional(expected), Schema.Optional(actual))   => equalsAst(expected, actual, depth)
     case (Schema.Tuple(expectedLeft, expectedRight), Schema.Tuple(actualLeft, actualRight)) =>
       equalsAst(expectedLeft, actualLeft, depth) && equalsAst(expectedRight, actualRight, depth)
     case (Schema.Tuple(expectedLeft, expectedRight), Schema.GenericRecord(structure)) =>
@@ -91,8 +94,8 @@ object SchemaAssertions {
           right.annotations
         )
       case (Schema.Sequence(element1, _, _, _), Schema.Sequence(element2, _, _, _)) => equalsSchema(element1, element2)
-      case (Schema.Primitive(standardType1), Schema.Primitive(standardType2)) =>
-        standardType1 == standardType2
+      case (Schema.Primitive(standardType1, a1), Schema.Primitive(standardType2, a2)) =>
+        standardType1 == standardType2 && equalsAnnotations(a1, a2)
       case (Schema.Tuple(left1, right1), Schema.Tuple(left2, right2)) =>
         equalsSchema(left1, left2) && equalsSchema(right1, right2)
       case (Schema.Optional(codec1), Schema.Optional(codec2)) => equalsSchema(codec1, codec2)

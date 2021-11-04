@@ -13,9 +13,9 @@ object SchemaOrdering {
   }
 
   private def compareBySchema[A](schema: Schema[A])(l: DynamicValue, r: DynamicValue): Int = (schema, l, r) match {
-    case (schema: Schema.Lazy[_], l, r)     => compareBySchema(schema.schema)(l, r)
-    case (Schema.Primitive(UnitType), _, _) => 0
-    case (Schema.Primitive(standardType), Primitive(lVal, lType), Primitive(rVal, rType))
+    case (schema: Schema.Lazy[_], l, r)        => compareBySchema(schema.schema)(l, r)
+    case (Schema.Primitive(UnitType, _), _, _) => 0
+    case (Schema.Primitive(standardType, _), Primitive(lVal, lType), Primitive(rVal, rType))
         if lType == rType && standardType == lType =>
       lType.compare(lVal, rVal)
     case (Schema.EitherSchema(leftSchema, _), LeftValue(lVal), LeftValue(rVal)) =>

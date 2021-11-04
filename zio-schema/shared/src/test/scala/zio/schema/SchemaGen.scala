@@ -43,13 +43,13 @@ object SchemaGen {
     Gen.setOfBounded(1, 8)(anyLabel.map(_ -> schema)).map(ListMap.empty ++ _)
 
   val anyPrimitive: Gen[Random, Schema.Primitive[_]] =
-    StandardTypeGen.anyStandardType.map(Schema.Primitive(_))
+    StandardTypeGen.anyStandardType.map(Schema.Primitive(_, Chunk.empty))
 
   type PrimitiveAndGen[A] = (Schema.Primitive[A], Gen[Random with Sized, A])
 
   val anyPrimitiveAndGen: Gen[Random, PrimitiveAndGen[_]] =
     StandardTypeGen.anyStandardTypeAndGen.map {
-      case (standardType, gen) => Schema.Primitive(standardType) -> gen
+      case (standardType, gen) => Schema.Primitive(standardType, Chunk.empty) -> gen
     }
 
   type PrimitiveAndValue[A] = (Schema.Primitive[A], A)

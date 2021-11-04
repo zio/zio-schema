@@ -211,7 +211,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     Optional(element)
 
   implicit def primitive[A](implicit standardType: StandardType[A]): Schema[A] =
-    Primitive(standardType)
+    Primitive(standardType, Chunk.empty)
 
   implicit def right[A, B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
     schemaB.transform(Right(_), _.value)
@@ -262,12 +262,11 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   }
 
-  final case class Primitive[A](standardType: StandardType[A]) extends Schema[A] {
+  final case class Primitive[A](standardType: StandardType[A], annotations: Chunk[Any] = Chunk.empty)
+      extends Schema[A] {
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
-
-    override def annotations: Chunk[Any] = ???
   }
 
   final case class Optional[A](codec: Schema[A]) extends Schema[Option[A]] { self =>

@@ -47,7 +47,7 @@ object OrderingSpec extends DefaultRunnableSpec {
     standardType: StandardType[A]
   ): URIO[R with Random with TestConfig, TestResult] =
     check(Gen.listOfN(2)(gen)) { lst =>
-      val schema         = Primitive(standardType)
+      val schema         = Primitive(standardType, Chunk.empty)
       val schemaOrdering = schema.ordering
       val l              = lst(0)
       val r              = lst(1)

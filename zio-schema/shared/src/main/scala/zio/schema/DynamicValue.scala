@@ -15,7 +15,7 @@ trait DynamicValue { self =>
 
   def toTypedValue[A](schema: Schema[A]): Either[String, A] =
     (self, schema) match {
-      case (DynamicValue.Primitive(value, p), Schema.Primitive(p2)) if p == p2 =>
+      case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
         Right(value.asInstanceOf[A])
 
       case (DynamicValue.Record(values), Schema.GenericRecord(structure)) =>
@@ -87,7 +87,7 @@ object DynamicValue {
 
       case l @ Schema.Lazy(_) => fromSchemaAndValue(l.schema, value)
 
-      case Schema.Primitive(p) => DynamicValue.Primitive(value, p)
+      case Schema.Primitive(p, _) => DynamicValue.Primitive(value, p)
 
       case Schema.GenericRecord(structure) =>
         val map: ListMap[String, _] = value

@@ -47,7 +47,7 @@ object DynamicValueGen {
   //scalafmt: { maxColumn = 400 }
   def anyDynamicValueOfSchema[A](schema: Schema[A]): Gen[Random with Sized, DynamicValue] =
     schema match {
-      case Schema.Primitive(standardType)                                                                                                                                                          => anyPrimitiveDynamicValue(standardType)
+      case Schema.Primitive(standardType, _)                                                                                                                                                       => anyPrimitiveDynamicValue(standardType)
       case s: Schema.Record[A]                                                                                                                                                                     => anyDynamicValueWithStructure(s.structure)
       case Schema.Enum1(case1, _)                                                                                                                                                                  => anyDynamicValueOfEnum(Chunk(case1))
       case Schema.Enum2(case1, case2, _)                                                                                                                                                           => anyDynamicValueOfEnum(Chunk(case1, case2))

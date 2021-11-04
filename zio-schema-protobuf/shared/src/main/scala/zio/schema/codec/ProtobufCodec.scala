@@ -86,7 +86,7 @@ object ProtobufCodec extends Codec {
     def canBePacked(schema: Schema[_]): Boolean = schema match {
       case Schema.Sequence(element, _, _, _) => canBePacked(element)
       case Schema.Transform(codec, _, _, _)  => canBePacked(codec)
-      case Schema.Primitive(standardType)    => canBePacked(standardType)
+      case Schema.Primitive(standardType, _) => canBePacked(standardType)
       case _: Schema.Tuple[_, _]             => false
       case _: Schema.Optional[_]             => false
       case _: Schema.Fail[_]                 => false
@@ -137,7 +137,7 @@ object ProtobufCodec extends Codec {
         case (Schema.GenericRecord(structure), v: Map[String, _]) => encodeRecord(fieldNumber, structure.toChunk, v)
         case (Schema.Sequence(element, _, g, _), v)               => encodeSequence(fieldNumber, element, g(v))
         case (Schema.Transform(codec, _, g, _), _)                => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
-        case (Schema.Primitive(standardType), v)                  => encodePrimitive(fieldNumber, standardType, v)
+        case (Schema.Primitive(standardType, _), v)               => encodePrimitive(fieldNumber, standardType, v)
         case (Schema.Tuple(left, right), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)
         case (Schema.Optional(codec), v: Option[_])               => encodeOptional(fieldNumber, codec, v)
         case (Schema.EitherSchema(left, right), v: Either[_, _])  => encodeEither(fieldNumber, left, right, v)
@@ -443,19 +443,19 @@ object ProtobufCodec extends Codec {
             },
             true
           )
-        case Schema.Transform(codec, f, _, _) => transformDecoder(codec, f)
-        case Schema.Primitive(standardType)   => primitiveDecoder(standardType)
-        case Schema.Tuple(left, right)        => tupleDecoder(left, right)
-        case Schema.Optional(codec)           => optionalDecoder(codec)
-        case Schema.Fail(message)             => fail(message)
-        case Schema.EitherSchema(left, right) => eitherDecoder(left, right)
-        case lzy @ Schema.Lazy(_)             => decoder(lzy.schema)
-        case Schema.Meta(_)                   => astDecoder
-        case ProductDecoder(decoder)          => decoder
-        case Schema.Enum1(c, _)               => enumDecoder(c)
-        case Schema.Enum2(c1, c2, _)          => enumDecoder(c1, c2)
-        case Schema.Enum3(c1, c2, c3, _)      => enumDecoder(c1, c2, c3)
-        case Schema.EnumN(cs, _)              => enumDecoder(cs.toSeq: _*)
+        case Schema.Transform(codec, f, _, _)  => transformDecoder(codec, f)
+        case Schema.Primitive(standardType, _) => primitiveDecoder(standardType)
+        case Schema.Tuple(left, right)         => tupleDecoder(left, right)
+        case Schema.Optional(codec)            => optionalDecoder(codec)
+        case Schema.Fail(message)              => fail(message)
+        case Schema.EitherSchema(left, right)  => eitherDecoder(left, right)
+        case lzy @ Schema.Lazy(_)              => decoder(lzy.schema)
+        case Schema.Meta(_)                    => astDecoder
+        case ProductDecoder(decoder)           => decoder
+        case Schema.Enum1(c, _)                => enumDecoder(c)
+        case Schema.Enum2(c1, c2, _)           => enumDecoder(c1, c2)
+        case Schema.Enum3(c1, c2, c3, _)       => enumDecoder(c1, c2, c3)
+        case Schema.EnumN(cs, _)               => enumDecoder(cs.toSeq: _*)
       }
 
     private val astDecoder: Decoder[Schema[_]] =
@@ -563,7 +563,7 @@ object ProtobufCodec extends Codec {
 
     private def transformDecoder[A, B](schema: Schema[B], f: B => Either[String, A]): Decoder[A] =
       schema match {
-        case Schema.Primitive(typ) if typ == StandardType.UnitType =>
+        case Schema.Primitive(typ, _) if typ == StandardType.UnitType =>
           Decoder { (chunk: Chunk[Byte]) =>
             f(().asInstanceOf[B]) match {
               case Left(err) => Left(err)
