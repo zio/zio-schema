@@ -40,8 +40,8 @@ object SchemaAssertions {
     case (Schema.Primitive(StandardType.OffsetTime(_), _), Schema.Primitive(StandardType.OffsetTime(_), _)) => true
     case (Schema.Primitive(StandardType.OffsetDateTime(_), _), Schema.Primitive(StandardType.OffsetDateTime(_), _)) =>
       true
-    case (Schema.Primitive(tpe1, _), Schema.Primitive(tpe2, _)) => tpe1 == tpe2
-    case (Schema.Optional(expected), Schema.Optional(actual))   => equalsAst(expected, actual, depth)
+    case (Schema.Primitive(tpe1, _), Schema.Primitive(tpe2, _))     => tpe1 == tpe2
+    case (Schema.Optional(expected, _), Schema.Optional(actual, _)) => equalsAst(expected, actual, depth)
     case (Schema.Tuple(expectedLeft, expectedRight), Schema.Tuple(actualLeft, actualRight)) =>
       equalsAst(expectedLeft, actualLeft, depth) && equalsAst(expectedRight, actualRight, depth)
     case (Schema.Tuple(expectedLeft, expectedRight), Schema.GenericRecord(structure)) =>
@@ -98,8 +98,9 @@ object SchemaAssertions {
         standardType1 == standardType2 && equalsAnnotations(a1, a2)
       case (Schema.Tuple(left1, right1), Schema.Tuple(left2, right2)) =>
         equalsSchema(left1, left2) && equalsSchema(right1, right2)
-      case (Schema.Optional(codec1), Schema.Optional(codec2)) => equalsSchema(codec1, codec2)
-      case (Schema.Enum1(l, lA), Schema.Enum1(r, rA))         => equalsCase(l, r) && lA.equals(rA)
+      case (Schema.Optional(codec1, a1), Schema.Optional(codec2, a2)) =>
+        equalsSchema(codec1, codec2) && equalsAnnotations(a1, a2)
+      case (Schema.Enum1(l, lA), Schema.Enum1(r, rA)) => equalsCase(l, r) && lA.equals(rA)
       case (Schema.Enum2(l1, l2, lA), Schema.Enum2(r1, r2, rA)) =>
         hasSameCases(Seq(l1, l2), Seq(r1, r2)) && equalsAnnotations(lA, rA)
       case (Schema.Enum3(l1, l2, l3, lA), Schema.Enum3(r1, r2, r3, rA)) =>

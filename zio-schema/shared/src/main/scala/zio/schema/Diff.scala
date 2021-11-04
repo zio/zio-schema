@@ -98,7 +98,7 @@ object Differ {
     case Schema.Primitive(StandardType.OffsetDateTime(_), _) => offsetDateTime
     case Schema.Primitive(StandardType.ZonedDateTime(_), _)  => zonedDateTime
     case Schema.Tuple(leftSchema, rightSchema)               => fromSchema(leftSchema) <*> fromSchema(rightSchema)
-    case Schema.Optional(schema)                             => fromSchema(schema).optional
+    case Schema.Optional(schema, _)                          => fromSchema(schema).optional
     case Schema.Sequence(schema, _, f, _)                    => fromSchema(schema).foreach(f)
     case Schema.EitherSchema(leftSchema, rightSchema)        => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                                  => fromSchema(s.schema)
@@ -441,9 +441,9 @@ sealed trait Diff { self =>
       // TODO need to deal with leap year differences
       case (Primitive(StandardType.MonthDay, _), Temporal(regDiff :: _ :: Nil)) => Right(MonthDay.from(ChronoUnit.DAYS.addTo(a.atYear(2001), regDiff.toLong)))
       case (s @ Schema.Lazy(_), diff)                                           => diff.patch(a)(s.schema)
-      case (Optional(_), Total(_, Diff.Tag.Left))                               => Right(None)
-      case (Optional(_), Total(right, Diff.Tag.Right))                          => Right(Some(right))
-      case (Optional(schema), diff) =>
+      case (Optional(_, _), Total(_, Diff.Tag.Left))                            => Right(None)
+      case (Optional(_, _), Total(right, Diff.Tag.Right))                       => Right(Some(right))
+      case (Optional(schema, _), diff) =>
         a match {
           case None    => Right(None)
           case Some(b) => diff.patch(b)(schema).map(Some(_))

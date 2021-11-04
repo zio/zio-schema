@@ -55,10 +55,10 @@ trait DynamicValue { self =>
           }
           .map(f)
 
-      case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_])) =>
+      case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
         value.toTypedValue(schema).map(Some(_))
 
-      case (DynamicValue.NoneValue, Schema.Optional(_)) =>
+      case (DynamicValue.NoneValue, Schema.Optional(_, _)) =>
         Right(None)
 
       case (DynamicValue.Transform(DynamicValue.Error(message)), Schema.Transform(_, _, _, _)) =>
@@ -962,7 +962,7 @@ object DynamicValue {
         val (a, b) = value
         DynamicValue.Tuple(fromSchemaAndValue(schemaA, a), fromSchemaAndValue(schemaB, b))
 
-      case Schema.Optional(schema) =>
+      case Schema.Optional(schema, _) =>
         value match {
           case Some(value) => DynamicValue.SomeValue(fromSchemaAndValue(schema, value))
           case None        => DynamicValue.NoneValue

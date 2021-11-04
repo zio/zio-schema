@@ -173,9 +173,9 @@ object SchemaAst {
 
   @tailrec
   def fromSchema[A](schema: Schema[A]): SchemaAst = schema match {
-    case Schema.Primitive(typ, _) => Value(typ, NodePath.root)
-    case Schema.Fail(message)     => FailNode(message, NodePath.root)
-    case Schema.Optional(schema)  => subtree(NodePath.root, Chunk.empty, schema, optional = true)
+    case Schema.Primitive(typ, _)   => Value(typ, NodePath.root)
+    case Schema.Fail(message)       => FailNode(message, NodePath.root)
+    case Schema.Optional(schema, _) => subtree(NodePath.root, Chunk.empty, schema, optional = true)
     case Schema.EitherSchema(left, right) =>
       NodeBuilder(NodePath.root, Chunk.empty)
         .addLabelledSubtree("left", left)
@@ -221,8 +221,8 @@ object SchemaAst {
       }
       .getOrElse {
         schema match {
-          case Schema.Primitive(typ, _) => Value(typ, path, optional, dimensions)
-          case Schema.Optional(schema)  => subtree(path, lineage, schema, optional = true, dimensions)
+          case Schema.Primitive(typ, _)   => Value(typ, path, optional, dimensions)
+          case Schema.Optional(schema, _) => subtree(path, lineage, schema, optional = true, dimensions)
           case Schema.EitherSchema(left, right) =>
             NodeBuilder(path, lineage, optional, dimensions)
               .addLabelledSubtree("left", left)

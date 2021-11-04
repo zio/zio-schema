@@ -489,8 +489,8 @@ object SchemaGen {
         anyTree(depth - 1).map(Schema.list(_)),
         // Nested optional cause some issues. Ignore them for now: See https://github.com/zio/zio-schema/issues/68
         anyTree(depth - 1).map {
-          case s @ Schema.Optional(_) => s
-          case s                      => Schema.option(s)
+          case s @ Schema.Optional(_, _) => s
+          case s                         => Schema.option(s)
         },
         anyTree(depth - 1).zip(anyTree(depth - 1)).map { case (l, r) => Schema.either(l, r) },
         anyTree(depth - 1).zip(anyTree(depth - 1)).map { case (l, r) => Schema.tuple2(l, r) },

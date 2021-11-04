@@ -24,10 +24,10 @@ object SchemaOrdering {
       compareBySchema(rightSchema)(lVal, rVal)
     case (Schema.EitherSchema(_, _), LeftValue(_), RightValue(_)) => -1
     case (Schema.EitherSchema(_, _), RightValue(_), LeftValue(_)) => 1
-    case (Schema.Optional(innerSchema), SomeValue(lVal), SomeValue(rVal)) =>
+    case (Schema.Optional(innerSchema, _), SomeValue(lVal), SomeValue(rVal)) =>
       compareBySchema(innerSchema)(lVal, rVal)
-    case (Schema.Optional(_), NoneValue, SomeValue(_)) => -1
-    case (Schema.Optional(_), SomeValue(_), NoneValue) => 1
+    case (Schema.Optional(_, _), NoneValue, SomeValue(_)) => -1
+    case (Schema.Optional(_, _), SomeValue(_), NoneValue) => 1
     case (Schema.Tuple(lSchema, rSchema), l: Tuple, r: Tuple) => {
       val leftComparison = compareBySchema(lSchema)(l.left, r.left)
       if (leftComparison != 0)

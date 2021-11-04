@@ -269,7 +269,8 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
 
-  final case class Optional[A](codec: Schema[A]) extends Schema[Option[A]] { self =>
+  final case class Optional[A](codec: Schema[A], annotations: Chunk[Any] = Chunk.empty) extends Schema[Option[A]] {
+    self =>
 
     private[schema] val someCodec: Schema[Some[A]] = codec.transform(a => Some(a), _.get)
 
@@ -285,7 +286,6 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Option[A], Some[A]], b.Prism[Option[A], None.type]) =
       b.makePrism(toEnum, toEnum.case1) -> b.makePrism(toEnum, toEnum.case2)
 
-    override def annotations: Chunk[Any] = ???
   }
 
   final case class Fail[A](message: String) extends Schema[A] {
