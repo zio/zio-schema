@@ -947,7 +947,7 @@ object DynamicValue {
           case None => DynamicValue.NoneValue
         }
 
-      case Schema.Fail(message) => DynamicValue.Error(message)
+      case Schema.Fail(message, _) => DynamicValue.Error(message)
 
       case Schema.Sequence(schema, _, toChunk, _) =>
         DynamicValue.Sequence(toChunk(value).map(fromSchemaAndValue(schema, _)))

@@ -174,7 +174,7 @@ object SchemaAst {
   @tailrec
   def fromSchema[A](schema: Schema[A]): SchemaAst = schema match {
     case Schema.Primitive(typ, _)   => Value(typ, NodePath.root)
-    case Schema.Fail(message)       => FailNode(message, NodePath.root)
+    case Schema.Fail(message, _)    => FailNode(message, NodePath.root)
     case Schema.Optional(schema, _) => subtree(NodePath.root, Chunk.empty, schema, optional = true)
     case Schema.EitherSchema(left, right) =>
       NodeBuilder(NodePath.root, Chunk.empty)
@@ -250,8 +250,8 @@ object SchemaAst {
                   node.addLabelledSubtree(id, schema)
               }
               .buildSum()
-          case Schema.Fail(message) => FailNode(message, path)
-          case Schema.Meta(ast)     => ast
+          case Schema.Fail(message, _) => FailNode(message, path)
+          case Schema.Meta(ast)        => ast
         }
       }
 

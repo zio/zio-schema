@@ -288,12 +288,10 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   }
 
-  final case class Fail[A](message: String) extends Schema[A] {
+  final case class Fail[A](message: String, annotations: Chunk[Any] = Chunk.empty) extends Schema[A] {
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
-
-    override def annotations: Chunk[Any] = ???
   }
 
   final case class Tuple[A, B](left: Schema[A], right: Schema[B]) extends Schema[(A, B)] { self =>

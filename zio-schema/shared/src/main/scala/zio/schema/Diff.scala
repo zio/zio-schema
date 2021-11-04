@@ -103,7 +103,7 @@ object Differ {
     case Schema.EitherSchema(leftSchema, rightSchema)        => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                                  => fromSchema(s.schema)
     case Schema.Transform(schema, _, f, _)                   => fromSchema(schema).transformOrFail(f)
-    case Schema.Fail(_)                                      => fail
+    case Schema.Fail(_, _)                                   => fail
     case Schema.GenericRecord(structure)                     => record(structure.toChunk)
     case ProductDiffer(differ)                               => differ
     case Schema.Enum1(c, _)                                  => enum(c)
@@ -519,7 +519,7 @@ sealed trait Diff { self =>
       case (Schema.Enum2(c1, c2, _), diff)     => patchEnumData(a, diff, c1, c2)
       case (Schema.Enum3(c1, c2, c3, _), diff) => patchEnumData(a, diff, c1, c2, c3)
       case (Schema.EnumN(cases, _), diff)      => patchEnumData(a, diff, cases.toSeq: _*)
-      case (schema @ Fail(_), _)               => Left(s"Failed Schema=$schema cannot be patched.")
+      case (schema @ Fail(_, _), _)            => Left(s"Failed Schema=$schema cannot be patched.")
       case (_, _)                              => Left(s"Incompatible Schema=$schema and Diff=$self.")
     }
   }

@@ -447,7 +447,7 @@ object ProtobufCodec extends Codec {
         case Schema.Primitive(standardType, _) => primitiveDecoder(standardType)
         case Schema.Tuple(left, right)         => tupleDecoder(left, right)
         case Schema.Optional(codec, _)         => optionalDecoder(codec)
-        case Schema.Fail(message)              => fail(message)
+        case Schema.Fail(message, _)           => fail(message)
         case Schema.EitherSchema(left, right)  => eitherDecoder(left, right)
         case lzy @ Schema.Lazy(_)              => decoder(lzy.schema)
         case Schema.Meta(_)                    => astDecoder
