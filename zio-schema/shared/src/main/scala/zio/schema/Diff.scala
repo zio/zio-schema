@@ -102,7 +102,7 @@ object Differ {
     case Schema.Sequence(schema, _, f, _)                 => fromSchema(schema).foreach(f)
     case Schema.EitherSchema(leftSchema, rightSchema)     => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                               => fromSchema(s.schema)
-    case Schema.Transform(schema, _, f)                   => fromSchema(schema).transformOrFail(f)
+    case Schema.Transform(schema, _, f, _)                => fromSchema(schema).transformOrFail(f)
     case Schema.Fail(_)                                   => fail
     case Schema.GenericRecord(structure)                  => record(structure.toChunk)
     case ProductDiffer(differ)                            => differ
@@ -490,7 +490,7 @@ sealed trait Diff { self =>
           case (errors, _)           => Left(s"Running patch produced the following error(s): ${errors.toList}.")
         }
 
-      case (Schema.Transform(schema, f, g), diff) =>
+      case (Schema.Transform(schema, f, g, _), diff) =>
         for {
           b       <- g(a)
           patched <- diff.patch(b)(schema)

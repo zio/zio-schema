@@ -72,15 +72,15 @@ object DynamicValueGen {
       case Schema.Enum21(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, _)         => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21))
       case Schema.Enum22(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, case22, _) => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, case22))
       case Schema.EnumN(cases, _)                                                                                                                                                                  => anyDynamicValueOfEnum(Chunk.fromIterable(cases.toSeq))
-      case Schema.Sequence(schema, _, _, _)                                                                                                                                                           => Gen.chunkOfBounded(0, 2)(anyDynamicValueOfSchema(schema)).map(DynamicValue.Sequence(_))
+      case Schema.Sequence(schema, _, _, _)                                                                                                                                                        => Gen.chunkOfBounded(0, 2)(anyDynamicValueOfSchema(schema)).map(DynamicValue.Sequence(_))
       case Schema.Optional(schema)                                                                                                                                                                 => Gen.oneOf(anyDynamicSomeValueOfSchema(schema), Gen.const(DynamicValue.NoneValue))
       case Schema.Tuple(left, right)                                                                                                                                                               => anyDynamicTupleValue(left, right)
       case Schema.EitherSchema(left, right) =>
         Gen.oneOf(anyDynamicLeftValueOfSchema(left), anyDynamicRightValueOfSchema(right))
-      case Schema.Transform(schema, _, _) => anyDynamicValueOfSchema(schema).map(DynamicValue.Transform(_))
-      case Schema.Fail(message)           => Gen.const(DynamicValue.Error(message))
-      case l @ Schema.Lazy(_)             => anyDynamicValueOfSchema(l.schema)
-      case Schema.Meta(meta)              => anyDynamicValueOfSchema(meta.toSchema)
+      case Schema.Transform(schema, _, _, _) => anyDynamicValueOfSchema(schema).map(DynamicValue.Transform(_))
+      case Schema.Fail(message)              => Gen.const(DynamicValue.Error(message))
+      case l @ Schema.Lazy(_)                => anyDynamicValueOfSchema(l.schema)
+      case Schema.Meta(meta)                 => anyDynamicValueOfSchema(meta.toSchema)
     }
   //scalafmt: { maxColumn = 120 }
 

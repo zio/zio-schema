@@ -849,7 +849,7 @@ object DiffSpec extends DefaultRunnableSpec {
       test("different") {
         val f               = (i: Int) => Right(i.toString())
         val g               = (s: String) => scala.util.Try(s.toInt).toEither.left.map(_.toString())
-        implicit val schema = Schema.Transform[Int, String](Schema[Int], f, g)
+        implicit val schema = Schema.Transform[Int, String](Schema[Int], f, g, Chunk.empty)
         val diff            = schema.diff("4", "6")
         assertTrue(diff == Diff.Number(-2)) &&
         assertTrue(diff.patch("4") == Right("6")) &&

@@ -188,8 +188,8 @@ object SchemaAst {
         .buildProduct()
     case Schema.Sequence(schema, _, _, _) =>
       subtree(NodePath.root, Chunk.empty, schema, dimensions = 1)
-    case Schema.Transform(schema, _, _) => subtree(NodePath.root, Chunk.empty, schema)
-    case lzy @ Schema.Lazy(_)           => fromSchema(lzy.schema)
+    case Schema.Transform(schema, _, _, _) => subtree(NodePath.root, Chunk.empty, schema)
+    case lzy @ Schema.Lazy(_)              => fromSchema(lzy.schema)
     case s: Schema.Record[A] =>
       s.structure
         .foldLeft(NodeBuilder(NodePath.root, Chunk(s.hashCode() -> NodePath.root))) { (node, field) =>
@@ -235,8 +235,8 @@ object SchemaAst {
               .buildProduct()
           case Schema.Sequence(schema, _, _, _) =>
             subtree(path, lineage, schema, optional, dimensions + 1)
-          case Schema.Transform(schema, _, _) => subtree(path, lineage, schema, optional, dimensions)
-          case lzy @ Schema.Lazy(_)           => subtree(path, lineage, lzy.schema, optional, dimensions)
+          case Schema.Transform(schema, _, _, _) => subtree(path, lineage, schema, optional, dimensions)
+          case lzy @ Schema.Lazy(_)              => subtree(path, lineage, lzy.schema, optional, dimensions)
           case s: Schema.Record[_] =>
             s.structure
               .foldLeft(NodeBuilder(path, lineage :+ (s.hashCode() -> path), optional, dimensions)) { (node, field) =>

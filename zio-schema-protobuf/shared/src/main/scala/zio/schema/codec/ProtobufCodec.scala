@@ -85,7 +85,7 @@ object ProtobufCodec extends Codec {
     @scala.annotation.tailrec
     def canBePacked(schema: Schema[_]): Boolean = schema match {
       case Schema.Sequence(element, _, _, _) => canBePacked(element)
-      case Schema.Transform(codec, _, _)     => canBePacked(codec)
+      case Schema.Transform(codec, _, _, _)  => canBePacked(codec)
       case Schema.Primitive(standardType)    => canBePacked(standardType)
       case _: Schema.Tuple[_, _]             => false
       case _: Schema.Optional[_]             => false
@@ -136,7 +136,7 @@ object ProtobufCodec extends Codec {
       (schema, value) match {
         case (Schema.GenericRecord(structure), v: Map[String, _]) => encodeRecord(fieldNumber, structure.toChunk, v)
         case (Schema.Sequence(element, _, g, _), v)               => encodeSequence(fieldNumber, element, g(v))
-        case (Schema.Transform(codec, _, g), _)                   => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
+        case (Schema.Transform(codec, _, g, _), _)                => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
         case (Schema.Primitive(standardType), v)                  => encodePrimitive(fieldNumber, standardType, v)
         case (Schema.Tuple(left, right), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)
         case (Schema.Optional(codec), v: Option[_])               => encodeOptional(fieldNumber, codec, v)
@@ -443,7 +443,7 @@ object ProtobufCodec extends Codec {
             },
             true
           )
-        case Schema.Transform(codec, f, _)    => transformDecoder(codec, f)
+        case Schema.Transform(codec, f, _, _) => transformDecoder(codec, f)
         case Schema.Primitive(standardType)   => primitiveDecoder(standardType)
         case Schema.Tuple(left, right)        => tupleDecoder(left, right)
         case Schema.Optional(codec)           => optionalDecoder(codec)

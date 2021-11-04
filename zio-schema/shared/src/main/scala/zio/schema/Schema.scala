@@ -114,14 +114,14 @@ sealed trait Schema[A] {
    * between `A` and `B`, without possibility of failure.
    */
   def transform[B](f: A => B, g: B => A): Schema[B] =
-    Schema.Transform[A, B](self, a => Right(f(a)), b => Right(g(b)))
+    Schema.Transform[A, B](self, a => Right(f(a)), b => Right(g(b)), annotations)
 
   /**
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
    * between `A` and `B` (possibly failing in some cases).
    */
   def transformOrFail[B](f: A => Either[String, B], g: B => Either[String, A]): Schema[B] =
-    Schema.Transform[A, B](self, f, g)
+    Schema.Transform[A, B](self, f, g, annotations)
 
   /**
    * Returns a new schema that combines this schema and the specified schema together, modeling
@@ -246,8 +246,12 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   }
 
-  final case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
-      extends Schema[B] {
+  final case class Transform[A, B](
+    codec: Schema[A],
+    f: A => Either[String, B],
+    g: B => Either[String, A],
+    annotations: Chunk[Any]
+  ) extends Schema[B] {
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = codec.Accessors[Lens, Prism, Traversal]
 
     override def makeAccessors(b: AccessorBuilder): codec.Accessors[b.Lens, b.Prism, b.Traversal] =
@@ -256,7 +260,6 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     override def serializable: Schema[Schema[_]] = Meta(SchemaAst.fromSchema(codec))
     override def toString: String                = s"Transform($codec)"
 
-    override def annotations: Chunk[Any] = ???
   }
 
   final case class Primitive[A](standardType: StandardType[A]) extends Schema[A] {

@@ -231,7 +231,12 @@ object SchemaGen {
 
   // TODO: Add some random Left values.
   private def transformSequence[A](schema: Schema[Chunk[A]]): SequenceTransform[A] =
-    Schema.Transform[Chunk[A], List[A]](schema, chunk => Right(chunk.toList), list => Right(Chunk.fromIterable(list)))
+    Schema.Transform[Chunk[A], List[A]](
+      schema,
+      chunk => Right(chunk.toList),
+      list => Right(Chunk.fromIterable(list)),
+      Chunk.empty
+    )
 
   type SequenceTransformAndValue[A] = (SequenceTransform[A], List[A])
 
@@ -258,7 +263,12 @@ object SchemaGen {
 
   // TODO: Dynamically generate a case class.
   def transformRecord[A](schema: Schema[ListMap[String, _]]): RecordTransform[A] =
-    Schema.Transform[ListMap[String, _], A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."))
+    Schema.Transform[ListMap[String, _], A](
+      schema,
+      _ => Left("Not implemented."),
+      _ => Left("Not implemented."),
+      Chunk.empty
+    )
 
   type RecordTransformAndValue[A] = (RecordTransform[A], A)
 
@@ -285,7 +295,7 @@ object SchemaGen {
 
   // TODO: Dynamically generate a sealed trait and case/value classes.
   def transformEnumeration[A](schema: Schema[Any]): EnumerationTransform[_] =
-    Schema.Transform[Any, A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."))
+    Schema.Transform[Any, A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."), Chunk.empty)
 
   type EnumerationTransformAndValue[A] = (EnumerationTransform[A], A)
 

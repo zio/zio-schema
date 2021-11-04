@@ -64,9 +64,9 @@ object SchemaAssertions {
           actualId == expectedId && equalsAst(expectedSchema, actualSchema, depth)
         case _ => false
       }
-    case (expected, Schema.Transform(actualSchema, _, _)) =>
+    case (expected, Schema.Transform(actualSchema, _, _, _)) =>
       equalsAst(expected, actualSchema, depth)
-    case (Schema.Transform(expected, _, _), actual) =>
+    case (Schema.Transform(expected, _, _, _), actual) =>
       equalsAst(expected, actual, depth)
     case (expected: Schema.Lazy[_], actual) => if (depth > 10) true else equalsAst(expected.schema, actual, depth + 1)
     case (expected, actual: Schema.Lazy[_]) => if (depth > 10) true else equalsAst(expected, actual.schema, depth + 1)
@@ -75,8 +75,8 @@ object SchemaAssertions {
 
   private def equalsSchema[A](left: Schema[A], right: Schema[A]): Boolean =
     (left: Schema[_], right: Schema[_]) match {
-      case (Schema.Transform(codec1, _, _), Schema.Transform(codec2, _, _)) =>
-        equalsSchema(codec1, codec2)
+      case (Schema.Transform(codec1, _, _, a1), Schema.Transform(codec2, _, _, a2)) =>
+        equalsSchema(codec1, codec2) && equalsAnnotations(a1, a2)
       case (Schema.GenericRecord(structure1), Schema.GenericRecord(structure2)) =>
         hasSameFields(structure1.toChunk, structure2.toChunk) &&
           structure1.toChunk.forall {
@@ -86,7 +86,10 @@ object SchemaAssertions {
               equalsSchema(left, right)
           }
       case (left: Schema.Record[_], right: Schema.Record[_]) =>
-        hasSameStructure(left.asInstanceOf[Schema.Record[A]], right.asInstanceOf[Schema.Record[A]])
+        hasSameStructure(left.asInstanceOf[Schema.Record[A]], right.asInstanceOf[Schema.Record[A]]) && equalsAnnotations(
+          left.annotations,
+          right.annotations
+        )
       case (Schema.Sequence(element1, _, _, _), Schema.Sequence(element2, _, _, _)) => equalsSchema(element1, element2)
       case (Schema.Primitive(standardType1), Schema.Primitive(standardType2)) =>
         standardType1 == standardType2
