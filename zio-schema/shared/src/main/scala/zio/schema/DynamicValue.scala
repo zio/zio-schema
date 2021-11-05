@@ -30,10 +30,10 @@ trait DynamicValue { self =>
           case None         => Left(s"Failed to find case $key in enum $s")
         }
 
-      case (DynamicValue.LeftValue(value), Schema.EitherSchema(schema1, _)) =>
+      case (DynamicValue.LeftValue(value), Schema.EitherSchema(schema1, _, _)) =>
         value.toTypedValue(schema1).map(Left(_))
 
-      case (DynamicValue.RightValue(value), Schema.EitherSchema(_, schema1)) =>
+      case (DynamicValue.RightValue(value), Schema.EitherSchema(_, schema1, _)) =>
         value.toTypedValue(schema1).map(Right(_))
 
       case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple(leftSchema, rightSchema, _)) =>
@@ -952,7 +952,7 @@ object DynamicValue {
       case Schema.Sequence(schema, _, toChunk, _) =>
         DynamicValue.Sequence(toChunk(value).map(fromSchemaAndValue(schema, _)))
 
-      case Schema.EitherSchema(left, right) =>
+      case Schema.EitherSchema(left, right, _) =>
         value match {
           case Left(a)  => DynamicValue.LeftValue(fromSchemaAndValue(left, a))
           case Right(b) => DynamicValue.RightValue(fromSchemaAndValue(right, b))

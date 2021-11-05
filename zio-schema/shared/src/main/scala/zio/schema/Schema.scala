@@ -311,7 +311,8 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   }
 
-  final case class EitherSchema[A, B](left: Schema[A], right: Schema[B]) extends Schema[Either[A, B]] { self =>
+  final case class EitherSchema[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
+      extends Schema[Either[A, B]] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] =
       (Prism[Either[A, B], Right[Nothing, B]], Prism[Either[A, B], Left[A, Nothing]])
 
@@ -329,7 +330,6 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     ): (b.Prism[Either[A, B], Right[Nothing, B]], b.Prism[Either[A, B], Left[A, Nothing]]) =
       b.makePrism(toEnum, toEnum.case1) -> b.makePrism(toEnum, toEnum.case2)
 
-    override def annotations: Chunk[Any] = ???
   }
 
   final case class Lazy[A](private val schema0: () => Schema[A]) extends Schema[A] {

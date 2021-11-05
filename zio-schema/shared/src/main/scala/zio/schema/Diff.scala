@@ -100,7 +100,7 @@ object Differ {
     case Schema.Tuple(leftSchema, rightSchema, _)            => fromSchema(leftSchema) <*> fromSchema(rightSchema)
     case Schema.Optional(schema, _)                          => fromSchema(schema).optional
     case Schema.Sequence(schema, _, f, _)                    => fromSchema(schema).foreach(f)
-    case Schema.EitherSchema(leftSchema, rightSchema)        => either(fromSchema(leftSchema), fromSchema(rightSchema))
+    case Schema.EitherSchema(leftSchema, rightSchema, _)     => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                                  => fromSchema(s.schema)
     case Schema.Transform(schema, _, f, _)                   => fromSchema(schema).transformOrFail(f)
     case Schema.Fail(_, _)                                   => fail
@@ -449,13 +449,13 @@ sealed trait Diff { self =>
           case Some(b) => diff.patch(b)(schema).map(Some(_))
         }
 
-      case (EitherSchema(_, rightSchema), Diff.Either(diff, Diff.Tag.Right)) =>
+      case (EitherSchema(_, rightSchema, _), Diff.Either(diff, Diff.Tag.Right)) =>
         a match {
           case Right(b)    => diff.patch(b)(rightSchema).map(Right(_))
           case e @ Left(_) => Left(s"Value should be Right not: $e.")
         }
 
-      case (EitherSchema(leftSchema, _), Diff.Either(diff, Diff.Tag.Left)) =>
+      case (EitherSchema(leftSchema, _, _), Diff.Either(diff, Diff.Tag.Left)) =>
         a match {
           case Left(b)      => diff.patch(b)(leftSchema).map(Left(_))
           case e @ Right(_) => Left(s"Value should be Left not: $e.")

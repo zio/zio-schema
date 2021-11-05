@@ -176,7 +176,7 @@ object SchemaAst {
     case Schema.Primitive(typ, _)   => Value(typ, NodePath.root)
     case Schema.Fail(message, _)    => FailNode(message, NodePath.root)
     case Schema.Optional(schema, _) => subtree(NodePath.root, Chunk.empty, schema, optional = true)
-    case Schema.EitherSchema(left, right) =>
+    case Schema.EitherSchema(left, right, _) =>
       NodeBuilder(NodePath.root, Chunk.empty)
         .addLabelledSubtree("left", left)
         .addLabelledSubtree("right", right)
@@ -223,7 +223,7 @@ object SchemaAst {
         schema match {
           case Schema.Primitive(typ, _)   => Value(typ, path, optional, dimensions)
           case Schema.Optional(schema, _) => subtree(path, lineage, schema, optional = true, dimensions)
-          case Schema.EitherSchema(left, right) =>
+          case Schema.EitherSchema(left, right, _) =>
             NodeBuilder(path, lineage, optional, dimensions)
               .addLabelledSubtree("left", left)
               .addLabelledSubtree("right", right)
