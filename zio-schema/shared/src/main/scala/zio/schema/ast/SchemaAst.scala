@@ -203,7 +203,7 @@ object SchemaAst {
             node.addLabelledSubtree(id, schema)
         }
         .buildSum()
-    case Schema.Meta(ast) => ast
+    case Schema.Meta(ast, _) => ast
   }
 
   private[schema] def subtree(
@@ -251,7 +251,7 @@ object SchemaAst {
               }
               .buildSum()
           case Schema.Fail(message, _) => FailNode(message, path)
-          case Schema.Meta(ast)        => ast
+          case Schema.Meta(ast, _)     => ast
         }
       }
 

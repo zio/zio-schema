@@ -142,7 +142,7 @@ object ProtobufCodec extends Codec {
         case (Schema.Optional(codec, _), v: Option[_])              => encodeOptional(fieldNumber, codec, v)
         case (Schema.EitherSchema(left, right, _), v: Either[_, _]) => encodeEither(fieldNumber, left, right, v)
         case (lzy @ Schema.Lazy(_, _), v)                           => encode(fieldNumber, lzy.schema, v)
-        case (Schema.Meta(ast), _)                                  => encode(fieldNumber, Schema[SchemaAst], ast)
+        case (Schema.Meta(ast, _), _)                               => encode(fieldNumber, Schema[SchemaAst], ast)
         case ProductEncoder(encode)                                 => encode(fieldNumber)
         case (Schema.Enum1(c, _), v)                                => encodeEnum(fieldNumber, v, c)
         case (Schema.Enum2(c1, c2, _), v)                           => encodeEnum(fieldNumber, v, c1, c2)
@@ -450,7 +450,7 @@ object ProtobufCodec extends Codec {
         case Schema.Fail(message, _)             => fail(message)
         case Schema.EitherSchema(left, right, _) => eitherDecoder(left, right)
         case lzy @ Schema.Lazy(_, _)             => decoder(lzy.schema)
-        case Schema.Meta(_)                      => astDecoder
+        case Schema.Meta(_, _)                   => astDecoder
         case ProductDecoder(decoder)             => decoder
         case Schema.Enum1(c, _)                  => enumDecoder(c)
         case Schema.Enum2(c1, c2, _)             => enumDecoder(c1, c2)

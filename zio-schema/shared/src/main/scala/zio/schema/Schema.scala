@@ -344,12 +344,11 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     override def toString: String = "$Lazy$"
   }
 
-  final case class Meta(ast: SchemaAst) extends Schema[Schema[_]] {
+  final case class Meta(ast: SchemaAst, annotations: Chunk[Any] = Chunk.empty) extends Schema[Schema[_]] {
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
 
-    override def annotations: Chunk[Any] = ???
   }
 }
 

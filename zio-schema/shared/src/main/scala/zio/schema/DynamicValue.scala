@@ -974,7 +974,7 @@ object DynamicValue {
           case Right(a)      => DynamicValue.Transform(fromSchemaAndValue(schema, a))
         }
 
-      case Schema.Meta(ast) => DynamicValue.DynamicAst(ast)
+      case Schema.Meta(ast, _) => DynamicValue.DynamicAst(ast)
 
       case Schema.CaseClass1(_, f, _, ext) =>
         DynamicValue.Record(ListMap(f.label -> fromSchemaAndValue(f.schema, ext(value))))

@@ -110,7 +110,7 @@ object JsonCodec extends Codec {
       case Schema.GenericRecord(structure)   => recordEncoder(structure.toChunk)
       case EitherSchema(left, right, _)      => JsonEncoder.either(schemaEncoder(left), schemaEncoder(right))
       case l @ Schema.Lazy(_, _)             => schemaEncoder(l.schema)
-      case Schema.Meta(_)                    => astEncoder
+      case Schema.Meta(_, _)                 => astEncoder
       case ProductEncoder(encoder)           => encoder
       case Schema.Enum1(c, _)                => enumEncoder(c)
       case Schema.Enum2(c1, c2, _)           => enumEncoder(c1, c2)
@@ -197,7 +197,7 @@ object JsonCodec extends Codec {
       case Schema.GenericRecord(structure)     => recordDecoder(structure.toChunk)
       case Schema.EitherSchema(left, right, _) => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
       case l @ Schema.Lazy(_, _)               => schemaDecoder(l.schema)
-      case Schema.Meta(_)                      => astDecoder
+      case Schema.Meta(_, _)                   => astDecoder
       case ProductDecoder(decoder)             => decoder
       case Schema.Enum1(c, _)                  => enumDecoder(c)
       case Schema.Enum2(c1, c2, _)             => enumDecoder(c1, c2)
