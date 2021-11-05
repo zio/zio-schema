@@ -114,7 +114,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
             Schema.Case[AnnotatedSumType1, AnnotatedSumType](
               id = "AnnotatedSumType1",
               codec = Schema.CaseClass1(
-                annotations = Chunk.empty,
+                annotations = Chunk(annotation2("bar")),
                 field = Schema.Field[Int]("value", Schema.Primitive(StandardType.IntType, Chunk.empty), Chunk.empty),
                 construct = AnnotatedSumType1.apply,
                 extractField = (a: AnnotatedSumType1) => a.value
@@ -125,7 +125,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
             Schema.Case[AnnotatedSumType2, AnnotatedSumType](
               id = "AnnotatedSumType2",
               codec = Schema.CaseClass1(
-                annotations = Chunk.empty,
+                annotations = Chunk(annotation3("baz")),
                 field = Schema.Field[Int]("value", Schema.Primitive(StandardType.IntType, Chunk.empty), Chunk.empty),
                 construct = AnnotatedSumType2.apply,
                 extractField = (a: AnnotatedSumType2) => a.value
