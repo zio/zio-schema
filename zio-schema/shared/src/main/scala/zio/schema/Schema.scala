@@ -229,7 +229,6 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   sealed trait Record[R] extends Schema[R] {
     def structure: Chunk[Field[_]]
-    def annotations: Chunk[Any] = Chunk.empty
     def rawConstruct(values: Chunk[Any]): Either[String, R]
   }
 
@@ -1638,7 +1637,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     override def toString: String = s"Field($label,$schema)"
   }
 
-  sealed case class GenericRecord(fieldSet: FieldSet) extends Record[ListMap[String, _]] { self =>
+  sealed case class GenericRecord(fieldSet: FieldSet, annotations: Chunk[Any] = Chunk.empty) extends Record[ListMap[String, _]] { self =>
 
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = fieldSet.Accessors[ListMap[String, _], Lens, Prism, Traversal]
 

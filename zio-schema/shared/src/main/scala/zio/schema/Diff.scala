@@ -104,7 +104,7 @@ object Differ {
     case s @ Schema.Lazy(_, _)                               => fromSchema(s.schema)
     case Schema.Transform(schema, _, f, _)                   => fromSchema(schema).transformOrFail(f)
     case Schema.Fail(_, _)                                   => fail
-    case Schema.GenericRecord(structure)                     => record(structure.toChunk)
+    case Schema.GenericRecord(structure, _)                  => record(structure.toChunk)
     case ProductDiffer(differ)                               => differ
     case Schema.Enum1(c, _)                                  => enum(c)
     case Schema.Enum2(c1, c2, _)                             => enum(c1, c2)
@@ -497,7 +497,7 @@ sealed trait Diff { self =>
           backToA <- f(patched)
         } yield backToA
 
-      case (Schema.GenericRecord(structure: FieldSet), Diff.Record(diffs: ListMap[String, Diff])) => {
+      case (Schema.GenericRecord(structure: FieldSet, _), Diff.Record(diffs: ListMap[String, Diff])) => {
         val values: ListMap[String, DynamicValue] = schema.toDynamic(a) match {
           case DynamicValue.Record(values) => values
           case _                           => ListMap.empty

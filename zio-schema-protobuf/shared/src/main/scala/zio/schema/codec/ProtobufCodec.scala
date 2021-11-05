@@ -134,21 +134,21 @@ object ProtobufCodec extends Codec {
 
     def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
       (schema, value) match {
-        case (Schema.GenericRecord(structure), v: Map[String, _])   => encodeRecord(fieldNumber, structure.toChunk, v)
-        case (Schema.Sequence(element, _, g, _), v)                 => encodeSequence(fieldNumber, element, g(v))
-        case (Schema.Transform(codec, _, g, _), _)                  => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
-        case (Schema.Primitive(standardType, _), v)                 => encodePrimitive(fieldNumber, standardType, v)
-        case (Schema.Tuple(left, right, _), v @ (_, _))             => encodeTuple(fieldNumber, left, right, v)
-        case (Schema.Optional(codec, _), v: Option[_])              => encodeOptional(fieldNumber, codec, v)
-        case (Schema.EitherSchema(left, right, _), v: Either[_, _]) => encodeEither(fieldNumber, left, right, v)
-        case (lzy @ Schema.Lazy(_, _), v)                           => encode(fieldNumber, lzy.schema, v)
-        case (Schema.Meta(ast, _), _)                               => encode(fieldNumber, Schema[SchemaAst], ast)
-        case ProductEncoder(encode)                                 => encode(fieldNumber)
-        case (Schema.Enum1(c, _), v)                                => encodeEnum(fieldNumber, v, c)
-        case (Schema.Enum2(c1, c2, _), v)                           => encodeEnum(fieldNumber, v, c1, c2)
-        case (Schema.Enum3(c1, c2, c3, _), v)                       => encodeEnum(fieldNumber, v, c1, c2, c3)
-        case (Schema.EnumN(cs, _), v)                               => encodeEnum(fieldNumber, v, cs.toSeq: _*)
-        case (_, _)                                                 => Chunk.empty
+        case (Schema.GenericRecord(structure, _), v: Map[String, _]) => encodeRecord(fieldNumber, structure.toChunk, v)
+        case (Schema.Sequence(element, _, g, _), v)                  => encodeSequence(fieldNumber, element, g(v))
+        case (Schema.Transform(codec, _, g, _), _)                   => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
+        case (Schema.Primitive(standardType, _), v)                  => encodePrimitive(fieldNumber, standardType, v)
+        case (Schema.Tuple(left, right, _), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)
+        case (Schema.Optional(codec, _), v: Option[_])               => encodeOptional(fieldNumber, codec, v)
+        case (Schema.EitherSchema(left, right, _), v: Either[_, _])  => encodeEither(fieldNumber, left, right, v)
+        case (lzy @ Schema.Lazy(_, _), v)                            => encode(fieldNumber, lzy.schema, v)
+        case (Schema.Meta(ast, _), _)                                => encode(fieldNumber, Schema[SchemaAst], ast)
+        case ProductEncoder(encode)                                  => encode(fieldNumber)
+        case (Schema.Enum1(c, _), v)                                 => encodeEnum(fieldNumber, v, c)
+        case (Schema.Enum2(c1, c2, _), v)                            => encodeEnum(fieldNumber, v, c1, c2)
+        case (Schema.Enum3(c1, c2, c3, _), v)                        => encodeEnum(fieldNumber, v, c1, c2, c3)
+        case (Schema.EnumN(cs, _), v)                                => encodeEnum(fieldNumber, v, cs.toSeq: _*)
+        case (_, _)                                                  => Chunk.empty
       }
 
     private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[_, Z]*): Chunk[Byte] = {
@@ -424,7 +424,7 @@ object ProtobufCodec extends Codec {
 
     private[codec] def decoder[A](schema: Schema[A]): Decoder[A] =
       schema match {
-        case Schema.GenericRecord(structure) => recordDecoder(structure.toChunk)
+        case Schema.GenericRecord(structure, _) => recordDecoder(structure.toChunk)
         case Schema.Sequence(elementSchema @ Schema.Sequence(_, _, _, _), fromChunk, _, _) =>
           if (canBePacked(elementSchema)) packedSequenceDecoder(elementSchema).map(fromChunk)
           else nonPackedSequenceDecoder(elementSchema).map(fromChunk)

@@ -44,7 +44,7 @@ object SchemaAssertions {
     case (Schema.Optional(expected, _), Schema.Optional(actual, _)) => equalsAst(expected, actual, depth)
     case (Schema.Tuple(expectedLeft, expectedRight, _), Schema.Tuple(actualLeft, actualRight, _)) =>
       equalsAst(expectedLeft, actualLeft, depth) && equalsAst(expectedRight, actualRight, depth)
-    case (Schema.Tuple(expectedLeft, expectedRight, _), Schema.GenericRecord(structure)) =>
+    case (Schema.Tuple(expectedLeft, expectedRight, _), Schema.GenericRecord(structure, _)) =>
       structure.toChunk.size == 2 &&
         structure.toChunk.find(_.label == "left").exists(f => equalsAst(expectedLeft, f.schema, depth)) &&
         structure.toChunk.find(_.label == "right").exists(f => equalsAst(expectedRight, f.schema, depth))
@@ -80,14 +80,14 @@ object SchemaAssertions {
     (left: Schema[_], right: Schema[_]) match {
       case (Schema.Transform(codec1, _, _, a1), Schema.Transform(codec2, _, _, a2)) =>
         equalsSchema(codec1, codec2) && equalsAnnotations(a1, a2)
-      case (Schema.GenericRecord(structure1), Schema.GenericRecord(structure2)) =>
+      case (Schema.GenericRecord(structure1, a1), Schema.GenericRecord(structure2, a2)) =>
         hasSameFields(structure1.toChunk, structure2.toChunk) &&
           structure1.toChunk.forall {
             case Schema.Field(label, schema, _) =>
               val left: Schema[Any]  = schema.asInstanceOf[Schema[Any]]
               val right: Schema[Any] = structure2.toChunk.find(_.label == label).asInstanceOf[Schema[Any]]
               equalsSchema(left, right)
-          }
+          } && equalsAnnotations(a1, a2)
       case (left: Schema.Record[_], right: Schema.Record[_]) =>
         hasSameStructure(left.asInstanceOf[Schema.Record[A]], right.asInstanceOf[Schema.Record[A]]) && equalsAnnotations(
           left.annotations,

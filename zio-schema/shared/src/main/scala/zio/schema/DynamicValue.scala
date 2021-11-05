@@ -18,7 +18,7 @@ trait DynamicValue { self =>
       case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
         Right(value.asInstanceOf[A])
 
-      case (DynamicValue.Record(values), Schema.GenericRecord(structure)) =>
+      case (DynamicValue.Record(values), Schema.GenericRecord(structure, _)) =>
         DynamicValue.decodeStructure(values, structure.toChunk).asInstanceOf[Either[String, A]]
 
       case (DynamicValue.Record(values), s: Schema.Record[A]) =>
@@ -89,7 +89,7 @@ object DynamicValue {
 
       case Schema.Primitive(p, _) => DynamicValue.Primitive(value, p)
 
-      case Schema.GenericRecord(structure) =>
+      case Schema.GenericRecord(structure, _) =>
         val map: ListMap[String, _] = value
         DynamicValue.Record(
           ListMap.empty ++ structure.toChunk.map {
