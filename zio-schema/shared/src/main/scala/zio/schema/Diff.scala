@@ -101,7 +101,7 @@ object Differ {
     case Schema.Optional(schema, _)                          => fromSchema(schema).optional
     case Schema.Sequence(schema, _, f, _)                    => fromSchema(schema).foreach(f)
     case Schema.EitherSchema(leftSchema, rightSchema, _)     => either(fromSchema(leftSchema), fromSchema(rightSchema))
-    case s @ Schema.Lazy(_)                                  => fromSchema(s.schema)
+    case s @ Schema.Lazy(_, _)                               => fromSchema(s.schema)
     case Schema.Transform(schema, _, f, _)                   => fromSchema(schema).transformOrFail(f)
     case Schema.Fail(_, _)                                   => fail
     case Schema.GenericRecord(structure)                     => record(structure.toChunk)
@@ -440,7 +440,7 @@ sealed trait Diff { self =>
       case (Primitive(StandardType.Duration(_), _), Temporal(dist1 :: dist2 :: Nil)) => Right(JDuration.ofSeconds(a.getSeconds - dist1, a.getNano() - dist2))
       // TODO need to deal with leap year differences
       case (Primitive(StandardType.MonthDay, _), Temporal(regDiff :: _ :: Nil)) => Right(MonthDay.from(ChronoUnit.DAYS.addTo(a.atYear(2001), regDiff.toLong)))
-      case (s @ Schema.Lazy(_), diff)                                           => diff.patch(a)(s.schema)
+      case (s @ Schema.Lazy(_, _), diff)                                        => diff.patch(a)(s.schema)
       case (Optional(_, _), Total(_, Diff.Tag.Left))                            => Right(None)
       case (Optional(_, _), Total(right, Diff.Tag.Right))                       => Right(Some(right))
       case (Optional(schema, _), diff) =>
