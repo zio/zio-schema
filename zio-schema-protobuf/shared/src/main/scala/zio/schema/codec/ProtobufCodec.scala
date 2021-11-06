@@ -1,19 +1,17 @@
 package zio.schema.codec
 
 import java.nio.charset.StandardCharsets
-import java.nio.{ ByteBuffer, ByteOrder }
+import java.nio.{ByteBuffer, ByteOrder}
 import java.time._
 import java.util.UUID
-
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
-
 import zio.schema._
 import zio.schema.ast.SchemaAst
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZTransducer
-import zio.{ Chunk, ZIO }
+import zio.{Chunk, ZIO}
 
 object ProtobufCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
@@ -134,21 +132,22 @@ object ProtobufCodec extends Codec {
 
     def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
       (schema, value) match {
-        case (Schema.GenericRecord(structure, _), v: Map[String, _]) => encodeRecord(fieldNumber, structure.toChunk, v)
-        case (Schema.Sequence(element, _, g, _), v)                  => encodeSequence(fieldNumber, element, g(v))
-        case (Schema.Transform(codec, _, g, _), _)                   => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
-        case (Schema.Primitive(standardType, _), v)                  => encodePrimitive(fieldNumber, standardType, v)
-        case (Schema.Tuple(left, right, _), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)
-        case (Schema.Optional(codec, _), v: Option[_])               => encodeOptional(fieldNumber, codec, v)
-        case (Schema.EitherSchema(left, right, _), v: Either[_, _])  => encodeEither(fieldNumber, left, right, v)
-        case (lzy @ Schema.Lazy(_), v)                               => encode(fieldNumber, lzy.schema, v)
-        case (Schema.Meta(ast, _), _)                                => encode(fieldNumber, Schema[SchemaAst], ast)
-        case ProductEncoder(encode)                                  => encode(fieldNumber)
-        case (Schema.Enum1(c, _), v)                                 => encodeEnum(fieldNumber, v, c)
-        case (Schema.Enum2(c1, c2, _), v)                            => encodeEnum(fieldNumber, v, c1, c2)
-        case (Schema.Enum3(c1, c2, c3, _), v)                        => encodeEnum(fieldNumber, v, c1, c2, c3)
-        case (Schema.EnumN(cs, _), v)                                => encodeEnum(fieldNumber, v, cs.toSeq: _*)
-        case (_, _)                                                  => Chunk.empty
+        case (Schema.GenericRecord(structure), v: Map[String, _]) => encodeRecord(fieldNumber, structure.toChunk, v)
+        case (Schema.Sequence(element, _, g), v)                  => encodeSequence(fieldNumber, element, g(v))
+        case (Schema.MapSchema(ks, vs), v: Map[k, v])             => encodeSequence(fieldNumber, ks <*> vs, Chunk.fromIterable(v))
+        case (Schema.Transform(codec, _, g), _)                   => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
+        case (Schema.Primitive(standardType), v)                  => encodePrimitive(fieldNumber, standardType, v)
+        case (Schema.Tuple(left, right), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)
+        case (Schema.Optional(codec), v: Option[_])               => encodeOptional(fieldNumber, codec, v)
+        case (Schema.EitherSchema(left, right), v: Either[_, _])  => encodeEither(fieldNumber, left, right, v)
+        case (lzy @ Schema.Lazy(_), v)                            => encode(fieldNumber, lzy.schema, v)
+        case (Schema.Meta(ast), _)                                => encode(fieldNumber, Schema[SchemaAst], ast)
+        case ProductEncoder(encode)                               => encode(fieldNumber)
+        case (Schema.Enum1(c, _), v)                              => encodeEnum(fieldNumber, v, c)
+        case (Schema.Enum2(c1, c2, _), v)                         => encodeEnum(fieldNumber, v, c1, c2)
+        case (Schema.Enum3(c1, c2, c3, _), v)                     => encodeEnum(fieldNumber, v, c1, c2, c3)
+        case (Schema.EnumN(cs, _), v)                             => encodeEnum(fieldNumber, v, cs.toSeq: _*)
+        case (_, _)                                               => Chunk.empty
       }
 
     private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[_, Z]*): Chunk[Byte] = {
@@ -200,6 +199,9 @@ object ProtobufCodec extends Codec {
         }
         encodeKey(WireType.LengthDelimited(chunk.size), fieldNumber) ++ chunk
       }
+
+//    private def encodeMap[K, V]
+
 
     @scala.annotation.tailrec
     private def encodePrimitive[A](
@@ -443,6 +445,8 @@ object ProtobufCodec extends Codec {
             },
             true
           )
+        case Schema.MapSchema(ks: Schema[k], vs: Schema[v]) =>
+          decoder(Schema.Sequence(ks <*> vs, (c: Chunk[(k, v)]) => c.toList.toMap, (m: Map[k, v]) => Chunk.fromIterable(m)))
         case Schema.Transform(codec, f, _, _)    => transformDecoder(codec, f)
         case Schema.Primitive(standardType, _)   => primitiveDecoder(standardType)
         case Schema.Tuple(left, right, _)        => tupleDecoder(left, right)
