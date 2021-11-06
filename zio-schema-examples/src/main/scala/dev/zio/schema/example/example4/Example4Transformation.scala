@@ -57,7 +57,7 @@ object Example4Transformation extends zio.App {
     },
     (dto: DomainPerson) => WebPerson(dto.firstname + " " + dto.lastname, dto.years),
   )
-  val domainPerson = WebPerson.schema.migrate(personTransformation).map(f => f(webPerson))
+  val domainPerson: Either[String, DomainPerson] = WebPerson.schema.migrate(personTransformation).flatMap(f => f(webPerson))
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = ZIO.debug(domainPerson).exitCode
 }
