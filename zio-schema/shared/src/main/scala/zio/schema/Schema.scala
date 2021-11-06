@@ -331,8 +331,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   }
 
-  final case class Lazy[A](private val schema0: () => Schema[A], annotations: Chunk[Any] = Chunk.empty)
-      extends Schema[A] {
+  final case class Lazy[A](private val schema0: () => Schema[A]) extends Schema[A] {
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = schema.Accessors[Lens, Prism, Traversal]
 
     lazy val schema: Schema[A] = schema0()
@@ -341,6 +340,8 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
       schema.makeAccessors(b)
 
     override def toString: String = "$Lazy$"
+
+    override def annotations: Chunk[Any] = schema0().annotations
   }
 
   final case class Meta(ast: SchemaAst, annotations: Chunk[Any] = Chunk.empty) extends Schema[Schema[_]] {

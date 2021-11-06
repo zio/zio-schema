@@ -91,7 +91,7 @@ object ProtobufCodec extends Codec {
       case _: Schema.Optional[_]             => false
       case _: Schema.Fail[_]                 => false
       case _: Schema.EitherSchema[_, _]      => false
-      case lzy @ Schema.Lazy(_, _)           => canBePacked(lzy.schema)
+      case lzy @ Schema.Lazy(_)              => canBePacked(lzy.schema)
       case _                                 => false
     }
 
@@ -141,7 +141,7 @@ object ProtobufCodec extends Codec {
         case (Schema.Tuple(left, right, _), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)
         case (Schema.Optional(codec, _), v: Option[_])               => encodeOptional(fieldNumber, codec, v)
         case (Schema.EitherSchema(left, right, _), v: Either[_, _])  => encodeEither(fieldNumber, left, right, v)
-        case (lzy @ Schema.Lazy(_, _), v)                            => encode(fieldNumber, lzy.schema, v)
+        case (lzy @ Schema.Lazy(_), v)                               => encode(fieldNumber, lzy.schema, v)
         case (Schema.Meta(ast, _), _)                                => encode(fieldNumber, Schema[SchemaAst], ast)
         case ProductEncoder(encode)                                  => encode(fieldNumber)
         case (Schema.Enum1(c, _), v)                                 => encodeEnum(fieldNumber, v, c)
@@ -449,7 +449,7 @@ object ProtobufCodec extends Codec {
         case Schema.Optional(codec, _)           => optionalDecoder(codec)
         case Schema.Fail(message, _)             => fail(message)
         case Schema.EitherSchema(left, right, _) => eitherDecoder(left, right)
-        case lzy @ Schema.Lazy(_, _)             => decoder(lzy.schema)
+        case lzy @ Schema.Lazy(_)                => decoder(lzy.schema)
         case Schema.Meta(_, _)                   => astDecoder
         case ProductDecoder(decoder)             => decoder
         case Schema.Enum1(c, _)                  => enumDecoder(c)
@@ -506,8 +506,8 @@ object ProtobufCodec extends Codec {
         }
 
     private def packedSequenceDecoder[A](schema: Schema[A]): Decoder[Chunk[A]] = schema match {
-      case lzy @ Schema.Lazy(_, _) => decoder(lzy.schema).loop
-      case _                       => decoder(schema).loop
+      case lzy @ Schema.Lazy(_) => decoder(lzy.schema).loop
+      case _                    => decoder(schema).loop
     }
 
     private def nonPackedSequenceDecoder[A](schema: Schema[A]): Decoder[Chunk[A]] =

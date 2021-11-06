@@ -107,21 +107,12 @@ object SchemaAssertions {
       case (Schema.Enum3(l1, l2, l3, lA), Schema.Enum3(r1, r2, r3, rA)) =>
         hasSameCases(Seq(l1, l2, l3), Seq(r1, r2, r3)) && lA.equals(rA)
       case (Schema.EnumN(ls, lA), Schema.EnumN(rs, rA)) => hasSameCases(ls.toSeq, rs.toSeq) && lA.equals(rA)
-      case (l @ Schema.Lazy(_, a1), r @ Schema.Lazy(_, a2)) =>
-        equalsSchema(l.schema.asInstanceOf[Schema[Any]], r.schema.asInstanceOf[Schema[Any]]) && equalsAnnotations(
-          a1,
-          a2
-        )
-      case (lazySchema @ Schema.Lazy(_, a1), eagerSchema) =>
-        equalsSchema(lazySchema.schema.asInstanceOf[Schema[Any]], eagerSchema.asInstanceOf[Schema[Any]]) && equalsAnnotations(
-          a1,
-          eagerSchema.annotations
-        )
-      case (eagerSchema, lazySchema @ Schema.Lazy(_, a2)) =>
-        equalsSchema(lazySchema.asInstanceOf[Schema[Any]], eagerSchema.asInstanceOf[Schema[Any]]) && equalsAnnotations(
-          eagerSchema.annotations,
-          a2
-        )
+      case (l @ Schema.Lazy(_), r @ Schema.Lazy(_)) =>
+        equalsSchema(l.schema.asInstanceOf[Schema[Any]], r.schema.asInstanceOf[Schema[Any]])
+      case (lazySchema @ Schema.Lazy(_), eagerSchema) =>
+        equalsSchema(lazySchema.schema.asInstanceOf[Schema[Any]], eagerSchema.asInstanceOf[Schema[Any]])
+      case (eagerSchema, lazySchema @ Schema.Lazy(_)) =>
+        equalsSchema(lazySchema.asInstanceOf[Schema[Any]], eagerSchema.asInstanceOf[Schema[Any]])
       case _ => false
     }
 
