@@ -31,6 +31,9 @@ sealed trait Schema[A] {
 
   type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]]
 
+  /**
+   * Chunk of annotations for this schema
+   */
   def annotations: Chunk[Any]
 
   /**
@@ -194,7 +197,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   implicit val nil: Schema[Nil.type] = Schema[Unit].transform(_ => Nil, _ => ())
 
   implicit val none: Schema[None.type] = Schema[Unit].transform(_ => None, _ => ())
-  // TODO: I don't think it seems right to copy the annotations from `schemaA`/`element` here.
+
   implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
     Schema.Sequence[Chunk[A], A](schemaA, identity, identity, Chunk.empty)
 
@@ -223,7 +226,6 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     chunk(element).transform(_.toVector, Chunk.fromIterable(_))
 
   sealed trait Enum[A] extends Schema[A] {
-    def annotations: Chunk[Any]
     def structure: ListMap[String, Schema[_]]
   }
 
@@ -355,7 +357,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 //scalafmt: { maxColumn = 400 }
 sealed trait EnumSchemas { self: Schema.type =>
 
-  sealed case class Case[A, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A, annotations: Chunk[Any]) {
+  sealed case class Case[A, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A, annotations: Chunk[Any] = Chunk.empty) {
 
     def deconstruct(z: Z): Option[A] =
       try {
@@ -365,7 +367,7 @@ sealed trait EnumSchemas { self: Schema.type =>
     override def toString: String = s"Case($id,$codec,$annotations)"
   }
 
-  sealed case class Enum1[A <: Z, Z](case1: Case[A, Z], override val annotations: Chunk[Any]) extends Enum[Z] { self =>
+  sealed case class Enum1[A <: Z, Z](case1: Case[A, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Prism[Z, A]
 
     override def makeAccessors(b: AccessorBuilder): b.Prism[Z, A] = b.makePrism(self, case1)
@@ -374,7 +376,7 @@ sealed trait EnumSchemas { self: Schema.type =>
       ListMap(case1.id -> case1.codec)
   }
 
-  sealed case class Enum2[A1 <: Z, A2 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], override val annotations: Chunk[Any]) extends Enum[Z] { self =>
+  sealed case class Enum2[A1 <: Z, A2 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2]) =
@@ -384,7 +386,7 @@ sealed trait EnumSchemas { self: Schema.type =>
       ListMap(case1.id -> case1.codec, case2.id -> case2.codec)
   }
 
-  sealed case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], override val annotations: Chunk[Any]) extends Enum[Z] { self =>
+  sealed case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3]) =
@@ -394,7 +396,7 @@ sealed trait EnumSchemas { self: Schema.type =>
       ListMap(case1.id -> case1.codec, case2.id -> case2.codec, case3.id -> case3.codec)
   }
 
-  sealed case class Enum4[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], override val annotations: Chunk[Any]) extends Enum[Z] { self =>
+  sealed case class Enum4[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4]) =
@@ -404,7 +406,7 @@ sealed trait EnumSchemas { self: Schema.type =>
       ListMap(case1.id -> case1.codec, case2.id -> case2.codec, case3.id -> case3.codec, case4.id -> case4.codec)
   }
 
-  sealed case class Enum5[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], override val annotations: Chunk[Any]) extends Enum[Z] { self =>
+  sealed case class Enum5[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5]) =
@@ -414,7 +416,7 @@ sealed trait EnumSchemas { self: Schema.type =>
       ListMap(case1.id -> case1.codec, case2.id -> case2.codec, case3.id -> case3.codec, case4.id -> case4.codec, case5.id -> case5.codec)
   }
 
-  sealed case class Enum6[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], override val annotations: Chunk[Any]) extends Enum[Z] { self =>
+  sealed case class Enum6[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6]) =
@@ -424,7 +426,7 @@ sealed trait EnumSchemas { self: Schema.type =>
       ListMap(case1.id -> case1.codec, case2.id -> case2.codec, case3.id -> case3.codec, case4.id -> case4.codec, case5.id -> case5.codec, case6.id -> case6.codec)
   }
 
-  sealed case class Enum7[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], override val annotations: Chunk[Any]) extends Enum[Z] { self =>
+  sealed case class Enum7[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7]) =
@@ -442,7 +444,7 @@ sealed trait EnumSchemas { self: Schema.type =>
       )
   }
 
-  sealed case class Enum8[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], override val annotations: Chunk[Any]) extends Enum[Z] { self =>
+  sealed case class Enum8[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8]) =
@@ -461,7 +463,7 @@ sealed trait EnumSchemas { self: Schema.type =>
       )
   }
 
-  sealed case class Enum9[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], override val annotations: Chunk[Any]) extends Enum[Z] { self =>
+  sealed case class Enum9[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9]) =
@@ -480,7 +482,7 @@ sealed trait EnumSchemas { self: Schema.type =>
         case9.id -> case9.codec
       )
   }
-  sealed case class Enum10[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], case10: Case[A10, Z], override val annotations: Chunk[Any]) extends Enum[Z] { self =>
+  sealed case class Enum10[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], case10: Case[A10, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10])
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10]) =
@@ -500,7 +502,7 @@ sealed trait EnumSchemas { self: Schema.type =>
         case10.id -> case10.codec
       )
   }
-  sealed case class Enum11[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], case10: Case[A10, Z], case11: Case[A11, Z], override val annotations: Chunk[Any])
+  sealed case class Enum11[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, A11 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], case10: Case[A10, Z], case11: Case[A11, Z], annotations: Chunk[Any] = Chunk.empty)
       extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11])
 
@@ -535,7 +537,7 @@ sealed trait EnumSchemas { self: Schema.type =>
     case10: Case[A10, Z],
     case11: Case[A11, Z],
     case12: Case[A12, Z],
-    override val annotations: Chunk[Any]
+    annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12])
 
@@ -572,7 +574,7 @@ sealed trait EnumSchemas { self: Schema.type =>
     case11: Case[A11, Z],
     case12: Case[A12, Z],
     case13: Case[A13, Z],
-    override val annotations: Chunk[Any]
+    annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13])
 
@@ -612,7 +614,7 @@ sealed trait EnumSchemas { self: Schema.type =>
     case12: Case[A12, Z],
     case13: Case[A13, Z],
     case14: Case[A14, Z],
-    override val annotations: Chunk[Any]
+    annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14])
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14]) =
@@ -652,7 +654,7 @@ sealed trait EnumSchemas { self: Schema.type =>
     case13: Case[A13, Z],
     case14: Case[A14, Z],
     case15: Case[A15, Z],
-    override val annotations: Chunk[Any]
+    annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15])
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15]) =
@@ -772,7 +774,7 @@ sealed trait EnumSchemas { self: Schema.type =>
     case15: Case[A15, Z],
     case16: Case[A16, Z],
     case17: Case[A17, Z],
-    override val annotations: Chunk[Any]
+    annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17])
 
@@ -837,7 +839,7 @@ sealed trait EnumSchemas { self: Schema.type =>
     case16: Case[A16, Z],
     case17: Case[A17, Z],
     case18: Case[A18, Z],
-    override val annotations: Chunk[Any]
+    annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18])
 
@@ -905,7 +907,7 @@ sealed trait EnumSchemas { self: Schema.type =>
     case17: Case[A17, Z],
     case18: Case[A18, Z],
     case19: Case[A19, Z],
-    override val annotations: Chunk[Any]
+    annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18], Prism[Z, A19])
 
@@ -976,7 +978,7 @@ sealed trait EnumSchemas { self: Schema.type =>
     case18: Case[A18, Z],
     case19: Case[A19, Z],
     case20: Case[A20, Z],
-    override val annotations: Chunk[Any]
+    annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18], Prism[Z, A19], Prism[Z, A20])
 
@@ -1050,7 +1052,7 @@ sealed trait EnumSchemas { self: Schema.type =>
     case19: Case[A19, Z],
     case20: Case[A20, Z],
     case21: Case[A21, Z],
-    override val annotations: Chunk[Any]
+    annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18], Prism[Z, A19], Prism[Z, A20], Prism[Z, A21])
 
@@ -1129,7 +1131,7 @@ sealed trait EnumSchemas { self: Schema.type =>
     case20: Case[A20, Z],
     case21: Case[A21, Z],
     case22: Case[A22, Z],
-    override val annotations: Chunk[Any]
+    annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18], Prism[Z, A19], Prism[Z, A20], Prism[Z, A21], Prism[Z, A22])
 
@@ -1187,7 +1189,7 @@ sealed trait EnumSchemas { self: Schema.type =>
         case22.id -> case22.codec
       )
   }
-  sealed case class EnumN[Z, C <: CaseSet.Aux[Z]](caseSet: C, override val annotations: Chunk[Any]) extends Enum[Z] { self =>
+  sealed case class EnumN[Z, C <: CaseSet.Aux[Z]](caseSet: C, annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = caseSet.Accessors[Z, Lens, Prism, Traversal]
 
     override def structure: ListMap[String, Schema[_]] = caseSet.toMap
