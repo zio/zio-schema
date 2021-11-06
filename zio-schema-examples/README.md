@@ -14,5 +14,8 @@ Schema definitions in companion objects.
 
 ## Example 3
 In this example we'll take a look on how to use ZIO-Schema to
-transform a PersonDTO (e.g. from a REST API) into a Person (e.g. for a database).
+transform a PersonDTO (e.g. from a REST API) into a Person (e.g. for a database) in a single step.
+
+To do this, we'll transform the Schema of the PersonDTO into a Schema of the Person.
+
 

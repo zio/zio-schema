@@ -7,7 +7,9 @@ import zio.{Chunk, ExitCode, URIO, ZIO}
 /**
  * Example3:
  * In this example we'll take a look on how to use ZIO-Schema to
- * transform a PersonDTO (e.g. from a REST API) into a Person (e.g. for a database).
+ * transform a PersonDTO (e.g. from a REST API) into a Person (e.g. for a database) in a single step.
+ *
+ * To do this, we'll transform the Schema of the PersonDTO into a Schema of the Person.
  **/
 final case class PersonDTO(firstname: String, lastname: String, years: Int)
 object PersonDTO {
@@ -40,16 +42,22 @@ object Example3 extends zio.App {
   val example = for {
     _ <- ZIO.unit
     json = """{"firstname":"John","lastname":"Doe","years":42}"""
-    dto <- ZIO.fromEither(JsonCodec.decode[PersonDTO](PersonDTO.schema)(Chunk.fromArray(json.getBytes)))
-    _ <- ZIO.debug("PersonDTO: " + dto)
-    trans <- ZIO.fromEither(PersonDTO.schema.migrate(personTransformation))
-    person <- ZIO.fromEither(trans(dto))
-    _ <- ZIO.debug("Person: " + person)
+    chunks = Chunk.fromArray(json.getBytes)
+    _ <- ZIO.debug("input JSON    : " + json)
+
+    // get objects from JSON
+    personDTO <- ZIO.fromEither(JsonCodec.decode[PersonDTO](PersonDTO.schema)(chunks))
+    person <- ZIO.fromEither(JsonCodec.decode[Person](personTransformation)(chunks))
+    _ <- ZIO.debug("PersonDTO     : " + personDTO)
+    _ <- ZIO.debug("Person        : " + person)
+
+    // get JSON from Objects
+    personJson    = new String(JsonCodec.encode[Person](Person.schema)(person).toArray)
+    personDTOJson = new String(JsonCodec.encode[Person](personTransformation)(person).toArray)
+    _ <- ZIO.debug("Person    JSON: " + personJson)
+    _ <- ZIO.debug("PersonDTO JSON: " + personDTOJson)
+
   } yield person
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = for {
-    _ <- ZIO.unit
-    pers <- example.exitCode
-
-  } yield pers
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = example.exitCode
 }
