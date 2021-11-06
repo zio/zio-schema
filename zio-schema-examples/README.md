@@ -12,3 +12,7 @@ Showing how to transform a JSON-String to a domain object using a codec.
 ## Example 2
 Schema definitions in companion objects. 
 
+## Example 3
+In this example we'll take a look on how to use ZIO-Schema to
+transform a PersonDTO (e.g. from a REST API) into a Person (e.g. for a database).
+
