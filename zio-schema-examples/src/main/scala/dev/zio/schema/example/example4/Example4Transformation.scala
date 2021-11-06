@@ -81,3 +81,39 @@ object Example4Ast extends zio.App {
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = ZIO.debug(dyn).exitCode
 }
+
+
+object Example4Ast2 extends zio.App {
+  import Domain._
+
+  val webPerson = WebPerson("Mike Moe", 32)
+  val personTransformation: Schema[DomainPerson] = WebPerson.schema.transform[DomainPerson](
+    (person: WebPerson) => {
+      val name = person.name.split(" ").toSeq
+      DomainPerson(name.head, name.tail.mkString(" "), person.age)
+    },
+    (dto: DomainPerson) => WebPerson(dto.firstname + " " + dto.lastname, dto.years),
+  )
+  val webPersonAst = SchemaAst.fromSchema(WebPerson.schema)
+  val domainPersonAst = SchemaAst.fromSchema(DomainPerson.schema)
+  val migrationAst = SchemaAst.fromSchema(personTransformation)
+
+  val migrationWebPersonAstToMigrationAst = Migration.derive(webPersonAst, migrationAst)
+  val migrationWebPersonAstToDomainPersonAst = Migration.derive(webPersonAst, domainPersonAst)
+
+
+  val effect = for {
+    _ <- ZIO.debug(webPersonAst)
+    _ <- ZIO.debug(domainPersonAst)
+    _ <- ZIO.debug(migrationAst)
+    _ <- ZIO.debug("migrationWebPersonAstToMigrationAst" + migrationWebPersonAstToMigrationAst)
+    _ <- ZIO.debug("migrationWebPersonAstToDomainPersonAst" + migrationWebPersonAstToDomainPersonAst)
+    x = WebPerson.schema.migrate(personTransformation).flatMap(f => f(webPerson))
+    _ <- ZIO.debug(x) // Left(Failed to cast Record(ListMap(name -> Primitive(Mike Moe,string), age -> Primitive(32,int))) to schema Transform(CaseClass2(Field(name,Primitive(string)),Field(age,Primitive(int)))))
+
+    domainPerson = WebPerson.schema.migrate(DomainPerson.schema).flatMap(f => f(webPerson))
+    _ <- ZIO.debug(domainPerson) // Left(Cannot add node at path firstname: No default value is available)
+  } yield ()
+
+  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = effect.exitCode
+}
