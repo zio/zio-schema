@@ -247,7 +247,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   ) extends Schema[Col] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Traversal[Col, Elem]
 
-    override def annotate(annotation: Any): Sequence[Col, Elem] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Sequence[Col, Elem] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, schemaA)
     override def toString: String                                          = s"Sequence($schemaA)"
@@ -265,7 +265,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     override def makeAccessors(b: AccessorBuilder): codec.Accessors[b.Lens, b.Prism, b.Traversal] =
       codec.makeAccessors(b)
 
-    override def annotate(annotation: Any): Transform[A, B] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Transform[A, B] = copy(annotations = annotations :+ annotation)
 
     override def serializable: Schema[Schema[_]] = Meta(SchemaAst.fromSchema(codec))
     override def toString: String                = s"Transform($codec)"
@@ -276,7 +276,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
       extends Schema[A] {
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
 
-    override def annotate(annotation: Any): Primitive[A] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Primitive[A] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
@@ -286,7 +286,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
     private[schema] val someCodec: Schema[Some[A]] = codec.transform(a => Some(a), _.get)
 
-    override def annotate(annotation: Any): Optional[A] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Optional[A] = copy(annotations = annotations :+ annotation)
 
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] =
       (Prism[Option[A], Some[A]], Prism[Option[A], None.type])
@@ -305,7 +305,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   final case class Fail[A](message: String, annotations: Chunk[Any] = Chunk.empty) extends Schema[A] {
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
 
-    override def annotate(annotation: Any): Fail[A] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Fail[A] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
@@ -314,7 +314,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
       extends Schema[(A, B)] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[(A, B), A], Lens[(A, B), B])
 
-    override def annotate(annotation: Any): Tuple[A, B] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Tuple[A, B] = copy(annotations = annotations :+ annotation)
 
     val toRecord: CaseClass2[A, B, (A, B)] = CaseClass2[A, B, (A, B)](
       field1 = Field("_1", left),
@@ -334,7 +334,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] =
       (Prism[Either[A, B], Right[Nothing, B]], Prism[Either[A, B], Left[A, Nothing]])
 
-    override def annotate(annotation: Any): EitherSchema[A, B] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): EitherSchema[A, B] = copy(annotations = annotations :+ annotation)
 
     val rightSchema: Schema[Right[Nothing, B]] = right.transform(b => Right(b), _.value)
     val leftSchema: Schema[Left[A, Nothing]]   = left.transform(a => Left(a), _.value)
@@ -369,7 +369,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   final case class Meta(ast: SchemaAst, annotations: Chunk[Any] = Chunk.empty) extends Schema[Schema[_]] {
 
-    override def annotate(annotation: Any): Meta = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Meta = copy(annotations = annotations :+ annotation)
 
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
 
@@ -394,7 +394,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   sealed case class Enum1[A <: Z, Z](case1: Case[A, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Prism[Z, A]
 
-    override def annotate(annotation: Any): Enum1[A, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum1[A, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): b.Prism[Z, A] = b.makePrism(self, case1)
 
@@ -405,7 +405,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   sealed case class Enum2[A1 <: Z, A2 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2])
 
-    override def annotate(annotation: Any): Enum2[A1, A2, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum2[A1, A2, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2]) =
       (b.makePrism(self, case1), b.makePrism(self, case2))
@@ -417,7 +417,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   sealed case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3])
 
-    override def annotate(annotation: Any): Enum3[A1, A2, A3, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum3[A1, A2, A3, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3]) =
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3))
@@ -429,7 +429,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   sealed case class Enum4[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4])
 
-    override def annotate(annotation: Any): Enum4[A1, A2, A3, A4, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum4[A1, A2, A3, A4, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4]) =
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4))
@@ -441,7 +441,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   sealed case class Enum5[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5])
 
-    override def annotate(annotation: Any): Enum5[A1, A2, A3, A4, A5, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum5[A1, A2, A3, A4, A5, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5]) =
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5))
@@ -453,7 +453,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   sealed case class Enum6[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6])
 
-    override def annotate(annotation: Any): Enum6[A1, A2, A3, A4, A5, A6, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum6[A1, A2, A3, A4, A5, A6, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6]) =
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6))
@@ -465,7 +465,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   sealed case class Enum7[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7])
 
-    override def annotate(annotation: Any): Enum7[A1, A2, A3, A4, A5, A6, A7, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum7[A1, A2, A3, A4, A5, A6, A7, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7]) =
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6), b.makePrism(self, case7))
@@ -485,7 +485,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   sealed case class Enum8[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8])
 
-    override def annotate(annotation: Any): Enum8[A1, A2, A3, A4, A5, A6, A7, A8, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum8[A1, A2, A3, A4, A5, A6, A7, A8, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8]) =
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6), b.makePrism(self, case7), b.makePrism(self, case8))
@@ -506,7 +506,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   sealed case class Enum9[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9])
 
-    override def annotate(annotation: Any): Enum9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9]) =
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6), b.makePrism(self, case7), b.makePrism(self, case8), b.makePrism(self, case9))
@@ -527,7 +527,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   sealed case class Enum10[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], case8: Case[A8, Z], case9: Case[A9, Z], case10: Case[A10, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10])
 
-    override def annotate(annotation: Any): Enum10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10]) =
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6), b.makePrism(self, case7), b.makePrism(self, case8), b.makePrism(self, case9), b.makePrism(self, case10))
@@ -550,7 +550,7 @@ sealed trait EnumSchemas { self: Schema.type =>
       extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11])
 
-    override def annotate(annotation: Any): Enum11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11]) =
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6), b.makePrism(self, case7), b.makePrism(self, case8), b.makePrism(self, case9), b.makePrism(self, case10), b.makePrism(self, case11))
@@ -587,7 +587,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12])
 
-    override def annotate(annotation: Any): Enum12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12]) =
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6), b.makePrism(self, case7), b.makePrism(self, case8), b.makePrism(self, case9), b.makePrism(self, case10), b.makePrism(self, case11), b.makePrism(self, case12))
@@ -626,7 +626,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13])
 
-    override def annotate(annotation: Any): Enum13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13]) =
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6), b.makePrism(self, case7), b.makePrism(self, case8), b.makePrism(self, case9), b.makePrism(self, case10), b.makePrism(self, case11), b.makePrism(self, case12), b.makePrism(self, case13))
@@ -668,7 +668,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14])
 
-    override def annotate(annotation: Any): Enum14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14]) =
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6), b.makePrism(self, case7), b.makePrism(self, case8), b.makePrism(self, case9), b.makePrism(self, case10), b.makePrism(self, case11), b.makePrism(self, case12), b.makePrism(self, case13), b.makePrism(self, case14))
@@ -711,7 +711,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15])
 
-    override def annotate(annotation: Any): Enum15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15]) =
       (
@@ -772,7 +772,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16])
 
-    override def annotate(annotation: Any): Enum16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16]) =
       (
@@ -836,7 +836,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17])
 
-    override def annotate(annotation: Any): Enum17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17]) =
       (
@@ -903,7 +903,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18])
 
-    override def annotate(annotation: Any): Enum18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17], b.Prism[Z, A18]) =
       (
@@ -973,7 +973,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18], Prism[Z, A19])
 
-    override def annotate(annotation: Any): Enum19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17], b.Prism[Z, A18], b.Prism[Z, A19]) =
       (
@@ -1046,7 +1046,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18], Prism[Z, A19], Prism[Z, A20])
 
-    override def annotate(annotation: Any): Enum20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[Z, A1], b.Prism[Z, A2], b.Prism[Z, A3], b.Prism[Z, A4], b.Prism[Z, A5], b.Prism[Z, A6], b.Prism[Z, A7], b.Prism[Z, A8], b.Prism[Z, A9], b.Prism[Z, A10], b.Prism[Z, A11], b.Prism[Z, A12], b.Prism[Z, A13], b.Prism[Z, A14], b.Prism[Z, A15], b.Prism[Z, A16], b.Prism[Z, A17], b.Prism[Z, A18], b.Prism[Z, A19], b.Prism[Z, A20]) =
       (
@@ -1122,7 +1122,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18], Prism[Z, A19], Prism[Z, A20], Prism[Z, A21])
 
-    override def annotate(annotation: Any): Enum21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -1203,7 +1203,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   ) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Prism[Z, A1], Prism[Z, A2], Prism[Z, A3], Prism[Z, A4], Prism[Z, A5], Prism[Z, A6], Prism[Z, A7], Prism[Z, A8], Prism[Z, A9], Prism[Z, A10], Prism[Z, A11], Prism[Z, A12], Prism[Z, A13], Prism[Z, A14], Prism[Z, A15], Prism[Z, A16], Prism[Z, A17], Prism[Z, A18], Prism[Z, A19], Prism[Z, A20], Prism[Z, A21], Prism[Z, A22])
 
-    override def annotate(annotation: Any): Enum22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): Enum22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -1262,7 +1262,7 @@ sealed trait EnumSchemas { self: Schema.type =>
   sealed case class EnumN[Z, C <: CaseSet.Aux[Z]](caseSet: C, annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = caseSet.Accessors[Z, Lens, Prism, Traversal]
 
-    override def annotate(annotation: Any): EnumN[Z, C] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): EnumN[Z, C] = copy(annotations = annotations :+ annotation)
 
     override def structure: ListMap[String, Schema[_]] = caseSet.toMap
 
@@ -1729,7 +1729,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     /**
      * Returns a new schema that with `annotation`
      */
-    override def annotate(annotation: Any): GenericRecord = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): GenericRecord = copy(annotations = annotations :+ annotation)
 
   }
 
@@ -1737,7 +1737,7 @@ sealed trait RecordSchemas { self: Schema.type =>
 
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Lens[Z, A]
 
-    override def annotate(annotation: Any): CaseClass1[A, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass1[A, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): b.Lens[Z, A] = b.makeLens(self, field)
 
@@ -1757,7 +1757,7 @@ sealed trait RecordSchemas { self: Schema.type =>
 
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2])
 
-    override def annotate(annotation: Any): CaseClass2[A1, A2, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass2[A1, A2, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2]) = (b.makeLens(self, field1), b.makeLens(self, field2))
 
@@ -1777,7 +1777,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   sealed case class CaseClass3[A1, A2, A3, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], field3: Field[A3], construct: (A1, A2, A3) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3])
 
-    override def annotate(annotation: Any): CaseClass3[A1, A2, A3, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass3[A1, A2, A3, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3))
@@ -1799,7 +1799,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   sealed case class CaseClass4[A1, A2, A3, A4, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], field3: Field[A3], field4: Field[A4], construct: (A1, A2, A3, A4) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3, extractField4: Z => A4) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4])
 
-    override def annotate(annotation: Any): CaseClass4[A1, A2, A3, A4, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass4[A1, A2, A3, A4, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4))
@@ -1821,7 +1821,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   sealed case class CaseClass5[A1, A2, A3, A4, A5, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], field3: Field[A3], field4: Field[A4], field5: Field[A5], construct: (A1, A2, A3, A4, A5) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3, extractField4: Z => A4, extractField5: Z => A5) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5])
 
-    override def annotate(annotation: Any): CaseClass5[A1, A2, A3, A4, A5, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass5[A1, A2, A3, A4, A5, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5))
@@ -1857,7 +1857,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6])
 
-    override def annotate(annotation: Any): CaseClass6[A1, A2, A3, A4, A5, A6, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass6[A1, A2, A3, A4, A5, A6, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6))
@@ -1896,7 +1896,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7])
 
-    override def annotate(annotation: Any): CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6), b.makeLens(self, field7))
@@ -1937,7 +1937,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8])
 
-    override def annotate(annotation: Any): CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6), b.makeLens(self, field7), b.makeLens(self, field8))
@@ -1980,7 +1980,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9])
 
-    override def annotate(annotation: Any): CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6), b.makeLens(self, field7), b.makeLens(self, field8), b.makeLens(self, field9))
@@ -2025,7 +2025,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10])
 
-    override def annotate(annotation: Any): CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6), b.makeLens(self, field7), b.makeLens(self, field8), b.makeLens(self, field9), b.makeLens(self, field10))
@@ -2072,7 +2072,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11])
 
-    override def annotate(annotation: Any): CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6), b.makeLens(self, field7), b.makeLens(self, field8), b.makeLens(self, field9), b.makeLens(self, field10), b.makeLens(self, field11))
@@ -2121,7 +2121,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12])
 
-    override def annotate(annotation: Any): CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6), b.makeLens(self, field7), b.makeLens(self, field8), b.makeLens(self, field9), b.makeLens(self, field10), b.makeLens(self, field11), b.makeLens(self, field12))
@@ -2172,7 +2172,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13])
 
-    override def annotate(annotation: Any): CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6), b.makeLens(self, field7), b.makeLens(self, field8), b.makeLens(self, field9), b.makeLens(self, field10), b.makeLens(self, field11), b.makeLens(self, field12), b.makeLens(self, field13))
@@ -2225,7 +2225,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14])
 
-    override def annotate(annotation: Any): CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4), b.makeLens(self, field5), b.makeLens(self, field6), b.makeLens(self, field7), b.makeLens(self, field8), b.makeLens(self, field9), b.makeLens(self, field10), b.makeLens(self, field11), b.makeLens(self, field12), b.makeLens(self, field13), b.makeLens(self, field14))
@@ -2298,7 +2298,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15])
 
-    override def annotate(annotation: Any): CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15]) =
       (
@@ -2390,7 +2390,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16])
 
-    override def annotate(annotation: Any): CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16]) =
       (
@@ -2486,7 +2486,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17])
 
-    override def annotate(annotation: Any): CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17]) =
       (
@@ -2586,7 +2586,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18])
 
-    override def annotate(annotation: Any): CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17], b.Lens[Z, A18]) =
       (
@@ -2690,7 +2690,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18], Lens[Z, A19])
 
-    override def annotate(annotation: Any): CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17], b.Lens[Z, A18], b.Lens[Z, A19]) =
       (
@@ -2798,7 +2798,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18], Lens[Z, A19], Lens[Z, A20])
 
-    override def annotate(annotation: Any): CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17], b.Lens[Z, A18], b.Lens[Z, A19], b.Lens[Z, A20]) =
       (
@@ -2910,7 +2910,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18], Lens[Z, A19], Lens[Z, A20], Lens[Z, A21])
 
-    override def annotate(annotation: Any): CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17], b.Lens[Z, A18], b.Lens[Z, A19], b.Lens[Z, A20], b.Lens[Z, A21]) =
       (
@@ -3026,7 +3026,7 @@ sealed trait RecordSchemas { self: Schema.type =>
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18], Lens[Z, A19], Lens[Z, A20], Lens[Z, A21], Lens[Z, A22])
 
-    override def annotate(annotation: Any): CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z] = copy(annotations = annotations.appended(annotation))
+    override def annotate(annotation: Any): CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[Z, A1], b.Lens[Z, A2], b.Lens[Z, A3], b.Lens[Z, A4], b.Lens[Z, A5], b.Lens[Z, A6], b.Lens[Z, A7], b.Lens[Z, A8], b.Lens[Z, A9], b.Lens[Z, A10], b.Lens[Z, A11], b.Lens[Z, A12], b.Lens[Z, A13], b.Lens[Z, A14], b.Lens[Z, A15], b.Lens[Z, A16], b.Lens[Z, A17], b.Lens[Z, A18], b.Lens[Z, A19], b.Lens[Z, A20], b.Lens[Z, A21], b.Lens[Z, A22]) =
       (
