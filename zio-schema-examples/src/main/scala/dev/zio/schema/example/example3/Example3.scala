@@ -11,24 +11,40 @@ import zio.{Chunk, ExitCode, URIO, ZIO}
  *
  * To do this, we'll transform the Schema of the PersonDTO into a Schema of the Person.
  **/
-final case class PersonDTO(firstname: String, lastname: String, years: Int)
-object PersonDTO {
-  val firstname = Schema.Field("firstname", Schema.primitive[String])
-  val lastname  = Schema.Field("lastname", Schema.primitive[String])
-  val years     = Schema.Field("years", Schema.primitive[Int])
-  val schema: Schema[PersonDTO] = Schema.CaseClass3[String, String, Int, PersonDTO](
-    field1 = firstname,
-    field2 = lastname,
-    field3 = years,
-    construct = (fn, ln, y) => PersonDTO(fn, ln, y),
-    extractField1 = _.firstname,
-    extractField2 = _.lastname,
-    extractField3 = _.years
-  )
+private[example3] object Domain {
+  final case class Person(name: String, age: Int)
+  object Person {
+    val name = Schema.Field[String]("name", Schema.primitive[String])
+    val age  = Schema.Field[Int]("age", Schema.primitive[Int])
+    val schema: Schema[Person] = Schema.CaseClass2[String, Int, Person](
+      field1 = name,
+      field2 = age,
+      construct = (name, age) => Person(name, age),
+      extractField1 = p => p.name,
+      extractField2 = p => p.age
+    )
+  }
+
+  final case class PersonDTO(firstname: String, lastname: String, years: Int)
+  object PersonDTO {
+    val firstname = Schema.Field("firstname", Schema.primitive[String])
+    val lastname  = Schema.Field("lastname", Schema.primitive[String])
+    val years     = Schema.Field("years", Schema.primitive[Int])
+    val schema: Schema[PersonDTO] = Schema.CaseClass3[String, String, Int, PersonDTO](
+      field1 = firstname,
+      field2 = lastname,
+      field3 = years,
+      construct = (fn, ln, y) => PersonDTO(fn, ln, y),
+      extractField1 = _.firstname,
+      extractField2 = _.lastname,
+      extractField3 = _.years
+    )
+  }
+
 }
 
 object Example3 extends zio.App {
-  import dev.zio.schema.example.example2.Domain._
+  import dev.zio.schema.example.example3.Domain._
   import zio.schema.codec.JsonCodec
 
   val personTransformation: Schema[Person] = PersonDTO.schema.transform[Person](
