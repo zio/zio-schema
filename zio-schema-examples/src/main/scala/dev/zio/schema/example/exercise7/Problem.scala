@@ -115,7 +115,9 @@ private[exercise7] object Problem {
 //        case Tuple(left, right) => ???
 //        case EitherSchema(left, right) => ???
         case Lazy(schema0) =>
-          (qp: QueryParams) => compile(key, schema0())(qp)
+          // lazy val to make sure its only compiled on first usage and not instantly recursing
+          lazy val compiled = compile(key, schema0())
+          (qp: QueryParams) => compiled(qp)
         case Meta(ast) => ???
         case _ =>
           val err = Left(s"Decoding from query parameters is not supported for ${schema}")
