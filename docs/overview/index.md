@@ -9,6 +9,9 @@ Add in your `build.sbt`:
 
 ```scala
 libraryDependencies += "dev.zio" %% "zio-schema" % "<version>"
+libraryDependencies += "dev.zio" %% "zio-schema-json" % "<version>"
+libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "<version>"
+libraryDependencies += "dev.zio" %% "zio-schema-optics" % "<version>"
 ```
 
 ## Purpose of ZIO-Schema
