@@ -1,6 +1,6 @@
 package dev.zio.schema.example.exercise7
 
-import zio.schema.{DeriveSchema, Schema}
+import zio.schema.{DeriveSchema, DynamicValue, Schema}
 
 /**
  * This exercise is based on John DeGoes Spartan training on ZIO-Schema from 2021-11-04
@@ -36,6 +36,9 @@ private[exercise7] object Problem {
     // not suitable for _extremely high performance_ applications
     // probably suitable for the normal business application with medium performance requirements
     def decode[A](params: Map[String, List[String]])(implicit schema: Schema[A]): Either[String, A] = ???
+
+    def toDV(params: Map[String, List[String]]): DynamicValue = ???
+
 
     val p = decode[Person](Map("name" -> List("John"), "age" -> List("42")))
 
