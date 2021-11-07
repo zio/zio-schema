@@ -39,19 +39,30 @@ private[exercise7] object Problem {
     // not suitable for _extremely high performance_ applications
     // probably suitable for the normal business application with medium performance requirements
     def decode[A](params: Map[String, List[String]])(implicit schema: Schema[A]): Either[String, A] = {
-      toDV(params).toTypedValue(schema)
+      toDV(params).map(_.toTypedValue(schema)).collectFirst {
+        case Right(v) => v
+      }.toRight("some error")
     }
 
-    def toDV(params: Map[String, List[String]]): DynamicValue = {
+    def toDV(params: Map[String, List[String]]): Set[DynamicValue] = {
         import DynamicValue._
-        DynamicValue.Record(params.foldLeft[ListMap[String, DynamicValue]](ListMap.empty) {
-          case (acc, (key, values)) =>
-            acc.updated(key, values match {
-              case Nil      => Singleton(())
-              case x :: Nil => Primitive[String](x, StandardType.StringType)
-              case xs       => DynamicValue.Sequence(Chunk.fromIterable(xs).map(Primitive[String](_, StandardType.StringType)))
+        params.foldLeft[Set[ListMap[String, DynamicValue]]](Set(ListMap())) {
+          case (set, (key, values)) =>
+            set.flatMap(acc => {
+              values match {
+                case Nil      => Set(acc.updated(key, Singleton(())))
+                case x :: Nil => {
+                  val strInterpretation = Set(acc.updated(key, Primitive[String](x, StandardType.StringType)))
+                  val intInterpretation = x.toIntOption match {
+                    case Some(value) => Set(acc.updated(key, Primitive[Int](value, StandardType.IntType)))
+                    case None => Set()
+                  }
+                  strInterpretation ++ intInterpretation
+                }
+                case xs       => Set(acc.updated(key, DynamicValue.Sequence(Chunk.fromIterable(xs).map(Primitive[String](_, StandardType.StringType)))))
+              }
             })
-        })
+        }.map(DynamicValue.Record)
       }
 
 
