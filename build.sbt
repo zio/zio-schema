@@ -59,7 +59,9 @@ lazy val root = project
     zioSchemaOpticsJS,
     zioSchemaOpticsJVM,
     zioSchemaProtobufJS,
-    zioSchemaProtobufJVM
+    zioSchemaProtobufJVM,
+    zioSchemaExamplesJS,
+    zioSchemaExamplesJVM,
   )
 
 lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
@@ -148,6 +150,21 @@ lazy val zioSchemaOpticsJS = zioSchemaOptics.js
   .settings(scalaJSUseMainModuleInitializer := true)
 
 lazy val zioSchemaOpticsJVM = zioSchemaOptics.jvm
+
+lazy val zioSchemaExamples = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-schema-examples"))
+  .settings(stdSettings("zio-schema-examples"))
+  .dependsOn(zioSchema, zioSchemaJson, zioSchemaProtobuf, zioSchemaOptics)
+  .settings(publish / skip := true,
+    moduleName := "zio-schema-example",
+    scalacOptions -= "-Yno-imports",
+    scalacOptions -= "-Xfatal-warnings",
+  )
+lazy val zioSchemaExamplesJS = zioSchemaExamples.js
+  .settings(scalaJSUseMainModuleInitializer := true)
+
+lazy val zioSchemaExamplesJVM = zioSchemaExamples.jvm
+  .settings(Test / fork := true)
 
 lazy val docs = project
   .in(file("zio-schema-docs"))
