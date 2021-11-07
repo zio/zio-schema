@@ -93,7 +93,12 @@ private[exercise7] object Problem {
         case EitherSchema(left, right) => ???
         case Lazy(schema0) => ???
         case Meta(ast) => ???
+        case _ =>
+          val err = Left(s"Decoding from query parameters is not supported for ${schema}")
+          Function.const(err)
       }
+
+      val fn = compile(schema)
 
       ???
     }
