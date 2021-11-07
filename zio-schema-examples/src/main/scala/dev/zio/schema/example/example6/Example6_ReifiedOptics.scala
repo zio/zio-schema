@@ -79,26 +79,48 @@ object Example6_ReifiedOptics extends zio.App {
 
 
   val traversalTest1 = for {
+    _ <- ZIO.debug("\n\n\n\n")
     _ <- ZIO.debug("traversal test 1.. trying to add a employee to a company")
-    boss = User("Dominik", 36)
-    company = Company(boss, Nil)
-    companyAccessors = companySchema.makeAccessors(ZioOpticsBuilder)
-    employeeTraversal = companySchema.field2.schema.makeAccessors(ZioOpticsBuilder)
+    company = Company(boss = User("Dominik", 36), List.empty[UserAddress])
+    _ <- ZIO.debug("old company     :       " + company)
+    (bossLens, employeesLens) = companySchema.makeAccessors(ZioOpticsBuilder)
 
+    employeeSchema = companySchema.field2.schema.asInstanceOf[Sequence[List[UserAddress], UserAddress]]
+    employeesTraversal = ZioOpticsBuilder.makeTraversal[List[UserAddress], UserAddress](employeeSchema, userAddressSchema)
 
-//    userAccessors = userSchema.makeAccessors(ZioOpticsBuilder)
-//    userAddressAccessors = userAddressSchema.makeAccessors(ZioOpticsBuilder)
-//    x: _root_.zio.optics.Optic[List[UserAddress], List[UserAddress], Chunk[UserAddress], _root_.zio.optics.OpticFailure, _root_.zio.optics.OpticFailure, Chunk[UserAddress], List[UserAddress]] = ZioOpticsBuilder.makeTraversal[List[UserAddress], UserAddress](companySchema.field2.schema.asInstanceOf[Sequence[List[UserAddress], UserAddress]], companySchema.field2.schema)
-//
-//    _ = (companyAccessors._2 >>> x).
+    // not working approach
+    updatedCompany = (employeesLens >>> employeesTraversal).update(company)(emps => emps ++ Chunk(UserAddress(User("joe", 22), Address("s1", "s2", "s3"))))
+    _ <- ZIO.debug("updated company : " + updatedCompany)
 
-//    _ = (companyAccessors_2 >>>
-
-//    _ = (companyAccessors._2 >>> employeeTraversal) ++ (UserAddress(User("joe", 22), Address("s1", "s2", "s3")())
-
-
+    // working approach
+    updatedCompany2 = employeesLens.update(company)(emps => emps ++ List(UserAddress(User("joe", 22), Address("s1", "s2", "s3"))))
+    _ <- ZIO.debug("updated company2: " + updatedCompany2)
   } yield ()
 
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = (lensTest1 *> lensTest2 *> traversalTest1).exitCode
+}
+
+/**
+ * Example by adam that shows pure usage of optics without any schema or derivation
+ */
+object Example6_PureOptics extends scala.App {
+  import zio.optics._
+
+  final case class User(name: String)
+  final case class Employee(name: String)
+
+  final case class Company(boss: User, employees: List[Employee])
+
+  val company = Company(User("boss"), List(Employee("employee1")))
+  println("company with 1 employee :       " + company)
+  val employees: Lens[Company, List[Employee]] =
+    Lens(
+      company => Right(company.employees),
+      employees => company => Right(company.copy(employees = employees))
+    )
+
+  val employee = Employee("employee2")
+
+  println("company with 2 employees: " + employees.update(company)(employees => employee :: employees))
 }
