@@ -29,13 +29,13 @@ private[exercise7] object Problem {
     // this will be a "quick and dirty" solution, that can be accomplished in a few minutes.
     // not suitable for _extremely high performance_ applications
     // probably suitable for the normal business application with medium performance requirements
-    def decodeQueryParams[A](implicit schema: Schema[A]): Either[String, A] = ???
+    def decodeFromQueryParams[A](params: Map[String, List[String]])(implicit schema: Schema[A]): Either[String, A] = ???
   }
 
   object Approach2 {
     import Schema._
     // this will be a sophisticated solution for a high performance library like ZIO
-    def decodeFromQueryParams[A](implicit schema: Schema[A]): Either[String, A] = {
+    def decodeFromQueryParams[A](params: Map[String, List[String]])(implicit schema: Schema[A]): Either[String, A] = {
       schema match {
         case enum: Enum[_] => ???
         case record: Record[_] => ???
