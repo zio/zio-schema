@@ -31,14 +31,18 @@ private[exercise7] object Problem {
       address  <- params.get("address").toRight("address parameter is missing")
     } yield Profile(location.head, address.head)
 
-  object Approach1 {
+  object Approach1 extends scala.App {
     // this will be a "quick and dirty" solution, that can be accomplished in a few minutes.
     // not suitable for _extremely high performance_ applications
     // probably suitable for the normal business application with medium performance requirements
-    def decodeFromQueryParams[A](params: Map[String, List[String]])(implicit schema: Schema[A]): Either[String, A] = ???
+    def decode[A](params: Map[String, List[String]])(implicit schema: Schema[A]): Either[String, A] = ???
+
+    val p = decode[Person](Map("name" -> List("John"), "age" -> List("42")))
+
+    println(p)
   }
 
-  object Approach2 {
+  object Approach2 extends scala.App{
     import Schema._
     // this will be a sophisticated solution for a high performance library like ZIO
     def decodeFromQueryParams[A](params: Map[String, List[String]])(implicit schema: Schema[A]): Either[String, A] = {
@@ -57,4 +61,10 @@ private[exercise7] object Problem {
       }
     }
   }
+}
+
+object Runner extends scala.App {
+
+  Problem.Approach1.main(Array.empty)
+  Problem.Approach2.main(Array.empty)
 }
