@@ -162,7 +162,7 @@ object ProtobufExample extends zio.App {
 
 
 ### Combining different encoders
-Lets take a look at a roundtrip converting an object to JSON and back, then converting it to a protobuf and back.
+Let's take a look at a roundtrip converting an object to JSON and back, then converting it to a protobuf and back.
 This is a simple example, but it shows how to combine different encoders to achieve a roundtrip.
 
 ```scala

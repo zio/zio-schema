@@ -25,13 +25,14 @@ Once you have a representation of your data types, you can use it to
 
 You can then use one of the various codecs (or create your own) to serialize and deserialize your types.
 
-Example of codecs are:
+Example of possible codecs are:
  - CSV Codec
- - Apache Avro Codec
- - JSON Codec
+ - JSON Codec (already available)
+ - Apache Avro Codec (in progress)
+ - Apache Thrift Codec (in progress)
  - XML Codec
  - YAML Codec
- - Protobuf Codec
+ - Protobuf Codec (already available)
  - QueryString Codec
  - etc.
 

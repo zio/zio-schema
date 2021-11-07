@@ -6,7 +6,7 @@ title: "Understanding ZIO-Schema"
 
 ## Understanding ZIO-Schema
 
-ZIO-Schema is a part of ZIO that is used in many projects (e.g. ZIO-Flow, ZIO-SQL, etc.).
+ZIO-Schema is a library used in many ZIO projects such as ZIO-Flow and ZIO-SQL.
 ZIO is all about reification of your types. Reification means transforming something abstract (e.g. side effects, accessing fields, structure)  into something "real" (values).
 
 ### Reification: functional effects
@@ -52,9 +52,9 @@ Because these basic operations are not "real", we're unable to create an operato
 e.g. combine two fields that are inside a nested structure.
 
 The solution to this kind of problem is called an "Optic". Optics provide a way to access the fields of a case class and nested structures.
-There are two main types of optics:
+There are three main types of optics:
 - `Lens`: A lens is a way to access a field of a case class.
-- `Prims`: A prim is a way to access a field of a nested structure or a collection.
+- `Prism`: A prim is a way to access a field of a nested structure or a collection.
 - `Traversal`: A traversal is a way to access all fields of a case class, nested structures or collections.
 
 Optics allow us to take things which are not a first-class **concept**, and turn that into a first-class **value**,
@@ -102,6 +102,7 @@ sealed traits:
 - `Record[R]`
 - `Enum[A]`
 - `Sequence[Col, Elem]`
+and the case class `Primitive[A]`. Every other type is just a specialisation of one of these (or not relevant to get you started).
 
 We will take a look at them now.
 
@@ -154,7 +155,7 @@ case class User(name: String, age: Int, address: Address, friends: List[User])
 This is called a "product type" in functional programming.
 The equivalent of a product type in ZIO-Schema is called a record.
 
-In ZIO-Schema such a record would be represented using the `Record[R]` type class:
+In ZIO-Schema such a record would be represented using the `Record[R]` typeclass:
 
 ```scala
 object Schema {
@@ -317,12 +318,13 @@ It basically says:
 `decoder[A]`: Given a `Schema[A]` it is capable of generating a `Decoder[A]` ( `Chunk[Byte] => Either[String, A]`) for any Schema.
 
 
-Example of codecs are:
+Example of possible codecs are:
 - CSV Codec
-- Apache Avro Codec
-- JSON Codec
+- JSON Codec (already available)
+- Apache Avro Codec (in progress)
+- Apache Thrift Codec (in progress)
 - XML Codec
 - YAML Codec
-- Protobuf Codec
+- Protobuf Codec (already available)
 - QueryString Codec
 - etc.
