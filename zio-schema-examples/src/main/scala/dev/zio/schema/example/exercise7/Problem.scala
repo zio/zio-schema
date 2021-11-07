@@ -107,6 +107,13 @@ private[exercise7] object Problem {
                   Function.const(error)
             }
           }
+
+        case caseClass1: CaseClass1[a,B] =>
+          import caseClass1.{field, construct}
+          val f = compile[a](Some(field.label), field.schema)
+          (qp: QueryParams) => f(qp).map(v => construct(v))
+
+
         case record: Record[_] => ???
 
         case enum: Enum[_] => ???
