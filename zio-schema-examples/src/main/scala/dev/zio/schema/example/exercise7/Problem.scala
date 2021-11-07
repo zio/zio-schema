@@ -111,7 +111,7 @@ private[exercise7] object Problem {
 
         case enum: Enum[_] => ???
 //        case Optional(codec) => ???
-        case Fail(message) => ???
+        case Fail(message) => Function.const(Left(message))
 //        case Tuple(left, right) => ???
 //        case EitherSchema(left, right) => ???
         case Lazy(schema0) => ???
