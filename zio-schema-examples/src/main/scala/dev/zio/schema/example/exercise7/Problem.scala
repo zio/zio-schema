@@ -118,7 +118,7 @@ private[exercise7] object Problem {
           // lazy val to make sure its only compiled on first usage and not instantly recursing
           lazy val compiled = compile(key, schema0())
           (qp: QueryParams) => compiled(qp)
-        case Meta(ast) => ???
+        case Meta(ast) => compile(key, ast.toSchema.asInstanceOf[Schema[B]])
         case _ =>
           val err = Left(s"Decoding from query parameters is not supported for ${schema}")
           Function.const(err)
