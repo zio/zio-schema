@@ -79,7 +79,11 @@ private[exercise7] object Problem {
     type QueryParams = Map[String, List[String]]
 
     // this will be a sophisticated solution for a high performance library like ZIO
-    def decodeFromQueryParams[A](params: QueryParams)(implicit schema: Schema[A]): Either[String, A] = {
+    def decodeFromQueryParams[A](params: QueryParams)(implicit schema: Schema[A], decoder: QueryParams => Either[String, A]): Either[String, A] = {
+      decoder(params)
+    }
+
+    def buildDecoder[A](implicit schema: Schema[A]): QueryParams => Either[String, A] = {
 
       def compile[B](key: Option[String], schema: Schema[B]): QueryParams => Either[String, B] = schema match {
         case Transform(codec, f, g) => ???
@@ -153,13 +157,16 @@ private[exercise7] object Problem {
           Function.const(err)
       }
 
-      val fn = compile(None, schema)
-
-      fn(params)
+      compile(None, schema)
     }
 
+    implicit val personDecoder = buildDecoder[Person]
+
     println("approach 2")
-    println(decodeFromQueryParams[Person](Map("name" -> List("John"), "age" -> List("42"))))
+
+    private val data = Map("name" -> List("John"), "age" -> List("42"))
+
+    println(decodeFromQueryParams[Person](data))
   }
 }
 
