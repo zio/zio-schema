@@ -1,7 +1,6 @@
 package dev.zio.schema.example.exercise7
 
 import zio.Chunk
-import zio.schema.DynamicValue.{Primitive, Singleton}
 import zio.schema.{DeriveSchema, DynamicValue, Schema, StandardType}
 
 import scala.collection.immutable.ListMap
@@ -39,17 +38,21 @@ private[exercise7] object Problem {
     // this will be a "quick and dirty" solution, that can be accomplished in a few minutes.
     // not suitable for _extremely high performance_ applications
     // probably suitable for the normal business application with medium performance requirements
-    def decode[A](params: Map[String, List[String]])(implicit schema: Schema[A]): Either[String, A] = ???
+    def decode[A](params: Map[String, List[String]])(implicit schema: Schema[A]): Either[String, A] = {
+      toDV(params).toTypedValue(schema)
+    }
 
-    def toDV(params: Map[String, List[String]]): DynamicValue =
-      DynamicValue.Record(params.foldLeft[ListMap[String, DynamicValue]](ListMap.empty) {
-        case (acc, (key, values)) =>
-          acc.updated(key, values match {
-            case Nil      => Singleton(())
-            case x :: Nil => Primitive[String](x, StandardType.StringType)
-            case xs       => DynamicValue.Sequence(Chunk.fromIterable(xs).map(Primitive[String](_, StandardType.StringType)))
-          })
-      })
+    def toDV(params: Map[String, List[String]]): DynamicValue = {
+        import DynamicValue._
+        DynamicValue.Record(params.foldLeft[ListMap[String, DynamicValue]](ListMap.empty) {
+          case (acc, (key, values)) =>
+            acc.updated(key, values match {
+              case Nil      => Singleton(())
+              case x :: Nil => Primitive[String](x, StandardType.StringType)
+              case xs       => DynamicValue.Sequence(Chunk.fromIterable(xs).map(Primitive[String](_, StandardType.StringType)))
+            })
+        })
+      }
 
 
     val p = decode[Person](Map("name" -> List("John"), "age" -> List("42")))
