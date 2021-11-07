@@ -81,16 +81,39 @@ private[exercise7] object Problem {
     // this will be a sophisticated solution for a high performance library like ZIO
     def decodeFromQueryParams[A](params: QueryParams)(implicit schema: Schema[A]): Either[String, A] = {
 
-      def compile(schema: Schema[A]): QueryParams => Either[String, A] =  schema match {
-        case enum: Enum[_] => ???
-        case record: Record[_] => ???
-        case Sequence(schemaA, fromChunk, toChunk) => ???
+      def compile[B](key: Option[String], schema: Schema[B]): QueryParams => Either[String, B] = schema match {
         case Transform(codec, f, g) => ???
-        case Primitive(standardType) => ???
-        case Optional(codec) => ???
+        case Primitive(standardType) =>
+          key match {
+            case None =>
+              val error = Left(s"Cannot extract a primitive out of a query string")
+              Function.const(error)
+            case Some(key) =>
+              standardType match {
+                case StandardType.StringType =>
+                  val f: QueryParams => Either[String, B] = (qp: QueryParams) => qp.get(key) match {
+                      case Some(value :: _) => Right[String, B](value.asInstanceOf[B])
+                      case _ => Left(s"Cannot extract a primitive string out of nothing")
+                    }
+                  f
+                case StandardType.IntType =>
+                  val f: QueryParams => Either[String, B] = (qp: QueryParams) => qp.get(key) match {
+                    case Some(value :: _) => value.toIntOption.toRight(s"cannot create an integer out of ${value}").asInstanceOf[Either[String, B]]
+                    case _ => Left(s"Cannot extract a primitive string out of nothing")
+                  }
+                  f
+                case _ =>
+                  val error = Left(s"Expected String or Int but found ${standardType}")
+                  Function.const(error)
+            }
+          }
+        case record: Record[_] => ???
+
+        case enum: Enum[_] => ???
+//        case Optional(codec) => ???
         case Fail(message) => ???
-        case Tuple(left, right) => ???
-        case EitherSchema(left, right) => ???
+//        case Tuple(left, right) => ???
+//        case EitherSchema(left, right) => ???
         case Lazy(schema0) => ???
         case Meta(ast) => ???
         case _ =>
@@ -98,10 +121,13 @@ private[exercise7] object Problem {
           Function.const(err)
       }
 
-      val fn = compile(schema)
+      val fn = compile(None, schema)
 
-      ???
+      fn(params)
     }
+
+    println("approach 2")
+    println(decodeFromQueryParams[Person](Map("name" -> List("John"), "age" -> List("42"))))
   }
 }
 
