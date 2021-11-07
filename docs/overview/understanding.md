@@ -6,7 +6,7 @@ title: "Understanding ZIO Schema"
 
 ## Understanding ZIO Schema
 
-ZIO Schema is a library used in many ZIO projects such as ZIO-Flow and ZIO-SQL.
+ZIO Schema is a library used in many ZIO projects such as ZIO Flow and ZIO SQL.
 ZIO is all about reification of your types. Reification means transforming something abstract (e.g. side effects, accessing fields, structure)  into something "real" (values).
 
 ### Reification: functional effects
@@ -66,7 +66,7 @@ Once we have a value, we can compose these things together to solve hard problem
 - handling nested case class copies,
 - iterations down deep inside on elements of a nested structure or collections
 
-For more information on optics, refer to the [ZIO-Optics](https://zio.github.io/zio-optics/docs/overview/overview_index) documentation.
+For more information on optics, refer to the [ZIO Optics](https://zio.github.io/zio-optics/docs/overview/overview_index) documentation.
 
 
 ### Reification: Schema
