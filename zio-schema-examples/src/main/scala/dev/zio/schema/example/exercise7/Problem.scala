@@ -44,6 +44,9 @@ private[exercise7] object Problem {
       }.toRight("some error")
     }
 
+
+    // parse each element into String and if possible Int representations. We basically create all
+    // possible solutions here. The Set[DynamicValue] removes duplicates.
     def toDV(params: Map[String, List[String]]): Set[DynamicValue] = {
         import DynamicValue._
         params.foldLeft[Set[ListMap[String, DynamicValue]]](Set(ListMap())) {
@@ -73,9 +76,12 @@ private[exercise7] object Problem {
 
   object Approach2 extends scala.App{
     import Schema._
+    type QueryParams = Map[String, List[String]]
+
     // this will be a sophisticated solution for a high performance library like ZIO
-    def decodeFromQueryParams[A](params: Map[String, List[String]])(implicit schema: Schema[A]): Either[String, A] = {
-      schema match {
+    def decodeFromQueryParams[A](params: QueryParams)(implicit schema: Schema[A]): Either[String, A] = {
+
+      def compile(schema: Schema[A]): QueryParams => Either[String, A] =  schema match {
         case enum: Enum[_] => ???
         case record: Record[_] => ???
         case Sequence(schemaA, fromChunk, toChunk) => ???
@@ -88,6 +94,8 @@ private[exercise7] object Problem {
         case Lazy(schema0) => ???
         case Meta(ast) => ???
       }
+
+      ???
     }
   }
 }
