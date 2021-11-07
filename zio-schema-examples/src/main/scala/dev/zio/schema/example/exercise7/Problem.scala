@@ -113,6 +113,16 @@ private[exercise7] object Problem {
           val f = compile[a](Some(field.label), field.schema)
           (qp: QueryParams) => f(qp).map(v => construct(v))
 
+        case caseClass2: CaseClass2[a,b,B] =>
+          import caseClass2.{field1, field2, construct}
+          val f1 = compile[a](Some(field1.label), field1.schema)
+          val f2 = compile[b](Some(field2.label), field2.schema)
+
+          (qp: QueryParams) => for {
+            v1 <- f1(qp)
+            v2 <- f2(qp)
+          } yield construct(v1, v2)
+
 
         case record: Record[_] => ???
 
