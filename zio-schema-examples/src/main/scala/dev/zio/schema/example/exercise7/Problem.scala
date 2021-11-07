@@ -123,6 +123,18 @@ private[exercise7] object Problem {
             v2 <- f2(qp)
           } yield construct(v1, v2)
 
+        case caseClass3: CaseClass3[a,b,c,B] =>
+          import caseClass3.{field1, field2, field3,  construct}
+          val f1 = compile[a](Some(field1.label), field1.schema)
+          val f2 = compile[b](Some(field2.label), field2.schema)
+          val f3 = compile[c](Some(field3.label), field3.schema)
+
+          (qp: QueryParams) => for {
+            v1 <- f1(qp)
+            v2 <- f2(qp)
+            v3 <- f3(qp)
+          } yield construct(v1, v2, v3)
+
 
         case record: Record[_] => ???
 
