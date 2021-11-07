@@ -1,12 +1,12 @@
 ---
 id: understanding
-title: "Understanding ZIO-Schema"
+title: "Understanding ZIO Schema"
 ---
 
 
-## Understanding ZIO-Schema
+## Understanding ZIO Schema
 
-ZIO-Schema is a library used in many ZIO projects such as ZIO-Flow and ZIO-SQL.
+ZIO Schema is a library used in many ZIO projects such as ZIO-Flow and ZIO-SQL.
 ZIO is all about reification of your types. Reification means transforming something abstract (e.g. side effects, accessing fields, structure)  into something "real" (values).
 
 ### Reification: functional effects
@@ -75,7 +75,7 @@ So far we've looked at how to
 - reify side-effects into values (ZIO)
 - how to reify accessing + modifying fields inside case classes or arbitrary structures by turning these operations into values as well (Optics)
 
-ZIO-Schema is now about how to describe entire data structures using values.
+ZIO Schema is now about how to describe entire data structures using values.
 
 The "built-in" way in scala on how to describe data structures are `case classes` and `classes`.
 
@@ -89,7 +89,7 @@ has the following information:
 - type of the fields: String and Int
 - type of the structure: Person
 
-ZIO-Schema tries to reify the concept of structure for datatypes by turning the above information into values.
+ZIO Schema tries to reify the concept of structure for datatypes by turning the above information into values.
 
 Not only for case classes, but also for other types like collections, tuples, enumerations etc.
 
@@ -97,7 +97,7 @@ Not only for case classes, but also for other types like collections, tuples, en
 ## Getting started
 
 
-To get started, first you need to understand that a ZIO-Schema is basically built-up from these three
+To get started, first you need to understand that a ZIO Schema is basically built-up from these three
 sealed traits:
 - `Record[R]`
 - `Enum[A]`
@@ -110,7 +110,7 @@ We will take a look at them now.
 
 #### Schema
 
-The core data type of ZIO-Schema is a `Schema[A]` which is **invariant in `A`** by necessity, because a Schema allows you to
+The core data type of ZIO Schema is a `Schema[A]` which is **invariant in `A`** by necessity, because a Schema allows you to
 derive operations that produce an `A` but also operations that consume an `A` and that imposes limitations on the types of
 **transformation operators** and **composition operators** that we can provide based on a `Schema`.
 
@@ -153,9 +153,9 @@ case class User(name: String, age: Int, address: Address, friends: List[User])
 ```
 
 This is called a "product type" in functional programming.
-The equivalent of a product type in ZIO-Schema is called a record.
+The equivalent of a product type in ZIO Schema is called a record.
 
-In ZIO-Schema such a record would be represented using the `Record[R]` typeclass:
+In ZIO Schema such a record would be represented using the `Record[R]` typeclass:
 
 ```scala
 object Schema {
@@ -184,7 +184,7 @@ have a type, like this:
 In functional programming, this kind of type is called a "sum type".
 In Scala3, this is called an "enum".
 
-In ZIO-Schema we call these types `enumeration` types and they are
+In ZIO Schema we call these types `enumeration` types and they are
 represented using the `Enum[A]` type class.
 
 ```scala
@@ -263,14 +263,14 @@ Primitive values are represented using the `Primitive[A]` type class and represe
 that we cannot further define through other means. If you visualize your data structure as a tree,
 primitives are the leaves.
 
-ZIO-Schema provides a number of built-in primitive types, that you can use to represent your data.
+ZIO Schema provides a number of built-in primitive types, that you can use to represent your data.
 These can be found in the `StandardType` companion-object.
 
 ### Transforming Schemas
 Once we have a `Schema`, we can transform it into another `Schema` by applying a `Transformer`.
 In normal Scala code this would be the equivalent of `map`.
 
-In ZIO-Schema this is modelled by the `Transform` type class:
+In ZIO Schema this is modelled by the `Transform` type class:
 
 ```scala
   final case class Transform[A, B](codec: Schema[A], f: A => Either[String, B], g: B => Either[String, A])
@@ -299,7 +299,7 @@ by using the `transform`-method, which has to be a "isomorphism" (= providing me
 #### Codecs
 Once you have your schema, you can combine it with a codec.
 A codec is a combination of a schema and a serializer.
-Unlike codecs in other libraries, a codec in ZIO-Schema has no type parameter.
+Unlike codecs in other libraries, a codec in ZIO Schema has no type parameter.
 
 ```scala
 

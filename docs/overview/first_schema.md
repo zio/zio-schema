@@ -1,10 +1,10 @@
 ---
 id: first_schema
-title: "Your first ZIO-Schema"
+title: "Your first ZIO Schema"
 ---
-## Your First ZIO-Schema
+## Your First ZIO Schema
 
-ZIO-Schema provides macros to help you create `Schema`s out of your data types. But before using the macros,
+ZIO Schema provides macros to help you create `Schema`s out of your data types. But before using the macros,
 we should take a look on how to do this the manual way.
 
 ### The Domain

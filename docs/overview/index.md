@@ -14,8 +14,8 @@ libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "<version>"
 libraryDependencies += "dev.zio" %% "zio-schema-optics" % "<version>"
 ```
 
-## Purpose of ZIO-Schema
-ZIO-Schema allows you to create representations of your data types as values. 
+## Purpose of ZIO Schema
+ZIO Schema allows you to create representations of your data types as values. 
 
 Once you have a representation of your data types, you can use it to 
  - serialize and deserialize your types
