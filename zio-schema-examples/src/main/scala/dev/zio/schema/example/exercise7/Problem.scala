@@ -1,6 +1,6 @@
 package dev.zio.schema.example.exercise7
 
-import zio.schema.Schema
+import zio.schema.{DeriveSchema, Schema}
 
 /**
  * This exercise is based on John DeGoes Spartan training on ZIO-Schema from 2021-11-04
@@ -9,7 +9,13 @@ private[exercise7] object Problem {
 
 
   final case class Person(name: String, age: Int)
+  object Person {
+    implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+  }
   final case class Profile(location: String, address: String)
+  object Profile {
+    implicit val schema: Schema[Profile] = DeriveSchema.gen[Profile]
+  }
   // sample url1: /foo/?name=john&age=42#foo
   // sample url2: /foo/?name=john&age=42&location=london&address=baker%20street
 
