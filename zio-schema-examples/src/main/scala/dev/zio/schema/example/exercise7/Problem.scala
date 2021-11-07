@@ -86,7 +86,11 @@ private[exercise7] object Problem {
     def buildDecoder[A](implicit schema: Schema[A]): QueryParams => Either[String, A] = {
 
       def compile[B](key: Option[String], schema: Schema[B]): QueryParams => Either[String, B] = schema match {
-        case Transform(codec, f, g) => ???
+        case transform: Transform[a, B] =>
+          import transform.{f, codec}
+          val func = compile(key, codec)
+          (params: QueryParams) =>
+            func(params).flatMap(f)
         case Primitive(standardType) =>
           key match {
             case None =>
