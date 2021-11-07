@@ -2,7 +2,7 @@ package dev.zio.schema.example.example1
 
 import zio.schema.{DeriveSchema, Schema}
 import zio.stream.ZTransducer
-import zio.{ExitCode, URIO, ZIO}
+import zio.{Chunk, ExitCode, URIO, ZIO}
 
 /**
  * Example 1 of ZIO-Schema:
@@ -60,17 +60,20 @@ object ManualConstruction {
     extractField3 = p => p.expirationYear
   )
 
-  val schemaPaymentMethod: Schema[PaymentMethod] = Schema.Enum2(
+  val schemaPaymentMethod: Schema[PaymentMethod] = Schema.Enum2[PaymentMethod.CreditCard, PaymentMethod.WireTransfer, PaymentMethod](
     case1 = Case[PaymentMethod.CreditCard, PaymentMethod](
       id = "CreditCard",
       codec = schemaPaymentMethodCreditCard,
-      unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.CreditCard]
+      unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.CreditCard],
+      annotations = Chunk.empty
     ),
     case2 = Case[PaymentMethod.WireTransfer, PaymentMethod](
       id = "WireTransfer",
       codec = schemaPaymentMethodWireTransfer,
-      unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.WireTransfer]
-    )
+      unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.WireTransfer],
+      annotations = Chunk.empty
+    ),
+    annotations = Chunk.empty
   )
 
   val schemaCustomer: Schema[Customer] = Schema.CaseClass2[Person, PaymentMethod, Customer](

@@ -2,7 +2,7 @@ package dev.zio.schema.example.example2
 
 import zio.schema.{DeriveSchema, Schema}
 import zio.stream.ZTransducer
-import zio.{ExitCode, URIO, ZIO}
+import zio.{Chunk, ExitCode, URIO, ZIO}
 import zio.schema.Schema._
 
 /**
@@ -62,17 +62,20 @@ object Domain {
       )
     }
 
-    val schemaPaymentMethod: Schema[PaymentMethod] = Schema.Enum2(
-      case1 = Case[PaymentMethod.CreditCard, PaymentMethod](
+    val schemaPaymentMethod: Schema[PaymentMethod] = Schema.Enum2[CreditCard, WireTransfer, PaymentMethod](
+      case1 = Case[CreditCard, PaymentMethod](
         id = "CreditCard",
         codec = CreditCard.schema,
-        unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.CreditCard]
+        unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.CreditCard],
+        annotations = Chunk.empty
       ),
-      case2 = Case[PaymentMethod.WireTransfer, PaymentMethod](
+      case2 = Case[WireTransfer, PaymentMethod](
         id = "WireTransfer",
         codec = WireTransfer.schema,
-        unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.WireTransfer]
-      )
+        unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.WireTransfer],
+        annotations = Chunk.empty
+      ),
+      annotations = Chunk.empty
     )
 
   }
