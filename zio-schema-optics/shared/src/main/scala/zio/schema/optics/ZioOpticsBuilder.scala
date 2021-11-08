@@ -40,9 +40,9 @@ object ZioOpticsBuilder extends AccessorBuilder {
   override def makeTraversal[S, A](
     collection: Schema.Collection[S, A],
     element: Schema[A]
-  ): Optic[S, S, Chunk[A], OpticFailure, OpticFailure, Chunk[A], S] = {
+  ): Optic[S, S, Chunk[A], OpticFailure, OpticFailure, Chunk[A], S] =
     collection match {
-      case seq@Schema.Sequence(_, _, _) =>
+      case seq @ Schema.Sequence(_, _, _) =>
         ZTraversal(
           ZioOpticsBuilder.makeSeqTraversalGet(seq),
           ZioOpticsBuilder.makeSeqTraversalSet(seq)
@@ -53,8 +53,6 @@ object ZioOpticsBuilder extends AccessorBuilder {
           ZioOpticsBuilder.makeMapTraversalSet
         )
     }
-
-  }
 
   private[optics] def makeLensGet[S, A](
     product: Schema.Record[S],
@@ -121,13 +119,14 @@ object ZioOpticsBuilder extends AccessorBuilder {
     Right(collection.fromChunk(builder.result()))
   }
 
-  private[optics] def makeMapTraversalGet[K, V](whole: Map[K, V]): Either[(OpticFailure,Map[K, V]), Chunk[(K, V)]] =
+  private[optics] def makeMapTraversalGet[K, V](whole: Map[K, V]): Either[(OpticFailure, Map[K, V]), Chunk[(K, V)]] =
     Right(Chunk.fromIterable(whole))
 
-  private[optics] def makeMapTraversalSet[K, V]: Chunk[(K, V)] => Map[K, V] => Either[(OpticFailure, Map[K, V]), Map[K, V]] = { (piece: Chunk[(K, V)]) => (whole: Map[K, V]) =>
-    Right(whole ++ piece.toList)
+  private[optics] def makeMapTraversalSet[K, V]
+    : Chunk[(K, V)] => Map[K, V] => Either[(OpticFailure, Map[K, V]), Map[K, V]] = {
+    (piece: Chunk[(K, V)]) => (whole: Map[K, V]) =>
+      Right(whole ++ piece.toList)
   }
-
 
   private def spliceRecord(
     fields: ListMap[String, DynamicValue],

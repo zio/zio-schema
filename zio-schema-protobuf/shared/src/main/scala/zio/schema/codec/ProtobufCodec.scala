@@ -1,7 +1,7 @@
 package zio.schema.codec
 
 import java.nio.charset.StandardCharsets
-import java.nio.{ByteBuffer, ByteOrder}
+import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
 import java.util.UUID
 import scala.annotation.tailrec
@@ -11,7 +11,7 @@ import zio.schema._
 import zio.schema.ast.SchemaAst
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZTransducer
-import zio.{Chunk, ZIO}
+import zio.{ Chunk, ZIO }
 
 object ProtobufCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
@@ -201,7 +201,6 @@ object ProtobufCodec extends Codec {
       }
 
 //    private def encodeMap[K, V]
-
 
     @scala.annotation.tailrec
     private def encodePrimitive[A](
@@ -446,20 +445,22 @@ object ProtobufCodec extends Codec {
             true
           )
         case Schema.MapSchema(ks: Schema[k], vs: Schema[v]) =>
-          decoder(Schema.Sequence(ks <*> vs, (c: Chunk[(k, v)]) => c.toList.toMap, (m: Map[k, v]) => Chunk.fromIterable(m)))
-        case Schema.Transform(codec, f, _, _)    => transformDecoder(codec, f)
-        case Schema.Primitive(standardType, _)   => primitiveDecoder(standardType)
-        case Schema.Tuple(left, right, _)        => tupleDecoder(left, right)
-        case Schema.Optional(codec, _)           => optionalDecoder(codec)
-        case Schema.Fail(message, _)             => fail(message)
-        case Schema.EitherSchema(left, right, _) => eitherDecoder(left, right)
-        case lzy @ Schema.Lazy(_)                => decoder(lzy.schema)
-        case Schema.Meta(_, _)                   => astDecoder
-        case ProductDecoder(decoder)             => decoder
-        case Schema.Enum1(c, _)                  => enumDecoder(c)
-        case Schema.Enum2(c1, c2, _)             => enumDecoder(c1, c2)
-        case Schema.Enum3(c1, c2, c3, _)         => enumDecoder(c1, c2, c3)
-        case Schema.EnumN(cs, _)                 => enumDecoder(cs.toSeq: _*)
+          decoder(
+            Schema.Sequence(ks <*> vs, (c: Chunk[(k, v)]) => c.toList.toMap, (m: Map[k, v]) => Chunk.fromIterable(m))
+          )
+        case Schema.Transform(codec, f, _)    => transformDecoder(codec, f)
+        case Schema.Primitive(standardType)   => primitiveDecoder(standardType)
+        case Schema.Tuple(left, right)        => tupleDecoder(left, right)
+        case Schema.Optional(codec)           => optionalDecoder(codec)
+        case Schema.Fail(message)             => fail(message)
+        case Schema.EitherSchema(left, right) => eitherDecoder(left, right)
+        case lzy @ Schema.Lazy(_)             => decoder(lzy.schema)
+        case Schema.Meta(_)                   => astDecoder
+        case ProductDecoder(decoder)          => decoder
+        case Schema.Enum1(c, _)               => enumDecoder(c)
+        case Schema.Enum2(c1, c2, _)          => enumDecoder(c1, c2)
+        case Schema.Enum3(c1, c2, c3, _)      => enumDecoder(c1, c2, c3)
+        case Schema.EnumN(cs, _)              => enumDecoder(cs.toSeq: _*)
       }
 
     private val astDecoder: Decoder[Schema[_]] =

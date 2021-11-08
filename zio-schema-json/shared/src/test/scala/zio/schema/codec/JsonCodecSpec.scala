@@ -1,21 +1,21 @@
 package zio.schema.codec
 
 // import java.time.Year
-import java.time.{ZoneId, ZoneOffset}
+import java.time.{ ZoneId, ZoneOffset }
 import scala.collection.immutable.ListMap
 import zio.console._
 import zio.duration._
 import zio.json.JsonDecoder.JsonError
-import zio.json.{DeriveJsonEncoder, JsonEncoder}
+import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.random.Random
 import zio.schema.CaseSet._
-import zio.schema.{CaseSet, DeriveSchema, JavaTimeGen, Schema, SchemaGen, StandardType}
+import zio.schema.{ CaseSet, DeriveSchema, JavaTimeGen, Schema, SchemaGen, StandardType }
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 import zio.test.environment.TestEnvironment
-import zio.{Chunk, ZIO}
+import zio.{ Chunk, ZIO }
 
 object JsonCodecSpec extends DefaultRunnableSpec {
 
@@ -86,7 +86,9 @@ object JsonCodecSpec extends DefaultRunnableSpec {
             DeriveSchema.gen[Value]
           ),
           Map(Key("a", 0) -> Value(0, true), Key("b", 1) -> Value(1, false)),
-          JsonCodec.Encoder.charSequenceToByteChunk("""[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]""")
+          JsonCodec.Encoder.charSequenceToByteChunk(
+            """[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]"""
+          )
         )
       }
     ),
@@ -236,10 +238,11 @@ object JsonCodecSpec extends DefaultRunnableSpec {
             DeriveSchema.gen[Value]
           ),
           Map(Key("a", 0) -> Value(0, true), Key("b", 1) -> Value(1, false)),
-          JsonCodec.Encoder.charSequenceToByteChunk("""[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]""")
+          JsonCodec.Encoder.charSequenceToByteChunk(
+            """[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]"""
+          )
         )
       },
-
       testM("of records") {
         checkM(for {
           (left, a)       <- SchemaGen.anyRecordAndValue
@@ -492,7 +495,10 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     case _             => value
   }
 
-  implicit def mapEncoder[K, V](implicit keyEncoder: JsonEncoder[K], valueEncoder: JsonEncoder[V]): JsonEncoder[Map[K, V]] =
+  implicit def mapEncoder[K, V](
+    implicit keyEncoder: JsonEncoder[K],
+    valueEncoder: JsonEncoder[V]
+  ): JsonEncoder[Map[K, V]] =
     JsonEncoder.chunk(keyEncoder.both(valueEncoder)).contramap[Map[K, V]](m => Chunk.fromIterable(m))
 
   private def jsonEncoded[A](value: A)(implicit enc: JsonEncoder[A]): Chunk[Byte] =
