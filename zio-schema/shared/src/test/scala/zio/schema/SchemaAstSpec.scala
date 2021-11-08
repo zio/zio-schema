@@ -12,7 +12,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
     suite("from schema")(
       testM("primitive") {
         check(SchemaGen.anyPrimitive) {
-          case s @ Schema.Primitive(typ) =>
+          case s @ Schema.Primitive(typ, _) =>
             assertTrue(SchemaAst.fromSchema(s) == SchemaAst.Value(typ))
         }
       }
@@ -20,7 +20,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
     suite("optional")(
       testM("primitive") {
         check(SchemaGen.anyPrimitive) {
-          case s @ Schema.Primitive(typ) =>
+          case s @ Schema.Primitive(typ, _) =>
             assertTrue(SchemaAst.fromSchema(s.optional) == SchemaAst.Value(typ, optional = true))
         }
       }
@@ -28,7 +28,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
     suite("sequence")(
       testM("primitive") {
         check(SchemaGen.anyPrimitive) {
-          case s @ Schema.Primitive(typ) =>
+          case s @ Schema.Primitive(typ, _) =>
             assertTrue(SchemaAst.fromSchema(Schema.chunk(s)) == SchemaAst.Value(typ, dimensions = 1))
         }
       }

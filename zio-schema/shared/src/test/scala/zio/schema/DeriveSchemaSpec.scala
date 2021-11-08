@@ -18,7 +18,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   sealed case class UserId(id: String)
 
   @annotation1("foo")
-  sealed case class User(name: String, @annotation1("foo") @annotation2("bar") id: UserId)
+  sealed case class User(name: String, @annotation1("foo") @annotation2("bar") userId: UserId)
 
   sealed trait Status
   case class Ok(response: List[String]) extends Status
@@ -71,7 +71,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         val derived: Schema[UserId] = Schema[UserId]
         val expected: Schema[UserId] =
           Schema.CaseClass1(
-            annotations = Chunk.empty,
+            annotations = Chunk(annotation1("bar")),
             field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
             UserId.apply,
             (uid: UserId) => uid.id
@@ -89,13 +89,13 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         val derived: Schema[User] = Schema[User]
         val expected: Schema[User] =
           Schema.CaseClass2(
-            annotations = Chunk.empty,
+            annotations = Chunk(annotation1("foo")),
             field1 = Schema.Field("name", Schema.Primitive(StandardType.StringType)),
             field2 = Schema.Field(
-              "id",
+              "userId",
               Schema.CaseClass1(
-                annotations = Chunk.empty,
-                field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
+                annotations = Chunk(annotation1("bar")),
+                field = Schema.Field("id", Schema.Primitive(StandardType.StringType, Chunk.empty)),
                 construct = UserId.apply,
                 extractField = (uid: UserId) => uid.id
               ),
@@ -103,7 +103,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
             ),
             User.apply,
             (u: User) => u.name,
-            (u: User) => u.id
+            (u: User) => u.userId
           )
         assert(derived)(hasSameSchema(expected))
       },
@@ -114,8 +114,8 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
             Schema.Case[AnnotatedSumType1, AnnotatedSumType](
               id = "AnnotatedSumType1",
               codec = Schema.CaseClass1(
-                annotations = Chunk.empty,
-                field = Schema.Field[Int]("value", Schema.Primitive(StandardType.IntType), Chunk.empty),
+                annotations = Chunk(annotation2("bar")),
+                field = Schema.Field[Int]("value", Schema.Primitive(StandardType.IntType, Chunk.empty), Chunk.empty),
                 construct = AnnotatedSumType1.apply,
                 extractField = (a: AnnotatedSumType1) => a.value
               ),
@@ -125,8 +125,8 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
             Schema.Case[AnnotatedSumType2, AnnotatedSumType](
               id = "AnnotatedSumType2",
               codec = Schema.CaseClass1(
-                annotations = Chunk.empty,
-                field = Schema.Field[Int]("value", Schema.Primitive(StandardType.IntType), Chunk.empty),
+                annotations = Chunk(annotation3("baz")),
+                field = Schema.Field[Int]("value", Schema.Primitive(StandardType.IntType, Chunk.empty), Chunk.empty),
                 construct = AnnotatedSumType2.apply,
                 extractField = (a: AnnotatedSumType2) => a.value
               ),
