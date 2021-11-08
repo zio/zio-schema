@@ -188,7 +188,7 @@ object SchemaAst {
         .buildProduct()
     case Schema.Sequence(schema, _, _, _) =>
       subtree(NodePath.root, Chunk.empty, schema, dimensions = 1)
-    case Schema.MapSchema(ks, vs) =>
+    case Schema.MapSchema(ks, vs, _) =>
       NodeBuilder(NodePath.root, Chunk.empty, optional = false, dimensions = 1)
         .addLabelledSubtree("key", ks)
         .addLabelledSubtree("value", vs)
@@ -240,8 +240,8 @@ object SchemaAst {
               .buildProduct()
           case Schema.Sequence(schema, _, _, _) =>
             subtree(path, lineage, schema, optional, dimensions + 1)
-          case Schema.MapSchema(ks, vs) =>
-            subtree(path, lineage, ks <*> vs, optional = false,  dimensions + 1)
+          case Schema.MapSchema(ks, vs, _) =>
+            subtree(path, lineage, ks <*> vs, optional = false, dimensions + 1)
           case Schema.Transform(schema, _, _, _) => subtree(path, lineage, schema, optional, dimensions)
           case lzy @ Schema.Lazy(_)              => subtree(path, lineage, lzy.schema, optional, dimensions)
           case s: Schema.Record[_] =>

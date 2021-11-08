@@ -42,12 +42,12 @@ object ZioOpticsBuilder extends AccessorBuilder {
     element: Schema[A]
   ): Optic[S, S, Chunk[A], OpticFailure, OpticFailure, Chunk[A], S] =
     collection match {
-      case seq @ Schema.Sequence(_, _, _) =>
+      case seq @ Schema.Sequence(_, _, _, _) =>
         ZTraversal(
           ZioOpticsBuilder.makeSeqTraversalGet(seq),
           ZioOpticsBuilder.makeSeqTraversalSet(seq)
         )
-      case Schema.MapSchema(_, _) =>
+      case Schema.MapSchema(_, _, _) =>
         ZTraversal(
           ZioOpticsBuilder.makeMapTraversalGet,
           ZioOpticsBuilder.makeMapTraversalSet

@@ -1,9 +1,7 @@
 package zio.schema
 
 import java.time.temporal.ChronoUnit
-
 import scala.collection.immutable.ListMap
-
 import zio.Chunk
 import zio.schema.ast._
 
@@ -207,7 +205,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     Schema.Sequence[Chunk[A], A](schemaA, identity, identity, Chunk.empty)
 
   implicit def map[K, V](implicit ks: Schema[K], vs: Schema[V]): Schema[Map[K, V]] =
-    Schema.MapSchema(ks, vs)
+    Schema.MapSchema(ks, vs, Chunk.empty)
 
   implicit def either[A, B](implicit left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
     EitherSchema(left, right)
@@ -249,7 +247,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     fromChunk: Chunk[Elem] => Col,
     toChunk: Col => Chunk[Elem],
     override val annotations: Chunk[Any]
-  ) extends Collection[Col, Elem]  { self =>
+  ) extends Collection[Col, Elem] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Traversal[Col, Elem]
 
     override def annotate(annotation: Any): Sequence[Col, Elem] = copy(annotations = annotations :+ annotation)
@@ -382,8 +380,11 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   }
 
-  final case class MapSchema[K, V](ks: Schema[K], vs: Schema[V]) extends Collection[Map[K, V], (K, V)] { self =>
+  final case class MapSchema[K, V](ks: Schema[K], vs: Schema[V], override val annotations: Chunk[Any])
+      extends Collection[Map[K, V], (K, V)] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Traversal[Map[K, V], (K, V)]
+
+    override def annotate(annotation: Any): MapSchema[K, V] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Map[K, V], (K, V)] =
       b.makeTraversal(self, ks <*> vs)

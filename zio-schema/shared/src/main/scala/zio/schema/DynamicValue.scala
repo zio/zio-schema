@@ -952,7 +952,7 @@ object DynamicValue {
       case Schema.Sequence(schema, _, toChunk, _) =>
         DynamicValue.Sequence(toChunk(value).map(fromSchemaAndValue(schema, _)))
 
-      case Schema.MapSchema(ks: Schema[k], vs: Schema[v]) =>
+      case Schema.MapSchema(ks: Schema[k], vs: Schema[v], _) =>
         val entries = value.asInstanceOf[Map[k, v]].map {
           case (key, value) => (fromSchemaAndValue(ks, key), fromSchemaAndValue(vs, value))
         }
