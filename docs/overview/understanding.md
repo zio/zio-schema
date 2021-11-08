@@ -146,7 +146,7 @@ sealed trait Schema[A] {
 #### Records
 
 Your data structures usually are composed from a lot of types. For example, you might have a `User`
-type that has a `name` field, a `age` field, a `address` field, and a `friends` field.
+type that has a `name` field, an `age` field, an `address` field, and a `friends` field.
 
 ```scala
 case class User(name: String, age: Int, address: Address, friends: List[User])

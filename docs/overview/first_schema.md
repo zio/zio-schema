@@ -5,7 +5,7 @@ title: "Your first ZIO Schema"
 ## Your First ZIO Schema
 
 ZIO Schema provides macros to help you create `Schema`s out of your data types. But before using the macros,
-we should take a look on how to do this the manual way.
+we should take a look at how to do this the manual way.
 
 ### The Domain
 Like in [Overview](index.md), we define our example domain like this:
@@ -28,7 +28,7 @@ object Domain {
 
 ### Manual construction of a Schema
 
-This part is similar to other libraries that you might now, e.g. for JSON processing.
+This part is similar to other libraries that you might know, e.g. for JSON processing.
 Basically, you create a `Schema` for every data type in your domain:
 
 ```scala
