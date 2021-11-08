@@ -8,10 +8,10 @@ title: "Contents"
 Add in your `build.sbt`:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema" % "<version>"
-libraryDependencies += "dev.zio" %% "zio-schema-json" % "<version>"
-libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "<version>"
-libraryDependencies += "dev.zio" %% "zio-schema-optics" % "<version>"
+libraryDependencies += "dev.zio" %% "zio-schema" % "@RELEASE_VERSION@"
+libraryDependencies += "dev.zio" %% "zio-schema-json" % "@RELEASE_VERSION@"
+libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "@RELEASE_VERSION@"
+libraryDependencies += "dev.zio" %% "zio-schema-optics" % "@RELEASE_VERSION@"
 ```
 
 ## Purpose of ZIO Schema

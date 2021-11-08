@@ -8,7 +8,7 @@ ZIO Schema provides macros to help you create `Schema`s out of your data types. 
 we should take a look on how to do this the manual way.
 
 ### The Domain
-Like in [Overview](overview), we define our example domain like this:
+Like in [Overview](index.md), we define our example domain like this:
 
 ```scala
 object Domain {
