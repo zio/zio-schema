@@ -37,3 +37,17 @@ libraryDependencies += "dev.zio" %% "zio-schema" % "<version>"
 [link-discord]: https://discord.gg/2ccFBr4 "Discord"
 [Stage]: https://img.shields.io/badge/Project%20Stage-Development-yellowgreen.svg
 [Stage-Page]: https://github.com/zio/zio/wiki/Project-Stages
+
+## Contributing
+
+For the general guidelines, see ZIO [contributor's guide](https://github.com/zio/zio/blob/master/docs/about/contributing.md).
+
+#### TL;DR
+
+Before you submit a PR, make sure your tests are passing, and that the code is properly formatted
+
+```
+sbt test
+
+sbt fmt
+```

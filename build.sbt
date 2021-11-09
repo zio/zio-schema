@@ -49,7 +49,7 @@ lazy val root = project
   .settings(
     name := "zio-schema",
     skip in publish := true,
-//    unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
+    unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
   .aggregate(
     zioSchemaJVM,
