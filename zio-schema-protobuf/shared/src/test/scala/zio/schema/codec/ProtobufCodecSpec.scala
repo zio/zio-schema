@@ -15,7 +15,7 @@ import zio.schema.{ CaseSet, DeriveSchema, Schema, SchemaGen, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-import zio.Console.{ printLine, _ }
+import zio.Console._
 
 // TODO: use generators instead of manual encode/decode
 object ProtobufCodecSpec extends DefaultRunnableSpec {
@@ -264,7 +264,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       test("durations") {
-        val value = Duration.ofDays(12)
+        val value = java.time.Duration.ofDays(12)
         for {
           ed  <- encodeAndDecode(Primitive(StandardType.Duration(ChronoUnit.DAYS)), value)
           ed2 <- encodeAndDecodeNS(Primitive(StandardType.Duration(ChronoUnit.DAYS)), value)
