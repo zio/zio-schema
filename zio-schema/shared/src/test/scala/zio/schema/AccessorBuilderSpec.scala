@@ -13,12 +13,12 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
     test("fail") {
       assert(Schema.fail("error").makeAccessors(builder).asInstanceOf[Unit])(isUnit)
     },
-    testM("primitive") {
+    test("primitive") {
       check(SchemaGen.anyPrimitive) { schema =>
         assert(schema.makeAccessors(builder))(isUnit)
       }
     },
-    testM("sequence") {
+    test("sequence") {
       check(SchemaGen.anySchema) { elementSchema =>
         val collectionSchema = elementSchema.repeated
         val traversal        = collectionSchema.makeAccessors(builder)
@@ -32,7 +32,7 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
         )(isTrue)
       }
     },
-    testM("transform") {
+    test("transform") {
       check(SchemaGen.anyPrimitive) { schema =>
         val transform = schema.transformOrFail[Unit](_ => Left("error"), _ => Left("error"))
 
@@ -44,7 +44,7 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
         )(isTrue)
       }
     },
-    testM("optional") {
+    test("optional") {
       check(SchemaGen.anyPrimitive) { schema =>
         val optionalSchema: Schema.Optional[_] = schema.optional.asInstanceOf[Schema.Optional[_]]
         val enumSchema                         = optionalSchema.toEnum
@@ -62,7 +62,7 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
         )(isTrue)
       }
     },
-    testM("tuple") {
+    test("tuple") {
       check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
         case (leftSchema, rightSchema) =>
           val tupleSchema: Schema.Tuple[_, _] = (leftSchema <*> rightSchema).asInstanceOf[Schema.Tuple[_, _]]
@@ -80,7 +80,7 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
           )(isTrue)
       }
     },
-    testM("either") {
+    test("either") {
       check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
         case (leftSchema, rightSchema) =>
           val eitherSchema: Schema.EitherSchema[_, _] =
@@ -102,7 +102,7 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
           )(isTrue)
       }
     },
-    testM("lazy") {
+    test("lazy") {
       check(SchemaGen.anyPrimitive) { schema =>
         val lazySchema         = Schema.defer(schema)
         val eagerAccessor: Any = schema.makeAccessors(builder)

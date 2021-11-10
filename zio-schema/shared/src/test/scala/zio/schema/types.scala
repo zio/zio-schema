@@ -19,7 +19,8 @@ import java.time.{
 import java.util.UUID
 
 import zio.Chunk
-import zio.random.Random
+import zio.test.Gen
+import zio.{ Has, Random }
 import zio.test.{ Gen, Sized }
 
 object types {
@@ -154,7 +155,7 @@ object types {
 
     implicit lazy val schema: Schema[Arities] = DeriveSchema.gen
 
-    implicit val genBytes: Gen[Random with Sized, Chunk[Byte]] = Gen.chunkOf(Gen.anyByte)
+    implicit val genBytes: Gen[Has[Random] with Has[Sized], Chunk[Byte]] = Gen.chunkOf(Gen.byte)
   }
   //scalafmt: { maxColumn = 120 }
 

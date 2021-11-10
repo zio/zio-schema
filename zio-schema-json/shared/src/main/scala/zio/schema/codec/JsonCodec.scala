@@ -21,7 +21,7 @@ object JsonCodec extends Codec {
     ZTransducer.fromPush(
       (opt: Option[Chunk[A]]) =>
         ZIO
-          .effect(opt.map(values => values.flatMap(Encoder.encode(schema, _))).getOrElse(Chunk.empty))
+          .attempt(opt.map(values => values.flatMap(Encoder.encode(schema, _))).getOrElse(Chunk.empty))
           .catchAll(_ => ZIO.succeed(Chunk.empty))
     )
 

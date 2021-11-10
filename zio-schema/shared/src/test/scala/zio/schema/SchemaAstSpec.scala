@@ -10,7 +10,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
 
   def spec: ZSpec[Environment, Failure] = suite("SchemaAst")(
     suite("from schema")(
-      testM("primitive") {
+      test("primitive") {
         check(SchemaGen.anyPrimitive) {
           case s @ Schema.Primitive(typ, _) =>
             assertTrue(SchemaAst.fromSchema(s) == SchemaAst.Value(typ))
@@ -18,7 +18,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
       }
     ),
     suite("optional")(
-      testM("primitive") {
+      test("primitive") {
         check(SchemaGen.anyPrimitive) {
           case s @ Schema.Primitive(typ, _) =>
             assertTrue(SchemaAst.fromSchema(s.optional) == SchemaAst.Value(typ, optional = true))
@@ -26,7 +26,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
       }
     ),
     suite("sequence")(
-      testM("primitive") {
+      test("primitive") {
         check(SchemaGen.anyPrimitive) {
           case s @ Schema.Primitive(typ, _) =>
             assertTrue(SchemaAst.fromSchema(Schema.chunk(s)) == SchemaAst.Value(typ, dimensions = 1))
@@ -148,49 +148,49 @@ object SchemaAstSpec extends DefaultRunnableSpec {
       }
     ),
     suite("materialization")(
-      testM("primitive") {
+      test("primitive") {
         check(SchemaGen.anyPrimitive) { schema =>
           assert(SchemaAst.fromSchema(schema).toSchema)(hasSameAst(schema))
         }
       },
-      testM("optional") {
+      test("optional") {
         check(SchemaGen.anyPrimitive) { schema =>
           assert(SchemaAst.fromSchema(schema.optional).toSchema)(hasSameAst(schema.optional))
         }
       },
-      testM("sequence") {
+      test("sequence") {
         check(SchemaGen.anyPrimitive) { schema =>
           assert(SchemaAst.fromSchema(schema.repeated).toSchema)(hasSameAst(schema.repeated))
         }
       },
-      testM("tuple") {
+      test("tuple") {
         check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
           case (left, right) =>
             assert(SchemaAst.fromSchema(left <*> right).toSchema)(hasSameAst(left <*> right))
         }
       },
-      testM("either") {
+      test("either") {
         check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
           case (left, right) =>
             assert(SchemaAst.fromSchema(left <+> right).toSchema)(hasSameAst(left <+> right))
         }
       },
-      testM("case class") {
+      test("case class") {
         check(SchemaGen.anyCaseClassSchema) { schema =>
           assert(SchemaAst.fromSchema(schema).toSchema)(hasSameAst(schema))
         }
       },
-      testM("sealed trait") {
+      test("sealed trait") {
         check(SchemaGen.anyEnumSchema) { schema =>
           assert(SchemaAst.fromSchema(schema).toSchema)(hasSameAst(schema))
         }
       },
-      testM("recursive type") {
+      test("recursive type") {
         check(SchemaGen.anyRecursiveType) { schema =>
           assert(SchemaAst.fromSchema(schema).toSchema)(hasSameAst(schema))
         }
       },
-      testM("any schema") {
+      test("any schema") {
         check(SchemaGen.anySchema) { schema =>
           assert(SchemaAst.fromSchema(schema).toSchema)(hasSameAst(schema))
         }

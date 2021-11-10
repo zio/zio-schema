@@ -14,7 +14,7 @@ object BuildHelper {
   val zioJsonVersion    = "0.2.0-M1"
   val zioPreludeVersion = "1.0.0-RC6"
   val zioOpticsVersion  = "0.1.0"
-  val silencerVersion   = "1.7.1"
+  val silencerVersion   = "1.7.7"
   val magnoliaVersion   = "0.17.0"
 
   private val testDeps = Seq(
@@ -26,7 +26,7 @@ object BuildHelper {
     val stdCompileOnlyDeps = Seq(
       ("com.github.ghik" % "silencer-lib" % silencerVersion % Provided).cross(CrossVersion.full),
       compilerPlugin(("com.github.ghik" % "silencer-plugin" % silencerVersion).cross(CrossVersion.full)),
-      compilerPlugin(("org.typelevel"   %% "kind-projector" % "0.11.0").cross(CrossVersion.full))
+      compilerPlugin(("org.typelevel"   %% "kind-projector" % "0.13.0").cross(CrossVersion.full))
     )
     CrossVersion.partialVersion(scalaVersion) match {
       case Some((2, x)) if x <= 12 =>
