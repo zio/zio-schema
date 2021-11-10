@@ -5,7 +5,6 @@ import java.time.temporal.ChronoField
 
 import zio.test.Gen
 import zio.{ Has, Random }
-import zio.test.Gen
 
 object JavaTimeGen {
 

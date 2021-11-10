@@ -6,14 +6,12 @@ import java.time.{ DayOfWeek, MonthDay }
 
 import scala.collection.immutable.ListMap
 
-import zio.Chunk
 import zio.schema.SchemaGen.{ Arity1, Arity24 }
 import zio.schema.StandardType._
 import zio.schema.syntax._
 import zio.schema.types.Arities._
-import zio.test._
-import zio.{ Has, Random }
-import zio.test.Gen
+import zio.test.{Gen, _}
+import zio.{Chunk, Has, Random}
 
 object DiffSpec extends DefaultRunnableSpec {
 
@@ -410,7 +408,7 @@ object DiffSpec extends DefaultRunnableSpec {
       ),
       suite("Instant")(
         test("identical") {
-          check(Gen.anyInstant) { x =>
+          check(Gen.instant) { x =>
             val diff = x.diff(x)
             assertTrue(diff == Diff.Identical) &&
             assertTrue(diff.patch(x) == Right(x)) &&
@@ -418,7 +416,7 @@ object DiffSpec extends DefaultRunnableSpec {
           }
         },
         test("different") {
-          check(Gen.anyInstant <*> Gen.anyInstant) {
+          check(Gen.instant <*> Gen.instant) {
             case (left, right) =>
               val diff = left.diff(right)
               val expected =
@@ -819,7 +817,7 @@ object DiffSpec extends DefaultRunnableSpec {
     suite("tuple")(
       test("success") {
         check(Gen.double <*> Gen.long <*> Gen.double <*> Gen.long) {
-          case (((left1, right1), left2), right2) =>
+          case (left1, right1, left2, right2) =>
             val tuple1    = (left1, right1)
             val tuple2    = (left2, right2)
             val diff      = tuple1.diff(tuple2)

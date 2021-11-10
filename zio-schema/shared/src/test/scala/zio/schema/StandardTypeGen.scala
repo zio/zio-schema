@@ -3,9 +3,8 @@ package zio.schema
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-import zio.test.Gen
-import zio.{ Has, Random }
 import zio.test.{ Gen, Sized }
+import zio.{ Has, Random }
 
 object StandardTypeGen {
 

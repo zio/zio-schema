@@ -2,14 +2,11 @@ package zio.schema
 
 import scala.collection.immutable.ListMap
 
-import zio.random._
 import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen._
 import zio.test.Assertion._
-import zio.test._
-import zio.{ Chunk, URIO }
-import zio.{ Has, Random }
-import zio.test.{ Sized, TestConfig }
+import zio.test.{Sized, TestConfig, _}
+import zio.{Chunk, Has, Random, URIO}
 
 object OrderingSpec extends DefaultRunnableSpec {
 

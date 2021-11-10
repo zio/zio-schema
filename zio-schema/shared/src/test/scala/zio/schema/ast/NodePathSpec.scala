@@ -1,8 +1,7 @@
 package zio.schema.ast
 
-import zio.test.{ DefaultRunnableSpec, _ }
+import zio.test.{DefaultRunnableSpec, Gen, Sized, _}
 import zio.{ Has, Random }
-import zio.test.{ Gen, Sized }
 
 object NodePathSpec extends DefaultRunnableSpec {
 

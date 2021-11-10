@@ -5,10 +5,8 @@ import java.time.temporal.ChronoUnit
 
 import scala.collection.immutable.ListMap
 
-import zio.Chunk
-import zio.test.Gen
-import zio.{ Has, Random }
 import zio.test.{ Gen, Sized }
+import zio.{Chunk, Has, Random}
 
 object SchemaGen {
 

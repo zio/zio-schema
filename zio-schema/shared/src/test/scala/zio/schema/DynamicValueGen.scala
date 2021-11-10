@@ -2,10 +2,8 @@ package zio.schema
 
 import scala.collection.immutable.ListMap
 
-import zio.Chunk
 import zio.test._
-import zio.{ Has, Random }
-import zio.test.{ Gen, Sized }
+import zio.{Chunk, _}
 
 object DynamicValueGen {
 
@@ -115,7 +113,7 @@ object DynamicValueGen {
 
   def anyDynamicValueWithStructure(structure: Chunk[Schema.Field[_]]): Gen[Has[Random] with Has[Sized], DynamicValue.Record] =
     Gen
-      .crossAll(
+      .collectAll(
         structure
           .map(field => Gen.const(field.label).zip(anyDynamicValueOfSchema(field.schema)))
       )
