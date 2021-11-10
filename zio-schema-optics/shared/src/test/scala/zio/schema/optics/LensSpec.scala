@@ -6,13 +6,12 @@ import zio.test.Assertion._
 import zio.test._
 import zio.{ Has, Random }
 import zio.test.{ Gen, Sized, TestConfig }
-import zio.test.Gen.int
 
 object LensSpec extends DefaultRunnableSpec {
 
   def spec: ZSpec[Environment, Failure] = suite("LensSpec")(
     suite("constructors")(
-      test("first")(lensLaws(Gen.int.zip(Gen.test), Gen.int)(Lens.first)),
+      test("first")(lensLaws(Gen.int.zip(Gen.int), Gen.int)(Lens.first)),
       test("second")(lensLaws(Gen.int.zip(Gen.int), Gen.int)(Lens.second)),
       test("field1")(lensLaws(TestClass.gen, Gen.int)(TestClass.field1)),
       test("field2")(lensLaws(TestClass.gen, Gen.string)(TestClass.field2)),
@@ -60,7 +59,7 @@ object LensSpec extends DefaultRunnableSpec {
     implicit val schema: Schema.CaseClass3[Int, String, Long, TestClass] =
       DeriveSchema.gen[TestClass].asInstanceOf[Schema.CaseClass3[Int, String, Long, TestClass]]
 
-    val gen: Gen[Has[Random] with Has[int], TestClass] = for {
+    val gen: Gen[Has[Random] with Has[Sized], TestClass] = for {
       f1 <- Gen.int
       f2 <- Gen.string
       f3 <- Gen.long
