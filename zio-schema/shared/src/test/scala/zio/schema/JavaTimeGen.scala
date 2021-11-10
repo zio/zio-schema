@@ -131,7 +131,8 @@ object JavaTimeGen {
     OffsetTime.of(time, offset)
   }
 
-  val anyOffsetDateTime: Gen[Has[Random], OffsetDateTime] = anyLocalDateTime.zipWith(anyZoneOffset) { (dateTime, offset) =>
-    OffsetDateTime.of(dateTime, offset)
+  val anyOffsetDateTime: Gen[Has[Random], OffsetDateTime] = anyLocalDateTime.zipWith(anyZoneOffset) {
+    (dateTime, offset) =>
+      OffsetDateTime.of(dateTime, offset)
   }
 }

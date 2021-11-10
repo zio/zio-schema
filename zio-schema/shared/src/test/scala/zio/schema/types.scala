@@ -19,7 +19,7 @@ import java.time.{
 import java.util.UUID
 
 import zio.test.{ Gen, Sized }
-import zio.{Chunk, Has, Random}
+import zio.{ Chunk, Has, Random }
 
 object types {
 

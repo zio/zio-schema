@@ -10,8 +10,8 @@ import zio.schema.SchemaGen.{ Arity1, Arity24 }
 import zio.schema.StandardType._
 import zio.schema.syntax._
 import zio.schema.types.Arities._
-import zio.test.{Gen, _}
-import zio.{Chunk, Has, Random}
+import zio.test.{ Gen, _ }
+import zio.{ Chunk, Has, Random }
 
 object DiffSpec extends DefaultRunnableSpec {
 

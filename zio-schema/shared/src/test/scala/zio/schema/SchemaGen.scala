@@ -6,13 +6,15 @@ import java.time.temporal.ChronoUnit
 import scala.collection.immutable.ListMap
 
 import zio.test.{ Gen, Sized }
-import zio.{Chunk, Has, Random}
+import zio.{ Chunk, Has, Random }
 
 object SchemaGen {
 
   val anyLabel: Gen[Has[Random] with Has[Sized], String] = Gen.alphaNumericStringBounded(1, 3)
 
-  def anyStructure(schemaGen: Gen[Has[Random] with Has[Sized], Schema[_]]): Gen[Has[Random] with Has[Sized], Seq[Schema.Field[_]]] =
+  def anyStructure(
+    schemaGen: Gen[Has[Random] with Has[Sized], Schema[_]]
+  ): Gen[Has[Random] with Has[Sized], Seq[Schema.Field[_]]] =
     Gen.setOfBounded(1, 8)(anyLabel).flatMap { keySet =>
       Gen.setOfN(keySet.size)(schemaGen).map { schemas =>
         keySet
@@ -31,7 +33,9 @@ object SchemaGen {
       )
       .map(_.toSeq)
 
-  def anyEnumeration(schemaGen: Gen[Has[Random] with Has[Sized], Schema[_]]): Gen[Has[Random] with Has[Sized], ListMap[String, Schema[_]]] =
+  def anyEnumeration(
+    schemaGen: Gen[Has[Random] with Has[Sized], Schema[_]]
+  ): Gen[Has[Random] with Has[Sized], ListMap[String, Schema[_]]] =
     Gen
       .setOfBounded(1, 8)(
         anyLabel.zip(schemaGen)
@@ -59,7 +63,9 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  def anyOptional(schemaGen: Gen[Has[Random] with Has[Sized], Schema[_]]): Gen[Has[Random] with Has[Sized], Schema.Optional[_]] =
+  def anyOptional(
+    schemaGen: Gen[Has[Random] with Has[Sized], Schema[_]]
+  ): Gen[Has[Random] with Has[Sized], Schema.Optional[_]] =
     schemaGen.map(Schema.Optional(_))
 
   type OptionalAndGen[A] = (Schema.Optional[A], Gen[Has[Random] with Has[Sized], Option[A]])

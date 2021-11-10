@@ -3,8 +3,8 @@ package zio.schema
 import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen._
 import zio.test.Assertion._
-import zio.test.{Sized, TestConfig, _}
-import zio.{Has, Random, _}
+import zio.test.{ Sized, TestConfig, _ }
+import zio.{ Has, Random, _ }
 
 object DynamicValueSpec extends DefaultRunnableSpec {
 

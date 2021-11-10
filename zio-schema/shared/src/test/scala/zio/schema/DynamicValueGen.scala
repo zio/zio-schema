@@ -3,12 +3,15 @@ package zio.schema
 import scala.collection.immutable.ListMap
 
 import zio.test._
-import zio.{Chunk, _}
+import zio.{ Chunk, _ }
 
 object DynamicValueGen {
 
-  def anyPrimitiveDynamicValue[A](standardType: StandardType[A]): Gen[Has[Random] with Has[Sized], DynamicValue.Primitive[A]] = {
-    def gen[A1](typ: StandardType[A1], gen: Gen[Has[Random] with Has[Sized], A1]) = gen.map(DynamicValue.Primitive(_, typ))
+  def anyPrimitiveDynamicValue[A](
+    standardType: StandardType[A]
+  ): Gen[Has[Random] with Has[Sized], DynamicValue.Primitive[A]] = {
+    def gen[A1](typ: StandardType[A1], gen: Gen[Has[Random] with Has[Sized], A1]) =
+      gen.map(DynamicValue.Primitive(_, typ))
 
     standardType match {
       case typ: StandardType.BinaryType.type     => gen(typ, Gen.chunkOf(Gen.byte))
@@ -92,7 +95,10 @@ object DynamicValueGen {
   def anyDynamicSomeValueOfSchema[A](schema: Schema[A]): Gen[Has[Random] with Has[Sized], DynamicValue.SomeValue] =
     anyDynamicValueOfSchema(schema).map(DynamicValue.SomeValue(_))
 
-  def anyDynamicTupleValue[A, B](left: Schema[A], right: Schema[B]): Gen[Has[Random] with Has[Sized], DynamicValue.Tuple] =
+  def anyDynamicTupleValue[A, B](
+    left: Schema[A],
+    right: Schema[B]
+  ): Gen[Has[Random] with Has[Sized], DynamicValue.Tuple] =
     anyDynamicValueOfSchema(left).zip(anyDynamicValueOfSchema(right)).map {
       case (l, r) => DynamicValue.Tuple(l, r)
     }
@@ -105,13 +111,17 @@ object DynamicValueGen {
       value <- anyDynamicValueOfSchema(structure.values.toSeq(index))
     } yield DynamicValue.Enumeration(structure.keys.toSeq(index) -> value)
 
-  def anyDynamicValueOfEnum[A](cases: Chunk[Schema.Case[_, A]]): Gen[Has[Random] with Has[Sized], DynamicValue.Enumeration] =
+  def anyDynamicValueOfEnum[A](
+    cases: Chunk[Schema.Case[_, A]]
+  ): Gen[Has[Random] with Has[Sized], DynamicValue.Enumeration] =
     for {
       index <- Gen.int(0, cases.size - 1)
       value <- anyDynamicValueOfSchema(cases(index).codec)
     } yield DynamicValue.Enumeration(cases(index).id -> value)
 
-  def anyDynamicValueWithStructure(structure: Chunk[Schema.Field[_]]): Gen[Has[Random] with Has[Sized], DynamicValue.Record] =
+  def anyDynamicValueWithStructure(
+    structure: Chunk[Schema.Field[_]]
+  ): Gen[Has[Random] with Has[Sized], DynamicValue.Record] =
     Gen
       .collectAll(
         structure

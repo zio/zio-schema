@@ -3,8 +3,8 @@ package zio.schema
 import zio.schema.syntax._
 import zio.test.Assertion._
 import zio.test.environment.TestEnvironment
-import zio.test.{Gen, Sized, TestConfig, _}
-import zio.{Has, Random, _}
+import zio.test.{ Gen, Sized, TestConfig, _ }
+import zio.{ Has, Random, _ }
 
 object SchemaMigrationSpec extends DefaultRunnableSpec {
   import SchemaAssertions._

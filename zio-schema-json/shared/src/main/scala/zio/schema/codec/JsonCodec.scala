@@ -26,7 +26,7 @@ object JsonCodec extends Codec {
     )
 
   override def decoder[A](schema: Schema[A]): ZTransducer[Any, String, Byte, A] =
-    ZTransducer.utfDecode >>> ZTransducer.fromFunctionM(
+    ZTransducer.utfDecode >>> ZTransducer.fromFunctionZIO(
       (s: String) => ZIO.fromEither(Decoder.decode(schema, s))
     )
 
