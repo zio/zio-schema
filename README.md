@@ -47,7 +47,7 @@ For the general guidelines, see ZIO [contributor's guide](https://github.com/zio
 Before you submit a PR, make sure your tests are passing, and that the code is properly formatted
 
 ```
-sbt test
+sbt prepare
 
-sbt fmt
+sbt test
 ```
