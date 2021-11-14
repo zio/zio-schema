@@ -426,6 +426,9 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
     override def annotate(annotation: Any): MapSchema[K, V] = copy(annotations = annotations :+ annotation)
 
+    override def defaultValue: Either[String, Map[K, V]] =
+      ks.defaultValue.flatMap(defaultKey => vs.defaultValue.map(defaultValue => Map(defaultKey -> defaultValue)))
+
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Map[K, V], (K, V)] =
       b.makeTraversal(self, ks <*> vs)
   }
