@@ -101,21 +101,23 @@ object JsonCodec extends Codec {
     }
 
     private[codec] def schemaEncoder[A](schema: Schema[A]): JsonEncoder[A] = schema match {
-      case Schema.Primitive(standardType)  => primitiveCodec(standardType)
-      case Schema.Sequence(schema, _, g)   => JsonEncoder.chunk(schemaEncoder(schema)).contramap(g)
-      case Schema.Transform(c, _, g)       => transformEncoder(c, g)
-      case Schema.Tuple(l, r)              => JsonEncoder.tuple2(schemaEncoder(l), schemaEncoder(r))
-      case Schema.Optional(schema)         => JsonEncoder.option(schemaEncoder(schema))
-      case Schema.Fail(_)                  => unitEncoder.contramap(_ => ())
-      case Schema.GenericRecord(structure) => recordEncoder(structure.toChunk)
-      case EitherSchema(left, right)       => JsonEncoder.either(schemaEncoder(left), schemaEncoder(right))
-      case l @ Schema.Lazy(_)              => schemaEncoder(l.schema)
-      case Schema.Meta(_)                  => astEncoder
-      case ProductEncoder(encoder)         => encoder
-      case Schema.Enum1(c)                 => enumEncoder(c)
-      case Schema.Enum2(c1, c2)            => enumEncoder(c1, c2)
-      case Schema.Enum3(c1, c2, c3)        => enumEncoder(c1, c2, c3)
-      case Schema.EnumN(cs)                => enumEncoder(cs.toSeq: _*)
+      case Schema.Primitive(standardType, _) => primitiveCodec(standardType)
+      case Schema.Sequence(schema, _, g, _)  => JsonEncoder.chunk(schemaEncoder(schema)).contramap(g)
+      case Schema.MapSchema(ks, vs, _) =>
+        JsonEncoder.chunk(schemaEncoder(ks).both(schemaEncoder(vs))).contramap(m => Chunk.fromIterable(m))
+      case Schema.Transform(c, _, g, _)       => transformEncoder(c, g)
+      case Schema.Tuple(l, r, _)              => JsonEncoder.tuple2(schemaEncoder(l), schemaEncoder(r))
+      case Schema.Optional(schema, _)         => JsonEncoder.option(schemaEncoder(schema))
+      case Schema.Fail(_, _)                  => unitEncoder.contramap(_ => ())
+      case Schema.GenericRecord(structure, _) => recordEncoder(structure.toChunk)
+      case EitherSchema(left, right, _)       => JsonEncoder.either(schemaEncoder(left), schemaEncoder(right))
+      case l @ Schema.Lazy(_)                 => schemaEncoder(l.schema)
+      case Schema.Meta(_, _)                  => astEncoder
+      case ProductEncoder(encoder)            => encoder
+      case Schema.Enum1(c, _)                 => enumEncoder(c)
+      case Schema.Enum2(c1, c2, _)            => enumEncoder(c1, c2)
+      case Schema.Enum3(c1, c2, c3, _)        => enumEncoder(c1, c2, c3)
+      case Schema.EnumN(cs, _)                => enumEncoder(cs.toSeq: _*)
     }
 
     private val astEncoder: JsonEncoder[Schema[_]] =
@@ -188,21 +190,23 @@ object JsonCodec extends Codec {
       schemaDecoder(schema).decodeJson(json)
 
     private[codec] def schemaDecoder[A](schema: Schema[A]): JsonDecoder[A] = schema match {
-      case Schema.Primitive(standardType)   => primitiveCodec(standardType)
-      case Schema.Optional(codec)           => JsonDecoder.option(schemaDecoder(codec))
-      case Schema.Tuple(left, right)        => JsonDecoder.tuple2(schemaDecoder(left), schemaDecoder(right))
-      case Schema.Transform(codec, f, _)    => schemaDecoder(codec).mapOrFail(f)
-      case Schema.Sequence(codec, f, _)     => JsonDecoder.chunk(schemaDecoder(codec)).map(f)
-      case Schema.Fail(message)             => failDecoder(message)
-      case Schema.GenericRecord(structure)  => recordDecoder(structure.toChunk)
-      case Schema.EitherSchema(left, right) => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
-      case l @ Schema.Lazy(_)               => schemaDecoder(l.schema)
-      case Schema.Meta(_)                   => astDecoder
-      case ProductDecoder(decoder)          => decoder
-      case Schema.Enum1(c)                  => enumDecoder(c)
-      case Schema.Enum2(c1, c2)             => enumDecoder(c1, c2)
-      case Schema.Enum3(c1, c2, c3)         => enumDecoder(c1, c2, c3)
-      case Schema.EnumN(cs)                 => enumDecoder(cs.toSeq: _*)
+      case Schema.Primitive(standardType, _) => primitiveCodec(standardType)
+      case Schema.Optional(codec, _)         => JsonDecoder.option(schemaDecoder(codec))
+      case Schema.Tuple(left, right, _)      => JsonDecoder.tuple2(schemaDecoder(left), schemaDecoder(right))
+      case Schema.Transform(codec, f, _, _)  => schemaDecoder(codec).mapOrFail(f)
+      case Schema.Sequence(codec, f, _, _)   => JsonDecoder.chunk(schemaDecoder(codec)).map(f)
+      case Schema.MapSchema(ks, vs, _) =>
+        JsonDecoder.chunk(schemaDecoder(ks) <*> schemaDecoder(vs)).map(entries => entries.toList.toMap)
+      case Schema.Fail(message, _)             => failDecoder(message)
+      case Schema.GenericRecord(structure, _)  => recordDecoder(structure.toChunk)
+      case Schema.EitherSchema(left, right, _) => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
+      case l @ Schema.Lazy(_)                  => schemaDecoder(l.schema)
+      case Schema.Meta(_, _)                   => astDecoder
+      case ProductDecoder(decoder)             => decoder
+      case Schema.Enum1(c, _)                  => enumDecoder(c)
+      case Schema.Enum2(c1, c2, _)             => enumDecoder(c1, c2)
+      case Schema.Enum3(c1, c2, c3, _)         => enumDecoder(c1, c2, c3)
+      case Schema.EnumN(cs, _)                 => enumDecoder(cs.toSeq: _*)
     }
 
     private def astDecoder: JsonDecoder[Schema[_]] =

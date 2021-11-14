@@ -9,5 +9,5 @@ trait AccessorBuilder {
 
   def makePrism[S, A](sum: Schema.Enum[S], term: Schema.Case[A, S]): Prism[S, A]
 
-  def makeTraversal[S, A](collection: Schema.Sequence[S, A], element: Schema[A]): Traversal[S, A]
+  def makeTraversal[S, A](collection: Schema.Collection[S, A], element: Schema[A]): Traversal[S, A]
 }

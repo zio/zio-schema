@@ -1,7 +1,7 @@
 package zio.schema
 
 import java.math.BigInteger
-import java.time.temporal.{ ChronoUnit, Temporal => JTemporal, TemporalAmount, TemporalUnit }
+import java.time.temporal.{ ChronoField, ChronoUnit }
 import java.time.{
   DayOfWeek,
   Duration => JDuration,
@@ -16,9 +16,12 @@ import java.time.{
   Year,
   YearMonth,
   ZoneId,
-  ZonedDateTime
+  ZoneOffset,
+  ZonedDateTime => JZonedDateTime
 }
+import java.util.UUID
 
+import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
@@ -68,57 +71,45 @@ trait Differ[A] { self =>
 object Differ {
 
   def fromSchema[A](schema: Schema[A]): Differ[A] = schema match {
-    case Schema.Primitive(StandardType.BinaryType)     => binary
-    case Schema.Primitive(StandardType.IntType)        => numeric[Int]
-    case Schema.Primitive(StandardType.ShortType)      => numeric[Short]
-    case Schema.Primitive(StandardType.DoubleType)     => numeric[Double]
-    case Schema.Primitive(StandardType.FloatType)      => numeric[Float]
-    case Schema.Primitive(StandardType.LongType)       => numeric[Long]
-    case Schema.Primitive(StandardType.CharType)       => numeric[Char]
-    case Schema.Primitive(StandardType.BoolType)       => bool
-    case Schema.Primitive(StandardType.BigDecimalType) => bigDecimal
-    case Schema.Primitive(StandardType.BigIntegerType) => bigInt
-    case Schema.Primitive(StandardType.StringType)     => string
-    case Schema.Primitive(StandardType.UUIDType)       => string.transform(_.toString)
-    case Schema.Primitive(StandardType.DayOfWeekType)  => dayOfWeek
-    case Schema.Primitive(StandardType.Month)          => month
-    case Schema.Primitive(StandardType.MonthDay)       => monthDay
-    case Schema.Primitive(StandardType.Year) =>
-      temporal[Year](ChronoUnit.YEARS)
-    case Schema.Primitive(StandardType.YearMonth) =>
-      temporal[YearMonth](ChronoUnit.MONTHS)
-    case Schema.Primitive(StandardType.ZoneId) => string.transform[ZoneId](_.getId)
-    case Schema.Primitive(StandardType.Instant(_)) =>
-      temporal[Instant](ChronoUnit.MILLIS)
-    case Schema.Primitive(StandardType.Duration(_)) =>
-      temporalAmount[JDuration](ChronoUnit.MILLIS)
-    case Schema.Primitive(StandardType.LocalDate(_)) =>
-      temporal[LocalDate](ChronoUnit.DAYS)
-    case Schema.Primitive(StandardType.LocalTime(_)) =>
-      temporal[LocalTime](ChronoUnit.MILLIS)
-    case Schema.Primitive(StandardType.LocalDateTime(_)) =>
-      temporal[LocalDateTime](ChronoUnit.MILLIS)
-    case Schema.Primitive(StandardType.OffsetTime(_)) =>
-      temporal[OffsetTime](ChronoUnit.MILLIS)
-    case Schema.Primitive(StandardType.OffsetDateTime(_)) =>
-      temporal[OffsetDateTime](ChronoUnit.MILLIS)
-    case Schema.Primitive(StandardType.ZonedDateTime(_)) =>
-      temporal[ZonedDateTime](ChronoUnit.MILLIS)
-    case Schema.Tuple(leftSchema, rightSchema) => fromSchema(leftSchema) <*> fromSchema(rightSchema)
-    case Schema.Optional(schema)               => fromSchema(schema).optional
-    case Schema.Sequence(schema, _, f) =>
-      val elementDiffer = fromSchema(schema)
-      elementDiffer.foreach(f)
-    case Schema.EitherSchema(leftSchema, rightSchema) => either(fromSchema(leftSchema), fromSchema(rightSchema))
-    case s @ Schema.Lazy(_)                           => fromSchema(s.schema)
-    case Schema.Transform(schema, _, f)               => fromSchema(schema).transformOrFail(f)
-    case Schema.Fail(_)                               => fail
-    case Schema.GenericRecord(structure)              => record(structure.toChunk)
-    case ProductDiffer(differ)                        => differ
-    case Schema.Enum1(c)                              => enum(c)
-    case Schema.Enum2(c1, c2)                         => enum(c1, c2)
-    case Schema.Enum3(c1, c2, c3)                     => enum(c1, c2, c3)
-    case Schema.EnumN(cs)                             => enum(cs.toSeq: _*)
+    case Schema.Primitive(StandardType.BinaryType, _)        => binary
+    case Schema.Primitive(StandardType.IntType, _)           => numeric[Int]
+    case Schema.Primitive(StandardType.ShortType, _)         => numeric[Short]
+    case Schema.Primitive(StandardType.DoubleType, _)        => numeric[Double]
+    case Schema.Primitive(StandardType.FloatType, _)         => numeric[Float]
+    case Schema.Primitive(StandardType.LongType, _)          => numeric[Long]
+    case Schema.Primitive(StandardType.CharType, _)          => numeric[Char]
+    case Schema.Primitive(StandardType.BoolType, _)          => bool
+    case Schema.Primitive(StandardType.BigDecimalType, _)    => bigDecimal
+    case Schema.Primitive(StandardType.BigIntegerType, _)    => bigInt
+    case Schema.Primitive(StandardType.StringType, _)        => string
+    case Schema.Primitive(StandardType.UUIDType, _)          => string.transform(_.toString)
+    case Schema.Primitive(StandardType.ZoneId, _)            => string.transform[ZoneId](_.getId)
+    case Schema.Primitive(StandardType.DayOfWeekType, _)     => dayOfWeek
+    case Schema.Primitive(StandardType.Month, _)             => month
+    case Schema.Primitive(StandardType.MonthDay, _)          => monthDay
+    case Schema.Primitive(StandardType.Year, _)              => year
+    case Schema.Primitive(StandardType.YearMonth, _)         => yearMonth
+    case Schema.Primitive(StandardType.LocalDate(_), _)      => localDate
+    case Schema.Primitive(StandardType.Instant(_), _)        => instant
+    case Schema.Primitive(StandardType.Duration(_), _)       => duration
+    case Schema.Primitive(StandardType.LocalTime(_), _)      => localTime
+    case Schema.Primitive(StandardType.LocalDateTime(_), _)  => localDateTime
+    case Schema.Primitive(StandardType.OffsetTime(_), _)     => offsetTime
+    case Schema.Primitive(StandardType.OffsetDateTime(_), _) => offsetDateTime
+    case Schema.Primitive(StandardType.ZonedDateTime(_), _)  => zonedDateTime
+    case Schema.Tuple(leftSchema, rightSchema, _)            => fromSchema(leftSchema) <*> fromSchema(rightSchema)
+    case Schema.Optional(schema, _)                          => fromSchema(schema).optional
+    case Schema.Sequence(schema, _, f, _)                    => fromSchema(schema).foreach(f)
+    case Schema.EitherSchema(leftSchema, rightSchema, _)     => either(fromSchema(leftSchema), fromSchema(rightSchema))
+    case s @ Schema.Lazy(_)                                  => fromSchema(s.schema)
+    case Schema.Transform(schema, _, f, _)                   => fromSchema(schema).transformOrFail(f)
+    case Schema.Fail(_, _)                                   => fail
+    case Schema.GenericRecord(structure, _)                  => record(structure.toChunk)
+    case ProductDiffer(differ)                               => differ
+    case Schema.Enum1(c, _)                                  => enum(c)
+    case Schema.Enum2(c1, c2, _)                             => enum(c1, c2)
+    case Schema.Enum3(c1, c2, c3, _)                         => enum(c1, c2, c3)
+    case Schema.EnumN(cs, _)                                 => enum(cs.toSeq: _*)
   }
 
   def binary: Differ[Chunk[Byte]] =
@@ -142,34 +133,133 @@ object Differ {
         case distance                             => Diff.Number(distance)
       }
 
-  def temporalAmount[A <: TemporalAmount](units: TemporalUnit): Differ[A] =
-    (thisA: A, thatA: A) => Diff.TemporalAmount(thisA.get(units) - thatA.get(units), units)
+  val year: Differ[Year] =
+    (thisYear: Year, thatYear: Year) =>
+      if (thisYear == thatYear)
+        Diff.Identical
+      else
+        Diff.Temporal(List[Long]((thisYear.getValue - thatYear.getValue).toLong))
 
-  def temporal[A <: JTemporal](units: ChronoUnit): Differ[A] =
-    (thisA: A, thatA: A) => Diff.Temporal(units.between(thisA, thatA), units)
+  val yearMonth: Differ[YearMonth] =
+    (thisYearMonth: YearMonth, thatYearMonth: YearMonth) =>
+      if (thisYearMonth == thatYearMonth)
+        Diff.Identical
+      else
+        Diff.Temporal(
+          List[Long](
+            thisYearMonth.getLong(ChronoField.PROLEPTIC_MONTH) - thatYearMonth.getLong(ChronoField.PROLEPTIC_MONTH)
+          )
+        )
+
+  val localDate: Differ[LocalDate] =
+    (thisLocalDate: LocalDate, thatLocalDate: LocalDate) =>
+      if (thisLocalDate == thatLocalDate)
+        Diff.Identical
+      else
+        Diff.Temporal(List[Long](thisLocalDate.toEpochDay - thatLocalDate.toEpochDay))
+
+  val instant: Differ[Instant] =
+    (thisInstant: Instant, thatInstant: Instant) =>
+      if (thisInstant == thatInstant)
+        Diff.Identical
+      else
+        Diff.Temporal(
+          List[Long](
+            thisInstant.getEpochSecond - thatInstant.getEpochSecond,
+            (thisInstant.getNano - thatInstant.getNano).toLong
+          )
+        )
+
+  val duration: Differ[JDuration] =
+    (thisDuration: JDuration, thatDuration: JDuration) =>
+      if (thisDuration == thatDuration)
+        Diff.Identical
+      else
+        Diff.Temporal(
+          List[Long](
+            thisDuration.getSeconds - thatDuration.getSeconds,
+            (thisDuration.getNano - thatDuration.getNano).toLong
+          )
+        )
+
+  val localTime: Differ[LocalTime] =
+    (thisLocalTime: LocalTime, thatLocalTime: LocalTime) =>
+      if (thisLocalTime == thatLocalTime)
+        Diff.Identical
+      else
+        Diff.Temporal(List[Long](thisLocalTime.toNanoOfDay - thatLocalTime.toNanoOfDay))
+
+  val localDateTime: Differ[LocalDateTime] =
+    (thisLocalDateTime: LocalDateTime, thatLocalDateTime: LocalDateTime) =>
+      if (thisLocalDateTime == thatLocalDateTime)
+        Diff.Identical
+      else
+        Diff.Temporal(
+          List[Long](
+            thisLocalDateTime.toLocalDate.toEpochDay - thatLocalDateTime.toLocalDate.toEpochDay,
+            thisLocalDateTime.toLocalTime.toNanoOfDay - thatLocalDateTime.toLocalTime.toNanoOfDay
+          )
+        )
+
+  val offsetTime: Differ[OffsetTime] =
+    (thisOffsetTime: OffsetTime, thatOffsetTime: OffsetTime) =>
+      if (thisOffsetTime == thatOffsetTime)
+        Diff.Identical
+      else
+        Diff.Temporal(
+          List[Long](
+            thisOffsetTime.toLocalTime.toNanoOfDay - thatOffsetTime.toLocalTime.toNanoOfDay,
+            (thisOffsetTime.getOffset.getTotalSeconds - thatOffsetTime.getOffset.getTotalSeconds).toLong
+          )
+        )
+
+  val offsetDateTime: Differ[OffsetDateTime] =
+    (thisOffsetDateTime: OffsetDateTime, thatOffsetDateTime: OffsetDateTime) =>
+      if (thisOffsetDateTime == thatOffsetDateTime)
+        Diff.Identical
+      else
+        Diff.Temporal(
+          List[Long](
+            thisOffsetDateTime.toLocalDate.toEpochDay - thatOffsetDateTime.toLocalDate.toEpochDay,
+            thisOffsetDateTime.toLocalTime.toNanoOfDay - thatOffsetDateTime.toLocalTime.toNanoOfDay,
+            (thisOffsetDateTime.getOffset.getTotalSeconds - thatOffsetDateTime.getOffset.getTotalSeconds).toLong
+          )
+        )
+
+  val zonedDateTime: Differ[JZonedDateTime] =
+    (thisZonedDateTime: JZonedDateTime, thatZonedDateTime: JZonedDateTime) =>
+      if (thisZonedDateTime == thatZonedDateTime)
+        Diff.Identical
+      else
+        Diff.ZonedDateTime(
+          localDateTime(thisZonedDateTime.toLocalDateTime, thatZonedDateTime.toLocalDateTime),
+          MyersDiff(thisZonedDateTime.getZone.getId, thatZonedDateTime.getZone.getId)
+        )
 
   val dayOfWeek: Differ[DayOfWeek] =
     (thisDay: DayOfWeek, thatDay: DayOfWeek) =>
       if (thisDay == thatDay)
         Diff.Identical
       else
-        Diff.Temporal((thatDay.getValue - thisDay.getValue).toLong, ChronoUnit.DAYS)
+        Diff.Temporal(List[Long]((thatDay.getValue - thisDay.getValue).toLong))
 
   val month: Differ[JMonth] =
     (thisMonth: JMonth, thatMonth: JMonth) =>
       if (thisMonth == thatMonth)
         Diff.Identical
       else
-        Diff.Temporal((thatMonth.getValue - thisMonth.getValue).toLong, ChronoUnit.MONTHS)
+        Diff.Temporal(List[Long]((thatMonth.getValue - thisMonth.getValue).toLong))
 
   val monthDay: Differ[MonthDay] =
     (thisMonthDay: MonthDay, thatMonthDay: MonthDay) =>
       if (thisMonthDay == thatMonthDay)
         Diff.Identical
       else
-        Diff.MonthDays(
-          ChronoUnit.DAYS.between(thisMonthDay.atYear(2001), thatMonthDay.atYear(2001)).toInt,
-          ChronoUnit.DAYS.between(thisMonthDay.atYear(2000), thatMonthDay.atYear(2000)).toInt
+        Diff.Temporal(
+          List[Long](
+            ChronoUnit.DAYS.between(thisMonthDay.atYear(2001), thatMonthDay.atYear(2001)),
+            ChronoUnit.DAYS.between(thisMonthDay.atYear(2000), thatMonthDay.atYear(2000))
+          )
         )
 
   val bigInt: Differ[BigInteger] =
@@ -193,10 +283,10 @@ object Differ {
           left(thisA, thatA) <*> right(thisB, thatB)
       }
 
-  def either[A, B](left: Differ[A], right: Differ[B]) =
+  def either[A, B](left: Differ[A], right: Differ[B]): Differ[Either[A, B]] =
     instancePartial[Either[A, B]] {
-      case (Left(l), Left(r))   => left(l, r)
-      case (Right(l), Right(r)) => right(l, r)
+      case (Left(l), Left(r))   => Diff.Either(left(l, r), Diff.Tag.Left)
+      case (Right(l), Right(r)) => Diff.Either(right(l, r), Diff.Tag.Right)
     }
 
   def identical[A]: Differ[A] = (_: A, _: A) => Diff.Identical
@@ -222,7 +312,7 @@ object Differ {
   private def conformsToStructure(map: ListMap[String, _], structure: Chunk[Schema.Field[_]]): Boolean =
     structure.foldRight(true) {
       case (_, false)                  => false
-      case (field: Schema.Field[a], _) => map.get(field.label).map(_.isInstanceOf[a]).getOrElse(false)
+      case (field: Schema.Field[a], _) => map.get(field.label).exists(_.isInstanceOf[a])
     }
 
   def enum[Z](cases: Schema.Case[_, Z]*): Differ[Z] =
@@ -266,6 +356,224 @@ sealed trait Diff { self =>
   def <*>(that: Diff): Diff = self.zip(that)
 
   def zip(that: Diff): Diff = Diff.Tuple(self, that)
+
+  //scalafmt: { maxColumn = 400 }
+  def patch[A](a: A)(implicit schema: Schema[A]): Either[String, A] = {
+    import zio.schema.Diff._
+    import zio.schema.Schema._
+
+    (schema, self) match {
+      case (_, NotComparable)                                                                      => Left(s"Not Comparable: Schema=$schema and Diff=$self.")
+      case (_, Identical)                                                                          => Right(a)
+      case (Schema.Primitive(StandardType.StringType, _), Myers(edits))                            => patchStringFromMyersEdits(a, edits)
+      case (Schema.Primitive(StandardType.UUIDType, _), Myers(edits))                              => patchStringFromMyersEdits(a.toString, edits).map(UUID.fromString)
+      case (Schema.Primitive(StandardType.ZoneId, _), Myers(edits))                                => patchStringFromMyersEdits(a.getId(), edits).map(ZoneId.of)
+      case (Primitive(StandardType.IntType, _), Number(distance: Int))                             => patchNumeric[Int](a, distance)
+      case (Primitive(StandardType.ShortType, _), Number(distance: Short))                         => patchNumeric[Short](a, distance)
+      case (Primitive(StandardType.DoubleType, _), Number(distance: Double))                       => patchNumeric[Double](a, distance)
+      case (Primitive(StandardType.FloatType, _), Number(distance: Float))                         => patchNumeric[Float](a, distance)
+      case (Primitive(StandardType.LongType, _), Number(distance: Long))                           => patchNumeric[Long](a, distance)
+      case (Primitive(StandardType.CharType, _), Number(distance: Char))                           => patchNumeric[Char](a, distance)
+      case (Primitive(StandardType.BoolType, _), Bool(xor: Boolean))                               => Right(a ^ xor)
+      case (Primitive(StandardType.BigDecimalType, _), BigDecimal(distance: java.math.BigDecimal)) => Right(a.subtract(distance))
+      case (Primitive(StandardType.BigIntegerType, _), BigInt(distance: java.math.BigInteger))     => Right(a.subtract(distance))
+      case (Primitive(StandardType.BinaryType, _), Diff.Sequence(diffs)) =>
+        diffs
+          .zipAll(a)
+          .flatMap {
+            case (Some(Total(right: Byte, Tag.Right)), _) => Some(Right(right))
+            case (Some(Total(_, Tag.Left)), _)            => None
+            case (Some(Binary(xor)), Some(value: Byte))   => Some(Right((value ^ xor).toByte))
+            case (Some(Identical), Some(value))           => Some(Right(value))
+            case (Some(diff), _)                          => Some(Left(s"Schema=$schema should not contain Diff=$diff."))
+            case (None, Some(value))                      => Some(Left(s"Diff missing for value=$value."))
+            case (None, None)                             => Some(Left(s"Unknown error in binary sequence."))
+          }
+          .partitionMap(identity) match {
+          case (Chunk.empty, values) => Right(values)
+          case (errors, _)           => Left(s"Running patch produced the following error(s): ${errors.toList}.")
+        }
+      case (Primitive(StandardType.Year, _), Temporal(distance :: Nil))             => Right(Year.of(a.getValue - distance.toInt))
+      case (Primitive(StandardType.YearMonth, _), Temporal(distance :: Nil))        => Right(YearMonth.now().`with`(ChronoField.PROLEPTIC_MONTH, a.getLong(ChronoField.PROLEPTIC_MONTH) - distance))
+      case (Primitive(StandardType.LocalDate(_), _), Temporal(distance :: Nil))     => Right(LocalDate.ofEpochDay(a.toEpochDay - distance))
+      case (Primitive(StandardType.Instant(_), _), Temporal(dist1 :: dist2 :: Nil)) => Right(Instant.ofEpochSecond(a.getEpochSecond - dist1, a.getNano() - dist2))
+      case (Primitive(StandardType.LocalTime(_), _), Temporal(distance :: Nil))     => Right(LocalTime.ofNanoOfDay(a.toNanoOfDay - distance))
+      case (Primitive(StandardType.LocalDateTime(_), _), Temporal(dist1 :: dist2 :: Nil)) =>
+        Right {
+          LocalDateTime.of(
+            LocalDate.ofEpochDay(a.toLocalDate.toEpochDay - dist1),
+            LocalTime.ofNanoOfDay(a.toLocalTime.toNanoOfDay - dist2)
+          )
+        }
+      case (Primitive(StandardType.OffsetTime(_), _), Temporal(dist1 :: dist2 :: Nil)) =>
+        Right {
+          OffsetTime.of(
+            LocalTime.ofNanoOfDay(a.toLocalTime.toNanoOfDay - dist1),
+            ZoneOffset.ofTotalSeconds(a.getOffset.getTotalSeconds - dist2.toInt)
+          )
+        }
+      case (Primitive(StandardType.OffsetDateTime(_), _), Temporal(dist1 :: dist2 :: dist3 :: Nil)) =>
+        Right {
+          OffsetDateTime.of(
+            LocalDate.ofEpochDay(a.toLocalDate.toEpochDay - dist1),
+            LocalTime.ofNanoOfDay(a.toLocalTime.toNanoOfDay - dist2),
+            ZoneOffset.ofTotalSeconds(a.getOffset.getTotalSeconds - dist3.toInt)
+          )
+        }
+      case (Primitive(StandardType.ZonedDateTime(_), _), ZonedDateTime(Identical, Identical)) => Right(a)
+      case (Primitive(StandardType.ZonedDateTime(_), _), ZonedDateTime(Identical, Myers(edits))) =>
+        patchStringFromMyersEdits(a.getZone.getId, edits).map { zoneIdString =>
+          JZonedDateTime.of(a.toLocalDateTime, ZoneId.of(zoneIdString))
+        }
+      case (Primitive(StandardType.ZonedDateTime(_), _), ZonedDateTime(Temporal(dist1 :: dist2 :: Nil), Identical)) => {
+        val localDateTime = LocalDateTime.of(LocalDate.ofEpochDay(a.toLocalDate.toEpochDay - dist1), LocalTime.ofNanoOfDay(a.toLocalTime.toNanoOfDay - dist2))
+        Right(JZonedDateTime.of(localDateTime, a.getZone))
+      }
+      case (Primitive(StandardType.ZonedDateTime(_), _), ZonedDateTime(Temporal(dist1 :: dist2 :: Nil), Myers(edits))) => {
+        val localDateTime = LocalDateTime.of(LocalDate.ofEpochDay(a.toLocalDate.toEpochDay - dist1), LocalTime.ofNanoOfDay(a.toLocalTime.toNanoOfDay - dist2))
+        patchStringFromMyersEdits(a.getZone.getId, edits).map { zoneIdString =>
+          JZonedDateTime.of(localDateTime, ZoneId.of(zoneIdString))
+        }
+      }
+      case (Primitive(StandardType.DayOfWeekType, _), Temporal(distance :: Nil))     => Right(a.plus(distance))
+      case (Primitive(StandardType.Month, _), Temporal(distance :: Nil))             => Right(a.plus(distance))
+      case (Primitive(StandardType.Duration(_), _), Temporal(dist1 :: dist2 :: Nil)) => Right(JDuration.ofSeconds(a.getSeconds - dist1, a.getNano() - dist2))
+      // TODO need to deal with leap year differences
+      case (Primitive(StandardType.MonthDay, _), Temporal(regDiff :: _ :: Nil)) => Right(MonthDay.from(ChronoUnit.DAYS.addTo(a.atYear(2001), regDiff.toLong)))
+      case (s @ Schema.Lazy(_), diff)                                           => diff.patch(a)(s.schema)
+      case (Optional(_, _), Total(_, Diff.Tag.Left))                            => Right(None)
+      case (Optional(_, _), Total(right, Diff.Tag.Right))                       => Right(Some(right))
+      case (Optional(schema, _), diff) =>
+        a match {
+          case None    => Right(None)
+          case Some(b) => diff.patch(b)(schema).map(Some(_))
+        }
+
+      case (EitherSchema(_, rightSchema, _), Diff.Either(diff, Diff.Tag.Right)) =>
+        a match {
+          case Right(b)    => diff.patch(b)(rightSchema).map(Right(_))
+          case e @ Left(_) => Left(s"Value should be Right not: $e.")
+        }
+
+      case (EitherSchema(leftSchema, _, _), Diff.Either(diff, Diff.Tag.Left)) =>
+        a match {
+          case Left(b)      => diff.patch(b)(leftSchema).map(Left(_))
+          case e @ Right(_) => Left(s"Value should be Left not: $e.")
+        }
+
+      case (Schema.Tuple(leftSchema, rightSchema, _), Diff.Tuple(leftDiff, rightDiff)) => {
+        val (left, right) = a
+        val leftPatch     = leftDiff.patch(left)(leftSchema)
+        val rightPatch    = rightDiff.patch(right)(rightSchema)
+
+        (leftPatch, rightPatch) match {
+          case (Left(e1), Left(e2)) => Left(s"Errors: $e1 and $e2.")
+          case (_, Left(e))         => Left(e)
+          case (Left(e), _)         => Left(e)
+          case (Right(l), Right(r)) => Right((l, r))
+        }
+      }
+
+      case (Schema.Sequence(schema, fromChunk, toChunk, _), Diff.Sequence(diffs)) =>
+        diffs
+          .zipAll(toChunk(a))
+          .flatMap {
+            case (Some(Total(right, Tag.Right)), _) => Some(Right(right))
+            case (Some(Total(_, Tag.Left)), _)      => None
+            case (Some(diff), Some(value))          => Some(diff.patch(value)(schema))
+            case (None, Some(value))                => Some(Left(s"Diff missing for value=$value."))
+            case (Some(diff), None)                 => Some(Left(s"Value missing for Diff=$diff."))
+            case (None, None)                       => Some(Left(s"Unknown error in sequence."))
+          }
+          .partitionMap(identity) match {
+          case (Chunk.empty, values) => Right(fromChunk(values))
+          case (errors, _)           => Left(s"Running patch produced the following error(s): ${errors.toList}.")
+        }
+
+      case (Schema.Transform(schema, f, g, _), diff) =>
+        for {
+          b       <- g(a)
+          patched <- diff.patch(b)(schema)
+          backToA <- f(patched)
+        } yield backToA
+
+      case (Schema.GenericRecord(structure: FieldSet, _), Diff.Record(diffs: ListMap[String, Diff])) => {
+        val values: ListMap[String, DynamicValue] = schema.toDynamic(a) match {
+          case DynamicValue.Record(values) => values
+          case _                           => ListMap.empty
+        }
+        patchProductData(structure.toChunk, values, diffs).asInstanceOf[scala.Either[String, A]]
+      }
+
+      case (schema: Schema.Record[A], Diff.Record(diffs: ListMap[String, Diff])) => {
+        val values: ListMap[String, DynamicValue] = schema.toDynamic(a) match {
+          case DynamicValue.Record(values) => values
+          case _                           => ListMap.empty
+        }
+        patchProductData(schema.structure, values, diffs)
+          .map(m => Chunk.fromIterable(m.values))
+          .flatMap(schema.rawConstruct)
+      }
+
+      case (Schema.Enum1(c1, _), diff)         => patchEnumData(a, diff, c1)
+      case (Schema.Enum2(c1, c2, _), diff)     => patchEnumData(a, diff, c1, c2)
+      case (Schema.Enum3(c1, c2, c3, _), diff) => patchEnumData(a, diff, c1, c2, c3)
+      case (Schema.EnumN(cases, _), diff)      => patchEnumData(a, diff, cases.toSeq: _*)
+      case (schema @ Fail(_, _), _)            => Left(s"Failed Schema=$schema cannot be patched.")
+      case (_, _)                              => Left(s"Incompatible Schema=$schema and Diff=$self.")
+    }
+  }
+
+  def patchNumeric[A](a: A, distance: A)(implicit numeric: Numeric[A]) =
+    Right(numeric.minus(a, distance))
+
+  def patchProductData(structure: Chunk[Schema.Field[_]], values: ListMap[String, DynamicValue], diffs: ListMap[String, Diff]): Either[String, ListMap[String, Any]] =
+    diffs.foldLeft[Either[String, ListMap[String, Any]]](Right(values)) {
+      case (Right(record), (key, diff)) =>
+        (structure.find(_.label == key).map(_.schema), values.get(key)) match {
+          case (Some(schema: Schema[b]), Some(oldValue)) =>
+            val oldVal = oldValue.toTypedValue(schema)
+            oldVal.flatMap(v => diff.patch(v)(schema)) match {
+              case Left(error)     => Left(error)
+              case Right(newValue) => Right(record + (key -> newValue))
+            }
+          case _ =>
+            Left(s"Values=$values and structure=$structure have incompatible shape.")
+        }
+      case (Left(string), _) => Left(string)
+    }
+
+  def patchEnumData[A](a: A, diff: Diff, cases: Schema.Case[_, A]*): Either[String, A] =
+    cases
+      .foldRight[Option[Either[String, A]]](None) {
+        case (_, diff @ Some(_)) => diff
+        case (subtype, _) =>
+          subtype.deconstruct(a) -> subtype.codec match {
+            case (Some(_), schema: Schema[_]) =>
+              Some(diff.patch(a)(schema.asInstanceOf[Schema[A]]))
+            case _ => None
+          }
+      }
+      .getOrElse(Left(s"Incompatible Enum cases=$cases and A=$a."))
+
+  def patchStringFromMyersEdits(input: String, edits: Chunk[Diff.Edit]): Either[String, String] = {
+    import zio.schema.Diff.Edit.{ Delete, Insert, Keep }
+
+    @tailrec
+    def calc(in: List[Char], edits: List[Diff.Edit], result: List[Char]): Either[String, String] = (in, edits) match {
+      case (_ :: _, Nil)                               => Left(s"Incorrect Diff - no istructions for these letters: ${in.mkString}.")
+      case (h :: _, Delete(s) :: _) if s != h.toString => Left(s"Cannot Delete $s - current letter is $h.")
+      case (Nil, Delete(s) :: _)                       => Left(s"Cannot Delete $s - no letters left to delete.")
+      case (_ :: t, Delete(_) :: tail)                 => calc(t, tail, result)
+      case (h :: _, Keep(s) :: _) if s != h.toString   => Left(s"Cannot Keep $s - current letter is $h.")
+      case (Nil, Keep(s) :: _)                         => Left(s"Cannot Keep $s - no letters left to keep.")
+      case (h :: t, Keep(_) :: tail)                   => calc(t, tail, result :+ h)
+      case (in, Insert(s) :: tail)                     => calc(in, tail, result ++ s.toList)
+      case (Nil, Nil)                                  => Right(result.mkString)
+    }
+
+    calc(input.toList, edits.toList, Nil)
+  }
 }
 
 object Diff {
@@ -281,17 +589,17 @@ object Diff {
 
   final case class BigDecimal(distance: java.math.BigDecimal) extends Diff
 
-  final case class Temporal(distance: Long, timeUnit: TemporalUnit) extends Diff
+  final case class Temporal(distances: List[Long]) extends Diff
 
-  final case class TemporalAmount(difference: Long, units: TemporalUnit) extends Diff
-
-  final case class MonthDays(difference: Int, leapYearDifference: Int) extends Diff
+  final case class ZonedDateTime(localDateTimeDiff: Diff, zoneIdDiff: Diff) extends Diff
 
   final case class Tuple(leftDifference: Diff, rightDifference: Diff) extends Diff
 
   final case class Myers(edits: Chunk[Edit]) extends Diff
 
   final case class Total[A](value: A, tag: Tag) extends Diff
+
+  final case class Either(value: Diff, tag: Tag) extends Diff
 
   /**
    * Represents diff between incomparable values. For instance Left(1) and Right("a")

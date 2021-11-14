@@ -169,7 +169,6 @@ object StandardType {
 
   //java.time specific types
   implicit object DayOfWeekType extends StandardType[DayOfWeek] {
-    <<<<<<< HEAD
     override def tag                                      = Tags.DAY_OF_WEEK
     override def compare(x: DayOfWeek, y: DayOfWeek): Int = x.getValue.compareTo(y.getValue)
     override def defaultValue: Either[String, DayOfWeek] =

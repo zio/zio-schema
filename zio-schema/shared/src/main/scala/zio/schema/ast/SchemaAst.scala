@@ -173,23 +173,28 @@ object SchemaAst {
 
   @tailrec
   def fromSchema[A](schema: Schema[A]): SchemaAst = schema match {
-    case Schema.Primitive(typ)   => Value(typ, NodePath.root)
-    case Schema.Fail(message)    => FailNode(message, NodePath.root)
-    case Schema.Optional(schema) => subtree(NodePath.root, Chunk.empty, schema, optional = true)
-    case Schema.EitherSchema(left, right) =>
+    case Schema.Primitive(typ, _)   => Value(typ, NodePath.root)
+    case Schema.Fail(message, _)    => FailNode(message, NodePath.root)
+    case Schema.Optional(schema, _) => subtree(NodePath.root, Chunk.empty, schema, optional = true)
+    case Schema.EitherSchema(left, right, _) =>
       NodeBuilder(NodePath.root, Chunk.empty)
         .addLabelledSubtree("left", left)
         .addLabelledSubtree("right", right)
         .buildSum()
-    case Schema.Tuple(left, right) =>
+    case Schema.Tuple(left, right, _) =>
       NodeBuilder(NodePath.root, Chunk.empty)
         .addLabelledSubtree("left", left)
         .addLabelledSubtree("right", right)
         .buildProduct()
-    case Schema.Sequence(schema, _, _) =>
+    case Schema.Sequence(schema, _, _, _) =>
       subtree(NodePath.root, Chunk.empty, schema, dimensions = 1)
-    case Schema.Transform(schema, _, _) => subtree(NodePath.root, Chunk.empty, schema)
-    case lzy @ Schema.Lazy(_)           => fromSchema(lzy.schema)
+    case Schema.MapSchema(ks, vs, _) =>
+      NodeBuilder(NodePath.root, Chunk.empty, optional = false, dimensions = 1)
+        .addLabelledSubtree("key", ks)
+        .addLabelledSubtree("value", vs)
+        .buildProduct()
+    case Schema.Transform(schema, _, _, _) => subtree(NodePath.root, Chunk.empty, schema)
+    case lzy @ Schema.Lazy(_)              => fromSchema(lzy.schema)
     case s: Schema.Record[A] =>
       s.structure
         .foldLeft(NodeBuilder(NodePath.root, Chunk(s.hashCode() -> NodePath.root))) { (node, field) =>
@@ -203,7 +208,7 @@ object SchemaAst {
             node.addLabelledSubtree(id, schema)
         }
         .buildSum()
-    case Schema.Meta(ast) => ast
+    case Schema.Meta(ast, _) => ast
   }
 
   private[schema] def subtree(
@@ -221,22 +226,24 @@ object SchemaAst {
       }
       .getOrElse {
         schema match {
-          case Schema.Primitive(typ)   => Value(typ, path, optional, dimensions)
-          case Schema.Optional(schema) => subtree(path, lineage, schema, optional = true, dimensions)
-          case Schema.EitherSchema(left, right) =>
+          case Schema.Primitive(typ, _)   => Value(typ, path, optional, dimensions)
+          case Schema.Optional(schema, _) => subtree(path, lineage, schema, optional = true, dimensions)
+          case Schema.EitherSchema(left, right, _) =>
             NodeBuilder(path, lineage, optional, dimensions)
               .addLabelledSubtree("left", left)
               .addLabelledSubtree("right", right)
               .buildSum()
-          case Schema.Tuple(left, right) =>
+          case Schema.Tuple(left, right, _) =>
             NodeBuilder(path, lineage, optional, dimensions)
               .addLabelledSubtree("left", left)
               .addLabelledSubtree("right", right)
               .buildProduct()
-          case Schema.Sequence(schema, _, _) =>
+          case Schema.Sequence(schema, _, _, _) =>
             subtree(path, lineage, schema, optional, dimensions + 1)
-          case Schema.Transform(schema, _, _) => subtree(path, lineage, schema, optional, dimensions)
-          case lzy @ Schema.Lazy(_)           => subtree(path, lineage, lzy.schema, optional, dimensions)
+          case Schema.MapSchema(ks, vs, _) =>
+            subtree(path, lineage, ks <*> vs, optional = false, dimensions + 1)
+          case Schema.Transform(schema, _, _, _) => subtree(path, lineage, schema, optional, dimensions)
+          case lzy @ Schema.Lazy(_)              => subtree(path, lineage, lzy.schema, optional, dimensions)
           case s: Schema.Record[_] =>
             s.structure
               .foldLeft(NodeBuilder(path, lineage :+ (s.hashCode() -> path), optional, dimensions)) { (node, field) =>
@@ -250,15 +257,15 @@ object SchemaAst {
                   node.addLabelledSubtree(id, schema)
               }
               .buildSum()
-          case Schema.Fail(message) => FailNode(message, path)
-          case Schema.Meta(ast)     => ast
+          case Schema.Fail(message, _) => FailNode(message, path)
+          case Schema.Meta(ast, _)     => ast
         }
       }
 
   private[schema] def materialize(ast: SchemaAst, refs: Map[NodePath, SchemaAst] = Map.empty): Schema[_] = {
     val baseSchema = ast match {
       case SchemaAst.Value(typ, _, _, _) =>
-        Schema.Primitive(typ)
+        Schema.Primitive(typ, Chunk.empty)
       case SchemaAst.FailNode(msg, _, _, _) => Schema.Fail(msg)
       case SchemaAst.Ref(refPath, _, _, _) =>
         refs
@@ -280,7 +287,8 @@ object SchemaAst {
                 .Case[Any, Any](
                   label,
                   materialize(ast, refs + (path -> n.copy(optional = false, dimensions = 0))).asInstanceOf[Schema[Any]],
-                  identity[Any]
+                  identity[Any],
+                  Chunk.empty
                 )
               CaseSet.Cons(_case, acc)
           }
@@ -302,7 +310,8 @@ object SchemaAst {
       caseOf[Value, SchemaAst]("Value")(_.asInstanceOf[Value]) ++
         caseOf[Sum, SchemaAst]("Sum")(_.asInstanceOf[Sum]) ++
         caseOf[Product, SchemaAst]("Product")(_.asInstanceOf[Product]) ++
-        caseOf[Ref, SchemaAst]("Ref")(_.asInstanceOf[Ref])
+        caseOf[Ref, SchemaAst]("Ref")(_.asInstanceOf[Ref]),
+      Chunk.empty
     )
 
 }
