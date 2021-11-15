@@ -8,14 +8,13 @@ import java.util.UUID
 import scala.collection.immutable.ListMap
 import scala.util.Try
 
+import zio.Console._
 import zio._
-
 import zio.schema.CaseSet._
 import zio.schema.{ CaseSet, DeriveSchema, Schema, SchemaGen, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-import zio.Console._
 
 // TODO: use generators instead of manual encode/decode
 object ProtobufCodecSpec extends DefaultRunnableSpec {
@@ -519,6 +518,18 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed  <- encodeAndDecode(sequenceOfSumSchema, richSequence)
           ed2 <- encodeAndDecodeNS(sequenceOfSumSchema, richSequence)
         } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
+      },
+      test("map of products") {
+        val m: Map[Record, MyRecord] = Map(
+          Record("AAA", 1) -> MyRecord(1),
+          Record("BBB", 2) -> MyRecord(2)
+        )
+
+        val mSchema = Schema.map(Record.schemaRecord, myRecord)
+        for {
+          ed  <- encodeAndDecode(mSchema, m)
+          ed2 <- encodeAndDecodeNS(mSchema, m)
+        } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
       },
       test("recursive data types") {
         check(SchemaGen.anyRecursiveTypeAndValue) {
