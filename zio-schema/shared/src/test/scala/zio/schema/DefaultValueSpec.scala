@@ -1,13 +1,13 @@
 package zio.schema
 
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+
 import zio._
 import zio.schema.CaseSet._
 import zio.schema.Schema._
 import zio.test.Assertion._
 import zio.test._
-
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 
 object DefaultValueSpec extends DefaultRunnableSpec {
   // Record Tests

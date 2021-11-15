@@ -1,6 +1,7 @@
 package zio.schema
 
 import java.time.temporal.ChronoUnit
+
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
@@ -378,10 +379,14 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     )
 
     override def defaultValue: Either[String, Either[A, B]] =
-      left.defaultValue
-        .map(Left(_))
-        .orElse(right.defaultValue.map(Right(_)))
-        .orElse(Left("unable to extract default value for EitherSchema"))
+      left.defaultValue match {
+        case Right(a) => Right(Left(a))
+        case _ =>
+          right.defaultValue match {
+            case Right(b) => Right(Right(b))
+            case _        => Left("unable to extract default value for EitherSchema")
+          }
+      }
 
     override def makeAccessors(
       b: AccessorBuilder
