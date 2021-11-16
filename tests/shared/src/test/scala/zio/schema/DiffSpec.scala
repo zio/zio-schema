@@ -8,6 +8,7 @@ import scala.collection.immutable.ListMap
 
 import zio.Chunk
 import zio.random.Random
+import zio.schema.DeriveSchema
 import zio.schema.SchemaGen.{ Arity1, Arity24 }
 import zio.schema.StandardType._
 import zio.schema.syntax._
@@ -795,11 +796,10 @@ object DiffSpec extends DefaultRunnableSpec {
       },
       test("error case") {
         import Diff.Edit._
-        val joe                             = Person("Joe", 11)
-        val moe                             = Person("Moe", 15)
-        val bob                             = Person("Bob", 11)
-        implicit val schema: Schema[Person] = DeriveSchema.gen
-        val diff                            = schema.diff(joe, moe)
+        val joe  = Person("Joe", 11)
+        val moe  = Person("Moe", 15)
+        val bob  = Person("Bob", 11)
+        val diff = Schema[Person].diff(joe, moe)
         val expected = Diff.Record(
           ListMap(
             "name" -> Diff.Myers(Chunk(Insert("M"), Delete("J"), Keep("o"), Keep("e"))),
@@ -810,9 +810,9 @@ object DiffSpec extends DefaultRunnableSpec {
         assertTrue(diff.patch(joe) == Right(moe)) &&
         assertTrue(diff.patch(moe).isLeft) &&
         assertTrue(diff.patch(bob).isLeft) &&
-        assertTrue(schema.patch(joe, diff) == Right(moe)) &&
-        assertTrue(schema.patch(moe, diff).isLeft) &&
-        assertTrue(schema.patch(bob, diff).isLeft)
+        assertTrue(Schema[Person].patch(joe, diff) == Right(moe)) &&
+        assertTrue(Schema[Person].patch(moe, diff).isLeft) &&
+        assertTrue(Schema[Person].patch(bob, diff).isLeft)
       }
     ),
     suite("tuple")(
@@ -937,10 +937,8 @@ object DiffSpec extends DefaultRunnableSpec {
     suite("enumN")(
       test("identical") {
         import Pet._
-        implicit val dogSchema: Schema[Dog] = DeriveSchema.gen
-        val pet                             = Dog("Spike")
-        val schema: Schema[Pet]             = DeriveSchema.gen
-        val diff                            = schema.diff(pet, pet)
+        val pet  = Dog("Spike")
+        val diff = Schema[Pet].diff(pet, pet)
         assertTrue(diff == Diff.Identical) &&
         assertTrue(diff.patch(pet) == Right(pet)) &&
         assertTrue(schema.patch(pet, diff) == Right(pet))
@@ -948,11 +946,9 @@ object DiffSpec extends DefaultRunnableSpec {
       test("different") {
         import Diff.Edit._
         import Pet._
-        implicit val dogSchema: Schema[Dog] = DeriveSchema.gen
-        val pet1                            = Dog("Spike")
-        val pet2                            = Dog("Spot")
-        val schema: Schema[Pet]             = DeriveSchema.gen
-        val diff                            = schema.diff(pet1, pet2)
+        val pet1 = Dog("Spike")
+        val pet2 = Dog("Spot")
+        val diff = Schema[Pet].diff(pet1, pet2)
         val expected = Diff.Record(
           ListMap(
             "name" ->
@@ -965,11 +961,9 @@ object DiffSpec extends DefaultRunnableSpec {
       },
       test("different enumN types - NotComparable") {
         import Pet._
-        implicit val dogSchema: Schema[Dog] = DeriveSchema.gen
-        val pet1                            = Dog("Spike")
-        val pet2                            = Cat("Spot")
-        val schema: Schema[Pet]             = DeriveSchema.gen
-        val diff                            = schema.diff(pet1, pet2)
+        val pet1 = Dog("Spike")
+        val pet2 = Cat("Spot")
+        val diff = Schema[Pet].diff(pet1, pet2)
         assertTrue(diff == Diff.NotComparable) &&
         assertTrue(diff.patch(pet1).isLeft) &&
         assertTrue(schema.patch(pet1, diff).isLeft)
@@ -977,11 +971,10 @@ object DiffSpec extends DefaultRunnableSpec {
       test("error case") {
         import Diff.Edit._
         import Pet._
-        implicit val dogSchema: Schema[Dog] = DeriveSchema.gen
-        val pet1                            = Dog("Spike")
-        val pet2                            = Dog("Spot")
-        val pet3                            = Dog("Zeeke")
-        val diff                            = schema.diff(pet1, pet2)
+        val pet1 = Dog("Spike")
+        val pet2 = Dog("Spot")
+        val pet3 = Dog("Zeeke")
+        val diff = schema.diff(pet1, pet2)
         val expected = Diff.Record(
           ListMap(
             "name" ->
@@ -1018,12 +1011,28 @@ object DiffSpec extends DefaultRunnableSpec {
   sealed trait Pet
 
   object Pet {
-    case class Dog(name: String)                     extends Pet
-    case class Cat(name: String)                     extends Pet
+    case class Dog(name: String) extends Pet
+
+    object Dog {
+      implicit lazy val schema: Schema[Dog] = DeriveSchema.gen[Dog]
+    }
+    case class Cat(name: String) extends Pet
+
+    object Cat {
+      implicit lazy val schema: Schema[Cat] = DeriveSchema.gen
+    }
     case class Parrot(name: String, color: Int = 55) extends Pet
+
+    object Parrot {
+      implicit val schema: Schema[Parrot] = DeriveSchema.gen
+    }
 
     implicit lazy val schema: Schema[Pet] = DeriveSchema.gen
   }
 
   case class Person(name: String, age: Int)
+
+  object Person {
+    implicit lazy val schema: Schema[Person] = DeriveSchema.gen
+  }
 }

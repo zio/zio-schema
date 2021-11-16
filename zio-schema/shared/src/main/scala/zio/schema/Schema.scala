@@ -1822,7 +1822,7 @@ sealed trait TupleSchemas {
 //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
 sealed trait RecordSchemas { self: Schema.type =>
 
-  sealed case class GenericRecord(fieldSet: FieldSet) extends Record[ListMap[String, _]] { self =>
+  sealed case class GenericRecord(fieldSet: FieldSet, override val annotations: Chunk[Any] = Chunk.empty) extends Record[ListMap[String, _]] { self =>
 
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = fieldSet.Accessors[ListMap[String, _], Lens, Prism, Traversal]
 

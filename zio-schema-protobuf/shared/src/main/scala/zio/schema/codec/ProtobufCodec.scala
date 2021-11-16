@@ -132,26 +132,48 @@ object ProtobufCodec extends Codec {
 
     import Protobuf._
 
+    //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
       (schema, value) match {
         case (Schema.GenericRecord(structure, _), v: Map[String, _]) => encodeRecord(fieldNumber, structure.toChunk, v)
         case (Schema.Sequence(element, _, g, _), v)                  => encodeSequence(fieldNumber, element, g(v))
         case (Schema.MapSchema(ks, vs, _), v: Map[k, v]) =>
           encodeSequence(fieldNumber, ks <*> vs, Chunk.fromIterable(v))
-        case (Schema.Transform(codec, _, g, _), _)                  => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
-        case (Schema.Primitive(standardType, _), v)                 => encodePrimitive(fieldNumber, standardType, v)
-        case (Schema.Tuple(left, right, _), v @ (_, _))             => encodeTuple(fieldNumber, left, right, v)
-        case (Schema.Optional(codec, _), v: Option[_])              => encodeOptional(fieldNumber, codec, v)
-        case (Schema.EitherSchema(left, right, _), v: Either[_, _]) => encodeEither(fieldNumber, left, right, v)
-        case (lzy @ Schema.Lazy(_), v)                              => encode(fieldNumber, lzy.schema, v)
-        case (Schema.Meta(ast, _), _)                               => encode(fieldNumber, Schema[SchemaAst], ast)
-        case ProductEncoder(encode)                                 => encode(fieldNumber)
-        case (Schema.Enum1(c, _), v)                                => encodeEnum(fieldNumber, v, c)
-        case (Schema.Enum2(c1, c2, _), v)                           => encodeEnum(fieldNumber, v, c1, c2)
-        case (Schema.Enum3(c1, c2, c3, _), v)                       => encodeEnum(fieldNumber, v, c1, c2, c3)
-        case (Schema.EnumN(cs, _), v)                               => encodeEnum(fieldNumber, v, cs.toSeq: _*)
-        case (_, _)                                                 => Chunk.empty
+        case (Schema.Transform(codec, _, g, _), _)                                                                                      => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
+        case (Schema.Primitive(standardType, _), v)                                                                                     => encodePrimitive(fieldNumber, standardType, v)
+        case (Schema.Tuple(left, right, _), v @ (_, _))                                                                                 => encodeTuple(fieldNumber, left, right, v)
+        case (Schema.Optional(codec, _), v: Option[_])                                                                                  => encodeOptional(fieldNumber, codec, v)
+        case (Schema.EitherSchema(left, right, _), v: Either[_, _])                                                                     => encodeEither(fieldNumber, left, right, v)
+        case (lzy @ Schema.Lazy(_), v)                                                                                                  => encode(fieldNumber, lzy.schema, v)
+        case (Schema.Meta(ast, _), _)                                                                                                   => encode(fieldNumber, Schema[SchemaAst], ast)
+        case ProductEncoder(encode)                                                                                                     => encode(fieldNumber)
+        case (Schema.Enum1(c, _), v)                                                                                                    => encodeEnum(fieldNumber, v, c)
+        case (Schema.Enum2(c1, c2, _), v)                                                                                               => encodeEnum(fieldNumber, v, c1, c2)
+        case (Schema.Enum3(c1, c2, c3, _), v)                                                                                           => encodeEnum(fieldNumber, v, c1, c2, c3)
+        case (Schema.Enum4(c1, c2, c3, c4, _), v)                                                                                       => encodeEnum(fieldNumber, v, c1, c2, c3, c4)
+        case (Schema.Enum5(c1, c2, c3, c4, c5, _), v)                                                                                   => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5)
+        case (Schema.Enum6(c1, c2, c3, c4, c5, c6, _), v)                                                                               => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6)
+        case (Schema.Enum7(c1, c2, c3, c4, c5, c6, c7, _), v)                                                                           => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7)
+        case (Schema.Enum8(c1, c2, c3, c4, c5, c6, c7, c8, _), v)                                                                       => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8)
+        case (Schema.Enum9(c1, c2, c3, c4, c5, c6, c7, c8, c9, _), v)                                                                   => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9)
+        case (Schema.Enum10(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _), v)                                                             => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
+        case (Schema.Enum11(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _), v)                                                        => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
+        case (Schema.Enum12(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _), v)                                                   => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
+        case (Schema.Enum13(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _), v)                                              => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
+        case (Schema.Enum14(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _), v)                                         => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
+        case (Schema.Enum15(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _), v)                                    => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+        case (Schema.Enum16(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _), v)                               => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
+        case (Schema.Enum17(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _), v)                          => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
+        case (Schema.Enum18(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _), v)                     => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
+        case (Schema.Enum19(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _), v)                => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
+        case (Schema.Enum20(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _), v)           => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
+        case (Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _), v)      => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
+        case (Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
+
+        case (Schema.EnumN(cs, _), v) => encodeEnum(fieldNumber, v, cs.toSeq: _*)
+        case (_, _)                   => Chunk.empty
       }
+    //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
     private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[_, Z]*): Chunk[Byte] = {
       val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
@@ -425,6 +447,7 @@ object ProtobufCodec extends Codec {
         .map(_._2)
 
     private[codec] def decoder[A](schema: Schema[A]): Decoder[A] =
+      //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
       schema match {
         case Schema.GenericRecord(structure, _) => recordDecoder(structure.toChunk)
         case Schema.Sequence(elementSchema @ Schema.Sequence(_, _, _, _), fromChunk, _, _) =>
@@ -446,28 +469,41 @@ object ProtobufCodec extends Codec {
             true
           )
         case Schema.MapSchema(ks: Schema[k], vs: Schema[v], _) =>
-          decoder(
-            Schema.Sequence(
-              ks <*> vs,
-              (c: Chunk[(k, v)]) => c.toList.toMap,
-              (m: Map[k, v]) => Chunk.fromIterable(m),
-              Chunk.empty
-            )
-          )
-        case Schema.Transform(codec, f, _, _)    => transformDecoder(codec, f)
-        case Schema.Primitive(standardType, _)   => primitiveDecoder(standardType)
-        case Schema.Tuple(left, right, _)        => tupleDecoder(left, right)
-        case Schema.Optional(codec, _)           => optionalDecoder(codec)
-        case Schema.Fail(message, _)             => fail(message)
-        case Schema.EitherSchema(left, right, _) => eitherDecoder(left, right)
-        case lzy @ Schema.Lazy(_)                => decoder(lzy.schema)
-        case Schema.Meta(_, _)                   => astDecoder
-        case ProductDecoder(decoder)             => decoder
-        case Schema.Enum1(c, _)                  => enumDecoder(c)
-        case Schema.Enum2(c1, c2, _)             => enumDecoder(c1, c2)
-        case Schema.Enum3(c1, c2, c3, _)         => enumDecoder(c1, c2, c3)
-        case Schema.EnumN(cs, _)                 => enumDecoder(cs.toSeq: _*)
+          decoder(Schema.Sequence(ks <*> vs, (c: Chunk[(k, v)]) => c.toList.toMap, (m: Map[k, v]) => Chunk.fromIterable(m), Chunk.empty))
+        case Schema.Transform(codec, f, _, _)                                                                                      => transformDecoder(codec, f)
+        case Schema.Primitive(standardType, _)                                                                                     => primitiveDecoder(standardType)
+        case Schema.Tuple(left, right, _)                                                                                          => tupleDecoder(left, right)
+        case Schema.Optional(codec, _)                                                                                             => optionalDecoder(codec)
+        case Schema.Fail(message, _)                                                                                               => fail(message)
+        case Schema.EitherSchema(left, right, _)                                                                                   => eitherDecoder(left, right)
+        case lzy @ Schema.Lazy(_)                                                                                                  => decoder(lzy.schema)
+        case Schema.Meta(_, _)                                                                                                     => astDecoder
+        case ProductDecoder(decoder)                                                                                               => decoder
+        case Schema.Enum1(c, _)                                                                                                    => enumDecoder(c)
+        case Schema.Enum2(c1, c2, _)                                                                                               => enumDecoder(c1, c2)
+        case Schema.Enum3(c1, c2, c3, _)                                                                                           => enumDecoder(c1, c2, c3)
+        case Schema.Enum4(c1, c2, c3, c4, _)                                                                                       => enumDecoder(c1, c2, c3, c4)
+        case Schema.Enum5(c1, c2, c3, c4, c5, _)                                                                                   => enumDecoder(c1, c2, c3, c4, c5)
+        case Schema.Enum6(c1, c2, c3, c4, c5, c6, _)                                                                               => enumDecoder(c1, c2, c3, c4, c5, c6)
+        case Schema.Enum7(c1, c2, c3, c4, c5, c6, c7, _)                                                                           => enumDecoder(c1, c2, c3, c4, c5, c6, c7)
+        case Schema.Enum8(c1, c2, c3, c4, c5, c6, c7, c8, _)                                                                       => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8)
+        case Schema.Enum9(c1, c2, c3, c4, c5, c6, c7, c8, c9, _)                                                                   => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9)
+        case Schema.Enum10(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _)                                                             => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
+        case Schema.Enum11(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _)                                                        => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
+        case Schema.Enum12(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _)                                                   => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
+        case Schema.Enum13(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _)                                              => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
+        case Schema.Enum14(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _)                                         => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
+        case Schema.Enum15(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _)                                    => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+        case Schema.Enum16(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _)                               => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
+        case Schema.Enum17(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _)                          => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
+        case Schema.Enum18(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _)                     => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
+        case Schema.Enum19(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _)                => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
+        case Schema.Enum20(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _)           => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
+        case Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)      => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
+        case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
+        case Schema.EnumN(cs, _)                                                                                                   => enumDecoder(cs.toSeq: _*)
       }
+    //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
     private val astDecoder: Decoder[Schema[_]] =
       decoder(Schema[SchemaAst]).map(_.toSchema)

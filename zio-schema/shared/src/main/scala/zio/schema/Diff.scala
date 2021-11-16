@@ -23,10 +23,10 @@ import java.util.UUID
 
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
+import scala.runtime.ByteRef
 
 import zio.Chunk
 import zio.schema.internal.MyersDiff
-import scala.runtime.ByteRef
 
 trait Differ[A] { self =>
 
@@ -71,47 +71,69 @@ trait Differ[A] { self =>
 
 object Differ {
 
+  //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   def fromSchema[A](schema: Schema[A]): Differ[A] = schema match {
-    case Schema.Primitive(StandardType.BinaryType, _)        => binary
-    case Schema.Primitive(StandardType.IntType, _)           => numeric[Int]
-    case Schema.Primitive(StandardType.ShortType, _)         => numeric[Short]
-    case Schema.Primitive(StandardType.DoubleType, _)        => numeric[Double]
-    case Schema.Primitive(StandardType.FloatType, _)         => numeric[Float]
-    case Schema.Primitive(StandardType.LongType, _)          => numeric[Long]
-    case Schema.Primitive(StandardType.CharType, _)          => numeric[Char]
-    case Schema.Primitive(StandardType.BoolType, _)          => bool
-    case Schema.Primitive(StandardType.BigDecimalType, _)    => bigDecimal
-    case Schema.Primitive(StandardType.BigIntegerType, _)    => bigInt
-    case Schema.Primitive(StandardType.StringType, _)        => string
-    case Schema.Primitive(StandardType.UUIDType, _)          => string.transform(_.toString)
-    case Schema.Primitive(StandardType.ZoneId, _)            => string.transform[ZoneId](_.getId)
-    case Schema.Primitive(StandardType.DayOfWeekType, _)     => dayOfWeek
-    case Schema.Primitive(StandardType.Month, _)             => month
-    case Schema.Primitive(StandardType.MonthDay, _)          => monthDay
-    case Schema.Primitive(StandardType.Year, _)              => year
-    case Schema.Primitive(StandardType.YearMonth, _)         => yearMonth
-    case Schema.Primitive(StandardType.LocalDate(_), _)      => localDate
-    case Schema.Primitive(StandardType.Instant(_), _)        => instant
-    case Schema.Primitive(StandardType.Duration(_), _)       => duration
-    case Schema.Primitive(StandardType.LocalTime(_), _)      => localTime
-    case Schema.Primitive(StandardType.LocalDateTime(_), _)  => localDateTime
-    case Schema.Primitive(StandardType.OffsetTime(_), _)     => offsetTime
-    case Schema.Primitive(StandardType.OffsetDateTime(_), _) => offsetDateTime
-    case Schema.Primitive(StandardType.ZonedDateTime(_), _)  => zonedDateTime
-    case Schema.Tuple(leftSchema, rightSchema, _)            => fromSchema(leftSchema) <*> fromSchema(rightSchema)
-    case Schema.Optional(schema, _)                          => fromSchema(schema).optional
-    case Schema.Sequence(schema, _, f, _)                    => fromSchema(schema).foreach(f)
-    case Schema.EitherSchema(leftSchema, rightSchema, _)     => either(fromSchema(leftSchema), fromSchema(rightSchema))
-    case s @ Schema.Lazy(_)                                  => fromSchema(s.schema)
-    case Schema.Transform(schema, _, f, _)                   => fromSchema(schema).transformOrFail(f)
-    case Schema.Fail(_, _)                                   => fail
-    case Schema.GenericRecord(structure, _)                  => record(structure.toChunk)
-    case ProductDiffer(differ)                               => differ
-    case Schema.Enum1(c, _)                                  => enum(c)
-    case Schema.Enum2(c1, c2, _)                             => enum(c1, c2)
-    case Schema.Enum3(c1, c2, c3, _)                         => enum(c1, c2, c3)
-    case Schema.EnumN(cs, _)                                 => enum(cs.toSeq: _*)
+    case Schema.Primitive(StandardType.BinaryType, _)                                                                          => binary
+    case Schema.Primitive(StandardType.IntType, _)                                                                             => numeric[Int]
+    case Schema.Primitive(StandardType.ShortType, _)                                                                           => numeric[Short]
+    case Schema.Primitive(StandardType.DoubleType, _)                                                                          => numeric[Double]
+    case Schema.Primitive(StandardType.FloatType, _)                                                                           => numeric[Float]
+    case Schema.Primitive(StandardType.LongType, _)                                                                            => numeric[Long]
+    case Schema.Primitive(StandardType.CharType, _)                                                                            => numeric[Char]
+    case Schema.Primitive(StandardType.BoolType, _)                                                                            => bool
+    case Schema.Primitive(StandardType.BigDecimalType, _)                                                                      => bigDecimal
+    case Schema.Primitive(StandardType.BigIntegerType, _)                                                                      => bigInt
+    case Schema.Primitive(StandardType.StringType, _)                                                                          => string
+    case Schema.Primitive(StandardType.UUIDType, _)                                                                            => string.transform(_.toString)
+    case Schema.Primitive(StandardType.ZoneId, _)                                                                              => string.transform[ZoneId](_.getId)
+    case Schema.Primitive(StandardType.DayOfWeekType, _)                                                                       => dayOfWeek
+    case Schema.Primitive(StandardType.Month, _)                                                                               => month
+    case Schema.Primitive(StandardType.MonthDay, _)                                                                            => monthDay
+    case Schema.Primitive(StandardType.Year, _)                                                                                => year
+    case Schema.Primitive(StandardType.YearMonth, _)                                                                           => yearMonth
+    case Schema.Primitive(StandardType.LocalDate(_), _)                                                                        => localDate
+    case Schema.Primitive(StandardType.Instant(_), _)                                                                          => instant
+    case Schema.Primitive(StandardType.Duration(_), _)                                                                         => duration
+    case Schema.Primitive(StandardType.LocalTime(_), _)                                                                        => localTime
+    case Schema.Primitive(StandardType.LocalDateTime(_), _)                                                                    => localDateTime
+    case Schema.Primitive(StandardType.OffsetTime(_), _)                                                                       => offsetTime
+    case Schema.Primitive(StandardType.OffsetDateTime(_), _)                                                                   => offsetDateTime
+    case Schema.Primitive(StandardType.ZonedDateTime(_), _)                                                                    => zonedDateTime
+    case Schema.Tuple(leftSchema, rightSchema, _)                                                                              => fromSchema(leftSchema) <*> fromSchema(rightSchema)
+    case Schema.Optional(schema, _)                                                                                            => fromSchema(schema).optional
+    case Schema.Sequence(schema, _, f, _)                                                                                      => fromSchema(schema).foreach(f)
+    case Schema.EitherSchema(leftSchema, rightSchema, _)                                                                       => either(fromSchema(leftSchema), fromSchema(rightSchema))
+    case s @ Schema.Lazy(_)                                                                                                    => fromSchema(s.schema)
+    case Schema.Transform(schema, _, f, _)                                                                                     => fromSchema(schema).transformOrFail(f)
+    case Schema.Fail(_, _)                                                                                                     => fail
+    case Schema.GenericRecord(structure, _)                                                                                    => record(structure.toChunk)
+    case ProductDiffer(differ)                                                                                                 => differ
+    case Schema.Enum1(c, _)                                                                                                    => enumN(c)
+    case Schema.Enum2(c1, c2, _)                                                                                               => enumN(c1, c2)
+    case Schema.Enum3(c1, c2, c3, _)                                                                                           => enumN(c1, c2, c3)
+    case Schema.Enum4(c1, c2, c3, c4, _)                                                                                       => enumN(c1, c2, c3, c4)
+    case Schema.Enum5(c1, c2, c3, c4, c5, _)                                                                                   => enumN(c1, c2, c3, c4, c5)
+    case Schema.Enum6(c1, c2, c3, c4, c5, c6, _)                                                                               => enumN(c1, c2, c3, c4, c5, c6)
+    case Schema.Enum7(c1, c2, c3, c4, c5, c6, c7, _)                                                                           => enumN(c1, c2, c3, c4, c5, c6, c7)
+    case Schema.Enum8(c1, c2, c3, c4, c5, c6, c7, c8, _)                                                                       => enumN(c1, c2, c3, c4, c5, c6, c7, c8)
+    case Schema.Enum9(c1, c2, c3, c4, c5, c6, c7, c8, c9, _)                                                                   => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9)
+    case Schema.Enum10(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _)                                                             => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
+    case Schema.Enum11(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _)                                                        => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
+    case Schema.Enum12(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _)                                                   => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
+    case Schema.Enum13(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _)                                              => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
+    case Schema.Enum14(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _)                                         => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
+    case Schema.Enum15(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _)                                    => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+    case Schema.Enum16(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _)                               => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
+    case Schema.Enum17(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _)                          => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
+    case Schema.Enum18(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _)                     => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
+    case Schema.Enum19(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _)                => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
+    case Schema.Enum20(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _)           => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
+    case Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)      => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
+    case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
+
+    case Schema.EnumN(cs, _) => enumN(cs.toSeq: _*)
   }
+  //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
   def binary: Differ[Chunk[Byte]] =
     (theseBytes: Chunk[Byte], thoseBytes: Chunk[Byte]) =>
@@ -341,7 +363,7 @@ object Differ {
 
   val string: Differ[String] = MyersDiff
 
-  def instancePartial[A](f: PartialFunction[(A, A), Diff]) =
+  def instancePartial[A](f: PartialFunction[(A, A), Diff]): Differ[A] =
     new Differ[A] {
       override def apply(thisValue: A, thatValue: A): Diff =
         f.applyOrElse((thisValue, thatValue), (_: (A, A)) => Diff.NotComparable)
@@ -440,10 +462,10 @@ sealed trait Diff { self =>
       case (Primitive(StandardType.Month, _), Temporal(distance :: Nil))             => Right(a.plus(distance))
       case (Primitive(StandardType.Duration(_), _), Temporal(dist1 :: dist2 :: Nil)) => Right(JDuration.ofSeconds(a.getSeconds - dist1, a.getNano() - dist2))
       // TODO need to deal with leap year differences
-      case (Primitive(StandardType.MonthDay), Temporal(regDiff :: _ :: Nil)) => Right(MonthDay.from(ChronoUnit.DAYS.addTo(a.atYear(2001), regDiff.toLong)))
-      case (s @ Schema.Lazy(_), diff)                                        => diff.patch(a)(s.schema)
-      case (Optional(_), Total(_, Diff.Tag.Left))                            => Right(None)
-      case (schema: Optional[t], Total(right, Diff.Tag.Right))               => Right(Some(right.asInstanceOf[t]))
+      case (Primitive(StandardType.MonthDay, _), Temporal(regDiff :: _ :: Nil)) => Right(MonthDay.from(ChronoUnit.DAYS.addTo(a.atYear(2001), regDiff.toLong)))
+      case (s @ Schema.Lazy(_), diff)                                           => diff.patch(a)(s.schema)
+      case (Optional(_, _), Total(_, Diff.Tag.Left))                            => Right(None)
+      case (schema: Optional[t], Total(right, Diff.Tag.Right))                  => Right(Some(right.asInstanceOf[t]))
       case (schema: Optional[t], diff) =>
         a match {
           case None       => Right(None)
@@ -516,16 +538,35 @@ sealed trait Diff { self =>
           .flatMap(schema.rawConstruct)
       }
 
-      case (Schema.Enum1(c1, _), diff)         => patchEnumData(a, diff, c1)
-      case (Schema.Enum2(c1, c2, _), diff)     => patchEnumData(a, diff, c1, c2)
-      case (Schema.Enum3(c1, c2, c3, _), diff) => patchEnumData(a, diff, c1, c2, c3)
-      case (Schema.EnumN(cases, _), diff)      => patchEnumData(a, diff, cases.toSeq: _*)
-      case (schema @ Fail(_, _), _)            => Left(s"Failed Schema=$schema cannot be patched.")
-      case (_, _)                              => Left(s"Incompatible Schema=$schema and Diff=$self.")
+      case (Schema.Enum1(c1, _), diff)                                                                                                   => patchEnumData(a, diff, c1)
+      case (Schema.Enum2(c1, c2, _), diff)                                                                                               => patchEnumData(a, diff, c1, c2)
+      case (Schema.Enum3(c1, c2, c3, _), diff)                                                                                           => patchEnumData(a, diff, c1, c2, c3)
+      case (Schema.Enum4(c1, c2, c3, c4, _), diff)                                                                                       => patchEnumData(a, diff, c1, c2, c3, c4)
+      case (Schema.Enum5(c1, c2, c3, c4, c5, _), diff)                                                                                   => patchEnumData(a, diff, c1, c2, c3, c4, c5)
+      case (Schema.Enum6(c1, c2, c3, c4, c5, c6, _), diff)                                                                               => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6)
+      case (Schema.Enum7(c1, c2, c3, c4, c5, c6, c7, _), diff)                                                                           => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6, c7)
+      case (Schema.Enum8(c1, c2, c3, c4, c5, c6, c7, c8, _), diff)                                                                       => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6, c7, c8)
+      case (Schema.Enum9(c1, c2, c3, c4, c5, c6, c7, c8, c9, _), diff)                                                                   => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6, c7, c8, c9)
+      case (Schema.Enum10(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _), diff)                                                             => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
+      case (Schema.Enum11(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _), diff)                                                        => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
+      case (Schema.Enum12(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _), diff)                                                   => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
+      case (Schema.Enum13(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _), diff)                                              => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
+      case (Schema.Enum14(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _), diff)                                         => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
+      case (Schema.Enum15(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _), diff)                                    => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+      case (Schema.Enum16(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _), diff)                               => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
+      case (Schema.Enum17(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _), diff)                          => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
+      case (Schema.Enum18(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _), diff)                     => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
+      case (Schema.Enum19(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _), diff)                => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
+      case (Schema.Enum20(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _), diff)           => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
+      case (Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _), diff)      => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
+      case (Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), diff) => patchEnumData(a, diff, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
+      case (Schema.EnumN(cases, _), diff)                                                                                                => patchEnumData(a, diff, cases.toSeq: _*)
+      case (schema @ Fail(_, _), _)                                                                                                      => Left(s"Failed Schema=$schema cannot be patched.")
+      case (_, _)                                                                                                                        => Left(s"Incompatible Schema=$schema and Diff=$self.")
     }
   }
 
-  def patchNumeric[A](a: A, distance: A)(implicit numeric: Numeric[A]) =
+  def patchNumeric[A](a: A, distance: A)(implicit numeric: Numeric[A]): Right[Nothing, A] =
     Right(numeric.minus(a, distance))
 
   def patchProductData(structure: Chunk[Schema.Field[_]], values: ListMap[String, DynamicValue], diffs: ListMap[String, Diff]): Either[String, ListMap[String, Any]] =

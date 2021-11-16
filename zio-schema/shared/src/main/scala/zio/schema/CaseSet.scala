@@ -84,6 +84,10 @@ object CaseSet {
   }
   val :+: = Cons
 
+  def apply[Z](c: Case[_, Z]*): CaseSet = c.foldRight[CaseSet.Aux[Z]](Empty[Z]()) {
+    case (c, cs) => Cons(c, cs)
+  }
+
   def caseOf[A: Schema, Z >: A](id: String)(unsafeDeconstruct: Z => A): Cons[A, Empty[Z], Z] =
     Cons(Case(id, Schema[A], unsafeDeconstruct, Chunk.empty), Empty[Z]())
 

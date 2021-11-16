@@ -84,7 +84,8 @@ object BuildHelper {
       if (sys.env.contains("CI")) {
         Seq("-Xfatal-warnings")
       } else {
-        Nil // to enable Scalafix locally
+        Seq("-Ypatmat-exhaust-depth","off")
+//        Nil // to enable Scalafix locally
       }
     }
 
@@ -218,7 +219,7 @@ object BuildHelper {
     Seq(
       name := s"$prjName",
       crossScalaVersions := Seq(Scala213, Scala212),
-      ThisBuild / scalaVersion := ScalaDotty, //crossScalaVersions.value.head,
+      ThisBuild / scalaVersion := crossScalaVersions.value.head, //ScalaDotty,
       scalacOptions := compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ testDeps,
       ThisBuild / semanticdbEnabled := scalaVersion.value != ScalaDotty, // enable SemanticDB,
