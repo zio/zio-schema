@@ -24,7 +24,7 @@ object BuildHelper {
 
   val Scala212: String   = versions("2.12")
   val Scala213: String   = versions("2.13")
-  val ScalaDotty: String = versions.getOrElse("3.0", versions("3.1"))
+  val ScalaDotty: String = "3.1.0" //versions.getOrElse("3.0", versions("3.1"))
 
   val zioVersion        = "1.0.12"
   val zioNioVersion     = "1.0.0-RC9"

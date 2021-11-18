@@ -206,9 +206,6 @@ object Differ {
         case distance                             => Diff.Number(distance)
       }
 
-//  def ast[A]: Differ[Schema[A]] =
-//    (thisSchema: Schema[A], thatSchema: Schema[A])
-
   val period: Differ[Period] =
     (thisPeriod: Period, thatPeriod: Period) =>
       if (thisPeriod == thatPeriod)
