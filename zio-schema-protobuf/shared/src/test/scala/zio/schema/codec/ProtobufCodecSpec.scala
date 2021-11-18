@@ -9,21 +9,28 @@ import scala.collection.immutable.ListMap
 import scala.util.Try
 
 import zio._
+import zio.blocking.Blocking
 import zio.console._
+import zio.random.Random
 import zio.schema.CaseSet._
 import zio.schema.{ CaseSet, DeriveSchema, Schema, SchemaGen, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-import zio.blocking.Blocking
-import zio.random.Random
 import zio.test.environment.{ Live, TestClock, TestConsole, TestRandom, TestSystem }
 
 // TODO: use generators instead of manual encode/decode
 object ProtobufCodecSpec extends DefaultRunnableSpec {
   import Schema._
 
-  def spec: Spec[Has[Annotations.Service] with Has[Live.Service] with Has[Sized.Service] with Has[TestClock.Service] with Has[TestConfig.Service] with Has[TestConsole.Service] with Has[TestRandom.Service] with Has[TestSystem.Service] with Has[zio.clock.Clock.Service] with Has[Console.Service] with Has[zio.system.System.Service] with Has[Random.Service] with Has[Blocking.Service],TestFailure[Any],TestSuccess] = suite("ProtobufCodec Spec")(
+  def spec
+    : Spec[Has[Annotations.Service] with Has[Live.Service] with Has[Sized.Service] with Has[TestClock.Service] with Has[
+      TestConfig.Service
+    ] with Has[TestConsole.Service] with Has[TestRandom.Service] with Has[TestSystem.Service] with Has[
+      zio.clock.Clock.Service
+    ] with Has[Console.Service] with Has[zio.system.System.Service] with Has[Random.Service] with Has[Blocking.Service], TestFailure[
+      Any
+    ], TestSuccess] = suite("ProtobufCodec Spec")(
     suite("Should correctly encode")(
       testM("integers") {
         for {
@@ -782,14 +789,14 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
   def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, String, A] =
     ZIO.succeed(ProtobufCodec.decode(schema)(fromHex(hex))).absolve[String, A]
 
-  def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any,String,Chunk[A]] =
+  def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
     ZStream
       .succeed(input)
       .transduce(ProtobufCodec.encoder(schema))
       .transduce(ProtobufCodec.decoder(schema))
       .run(ZSink.collectAll)
 
-  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any,String,Chunk[A]] =
+  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
     ZStream
       .succeed(input)
       .transduce(ProtobufCodec.encoder(encodeSchema))
@@ -797,7 +804,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Console,String,A] =
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Console, String, A] =
     ZIO
       .succeed(input)
       .tap(value => putStrLn(s"Input Value: $value").when(print).ignore)

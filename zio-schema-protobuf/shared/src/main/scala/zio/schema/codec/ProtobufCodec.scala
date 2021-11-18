@@ -131,6 +131,7 @@ object ProtobufCodec extends Codec {
   object Encoder {
 
     import Protobuf._
+    import ProductEncoder._
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
@@ -139,14 +140,55 @@ object ProtobufCodec extends Codec {
         case (Schema.Sequence(element, _, g, _), v)                  => encodeSequence(fieldNumber, element, g(v))
         case (Schema.MapSchema(ks, vs, _), v: Map[k, v]) =>
           encodeSequence(fieldNumber, ks <*> vs, Chunk.fromIterable(v))
-        case (Schema.Transform(codec, _, g, _), _)                                                                                      => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
-        case (Schema.Primitive(standardType, _), v)                                                                                     => encodePrimitive(fieldNumber, standardType, v)
-        case (Schema.Tuple(left, right, _), v @ (_, _))                                                                                 => encodeTuple(fieldNumber, left, right, v)
-        case (Schema.Optional(codec, _), v: Option[_])                                                                                  => encodeOptional(fieldNumber, codec, v)
-        case (Schema.EitherSchema(left, right, _), v: Either[_, _])                                                                     => encodeEither(fieldNumber, left, right, v)
-        case (lzy @ Schema.Lazy(_), v)                                                                                                  => encode(fieldNumber, lzy.schema, v)
-        case (Schema.Meta(ast, _), _)                                                                                                   => encode(fieldNumber, Schema[SchemaAst], ast)
-        case ProductEncoder(encode)                                                                                                     => encode(fieldNumber)
+        case (Schema.Transform(codec, _, g, _), _)                  => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
+        case (Schema.Primitive(standardType, _), v)                 => encodePrimitive(fieldNumber, standardType, v)
+        case (Schema.Tuple(left, right, _), v @ (_, _))             => encodeTuple(fieldNumber, left, right, v)
+        case (Schema.Optional(codec, _), v: Option[_])              => encodeOptional(fieldNumber, codec, v)
+        case (Schema.EitherSchema(left, right, _), v: Either[_, _]) => encodeEither(fieldNumber, left, right, v)
+        case (lzy @ Schema.Lazy(_), v)                              => encode(fieldNumber, lzy.schema, v)
+        case (Schema.Meta(ast, _), _)                               => encode(fieldNumber, Schema[SchemaAst], ast)
+        case (Schema.CaseClass1(_, f, _, ext), v)                   => encodeCaseClass(v, f -> ext)(fieldNumber)
+        case (Schema.CaseClass2(_, f1, f2, _, ext1, ext2), v)       => encodeCaseClass(v, f1 -> ext1, f2 -> ext2)(fieldNumber)
+        case (Schema.CaseClass3(_, f1, f2, f3, _, ext1, ext2, ext3), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3)(fieldNumber)
+        case (Schema.CaseClass4(_, f1, f2, f3, f4, _, ext1, ext2, ext3, ext4), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4)(fieldNumber)
+        case (Schema.CaseClass5(_, f1, f2, f3, f4, f5, _, ext1, ext2, ext3, ext4, ext5), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5)(fieldNumber)
+        case (Schema.CaseClass6(_, f1, f2, f3, f4, f5, f6, _, ext1, ext2, ext3, ext4, ext5, ext6), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6)(fieldNumber)
+        case (Schema.CaseClass7(_, f1, f2, f3, f4, f5, f6, f7, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7)(fieldNumber)
+        case (Schema.CaseClass8(_, f1, f2, f3, f4, f5, f6, f7, f8, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8)(fieldNumber)
+        case (Schema.CaseClass9(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9)(fieldNumber)
+        case (Schema.CaseClass10(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10)(fieldNumber)
+        case (Schema.CaseClass11(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11)(fieldNumber)
+        case (Schema.CaseClass12(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12)(fieldNumber)
+        case (Schema.CaseClass13(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13)(fieldNumber)
+        case (Schema.CaseClass14(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14)(fieldNumber)
+        case (Schema.CaseClass15(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15)(fieldNumber)
+        case (Schema.CaseClass16(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16)(fieldNumber)
+        case (Schema.CaseClass17(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17)(fieldNumber)
+        case (Schema.CaseClass18(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18)(fieldNumber)
+        case (Schema.CaseClass19(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19)(fieldNumber)
+        case (Schema.CaseClass20(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, ext20), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19, f20 -> ext20)(fieldNumber)
+        case (Schema.CaseClass21(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, ext20, ext21), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19, f20 -> ext20, f21 -> ext21)(fieldNumber)
+        case (Schema.CaseClass22(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, ext20, ext21, ext22), v) =>
+          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19, f20 -> ext20, f21 -> ext21, f22 -> ext22)(fieldNumber)
         case (Schema.Enum1(c, _), v)                                                                                                    => encodeEnum(fieldNumber, v, c)
         case (Schema.Enum2(c1, c2, _), v)                                                                                               => encodeEnum(fieldNumber, v, c1, c2)
         case (Schema.Enum3(c1, c2, c3, _), v)                                                                                           => encodeEnum(fieldNumber, v, c1, c2, c3)
@@ -169,9 +211,8 @@ object ProtobufCodec extends Codec {
         case (Schema.Enum20(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _), v)           => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
         case (Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _), v)      => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
         case (Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-
-        case (Schema.EnumN(cs, _), v) => encodeEnum(fieldNumber, v, cs.toSeq: _*)
-        case (_, _)                   => Chunk.empty
+        case (Schema.EnumN(cs, _), v)                                                                                                   => encodeEnum(fieldNumber, v, cs.toSeq: _*)
+        case (_, _)                                                                                                                     => Chunk.empty
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -427,6 +468,7 @@ object ProtobufCodec extends Codec {
   object Decoder {
 
     import Protobuf._
+    import ProductDecoder._
 
     def fail(failure: String): Decoder[Nothing] = Decoder(_ => Left(failure))
 
@@ -470,15 +512,39 @@ object ProtobufCodec extends Codec {
           )
         case Schema.MapSchema(ks: Schema[k], vs: Schema[v], _) =>
           decoder(Schema.Sequence(ks <*> vs, (c: Chunk[(k, v)]) => c.toList.toMap, (m: Map[k, v]) => Chunk.fromIterable(m), Chunk.empty))
-        case Schema.Transform(codec, f, _, _)                                                                                      => transformDecoder(codec, f)
-        case Schema.Primitive(standardType, _)                                                                                     => primitiveDecoder(standardType)
-        case Schema.Tuple(left, right, _)                                                                                          => tupleDecoder(left, right)
-        case Schema.Optional(codec, _)                                                                                             => optionalDecoder(codec)
-        case Schema.Fail(message, _)                                                                                               => fail(message)
-        case Schema.EitherSchema(left, right, _)                                                                                   => eitherDecoder(left, right)
-        case lzy @ Schema.Lazy(_)                                                                                                  => decoder(lzy.schema)
-        case Schema.Meta(_, _)                                                                                                     => astDecoder
-        case ProductDecoder(decoder)                                                                                               => decoder
+        case Schema.Transform(codec, f, _, _)                                                  => transformDecoder(codec, f)
+        case Schema.Primitive(standardType, _)                                                 => primitiveDecoder(standardType)
+        case Schema.Tuple(left, right, _)                                                      => tupleDecoder(left, right)
+        case Schema.Optional(codec, _)                                                         => optionalDecoder(codec)
+        case Schema.Fail(message, _)                                                           => fail(message)
+        case Schema.EitherSchema(left, right, _)                                               => eitherDecoder(left, right)
+        case lzy @ Schema.Lazy(_)                                                              => decoder(lzy.schema)
+        case Schema.Meta(_, _)                                                                 => astDecoder
+        case s: Schema.CaseClass1[_, A]                                                        => caseClass1Decoder(s)
+        case s: Schema.CaseClass2[_, _, A]                                                     => caseClass2Decoder(s)
+        case s: Schema.CaseClass3[_, _, _, A]                                                  => caseClass3Decoder(s)
+        case s: Schema.CaseClass4[_, _, _, _, A]                                               => caseClass4Decoder(s)
+        case s: Schema.CaseClass5[_, _, _, _, _, A]                                            => caseClass5Decoder(s)
+        case s: Schema.CaseClass6[_, _, _, _, _, _, A]                                         => caseClass6Decoder(s)
+        case s: Schema.CaseClass7[_, _, _, _, _, _, _, A]                                      => caseClass7Decoder(s)
+        case s: Schema.CaseClass8[_, _, _, _, _, _, _, _, A]                                   => caseClass8Decoder(s)
+        case s: Schema.CaseClass9[_, _, _, _, _, _, _, _, _, A]                                => caseClass9Decoder(s)
+        case s: Schema.CaseClass10[_, _, _, _, _, _, _, _, _, _, A]                            => caseClass10Decoder(s)
+        case s: Schema.CaseClass11[_, _, _, _, _, _, _, _, _, _, _, A]                         => caseClass11Decoder(s)
+        case s: Schema.CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, A]                      => caseClass12Decoder(s)
+        case s: Schema.CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, A]                   => caseClass13Decoder(s)
+        case s: Schema.CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                => caseClass14Decoder(s)
+        case s: Schema.CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]             => caseClass15Decoder(s)
+        case s: Schema.CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]          => caseClass16Decoder(s)
+        case s: Schema.CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]       => caseClass17Decoder(s)
+        case s: Schema.CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]    => caseClass18Decoder(s)
+        case s: Schema.CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] => caseClass19Decoder(s)
+        case s: Schema.CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
+          caseClass20Decoder(s)
+        case s: Schema.CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
+          caseClass21Decoder(s)
+        case s: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
+          caseClass22Decoder(s)
         case Schema.Enum1(c, _)                                                                                                    => enumDecoder(c)
         case Schema.Enum2(c1, c2, _)                                                                                               => enumDecoder(c1, c2)
         case Schema.Enum3(c1, c2, c3, _)                                                                                           => enumDecoder(c1, c2, c3)
@@ -754,53 +820,53 @@ object ProtobufCodec extends Codec {
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   private[codec] object ProductEncoder {
 
-    def unapply[A](schemaAndValue: (Schema[A], A)): Option[Option[Int] => Chunk[Byte]] = schemaAndValue match {
-      case (Schema.CaseClass1(_, f, _, ext), v)             => Some(encodeCaseClass(v, f  -> ext))
-      case (Schema.CaseClass2(_, f1, f2, _, ext1, ext2), v) => Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2))
-      case (Schema.CaseClass3(_, f1, f2, f3, _, ext1, ext2, ext3), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3))
-      case (Schema.CaseClass4(_, f1, f2, f3, f4, _, ext1, ext2, ext3, ext4), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4))
-      case (Schema.CaseClass5(_, f1, f2, f3, f4, f5, _, ext1, ext2, ext3, ext4, ext5), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5))
-      case (Schema.CaseClass6(_, f1, f2, f3, f4, f5, f6, _, ext1, ext2, ext3, ext4, ext5, ext6), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6))
-      case (Schema.CaseClass7(_, f1, f2, f3, f4, f5, f6, f7, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7))
-      case (Schema.CaseClass8(_, f1, f2, f3, f4, f5, f6, f7, f8, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8))
-      case (Schema.CaseClass9(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9))
-      case (Schema.CaseClass10(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10))
-      case (Schema.CaseClass11(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11))
-      case (Schema.CaseClass12(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12))
-      case (Schema.CaseClass13(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13))
-      case (Schema.CaseClass14(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14))
-      case (Schema.CaseClass15(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15))
-      case (Schema.CaseClass16(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16))
-      case (Schema.CaseClass17(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17))
-      case (Schema.CaseClass18(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18))
-      case (Schema.CaseClass19(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19))
-      case (Schema.CaseClass20(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, ext20), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19, f20 -> ext20))
-      case (Schema.CaseClass21(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, ext20, ext21), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19, f20 -> ext20, f21 -> ext21))
-      case (Schema.CaseClass22(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, ext20, ext21, ext22), v) =>
-        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19, f20 -> ext20, f21 -> ext21, f22 -> ext22))
-      case _ => None
-    }
+//    def unapply[A](schemaAndValue: (Schema[A], A)): Option[Option[Int] => Chunk[Byte]] = schemaAndValue match {
+//      case (Schema.CaseClass1(_, f, _, ext), v)             => Some(encodeCaseClass(v, f  -> ext))
+//      case (Schema.CaseClass2(_, f1, f2, _, ext1, ext2), v) => Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2))
+//      case (Schema.CaseClass3(_, f1, f2, f3, _, ext1, ext2, ext3), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3))
+//      case (Schema.CaseClass4(_, f1, f2, f3, f4, _, ext1, ext2, ext3, ext4), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4))
+//      case (Schema.CaseClass5(_, f1, f2, f3, f4, f5, _, ext1, ext2, ext3, ext4, ext5), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5))
+//      case (Schema.CaseClass6(_, f1, f2, f3, f4, f5, f6, _, ext1, ext2, ext3, ext4, ext5, ext6), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6))
+//      case (Schema.CaseClass7(_, f1, f2, f3, f4, f5, f6, f7, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7))
+//      case (Schema.CaseClass8(_, f1, f2, f3, f4, f5, f6, f7, f8, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8))
+//      case (Schema.CaseClass9(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9))
+//      case (Schema.CaseClass10(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10))
+//      case (Schema.CaseClass11(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11))
+//      case (Schema.CaseClass12(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12))
+//      case (Schema.CaseClass13(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13))
+//      case (Schema.CaseClass14(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14))
+//      case (Schema.CaseClass15(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15))
+//      case (Schema.CaseClass16(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16))
+//      case (Schema.CaseClass17(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17))
+//      case (Schema.CaseClass18(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18))
+//      case (Schema.CaseClass19(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19))
+//      case (Schema.CaseClass20(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, ext20), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19, f20 -> ext20))
+//      case (Schema.CaseClass21(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, ext20, ext21), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19, f20 -> ext20, f21 -> ext21))
+//      case (Schema.CaseClass22(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, ext20, ext21, ext22), v) =>
+//        Some(encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19, f20 -> ext20, f21 -> ext21, f22 -> ext22))
+//      case _ => None
+//    }
 
-    private def encodeCaseClass[Z](value: Z, fields: (Schema.Field[_], Z => Any)*): Option[Int] => Chunk[Byte] = { (fieldNumber: Option[Int]) =>
+    private[codec] def encodeCaseClass[Z](value: Z, fields: (Schema.Field[_], Z => Any)*): Option[Int] => Chunk[Byte] = { (fieldNumber: Option[Int]) =>
       {
         val encoded = Chunk
           .fromIterable(fields.zipWithIndex.map {
@@ -818,34 +884,34 @@ object ProtobufCodec extends Codec {
     import Decoder.{ fail, keyDecoder, succeed }
     import Protobuf.WireType._
 
-    def unapply[A](schema: Schema[A]): Option[Decoder[A]] = schema match {
-      case s: Schema.CaseClass1[_, A]                                                        => Some(caseClass1Decoder(s))
-      case s: Schema.CaseClass2[_, _, A]                                                     => Some(caseClass2Decoder(s))
-      case s: Schema.CaseClass3[_, _, _, A]                                                  => Some(caseClass3Decoder(s))
-      case s: Schema.CaseClass4[_, _, _, _, A]                                               => Some(caseClass4Decoder(s))
-      case s: Schema.CaseClass5[_, _, _, _, _, A]                                            => Some(caseClass5Decoder(s))
-      case s: Schema.CaseClass6[_, _, _, _, _, _, A]                                         => Some(caseClass6Decoder(s))
-      case s: Schema.CaseClass7[_, _, _, _, _, _, _, A]                                      => Some(caseClass7Decoder(s))
-      case s: Schema.CaseClass8[_, _, _, _, _, _, _, _, A]                                   => Some(caseClass8Decoder(s))
-      case s: Schema.CaseClass9[_, _, _, _, _, _, _, _, _, A]                                => Some(caseClass9Decoder(s))
-      case s: Schema.CaseClass10[_, _, _, _, _, _, _, _, _, _, A]                            => Some(caseClass10Decoder(s))
-      case s: Schema.CaseClass11[_, _, _, _, _, _, _, _, _, _, _, A]                         => Some(caseClass11Decoder(s))
-      case s: Schema.CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, A]                      => Some(caseClass12Decoder(s))
-      case s: Schema.CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, A]                   => Some(caseClass13Decoder(s))
-      case s: Schema.CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                => Some(caseClass14Decoder(s))
-      case s: Schema.CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]             => Some(caseClass15Decoder(s))
-      case s: Schema.CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]          => Some(caseClass16Decoder(s))
-      case s: Schema.CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]       => Some(caseClass17Decoder(s))
-      case s: Schema.CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]    => Some(caseClass18Decoder(s))
-      case s: Schema.CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] => Some(caseClass19Decoder(s))
-      case s: Schema.CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
-        Some(caseClass20Decoder(s))
-      case s: Schema.CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
-        Some(caseClass21Decoder(s))
-      case s: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
-        Some(caseClass22Decoder(s))
-      case _ => None
-    }
+//    def unapply[A](schema: Schema[A]): Option[Decoder[A]] = schema match {
+//      case s: Schema.CaseClass1[_, A]                                                        => Some(caseClass1Decoder(s))
+//      case s: Schema.CaseClass2[_, _, A]                                                     => Some(caseClass2Decoder(s))
+//      case s: Schema.CaseClass3[_, _, _, A]                                                  => Some(caseClass3Decoder(s))
+//      case s: Schema.CaseClass4[_, _, _, _, A]                                               => Some(caseClass4Decoder(s))
+//      case s: Schema.CaseClass5[_, _, _, _, _, A]                                            => Some(caseClass5Decoder(s))
+//      case s: Schema.CaseClass6[_, _, _, _, _, _, A]                                         => Some(caseClass6Decoder(s))
+//      case s: Schema.CaseClass7[_, _, _, _, _, _, _, A]                                      => Some(caseClass7Decoder(s))
+//      case s: Schema.CaseClass8[_, _, _, _, _, _, _, _, A]                                   => Some(caseClass8Decoder(s))
+//      case s: Schema.CaseClass9[_, _, _, _, _, _, _, _, _, A]                                => Some(caseClass9Decoder(s))
+//      case s: Schema.CaseClass10[_, _, _, _, _, _, _, _, _, _, A]                            => Some(caseClass10Decoder(s))
+//      case s: Schema.CaseClass11[_, _, _, _, _, _, _, _, _, _, _, A]                         => Some(caseClass11Decoder(s))
+//      case s: Schema.CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, A]                      => Some(caseClass12Decoder(s))
+//      case s: Schema.CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, A]                   => Some(caseClass13Decoder(s))
+//      case s: Schema.CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                => Some(caseClass14Decoder(s))
+//      case s: Schema.CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]             => Some(caseClass15Decoder(s))
+//      case s: Schema.CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]          => Some(caseClass16Decoder(s))
+//      case s: Schema.CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]       => Some(caseClass17Decoder(s))
+//      case s: Schema.CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]    => Some(caseClass18Decoder(s))
+//      case s: Schema.CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] => Some(caseClass19Decoder(s))
+//      case s: Schema.CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
+//        Some(caseClass20Decoder(s))
+//      case s: Schema.CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
+//        Some(caseClass21Decoder(s))
+//      case s: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
+//        Some(caseClass22Decoder(s))
+//      case _ => None
+//    }
 
     private def unsafeDecodeFields(buffer: Array[Any], fields: Schema.Field[_]*): Decoder[Array[Any]] =
       keyDecoder.flatMap {
@@ -889,7 +955,7 @@ object ProtobufCodec extends Codec {
       else
         validateBuffer(index + 1, buffer)
 
-    private def caseClass1Decoder[A, Z](schema: Schema.CaseClass1[A, Z]): Decoder[Z] =
+    private[codec] def caseClass1Decoder[A, Z](schema: Schema.CaseClass1[A, Z]): Decoder[Z] =
       unsafeDecodeFields(Array.ofDim[Any](1), schema.field).flatMap { buffer =>
         if (buffer(0) == null)
           fail("Missing field 1.")
@@ -897,73 +963,73 @@ object ProtobufCodec extends Codec {
           succeed(schema.construct(buffer(0).asInstanceOf[A]))
       }
 
-    private def caseClass2Decoder[A1, A2, Z](schema: Schema.CaseClass2[A1, A2, Z]): Decoder[Z] =
+    private[codec] def caseClass2Decoder[A1, A2, Z](schema: Schema.CaseClass2[A1, A2, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](2), schema.field1, schema.field2)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2])
 
-    private def caseClass3Decoder[A1, A2, A3, Z](schema: Schema.CaseClass3[A1, A2, A3, Z]): Decoder[Z] =
+    private[codec] def caseClass3Decoder[A1, A2, A3, Z](schema: Schema.CaseClass3[A1, A2, A3, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](3), schema.field1, schema.field2, schema.field3)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3])
 
-    private def caseClass4Decoder[A1, A2, A3, A4, Z](schema: Schema.CaseClass4[A1, A2, A3, A4, Z]): Decoder[Z] =
+    private[codec] def caseClass4Decoder[A1, A2, A3, A4, Z](schema: Schema.CaseClass4[A1, A2, A3, A4, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](4), schema.field1, schema.field2, schema.field3, schema.field4)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4])
 
-    private def caseClass5Decoder[A1, A2, A3, A4, A5, Z](schema: Schema.CaseClass5[A1, A2, A3, A4, A5, Z]): Decoder[Z] =
+    private[codec] def caseClass5Decoder[A1, A2, A3, A4, A5, Z](schema: Schema.CaseClass5[A1, A2, A3, A4, A5, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](5), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4], buffer(4).asInstanceOf[A5])
 
-    private def caseClass6Decoder[A1, A2, A3, A4, A5, A6, Z](schema: Schema.CaseClass6[A1, A2, A3, A4, A5, A6, Z]): Decoder[Z] =
+    private[codec] def caseClass6Decoder[A1, A2, A3, A4, A5, A6, Z](schema: Schema.CaseClass6[A1, A2, A3, A4, A5, A6, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](6), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4], buffer(4).asInstanceOf[A5], buffer(5).asInstanceOf[A6])
 
-    private def caseClass7Decoder[A1, A2, A3, A4, A5, A6, A7, Z](schema: Schema.CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z]): Decoder[Z] =
+    private[codec] def caseClass7Decoder[A1, A2, A3, A4, A5, A6, A7, Z](schema: Schema.CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](7), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4], buffer(4).asInstanceOf[A5], buffer(5).asInstanceOf[A6], buffer(6).asInstanceOf[A7])
 
-    private def caseClass8Decoder[A1, A2, A3, A4, A5, A6, A7, A8, Z](schema: Schema.CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z]): Decoder[Z] =
+    private[codec] def caseClass8Decoder[A1, A2, A3, A4, A5, A6, A7, A8, Z](schema: Schema.CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](8), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field8)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4], buffer(4).asInstanceOf[A5], buffer(5).asInstanceOf[A6], buffer(6).asInstanceOf[A7], buffer(7).asInstanceOf[A8])
 
-    private def caseClass9Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](schema: Schema.CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]): Decoder[Z] =
+    private[codec] def caseClass9Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](schema: Schema.CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](9), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4], buffer(4).asInstanceOf[A5], buffer(5).asInstanceOf[A6], buffer(6).asInstanceOf[A7], buffer(7).asInstanceOf[A8], buffer(8).asInstanceOf[A9])
 
-    private def caseClass10Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](schema: Schema.CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]): Decoder[Z] =
+    private[codec] def caseClass10Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](schema: Schema.CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](10), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4], buffer(4).asInstanceOf[A5], buffer(5).asInstanceOf[A6], buffer(6).asInstanceOf[A7], buffer(7).asInstanceOf[A8], buffer(8).asInstanceOf[A9], buffer(9).asInstanceOf[A10])
 
-    private def caseClass11Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](schema: Schema.CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]): Decoder[Z] =
+    private[codec] def caseClass11Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](schema: Schema.CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](11), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4], buffer(4).asInstanceOf[A5], buffer(5).asInstanceOf[A6], buffer(6).asInstanceOf[A7], buffer(7).asInstanceOf[A8], buffer(8).asInstanceOf[A9], buffer(9).asInstanceOf[A10], buffer(10).asInstanceOf[A11])
 
-    private def caseClass12Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](schema: Schema.CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]): Decoder[Z] =
+    private[codec] def caseClass12Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](schema: Schema.CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](12), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4], buffer(4).asInstanceOf[A5], buffer(5).asInstanceOf[A6], buffer(6).asInstanceOf[A7], buffer(7).asInstanceOf[A8], buffer(8).asInstanceOf[A9], buffer(9).asInstanceOf[A10], buffer(10).asInstanceOf[A11], buffer(11).asInstanceOf[A12])
 
-    private def caseClass13Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](schema: Schema.CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]): Decoder[Z] =
+    private[codec] def caseClass13Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](schema: Schema.CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](13), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13)
         _      <- validateBuffer(0, buffer)
@@ -983,7 +1049,7 @@ object ProtobufCodec extends Codec {
         buffer(12).asInstanceOf[A13]
       )
 
-    private def caseClass14Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](schema: Schema.CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]): Decoder[Z] =
+    private[codec] def caseClass14Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](schema: Schema.CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](14), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14)
         _      <- validateBuffer(0, buffer)
@@ -1004,7 +1070,7 @@ object ProtobufCodec extends Codec {
         buffer(13).asInstanceOf[A14]
       )
 
-    private def caseClass15Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](schema: Schema.CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]): Decoder[Z] =
+    private[codec] def caseClass15Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](schema: Schema.CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](15), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15)
         _      <- validateBuffer(0, buffer)
@@ -1026,7 +1092,7 @@ object ProtobufCodec extends Codec {
         buffer(14).asInstanceOf[A15]
       )
 
-    private def caseClass16Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](schema: Schema.CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]): Decoder[Z] =
+    private[codec] def caseClass16Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](schema: Schema.CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](16), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16)
         _      <- validateBuffer(0, buffer)
@@ -1049,7 +1115,7 @@ object ProtobufCodec extends Codec {
         buffer(15).asInstanceOf[A16]
       )
 
-    private def caseClass17Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](schema: Schema.CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]): Decoder[Z] =
+    private[codec] def caseClass17Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](schema: Schema.CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](17), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17)
         _      <- validateBuffer(0, buffer)
@@ -1073,7 +1139,7 @@ object ProtobufCodec extends Codec {
         buffer(16).asInstanceOf[A17]
       )
 
-    private def caseClass18Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](schema: Schema.CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]): Decoder[Z] =
+    private[codec] def caseClass18Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](schema: Schema.CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](18), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18)
         _      <- validateBuffer(0, buffer)
@@ -1098,7 +1164,7 @@ object ProtobufCodec extends Codec {
         buffer(17).asInstanceOf[A18]
       )
 
-    private def caseClass19Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](schema: Schema.CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]): Decoder[Z] =
+    private[codec] def caseClass19Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](schema: Schema.CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](19), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19)
         _      <- validateBuffer(0, buffer)
@@ -1124,7 +1190,7 @@ object ProtobufCodec extends Codec {
         buffer(18).asInstanceOf[A19]
       )
 
-    private def caseClass20Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](schema: Schema.CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]): Decoder[Z] =
+    private[codec] def caseClass20Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](schema: Schema.CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](20), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19, schema.field20)
         _      <- validateBuffer(0, buffer)
@@ -1151,7 +1217,7 @@ object ProtobufCodec extends Codec {
         buffer(19).asInstanceOf[A20]
       )
 
-    private def caseClass21Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](schema: Schema.CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]): Decoder[Z] =
+    private[codec] def caseClass21Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](schema: Schema.CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](21), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19, schema.field20, schema.field21)
         _      <- validateBuffer(0, buffer)
@@ -1179,7 +1245,7 @@ object ProtobufCodec extends Codec {
         buffer(20).asInstanceOf[A21]
       )
 
-    private def caseClass22Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](schema: Schema.CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z]): Decoder[Z] =
+    private[codec] def caseClass22Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](schema: Schema.CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(
                    Array.ofDim[Any](22),
