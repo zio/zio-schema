@@ -56,6 +56,8 @@ sealed trait Schema[A] {
    */
   def annotations: Chunk[Any]
 
+  def ast: SchemaAst = SchemaAst.fromSchema(self)
+
   /**
    * Returns a new schema that with `annotation`
    */
@@ -117,7 +119,13 @@ sealed trait Schema[A] {
 
   def repeated: Schema[Chunk[A]] = Schema.chunk(self)
 
-  def serializable: Schema[Schema[_]] = Schema.Meta(SchemaAst.fromSchema(self))
+  def serializable: Schema[Schema[A]] =
+    Schema
+      .Meta(SchemaAst.fromSchema(self))
+      .transformOrFail(
+        s => s.coerce(self),
+        s => Right(s.ast.toSchema)
+      )
 
   def toDynamic(value: A): DynamicValue =
     DynamicValue.fromSchemaAndValue(self, value)
@@ -294,8 +302,11 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
     override def annotate(annotation: Any): Transform[A, B] = copy(annotations = annotations :+ annotation)
 
-    override def serializable: Schema[Schema[_]] = Meta(SchemaAst.fromSchema(codec))
-    override def toString: String                = s"Transform($codec)"
+    override def serializable: Schema[Schema[B]] = Meta(SchemaAst.fromSchema(codec)).transformOrFail(
+      s => s.coerce(codec).flatMap(s1 => Right(s1.transformOrFail(f, g))),
+      s => Right(s.transformOrFail(g, f).ast.toSchema)
+    )
+    override def toString: String = s"Transform($codec)"
 
   }
 
@@ -415,7 +426,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     override def annotations: Chunk[Any] = schema0().annotations
   }
 
-  final case class Meta(ast: SchemaAst, annotations: Chunk[Any] = Chunk.empty) extends Schema[Schema[_]] {
+  final case class Meta(override val ast: SchemaAst, annotations: Chunk[Any] = Chunk.empty) extends Schema[Schema[_]] {
 
     override def annotate(annotation: Any): Meta = copy(annotations = annotations :+ annotation)
 
