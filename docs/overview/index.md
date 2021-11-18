@@ -11,7 +11,6 @@ Add in your `build.sbt`:
 libraryDependencies += "dev.zio" %% "zio-schema" % "@RELEASE_VERSION@"
 libraryDependencies += "dev.zio" %% "zio-schema-json" % "@RELEASE_VERSION@"
 libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "@RELEASE_VERSION@"
-libraryDependencies += "dev.zio" %% "zio-schema-optics" % "@RELEASE_VERSION@"
 ```
 
 ## Purpose of ZIO Schema

@@ -54,7 +54,7 @@ e.g. combine two fields that are inside a nested structure.
 The solution to this kind of problem is called an "Optic". Optics provide a way to access the fields of a case class and nested structures.
 There are three main types of optics:
 - `Lens`: A lens is a way to access a field of a case class.
-- `Prism`: A prim is a way to access a field of a nested structure or a collection.
+- `Prism`: A prism is a way to access a field of a nested structure or a collection.
 - `Traversal`: A traversal is a way to access all fields of a case class, nested structures or collections.
 
 Optics allow us to take things which are not a first-class **concept**, and turn that into a first-class **value**,
@@ -182,6 +182,7 @@ have a type, like this:
 ```
 
 In functional programming, this kind of type is called a "sum type".
+In Scala2, this is called a "sealed trait".
 In Scala3, this is called an "enum".
 
 In ZIO Schema we call these types `enumeration` types and they are
@@ -286,7 +287,7 @@ In ZIO Schema this is modelled by the `Transform` type class:
 ```
 
 In the example above, we can transform the `User` Schema into a `UserRecord` Schema, which is a record,
-by using the `transform`-method, which has to be a "isomorphism" (= providing methods to transform A to B _and_ B to A):
+by using the `transform`-method, which has to be an "isomorphism" (= providing methods to transform A to B _and_ B to A):
 ```scala
   /**
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
