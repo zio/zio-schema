@@ -126,7 +126,6 @@ lazy val zioSchemaDerivation = crossProject(JSPlatform, JVMPlatform)
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, _)) =>
           Seq(
-            "com.propensive" %% "magnolia"     % magnoliaVersion,
             "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
           )
         case _ => Seq()
@@ -151,7 +150,6 @@ lazy val zioSchemaJson = crossProject(JSPlatform, JVMPlatform)
       "dev.zio"        %% "zio"          % zioVersion,
       "dev.zio"        %% "zio-streams"  % zioVersion,
       "dev.zio"        %% "zio-json"     % zioJsonVersion,
-      "com.propensive" %% "magnolia"     % magnoliaVersion,
       "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
       "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
     )
@@ -161,6 +159,7 @@ lazy val zioSchemaJsonJS = zioSchemaJson.js
   .settings(scalaJSUseMainModuleInitializer := true)
 
 lazy val zioSchemaJsonJVM = zioSchemaJson.jvm
+  .settings(Test / fork := true)
 
 lazy val zioSchemaProtobuf = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-protobuf"))
@@ -172,7 +171,6 @@ lazy val zioSchemaProtobuf = crossProject(JSPlatform, JVMPlatform)
     libraryDependencies ++= Seq(
       "dev.zio"        %% "zio"          % zioVersion,
       "dev.zio"        %% "zio-streams"  % zioVersion,
-      "com.propensive" %% "magnolia"     % magnoliaVersion,
       "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
       "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
     )
@@ -195,7 +193,6 @@ lazy val zioSchemaOptics = crossProject(JSPlatform, JVMPlatform)
       "dev.zio"        %% "zio"          % zioVersion,
       "dev.zio"        %% "zio-streams"  % zioVersion,
       "dev.zio"        %% "zio-optics"   % zioOpticsVersion,
-      "com.propensive" %% "magnolia"     % magnoliaVersion,
       "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
       "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
     )
@@ -205,6 +202,7 @@ lazy val zioSchemaOpticsJS = zioSchemaOptics.js
   .settings(scalaJSUseMainModuleInitializer := true)
 
 lazy val zioSchemaOpticsJVM = zioSchemaOptics.jvm
+  .settings(Test / fork := true)
 
 lazy val docs = project
   .in(file("zio-schema-docs"))

@@ -32,7 +32,6 @@ object BuildHelper {
   val zioPreludeVersion = "1.0.0-RC6"
   val zioOpticsVersion  = "0.1.0"
   val silencerVersion   = "1.7.6"
-  val magnoliaVersion   = "0.17.0"
 
   private val testDeps = Seq(
     "dev.zio" %% "zio-test"     % zioVersion % "test",
@@ -82,9 +81,9 @@ object BuildHelper {
       "-language:existentials"
     ) ++ {
       if (sys.env.contains("CI")) {
-        Seq("-Xfatal-warnings")
+        Seq("-Xfatal-warnings", "-Ypatmat-exhaust-depth", "80")
       } else {
-        Seq("-Ypatmat-exhaust-depth","off")
+        Seq("-Ypatmat-exhaust-depth", "80")
 //        Nil // to enable Scalafix locally
       }
     }
