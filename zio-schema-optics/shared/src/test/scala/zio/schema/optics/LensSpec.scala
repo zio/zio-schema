@@ -55,8 +55,7 @@ object LensSpec extends DefaultRunnableSpec {
   case class TestClass(field1: Int, field2: String, field3: Long)
 
   object TestClass {
-    implicit val schema: Schema.CaseClass3[Int, String, Long, TestClass] =
-      DeriveSchema.gen[TestClass].asInstanceOf[Schema.CaseClass3[Int, String, Long, TestClass]]
+    implicit val schema = DeriveSchema.gen[TestClass]
 
     val gen: Gen[Random with Sized, TestClass] = for {
       f1 <- Gen.anyInt
