@@ -959,17 +959,17 @@ object DynamicValue {
         DynamicValue.Dictionary(Chunk.fromIterable(entries))
 
       case schema: Schema.EitherSchema[l, r] =>
-        value match {
+        value.asInstanceOf[Either[l, r]] match {
           case Left(value: l)  => DynamicValue.LeftValue(fromSchemaAndValue(schema.left, value))
           case Right(value: r) => DynamicValue.RightValue(fromSchemaAndValue(schema.right, value))
         }
 
       case schema: Schema.Tuple[a, b] =>
-        val (a: a, b: b) = value
+        val (a: a, b: b) = value.asInstanceOf[(a, b)]
         DynamicValue.Tuple(fromSchemaAndValue(schema.left, a), fromSchemaAndValue(schema.right, b))
 
       case schema: Schema.Optional[a] =>
-        value match {
+        value.asInstanceOf[Option[a]] match {
           case Some(value: a) => DynamicValue.SomeValue(fromSchemaAndValue(schema.codec, value))
           case None           => DynamicValue.NoneValue
         }
