@@ -140,7 +140,7 @@ lazy val zioSchemaJson = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings("zio.schema.json"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"        %% "zio-json"     % zioJsonVersion
+      "dev.zio" %% "zio-json" % zioJsonVersion
     )
   )
 
@@ -171,7 +171,7 @@ lazy val zioSchemaOptics = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings("zio.schema.optics"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"        %% "zio-optics"   % zioOpticsVersion
+      "dev.zio" %% "zio-optics" % zioOpticsVersion
     )
   )
 

@@ -23,8 +23,7 @@ import java.time.{
 import java.util.UUID
 
 import scala.annotation.tailrec
-import scala.collection.immutable.ListMap
-import scala.collection.immutable.{Map => ScalaMap}
+import scala.collection.immutable.{ ListMap, Map => ScalaMap }
 
 import zio.Chunk
 import zio.schema.Diff.Tag
@@ -186,10 +185,10 @@ object Differ {
     (thisMap: Map[K, V], thatMap: Map[K, V]) => {
       val valueDiffer = fromSchema(schema.vs)
       val commonKeys  = thisMap.keySet.intersect(thatMap.keySet)
-      val leftTotals: Set[(K, Diff)] = thisMap.keySet.removedAll(commonKeys).map { leftKey =>
+      val leftTotals: Set[(K, Diff)] = (thisMap.keySet -- commonKeys).map { leftKey =>
         leftKey -> Diff.Total(thisMap(leftKey), Tag.Left)
       }
-      val rightTotals: Set[(K, Diff)] = thatMap.keySet.removedAll(commonKeys).map { rightKey =>
+      val rightTotals: Set[(K, Diff)] = (thatMap.keySet -- commonKeys).map { rightKey =>
         rightKey -> Diff.Total(thatMap(rightKey), Tag.Right)
       }
       val commonDiffs: Set[(K, Diff)] = commonKeys.map { commonKey =>
