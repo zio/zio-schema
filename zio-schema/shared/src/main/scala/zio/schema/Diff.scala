@@ -24,6 +24,7 @@ import java.util.UUID
 
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
+import scala.collection.immutable.{Map => ScalaMap}
 
 import zio.Chunk
 import zio.schema.Diff.Tag
@@ -73,8 +74,6 @@ trait Differ[A] { self =>
 
 object Differ {
   import ProductDiffer._
-
-  type ScalaMap[K, V] = scala.collection.immutable.Map[K, V]
 
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   def fromSchema[A](schema: Schema[A]): Differ[A] = schema match {
@@ -445,8 +444,6 @@ object Differ {
 }
 
 sealed trait Diff { self =>
-
-  type ScalaMap[K, V] = scala.collection.immutable.Map[K, V]
 
   /**
    * A symbolic operator for [[zip]].

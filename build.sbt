@@ -68,18 +68,11 @@ lazy val root = project
 
 lazy val tests = crossProject(JSPlatform, JVMPlatform)
   .in(file("tests"))
-  .dependsOn(zioSchemaDerivation, zioSchema, zioSchema % "test->test")
+  .dependsOn(zioSchemaDerivation % "compile->test", zioSchema % "test->test")
   .settings(stdSettings("zio-schema-tests"))
   .settings(crossProjectSettings)
   .settings(dottySettings)
   .settings(buildInfoSettings("zio.schema"))
-  .settings(
-    libraryDependencies ++= Seq(
-      "dev.zio" %% "zio"         % zioVersion,
-      "dev.zio" %% "zio-streams" % zioVersion,
-      "dev.zio" %% "zio-prelude" % zioPreludeVersion
-    )
-  )
 
 lazy val testsJS = tests.js
   .settings(scalaJSUseMainModuleInitializer := true)
@@ -147,11 +140,7 @@ lazy val zioSchemaJson = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings("zio.schema.json"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"        %% "zio"          % zioVersion,
-      "dev.zio"        %% "zio-streams"  % zioVersion,
-      "dev.zio"        %% "zio-json"     % zioJsonVersion,
-      "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
-      "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+      "dev.zio"        %% "zio-json"     % zioJsonVersion
     )
   )
 
@@ -167,14 +156,6 @@ lazy val zioSchemaProtobuf = crossProject(JSPlatform, JVMPlatform)
   .settings(stdSettings("zio-schema-protobuf"))
   .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema.protobuf"))
-  .settings(
-    libraryDependencies ++= Seq(
-      "dev.zio"        %% "zio"          % zioVersion,
-      "dev.zio"        %% "zio-streams"  % zioVersion,
-      "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
-      "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
-    )
-  )
 
 lazy val zioSchemaProtobufJS = zioSchemaProtobuf.js
   .settings(scalaJSUseMainModuleInitializer := true)
@@ -190,11 +171,7 @@ lazy val zioSchemaOptics = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings("zio.schema.optics"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"        %% "zio"          % zioVersion,
-      "dev.zio"        %% "zio-streams"  % zioVersion,
-      "dev.zio"        %% "zio-optics"   % zioOpticsVersion,
-      "dev.zio"        %% "zio-prelude"  % zioPreludeVersion,
-      "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
+      "dev.zio"        %% "zio-optics"   % zioOpticsVersion
     )
   )
 
