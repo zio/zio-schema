@@ -1,5 +1,7 @@
 package zio.schema
 
+import scala.collection.immutable.ListMap
+
 import zio.Chunk
 import zio.schema.syntax._
 import zio.test.Assertion
@@ -89,24 +91,16 @@ object SchemaAssertions {
               equalsSchema(left, right)
           } && equalsAnnotations(a1, a2)
       case (left: Schema.Record[_], right: Schema.Record[_]) =>
-        hasSameStructure(left.asInstanceOf[Schema.Record[A]], right.asInstanceOf[Schema.Record[A]]) && equalsAnnotations(
-          left.annotations,
-          right.annotations
-        )
+        hasSameStructure(left.asInstanceOf[Schema.Record[A]], right.asInstanceOf[Schema.Record[A]]) &&
+          hasSameAnnotations(left.annotations.toList, right.annotations.toList)
       case (Schema.Sequence(element1, _, _, a1), Schema.Sequence(element2, _, _, a2)) =>
         equalsSchema(element1, element2) && equalsAnnotations(a1, a2)
       case (Schema.Primitive(standardType1, a1), Schema.Primitive(standardType2, a2)) =>
         standardType1 == standardType2 && equalsAnnotations(a1, a2)
       case (Schema.Tuple(left1, right1, a1), Schema.Tuple(left2, right2, a2)) =>
         equalsSchema(left1, left2) && equalsSchema(right1, right2) && equalsAnnotations(a1, a2)
-      case (Schema.Optional(codec1, a1), Schema.Optional(codec2, a2)) =>
-        equalsSchema(codec1, codec2) && equalsAnnotations(a1, a2)
-      case (Schema.Enum1(l, lA), Schema.Enum1(r, rA)) => equalsCase(l, r) && lA.equals(rA)
-      case (Schema.Enum2(l1, l2, lA), Schema.Enum2(r1, r2, rA)) =>
-        hasSameCases(Seq(l1, l2), Seq(r1, r2)) && equalsAnnotations(lA, rA)
-      case (Schema.Enum3(l1, l2, l3, lA), Schema.Enum3(r1, r2, r3, rA)) =>
-        hasSameCases(Seq(l1, l2, l3), Seq(r1, r2, r3)) && lA.equals(rA)
-      case (Schema.EnumN(ls, lA), Schema.EnumN(rs, rA)) => hasSameCases(ls.toSeq, rs.toSeq) && lA.equals(rA)
+      case (Schema.Optional(codec1, _), Schema.Optional(codec2, _)) => equalsSchema(codec1, codec2)
+      case (l: Schema.Enum[_], r: Schema.Enum[_])                   => hasSameCases(l.structure, r.structure)
       case (l @ Schema.Lazy(_), r @ Schema.Lazy(_)) =>
         equalsSchema(l.schema.asInstanceOf[Schema[Any]], r.schema.asInstanceOf[Schema[Any]])
       case (lazySchema @ Schema.Lazy(_), eagerSchema) =>
@@ -118,24 +112,31 @@ object SchemaAssertions {
 
   private def equalsAnnotations(l: Chunk[Any], r: Chunk[Any]): Boolean = l.equals(r)
 
-  private def equalsCase(left: Schema.Case[_, _], right: Schema.Case[_, _]): Boolean =
-    left.id == right.id && equalsSchema(left.codec.asInstanceOf[Schema[Any]], right.codec.asInstanceOf[Schema[Any]]) && equalsAnnotations(
-      left.annotations,
-      right.annotations
-    )
-
-  private def hasSameCases(ls: Seq[Schema.Case[_, _]], rs: Seq[Schema.Case[_, _]]): Boolean =
-    ls.map(l => rs.exists(r => equalsCase(l, r))).reduce(_ && _) && rs
-      .map(r => ls.exists(l => equalsCase(l, r)))
-      .reduce(_ && _)
+  private def hasSameCases(left: ListMap[String, Schema[_]], right: ListMap[String, Schema[_]]): Boolean =
+    left.zip(right).forall {
+      case ((lLabel, lSchema), (rLabel, rSchema)) =>
+        lLabel == rLabel && equalsSchema(lSchema.asInstanceOf[Schema[Any]], rSchema.asInstanceOf[Schema[Any]])
+    }
 
   private def hasSameStructure[A](left: Schema.Record[A], right: Schema.Record[A]): Boolean =
     left.structure.zip(right.structure).forall {
       case (Schema.Field(lLabel, lSchema, lAnnotations), Schema.Field(rLabel, rSchema, rAnnotations)) =>
-        lLabel == rLabel && lAnnotations.toSet == rAnnotations.toSet && equalsSchema(lSchema, rSchema)
+        lLabel == rLabel && hasSameAnnotations(lAnnotations.toList, rAnnotations.toList) && equalsSchema(
+          lSchema,
+          rSchema
+        )
     }
 
   private def hasSameFields(left: Chunk[Schema.Field[_]], right: Chunk[Schema.Field[_]]): Boolean =
     left.map(_.label) == right.map(_.label)
+
+  private def hasSameAnnotations(left: List[Any], right: List[Any]): Boolean = (left, right) match {
+    case (Nil, Nil) => true
+    case (lhead :: ltail, rhead :: rtail) if lhead.isInstanceOf[Product] && rhead.isInstanceOf[Product] =>
+      (lhead == rhead) && hasSameAnnotations(ltail, rtail)
+    case (lhead :: ltail, rhead :: rtail) =>
+      (lhead.getClass.getCanonicalName == rhead.getClass.getCanonicalName) && hasSameAnnotations(ltail, rtail)
+    case _ => false
+  }
 
 }

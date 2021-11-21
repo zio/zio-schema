@@ -1,6 +1,7 @@
 package zio.schema
 
 import zio.schema.Schema._
+import zio.schema.SchemaGen.Json.schema
 import zio.test._
 
 object AccessorBuilderSpec extends DefaultRunnableSpec {
@@ -127,26 +128,18 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
       )
     },
     test("sealed trait") {
-      val schema: Schema.EnumN[_, _] = Schema[SchemaGen.Json].asInstanceOf[Schema.EnumN[_, _]]
-      val cases                      = schema.structure
-      val accessor                   = schema.makeAccessors(builder)
+      val (Prism(s1, c1), Prism(s2, c2), Prism(s3, c3), Prism(s4, c4), Prism(s5, c5), Prism(s6, c6)) =
+        SchemaGen.Json.schema.makeAccessors(builder)
 
-      assert(
-        accessor match {
-          case (
-              Prism(s1, c1),
-              (Prism(s2, c2), (Prism(s3, c3), (Prism(s4, c4), (Prism(s5, c5), (Prism(s6, c6), ())))))
-              ) =>
-            s1 == schema && s2 == schema && s3 == schema & s4 == schema && s5 == schema && s6 == schema &&
-              c1.codec == cases("JArray") &&
-              c2.codec == cases("JDecimal") &&
-              c3.codec == cases("JNull") &&
-              c4.codec == cases("JNumber") &&
-              c5.codec == cases("JObject") &&
-              c6.codec == cases("JString")
-          case _ => false
-        }
-      )(isTrue)
+      assertTrue(
+        s1 == schema && s2 == schema && s3 == schema & s4 == schema && s5 == schema && s6 == schema &&
+          c1.id == "JArray" &&
+          c2.id == "JDecimal" &&
+          c3.id == "JNull" &&
+          c4.id == "JNumber" &&
+          c5.id == "JObject" &&
+          c6.id == "JString"
+      )
     }
   )
 }

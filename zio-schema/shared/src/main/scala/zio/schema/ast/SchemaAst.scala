@@ -330,7 +330,7 @@ private[schema] object AstRenderer {
     case SchemaAst.Sum(_, cases, optional, dimensions) =>
       val buffer = new StringBuffer()
       if (optional) buffer.append("?")
-      buffer.append(s"enum").append(renderDimensions(dimensions))
+      buffer.append(s"enumN").append(renderDimensions(dimensions))
       buffer.append("\n").append(cases.map(renderField(_, INDENT_STEP)).mkString("\n")).toString
     case SchemaAst.Ref(refPath, _, optional, dimensions) =>
       val buffer = new StringBuffer()
@@ -356,7 +356,7 @@ private[schema] object AstRenderer {
         pad(buffer, indent)
         buffer.append(s"$label: ")
         if (optional) buffer.append("?")
-        buffer.append(s"enum").append(renderDimensions(dimensions))
+        buffer.append(s"enumN").append(renderDimensions(dimensions))
         buffer.append("\n").append(cases.map(renderField(_, indent + INDENT_STEP)).mkString("\n")).toString
       case (label, SchemaAst.Ref(refPath, _, optional, dimensions)) =>
         pad(buffer, indent)

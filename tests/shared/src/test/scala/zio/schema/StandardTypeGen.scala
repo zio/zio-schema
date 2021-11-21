@@ -1,5 +1,6 @@
 package zio.schema
 
+import java.math.{ BigDecimal => JBigDecimal, BigInteger => JBigInt }
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
@@ -42,6 +43,14 @@ object StandardTypeGen {
 //    Gen.const(StandardType.ZoneOffset)
   )
 
+  val javaBigInt: Gen[Random, JBigInt] =
+    Gen.bigInt(JBigInt.valueOf(Long.MinValue), JBigInt.valueOf(Long.MaxValue)).map { sBigInt =>
+      new JBigInt(sBigInt.toByteArray)
+    }
+
+  val javaBigDecimal: Gen[Random, JBigDecimal] =
+    Gen.bigDecimal(JBigDecimal.valueOf(Long.MinValue), JBigDecimal.valueOf(Long.MaxValue)).map(_.bigDecimal)
+
   type StandardTypeAndGen[A] = (StandardType[A], Gen[Random with Sized, A])
 
   val anyStandardTypeAndGen: Gen[Random, StandardTypeAndGen[_]] = {
@@ -56,8 +65,8 @@ object StandardTypeGen {
       case typ: StandardType.BinaryType.type     => typ -> Gen.chunkOf(Gen.anyByte)
       case typ: StandardType.CharType.type       => typ -> Gen.anyASCIIChar
       case typ: StandardType.UUIDType.type       => typ -> Gen.anyUUID
-      case typ: StandardType.BigDecimalType.type => typ -> Gen.anyDouble.map(d => java.math.BigDecimal.valueOf(d))
-      case typ: StandardType.BigIntegerType.type => typ -> Gen.anyLong.map(n => java.math.BigInteger.valueOf(n))
+      case typ: StandardType.BigDecimalType.type => typ -> javaBigDecimal
+      case typ: StandardType.BigIntegerType.type => typ -> javaBigInt
       case typ: StandardType.DayOfWeekType.type  => typ -> JavaTimeGen.anyDayOfWeek
       case typ: StandardType.Duration            => typ -> JavaTimeGen.anyDuration
       case typ: StandardType.Instant             => typ -> JavaTimeGen.anyInstant

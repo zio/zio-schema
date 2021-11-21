@@ -231,6 +231,39 @@ object types {
     implicit lazy val schema: Schema[SequenceVariants] = DeriveSchema.gen
   }
 
-  type ValueAndGen[A] = (Schema[A], A)
+  type SchemaAndValue[A]     = (Schema[A], A)
+  type SchemaAndValues[A]    = (Schema[A], List[A])
+  type SchemaAndValuePair[A] = (Schema[A], (A, A))
+
+  val anySchema: Gen[Random with Sized, Schema[_]] =
+    Gen.oneOf(
+      Gen.const(Schema[SequenceVariants]),
+      Gen.const(Schema[OptionVariants]),
+      Gen.const(Schema[EitherVariants]),
+      Gen.const(Schema[Recursive]),
+      Gen.const(Schema[Arities])
+    )
+
+  def anySchemaAndValue: Gen[Random with Sized, SchemaAndValue[_]] =
+    for {
+      schema       <- anySchema
+      dynamicValue <- DynamicValueGen.anyDynamicValueOfSchema(schema)
+    } yield schema.asInstanceOf[Schema[Any]] -> dynamicValue.toTypedValue(schema).toOption.get
+
+  def anySchemaAndValuePair: Gen[Random with Sized, SchemaAndValuePair[_]] =
+    for {
+      schema        <- anySchema
+      dynamicValue1 <- DynamicValueGen.anyDynamicValueOfSchema(schema)
+      dynamicValue2 <- DynamicValueGen.anyDynamicValueOfSchema(schema)
+    } yield schema.asInstanceOf[Schema[Any]] -> (dynamicValue1.toTypedValue(schema).toOption.get -> dynamicValue2
+      .toTypedValue(schema)
+      .toOption
+      .get)
+
+  def anySchemaAndValues(n: Int): Gen[Random with Sized, SchemaAndValues[_]] =
+    for {
+      schema        <- anySchema
+      dynamicValues <- Gen.listOfN(n)(DynamicValueGen.anyDynamicValueOfSchema(schema))
+    } yield schema.asInstanceOf[Schema[Any]] -> dynamicValues.map(_.toTypedValue(schema).toOption.get)
 
 }

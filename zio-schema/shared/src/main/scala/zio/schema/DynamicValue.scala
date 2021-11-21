@@ -27,7 +27,7 @@ trait DynamicValue { self =>
       case (DynamicValue.Enumeration((key, value)), s: Schema.Enum[A]) =>
         s.structure.get(key) match {
           case Some(schema) => value.toTypedValue(schema).asInstanceOf[Either[String, A]]
-          case None         => Left(s"Failed to find case $key in enum $s")
+          case None         => Left(s"Failed to find case $key in enumN $s")
         }
 
       case (DynamicValue.LeftValue(value), Schema.EitherSchema(schema1, _, _)) =>
@@ -46,14 +46,14 @@ trait DynamicValue { self =>
           case (Right(a), Right(b)) => Right(a -> b)
         }
 
-      case (DynamicValue.Sequence(values), Schema.Sequence(schema, f, _, _)) =>
+      case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t]) =>
         values
-          .foldLeft[Either[String, Chunk[_]]](Right[String, Chunk[A]](Chunk.empty)) {
+          .foldLeft[Either[String, Chunk[t]]](Right[String, Chunk[t]](Chunk.empty)) {
             case (err @ Left(_), _) => err
             case (Right(values), value) =>
-              value.toTypedValue(schema).map(values :+ _)
+              value.toTypedValue(schema.schemaA).map(values :+ _)
           }
-          .map(f)
+          .map(schema.fromChunk)
 
       case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
         value.toTypedValue(schema).map(Some(_))
@@ -958,20 +958,20 @@ object DynamicValue {
         }
         DynamicValue.Dictionary(Chunk.fromIterable(entries))
 
-      case Schema.EitherSchema(left, right, _) =>
-        value match {
-          case Left(a)  => DynamicValue.LeftValue(fromSchemaAndValue(left, a))
-          case Right(b) => DynamicValue.RightValue(fromSchemaAndValue(right, b))
+      case schema: Schema.EitherSchema[l, r] =>
+        value.asInstanceOf[Either[l, r]] match {
+          case Left(value: l)  => DynamicValue.LeftValue(fromSchemaAndValue(schema.left, value))
+          case Right(value: r) => DynamicValue.RightValue(fromSchemaAndValue(schema.right, value))
         }
 
-      case Schema.Tuple(schemaA, schemaB, _) =>
-        val (a, b) = value
-        DynamicValue.Tuple(fromSchemaAndValue(schemaA, a), fromSchemaAndValue(schemaB, b))
+      case schema: Schema.Tuple[a, b] =>
+        val (a: a, b: b) = value.asInstanceOf[(a, b)]
+        DynamicValue.Tuple(fromSchemaAndValue(schema.left, a), fromSchemaAndValue(schema.right, b))
 
-      case Schema.Optional(schema, _) =>
-        value match {
-          case Some(value) => DynamicValue.SomeValue(fromSchemaAndValue(schema, value))
-          case None        => DynamicValue.NoneValue
+      case schema: Schema.Optional[a] =>
+        value.asInstanceOf[Option[a]] match {
+          case Some(value: a) => DynamicValue.SomeValue(fromSchemaAndValue(schema.codec, value))
+          case None           => DynamicValue.NoneValue
         }
 
       case Schema.Transform(schema, _, g, _) =>
