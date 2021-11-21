@@ -3,11 +3,11 @@ package zio.schema
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-import zio._
-import zio.schema.CaseSet._
-import zio.schema.Schema._
+import zio.Chunk
+import zio.schema.CaseSet.caseOf
+import zio.schema.Schema.{ Lazy, Primitive }
 import zio.test.Assertion._
-import zio.test._
+import zio.test.{ DefaultRunnableSpec, ZSpec, assert }
 
 object DefaultValueSpec extends DefaultRunnableSpec {
   // Record Tests
@@ -17,9 +17,21 @@ object DefaultValueSpec extends DefaultRunnableSpec {
   // Enum Tests
   sealed trait Status
   case class Ok(response: List[String]) extends Status
+
+  object Ok {
+    implicit lazy val schema: Schema[Ok] = DeriveSchema.gen[Ok]
+  }
   case class Failed(code: Int, reason: String, additionalExplanation: Option[String], remark: String = "oops")
       extends Status
+
+  object Failed {
+    implicit lazy val schema: Schema[Failed] = DeriveSchema.gen[Failed]
+  }
   case object Pending extends Status
+
+  object Status {
+    implicit lazy val schema: Schema[Status] = DeriveSchema.gen[Status]
+  }
 
   def spec: ZSpec[Environment, Failure] = suite("Default Value Spec")(
     suite("Primitive")(

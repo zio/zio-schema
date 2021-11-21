@@ -522,7 +522,8 @@ object SchemaGen {
   case class JArray(fields: List[Json])            extends Json
 
   object Json {
-    implicit lazy val schema: Schema[Json] = DeriveSchema.gen[Json]
+    implicit lazy val schema: Schema.Enum6[JArray, JDecimal, JNull.type, JNumber, JObject, JString, Json] =
+      DeriveSchema.gen[Json]
 
     val leafGen: Gen[Random with Sized, Json] =
       Gen.oneOf(
