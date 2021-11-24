@@ -56,6 +56,8 @@ sealed trait Schema[A] {
    */
   def annotations: Chunk[Any]
 
+  def ast: SchemaAst = SchemaAst.fromSchema(self)
+
   /**
    * Returns a new schema that with `annotation`
    */
@@ -117,7 +119,13 @@ sealed trait Schema[A] {
 
   def repeated: Schema[Chunk[A]] = Schema.chunk(self)
 
-  def serializable: Schema[Schema[_]] = Schema.Meta(SchemaAst.fromSchema(self))
+  def serializable: Schema[Schema[A]] =
+    Schema
+      .Meta(SchemaAst.fromSchema(self))
+      .transformOrFail(
+        s => s.coerce(self),
+        s => Right(s.ast.toSchema)
+      )
 
   def toDynamic(value: A): DynamicValue =
     DynamicValue.fromSchemaAndValue(self, value)
@@ -241,6 +249,9 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   sealed trait Enum[A] extends Schema[A] {
     def structure: ListMap[String, Schema[_]]
   }
+  sealed case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) {
+    override def toString: String = s"Field($label,$schema)"
+  }
 
   sealed trait Record[R] extends Schema[R] { self =>
     def structure: Chunk[Field[_]]
@@ -291,8 +302,11 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
     override def annotate(annotation: Any): Transform[A, B] = copy(annotations = annotations :+ annotation)
 
-    override def serializable: Schema[Schema[_]] = Meta(SchemaAst.fromSchema(codec))
-    override def toString: String                = s"Transform($codec)"
+    override def serializable: Schema[Schema[B]] = Meta(SchemaAst.fromSchema(codec)).transformOrFail(
+      s => s.coerce(codec).flatMap(s1 => Right(s1.transformOrFail(f, g))),
+      s => Right(s.transformOrFail(g, f).ast.toSchema)
+    )
+    override def toString: String = s"Transform($codec)"
 
   }
 
@@ -412,7 +426,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     override def annotations: Chunk[Any] = schema0().annotations
   }
 
-  final case class Meta(ast: SchemaAst, annotations: Chunk[Any] = Chunk.empty) extends Schema[Schema[_]] {
+  final case class Meta(override val ast: SchemaAst, annotations: Chunk[Any] = Chunk.empty) extends Schema[Schema[_]] {
 
     override def annotate(annotation: Any): Meta = copy(annotations = annotations :+ annotation)
 
@@ -424,6 +438,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     override def makeAccessors(b: AccessorBuilder): Unit = ()
 
   }
+
 
   final case class MapSchema[K, V](ks: Schema[K], vs: Schema[V], override val annotations: Chunk[Any])
       extends Collection[Map[K, V], (K, V)] { self =>
@@ -1819,17 +1834,13 @@ sealed trait TupleSchemas {
 //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
 sealed trait RecordSchemas { self: Schema.type =>
 
-  sealed case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) {
-    override def toString: String = s"Field($label,$schema)"
-  }
-
-  sealed case class GenericRecord(fieldSet: FieldSet, annotations: Chunk[Any] = Chunk.empty) extends Record[ListMap[String, _]] { self =>
+  sealed case class GenericRecord(fieldSet: FieldSet, override val annotations: Chunk[Any] = Chunk.empty) extends Record[ListMap[String, _]] { self =>
 
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = fieldSet.Accessors[ListMap[String, _], Lens, Prism, Traversal]
 
     override def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal] = fieldSet.makeAccessors(self, b)
 
-    override def structure: Chunk[Field[_]] = fieldSet.toChunk
+    override def structure: Chunk[Schema.Field[_]] = fieldSet.toChunk
 
     override def rawConstruct(values: Chunk[Any]): Either[String, ListMap[String, _]] =
       if (values.size == structure.size)

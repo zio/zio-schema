@@ -2,9 +2,8 @@ package zio.schema
 
 import zio.schema.syntax._
 import zio.test.Assertion._
-import zio.test.environment.TestEnvironment
-import zio.test.{ Gen, Sized, TestConfig, _ }
-import zio.{ Has, Random, _ }
+import zio.test.{Gen, Sized, TestConfig, TestEnvironment, _}
+import zio.{ Random, _ }
 
 object SchemaMigrationSpec extends DefaultRunnableSpec {
   import SchemaAssertions._
@@ -57,8 +56,8 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
         assert(PetFood.DogFood(Nil, None))(cannotMigrateValue[PetFood.DogFood, BrandedPetFood.DogFood])
       }
     ),
-    suite("enum")(
-      test("enum with recursive types") {
+    suite("enumN")(
+      test("enumN with recursive types") {
         check(Version1.gen) { v1 =>
           assert(v1)(migratesTo(Version1.migrated(v1)))
         }
@@ -74,7 +73,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
     )
   )
 
-  val isomorphismTests: List[ZSpec[TestEnvironment with Has[Sized] with Has[Random] with Has[TestConfig], Nothing]] =
+  val isomorphismTests: List[ZSpec[TestEnvironment with Sized with Random with TestConfig, Nothing]] =
     List(
       test("DogFood <-> CatFood")(
         isomorphismLaw[TestEnvironment, PetFood.DogFood, PetFood.CatFood](
@@ -96,8 +95,8 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
     )
 
   private def isomorphismLaw[R, A: Schema, B: Schema](
-    genA: Gen[Has[Random] with Has[Sized], A]
-  ): URIO[R with Has[Random] with Has[Sized] with Has[TestConfig], TestResult] =
+    genA: Gen[Random with Sized, A]
+  ): URIO[R with Random with Sized with TestConfig, TestResult] =
     check(genA) { a =>
       val roundTrip = a.migrate[B].flatMap(_.migrate[A])
 
@@ -114,7 +113,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
         Recursive1(0, "foo", None)
       else Recursive1(depth, "foo", Some(genTree(depth - 1)))
 
-    lazy val gen: Gen[Has[Random] with Has[Sized], Recursive1] =
+    lazy val gen: Gen[Random with Sized, Recursive1] =
       Gen.int(2, 10).map(genTree)
   }
   case class Recursive2(level: Int, value: String, r: Option[Recursive2])
@@ -127,7 +126,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
         Recursive2(0, "foo", None)
       else Recursive2(depth, "foo", Some(genTree(depth - 1)))
 
-    lazy val gen: Gen[Has[Random] with Has[Sized], Recursive2] =
+    lazy val gen: Gen[Random with Sized, Recursive2] =
       Gen.int(2, 10).map(genTree)
   }
 
@@ -145,7 +144,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
     object DogFood {
       implicit lazy val schema: Schema[DogFood] = DeriveSchema.gen
 
-      lazy val gen: Gen[Has[Random] with Has[Sized], DogFood] =
+      lazy val gen: Gen[Random with Sized, DogFood] =
         (Gen.listOf(Gen.string) <*> Gen.option(Gen.string)).map((DogFood.apply _).tupled)
     }
     case class CatFood(ingredients: List[String], brand: Option[String]) extends PetFood
@@ -153,7 +152,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
     object CatFood {
       implicit lazy val schema: Schema[CatFood] = DeriveSchema.gen
 
-      lazy val gen: Gen[Has[Random] with Has[Sized], CatFood] =
+      lazy val gen: Gen[Random with Sized, CatFood] =
         (Gen.listOf(Gen.string) <*> Gen.option(Gen.string)).map((CatFood.apply _).tupled)
     }
 
@@ -165,13 +164,13 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
 
     implicit lazy val schema: Schema[PetFood] = DeriveSchema.gen
 
-    val gen: Gen[Has[Random] with Has[Sized], PetFood] =
+    val gen: Gen[Random with Sized, PetFood] =
       Gen.oneOf(
         DogFood.gen,
         CatFood.gen
       )
 
-    val genMigratable: Gen[Has[Random] with Has[Sized], PetFood] =
+    val genMigratable: Gen[Random with Sized, PetFood] =
       Gen.oneOf(
         DogFood.gen.withFilter(_.brand.isDefined),
         CatFood.gen.withFilter(_.brand.isDefined)
@@ -186,7 +185,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
     object DogFood {
       implicit lazy val schema: Schema[DogFood] = DeriveSchema.gen
 
-      val gen: Gen[Has[Random] with Has[Sized], DogFood] =
+      val gen: Gen[Random with Sized, DogFood] =
         (Gen.listOf(Gen.string) <*> Gen.string).map((DogFood.apply _).tupled)
     }
     case class CatFood(ingredients: List[String], brand: String) extends BrandedPetFood
@@ -194,7 +193,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
     object CatFood {
       implicit lazy val schema: Schema[CatFood] = DeriveSchema.gen
 
-      val gen: Gen[Has[Random] with Has[Sized], CatFood] =
+      val gen: Gen[Random with Sized, CatFood] =
         (Gen.listOf(Gen.string) <*> Gen.string).map((CatFood.apply _).tupled)
     }
     case class HamsterFood(ingredients: List[String], brand: String) extends BrandedPetFood
@@ -202,13 +201,13 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
     object HamsterFood {
       implicit lazy val schema: Schema[HamsterFood] = DeriveSchema.gen
 
-      val gen: Gen[Has[Random] with Has[Sized], HamsterFood] =
+      val gen: Gen[Random with Sized, HamsterFood] =
         (Gen.listOf(Gen.string) <*> Gen.string).map((HamsterFood.apply _).tupled)
     }
 
     implicit lazy val schema: Schema[BrandedPetFood] = DeriveSchema.gen
 
-    val gen: Gen[Has[Random] with Has[Sized], BrandedPetFood] = Gen.oneOf(DogFood.gen, CatFood.gen, HamsterFood.gen)
+    val gen: Gen[Random with Sized, BrandedPetFood] = Gen.oneOf(DogFood.gen, CatFood.gen, HamsterFood.gen)
 
   }
 
@@ -261,7 +260,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
 
     implicit lazy val schema: Schema[Version1] = DeriveSchema.gen
 
-    def genTree(depth: Int): Gen[Has[Random] with Has[Sized], Version1] =
+    def genTree(depth: Int): Gen[Random with Sized, Version1] =
       for {
         v1 <- Gen.int
         v2 <- Gen.string
@@ -269,7 +268,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
         rs <- if (depth > 0) Gen.listOfBounded(1, 3)(genTree(depth - 1)) else Gen.const(Nil)
       } yield A1(v1, v2, Some(v3), rs)
 
-    val gen: Gen[Has[Random] with Has[Sized], Version1] = Gen.int(0, 3).flatMap(genTree)
+    val gen: Gen[Random with Sized, Version1] = Gen.int(0, 3).flatMap(genTree)
 
     def migrated(v1: Version1): Version2 = v1 match {
       case A1(v1, _, v3, rs) =>
@@ -291,7 +290,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
   object NestedEither1 {
     implicit lazy val schema: Schema[NestedEither1] = DeriveSchema.gen
 
-    val gen: Gen[Has[Random] with Has[Sized], NestedEither1] =
+    val gen: Gen[Random with Sized, NestedEither1] =
       for {
         v1 <- Gen.int
         v2 <- Gen.either(Gen.string, PetFood.DogFood.gen)
@@ -303,7 +302,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
   object NestedEither2 {
     implicit lazy val schema: Schema[NestedEither2] = DeriveSchema.gen
 
-    val gen: Gen[Has[Random] with Has[Sized], NestedEither2] =
+    val gen: Gen[Random with Sized, NestedEither2] =
       for {
         v1 <- Gen.int
         v2 <- Gen.either(Gen.string, PetFood.CatFood.gen)
@@ -315,14 +314,14 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
   object NestedEnum1 {
     implicit lazy val schema: Schema[NestedEnum1] = DeriveSchema.gen
 
-    val gen: Gen[Has[Random] with Has[Sized], NestedEnum1] =
+    val gen: Gen[Random with Sized, NestedEnum1] =
       for {
         v1 <- Gen.int
         v2 <- PetFood.gen
         v3 <- Gen.listOf(BrandedPetFood.gen)
       } yield NestedEnum1(v1, v2, v3)
 
-    val genMigratable: Gen[Has[Random] with Has[Sized], NestedEnum1] =
+    val genMigratable: Gen[Random with Sized, NestedEnum1] =
       for {
         v1 <- Gen.int
         v2 <- PetFood.genMigratable
@@ -340,7 +339,7 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
   object NestedEnum2 {
     implicit lazy val schema: Schema[NestedEnum2] = DeriveSchema.gen
 
-    val gen: Gen[Has[Random] with Has[Sized], NestedEnum2] =
+    val gen: Gen[Random with Sized, NestedEnum2] =
       for {
         v1 <- Gen.int
         v2 <- BrandedPetFood.gen

@@ -1,14 +1,15 @@
 package zio.schema
 
+import java.math.{BigDecimal => JBigDecimal, BigInteger => JBigInt}
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-import zio.test.{ Gen, Sized }
-import zio.{ Has, Random }
+import zio.Random
+import zio.test.{Gen, Sized}
 
 object StandardTypeGen {
 
-  val anyStandardType: Gen[Has[Random], StandardType[_]] = Gen.fromIterable(
+  val anyStandardType: Gen[Random, StandardType[_]] = Gen.fromIterable(
     List(
       (StandardType.StringType),
       (StandardType.BoolType),
@@ -42,9 +43,17 @@ object StandardTypeGen {
 //    Gen.const(StandardType.ZoneOffset)
   )
 
-  type StandardTypeAndGen[A] = (StandardType[A], Gen[Has[Random] with Has[Sized], A])
+  val javaBigInt: Gen[Random, JBigInt] =
+    Gen.bigInt(JBigInt.valueOf(Long.MinValue), JBigInt.valueOf(Long.MaxValue)).map { sBigInt =>
+      new JBigInt(sBigInt.toByteArray)
+    }
 
-  val anyStandardTypeAndGen: Gen[Has[Random], StandardTypeAndGen[_]] = {
+  val javaBigDecimal: Gen[Random, JBigDecimal] =
+    Gen.bigDecimal(JBigDecimal.valueOf(Long.MinValue), JBigDecimal.valueOf(Long.MaxValue)).map(_.bigDecimal)
+
+  type StandardTypeAndGen[A] = (StandardType[A], Gen[Random with Sized, A])
+
+  val anyStandardTypeAndGen: Gen[Random, StandardTypeAndGen[_]] = {
     anyStandardType.map {
       case typ: StandardType.StringType.type     => typ -> Gen.string
       case typ: StandardType.BoolType.type       => typ -> Gen.boolean

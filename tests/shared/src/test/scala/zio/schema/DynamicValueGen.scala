@@ -9,8 +9,8 @@ object DynamicValueGen {
 
   def anyPrimitiveDynamicValue[A](
     standardType: StandardType[A]
-  ): Gen[Has[Random] with Has[Sized], DynamicValue.Primitive[A]] = {
-    def gen[A1](typ: StandardType[A1], gen: Gen[Has[Random] with Has[Sized], A1]) =
+  ): Gen[Random with Sized, DynamicValue.Primitive[A]] = {
+    def gen[A1](typ: StandardType[A1], gen: Gen[Random with Sized, A1]) =
       gen.map(DynamicValue.Primitive(_, typ))
 
     standardType match {
@@ -47,7 +47,7 @@ object DynamicValueGen {
   }
 
   //scalafmt: { maxColumn = 400 }
-  def anyDynamicValueOfSchema[A](schema: Schema[A]): Gen[Has[Random] with Has[Sized], DynamicValue] =
+  def anyDynamicValueOfSchema[A](schema: Schema[A]): Gen[Random with Sized, DynamicValue] =
     schema match {
       case Schema.Primitive(standardType, _)                                                                                                                                                       => anyPrimitiveDynamicValue(standardType)
       case s: Schema.Record[A]                                                                                                                                                                     => anyDynamicValueWithStructure(s.structure)
@@ -87,26 +87,26 @@ object DynamicValueGen {
     }
   //scalafmt: { maxColumn = 120 }
 
-  def anyDynamicLeftValueOfSchema[A](schema: Schema[A]): Gen[Has[Random] with Has[Sized], DynamicValue.LeftValue] =
+  def anyDynamicLeftValueOfSchema[A](schema: Schema[A]): Gen[Random with Sized, DynamicValue.LeftValue] =
     anyDynamicValueOfSchema(schema).map(DynamicValue.LeftValue(_))
 
-  def anyDynamicRightValueOfSchema[A](schema: Schema[A]): Gen[Has[Random] with Has[Sized], DynamicValue.RightValue] =
+  def anyDynamicRightValueOfSchema[A](schema: Schema[A]): Gen[Random with Sized, DynamicValue.RightValue] =
     anyDynamicValueOfSchema(schema).map(DynamicValue.RightValue(_))
 
-  def anyDynamicSomeValueOfSchema[A](schema: Schema[A]): Gen[Has[Random] with Has[Sized], DynamicValue.SomeValue] =
+  def anyDynamicSomeValueOfSchema[A](schema: Schema[A]): Gen[Random with Sized, DynamicValue.SomeValue] =
     anyDynamicValueOfSchema(schema).map(DynamicValue.SomeValue(_))
 
   def anyDynamicTupleValue[A, B](
     left: Schema[A],
     right: Schema[B]
-  ): Gen[Has[Random] with Has[Sized], DynamicValue.Tuple] =
+  ): Gen[Random with Sized, DynamicValue.Tuple] =
     anyDynamicValueOfSchema(left).zip(anyDynamicValueOfSchema(right)).map {
       case (l, r) => DynamicValue.Tuple(l, r)
     }
 
   def anyDynamicValueOfEnumeration(
     structure: ListMap[String, Schema[_]]
-  ): Gen[Has[Random] with Has[Sized], DynamicValue.Enumeration] =
+  ): Gen[Random with Sized, DynamicValue.Enumeration] =
     for {
       index <- Gen.int(0, structure.size - 1)
       value <- anyDynamicValueOfSchema(structure.values.toSeq(index))
@@ -114,7 +114,7 @@ object DynamicValueGen {
 
   def anyDynamicValueOfEnum[A](
     cases: Chunk[Schema.Case[_, A]]
-  ): Gen[Has[Random] with Has[Sized], DynamicValue.Enumeration] =
+  ): Gen[Random with Sized, DynamicValue.Enumeration] =
     for {
       index <- Gen.int(0, cases.size - 1)
       value <- anyDynamicValueOfSchema(cases(index).codec)
@@ -122,7 +122,7 @@ object DynamicValueGen {
 
   def anyDynamicValueWithStructure(
     structure: Chunk[Schema.Field[_]]
-  ): Gen[Has[Random] with Has[Sized], DynamicValue.Record] =
+  ): Gen[Random with Sized, DynamicValue.Record] =
     Gen
       .collectAll(
         structure

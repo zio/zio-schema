@@ -3,7 +3,7 @@ import zio.optics._
 import zio.schema._
 import zio.test.Assertion._
 import zio.test.{Gen, Sized, TestConfig, _}
-import zio.{Has, Random, _}
+import zio.{Random, _}
 
 object LensSpec extends DefaultRunnableSpec {
 
@@ -17,7 +17,7 @@ object LensSpec extends DefaultRunnableSpec {
     )
   )
 
-  def lensLaws[Env <: Has[TestConfig], Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
+  def lensLaws[Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
     lens: ZioOpticsBuilder.Lens[Whole, Piece]
   ): URIO[Env, TestResult] =
     for {
@@ -26,7 +26,7 @@ object LensSpec extends DefaultRunnableSpec {
       setSetIdentity <- setSetIdentity(genWhole, genPiece)(lens)
     } yield setGetIdentity && getSetIdentity && setSetIdentity
 
-  def getSetIdentity[Env <: Has[TestConfig], Whole, Piece](genWhole: Gen[Env, Whole])(
+  def getSetIdentity[Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole])(
     lens: ZioOpticsBuilder.Lens[Whole, Piece]
   ): URIO[Env, TestResult] =
     check(genWhole) { wholeBefore =>
@@ -34,7 +34,7 @@ object LensSpec extends DefaultRunnableSpec {
       assert(wholeAfter)(isRight(equalTo(wholeBefore)))
     }
 
-  def setGetIdentity[Env <: Has[TestConfig], Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
+  def setGetIdentity[Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
     lens: ZioOpticsBuilder.Lens[Whole, Piece]
   ): URIO[Env, TestResult] =
     check(genWhole, genPiece) { (whole, pieceBefore) =>
@@ -42,7 +42,7 @@ object LensSpec extends DefaultRunnableSpec {
       assert(pieceAfter)(isRight(equalTo(pieceBefore)))
     }
 
-  def setSetIdentity[Env <: Has[TestConfig], Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
+  def setSetIdentity[Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
     lens: ZioOpticsBuilder.Lens[Whole, Piece]
   ): URIO[Env, TestResult] =
     check(genWhole, genPiece) { (whole, piece) =>
@@ -54,10 +54,9 @@ object LensSpec extends DefaultRunnableSpec {
   case class TestClass(field1: Int, field2: String, field3: Long)
 
   object TestClass {
-    implicit val schema: Schema.CaseClass3[Int, String, Long, TestClass] =
-      DeriveSchema.gen[TestClass].asInstanceOf[Schema.CaseClass3[Int, String, Long, TestClass]]
+    implicit val schema: Schema.CaseClass3[Int, String, Long, TestClass] = DeriveSchema.gen[TestClass]
 
-    val gen: Gen[Has[Random] with Has[Sized], TestClass] = for {
+    val gen: Gen[Random with Sized, TestClass] = for {
       f1 <- Gen.int
       f2 <- Gen.string
       f3 <- Gen.long

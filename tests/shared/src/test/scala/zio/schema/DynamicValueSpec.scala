@@ -4,7 +4,7 @@ import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen._
 import zio.test.Assertion._
 import zio.test.{ Sized, TestConfig, _ }
-import zio.{ Has, Random, _ }
+import zio.{  Random, _ }
 
 object DynamicValueSpec extends DefaultRunnableSpec {
 
@@ -71,14 +71,14 @@ object DynamicValueSpec extends DefaultRunnableSpec {
       }
     )
 
-  val primitiveTests: List[ZSpec[Has[Sized] with Has[Random] with Has[TestConfig], Nothing]] = schemasAndGens.map {
+  val primitiveTests: List[ZSpec[Sized with Random with TestConfig, Nothing]] = schemasAndGens.map {
     case SchemaTest(name, standardType, gen) =>
       test(s"round-trips $name") {
         dynamicValueLaw(gen, Primitive(standardType, Chunk.empty))
       }
   }
 
-  private def dynamicValueLaw[R, A](gen: Gen[R, A], schema: Schema[A]): URIO[R with Has[TestConfig], TestResult] =
+  private def dynamicValueLaw[R, A](gen: Gen[R, A], schema: Schema[A]): URIO[R with TestConfig, TestResult] =
     check(gen) { a =>
       assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
     }
