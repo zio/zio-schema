@@ -52,6 +52,11 @@ object ZioOpticsBuilder extends AccessorBuilder {
           ZioOpticsBuilder.makeMapTraversalGet,
           ZioOpticsBuilder.makeMapTraversalSet
         )
+      case Schema.SetSchema(_, _) =>
+        ZTraversal(
+          ZioOpticsBuilder.makeSetTraversalGet,
+          ZioOpticsBuilder.makeSetTraversalSet
+        )
     }
 
   private[optics] def makeLensGet[S, A](
@@ -126,6 +131,14 @@ object ZioOpticsBuilder extends AccessorBuilder {
     : Chunk[(K, V)] => Map[K, V] => Either[(OpticFailure, Map[K, V]), Map[K, V]] = {
     (piece: Chunk[(K, V)]) => (whole: Map[K, V]) =>
       Right(whole ++ piece.toList)
+  }
+
+  private[optics] def makeSetTraversalGet[A](whole: Set[A]): Either[(OpticFailure, Set[A]), Chunk[A]] =
+    Right(Chunk.fromIterable(whole))
+
+  private[optics] def makeSetTraversalSet[A]: Chunk[A] => Set[A] => Either[(OpticFailure, Set[A]), Set[A]] = {
+    (piece: Chunk[A]) => (whole: Set[A]) =>
+      Right(whole ++ piece.toSet)
   }
 
   private def spliceRecord(

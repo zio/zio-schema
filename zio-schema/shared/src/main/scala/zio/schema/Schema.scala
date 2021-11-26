@@ -437,6 +437,20 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Map[K, V], (K, V)] =
       b.makeTraversal(self, ks <*> vs)
   }
+
+  final case class SetSchema[A](as: Schema[A], override val annotations: Chunk[Any]) extends Collection[Set[A], A] {
+    self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Traversal[Set[A], A]
+
+    override def annotate(annotation: Any): SetSchema[A] =
+      copy(annotations = annotations :+ annotation)
+
+    override def defaultValue: Either[String, Set[A]] =
+      as.defaultValue.map(Set(_))
+
+    override def makeAccessors(b: AccessorBuilder): b.Traversal[Set[A], A] =
+      b.makeTraversal(self, as)
+  }
 }
 
 //scalafmt: { maxColumn = 400 }
