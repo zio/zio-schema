@@ -58,8 +58,8 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
         assert(PetFood.DogFood(Nil, None))(cannotMigrateValue[PetFood.DogFood, BrandedPetFood.DogFood])
       }
     ),
-    suite("enum")(
-      testM("enum with recursive types") {
+    suite("enumN")(
+      testM("enumN with recursive types") {
         check(Version1.gen) { v1 =>
           assert(v1)(migratesTo(Version1.migrated(v1)))
         }
