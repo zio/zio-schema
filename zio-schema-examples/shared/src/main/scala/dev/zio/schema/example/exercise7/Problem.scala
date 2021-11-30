@@ -100,9 +100,9 @@ private[exercise7] object Problem {
         schema match {
           case transform: Transform[a, B] =>
             import transform.{f, codec}
-            val func = compile(key, codec)
-            (params: QueryParams) => func(params).flatMap(f)
-          case Primitive(standardType, _) =>
+            val func: QueryParams => Either[String, Any] = compile(key, codec)
+            (params: QueryParams) => func(params).flatMap(v => f(v.asInstanceOf[a]))
+          case Primitive(standardType) =>
             key match {
               case None      =>
                 val error = Left(s"Cannot extract a primitive out of a query string")
@@ -165,14 +165,14 @@ private[exercise7] object Problem {
 
           case enum: Enum[_]    => ???
           //        case Optional(codec) => ???
-          case Fail(message, _) => Function.const(Left(message))
+          case Fail(message) => Function.const(Left(message))
           //        case Tuple(left, right) => ???
           //        case EitherSchema(left, right) => ???
           case Lazy(schema0)    =>
             // lazy val to make sure its only compiled on first usage and not instantly recursing
             lazy val compiled = compile(key, schema0())
             (qp: QueryParams) => compiled(qp)
-          case Meta(ast, _)     => compile(key, ast.toSchema.asInstanceOf[Schema[B]])
+          case Meta(ast)     => compile(key, ast.toSchema.asInstanceOf[Schema[B]])
           case _                =>
             val err = Left(s"Decoding from query parameters is not supported for ${schema}")
             Function.const(err)
@@ -181,7 +181,8 @@ private[exercise7] object Problem {
       compile(None, schema)
     }
 
-    implicit val personDecoder = buildDecoder[Person]
+    implicit val personDecoder: QueryParams => Either[String, Person] = buildDecoder[Person]
+
 
     println("approach 2")
 
