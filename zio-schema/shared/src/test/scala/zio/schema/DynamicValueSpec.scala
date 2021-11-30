@@ -75,7 +75,7 @@ object DynamicValueSpec extends DefaultRunnableSpec {
   val primitiveTests: List[ZSpec[Sized with Random with TestConfig, Nothing]] = schemasAndGens.map {
     case SchemaTest(name, standardType, gen) =>
       testM(s"round-trips $name") {
-        dynamicValueLaw(gen, Primitive(standardType, Chunk.empty))
+        dynamicValueLaw(gen, Primitive(standardType))
       }
   }
 

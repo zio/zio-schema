@@ -38,21 +38,13 @@ object ZioOpticsBuilder extends AccessorBuilder {
     )
 
   override def makeTraversal[S, A](
-    collection: Schema.Collection[S, A],
+    collection: Schema.Sequence[S, A],
     element: Schema[A]
   ): Optic[S, S, Chunk[A], OpticFailure, OpticFailure, Chunk[A], S] =
-    collection match {
-      case seq @ Schema.Sequence(_, _, _, _) =>
-        ZTraversal(
-          ZioOpticsBuilder.makeSeqTraversalGet(seq),
-          ZioOpticsBuilder.makeSeqTraversalSet(seq)
-        )
-      case Schema.MapSchema(_, _, _) =>
-        ZTraversal(
-          ZioOpticsBuilder.makeMapTraversalGet,
-          ZioOpticsBuilder.makeMapTraversalSet
-        )
-    }
+    ZTraversal(
+      ZioOpticsBuilder.makeTraversalGet(collection),
+      ZioOpticsBuilder.makeTraversalSet(collection)
+    )
 
   private[optics] def makeLensGet[S, A](
     product: Schema.Record[S],
@@ -97,13 +89,13 @@ object ZioOpticsBuilder extends AccessorBuilder {
     }
   }
 
-  private[optics] def makeSeqTraversalGet[S, A](
+  private[optics] def makeTraversalGet[S, A](
     collection: Schema.Sequence[S, A]
   ): S => Either[(OpticFailure, S), Chunk[A]] = { whole: S =>
     Right(collection.toChunk(whole))
   }
 
-  private[optics] def makeSeqTraversalSet[S, A](
+  private[optics] def makeTraversalSet[S, A](
     collection: Schema.Sequence[S, A]
   ): Chunk[A] => S => Either[(OpticFailure, S), S] = { (piece: Chunk[A]) => (whole: S) =>
     val builder       = ChunkBuilder.make[A]()
@@ -117,15 +109,6 @@ object ZioOpticsBuilder extends AccessorBuilder {
       builder += leftIterator.next()
     }
     Right(collection.fromChunk(builder.result()))
-  }
-
-  private[optics] def makeMapTraversalGet[K, V](whole: Map[K, V]): Either[(OpticFailure, Map[K, V]), Chunk[(K, V)]] =
-    Right(Chunk.fromIterable(whole))
-
-  private[optics] def makeMapTraversalSet[K, V]
-    : Chunk[(K, V)] => Map[K, V] => Either[(OpticFailure, Map[K, V]), Map[K, V]] = {
-    (piece: Chunk[(K, V)]) => (whole: Map[K, V]) =>
-      Right(whole ++ piece.toList)
   }
 
   private def spliceRecord(
