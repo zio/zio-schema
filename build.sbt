@@ -48,7 +48,7 @@ lazy val root = project
   .in(file("."))
   .settings(
     name := "zio-schema",
-    publish / skip := true,
+    skip in publish := true,
     unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
   .aggregate(
@@ -170,7 +170,7 @@ lazy val zioSchemaExamplesJVM = zioSchemaExamples.jvm
 lazy val docs = project
   .in(file("zio-schema-docs"))
   .settings(
-    publish / skip := true,
+    skip.in(publish) := true,
     mdocVariables := Map(
       "SNAPSHOT_VERSION" -> version.value,
       "RELEASE_VERSION"  -> previousStableVersion.value.getOrElse("can't find release"),
