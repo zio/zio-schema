@@ -4,8 +4,8 @@ import zio.Chunk
 import zio.prelude._
 
 object NodePath extends Subtype[Chunk[String]] {
-  val root: NodePath  = NodePath(Chunk.empty)
-  val empty: NodePath = NodePath(Chunk.empty)
+  val root: NodePath  = NodePath(Chunk.fromArray(Array.empty[String]))
+  val empty: NodePath = NodePath(Chunk.fromArray(Array.empty[String]))
 
   implicit class NodePathSyntax(private val self: NodePath) extends AnyVal {
 

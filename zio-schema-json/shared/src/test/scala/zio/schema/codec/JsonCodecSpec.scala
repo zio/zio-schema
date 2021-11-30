@@ -76,6 +76,17 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         )
       }
     ),
+    suite("Map")(
+      testM("of complex keys and values") {
+        assertEncodes(
+          Schema.map[Key, Value],
+          Map(Key("a", 0) -> Value(0, true), Key("b", 1) -> Value(1, false)),
+          JsonCodec.Encoder.charSequenceToByteChunk(
+            """[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]"""
+          )
+        )
+      }
+    ),
     suite("record")(
       testM("of primitives") {
         assertEncodes(
@@ -211,6 +222,15 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         ) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
         }
+      },
+      testM("Map of complex keys and values") {
+        assertEncodes(
+          Schema.map[Key, Value],
+          Map(Key("a", 0) -> Value(0, true), Key("b", 1) -> Value(1, false)),
+          JsonCodec.Encoder.charSequenceToByteChunk(
+            """[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]"""
+          )
+        )
       },
       testM("of records") {
         checkM(for {
@@ -464,6 +484,12 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     case _             => value
   }
 
+  implicit def mapEncoder[K, V](
+    implicit keyEncoder: JsonEncoder[K],
+    valueEncoder: JsonEncoder[V]
+  ): JsonEncoder[Map[K, V]] =
+    JsonEncoder.chunk(keyEncoder.both(valueEncoder)).contramap[Map[K, V]](m => Chunk.fromIterable(m))
+
   private def jsonEncoded[A](value: A)(implicit enc: JsonEncoder[A]): Chunk[Byte] =
     JsonCodec.Encoder.charSequenceToByteChunk(enc.encodeJson(value, None))
 
@@ -521,4 +547,15 @@ object JsonCodecSpec extends DefaultRunnableSpec {
 
   case object Singleton
   implicit val schemaObject: Schema[Singleton.type] = DeriveSchema.gen[Singleton.type]
+
+  case class Key(name: String, index: Int)
+
+  object Key {
+    implicit lazy val schema: Schema[Key] = DeriveSchema.gen[Key]
+  }
+  case class Value(first: Int, second: Boolean)
+
+  object Value {
+    implicit lazy val schema: Schema[Value] = DeriveSchema.gen[Value]
+  }
 }

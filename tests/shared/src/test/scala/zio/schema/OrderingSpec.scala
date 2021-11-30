@@ -47,7 +47,7 @@ object OrderingSpec extends DefaultRunnableSpec {
     standardType: StandardType[A]
   ): URIO[R with Random with TestConfig, TestResult] =
     check(Gen.listOfN(2)(gen)) { lst =>
-      val schema         = Primitive(standardType)
+      val schema         = Primitive(standardType, Chunk.empty)
       val schemaOrdering = schema.ordering
       val l              = lst(0)
       val r              = lst(1)
@@ -64,7 +64,7 @@ object OrderingSpec extends DefaultRunnableSpec {
       StructureTestCase("sequence", genAnyOrderedPairChunks),
       StructureTestCase("transform", genAnyOrderedPairTransform),
       StructureTestCase("record", genAnyOrderedPairRecord),
-      StructureTestCase("enum", genAnyOrderedPairEnum)
+      StructureTestCase("enumN", genAnyOrderedPairEnum)
     )
 
   def structureOrderingTest(t: StructureTestCase): ZSpec[TestConfig with Random with Sized, Nothing] =
@@ -170,7 +170,7 @@ object OrderingSpec extends DefaultRunnableSpec {
       Right(a)
     }, { a: A =>
       Right(a)
-    }), small, large)
+    }, Chunk.empty), small, large)
 
   def genOrderedPairDecodeTransform[A](schema: Schema[A]): Gen[Random with Sized, SchemaAndPair[DynamicValue]] =
     for {
@@ -181,7 +181,7 @@ object OrderingSpec extends DefaultRunnableSpec {
       smallEncoded        = encode(small).toOption.get
       smallEncodedOrError = if (error) DynamicValue.SomeValue(smallEncoded) else smallEncoded
       largeEncoded        = encode(large).toOption.get
-    } yield (Schema.Transform(schema, encode, decode), smallEncodedOrError, largeEncoded)
+    } yield (Schema.Transform(schema, encode, decode, Chunk.empty), smallEncodedOrError, largeEncoded)
 
   def genAnyOrderedPairRecord: Gen[Random with Sized, SchemaAndPair[_]] =
     for {

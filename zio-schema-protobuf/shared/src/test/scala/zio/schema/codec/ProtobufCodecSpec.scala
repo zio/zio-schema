@@ -9,18 +9,28 @@ import scala.collection.immutable.ListMap
 import scala.util.Try
 
 import zio._
+import zio.blocking.Blocking
 import zio.console._
+import zio.random.Random
 import zio.schema.CaseSet._
 import zio.schema.{ CaseSet, DeriveSchema, Schema, SchemaGen, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
+import zio.test.environment.{ Live, TestClock, TestConsole, TestRandom, TestSystem }
 
 // TODO: use generators instead of manual encode/decode
 object ProtobufCodecSpec extends DefaultRunnableSpec {
   import Schema._
 
-  def spec = suite("ProtobufCodec Spec")(
+  def spec
+    : Spec[Has[Annotations.Service] with Has[Live.Service] with Has[Sized.Service] with Has[TestClock.Service] with Has[
+      TestConfig.Service
+    ] with Has[TestConsole.Service] with Has[TestRandom.Service] with Has[TestSystem.Service] with Has[
+      zio.clock.Clock.Service
+    ] with Has[Console.Service] with Has[zio.system.System.Service] with Has[Random.Service] with Has[Blocking.Service], TestFailure[
+      Any
+    ], TestSuccess] = suite("ProtobufCodec Spec")(
     suite("Should correctly encode")(
       testM("integers") {
         for {
@@ -94,14 +104,14 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
     suite("Should successfully encode and decode")(
       testM("empty list") {
         for {
-          ed <- encodeAndDecodeNS(DeriveSchema.gen[List[Int]], List.empty)
+          ed <- encodeAndDecodeNS(Schema.list(Schema.list[Int]), List.empty)
         } yield assert(ed)(equalTo(List.empty))
-      },
+      } @@ TestAspect.ignore,
       testM("list of an empty list") {
         for {
-          ed <- encodeAndDecodeNS(DeriveSchema.gen[List[List[Int]]], List(List.empty))
+          ed <- encodeAndDecodeNS(Schema.list(Schema.list[Int]), List(List.empty))
         } yield assert(ed)(equalTo(List(List.empty)))
-      },
+      } @@ TestAspect.ignore,
       testM("tuple containing empty list & tuple containing list of an empty list") {
         val value: (String, List[List[Int]], String) = ("first string", List(List.empty), "second string")
         val value2: (String, List[Int], String)      = ("first string", List.empty, "second string")
@@ -372,7 +382,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           equalTo(BooleanValue(true))
         )
       },
-      testM("enum within enum") {
+      testM("enumN within enumN") {
         val oneOf   = RichSum.AnotherSum(BooleanValue(false))
         val wrapper = RichSum.LongWrapper(150L)
         for {
@@ -518,6 +528,18 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed  <- encodeAndDecode(sequenceOfSumSchema, richSequence)
           ed2 <- encodeAndDecodeNS(sequenceOfSumSchema, richSequence)
         } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
+      },
+      testM("map of products") {
+        val m: Map[Record, MyRecord] = Map(
+          Record("AAA", 1) -> MyRecord(1),
+          Record("BBB", 2) -> MyRecord(2)
+        )
+
+        val mSchema = Schema.map(Record.schemaRecord, myRecord)
+        for {
+          ed  <- encodeAndDecode(mSchema, m)
+          ed2 <- encodeAndDecodeNS(mSchema, m)
+        } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
       },
       testM("recursive data types") {
         checkM(SchemaGen.anyRecursiveTypeAndValue) {
@@ -767,14 +789,14 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
   def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, String, A] =
     ZIO.succeed(ProtobufCodec.decode(schema)(fromHex(hex))).absolve[String, A]
 
-  def encodeAndDecode[A](schema: Schema[A], input: A) =
+  def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
     ZStream
       .succeed(input)
       .transduce(ProtobufCodec.encoder(schema))
       .transduce(ProtobufCodec.decoder(schema))
       .run(ZSink.collectAll)
 
-  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A) =
+  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
     ZStream
       .succeed(input)
       .transduce(ProtobufCodec.encoder(encodeSchema))
@@ -782,7 +804,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false) =
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Console, String, A] =
     ZIO
       .succeed(input)
       .tap(value => putStrLn(s"Input Value: $value").when(print).ignore)

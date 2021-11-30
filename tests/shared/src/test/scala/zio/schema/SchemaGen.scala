@@ -43,13 +43,13 @@ object SchemaGen {
     Gen.setOfBounded(1, 8)(anyLabel.map(_ -> schema)).map(ListMap.empty ++ _)
 
   val anyPrimitive: Gen[Random, Schema.Primitive[_]] =
-    StandardTypeGen.anyStandardType.map(Schema.Primitive(_))
+    StandardTypeGen.anyStandardType.map(Schema.Primitive(_, Chunk.empty))
 
   type PrimitiveAndGen[A] = (Schema.Primitive[A], Gen[Random with Sized, A])
 
   val anyPrimitiveAndGen: Gen[Random, PrimitiveAndGen[_]] =
     StandardTypeGen.anyStandardTypeAndGen.map {
-      case (standardType, gen) => Schema.Primitive(standardType) -> gen
+      case (standardType, gen) => Schema.Primitive(standardType, Chunk.empty) -> gen
     }
 
   type PrimitiveAndValue[A] = (Schema.Primitive[A], A)
@@ -231,7 +231,12 @@ object SchemaGen {
 
   // TODO: Add some random Left values.
   private def transformSequence[A](schema: Schema[Chunk[A]]): SequenceTransform[A] =
-    Schema.Transform[Chunk[A], List[A]](schema, chunk => Right(chunk.toList), list => Right(Chunk.fromIterable(list)))
+    Schema.Transform[Chunk[A], List[A]](
+      schema,
+      chunk => Right(chunk.toList),
+      list => Right(Chunk.fromIterable(list)),
+      Chunk.empty
+    )
 
   type SequenceTransformAndValue[A] = (SequenceTransform[A], List[A])
 
@@ -258,7 +263,12 @@ object SchemaGen {
 
   // TODO: Dynamically generate a case class.
   def transformRecord[A](schema: Schema[ListMap[String, _]]): RecordTransform[A] =
-    Schema.Transform[ListMap[String, _], A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."))
+    Schema.Transform[ListMap[String, _], A](
+      schema,
+      _ => Left("Not implemented."),
+      _ => Left("Not implemented."),
+      Chunk.empty
+    )
 
   type RecordTransformAndValue[A] = (RecordTransform[A], A)
 
@@ -285,7 +295,7 @@ object SchemaGen {
 
   // TODO: Dynamically generate a sealed trait and case/value classes.
   def transformEnumeration[A](schema: Schema[Any]): EnumerationTransform[_] =
-    Schema.Transform[Any, A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."))
+    Schema.Transform[Any, A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."), Chunk.empty)
 
   type EnumerationTransformAndValue[A] = (EnumerationTransform[A], A)
 
@@ -479,8 +489,8 @@ object SchemaGen {
         anyTree(depth - 1).map(Schema.list(_)),
         // Nested optional cause some issues. Ignore them for now: See https://github.com/zio/zio-schema/issues/68
         anyTree(depth - 1).map {
-          case s @ Schema.Optional(_) => s
-          case s                      => Schema.option(s)
+          case s @ Schema.Optional(_, _) => s
+          case s                         => Schema.option(s)
         },
         anyTree(depth - 1).zip(anyTree(depth - 1)).map { case (l, r) => Schema.either(l, r) },
         anyTree(depth - 1).zip(anyTree(depth - 1)).map { case (l, r) => Schema.tuple2(l, r) },
@@ -512,7 +522,8 @@ object SchemaGen {
   case class JArray(fields: List[Json])            extends Json
 
   object Json {
-    implicit lazy val schema: Schema[Json] = DeriveSchema.gen[Json]
+    implicit lazy val schema: Schema.Enum6[JArray, JDecimal, JNull.type, JNumber, JObject, JString, Json] =
+      DeriveSchema.gen[Json]
 
     val leafGen: Gen[Random with Sized, Json] =
       Gen.oneOf(
