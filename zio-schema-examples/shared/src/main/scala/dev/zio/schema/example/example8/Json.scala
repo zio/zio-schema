@@ -1,6 +1,7 @@
 package dev.zio.schema.example.example8
 
 sealed trait Json
+
 object Json {
   final case class JStr(s: String)              extends Json
   final case class JNum(d: Double)              extends Json

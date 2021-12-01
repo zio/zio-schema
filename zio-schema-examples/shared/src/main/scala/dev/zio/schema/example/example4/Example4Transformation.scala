@@ -1,8 +1,8 @@
 package dev.zio.schema.example.example4
 
 import zio.schema.Schema
-import zio.schema.ast.{Migration, NodePath, SchemaAst}
-import zio.{Chunk, ExitCode, URIO, ZIO}
+import zio.schema.ast.{ Migration, NodePath, SchemaAst }
+import zio.{ Chunk, ExitCode, URIO, ZIO }
 
 /**
  * Example 4: In this Example, we use ZIO-Schema to migrate objects from one representation to another.
@@ -12,9 +12,11 @@ import zio.{Chunk, ExitCode, URIO, ZIO}
  **/
 private[example4] object Domain {
   final case class WebPerson(name: String, age: Int)
+
   object WebPerson {
     val name = Schema.Field[String]("name", Schema.primitive[String])
     val age  = Schema.Field[Int]("age", Schema.primitive[Int])
+
     val schema: Schema[WebPerson] = Schema.CaseClass2[String, Int, WebPerson](
       field1 = name,
       field2 = age,
@@ -25,10 +27,12 @@ private[example4] object Domain {
   }
 
   final case class DomainPerson(firstname: String, lastname: String, years: Int)
+
   object DomainPerson {
     val firstname = Schema.Field("firstname", Schema.primitive[String])
     val lastname  = Schema.Field("lastname", Schema.primitive[String])
     val years     = Schema.Field("years", Schema.primitive[Int])
+
     val schema: Schema[DomainPerson] = Schema.CaseClass3[String, String, Int, DomainPerson](
       field1 = firstname,
       field2 = lastname,
@@ -55,9 +59,11 @@ object Example4Transformation extends zio.App {
       val name = person.name.split(" ").toSeq
       DomainPerson(name.head, name.tail.mkString(" "), person.age)
     },
-    (dto: DomainPerson) => WebPerson(dto.firstname + " " + dto.lastname, dto.years),
+    (dto: DomainPerson) => WebPerson(dto.firstname + " " + dto.lastname, dto.years)
   )
-  val domainPerson: Either[String, DomainPerson] = WebPerson.schema.migrate(personTransformation).flatMap(f => f(webPerson))
+
+  val domainPerson: Either[String, DomainPerson] =
+    WebPerson.schema.migrate(personTransformation).flatMap(f => f(webPerson))
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = ZIO.debug(domainPerson).exitCode
 }
@@ -71,36 +77,37 @@ object Example4Ast extends zio.App {
 
   val webPerson = WebPerson("Mike Moe", 32)
 
-  val dyn = WebPerson.schema.toDynamic(webPerson).transform(
-    Chunk(
-      Migration.AddNode(NodePath.root / "lastname", SchemaAst.fromSchema(DomainPerson.lastname.schema)),
+  val dyn = WebPerson.schema
+    .toDynamic(webPerson)
+    .transform(
+      Chunk(
+        Migration.AddNode(NodePath.root / "lastname", SchemaAst.fromSchema(DomainPerson.lastname.schema))
 //      Migration.Relabel(NodePath.root / "years", Migration.LabelTransformation("age")) // does not compile, LabelTransformation
-  ))
-    //.flatMap(dv => DomainPerson.schema.fromDynamic(dv))
-
+      )
+    )
+  //.flatMap(dv => DomainPerson.schema.fromDynamic(dv))
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = ZIO.debug(dyn).exitCode
 }
-
 
 object Example4Ast2 extends zio.App {
   import Domain._
 
   val webPerson = WebPerson("Mike Moe", 32)
+
   val personTransformation: Schema[DomainPerson] = WebPerson.schema.transform[DomainPerson](
     (person: WebPerson) => {
       val name = person.name.split(" ").toSeq
       DomainPerson(name.head, name.tail.mkString(" "), person.age)
     },
-    (dto: DomainPerson) => WebPerson(dto.firstname + " " + dto.lastname, dto.years),
+    (dto: DomainPerson) => WebPerson(dto.firstname + " " + dto.lastname, dto.years)
   )
-  val webPersonAst = SchemaAst.fromSchema(WebPerson.schema)
+  val webPersonAst    = SchemaAst.fromSchema(WebPerson.schema)
   val domainPersonAst = SchemaAst.fromSchema(DomainPerson.schema)
-  val migrationAst = SchemaAst.fromSchema(personTransformation)
+  val migrationAst    = SchemaAst.fromSchema(personTransformation)
 
-  val migrationWebPersonAstToMigrationAst = Migration.derive(webPersonAst, migrationAst)
+  val migrationWebPersonAstToMigrationAst    = Migration.derive(webPersonAst, migrationAst)
   val migrationWebPersonAstToDomainPersonAst = Migration.derive(webPersonAst, domainPersonAst)
-
 
   val effect = for {
     _ <- ZIO.debug(webPersonAst)
@@ -112,7 +119,7 @@ object Example4Ast2 extends zio.App {
     _ <- ZIO.debug(x) // Left(Failed to cast Record(ListMap(name -> Primitive(Mike Moe,string), age -> Primitive(32,int))) to schema Transform(CaseClass2(Field(name,Primitive(string)),Field(age,Primitive(int)))))
 
     domainPerson = WebPerson.schema.migrate(DomainPerson.schema).flatMap(f => f(webPerson))
-    _ <- ZIO.debug(domainPerson) // Left(Cannot add node at path firstname: No default value is available)
+    _            <- ZIO.debug(domainPerson) // Left(Cannot add node at path firstname: No default value is available)
   } yield ()
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = effect.exitCode

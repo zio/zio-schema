@@ -1,8 +1,7 @@
 package dev.zio.schema.example.example3
 
 import zio.schema._
-import zio.{Chunk, ExitCode, URIO, ZIO}
-
+import zio.{ Chunk, ExitCode, URIO, ZIO }
 
 /**
  * Example3:
@@ -13,9 +12,11 @@ import zio.{Chunk, ExitCode, URIO, ZIO}
  **/
 private[example3] object Domain {
   final case class Person(name: String, age: Int)
+
   object Person {
     val name = Schema.Field[String]("name", Schema.primitive[String])
     val age  = Schema.Field[Int]("age", Schema.primitive[Int])
+
     val schema: Schema[Person] = Schema.CaseClass2[String, Int, Person](
       field1 = name,
       field2 = age,
@@ -26,10 +27,12 @@ private[example3] object Domain {
   }
 
   final case class PersonDTO(firstname: String, lastname: String, years: Int)
+
   object PersonDTO {
     val firstname = Schema.Field("firstname", Schema.primitive[String])
     val lastname  = Schema.Field("lastname", Schema.primitive[String])
     val years     = Schema.Field("years", Schema.primitive[Int])
+
     val schema: Schema[PersonDTO] = Schema.CaseClass3[String, String, Int, PersonDTO](
       field1 = firstname,
       field2 = lastname,
@@ -56,22 +59,22 @@ object Example3 extends zio.App {
   )
 
   val example = for {
-    _ <- ZIO.unit
-    json = """{"firstname":"John","lastname":"Doe","years":42}"""
+    _      <- ZIO.unit
+    json   = """{"firstname":"John","lastname":"Doe","years":42}"""
     chunks = Chunk.fromArray(json.getBytes)
-    _ <- ZIO.debug("input JSON    : " + json)
+    _      <- ZIO.debug("input JSON    : " + json)
 
     // get objects from JSON
     personDTO <- ZIO.fromEither(JsonCodec.decode[PersonDTO](PersonDTO.schema)(chunks))
-    person <- ZIO.fromEither(JsonCodec.decode[Person](personTransformation)(chunks))
-    _ <- ZIO.debug("PersonDTO     : " + personDTO)
-    _ <- ZIO.debug("Person        : " + person)
+    person    <- ZIO.fromEither(JsonCodec.decode[Person](personTransformation)(chunks))
+    _         <- ZIO.debug("PersonDTO     : " + personDTO)
+    _         <- ZIO.debug("Person        : " + person)
 
     // get JSON from Objects
     personJson    = new String(JsonCodec.encode[Person](Person.schema)(person).toArray)
     personDTOJson = new String(JsonCodec.encode[Person](personTransformation)(person).toArray)
-    _ <- ZIO.debug("Person    JSON: " + personJson)
-    _ <- ZIO.debug("PersonDTO JSON: " + personDTOJson)
+    _             <- ZIO.debug("Person    JSON: " + personJson)
+    _             <- ZIO.debug("PersonDTO JSON: " + personDTOJson)
 
   } yield person
 

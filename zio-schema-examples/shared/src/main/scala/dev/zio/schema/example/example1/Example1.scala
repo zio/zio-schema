@@ -1,8 +1,8 @@
 package dev.zio.schema.example.example1
 
-import zio.schema.{DeriveSchema, Schema}
+import zio.schema.{ DeriveSchema, Schema }
 import zio.stream.ZTransducer
-import zio.{Chunk, ExitCode, URIO, ZIO}
+import zio.{ Chunk, ExitCode, URIO, ZIO }
 
 /**
  * Example 1 of ZIO-Schema:
@@ -60,21 +60,22 @@ object ManualConstruction {
     extractField3 = p => p.expirationYear
   )
 
-  val schemaPaymentMethod: Schema[PaymentMethod] = Schema.Enum2[PaymentMethod.CreditCard, PaymentMethod.WireTransfer, PaymentMethod](
-    case1 = Case[PaymentMethod.CreditCard, PaymentMethod](
-      id = "CreditCard",
-      codec = schemaPaymentMethodCreditCard,
-      unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.CreditCard],
+  val schemaPaymentMethod: Schema[PaymentMethod] =
+    Schema.Enum2[PaymentMethod.CreditCard, PaymentMethod.WireTransfer, PaymentMethod](
+      case1 = Case[PaymentMethod.CreditCard, PaymentMethod](
+        id = "CreditCard",
+        codec = schemaPaymentMethodCreditCard,
+        unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.CreditCard],
+        annotations = Chunk.empty
+      ),
+      case2 = Case[PaymentMethod.WireTransfer, PaymentMethod](
+        id = "WireTransfer",
+        codec = schemaPaymentMethodWireTransfer,
+        unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.WireTransfer],
+        annotations = Chunk.empty
+      ),
       annotations = Chunk.empty
-    ),
-    case2 = Case[PaymentMethod.WireTransfer, PaymentMethod](
-      id = "WireTransfer",
-      codec = schemaPaymentMethodWireTransfer,
-      unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.WireTransfer],
-      annotations = Chunk.empty
-    ),
-    annotations = Chunk.empty
-  )
+    )
 
   val schemaCustomer: Schema[Customer] = Schema.CaseClass2[Person, PaymentMethod, Customer](
     field1 = Schema.Field[Person]("person", schemaPerson),
@@ -103,13 +104,13 @@ object JsonSample extends zio.App {
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     for {
-      _ <- ZIO.unit
+      _                      <- ZIO.unit
       person                 = Person("Michelle", 32)
       personToJsonTransducer = JsonCodec.encoder[Person](schemaPerson)
       _ <- ZStream(person)
-        .transduce(personToJsonTransducer)
-        .transduce(ZTransducer.utf8Decode)
-        .foreach(ZIO.debug)
+            .transduce(personToJsonTransducer)
+            .transduce(ZTransducer.utf8Decode)
+            .foreach(ZIO.debug)
     } yield ExitCode.success
 }
 
@@ -120,20 +121,19 @@ object ProtobufExample extends zio.App {
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     for {
-      _ <- ZIO.unit
-      _ <- ZIO.debug("protobuf roundtrip")
+      _      <- ZIO.unit
+      _      <- ZIO.debug("protobuf roundtrip")
       person = Person("Michelle", 32)
 
       personToProto = ProtobufCodec.encoder[Person](schemaPerson)
       protoToPerson = ProtobufCodec.decoder[Person](schemaPerson)
 
-      newPerson <-
-        ZStream(person)
-          .transduce(personToProto)
-          .transduce(protoToPerson)
-          .runHead
-          .some
-          .catchAll(error => ZIO.debug(error))
+      newPerson <- ZStream(person)
+                    .transduce(personToProto)
+                    .transduce(protoToPerson)
+                    .runHead
+                    .some
+                    .catchAll(error => ZIO.debug(error))
       _ <- ZIO.debug("is old person the new person? " + (person == newPerson).toString)
       _ <- ZIO.debug("old person: " + person)
       _ <- ZIO.debug("new person: " + newPerson)
@@ -142,13 +142,13 @@ object ProtobufExample extends zio.App {
 
 object CombiningExample extends zio.App {
   import ManualConstruction._
-  import zio.schema.codec.{JsonCodec, ProtobufCodec}
+  import zio.schema.codec.{ JsonCodec, ProtobufCodec }
   import zio.stream.ZStream
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     for {
-      _ <- ZIO.unit
-      _ <- ZIO.debug("combining roundtrip")
+      _      <- ZIO.unit
+      _      <- ZIO.debug("combining roundtrip")
       person = Person("Michelle", 32)
 
       personToJson = JsonCodec.encoder[Person](schemaPerson)
@@ -157,18 +157,17 @@ object CombiningExample extends zio.App {
       personToProto = ProtobufCodec.encoder[Person](schemaPerson)
       protoToPerson = ProtobufCodec.decoder[Person](schemaPerson)
 
-      newPerson <-
-        ZStream(person)
-          .tap(v => ZIO.debug("input object is: " + v))
-          .transduce(personToJson)
-          .transduce(jsonToPerson)
-          .tap(v => ZIO.debug("object after json roundtrip: " + v))
-          .transduce(personToProto)
-          .transduce(protoToPerson)
-          .tap(v => ZIO.debug("person after protobuf roundtrip: " + v))
-          .runHead
-          .some
-          .catchAll(error => ZIO.debug(error))
+      newPerson <- ZStream(person)
+                    .tap(v => ZIO.debug("input object is: " + v))
+                    .transduce(personToJson)
+                    .transduce(jsonToPerson)
+                    .tap(v => ZIO.debug("object after json roundtrip: " + v))
+                    .transduce(personToProto)
+                    .transduce(protoToPerson)
+                    .tap(v => ZIO.debug("person after protobuf roundtrip: " + v))
+                    .runHead
+                    .some
+                    .catchAll(error => ZIO.debug(error))
       _ <- ZIO.debug("is old person the new person? " + (person == newPerson).toString)
       _ <- ZIO.debug("old person: " + person)
       _ <- ZIO.debug("new person: " + newPerson)

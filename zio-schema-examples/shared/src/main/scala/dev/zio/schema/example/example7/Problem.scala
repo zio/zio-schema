@@ -1,19 +1,21 @@
-package dev.zio.schema.example.exercise7
+package dev.zio.schema.example.example7
 
 import zio.Chunk
-import zio.schema.{DeriveSchema, DynamicValue, Schema, StandardType}
+import zio.schema.{ DeriveSchema, DynamicValue, Schema, StandardType }
 
 import scala.collection.immutable.ListMap
 
 /** This exercise is based on John DeGoes Spartan training on ZIO-Schema from 2021-11-04
-  */
-private[exercise7] object Problem {
+ */
+private[example7] object Problem {
 
   final case class Person(name: String, age: Int)
-  object Person  {
+
+  object Person {
     implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
   }
   final case class Profile(location: String, address: String)
+
   object Profile {
     implicit val schema: Schema[Profile] = DeriveSchema.gen[Profile]
   }
@@ -33,16 +35,18 @@ private[exercise7] object Problem {
     } yield Profile(location.head, address.head)
 
   object Approach1 extends scala.App {
+
     // this will be a "quick and dirty" solution, that can be accomplished in a few minutes.
     // not suitable for _extremely high performance_ applications
     // probably suitable for the normal business application with medium performance requirements
     def decode[A](
-        params: Map[String, List[String]]
+      params: Map[String, List[String]]
     )(implicit schema: Schema[A]): Either[String, A] =
       toDV(params)
         .map(_.toTypedValue(schema))
-        .collectFirst { case Right(v) =>
-          v
+        .collectFirst {
+          case Right(v) =>
+            v
         }
         .toRight("some error")
 
@@ -51,30 +55,31 @@ private[exercise7] object Problem {
     def toDV(params: Map[String, List[String]]): Set[DynamicValue] = {
       import DynamicValue._
       params
-        .foldLeft[Set[ListMap[String, DynamicValue]]](Set(ListMap())) { case (set, (key, values)) =>
-          set.flatMap { acc =>
-            values match {
-              case Nil      => Set(acc.updated(key, Singleton(())))
-              case x :: Nil =>
-                val strInterpretation =
-                  Set(acc.updated(key, Primitive[String](x, StandardType.StringType)))
-                val intInterpretation = x.toIntOption match {
-                  case Some(value) =>
-                    Set(acc.updated(key, Primitive[Int](value, StandardType.IntType)))
-                  case None        => Set()
-                }
-                strInterpretation ++ intInterpretation
-              case xs       =>
-                Set(
-                  acc.updated(
-                    key,
-                    DynamicValue.Sequence(
-                      Chunk.fromIterable(xs).map(Primitive[String](_, StandardType.StringType))
+        .foldLeft[Set[ListMap[String, DynamicValue]]](Set(ListMap())) {
+          case (set, (key, values)) =>
+            set.flatMap { acc =>
+              values match {
+                case Nil => Set(acc.updated(key, Singleton(())))
+                case x :: Nil =>
+                  val strInterpretation =
+                    Set(acc.updated(key, Primitive[String](x, StandardType.StringType)))
+                  val intInterpretation = x.toIntOption match {
+                    case Some(value) =>
+                      Set(acc.updated(key, Primitive[Int](value, StandardType.IntType)))
+                    case None => Set()
+                  }
+                  strInterpretation ++ intInterpretation
+                case xs =>
+                  Set(
+                    acc.updated(
+                      key,
+                      DynamicValue.Sequence(
+                        Chunk.fromIterable(xs).map(Primitive[String](_, StandardType.StringType))
+                      )
                     )
                   )
-                )
+              }
             }
-          }
         }
         .map(DynamicValue.Record)
     }
@@ -90,7 +95,7 @@ private[exercise7] object Problem {
 
     // this will be a sophisticated solution for a high performance library like ZIO
     def decodeFromQueryParams[A](
-        params: QueryParams
+      params: QueryParams
     )(implicit schema: Schema[A], decoder: QueryParams => Either[String, A]): Either[String, A] =
       decoder(params)
 
@@ -99,12 +104,12 @@ private[exercise7] object Problem {
       def compile[B](key: Option[String], schema: Schema[B]): QueryParams => Either[String, B] =
         schema match {
           case transform: Transform[a, B] =>
-            import transform.{f, codec}
+            import transform.{ codec, f }
             val func: QueryParams => Either[String, Any] = compile(key, codec)
             (params: QueryParams) => func(params).flatMap(v => f(v.asInstanceOf[a]))
           case Primitive(standardType, _) =>
             key match {
-              case None      =>
+              case None =>
                 val error = Left(s"Cannot extract a primitive out of a query string")
                 Function.const(error)
               case Some(key) =>
@@ -116,29 +121,29 @@ private[exercise7] object Problem {
                         case _                => Left(s"Cannot extract a primitive string out of nothing")
                       }
                     f
-                  case StandardType.IntType    =>
+                  case StandardType.IntType =>
                     val f: QueryParams => Either[String, B] = (qp: QueryParams) =>
                       qp.get(key) match {
                         case Some(value :: _) =>
                           value.toIntOption
                             .toRight(s"cannot create an integer out of ${value}")
                             .asInstanceOf[Either[String, B]]
-                        case _                => Left(s"Cannot extract a primitive string out of nothing")
+                        case _ => Left(s"Cannot extract a primitive string out of nothing")
                       }
                     f
-                  case _                       =>
+                  case _ =>
                     val error = Left(s"Expected String or Int but found ${standardType}")
                     Function.const(error)
                 }
             }
 
           case caseClass1: CaseClass1[a, B] =>
-            import caseClass1.{field, construct}
+            import caseClass1.{ construct, field }
             val f = compile[a](Some(field.label), field.schema)
             (qp: QueryParams) => f(qp).map(v => construct(v))
 
           case caseClass2: CaseClass2[a, b, B] =>
-            import caseClass2.{field1, field2, construct}
+            import caseClass2.{ construct, field1, field2 }
             val f1 = compile[a](Some(field1.label), field1.schema)
             val f2 = compile[b](Some(field2.label), field2.schema)
 
@@ -149,7 +154,7 @@ private[exercise7] object Problem {
               } yield construct(v1, v2)
 
           case caseClass3: CaseClass3[a, b, c, B] =>
-            import caseClass3.{field1, field2, field3, construct}
+            import caseClass3.{ construct, field1, field2, field3 }
             val f1 = compile[a](Some(field1.label), field1.schema)
             val f2 = compile[b](Some(field2.label), field2.schema)
             val f3 = compile[c](Some(field3.label), field3.schema)
@@ -163,17 +168,17 @@ private[exercise7] object Problem {
 
           case record: Record[_] => ???
 
-          case enum: Enum[_]    => ???
+          case enum: Enum[_] => ???
           //        case Optional(codec) => ???
           case Fail(message, _) => Function.const(Left(message))
           //        case Tuple(left, right) => ???
           //        case EitherSchema(left, right) => ???
-          case Lazy(schema0)    =>
+          case Lazy(schema0) =>
             // lazy val to make sure its only compiled on first usage and not instantly recursing
             lazy val compiled = compile(key, schema0())
             (qp: QueryParams) => compiled(qp)
-          case Meta(ast, _)     => compile(key, ast.toSchema.asInstanceOf[Schema[B]])
-          case _                =>
+          case Meta(ast, _) => compile(key, ast.toSchema.asInstanceOf[Schema[B]])
+          case _ =>
             val err = Left(s"Decoding from query parameters is not supported for ${schema}")
             Function.const(err)
         }
@@ -182,7 +187,6 @@ private[exercise7] object Problem {
     }
 
     implicit val personDecoder: QueryParams => Either[String, Person] = buildDecoder[Person]
-
 
     println("approach 2")
 

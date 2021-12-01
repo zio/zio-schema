@@ -11,6 +11,7 @@ trait Decoder[+A] {
 }
 
 object Decoder {
+
   def deriveDecoder[A](implicit schema: Schema[A]): Decoder[A] =
     in =>
       for {

@@ -1,8 +1,9 @@
 package dev.zio.schema.example.example8
 
-import zio.schema.{DeriveSchema, Schema}
+import zio.schema.{ DeriveSchema, Schema }
 
 final case class Person(name: String, age: Double)
+
 object Person {
   implicit val schemaPerson: Schema[Person] = DeriveSchema.gen[Person]
 }

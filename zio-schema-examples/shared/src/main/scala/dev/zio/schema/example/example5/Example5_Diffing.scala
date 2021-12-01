@@ -2,7 +2,7 @@ package dev.zio.schema.example.example5
 
 import zio.schema.Schema
 import zio.schema.ast.SchemaAst
-import zio.{ExitCode, URIO, ZIO}
+import zio.{ ExitCode, URIO, ZIO }
 
 /**
  * Example 5: In this example, we use ZIO-Schema to detect changes in our objects.
@@ -10,9 +10,11 @@ import zio.{ExitCode, URIO, ZIO}
  */
 private[example5] object Domain {
   final case class Person(name: String, age: Int)
+
   object Person {
     val name = Schema.Field[String]("name", Schema.primitive[String])
     val age  = Schema.Field[Int]("age", Schema.primitive[Int])
+
     val schema: Schema[Person] = Schema.CaseClass2[String, Int, Person](
       field1 = name,
       field2 = age,
@@ -23,10 +25,12 @@ private[example5] object Domain {
   }
 
   final case class PersonDTO(firstname: String, lastname: String, years: Int)
+
   object PersonDTO {
     val firstname = Schema.Field("firstname", Schema.primitive[String])
     val lastname  = Schema.Field("lastname", Schema.primitive[String])
     val years     = Schema.Field("years", Schema.primitive[Int])
+
     val schema: Schema[PersonDTO] = Schema.CaseClass3[String, String, Int, PersonDTO](
       field1 = firstname,
       field2 = lastname,
