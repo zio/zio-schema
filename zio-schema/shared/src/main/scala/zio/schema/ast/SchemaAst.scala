@@ -35,7 +35,6 @@ object SchemaAst {
   object Product {
     implicit val schema: Schema[Product] = {
       Schema.CaseClass4(
-        annotations = Chunk.empty,
         field1 = Schema.Field("path", Schema[String].repeated),
         field2 = Schema.Field("fields", Schema[Labelled].repeated),
         field3 = Schema.Field("optional", Schema[Boolean]),
@@ -59,7 +58,6 @@ object SchemaAst {
   object Sum {
     implicit val schema: Schema[Sum] =
       Schema.CaseClass4(
-        annotations = Chunk.empty,
         field1 = Schema.Field("path", Schema[String].repeated),
         field2 = Schema.Field("cases", Schema[Labelled].repeated),
         field3 = Schema.Field("optional", Schema[Boolean]),
@@ -81,7 +79,6 @@ object SchemaAst {
 
   object FailNode {
     implicit val schema: Schema[FailNode] = Schema.CaseClass4(
-      annotations = Chunk.empty,
       field1 = Schema.Field("message", Schema[String]),
       field2 = Schema.Field("path", Schema[String].repeated),
       field3 = Schema.Field("optional", Schema[Boolean]),
@@ -105,7 +102,6 @@ object SchemaAst {
     implicit val schema: Schema[Value] =
       Schema
         .CaseClass4[String, Chunk[String], Boolean, Int, (String, Chunk[String], Boolean, Int)](
-          annotations = Chunk.empty,
           field1 = Schema.Field("valueType", Schema[String]),
           field2 = Schema.Field("path", Schema[String].repeated),
           field3 = Schema.Field("optional", Schema[Boolean]),
@@ -139,7 +135,6 @@ object SchemaAst {
   object Ref {
     implicit val schema: Schema[Ref] =
       Schema.CaseClass4(
-        annotations = Chunk.empty,
         field1 = Schema.Field("refPath", Schema[String].repeated),
         field2 = Schema.Field("path", Schema[String].repeated),
         field3 = Schema.Field("optional", Schema[Boolean]),

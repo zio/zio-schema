@@ -146,7 +146,6 @@ object DefaultValueSpec extends DefaultRunnableSpec {
       test("basic") {
         val schema: Schema[UserId] =
           Schema.CaseClass1(
-            annotations = Chunk.empty,
             field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
             UserId.apply,
             (uid: UserId) => uid.id
@@ -156,11 +155,9 @@ object DefaultValueSpec extends DefaultRunnableSpec {
       test("recursive") {
         val expected: Schema[User] =
           Schema.CaseClass3(
-            annotations = Chunk.empty,
             field1 = Schema.Field(
               "id",
               Schema.CaseClass1(
-                annotations = Chunk.empty,
                 field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
                 UserId.apply,
                 (uid: UserId) => uid.id
