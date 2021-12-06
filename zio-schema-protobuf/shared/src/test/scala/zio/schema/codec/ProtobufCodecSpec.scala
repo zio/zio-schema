@@ -66,14 +66,14 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         for {
           e  <- encode(schemaPackedList, PackedList(List(3, 270, 86942))).map(toHex)
           e2 <- encodeNS(schemaPackedList, PackedList(List(3, 270, 86942))).map(toHex)
-        } yield assert(e)(equalTo("0A06038E029EA705")) && assert(e2)(equalTo("0A06038E029EA705"))
+        } yield assert(e)(equalTo("0A081206038E029EA705")) && assert(e2)(equalTo("0A081206038E029EA705"))
       },
       testM("unpacked lists") {
         for {
           e  <- encode(schemaUnpackedList, UnpackedList(List("foo", "bar", "baz"))).map(toHex)
           e2 <- encodeNS(schemaUnpackedList, UnpackedList(List("foo", "bar", "baz"))).map(toHex)
-        } yield assert(e)(equalTo("0A0F0A03666F6F12036261721A0362617A")) && assert(e2)(
-          equalTo("0A0F0A03666F6F12036261721A0362617A")
+        } yield assert(e)(equalTo("0A11120F0A03666F6F12036261721A0362617A")) && assert(e2)(
+          equalTo("0A11120F0A03666F6F12036261721A0362617A")
         )
       },
       testM("records") {
@@ -104,21 +104,19 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
     suite("Should successfully encode and decode")(
       testM("empty list") {
         for {
-          ed <- encodeAndDecodeNS(Schema.list(Schema.list[Int]), List.empty)
+          ed <- encodeAndDecodeNS(Schema[List[List[Int]]], List.empty)
         } yield assert(ed)(equalTo(List.empty))
-      } @@ TestAspect.ignore,
+      },
       testM("list of an empty list") {
         for {
-          ed <- encodeAndDecodeNS(Schema.list(Schema.list[Int]), List(List.empty))
+          ed <- encodeAndDecodeNS(Schema[List[List[Int]]], List(List.empty))
         } yield assert(ed)(equalTo(List(List.empty)))
-      } @@ TestAspect.ignore,
-      testM("tuple containing empty list & tuple containing list of an empty list") {
-        val value: (String, List[List[Int]], String) = ("first string", List(List.empty), "second string")
-        val value2: (String, List[Int], String)      = ("first string", List.empty, "second string")
+      },
+      testM("case class containing empty list & case class containing list of an empty list") {
+        val value2 = Lists(1, List.empty, "second string", List(List.empty))
         for {
-          ed  <- encodeAndDecodeNS(DeriveSchema.gen[(String, List[List[Int]], String)], value)
-          ed2 <- encodeAndDecodeNS(DeriveSchema.gen[(String, List[Int], String)], value2)
-        } yield assert(ed)(equalTo(value)) && assert(ed2)(equalTo(value2))
+          ed2 <- encodeAndDecodeNS(Schema[Lists], value2)
+        } yield assert(ed2)(equalTo(value2))
       },
       testM("records") {
         for {
@@ -605,6 +603,12 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
   case class BasicInt(value: Int)
 
   case class BasicTwoInts(value1: Int, value2: Int)
+
+  case class Lists(id: Int, ints: List[Int], value: String, intLists: List[List[Int]])
+
+  object Lists {
+    implicit val schema: Schema[Lists] = DeriveSchema.gen[Lists]
+  }
 
   lazy val schemaBasicTwoInts: Schema[BasicTwoInts] = DeriveSchema.gen[BasicTwoInts]
 
