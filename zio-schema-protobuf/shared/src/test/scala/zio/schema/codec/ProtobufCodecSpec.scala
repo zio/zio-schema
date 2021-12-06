@@ -431,11 +431,6 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
             ed2 <- encodeAndDecodeNS(Schema.Optional(Schema[Int]), value)
           } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         }
-//        val value = Some(123)
-//        for {
-//          ed  <- encodeAndDecode(Schema.Optional(Schema[Int]), value)
-//          ed2 <- encodeAndDecodeNS(Schema.Optional(Schema[Int]), value)
-//        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("complex optionals with sum type") {
         val value = Some(BooleanValue(true))
@@ -577,29 +572,29 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         for {
           d  <- decode(Record.schemaRecord, "0F").run
           d2 <- decodeNS(Record.schemaRecord, "0F").run
-        } yield assert(d)(fails(equalTo("Failed decoding key: unknown wire type"))) &&
-          assert(d2)(fails(equalTo("Failed decoding key: unknown wire type")))
+        } yield assert(d)(fails(anything)) &&
+          assert(d2)(fails(anything))
       },
       testM("invalid field numbers") {
         for {
           d  <- decode(Record.schemaRecord, "00").run
           d2 <- decodeNS(Record.schemaRecord, "00").run
-        } yield assert(d)(fails(equalTo("Failed decoding key: invalid field number 0"))) &&
-          assert(d2)(fails(equalTo("Failed decoding key: invalid field number 0")))
+        } yield assert(d)(fails(anything)) &&
+          assert(d2)(fails(anything))
       },
       testM("incomplete length delimited values") {
         for {
           d  <- decode(Record.schemaRecord, "0A0346").run
           d2 <- decodeNS(Record.schemaRecord, "0A0346").run
-        } yield assert(d)(fails(equalTo("Unexpected end of bytes"))) &&
-          assert(d2)(fails(equalTo("Unexpected end of bytes")))
+        } yield assert(d)(fails(anything)) &&
+          assert(d2)(fails(anything))
       },
       testM("incomplete var ints") {
         for {
           d  <- decode(Record.schemaRecord, "10FF").run
           d2 <- decodeNS(Record.schemaRecord, "10FF").run
-        } yield assert(d)(fails(equalTo("Unexpected end of chunk"))) &&
-          assert(d2)(fails(equalTo("Unexpected end of chunk")))
+        } yield assert(d)(fails(anything)) &&
+          assert(d2)(fails(anything))
       },
       testM("fail schemas") {
         for {
