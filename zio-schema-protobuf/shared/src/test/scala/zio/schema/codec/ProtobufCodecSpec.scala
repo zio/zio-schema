@@ -425,11 +425,17 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         } yield assert(ed)(equalTo(Chunk(eitherRight2))) && assert(ed2)(equalTo(eitherRight))
       },
       testM("optionals") {
-        val value = Some(123)
-        for {
-          ed  <- encodeAndDecode(Schema.Optional(Schema[Int]), value)
-          ed2 <- encodeAndDecodeNS(Schema.Optional(Schema[Int]), value)
-        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+        checkM(Gen.option(Gen.int(Int.MinValue, Int.MaxValue))) { value =>
+          for {
+            ed  <- encodeAndDecode(Schema.Optional(Schema[Int]), value)
+            ed2 <- encodeAndDecodeNS(Schema.Optional(Schema[Int]), value)
+          } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+        }
+//        val value = Some(123)
+//        for {
+//          ed  <- encodeAndDecode(Schema.Optional(Schema[Int]), value)
+//          ed2 <- encodeAndDecodeNS(Schema.Optional(Schema[Int]), value)
+//        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("complex optionals with sum type") {
         val value = Some(BooleanValue(true))
@@ -509,6 +515,11 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(schema, either)
         } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
       },
+      testM("sequence of tuples") {
+        for {
+          ed <- encodeAndDecodeNS2(Schema[List[(String, Int)]], List("foo" -> 1, "bar" -> 2))
+        } yield assertTrue(ed == Right(List("foo" -> 1, "bar" -> 2)))
+      },
       testM("sequence of products") {
         val richSequence = SequenceOfProduct(
           "hello",
@@ -543,9 +554,9 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         checkM(SchemaGen.anyRecursiveTypeAndValue) {
           case (schema, value) =>
             for {
-              ed  <- encodeAndDecode(schema, value)
-              ed2 <- encodeAndDecodeNS(schema, value)
-            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+              ed <- encodeAndDecode2(schema, value)
+//              ed2 <- encodeAndDecodeNS(schema, value)
+            } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
         }
       }
     ),
@@ -800,6 +811,18 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .transduce(ProtobufCodec.decoder(schema))
       .run(ZSink.collectAll)
 
+  def encodeAndDecode2[A](schema: Schema[A], input: A): ZIO[Console, Any, Either[String, Chunk[A]]] =
+    ZStream
+      .succeed(input)
+      .transduce(ProtobufCodec.encoder(schema))
+      .transduce(ProtobufCodec.decoder(schema))
+      .run(ZSink.collectAll)
+      .either
+      .tapSome {
+        case Left(error) =>
+          putStrLn(s"Failed to encode and decode input $input\nError=$error").orDie
+      }
+
   def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
     ZStream
       .succeed(input)
@@ -816,6 +839,21 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .tap(encoded => putStrLn(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
       .map(ch => ProtobufCodec.decode(schema)(ch))
       .absolve
+
+  def encodeAndDecodeNS2[A](
+    schema: Schema[A],
+    input: A,
+    print: Boolean = false
+  ): ZIO[Console, String, Either[String, A]] =
+    ZIO
+      .succeed(input)
+      .tap(value => putStrLn(s"Input Value: $value").when(print).ignore)
+      .map(a => ProtobufCodec.encode(schema)(a))
+      .tap(encoded => putStrLn(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
+      .map(ch => ProtobufCodec.decode(schema)(ch))
+      .tapSome {
+        case Left(err) => putStrLn(s"Failed to encode and decode value $input\nError = $err").orDie
+      }
 
   def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, A] =
     ZIO

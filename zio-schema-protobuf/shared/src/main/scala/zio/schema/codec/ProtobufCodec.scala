@@ -363,12 +363,11 @@ object ProtobufCodec extends Codec {
       left: Schema[A],
       right: Schema[B],
       tuple: (A, B)
-    ): Chunk[Byte] =
-      encode(
-        fieldNumber,
-        tupleSchema(left, right),
-        ListMap[String, Any]("first" -> tuple._1, "second" -> tuple._2)
-      )
+    ): Chunk[Byte] = {
+      val data = encode(Some(1), left, tuple._1) ++ encode(Some(2), right, tuple._2)
+
+      encodeKey(WireType.LengthDelimited(data.size), fieldNumber) ++ data
+    }
 
     private def encodeEither[A, B](
       fieldNumber: Option[Int],
@@ -384,16 +383,14 @@ object ProtobufCodec extends Codec {
       encodeKey(WireType.LengthDelimited(encodedEither.size), fieldNumber) ++ encodedEither
     }
 
-    private def encodeOptional[A](fieldNumber: Option[Int], schema: Schema[A], value: Option[A]): Chunk[Byte] =
-      value match {
-        case Some(v) =>
-          encode(
-            fieldNumber,
-            singleSchema(schema),
-            ListMap("value" -> v)
-          )
-        case None => Chunk.empty
+    private def encodeOptional[A](fieldNumber: Option[Int], schema: Schema[A], value: Option[A]): Chunk[Byte] = {
+      val data = value match {
+        case Some(a) => encode(Some(2), schema, a)
+        case None    => encodeKey(WireType.LengthDelimited(0), Some(1))
       }
+
+      encodeKey(WireType.LengthDelimited(data.size), fieldNumber) ++ data
+    }
 
     private def encodeVarInt(value: Int): Chunk[Byte] =
       encodeVarInt(value.toLong)
@@ -505,11 +502,11 @@ object ProtobufCodec extends Codec {
       //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
       schema match {
         case Schema.GenericRecord(structure, _) => recordDecoder(structure.toChunk)
-        case Schema.Sequence(elementSchema /*@ Schema.Sequence(_, _, _, _)*/, fromChunk, _, _) =>
+        case Schema.Sequence(elementSchema, fromChunk, _, _) =>
           if (canBePacked(elementSchema)) packedSequenceDecoder(elementSchema).map(fromChunk)
           else nonPackedSequenceDecoder(elementSchema).map(fromChunk)
         case Schema.MapSchema(ks: Schema[k], vs: Schema[v], _) =>
-          decoder(Schema.Sequence(ks <*> vs, (c: Chunk[(k, v)]) => c.toList.toMap, (m: Map[k, v]) => Chunk.fromIterable(m), Chunk.empty))
+          decoder(Schema.Sequence(ks <*> vs, (c: Chunk[(k, v)]) => Map(c: _*), (m: Map[k, v]) => Chunk.fromIterable(m)))
         case Schema.Transform(codec, f, _, _)                                                  => transformDecoder(codec, f)
         case Schema.Primitive(standardType, _)                                                 => primitiveDecoder(standardType)
         case Schema.Tuple(left, right, _)                                                      => tupleDecoder(left, right)
@@ -641,29 +638,47 @@ object ProtobufCodec extends Codec {
         case (wt, fieldNumber) => fail(s"Invalid wire type ($wt) or field number ($fieldNumber) for sequence")
       }
 
-    private def tupleDecoder[A, B](left: Schema[A], right: Schema[B]): Decoder[(A, B)] =
-      decoder(tupleSchema(left, right))
-        .flatMap(
-          record =>
-            new Decoder(
-              chunk =>
-                (record.get("first"), record.get("second")) match {
-                  case (Some(first), Some(second)) => Right((chunk, (first.asInstanceOf[A], second.asInstanceOf[B])))
-                  case _                           => Left("Error while decoding tuple.")
-                }
-            )
-        )
+    private def tupleDecoder[A, B](left: Schema[A], right: Schema[B]): Decoder[(A, B)] = {
+      def elementDecoder[A](schema: Schema[A], wt: WireType): Decoder[A] = wt match {
+        case LengthDelimited(width) => decoder(schema).take(width)
+        case _                      => decoder(schema)
+      }
+
+      keyDecoder.flatMap {
+        case (wt, 1) =>
+          elementDecoder(left, wt).flatMap { leftValue =>
+            keyDecoder.flatMap {
+              case (wt, 2) =>
+                elementDecoder(right, wt).map(rightValue => (leftValue, rightValue))
+              case (_, fieldNumber) => fail(s"Invalid field number ($fieldNumber) for tuple encoding")
+            }
+          }
+        case (wt, 2) =>
+          elementDecoder(right, wt).flatMap { rightValue =>
+            keyDecoder.flatMap {
+              case (wt, 1) =>
+                elementDecoder(left, wt).map(leftValue => (leftValue, rightValue))
+              case (_, fieldNumber) => fail(s"Invalid field number ($fieldNumber) for tuple encoding")
+            }
+          }
+        case (_, fieldNumber) => fail(s"Invalid field number ($fieldNumber) for tuple encoding")
+      }
+    }
 
     private def eitherDecoder[A, B](left: Schema[A], right: Schema[B]): Decoder[Either[A, B]] =
       keyDecoder.flatMap {
         case (_, fieldNumber) if fieldNumber == 1 => decoder(left).map(Left(_))
         case (_, fieldNumber) if fieldNumber == 2 => decoder(right).map(Right(_))
-        case _                                    => fail("Failed to decode either.")
+        case (_, fieldNumber)                     => fail(s"Invalid field number ($fieldNumber) for either encoding")
       }
 
     private def optionalDecoder[A](schema: Schema[A]): Decoder[Option[A]] =
-      decoder(singleSchema(schema))
-        .map(record => record.get("value").asInstanceOf[Option[A]])
+      keyDecoder.flatMap {
+        case (LengthDelimited(0), 1)     => succeed(None)
+        case (LengthDelimited(width), 2) => decoder(schema).take(width).map(Some(_))
+        case (_, 2)                      => decoder(schema).map(Some(_))
+        case (_, fieldNumber)            => fail(s"Invalid field number $fieldNumber for option encoding")
+      }
 
     private def floatDecoder: Decoder[Float] =
       Decoder(bytes => {
