@@ -1,7 +1,7 @@
 package dev.zio.schema.example.example4
 
-import zio.schema.Schema
 import zio.schema.ast.{ Migration, NodePath, SchemaAst }
+import zio.schema.{ DynamicValue, Schema }
 import zio.{ Chunk, ExitCode, URIO, ZIO }
 
 /**
@@ -14,8 +14,8 @@ private[example4] object Domain {
   final case class WebPerson(name: String, age: Int)
 
   object WebPerson {
-    val name = Schema.Field[String]("name", Schema.primitive[String])
-    val age  = Schema.Field[Int]("age", Schema.primitive[Int])
+    val name: Schema.Field[String] = Schema.Field[String]("name", Schema.primitive[String])
+    val age: Schema.Field[Int]     = Schema.Field[Int]("age", Schema.primitive[Int])
 
     val schema: Schema[WebPerson] = Schema.CaseClass2[String, Int, WebPerson](
       field1 = name,
@@ -29,9 +29,9 @@ private[example4] object Domain {
   final case class DomainPerson(firstname: String, lastname: String, years: Int)
 
   object DomainPerson {
-    val firstname = Schema.Field("firstname", Schema.primitive[String])
-    val lastname  = Schema.Field("lastname", Schema.primitive[String])
-    val years     = Schema.Field("years", Schema.primitive[Int])
+    val firstname: Schema.Field[String] = Schema.Field("firstname", Schema.primitive[String])
+    val lastname: Schema.Field[String]  = Schema.Field("lastname", Schema.primitive[String])
+    val years: Schema.Field[Int]        = Schema.Field("years", Schema.primitive[Int])
 
     val schema: Schema[DomainPerson] = Schema.CaseClass3[String, String, Int, DomainPerson](
       field1 = firstname,
@@ -52,7 +52,7 @@ object Example4Transformation extends zio.App {
 
   import Domain._
 
-  val webPerson = WebPerson("Mike Moe", 32)
+  val webPerson: WebPerson = WebPerson("Mike Moe", 32)
 
   val personTransformation: Schema[DomainPerson] = WebPerson.schema.transform[DomainPerson](
     (person: WebPerson) => {
@@ -75,9 +75,9 @@ object Example4Ast extends zio.App {
 
   import Domain._
 
-  val webPerson = WebPerson("Mike Moe", 32)
+  val webPerson: WebPerson = WebPerson("Mike Moe", 32)
 
-  val dyn = WebPerson.schema
+  val dyn: Either[String, DynamicValue] = WebPerson.schema
     .toDynamic(webPerson)
     .transform(
       Chunk(
@@ -93,7 +93,7 @@ object Example4Ast extends zio.App {
 object Example4Ast2 extends zio.App {
   import Domain._
 
-  val webPerson = WebPerson("Mike Moe", 32)
+  val webPerson: WebPerson = WebPerson("Mike Moe", 32)
 
   val personTransformation: Schema[DomainPerson] = WebPerson.schema.transform[DomainPerson](
     (person: WebPerson) => {
@@ -102,14 +102,17 @@ object Example4Ast2 extends zio.App {
     },
     (dto: DomainPerson) => WebPerson(dto.firstname + " " + dto.lastname, dto.years)
   )
-  val webPersonAst    = SchemaAst.fromSchema(WebPerson.schema)
-  val domainPersonAst = SchemaAst.fromSchema(DomainPerson.schema)
-  val migrationAst    = SchemaAst.fromSchema(personTransformation)
+  val webPersonAst: SchemaAst    = SchemaAst.fromSchema(WebPerson.schema)
+  val domainPersonAst: SchemaAst = SchemaAst.fromSchema(DomainPerson.schema)
+  val migrationAst: SchemaAst    = SchemaAst.fromSchema(personTransformation)
 
-  val migrationWebPersonAstToMigrationAst    = Migration.derive(webPersonAst, migrationAst)
-  val migrationWebPersonAstToDomainPersonAst = Migration.derive(webPersonAst, domainPersonAst)
+  val migrationWebPersonAstToMigrationAst: Either[String, Chunk[Migration]] =
+    Migration.derive(webPersonAst, migrationAst)
 
-  val effect = for {
+  val migrationWebPersonAstToDomainPersonAst: Either[String, Chunk[Migration]] =
+    Migration.derive(webPersonAst, domainPersonAst)
+
+  val effect: ZIO[Any, Nothing, Unit] = for {
     _ <- ZIO.debug(webPersonAst)
     _ <- ZIO.debug(domainPersonAst)
     _ <- ZIO.debug(migrationAst)

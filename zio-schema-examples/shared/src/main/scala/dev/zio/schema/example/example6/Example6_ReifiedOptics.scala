@@ -1,8 +1,8 @@
 package dev.zio.schema.example.example6
 
 import zio._
-import zio.schema._
 import zio.schema.Schema._
+import zio.schema._
 import zio.schema.optics.ZioOpticsBuilder
 import zio.schema.syntax._
 
@@ -20,38 +20,41 @@ private[example6] object Domain {
     extractField2 = _.age
   )
 
-  implicit val addressSchema = Schema.CaseClass3[String, String, String, Address](
-    field1 = Field("street", Schema.primitive[String]),
-    field2 = Field("city", Schema.primitive[String]),
-    field3 = Field("state", Schema.primitive[String]),
-    construct = (street, city, state) => Address(street, city, state),
-    extractField1 = _.street,
-    extractField2 = _.city,
-    extractField3 = _.state
-  )
+  implicit val addressSchema: CaseClass3[String, String, String, Address] =
+    Schema.CaseClass3[String, String, String, Address](
+      field1 = Field("street", Schema.primitive[String]),
+      field2 = Field("city", Schema.primitive[String]),
+      field3 = Field("state", Schema.primitive[String]),
+      construct = (street, city, state) => Address(street, city, state),
+      extractField1 = _.street,
+      extractField2 = _.city,
+      extractField3 = _.state
+    )
 
-  implicit val userAddressSchema = Schema.CaseClass2[User, Address, UserAddress](
-    field1 = Field("user", userSchema),
-    field2 = Field("address", addressSchema),
-    construct = (user, address) => UserAddress(user, address),
-    extractField1 = _.user,
-    extractField2 = _.address
-  )
+  implicit val userAddressSchema: CaseClass2[User, Address, UserAddress] =
+    Schema.CaseClass2[User, Address, UserAddress](
+      field1 = Field("user", userSchema),
+      field2 = Field("address", addressSchema),
+      construct = (user, address) => UserAddress(user, address),
+      extractField1 = _.user,
+      extractField2 = _.address
+    )
 
-  implicit val companySchema = Schema.CaseClass2[User, List[UserAddress], Company](
-    field1 = Field("boss", userSchema),
-    field2 = Field("employees", Schema.list(userAddressSchema)),
-    construct = (boss, employees) => Company(boss, employees),
-    extractField1 = _.boss,
-    extractField2 = _.employees
-  )
+  implicit val companySchema: CaseClass2[User, List[UserAddress], Company] =
+    Schema.CaseClass2[User, List[UserAddress], Company](
+      field1 = Field("boss", userSchema),
+      field2 = Field("employees", Schema.list(userAddressSchema)),
+      construct = (boss, employees) => Company(boss, employees),
+      extractField1 = _.boss,
+      extractField2 = _.employees
+    )
 
 }
 
 object Example6_ReifiedOptics extends zio.App {
   import Domain._
 
-  val lensTest1 = for {
+  val lensTest1: ZIO[Any, Nothing, Unit] = for {
     _             <- ZIO.debug("lens test 1")
     user          = User("Dominik", 35)
     userAccessors = userSchema.makeAccessors(ZioOpticsBuilder)
@@ -62,7 +65,7 @@ object Example6_ReifiedOptics extends zio.App {
     _             <- ZIO.debug(changedUser)
   } yield ()
 
-  val lensTest2 = for {
+  val lensTest2: ZIO[Any, Nothing, Unit] = for {
     _                    <- ZIO.debug("lens test 2")
     user                 = User("Dominik", 35)
     address              = Address("Street", "City", "State")
@@ -76,7 +79,7 @@ object Example6_ReifiedOptics extends zio.App {
     _                  <- ZIO.debug(changedUserAddress)
   } yield ()
 
-  val traversalTest1 = for {
+  val traversalTest1: ZIO[Any, Nothing, Unit] = for {
     _                         <- ZIO.debug("\n\n\n\n")
     _                         <- ZIO.debug("traversal test 1.. trying to add a employee to a company")
     company                   = Company(boss = User("Dominik", 36), List.empty[UserAddress])
@@ -114,7 +117,7 @@ object Example6_PureOptics extends scala.App {
 
   final case class Company(boss: User, employees: List[Employee])
 
-  val company = Company(User("boss"), List(Employee("employee1")))
+  val company: Company = Company(User("boss"), List(Employee("employee1")))
   println("company with 1 employee :       " + company)
 
   val employees: Lens[Company, List[Employee]] =
@@ -123,7 +126,7 @@ object Example6_PureOptics extends scala.App {
       employees => company => Right(company.copy(employees = employees))
     )
 
-  val employee = Employee("employee2")
+  val employee: Employee = Employee("employee2")
 
   println("company with 2 employees: " + employees.update(company)(employees => employee :: employees))
 }

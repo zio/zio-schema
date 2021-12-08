@@ -9,10 +9,10 @@ object Person {
 }
 
 object Usage extends App {
-  val p = Person("cal", 30)
+  val p: Person = Person("cal", 30)
 
-  val pJson = Encoder.deriveEncoder[Person].encode(p)
-  val sameP = Decoder.deriveDecoder[Person].decode(pJson)
+  val pJson: Json                   = Encoder.deriveEncoder[Person].encode(p)
+  val sameP: Either[String, Person] = Decoder.deriveDecoder[Person].decode(pJson)
   println(sameP == Right(p))
 
   println {

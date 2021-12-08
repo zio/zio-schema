@@ -1,10 +1,10 @@
 package dev.zio.schema.example.example8
 
-import zio.Chunk
-import zio.schema._
-import zio.prelude._
-
 import scala.collection.immutable.ListMap
+
+import zio.Chunk
+import zio.prelude._
+import zio.schema._
 
 trait Decoder[+A] {
   def decode(in: Json): Either[String, A]
@@ -35,10 +35,9 @@ object Decoder {
           .map(list => DynamicValue.Sequence(Chunk.fromIterable(list)))
 
       case Json.JObj(map) =>
-        map.view
-          .mapValues(jsonToDynamicValue)
-          .toMap
-          .forEach(a => a)
+        map.map {
+          case (k, v) => k -> jsonToDynamicValue(v)
+        }.forEach(a => a)
           .map(map => DynamicValue.Record(ListMap.from(map)))
     }
 }

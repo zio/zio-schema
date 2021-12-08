@@ -1,6 +1,6 @@
 import sbtcrossproject.CrossPlugin.autoImport.crossProject
 import BuildHelper.{ crossProjectSettings, _ }
-import explicitdeps.ExplicitDepsPlugin.autoImport.{moduleFilterRemoveValue, unusedCompileDependenciesFilter}
+import explicitdeps.ExplicitDepsPlugin.autoImport.{ moduleFilterRemoveValue, unusedCompileDependenciesFilter }
 import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport.scalaJSUseMainModuleInitializer
 import sbt.moduleFilter
 
@@ -48,7 +48,7 @@ lazy val root = project
   .in(file("."))
   .settings(
     name := "zio-schema",
-    publish / skip := true,
+    publish / skip := true
 //    unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
   .aggregate(
@@ -184,6 +184,7 @@ lazy val zioSchemaOpticsJVM = zioSchemaOptics.jvm
 lazy val zioSchemaExamples = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-examples"))
   .settings(stdSettings("zio-schema-examples"))
+  .settings(crossScalaVersions -= Scala212)
   .dependsOn(zioSchema, zioSchemaJson, zioSchemaProtobuf, zioSchemaOptics)
   .settings(
     publish / skip := true,
@@ -191,6 +192,7 @@ lazy val zioSchemaExamples = crossProject(JSPlatform, JVMPlatform)
     scalacOptions -= "-Yno-imports",
     scalacOptions -= "-Xfatal-warnings"
   )
+
 lazy val zioSchemaExamplesJS = zioSchemaExamples.js
   .settings(scalaJSUseMainModuleInitializer := true)
 

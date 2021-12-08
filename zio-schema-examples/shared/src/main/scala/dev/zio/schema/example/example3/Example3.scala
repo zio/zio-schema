@@ -14,8 +14,8 @@ private[example3] object Domain {
   final case class Person(name: String, age: Int)
 
   object Person {
-    val name = Schema.Field[String]("name", Schema.primitive[String])
-    val age  = Schema.Field[Int]("age", Schema.primitive[Int])
+    val name: Schema.Field[String] = Schema.Field[String]("name", Schema.primitive[String])
+    val age: Schema.Field[Int]     = Schema.Field[Int]("age", Schema.primitive[Int])
 
     val schema: Schema[Person] = Schema.CaseClass2[String, Int, Person](
       field1 = name,
@@ -29,9 +29,9 @@ private[example3] object Domain {
   final case class PersonDTO(firstname: String, lastname: String, years: Int)
 
   object PersonDTO {
-    val firstname = Schema.Field("firstname", Schema.primitive[String])
-    val lastname  = Schema.Field("lastname", Schema.primitive[String])
-    val years     = Schema.Field("years", Schema.primitive[Int])
+    val firstname: Schema.Field[String] = Schema.Field("firstname", Schema.primitive[String])
+    val lastname: Schema.Field[String]  = Schema.Field("lastname", Schema.primitive[String])
+    val years: Schema.Field[Int]        = Schema.Field("years", Schema.primitive[Int])
 
     val schema: Schema[PersonDTO] = Schema.CaseClass3[String, String, Int, PersonDTO](
       field1 = firstname,
@@ -58,7 +58,7 @@ object Example3 extends zio.App {
     }
   )
 
-  val example = for {
+  val example: ZIO[Any, String, Person] = for {
     _      <- ZIO.unit
     json   = """{"firstname":"John","lastname":"Doe","years":42}"""
     chunks = Chunk.fromArray(json.getBytes)
