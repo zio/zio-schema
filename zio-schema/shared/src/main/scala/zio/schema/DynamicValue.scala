@@ -982,17 +982,17 @@ object DynamicValue {
 
       case Schema.Meta(ast, _) => DynamicValue.DynamicAst(ast)
 
-      case Schema.CaseClass1(_, f, _, ext) =>
+      case Schema.CaseClass1(f, _, ext, _) =>
         DynamicValue.Record(ListMap(f.label -> fromSchemaAndValue(f.schema, ext(value))))
 
-      case Schema.CaseClass2(_, f1, f2, _, ext1, ext2) =>
+      case Schema.CaseClass2(f1, f2, _, ext1, ext2, _) =>
         DynamicValue.Record(
           ListMap(
             f1.label -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label -> fromSchemaAndValue(f2.schema, ext2(value))
           )
         )
-      case Schema.CaseClass3(_, f1, f2, f3, _, ext1, ext2, ext3) =>
+      case Schema.CaseClass3(f1, f2, f3, _, ext1, ext2, ext3, _) =>
         DynamicValue.Record(
           ListMap(
             f1.label -> fromSchemaAndValue(f1.schema, ext1(value)),
@@ -1000,7 +1000,7 @@ object DynamicValue {
             f3.label -> fromSchemaAndValue(f3.schema, ext3(value))
           )
         )
-      case Schema.CaseClass4(_, f1, f2, f3, f4, _, ext1, ext2, ext3, ext4) =>
+      case Schema.CaseClass4(f1, f2, f3, f4, _, ext1, ext2, ext3, ext4, _) =>
         DynamicValue.Record(
           ListMap(
             f1.label -> fromSchemaAndValue(f1.schema, ext1(value)),
@@ -1009,7 +1009,7 @@ object DynamicValue {
             f4.label -> fromSchemaAndValue(f4.schema, ext4(value))
           )
         )
-      case Schema.CaseClass5(_, f1, f2, f3, f4, f5, _, ext1, ext2, ext3, ext4, ext5) =>
+      case Schema.CaseClass5(f1, f2, f3, f4, f5, _, ext1, ext2, ext3, ext4, ext5, _) =>
         DynamicValue.Record(
           ListMap(
             f1.label -> fromSchemaAndValue(f1.schema, ext1(value)),
@@ -1019,7 +1019,7 @@ object DynamicValue {
             f5.label -> fromSchemaAndValue(f5.schema, ext5(value))
           )
         )
-      case Schema.CaseClass6(_, f1, f2, f3, f4, f5, f6, _, ext1, ext2, ext3, ext4, ext5, ext6) =>
+      case Schema.CaseClass6(f1, f2, f3, f4, f5, f6, _, ext1, ext2, ext3, ext4, ext5, ext6, _) =>
         DynamicValue.Record(
           ListMap(
             f1.label -> fromSchemaAndValue(f1.schema, ext1(value)),
@@ -1030,7 +1030,7 @@ object DynamicValue {
             f6.label -> fromSchemaAndValue(f6.schema, ext6(value))
           )
         )
-      case Schema.CaseClass7(_, f1, f2, f3, f4, f5, f6, f7, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7) =>
+      case Schema.CaseClass7(f1, f2, f3, f4, f5, f6, f7, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, _) =>
         DynamicValue.Record(
           ListMap(
             f1.label -> fromSchemaAndValue(f1.schema, ext1(value)),
@@ -1042,7 +1042,7 @@ object DynamicValue {
             f7.label -> fromSchemaAndValue(f7.schema, ext7(value))
           )
         )
-      case Schema.CaseClass8(_, f1, f2, f3, f4, f5, f6, f7, f8, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8) =>
+      case Schema.CaseClass8(f1, f2, f3, f4, f5, f6, f7, f8, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, _) =>
         DynamicValue.Record(
           ListMap(
             f1.label -> fromSchemaAndValue(f1.schema, ext1(value)),
@@ -1056,7 +1056,6 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass9(
-          _,
           f1,
           f2,
           f3,
@@ -1075,7 +1074,8 @@ object DynamicValue {
           ext6,
           ext7,
           ext8,
-          ext9
+          ext9,
+          _
           ) =>
         DynamicValue.Record(
           ListMap(
@@ -1091,7 +1091,6 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass10(
-          _,
           f1,
           f2,
           f3,
@@ -1112,7 +1111,8 @@ object DynamicValue {
           ext7,
           ext8,
           ext9,
-          ext10
+          ext10,
+          _
           ) =>
         DynamicValue.Record(
           ListMap(
@@ -1129,7 +1129,6 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass11(
-          _,
           f1,
           f2,
           f3,
@@ -1152,7 +1151,8 @@ object DynamicValue {
           ext8,
           ext9,
           ext10,
-          ext11
+          ext11,
+          _
           ) =>
         DynamicValue.Record(
           ListMap(
@@ -1170,7 +1170,6 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass12(
-          _,
           f1,
           f2,
           f3,
@@ -1195,7 +1194,8 @@ object DynamicValue {
           ext9,
           ext10,
           ext11,
-          ext12
+          ext12,
+          _
           ) =>
         DynamicValue.Record(
           ListMap(
@@ -1214,7 +1214,6 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass13(
-          _,
           f1,
           f2,
           f3,
@@ -1241,7 +1240,8 @@ object DynamicValue {
           ext10,
           ext11,
           ext12,
-          ext13
+          ext13,
+          _
           ) =>
         DynamicValue.Record(
           ListMap(
@@ -1261,7 +1261,6 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass14(
-          _,
           f1,
           f2,
           f3,
@@ -1290,7 +1289,8 @@ object DynamicValue {
           ext11,
           ext12,
           ext13,
-          ext14
+          ext14,
+          _
           ) =>
         DynamicValue.Record(
           ListMap(
@@ -1311,7 +1311,6 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass15(
-          _,
           f1,
           f2,
           f3,
@@ -1342,7 +1341,8 @@ object DynamicValue {
           ext12,
           ext13,
           ext14,
-          ext15
+          ext15,
+          _
           ) =>
         DynamicValue.Record(
           ListMap(
@@ -1364,7 +1364,6 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass16(
-          _,
           f1,
           f2,
           f3,
@@ -1397,7 +1396,8 @@ object DynamicValue {
           ext13,
           ext14,
           ext15,
-          ext16
+          ext16,
+          _
           ) =>
         DynamicValue.Record(
           ListMap(
@@ -1420,7 +1420,6 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass17(
-          _,
           f1,
           f2,
           f3,
@@ -1455,7 +1454,8 @@ object DynamicValue {
           ext14,
           ext15,
           ext16,
-          ext17
+          ext17,
+          _
           ) =>
         DynamicValue.Record(
           ListMap(
@@ -1479,7 +1479,6 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass18(
-          _,
           f1,
           f2,
           f3,
@@ -1516,7 +1515,8 @@ object DynamicValue {
           ext15,
           ext16,
           ext17,
-          ext18
+          ext18,
+          _
           ) =>
         DynamicValue.Record(
           ListMap(
@@ -1541,7 +1541,6 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass19(
-          _,
           f1,
           f2,
           f3,
@@ -1580,7 +1579,8 @@ object DynamicValue {
           ext16,
           ext17,
           ext18,
-          ext19
+          ext19,
+          _
           ) =>
         DynamicValue.Record(
           ListMap(
@@ -1606,7 +1606,6 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass20(
-          _,
           f1,
           f2,
           f3,
@@ -1647,7 +1646,8 @@ object DynamicValue {
           ext17,
           ext18,
           ext19,
-          ext20
+          ext20,
+          _
           ) =>
         DynamicValue.Record(
           ListMap(
@@ -1674,7 +1674,6 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass21(
-          _,
           f1,
           f2,
           f3,
@@ -1717,7 +1716,8 @@ object DynamicValue {
           ext18,
           ext19,
           ext20,
-          ext21
+          ext21,
+          _
           ) =>
         DynamicValue.Record(
           ListMap(
@@ -1745,7 +1745,6 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass22(
-          _,
           f1,
           f2,
           f3,
@@ -1790,7 +1789,8 @@ object DynamicValue {
           ext19,
           ext20,
           ext21,
-          ext22
+          ext22,
+          _
           ) =>
         DynamicValue.Record(
           ListMap(

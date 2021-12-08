@@ -227,7 +227,6 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         val derived: Schema[UserId] = DeriveSchema.gen[UserId]
         val expected: Schema[UserId] =
           Schema.CaseClass1(
-            annotations = Chunk.empty,
             field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
             UserId.apply,
             (uid: UserId) => uid.id
@@ -245,12 +244,10 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         val derived: Schema[User] = Schema[User]
         val expected: Schema[User] = {
           Schema.CaseClass2(
-            annotations = Chunk(new annotation3),
             field1 = Schema.Field("name", Schema.Primitive(StandardType.StringType)),
             field2 = Schema.Field(
               "id",
               Schema.CaseClass1(
-                annotations = Chunk.empty,
                 field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
                 UserId.apply,
                 (uid: UserId) => uid.id
@@ -259,7 +256,8 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
             ),
             User.apply,
             (u: User) => u.name,
-            (u: User) => u.id
+            (u: User) => u.id,
+            annotations = Chunk(new annotation3)
           )
         }
         assert(derived)(hasSameSchema(expected))
