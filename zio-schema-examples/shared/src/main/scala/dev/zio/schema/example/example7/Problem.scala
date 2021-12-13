@@ -1,9 +1,17 @@
 package dev.zio.schema.example.example7
 
-import zio.Chunk
-import zio.schema.{ DeriveSchema, DynamicValue, Schema, StandardType }
-
+import scala.collection.SetOps
 import scala.collection.immutable.ListMap
+import scala.jdk.FunctionWrappers
+import scala.runtime.{ AbstractFunction1, AbstractPartialFunction }
+import scala.util.Try
+
+import zio.Chunk
+import zio.prelude.SafeFunction
+import zio.prelude.recursive.Folder.concurrent.impl.{ FutureConvertersImpl, Promise }
+import zio.prelude.recursive.{ Folder, Unfolder }
+import zio.schema.{ DeriveSchema, DynamicValue, Schema, StandardType }
+import zio.stream.ZStream
 
 /** This exercise is based on John DeGoes Spartan training on ZIO-Schema from 2021-11-04
  */
@@ -63,7 +71,7 @@ private[example7] object Problem {
                 case x :: Nil =>
                   val strInterpretation =
                     Set(acc.updated(key, Primitive[String](x, StandardType.StringType)))
-                  val intInterpretation = x.toIntOption match {
+                  val intInterpretation = Try(x.toInt).toOption match {
                     case Some(value) =>
                       Set(acc.updated(key, Primitive[Int](value, StandardType.IntType)))
                     case None => Set()
@@ -84,7 +92,7 @@ private[example7] object Problem {
         .map(DynamicValue.Record)
     }
 
-    val p = decode[Person](Map("name" -> List("John"), "age" -> List("42")))
+    val p: Either[String, Person] = decode[Person](Map("name" -> List("John"), "age" -> List("42")))
 
     println(p)
   }
@@ -125,9 +133,7 @@ private[example7] object Problem {
                     val f: QueryParams => Either[String, B] = (qp: QueryParams) =>
                       qp.get(key) match {
                         case Some(value :: _) =>
-                          value.toIntOption
-                            .toRight(s"cannot create an integer out of ${value}")
-                            .asInstanceOf[Either[String, B]]
+                          Try(value.toInt).toOption.toRight(s"cannot create an integer out of $value")
                         case _ => Left(s"Cannot extract a primitive string out of nothing")
                       }
                     f
@@ -137,49 +143,58 @@ private[example7] object Problem {
                 }
             }
 
-          case caseClass1: CaseClass1[a, B] =>
-            import caseClass1.{ construct, field }
-            val f = compile[a](Some(field.label), field.schema)
-            (qp: QueryParams) => f(qp).map(v => construct(v))
+          case cc: CaseClass1[a, B] =>
+            val f = compile[a](Some(cc.field.label), cc.field.schema)
+            (qp: QueryParams) => f(qp).map(v => cc.construct(v))
 
-          case caseClass2: CaseClass2[a, b, B] =>
-            import caseClass2.{ construct, field1, field2 }
-            val f1 = compile[a](Some(field1.label), field1.schema)
-            val f2 = compile[b](Some(field2.label), field2.schema)
+          case cc: CaseClass2[a, b, B] =>
+            val f1 = compile[a](Some(cc.field1.label), cc.field1.schema)
+            val f2 = compile[b](Some(cc.field2.label), cc.field2.schema)
 
             (qp: QueryParams) =>
               for {
                 v1 <- f1(qp)
                 v2 <- f2(qp)
-              } yield construct(v1, v2)
+              } yield cc.construct(v1, v2)
 
-          case caseClass3: CaseClass3[a, b, c, B] =>
-            import caseClass3.{ construct, field1, field2, field3 }
-            val f1 = compile[a](Some(field1.label), field1.schema)
-            val f2 = compile[b](Some(field2.label), field2.schema)
-            val f3 = compile[c](Some(field3.label), field3.schema)
+          case cc: CaseClass3[a, b, c, B] =>
+            val f1 = compile[a](Some(cc.field1.label), cc.field1.schema)
+            val f2 = compile[b](Some(cc.field2.label), cc.field2.schema)
+            val f3 = compile[c](Some(cc.field3.label), cc.field3.schema)
 
             (qp: QueryParams) =>
               for {
                 v1 <- f1(qp)
                 v2 <- f2(qp)
                 v3 <- f3(qp)
-              } yield construct(v1, v2, v3)
+              } yield cc.construct(v1, v2, v3)
 
-          case record: Record[_] => ???
+            // And so on to arity 23..
+
+          case record: Record[B] =>
+            (qp: QueryParams) => {
+              record.structure.map {
+                case Schema.Field(label, schema, _) =>
+                  compile(Some(label), schema)(qp)
+              }.foldRight[Either[String, Chunk[Any]]](Right(Chunk.empty)) {
+                  case (Right(nextValue), Right(values)) => Right(values :+ nextValue)
+                  case (Left(err), _)                    => Left(err)
+                  case (_, Left(err))                    => Left(err)
+                }
+                .flatMap(record.rawConstruct(_))
+            }
 
           case enum: Enum[_] => ???
           //        case Optional(codec) => ???
           case Fail(message, _) => Function.const(Left(message))
           //        case Tuple(left, right) => ???
           //        case EitherSchema(left, right) => ???
-          case Lazy(schema0) =>
+          case lzy @ Lazy(_) =>
             // lazy val to make sure its only compiled on first usage and not instantly recursing
-            lazy val compiled = compile(key, schema0())
+            lazy val compiled = compile(key, lzy.schema)
             (qp: QueryParams) => compiled(qp)
-          case Meta(ast, _) => compile(key, ast.toSchema.asInstanceOf[Schema[B]])
           case _ =>
-            val err = Left(s"Decoding from query parameters is not supported for ${schema}")
+            val err = Left(s"Decoding from query parameters is not supported for $schema")
             Function.const(err)
         }
 

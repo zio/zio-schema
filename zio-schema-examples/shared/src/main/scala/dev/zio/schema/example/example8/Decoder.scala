@@ -37,7 +37,11 @@ object Decoder {
       case Json.JObj(map) =>
         map.map {
           case (k, v) => k -> jsonToDynamicValue(v)
-        }.forEach(a => a)
-          .map(map => DynamicValue.Record(ListMap.from(map)))
+        }.foldRight[Either[String, DynamicValue]](Right(DynamicValue.Record(ListMap.empty))) {
+          case ((key, Right(value)), Right(DynamicValue.Record(values))) =>
+            Right(DynamicValue.Record(values + (key -> value)))
+          case ((_, Left(err)), _) => Left(err)
+          case (_, Left(err))      => Left(err)
+        }
     }
 }
