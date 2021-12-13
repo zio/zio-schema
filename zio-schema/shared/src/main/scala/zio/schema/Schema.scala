@@ -274,7 +274,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     schemaA: Schema[Elem],
     fromChunk: Chunk[Elem] => Col,
     toChunk: Col => Chunk[Elem],
-    override val annotations: Chunk[Any]
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Collection[Col, Elem] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Traversal[Col, Elem]
 
@@ -1855,7 +1855,7 @@ sealed trait RecordSchemas { self: Schema.type =>
 
   }
 
-  sealed case class CaseClass1[A, Z](override val annotations: Chunk[Any] = Chunk.empty, field: Field[A], construct: A => Z, extractField: Z => A) extends Record[Z] { self =>
+  sealed case class CaseClass1[A, Z](field: Field[A], construct: A => Z, extractField: Z => A, override val annotations: Chunk[Any] = Chunk.empty) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Lens[Z, A]
 
@@ -1877,7 +1877,7 @@ sealed trait RecordSchemas { self: Schema.type =>
     override def toString: String = s"CaseClass1(${structure.mkString(",")})"
   }
 
-  sealed case class CaseClass2[A1, A2, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], construct: (A1, A2) => Z, extractField1: Z => A1, extractField2: Z => A2) extends Record[Z] { self =>
+  sealed case class CaseClass2[A1, A2, Z](field1: Field[A1], field2: Field[A2], construct: (A1, A2) => Z, extractField1: Z => A1, extractField2: Z => A2, override val annotations: Chunk[Any] = Chunk.empty) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2])
 
@@ -1899,7 +1899,7 @@ sealed trait RecordSchemas { self: Schema.type =>
 
   }
 
-  sealed case class CaseClass3[A1, A2, A3, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], field3: Field[A3], construct: (A1, A2, A3) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3) extends Record[Z] { self =>
+  sealed case class CaseClass3[A1, A2, A3, Z](field1: Field[A1], field2: Field[A2], field3: Field[A3], construct: (A1, A2, A3) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3, override val annotations: Chunk[Any] = Chunk.empty) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3])
 
     override def annotate(annotation: Any): CaseClass3[A1, A2, A3, Z] = copy(annotations = annotations :+ annotation)
@@ -1922,7 +1922,7 @@ sealed trait RecordSchemas { self: Schema.type =>
 
   }
 
-  sealed case class CaseClass4[A1, A2, A3, A4, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], field3: Field[A3], field4: Field[A4], construct: (A1, A2, A3, A4) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3, extractField4: Z => A4) extends Record[Z] { self =>
+  sealed case class CaseClass4[A1, A2, A3, A4, Z](field1: Field[A1], field2: Field[A2], field3: Field[A3], field4: Field[A4], construct: (A1, A2, A3, A4) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3, extractField4: Z => A4, override val annotations: Chunk[Any] = Chunk.empty) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4])
 
     override def annotate(annotation: Any): CaseClass4[A1, A2, A3, A4, Z] = copy(annotations = annotations :+ annotation)
@@ -1945,7 +1945,7 @@ sealed trait RecordSchemas { self: Schema.type =>
 
   }
 
-  sealed case class CaseClass5[A1, A2, A3, A4, A5, Z](override val annotations: Chunk[Any] = Chunk.empty, field1: Field[A1], field2: Field[A2], field3: Field[A3], field4: Field[A4], field5: Field[A5], construct: (A1, A2, A3, A4, A5) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3, extractField4: Z => A4, extractField5: Z => A5) extends Record[Z] { self =>
+  sealed case class CaseClass5[A1, A2, A3, A4, A5, Z](field1: Field[A1], field2: Field[A2], field3: Field[A3], field4: Field[A4], field5: Field[A5], construct: (A1, A2, A3, A4, A5) => Z, extractField1: Z => A1, extractField2: Z => A2, extractField3: Z => A3, extractField4: Z => A4, extractField5: Z => A5, override val annotations: Chunk[Any] = Chunk.empty) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5])
 
     override def annotate(annotation: Any): CaseClass5[A1, A2, A3, A4, A5, Z] = copy(annotations = annotations :+ annotation)
@@ -1968,7 +1968,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass6[A1, A2, A3, A4, A5, A6, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -1981,7 +1980,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField3: Z => A3,
     extractField4: Z => A4,
     extractField5: Z => A5,
-    extractField6: Z => A6
+    extractField6: Z => A6,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6])
 
@@ -2006,7 +2006,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -2021,7 +2020,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField4: Z => A4,
     extractField5: Z => A5,
     extractField6: Z => A6,
-    extractField7: Z => A7
+    extractField7: Z => A7,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7])
 
@@ -2046,7 +2046,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -2063,7 +2062,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField5: Z => A5,
     extractField6: Z => A6,
     extractField7: Z => A7,
-    extractField8: Z => A8
+    extractField8: Z => A8,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8])
 
@@ -2088,7 +2088,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -2107,7 +2106,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField6: Z => A6,
     extractField7: Z => A7,
     extractField8: Z => A8,
-    extractField9: Z => A9
+    extractField9: Z => A9,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9])
 
@@ -2132,7 +2132,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -2153,7 +2152,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField7: Z => A7,
     extractField8: Z => A8,
     extractField9: Z => A9,
-    extractField10: Z => A10
+    extractField10: Z => A10,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10])
 
@@ -2178,7 +2178,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -2201,7 +2200,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField8: Z => A8,
     extractField9: Z => A9,
     extractField10: Z => A10,
-    extractField11: Z => A11
+    extractField11: Z => A11,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11])
 
@@ -2226,7 +2226,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -2251,7 +2250,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField9: Z => A9,
     extractField10: Z => A10,
     extractField11: Z => A11,
-    extractField12: Z => A12
+    extractField12: Z => A12,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12])
 
@@ -2276,7 +2276,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -2303,7 +2302,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField10: Z => A10,
     extractField11: Z => A11,
     extractField12: Z => A12,
-    extractField13: Z => A13
+    extractField13: Z => A13,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13])
 
@@ -2328,7 +2328,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -2357,7 +2356,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField11: Z => A11,
     extractField12: Z => A12,
     extractField13: Z => A13,
-    extractField14: Z => A14
+    extractField14: Z => A14,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14])
 
@@ -2400,7 +2400,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -2431,7 +2430,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField12: Z => A12,
     extractField13: Z => A13,
     extractField14: Z => A14,
-    extractField15: Z => A15
+    extractField15: Z => A15,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15])
 
@@ -2491,7 +2491,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -2524,7 +2523,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField13: Z => A13,
     extractField14: Z => A14,
     extractField15: Z => A15,
-    extractField16: Z => A16
+    extractField16: Z => A16,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16])
 
@@ -2586,7 +2586,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -2621,7 +2620,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField14: Z => A14,
     extractField15: Z => A15,
     extractField16: Z => A16,
-    extractField17: Z => A17
+    extractField17: Z => A17,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17])
 
@@ -2685,7 +2685,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -2722,7 +2721,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField15: Z => A15,
     extractField16: Z => A16,
     extractField17: Z => A17,
-    extractField18: Z => A18
+    extractField18: Z => A18,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18])
 
@@ -2788,7 +2788,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -2827,7 +2826,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField16: Z => A16,
     extractField17: Z => A17,
     extractField18: Z => A18,
-    extractField19: Z => A19
+    extractField19: Z => A19,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18], Lens[Z, A19])
 
@@ -2895,7 +2895,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -2936,7 +2935,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField17: Z => A17,
     extractField18: Z => A18,
     extractField19: Z => A19,
-    extractField20: Z => A20
+    extractField20: Z => A20,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18], Lens[Z, A19], Lens[Z, A20])
 
@@ -3006,7 +3006,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -3049,7 +3048,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField18: Z => A18,
     extractField19: Z => A19,
     extractField20: Z => A20,
-    extractField21: Z => A21
+    extractField21: Z => A21,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18], Lens[Z, A19], Lens[Z, A20], Lens[Z, A21])
 
@@ -3121,7 +3121,6 @@ sealed trait RecordSchemas { self: Schema.type =>
   }
 
   sealed case class CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](
-    override val annotations: Chunk[Any] = Chunk.empty,
     field1: Field[A1],
     field2: Field[A2],
     field3: Field[A3],
@@ -3166,7 +3165,8 @@ sealed trait RecordSchemas { self: Schema.type =>
     extractField19: Z => A19,
     extractField20: Z => A20,
     extractField21: Z => A21,
-    extractField22: Z => A22
+    extractField22: Z => A22,
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = (Lens[Z, A1], Lens[Z, A2], Lens[Z, A3], Lens[Z, A4], Lens[Z, A5], Lens[Z, A6], Lens[Z, A7], Lens[Z, A8], Lens[Z, A9], Lens[Z, A10], Lens[Z, A11], Lens[Z, A12], Lens[Z, A13], Lens[Z, A14], Lens[Z, A15], Lens[Z, A16], Lens[Z, A17], Lens[Z, A18], Lens[Z, A19], Lens[Z, A20], Lens[Z, A21], Lens[Z, A22])
 
