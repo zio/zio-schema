@@ -1,17 +1,10 @@
 package dev.zio.schema.example.example7
 
-import scala.collection.SetOps
 import scala.collection.immutable.ListMap
-import scala.jdk.FunctionWrappers
-import scala.runtime.{ AbstractFunction1, AbstractPartialFunction }
 import scala.util.Try
 
 import zio.Chunk
-import zio.prelude.SafeFunction
-import zio.prelude.recursive.Folder.concurrent.impl.{ FutureConvertersImpl, Promise }
-import zio.prelude.recursive.{ Folder, Unfolder }
 import zio.schema.{ DeriveSchema, DynamicValue, Schema, StandardType }
-import zio.stream.ZStream
 
 /** This exercise is based on John DeGoes Spartan training on ZIO-Schema from 2021-11-04
  */
