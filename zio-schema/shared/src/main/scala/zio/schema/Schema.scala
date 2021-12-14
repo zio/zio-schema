@@ -274,7 +274,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     schemaA: Schema[Elem],
     fromChunk: Chunk[Elem] => Col,
     toChunk: Col => Chunk[Elem],
-    override val annotations: Chunk[Any]
+    override val annotations: Chunk[Any] = Chunk.empty
   ) extends Collection[Col, Elem] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Traversal[Col, Elem]
 
