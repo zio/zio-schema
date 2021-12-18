@@ -165,40 +165,52 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
     case class BLeaf[B](value: B)                                    extends RBTree[Nothing, B]
   }
 
-  sealed trait RecursiveEnum
-  case class RecursiveEnum1(label: String, rs: List[RecursiveEnum]) extends RecursiveEnum
-  case object RecursiveEnum2                                        extends RecursiveEnum
+  @annotation1("enum") sealed trait AnnotatedEnum
+
+  object AnnotatedEnum {
+    @annotation2("case") case class AnnotatedCase(field: String) extends AnnotatedEnum
+
+    object AnnotatedCase {
+      implicit val schema = DeriveSchema.gen[AnnotatedCase]
+    }
+
+    implicit val schema = DeriveSchema.gen[AnnotatedEnum]
+  }
+
+  @annotation1("enum") sealed trait RecursiveEnum
+  @annotation2("case") case class RecursiveEnum1(label: String, rs: List[RecursiveEnum]) extends RecursiveEnum
+  case object RecursiveEnum2                                                             extends RecursiveEnum
 
   object RecursiveEnum {
     implicit lazy val schema: Schema[RecursiveEnum] = DeriveSchema.gen[RecursiveEnum]
   }
 
-  sealed trait Enum23
+  @annotation1("enum") sealed trait Enum23
 
   object Enum23 {
-    case object C1  extends Enum23
-    case object C2  extends Enum23
-    case object C3  extends Enum23
-    case object C4  extends Enum23
-    case object C5  extends Enum23
-    case object C6  extends Enum23
-    case object C7  extends Enum23
-    case object C8  extends Enum23
-    case object C9  extends Enum23
-    case object C10 extends Enum23
-    case object C11 extends Enum23
-    case object C12 extends Enum23
-    case object C13 extends Enum23
-    case object C14 extends Enum23
-    case object C15 extends Enum23
-    case object C16 extends Enum23
-    case object C17 extends Enum23
-    case object C18 extends Enum23
-    case object C19 extends Enum23
-    case object C20 extends Enum23
-    case object C21 extends Enum23
-    case object C22 extends Enum23
-    case object C23 extends Enum23
+    @annotation2("case") case object C1 extends Enum23
+    case object C2                      extends Enum23
+    case object C3                      extends Enum23
+    case object C4                      extends Enum23
+    case object C5                      extends Enum23
+    case object C6                      extends Enum23
+    case object C7                      extends Enum23
+    case object C8                      extends Enum23
+    case object C9                      extends Enum23
+    case object C10                     extends Enum23
+    case object C11                     extends Enum23
+    case object C12                     extends Enum23
+    case object C13                     extends Enum23
+    case object C14                     extends Enum23
+    case object C15                     extends Enum23
+    case object C16                     extends Enum23
+    case object C17                     extends Enum23
+    case object C18                     extends Enum23
+    case object C19                     extends Enum23
+    case object C20                     extends Enum23
+    case object C21                     extends Enum23
+    case object C22                     extends Enum23
+    case object C23                     extends Enum23
 
     implicit lazy val schema: Schema.EnumN[Enum23, CaseSet.Aux[Enum23]] = DeriveSchema.gen[Enum23]
 
@@ -240,7 +252,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
 
         assert(derived)(hasSameSchema(expected))
       },
-      test("correctly captures annotations") {
+      test("correctly captures annotations on case class") {
         val derived: Schema[User] = Schema[User]
         val expected: Schema[User] = {
           Schema.CaseClass2(
@@ -276,6 +288,12 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
           )
 
         assert(derived)(hasSameSchema(expected))
+      },
+      test("correctly capture annotations on Enum and cases") {
+        val derived: Schema.Enum1[AnnotatedEnum.AnnotatedCase, AnnotatedEnum] = AnnotatedEnum.schema
+        assertTrue(
+          derived.annotations == Chunk(annotation1("enum")) && derived.case1.annotations == Chunk(annotation2("case"))
+        )
       },
       test("correctly derives mutually recursive case classes") {
         val a  = DependsOnA(Some(DependsOnB(None)))
