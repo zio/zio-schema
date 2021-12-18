@@ -48,8 +48,8 @@ lazy val root = project
   .in(file("."))
   .settings(
     name := "zio-schema",
-    publish / skip := true,
-    unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
+    publish / skip := true
+//    unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
   .aggregate(
     zioSchemaJVM,
@@ -62,8 +62,12 @@ lazy val root = project
     zioSchemaOpticsJVM,
     zioSchemaProtobufJS,
     zioSchemaProtobufJVM,
+    zioSchemaExamplesJS,
+    zioSchemaExamplesJVM,
     testsJVM,
-    testsJS
+    testsJS,
+    zioSchemaZioTestJVM,
+    zioSchemaZioTestJS
   )
 
 lazy val tests = crossProject(JSPlatform, JVMPlatform)
@@ -177,6 +181,41 @@ lazy val zioSchemaOpticsJS = zioSchemaOptics.js
   .settings(scalaJSUseMainModuleInitializer := true)
 
 lazy val zioSchemaOpticsJVM = zioSchemaOptics.jvm
+  .settings(Test / fork := true)
+
+lazy val zioSchemaExamples = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-schema-examples"))
+  .settings(stdSettings("zio-schema-examples"))
+  .settings(crossScalaVersions -= Scala212)
+  .dependsOn(zioSchema, zioSchemaJson, zioSchemaProtobuf, zioSchemaOptics)
+  .settings(
+    publish / skip := true,
+    moduleName := "zio-schema-example",
+    scalacOptions -= "-Yno-imports",
+    scalacOptions -= "-Xfatal-warnings"
+  )
+
+lazy val zioSchemaExamplesJS = zioSchemaExamples.js
+  .settings(scalaJSUseMainModuleInitializer := true)
+
+lazy val zioSchemaExamplesJVM = zioSchemaExamples.jvm
+
+lazy val zioSchemaZioTest = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-schema-zio-test"))
+  .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
+  .settings(stdSettings("zio-schema-zio-test"))
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema.test"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio-test" % zioVersion
+    )
+  )
+
+lazy val zioSchemaZioTestJS = zioSchemaZioTest.js
+  .settings(scalaJSUseMainModuleInitializer := true)
+
+lazy val zioSchemaZioTestJVM = zioSchemaZioTest.jvm
   .settings(Test / fork := true)
 
 lazy val docs = project

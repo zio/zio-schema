@@ -9,9 +9,9 @@ _ZIO Schema_ is a [ZIO](https://zio.dev)-based library for modeling the schema o
 With schema descriptions that can be automatically derived for case classes and sealed traits, _ZIO Schema_ provide powerful features for free:
 
  - Codecs for any supported protocol (JSON, protobuf, etc.), so data structures can be serialized and deserialized in a principled way
- - Diffing, patching, merging, and other generic-data-based operations (_TODO_)
- - Migration of data structures from one schema to another compatible schema (_TODO_)
- - Derivation of arbitrary type classes (`Eq`, `Show`, `Ord`, etc.) from the structure of the data (_TODO_)
+ - Diffing, patching, merging, and other generic-data-based operations
+ - Migration of data structures from one schema to another compatible schema
+ - Derivation of arbitrary type classes (`Eq`, `Show`, `Ord`, etc.) from the structure of the data
 
 When your data structures need to be serialized, deserialized, persisted, or transported across the wire, then _ZIO Schema_ lets you focus on data modeling and automatically tackle all the low-level, messy details for you.
 
@@ -22,7 +22,12 @@ _ZIO Schema_ is used by a growing number of ZIO libraries, including _ZIO Flow_,
 Add in your `build.sbt`:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema" % "<version>"
+libraryDependencies ++= Seq(
+  "dev.zio" %% "zio-schema" % "<version>",
+  // Required for automatic generic derivation of schemas
+  "dev.zio" %% "zio-schema-derivation" % "<version>",
+  "org.scala-lang" % "scala-reflect"  % scalaVersion.value % "provided"
+)
 ```
 
 [Badge-CI]: https://github.com/zio/zio-schema/workflows/CI/badge.svg
