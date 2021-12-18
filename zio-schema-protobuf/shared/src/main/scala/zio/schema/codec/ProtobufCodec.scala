@@ -1,32 +1,28 @@
 package zio.schema.codec
 
 import java.nio.charset.StandardCharsets
-import java.nio.{ByteBuffer, ByteOrder}
+import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
 import java.util.UUID
+
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
+
 import zio.schema._
 import zio.schema.ast.SchemaAst
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
-import zio.stream.{ZPipeline, ZTransducer}
-import zio.{Chunk, ZIO}
+import zio.stream.{ ZPipeline }
+import zio.{ Chunk, ZIO }
 
 object ProtobufCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] =
-    ZPipeline.fromPush(
-      (opt: Option[Chunk[A]]) =>
-        ZIO.succeed(opt.map(values => values.flatMap(Encoder.encode(None, schema, _))).getOrElse(Chunk.empty))
-    )
+    ZPipeline.mapChunks(values => values.flatMap(Encoder.encode(None, schema, _)))
 
   override def encode[A](schema: Schema[A]): A => Chunk[Byte] = a => Encoder.encode(None, schema, a)
 
-  override def decoder[A](schema: Schema[A]): ZPipeline[Any, Any, Nothing, String, Byte, A] =
-    ZPipeline.fromPush(
-      (opt: Option[Chunk[Byte]]) =>
-        ZIO.fromEither(opt.map(chunk => Decoder.decode(schema, chunk).map(Chunk(_))).getOrElse(Right(Chunk.empty)))
-    )
+  override def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Byte, A] =
+    ZPipeline.mapChunksZIO(chunk => ZIO.fromEither(Decoder.decode(schema, chunk).map(Chunk(_))))
 
   override def decode[A](schema: Schema[A]): Chunk[Byte] => Either[String, A] =
     ch =>

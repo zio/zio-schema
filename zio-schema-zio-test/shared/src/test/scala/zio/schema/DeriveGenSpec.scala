@@ -7,7 +7,7 @@ import zio.test._
 
 object DeriveGenSpec extends DefaultRunnableSpec {
   override def spec: ZSpec[Environment, Failure] = suite("DeriveGenSpec")(
-    testM("correctly derives Primitives") {
+    test("correctly derives Primitives") {
       for {
         unit           <- generateValue(DeriveGen.gen(unitSchema))
         string         <- generateValue(DeriveGen.gen(stringSchema))
@@ -42,34 +42,34 @@ object DeriveGenSpec extends DefaultRunnableSpec {
         year && yearMonth && zoneId && zoneOffset && instant && localDate && localTime && localDateTime &&
         offsetTime && offsetDateTime && zonedDateTime && uuid
     },
-    testM("correctly derives Tuple") {
+    test("correctly derives Tuple") {
       generateValue(DeriveGen.gen(tupleSchema))
     },
-    testM("correctly derives Either") {
+    test("correctly derives Either") {
       generateValue(DeriveGen.gen(eitherSchema))
     },
-    testM("correctly derives Collections") {
+    test("correctly derives Collections") {
       for {
         list <- generateValue(DeriveGen.gen(listSchema))
         map  <- generateValue(DeriveGen.gen(mapSchema))
       } yield list && map
     },
-    testM("correctly derives Optional") {
+    test("correctly derives Optional") {
       generateValue(DeriveGen.gen(optionalSchema))
     },
-    testM("correctly derives Transform") {
+    test("correctly derives Transform") {
       generateValue(DeriveGen.gen(transformSchema))
     },
-    testM("correctly derives Lazy") {
+    test("correctly derives Lazy") {
       generateValue(DeriveGen.gen(lazySchema))
     },
-    testM("correctly derives Enums") {
+    test("correctly derives Enums") {
       for {
         enum2  <- generateValue(DeriveGen.gen(Enum2.schema))
         enum23 <- generateValue(DeriveGen.gen(Enum23.schema))
       } yield enum2 && enum23
     },
-    testM("correctly derives CaseClasses") {
+    test("correctly derives CaseClasses") {
       generateValue(DeriveGen.gen(CaseClass22.schema))
     }
   )

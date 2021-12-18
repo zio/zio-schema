@@ -2,10 +2,9 @@ package zio.schema
 
 import scala.collection.immutable.ListMap
 
-import zio.Chunk
-import zio.random.Random
 import zio.schema.ast.SchemaAst
-import zio.test.{ Gen, Sized }
+import zio.schema.test.{Gen, Sized}
+import zio.{Chunk, Random}
 
 object DeriveGen {
 
