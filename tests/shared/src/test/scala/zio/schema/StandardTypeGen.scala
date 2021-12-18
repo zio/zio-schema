@@ -1,11 +1,11 @@
 package zio.schema
 
-import java.math.{BigDecimal => JBigDecimal, BigInteger => JBigInt}
+import java.math.{ BigDecimal => JBigDecimal, BigInteger => JBigInt }
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
 import zio.Random
-import zio.test.{Gen, Sized}
+import zio.test.{ Gen, Sized }
 
 object StandardTypeGen {
 

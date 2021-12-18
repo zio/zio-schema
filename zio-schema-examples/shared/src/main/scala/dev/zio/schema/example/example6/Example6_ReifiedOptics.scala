@@ -4,7 +4,6 @@ import zio._
 import zio.schema.Schema._
 import zio.schema._
 import zio.schema.optics.ZioOpticsBuilder
-import zio.schema.syntax._
 
 private[example6] object Domain {
   final case class User(name: String, age: Int)
@@ -51,7 +50,7 @@ private[example6] object Domain {
 
 }
 
-object Example6_ReifiedOptics extends zio.App {
+object Example6_ReifiedOptics extends zio.ZIOAppDefault {
   import Domain._
 
   val lensTest1: ZIO[Any, Nothing, Unit] = for {
@@ -103,7 +102,7 @@ object Example6_ReifiedOptics extends zio.App {
     _ <- ZIO.debug("updated company2: " + updatedCompany2)
   } yield ()
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = (lensTest1 *> lensTest2 *> traversalTest1).exitCode
+  override def run: URIO[Any, ExitCode] = (lensTest1 *> lensTest2 *> traversalTest1).exitCode
 }
 
 /**

@@ -1,8 +1,8 @@
 package dev.zio.schema.example.example5
 
-import zio.schema.ast.SchemaAst
+import zio.ZIO
 import zio.schema.{ Diff, Schema }
-import zio.{ ExitCode, URIO, ZIO }
+import zio.{ ExitCode, URIO }
 
 /**
  * Example 5: In this example, we use ZIO-Schema to detect changes in our objects.
@@ -44,7 +44,7 @@ private[example5] object Domain {
 
 }
 
-object Example5_Diffing extends zio.App {
+object Example5_Diffing extends zio.ZIOAppDefault {
 
   import Domain._
 
@@ -52,5 +52,5 @@ object Example5_Diffing extends zio.App {
 
   val diff: Diff = PersonDTO.schema.diff(personDTO, personDTO.copy(lastname = "Max"))
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = ZIO.debug(diff).exitCode
+  override def run: URIO[Any, ExitCode] = ZIO.debug(diff).exitCode
 }

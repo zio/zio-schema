@@ -4,7 +4,7 @@ import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen._
 import zio.test.Assertion._
 import zio.test.{ Sized, TestConfig, _ }
-import zio.{  Random, _ }
+import zio.{ Random, _ }
 
 object DynamicValueSpec extends DefaultRunnableSpec {
 

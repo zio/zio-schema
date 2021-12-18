@@ -1,9 +1,10 @@
 package dev.zio.schema.example.example2
 
+import zio.schema.Schema
 import zio.schema.Schema._
-import zio.schema.{ DeriveSchema, Schema }
-import zio.stream.ZTransducer
-import zio.{ Chunk, ExitCode, URIO, ZIO }
+import zio.stream.ZPipeline
+import zio.{ Chunk, ExitCode, ZIO }
+import zio.{ ZEnv, ZIOAppArgs }
 
 /**
  * Example 2 of ZIO-Schema
@@ -102,29 +103,29 @@ object Domain {
   }
 }
 
-import Domain._
+import dev.zio.schema.example.example2.Domain._
 
-object JsonSample extends zio.App {
+object JsonSample extends zio.ZIOAppDefault {
   import zio.schema.codec.JsonCodec
   import zio.stream.ZStream
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  override def run: ZIO[Environment with ZEnv with ZIOAppArgs, Any, Any] =
     for {
-      _                      <- ZIO.unit
-      person                 = Person("Michelle", 32)
-      personToJsonTransducer = JsonCodec.encoder[Person](Person.schema)
+      _                    <- ZIO.unit
+      person               = Person("Michelle", 32)
+      personToJsonPipeline = JsonCodec.encoder[Person](Person.schema)
       _ <- ZStream(person)
-            .transduce(personToJsonTransducer)
-            .transduce(ZTransducer.utf8Decode)
-            .foreach(ZIO.debug)
+            .via(personToJsonPipeline)
+            .via(ZPipeline.utf8Decode)
+            .foreach(f => ZIO.debug(f))
     } yield ExitCode.success
 }
 
-object ProtobufExample extends zio.App {
+object ProtobufExample extends zio.ZIOAppDefault {
   import zio.schema.codec.ProtobufCodec
   import zio.stream.ZStream
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  override def run: ZIO[Environment with ZEnv with ZIOAppArgs, Any, Any] =
     for {
       _      <- ZIO.unit
       _      <- ZIO.debug("protobuf roundtrip")
@@ -134,8 +135,8 @@ object ProtobufExample extends zio.App {
       protoToPerson = ProtobufCodec.decoder[Person](Person.schema)
 
       newPerson <- ZStream(person)
-                    .transduce(personToProto)
-                    .transduce(protoToPerson)
+                    .via(personToProto)
+                    .via(protoToPerson)
                     .runHead
                     .some
                     .catchAll(error => ZIO.debug(error))
@@ -145,11 +146,11 @@ object ProtobufExample extends zio.App {
     } yield ExitCode.success
 }
 
-object CombiningExample extends zio.App {
+object CombiningExample extends zio.ZIOAppDefault {
   import zio.schema.codec.{ JsonCodec, ProtobufCodec }
   import zio.stream.ZStream
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  override def run: ZIO[Environment with ZEnv with ZIOAppArgs, Any, Any] =
     for {
       _      <- ZIO.unit
       _      <- ZIO.debug("combining roundtrip")
@@ -163,11 +164,11 @@ object CombiningExample extends zio.App {
 
       newPerson <- ZStream(person)
                     .tap(v => ZIO.debug("input object is: " + v))
-                    .transduce(personToJson)
-                    .transduce(jsonToPerson)
+                    .via(personToJson)
+                    .via(jsonToPerson)
                     .tap(v => ZIO.debug("object after json roundtrip: " + v))
-                    .transduce(personToProto)
-                    .transduce(protoToPerson)
+                    .via(personToProto)
+                    .via(protoToPerson)
                     .tap(v => ZIO.debug("person after protobuf roundtrip: " + v))
                     .runHead
                     .some

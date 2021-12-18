@@ -17,17 +17,13 @@ import zio.{ Chunk, ChunkBuilder, ZIO }
 
 object JsonCodec extends Codec {
 
-  override def encoder[A](schema: Schema[A]): ZPipeline[Any, Any, Nothing, Nothing, A, Byte] = {
-    ZPipeline.fromPush( // TODO:
-      (opt: Option[Chunk[A]]) =>
-        ZIO
-          .attempt(opt.map(values => values.flatMap(Encoder.encode(schema, _))).getOrElse(Chunk.empty))
-          .catchAll(_ => ZIO.succeed(Chunk.empty))
+  override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] =
+    ZPipeline.mapChunks(
+      values => values.flatMap(Encoder.encode(schema, _))
     )
-  }
 
-  override def decoder[A](schema: Schema[A]): ZPipeline[Any, Any, Nothing, String, Byte, A] =
-    ZPipeline.utfDecode >>> ZPipeline.fromFunctionZIO( // TODO
+  override def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Byte, A] =
+    ZPipeline.utfDecode >>> ZPipeline.mapZIO(
       (s: String) => ZIO.fromEither(Decoder.decode(schema, s))
     )
 

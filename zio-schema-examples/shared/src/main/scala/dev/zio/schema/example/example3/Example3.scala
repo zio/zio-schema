@@ -1,7 +1,7 @@
 package dev.zio.schema.example.example3
 
 import zio.schema._
-import zio.{ Chunk, ExitCode, URIO, ZIO }
+import zio.{ Chunk, ZIO }
 
 /**
  * Example3:
@@ -46,7 +46,7 @@ private[example3] object Domain {
 
 }
 
-object Example3 extends zio.App {
+object Example3 extends zio.ZIOAppDefault {
   import dev.zio.schema.example.example3.Domain._
   import zio.schema.codec.JsonCodec
 
@@ -78,5 +78,5 @@ object Example3 extends zio.App {
 
   } yield person
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = example.exitCode
+  override def run = example.exitCode
 }

@@ -2,7 +2,7 @@ package zio.schema
 
 import zio.schema.syntax._
 import zio.test.Assertion._
-import zio.test.{Gen, Sized, TestConfig, TestEnvironment, _}
+import zio.test.{ Gen, Sized, TestConfig, TestEnvironment, _ }
 import zio.{ Random, _ }
 
 object SchemaMigrationSpec extends DefaultRunnableSpec {

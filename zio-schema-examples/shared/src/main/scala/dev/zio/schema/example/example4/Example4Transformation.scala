@@ -2,7 +2,8 @@ package dev.zio.schema.example.example4
 
 import zio.schema.ast.{ Migration, NodePath, SchemaAst }
 import zio.schema.{ DynamicValue, Schema }
-import zio.{ Chunk, ExitCode, URIO, ZIO }
+import zio.{ Chunk, ZIO }
+import zio.{ ExitCode, URIO }
 
 /**
  * Example 4: In this Example, we use ZIO-Schema to migrate objects from one representation to another.
@@ -48,7 +49,7 @@ private[example4] object Domain {
 
 // TODO - not working:
 //  Here I try to convert between WebPerson and DomainPerson using the `transform` method on `Schema`
-object Example4Transformation extends zio.App {
+object Example4Transformation extends zio.ZIOAppDefault {
 
   import Domain._
 
@@ -65,13 +66,13 @@ object Example4Transformation extends zio.App {
   val domainPerson: Either[String, DomainPerson] =
     WebPerson.schema.migrate(personTransformation).flatMap(f => f(webPerson))
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = ZIO.debug(domainPerson).exitCode
+  override def run: URIO[Any, ExitCode] = ZIO.debug(domainPerson).exitCode
 }
 
 // TODO - not working!:
 //  Here I try to convert between WebPerson and DomainPerson
 //  using the roundtrip with dynamic and SchemaAst migrations.
-object Example4Ast extends zio.App {
+object Example4Ast extends zio.ZIOAppDefault {
 
   import Domain._
 
@@ -87,10 +88,10 @@ object Example4Ast extends zio.App {
     )
   //.flatMap(dv => DomainPerson.schema.fromDynamic(dv))
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = ZIO.debug(dyn).exitCode
+  override def run: URIO[Any, ExitCode] = ZIO.debug(dyn).exitCode
 }
 
-object Example4Ast2 extends zio.App {
+object Example4Ast2 extends zio.ZIOAppDefault {
   import Domain._
 
   val webPerson: WebPerson = WebPerson("Mike Moe", 32)
@@ -125,5 +126,5 @@ object Example4Ast2 extends zio.App {
     _            <- ZIO.debug(domainPerson) // Left(Cannot add node at path firstname: No default value is available)
   } yield ()
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = effect.exitCode
+  override def run = effect.exitCode
 }

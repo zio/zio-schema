@@ -5,8 +5,7 @@ import java.time.{ ZoneId, ZoneOffset }
 
 import scala.collection.immutable.ListMap
 
-
-
+import zio.Console._
 import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
@@ -14,12 +13,8 @@ import zio.schema.{ CaseSet, DeriveSchema, JavaTimeGen, Schema, SchemaGen, Stand
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
-import zio.test._
-import zio.test.environment.TestEnvironment
-import zio.{ Chunk, ZIO }
-import zio.{ Has, Random, _ }
-import zio.Console.{ printLine, printLineError, _ }
-import zio.test.{ Gen, Sized }
+import zio.test.{ Gen, Sized, _ }
+import zio.{ Chunk, Random, ZIO, _ }
 
 object JsonCodecSpec extends DefaultRunnableSpec {
 
@@ -79,7 +74,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       }
     ),
     suite("Map")(
-      testM("of complex keys and values") {
+      test("of complex keys and values") {
         assertEncodes(
           Schema.map[Key, Value],
           Map(Key("a", 0) -> Value(0, true), Key("b", 1) -> Value(1, false)),
@@ -423,7 +418,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
   private def assertEncodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {
     val stream = ZStream
       .succeed(value)
-      .transduce(JsonCodec.encoder(schema))
+      .via(JsonCodec.encoder(schema))
       .runCollect
     assertM(stream)(equalTo(chunk))
   }
@@ -431,7 +426,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
   private def assertEncodesJson[A](schema: Schema[A], value: A, json: String) = {
     val stream = ZStream
       .succeed(value)
-      .transduce(JsonCodec.encoder(schema))
+      .via(JsonCodec.encoder(schema))
       .runCollect
       .map(chunk => new String(chunk.toArray))
     assertM(stream)(equalTo(json))
@@ -440,7 +435,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
   private def assertEncodesJson[A](schema: Schema[A], value: A)(implicit enc: JsonEncoder[A]) = {
     val stream = ZStream
       .succeed(value)
-      .transduce(JsonCodec.encoder(schema))
+      .via(JsonCodec.encoder(schema))
       .runCollect
     assertM(stream)(equalTo(jsonEncoded(value)))
   }
@@ -448,14 +443,14 @@ object JsonCodecSpec extends DefaultRunnableSpec {
   private def assertDecodesToError[A](schema: Schema[A], json: CharSequence, errors: List[JsonError]) = {
     val stream = ZStream
       .fromChunk(JsonCodec.Encoder.charSequenceToByteChunk(json))
-      .transduce(JsonCodec.decoder(schema))
+      .via(JsonCodec.decoder(schema))
       .catchAll(ZStream.succeed[String](_))
       .runHead
     assertM(stream)(isSome(equalTo(JsonError.render(errors))))
   }
 
   private def assertDecodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {
-    val result = ZStream.fromChunk(chunk).transduce(JsonCodec.decoder(schema)).runCollect
+    val result = ZStream.fromChunk(chunk).via(JsonCodec.decoder(schema)).runCollect
     assertM(result)(equalTo(Chunk(value)))
   }
 
@@ -463,13 +458,13 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     val result = ZStream
       .succeed(value)
       .tap(value => printLine(s"Input Value: $value").when(print).ignore)
-      .transduce(JsonCodec.encoder(schema))
+      .via(JsonCodec.encoder(schema))
       .runCollect
       .tap(encoded => printLine(s"Encoded: ${new String(encoded.toArray)}").when(print).ignore)
       .flatMap { encoded =>
         ZStream
           .fromChunk(encoded)
-          .transduce(JsonCodec.decoder(schema))
+          .via(JsonCodec.decoder(schema))
           .runCollect
           .tapError { err =>
             printLineError(s"Decoding failed for input ${new String(encoded.toArray)}\nError Message: $err")
@@ -506,7 +501,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     implicit val encoder: JsonEncoder[SearchRequest] = DeriveJsonEncoder.gen[SearchRequest]
   }
 
-  private val searchRequestGen: Gen[Has[Random] with Has[Sized], SearchRequest] =
+  private val searchRequestGen: Gen[Random with Sized, SearchRequest] =
     for {
       query      <- Gen.string
       pageNumber <- Gen.int(Int.MinValue, Int.MaxValue)

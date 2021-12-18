@@ -439,7 +439,6 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   }
 
-
   final case class MapSchema[K, V](ks: Schema[K], vs: Schema[V], override val annotations: Chunk[Any])
       extends Collection[Map[K, V], (K, V)] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Traversal[Map[K, V], (K, V)]
