@@ -171,10 +171,10 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
     @annotation2("case") case class AnnotatedCase(field: String) extends AnnotatedEnum
 
     object AnnotatedCase {
-      implicit val schema = DeriveSchema.gen[AnnotatedCase]
+      implicit val schema: Schema.CaseClass1[String, AnnotatedCase] = DeriveSchema.gen[AnnotatedCase]
     }
 
-    implicit val schema = DeriveSchema.gen[AnnotatedEnum]
+    implicit val schema: Schema.Enum1[AnnotatedCase, AnnotatedEnum] = DeriveSchema.gen[AnnotatedEnum]
   }
 
   @annotation1("enum") sealed trait RecursiveEnum
