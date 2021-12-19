@@ -115,7 +115,8 @@ object SchemaAssertions {
   private def hasSameCases(left: ListMap[String, Schema[_]], right: ListMap[String, Schema[_]]): Boolean =
     left.zip(right).forall {
       case ((lLabel, lSchema), (rLabel, rSchema)) =>
-        lLabel == rLabel && equalsSchema(lSchema.asInstanceOf[Schema[Any]], rSchema.asInstanceOf[Schema[Any]])
+        lLabel == rLabel &&
+          equalsSchema(lSchema.asInstanceOf[Schema[Any]], rSchema.asInstanceOf[Schema[Any]])
     }
 
   private def hasSameStructure[A](left: Schema.Record[A], right: Schema.Record[A]): Boolean =
