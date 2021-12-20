@@ -30,7 +30,7 @@ object BuildHelper {
   val zioJsonVersion    = "0.2.0-M3+5-c08b2824-SNAPSHOT"
   val zioPreludeVersion = "1.0.0-RC7"
   val zioOpticsVersion  = "0.1.0"
-  val silencerVersion   = "1.7.6"
+  val silencerVersion   = "1.7.7"
 
   private val testDeps = Seq(
     "dev.zio" %% "zio-test"     % zioVersion % "test",
