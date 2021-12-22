@@ -2,8 +2,7 @@ package dev.zio.schema.example.example4
 
 import zio.schema.ast.{ Migration, NodePath, SchemaAst }
 import zio.schema.{ DynamicValue, Schema }
-import zio.{ Chunk, ZIO }
-import zio.{ ExitCode, URIO }
+import zio.{ Chunk, ExitCode, URIO, ZIO }
 
 /**
  * Example 4: In this Example, we use ZIO-Schema to migrate objects from one representation to another.

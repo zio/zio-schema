@@ -3,8 +3,7 @@ package dev.zio.schema.example.example2
 import zio.schema.Schema
 import zio.schema.Schema._
 import zio.stream.ZPipeline
-import zio.{ Chunk, ExitCode, ZIO }
-import zio.{ ZEnv, ZIOAppArgs }
+import zio.{ Chunk, ExitCode, ZEnv, ZIO, ZIOAppArgs }
 
 /**
  * Example 2 of ZIO-Schema

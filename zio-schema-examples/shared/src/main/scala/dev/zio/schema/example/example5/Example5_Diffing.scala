@@ -1,8 +1,7 @@
 package dev.zio.schema.example.example5
 
-import zio.ZIO
 import zio.schema.{ Diff, Schema }
-import zio.{ ExitCode, URIO }
+import zio.{ ExitCode, URIO, ZIO }
 
 /**
  * Example 5: In this example, we use ZIO-Schema to detect changes in our objects.
