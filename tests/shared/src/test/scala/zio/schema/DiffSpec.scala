@@ -11,7 +11,7 @@ import zio.schema.SchemaGen.{ Arity1, Arity24 }
 import zio.schema.StandardType._
 import zio.schema.syntax._
 import zio.schema.types.Arities._
-import zio.test.{ Gen, _ }
+import zio.test._
 
 object DiffSpec extends DefaultRunnableSpec {
 
@@ -19,7 +19,7 @@ object DiffSpec extends DefaultRunnableSpec {
     suite("standard types")(
       suite("unit")(
         test("always identical") {
-          check(Gen.unit <*> Gen.unit) {
+          check(Gen.unit) {
             case (thisU: Unit) =>
               assertTrue(thisU.diff(thisU) == Diff.Identical)
           }

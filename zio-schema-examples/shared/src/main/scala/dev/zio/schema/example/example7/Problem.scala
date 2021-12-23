@@ -4,9 +4,9 @@ import scala.collection.immutable.ListMap
 import scala.util.Try
 
 import zio.Chunk
-import zio.schema.{ DeriveSchema, DynamicValue, Schema, StandardType }
+import zio.schema._
 
-/** This exercise is based on John DeGoes Spartan training on ZIO-Schema from 2021-11-04
+/** This exercise is based on John DeGoes' Spartan training on ZIO-Schema from 2021-11-04
  */
 private[example7] object Problem {
 

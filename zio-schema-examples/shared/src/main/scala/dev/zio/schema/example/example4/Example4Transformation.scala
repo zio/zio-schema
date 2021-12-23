@@ -1,8 +1,8 @@
 package dev.zio.schema.example.example4
 
-import zio.schema.ast.{ Migration, NodePath, SchemaAst }
-import zio.schema.{ DynamicValue, Schema }
-import zio.{ Chunk, ExitCode, URIO, ZIO }
+import zio._
+import zio.schema._
+import zio.schema.ast._
 
 /**
  * Example 4: In this Example, we use ZIO-Schema to migrate objects from one representation to another.
@@ -48,7 +48,7 @@ private[example4] object Domain {
 
 // TODO - not working:
 //  Here I try to convert between WebPerson and DomainPerson using the `transform` method on `Schema`
-object Example4Transformation extends zio.ZIOAppDefault {
+object Example4Transformation extends ZIOAppDefault {
 
   import Domain._
 
@@ -112,18 +112,17 @@ object Example4Ast2 extends zio.ZIOAppDefault {
   val migrationWebPersonAstToDomainPersonAst: Either[String, Chunk[Migration]] =
     Migration.derive(webPersonAst, domainPersonAst)
 
-  val effect: ZIO[Any, Nothing, Unit] = for {
-    _ <- ZIO.debug(webPersonAst)
-    _ <- ZIO.debug(domainPersonAst)
-    _ <- ZIO.debug(migrationAst)
-    _ <- ZIO.debug("migrationWebPersonAstToMigrationAst" + migrationWebPersonAstToMigrationAst)
-    _ <- ZIO.debug("migrationWebPersonAstToDomainPersonAst" + migrationWebPersonAstToDomainPersonAst)
-    x = WebPerson.schema.migrate(personTransformation).flatMap(f => f(webPerson))
-    _ <- ZIO.debug(x) // Left(Failed to cast Record(ListMap(name -> Primitive(Mike Moe,string), age -> Primitive(32,int))) to schema Transform(CaseClass2(Field(name,Primitive(string)),Field(age,Primitive(int)))))
+  override def run: ZIO[Environment with ZEnv with ZIOAppArgs, Any, Any] =
+    for {
+      _ <- ZIO.debug(webPersonAst)
+      _ <- ZIO.debug(domainPersonAst)
+      _ <- ZIO.debug(migrationAst)
+      _ <- ZIO.debug("migrationWebPersonAstToMigrationAst" + migrationWebPersonAstToMigrationAst)
+      _ <- ZIO.debug("migrationWebPersonAstToDomainPersonAst" + migrationWebPersonAstToDomainPersonAst)
+      x = WebPerson.schema.migrate(personTransformation).flatMap(f => f(webPerson))
+      _ <- ZIO.debug(x) // Left(Failed to cast Record(ListMap(name -> Primitive(Mike Moe,string), age -> Primitive(32,int))) to schema Transform(CaseClass2(Field(name,Primitive(string)),Field(age,Primitive(int)))))
 
-    domainPerson = WebPerson.schema.migrate(DomainPerson.schema).flatMap(f => f(webPerson))
-    _            <- ZIO.debug(domainPerson) // Left(Cannot add node at path firstname: No default value is available)
-  } yield ()
-
-  override def run = effect.exitCode
+      domainPerson = WebPerson.schema.migrate(DomainPerson.schema).flatMap(f => f(webPerson))
+      _            <- ZIO.debug(domainPerson) // Left(Cannot add node at path firstname: No default value is available)
+    } yield ()
 }

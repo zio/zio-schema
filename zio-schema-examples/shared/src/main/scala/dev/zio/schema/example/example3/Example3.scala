@@ -1,7 +1,7 @@
 package dev.zio.schema.example.example3
 
+import zio._
 import zio.schema._
-import zio.{ Chunk, ZIO }
 
 /**
  * Example3:
@@ -46,7 +46,7 @@ private[example3] object Domain {
 
 }
 
-object Example3 extends zio.ZIOAppDefault {
+object Example3 extends ZIOAppDefault {
   import dev.zio.schema.example.example3.Domain._
   import zio.schema.codec.JsonCodec
 
@@ -58,7 +58,7 @@ object Example3 extends zio.ZIOAppDefault {
     }
   )
 
-  val example: ZIO[Any, String, Person] = for {
+  override val run: ZIO[Environment with ZEnv with ZIOAppArgs, Any, Any] = for {
     _      <- ZIO.unit
     json   = """{"firstname":"John","lastname":"Doe","years":42}"""
     chunks = Chunk.fromArray(json.getBytes)
@@ -76,7 +76,5 @@ object Example3 extends zio.ZIOAppDefault {
     _             <- ZIO.debug("Person    JSON: " + personJson)
     _             <- ZIO.debug("PersonDTO JSON: " + personDTOJson)
 
-  } yield person
-
-  override def run = example.exitCode
+  } yield ()
 }

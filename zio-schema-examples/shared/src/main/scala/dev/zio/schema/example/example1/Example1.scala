@@ -1,8 +1,8 @@
 package dev.zio.schema.example.example1
 
+import zio._
 import zio.schema.{ DeriveSchema, Schema }
 import zio.stream.ZPipeline
-import zio.{ Chunk, ExitCode, ZEnv, ZIO, ZIOAppArgs }
 
 /**
  * Example 1 of ZIO-Schema:
@@ -110,11 +110,11 @@ object JsonSample extends zio.ZIOAppDefault {
       _ <- ZStream(person)
             .via(personToJsonTransducer)
             .via(ZPipeline.utf8Decode)
-            .foreach(f => ZIO.debug(f))
+            .foreach(ZIO.debug(_))
     } yield ExitCode.success
 }
 
-object ProtobufExample extends zio.ZIOAppDefault {
+object ProtobufExample extends ZIOAppDefault {
   import ManualConstruction._
   import zio.schema.codec.ProtobufCodec
   import zio.stream.ZStream
@@ -140,7 +140,7 @@ object ProtobufExample extends zio.ZIOAppDefault {
     } yield ExitCode.success
 }
 
-object CombiningExample extends zio.ZIOAppDefault {
+object CombiningExample extends ZIOAppDefault {
   import ManualConstruction._
   import zio.schema.codec.{ JsonCodec, ProtobufCodec }
   import zio.stream.ZStream

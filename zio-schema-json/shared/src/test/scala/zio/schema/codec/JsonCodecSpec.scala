@@ -1,20 +1,19 @@
 package zio.schema.codec
 
-// import java.time.Year
 import java.time.{ ZoneId, ZoneOffset }
 
 import scala.collection.immutable.ListMap
 
 import zio.Console._
+import zio._
 import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
-import zio.schema.{ CaseSet, DeriveSchema, JavaTimeGen, Schema, SchemaGen, StandardType }
+import zio.schema._
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
-import zio.test.{ Gen, Sized, _ }
-import zio.{ Chunk, Random, ZIO, _ }
+import zio.test._
 
 object JsonCodecSpec extends DefaultRunnableSpec {
 
@@ -25,7 +24,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       encoderDecoderSuite
     ) @@ timeout(90.seconds)
 
-  // TODO: Add tests for the transducer contract.
+  // TODO: Add tests for the pipeline contract.
 
   private val encoderSuite = suite("encoding")(
     suite("primitive")(

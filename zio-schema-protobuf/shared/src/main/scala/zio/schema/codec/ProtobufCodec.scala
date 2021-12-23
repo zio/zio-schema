@@ -12,7 +12,7 @@ import scala.util.control.NonFatal
 import zio.schema._
 import zio.schema.ast.SchemaAst
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
-import zio.stream.{ ZPipeline }
+import zio.stream.ZPipeline
 import zio.{ Chunk, ZIO }
 
 object ProtobufCodec extends Codec {
@@ -125,8 +125,8 @@ object ProtobufCodec extends Codec {
 
   object Encoder {
 
-    import Protobuf._
     import ProductEncoder._
+    import Protobuf._
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
@@ -471,8 +471,8 @@ object ProtobufCodec extends Codec {
 
   object Decoder {
 
-    import Protobuf._
     import ProductDecoder._
+    import Protobuf._
 
     def fail(failure: String): Decoder[Nothing] = Decoder(_ => Left(failure))
 
