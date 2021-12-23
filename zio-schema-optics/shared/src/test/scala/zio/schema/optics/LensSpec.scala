@@ -1,9 +1,10 @@
 package zio.schema.optics
+
+import zio._
 import zio.optics._
 import zio.schema._
 import zio.test.Assertion._
-import zio.test.{ Gen, Sized, TestConfig, _ }
-import zio.{ Random, _ }
+import zio.test._
 
 object LensSpec extends DefaultRunnableSpec {
 

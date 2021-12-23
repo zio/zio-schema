@@ -65,7 +65,7 @@ object Example4Transformation extends ZIOAppDefault {
   val domainPerson: Either[String, DomainPerson] =
     WebPerson.schema.migrate(personTransformation).flatMap(f => f(webPerson))
 
-  override def run: URIO[Any, ExitCode] = ZIO.debug(domainPerson).exitCode
+  override def run = ZIO.debug(domainPerson)
 }
 
 // TODO - not working!:
@@ -87,7 +87,7 @@ object Example4Ast extends zio.ZIOAppDefault {
     )
   //.flatMap(dv => DomainPerson.schema.fromDynamic(dv))
 
-  override def run: URIO[Any, ExitCode] = ZIO.debug(dyn).exitCode
+  override def run: UIO[Unit] = ZIO.debug(dyn)
 }
 
 object Example4Ast2 extends zio.ZIOAppDefault {

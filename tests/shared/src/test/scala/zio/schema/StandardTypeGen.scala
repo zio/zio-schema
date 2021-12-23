@@ -65,8 +65,8 @@ object StandardTypeGen {
       case typ: StandardType.BinaryType.type     => typ -> Gen.chunkOf(Gen.byte)
       case typ: StandardType.CharType.type       => typ -> Gen.asciiChar
       case typ: StandardType.UUIDType.type       => typ -> Gen.uuid
-      case typ: StandardType.BigDecimalType.type => typ -> Gen.double.map(d => java.math.BigDecimal.valueOf(d))
-      case typ: StandardType.BigIntegerType.type => typ -> Gen.long.map(n => java.math.BigInteger.valueOf(n))
+      case typ: StandardType.BigDecimalType.type => typ -> javaBigDecimal
+      case typ: StandardType.BigIntegerType.type => typ -> javaBigInt
       case typ: StandardType.DayOfWeekType.type  => typ -> JavaTimeGen.anyDayOfWeek
       case typ: StandardType.Duration            => typ -> JavaTimeGen.anyDuration
       case typ: StandardType.Instant             => typ -> JavaTimeGen.anyInstant
