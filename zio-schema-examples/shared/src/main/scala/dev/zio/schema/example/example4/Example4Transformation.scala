@@ -65,7 +65,7 @@ object Example4Transformation extends ZIOAppDefault {
   val domainPerson: Either[String, DomainPerson] =
     WebPerson.schema.migrate(personTransformation).flatMap(f => f(webPerson))
 
-  override def run = ZIO.debug(domainPerson)
+  override def run: UIO[Unit] = ZIO.debug(domainPerson)
 }
 
 // TODO - not working!:
