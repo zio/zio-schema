@@ -39,10 +39,10 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         checkM(Gen.anyString)(s => assertEncodes(Schema[String], s, stringify(s)))
       ),
       testM("ZoneOffset") {
-        assertEncodesJson(Schema.Primitive(StandardType.ZoneOffset), ZoneOffset.UTC)
+        assertEncodesJson(Schema.Primitive(StandardType.ZoneOffsetType), ZoneOffset.UTC)
       },
       testM("ZoneId") {
-        assertEncodesJson(Schema.Primitive(StandardType.ZoneId), ZoneId.systemDefault())
+        assertEncodesJson(Schema.Primitive(StandardType.ZoneIdType), ZoneId.systemDefault())
       }
     ),
     suite("optional")(
@@ -314,7 +314,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         //FIXME test independently because including ZoneOffset in StandardTypeGen.anyStandardType wreaks havoc.
         checkM(Gen.chunkOf(JavaTimeGen.anyZoneOffset)) { chunk =>
           assertEncodesThenDecodes(
-            Schema.chunk(Schema.Primitive(StandardType.ZoneOffset)),
+            Schema.chunk(Schema.Primitive(StandardType.ZoneOffsetType)),
             chunk
           )
         }
@@ -359,7 +359,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       testM("of ZoneOffsets") {
         checkM(JavaTimeGen.anyZoneOffset) { zoneOffset =>
           assertEncodesThenDecodes(
-            Schema.record(Schema.Field("zoneOffset", Schema.Primitive(StandardType.ZoneOffset))),
+            Schema.record(Schema.Field("zoneOffset", Schema.Primitive(StandardType.ZoneOffsetType))),
             ListMap[String, Any]("zoneOffset" -> zoneOffset)
           )
         }

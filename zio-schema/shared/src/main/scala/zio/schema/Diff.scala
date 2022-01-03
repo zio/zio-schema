@@ -89,22 +89,22 @@ object Differ {
     case Schema.Primitive(StandardType.BigIntegerType, _)                                        => bigInt
     case Schema.Primitive(StandardType.StringType, _)                                            => string
     case Schema.Primitive(StandardType.UUIDType, _)                                              => string.transform(_.toString)
-    case Schema.Primitive(StandardType.ZoneId, _)                                                => string.transform[ZoneId](_.getId)
+    case Schema.Primitive(StandardType.ZoneIdType, _)                                                => string.transform[ZoneId](_.getId)
     case Schema.Primitive(StandardType.DayOfWeekType, _)                                         => dayOfWeek
-    case Schema.Primitive(StandardType.Period, _)                                                => period
-    case Schema.Primitive(StandardType.Month, _)                                                 => month
-    case Schema.Primitive(StandardType.MonthDay, _)                                              => monthDay
-    case Schema.Primitive(StandardType.Year, _)                                                  => year
-    case Schema.Primitive(StandardType.YearMonth, _)                                             => yearMonth
-    case Schema.Primitive(StandardType.LocalDate(_), _)                                          => localDate
-    case Schema.Primitive(StandardType.Instant(_), _)                                            => instant
+    case Schema.Primitive(StandardType.PeriodType, _)                                                => period
+    case Schema.Primitive(StandardType.MonthType, _)                                                 => month
+    case Schema.Primitive(StandardType.MonthDayType, _)                                              => monthDay
+    case Schema.Primitive(StandardType.YearType, _)                                                  => year
+    case Schema.Primitive(StandardType.YearMonthType, _)                                             => yearMonth
+    case Schema.Primitive(StandardType.LocalDateType(_), _)                                          => localDate
+    case Schema.Primitive(StandardType.InstantType(_), _)                                            => instant
     case Schema.Primitive(StandardType.Duration(_), _)                                           => duration
-    case Schema.Primitive(StandardType.LocalTime(_), _)                                          => localTime
-    case Schema.Primitive(StandardType.LocalDateTime(_), _)                                      => localDateTime
-    case Schema.Primitive(StandardType.OffsetTime(_), _)                                         => offsetTime
-    case Schema.Primitive(StandardType.OffsetDateTime(_), _)                                     => offsetDateTime
-    case Schema.Primitive(StandardType.ZonedDateTime(_), _)                                      => zonedDateTime
-    case Schema.Primitive(StandardType.ZoneOffset, _)                                            => zoneOffset
+    case Schema.Primitive(StandardType.LocalTimeType(_), _)                                          => localTime
+    case Schema.Primitive(StandardType.LocalDateTimeType(_), _)                                      => localDateTime
+    case Schema.Primitive(StandardType.OffsetTimeType(_), _)                                         => offsetTime
+    case Schema.Primitive(StandardType.OffsetDateTimeType(_), _)                                     => offsetDateTime
+    case Schema.Primitive(StandardType.ZonedDateTimeType(_), _)                                      => zonedDateTime
+    case Schema.Primitive(StandardType.ZoneOffsetType, _)                                            => zoneOffset
     case Schema.Tuple(leftSchema, rightSchema, _)                                                => fromSchema(leftSchema) <*> fromSchema(rightSchema)
     case Schema.Optional(schema, _)                                                              => fromSchema(schema).optional
     case Schema.Sequence(schema, _, f, _)                                                        => fromSchema(schema).foreach(f)
@@ -461,7 +461,7 @@ sealed trait Diff { self =>
       case (_, Identical)                                                    => Right(a)
       case (Schema.Primitive(StandardType.StringType, _), Myers(edits))      => patchStringFromMyersEdits(a, edits)
       case (Schema.Primitive(StandardType.UUIDType, _), Myers(edits))        => patchStringFromMyersEdits(a.toString, edits).map(UUID.fromString)
-      case (Schema.Primitive(StandardType.ZoneId, _), Myers(edits))          => patchStringFromMyersEdits(a.getId(), edits).map(ZoneId.of)
+      case (Schema.Primitive(StandardType.ZoneIdType, _), Myers(edits))          => patchStringFromMyersEdits(a.getId(), edits).map(ZoneId.of)
       case (Primitive(StandardType.IntType, _), Number(distance: Int))       => patchNumeric[Int](a, distance)
       case (Primitive(StandardType.ShortType, _), Number(distance: Short))   => patchNumeric[Short](a, distance)
       case (Primitive(StandardType.DoubleType, _), Number(distance: Double)) => patchNumeric[Double](a, distance)
@@ -489,26 +489,26 @@ sealed trait Diff { self =>
           case (Chunk.empty, values) => Right(values)
           case (errors, _)           => Left(s"Running patch produced the following error(s): ${errors.toList}.")
         }
-      case (Primitive(StandardType.Year, _), Temporal(distance :: Nil))             => Right(Year.of(a.getValue - distance.toInt))
-      case (Primitive(StandardType.YearMonth, _), Temporal(distance :: Nil))        => Right(YearMonth.now().`with`(ChronoField.PROLEPTIC_MONTH, a.getLong(ChronoField.PROLEPTIC_MONTH) - distance))
-      case (Primitive(StandardType.LocalDate(_), _), Temporal(distance :: Nil))     => Right(LocalDate.ofEpochDay(a.toEpochDay - distance))
-      case (Primitive(StandardType.Instant(_), _), Temporal(dist1 :: dist2 :: Nil)) => Right(Instant.ofEpochSecond(a.getEpochSecond - dist1, a.getNano() - dist2))
-      case (Primitive(StandardType.LocalTime(_), _), Temporal(distance :: Nil))     => Right(LocalTime.ofNanoOfDay(a.toNanoOfDay - distance))
-      case (Primitive(StandardType.LocalDateTime(_), _), Temporal(dist1 :: dist2 :: Nil)) =>
+      case (Primitive(StandardType.YearType, _), Temporal(distance :: Nil))             => Right(Year.of(a.getValue - distance.toInt))
+      case (Primitive(StandardType.YearMonthType, _), Temporal(distance :: Nil))        => Right(YearMonth.now().`with`(ChronoField.PROLEPTIC_MONTH, a.getLong(ChronoField.PROLEPTIC_MONTH) - distance))
+      case (Primitive(StandardType.LocalDateType(_), _), Temporal(distance :: Nil))     => Right(LocalDate.ofEpochDay(a.toEpochDay - distance))
+      case (Primitive(StandardType.InstantType(_), _), Temporal(dist1 :: dist2 :: Nil)) => Right(Instant.ofEpochSecond(a.getEpochSecond - dist1, a.getNano() - dist2))
+      case (Primitive(StandardType.LocalTimeType(_), _), Temporal(distance :: Nil))     => Right(LocalTime.ofNanoOfDay(a.toNanoOfDay - distance))
+      case (Primitive(StandardType.LocalDateTimeType(_), _), Temporal(dist1 :: dist2 :: Nil)) =>
         Right {
           LocalDateTime.of(
             LocalDate.ofEpochDay(a.toLocalDate.toEpochDay - dist1),
             LocalTime.ofNanoOfDay(a.toLocalTime.toNanoOfDay - dist2)
           )
         }
-      case (Primitive(StandardType.OffsetTime(_), _), Temporal(dist1 :: dist2 :: Nil)) =>
+      case (Primitive(StandardType.OffsetTimeType(_), _), Temporal(dist1 :: dist2 :: Nil)) =>
         Right {
           OffsetTime.of(
             LocalTime.ofNanoOfDay(a.toLocalTime.toNanoOfDay - dist1),
             ZoneOffset.ofTotalSeconds(a.getOffset.getTotalSeconds - dist2.toInt)
           )
         }
-      case (Primitive(StandardType.OffsetDateTime(_), _), Temporal(dist1 :: dist2 :: dist3 :: Nil)) =>
+      case (Primitive(StandardType.OffsetDateTimeType(_), _), Temporal(dist1 :: dist2 :: dist3 :: Nil)) =>
         Right {
           OffsetDateTime.of(
             LocalDate.ofEpochDay(a.toLocalDate.toEpochDay - dist1),
@@ -516,7 +516,7 @@ sealed trait Diff { self =>
             ZoneOffset.ofTotalSeconds(a.getOffset.getTotalSeconds - dist3.toInt)
           )
         }
-      case (Primitive(StandardType.Period, _), d @ Temporal(dayAdjustment :: monthAdjustment :: yearAdjustment :: Nil)) =>
+      case (Primitive(StandardType.PeriodType, _), d @ Temporal(dayAdjustment :: monthAdjustment :: yearAdjustment :: Nil)) =>
         try {
           Right(
             Period.of(
@@ -526,30 +526,30 @@ sealed trait Diff { self =>
             )
           )
         } catch { case _: Throwable => Left(s"Invalid java.time.Period diff $d") }
-      case (Primitive(StandardType.ZonedDateTime(_), _), ZonedDateTime(Identical, Identical)) => Right(a)
-      case (Primitive(StandardType.ZonedDateTime(_), _), ZonedDateTime(Identical, Myers(edits))) =>
+      case (Primitive(StandardType.ZonedDateTimeType(_), _), ZonedDateTime(Identical, Identical)) => Right(a)
+      case (Primitive(StandardType.ZonedDateTimeType(_), _), ZonedDateTime(Identical, Myers(edits))) =>
         patchStringFromMyersEdits(a.getZone.getId, edits).map { zoneIdString =>
           JZonedDateTime.of(a.toLocalDateTime, ZoneId.of(zoneIdString))
         }
-      case (Primitive(StandardType.ZonedDateTime(_), _), ZonedDateTime(Temporal(dist1 :: dist2 :: Nil), Identical)) => {
+      case (Primitive(StandardType.ZonedDateTimeType(_), _), ZonedDateTime(Temporal(dist1 :: dist2 :: Nil), Identical)) => {
         val localDateTime = LocalDateTime.of(LocalDate.ofEpochDay(a.toLocalDate.toEpochDay - dist1), LocalTime.ofNanoOfDay(a.toLocalTime.toNanoOfDay - dist2))
         Right(JZonedDateTime.of(localDateTime, a.getZone))
       }
-      case (Primitive(StandardType.ZonedDateTime(_), _), ZonedDateTime(Temporal(dist1 :: dist2 :: Nil), Myers(edits))) => {
+      case (Primitive(StandardType.ZonedDateTimeType(_), _), ZonedDateTime(Temporal(dist1 :: dist2 :: Nil), Myers(edits))) => {
         val localDateTime = LocalDateTime.of(LocalDate.ofEpochDay(a.toLocalDate.toEpochDay - dist1), LocalTime.ofNanoOfDay(a.toLocalTime.toNanoOfDay - dist2))
         patchStringFromMyersEdits(a.getZone.getId, edits).map { zoneIdString =>
           JZonedDateTime.of(localDateTime, ZoneId.of(zoneIdString))
         }
       }
-      case (Primitive(StandardType.ZoneOffset, _), Temporal(distance :: Nil)) =>
+      case (Primitive(StandardType.ZoneOffsetType, _), Temporal(distance :: Nil)) =>
         try {
           Right(ZoneOffset.ofTotalSeconds(a.getTotalSeconds + distance.toInt))
         } catch { case t: Throwable => Left(s"Patched offset is invalid: ${t.getMessage}") }
       case (Primitive(StandardType.DayOfWeekType, _), Temporal(distance :: Nil))     => Right(a.plus(distance))
-      case (Primitive(StandardType.Month, _), Temporal(distance :: Nil))             => Right(a.plus(distance))
+      case (Primitive(StandardType.MonthType, _), Temporal(distance :: Nil))             => Right(a.plus(distance))
       case (Primitive(StandardType.Duration(_), _), Temporal(dist1 :: dist2 :: Nil)) => Right(JDuration.ofSeconds(a.getSeconds - dist1, a.getNano() - dist2))
       // TODO need to deal with leap year differences
-      case (Primitive(StandardType.MonthDay, _), Temporal(regDiff :: _ :: Nil)) => Right(MonthDay.from(ChronoUnit.DAYS.addTo(a.atYear(2001), regDiff.toLong)))
+      case (Primitive(StandardType.MonthDayType, _), Temporal(regDiff :: _ :: Nil)) => Right(MonthDay.from(ChronoUnit.DAYS.addTo(a.atYear(2001), regDiff.toLong)))
       case (s @ Schema.Lazy(_), diff)                                           => diff.patch(a)(s.schema)
       case (_: Optional[t], Total(_, Diff.Tag.Left))                            => Right(None)
       case (_: Optional[t], Total(right, Diff.Tag.Right))                       => Right(Some(right.asInstanceOf[t]))

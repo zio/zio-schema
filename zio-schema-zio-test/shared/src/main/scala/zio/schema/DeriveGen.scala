@@ -487,21 +487,21 @@ object DeriveGen {
       case StandardType.BigDecimalType    => Gen.anyDouble.map(new java.math.BigDecimal(_))
       case StandardType.BigIntegerType    => Gen.anyLong.map(java.math.BigInteger.valueOf(_))
       case StandardType.DayOfWeekType     => Gen.anyDayOfWeek
-      case StandardType.Month             => Gen.anyMonth
-      case StandardType.MonthDay          => Gen.anyMonthDay
-      case StandardType.Period            => Gen.anyPeriod
-      case StandardType.Year              => Gen.anyYear
-      case StandardType.YearMonth         => Gen.anyYearMonth
-      case StandardType.ZoneId            => Gen.anyZoneId
-      case StandardType.ZoneOffset        => Gen.anyZoneOffset
+      case StandardType.MonthType             => Gen.anyMonth
+      case StandardType.MonthDayType          => Gen.anyMonthDay
+      case StandardType.PeriodType            => Gen.anyPeriod
+      case StandardType.YearType              => Gen.anyYear
+      case StandardType.YearMonthType         => Gen.anyYearMonth
+      case StandardType.ZoneIdType            => Gen.anyZoneId
+      case StandardType.ZoneOffsetType        => Gen.anyZoneOffset
       case StandardType.Duration(_)       => Gen.anyFiniteDuration
-      case StandardType.Instant(_)        => Gen.anyInstant
-      case StandardType.LocalDate(_)      => Gen.anyLocalDate
-      case StandardType.LocalTime(_)      => Gen.anyLocalTime
-      case StandardType.LocalDateTime(_)  => Gen.anyLocalDateTime
-      case StandardType.OffsetTime(_)     => Gen.anyOffsetTime
-      case StandardType.OffsetDateTime(_) => Gen.anyOffsetDateTime
-      case StandardType.ZonedDateTime(_)  => Gen.anyZonedDateTime
+      case StandardType.InstantType(_)        => Gen.anyInstant
+      case StandardType.LocalDateType(_)      => Gen.anyLocalDate
+      case StandardType.LocalTimeType(_)      => Gen.anyLocalTime
+      case StandardType.LocalDateTimeType(_)  => Gen.anyLocalDateTime
+      case StandardType.OffsetTimeType(_)     => Gen.anyOffsetTime
+      case StandardType.OffsetDateTimeType(_) => Gen.anyOffsetDateTime
+      case StandardType.ZonedDateTimeType(_)  => Gen.anyZonedDateTime
     }
 
     gen.map(_.asInstanceOf[A])

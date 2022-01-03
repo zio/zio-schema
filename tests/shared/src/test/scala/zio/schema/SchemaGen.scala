@@ -573,40 +573,40 @@ object SchemaGen {
     ),
     SchemaTest("DayOfWeek", StandardType.DayOfWeekType, JavaTimeGen.anyDayOfWeek),
     SchemaTest("Duration", StandardType.Duration(ChronoUnit.SECONDS), JavaTimeGen.anyDuration),
-    SchemaTest("Instant", StandardType.Instant(DateTimeFormatter.ISO_DATE_TIME), JavaTimeGen.anyInstant),
-    SchemaTest("LocalDate", StandardType.LocalDate(DateTimeFormatter.ISO_DATE), JavaTimeGen.anyLocalDate),
+    SchemaTest("Instant", StandardType.InstantType(DateTimeFormatter.ISO_DATE_TIME), JavaTimeGen.anyInstant),
+    SchemaTest("LocalDate", StandardType.LocalDateType(DateTimeFormatter.ISO_DATE), JavaTimeGen.anyLocalDate),
     SchemaTest(
       "LocalDateTime",
-      StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+      StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
       JavaTimeGen.anyLocalDateTime
     ),
     SchemaTest(
       "LocalTime",
-      StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME),
+      StandardType.LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME),
       JavaTimeGen.anyLocalTime
     ),
-    SchemaTest("Month", StandardType.Month, JavaTimeGen.anyMonth),
-    SchemaTest("MonthDay", StandardType.MonthDay, JavaTimeGen.anyMonthDay),
+    SchemaTest("Month", StandardType.MonthType, JavaTimeGen.anyMonth),
+    SchemaTest("MonthDay", StandardType.MonthDayType, JavaTimeGen.anyMonthDay),
     SchemaTest(
       "OffsetDateTime",
-      StandardType.OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+      StandardType.OffsetDateTimeType(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
       JavaTimeGen.anyOffsetDateTime
     ),
     SchemaTest(
       "OffsetTime",
-      StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME),
+      StandardType.OffsetTimeType(DateTimeFormatter.ISO_OFFSET_TIME),
       JavaTimeGen.anyOffsetTime
     ),
-    SchemaTest("Period", StandardType.Period, JavaTimeGen.anyPeriod),
-    SchemaTest("Year", StandardType.Year, JavaTimeGen.anyYear),
-    SchemaTest("YearMonth", StandardType.YearMonth, JavaTimeGen.anyYearMonth),
+    SchemaTest("Period", StandardType.PeriodType, JavaTimeGen.anyPeriod),
+    SchemaTest("Year", StandardType.YearType, JavaTimeGen.anyYear),
+    SchemaTest("YearMonth", StandardType.YearMonthType, JavaTimeGen.anyYearMonth),
     SchemaTest(
       "ZonedDateTime",
-      StandardType.ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME),
+      StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME),
       JavaTimeGen.anyZonedDateTime
     ),
-    SchemaTest("ZoneId", StandardType.ZoneId, JavaTimeGen.anyZoneId),
-    SchemaTest("ZoneOffset", StandardType.ZoneOffset, JavaTimeGen.anyZoneOffset),
+    SchemaTest("ZoneId", StandardType.ZoneIdType, JavaTimeGen.anyZoneId),
+    SchemaTest("ZoneOffset", StandardType.ZoneOffsetType, JavaTimeGen.anyZoneOffset),
     SchemaTest("UnitType", StandardType.UnitType, Gen.unit)
   )
 

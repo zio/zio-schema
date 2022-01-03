@@ -111,21 +111,21 @@ object ProtobufCodec extends Codec {
       case StandardType.BigDecimalType    => false
       case StandardType.UUIDType          => false
       case StandardType.DayOfWeekType     => true
-      case StandardType.Month             => true
-      case StandardType.MonthDay          => false
-      case StandardType.Period            => false
-      case StandardType.Year              => true
-      case StandardType.YearMonth         => false
-      case StandardType.ZoneId            => false
-      case StandardType.ZoneOffset        => true
+      case StandardType.MonthType             => true
+      case StandardType.MonthDayType          => false
+      case StandardType.PeriodType            => false
+      case StandardType.YearType              => true
+      case StandardType.YearMonthType         => false
+      case StandardType.ZoneIdType            => false
+      case StandardType.ZoneOffsetType        => true
       case StandardType.Duration(_)       => true
-      case StandardType.Instant(_)        => false
-      case StandardType.LocalDate(_)      => false
-      case StandardType.LocalTime(_)      => false
-      case StandardType.LocalDateTime(_)  => false
-      case StandardType.OffsetTime(_)     => false
-      case StandardType.OffsetDateTime(_) => false
-      case StandardType.ZonedDateTime(_)  => false
+      case StandardType.InstantType(_)        => false
+      case StandardType.LocalDateType(_)      => false
+      case StandardType.LocalTimeType(_)      => false
+      case StandardType.LocalDateTimeType(_)  => false
+      case StandardType.OffsetTimeType(_)     => false
+      case StandardType.OffsetDateTimeType(_) => false
+      case StandardType.ZonedDateTimeType(_)  => false
     }
   }
 
@@ -320,39 +320,39 @@ object ProtobufCodec extends Codec {
           encodePrimitive(fieldNumber, StandardType.StringType, u.toString)
         case (StandardType.DayOfWeekType, v: DayOfWeek) =>
           encodePrimitive(fieldNumber, StandardType.IntType, v.getValue)
-        case (StandardType.Month, v: Month) =>
+        case (StandardType.MonthType, v: Month) =>
           encodePrimitive(fieldNumber, StandardType.IntType, v.getValue)
-        case (StandardType.MonthDay, v: MonthDay) =>
+        case (StandardType.MonthDayType, v: MonthDay) =>
           encodeRecord(fieldNumber, monthDayStructure, ListMap("month" -> v.getMonthValue, "day" -> v.getDayOfMonth))
-        case (StandardType.Period, v: Period) =>
+        case (StandardType.PeriodType, v: Period) =>
           encodeRecord(
             fieldNumber,
             periodStructure,
             ListMap("years" -> v.getYears, "months" -> v.getMonths, "days" -> v.getDays)
           )
-        case (StandardType.Year, v: Year) =>
+        case (StandardType.YearType, v: Year) =>
           encodePrimitive(fieldNumber, StandardType.IntType, v.getValue)
-        case (StandardType.YearMonth, v: YearMonth) =>
+        case (StandardType.YearMonthType, v: YearMonth) =>
           encodeRecord(fieldNumber, yearMonthStructure, ListMap("year" -> v.getYear, "month" -> v.getMonthValue))
-        case (StandardType.ZoneId, v: ZoneId) =>
+        case (StandardType.ZoneIdType, v: ZoneId) =>
           encodePrimitive(fieldNumber, StandardType.StringType, v.getId)
-        case (StandardType.ZoneOffset, v: ZoneOffset) =>
+        case (StandardType.ZoneOffsetType, v: ZoneOffset) =>
           encodePrimitive(fieldNumber, StandardType.IntType, v.getTotalSeconds)
         case (StandardType.Duration(_), v: Duration) =>
           encodeRecord(fieldNumber, durationStructure, ListMap("seconds" -> v.getSeconds, "nanos" -> v.getNano))
-        case (StandardType.Instant(formatter), v: Instant) =>
+        case (StandardType.InstantType(formatter), v: Instant) =>
           encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
-        case (StandardType.LocalDate(formatter), v: LocalDate) =>
+        case (StandardType.LocalDateType(formatter), v: LocalDate) =>
           encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
-        case (StandardType.LocalTime(formatter), v: LocalTime) =>
+        case (StandardType.LocalTimeType(formatter), v: LocalTime) =>
           encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
-        case (StandardType.LocalDateTime(formatter), v: LocalDateTime) =>
+        case (StandardType.LocalDateTimeType(formatter), v: LocalDateTime) =>
           encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
-        case (StandardType.OffsetTime(formatter), v: OffsetTime) =>
+        case (StandardType.OffsetTimeType(formatter), v: OffsetTime) =>
           encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
-        case (StandardType.OffsetDateTime(formatter), v: OffsetDateTime) =>
+        case (StandardType.OffsetDateTimeType(formatter), v: OffsetDateTime) =>
           encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
-        case (StandardType.ZonedDateTime(formatter), v: ZonedDateTime) =>
+        case (StandardType.ZonedDateTimeType(formatter), v: ZonedDateTime) =>
           encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
         case (_, _) =>
           Chunk.empty
@@ -734,15 +734,15 @@ object ProtobufCodec extends Codec {
           }
         case StandardType.DayOfWeekType =>
           varIntDecoder.map(_.intValue).map(DayOfWeek.of)
-        case StandardType.Month =>
+        case StandardType.MonthType =>
           varIntDecoder.map(_.intValue).map(Month.of)
-        case StandardType.MonthDay =>
+        case StandardType.MonthDayType =>
           recordDecoder(monthDayStructure)
             .map(
               data =>
                 MonthDay.of(data.getOrElse("month", 0).asInstanceOf[Int], data.getOrElse("day", 0).asInstanceOf[Int])
             )
-        case StandardType.Period =>
+        case StandardType.PeriodType =>
           recordDecoder(periodStructure)
             .map(
               data =>
@@ -752,16 +752,16 @@ object ProtobufCodec extends Codec {
                   data.getOrElse("days", 0).asInstanceOf[Int]
                 )
             )
-        case StandardType.Year =>
+        case StandardType.YearType =>
           varIntDecoder.map(_.intValue).map(Year.of)
-        case StandardType.YearMonth =>
+        case StandardType.YearMonthType =>
           recordDecoder(yearMonthStructure)
             .map(
               data =>
                 YearMonth.of(data.getOrElse("year", 0).asInstanceOf[Int], data.getOrElse("month", 0).asInstanceOf[Int])
             )
-        case StandardType.ZoneId => stringDecoder.map(ZoneId.of)
-        case StandardType.ZoneOffset =>
+        case StandardType.ZoneIdType => stringDecoder.map(ZoneId.of)
+        case StandardType.ZoneOffsetType =>
           varIntDecoder
             .map(_.intValue)
             .map(ZoneOffset.ofTotalSeconds)
@@ -774,19 +774,19 @@ object ProtobufCodec extends Codec {
                   data.getOrElse("nanos", 0).asInstanceOf[Int].toLong
                 )
             )
-        case StandardType.Instant(formatter) =>
+        case StandardType.InstantType(formatter) =>
           stringDecoder.map(v => Instant.from(formatter.parse(v)))
-        case StandardType.LocalDate(formatter) =>
+        case StandardType.LocalDateType(formatter) =>
           stringDecoder.map(LocalDate.parse(_, formatter))
-        case StandardType.LocalTime(formatter) =>
+        case StandardType.LocalTimeType(formatter) =>
           stringDecoder.map(LocalTime.parse(_, formatter))
-        case StandardType.LocalDateTime(formatter) =>
+        case StandardType.LocalDateTimeType(formatter) =>
           stringDecoder.map(LocalDateTime.parse(_, formatter))
-        case StandardType.OffsetTime(formatter) =>
+        case StandardType.OffsetTimeType(formatter) =>
           stringDecoder.map(OffsetTime.parse(_, formatter))
-        case StandardType.OffsetDateTime(formatter) =>
+        case StandardType.OffsetDateTimeType(formatter) =>
           stringDecoder.map(OffsetDateTime.parse(_, formatter))
-        case StandardType.ZonedDateTime(formatter) =>
+        case StandardType.ZonedDateTimeType(formatter) =>
           stringDecoder.map(ZonedDateTime.parse(_, formatter))
         case st => fail(s"Unsupported primitive type $st")
       }
