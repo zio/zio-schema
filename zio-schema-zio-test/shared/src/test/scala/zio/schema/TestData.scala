@@ -26,7 +26,9 @@ object TestData {
   val yearMonthSchema: Schema[java.time.YearMonth]   = Schema.Primitive(StandardType.YearMonthType)
   val zoneIdSchema: Schema[java.time.ZoneId]         = Schema.Primitive(StandardType.ZoneIdType)
   val zoneOffsetSchema: Schema[java.time.ZoneOffset] = Schema.Primitive(StandardType.ZoneOffsetType)
-  val instantSchema: Schema[java.time.Instant]       = Schema.Primitive(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
+
+  val instantSchema: Schema[java.time.Instant] =
+    Schema.Primitive(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
 
   val localDateSchema: Schema[java.time.LocalDate] =
     Schema.Primitive(StandardType.LocalDateType(DateTimeFormatter.ISO_LOCAL_DATE))

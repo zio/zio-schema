@@ -97,20 +97,20 @@ object ProtobufCodec extends Codec {
     }
 
     private def canBePacked(standardType: StandardType[_]): Boolean = standardType match {
-      case StandardType.UnitType          => false
-      case StandardType.StringType        => false
-      case StandardType.BoolType          => true
-      case StandardType.ShortType         => true
-      case StandardType.IntType           => true
-      case StandardType.LongType          => true
-      case StandardType.FloatType         => true
-      case StandardType.DoubleType        => true
-      case StandardType.BinaryType        => false
-      case StandardType.CharType          => true
-      case StandardType.BigIntegerType    => false
-      case StandardType.BigDecimalType    => false
-      case StandardType.UUIDType          => false
-      case StandardType.DayOfWeekType     => true
+      case StandardType.UnitType              => false
+      case StandardType.StringType            => false
+      case StandardType.BoolType              => true
+      case StandardType.ShortType             => true
+      case StandardType.IntType               => true
+      case StandardType.LongType              => true
+      case StandardType.FloatType             => true
+      case StandardType.DoubleType            => true
+      case StandardType.BinaryType            => false
+      case StandardType.CharType              => true
+      case StandardType.BigIntegerType        => false
+      case StandardType.BigDecimalType        => false
+      case StandardType.UUIDType              => false
+      case StandardType.DayOfWeekType         => true
       case StandardType.MonthType             => true
       case StandardType.MonthDayType          => false
       case StandardType.PeriodType            => false
@@ -118,7 +118,7 @@ object ProtobufCodec extends Codec {
       case StandardType.YearMonthType         => false
       case StandardType.ZoneIdType            => false
       case StandardType.ZoneOffsetType        => true
-      case StandardType.Duration(_)       => true
+      case StandardType.Duration(_)           => true
       case StandardType.InstantType(_)        => false
       case StandardType.LocalDateType(_)      => false
       case StandardType.LocalTimeType(_)      => false

@@ -53,21 +53,21 @@ object JsonCodec extends Codec {
 
     private[codec] def primitiveCodec[A](standardType: StandardType[A]): ZJsonCodec[A] =
       standardType match {
-        case StandardType.UnitType          => unitCodec
-        case StandardType.StringType        => ZJsonCodec.string
-        case StandardType.BoolType          => ZJsonCodec.boolean
-        case StandardType.ShortType         => ZJsonCodec.short
-        case StandardType.IntType           => ZJsonCodec.int
-        case StandardType.LongType          => ZJsonCodec.long
-        case StandardType.FloatType         => ZJsonCodec.float
-        case StandardType.DoubleType        => ZJsonCodec.double
-        case StandardType.BinaryType        => ZJsonCodec.chunk(ZJsonCodec.byte)
-        case StandardType.CharType          => ZJsonCodec.char
-        case StandardType.BigIntegerType    => ZJsonCodec.bigInteger
-        case StandardType.BigDecimalType    => ZJsonCodec.bigDecimal
-        case StandardType.UUIDType          => ZJsonCodec.uuid
-        case StandardType.DayOfWeekType     => ZJsonCodec.dayOfWeek // ZJsonCodec[java.time.DayOfWeek]
-        case StandardType.Duration(_)       => ZJsonCodec.duration //ZJsonCodec[java.time.Duration]
+        case StandardType.UnitType              => unitCodec
+        case StandardType.StringType            => ZJsonCodec.string
+        case StandardType.BoolType              => ZJsonCodec.boolean
+        case StandardType.ShortType             => ZJsonCodec.short
+        case StandardType.IntType               => ZJsonCodec.int
+        case StandardType.LongType              => ZJsonCodec.long
+        case StandardType.FloatType             => ZJsonCodec.float
+        case StandardType.DoubleType            => ZJsonCodec.double
+        case StandardType.BinaryType            => ZJsonCodec.chunk(ZJsonCodec.byte)
+        case StandardType.CharType              => ZJsonCodec.char
+        case StandardType.BigIntegerType        => ZJsonCodec.bigInteger
+        case StandardType.BigDecimalType        => ZJsonCodec.bigDecimal
+        case StandardType.UUIDType              => ZJsonCodec.uuid
+        case StandardType.DayOfWeekType         => ZJsonCodec.dayOfWeek // ZJsonCodec[java.time.DayOfWeek]
+        case StandardType.Duration(_)           => ZJsonCodec.duration //ZJsonCodec[java.time.Duration]
         case StandardType.InstantType(_)        => ZJsonCodec.instant //ZJsonCodec[java.time.Instant]
         case StandardType.LocalDateType(_)      => ZJsonCodec.localDate //ZJsonCodec[java.time.LocalDate]
         case StandardType.LocalDateTimeType(_)  => ZJsonCodec.localDateTime //ZJsonCodec[java.time.LocalDateTime]

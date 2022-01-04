@@ -301,8 +301,11 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       testM("local date times") {
         val value = LocalDateTime.now()
         for {
-          ed  <- encodeAndDecode(Primitive(StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME)), value)
-          ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME)), value)
+          ed <- encodeAndDecode(Primitive(StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME)), value)
+          ed2 <- encodeAndDecodeNS(
+                  Primitive(StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME)),
+                  value
+                )
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("offset times") {
