@@ -31,16 +31,28 @@ object SchemaAssertions {
     Assertion.assertion("hasSameAst")(param(expected))(actual => equalsAst(expected, actual))
 
   private def equalsAst(expected: Schema[_], actual: Schema[_], depth: Int = 0): Boolean = (expected, actual) match {
-    case (Schema.Primitive(StandardType.Duration(_), _), Schema.Primitive(StandardType.Duration(_), _))   => true
-    case (Schema.Primitive(StandardType.Instant(_), _), Schema.Primitive(StandardType.Instant(_), _))     => true
-    case (Schema.Primitive(StandardType.LocalDate(_), _), Schema.Primitive(StandardType.LocalDate(_), _)) => true
-    case (Schema.Primitive(StandardType.LocalTime(_), _), Schema.Primitive(StandardType.LocalTime(_), _)) => true
-    case (Schema.Primitive(StandardType.LocalDateTime(_), _), Schema.Primitive(StandardType.LocalDateTime(_), _)) =>
+    case (Schema.Primitive(StandardType.Duration(_), _), Schema.Primitive(StandardType.Duration(_), _))       => true
+    case (Schema.Primitive(StandardType.InstantType(_), _), Schema.Primitive(StandardType.InstantType(_), _)) => true
+    case (Schema.Primitive(StandardType.LocalDateType(_), _), Schema.Primitive(StandardType.LocalDateType(_), _)) =>
       true
-    case (Schema.Primitive(StandardType.ZonedDateTime(_), _), Schema.Primitive(StandardType.ZonedDateTime(_), _)) =>
+    case (Schema.Primitive(StandardType.LocalTimeType(_), _), Schema.Primitive(StandardType.LocalTimeType(_), _)) =>
       true
-    case (Schema.Primitive(StandardType.OffsetTime(_), _), Schema.Primitive(StandardType.OffsetTime(_), _)) => true
-    case (Schema.Primitive(StandardType.OffsetDateTime(_), _), Schema.Primitive(StandardType.OffsetDateTime(_), _)) =>
+    case (
+        Schema.Primitive(StandardType.LocalDateTimeType(_), _),
+        Schema.Primitive(StandardType.LocalDateTimeType(_), _)
+        ) =>
+      true
+    case (
+        Schema.Primitive(StandardType.ZonedDateTimeType(_), _),
+        Schema.Primitive(StandardType.ZonedDateTimeType(_), _)
+        ) =>
+      true
+    case (Schema.Primitive(StandardType.OffsetTimeType(_), _), Schema.Primitive(StandardType.OffsetTimeType(_), _)) =>
+      true
+    case (
+        Schema.Primitive(StandardType.OffsetDateTimeType(_), _),
+        Schema.Primitive(StandardType.OffsetDateTimeType(_), _)
+        ) =>
       true
     case (Schema.Primitive(tpe1, _), Schema.Primitive(tpe2, _))     => tpe1 == tpe2
     case (Schema.Optional(expected, _), Schema.Optional(actual, _)) => equalsAst(expected, actual, depth)

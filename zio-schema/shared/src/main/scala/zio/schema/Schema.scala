@@ -216,6 +216,8 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   implicit val none: Schema[None.type] = Schema[Unit].transform(_ => None, _ => ())
 
+  implicit val dynamicValue: Schema[DynamicValue] = DynamicValueSchema()
+
   implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
     Schema.Sequence[Chunk[A], A](schemaA, identity, identity, Chunk.empty)
 

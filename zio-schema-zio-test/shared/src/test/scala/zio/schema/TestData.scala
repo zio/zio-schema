@@ -18,33 +18,35 @@ object TestData {
   val charSchema: Schema[Char]                       = Schema.Primitive(StandardType.CharType)
   val bigDecimalSchema: Schema[java.math.BigDecimal] = Schema.Primitive(StandardType.BigDecimalType)
   val bigIntegerSchema: Schema[java.math.BigInteger] = Schema.Primitive(StandardType.BigIntegerType)
-  val monthSchema: Schema[java.time.Month]           = Schema.Primitive(StandardType.Month)
-  val monthDaySchema: Schema[java.time.MonthDay]     = Schema.Primitive(StandardType.MonthDay)
-  val periodSchema: Schema[java.time.Period]         = Schema.Primitive(StandardType.Period)
+  val monthSchema: Schema[java.time.Month]           = Schema.Primitive(StandardType.MonthType)
+  val monthDaySchema: Schema[java.time.MonthDay]     = Schema.Primitive(StandardType.MonthDayType)
+  val periodSchema: Schema[java.time.Period]         = Schema.Primitive(StandardType.PeriodType)
   val dayOfWeekSchema: Schema[java.time.DayOfWeek]   = Schema.Primitive(StandardType.DayOfWeekType)
-  val yearSchema: Schema[java.time.Year]             = Schema.Primitive(StandardType.Year)
-  val yearMonthSchema: Schema[java.time.YearMonth]   = Schema.Primitive(StandardType.YearMonth)
-  val zoneIdSchema: Schema[java.time.ZoneId]         = Schema.Primitive(StandardType.ZoneId)
-  val zoneOffsetSchema: Schema[java.time.ZoneOffset] = Schema.Primitive(StandardType.ZoneOffset)
-  val instantSchema: Schema[java.time.Instant]       = Schema.Primitive(StandardType.Instant(DateTimeFormatter.ISO_INSTANT))
+  val yearSchema: Schema[java.time.Year]             = Schema.Primitive(StandardType.YearType)
+  val yearMonthSchema: Schema[java.time.YearMonth]   = Schema.Primitive(StandardType.YearMonthType)
+  val zoneIdSchema: Schema[java.time.ZoneId]         = Schema.Primitive(StandardType.ZoneIdType)
+  val zoneOffsetSchema: Schema[java.time.ZoneOffset] = Schema.Primitive(StandardType.ZoneOffsetType)
+
+  val instantSchema: Schema[java.time.Instant] =
+    Schema.Primitive(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
 
   val localDateSchema: Schema[java.time.LocalDate] =
-    Schema.Primitive(StandardType.LocalDate(DateTimeFormatter.ISO_LOCAL_DATE))
+    Schema.Primitive(StandardType.LocalDateType(DateTimeFormatter.ISO_LOCAL_DATE))
 
   val localTimeSchema: Schema[java.time.LocalTime] =
-    Schema.Primitive(StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME))
+    Schema.Primitive(StandardType.LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME))
 
   val localDateTimeSchema: Schema[java.time.LocalDateTime] =
-    Schema.Primitive(StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+    Schema.Primitive(StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
 
   val offsetTimeSchema: Schema[java.time.OffsetTime] =
-    Schema.Primitive(StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME))
+    Schema.Primitive(StandardType.OffsetTimeType(DateTimeFormatter.ISO_OFFSET_TIME))
 
   val offsetDateTimeSchema: Schema[java.time.OffsetDateTime] =
-    Schema.Primitive(StandardType.OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+    Schema.Primitive(StandardType.OffsetDateTimeType(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
 
   val zonedDateTimeSchema: Schema[java.time.ZonedDateTime] =
-    Schema.Primitive(StandardType.ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+    Schema.Primitive(StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME))
 
   val uuidSchema: Schema[java.util.UUID] = Schema.Primitive(StandardType.UUIDType)
 
