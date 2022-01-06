@@ -226,7 +226,7 @@ object BuildHelper {
       ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
       ThisBuild / scalafixDependencies ++= List(
         "com.github.liancheng" %% "organize-imports" % "0.6.0",
-        "com.github.vovapolu"  %% "scaluzzi"         % "0.1.20"
+        "com.github.vovapolu"  %% "scaluzzi"         % "0.1.21"
       ),
       Test / parallelExecution := true,
       incOptions ~= (_.withLogRecompileOnMacro(true)),
