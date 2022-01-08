@@ -224,6 +224,9 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
   implicit def map[K, V](implicit ks: Schema[K], vs: Schema[V]): Schema[Map[K, V]] =
     Schema.MapSchema(ks, vs, Chunk.empty)
 
+  implicit def set[A](implicit schemaA: Schema[A]): Schema[Set[A]] =
+    Schema.SetSchema(schemaA, Chunk.empty)
+
   implicit def either[A, B](implicit left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
     EitherSchema(left, right)
 
@@ -241,9 +244,6 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   implicit def right[A, B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
     schemaB.transform(Right(_), _.value)
-
-  implicit def set[A](implicit element: Schema[A]): Schema[Set[A]] =
-    chunk(element).transform(_.toSet, Chunk.fromIterable(_))
 
   implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
     chunk(element).transform(_.toVector, Chunk.fromIterable(_))
@@ -453,6 +453,21 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Map[K, V], (K, V)] =
       b.makeTraversal(self, ks <*> vs)
   }
+
+  final case class SetSchema[A](as: Schema[A], override val annotations: Chunk[Any]) extends Collection[Set[A], A] {
+    self =>
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Traversal[Set[A], A]
+
+    override def annotate(annotation: Any): SetSchema[A] =
+      copy(annotations = annotations :+ annotation)
+
+    override def defaultValue: Either[String, Set[A]] =
+      as.defaultValue.map(Set(_))
+
+    override def makeAccessors(b: AccessorBuilder): b.Traversal[Set[A], A] =
+      b.makeTraversal(self, as)
+  }
+
 }
 
 //scalafmt: { maxColumn = 400 }

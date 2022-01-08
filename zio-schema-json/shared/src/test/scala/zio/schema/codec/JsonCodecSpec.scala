@@ -87,6 +87,17 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         )
       }
     ),
+    suite("Set")(
+      testM("of complex values") {
+        assertEncodes(
+          Schema.set[Value],
+          Set(Value(0, true), Value(1, false)),
+          JsonCodec.Encoder.charSequenceToByteChunk(
+            """[{"first":0,"second":true},{"first":1,"second":false}]"""
+          )
+        )
+      }
+    ),
     suite("record")(
       testM("of primitives") {
         assertEncodes(
@@ -229,6 +240,15 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           Map(Key("a", 0) -> Value(0, true), Key("b", 1) -> Value(1, false)),
           JsonCodec.Encoder.charSequenceToByteChunk(
             """[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]"""
+          )
+        )
+      },
+      testM("Set of complex values") {
+        assertEncodes(
+          Schema.set[Value],
+          Set(Value(0, true), Value(1, false)),
+          JsonCodec.Encoder.charSequenceToByteChunk(
+            """[{"first":0,"second":true},{"first":1,"second":false}]"""
           )
         )
       },
