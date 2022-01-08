@@ -548,6 +548,15 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(mSchema, m)
         } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
       },
+      testM("set of products") {
+        val set: Set[Record] = Set(Record("AAA", 1), Record("BBB", 2))
+        val setSchema        = Schema.set(Record.schemaRecord)
+
+        for {
+          ed  <- encodeAndDecode(setSchema, set)
+          ed2 <- encodeAndDecodeNS(setSchema, set)
+        } yield assert(ed)(equalTo(Chunk.succeed(set))) && assert(ed2)(equalTo(set))
+      },
       testM("recursive data types") {
         checkM(SchemaGen.anyRecursiveTypeAndValue) {
           case (schema, value) =>
