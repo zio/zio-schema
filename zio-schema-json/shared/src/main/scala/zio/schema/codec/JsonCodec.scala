@@ -279,7 +279,7 @@ object JsonCodec extends Codec {
       case Schema.Sequence(codec, f, _, _)   => JsonDecoder.chunk(schemaDecoder(codec)).map(f)
       case Schema.MapSchema(ks, vs, _) =>
         JsonDecoder.chunk(schemaDecoder(ks) <*> schemaDecoder(vs)).map(entries => entries.toList.toMap)
-      case Schema.SetSchema(s, _)                                                                   => JsonDecoder.chunk(schemaDecoder(s)).map(entries => entries.toList.toSet)
+      case Schema.SetSchema(s, _)                                                                   => JsonDecoder.chunk(schemaDecoder(s)).map(entries => entries.toSet)
       case Schema.Fail(message, _)                                                                  => failDecoder(message)
       case Schema.GenericRecord(structure, _)                                                       => recordDecoder(structure.toChunk)
       case Schema.EitherSchema(left, right, _)                                                      => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
