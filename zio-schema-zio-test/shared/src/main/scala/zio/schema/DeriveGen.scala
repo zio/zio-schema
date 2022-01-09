@@ -60,6 +60,7 @@ object DeriveGen {
       case generic @ Schema.GenericRecord(_, _)                                                                                                                             => genGenericRecord(generic).map(_.asInstanceOf[A])
       case seq @ Schema.Sequence(_, _, _, _)                                                                                                                                => genSequence(seq)
       case map @ Schema.MapSchema(_, _, _)                                                                                                                                  => genMap(map)
+      case set @ Schema.SetSchema(_, _)                                                                                                                                     => genSet(set)
       case transform @ Schema.Transform(_, _, _, _)                                                                                                                         => genTransform(transform)
       case Schema.Primitive(standardType, _)                                                                                                                                => genPrimitive(standardType)
       case optional @ Schema.Optional(_, _)                                                                                                                                 => genOptional(optional)
@@ -467,6 +468,9 @@ object DeriveGen {
 
   private def genMap[K, V](map: Schema.MapSchema[K, V]): Gen[Random with Sized, Map[K, V]] =
     Gen.oneOf(Gen.mapOfN(2)(gen(map.ks), gen(map.vs)), Gen.const(Map.empty[K, V]))
+
+  private def genSet[A](set: Schema.SetSchema[A]): Gen[Random with Sized, Set[A]] =
+    Gen.oneOf(Gen.setOf(gen(set.as)), Gen.const(Set.empty[A]))
 
   private def genTransform[A, B](transform: Schema.Transform[A, B]): Gen[Random with Sized, B] =
     gen(transform.codec).flatMap(a => transform.f(a).fold(_ => Gen.empty, (b: B) => Gen.const(b)))
