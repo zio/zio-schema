@@ -109,7 +109,7 @@ object Differ {
     case Schema.Optional(schema, _)                                                              => fromSchema(schema).optional
     case Schema.Sequence(schema, _, f, _)                                                        => fromSchema(schema).foreach(f)
     case s @ Schema.MapSchema(_, _, _)                                                           => map(s)
-    case Schema.SetSchema(schema, _)                                                             => fromSchema(schema).foreach(col => Chunk.fromIterable(col.asInstanceOf[Iterable[_]]))
+    case schema: Schema.SetSchema[a]                                                             => fromSchema(schema.as).foreach(col => Chunk.fromIterable(col.asInstanceOf[Iterable[a]]))
     case Schema.Meta(_, _)                                                                       => (_: A, _: A) => Diff.NotComparable
     case Schema.EitherSchema(leftSchema, rightSchema, _)                                         => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                                                                      => fromSchema(s.schema)
