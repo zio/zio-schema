@@ -612,7 +612,7 @@ sealed trait Diff { self =>
             case (None, None)                       => Some(Left(s"Unknown error in sequence."))
           }
           .partitionMap(identity) match {
-          case (Chunk.empty, values) => Right(values.asInstanceOf[Iterable[z]].toSet) //Right(schema.fromChunk(values.asInstanceOf[Chunk[t]]))
+          case (Chunk.empty, values) => Right(values.asInstanceOf[Iterable[z]].toSet)
           case (errors, _)           => Left(s"Running patch produced the following error(s): ${errors.toList}.")
         }
 
