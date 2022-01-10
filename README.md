@@ -15,7 +15,7 @@ With schema descriptions that can be automatically derived for case classes and 
 
 When your data structures need to be serialized, deserialized, persisted, or transported across the wire, then _ZIO Schema_ lets you focus on data modeling and automatically tackle all the low-level, messy details for you.
 
-_ZIO Schema_ is used by a growing number of ZIO libraries, including _ZIO Flow_, _ZIO Redis_, and _ZIO Web_.
+_ZIO Schema_ is used by a growing number of ZIO libraries, including _ZIO Flow_, _ZIO Redis_, _ZIO Web_, _ZIO SQL_ and _ZIO DynamoDB_.
 
 ## Installation
 

@@ -109,6 +109,7 @@ object Differ {
     case Schema.Optional(schema, _)                                                              => fromSchema(schema).optional
     case Schema.Sequence(schema, _, f, _)                                                        => fromSchema(schema).foreach(f)
     case s @ Schema.MapSchema(_, _, _)                                                           => map(s)
+    case schema: Schema.SetSchema[a]                                                             => fromSchema(schema.as).foreach(col => Chunk.fromIterable(col.asInstanceOf[Iterable[a]]))
     case Schema.Meta(_, _)                                                                       => (_: A, _: A) => Diff.NotComparable
     case Schema.EitherSchema(leftSchema, rightSchema, _)                                         => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                                                                      => fromSchema(s.schema)
@@ -599,6 +600,22 @@ sealed trait Diff { self =>
           case (Chunk.empty, values) => Right(schema.fromChunk(values.asInstanceOf[Chunk[t]]))
           case (errors, _)           => Left(s"Running patch produced the following error(s): ${errors.toList}.")
         }
+      case (schema: Schema.SetSchema[z], Diff.Sequence(diffs)) =>
+        diffs
+          .zipAll(Chunk.fromIterable(a.asInstanceOf[Iterable[z]]))
+          .flatMap {
+            case (Some(Total(right, Tag.Right)), _) => Some(Right(right))
+            case (Some(Total(_, Tag.Left)), _)      => None
+            case (Some(diff), Some(value))          => Some(diff.patch(value)(schema.as))
+            case (None, Some(value))                => Some(Left(s"Diff missing for value=$value."))
+            case (Some(diff), None)                 => Some(Left(s"Value missing for Diff=$diff."))
+            case (None, None)                       => Some(Left(s"Unknown error in sequence."))
+          }
+          .partitionMap(identity) match {
+          case (Chunk.empty, values) => Right(values.asInstanceOf[Iterable[z]].toSet)
+          case (errors, _)           => Left(s"Running patch produced the following error(s): ${errors.toList}.")
+        }
+
       case (mapSchema: Schema.MapSchema[k, v], Diff.Map(diffs)) =>
         diffs.foldRight[scala.Either[String, A]](Right(a)) {
           case (_, Left(error))                           => Left(error)

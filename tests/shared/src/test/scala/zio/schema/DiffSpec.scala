@@ -781,6 +781,26 @@ object DiffSpec extends DefaultRunnableSpec {
         }
       }
     ),
+    suite("set")(
+      testM("identical") {
+        check(Gen.setOfN(5)(Gen.anyInt)) { set =>
+          assertTrue(Schema.set[Int].diff(set, set) == Diff.Identical)
+        }
+      },
+      testM("diffs") {
+        check(Gen.setOfN(5)(Gen.anyInt)) {
+          case set =>
+            val left: Set[Int]  = set
+            val right: Set[Int] = set.map(_ + 1)
+
+            val patch: Diff = left.diffEach(right)
+
+            assertTrue(
+              left.runPatch(patch) == Right(right)
+            )
+        }
+      }
+    ),
     suite("optional")(
       testM("identical") {
         check(Gen.option(Gen.anyLong)) { x =>
