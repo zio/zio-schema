@@ -6,7 +6,7 @@ title: "Understanding ZIO Schema"
 
 ## Understanding ZIO Schema
 
-ZIO Schema is a library used in many ZIO projects such as ZIO Flow and ZIO SQL.
+ZIO Schema is a library used in many ZIO projects such as _ZIO Flow_, _ZIO Redis_, _ZIO Web_, _ZIO SQL_ and _ZIO DynamoDB_.
 ZIO is all about reification of your types. Reification means transforming something abstract (e.g. side effects, accessing fields, structure)  into something "real" (values).
 
 ### Reification: functional effects

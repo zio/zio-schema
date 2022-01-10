@@ -137,10 +137,11 @@ object ProtobufCodec extends Codec {
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
       (schema, value) match {
-        case (Schema.GenericRecord(structure, _), v: Map[String, _]) => encodeRecord(fieldNumber, structure.toChunk, v)
-        case (Schema.Sequence(element, _, g, _), v)                  => encodeSequence(fieldNumber, element, g(v))
-        case (Schema.MapSchema(ks, vs, _), v: Map[k, v]) =>
-          encodeSequence(fieldNumber, ks <*> vs, Chunk.fromIterable(v))
+        case (Schema.GenericRecord(structure, _), v: Map[String, _]) =>
+          encodeRecord(fieldNumber, structure.toChunk, v)
+        case (Schema.Sequence(element, _, g, _), v)                 => encodeSequence(fieldNumber, element, g(v))
+        case (Schema.MapSchema(ks, vs, _), map: Map[k, v])          => encodeSequence(fieldNumber, ks <*> vs, Chunk.fromIterable(map))
+        case (Schema.SetSchema(s, _), set: Set[_])                  => encodeSequence(fieldNumber, s, Chunk.fromIterable(set))
         case (Schema.Transform(codec, _, g, _), _)                  => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
         case (Schema.Primitive(standardType, _), v)                 => encodePrimitive(fieldNumber, standardType, v)
         case (Schema.Tuple(left, right, _), v @ (_, _))             => encodeTuple(fieldNumber, left, right, v)
@@ -505,8 +506,8 @@ object ProtobufCodec extends Codec {
         case Schema.Sequence(elementSchema, fromChunk, _, _) =>
           if (canBePacked(elementSchema)) packedSequenceDecoder(elementSchema).map(fromChunk)
           else nonPackedSequenceDecoder(elementSchema).map(fromChunk)
-        case Schema.MapSchema(ks: Schema[k], vs: Schema[v], _) =>
-          decoder(Schema.Sequence(ks <*> vs, (c: Chunk[(k, v)]) => Map(c: _*), (m: Map[k, v]) => Chunk.fromIterable(m)))
+        case Schema.MapSchema(ks: Schema[k], vs: Schema[v], _)                                 => decoder(Schema.Sequence(ks <*> vs, (c: Chunk[(k, v)]) => Map(c: _*), (m: Map[k, v]) => Chunk.fromIterable(m)))
+        case Schema.SetSchema(schema: Schema[s], _)                                            => decoder(Schema.Sequence(schema, (c: Chunk[s]) => Set(c: _*), (m: Set[s]) => Chunk.fromIterable(m)))
         case Schema.Transform(codec, f, _, _)                                                  => transformDecoder(codec, f)
         case Schema.Primitive(standardType, _)                                                 => primitiveDecoder(standardType)
         case Schema.Tuple(left, right, _)                                                      => tupleDecoder(left, right)

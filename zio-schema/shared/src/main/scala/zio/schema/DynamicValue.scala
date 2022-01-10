@@ -963,6 +963,9 @@ object DynamicValue {
         }
         DynamicValue.Dictionary(Chunk.fromIterable(entries))
 
+      case Schema.SetSchema(as: Schema[a], _) =>
+        DynamicValue.SetValue(value.asInstanceOf[Set[a]].map(fromSchemaAndValue(as, _)))
+
       case schema: Schema.EitherSchema[l, r] =>
         value.asInstanceOf[Either[l, r]] match {
           case Left(value: l)  => DynamicValue.LeftValue(fromSchemaAndValue(schema.left, value))
@@ -1851,6 +1854,8 @@ object DynamicValue {
   final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue
 
   final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue
+
+  final case class SetValue[A](values: Set[DynamicValue]) extends DynamicValue
 
   sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue
 
