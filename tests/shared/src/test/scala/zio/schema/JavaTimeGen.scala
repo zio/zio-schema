@@ -3,7 +3,7 @@ package zio.schema
 import java.time._
 import java.time.temporal.ChronoField
 
-import zio.random.Random
+import zio.Random
 import zio.test.Gen
 
 object JavaTimeGen {
@@ -71,8 +71,8 @@ object JavaTimeGen {
   val anyPeriod: Gen[Random, Period] =
     for {
       years  <- Gen.int(-99999, 99999)
-      months <- Gen.anyInt
-      days   <- Gen.anyInt
+      months <- Gen.int
+      days   <- Gen.int
     } yield Period.of(years, months, days)
 
   val anyInstant: Gen[Random, Instant] = Gen

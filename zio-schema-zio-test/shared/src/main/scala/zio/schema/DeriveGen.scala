@@ -2,10 +2,9 @@ package zio.schema
 
 import scala.collection.immutable.ListMap
 
-import zio.Chunk
-import zio.random.Random
 import zio.schema.ast.SchemaAst
 import zio.test.{ Gen, Sized }
+import zio.{ Chunk, Random }
 
 object DeriveGen {
 
@@ -70,7 +69,7 @@ object DeriveGen {
       case Schema.Meta(ast, _)                                                                                                                                              => genMeta(ast)
     } // scalafmt: { maxColumn = 120 }
 
-  private def genEnum[Z](cases: Schema.Case[_, Z]*): Gen[Random with Sized, Z] =
+  private def genEnum[Z](cases: Schema.Case[_, Z]*) =
     Gen.elements(cases: _*).flatMap(c => gen(c.codec).map(_.asInstanceOf[Z]))
 
   private def genCaseClass1[A, Z](caseClass1: Schema.CaseClass1[A, Z]): Gen[Random with Sized, Z] =
@@ -474,34 +473,34 @@ object DeriveGen {
   def genPrimitive[A](standardType: StandardType[A]): Gen[Random with Sized, A] = {
     val gen = standardType match {
       case StandardType.UnitType          => Gen.unit
-      case StandardType.StringType        => Gen.anyString
+      case StandardType.StringType        => Gen.string
       case StandardType.BoolType          => Gen.boolean
-      case StandardType.ShortType         => Gen.anyShort
-      case StandardType.IntType           => Gen.anyInt
-      case StandardType.LongType          => Gen.anyLong
-      case StandardType.FloatType         => Gen.anyFloat
-      case StandardType.DoubleType        => Gen.anyDouble
-      case StandardType.BinaryType        => Gen.chunkOf1(Gen.anyByte).map(_.toChunk)
-      case StandardType.CharType          => Gen.anyChar
-      case StandardType.UUIDType          => Gen.anyUUID
-      case StandardType.BigDecimalType    => Gen.anyDouble.map(new java.math.BigDecimal(_))
-      case StandardType.BigIntegerType    => Gen.anyLong.map(java.math.BigInteger.valueOf(_))
-      case StandardType.DayOfWeekType     => Gen.anyDayOfWeek
-      case StandardType.Month             => Gen.anyMonth
-      case StandardType.MonthDay          => Gen.anyMonthDay
-      case StandardType.Period            => Gen.anyPeriod
-      case StandardType.Year              => Gen.anyYear
-      case StandardType.YearMonth         => Gen.anyYearMonth
-      case StandardType.ZoneId            => Gen.anyZoneId
-      case StandardType.ZoneOffset        => Gen.anyZoneOffset
-      case StandardType.Duration(_)       => Gen.anyFiniteDuration
-      case StandardType.Instant(_)        => Gen.anyInstant
-      case StandardType.LocalDate(_)      => Gen.anyLocalDate
-      case StandardType.LocalTime(_)      => Gen.anyLocalTime
-      case StandardType.LocalDateTime(_)  => Gen.anyLocalDateTime
-      case StandardType.OffsetTime(_)     => Gen.anyOffsetTime
-      case StandardType.OffsetDateTime(_) => Gen.anyOffsetDateTime
-      case StandardType.ZonedDateTime(_)  => Gen.anyZonedDateTime
+      case StandardType.ShortType         => Gen.short
+      case StandardType.IntType           => Gen.int
+      case StandardType.LongType          => Gen.long
+      case StandardType.FloatType         => Gen.float
+      case StandardType.DoubleType        => Gen.double
+      case StandardType.BinaryType        => Gen.chunkOf1(Gen.byte).map(_.toChunk)
+      case StandardType.CharType          => Gen.char
+      case StandardType.UUIDType          => Gen.uuid
+      case StandardType.BigDecimalType    => Gen.double.map(new java.math.BigDecimal(_))
+      case StandardType.BigIntegerType    => Gen.long.map(java.math.BigInteger.valueOf(_))
+      case StandardType.DayOfWeekType     => Gen.dayOfWeek
+      case StandardType.Month             => Gen.month
+      case StandardType.MonthDay          => Gen.monthDay
+      case StandardType.Period            => Gen.period
+      case StandardType.Year              => Gen.year
+      case StandardType.YearMonth         => Gen.yearMonth
+      case StandardType.ZoneId            => Gen.zoneId
+      case StandardType.ZoneOffset        => Gen.zoneOffset
+      case StandardType.Duration(_)       => Gen.finiteDuration
+      case StandardType.Instant(_)        => Gen.instant
+      case StandardType.LocalDate(_)      => Gen.localDate
+      case StandardType.LocalTime(_)      => Gen.localTime
+      case StandardType.LocalDateTime(_)  => Gen.localDateTime
+      case StandardType.OffsetTime(_)     => Gen.offsetTime
+      case StandardType.OffsetDateTime(_) => Gen.offsetDateTime
+      case StandardType.ZonedDateTime(_)  => Gen.zonedDateTime
     }
 
     gen.map(_.asInstanceOf[A])

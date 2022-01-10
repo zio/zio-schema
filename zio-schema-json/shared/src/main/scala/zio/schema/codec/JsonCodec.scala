@@ -12,21 +12,18 @@ import zio.json.{ JsonCodec => ZJsonCodec, JsonDecoder, JsonEncoder, JsonFieldDe
 import zio.schema.Schema.EitherSchema
 import zio.schema.ast.SchemaAst
 import zio.schema.{ StandardType, _ }
-import zio.stream.ZTransducer
+import zio.stream.ZPipeline
 import zio.{ Chunk, ChunkBuilder, ZIO }
 
 object JsonCodec extends Codec {
 
-  override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
-    ZTransducer.fromPush(
-      (opt: Option[Chunk[A]]) =>
-        ZIO
-          .effect(opt.map(values => values.flatMap(Encoder.encode(schema, _))).getOrElse(Chunk.empty))
-          .catchAll(_ => ZIO.succeed(Chunk.empty))
+  override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] =
+    ZPipeline.mapChunks(
+      values => values.flatMap(Encoder.encode(schema, _))
     )
 
-  override def decoder[A](schema: Schema[A]): ZTransducer[Any, String, Byte, A] =
-    ZTransducer.utfDecode >>> ZTransducer.fromFunctionM(
+  override def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Byte, A] =
+    ZPipeline.utfDecode >>> ZPipeline.mapZIO(
       (s: String) => ZIO.fromEither(Decoder.decode(schema, s))
     )
 

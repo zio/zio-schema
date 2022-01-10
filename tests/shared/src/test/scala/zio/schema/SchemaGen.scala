@@ -5,15 +5,16 @@ import java.time.temporal.ChronoUnit
 
 import scala.collection.immutable.ListMap
 
-import zio.Chunk
-import zio.random.Random
 import zio.test.{ Gen, Sized }
+import zio.{ Chunk, Random }
 
 object SchemaGen {
 
   val anyLabel: Gen[Random with Sized, String] = Gen.alphaNumericStringBounded(1, 3)
 
-  def anyStructure(schemaGen: Gen[Random with Sized, Schema[_]]): Gen[Random with Sized, Seq[Schema.Field[_]]] =
+  def anyStructure(
+    schemaGen: Gen[Random with Sized, Schema[_]]
+  ): Gen[Random with Sized, Seq[Schema.Field[_]]] =
     Gen.setOfBounded(1, 8)(anyLabel).flatMap { keySet =>
       Gen.setOfN(keySet.size)(schemaGen).map { schemas =>
         keySet
@@ -32,7 +33,9 @@ object SchemaGen {
       )
       .map(_.toSeq)
 
-  def anyEnumeration(schemaGen: Gen[Random with Sized, Schema[_]]): Gen[Random with Sized, ListMap[String, Schema[_]]] =
+  def anyEnumeration(
+    schemaGen: Gen[Random with Sized, Schema[_]]
+  ): Gen[Random with Sized, ListMap[String, Schema[_]]] =
     Gen
       .setOfBounded(1, 8)(
         anyLabel.zip(schemaGen)
@@ -60,7 +63,9 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  def anyOptional(schemaGen: Gen[Random with Sized, Schema[_]]): Gen[Random with Sized, Schema.Optional[_]] =
+  def anyOptional(
+    schemaGen: Gen[Random with Sized, Schema[_]]
+  ): Gen[Random with Sized, Schema.Optional[_]] =
     schemaGen.map(Schema.Optional(_))
 
   type OptionalAndGen[A] = (Schema.Optional[A], Gen[Random with Sized, Option[A]])
@@ -402,17 +407,17 @@ object SchemaGen {
     implicit val arityEnumSchema: Schema.Enum[Arity] = DeriveSchema.gen[Arity].asInstanceOf[Schema.Enum[Arity]]
   }
 
-  lazy val anyArity1: Gen[Random with Sized, Arity1] = Gen.anyInt.map(Arity1(_))
+  lazy val anyArity1: Gen[Random with Sized, Arity1] = Gen.int.map(Arity1(_))
 
   lazy val anyArity2: Gen[Random with Sized, Arity2] =
     for {
-      s  <- Gen.anyString
+      s  <- Gen.string
       a1 <- anyArity1
     } yield Arity2(s, a1)
 
   lazy val anyArity3: Gen[Random with Sized, Arity3] =
     for {
-      s  <- Gen.anyString
+      s  <- Gen.string
       a1 <- anyArity1
       a2 <- anyArity2
     } yield Arity3(s, a2, a1)
@@ -528,13 +533,13 @@ object SchemaGen {
     val leafGen: Gen[Random with Sized, Json] =
       Gen.oneOf(
         Gen.const(JNull),
-        Gen.anyString.map(JString(_)),
-        Gen.anyInt.map(JNumber(_))
+        Gen.string.map(JString(_)),
+        Gen.int.map(JNumber(_))
       )
 
     val gen: Gen[Random with Sized, Json] =
       for {
-        keys   <- Gen.setOfN(3)(Gen.anyString)
+        keys   <- Gen.setOfN(3)(Gen.string)
         values <- Gen.setOfN(3)(leafGen)
       } yield JObject(keys.zip(values).toList)
   }
@@ -551,25 +556,25 @@ object SchemaGen {
   case class SchemaTest[A](name: String, schema: StandardType[A], gen: Gen[Sized with Random, A])
 
   def schemasAndGens: List[SchemaTest[_]] = List(
-    SchemaTest("String", StandardType.StringType, Gen.anyString),
+    SchemaTest("String", StandardType.StringType, Gen.string),
     SchemaTest("Bool", StandardType.BoolType, Gen.boolean),
-    SchemaTest("Short", StandardType.ShortType, Gen.anyShort),
-    SchemaTest("Int", StandardType.IntType, Gen.anyInt),
-    SchemaTest("Long", StandardType.LongType, Gen.anyLong),
-    SchemaTest("Float", StandardType.FloatType, Gen.anyFloat),
-    SchemaTest("Double", StandardType.DoubleType, Gen.anyDouble),
-    SchemaTest("Binary", StandardType.BinaryType, Gen.chunkOf(Gen.anyByte)),
-    SchemaTest("Char", StandardType.CharType, Gen.anyASCIIChar),
-    SchemaTest("UUID", StandardType.UUIDType, Gen.anyUUID),
+    SchemaTest("Short", StandardType.ShortType, Gen.short),
+    SchemaTest("Int", StandardType.IntType, Gen.int),
+    SchemaTest("Long", StandardType.LongType, Gen.long),
+    SchemaTest("Float", StandardType.FloatType, Gen.float),
+    SchemaTest("Double", StandardType.DoubleType, Gen.double),
+    SchemaTest("Binary", StandardType.BinaryType, Gen.chunkOf(Gen.byte)),
+    SchemaTest("Char", StandardType.CharType, Gen.asciiChar),
+    SchemaTest("UUID", StandardType.UUIDType, Gen.uuid),
     SchemaTest(
       "BigDecimal",
       StandardType.BigDecimalType,
-      Gen.anyDouble.map(d => java.math.BigDecimal.valueOf(d))
+      Gen.double.map(d => java.math.BigDecimal.valueOf(d))
     ),
     SchemaTest(
       "BigInteger",
       StandardType.BigIntegerType,
-      Gen.anyLong.map(n => java.math.BigInteger.valueOf(n))
+      Gen.long.map(n => java.math.BigInteger.valueOf(n))
     ),
     SchemaTest("DayOfWeek", StandardType.DayOfWeekType, JavaTimeGen.anyDayOfWeek),
     SchemaTest("Duration", StandardType.Duration(ChronoUnit.SECONDS), JavaTimeGen.anyDuration),

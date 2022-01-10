@@ -2,12 +2,11 @@ package zio.schema
 
 import scala.collection.immutable.ListMap
 
-import zio.random._
 import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen._
 import zio.test.Assertion._
-import zio.test._
-import zio.{ Chunk, URIO }
+import zio.test.{ Sized, TestConfig, _ }
+import zio.{ Chunk, Random, URIO }
 
 object OrderingSpec extends DefaultRunnableSpec {
 
@@ -16,17 +15,17 @@ object OrderingSpec extends DefaultRunnableSpec {
       suite("primitives")(primitiveOrderingTests: _*),
       suite("structures")(structureTestCases.map(structureOrderingTest): _*),
       suite("laws")(
-        testM("reflexivity") {
+        test("reflexivity") {
           check(anySchemaAndValue) {
             case (schema, a) => assert(schema.ordering.compare(a, a))(equalTo(0))
           }
         },
-        testM("antisymmetry") {
+        test("antisymmetry") {
           check(genAnyOrderedPair) {
             case (schema, x, y) => assert(schema.ordering.compare(y, x))(isGreaterThan(0))
           }
         },
-        testM("transitivity") {
+        test("transitivity") {
           check(genAnyOrderedTriplet) {
             case (schema, x, _, z) => assert(schema.ordering.compare(x, z))(isLessThan(0))
           }
@@ -37,7 +36,7 @@ object OrderingSpec extends DefaultRunnableSpec {
   val primitiveOrderingTests: List[ZSpec[Sized with Random with TestConfig, Nothing]] =
     schemasAndGens.map {
       case SchemaTest(name, schema, gen) =>
-        testM(s"$name") {
+        test(s"$name") {
           primitiveOrderingLaw(gen, schema)
         }
     }
@@ -68,7 +67,7 @@ object OrderingSpec extends DefaultRunnableSpec {
     )
 
   def structureOrderingTest(t: StructureTestCase): ZSpec[TestConfig with Random with Sized, Nothing] =
-    testM(t.name)(check(t.increasingPairGen)(_ match {
+    test(t.name)(check(t.increasingPairGen)(_ match {
       case (schema, l, r) =>
         assert(schema.ordering.compare(l, r))(isLessThan(0))
     }))
@@ -119,7 +118,10 @@ object OrderingSpec extends DefaultRunnableSpec {
       (l, r)  <- genOrderedPairTuple(xSchema, ySchema)
     } yield (Schema.Tuple(xSchema, ySchema), l, r).asInstanceOf[SchemaAndPair[Either[_, _]]]
 
-  def genOrderedPairTuple[A, B](xSchema: Schema[A], ySchema: Schema[B]): Gen[Random with Sized, ((A, B), (A, B))] =
+  def genOrderedPairTuple[A, B](
+    xSchema: Schema[A],
+    ySchema: Schema[B]
+  ): Gen[Random with Sized, ((A, B), (A, B))] =
     Gen.oneOf(
       for {
         (smallX, largeX) <- genOrderedPair(xSchema)
@@ -144,7 +146,9 @@ object OrderingSpec extends DefaultRunnableSpec {
              )
     } yield (Schema.chunk(schema), init ++ rems._1, init ++ rems._2)
 
-  def genChunkPairWithOrderedFirstElement[A](schema: Schema[A]): Gen[Random with Sized, (Chunk[A], Chunk[A])] =
+  def genChunkPairWithOrderedFirstElement[A](
+    schema: Schema[A]
+  ): Gen[Random with Sized, (Chunk[A], Chunk[A])] =
     for {
       inits <- genOrderedPair(schema)
       remL  <- Gen.chunkOf(genFromSchema(schema))
@@ -172,7 +176,9 @@ object OrderingSpec extends DefaultRunnableSpec {
       Right(a)
     }, Chunk.empty), small, large)
 
-  def genOrderedPairDecodeTransform[A](schema: Schema[A]): Gen[Random with Sized, SchemaAndPair[DynamicValue]] =
+  def genOrderedPairDecodeTransform[A](
+    schema: Schema[A]
+  ): Gen[Random with Sized, SchemaAndPair[DynamicValue]] =
     for {
       error               <- Gen.boolean
       (small, large)      <- genOrderedPair(schema)
@@ -278,7 +284,11 @@ object OrderingSpec extends DefaultRunnableSpec {
     } yield (schema, small, large)
   }
 
-  def genElemOfCase[A, B](enumSchema: Schema[A], label: String, caseSchema: Schema[B]): Gen[Random with Sized, A] =
+  def genElemOfCase[A, B](
+    enumSchema: Schema[A],
+    label: String,
+    caseSchema: Schema[B]
+  ): Gen[Random with Sized, A] =
     genFromSchema(caseSchema).map(b => {
       val innerValue = caseSchema.toDynamic(b)
       val enumValue  = DynamicValue.Enumeration((label, innerValue))
