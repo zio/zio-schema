@@ -23,7 +23,7 @@ import java.time.{
 }
 import java.util.UUID
 
-import scala.annotation.tailrec
+import scala.annotation.{ nowarn, tailrec }
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
@@ -184,16 +184,11 @@ object Differ {
     (thisBool: Boolean, thatBool: Boolean) =>
       if (thisBool ^ thatBool) Diff.Bool(thisBool ^ thatBool) else Diff.identical
 
-  def map[K, V](keySchema: Schema[K], valueSchema: Schema[V]): Differ[Map[K, V]] = {
-    val _ = keySchema
-    val _ = valueSchema
+  @nowarn def map[K, V](keySchema: Schema[K], valueSchema: Schema[V]): Differ[Map[K, V]] =
     LCSDiff.map[K, V]
-  }
 
-  def set[A](schema: Schema[A]): Differ[Set[A]] = {
-    val _ = schema
+  @nowarn def set[A](schema: Schema[A]): Differ[Set[A]] =
     LCSDiff.set[A]
-  }
 
   def numeric[A](implicit numeric: Numeric[A]): Differ[A] =
     (thisValue: A, thatValue: A) =>
@@ -487,29 +482,13 @@ object Diff {
     override def isIdentical: Boolean           = true
   }
 
-  final case class Binary(xor: Chunk[Int]) extends Diff[Chunk[Byte]] { self =>
-    override def patch(bytes: Chunk[Byte]): Either[String, Chunk[Byte]] =
-      Right(bytes.zipAll(xor).map {
-        case (Some(l), Some(r)) => (l ^ r).toByte
-        case (Some(l), None)    => l
-        case (None, Some(r))    => r.toByte
-        case (None, None)       => 0x00
-      })
-
-    def orIdentical: Diff[Chunk[Byte]] =
-      if (xor.sum == 0)
-        Diff.identical
-      else
-        self
-  }
-
   final case class Bool(xor: Boolean) extends Diff[Boolean] {
     override def patch(a: Boolean): Either[String, Boolean] = Right(a ^ xor)
   }
 
-  final case class Number[A: Numeric](distance: A) extends Diff[A] {
+  final case class Number[A](distance: A)(implicit ev: Numeric[A]) extends Diff[A] {
     override def patch(input: A): Either[String, A] =
-      Right(Numeric[A].minus(input, distance))
+      Right(ev.minus(input, distance))
   }
 
   final case class BigInt(distance: BigInteger) extends Diff[BigInteger] {
