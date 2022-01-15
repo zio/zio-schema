@@ -147,6 +147,26 @@ object SchemaGen {
         CaseSet.Cons(_case, acc)
     }
 
+  lazy val anyMap: Gen[Random with Sized, Schema.MapSchema[_, _]] =
+    anySchema.zipWith(anySchema) { (a, b) =>
+      Schema.MapSchema(a, b, Chunk.empty)
+    }
+  type MapAndGen[K, V] = (Schema.MapSchema[K, V], Gen[Random with Sized, Map[K, V]])
+
+  val anyMapAndGen: Gen[Random with Sized, MapAndGen[_, _]] =
+    for {
+      (schemaK, genK) <- anyPrimitiveAndGen
+      (schemaV, genV) <- anyPrimitiveAndGen
+    } yield Schema.MapSchema(schemaK, schemaV, Chunk.empty) -> (genK.flatMap(k => genV.map(v => Map(k -> v))))
+
+  type MapAndValue[K, V] = (Schema.MapSchema[K, V], Map[K, V])
+
+  val anyMapAndValue: Gen[Random with Sized, MapAndValue[_, _]] =
+    for {
+      (schema, gen) <- anyMapAndGen
+      map           <- gen
+    } yield schema -> map
+
   val anyEnumeration: Gen[Random with Sized, Schema[Any]] =
     anyEnumeration(anySchema).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_))
 
