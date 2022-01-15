@@ -50,7 +50,7 @@ object Example5_Diffing extends zio.App {
 
   val personDTO: PersonDTO = PersonDTO("Mike", "Moe", 32)
 
-  val diff: Diff = PersonDTO.schema.diff(personDTO, personDTO.copy(lastname = "Max"))
+  val diff: Diff[PersonDTO] = PersonDTO.schema.diff(personDTO, personDTO.copy(lastname = "Max"))
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = ZIO.debug(diff).exitCode
 }
