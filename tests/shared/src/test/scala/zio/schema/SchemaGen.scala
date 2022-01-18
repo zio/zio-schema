@@ -167,6 +167,22 @@ object SchemaGen {
       map           <- gen
     } yield schema -> map
 
+  type SetAndGen[A] = (Schema.SetSchema[A], Gen[Random with Sized, Set[A]])
+
+  val anySetAndGen: Gen[Random with Sized, SetAndGen[_]] =
+    anyPrimitiveAndGen.map {
+      case (schema, gen) =>
+        Schema.SetSchema(schema, Chunk.empty) -> Gen.setOf(gen)
+    }
+
+  type SetAndValue[A] = (Schema.SetSchema[A], Set[A])
+
+  val anySetAndValue: Gen[Random with Sized, SetAndValue[_]] =
+    for {
+      (schema, gen) <- anySetAndGen
+      value         <- gen
+    } yield schema -> value
+
   val anyEnumeration: Gen[Random with Sized, Schema[Any]] =
     anyEnumeration(anySchema).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_))
 
