@@ -234,6 +234,42 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
         }
       },
+      testM("of map") {
+        checkM(
+          for {
+            left  <- SchemaGen.anyMapAndValue
+            right <- SchemaGen.anyMapAndValue
+          } yield (
+            Schema
+              .EitherSchema(left._1.asInstanceOf[Schema[Map[Any, Any]]], right._1.asInstanceOf[Schema[Map[Any, Any]]]),
+            Left(left._2)
+          )
+        ) {
+          case (schema, value) =>
+            assertEncodesThenDecodes[Either[Map[Any, Any], Map[Any, Any]]](
+              schema.asInstanceOf[Schema[Either[Map[Any, Any], Map[Any, Any]]]],
+              value.asInstanceOf[Either[Map[Any, Any], Map[Any, Any]]]
+            )
+        }
+      },
+      testM("of set") {
+        checkM(
+          for {
+            left  <- SchemaGen.anySetAndValue
+            right <- SchemaGen.anySetAndValue
+          } yield (
+            Schema
+              .EitherSchema(left._1.asInstanceOf[Schema[Set[Any]]], right._1.asInstanceOf[Schema[Set[Any]]]),
+            Left(left._2)
+          )
+        ) {
+          case (schema, value) =>
+            assertEncodesThenDecodes[Either[Set[Any], Set[Any]]](
+              schema.asInstanceOf[Schema[Either[Set[Any], Set[Any]]]],
+              value.asInstanceOf[Either[Set[Any], Set[Any]]]
+            )
+        }
+      },
       testM("Map of complex keys and values") {
         assertEncodes(
           Schema.map[Key, Value],
@@ -311,6 +347,20 @@ object JsonCodecSpec extends DefaultRunnableSpec {
             assertEncodesThenDecodes(Schema.Optional(schema), Some(value)) &>
               assertEncodesThenDecodes(Schema.Optional(schema), None)
         }
+      },
+      testM("of Map") {
+        checkM(SchemaGen.anyMapAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(Schema.Optional(schema), Some(value)) &>
+              assertEncodesThenDecodes(Schema.Optional(schema), None)
+        }
+      },
+      testM("of Set") {
+        checkM(SchemaGen.anySetAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(Schema.Optional(schema), Some(value)) &>
+              assertEncodesThenDecodes(Schema.Optional(schema), None)
+        }
       }
     ),
     testM("tuple") {
@@ -337,6 +387,34 @@ object JsonCodecSpec extends DefaultRunnableSpec {
             Schema.chunk(Schema.Primitive(StandardType.ZoneOffsetType)),
             chunk
           )
+        }
+      },
+      testM("of map") {
+        checkM(SchemaGen.anyMapAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(Schema.chunk(schema), Chunk.fill(3)(value))
+        }
+      },
+      testM("of set") {
+        checkM(SchemaGen.anySetAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(Schema.chunk(schema), Chunk.fill(3)(value))
+        }
+      }
+    ),
+    suite("map")(
+      testM("encodes and decodes a Map") {
+        checkM(SchemaGen.anyMapAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(schema, value)
+        }
+      }
+    ),
+    suite("set")(
+      testM("encodes and decodes a Set") {
+        checkM(SchemaGen.anySetAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(schema, value)
         }
       }
     ),
