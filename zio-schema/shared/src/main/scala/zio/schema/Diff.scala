@@ -70,7 +70,7 @@ trait Differ[A] { self =>
 object Differ {
   import ProductDiffer._
 
-  object LCSDiff {
+  private [schema] object LCSDiff {
 
     def apply[A]: Differ[Chunk[A]] = new Differ[Chunk[A]] {
       override def apply(original: Chunk[A], modified: Chunk[A]): Diff[Chunk[A]] = {
