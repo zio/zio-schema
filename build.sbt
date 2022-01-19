@@ -67,7 +67,9 @@ lazy val root = project
     testsJVM,
     testsJS,
     zioSchemaZioTestJVM,
-    zioSchemaZioTestJS
+    zioSchemaZioTestJS,
+    zioSchemaThriftJS,
+    zioSchemaThriftJVM
   )
 
 lazy val tests = crossProject(JSPlatform, JVMPlatform)
@@ -163,6 +165,27 @@ lazy val zioSchemaProtobufJS = zioSchemaProtobuf.js
   .settings(scalaJSUseMainModuleInitializer := true)
 
 lazy val zioSchemaProtobufJVM = zioSchemaProtobuf.jvm
+  .settings(Test / fork := true)
+
+
+lazy val zioSchemaThrift = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-schema-thrift"))
+  .dependsOn(zioSchema, zioSchemaDerivation, zioSchema % "test->test")
+  .settings(stdSettings("zio-schema-thrift"))
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema.thrift"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.apache.thrift" % "libthrift" % "0.15.0"
+    ),
+    //FIXME remove
+    scalacOptions -= "-Xfatal-warnings"
+  )
+
+lazy val zioSchemaThriftJS = zioSchemaThrift.js
+  .settings(scalaJSUseMainModuleInitializer := true)
+
+lazy val zioSchemaThriftJVM = zioSchemaThrift.jvm
   .settings(Test / fork := true)
 
 lazy val zioSchemaOptics = crossProject(JSPlatform, JVMPlatform)
