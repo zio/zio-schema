@@ -81,7 +81,7 @@ sealed trait Schema[A] {
    *
    * A custom [[zio.schema.Differ]] can be supplied if the default behavior is not acceptable.
    */
-  def diff(thisValue: A, thatValue: A, differ: Option[Differ[A]] = None): Diff = differ match {
+  def diff(thisValue: A, thatValue: A, differ: Option[Differ[A]] = None): Diff[A] = differ match {
     case Some(differ) => differ(thisValue, thatValue)
     case None         => Differ.fromSchema(self)(thisValue, thatValue)
   }
@@ -89,7 +89,7 @@ sealed trait Schema[A] {
   /**
    * Patch value with a Diff.
    */
-  def patch(oldValue: A, diff: Diff): Either[String, A] = diff.patch(oldValue)(self)
+  def patch(oldValue: A, diff: Diff[A]): Either[String, A] = diff.patch(oldValue)
 
   def fromDynamic(value: DynamicValue): Either[String, A] =
     value.toTypedValue(self)

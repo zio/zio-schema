@@ -4,14 +4,14 @@ object syntax extends SchemaSyntax
 
 trait SchemaSyntax {
   implicit class DiffOps[A: Schema](a: A) {
-    def diff(that: A): Diff = Schema[A].diff(a, that)
+    def diff(that: A): Diff[A] = Schema[A].diff(a, that)
 
     /**
      * alias for diff that does not conflict with scala stdlib
      */
-    def diffEach(that: A): Diff = Schema[A].diff(a, that)
+    def diffEach(that: A): Diff[A] = Schema[A].diff(a, that)
 
-    def runPatch(diff: Diff): Either[String, A] = Schema[A].patch(a, diff)
+    def runPatch(diff: Diff[A]): Either[String, A] = Schema[A].patch(a, diff)
   }
 
   implicit class DynamicValueOps[A: Schema](a: A) {

@@ -72,7 +72,7 @@ lazy val root = project
 
 lazy val tests = crossProject(JSPlatform, JVMPlatform)
   .in(file("tests"))
-  .dependsOn(zioSchemaDerivation % "compile->test", zioSchema % "test->test")
+  .dependsOn(zioSchemaDerivation % "compile->test", zioSchema % "test->test", zioSchemaZioTest % "compile->test")
   .settings(stdSettings("zio-schema-tests"))
   .settings(publish / skip := true)
   .settings(crossProjectSettings)
@@ -202,7 +202,7 @@ lazy val zioSchemaExamplesJVM = zioSchemaExamples.jvm
 
 lazy val zioSchemaZioTest = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-zio-test"))
-  .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
+  .dependsOn(zioSchema, zioSchemaDerivation)
   .settings(stdSettings("zio-schema-zio-test"))
   .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema.test"))
