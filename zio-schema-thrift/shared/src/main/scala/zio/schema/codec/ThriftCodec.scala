@@ -96,6 +96,7 @@ object ThriftCodec extends Codec {
     @tailrec
     final def getType[A](schema: Schema[A]): Byte = schema match {
       case Schema.Sequence(_, _, _, _)                  => TType.LIST
+      case Schema.SetSchema(_, _)                       => TType.SET
       //        case (Schema.Transform(codec, _, g), _)                   => g(value).map(encode(codec, _)).getOrElse(Chunk.empty)
       case Schema.Primitive(standardType, _)                  => getPrimitiveType(standardType)
       //        case (Schema.Tuple(left, right), v @ (_, _))              => encodeTuple(left, right, v)
@@ -234,13 +235,20 @@ object ThriftCodec extends Codec {
       fieldNumber.foreach(
         num => p.writeFieldBegin(new TField("", TType.LIST, num))
       )
-      p.writeListBegin(new org.apache.thrift.protocol.TList(getType(schema), v.length))
+      p.writeListBegin(new org.apache.thrift.protocol.TList(getType(schema), v.size))
       v.foreach(encodeValue(None, schema, _))
       p.writeListEnd();
       fieldNumber.foreach(
         _ => p.writeFieldEnd()
       )
+    }
 
+    def encodeSet[A](fieldNumber: Option[Short], schema: Schema[A], v: Set[A]): Unit = {
+      fieldNumber.foreach(
+        num => p.writeFieldBegin(new TField("", TType.SET, num))
+      )
+      p.writeSetBegin(new org.apache.thrift.protocol.TSet(getType(schema), v.size))
+      v.foreach(encodeValue(None, schema, _))
     }
 
 
@@ -251,6 +259,8 @@ object ThriftCodec extends Codec {
       (schema, value) match {
         case (Schema.GenericRecord(structure, _), v: Map[String, _]) => encodeRecord(fieldNumber, structure.toChunk, v)
         case (Schema.Sequence(element, _, g, _), v)                  => encodeSequence(fieldNumber, element, g(v))
+//        case (Schema.MapSchema(ks, vs, _), map: Map[k, v])           => encodeMap(fieldNumber, ks <*> vs, Chunk.fromIterable(map))
+        case (Schema.SetSchema(s, _), set: Set[_])                   => encodeSet(fieldNumber, s, set)
         case (Schema.Transform(codec, _, g, _), _)                   => g(value).map(encodeValue(fieldNumber, codec, _)).getOrElse(Chunk.empty)
         case (Schema.Primitive(standardType, _), v)                  => encodePrimitive(fieldNumber, standardType, v)
         case (Schema.Tuple(left, right, _), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)
@@ -526,6 +536,7 @@ object ThriftCodec extends Codec {
           )
         }
         case seqSchema@Schema.Sequence(_, _, _, _) => decodeSequence(seqSchema, path)
+        case setSchema@Schema.SetSchema(_, _) => decodeSet(setSchema, path)
         case Schema.Transform(codec, f, _, _) => transformDecoder(path, codec, f)
         case Schema.Primitive(standardType, _) => primitiveDecoder(standardType, path)
         case Schema.Tuple(left, right, _) => tupleDecoder(left, right, path)
@@ -756,6 +767,21 @@ object ThriftCodec extends Codec {
       }
       p.readListEnd()
       val res = schema.fromChunk(cb.result())
+      // FIXME
+      Right(res)
+    }
+
+    def decodeSet[A](schema: Schema.SetSchema[A], path: Path): Result[Set[A]] = {
+      val setBegin = p.readSetBegin()
+      val cb = ChunkBuilder.make[A]()
+      var numberToDecode = setBegin.size
+      while (numberToDecode > 0) {
+        val res = decode(schema.as, path)
+        // FIXME
+        cb.addOne(res.right.get)
+        numberToDecode = numberToDecode - 1
+      }
+      val res = cb.result().toSet
       // FIXME
       Right(res)
     }
