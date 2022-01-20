@@ -519,8 +519,12 @@ object ThriftCodec extends Codec {
 
     def decode[A](schema: Schema[A], path: Path): Result[A] =
       (schema match {
-        //FIXME that map
-        case Schema.GenericRecord(structure, _) => decodeRecord(structure.toChunk, path).map(_ => ListMap.empty[String, Any])
+        case Schema.GenericRecord(structure, _) => {
+          val fields = structure.toChunk
+          decodeRecord(fields, path).map(
+            _.map{ case (index, value) => (fields(index -1).label, value) }
+          )
+        }
         case seqSchema@Schema.Sequence(_, _, _, _) => decodeSequence(seqSchema, path)
         case Schema.Transform(codec, f, _, _) => transformDecoder(path, codec, f)
         case Schema.Primitive(standardType, _) => primitiveDecoder(standardType, path)
