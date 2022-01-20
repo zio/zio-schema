@@ -218,35 +218,27 @@ object ThriftCodec extends Codec {
           p.writeString(formatter.format(v))
         case (_, _) => ()
       }
-      
-    def encodePrimitive[A](fieldNumber: Option[Short], standardType: StandardType[A], value: A): Unit = {
+
+    def writeFieldBegin(fieldNumber: Option[Short], ttype: Byte): Unit =
       fieldNumber.foreach(num =>
         p.writeFieldBegin(
-          new TField("", getPrimitiveType(standardType), num)
+          new TField("", ttype, num)
         )
       )
+      
+    def encodePrimitive[A](fieldNumber: Option[Short], standardType: StandardType[A], value: A): Unit = {
+      writeFieldBegin(fieldNumber, getPrimitiveType(standardType))
       writePrimitiveType(standardType, value)
-      fieldNumber.foreach(_ =>
-        p.writeFieldEnd()
-      )
     }
 
     def encodeSequence[A](fieldNumber: Option[Short], schema: Schema[A], v: Chunk[A]): Unit = {
-      fieldNumber.foreach(
-        num => p.writeFieldBegin(new TField("", TType.LIST, num))
-      )
+      writeFieldBegin(fieldNumber, TType.LIST)
       p.writeListBegin(new org.apache.thrift.protocol.TList(getType(schema), v.size))
       v.foreach(encodeValue(None, schema, _))
-      p.writeListEnd();
-      fieldNumber.foreach(
-        _ => p.writeFieldEnd()
-      )
     }
 
     def encodeSet[A](fieldNumber: Option[Short], schema: Schema[A], v: Set[A]): Unit = {
-      fieldNumber.foreach(
-        num => p.writeFieldBegin(new TField("", TType.SET, num))
-      )
+      writeFieldBegin(fieldNumber, TType.SET)
       p.writeSetBegin(new org.apache.thrift.protocol.TSet(getType(schema), v.size))
       v.foreach(encodeValue(None, schema, _))
     }
@@ -270,13 +262,8 @@ object ThriftCodec extends Codec {
 //        case (Schema.Meta(ast), _)                                => encode(Schema[SchemaAst], ast)
         //FIXME add fieldNumber
         case ProductEncoder(encode)                               =>
-          fieldNumber.foreach(
-            num => p.writeFieldBegin(new TField("", TType.STRUCT, num))
-          )
+          writeFieldBegin(fieldNumber, TType.STRUCT)
           encode()
-          fieldNumber.foreach(
-            _ => p.writeFieldEnd()
-          )
         case (Schema.Enum1(c, _), v)                                                                                                    => encodeEnum(fieldNumber, v, c)
         case (Schema.Enum2(c1, c2, _), v)                                                                                               => encodeEnum(fieldNumber, v, c1, c2)
         case (Schema.Enum3(c1, c2, c3, _), v)                                                                                           => encodeEnum(fieldNumber, v, c1, c2, c3)
@@ -306,12 +293,7 @@ object ThriftCodec extends Codec {
     private def encodeEnum[Z, A](
       fieldNumber: Option[Short], value: Z, cases: Schema.Case[_, Z]*
     ): Unit = {
-      fieldNumber.foreach(num =>
-        p.writeFieldBegin(
-          new org.apache.thrift.protocol.TField("", TType.STRUCT, num)
-        )
-      )
-      p.writeStructBegin(new org.apache.thrift.protocol.TStruct())
+      writeFieldBegin(fieldNumber, TType.STRUCT)
       val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
       if (fieldIndex >= 0) {
         val subtypeCase = cases(fieldIndex)
@@ -322,10 +304,6 @@ object ThriftCodec extends Codec {
         )
       }
       p.writeFieldStop()
-      p.writeStructEnd()
-      fieldNumber.foreach(
-        _ => p.writeFieldEnd()
-      )
     }
 
     private def encodeEither[A, B](
@@ -334,18 +312,11 @@ object ThriftCodec extends Codec {
       right: Schema[B],
       either: Either[A, B]
     ): Unit = {
-      fieldNumber.foreach(num =>
-        p.writeFieldBegin(
-          new org.apache.thrift.protocol.TField("", TType.STRUCT, num)
-        )
-      )
+      writeFieldBegin(fieldNumber, TType.STRUCT)
       either match {
         case Left(value)  => encodeValue(Some(1), left, value)
         case Right(value) => encodeValue(Some(2), right, value)
       }
-      fieldNumber.foreach(
-        _ => p.writeFieldEnd()
-      )
     }
 
     def tupleSchema[A, B](first: Schema[A], second: Schema[B]): Seq[Schema.Field[_]] =
@@ -364,14 +335,12 @@ object ThriftCodec extends Codec {
       )
 
     private def writeStructure(fields: Seq[(Schema.Field[_], Any)]): Unit = {
-      p.writeStructBegin(new org.apache.thrift.protocol.TStruct())
       fields.zipWithIndex.foreach {
         case ((Schema.Field(_, schema, _), value), fieldNumber) =>
 
           encodeValue(Some((fieldNumber + 1).shortValue), schema, value)
       }
       p.writeFieldStop()
-      p.writeStructEnd()
     }
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
@@ -426,13 +395,11 @@ object ThriftCodec extends Codec {
       private def encodeCaseClass[Z](value: Z, fields: (Schema.Field[_], Z => Any)*): () => Unit = () =>
         writeStructure(fields.map{ case (schema, ext) => (schema, ext(value)) })
 //      {
-//        p.writeStructBegin(new org.apache.thrift.protocol.TStruct())
 //        fields.zipWithIndex.foreach {
 //          case ((Schema.Field(_, schema, _), ext), fieldNumber) =>
 //            encodeValue(Some((fieldNumber + 1).shortValue), schema, ext(value))
 //        }
 //        p.writeFieldStop()
-//        p.writeStructEnd()
 //      }
 
       object OptionalSchema {
@@ -452,16 +419,11 @@ object ThriftCodec extends Codec {
       structure: Seq[Schema.Field[_]],
       data: ListMap[String, _]
     ) = {
-      fieldNumber.foreach(num =>
-        p.writeFieldBegin(
-          new org.apache.thrift.protocol.TField("", TType.STRUCT, num)
-        )
-      )
+      writeFieldBegin(fieldNumber, TType.STRUCT)
       writeStructure(structure.map(schema =>
         (schema,
           if(isOptional(schema.schema)) data.get(schema.label) else data.get(schema.label).get
-        )))
-      fieldNumber.foreach(_ => p.writeFieldEnd()
+        ))
       )
     }
   }
@@ -579,7 +541,6 @@ object ThriftCodec extends Codec {
 
     private def enumDecoder[Z, A](path: Path, cases: Schema.Case[_, Z]*): Result[Z] =
       Try {
-        p.readStructBegin()
         val readField = p.readFieldBegin()
         if(readField.id > cases.length)
           fail(path, s"Error decoding enum with cases ${cases.map(_.id).mkString(", ")}, enum id out of range: ${readField.id}")
@@ -587,9 +548,7 @@ object ThriftCodec extends Codec {
           val subtypeCase = cases(readField.id - 1)
           val res = decode(subtypeCase.codec, path.appended(s"[case:${subtypeCase.id}]"))
           res.foreach { _ =>
-            p.readFieldEnd()
             p.readFieldBegin()
-            p.readStructEnd()
           }
           res.asInstanceOf[Result[Z]]
         }
@@ -600,18 +559,12 @@ object ThriftCodec extends Codec {
       )
 
     private def eitherDecoder[A, B](path: Path, left: Schema[A], right: Schema[B]): Result[Either[A, B]] = {
-      p.readStructBegin()
       val readField = p.readFieldBegin()
-      val res = readField.id match {
+      readField.id match {
         case 1 => decode(left, path.appended("either:left")).map(Left(_))
         case 2 => decode(right, path.appended("either:right")).map(Right(_))
         case _ => fail(path, "Failed to decode either.")
       }
-      res.foreach { _ =>
-        p.readFieldEnd()
-        p.readStructEnd()
-      }
-      res
     }
 
     private def tupleDecoder[A, B](left: Schema[A], right: Schema[B], path: Path): Result[(A, B)] =
@@ -717,7 +670,6 @@ object ThriftCodec extends Codec {
       StructDecoder(fields.map(_.schema), path)
 
     def StructDecoder(fields: Seq[Schema[_]], path: Path): Result[ListMap[Short, Any]] =  Try {
-      p.readStructBegin()
       //FIXME return Left on error
       var values = ListMap.empty[Short, Any]
       var readField = p.readFieldBegin()
@@ -748,10 +700,8 @@ object ThriftCodec extends Codec {
             case v@Left(_) => return v.asInstanceOf[Result[ListMap[Short, Any]]]
             case Right(v) => values = values.updated(readField.id, v)
           }
-        p.readFieldEnd()
         readField = p.readFieldBegin()
       }
-      p.readStructEnd()
       Right(values)
     }.getOrElse(Left(Error(path, "Error reading struct.")))
 
@@ -765,7 +715,6 @@ object ThriftCodec extends Codec {
         cb.addOne(res.right.get)
         numberToDecode = numberToDecode - 1
       }
-      p.readListEnd()
       val res = schema.fromChunk(cb.result())
       // FIXME
       Right(res)
