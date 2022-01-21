@@ -98,3 +98,11 @@ union OneOf {
 struct Enumeration {
   1: OneOf value,
 }
+
+struct SetValue {
+  1: set<Record> value,
+}
+
+struct MapValue {
+  1: map<string, Record> value,
+}

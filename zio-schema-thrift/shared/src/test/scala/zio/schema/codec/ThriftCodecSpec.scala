@@ -14,6 +14,7 @@ import zio.{Chunk, Task, ZIO}
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.time.{DayOfWeek, Duration, Instant, LocalDate, LocalDateTime, LocalTime, Month, MonthDay, OffsetDateTime, OffsetTime, Period, Year, YearMonth, ZoneId, ZoneOffset, ZonedDateTime}
+import java.util
 import java.util.UUID
 import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters._
@@ -25,7 +26,7 @@ import scala.util.Try
  * Testing data were generated with thrift compiler
  *
  * cd zio-schema-thrift/shared/src/test                                                                                                                                                           ±[●●●][thrift]
- * thrift -r --gen java -out scala resources/testing-data.thrift
+ * thrift -r --gen java:generated_annotations=undated -out scala resources/testing-data.thrift
  */
 object ThriftCodecSpec extends DefaultRunnableSpec {
 
@@ -106,6 +107,28 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           res <- write(g.OneOf.intValue(new generated.IntValue(482)))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
+      testM("map") {
+        val m = MapValue(Map("a" -> Record("Foo", 123), "b" -> Record("Bar", 456)))
+        val javaMap = new util.HashMap[String, g.Record]()
+        javaMap.put("a", new g.Record("Foo", 123))
+        javaMap.put("b", new g.Record("Bar", 456))
+        val m2 = new g.MapValue(javaMap)
+        for {
+          e <- encodeNS(schemaMapValue, m).map(toHex)
+          res <- write(m2)
+        } yield assert(e)(equalTo(res))
+      },
+      testM("set") {
+        val m = SetValue(Set(Record("Foo", 123), Record("Bar", 456)))
+        val javaSet = new util.HashSet[g.Record]()
+        javaSet.add(new g.Record("Foo", 123))
+        javaSet.add(new g.Record("Bar", 456))
+        val m2 = new g.SetValue(javaSet)
+        for {
+          e <- encodeNS(schemaSetValue, m).map(toHex)
+          res <- write(m2)
+        } yield assert(e)(equalTo(res))
+      },
       testM("failure") {
         for {
           e  <- encode(schemaFail, StringValue("foo")).map(_.size)
@@ -139,12 +162,10 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
       },
       testM("records with arity greater than 22") {
         for {
-//          e  <- encode(schemaHighArityRecord, HighArity()).map(toHex)
-//          res <- write(new generated.HighArity(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24))
+          e  <- encode(schemaHighArityRecord, HighArity()).map(toHex)
+          res <- write(new generated.HighArity(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24))
           ed <- encodeAndDecodeNS(schemaHighArityRecord, HighArity())
-//        } yield assert(e)(equalTo(res))
-        } yield assert(ed)(equalTo(HighArity()))
-//        } yield assert(ed)(equalTo(HighArity())) && assert(e)(equalTo(res))
+        } yield assert(ed)(equalTo(HighArity())) && assert(e)(equalTo(res))
       },
       testM("integer") {
         for {
@@ -547,6 +568,18 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
             ed2 <- encodeAndDecodeNS(sequenceOfSumSchema, richSequence)
           } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
         },
+        testM("map of products") {
+          val m: Map[Record, MyRecord] = Map(
+            Record("AAA", 1) -> MyRecord(1),
+            Record("BBB", 2) -> MyRecord(2)
+          )
+
+          val mSchema = Schema.map(Record.schemaRecord, myRecord)
+          for {
+            ed  <- encodeAndDecode(mSchema, m)
+            ed2 <- encodeAndDecodeNS(mSchema, m)
+          } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
+        },
         testM("set of products") {
           val set: Set[Record] = Set(Record("AAA", 1), Record("BBB", 2))
           val setSchema        = Schema.set(Record.schemaRecord)
@@ -659,6 +692,14 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
   }
 
   val schemaTuple: Schema.Tuple[Int, String] = Schema.Tuple(Schema[Int], Schema[String])
+
+  case class MapValue(value: Map[String, Record])
+
+  val schemaMapValue: Schema[MapValue] = DeriveSchema.gen[MapValue]
+
+  case class SetValue(value: Set[Record])
+
+  val schemaSetValue: Schema[SetValue] = DeriveSchema.gen[SetValue]
 
   sealed trait OneOf
 
