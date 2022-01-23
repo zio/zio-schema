@@ -106,3 +106,13 @@ struct SetValue {
 struct MapValue {
   1: map<string, Record> value,
 }
+
+enum Color {
+  RED,
+  GREEN,
+  BLUE
+}
+
+struct EnumValue {
+  1: Color value
+}

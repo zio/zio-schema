@@ -1,5 +1,6 @@
 package zio.schema.codec
 import org.apache.thrift.protocol.{TBinaryProtocol, TField, TProtocol, TType}
+import zio.schema.ast.SchemaAst
 import zio.schema.codec.ThriftCodec.Thrift.{durationStructure, monthDayStructure, periodStructure, yearMonthStructure}
 import zio.{Chunk, ChunkBuilder, ZIO}
 import zio.schema.{Schema, StandardType}
@@ -93,25 +94,20 @@ object ThriftCodec extends Codec {
       write.chunk
     }
 
-    //FIXME add all
     @tailrec
     final def getType[A](schema: Schema[A]): Byte = schema match {
+      case _ : Schema.Record[A] => TType.STRUCT
       case Schema.Sequence(_, _, _, _)                  => TType.LIST
-      case Schema.SetSchema(_, _)                       => TType.SET
       case Schema.MapSchema(_, _, _)                    => TType.MAP
+      case Schema.SetSchema(_, _)                       => TType.SET
       case Schema.Transform(codec, _, _, _)                => getType(codec)
       case Schema.Primitive(standardType, _)                  => getPrimitiveType(standardType)
-      //        case (Schema.Tuple(left, right), v @ (_, _))              => encodeTuple(left, right, v)
+      case Schema.Tuple(_, _, _)              => TType.STRUCT
       case Schema.Optional(codec, _)              => getType(codec)
-      //        case (Schema.EitherSchema(left, right), v: Either[_, _])  => encodeEither(left, right, v)
+      case Schema.EitherSchema(_, _, _)  => TType.STRUCT
       case Schema.Lazy(lzy)                           => getType(lzy())
-      //        case (Schema.Meta(ast), _)                                => encode(Schema[SchemaAst], ast)
-      //FIXME add fieldNumber
-      case _ : Schema.Record[A] => TType.STRUCT
-      //        case (Schema.Enum1(c), v)                                 => encodeEnum(v, c)
-      //        case (Schema.Enum2(c1, c2), v)                            => encodeEnum(v, c1, c2)
-      //        case (Schema.Enum3(c1, c2, c3), v)                        => encodeEnum(v, c1, c2, c3)
-      //        case (Schema.EnumN(cs), v)                                => encodeEnum(v, cs.toSeq: _*)
+      case Schema.Meta(_, _)                                => getType(Schema[SchemaAst])
+      case _ : Schema.Enum[A] => TType.STRUCT
       case _                                               => TType.VOID
     }
 
@@ -264,13 +260,13 @@ object ThriftCodec extends Codec {
         case (Schema.Sequence(element, _, g, _), v)                  => encodeSequence(fieldNumber, element, g(v))
         case (mapSchema@Schema.MapSchema(_, _, _), map: Map[k, v])   => encodeMap(fieldNumber, mapSchema, map)
         case (Schema.SetSchema(s, _), set: Set[_])                   => encodeSet(fieldNumber, s, set)
-        case (Schema.Transform(codec, _, g, _), _)                   => g(value).map(encodeValue(fieldNumber, codec, _)).getOrElse(Chunk.empty)
+        case (Schema.Transform(codec, _, g, _), _)                   => g(value).map(encodeValue(fieldNumber, codec, _))
         case (Schema.Primitive(standardType, _), v)                  => encodePrimitive(fieldNumber, standardType, v)
         case (Schema.Tuple(left, right, _), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)
         case (Schema.Optional(codec, _), v: Option[_])               => encodeOptional(fieldNumber, codec, v)
         case (Schema.EitherSchema(left, right, _), v: Either[_, _])  => encodeEither(fieldNumber, left, right, v)
         case (lzy @ Schema.Lazy(_), v)                            => encodeValue(fieldNumber, lzy.schema, v)
-//        case (Schema.Meta(ast), _)                                => encode(Schema[SchemaAst], ast)
+        case (Schema.Meta(ast, _), _)                                => encode(Schema[SchemaAst], ast)
         //FIXME add fieldNumber
         case ProductEncoder(encode)                               =>
           writeFieldBegin(fieldNumber, TType.STRUCT)
@@ -405,13 +401,6 @@ object ThriftCodec extends Codec {
 
       private def encodeCaseClass[Z](value: Z, fields: (Schema.Field[_], Z => Any)*): () => Unit = () =>
         writeStructure(fields.map{ case (schema, ext) => (schema, ext(value)) })
-//      {
-//        fields.zipWithIndex.foreach {
-//          case ((Schema.Field(_, schema, _), ext), fieldNumber) =>
-//            encodeValue(Some((fieldNumber + 1).shortValue), schema, ext(value))
-//        }
-//        p.writeFieldStop()
-//      }
 
       object OptionalSchema {
         def unapply(schema: Schema[Any]): Option[Schema[Any]] = {
@@ -497,11 +486,8 @@ object ThriftCodec extends Codec {
     def decodeBinary: PrimitiveResult[Chunk[Byte]] =
       decodePrimitive(p => Chunk.fromByteBuffer(p.readBinary()), "Binary")
 
-    //    def optionalDecoder[A](scheme: Schema[A]): Decoder[Option[A]] =
-
-
     def decode[A](schema: Schema[A], path: Path): Result[A] =
-      (schema match {
+      schema match {
         case Schema.GenericRecord(structure, _) => {
           val fields = structure.toChunk
           decodeRecord(fields, path).map(
@@ -545,11 +531,7 @@ object ThriftCodec extends Codec {
         case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumDecoder(path, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case Schema.EnumN(cs, _)                                                                                                   => enumDecoder(path, cs.toSeq: _*)
         case _ => ???
-      })
-//        .map(
-//        FIXME
-//        x => {println(s"decoded: $x"); x}
-//      )
+      }
 
     private def enumDecoder[Z, A](path: Path, cases: Schema.Case[_, Z]*): Result[Z] =
       Try {
@@ -699,13 +681,12 @@ object ThriftCodec extends Codec {
             case TType.I32 => safeRead(_.readI32(), "Int")
             case TType.I64 => safeRead(_.readI64(), "Long")
             case TType.STRING => safeRead(_.readString(), "String")
-            //FIXME
             case TType.STRUCT => decode(fields(readField.id -1), actualPath)
-            case TType.MAP => ???
-            case TType.SET => ???
+            case TType.MAP => decodeMap(unwrapLazy(fields(readField.id -1)).asInstanceOf[Schema.MapSchema[_, _]], actualPath)
+            case TType.SET => decodeSet(unwrapLazy(fields(readField.id -1)).asInstanceOf[Schema.SetSchema[_]], actualPath)
             //FIXME
             case TType.LIST => decodeSequence(unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.Sequence[_, _]], actualPath)
-            case TType.ENUM => ???
+            case TType.ENUM => safeRead(_.readI32(), "Enum")
           }
           // FIXME
           value match {

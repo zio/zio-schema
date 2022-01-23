@@ -177,9 +177,7 @@ lazy val zioSchemaThrift = crossProject(JSPlatform, JVMPlatform)
   .settings(
     libraryDependencies ++= Seq(
       "org.apache.thrift" % "libthrift" % "0.15.0"
-    ),
-    //FIXME remove
-    scalacOptions -= "-Xfatal-warnings"
+    )
   )
 
 lazy val zioSchemaThriftJS = zioSchemaThrift.js

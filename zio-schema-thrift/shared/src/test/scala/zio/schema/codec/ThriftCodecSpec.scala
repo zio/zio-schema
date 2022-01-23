@@ -573,11 +573,17 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
             Record("AAA", 1) -> MyRecord(1),
             Record("BBB", 2) -> MyRecord(2)
           )
-
           val mSchema = Schema.map(Record.schemaRecord, myRecord)
           for {
             ed  <- encodeAndDecode(mSchema, m)
             ed2 <- encodeAndDecodeNS(mSchema, m)
+          } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
+        },
+        testM("map in record") {
+          val m = MapRecord(1, Map(1 -> "aaa", 3 -> "ccc"))
+          for {
+            ed  <- encodeAndDecode(schemaMapRecord, m)
+            ed2 <- encodeAndDecodeNS(schemaMapRecord, m)
           } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
         },
         testM("set of products") {
@@ -588,6 +594,13 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
             ed  <- encodeAndDecode(setSchema, set)
             ed2 <- encodeAndDecodeNS(setSchema, set)
           } yield assert(ed)(equalTo(Chunk.succeed(set))) && assert(ed2)(equalTo(set))
+        },
+        testM("set in record") {
+          val m = SetRecord(1, Set("aaa", "ccc"))
+          for {
+            ed  <- encodeAndDecode(schemaSetRecord, m)
+            ed2 <- encodeAndDecodeNS(schemaSetRecord, m)
+          } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
         },
         testM("recursive data types") {
           checkM(SchemaGen.anyRecursiveTypeAndValue) {
@@ -609,7 +622,13 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           assertM(decodeNS(Schema[Int], "").run)(
             fails(equalTo("No bytes to decode"))
           )
-        }
+        },
+        testM("thrift enum value as an integer") {
+          for {
+            encoded <- write(new g.EnumValue(g.Color.BLUE))
+            ed <- decodeNS(schemaEnumValue, encoded)
+          } yield assert(ed)(equalTo(EnumValue(2)))
+        },
       ),
       suite("Should fail to decode")(
         testM("unknown wire types") {
@@ -672,6 +691,11 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
   case class StringList(items: List[String])
 
   lazy val schemaStringList: Schema[StringList] = DeriveSchema.gen[StringList]
+
+  case class EnumValue(value: Int)
+
+  lazy val schemaEnumValue: Schema[EnumValue] = DeriveSchema.gen[EnumValue]
+
 
   case class Record(name: String, value: Int)
 
@@ -743,6 +767,14 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
   case class MyRecord(age: Int)
 
   lazy val myRecord: Schema[MyRecord] = DeriveSchema.gen[MyRecord]
+
+  case class MapRecord(age: Int, map: Map[Int, String])
+
+  lazy val schemaMapRecord: Schema[MapRecord] = DeriveSchema.gen[MapRecord]
+
+  case class SetRecord(age: Int, set: Set[String])
+
+  lazy val schemaSetRecord: Schema[SetRecord] = DeriveSchema.gen[SetRecord]
 
   val complexTupleSchema: Schema.Tuple[Record, OneOf] = Schema.Tuple(Record.schemaRecord, schemaOneOf)
 
