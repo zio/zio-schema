@@ -71,9 +71,6 @@ object ThriftCodec extends Codec {
 
   object Thrift {
 
-    def tupleSchema[A, B](first: Schema[A], second: Schema[B]): Schema[ListMap[String, _]] =
-      Schema.record(Schema.Field("first", first), Schema.Field("second", second))
-
     def singleSchema[A](codec: Schema[A]): Schema[ListMap[String, _]] = Schema.record(Schema.Field("value", codec))
 
     def monthDayStructure(): Seq[Schema.Field[Int]] =
@@ -289,14 +286,13 @@ object ThriftCodec extends Codec {
         case (Schema.Sequence(element, _, g, _), v)                  => encodeSequence(fieldNumber, element, g(v))
         case (mapSchema @ Schema.MapSchema(_, _, _), map: Map[k, v]) => encodeMap(fieldNumber, mapSchema, map)
         case (Schema.SetSchema(s, _), set: Set[_])                   => encodeSet(fieldNumber, s, set)
-        case (Schema.Transform(codec, _, g, _), _)                   => g(value).map(encodeValue(fieldNumber, codec, _))
+        case (Schema.Transform(codec, _, g, _), _)                   => g(value).foreach(encodeValue(fieldNumber, codec, _))
         case (Schema.Primitive(standardType, _), v)                  => encodePrimitive(fieldNumber, standardType, v)
         case (Schema.Tuple(left, right, _), v @ (_, _))              => encodeTuple(fieldNumber, left, right, v)
         case (Schema.Optional(codec, _), v: Option[_])               => encodeOptional(fieldNumber, codec, v)
         case (Schema.EitherSchema(left, right, _), v: Either[_, _])  => encodeEither(fieldNumber, left, right, v)
         case (lzy @ Schema.Lazy(_), v)                               => encodeValue(fieldNumber, lzy.schema, v)
-        case (Schema.Meta(ast, _), _)                                => encode(Schema[SchemaAst], ast)
-        //FIXME add fieldNumber
+        case (Schema.Meta(ast, _), _)                                => encodeValue(fieldNumber, Schema[SchemaAst], ast)
         case ProductEncoder(encode) =>
           writeFieldBegin(fieldNumber, TType.STRUCT)
           encode()
@@ -688,10 +684,10 @@ object ThriftCodec extends Codec {
         case Schema.Tuple(left, right, _)            => tupleDecoder(left, right, path)
         // FIXME what if is missing
         case Schema.Optional(codec, _) => decode(codec, path).map(Some(_))
-        //        case Schema.Fail(message)             => fail(message)
+        case Schema.Fail(message, _)             => fail(path, message)
         case Schema.EitherSchema(left, right, _) => eitherDecoder(path, left, right)
         case lzy @ Schema.Lazy(_)                => decode(lzy.schema, path)
-        //        case Schema.Meta(_)                   => astDecoder
+        case Schema.Meta(_, _)                   => decode(Schema[SchemaAst], path).map(_.toSchema)
         case ProductDecoder(decoder)                                                                                               => decoder(path)
         case Schema.Enum1(c, _)                                                                                                    => enumDecoder(path, c)
         case Schema.Enum2(c1, c2, _)                                                                                               => enumDecoder(path, c1, c2)
@@ -744,7 +740,7 @@ object ThriftCodec extends Codec {
     }
 
     private def tupleDecoder[A, B](left: Schema[A], right: Schema[B], path: Path): Result[(A, B)] =
-      StructDecoder(Seq(left, right), path)
+      structDecoder(Seq(left, right), path)
         .flatMap(
           record =>
             (record.get(1), record.get(2)) match {
@@ -767,7 +763,13 @@ object ThriftCodec extends Codec {
         case StandardType.FloatType  => decodeFloat(path)
         case StandardType.DoubleType => decodeDouble(path)
         case StandardType.BinaryType => decodeBinary(path)
-        case StandardType.CharType   => decodeString(path).map(_.charAt(0))
+        case StandardType.CharType   => decodeString(path).flatMap(decoded =>
+          if(decoded.size == 1)
+            succeed(decoded.charAt(0))
+          else {
+            fail(path, s"Expected character, found string \"$decoded\"")
+          }
+        )
         case StandardType.UUIDType =>
           decodeString(path).flatMap { uuid =>
             try succeed(UUID.fromString(uuid))
@@ -824,9 +826,9 @@ object ThriftCodec extends Codec {
     }
 
     private def decodeRecord(fields: Seq[Schema.Field[_]], path: Path): Result[ListMap[Short, _]] =
-      StructDecoder(fields.map(_.schema), path)
+      structDecoder(fields.map(_.schema), path)
 
-    def StructDecoder(fields: Seq[Schema[_]], path: Path): Result[ListMap[Short, Any]] =
+    def structDecoder(fields: Seq[Schema[_]], path: Path): Result[ListMap[Short, Any]] =
       Try {
         //FIXME return Left on error
         var values    = ListMap.empty[Short, Any]
@@ -939,7 +941,7 @@ object ThriftCodec extends Codec {
       }
 
       private def unsafeDecodeFields(path: Path, buffer: Array[Any], fields: Schema.Field[_]*): Result[Array[Any]] =
-        StructDecoder(fields.map(_.schema), path).flatMap { values =>
+        structDecoder(fields.map(_.schema), path).flatMap { values =>
           fields.zipWithIndex.foreach {
             case (Schema.Field(_, schema, _), index) =>
               val rawValue = values.get((index + 1).toShort)
