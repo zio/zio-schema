@@ -631,12 +631,12 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
         },
       ),
       suite("Should fail to decode")(
-        testM("unknown wire types") {
+        testM("field begin") {
           for {
             d  <- decode(Record.schemaRecord, "0F").run
             d2 <- decodeNS(Record.schemaRecord, "0F").run
-          } yield assert(d)(fails(equalTo("Error at path /: Error reading struct."))) &&
-            assert(d2)(fails(equalTo("Error at path /: Error reading struct.")))
+          } yield assert(d)(fails(equalTo("Error at path /: Error reading field begin"))) &&
+            assert(d2)(fails(equalTo("Error at path /: Error reading field begin")))
         },
       )
   )

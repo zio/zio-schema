@@ -1,34 +1,17 @@
 package zio.schema.codec
-import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TProtocol, TType }
+import org.apache.thrift.protocol.{TBinaryProtocol, TField, TProtocol, TType}
 import zio.schema.ast.SchemaAst
-import zio.schema.codec.ThriftCodec.Thrift.{ durationStructure, monthDayStructure, periodStructure, yearMonthStructure }
-import zio.{ Chunk, ChunkBuilder, ZIO }
-import zio.schema.{ Schema, StandardType }
+import zio.schema.codec.ThriftCodec.Thrift.{durationStructure, monthDayStructure, periodStructure, yearMonthStructure}
+import zio.{Chunk, ChunkBuilder, ZIO}
+import zio.schema.{Schema, StandardType}
 import zio.stream.ZTransducer
 
 import java.nio.ByteBuffer
-import java.time.{
-  DayOfWeek,
-  Duration,
-  Instant,
-  LocalDate,
-  LocalDateTime,
-  LocalTime,
-  Month,
-  MonthDay,
-  OffsetDateTime,
-  OffsetTime,
-  Period,
-  Year,
-  YearMonth,
-  ZoneId,
-  ZoneOffset,
-  ZonedDateTime
-}
+import java.time.{DayOfWeek, Duration, Instant, LocalDate, LocalDateTime, LocalTime, Month, MonthDay, OffsetDateTime, OffsetTime, Period, Year, YearMonth, ZoneId, ZoneOffset, ZonedDateTime}
 import java.util.UUID
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 object ThriftCodec extends Codec {
@@ -682,7 +665,7 @@ object ThriftCodec extends Codec {
         case Schema.Transform(codec, f, _, _)        => transformDecoder(path, codec, f)
         case Schema.Primitive(standardType, _)       => primitiveDecoder(standardType, path)
         case Schema.Tuple(left, right, _)            => tupleDecoder(left, right, path)
-        // FIXME what if is missing
+        // FIXME what if is missing (None)
         case Schema.Optional(codec, _) => decode(codec, path).map(Some(_))
         case Schema.Fail(message, _)             => fail(path, message)
         case Schema.EitherSchema(left, right, _) => eitherDecoder(path, left, right)
@@ -828,85 +811,101 @@ object ThriftCodec extends Codec {
     private def decodeRecord(fields: Seq[Schema.Field[_]], path: Path): Result[ListMap[Short, _]] =
       structDecoder(fields.map(_.schema), path)
 
-    def structDecoder(fields: Seq[Schema[_]], path: Path): Result[ListMap[Short, Any]] =
-      Try {
-        //FIXME return Left on error
-        var values    = ListMap.empty[Short, Any]
-        var readField = p.readFieldBegin()
-        while (readField.`type` != TType.STOP) {
-          val actualPath = path.appended(s"fieldId:${readField.id}")
-          def safeRead[A](f: TProtocol => A, name: String) =
-            Try {
-              f(p)
-            }.toEither.left.map(_ => Error(actualPath, s"Unable to decode $name"))
-          val value = readField.`type` match {
-            case TType.BOOL   => safeRead(_.readBool(), "Bool")
-            case TType.BYTE   => safeRead(_.readByte(), "Byte")
-            case TType.DOUBLE => safeRead(_.readDouble(), "Double")
-            case TType.I16    => safeRead(_.readI16(), "Short")
-            case TType.I32    => safeRead(_.readI32(), "Int")
-            case TType.I64    => safeRead(_.readI64(), "Long")
-            case TType.STRING => safeRead(_.readString(), "String")
-            case TType.STRUCT => decode(fields(readField.id - 1), actualPath)
-            case TType.MAP    => decodeMap(unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.MapSchema[_, _]], actualPath)
-            case TType.SET    => decodeSet(unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.SetSchema[_]], actualPath)
-            //FIXME
-            case TType.LIST => decodeSequence(unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.Sequence[_, _]], actualPath)
-            case TType.ENUM => safeRead(_.readI32(), "Enum")
+    def structDecoder(fields: Seq[Schema[_]], path: Path): Result[ListMap[Short, Any]] = {
+      def safeRead[A](path: Path, name: String, f: TProtocol => A) =
+        Try {
+          f(p)
+        }.toEither.left.map(_ => Error(path, s"Unable to decode $name"))
+
+      @tailrec
+      def readFields(m: ListMap[Short, Any]): Result[ListMap[Short, Any]] =
+        Try { p.readFieldBegin() } match {
+          case Failure(_) => fail(path, "Error reading field begin")
+          case Success(readField) => {
+            if (readField.`type` == TType.STOP)
+              succeed(m)
+            else {
+              val actualPath = path.appended(s"fieldId:${readField.id}")
+              (readField.`type` match {
+                case TType.BOOL => safeRead(actualPath, "Bool", _.readBool())
+                case TType.BYTE => safeRead(actualPath, "Byte", _.readByte())
+                case TType.DOUBLE => safeRead(actualPath, "Double", _.readDouble())
+                case TType.I16 => safeRead(actualPath, "Short", _.readI16())
+                case TType.I32 => safeRead(actualPath, "Int", _.readI32())
+                case TType.I64 => safeRead(actualPath, "Long", _.readI64())
+                case TType.STRING => safeRead(actualPath, "String", _.readString())
+                case TType.STRUCT => decode(fields(readField.id - 1), actualPath)
+                case TType.MAP => decodeMap(unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.MapSchema[_, _]], actualPath)
+                case TType.SET => decodeSet(unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.SetSchema[_]], actualPath)
+                case TType.LIST => decodeSequence(unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.Sequence[_, _]], actualPath)
+                case TType.ENUM => safeRead(actualPath, "Enum", _.readI32())
+              }) match {
+                case Right(value) => readFields(m.updated(readField.id, value))
+                case Left(err) => Left(err)
+              }
+            }
           }
-          // FIXME
-          value match {
-            case v @ Left(_) => return v.asInstanceOf[Result[ListMap[Short, Any]]]
-            case Right(v)    => values = values.updated(readField.id, v)
-          }
-          readField = p.readFieldBegin()
         }
-        Right(values)
-      }.getOrElse(Left(Error(path, "Error reading struct.")))
+
+      readFields(ListMap.empty)
+    }
 
     def decodeSequence[Col, Elem](schema: Schema.Sequence[Col, Elem], path: Path): Result[Col] = {
-      val listBegin      = p.readListBegin()
-      val cb             = ChunkBuilder.make[Elem]()
-      var numberToDecode = listBegin.size
-      while (numberToDecode > 0) {
-        val res = decode(schema.schemaA, path)
-        // FIXME
-        cb.addOne(res.right.get)
-        numberToDecode = numberToDecode - 1
-      }
-      val res = schema.fromChunk(cb.result())
-      // FIXME
-      Right(res)
+      @tailrec
+      def decodeElements(n: Int, cb: ChunkBuilder[Elem]): Result[Chunk[Elem]] =
+        if(n > 0)
+          decode(schema.schemaA, path) match {
+            case Right(elem) => decodeElements(n - 1, cb.addOne(elem))
+            case Left(_) => fail(path, "Error decoding Sequence element")
+          }
+        else
+          succeed(cb.result())
+
+      Try{p.readListBegin()}.fold(
+        _ => fail(path, "Can not decode Sequence begin"),
+        begin =>
+          decodeElements(begin.size, ChunkBuilder.make[Elem]()).map(
+            schema.fromChunk
+          )
+      )
     }
 
     def decodeMap[K, V](schema: Schema.MapSchema[K, V], path: Path): Result[Map[K, V]] = {
-      val mapBegin       = p.readMapBegin()
-      val map            = scala.collection.mutable.Map.empty[K, V]
-      var numberToDecode = mapBegin.size
-      while (numberToDecode > 0) {
-        val k = decode(schema.ks, path)
-        val v = decode(schema.vs, path)
-        // FIXME
-        map.update(k.right.get, v.right.get)
-        numberToDecode = numberToDecode - 1
-      }
-      // FIXME
-      Right(map.toMap)
+      @tailrec
+      def decodeElements(n: Int, m: scala.collection.mutable.Map[K, V]): Result[Map[K, V]] =
+        if (n > 0)
+          (decode(schema.ks, path), decode(schema.vs, path)) match {
+            case (Right(key), Right(value)) => decodeElements(n - 1, m.addOne((key, value)))
+            case _ => fail(path, "Error decoding Map element")
+          }
+        else
+          succeed(m.toMap)
+
+      Try {
+        p.readMapBegin()
+      }.fold(
+        _ => fail(path, "Can not decode Map begin"),
+        begin =>
+          decodeElements(begin.size, scala.collection.mutable.Map.empty[K, V])
+      )
     }
 
     def decodeSet[A](schema: Schema.SetSchema[A], path: Path): Result[Set[A]] = {
-      val setBegin       = p.readSetBegin()
-      val cb             = ChunkBuilder.make[A]()
-      var numberToDecode = setBegin.size
-      while (numberToDecode > 0) {
-        val res = decode(schema.as, path)
-        // FIXME
-        cb.addOne(res.right.get)
-        numberToDecode = numberToDecode - 1
-      }
-      val res = cb.result().toSet
-      // FIXME
-      Right(res)
+      @tailrec
+      def decodeElements(n: Int, cb: ChunkBuilder[A]): Result[Chunk[A]] =
+        if(n > 0)
+          decode(schema.as, path) match {
+            case Right(elem) => decodeElements(n - 1, cb.addOne(elem))
+            case Left(_) => fail(path, "Error decoding Set element")
+          }
+        else
+          succeed(cb.result())
+
+      Try{p.readSetBegin()}.fold(
+        _ => fail(path, "Can not decode Set begin"),
+        begin =>
+          decodeElements(begin.size, ChunkBuilder.make[A]()).map(_.toSet)
+      )
     }
 
     private[codec] object ProductDecoder {
