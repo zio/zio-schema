@@ -1,7 +1,7 @@
 package zio.schema.codec
 
 import org.apache.thrift.TSerializable
-import org.apache.thrift.protocol.TBinaryProtocol
+import org.apache.thrift.protocol.{TBinaryProtocol, TField, TType}
 import zio.console.putStrLn
 import zio.schema.CaseSet.caseOf
 import zio.schema.codec.{generated => g}
@@ -638,6 +638,56 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           } yield assert(d)(fails(equalTo("Error at path /: Error reading field begin"))) &&
             assert(d2)(fails(equalTo("Error at path /: Error reading field begin")))
         },
+        testM("missing value") {
+          for {
+            bytes <- Task {
+              val writeRecord = new ChunkTransport.Write()
+              val p = new TBinaryProtocol(writeRecord)
+              p.writeFieldBegin(new TField("name", TType.STRING, 1))
+              p.writeString("Dan")
+              p.writeFieldStop()
+              toHex(writeRecord.chunk)
+            }
+            d  <- decode(Record.schemaRecord, bytes).run
+            bytes2 <- Task {
+              val writeRecord = new ChunkTransport.Write()
+              val p = new TBinaryProtocol(writeRecord)
+              p.writeFieldBegin(new TField("value", TType.I32, 2))
+              p.writeI32(123)
+              p.writeFieldStop()
+              toHex(writeRecord.chunk)
+            }
+            d2  <- decode(Record.schemaRecord, bytes2).run
+          } yield assert(d)(fails(equalTo("Error at path /value: Missing value"))) &&
+            assert(d2)(fails(equalTo("Error at path /name: Missing value")))
+        },
+        testM("unable to decode") {
+          for {
+            bytes <- Task {
+              val writeRecord = new ChunkTransport.Write()
+              val p = new TBinaryProtocol(writeRecord)
+              p.writeFieldBegin(new TField("name", TType.STRING, 1))
+              p.writeString("Dan")
+              p.writeFieldBegin(new TField("value", TType.I32, 2))
+              p.writeFieldStop()
+              toHex(writeRecord.chunk)
+            }
+            d <- decode(Record.schemaRecord, bytes).run
+          } yield assert(d)(fails(equalTo("Error at path /fieldId:2: Unable to decode Int")))
+        },
+        testM("unknown type") {
+          for {
+            bytes <- Task {
+              val writeRecord = new ChunkTransport.Write()
+              val p = new TBinaryProtocol(writeRecord)
+              p.writeFieldBegin(new TField("value", TType.I32, 2))
+              p.writeString("This is number one bullshit")
+              p.writeFieldStop()
+              toHex(writeRecord.chunk)
+            }
+            d  <- decode(Record.schemaRecord, bytes).run
+          } yield assert(d)(fails(equalTo("Error at path /fieldId:26729: Unknown type 84")))
+        },
       )
   )
 
@@ -701,18 +751,6 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
 
   object Record {
     implicit val schemaRecord: Schema[Record] = DeriveSchema.gen[Record]
-
-    val genericRecord: Schema[ListMap[String, _]] = Schema.record(
-      Schema.Field("c", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("b", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("a", Schema.Primitive(StandardType.IntType))
-    )
-
-    val genericRecordSorted: Schema[ListMap[String, _]] = Schema.record(
-      Schema.Field("a", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("b", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("c", Schema.Primitive(StandardType.IntType))
-    )
   }
 
   val schemaTuple: Schema.Tuple[Int, String] = Schema.Tuple(Schema[Int], Schema[String])

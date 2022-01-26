@@ -839,6 +839,7 @@ object ThriftCodec extends Codec {
                 case TType.SET => decodeSet(unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.SetSchema[_]], actualPath)
                 case TType.LIST => decodeSequence(unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.Sequence[_, _]], actualPath)
                 case TType.ENUM => safeRead(actualPath, "Enum", _.readI32())
+                case _ => fail(actualPath, s"Unknown type ${readField.`type`}")
               }) match {
                 case Right(value) => readFields(m.updated(readField.id, value))
                 case Left(err) => Left(err)
@@ -961,7 +962,7 @@ object ThriftCodec extends Codec {
                   case Some(value) =>
                     buffer.update(index, value)
                     addFields(values, (index + 1).toShort)
-                  case None => fail(path.appended(label), "Value is empty")
+                  case None => fail(path.appended(label), "Missing value")
                 }
               }
           }
