@@ -17,7 +17,8 @@ import java.time.{DayOfWeek, Duration, Instant, LocalDate, LocalDateTime, LocalT
 import java.util
 import java.util.UUID
 import scala.collection.immutable.ListMap
-import scala.jdk.CollectionConverters._
+//import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 import scala.util.Try
 
 // TODO: use generators instead of manual encode/decode

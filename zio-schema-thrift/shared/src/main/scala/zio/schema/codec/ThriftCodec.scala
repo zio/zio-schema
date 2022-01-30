@@ -705,7 +705,7 @@ object ThriftCodec extends Codec {
           fail(path, s"Error decoding enum with cases ${cases.map(_.id).mkString(", ")}, enum id out of range: ${readField.id}")
         else {
           val subtypeCase = cases(readField.id - 1)
-          val res         = decode(path.appended(s"[case:${subtypeCase.id}]"), subtypeCase.codec)
+          val res         = decode(path :+ s"[case:${subtypeCase.id}]", subtypeCase.codec)
           res.foreach { _ =>
             p.readFieldBegin()
           }
@@ -716,8 +716,8 @@ object ThriftCodec extends Codec {
     private def eitherDecoder[A, B](path: Path, left: Schema[A], right: Schema[B]): Result[Either[A, B]] = {
       val readField = p.readFieldBegin()
       readField.id match {
-        case 1 => decode(path.appended("either:left"), left).map(Left(_))
-        case 2 => decode(path.appended("either:right"), right).map(Right(_))
+        case 1 => decode(path :+ "either:left", left).map(Left(_))
+        case 2 => decode(path :+ "either:right", right).map(Right(_))
         case _ => fail(path, "Failed to decode either.")
       }
     }
@@ -750,7 +750,7 @@ object ThriftCodec extends Codec {
           if(decoded.size == 1)
             succeed(decoded.charAt(0))
           else {
-            fail(path, s"Expected character, found string \"$decoded\"")
+            fail(path, s"""Expected character, found string "$decoded"""")
           }
         )
         case StandardType.UUIDType =>
@@ -825,7 +825,7 @@ object ThriftCodec extends Codec {
             if (readField.`type` == TType.STOP)
               succeed(m)
             else {
-              val actualPath = path.appended(s"fieldId:${readField.id}")
+              val actualPath = path :+ s"fieldId:${readField.id}"
               (readField.`type` match {
                 case TType.BOOL => safeRead(actualPath, "Bool", _.readBool())
                 case TType.BYTE => safeRead(actualPath, "Byte", _.readByte())
@@ -856,7 +856,7 @@ object ThriftCodec extends Codec {
       def decodeElements(n: Int, cb: ChunkBuilder[Elem]): Result[Chunk[Elem]] =
         if(n > 0)
           decode(path, schema.schemaA) match {
-            case Right(elem) => decodeElements(n - 1, cb.addOne(elem))
+            case Right(elem) => decodeElements(n - 1, cb += (elem))
             case Left(_) => fail(path, "Error decoding Sequence element")
           }
         else
@@ -876,7 +876,7 @@ object ThriftCodec extends Codec {
       def decodeElements(n: Int, m: scala.collection.mutable.Map[K, V]): Result[Map[K, V]] =
         if (n > 0)
           (decode(path, schema.ks), decode(path, schema.vs)) match {
-            case (Right(key), Right(value)) => decodeElements(n - 1, m.addOne((key, value)))
+            case (Right(key), Right(value)) => decodeElements(n - 1, m += ((key, value)))
             case _ => fail(path, "Error decoding Map element")
           }
         else
@@ -896,7 +896,7 @@ object ThriftCodec extends Codec {
       def decodeElements(n: Int, cb: ChunkBuilder[A]): Result[Chunk[A]] =
         if(n > 0)
           decode(path, schema.as) match {
-            case Right(elem) => decodeElements(n - 1, cb.addOne(elem))
+            case Right(elem) => decodeElements(n - 1, cb += (elem))
             case Left(_) => fail(path, "Error decoding Set element")
           }
         else
@@ -962,7 +962,7 @@ object ThriftCodec extends Codec {
                   case Some(value) =>
                     buffer.update(index, value)
                     addFields(values, (index + 1).toShort)
-                  case None => fail(path.appended(label), "Missing value")
+                  case None => fail(path :+ label, "Missing value")
                 }
               }
           }
