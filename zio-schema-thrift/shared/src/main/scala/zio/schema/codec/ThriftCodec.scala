@@ -1,17 +1,34 @@
 package zio.schema.codec
-import org.apache.thrift.protocol.{TBinaryProtocol, TField, TProtocol, TType}
+import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TProtocol, TType }
 import zio.schema.ast.SchemaAst
-import zio.schema.codec.ThriftCodec.Thrift.{durationStructure, monthDayStructure, periodStructure, yearMonthStructure}
-import zio.{Chunk, ChunkBuilder, ZIO}
-import zio.schema.{Schema, StandardType}
+import zio.schema.codec.ThriftCodec.Thrift.{ durationStructure, monthDayStructure, periodStructure, yearMonthStructure }
+import zio.{ Chunk, ChunkBuilder, ZIO }
+import zio.schema.{ Schema, StandardType }
 import zio.stream.ZTransducer
 
 import java.nio.ByteBuffer
-import java.time.{DayOfWeek, Duration, Instant, LocalDate, LocalDateTime, LocalTime, Month, MonthDay, OffsetDateTime, OffsetTime, Period, Year, YearMonth, ZoneId, ZoneOffset, ZonedDateTime}
+import java.time.{
+  DayOfWeek,
+  Duration,
+  Instant,
+  LocalDate,
+  LocalDateTime,
+  LocalTime,
+  Month,
+  MonthDay,
+  OffsetDateTime,
+  OffsetTime,
+  Period,
+  Year,
+  YearMonth,
+  ZoneId,
+  ZoneOffset,
+  ZonedDateTime
+}
 import java.util.UUID
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
-import scala.util.{Failure, Success, Try}
+import scala.util.{ Failure, Success, Try }
 import scala.util.control.NonFatal
 
 object ThriftCodec extends Codec {
@@ -54,27 +71,25 @@ object ThriftCodec extends Codec {
 
   object Thrift {
 
-    def singleSchema[A](codec: Schema[A]): Schema[ListMap[String, _]] = Schema.record(Schema.Field("value", codec))
-
-    def monthDayStructure(): Seq[Schema.Field[Int]] =
+    val monthDayStructure: Seq[Schema.Field[Int]] =
       Seq(
         Schema.Field("month", Schema.Primitive(StandardType.IntType)),
         Schema.Field("day", Schema.Primitive(StandardType.IntType))
       )
 
-    def periodStructure(): Seq[Schema.Field[Int]] = Seq(
+    val periodStructure: Seq[Schema.Field[Int]] = Seq(
       Schema.Field("years", Schema.Primitive(StandardType.IntType)),
       Schema.Field("months", Schema.Primitive(StandardType.IntType)),
       Schema.Field("days", Schema.Primitive(StandardType.IntType))
     )
 
-    def yearMonthStructure(): Seq[Schema.Field[Int]] =
+    val yearMonthStructure: Seq[Schema.Field[Int]] =
       Seq(
         Schema.Field("year", Schema.Primitive(StandardType.IntType)),
         Schema.Field("month", Schema.Primitive(StandardType.IntType))
       )
 
-    def durationStructure(): Seq[Schema.Field[_]] =
+    val durationStructure: Seq[Schema.Field[_]] =
       Seq(
         Schema.Field("seconds", Schema.Primitive(StandardType.LongType)),
         Schema.Field("nanos", Schema.Primitive(StandardType.IntType))
@@ -82,9 +97,8 @@ object ThriftCodec extends Codec {
   }
 
   private def unwrapLazy(schema: Schema[_]) = schema match {
-    case Schema.Lazy(s) =>
-      s()
-    case s => s
+    case s @ Schema.Lazy(_) => s.schema
+    case s                  => s
   }
 
   private def isOptional(schema: Schema[_]): Boolean = schema match {
@@ -263,6 +277,7 @@ object ThriftCodec extends Codec {
     def encodeOptional[A](fieldNumber: Option[Short], codec: Schema[A], v: Option[A]): Unit =
       v.foreach(encodeValue(fieldNumber, codec, _))
 
+    //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     def encodeValue[A](fieldNumber: Option[Short], schema: Schema[A], value: A): Unit =
       (schema, value) match {
         case (Schema.GenericRecord(structure, _), v: Map[String, _]) => encodeRecord(fieldNumber, structure.toChunk, v)
@@ -308,195 +323,29 @@ object ThriftCodec extends Codec {
           encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
         case (Schema.Enum18(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _), v) =>
           encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
-        case (
-            Schema.Enum19(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _),
-            v
-            ) =>
-          encodeEnum(
-            fieldNumber,
-            v,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            c9,
-            c10,
-            c11,
-            c12,
-            c13,
-            c14,
-            c15,
-            c16,
-            c17,
-            c18,
-            c19
-          )
-        case (
-            Schema.Enum20(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _),
-            v
-            ) =>
-          encodeEnum(
-            fieldNumber,
-            v,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            c9,
-            c10,
-            c11,
-            c12,
-            c13,
-            c14,
-            c15,
-            c16,
-            c17,
-            c18,
-            c19,
-            c20
-          )
-        case (
-            Schema.Enum21(
-              c1,
-              c2,
-              c3,
-              c4,
-              c5,
-              c6,
-              c7,
-              c8,
-              c9,
-              c10,
-              c11,
-              c12,
-              c13,
-              c14,
-              c15,
-              c16,
-              c17,
-              c18,
-              c19,
-              c20,
-              c21,
-              _
-            ),
-            v
-            ) =>
-          encodeEnum(
-            fieldNumber,
-            v,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            c9,
-            c10,
-            c11,
-            c12,
-            c13,
-            c14,
-            c15,
-            c16,
-            c17,
-            c18,
-            c19,
-            c20,
-            c21
-          )
-        case (
-            Schema.Enum22(
-              c1,
-              c2,
-              c3,
-              c4,
-              c5,
-              c6,
-              c7,
-              c8,
-              c9,
-              c10,
-              c11,
-              c12,
-              c13,
-              c14,
-              c15,
-              c16,
-              c17,
-              c18,
-              c19,
-              c20,
-              c21,
-              c22,
-              _
-            ),
-            v
-            ) =>
-          encodeEnum(
-            fieldNumber,
-            v,
-            c1,
-            c2,
-            c3,
-            c4,
-            c5,
-            c6,
-            c7,
-            c8,
-            c9,
-            c10,
-            c11,
-            c12,
-            c13,
-            c14,
-            c15,
-            c16,
-            c17,
-            c18,
-            c19,
-            c20,
-            c21,
-            c22
-          )
+        case (Schema.Enum19(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _), v) =>
+          encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
+        case (Schema.Enum20(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _), v) =>
+          encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
+        case (Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _), v) =>
+          encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
+        case (Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) =>
+          encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case (Schema.EnumN(cs, _), v) => encodeEnum(fieldNumber, v, cs.toSeq: _*)
         case (_, _)                   => ()
       }
 
-    private def encodeEnum[Z, A](
-      fieldNumber: Option[Short],
-      value: Z,
-      cases: Schema.Case[_, Z]*
-    ): Unit = {
+    private def encodeEnum[Z, A](fieldNumber: Option[Short], value: Z, cases: Schema.Case[_, Z]*): Unit = {
       writeFieldBegin(fieldNumber, TType.STRUCT)
       val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
       if (fieldIndex >= 0) {
         val subtypeCase = cases(fieldIndex)
-        encodeValue(
-          Some((fieldIndex + 1).shortValue),
-          subtypeCase.codec.asInstanceOf[Schema[Any]],
-          subtypeCase.unsafeDeconstruct(value)
-        )
+        encodeValue(Some((fieldIndex + 1).shortValue), subtypeCase.codec.asInstanceOf[Schema[Any]], subtypeCase.unsafeDeconstruct(value))
       }
       p.writeFieldStop()
     }
 
-    private def encodeEither[A, B](
-      fieldNumber: Option[Short],
-      left: Schema[A],
-      right: Schema[B],
-      either: Either[A, B]
-    ): Unit = {
+    private def encodeEither[A, B](fieldNumber: Option[Short], left: Schema[A], right: Schema[B], either: Either[A, B]): Unit = {
       writeFieldBegin(fieldNumber, TType.STRUCT)
       either match {
         case Left(value)  => encodeValue(Some(1), left, value)
@@ -507,17 +356,8 @@ object ThriftCodec extends Codec {
     def tupleSchema[A, B](first: Schema[A], second: Schema[B]): Seq[Schema.Field[_]] =
       Seq(Schema.Field("first", first), Schema.Field("second", second))
 
-    private def encodeTuple[A, B](
-      fieldNumber: Option[Short],
-      left: Schema[A],
-      right: Schema[B],
-      tuple: (A, B)
-    ): Unit =
-      encodeRecord(
-        fieldNumber,
-        tupleSchema(left, right),
-        ListMap[String, Any]("first" -> tuple._1, "second" -> tuple._2)
-      )
+    private def encodeTuple[A, B](fieldNumber: Option[Short], left: Schema[A], right: Schema[B], tuple: (A, B)): Unit =
+      encodeRecord(fieldNumber, tupleSchema(left, right), ListMap[String, Any]("first" -> tuple._1, "second" -> tuple._2))
 
     private def writeStructure(fields: Seq[(Schema.Field[_], Any)]): Unit = {
       fields.zipWithIndex.foreach {
@@ -666,11 +506,11 @@ object ThriftCodec extends Codec {
         case Schema.Primitive(standardType, _)       => primitiveDecoder(path, standardType)
         case Schema.Tuple(left, right, _)            => tupleDecoder(path, left, right)
         // FIXME what if is missing (None) or does it makes sense only for Option in Records?
-        case Schema.Optional(codec, _) => decode(path, codec).map(Some(_))
-        case Schema.Fail(message, _)             => fail(path, message)
-        case Schema.EitherSchema(left, right, _) => eitherDecoder(path, left, right)
-        case lzy @ Schema.Lazy(_)                => decode(path, lzy.schema)
-        case Schema.Meta(_, _)                   => decode(path, Schema[SchemaAst]).map(_.toSchema)
+        case Schema.Optional(codec, _)                                                                                             => decode(path, codec).map(Some(_))
+        case Schema.Fail(message, _)                                                                                               => fail(path, message)
+        case Schema.EitherSchema(left, right, _)                                                                                   => eitherDecoder(path, left, right)
+        case lzy @ Schema.Lazy(_)                                                                                                  => decode(path, lzy.schema)
+        case Schema.Meta(_, _)                                                                                                     => decode(path, Schema[SchemaAst]).map(_.toSchema)
         case ProductDecoder(decoder)                                                                                               => decoder(path)
         case Schema.Enum1(c, _)                                                                                                    => enumDecoder(path, c)
         case Schema.Enum2(c1, c2, _)                                                                                               => enumDecoder(path, c1, c2)
@@ -746,13 +586,15 @@ object ThriftCodec extends Codec {
         case StandardType.FloatType  => decodeFloat(path)
         case StandardType.DoubleType => decodeDouble(path)
         case StandardType.BinaryType => decodeBinary(path)
-        case StandardType.CharType   => decodeString(path).flatMap(decoded =>
-          if(decoded.size == 1)
-            succeed(decoded.charAt(0))
-          else {
-            fail(path, s"""Expected character, found string "$decoded"""")
-          }
-        )
+        case StandardType.CharType =>
+          decodeString(path).flatMap(
+            decoded =>
+              if (decoded.size == 1)
+                succeed(decoded.charAt(0))
+              else {
+                fail(path, s"""Expected character, found string "$decoded"""")
+              }
+          )
         case StandardType.UUIDType =>
           decodeString(path).flatMap { uuid =>
             try succeed(UUID.fromString(uuid))
@@ -827,22 +669,22 @@ object ThriftCodec extends Codec {
             else {
               val actualPath = path :+ s"fieldId:${readField.id}"
               (readField.`type` match {
-                case TType.BOOL => safeRead(actualPath, "Bool", _.readBool())
-                case TType.BYTE => safeRead(actualPath, "Byte", _.readByte())
+                case TType.BOOL   => safeRead(actualPath, "Bool", _.readBool())
+                case TType.BYTE   => safeRead(actualPath, "Byte", _.readByte())
                 case TType.DOUBLE => safeRead(actualPath, "Double", _.readDouble())
-                case TType.I16 => safeRead(actualPath, "Short", _.readI16())
-                case TType.I32 => safeRead(actualPath, "Int", _.readI32())
-                case TType.I64 => safeRead(actualPath, "Long", _.readI64())
+                case TType.I16    => safeRead(actualPath, "Short", _.readI16())
+                case TType.I32    => safeRead(actualPath, "Int", _.readI32())
+                case TType.I64    => safeRead(actualPath, "Long", _.readI64())
                 case TType.STRING => safeRead(actualPath, "String", _.readString())
                 case TType.STRUCT => decode(actualPath, fields(readField.id - 1))
-                case TType.MAP => decodeMap(actualPath, unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.MapSchema[_, _]])
-                case TType.SET => decodeSet(actualPath, unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.SetSchema[_]])
-                case TType.LIST => decodeSequence(actualPath, unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.Sequence[_, _]])
-                case TType.ENUM => safeRead(actualPath, "Enum", _.readI32())
-                case _ => fail(actualPath, s"Unknown type ${readField.`type`}")
+                case TType.MAP    => decodeMap(actualPath, unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.MapSchema[_, _]])
+                case TType.SET    => decodeSet(actualPath, unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.SetSchema[_]])
+                case TType.LIST   => decodeSequence(actualPath, unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.Sequence[_, _]])
+                case TType.ENUM   => safeRead(actualPath, "Enum", _.readI32())
+                case _            => fail(actualPath, s"Unknown type ${readField.`type`}")
               }) match {
                 case Right(value) => readFields(m.updated(readField.id, value))
-                case Left(err) => Left(err)
+                case Left(err)    => Left(err)
               }
             }
           }
@@ -854,21 +696,14 @@ object ThriftCodec extends Codec {
     def decodeSequence[Col, Elem](path: Path, schema: Schema.Sequence[Col, Elem]): Result[Col] = {
       @tailrec
       def decodeElements(n: Int, cb: ChunkBuilder[Elem]): Result[Chunk[Elem]] =
-        if(n > 0)
+        if (n > 0)
           decode(path, schema.schemaA) match {
             case Right(elem) => decodeElements(n - 1, cb += (elem))
-            case Left(_) => fail(path, "Error decoding Sequence element")
-          }
-        else
+            case Left(_)     => fail(path, "Error decoding Sequence element")
+          } else
           succeed(cb.result())
 
-      Try{p.readListBegin()}.fold(
-        _ => fail(path, "Can not decode Sequence begin"),
-        begin =>
-          decodeElements(begin.size, ChunkBuilder.make[Elem]()).map(
-            schema.fromChunk
-          )
-      )
+      Try { p.readListBegin() }.fold(_ => fail(path, "Can not decode Sequence begin"), begin => decodeElements(begin.size, ChunkBuilder.make[Elem]()).map(schema.fromChunk))
     }
 
     def decodeMap[K, V](path: Path, schema: Schema.MapSchema[K, V]): Result[Map[K, V]] = {
@@ -877,36 +712,26 @@ object ThriftCodec extends Codec {
         if (n > 0)
           (decode(path, schema.ks), decode(path, schema.vs)) match {
             case (Right(key), Right(value)) => decodeElements(n - 1, m += ((key, value)))
-            case _ => fail(path, "Error decoding Map element")
-          }
-        else
+            case _                          => fail(path, "Error decoding Map element")
+          } else
           succeed(m.toMap)
 
       Try {
         p.readMapBegin()
-      }.fold(
-        _ => fail(path, "Can not decode Map begin"),
-        begin =>
-          decodeElements(begin.size, scala.collection.mutable.Map.empty[K, V])
-      )
+      }.fold(_ => fail(path, "Can not decode Map begin"), begin => decodeElements(begin.size, scala.collection.mutable.Map.empty[K, V]))
     }
 
     def decodeSet[A](path: Path, schema: Schema.SetSchema[A]): Result[Set[A]] = {
       @tailrec
       def decodeElements(n: Int, cb: ChunkBuilder[A]): Result[Chunk[A]] =
-        if(n > 0)
+        if (n > 0)
           decode(path, schema.as) match {
             case Right(elem) => decodeElements(n - 1, cb += (elem))
-            case Left(_) => fail(path, "Error decoding Set element")
-          }
-        else
+            case Left(_)     => fail(path, "Error decoding Set element")
+          } else
           succeed(cb.result())
 
-      Try{p.readSetBegin()}.fold(
-        _ => fail(path, "Can not decode Set begin"),
-        begin =>
-          decodeElements(begin.size, ChunkBuilder.make[A]()).map(_.toSet)
-      )
+      Try { p.readSetBegin() }.fold(_ => fail(path, "Can not decode Set begin"), begin => decodeElements(begin.size, ChunkBuilder.make[A]()).map(_.toSet))
     }
 
     private[codec] object ProductDecoder {
@@ -944,29 +769,28 @@ object ThriftCodec extends Codec {
         val buffer = Array.ofDim[Any](fields.size)
 
         @tailrec
-        def addFields(values: ListMap[Short, Any], index: Short): Result[Array[Any]] = {
-          if(index >= fields.size) Right(buffer)
+        def addFields(values: ListMap[Short, Any], index: Short): Result[Array[Any]] =
+          if (index >= fields.size) Right(buffer)
           else {
             val Schema.Field(label, schema, _) = fields(index)
-            val rawValue = values.get((index + 1).toShort)
+            val rawValue                       = values.get((index + 1).toShort)
             if (isOptional(schema)) {
               buffer.update(index, rawValue)
               addFields(values, (index + 1).toShort)
-            }
-            else
+            } else
               rawValue match {
                 case Some(value) =>
                   buffer.update(index, value)
                   addFields(values, (index + 1).toShort)
-                case None => emptyValue(schema) match {
-                  case Some(value) =>
-                    buffer.update(index, value)
-                    addFields(values, (index + 1).toShort)
-                  case None => fail(path :+ label, "Missing value")
-                }
+                case None =>
+                  emptyValue(schema) match {
+                    case Some(value) =>
+                      buffer.update(index, value)
+                      addFields(values, (index + 1).toShort)
+                    case None => fail(path :+ label, "Missing value")
+                  }
               }
           }
-        }
 
         structDecoder(fields.map(_.schema), path).flatMap(addFields(_, 0))
       }
@@ -1272,32 +1096,8 @@ object ThriftCodec extends Codec {
 
       private def caseClass22Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](schema: Schema.CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z])(path: Path): Result[Z] =
         for {
-          buffer <- unsafeDecodeFields(
-                     path,
-                     schema.field1,
-                     schema.field2,
-                     schema.field3,
-                     schema.field4,
-                     schema.field5,
-                     schema.field6,
-                     schema.field7,
-                     schema.field9,
-                     schema.field9,
-                     schema.field10,
-                     schema.field11,
-                     schema.field12,
-                     schema.field13,
-                     schema.field14,
-                     schema.field15,
-                     schema.field16,
-                     schema.field17,
-                     schema.field18,
-                     schema.field19,
-                     schema.field20,
-                     schema.field21,
-                     schema.field22
-                   )
-          _ <- validateBuffer(path, 0, buffer)
+          buffer <- unsafeDecodeFields(path, schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19, schema.field20, schema.field21, schema.field22)
+          _      <- validateBuffer(path, 0, buffer)
         } yield schema.construct(
           buffer(0).asInstanceOf[A1],
           buffer(1).asInstanceOf[A2],
