@@ -205,23 +205,23 @@ object ThriftCodec extends Codec {
         case (StandardType.MonthType, v: Month) =>
           p.writeByte(v.getValue.toByte)
         case (StandardType.MonthDayType, v: MonthDay) =>
-          encodeRecord(None, monthDayStructure(), ListMap("month" -> v.getMonthValue, "day" -> v.getDayOfMonth))
+          encodeRecord(None, monthDayStructure, ListMap("month" -> v.getMonthValue, "day" -> v.getDayOfMonth))
         case (StandardType.PeriodType, v: Period) =>
           encodeRecord(
             None,
-            periodStructure(),
+            periodStructure,
             ListMap("years" -> v.getYears, "months" -> v.getMonths, "days" -> v.getDays)
           )
         case (StandardType.YearType, v: Year) =>
           p.writeI32(v.getValue)
         case (StandardType.YearMonthType, v: YearMonth) =>
-          encodeRecord(None, yearMonthStructure(), ListMap("year" -> v.getYear, "month" -> v.getMonthValue))
+          encodeRecord(None, yearMonthStructure, ListMap("year" -> v.getYear, "month" -> v.getMonthValue))
         case (StandardType.ZoneIdType, v: ZoneId) =>
           p.writeString(v.getId)
         case (StandardType.ZoneOffsetType, v: ZoneOffset) =>
           p.writeI32(v.getTotalSeconds)
         case (StandardType.Duration(_), v: Duration) =>
-          encodeRecord(None, durationStructure(), ListMap("seconds" -> v.getSeconds, "nanos" -> v.getNano))
+          encodeRecord(None, durationStructure, ListMap("seconds" -> v.getSeconds, "nanos" -> v.getNano))
         case (StandardType.InstantType(formatter), v: Instant) =>
           p.writeString(formatter.format(v))
         case (StandardType.LocalDateType(formatter), v: LocalDate) =>
@@ -274,8 +274,16 @@ object ThriftCodec extends Codec {
       v.foreach(encodeValue(None, schema, _))
     }
 
-    def encodeOptional[A](fieldNumber: Option[Short], codec: Schema[A], v: Option[A]): Unit =
-      v.foreach(encodeValue(fieldNumber, codec, _))
+    def encodeOptional[A](fieldNumber: Option[Short], codec: Schema[A], v: Option[A]): Unit = {
+      writeFieldBegin(fieldNumber, TType.STRUCT)
+      v match {
+        case None =>
+          encodeValue(Some(1), Schema.primitive(StandardType.UnitType), ())
+        case Some(value) =>
+          encodeValue(Some(2), codec, value)
+      }
+      p.writeFieldStop()
+    }
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     def encodeValue[A](fieldNumber: Option[Short], schema: Schema[A], value: A): Unit =
@@ -431,7 +439,7 @@ object ThriftCodec extends Codec {
 
     def encodeRecord(fieldNumber: Option[Short], structure: Seq[Schema.Field[_]], data: ListMap[String, _]) = {
       writeFieldBegin(fieldNumber, TType.STRUCT)
-      writeStructure(structure.map(schema => (schema, if (isOptional(schema.schema)) data.get(schema.label) else data.get(schema.label).get)))
+      writeStructure(structure.map(schema => (schema, data(schema.label))))
     }
   }
 
@@ -499,14 +507,13 @@ object ThriftCodec extends Codec {
           val fields = structure.toChunk
           decodeRecord(path, fields).map(_.map { case (index, value) => (fields(index - 1).label, value) })
         }
-        case seqSchema @ Schema.Sequence(_, _, _, _) => decodeSequence(path, seqSchema)
-        case mapSchema @ Schema.MapSchema(_, _, _)   => decodeMap(path, mapSchema)
-        case setSchema @ Schema.SetSchema(_, _)      => decodeSet(path, setSchema)
-        case Schema.Transform(codec, f, _, _)        => transformDecoder(path, codec, f)
-        case Schema.Primitive(standardType, _)       => primitiveDecoder(path, standardType)
-        case Schema.Tuple(left, right, _)            => tupleDecoder(path, left, right)
-        // FIXME what if is missing (None) or does it makes sense only for Option in Records?
-        case Schema.Optional(codec, _)                                                                                             => decode(path, codec).map(Some(_))
+        case seqSchema @ Schema.Sequence(_, _, _, _)                                                                               => decodeSequence(path, seqSchema)
+        case mapSchema @ Schema.MapSchema(_, _, _)                                                                                 => decodeMap(path, mapSchema)
+        case setSchema @ Schema.SetSchema(_, _)                                                                                    => decodeSet(path, setSchema)
+        case Schema.Transform(codec, f, _, _)                                                                                      => transformDecoder(path, codec, f)
+        case Schema.Primitive(standardType, _)                                                                                     => primitiveDecoder(path, standardType)
+        case Schema.Tuple(left, right, _)                                                                                          => tupleDecoder(path, left, right)
+        case optionalSchema @ Schema.Optional(_, _)                                                                                => optionalDecoder(path, optionalSchema)
         case Schema.Fail(message, _)                                                                                               => fail(path, message)
         case Schema.EitherSchema(left, right, _)                                                                                   => eitherDecoder(path, left, right)
         case lzy @ Schema.Lazy(_)                                                                                                  => decode(path, lzy.schema)
@@ -537,6 +544,19 @@ object ThriftCodec extends Codec {
         case Schema.EnumN(cs, _)                                                                                                   => enumDecoder(path, cs.toSeq: _*)
         case _                                                                                                                     => fail(path, s"Unknown schema ${schema.getClass.getName}")
       }
+
+    private def optionalDecoder[A](path: Path, schema: Schema.Optional[A]): Result[Option[A]] =
+      Try {
+        val readField = p.readFieldBegin()
+        val res = readField.id match {
+          case 1 => succeed(None)
+          case 2 => decode(path :+ "Some", schema.codec).map(Some(_))
+          case _ =>
+            fail(path, s"Error decoding optional, wrong field id ${readField.id}")
+        }
+        p.readFieldBegin()
+        res.asInstanceOf[Result[Option[A]]]
+      }.fold(err => fail(path, s"Error decoding optional ${err.getMessage}"), identity)
 
     private def enumDecoder[Z, A](path: Path, cases: Schema.Case[_, Z]*): Result[Z] =
       Try {
@@ -607,15 +627,15 @@ object ThriftCodec extends Codec {
         case StandardType.MonthType =>
           decodeVarInt(path).map(_.intValue).map(Month.of)
         case StandardType.MonthDayType =>
-          decodeRecord(path, monthDayStructure())
+          decodeRecord(path, monthDayStructure)
             .map(data => MonthDay.of(data.getOrElse(1, 0).asInstanceOf[Int], data.getOrElse(2, 0).asInstanceOf[Int]))
         case StandardType.PeriodType =>
-          decodeRecord(path, periodStructure())
+          decodeRecord(path, periodStructure)
             .map(data => Period.of(data.getOrElse(1, 0).asInstanceOf[Int], data.getOrElse(2, 0).asInstanceOf[Int], data.getOrElse(3, 0).asInstanceOf[Int]))
         case StandardType.YearType =>
           decodeVarInt(path).map(_.intValue).map(Year.of)
         case StandardType.YearMonthType =>
-          decodeRecord(path, yearMonthStructure())
+          decodeRecord(path, yearMonthStructure)
             .map(data => YearMonth.of(data.getOrElse(1, 0).asInstanceOf[Int], data.getOrElse(2, 0).asInstanceOf[Int]))
         case StandardType.ZoneIdType => decodeString(path).map(ZoneId.of)
         case StandardType.ZoneOffsetType =>
@@ -623,7 +643,7 @@ object ThriftCodec extends Codec {
             .map(_.intValue)
             .map(ZoneOffset.ofTotalSeconds)
         case StandardType.Duration(_) =>
-          decodeRecord(path, durationStructure())
+          decodeRecord(path, durationStructure)
             .map(data => Duration.ofSeconds(data.getOrElse(1, 0L).asInstanceOf[Long], data.getOrElse(2, 0L).asInstanceOf[Int].toLong))
         case StandardType.InstantType(formatter) =>
           decodeString(path).map(v => Instant.from(formatter.parse(v)))
@@ -774,22 +794,18 @@ object ThriftCodec extends Codec {
           else {
             val Schema.Field(label, schema, _) = fields(index)
             val rawValue                       = values.get((index + 1).toShort)
-            if (isOptional(schema)) {
-              buffer.update(index, rawValue)
-              addFields(values, (index + 1).toShort)
-            } else
-              rawValue match {
-                case Some(value) =>
-                  buffer.update(index, value)
-                  addFields(values, (index + 1).toShort)
-                case None =>
-                  emptyValue(schema) match {
-                    case Some(value) =>
-                      buffer.update(index, value)
-                      addFields(values, (index + 1).toShort)
-                    case None => fail(path :+ label, "Missing value")
-                  }
-              }
+            rawValue match {
+              case Some(value) =>
+                buffer.update(index, value)
+                addFields(values, (index + 1).toShort)
+              case None =>
+                emptyValue(schema) match {
+                  case Some(value) =>
+                    buffer.update(index, value)
+                    addFields(values, (index + 1).toShort)
+                  case None => fail(path :+ label, "Missing value")
+                }
+            }
           }
 
         structDecoder(fields.map(_.schema), path).flatMap(addFields(_, 0))

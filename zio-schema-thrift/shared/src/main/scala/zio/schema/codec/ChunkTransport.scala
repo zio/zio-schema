@@ -1,7 +1,7 @@
 package zio.schema.codec
 
 import org.apache.thrift.TConfiguration
-import org.apache.thrift.transport.{TMemoryTransport, TTransport}
+import org.apache.thrift.transport.{ TMemoryTransport, TTransport }
 import zio.Chunk
 
 object ChunkTransport {
@@ -30,9 +30,8 @@ object ChunkTransport {
     override def checkReadBytesAvailable(numBytes: Long): Unit =
       underlying.checkReadBytesAvailable(numBytes)
 
-    def chunk: Chunk[Byte] = {
+    def chunk: Chunk[Byte] =
       Chunk.fromArray(underlying.getOutput.toByteArray)
-    }
   }
 
   class Read(input: Chunk[Byte]) extends TTransport {
