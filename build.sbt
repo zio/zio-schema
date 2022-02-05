@@ -167,7 +167,6 @@ lazy val zioSchemaProtobufJS = zioSchemaProtobuf.js
 lazy val zioSchemaProtobufJVM = zioSchemaProtobuf.jvm
   .settings(Test / fork := true)
 
-
 lazy val zioSchemaThrift = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-thrift"))
   .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")

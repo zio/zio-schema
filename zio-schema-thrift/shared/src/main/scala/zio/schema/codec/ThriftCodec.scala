@@ -789,7 +789,7 @@ object ThriftCodec extends Codec {
         val buffer = Array.ofDim[Any](fields.size)
 
         @tailrec
-        def addFields(values: ListMap[Short, Any], index: Short): Result[Array[Any]] =
+        def addFields(values: ListMap[Short, Any], index: Int): Result[Array[Any]] =
           if (index >= fields.size) Right(buffer)
           else {
             val Schema.Field(label, schema, _) = fields(index)
@@ -797,12 +797,12 @@ object ThriftCodec extends Codec {
             rawValue match {
               case Some(value) =>
                 buffer.update(index, value)
-                addFields(values, (index + 1).toShort)
+                addFields(values, index + 1)
               case None =>
                 emptyValue(schema) match {
                   case Some(value) =>
                     buffer.update(index, value)
-                    addFields(values, (index + 1).toShort)
+                    addFields(values, index + 1)
                   case None => fail(path :+ label, "Missing value")
                 }
             }
