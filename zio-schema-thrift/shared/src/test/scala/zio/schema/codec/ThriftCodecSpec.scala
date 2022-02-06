@@ -33,7 +33,6 @@ import java.time.{
 }
 import java.util
 import java.util.UUID
-import scala.collection.JavaConverters._
 import scala.util.Try
 
 // TODO: use generators instead of manual encode/decode
@@ -90,14 +89,14 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
         for {
           e   <- encode(schemaIntList, IntList(List(3, 270, 86942))).map(toHex)
           e2  <- encodeNS(schemaIntList, IntList(List(3, 270, 86942))).map(toHex)
-          res <- write(new g.IntList(List(3, 270, 86942).map(java.lang.Integer.valueOf).asJava))
+          res <- write(new g.IntList(java.util.List.of[java.lang.Integer](3, 270, 86942)))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
       testM("string lists") {
         for {
           e   <- encode(schemaStringList, StringList(List("foo", "bar", "baz"))).map(toHex)
           e2  <- encodeNS(schemaStringList, StringList(List("foo", "bar", "baz"))).map(toHex)
-          res <- write(new g.StringList(List("foo", "bar", "baz").asJava))
+          res <- write(new g.StringList(java.util.List.of[String]("foo", "bar", "baz")))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
       testM("records") {
