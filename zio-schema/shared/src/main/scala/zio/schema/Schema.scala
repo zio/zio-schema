@@ -454,7 +454,8 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
       b.makeTraversal(self, ks <*> vs)
   }
 
-  final case class SetSchema[A](as: Schema[A], override val annotations: Chunk[Any] = Chunk.empty) extends Collection[Set[A], A] {
+  final case class SetSchema[A](as: Schema[A], override val annotations: Chunk[Any] = Chunk.empty)
+      extends Collection[Set[A], A] {
     self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Traversal[Set[A], A]
 

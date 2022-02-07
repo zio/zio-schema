@@ -1,19 +1,36 @@
 package zio.schema.codec
 
 import org.apache.thrift.TSerializable
-import org.apache.thrift.protocol.{TBinaryProtocol, TField, TType}
+import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
 import zio.console.putStrLn
 import zio.schema.CaseSet.caseOf
-import zio.schema.codec.{generated => g}
-import zio.schema.{CaseSet, DeriveSchema, Schema, SchemaGen, StandardType}
-import zio.stream.{ZSink, ZStream}
+import zio.schema.codec.{ generated => g }
+import zio.schema.{ CaseSet, DeriveSchema, Schema, SchemaGen, StandardType }
+import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-import zio.{Chunk, Task, ZIO}
+import zio.{ Chunk, Task, ZIO }
 
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.time.{DayOfWeek, Duration, Instant, LocalDate, LocalDateTime, LocalTime, Month, MonthDay, OffsetDateTime, OffsetTime, Period, Year, YearMonth, ZoneId, ZoneOffset, ZonedDateTime}
+import java.time.{
+  DayOfWeek,
+  Duration,
+  Instant,
+  LocalDate,
+  LocalDateTime,
+  LocalTime,
+  Month,
+  MonthDay,
+  OffsetDateTime,
+  OffsetTime,
+  Period,
+  Year,
+  YearMonth,
+  ZoneId,
+  ZoneOffset,
+  ZonedDateTime
+}
 import java.util
 import java.util.UUID
 import scala.util.Try
