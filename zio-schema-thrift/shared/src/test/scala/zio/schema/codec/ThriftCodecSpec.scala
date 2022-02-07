@@ -1,36 +1,19 @@
 package zio.schema.codec
 
 import org.apache.thrift.TSerializable
-import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
+import org.apache.thrift.protocol.{TBinaryProtocol, TField, TType}
 import zio.console.putStrLn
 import zio.schema.CaseSet.caseOf
-import zio.schema.codec.{ generated => g }
-import zio.schema.{ CaseSet, DeriveSchema, Schema, SchemaGen, StandardType }
-import zio.stream.{ ZSink, ZStream }
+import zio.schema.codec.{generated => g}
+import zio.schema.{CaseSet, DeriveSchema, Schema, SchemaGen, StandardType}
+import zio.stream.{ZSink, ZStream}
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, Task, ZIO }
+import zio.{Chunk, Task, ZIO}
 
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.time.{
-  DayOfWeek,
-  Duration,
-  Instant,
-  LocalDate,
-  LocalDateTime,
-  LocalTime,
-  Month,
-  MonthDay,
-  OffsetDateTime,
-  OffsetTime,
-  Period,
-  Year,
-  YearMonth,
-  ZoneId,
-  ZoneOffset,
-  ZonedDateTime
-}
+import java.time.{DayOfWeek, Duration, Instant, LocalDate, LocalDateTime, LocalTime, Month, MonthDay, OffsetDateTime, OffsetTime, Period, Year, YearMonth, ZoneId, ZoneOffset, ZonedDateTime}
 import java.util
 import java.util.UUID
 import scala.util.Try
@@ -89,14 +72,14 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
         for {
           e   <- encode(schemaIntList, IntList(List(3, 270, 86942))).map(toHex)
           e2  <- encodeNS(schemaIntList, IntList(List(3, 270, 86942))).map(toHex)
-          res <- write(new g.IntList(java.util.List.of[java.lang.Integer](3, 270, 86942)))
+          res <- write(new g.IntList(util.Arrays.asList[java.lang.Integer](3, 270, 86942)))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
       testM("string lists") {
         for {
           e   <- encode(schemaStringList, StringList(List("foo", "bar", "baz"))).map(toHex)
           e2  <- encodeNS(schemaStringList, StringList(List("foo", "bar", "baz"))).map(toHex)
-          res <- write(new g.StringList(java.util.List.of[String]("foo", "bar", "baz")))
+          res <- write(new g.StringList(util.Arrays.asList[String]("foo", "bar", "baz")))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
       testM("records") {
