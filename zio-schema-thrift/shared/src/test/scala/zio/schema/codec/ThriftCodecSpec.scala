@@ -946,14 +946,14 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
   def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, String, A] =
     ZIO.succeed(ThriftCodec.decode(schema)(fromHex(hex))).absolve[String, A]
 
-  def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any,String,Chunk[A]] =
+  def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
     ZStream
       .succeed(input)
       .transduce(ThriftCodec.encoder(schema))
       .transduce(ThriftCodec.decoder(schema))
       .run(ZSink.collectAll)
 
-  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any,String,Chunk[A]] =
+  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
     ZStream
       .succeed(input)
       .transduce(ThriftCodec.encoder(encodeSchema))
@@ -961,7 +961,7 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[zio.console.Console,String,A] =
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[zio.console.Console, String, A] =
     ZIO
       .succeed(input)
       .tap(value => putStrLn(s"Input Value: $value").when(print).ignore)
