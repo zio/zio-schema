@@ -1,11 +1,4 @@
 package zio.schema.codec
-import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TProtocol, TType }
-import zio.schema.ast.SchemaAst
-import zio.schema.codec.ThriftCodec.Thrift.{ durationStructure, monthDayStructure, periodStructure, yearMonthStructure }
-import zio.{ Chunk, ChunkBuilder, ZIO }
-import zio.schema.{ Schema, StandardType }
-import zio.stream.ZTransducer
-
 import java.nio.ByteBuffer
 import java.time.{
   DayOfWeek,
@@ -26,10 +19,19 @@ import java.time.{
   ZonedDateTime
 }
 import java.util.UUID
+
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
-import scala.util.{ Failure, Success, Try }
 import scala.util.control.NonFatal
+import scala.util.{ Failure, Success, Try }
+
+import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TProtocol, TType }
+
+import zio.schema.ast.SchemaAst
+import zio.schema.codec.ThriftCodec.Thrift.{ durationStructure, monthDayStructure, periodStructure, yearMonthStructure }
+import zio.schema.{ Schema, StandardType }
+import zio.stream.ZTransducer
+import zio.{ Chunk, ChunkBuilder, ZIO }
 
 object ThriftCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
@@ -437,7 +439,7 @@ object ThriftCodec extends Codec {
 
     }
 
-    def encodeRecord(fieldNumber: Option[Short], structure: Seq[Schema.Field[_]], data: ListMap[String, _]) = {
+    def encodeRecord(fieldNumber: Option[Short], structure: Seq[Schema.Field[_]], data: ListMap[String, _]): Unit = {
       writeFieldBegin(fieldNumber, TType.STRUCT)
       writeStructure(structure.map(schema => (schema, data(schema.label))))
     }

@@ -1,16 +1,5 @@
 package zio.schema.codec
 
-import org.apache.thrift.TSerializable
-import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
-import zio.console.putStrLn
-import zio.schema.CaseSet.caseOf
-import zio.schema.codec.{ generated => g }
-import zio.schema.{ CaseSet, DeriveSchema, Schema, SchemaGen, StandardType }
-import zio.stream.{ ZSink, ZStream }
-import zio.test.Assertion._
-import zio.test._
-import zio.{ Chunk, Task, ZIO }
-
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.time.{
@@ -33,7 +22,20 @@ import java.time.{
 }
 import java.util
 import java.util.UUID
+
 import scala.util.Try
+
+import org.apache.thrift.TSerializable
+import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
+
+import zio.console.putStrLn
+import zio.schema.CaseSet.caseOf
+import zio.schema.codec.{ generated => g }
+import zio.schema.{ CaseSet, DeriveSchema, Schema, SchemaGen, StandardType }
+import zio.stream.{ ZSink, ZStream }
+import zio.test.Assertion._
+import zio.test._
+import zio.{ Chunk, Task, ZIO }
 
 // TODO: use generators instead of manual encode/decode
 
@@ -944,14 +946,14 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
   def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, String, A] =
     ZIO.succeed(ThriftCodec.decode(schema)(fromHex(hex))).absolve[String, A]
 
-  def encodeAndDecode[A](schema: Schema[A], input: A) =
+  def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any,String,Chunk[A]] =
     ZStream
       .succeed(input)
       .transduce(ThriftCodec.encoder(schema))
       .transduce(ThriftCodec.decoder(schema))
       .run(ZSink.collectAll)
 
-  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A) =
+  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any,String,Chunk[A]] =
     ZStream
       .succeed(input)
       .transduce(ThriftCodec.encoder(encodeSchema))
@@ -959,7 +961,7 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false) =
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[zio.console.Console,String,A] =
     ZIO
       .succeed(input)
       .tap(value => putStrLn(s"Input Value: $value").when(print).ignore)

@@ -2,6 +2,7 @@ package zio.schema.codec
 
 import org.apache.thrift.TConfiguration
 import org.apache.thrift.transport.{ TMemoryTransport, TTransport }
+
 import zio.Chunk
 
 object ChunkTransport {
