@@ -210,7 +210,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
     case object C20                     extends Enum23
     case object C21                     extends Enum23
     case object C22                     extends Enum23
-    case object C23                     extends Enum23
+    case class C23(recursive: Enum23)   extends Enum23
 
     implicit lazy val schema: Schema.EnumN[Enum23, CaseSet.Aux[Enum23]] = DeriveSchema.gen[Enum23]
 
