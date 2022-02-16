@@ -1,11 +1,11 @@
 package zio.schema
 
 import java.time.temporal.ChronoUnit
-
 import scala.collection.immutable.ListMap
-
 import zio.Chunk
 import zio.schema.ast._
+
+import scala.annotation.tailrec
 
 /**
  * A `Schema[A]` describes the structure of some data type `A`, in terms of case classes,
@@ -152,6 +152,45 @@ sealed trait Schema[A] {
 }
 
 object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
+
+  private def fuzzyReformat(str: String): String = str.replaceAll("[-_]", "").toLowerCase
+
+  @tailrec
+  private def isTypeMatch(schema: Schema[_], valueType: StandardType[_]): Boolean =
+    schema match {
+      case Primitive(standardType, _) => standardType == valueType
+      case Lazy(schema0)              => isTypeMatch(schema0(), valueType)
+      case _                          => false
+    }
+
+  private def isExactMatch(label: String, name: String): Boolean =
+    label == name
+
+  private def isFuzzyMatch(label: String, name: String): Boolean =
+    fuzzyReformat(label) == fuzzyReformat(name)
+
+  def bestFieldMatch(record: Schema.Record[_], name: String, valueType: StandardType[_]): Option[Int] = {
+    val withIndex = record.structure.zipWithIndex
+    withIndex.collectFirst {
+      case (Field(label, schema, _), index) if isExactMatch(label, name) && isTypeMatch(schema, valueType) => index
+    }.orElse(withIndex.collectFirst {
+      case (Field(field, schema, _), index) if isFuzzyMatch(field, name) && isTypeMatch(schema, valueType) => index
+    })
+  }
+
+  def bestFieldMatches(
+    record: Schema.Record[_],
+    pairs: Set[(String, StandardType[_])]
+  ): Either[String, Map[String, Int]] =
+    pairs.foldLeft[Either[String, Map[String, Int]]](Right(Map.empty)) {
+      case (acc, (name, valueType)) =>
+        for {
+          acc0  <- acc
+          index <- bestFieldMatch(record, name, valueType).toRight(s"No field found for $name")
+          _     <- if (acc0.values.exists(_ == index)) Left(s"Field $name is ambiguous") else Right(())
+        } yield acc0 + (name -> index)
+    }
+
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
   def defer[A](schema: => Schema[A]): Schema[A] = Lazy(() => schema)
