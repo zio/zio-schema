@@ -122,7 +122,7 @@ object SchemaAst {
         StandardType
           .fromString(s)
           .map(typ => Value(typ, NodePath(path), optional, dimensions))
-          .toRight(s"unkown standard type $s")
+          .toRight(s"unknown standard type $s")
     }
   }
   final case class Ref(

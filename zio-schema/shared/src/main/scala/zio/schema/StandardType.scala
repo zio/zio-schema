@@ -8,10 +8,16 @@ import java.time.temporal.{ ChronoUnit, TemporalUnit }
 
 import zio.Chunk
 
-sealed trait StandardType[A] extends Ordering[A] {
+sealed trait StandardType[A] extends Ordering[A] { self =>
+
   def tag: String
+
+  def coerce[B](that: StandardType[B]): Option[A => Either[String, B]] = None
+
   def defaultValue: Either[String, A]
+
   override def toString: String = tag
+
 }
 
 object StandardType {
@@ -99,6 +105,135 @@ object StandardType {
     override def tag                                  = Tags.STRING
     override def compare(x: String, y: String): Int   = x.compareTo(y)
     override def defaultValue: Either[String, String] = Right("")
+
+    override def coerce[B](that: StandardType[B]): Option[String => Either[String, B]] =
+      that match {
+        case UnitType   => None
+        case StringType => Some(a => Right(a))
+        case BoolType   => Some(a => a.toBooleanOption.toRight(s"String $a could not be coerced into a Boolean"))
+        case ShortType  => Some(a => a.toShortOption.toRight(s"String $a could not be coerced into a Short"))
+        case IntType    => Some(a => a.toIntOption.toRight(s"String $a could not be coerced into an Int"))
+        case LongType   => Some(a => a.toLongOption.toRight(s"String $a could not be coerced into a Long"))
+        case FloatType  => Some(a => a.toFloatOption.toRight(s"String $a could not be coerced into a Float"))
+        case DoubleType => Some(a => a.toDoubleOption.toRight(s"String $a could not be coerced into a Double"))
+        case BinaryType => Some(a => Right(Chunk.fromArray(a.getBytes)))
+        case CharType   => None
+        case UUIDType =>
+          Some(
+            a =>
+              scala.util
+                .Try(java.util.UUID.fromString(a))
+                .toOption
+                .toRight(s"String $a could not be coerced into a UUID")
+          )
+        case BigDecimalType =>
+          Some(
+            a =>
+              scala.util
+                .Try(BigDecimal(a).bigDecimal)
+                .toOption
+                .toRight(s"String $a could not be coerced into a BigDecimal")
+          )
+        case BigIntegerType =>
+          Some(
+            a =>
+              scala.util
+                .Try(BigInt(a).bigInteger)
+                .toOption
+                .toRight(s"String $a could not be coerced into a BigInteger")
+          )
+        case DayOfWeekType =>
+          Some(
+            a =>
+              scala.util.Try(DayOfWeek.valueOf(a)).toOption.toRight(s"String $a could not be coerced into a DayOfWeek")
+          )
+        case MonthType =>
+          Some(
+            a => scala.util.Try(Month.valueOf(a)).toOption.toRight(s"String $a could not be coerced into a Month")
+          )
+        case MonthDayType =>
+          Some(
+            a => scala.util.Try(MonthDay.parse(a)).toOption.toRight(s"String $a could not be coerced into a MonthDay")
+          )
+        case PeriodType =>
+          Some(a => scala.util.Try(Period.parse(a)).toOption.toRight(s"String $a could not be coerced into a Period"))
+        case YearType =>
+          Some(a => scala.util.Try(Year.parse(a)).toOption.toRight(s"String $a could not be coerced into a Year"))
+        case YearMonthType =>
+          Some(
+            a => scala.util.Try(YearMonth.parse(a)).toOption.toRight(s"String $a could not be coerced into a YearMonth")
+          )
+        case ZoneIdType =>
+          Some(a => scala.util.Try(ZoneId.of(a)).toOption.toRight(s"String $a could not be coerced into a ZoneId"))
+        case ZoneOffsetType =>
+          Some(
+            a => scala.util.Try(ZoneOffset.of(a)).toOption.toRight(s"String $a could not be coerced into a ZoneOffset")
+          )
+        case Duration(_) =>
+          Some(
+            a =>
+              scala.util
+                .Try(java.time.Duration.parse(a))
+                .toOption
+                .toRight(s"String $a could not be coerced into a Duration")
+          )
+        case InstantType(formatter) =>
+          Some(
+            a =>
+              scala.util
+                .Try(Instant.from(formatter.parse(a)))
+                .toOption
+                .toRight(s"String $a could not be coerced into a Instant")
+          )
+        case LocalDateType(formatter) =>
+          Some(
+            a =>
+              scala.util
+                .Try(LocalDate.from(formatter.parse(a)))
+                .toOption
+                .toRight(s"String $a could not be coerced into a LocalDate")
+          )
+        case LocalTimeType(formatter) =>
+          Some(
+            a =>
+              scala.util
+                .Try(LocalTime.from(formatter.parse(a)))
+                .toOption
+                .toRight(s"String $a could not be coerced into a LocalTime")
+          )
+        case LocalDateTimeType(formatter) =>
+          Some(
+            a =>
+              scala.util
+                .Try(LocalDateTime.from(formatter.parse(a)))
+                .toOption
+                .toRight(s"String $a could not be coerced into a LocalDateTime")
+          )
+        case OffsetTimeType(formatter) =>
+          Some(
+            a =>
+              scala.util
+                .Try(OffsetTime.from(formatter.parse(a)))
+                .toOption
+                .toRight(s"String $a could not be coerced into a OffsetTime")
+          )
+        case OffsetDateTimeType(formatter) =>
+          Some(
+            a =>
+              scala.util
+                .Try(OffsetDateTime.from(formatter.parse(a)))
+                .toOption
+                .toRight(s"String $a could not be coerced into a OffsetDateTime")
+          )
+        case ZonedDateTimeType(formatter) =>
+          Some(
+            a =>
+              scala.util
+                .Try(ZonedDateTime.from(formatter.parse(a)))
+                .toOption
+                .toRight(s"String $a could not be coerced into a ZonedDateTime")
+          )
+      }
   }
 
   implicit object BoolType extends StandardType[Boolean] {
@@ -117,12 +252,40 @@ object StandardType {
     override def tag                               = Tags.INT
     override def compare(x: Int, y: Int): Int      = x.compareTo(y)
     override def defaultValue: Either[String, Int] = Right(0)
+
+    override def coerce[B](that: StandardType[B]): Option[Int => Either[String, B]] =
+      that match {
+        case StringType     => Some(a => Right(a.toString))
+        case ShortType      => Some(a => Right(a.toShort))
+        case IntType        => Some(a => Right(a))
+        case LongType       => Some(a => Right(a.toLong))
+        case FloatType      => Some(a => Right(a.toFloat))
+        case DoubleType     => Some(a => Right(a.toDouble))
+        case CharType       => Some(a => Right(a.toChar))
+        case BigDecimalType => Some(a => Right(java.math.BigDecimal.valueOf(a.toLong)))
+        case BigIntegerType => Some(a => Right(BigInteger.valueOf(a.toLong)))
+        case _              => None
+      }
   }
 
   implicit object LongType extends StandardType[Long] {
     override def tag                                = Tags.LONG
     override def compare(x: Long, y: Long): Int     = x.compareTo(y)
     override def defaultValue: Either[String, Long] = Right(0.asInstanceOf[Long])
+
+    override def coerce[B](that: StandardType[B]): Option[Long => Either[String, B]] =
+      that match {
+        case StringType     => Some(a => Right(a.toString))
+        case ShortType      => Some(a => Right(a.toShort))
+        case IntType        => Some(a => Right(a.toInt))
+        case LongType       => Some(a => Right(a))
+        case FloatType      => Some(a => Right(a.toFloat))
+        case DoubleType     => Some(a => Right(a.toDouble))
+        case CharType       => Some(a => Right(a.toChar))
+        case BigDecimalType => Some(a => Right(java.math.BigDecimal.valueOf(a)))
+        case BigIntegerType => Some(a => Right(BigInteger.valueOf(a)))
+        case _              => None
+      }
   }
 
   implicit object FloatType extends StandardType[Float] {

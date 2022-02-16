@@ -48,7 +48,7 @@ object Migration {
 
   final case class DeleteNode(override val path: NodePath) extends Migration
 
-  final case class Relabel(override val path: NodePath, tranform: LabelTransformation) extends Migration
+  final case class Relabel(override val path: NodePath, transform: LabelTransformation) extends Migration
 
   final case class IncrementDimensions(override val path: NodePath, n: Int) extends Migration
 
@@ -155,8 +155,8 @@ object Migration {
    * Represents a valid label transformation.
    *
    * Not currently implemented but we can use this type to encode
-   * unambiguous string transformations applued to field and case labels.
-   * For example, convering from snake to camel case (or vica versa)
+   * unambiguous string transformations applied to field and case labels.
+   * For example, converting from snake to camel case (or vica versa)
    */
   sealed trait LabelTransformation {
     def apply(label: String): Either[String, String]
