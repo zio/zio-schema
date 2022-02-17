@@ -44,6 +44,26 @@ object StandardTypeCoerceSpec extends DefaultRunnableSpec {
             coercion.get("hello") == Left("String hello could not be coerced into a Double")
           )
         }
+      ),
+      suite("Int")(
+        test("-> String") {
+          val coercion = StandardType.IntType.coerce(StandardType.StringType)
+
+          assertTrue(
+            coercion.get(1) == Right("1"),
+            coercion.get(-1) == Right("-1"),
+            coercion.get(0) == Right("0")
+          )
+        },
+        test("-> String") {
+          val coercion = StandardType.IntType.coerce(StandardType.StringType)
+
+          assertTrue(
+            coercion.get(1) == Right("1"),
+            coercion.get(-1) == Right("-1"),
+            coercion.get(0) == Right("0")
+          )
+        }
       )
     )
   )

@@ -12,7 +12,10 @@ sealed trait StandardType[A] extends Ordering[A] { self =>
 
   def tag: String
 
-  def coerce[B](that: StandardType[B]): Option[A => Either[String, B]] = None
+  def coerce[B](that: StandardType[B]): Option[A => Either[String, B]] = {
+    val _ = that
+    None
+  }
 
   def defaultValue: Either[String, A]
 
@@ -120,118 +123,95 @@ object StandardType {
         case CharType   => None
         case UUIDType =>
           Some(
-            a =>
-              scala.util
-                .Try(java.util.UUID.fromString(a))
-                .toOption
-                .toRight(s"String $a could not be coerced into a UUID")
+            a => EitherUtils.attemptOrElse(java.util.UUID.fromString(a), s"String $a could not be coerced into a UUID")
           )
         case BigDecimalType =>
           Some(
             a =>
-              scala.util
-                .Try(BigDecimal(a).bigDecimal)
-                .toOption
-                .toRight(s"String $a could not be coerced into a BigDecimal")
+              EitherUtils.attemptOrElse(BigDecimal(a).bigDecimal, s"String $a could not be coerced into a BigDecimal")
           )
         case BigIntegerType =>
           Some(
-            a =>
-              scala.util
-                .Try(BigInt(a).bigInteger)
-                .toOption
-                .toRight(s"String $a could not be coerced into a BigInteger")
+            a => EitherUtils.attemptOrElse(BigInt(a).bigInteger, s"String $a could not be coerced into a BigInteger")
           )
         case DayOfWeekType =>
           Some(
-            a =>
-              scala.util.Try(DayOfWeek.valueOf(a)).toOption.toRight(s"String $a could not be coerced into a DayOfWeek")
+            a => EitherUtils.attemptOrElse(DayOfWeek.valueOf(a), s"String $a could not be coerced into a DayOfWeek")
           )
         case MonthType =>
           Some(
-            a => scala.util.Try(Month.valueOf(a)).toOption.toRight(s"String $a could not be coerced into a Month")
+            a => EitherUtils.attemptOrElse(Month.valueOf(a), s"String $a could not be coerced into a Month")
           )
         case MonthDayType =>
           Some(
-            a => scala.util.Try(MonthDay.parse(a)).toOption.toRight(s"String $a could not be coerced into a MonthDay")
+            a => EitherUtils.attemptOrElse(MonthDay.parse(a), s"String $a could not be coerced into a MonthDay")
           )
         case PeriodType =>
-          Some(a => scala.util.Try(Period.parse(a)).toOption.toRight(s"String $a could not be coerced into a Period"))
+          Some(a => EitherUtils.attemptOrElse(Period.parse(a), s"String $a could not be coerced into a Period"))
         case YearType =>
-          Some(a => scala.util.Try(Year.parse(a)).toOption.toRight(s"String $a could not be coerced into a Year"))
+          Some(a => EitherUtils.attemptOrElse(Year.parse(a), s"String $a could not be coerced into a Year"))
         case YearMonthType =>
           Some(
-            a => scala.util.Try(YearMonth.parse(a)).toOption.toRight(s"String $a could not be coerced into a YearMonth")
+            a => EitherUtils.attemptOrElse(YearMonth.parse(a), s"String $a could not be coerced into a YearMonth")
           )
         case ZoneIdType =>
-          Some(a => scala.util.Try(ZoneId.of(a)).toOption.toRight(s"String $a could not be coerced into a ZoneId"))
+          Some(a => EitherUtils.attemptOrElse(ZoneId.of(a), s"String $a could not be coerced into a ZoneId"))
         case ZoneOffsetType =>
           Some(
-            a => scala.util.Try(ZoneOffset.of(a)).toOption.toRight(s"String $a could not be coerced into a ZoneOffset")
+            a => EitherUtils.attemptOrElse(ZoneOffset.of(a), s"String $a could not be coerced into a ZoneOffset")
           )
         case Duration(_) =>
           Some(
             a =>
-              scala.util
-                .Try(java.time.Duration.parse(a))
-                .toOption
-                .toRight(s"String $a could not be coerced into a Duration")
+              EitherUtils.attemptOrElse(java.time.Duration.parse(a), s"String $a could not be coerced into a Duration")
           )
         case InstantType(formatter) =>
           Some(
             a =>
-              scala.util
-                .Try(Instant.from(formatter.parse(a)))
-                .toOption
-                .toRight(s"String $a could not be coerced into a Instant")
+              EitherUtils
+                .attemptOrElse(Instant.from(formatter.parse(a)), s"String $a could not be coerced into a Instant")
           )
         case LocalDateType(formatter) =>
           Some(
             a =>
-              scala.util
-                .Try(LocalDate.from(formatter.parse(a)))
-                .toOption
-                .toRight(s"String $a could not be coerced into a LocalDate")
+              EitherUtils
+                .attemptOrElse(LocalDate.from(formatter.parse(a)), s"String $a could not be coerced into a LocalDate")
           )
         case LocalTimeType(formatter) =>
           Some(
             a =>
-              scala.util
-                .Try(LocalTime.from(formatter.parse(a)))
-                .toOption
-                .toRight(s"String $a could not be coerced into a LocalTime")
+              EitherUtils
+                .attemptOrElse(LocalTime.from(formatter.parse(a)), s"String $a could not be coerced into a LocalTime")
           )
         case LocalDateTimeType(formatter) =>
           Some(
             a =>
-              scala.util
-                .Try(LocalDateTime.from(formatter.parse(a)))
-                .toOption
-                .toRight(s"String $a could not be coerced into a LocalDateTime")
+              EitherUtils.attemptOrElse(
+                LocalDateTime.from(formatter.parse(a)),
+                s"String $a could not be coerced into a LocalDateTime"
+              )
           )
         case OffsetTimeType(formatter) =>
           Some(
             a =>
-              scala.util
-                .Try(OffsetTime.from(formatter.parse(a)))
-                .toOption
-                .toRight(s"String $a could not be coerced into a OffsetTime")
+              EitherUtils
+                .attemptOrElse(OffsetTime.from(formatter.parse(a)), s"String $a could not be coerced into a OffsetTime")
           )
         case OffsetDateTimeType(formatter) =>
           Some(
             a =>
-              scala.util
-                .Try(OffsetDateTime.from(formatter.parse(a)))
-                .toOption
-                .toRight(s"String $a could not be coerced into a OffsetDateTime")
+              EitherUtils.attemptOrElse(
+                OffsetDateTime.from(formatter.parse(a)),
+                s"String $a could not be coerced into a OffsetDateTime"
+              )
           )
         case ZonedDateTimeType(formatter) =>
           Some(
             a =>
-              scala.util
-                .Try(ZonedDateTime.from(formatter.parse(a)))
-                .toOption
-                .toRight(s"String $a could not be coerced into a ZonedDateTime")
+              EitherUtils.attemptOrElse(
+                ZonedDateTime.from(formatter.parse(a)),
+                s"String $a could not be coerced into a ZonedDateTime"
+              )
           )
       }
   }
