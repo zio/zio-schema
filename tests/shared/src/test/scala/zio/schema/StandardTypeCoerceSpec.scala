@@ -17,8 +17,8 @@ object StandardTypeCoerceSpec extends DefaultRunnableSpec {
           assertTrue(
             coercion.get("-1") == Right(-1),
             coercion.get("1") == Right(1),
-            coercion.get("hello") == Left("String hello could not be coerced into an Int"),
-            coercion.get("1.5") == Left("String 1.5 could not be coerced into an Int")
+            coercion.get("hello").isLeft,
+            coercion.get("1.5").isLeft
           )
         },
         test("-> Long") {
@@ -28,8 +28,8 @@ object StandardTypeCoerceSpec extends DefaultRunnableSpec {
             coercion.get("-5") == Right(-5L),
             coercion.get("5") == Right(5L),
             coercion.get("999999999999") == Right(999_999_999_999L),
-            coercion.get("hello") == Left("String hello could not be coerced into a Long"),
-            coercion.get("1.5") == Left("String 1.5 could not be coerced into a Long")
+            coercion.get("hello").isLeft,
+            coercion.get("1.5").isLeft
           )
         },
         test("-> Float") {
@@ -37,7 +37,7 @@ object StandardTypeCoerceSpec extends DefaultRunnableSpec {
 
           assertTrue(
             coercion.get("1.5") == Right(1.5f),
-            coercion.get("hello") == Left("String hello could not be coerced into a Float")
+            coercion.get("hello").isLeft
           )
         },
         test("-> Double") {
@@ -45,7 +45,7 @@ object StandardTypeCoerceSpec extends DefaultRunnableSpec {
 
           assertTrue(
             coercion.get("1.5") == Right(1.5),
-            coercion.get("hello") == Left("String hello could not be coerced into a Double")
+            coercion.get("hello").isLeft
           )
         },
         test("-> Boolean") {
@@ -54,8 +54,8 @@ object StandardTypeCoerceSpec extends DefaultRunnableSpec {
           assertTrue(
             coercion.get("true") == Right(true),
             coercion.get("false") == Right(false),
-            coercion.get("hello") == Left("String hello could not be coerced into a Boolean"),
-            coercion.get("1") == Left("String 1 could not be coerced into a Boolean")
+            coercion.get("hello").isLeft,
+            coercion.get("1").isLeft
           )
         },
         test("-> LocalDate") {
@@ -64,7 +64,7 @@ object StandardTypeCoerceSpec extends DefaultRunnableSpec {
 
           assertTrue(
             coercion.get("2020-12-31") == Right(java.time.LocalDate.parse("2020-12-31", formatter)),
-            coercion.get("hello") == Left("String hello could not be coerced into a LocalDate")
+            coercion.get("hello").isLeft
           )
         },
         test("-> LocalTime") {
@@ -73,7 +73,7 @@ object StandardTypeCoerceSpec extends DefaultRunnableSpec {
 
           assertTrue(
             coercion.get("12:34:56") == Right(java.time.LocalTime.parse("12:34:56", formatter)),
-            coercion.get("hello") == Left("String hello could not be coerced into a LocalTime")
+            coercion.get("hello").isLeft
           )
         },
         test("-> LocalDateTime") {
@@ -84,7 +84,7 @@ object StandardTypeCoerceSpec extends DefaultRunnableSpec {
             coercion.get("2020-12-31 12:34:56") == Right(
               java.time.LocalDateTime.parse("2020-12-31 12:34:56", formatter)
             ),
-            coercion.get("hello") == Left("String hello could not be coerced into a LocalDateTime")
+            coercion.get("hello").isLeft
           )
         },
         test("-> ZonedDateTime") {
@@ -95,7 +95,7 @@ object StandardTypeCoerceSpec extends DefaultRunnableSpec {
             coercion.get("2020-12-31 12:34:56 +0100") == Right(
               java.time.ZonedDateTime.parse("2020-12-31 12:34:56 +0100", formatter)
             ),
-            coercion.get("hello") == Left("String hello could not be coerced into a ZonedDateTime")
+            coercion.get("hello").isLeft
           )
         },
         test("-> Duration") {
@@ -104,7 +104,7 @@ object StandardTypeCoerceSpec extends DefaultRunnableSpec {
 
           assertTrue(
             coercion.get("PT1S") == Right(java.time.Duration.of(1, temporalUnit)),
-            coercion.get("hello") == Left("String hello could not be coerced into a Duration")
+            coercion.get("hello").isLeft
           )
         },
         test("-> Period") {
@@ -112,7 +112,7 @@ object StandardTypeCoerceSpec extends DefaultRunnableSpec {
 
           assertTrue(
             coercion.get("P1Y2M3D") == Right(java.time.Period.of(1, 2, 3)),
-            coercion.get("hello") == Left("String hello could not be coerced into a Period")
+            coercion.get("hello").isLeft
           )
         },
         test("-> UUID") {
@@ -122,7 +122,7 @@ object StandardTypeCoerceSpec extends DefaultRunnableSpec {
             coercion.get("00000000-0000-0000-0000-000000000000") == Right(
               java.util.UUID.fromString("00000000-0000-0000-0000-000000000000")
             ),
-            coercion.get("hello") == Left("String hello could not be coerced into a UUID")
+            coercion.get("hello").isLeft
           )
         }
       ),
@@ -161,6 +161,70 @@ object StandardTypeCoerceSpec extends DefaultRunnableSpec {
             coercion.get(1) == Right(1.0),
             coercion.get(-1) == Right(-1.0),
             coercion.get(0) == Right(0.0)
+          )
+        }
+      ),
+      suite("LocalDate")(
+        test("-> String") {
+          val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+          val coercion  = StandardType.LocalDateType(formatter).coerce(StandardType.StringType)
+
+          assertTrue(
+            coercion.get(java.time.LocalDate.parse("2020-12-31", formatter)) == Right("2020-12-31")
+          )
+        }
+      ),
+      suite("LocalTime")(
+        test("-> String") {
+          val formatter = DateTimeFormatter.ofPattern("HH:mm:ss")
+          val coercion  = StandardType.LocalTimeType(formatter).coerce(StandardType.StringType)
+
+          assertTrue(
+            coercion.get(java.time.LocalTime.parse("12:34:56", formatter)) == Right("12:34:56")
+          )
+        }
+      ),
+      suite("LocalDateTime")(
+        test("-> String") {
+          val formatter     = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+          val coercion      = StandardType.LocalDateTimeType(formatter).coerce(StandardType.StringType)
+          val localDateTime = java.time.LocalDateTime.parse("2020-12-31 12:34:56", formatter)
+
+          assertTrue(
+            coercion.get(localDateTime) == Right("2020-12-31 12:34:56")
+          )
+        }
+      ),
+      suite("ZonedDateTime")(
+        test("-> String") {
+          val formatter     = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss Z")
+          val coercion      = StandardType.ZonedDateTimeType(formatter).coerce(StandardType.StringType)
+          val zonedDateTime = java.time.ZonedDateTime.parse("2020-12-31 12:34:56 +0100", formatter)
+
+          assertTrue(
+            coercion.get(zonedDateTime) == Right("2020-12-31 12:34:56 +0100")
+          )
+        }
+      ),
+      suite("Duration")(
+        test("-> String") {
+          val temporalUnit = ChronoUnit.SECONDS
+          val coercion     = StandardType.Duration(temporalUnit).coerce(StandardType.StringType)
+
+          assertTrue(
+            coercion.get(java.time.Duration.of(1, temporalUnit)) == Right("PT1S"),
+            coercion.get(java.time.Duration.of(0, temporalUnit)) == Right("PT0S")
+          )
+        }
+      ),
+      suite("Instant")(
+        test("-> Long") {
+          val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+          val coercion  = StandardType.InstantType(formatter).coerce(StandardType.LongType)
+
+          assertTrue(
+            coercion.get(java.time.Instant.ofEpochMilli(1)) == Right(1L),
+            coercion.get(java.time.Instant.ofEpochMilli(0)) == Right(0L)
           )
         }
       )
