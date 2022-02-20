@@ -584,6 +584,10 @@ object SchemaGen {
       value  <- Json.gen
     } yield (schema, value)
 
+  lazy val anyDynamic: Gen[Any, Schema[DynamicValue]] = Gen.const(Schema.dynamicValue)
+
+  def anySemiDynamic[A]: Gen[Any, Schema[(A, Schema[A])]] = Gen.const(Schema.semiDynamic[A]())
+
   case class SchemaTest[A](name: String, schema: StandardType[A], gen: Gen[Sized with Random, A])
 
   def schemasAndGens: List[SchemaTest[_]] = List(

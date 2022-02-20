@@ -11,7 +11,7 @@ import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.random.Random
 import zio.schema.CaseSet._
-import zio.schema.{ CaseSet, DeriveSchema, JavaTimeGen, Schema, SchemaGen, StandardType }
+import zio.schema.{ CaseSet, DeriveSchema, DynamicValueGen, JavaTimeGen, Schema, SchemaGen, StandardType }
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -511,6 +511,30 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         checkM(SchemaGen.anyRecursiveTypeAndValue) {
           case (schema, value) =>
             assertEncodesThenDecodes(schema, value)
+        }
+      },
+      testM("dynamic") {
+        checkM(
+          Gen.oneOf(
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.IntType),
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.StringType),
+            DynamicValueGen.anyDynamicValueOfSchema(SchemaGen.Json.schema),
+            SchemaGen.anyRecord.flatMap(record => DynamicValueGen.anyDynamicTupleValue(Schema[String], record))
+          )
+        ) { dynamicValue =>
+          assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+        }
+      },
+      testM("semi dynamic record") {
+        checkM(
+          SchemaGen.anyRecord.flatMap(
+            record =>
+              DynamicValueGen
+                .anyDynamicValueOfSchema(record)
+                .map(dyn => (dyn.toTypedValue(record).toOption.get, record))
+          )
+        ) { value =>
+          assertEncodesThenDecodes(Schema.semiDynamic[ListMap[String, _]](), value)
         }
       }
     )
