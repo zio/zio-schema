@@ -315,6 +315,8 @@ object Differ {
     case Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)      => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
     case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
     case Schema.EnumN(cs, _)                                                                                                   => enumN(cs.toSeq: _*)
+    case Schema.Dynamic(_)                                                                                                     => ??? // TODO
+    case Schema.SemiDynamic(_, _)                                                                                              => ??? // TODO
   }
   //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 

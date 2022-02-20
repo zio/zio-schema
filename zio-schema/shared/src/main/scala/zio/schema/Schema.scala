@@ -1,9 +1,7 @@
 package zio.schema
 
 import java.time.temporal.ChronoUnit
-
 import scala.collection.immutable.ListMap
-
 import zio.Chunk
 import zio.schema.ast._
 
@@ -216,7 +214,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   implicit val none: Schema[None.type] = Schema[Unit].transform(_ => None, _ => ())
 
-  implicit val dynamicValue: Schema[DynamicValue] = DynamicValueSchema()
+  implicit val dynamicValue: Schema[DynamicValue] = Schema.Dynamic()
 
   implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
     Schema.Sequence[Chunk[A], A](schemaA, identity, identity, Chunk.empty)
@@ -241,6 +239,9 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   implicit def primitive[A](implicit standardType: StandardType[A]): Schema[A] =
     Primitive(standardType, Chunk.empty)
+
+  def semiDynamic[A](defaultValue: Either[String, (A, Schema[A])] = Left("no default value")): Schema[(A, Schema[A])] =
+    Schema.SemiDynamic(defaultValue)
 
   implicit def right[A, B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
     schemaB.transform(Right(_), _.value)
@@ -469,6 +470,38 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
       b.makeTraversal(self, as)
   }
 
+  final case class Dynamic(override val annotations: Chunk[Any] = Chunk.empty) extends Schema[DynamicValue] {
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
+
+    /**
+     * The default value for a `Schema` of type `A`.
+     */
+    override def defaultValue: Either[String, DynamicValue] =
+      Right(DynamicValue.NoneValue)
+
+    /**
+     * Returns a new schema that with `annotation`
+     */
+    override def annotate(annotation: Any): Schema[DynamicValue] =
+      this.copy(annotations = annotations :+ annotation)
+
+    override def makeAccessors(b: AccessorBuilder): Unit = ()
+  }
+
+  final case class SemiDynamic[A](
+    override val defaultValue: Either[String, (A, Schema[A])],
+    override val annotations: Chunk[Any] = Chunk.empty
+  ) extends Schema[(A, Schema[A])] {
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
+
+    /**
+     * Returns a new schema that with `annotation`
+     */
+    override def annotate(annotation: Any): Schema[(A, Schema[A])] =
+      copy(annotations = annotations :+ annotation)
+
+    override def makeAccessors(b: AccessorBuilder): Unit = ()
+  }
 }
 
 //scalafmt: { maxColumn = 400 }
