@@ -270,6 +270,48 @@ object JsonCodecSpec extends DefaultRunnableSpec {
             )
         }
       },
+      testM("compatible with left/right") {
+        checkM(
+          for {
+            left  <- SchemaGen.anyPrimitiveAndValue
+            right <- SchemaGen.anyPrimitiveAndValue
+          } yield (
+            Schema.either(left._1, right._1),
+            Schema.left(left._1),
+            Schema.right(right._1),
+            Left(left._2),
+            Right(right._2)
+          )
+        ) {
+          case (eitherSchema, leftSchema, rightSchema, leftValue, rightValue) =>
+            for {
+              a1 <- assertEncodesThenDecodesWithDifferentSchemas[Either[Any, Any], Left[Any, Nothing]](
+                     eitherSchema.asInstanceOf[Schema[Either[Any, Any]]],
+                     leftSchema.asInstanceOf[Schema[Left[Any, Nothing]]],
+                     leftValue.asInstanceOf[Either[Any, Any]],
+                     (x: Either[Any, Any], y: Left[Any, Nothing]) => x == y
+                   )
+              a2 <- assertEncodesThenDecodesWithDifferentSchemas(
+                     eitherSchema.asInstanceOf[Schema[Either[Any, Any]]],
+                     rightSchema.asInstanceOf[Schema[Right[Nothing, Any]]],
+                     rightValue,
+                     (x: Either[Any, Any], y: Right[Nothing, Any]) => x == y
+                   )
+              a3 <- assertEncodesThenDecodesWithDifferentSchemas(
+                     leftSchema.asInstanceOf[Schema[Left[Any, Nothing]]],
+                     eitherSchema.asInstanceOf[Schema[Either[Any, Any]]],
+                     leftValue,
+                     (x: Left[Any, Nothing], y: Either[Any, Any]) => x == y
+                   )
+              a4 <- assertEncodesThenDecodesWithDifferentSchemas(
+                     rightSchema.asInstanceOf[Schema[Right[Nothing, Any]]],
+                     eitherSchema.asInstanceOf[Schema[Either[Any, Any]]],
+                     rightValue,
+                     (x: Right[Nothing, Any], y: Either[Any, Any]) => x == y
+                   )
+            } yield a1 && a2 && a3 && a4
+        }
+      },
       testM("Map of complex keys and values") {
         assertEncodes(
           Schema.map[Key, Value],
@@ -555,17 +597,26 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     assertM(result)(equalTo(Chunk(value)))
   }
 
-  private def assertEncodesThenDecodes[A](schema: Schema[A], value: A, print: Boolean = false) = {
-    val result = ZStream
+  private def assertEncodesThenDecodes[A](schema: Schema[A], value: A, print: Boolean = false) =
+    assertEncodesThenDecodesWithDifferentSchemas(schema, schema, value, (x: A, y: A) => x == y, print)
+
+  private def assertEncodesThenDecodesWithDifferentSchemas[A1, A2](
+    encodingSchema: Schema[A1],
+    decodingSchema: Schema[A2],
+    value: A1,
+    compare: (A1, A2) => Boolean,
+    print: Boolean = false
+  ) =
+    ZStream
       .succeed(value)
       .tap(value => putStrLn(s"Input Value: $value").when(print).ignore)
-      .transduce(JsonCodec.encoder(schema))
+      .transduce(JsonCodec.encoder(encodingSchema))
       .runCollect
       .tap(encoded => putStrLn(s"Encoded: ${new String(encoded.toArray)}").when(print).ignore)
       .flatMap { encoded =>
         ZStream
           .fromChunk(encoded)
-          .transduce(JsonCodec.decoder(schema))
+          .transduce(JsonCodec.decoder(decodingSchema))
           .runCollect
           .tapError { err =>
             putStrLnErr(s"Decoding failed for input ${new String(encoded.toArray)}\nError Message: $err")
@@ -573,8 +624,13 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       }
       .tap(decoded => putStrLn(s"Decoded: $decoded").when(print).ignore)
       .either
-    assertM(result)(isRight(equalTo(Chunk(value))))
-  }
+      .map { result =>
+        assertTrue(
+          result.isRight,
+          result.toOption.get.size == 1,
+          compare(value, result.toOption.get.head)
+        )
+      }
 
   private def flatten[A](value: A): A = value match {
     case Some(None)    => None.asInstanceOf[A]
