@@ -224,6 +224,7 @@ object JsonCodec extends Codec {
         if (indent.isEmpty) out.write(':')
         else out.write(" : ")
         astEncoder.unsafeEncode(schema, indent_, out)
+        out.write(',')
         // value
         string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField("value"), indent_, out)
         if (indent.isEmpty) out.write(':')
