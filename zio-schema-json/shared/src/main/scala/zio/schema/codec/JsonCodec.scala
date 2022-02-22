@@ -8,7 +8,7 @@ import scala.collection.immutable.ListMap
 import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.internal.{ Lexer, RecordingReader, RetractReader, StringMatrix, Write }
-import zio.json.{JsonCodec => ZJsonCodec, JsonDecoder, JsonEncoder, JsonFieldDecoder, JsonFieldEncoder}
+import zio.json.{ JsonCodec => ZJsonCodec, JsonDecoder, JsonEncoder, JsonFieldDecoder, JsonFieldEncoder }
 import zio.schema.Schema.EitherSchema
 import zio.schema.ast.SchemaAst
 import zio.schema.{ StandardType, _ }
@@ -22,7 +22,7 @@ object JsonCodec extends Codec {
       (opt: Option[Chunk[A]]) =>
         ZIO
           .effect(opt.map(values => values.flatMap(Encoder.encode(schema, _))).getOrElse(Chunk.empty))
-          .catchAll(_ => ZIO.succeed(Chunk.empty))
+          .orDie
     )
 
   override def decoder[A](schema: Schema[A]): ZTransducer[Any, String, Byte, A] =

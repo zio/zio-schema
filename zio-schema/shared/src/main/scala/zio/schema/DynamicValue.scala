@@ -1826,6 +1826,8 @@ object DynamicValue {
             f22.label -> fromSchemaAndValue(f22.schema, ext22(value))
           )
         )
+      case Schema.Dynamic(_)        => ??? // TODO
+      case Schema.SemiDynamic(_, _) => ??? // TODO
     }
 
   def decodeStructure(

@@ -11,7 +11,7 @@ import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.random.Random
 import zio.schema.CaseSet._
-import zio.schema.{ CaseSet, DeriveSchema, DynamicValueGen, JavaTimeGen, Schema, SchemaGen, StandardType }
+import zio.schema._
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -576,11 +576,54 @@ object JsonCodecSpec extends DefaultRunnableSpec {
                 .map(dyn => (dyn.toTypedValue(record).toOption.get, record))
           )
         ) { value =>
-          assertEncodesThenDecodes(Schema.semiDynamic[ListMap[String, _]](), value)
+          val schema = Schema.semiDynamic[ListMap[String, _]]()
+          assertEncodesThenDecodesWithDifferentSchemas(
+            encodingSchema = schema,
+            decodingSchema = schema,
+            value = value,
+            compare = compareRandomRecords,
+            print = true
+          )
         }
       }
     )
   )
+
+  private def compareRandomRecords(
+    a: (ListMap[String, _], Schema[ListMap[String, _]]),
+    b: (ListMap[String, _], Schema[ListMap[String, _]])
+  ): Boolean = {
+    val (aValue, aSchema) = a
+    val (bValue, bSchema) = b
+//    if (aSchema == bSchema ) {
+    if (aValue.keySet == bValue.keySet) {
+      aValue.values.zip(bValue.values).forall { pair =>
+        val eq = pair match {
+          case (
+              x: (ListMap[String, _], Schema[ListMap[String, _]]),
+              y: (ListMap[String, _], Schema[ListMap[String, _]])
+              ) =>
+            compareRandomRecords(
+              x.asInstanceOf[(ListMap[String, _], Schema[ListMap[String, _]])],
+              y.asInstanceOf[(ListMap[String, _], Schema[ListMap[String, _]])]
+            )
+          case (x, y) =>
+            x == y
+        }
+        if (!eq) println(s"$pair is not equal")
+        eq
+      }
+    } else {
+      println(s"key set mismatch (${aValue.keySet} != ${bValue.keySet})")
+      false
+    }
+//    } else {
+//      println(s"schema mismatch")
+//      println(aSchema)
+//      println(bSchema)
+//      false
+//    }
+  }
 
   private def assertEncodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {
     val stream = ZStream
@@ -650,8 +693,6 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       .either
       .map { result =>
         assertTrue(
-          result.isRight,
-          result.toOption.get.size == 1,
           compare(value, result.toOption.get.head)
         )
       }

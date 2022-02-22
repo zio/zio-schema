@@ -56,7 +56,7 @@ object SchemaAst {
   ) extends SchemaAst
 
   object Sum {
-    implicit val schema: Schema[Sum] =
+    implicit lazy val schema: Schema[Sum] =
       Schema.CaseClass4(
         field1 = Schema.Field("path", Schema[String].repeated),
         field2 = Schema.Field("cases", Schema[Labelled].repeated),
@@ -196,13 +196,13 @@ object SchemaAst {
     case Schema.Optional(schema, _) => subtree(NodePath.root, Chunk.empty, schema, optional = true)
     case Schema.EitherSchema(left, right, _) =>
       NodeBuilder(NodePath.root, Chunk.empty)
-        .addLabelledSubtree("left", left)
-        .addLabelledSubtree("right", right)
+        .addLabelledSubtree("Left", left)
+        .addLabelledSubtree("Right", right)
         .buildSum()
     case Schema.Tuple(left, right, _) =>
       NodeBuilder(NodePath.root, Chunk.empty)
-        .addLabelledSubtree("left", left)
-        .addLabelledSubtree("right", right)
+        .addLabelledSubtree("_1", left)
+        .addLabelledSubtree("_2", right)
         .buildProduct()
     case Schema.Sequence(schema, _, _, _) =>
       subtree(NodePath.root, Chunk.empty, schema, dimensions = 1)
@@ -248,17 +248,19 @@ object SchemaAst {
       }
       .getOrElse {
         schema match {
-          case Schema.Primitive(typ, _)   => Value(typ, path, optional, dimensions)
-          case Schema.Optional(schema, _) => subtree(path, lineage, schema, optional = true, dimensions)
+          case Schema.Primitive(typ, _)            => Value(typ, path, optional, dimensions)
+          case Schema.Optional(schema, _)          => subtree(path, lineage, schema, optional = true, dimensions)
           case Schema.EitherSchema(left, right, _) =>
+            // TODO: do not represent with sum
             NodeBuilder(path, lineage, optional, dimensions)
-              .addLabelledSubtree("left", left)
-              .addLabelledSubtree("right", right)
+              .addLabelledSubtree("Left", left)
+              .addLabelledSubtree("Right", right)
               .buildSum()
           case Schema.Tuple(left, right, _) =>
+            // TODO: do not represent with product
             NodeBuilder(path, lineage, optional, dimensions)
-              .addLabelledSubtree("left", left)
-              .addLabelledSubtree("right", right)
+              .addLabelledSubtree("_1", left)
+              .addLabelledSubtree("_2", right)
               .buildProduct()
           case Schema.Sequence(schema, _, _, _) =>
             subtree(path, lineage, schema, optional, dimensions + 1)
@@ -335,13 +337,15 @@ object SchemaAst {
   }
 
   implicit lazy val schema: Schema[SchemaAst] =
-    Schema.EnumN[SchemaAst, CaseSet.Aux[SchemaAst]](
-      caseOf[Value, SchemaAst]("Value")(_.asInstanceOf[Value]) ++
-        caseOf[Sum, SchemaAst]("Sum")(_.asInstanceOf[Sum]) ++
-        caseOf[Product, SchemaAst]("Product")(_.asInstanceOf[Product]) ++
-        caseOf[Ref, SchemaAst]("Ref")(_.asInstanceOf[Ref]),
-      Chunk.empty
-    )
+    Schema.Lazy { () =>
+      Schema.EnumN[SchemaAst, CaseSet.Aux[SchemaAst]](
+        caseOf[Value, SchemaAst]("Value")(_.asInstanceOf[Value]) ++
+          caseOf[Sum, SchemaAst]("Sum")(_.asInstanceOf[Sum]) ++
+          caseOf[Product, SchemaAst]("Product")(_.asInstanceOf[Product]) ++
+          caseOf[Ref, SchemaAst]("Ref")(_.asInstanceOf[Ref]),
+        Chunk.empty
+      )
+    }
 
 }
 
