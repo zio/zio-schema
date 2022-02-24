@@ -61,7 +61,7 @@ object DeriveGen {
       case seq @ Schema.Sequence(_, _, _, _)                                                                                                                                => genSequence(seq)
       case map @ Schema.MapSchema(_, _, _)                                                                                                                                  => genMap(map)
       case set @ Schema.SetSchema(_, _)                                                                                                                                     => genSet(set)
-      case transform @ Schema.Transform(_, _, _, _)                                                                                                                         => genTransform(transform)
+      case transform @ Schema.Transform(_, _, _, _, _)                                                                                                                      => genTransform(transform)
       case Schema.Primitive(standardType, _)                                                                                                                                => genPrimitive(standardType)
       case optional @ Schema.Optional(_, _)                                                                                                                                 => genOptional(optional)
       case fail @ Schema.Fail(_, _)                                                                                                                                         => genFail(fail)
@@ -472,7 +472,7 @@ object DeriveGen {
   private def genSet[A](set: Schema.SetSchema[A]): Gen[Random with Sized, Set[A]] =
     Gen.oneOf(Gen.setOf(gen(set.as)), Gen.const(Set.empty[A]))
 
-  private def genTransform[A, B](transform: Schema.Transform[A, B]): Gen[Random with Sized, B] =
+  private def genTransform[A, B, I](transform: Schema.Transform[A, B, I]): Gen[Random with Sized, B] =
     gen(transform.codec).flatMap(a => transform.f(a).fold(_ => Gen.empty, (b: B) => Gen.const(b)))
 
   def genPrimitive[A](standardType: StandardType[A]): Gen[Random with Sized, A] = {

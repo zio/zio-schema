@@ -85,15 +85,15 @@ object ProtobufCodec extends Codec {
      */
     @scala.annotation.tailrec
     private[codec] def canBePacked(schema: Schema[_]): Boolean = schema match {
-      case Schema.Sequence(element, _, _, _) => canBePacked(element)
-      case Schema.Transform(codec, _, _, _)  => canBePacked(codec)
-      case Schema.Primitive(standardType, _) => canBePacked(standardType)
-      case _: Schema.Tuple[_, _]             => false
-      case _: Schema.Optional[_]             => false
-      case _: Schema.Fail[_]                 => false
-      case _: Schema.EitherSchema[_, _]      => false
-      case lzy @ Schema.Lazy(_)              => canBePacked(lzy.schema)
-      case _                                 => false
+      case Schema.Sequence(element, _, _, _)   => canBePacked(element)
+      case Schema.Transform(codec, _, _, _, _) => canBePacked(codec)
+      case Schema.Primitive(standardType, _)   => canBePacked(standardType)
+      case _: Schema.Tuple[_, _]               => false
+      case _: Schema.Optional[_]               => false
+      case _: Schema.Fail[_]                   => false
+      case _: Schema.EitherSchema[_, _]        => false
+      case lzy @ Schema.Lazy(_)                => canBePacked(lzy.schema)
+      case _                                   => false
     }
 
     private def canBePacked(standardType: StandardType[_]): Boolean = standardType match {
@@ -142,7 +142,7 @@ object ProtobufCodec extends Codec {
         case (Schema.Sequence(element, _, g, _), v)                 => encodeSequence(fieldNumber, element, g(v))
         case (Schema.MapSchema(ks, vs, _), map: Map[k, v])          => encodeSequence(fieldNumber, ks <*> vs, Chunk.fromIterable(map))
         case (Schema.SetSchema(s, _), set: Set[_])                  => encodeSequence(fieldNumber, s, Chunk.fromIterable(set))
-        case (Schema.Transform(codec, _, g, _), _)                  => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
+        case (Schema.Transform(codec, _, g, _, _), _)               => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
         case (Schema.Primitive(standardType, _), v)                 => encodePrimitive(fieldNumber, standardType, v)
         case (Schema.Tuple(left, right, _), v @ (_, _))             => encodeTuple(fieldNumber, left, right, v)
         case (Schema.Optional(codec, _), v: Option[_])              => encodeOptional(fieldNumber, codec, v)
@@ -508,7 +508,7 @@ object ProtobufCodec extends Codec {
           else nonPackedSequenceDecoder(elementSchema).map(fromChunk)
         case Schema.MapSchema(ks: Schema[k], vs: Schema[v], _)                                 => decoder(Schema.Sequence(ks <*> vs, (c: Chunk[(k, v)]) => Map(c: _*), (m: Map[k, v]) => Chunk.fromIterable(m)))
         case Schema.SetSchema(schema: Schema[s], _)                                            => decoder(Schema.Sequence(schema, (c: Chunk[s]) => Set(c: _*), (m: Set[s]) => Chunk.fromIterable(m)))
-        case Schema.Transform(codec, f, _, _)                                                  => transformDecoder(codec, f)
+        case Schema.Transform(codec, f, _, _, _)                                               => transformDecoder(codec, f)
         case Schema.Primitive(standardType, _)                                                 => primitiveDecoder(standardType)
         case Schema.Tuple(left, right, _)                                                      => tupleDecoder(left, right)
         case Schema.Optional(codec, _)                                                         => optionalDecoder(codec)

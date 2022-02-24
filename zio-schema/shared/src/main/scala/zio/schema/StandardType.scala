@@ -1,7 +1,7 @@
 package zio.schema
 
-import java.math.BigInteger
 import java.time
+import java.math.BigInteger
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.{ ChronoUnit, TemporalUnit }
@@ -84,7 +84,7 @@ object StandardType {
         } catch { case _: Throwable => None }
     }
 
-  def apply[A](implicit standatdType: StandardType[A]): StandardType[A] = standatdType
+  def apply[A](implicit standardType: StandardType[A]): StandardType[A] = standardType
 
   def fromTemporalUnits(units: String): Option[StandardType[java.time.Duration]] =
     ChronoUnit.values().find(_.toString == units).map(Duration(_))

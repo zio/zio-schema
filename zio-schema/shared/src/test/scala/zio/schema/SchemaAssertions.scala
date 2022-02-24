@@ -1,7 +1,5 @@
 package zio.schema
 
-import scala.collection.immutable.ListMap
-
 import zio.Chunk
 import zio.schema.syntax._
 import zio.test.Assertion
@@ -25,7 +23,9 @@ object SchemaAssertions {
     }
 
   def hasSameSchema[A](expected: Schema[A]): Assertion[Schema[A]] =
-    Assertion.assertion("hasSameSchema")(param(expected))(actual => equalsSchema(expected, actual))
+    Assertion.assertion("hasSameSchema")(param(expected))(
+      actual => Schema.strictEquality.equal(expected.asInstanceOf[Schema[_]], actual.asInstanceOf[Schema[_]])
+    )
 
   def hasSameAst(expected: Schema[_]): Assertion[Schema[_]] =
     Assertion.assertion("hasSameAst")(param(expected))(actual => equalsAst(expected, actual))
@@ -81,75 +81,12 @@ object SchemaAssertions {
           actualId == expectedId && equalsAst(expectedSchema, actualSchema, depth)
         case _ => false
       }
-    case (expected, Schema.Transform(actualSchema, _, _, _)) =>
+    case (expected, Schema.Transform(actualSchema, _, _, _, _)) =>
       equalsAst(expected, actualSchema, depth)
-    case (Schema.Transform(expected, _, _, _), actual) =>
+    case (Schema.Transform(expected, _, _, _, _), actual) =>
       equalsAst(expected, actual, depth)
     case (expected: Schema.Lazy[_], actual) => if (depth > 10) true else equalsAst(expected.schema, actual, depth + 1)
     case (expected, actual: Schema.Lazy[_]) => if (depth > 10) true else equalsAst(expected, actual.schema, depth + 1)
     case _                                  => false
   }
-
-  private def equalsSchema[A](left: Schema[A], right: Schema[A]): Boolean =
-    (left: Schema[_], right: Schema[_]) match {
-      case (Schema.Transform(codec1, _, _, a1), Schema.Transform(codec2, _, _, a2)) =>
-        equalsSchema(codec1, codec2) && equalsAnnotations(a1, a2)
-      case (Schema.GenericRecord(structure1, a1), Schema.GenericRecord(structure2, a2)) =>
-        hasSameFields(structure1.toChunk, structure2.toChunk) &&
-          structure1.toChunk.forall {
-            case Schema.Field(label, schema, _) =>
-              val left: Schema[Any]  = schema.asInstanceOf[Schema[Any]]
-              val right: Schema[Any] = structure2.toChunk.find(_.label == label).asInstanceOf[Schema[Any]]
-              equalsSchema(left, right)
-          } && equalsAnnotations(a1, a2)
-      case (left: Schema.Record[_], right: Schema.Record[_]) =>
-        hasSameStructure(left.asInstanceOf[Schema.Record[A]], right.asInstanceOf[Schema.Record[A]]) &&
-          hasSameAnnotations(left.annotations.toList, right.annotations.toList)
-      case (Schema.Sequence(element1, _, _, a1), Schema.Sequence(element2, _, _, a2)) =>
-        equalsSchema(element1, element2) && equalsAnnotations(a1, a2)
-      case (Schema.Primitive(standardType1, a1), Schema.Primitive(standardType2, a2)) =>
-        standardType1 == standardType2 && equalsAnnotations(a1, a2)
-      case (Schema.Tuple(left1, right1, a1), Schema.Tuple(left2, right2, a2)) =>
-        equalsSchema(left1, left2) && equalsSchema(right1, right2) && equalsAnnotations(a1, a2)
-      case (Schema.Optional(codec1, _), Schema.Optional(codec2, _)) => equalsSchema(codec1, codec2)
-      case (l: Schema.Enum[_], r: Schema.Enum[_])                   => hasSameCases(l.structure, r.structure)
-      case (l @ Schema.Lazy(_), r @ Schema.Lazy(_)) =>
-        equalsSchema(l.schema.asInstanceOf[Schema[Any]], r.schema.asInstanceOf[Schema[Any]])
-      case (lazySchema @ Schema.Lazy(_), eagerSchema) =>
-        equalsSchema(lazySchema.schema.asInstanceOf[Schema[Any]], eagerSchema.asInstanceOf[Schema[Any]])
-      case (eagerSchema, lazySchema @ Schema.Lazy(_)) =>
-        equalsSchema(lazySchema.asInstanceOf[Schema[Any]], eagerSchema.asInstanceOf[Schema[Any]])
-      case _ => false
-    }
-
-  private def equalsAnnotations(l: Chunk[Any], r: Chunk[Any]): Boolean = l.equals(r)
-
-  private def hasSameCases(left: ListMap[String, Schema[_]], right: ListMap[String, Schema[_]]): Boolean =
-    left.zip(right).forall {
-      case ((lLabel, lSchema), (rLabel, rSchema)) =>
-        lLabel == rLabel &&
-          equalsSchema(lSchema.asInstanceOf[Schema[Any]], rSchema.asInstanceOf[Schema[Any]])
-    }
-
-  private def hasSameStructure[A](left: Schema.Record[A], right: Schema.Record[A]): Boolean =
-    left.structure.zip(right.structure).forall {
-      case (Schema.Field(lLabel, lSchema, lAnnotations), Schema.Field(rLabel, rSchema, rAnnotations)) =>
-        lLabel == rLabel && hasSameAnnotations(lAnnotations.toList, rAnnotations.toList) && equalsSchema(
-          lSchema,
-          rSchema
-        )
-    }
-
-  private def hasSameFields(left: Chunk[Schema.Field[_]], right: Chunk[Schema.Field[_]]): Boolean =
-    left.map(_.label) == right.map(_.label)
-
-  private def hasSameAnnotations(left: List[Any], right: List[Any]): Boolean = (left, right) match {
-    case (Nil, Nil) => true
-    case (lhead :: ltail, rhead :: rtail) if lhead.isInstanceOf[Product] && rhead.isInstanceOf[Product] =>
-      (lhead == rhead) && hasSameAnnotations(ltail, rtail)
-    case (lhead :: ltail, rhead :: rtail) =>
-      (lhead.getClass.getCanonicalName == rhead.getClass.getCanonicalName) && hasSameAnnotations(ltail, rtail)
-    case _ => false
-  }
-
 }

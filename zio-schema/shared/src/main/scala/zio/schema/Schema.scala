@@ -6,6 +6,7 @@ import scala.collection.immutable.ListMap
 
 import zio.Chunk
 import zio.schema.ast._
+import zio.schema.internal.SourceLocation
 
 /**
  * A `Schema[A]` describes the structure of some data type `A`, in terms of case classes,
@@ -134,15 +135,17 @@ sealed trait Schema[A] {
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
    * between `A` and `B`, without possibility of failure.
    */
-  def transform[B](f: A => B, g: B => A): Schema[B] =
-    Schema.Transform[A, B](self, a => Right(f(a)), b => Right(g(b)), annotations)
+  def transform[B](f: A => B, g: B => A)(implicit loc: SourceLocation): Schema[B] =
+    Schema.Transform[A, B, SourceLocation](self, a => Right(f(a)), b => Right(g(b)), annotations, loc)
 
   /**
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
    * between `A` and `B` (possibly failing in some cases).
    */
-  def transformOrFail[B](f: A => Either[String, B], g: B => Either[String, A]): Schema[B] =
-    Schema.Transform[A, B](self, f, g, annotations)
+  def transformOrFail[B](f: A => Either[String, B], g: B => Either[String, A])(
+    implicit loc: SourceLocation
+  ): Schema[B] =
+    Schema.Transform[A, B, SourceLocation](self, f, g, annotations, loc)
 
   /**
    * Returns a new schema that combines this schema and the specified schema together, modeling
@@ -151,7 +154,7 @@ sealed trait Schema[A] {
   def zip[B](that: Schema[B]): Schema[(A, B)] = Schema.Tuple(self, that)
 }
 
-object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
+object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with SchemaEquality {
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
   def defer[A](schema: => Schema[A]): Schema[A] = Lazy(() => schema)
@@ -212,9 +215,9 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     }
   )
 
-  implicit val nil: Schema[Nil.type] = Schema[Unit].transform(_ => Nil, _ => ())
+  implicit val nil: Schema[Nil.type] = singleton(Nil)
 
-  implicit val none: Schema[None.type] = Schema[Unit].transform(_ => None, _ => ())
+  implicit val none: Schema[None.type] = singleton(None)
 
   implicit val dynamicValue: Schema[DynamicValue] = DynamicValueSchema()
 
@@ -303,11 +306,12 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
 
   }
 
-  final case class Transform[A, B](
+  final case class Transform[A, B, I](
     codec: Schema[A],
     f: A => Either[String, B],
     g: B => Either[String, A],
-    annotations: Chunk[Any]
+    annotations: Chunk[Any],
+    identity: I
   ) extends Schema[B] {
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = codec.Accessors[Lens, Prism, Traversal]
 
@@ -316,13 +320,13 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas {
     override def makeAccessors(b: AccessorBuilder): codec.Accessors[b.Lens, b.Prism, b.Traversal] =
       codec.makeAccessors(b)
 
-    override def annotate(annotation: Any): Transform[A, B] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Transform[A, B, I] = copy(annotations = annotations :+ annotation)
 
     override def serializable: Schema[Schema[B]] = Meta(SchemaAst.fromSchema(codec)).transformOrFail(
       s => s.coerce(codec).flatMap(s1 => Right(s1.transformOrFail(f, g))),
       s => Right(s.transformOrFail(g, f).ast.toSchema)
     )
-    override def toString: String = s"Transform($codec)"
+    override def toString: String = s"Transform($codec, $identity)"
 
   }
 

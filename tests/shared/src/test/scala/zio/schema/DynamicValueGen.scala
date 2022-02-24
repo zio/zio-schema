@@ -79,10 +79,10 @@ object DynamicValueGen {
       case Schema.Tuple(left, right, _)                                                                                                                                                            => anyDynamicTupleValue(left, right)
       case Schema.EitherSchema(left, right, _) =>
         Gen.oneOf(anyDynamicLeftValueOfSchema(left), anyDynamicRightValueOfSchema(right))
-      case Schema.Transform(schema, _, _, _) => anyDynamicValueOfSchema(schema).map(DynamicValue.Transform(_))
-      case Schema.Fail(message, _)           => Gen.const(DynamicValue.Error(message))
-      case l @ Schema.Lazy(_)                => anyDynamicValueOfSchema(l.schema)
-      case Schema.Meta(meta, _)              => anyDynamicValueOfSchema(meta.toSchema)
+      case Schema.Transform(schema, _, _, _, _) => anyDynamicValueOfSchema(schema).map(DynamicValue.Transform(_))
+      case Schema.Fail(message, _)              => Gen.const(DynamicValue.Error(message))
+      case l @ Schema.Lazy(_)                   => anyDynamicValueOfSchema(l.schema)
+      case Schema.Meta(meta, _)                 => anyDynamicValueOfSchema(meta.toSchema)
     }
   //scalafmt: { maxColumn = 120 }
 

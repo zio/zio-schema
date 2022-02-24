@@ -109,7 +109,7 @@ object JsonCodec extends Codec {
         JsonEncoder.chunk(schemaEncoder(ks).both(schemaEncoder(vs))).contramap(m => Chunk.fromIterable(m))
       case Schema.SetSchema(s, _) =>
         JsonEncoder.chunk(schemaEncoder(s)).contramap(m => Chunk.fromIterable(m))
-      case Schema.Transform(c, _, g, _)                          => transformEncoder(c, g)
+      case Schema.Transform(c, _, g, _, _)                       => transformEncoder(c, g)
       case Schema.Tuple(l, r, _)                                 => JsonEncoder.tuple2(schemaEncoder(l), schemaEncoder(r))
       case Schema.Optional(schema, _)                            => JsonEncoder.option(schemaEncoder(schema))
       case Schema.Fail(_, _)                                     => unitEncoder.contramap(_ => ())
@@ -272,11 +272,11 @@ object JsonCodec extends Codec {
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[codec] def schemaDecoder[A](schema: Schema[A]): JsonDecoder[A] = schema match {
-      case Schema.Primitive(standardType, _) => primitiveCodec(standardType)
-      case Schema.Optional(codec, _)         => JsonDecoder.option(schemaDecoder(codec))
-      case Schema.Tuple(left, right, _)      => JsonDecoder.tuple2(schemaDecoder(left), schemaDecoder(right))
-      case Schema.Transform(codec, f, _, _)  => schemaDecoder(codec).mapOrFail(f)
-      case Schema.Sequence(codec, f, _, _)   => JsonDecoder.chunk(schemaDecoder(codec)).map(f)
+      case Schema.Primitive(standardType, _)   => primitiveCodec(standardType)
+      case Schema.Optional(codec, _)           => JsonDecoder.option(schemaDecoder(codec))
+      case Schema.Tuple(left, right, _)        => JsonDecoder.tuple2(schemaDecoder(left), schemaDecoder(right))
+      case Schema.Transform(codec, f, _, _, _) => schemaDecoder(codec).mapOrFail(f)
+      case Schema.Sequence(codec, f, _, _)     => JsonDecoder.chunk(schemaDecoder(codec)).map(f)
       case Schema.MapSchema(ks, vs, _) =>
         JsonDecoder.chunk(schemaDecoder(ks) <*> schemaDecoder(vs)).map(entries => entries.toList.toMap)
       case Schema.SetSchema(s, _)                                                                   => JsonDecoder.chunk(schemaDecoder(s)).map(entries => entries.toSet)

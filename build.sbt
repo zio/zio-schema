@@ -52,6 +52,8 @@ lazy val root = project
 //    unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
   .aggregate(
+    zioSchemaMacrosJVM,
+    zioSchemaMacrosJS,
     zioSchemaJVM,
     zioSchemaJS,
     zioSchemaDerivationJVM,
@@ -86,6 +88,16 @@ lazy val testsJS = tests.js
 lazy val testsJVM = tests.jvm
   .settings(Test / fork := true)
 
+lazy val zioSchemaMacros = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-schema-macros"))
+  .settings(stdSettings("zio-schema-macros"))
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema"))
+  .settings(macroDefinitionSettings)
+
+lazy val zioSchemaMacrosJS  = zioSchemaMacros.js
+lazy val zioSchemaMacrosJVM = zioSchemaMacros.jvm
+
 lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema"))
   .settings(stdSettings("zio-schema"))
@@ -98,6 +110,7 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
       "dev.zio" %% "zio-prelude" % zioPreludeVersion
     )
   )
+  .dependsOn(zioSchemaMacros)
 
 lazy val zioSchemaJS = zioSchema.js
   .settings(scalaJSUseMainModuleInitializer := true)
