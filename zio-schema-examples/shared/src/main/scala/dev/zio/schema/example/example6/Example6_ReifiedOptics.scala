@@ -86,7 +86,7 @@ object Example6_ReifiedOptics extends zio.App {
     _                         <- ZIO.debug("old company     :       " + company)
     (bossLens, employeesLens) = companySchema.makeAccessors(ZioOpticsBuilder)
 
-    employeeSchema = companySchema.field2.schema.asInstanceOf[Sequence[List[UserAddress], UserAddress]]
+    employeeSchema = companySchema.field2.schema.asInstanceOf[Sequence[List[UserAddress], UserAddress, _]]
     employeesTraversal = ZioOpticsBuilder
       .makeTraversal[List[UserAddress], UserAddress](employeeSchema, userAddressSchema)
 

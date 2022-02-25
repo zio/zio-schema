@@ -68,7 +68,8 @@ object SchemaAssertions {
       right.structure.size == 2 &&
         right.structure.get("left").exists(actualLeft => equalsAst(expectedLeft, actualLeft, depth)) &&
         right.structure.get("right").exists(actualRight => equalsAst(expectedRight, actualRight, depth))
-    case (Schema.Sequence(expected, _, _, _), Schema.Sequence(actual, _, _, _)) => equalsAst(expected, actual, depth)
+    case (Schema.Sequence(expected, _, _, _, _), Schema.Sequence(actual, _, _, _, _)) =>
+      equalsAst(expected, actual, depth)
     case (expected: Schema.Record[_], actual: Schema.Record[_]) =>
       expected.structure.zipAll(actual.structure).forall {
         case (Some(Schema.Field(expectedLabel, expectedSchema, _)), Some(Schema.Field(actualLabel, actualSchema, _))) =>

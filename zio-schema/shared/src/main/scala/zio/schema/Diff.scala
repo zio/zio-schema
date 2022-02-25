@@ -259,7 +259,7 @@ object Differ {
     case Schema.Primitive(StandardType.ZoneOffsetType, _)              => zoneOffset
     case Schema.Tuple(leftSchema, rightSchema, _)                      => fromSchema(leftSchema) <*> fromSchema(rightSchema)
     case Schema.Optional(schema, _)                                    => fromSchema(schema).optional
-    case Schema.Sequence(schema, g, f, _) =>
+    case Schema.Sequence(schema, g, f, _, _) =>
       fromSchema(schema).chunk.transform(f, g)
     case Schema.SetSchema(s, _)                                                                  => set(s)
     case Schema.MapSchema(k, v, _)                                                               => map(k, v)

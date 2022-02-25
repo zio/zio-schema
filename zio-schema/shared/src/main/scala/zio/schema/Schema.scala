@@ -222,7 +222,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
   implicit val dynamicValue: Schema[DynamicValue] = DynamicValueSchema()
 
   implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
-    Schema.Sequence[Chunk[A], A](schemaA, identity, identity, Chunk.empty)
+    Schema.Sequence[Chunk[A], A, String](schemaA, identity, identity, Chunk.empty, "Chunk")
 
   implicit def map[K, V](implicit ks: Schema[K], vs: Schema[V]): Schema[Map[K, V]] =
     Schema.MapSchema(ks, vs, Chunk.empty)
@@ -244,7 +244,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
       )
 
   implicit def list[A](implicit schemaA: Schema[A]): Schema[List[A]] =
-    Schema.Sequence[List[A], A](schemaA, _.toList, Chunk.fromIterable(_), Chunk.empty)
+    Schema.Sequence[List[A], A, String](schemaA, _.toList, Chunk.fromIterable(_), Chunk.empty, "List")
 
   implicit def option[A](implicit element: Schema[A]): Schema[Option[A]] =
     Optional(element)
@@ -289,20 +289,21 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
 
   sealed trait Collection[Col, Elem] extends Schema[Col]
 
-  final case class Sequence[Col, Elem](
+  final case class Sequence[Col, Elem, I](
     schemaA: Schema[Elem],
     fromChunk: Chunk[Elem] => Col,
     toChunk: Col => Chunk[Elem],
-    override val annotations: Chunk[Any] = Chunk.empty
+    override val annotations: Chunk[Any] = Chunk.empty,
+    identity: I
   ) extends Collection[Col, Elem] { self =>
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Traversal[Col, Elem]
 
-    override def annotate(annotation: Any): Sequence[Col, Elem] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Sequence[Col, Elem, I] = copy(annotations = annotations :+ annotation)
 
     override def defaultValue: Either[String, Col] = schemaA.defaultValue.map(fromChunk.compose(Chunk(_)))
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, schemaA)
-    override def toString: String                                          = s"Sequence($schemaA)"
+    override def toString: String                                          = s"Sequence($schemaA, $identity)"
 
   }
 

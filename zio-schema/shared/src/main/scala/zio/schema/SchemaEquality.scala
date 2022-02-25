@@ -27,9 +27,8 @@ trait SchemaEquality {
             lMap.annotations == rMap.annotations && lMap.ks === rMap.ks && lMap.vs === rMap.vs
           case (lSet: Schema.SetSchema[_], rSet: Schema.SetSchema[_]) =>
             lSet.annotations == rSet.annotations && lSet.as === rSet.as
-          case (lSeq: Schema.Sequence[_, _], rSeq: Schema.Sequence[_, _]) =>
-            (lSeq.fromChunk eq rSeq.fromChunk) &&
-              (lSeq.toChunk eq rSeq.toChunk) &&
+          case (lSeq: Schema.Sequence[_, _, _], rSeq: Schema.Sequence[_, _, _]) =>
+            (lSeq.identity == rSeq.identity) &&
               lSeq.annotations == rSeq.annotations &&
               lSeq.schemaA === rSeq.schemaA
           case (lTransform: Schema.Transform[_, _, _], rTransform: Schema.Transform[_, _, _]) =>

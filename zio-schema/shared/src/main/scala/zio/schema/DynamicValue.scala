@@ -51,7 +51,7 @@ sealed trait DynamicValue { self =>
           case (Right(a), Right(b)) => Right(a -> b)
         }
 
-      case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t]) =>
+      case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t, _]) =>
         values
           .foldLeft[Either[String, Chunk[t]]](Right[String, Chunk[t]](Chunk.empty)) {
             case (err @ Left(_), _) => err
@@ -954,7 +954,7 @@ object DynamicValue {
 
       case Schema.Fail(message, _) => DynamicValue.Error(message)
 
-      case Schema.Sequence(schema, _, toChunk, _) =>
+      case Schema.Sequence(schema, _, toChunk, _, _) =>
         DynamicValue.Sequence(toChunk(value).map(fromSchemaAndValue(schema, _)))
 
       case Schema.MapSchema(ks: Schema[k], vs: Schema[v], _) =>

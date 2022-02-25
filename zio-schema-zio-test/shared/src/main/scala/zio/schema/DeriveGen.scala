@@ -58,7 +58,7 @@ object DeriveGen {
       case c @ Schema.CaseClass21(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)       => genCaseClass21(c)
       case c @ Schema.CaseClass22(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => genCaseClass22(c)
       case generic @ Schema.GenericRecord(_, _)                                                                                                                             => genGenericRecord(generic).map(_.asInstanceOf[A])
-      case seq @ Schema.Sequence(_, _, _, _)                                                                                                                                => genSequence(seq)
+      case seq @ Schema.Sequence(_, _, _, _, _)                                                                                                                             => genSequence(seq)
       case map @ Schema.MapSchema(_, _, _)                                                                                                                                  => genMap(map)
       case set @ Schema.SetSchema(_, _)                                                                                                                                     => genSet(set)
       case transform @ Schema.Transform(_, _, _, _, _)                                                                                                                      => genTransform(transform)
@@ -463,7 +463,7 @@ object DeriveGen {
           } yield listMap.updated(field.label, value)
       }
 
-  private def genSequence[Z, A](seq: Schema.Sequence[Z, A]): Gen[Random with Sized, Z] =
+  private def genSequence[Z, A](seq: Schema.Sequence[Z, A, _]): Gen[Random with Sized, Z] =
     Gen.oneOf(Gen.chunkOfN(2)(gen(seq.schemaA)), Gen.const(Chunk.empty)).map(seq.fromChunk(_))
 
   private def genMap[K, V](map: Schema.MapSchema[K, V]): Gen[Random with Sized, Map[K, V]] =
