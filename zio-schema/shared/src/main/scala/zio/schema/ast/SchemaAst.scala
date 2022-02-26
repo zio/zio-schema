@@ -291,16 +291,16 @@ object SchemaAst {
           case Schema.EitherSchema(left, right, _) =>
             Either(
               path,
-              subtree(path / "left", lineage, left),
-              subtree(path / "right", lineage, right),
+              subtree(path / "left", lineage, left, optional = false, dimensions = 0),
+              subtree(path / "right", lineage, right, optional = false, dimensions = 0),
               optional,
               dimensions
             )
           case Schema.Tuple(left, right, _) =>
             Tuple(
               path,
-              subtree(path / "left", lineage, left),
-              subtree(path / "right", lineage, right),
+              subtree(path / "left", lineage, left, optional = false, dimensions = 0),
+              subtree(path / "right", lineage, right, optional = false, dimensions = 0),
               optional,
               dimensions
             )
