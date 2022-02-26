@@ -1,8 +1,8 @@
 package zio.schema
 
-import zio.prelude._
-
 import scala.collection.mutable
+
+import zio.prelude._
 
 trait SchemaEquality {
 

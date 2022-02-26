@@ -1,11 +1,11 @@
 package zio.schema.ast
 
 import scala.annotation.tailrec
-import zio.prelude.Equal
-import zio.schema._
-import zio.{ Chunk, ChunkBuilder }
-
 import scala.collection.mutable
+
+import zio.ChunkBuilder.schema._
+import zio.prelude.Equal
+import zio.{ Chunk, ChunkBuilder }
 
 sealed trait SchemaAst { self =>
   def path: NodePath
