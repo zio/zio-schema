@@ -3,8 +3,8 @@ package zio.schema.ast
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-import zio.ChunkBuilder.schema._
 import zio.prelude.Equal
+import zio.schema._
 import zio.{ Chunk, ChunkBuilder }
 
 sealed trait SchemaAst { self =>
