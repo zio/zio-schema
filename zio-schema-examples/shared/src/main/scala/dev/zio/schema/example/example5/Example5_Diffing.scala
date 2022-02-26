@@ -1,6 +1,5 @@
 package dev.zio.schema.example.example5
 
-import zio.schema.ast.SchemaAst
 import zio.schema.{ Diff, Schema }
 import zio.{ ExitCode, URIO, ZIO }
 

@@ -166,11 +166,11 @@ object OrderingSpec extends DefaultRunnableSpec {
   def genOrderedPairIdentityTransform[A](schema: Schema[A]): Gen[Random with Sized, SchemaAndPair[_]] =
     for {
       (small, large) <- genOrderedPair(schema)
-    } yield (Schema.Transform(schema, { a: A =>
+    } yield (schema.transformOrFail({ a: A =>
       Right(a)
     }, { a: A =>
       Right(a)
-    }, Chunk.empty), small, large)
+    }), small, large)
 
   def genOrderedPairDecodeTransform[A](schema: Schema[A]): Gen[Random with Sized, SchemaAndPair[DynamicValue]] =
     for {
@@ -181,7 +181,7 @@ object OrderingSpec extends DefaultRunnableSpec {
       smallEncoded        = encode(small).toOption.get
       smallEncodedOrError = if (error) DynamicValue.SomeValue(smallEncoded) else smallEncoded
       largeEncoded        = encode(large).toOption.get
-    } yield (Schema.Transform(schema, encode, decode, Chunk.empty), smallEncodedOrError, largeEncoded)
+    } yield (schema.transformOrFail(encode, decode), smallEncodedOrError, largeEncoded)
 
   def genAnyOrderedPairRecord: Gen[Random with Sized, SchemaAndPair[_]] =
     for {

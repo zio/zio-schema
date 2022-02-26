@@ -259,14 +259,14 @@ object Differ {
     case Schema.Primitive(StandardType.ZoneOffsetType, _)              => zoneOffset
     case Schema.Tuple(leftSchema, rightSchema, _)                      => fromSchema(leftSchema) <*> fromSchema(rightSchema)
     case Schema.Optional(schema, _)                                    => fromSchema(schema).optional
-    case Schema.Sequence(schema, g, f, _) =>
+    case Schema.Sequence(schema, g, f, _, _) =>
       fromSchema(schema).chunk.transform(f, g)
     case Schema.SetSchema(s, _)                                                                  => set(s)
     case Schema.MapSchema(k, v, _)                                                               => map(k, v)
     case Schema.Meta(_, _)                                                                       => (_: A, _: A) => Diff.notComparable[Schema[_]]
     case Schema.EitherSchema(leftSchema, rightSchema, _)                                         => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                                                                      => fromSchema(s.schema)
-    case Schema.Transform(schema, g, f, _)                                                       => fromSchema(schema).transformOrFail(f, g)
+    case Schema.Transform(schema, g, f, _, _)                                                    => fromSchema(schema).transformOrFail(f, g)
     case Schema.Fail(_, _)                                                                       => fail
     case s @ Schema.GenericRecord(_, _)                                                          => record(s)
     case s: Schema.CaseClass1[_, A]                                                              => product1(s)
