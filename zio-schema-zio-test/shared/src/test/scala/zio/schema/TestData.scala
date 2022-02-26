@@ -57,7 +57,7 @@ object TestData {
   val optionalSchema: Schema[Option[Int]]        = Schema.Optional(intSchema)
 
   val transformSchema: Schema[String] =
-    Schema.Transform(intSchema, (int: Int) => Right(int.toString), (_: String) => Left("error"), Chunk.empty)
+    intSchema.transformOrFail[String]((int: Int) => Right(int.toString), (_: String) => Left("error"))
   val failSchema: Schema[Unit] = Schema.Fail[Unit]("failed")
   val lazySchema: Schema[Int]  = Schema.Lazy(() => intSchema)
 
