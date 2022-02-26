@@ -22,9 +22,14 @@ object SchemaAssertions {
       value.migrate[B].isLeft
     }
 
-  def hasSameSchema[A](expected: Schema[A]): Assertion[Schema[A]] =
+  def hasSameSchema(expected: Schema[_]): Assertion[Schema[_]] =
     Assertion.assertion("hasSameSchema")(param(expected))(
-      actual => Schema.strictEquality.equal(expected.asInstanceOf[Schema[_]], actual.asInstanceOf[Schema[_]])
+      actual => Schema.strictEquality.equal(expected, actual)
+    )
+
+  def hasSameSchemaStructure(expected: Schema[_]): Assertion[Schema[_]] =
+    Assertion.assertion("hasSameSchemaStructure")(param(expected))(
+      actual => Schema.structureEquality.equal(expected, actual)
     )
 
   def hasSameAst(expected: Schema[_]): Assertion[Schema[_]] =
