@@ -22,6 +22,8 @@ object BuildHelper {
     list.map(v => (v.split('.').take(2).mkString("."), v)).toMap
   }
 
+  val avroVersion = "1.11.0"
+
   val Scala212: String   = versions("2.12")
   val Scala213: String   = versions("2.13")
   val ScalaDotty: String = "3.1.0" //versions.getOrElse("3.0", versions("3.1"))
