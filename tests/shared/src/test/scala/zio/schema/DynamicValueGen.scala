@@ -24,7 +24,7 @@ object DynamicValueGen {
       case typ: StandardType.BigDecimalType.type => gen(typ, Gen.anyDouble.map(d => java.math.BigDecimal.valueOf(d)))
       case typ: StandardType.BigIntegerType.type => gen(typ, Gen.anyLong.map(n => java.math.BigInteger.valueOf(n)))
       case typ: StandardType.DayOfWeekType.type  => gen(typ, JavaTimeGen.anyDayOfWeek)
-      case typ: StandardType.Duration            => gen(typ, JavaTimeGen.anyDuration)
+      case typ: StandardType.DurationType.type   => gen(typ, JavaTimeGen.anyDuration)
       case typ: StandardType.InstantType         => gen(typ, JavaTimeGen.anyInstant)
       case typ: StandardType.LocalDateType       => gen(typ, JavaTimeGen.anyLocalDate)
       case typ: StandardType.LocalDateTimeType   => gen(typ, JavaTimeGen.anyLocalDateTime)

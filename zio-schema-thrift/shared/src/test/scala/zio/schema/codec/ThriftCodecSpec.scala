@@ -1,7 +1,6 @@
 package zio.schema.codec
 
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 import java.time.{
   DayOfWeek,
   Duration,
@@ -331,8 +330,8 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
       testM("durations") {
         val value = Duration.ofDays(12)
         for {
-          ed  <- encodeAndDecode(Primitive(StandardType.Duration(ChronoUnit.DAYS)), value)
-          ed2 <- encodeAndDecodeNS(Primitive(StandardType.Duration(ChronoUnit.DAYS)), value)
+          ed  <- encodeAndDecode(Primitive(StandardType.DurationType), value)
+          ed2 <- encodeAndDecodeNS(Primitive(StandardType.DurationType), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("instants") {

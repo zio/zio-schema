@@ -1,16 +1,16 @@
 package zio.schema
 
+import zio.schema.StandardType.DurationType
+
 import java.math.{ BigInteger, MathContext }
 import java.time.format.DateTimeFormatter
 import java.time.temporal.{ ChronoField, ChronoUnit }
 import java.time.{
   DayOfWeek,
-  Duration => JDuration,
   Instant,
   LocalDate,
   LocalDateTime,
   LocalTime,
-  Month => JMonth,
   MonthDay,
   OffsetDateTime,
   OffsetTime,
@@ -19,13 +19,13 @@ import java.time.{
   YearMonth,
   ZoneId,
   ZoneOffset,
+  Duration => JDuration,
+  Month => JMonth,
   ZonedDateTime => JZonedDateTime
 }
 import java.util.UUID
-
 import scala.annotation.{ nowarn, tailrec }
 import scala.collection.immutable.ListMap
-
 import zio.schema.ast.Migration
 import zio.schema.diff.Edit
 import zio.{ Chunk, ChunkBuilder }
@@ -250,7 +250,7 @@ object Differ {
     case Schema.Primitive(StandardType.YearMonthType, _)               => yearMonth
     case Schema.Primitive(tpe @ StandardType.LocalDateType(_), _)      => localDate(tpe)
     case Schema.Primitive(tpe @ StandardType.InstantType(_), _)        => instant(tpe)
-    case Schema.Primitive(tpe @ StandardType.Duration(_), _)           => duration(tpe)
+    case Schema.Primitive(StandardType.DurationType, _)                => duration
     case Schema.Primitive(tpe @ StandardType.LocalTimeType(_), _)      => localTime(tpe)
     case Schema.Primitive(tpe @ StandardType.LocalDateTimeType(_), _)  => localDateTime(tpe)
     case Schema.Primitive(tpe @ StandardType.OffsetTimeType(_), _)     => offsetTime(tpe)
@@ -394,7 +394,7 @@ object Differ {
           tpe
         )
 
-  def duration(tpe: StandardType.Duration): Differ[JDuration] =
+  def duration: Differ[JDuration] =
     (thisDuration: JDuration, thatDuration: JDuration) =>
       if (thisDuration == thatDuration)
         Diff.identical
@@ -404,7 +404,7 @@ object Differ {
             thisDuration.getSeconds - thatDuration.getSeconds,
             (thisDuration.getNano - thatDuration.getNano).toLong
           ),
-          tpe
+          DurationType
         )
 
   def localTime(tpe: StandardType.LocalTimeType): Differ[LocalTime] =
@@ -722,7 +722,7 @@ object Diff {
           Right(a.asInstanceOf[DayOfWeek].plus(distance).asInstanceOf[A])
         case (_: StandardType.MonthType.type, distance :: Nil) =>
           Right(a.asInstanceOf[java.time.Month].plus(distance).asInstanceOf[A])
-        case (_: StandardType.Duration, dist1 :: dist2 :: Nil) =>
+        case (_: StandardType.DurationType.type, dist1 :: dist2 :: Nil) =>
           Right(
             JDuration
               .ofSeconds(a.asInstanceOf[JDuration].getSeconds - dist1, a.asInstanceOf[JDuration].getNano() - dist2)

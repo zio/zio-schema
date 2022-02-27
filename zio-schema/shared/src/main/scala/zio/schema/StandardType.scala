@@ -1,12 +1,11 @@
 package zio.schema
 
+import zio.Chunk
+
 import java.math.BigInteger
 import java.time
 import java.time._
 import java.time.format.DateTimeFormatter
-import java.time.temporal.{ ChronoUnit, TemporalUnit }
-
-import zio.Chunk
 
 sealed trait StandardType[A] extends Ordering[A] {
   def tag: String
@@ -70,6 +69,7 @@ object StandardType {
       case Tags.YEAR_MONTH       => Some(YearMonthType)
       case Tags.ZONE_ID          => Some(ZoneIdType)
       case Tags.ZONE_OFFSET      => Some(ZoneOffsetType)
+      case Tags.DURATION         => Some(DurationType)
       case Tags.INSTANT          => Some(InstantType(DateTimeFormatter.ISO_INSTANT))
       case Tags.LOCAL_DATE       => Some(LocalDateType(DateTimeFormatter.ISO_LOCAL_DATE))
       case Tags.LOCAL_TIME       => Some(LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME))
@@ -78,16 +78,9 @@ object StandardType {
       case Tags.OFFSET_DATE_TIME => Some(OffsetDateTimeType(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
       case Tags.ZONED_DATE_TIME  => Some(ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME))
       case Tags.UUID             => Some(UUIDType)
-      case units =>
-        try {
-          Some(Duration(ChronoUnit.valueOf(units)))
-        } catch { case _: Throwable => None }
     }
 
   def apply[A](implicit standardType: StandardType[A]): StandardType[A] = standardType
-
-  def fromTemporalUnits(units: String): Option[StandardType[java.time.Duration]] =
-    ChronoUnit.values().find(_.toString == units).map(Duration(_))
 
   implicit object UnitType extends StandardType[Unit] {
     override def tag                                = Tags.UNIT
@@ -223,8 +216,8 @@ object StandardType {
     override def defaultValue: Either[String, java.time.ZoneOffset] = Right(java.time.ZoneOffset.UTC)
   }
 
-  final case class Duration(temporalUnit: TemporalUnit) extends StandardType[java.time.Duration] {
-    override def tag: String                                      = temporalUnit.toString().toUpperCase()
+  implicit object DurationType extends StandardType[java.time.Duration] {
+    override def tag: String                                      = Tags.DURATION
     override def compare(x: time.Duration, y: time.Duration): Int = x.compareTo(y)
     override def defaultValue: Either[String, java.time.Duration] = Right(java.time.Duration.ZERO)
   }

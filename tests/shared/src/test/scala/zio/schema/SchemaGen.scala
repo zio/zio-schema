@@ -620,7 +620,7 @@ object SchemaGen {
       Gen.anyLong.map(n => java.math.BigInteger.valueOf(n))
     ),
     SchemaTest("DayOfWeek", StandardType.DayOfWeekType, JavaTimeGen.anyDayOfWeek),
-    SchemaTest("Duration", StandardType.Duration(ChronoUnit.SECONDS), JavaTimeGen.anyDuration),
+    SchemaTest("Duration", StandardType.DurationType, JavaTimeGen.anyDuration),
     SchemaTest("Instant", StandardType.InstantType(DateTimeFormatter.ISO_DATE_TIME), JavaTimeGen.anyInstant),
     SchemaTest("LocalDate", StandardType.LocalDateType(DateTimeFormatter.ISO_DATE), JavaTimeGen.anyLocalDate),
     SchemaTest(

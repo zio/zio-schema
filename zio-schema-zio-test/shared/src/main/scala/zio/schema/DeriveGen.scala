@@ -502,7 +502,7 @@ object DeriveGen {
       case StandardType.YearMonthType         => Gen.anyYearMonth
       case StandardType.ZoneIdType            => Gen.anyZoneId
       case StandardType.ZoneOffsetType        => Gen.anyZoneOffset
-      case StandardType.Duration(_)           => Gen.anyFiniteDuration
+      case StandardType.DurationType          => Gen.anyFiniteDuration
       case StandardType.InstantType(_)        => Gen.anyInstant
       case StandardType.LocalDateType(_)      => Gen.anyLocalDate
       case StandardType.LocalTimeType(_)      => Gen.anyLocalTime
@@ -560,12 +560,6 @@ object DeriveGen {
 
   private def genSchemaAstValue(path: NodePath): Gen[Random, SchemaAst.Value] =
     for {
-      temporalUnit <- Gen.oneOf(
-                       Gen.const(java.time.temporal.ChronoUnit.DAYS),
-                       Gen.const(java.time.temporal.ChronoUnit.DECADES),
-                       Gen.const(java.time.temporal.ChronoUnit.SECONDS),
-                       Gen.const(java.time.temporal.ChronoUnit.NANOS)
-                     )
       formatter <- Gen.oneOf(
                     Gen.const(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                     Gen.const(DateTimeFormatter.RFC_1123_DATE_TIME)
@@ -591,7 +585,7 @@ object DeriveGen {
                     Gen.const(StandardType.YearMonthType),
                     Gen.const(StandardType.ZoneIdType),
                     Gen.const(StandardType.ZoneOffsetType),
-                    Gen.const(StandardType.Duration(temporalUnit)),
+                    Gen.const(StandardType.DurationType),
                     Gen.const(StandardType.InstantType(formatter)),
                     Gen.const(StandardType.LocalDateType(formatter)),
                     Gen.const(StandardType.LocalTimeType(formatter)),

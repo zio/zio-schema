@@ -418,7 +418,9 @@ object SchemaAst {
       Schema.EnumN[SchemaAst, CaseSet.Aux[SchemaAst]](
         caseOf[Value, SchemaAst]("Value")(_.asInstanceOf[Value]) ++
           caseOf[Sum, SchemaAst]("Sum")(_.asInstanceOf[Sum]) ++
+          caseOf[Either, SchemaAst]("Either")(_.asInstanceOf[Either]) ++
           caseOf[Product, SchemaAst]("Product")(_.asInstanceOf[Product]) ++
+          caseOf[Tuple, SchemaAst]("Tuple")(_.asInstanceOf[Tuple]) ++
           caseOf[Ref, SchemaAst]("Ref")(_.asInstanceOf[Ref]),
         Chunk.empty
       )

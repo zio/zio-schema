@@ -2,18 +2,15 @@ package zio.schema.codec
 
 import java.time._
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
 import scala.util.Try
-
 import zio._
 import zio.blocking.Blocking
 import zio.console._
 import zio.random.Random
 import zio.schema.CaseSet._
-import zio.schema.{ CaseSet, DeriveSchema, Schema, SchemaGen, StandardType }
+import zio.schema.{ CaseSet, DeriveSchema, DynamicValueGen, Schema, SchemaGen, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
@@ -273,8 +270,8 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       testM("durations") {
         val value = Duration.ofDays(12)
         for {
-          ed  <- encodeAndDecode(Primitive(StandardType.Duration(ChronoUnit.DAYS)), value)
-          ed2 <- encodeAndDecodeNS(Primitive(StandardType.Duration(ChronoUnit.DAYS)), value)
+          ed  <- encodeAndDecode(Primitive(StandardType.DurationType), value)
+          ed2 <- encodeAndDecodeNS(Primitive(StandardType.DurationType), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("instants") {
@@ -614,7 +611,100 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           d2 <- decodeNS(schemaFail, "0F").run
         } yield assert(d)(fails(equalTo("failing schema"))) && assert(d2)(fails(equalTo("failing schema")))
       }
-    )
+    ),
+    suite("dynamic")(
+      testM("dynamic int") {
+        checkM(
+          DynamicValueGen.anyPrimitiveDynamicValue(StandardType.IntType)
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("dynamic instant") {
+        checkM(
+          DynamicValueGen.anyPrimitiveDynamicValue(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("dynamic zoned date time") {
+        checkM(
+          DynamicValueGen.anyPrimitiveDynamicValue(
+            StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)
+          )
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("dynamic duration") {
+        checkM(
+          DynamicValueGen.anyPrimitiveDynamicValue(StandardType.DurationType)
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("dynamic string") {
+        checkM(
+          DynamicValueGen.anyPrimitiveDynamicValue(StandardType.StringType)
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("dynamic unit") {
+        checkM(
+          DynamicValueGen.anyPrimitiveDynamicValue(StandardType.UnitType)
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("dynamic json") {
+        checkM(
+          DynamicValueGen.anyDynamicValueOfSchema(SchemaGen.Json.schema)
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("dynamic tuple") {
+        checkM(
+          DynamicValueGen.anyDynamicTupleValue(Schema[String], Schema[Int])
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("dynamic record") {
+        checkM(
+          SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicValueOfSchema)
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("dynamic (string, record)") {
+        checkM(
+          SchemaGen.anyRecord.flatMap(record => DynamicValueGen.anyDynamicTupleValue(Schema[String], record))
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      }
+    ),
+    testM("semi dynamic record") {
+      checkM(
+        SchemaGen.anyRecord.flatMap(
+          record =>
+            DynamicValueGen
+              .anyDynamicValueOfSchema(record)
+              .map(dyn => (dyn.toTypedValue(record).toOption.get, record))
+        )
+      ) { value =>
+        val schema = Schema.semiDynamic[ListMap[String, _]]()
+        for {
+          result                      <- encodeAndDecode(schema, value)
+          (resultValue, resultSchema) = result.head
+        } yield assertTrue(
+          Schema.structureEquality.equal(schema, resultSchema),
+          resultValue.keySet == value._1.keySet
+        )
+      }
+    }
   )
 
   // some tests are based on https://developers.google.com/protocol-buffers/docs/encoding

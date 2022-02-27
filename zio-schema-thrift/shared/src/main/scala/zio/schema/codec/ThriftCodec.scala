@@ -168,7 +168,7 @@ object ThriftCodec extends Codec {
         case StandardType.YearMonthType         => TType.STRUCT
         case StandardType.ZoneIdType            => TType.STRING
         case StandardType.ZoneOffsetType        => TType.I32
-        case StandardType.Duration(_)           => TType.STRUCT
+        case StandardType.DurationType          => TType.STRUCT
         case StandardType.InstantType(_)        => TType.STRING
         case StandardType.LocalDateType(_)      => TType.STRING
         case StandardType.LocalTimeType(_)      => TType.STRING
@@ -222,7 +222,7 @@ object ThriftCodec extends Codec {
           p.writeString(v.getId)
         case (StandardType.ZoneOffsetType, v: ZoneOffset) =>
           p.writeI32(v.getTotalSeconds)
-        case (StandardType.Duration(_), v: Duration) =>
+        case (StandardType.DurationType, v: Duration) =>
           encodeRecord(None, durationStructure, ListMap("seconds" -> v.getSeconds, "nanos" -> v.getNano))
         case (StandardType.InstantType(formatter), v: Instant) =>
           p.writeString(formatter.format(v))
@@ -341,8 +341,10 @@ object ThriftCodec extends Codec {
           encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
         case (Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) =>
           encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-        case (Schema.EnumN(cs, _), v) => encodeEnum(fieldNumber, v, cs.toSeq: _*)
-        case (_, _)                   => ()
+        case (Schema.EnumN(cs, _), v)      => encodeEnum(fieldNumber, v, cs.toSeq: _*)
+        case (Schema.Dynamic(_), v)        => ??? // TODO
+        case (Schema.SemiDynamic(_, _), v) => ??? // TODO
+        case (_, _)                        => ()
       }
 
     private def encodeEnum[Z, A](fieldNumber: Option[Short], value: Z, cases: Schema.Case[_, Z]*): Unit = {
@@ -544,7 +546,10 @@ object ThriftCodec extends Codec {
         case Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)      => enumDecoder(path, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
         case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumDecoder(path, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case Schema.EnumN(cs, _)                                                                                                   => enumDecoder(path, cs.toSeq: _*)
+        case Schema.Dynamic(_)                                                                                                     => ??? // TODO
+        case Schema.SemiDynamic(_, _)                                                                                              => ??? // TODO
         case _                                                                                                                     => fail(path, s"Unknown schema ${schema.getClass.getName}")
+
       }
 
     private def optionalDecoder[A](path: Path, schema: Schema.Optional[A]): Result[Option[A]] =
@@ -644,7 +649,7 @@ object ThriftCodec extends Codec {
           decodeVarInt(path)
             .map(_.intValue)
             .map(ZoneOffset.ofTotalSeconds)
-        case StandardType.Duration(_) =>
+        case StandardType.DurationType =>
           decodeRecord(path, durationStructure)
             .map(data => Duration.ofSeconds(data.getOrElse(1, 0L).asInstanceOf[Long], data.getOrElse(2, 0L).asInstanceOf[Int].toLong))
         case StandardType.InstantType(formatter) =>

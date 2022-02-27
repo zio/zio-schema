@@ -1,10 +1,6 @@
 package zio.schema.codec
 
 // import java.time.Year
-import java.time.{ ZoneId, ZoneOffset }
-
-import scala.collection.immutable.ListMap
-
 import zio.console._
 import zio.duration._
 import zio.json.JsonDecoder.JsonError
@@ -18,6 +14,10 @@ import zio.test.TestAspect._
 import zio.test._
 import zio.test.environment.TestEnvironment
 import zio.{ Chunk, ZIO }
+
+import java.time.format.DateTimeFormatter
+import java.time.{ ZoneId, ZoneOffset }
+import scala.collection.immutable.ListMap
 
 object JsonCodecSpec extends DefaultRunnableSpec {
 
@@ -555,18 +555,80 @@ object JsonCodecSpec extends DefaultRunnableSpec {
             assertEncodesThenDecodes(schema, value)
         }
       },
-      testM("dynamic") {
-        checkM(
-          Gen.oneOf(
-            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.IntType),
-            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.StringType),
-            DynamicValueGen.anyDynamicValueOfSchema(SchemaGen.Json.schema),
+      suite("dynamic")(
+        testM("dynamic int") {
+          checkM(
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.IntType)
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        testM("dynamic instant") {
+          checkM(
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        testM("dynamic zoned date time") {
+          checkM(
+            DynamicValueGen.anyPrimitiveDynamicValue(
+              StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)
+            )
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        testM("dynamic duration") {
+          checkM(
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.DurationType)
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        testM("dynamic string") {
+          checkM(
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.StringType)
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        testM("dynamic unit") {
+          checkM(
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.UnitType)
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        testM("dynamic json") {
+          checkM(
+            DynamicValueGen.anyDynamicValueOfSchema(SchemaGen.Json.schema)
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        testM("dynamic tuple") {
+          checkM(
+            DynamicValueGen.anyDynamicTupleValue(Schema[String], Schema[Int])
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        testM("dynamic record") {
+          checkM(
+            SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicValueOfSchema)
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        testM("dynamic (string, record)") {
+          checkM(
             SchemaGen.anyRecord.flatMap(record => DynamicValueGen.anyDynamicTupleValue(Schema[String], record))
-          )
-        ) { dynamicValue =>
-          assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
         }
-      },
+      ),
       testM("semi dynamic record") {
         checkM(
           SchemaGen.anyRecord.flatMap(
@@ -581,8 +643,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
             encodingSchema = schema,
             decodingSchema = schema,
             value = value,
-            compare = compareRandomRecords,
-            print = true
+            compare = compareRandomRecords
           )
         }
       }
@@ -595,34 +656,12 @@ object JsonCodecSpec extends DefaultRunnableSpec {
   ): Boolean = {
     val (aValue, aSchema) = a
     val (bValue, bSchema) = b
-//    if (aSchema == bSchema ) {
-    if (aValue.keySet == bValue.keySet) {
-      aValue.values.zip(bValue.values).forall { pair =>
-        val eq = pair match {
-          case (
-              x: (ListMap[String, _], Schema[ListMap[String, _]]),
-              y: (ListMap[String, _], Schema[ListMap[String, _]])
-              ) =>
-            compareRandomRecords(
-              x.asInstanceOf[(ListMap[String, _], Schema[ListMap[String, _]])],
-              y.asInstanceOf[(ListMap[String, _], Schema[ListMap[String, _]])]
-            )
-          case (x, y) =>
-            x == y
-        }
-        if (!eq) println(s"$pair is not equal")
-        eq
-      }
+    if (Schema.structureEquality.equal(aSchema, bSchema)) {
+      // We cannot check real equality because the transformations are lost
+      aValue.keySet == bValue.keySet
     } else {
-      println(s"key set mismatch (${aValue.keySet} != ${bValue.keySet})")
       false
     }
-//    } else {
-//      println(s"schema mismatch")
-//      println(aSchema)
-//      println(bSchema)
-//      false
-//    }
   }
 
   private def assertEncodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {
@@ -686,7 +725,9 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           .transduce(JsonCodec.decoder(decodingSchema))
           .runCollect
           .tapError { err =>
-            putStrLnErr(s"Decoding failed for input ${new String(encoded.toArray)}\nError Message: $err")
+            putStrLnErr(
+              s"Decoding failed for input ${new String(encoded.toArray)}\nError Message: $err\nValue: ${value}\nEncoding schema: ${encodingSchema}\nDecoding schema: ${decodingSchema}"
+            )
           }
       }
       .tap(decoded => putStrLn(s"Decoded: $decoded").when(print).ignore)
