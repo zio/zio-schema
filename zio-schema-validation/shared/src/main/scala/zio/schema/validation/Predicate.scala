@@ -3,24 +3,29 @@ package zio.schema.validation
 import zio.schema.validation.utils._
 
 sealed trait Predicate[A] {
-  type Errors = List[String]
+  type Errors = List[ValidationErrors]
   type Result = Either[Errors, Errors]
   def validate(value: A): Result
 }
+
 object Predicate {
   // String => Boolean
   sealed trait Str[A] extends Predicate[A]
+
   object Str {
     final case class MinLength(n: Int) extends Str[String] {
+
       def validate(value: String): Result =
-        if(value.length() >= n) Right(::(StringValidationErrors.RightTooLong().message, Nil)) // right is too long
-        else Left(::(StringValidationErrors.LeftTooShort().message, Nil)) // TODO create error messages here for "" left is too short
-        // TODO finish validate implementation for predicates and try to add tests
+        if (value.length() >= n) Right(::(ValidationErrors.MinLength(n, value.length(), value), Nil)) // right is too long
+        else
+          Left(::(ValidationErrors.MinLength(n, value.length(), value), Nil)) // TODO create error messages here for "" left is too short
+      // TODO finish validate implementation for predicates and try to add tests
     }
     final case class MaxLength(n: Int) extends Str[String] {
+
       def validate(value: String): Result =
-        if(value.length() <= n) Right(::(StringValidationErrors.RightTooShort().message, Nil))
-        else Left(::(StringValidationErrors.LeftTooLong().message, Nil))
+        if (value.length() <= n) Right(::(ValidationErrors.MaxLength(n, value.length(), value), Nil))
+        else Left(::(ValidationErrors.MaxLength(n, value.length(), value), Nil))
     }
     final case class Matches(r: Regex) extends Str[String] {
       // TODO Q: do we need a Regex implementation?
@@ -32,27 +37,31 @@ object Predicate {
   sealed trait Num[A] extends Predicate[A] {
     def numType: NumType[A]
   }
+
   object Num {
     final case class GreaterThan[A](numType: NumType[A], value: A) extends Num[A] {
+
       def validate(v: A): Result =
-        if(numType.numeric.compare(v, value) > 0)
-          Right(::(s"$v should be less than or equal to $value", Nil))
+        if (numType.numeric.compare(v, value) > 0)
+          Right(::(ValidationErrors.GreaterThan(v, value), Nil))
         else
-          Left(::(s"$v should be greater than $value", Nil))
+          Left(::(ValidationErrors.GreaterThan(v, value), Nil))
     }
     final case class LessThan[A](numType: NumType[A], value: A) extends Num[A] {
+
       def validate(v: A): Result =
-        if(numType.numeric.compare(v, value) < 0)
-          Right(::(s"$v should be greater than or equal to $value", Nil))
+        if (numType.numeric.compare(v, value) < 0)
+          Right(::(ValidationErrors.LessThan(v, value), Nil))
         else
-          Left(::(s"$v should be less than $value", Nil))
+          Left(::(ValidationErrors.LessThan(v, value), Nil))
     }
     final case class EqualTo[A](numType: NumType[A], value: A) extends Num[A] {
+
       def validate(v: A): Result =
-        if(numType.numeric.compare(v, value) == 0)
-          Right(::(s"$v should be equal to $value", Nil))
+        if (numType.numeric.compare(v, value) == 0)
+          Right(::(ValidationErrors.EqualTo(v, value), Nil))
         else
-          Left(::(s"$v should equal to $value", Nil))
+          Left(::(ValidationErrors.EqualTo(v, value), Nil))
     }
   }
 
