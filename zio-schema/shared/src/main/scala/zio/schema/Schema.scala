@@ -386,7 +386,8 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
       field2 = Field("_2", right),
       construct = (a, b) => (a, b),
       extractField1 = _._1,
-      extractField2 = _._2
+      extractField2 = _._2,
+      annotations
     )
 
     override def defaultValue: Either[String, (A, B)] =

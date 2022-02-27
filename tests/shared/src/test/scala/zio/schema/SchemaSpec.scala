@@ -1,7 +1,8 @@
 package zio.schema
 
-import scala.collection.immutable.ListMap
+import zio.Chunk
 
+import scala.collection.immutable.ListMap
 import zio.schema.CaseSet._
 import zio.test.Assertion._
 import zio.test.{ ZSpec, _ }
@@ -17,26 +18,33 @@ object SchemaSpec extends DefaultRunnableSpec {
         assert(Schema.chunk(schemaUnit))(equalTo(Schema.chunk(schemaUnit)))
       },
       test("tuple") {
-        assert(Schema.Tuple(schemaUnit, schemaUnit))(equalTo(Schema.Tuple(schemaUnit, schemaUnit)))
+        assert(Schema.Tuple(schemaUnit, schemaUnit))(equalTo(Schema.Tuple(schemaUnit, schemaUnit))) &&
         assert(Schema.Tuple(schemaTransform, schemaTransform))(equalTo(Schema.Tuple(schemaTransform, schemaTransform)))
       },
       test("record") {
-        assert(schemaRecord("key"))(equalTo(schemaRecord("key")))
+        assert(schemaRecord("key"))(equalTo(schemaRecord("key"))) &&
         assert(schemaRecord("key1"))(not(equalTo(schemaRecord("key2"))))
       },
       test("transform") {
-        assert(schemaTransform)(equalTo(schemaTransform))
+        assert(schemaTransform)(equalTo(schemaTransform)) &&
         assert(schemaTransformMethod)(equalTo(schemaTransformMethod))
       },
       test("optional") {
         assert(Schema.Optional(schemaUnit))(equalTo(Schema.Optional(schemaUnit)))
       },
       test("enumeration") {
-        assert(schemaEnum("key"))(equalTo(schemaEnum("key")))
+        assert(schemaEnum("key"))(equalTo(schemaEnum("key"))) &&
         assert(schemaEnum("key1"))(not(equalTo(schemaEnum("key2"))))
 
       }
-    )
+    ),
+    test("Tuple.toRecord should preserve annotations") {
+      val left        = Schema.primitive(StandardType.StringType)
+      val right       = Schema.primitive(StandardType.StringType)
+      val tupleSchema = Schema.Tuple(left, right, Chunk("some Annotation"))
+      val record      = tupleSchema.toRecord
+      assert(record.annotations)(hasFirst(equalTo("some Annotation")))
+    }
   )
 
   def schemaUnit: Schema[Unit] = Schema[Unit]
