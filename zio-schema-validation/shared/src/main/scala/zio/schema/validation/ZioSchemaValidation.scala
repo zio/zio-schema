@@ -25,9 +25,6 @@ object ZioSchemaValidation {
     val allInt = allOf(greaterThan(2), lessThan(4), equalTo(3))
   }
 
-  // TODO: get rid of object and stick directly into package
-  // TODO: break up into several files.
-
   // object Validation {
   //   // all the leaves will need to have specialized type parameters
   //   // 1) verify that a field inside a record has a certain type
