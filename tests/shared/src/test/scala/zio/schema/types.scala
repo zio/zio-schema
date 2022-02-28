@@ -1,26 +1,11 @@
 package zio.schema
 
-import java.time.temporal.ChronoUnit
-import java.time.{
-  DayOfWeek,
-  Instant,
-  LocalDate,
-  Month,
-  MonthDay,
-  OffsetDateTime,
-  OffsetTime,
-  Period,
-  Year,
-  YearMonth,
-  ZoneId,
-  ZoneOffset,
-  ZonedDateTime
-}
-import java.util.UUID
-
 import zio.Chunk
 import zio.random.Random
 import zio.test.{ Gen, Sized }
+
+import java.time._
+import java.util.UUID
 
 object types {
 
