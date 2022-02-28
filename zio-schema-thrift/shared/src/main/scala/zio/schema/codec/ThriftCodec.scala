@@ -726,7 +726,7 @@ object ThriftCodec extends Codec {
       structDecoder(fields.map(_.schema), path)
 
     def structDecoder(fields: Seq[Schema[_]], path: Path): Result[ListMap[Short, Any]] = {
-      val fieldSchemas = fields.zipWithIndex.map { case (schema, idx) => (idx + 1) -> schema }.toMap
+      val fieldSchemas = fields.zipWithIndex.map { case (schema, idx) => (idx + 1) -> schema }.toMap[Int, Schema[_]]
 
       @tailrec
       def readFields(m: ListMap[Short, Any]): Result[ListMap[Short, Any]] =

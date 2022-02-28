@@ -1851,7 +1851,8 @@ object DynamicValue {
   }
 
   final case class Record(values: ListMap[String, DynamicValue]) extends DynamicValue
-  final case class Enumeration(value: (String, DynamicValue))    extends DynamicValue
+
+  final case class Enumeration(value: (String, DynamicValue)) extends DynamicValue
 
   final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue
 
@@ -2070,7 +2071,7 @@ private[schema] object DynamicValueSchema { self =>
       "Record",
       Schema.CaseClass1[Map[String, DynamicValue], DynamicValue.Record](
         Schema.Field("values", Schema.defer(Schema.map(Schema.primitive[String], DynamicValueSchema()))),
-        map => DynamicValue.Record(ListMap.from[String, DynamicValue](map)),
+        map => DynamicValue.Record(ListMap(map.toSeq: _*)),
         record => record.values
       ),
       _.asInstanceOf[DynamicValue.Record]
