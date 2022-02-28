@@ -1,6 +1,11 @@
 package zio.schema.codec
 
 // import java.time.Year
+import java.time.format.DateTimeFormatter
+import java.time.{ ZoneId, ZoneOffset }
+
+import scala.collection.immutable.ListMap
+
 import zio.console._
 import zio.duration._
 import zio.json.JsonDecoder.JsonError
@@ -14,10 +19,6 @@ import zio.test.TestAspect._
 import zio.test._
 import zio.test.environment.TestEnvironment
 import zio.{ Chunk, ZIO }
-
-import java.time.format.DateTimeFormatter
-import java.time.{ ZoneId, ZoneOffset }
-import scala.collection.immutable.ListMap
 
 object JsonCodecSpec extends DefaultRunnableSpec {
 

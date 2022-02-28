@@ -21,9 +21,13 @@ import java.time.{
 }
 import java.util
 import java.util.UUID
+
+import scala.collection.immutable.ListMap
 import scala.util.Try
+
 import org.apache.thrift.TSerializable
 import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
+
 import zio.console.putStrLn
 import zio.schema.CaseSet.caseOf
 import zio.schema.codec.{ generated => g }
@@ -32,8 +36,6 @@ import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
 import zio.{ Chunk, Task, ZIO }
-
-import scala.collection.immutable.ListMap
 
 // TODO: use generators instead of manual encode/decode
 

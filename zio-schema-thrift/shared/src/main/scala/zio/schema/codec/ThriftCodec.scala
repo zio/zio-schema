@@ -19,11 +19,14 @@ import java.time.{
   ZonedDateTime
 }
 import java.util.UUID
+
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 import scala.util.{ Failure, Success, Try }
+
 import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TProtocol, TType }
+
 import zio.schema.ast.SchemaAst
 import zio.schema.codec.ThriftCodec.Thrift.{
   bigDecimalStructure,

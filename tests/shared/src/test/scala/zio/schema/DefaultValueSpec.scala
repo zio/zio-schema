@@ -1,12 +1,12 @@
 package zio.schema
 
+import java.time.format.DateTimeFormatter
+
 import zio.Chunk
 import zio.schema.CaseSet.caseOf
 import zio.schema.Schema.{ Lazy, Primitive }
 import zio.test.Assertion._
 import zio.test.{ DefaultRunnableSpec, ZSpec, assert }
-
-import java.time.format.DateTimeFormatter
 
 object DefaultValueSpec extends DefaultRunnableSpec {
   // Record Tests
