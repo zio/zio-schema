@@ -10,7 +10,7 @@ import zio.blocking.Blocking
 import zio.console._
 import zio.random.Random
 import zio.schema.CaseSet._
-import zio.schema.{ CaseSet, DeriveSchema, DynamicValueGen, Schema, SchemaGen, StandardType }
+import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
@@ -134,6 +134,30 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         for {
           ed2 <- encodeAndDecodeNS(basicIntWrapperSchema, BasicIntWrapper(BasicInt(150)))
         } yield assert(ed2)(equalTo(BasicIntWrapper(BasicInt(150))))
+      },
+      testM("string") {
+        for {
+          ed2 <- encodeAndDecodeNS(Schema[String], "hello world")
+        } yield assert(ed2)(equalTo("hello world"))
+      },
+      testM("empty string") {
+        for {
+          ed2 <- encodeAndDecodeNS(Schema[String], "")
+        } yield assert(ed2)(equalTo(""))
+      },
+      testM("empty string in wrapper class") {
+        for {
+          ed2 <- encodeAndDecodeNS(schemaBasicString, BasicString(""), print = true)
+        } yield assert(ed2)(equalTo(BasicString("")))
+      },
+      testM("empty dynamic string") {
+        for {
+          ed2 <- encodeAndDecodeNS(
+                  Schema.dynamicValue,
+                  DynamicValue.Primitive("", StandardType.StringType),
+                  print = true
+                )
+        } yield assert(ed2)(equalTo(DynamicValue.Primitive("", StandardType.StringType)))
       },
       testM("two integers") {
         for {
@@ -572,7 +596,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       },
       testM("empty input by non streaming variant") {
         assertM(decodeNS(Schema[Int], "").run)(
-          fails(equalTo("No bytes to decode"))
+          fails(equalTo("Failed to decode VarInt. Unexpected end of chunk"))
         )
       }
     ),
@@ -647,7 +671,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         checkM(
           DynamicValueGen.anyPrimitiveDynamicValue(StandardType.StringType)
         ) { dynamicValue =>
-          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+          assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue, print = true))(equalTo(dynamicValue))
         }
       },
       testM("dynamic unit") {
@@ -675,8 +699,14 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         checkM(
           SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicValueOfSchema)
         ) { dynamicValue =>
-          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+          assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
         }
+      },
+      testM("dynamic record example") {
+        val dynamicValue = DynamicValue.Record(
+          ListMap("0" -> DynamicValue.Primitive(new java.math.BigDecimal(0.0), StandardType[java.math.BigDecimal]))
+        )
+        assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
       },
       testM("dynamic (string, record)") {
         checkM(
@@ -933,7 +963,9 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .succeed(input)
       .tap(value => putStrLn(s"Input Value: $value").when(print).ignore)
       .map(a => ProtobufCodec.encode(schema)(a))
-      .tap(encoded => putStrLn(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
+      .tap { encoded =>
+        putStrLn(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore
+      }
       .map(ch => ProtobufCodec.decode(schema)(ch))
       .absolve
 

@@ -31,11 +31,7 @@ object ProtobufCodec extends Codec {
     )
 
   override def decode[A](schema: Schema[A]): Chunk[Byte] => Either[String, A] =
-    ch =>
-      if (ch.isEmpty)
-        Left("No bytes to decode")
-      else
-        Decoder.decode(schema, ch)
+    ch => Decoder.decode(schema, ch)
 
   object Protobuf {
 
@@ -55,6 +51,13 @@ object ProtobufCodec extends Codec {
 
     private[codec] def singleSchema[A](codec: Schema[A]): Schema[ListMap[String, _]] =
       Schema.record(Schema.Field("value", codec))
+
+    private[codec] val bigDecimalStructure: Seq[Schema.Field[_]] =
+      Seq(
+        Schema.Field("unscaled", Schema.Primitive(StandardType.BigIntegerType)),
+        Schema.Field("precision", Schema.Primitive(StandardType.IntType)),
+        Schema.Field("scale", Schema.Primitive(StandardType.IntType))
+      )
 
     private[codec] val monthDayStructure: Seq[Schema.Field[Int]] =
       Seq(
@@ -309,6 +312,19 @@ object ProtobufCodec extends Codec {
           encodeKey(WireType.VarInt, fieldNumber) ++ encodeVarInt(v)
         case (StandardType.LongType, v: Long) =>
           encodeKey(WireType.VarInt, fieldNumber) ++ encodeVarInt(v)
+        case (StandardType.BigDecimalType, v: java.math.BigDecimal) =>
+          val unscaled  = v.unscaledValue()
+          val precision = v.precision()
+          val scale     = v.scale()
+          encodeRecord(
+            fieldNumber,
+            bigDecimalStructure,
+            ListMap("unscaled" -> unscaled, "precision" -> precision, "scale" -> scale)
+          )
+        case (StandardType.BigIntegerType, v: java.math.BigInteger) =>
+          val encoded = Chunk.fromArray(v.toByteArray)
+          encodeKey(WireType.LengthDelimited(encoded.size), fieldNumber) ++ encoded
+
         case (StandardType.FloatType, v: Float) =>
           val byteBuffer = ByteBuffer.allocate(4)
           byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
@@ -362,7 +378,7 @@ object ProtobufCodec extends Codec {
         case (StandardType.ZonedDateTimeType(formatter), v: ZonedDateTime) =>
           encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
         case (_, _) =>
-          Chunk.empty
+          throw new NotImplementedError(s"No encoder for $standardType")
       }
 
     private def encodeTuple[A, B](
@@ -447,13 +463,9 @@ object ProtobufCodec extends Codec {
 
     def flatMap[B](f: A => Decoder[B]): Decoder[B] =
       Decoder { bytes =>
-        if (bytes.isEmpty) {
-          Left("Unexpected end of bytes")
-        } else {
-          self.run(bytes).flatMap {
-            case (remainder, a) =>
-              f(a).run(remainder)
-          }
+        self.run(bytes).flatMap {
+          case (remainder, a) =>
+            f(a).run(remainder)
         }
       }
 
@@ -579,7 +591,7 @@ object ProtobufCodec extends Codec {
       decoder(Schema[SchemaAst]).map(_.toSchema)
 
     private val dynamicDecoder: Decoder[DynamicValue] =
-      decoder(DynamicValueSchema())
+      decoder(DynamicValueSchema.schema)
 
     private def semiDynamicDecoder[A]: Decoder[(A, Schema[A])] =
       astDecoder.flatMap { schema =>
@@ -742,6 +754,24 @@ object ProtobufCodec extends Codec {
         case StandardType.LongType   => varIntDecoder
         case StandardType.FloatType  => floatDecoder
         case StandardType.DoubleType => doubleDecoder
+        case StandardType.BigIntegerType =>
+          binaryDecoder.map { bytes =>
+            new java.math.BigInteger(bytes.toArray)
+          }
+        case StandardType.BigDecimalType =>
+          recordDecoder(bigDecimalStructure).flatMap { data =>
+            val opt = for {
+              unscaled  <- data.get("unscaled").asInstanceOf[Option[java.math.BigInteger]]
+              scale     <- data.get("scale").asInstanceOf[Option[Int]]
+              precision <- data.get("precision").asInstanceOf[Option[Int]]
+              ctx       = new java.math.MathContext(precision)
+            } yield new java.math.BigDecimal(unscaled, scale, ctx)
+
+            opt match {
+              case Some(value) => succeedNow(value)
+              case None        => fail(s"Invalid big decimal record $data")
+            }
+          }
         case StandardType.BinaryType => binaryDecoder
         case StandardType.CharType   => stringDecoder.map(_.charAt(0))
         case StandardType.UUIDType =>
