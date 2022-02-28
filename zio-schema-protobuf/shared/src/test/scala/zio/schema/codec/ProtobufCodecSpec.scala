@@ -730,7 +730,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           result                      <- encodeAndDecode(schema, value)
           (resultValue, resultSchema) = result.head
         } yield assertTrue(
-          Schema.structureEquality.equal(schema, resultSchema),
+          Schema.structureEquality.equal(value._2, resultSchema),
           resultValue.keySet == value._1.keySet
         )
       }
