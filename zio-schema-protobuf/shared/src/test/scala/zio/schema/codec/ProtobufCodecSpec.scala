@@ -147,15 +147,14 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       },
       testM("empty string in wrapper class") {
         for {
-          ed2 <- encodeAndDecodeNS(schemaBasicString, BasicString(""), print = true)
+          ed2 <- encodeAndDecodeNS(schemaBasicString, BasicString(""))
         } yield assert(ed2)(equalTo(BasicString("")))
       },
       testM("empty dynamic string") {
         for {
           ed2 <- encodeAndDecodeNS(
                   Schema.dynamicValue,
-                  DynamicValue.Primitive("", StandardType.StringType),
-                  print = true
+                  DynamicValue.Primitive("", StandardType.StringType)
                 )
         } yield assert(ed2)(equalTo(DynamicValue.Primitive("", StandardType.StringType)))
       },
@@ -671,7 +670,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         checkM(
           DynamicValueGen.anyPrimitiveDynamicValue(StandardType.StringType)
         ) { dynamicValue =>
-          assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue, print = true))(equalTo(dynamicValue))
+          assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
         }
       },
       testM("dynamic unit") {

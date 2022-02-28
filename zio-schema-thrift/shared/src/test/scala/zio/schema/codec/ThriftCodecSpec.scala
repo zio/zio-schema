@@ -694,7 +694,7 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           checkM(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.StringType)
           ) { dynamicValue =>
-            assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue, print = true))(equalTo(dynamicValue))
+            assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
           }
         },
         testM("dynamic unit") {
