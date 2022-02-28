@@ -108,17 +108,6 @@ object ThriftCodec extends Codec {
       )
   }
 
-  private def unwrapLazy(schema: Schema[_]) = schema match {
-    case s @ Schema.Lazy(_) => s.schema
-    case s                  => s
-  }
-
-  private def isOptional(schema: Schema[_]): Boolean = schema match {
-    case Schema.Optional(_, _) => true
-    case Schema.Lazy(s)        => isOptional(s())
-    case _                     => false
-  }
-
   class Encoder {
     val write = new ChunkTransport.Write()
     val p     = new TBinaryProtocol(write)
@@ -369,7 +358,7 @@ object ThriftCodec extends Codec {
           encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case (Schema.EnumN(cs, _), v)      => encodeEnum(fieldNumber, v, cs.toSeq: _*)
         case (Schema.Dynamic(_), v)        => encodeDynamic(fieldNumber, v)
-        case (Schema.SemiDynamic(_, _), v) => encodeSemiDynamic(fieldNumber, v)
+        case (Schema.SemiDynamic(_, _), v) => encodeSemiDynamic[Any](fieldNumber, v)
         case (_, _)                        => ()
       }
 
@@ -573,7 +562,7 @@ object ThriftCodec extends Codec {
         case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumDecoder(path, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case Schema.EnumN(cs, _)                                                                                                   => enumDecoder(path, cs.toSeq: _*)
         case Schema.Dynamic(_)                                                                                                     => dynamicDecoder(path)
-        case Schema.SemiDynamic(_, _)                                                                                              => semiDynamicDecoder(path)
+        case Schema.SemiDynamic(_, _)                                                                                              => semiDynamicDecoder[Any](path)
         case _                                                                                                                     => fail(path, s"Unknown schema ${schema.getClass.getName}")
 
       }
@@ -748,7 +737,7 @@ object ThriftCodec extends Codec {
               succeed(m)
             else {
               val actualPath = path :+ s"fieldId:${readField.id}"
-              fieldSchemas.get(readField.id) match {
+              fieldSchemas.get(readField.id.toInt) match {
                 case Some(fieldSchema) =>
                   decode(actualPath, fieldSchema) match {
                     case Left(err)    => Left(err)

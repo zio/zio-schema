@@ -2070,7 +2070,7 @@ private[schema] object DynamicValueSchema { self =>
       "Record",
       Schema.CaseClass1[Map[String, DynamicValue], DynamicValue.Record](
         Schema.Field("values", Schema.defer(Schema.map(Schema.primitive[String], DynamicValueSchema()))),
-        map => DynamicValue.Record(ListMap.from(map)),
+        map => DynamicValue.Record(ListMap.from[String, DynamicValue](map)),
         record => record.values
       ),
       _.asInstanceOf[DynamicValue.Record]
