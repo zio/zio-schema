@@ -42,7 +42,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
     element: Schema[A]
   ): Optic[S, S, Chunk[A], OpticFailure, OpticFailure, Chunk[A], S] =
     collection match {
-      case seq @ Schema.Sequence(_, _, _, _) =>
+      case seq @ Schema.Sequence(_, _, _, _, _) =>
         ZTraversal(
           ZioOpticsBuilder.makeSeqTraversalGet(seq),
           ZioOpticsBuilder.makeSeqTraversalSet(seq)
@@ -103,13 +103,13 @@ object ZioOpticsBuilder extends AccessorBuilder {
   }
 
   private[optics] def makeSeqTraversalGet[S, A](
-    collection: Schema.Sequence[S, A]
+    collection: Schema.Sequence[S, A, _]
   ): S => Either[(OpticFailure, S), Chunk[A]] = { whole: S =>
     Right(collection.toChunk(whole))
   }
 
   private[optics] def makeSeqTraversalSet[S, A](
-    collection: Schema.Sequence[S, A]
+    collection: Schema.Sequence[S, A, _]
   ): Chunk[A] => S => Either[(OpticFailure, S), S] = { (piece: Chunk[A]) => (whole: S) =>
     val builder       = ChunkBuilder.make[A]()
     val leftIterator  = collection.toChunk(whole).iterator

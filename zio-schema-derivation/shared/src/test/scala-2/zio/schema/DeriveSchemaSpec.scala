@@ -11,8 +11,21 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
 
   final case class annotation1(value: String) extends Annotation
   final case class annotation2(value: String) extends Annotation
-  final class annotation3                     extends Annotation
-  final class annotation4(val value: Int)     extends Annotation
+  final class annotation3 extends Annotation {
+    override def equals(obj: Any): Boolean =
+      obj.isInstanceOf[annotation3]
+
+    override def hashCode(): Int = 123214123
+  }
+  final class annotation4(val value: Int) extends Annotation {
+    override def equals(obj: Any): Boolean =
+      obj match {
+        case other: annotation4 => value == other.value
+        case _                  => false
+      }
+
+    override def hashCode(): Int = 45745623 ^ value
+  }
 
   val fo = new annotation1("foo")
 
@@ -248,7 +261,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       },
       test("correctly derives for case object") {
         val derived: Schema[Singleton.type]  = DeriveSchema.gen[Singleton.type]
-        val expected: Schema[Singleton.type] = Schema[Unit].transform(_ => Singleton, _ => ())
+        val expected: Schema[Singleton.type] = Schema.singleton(Singleton)
 
         assert(derived)(hasSameSchema(expected))
       },
