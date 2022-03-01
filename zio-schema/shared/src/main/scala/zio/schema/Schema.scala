@@ -557,7 +557,12 @@ sealed trait EnumSchemas { self: Schema.type =>
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4))
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(case1.id -> (case1.codec -> case1.annotations), case2.id -> (case2.codec -> case2.annotations), case3.id -> (case3.codec -> case3.annotations), case4.id -> (case4.codec -> case4.annotations))
+      ListMap(
+        case1.id -> (case1.codec -> case1.annotations),
+        case2.id -> (case2.codec -> case2.annotations),
+        case3.id -> (case3.codec -> case3.annotations),
+        case4.id -> (case4.codec -> case4.annotations)
+      )
   }
 
   sealed case class Enum5[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
@@ -571,7 +576,13 @@ sealed trait EnumSchemas { self: Schema.type =>
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5))
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(case1.id -> (case1.codec -> case1.annotations), case2.id -> (case2.codec -> case2.annotations), case3.id -> (case3.codec -> case3.annotations), case4.id -> (case4.codec -> case4.annotations), case5.id -> (case5.codec -> case5.annotations))
+      ListMap(
+        case1.id -> (case1.codec -> case1.annotations),
+        case2.id -> (case2.codec -> case2.annotations),
+        case3.id -> (case3.codec -> case3.annotations),
+        case4.id -> (case4.codec -> case4.annotations),
+        case5.id -> (case5.codec -> case5.annotations)
+      )
   }
 
   sealed case class Enum6[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
@@ -585,7 +596,14 @@ sealed trait EnumSchemas { self: Schema.type =>
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4), b.makePrism(self, case5), b.makePrism(self, case6))
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(case1.id -> (case1.codec -> case1.annotations), case2.id -> (case2.codec -> case2.annotations), case3.id -> (case3.codec -> case3.annotations), case4.id -> (case4.codec -> case4.annotations), case5.id -> (case5.codec -> case5.annotations), case6.id -> (case6.codec -> case6.annotations))
+      ListMap(
+        case1.id -> (case1.codec -> case1.annotations),
+        case2.id -> (case2.codec -> case2.annotations),
+        case3.id -> (case3.codec -> case3.annotations),
+        case4.id -> (case4.codec -> case4.annotations),
+        case5.id -> (case5.codec -> case5.annotations),
+        case6.id -> (case6.codec -> case6.annotations)
+      )
   }
 
   sealed case class Enum7[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, Z](case1: Case[A1, Z], case2: Case[A2, Z], case3: Case[A3, Z], case4: Case[A4, Z], case5: Case[A5, Z], case6: Case[A6, Z], case7: Case[A7, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
@@ -668,15 +686,15 @@ sealed trait EnumSchemas { self: Schema.type =>
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec -> case1.annotations),
-        case2.id  -> (case2.codec -> case2.annotations),
-        case3.id  -> (case3.codec -> case3.annotations),
-        case4.id  -> (case4.codec -> case4.annotations),
-        case5.id  -> (case5.codec -> case5.annotations),
-        case6.id  -> (case6.codec -> case6.annotations),
-        case7.id  -> (case7.codec -> case7.annotations),
-        case8.id  -> (case8.codec -> case8.annotations),
-        case9.id  -> (case9.codec -> case9.annotations),
+        case1.id  -> (case1.codec  -> case1.annotations),
+        case2.id  -> (case2.codec  -> case2.annotations),
+        case3.id  -> (case3.codec  -> case3.annotations),
+        case4.id  -> (case4.codec  -> case4.annotations),
+        case5.id  -> (case5.codec  -> case5.annotations),
+        case6.id  -> (case6.codec  -> case6.annotations),
+        case7.id  -> (case7.codec  -> case7.annotations),
+        case8.id  -> (case8.codec  -> case8.annotations),
+        case9.id  -> (case9.codec  -> case9.annotations),
         case10.id -> (case10.codec -> case10.annotations)
       )
   }
@@ -693,15 +711,15 @@ sealed trait EnumSchemas { self: Schema.type =>
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec -> case1.annotations),
-        case2.id  -> (case2.codec -> case2.annotations),
-        case3.id  -> (case3.codec -> case3.annotations),
-        case4.id  -> (case4.codec -> case4.annotations),
-        case5.id  -> (case5.codec -> case5.annotations),
-        case6.id  -> (case6.codec -> case6.annotations),
-        case7.id  -> (case7.codec -> case7.annotations),
-        case8.id  -> (case8.codec -> case8.annotations),
-        case9.id  -> (case9.codec -> case9.annotations),
+        case1.id  -> (case1.codec  -> case1.annotations),
+        case2.id  -> (case2.codec  -> case2.annotations),
+        case3.id  -> (case3.codec  -> case3.annotations),
+        case4.id  -> (case4.codec  -> case4.annotations),
+        case5.id  -> (case5.codec  -> case5.annotations),
+        case6.id  -> (case6.codec  -> case6.annotations),
+        case7.id  -> (case7.codec  -> case7.annotations),
+        case8.id  -> (case8.codec  -> case8.annotations),
+        case9.id  -> (case9.codec  -> case9.annotations),
         case10.id -> (case10.codec -> case10.annotations),
         case11.id -> (case11.codec -> case11.annotations)
       )
@@ -732,15 +750,15 @@ sealed trait EnumSchemas { self: Schema.type =>
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec -> case1.annotations),
-        case2.id  -> (case2.codec -> case2.annotations),
-        case3.id  -> (case3.codec -> case3.annotations),
-        case4.id  -> (case4.codec -> case4.annotations),
-        case5.id  -> (case5.codec -> case5.annotations),
-        case6.id  -> (case6.codec -> case6.annotations),
-        case7.id  -> (case7.codec -> case7.annotations),
-        case8.id  -> (case8.codec -> case8.annotations),
-        case9.id  -> (case9.codec -> case9.annotations),
+        case1.id  -> (case1.codec  -> case1.annotations),
+        case2.id  -> (case2.codec  -> case2.annotations),
+        case3.id  -> (case3.codec  -> case3.annotations),
+        case4.id  -> (case4.codec  -> case4.annotations),
+        case5.id  -> (case5.codec  -> case5.annotations),
+        case6.id  -> (case6.codec  -> case6.annotations),
+        case7.id  -> (case7.codec  -> case7.annotations),
+        case8.id  -> (case8.codec  -> case8.annotations),
+        case9.id  -> (case9.codec  -> case9.annotations),
         case10.id -> (case10.codec -> case10.annotations),
         case11.id -> (case11.codec -> case11.annotations),
         case12.id -> (case12.codec -> case12.annotations)
@@ -773,15 +791,15 @@ sealed trait EnumSchemas { self: Schema.type =>
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec -> case1.annotations),
-        case2.id  -> (case2.codec -> case2.annotations),
-        case3.id  -> (case3.codec -> case3.annotations),
-        case4.id  -> (case4.codec -> case4.annotations),
-        case5.id  -> (case5.codec -> case5.annotations),
-        case6.id  -> (case6.codec -> case6.annotations),
-        case7.id  -> (case7.codec -> case7.annotations),
-        case8.id  -> (case8.codec -> case8.annotations),
-        case9.id  -> (case9.codec -> case9.annotations),
+        case1.id  -> (case1.codec  -> case1.annotations),
+        case2.id  -> (case2.codec  -> case2.annotations),
+        case3.id  -> (case3.codec  -> case3.annotations),
+        case4.id  -> (case4.codec  -> case4.annotations),
+        case5.id  -> (case5.codec  -> case5.annotations),
+        case6.id  -> (case6.codec  -> case6.annotations),
+        case7.id  -> (case7.codec  -> case7.annotations),
+        case8.id  -> (case8.codec  -> case8.annotations),
+        case9.id  -> (case9.codec  -> case9.annotations),
         case10.id -> (case10.codec -> case10.annotations),
         case11.id -> (case11.codec -> case11.annotations),
         case12.id -> (case12.codec -> case12.annotations),
@@ -817,15 +835,15 @@ sealed trait EnumSchemas { self: Schema.type =>
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec -> case1.annotations),
-        case2.id  -> (case2.codec -> case2.annotations),
-        case3.id  -> (case3.codec -> case3.annotations),
-        case4.id  -> (case4.codec -> case4.annotations),
-        case5.id  -> (case5.codec -> case5.annotations),
-        case6.id  -> (case6.codec -> case6.annotations),
-        case7.id  -> (case7.codec -> case7.annotations),
-        case8.id  -> (case8.codec -> case8.annotations),
-        case9.id  -> (case9.codec -> case9.annotations),
+        case1.id  -> (case1.codec  -> case1.annotations),
+        case2.id  -> (case2.codec  -> case2.annotations),
+        case3.id  -> (case3.codec  -> case3.annotations),
+        case4.id  -> (case4.codec  -> case4.annotations),
+        case5.id  -> (case5.codec  -> case5.annotations),
+        case6.id  -> (case6.codec  -> case6.annotations),
+        case7.id  -> (case7.codec  -> case7.annotations),
+        case8.id  -> (case8.codec  -> case8.annotations),
+        case9.id  -> (case9.codec  -> case9.annotations),
         case10.id -> (case10.codec -> case10.annotations),
         case11.id -> (case11.codec -> case11.annotations),
         case12.id -> (case12.codec -> case12.annotations),
@@ -878,15 +896,15 @@ sealed trait EnumSchemas { self: Schema.type =>
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec -> case1.annotations),
-        case2.id  -> (case2.codec -> case2.annotations),
-        case3.id  -> (case3.codec -> case3.annotations),
-        case4.id  -> (case4.codec -> case4.annotations),
-        case5.id  -> (case5.codec -> case5.annotations),
-        case6.id  -> (case6.codec -> case6.annotations),
-        case7.id  -> (case7.codec -> case7.annotations),
-        case8.id  -> (case8.codec -> case8.annotations),
-        case9.id  -> (case9.codec -> case9.annotations),
+        case1.id  -> (case1.codec  -> case1.annotations),
+        case2.id  -> (case2.codec  -> case2.annotations),
+        case3.id  -> (case3.codec  -> case3.annotations),
+        case4.id  -> (case4.codec  -> case4.annotations),
+        case5.id  -> (case5.codec  -> case5.annotations),
+        case6.id  -> (case6.codec  -> case6.annotations),
+        case7.id  -> (case7.codec  -> case7.annotations),
+        case8.id  -> (case8.codec  -> case8.annotations),
+        case9.id  -> (case9.codec  -> case9.annotations),
         case10.id -> (case10.codec -> case10.annotations),
         case11.id -> (case11.codec -> case11.annotations),
         case12.id -> (case12.codec -> case12.annotations),
@@ -942,15 +960,15 @@ sealed trait EnumSchemas { self: Schema.type =>
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec -> case1.annotations),
-        case2.id  -> (case2.codec -> case2.annotations),
-        case3.id  -> (case3.codec -> case3.annotations),
-        case4.id  -> (case4.codec -> case4.annotations),
-        case5.id  -> (case5.codec -> case5.annotations),
-        case6.id  -> (case6.codec -> case6.annotations),
-        case7.id  -> (case7.codec -> case7.annotations),
-        case8.id  -> (case8.codec -> case8.annotations),
-        case9.id  -> (case9.codec -> case9.annotations),
+        case1.id  -> (case1.codec  -> case1.annotations),
+        case2.id  -> (case2.codec  -> case2.annotations),
+        case3.id  -> (case3.codec  -> case3.annotations),
+        case4.id  -> (case4.codec  -> case4.annotations),
+        case5.id  -> (case5.codec  -> case5.annotations),
+        case6.id  -> (case6.codec  -> case6.annotations),
+        case7.id  -> (case7.codec  -> case7.annotations),
+        case8.id  -> (case8.codec  -> case8.annotations),
+        case9.id  -> (case9.codec  -> case9.annotations),
         case10.id -> (case10.codec -> case10.annotations),
         case11.id -> (case11.codec -> case11.annotations),
         case12.id -> (case12.codec -> case12.annotations),
@@ -1009,15 +1027,15 @@ sealed trait EnumSchemas { self: Schema.type =>
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec -> case1.annotations),
-        case2.id  -> (case2.codec -> case2.annotations),
-        case3.id  -> (case3.codec -> case3.annotations),
-        case4.id  -> (case4.codec -> case4.annotations),
-        case5.id  -> (case5.codec -> case5.annotations),
-        case6.id  -> (case6.codec -> case6.annotations),
-        case7.id  -> (case7.codec -> case7.annotations),
-        case8.id  -> (case8.codec -> case8.annotations),
-        case9.id  -> (case9.codec -> case9.annotations),
+        case1.id  -> (case1.codec  -> case1.annotations),
+        case2.id  -> (case2.codec  -> case2.annotations),
+        case3.id  -> (case3.codec  -> case3.annotations),
+        case4.id  -> (case4.codec  -> case4.annotations),
+        case5.id  -> (case5.codec  -> case5.annotations),
+        case6.id  -> (case6.codec  -> case6.annotations),
+        case7.id  -> (case7.codec  -> case7.annotations),
+        case8.id  -> (case8.codec  -> case8.annotations),
+        case9.id  -> (case9.codec  -> case9.annotations),
         case10.id -> (case10.codec -> case10.annotations),
         case11.id -> (case11.codec -> case11.annotations),
         case12.id -> (case12.codec -> case12.annotations),
@@ -1079,15 +1097,15 @@ sealed trait EnumSchemas { self: Schema.type =>
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec -> case1.annotations),
-        case2.id  -> (case2.codec -> case2.annotations),
-        case3.id  -> (case3.codec -> case3.annotations),
-        case4.id  -> (case4.codec -> case4.annotations),
-        case5.id  -> (case5.codec -> case5.annotations),
-        case6.id  -> (case6.codec -> case6.annotations),
-        case7.id  -> (case7.codec -> case7.annotations),
-        case8.id  -> (case8.codec -> case8.annotations),
-        case9.id  -> (case9.codec -> case9.annotations),
+        case1.id  -> (case1.codec  -> case1.annotations),
+        case2.id  -> (case2.codec  -> case2.annotations),
+        case3.id  -> (case3.codec  -> case3.annotations),
+        case4.id  -> (case4.codec  -> case4.annotations),
+        case5.id  -> (case5.codec  -> case5.annotations),
+        case6.id  -> (case6.codec  -> case6.annotations),
+        case7.id  -> (case7.codec  -> case7.annotations),
+        case8.id  -> (case8.codec  -> case8.annotations),
+        case9.id  -> (case9.codec  -> case9.annotations),
         case10.id -> (case10.codec -> case10.annotations),
         case11.id -> (case11.codec -> case11.annotations),
         case12.id -> (case12.codec -> case12.annotations),
@@ -1152,15 +1170,15 @@ sealed trait EnumSchemas { self: Schema.type =>
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec -> case1.annotations),
-        case2.id  -> (case2.codec -> case2.annotations),
-        case3.id  -> (case3.codec -> case3.annotations),
-        case4.id  -> (case4.codec -> case4.annotations),
-        case5.id  -> (case5.codec -> case5.annotations),
-        case6.id  -> (case6.codec -> case6.annotations),
-        case7.id  -> (case7.codec -> case7.annotations),
-        case8.id  -> (case8.codec -> case8.annotations),
-        case9.id  -> (case9.codec -> case9.annotations),
+        case1.id  -> (case1.codec  -> case1.annotations),
+        case2.id  -> (case2.codec  -> case2.annotations),
+        case3.id  -> (case3.codec  -> case3.annotations),
+        case4.id  -> (case4.codec  -> case4.annotations),
+        case5.id  -> (case5.codec  -> case5.annotations),
+        case6.id  -> (case6.codec  -> case6.annotations),
+        case7.id  -> (case7.codec  -> case7.annotations),
+        case8.id  -> (case8.codec  -> case8.annotations),
+        case9.id  -> (case9.codec  -> case9.annotations),
         case10.id -> (case10.codec -> case10.annotations),
         case11.id -> (case11.codec -> case11.annotations),
         case12.id -> (case12.codec -> case12.annotations),
@@ -1228,15 +1246,15 @@ sealed trait EnumSchemas { self: Schema.type =>
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec -> case1.annotations),
-        case2.id  -> (case2.codec -> case2.annotations),
-        case3.id  -> (case3.codec -> case3.annotations),
-        case4.id  -> (case4.codec -> case4.annotations),
-        case5.id  -> (case5.codec -> case5.annotations),
-        case6.id  -> (case6.codec -> case6.annotations),
-        case7.id  -> (case7.codec -> case7.annotations),
-        case8.id  -> (case8.codec -> case8.annotations),
-        case9.id  -> (case9.codec -> case9.annotations),
+        case1.id  -> (case1.codec  -> case1.annotations),
+        case2.id  -> (case2.codec  -> case2.annotations),
+        case3.id  -> (case3.codec  -> case3.annotations),
+        case4.id  -> (case4.codec  -> case4.annotations),
+        case5.id  -> (case5.codec  -> case5.annotations),
+        case6.id  -> (case6.codec  -> case6.annotations),
+        case7.id  -> (case7.codec  -> case7.annotations),
+        case8.id  -> (case8.codec  -> case8.annotations),
+        case9.id  -> (case9.codec  -> case9.annotations),
         case10.id -> (case10.codec -> case10.annotations),
         case11.id -> (case11.codec -> case11.annotations),
         case12.id -> (case12.codec -> case12.annotations),
@@ -1309,15 +1327,15 @@ sealed trait EnumSchemas { self: Schema.type =>
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec -> case1.annotations),
-        case2.id  -> (case2.codec -> case2.annotations),
-        case3.id  -> (case3.codec -> case3.annotations),
-        case4.id  -> (case4.codec -> case4.annotations),
-        case5.id  -> (case5.codec -> case5.annotations),
-        case6.id  -> (case6.codec -> case6.annotations),
-        case7.id  -> (case7.codec -> case7.annotations),
-        case8.id  -> (case8.codec -> case8.annotations),
-        case9.id  -> (case9.codec -> case9.annotations),
+        case1.id  -> (case1.codec  -> case1.annotations),
+        case2.id  -> (case2.codec  -> case2.annotations),
+        case3.id  -> (case3.codec  -> case3.annotations),
+        case4.id  -> (case4.codec  -> case4.annotations),
+        case5.id  -> (case5.codec  -> case5.annotations),
+        case6.id  -> (case6.codec  -> case6.annotations),
+        case7.id  -> (case7.codec  -> case7.annotations),
+        case8.id  -> (case8.codec  -> case8.annotations),
+        case9.id  -> (case9.codec  -> case9.annotations),
         case10.id -> (case10.codec -> case10.annotations),
         case11.id -> (case11.codec -> case11.annotations),
         case12.id -> (case12.codec -> case12.annotations),
@@ -1393,15 +1411,15 @@ sealed trait EnumSchemas { self: Schema.type =>
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec -> case1.annotations),
-        case2.id  -> (case2.codec -> case2.annotations),
-        case3.id  -> (case3.codec -> case3.annotations),
-        case4.id  -> (case4.codec -> case4.annotations),
-        case5.id  -> (case5.codec -> case5.annotations),
-        case6.id  -> (case6.codec -> case6.annotations),
-        case7.id  -> (case7.codec -> case7.annotations),
-        case8.id  -> (case8.codec -> case8.annotations),
-        case9.id  -> (case9.codec -> case9.annotations),
+        case1.id  -> (case1.codec  -> case1.annotations),
+        case2.id  -> (case2.codec  -> case2.annotations),
+        case3.id  -> (case3.codec  -> case3.annotations),
+        case4.id  -> (case4.codec  -> case4.annotations),
+        case5.id  -> (case5.codec  -> case5.annotations),
+        case6.id  -> (case6.codec  -> case6.annotations),
+        case7.id  -> (case7.codec  -> case7.annotations),
+        case8.id  -> (case8.codec  -> case8.annotations),
+        case9.id  -> (case9.codec  -> case9.annotations),
         case10.id -> (case10.codec -> case10.annotations),
         case11.id -> (case11.codec -> case11.annotations),
         case12.id -> (case12.codec -> case12.annotations),
