@@ -42,7 +42,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
     element: Schema[A]
   ): Optic[S, S, Chunk[A], OpticFailure, OpticFailure, Chunk[A], S] =
     collection match {
-      case seq @ Schema.Sequence(_, _, _, _) =>
+      case seq @ Schema.Sequence(_, _, _, _, _) =>
         ZTraversal(
           ZioOpticsBuilder.makeSeqTraversalGet(seq),
           ZioOpticsBuilder.makeSeqTraversalSet(seq)
@@ -51,6 +51,11 @@ object ZioOpticsBuilder extends AccessorBuilder {
         ZTraversal(
           ZioOpticsBuilder.makeMapTraversalGet,
           ZioOpticsBuilder.makeMapTraversalSet
+        )
+      case Schema.SetSchema(_, _) =>
+        ZTraversal(
+          ZioOpticsBuilder.makeSetTraversalGet,
+          ZioOpticsBuilder.makeSetTraversalSet
         )
     }
 
@@ -98,13 +103,13 @@ object ZioOpticsBuilder extends AccessorBuilder {
   }
 
   private[optics] def makeSeqTraversalGet[S, A](
-    collection: Schema.Sequence[S, A]
+    collection: Schema.Sequence[S, A, _]
   ): S => Either[(OpticFailure, S), Chunk[A]] = { whole: S =>
     Right(collection.toChunk(whole))
   }
 
   private[optics] def makeSeqTraversalSet[S, A](
-    collection: Schema.Sequence[S, A]
+    collection: Schema.Sequence[S, A, _]
   ): Chunk[A] => S => Either[(OpticFailure, S), S] = { (piece: Chunk[A]) => (whole: S) =>
     val builder       = ChunkBuilder.make[A]()
     val leftIterator  = collection.toChunk(whole).iterator
@@ -126,6 +131,14 @@ object ZioOpticsBuilder extends AccessorBuilder {
     : Chunk[(K, V)] => Map[K, V] => Either[(OpticFailure, Map[K, V]), Map[K, V]] = {
     (piece: Chunk[(K, V)]) => (whole: Map[K, V]) =>
       Right(whole ++ piece.toList)
+  }
+
+  private[optics] def makeSetTraversalGet[A](whole: Set[A]): Either[(OpticFailure, Set[A]), Chunk[A]] =
+    Right(Chunk.fromIterable(whole))
+
+  private[optics] def makeSetTraversalSet[A]: Chunk[A] => Set[A] => Either[(OpticFailure, Set[A]), Set[A]] = {
+    (piece: Chunk[A]) => (whole: Set[A]) =>
+      Right(whole ++ piece.toSet)
   }
 
   private def spliceRecord(

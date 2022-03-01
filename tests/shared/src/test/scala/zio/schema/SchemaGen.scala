@@ -152,6 +152,42 @@ object SchemaGen {
         CaseSet.Cons(_case, acc)
     }
 
+  lazy val anyMap: Gen[Random with Sized, Schema.MapSchema[_, _]] =
+    anySchema.zipWith(anySchema) { (a, b) =>
+      Schema.MapSchema(a, b, Chunk.empty)
+    }
+  type MapAndGen[K, V] = (Schema.MapSchema[K, V], Gen[Random with Sized, Map[K, V]])
+
+  val anyMapAndGen: Gen[Random with Sized, MapAndGen[_, _]] =
+    for {
+      (schemaK, genK) <- anyPrimitiveAndGen
+      (schemaV, genV) <- anyPrimitiveAndGen
+    } yield Schema.MapSchema(schemaK, schemaV, Chunk.empty) -> (genK.flatMap(k => genV.map(v => Map(k -> v))))
+
+  type MapAndValue[K, V] = (Schema.MapSchema[K, V], Map[K, V])
+
+  val anyMapAndValue: Gen[Random with Sized, MapAndValue[_, _]] =
+    for {
+      (schema, gen) <- anyMapAndGen
+      map           <- gen
+    } yield schema -> map
+
+  type SetAndGen[A] = (Schema.SetSchema[A], Gen[Random with Sized, Set[A]])
+
+  val anySetAndGen: Gen[Random with Sized, SetAndGen[_]] =
+    anyPrimitiveAndGen.map {
+      case (schema, gen) =>
+        Schema.SetSchema(schema, Chunk.empty) -> Gen.setOf(gen)
+    }
+
+  type SetAndValue[A] = (Schema.SetSchema[A], Set[A])
+
+  val anySetAndValue: Gen[Random with Sized, SetAndValue[_]] =
+    for {
+      (schema, gen) <- anySetAndGen
+      value         <- gen
+    } yield schema -> value
+
   val anyEnumeration: Gen[Random with Sized, Schema[Any]] =
     anyEnumeration(anySchema).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_))
 
@@ -220,7 +256,7 @@ object SchemaGen {
       (key3, value3)
     )
 
-  type SequenceTransform[A] = Schema.Transform[Chunk[A], List[A]]
+  type SequenceTransform[A] = Schema.Transform[Chunk[A], List[A], String]
 
   val anySequenceTransform: Gen[Random with Sized, SequenceTransform[_]] = {
     anySequence.map(schema => transformSequence(schema))
@@ -236,11 +272,12 @@ object SchemaGen {
 
   // TODO: Add some random Left values.
   private def transformSequence[A](schema: Schema[Chunk[A]]): SequenceTransform[A] =
-    Schema.Transform[Chunk[A], List[A]](
+    Schema.Transform[Chunk[A], List[A], String](
       schema,
       chunk => Right(chunk.toList),
       list => Right(Chunk.fromIterable(list)),
-      Chunk.empty
+      Chunk.empty,
+      "transformSequence"
     )
 
   type SequenceTransformAndValue[A] = (SequenceTransform[A], List[A])
@@ -251,7 +288,7 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  type RecordTransform[A] = Schema.Transform[ListMap[String, _], A]
+  type RecordTransform[A] = Schema.Transform[ListMap[String, _], A, String]
 
   val anyRecordTransform: Gen[Random with Sized, RecordTransform[_]] = {
     anyRecord.map(schema => transformRecord(schema))
@@ -268,11 +305,12 @@ object SchemaGen {
 
   // TODO: Dynamically generate a case class.
   def transformRecord[A](schema: Schema[ListMap[String, _]]): RecordTransform[A] =
-    Schema.Transform[ListMap[String, _], A](
+    Schema.Transform[ListMap[String, _], A, String](
       schema,
       _ => Left("Not implemented."),
       _ => Left("Not implemented."),
-      Chunk.empty
+      Chunk.empty,
+      "transformRecord"
     )
 
   type RecordTransformAndValue[A] = (RecordTransform[A], A)
@@ -283,7 +321,7 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  type EnumerationTransform[A] = Schema.Transform[Any, A]
+  type EnumerationTransform[A] = Schema.Transform[Any, A, String]
 
   val anyEnumerationTransform: Gen[Random with Sized, EnumerationTransform[_]] = {
     anyEnumeration.map(schema => transformEnumeration(schema))
@@ -300,7 +338,13 @@ object SchemaGen {
 
   // TODO: Dynamically generate a sealed trait and case/value classes.
   def transformEnumeration[A](schema: Schema[Any]): EnumerationTransform[_] =
-    Schema.Transform[Any, A](schema, _ => Left("Not implemented."), _ => Left("Not implemented."), Chunk.empty)
+    Schema.Transform[Any, A, String](
+      schema,
+      _ => Left("Not implemented."),
+      _ => Left("Not implemented."),
+      Chunk.empty,
+      "transformEnumeration"
+    )
 
   type EnumerationTransformAndValue[A] = (EnumerationTransform[A], A)
 
@@ -310,13 +354,13 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  val anyTransform: Gen[Random with Sized, Schema.Transform[_, _]] = Gen.oneOf(
+  val anyTransform: Gen[Random with Sized, Schema.Transform[_, _, _]] = Gen.oneOf(
     anySequenceTransform,
     anyRecordTransform,
     anyEnumerationTransform
   )
 
-  type TransformAndValue[A] = (Schema.Transform[_, A], A)
+  type TransformAndValue[A] = (Schema.Transform[_, A, String], A)
 
   val anyTransformAndValue: Gen[Random with Sized, TransformAndValue[_]] =
     Gen.oneOf[Random with Sized, TransformAndValue[_]](
@@ -325,7 +369,7 @@ object SchemaGen {
       // anyEnumerationTransformAndValue
     )
 
-  type TransformAndGen[A] = (Schema.Transform[_, A], Gen[Random with Sized, A])
+  type TransformAndGen[A] = (Schema.Transform[_, A, String], Gen[Random with Sized, A])
 
   val anyTransformAndGen: Gen[Random with Sized, TransformAndGen[_]] =
     Gen.oneOf[Random with Sized, TransformAndGen[_]](
@@ -578,40 +622,40 @@ object SchemaGen {
     ),
     SchemaTest("DayOfWeek", StandardType.DayOfWeekType, JavaTimeGen.anyDayOfWeek),
     SchemaTest("Duration", StandardType.Duration(ChronoUnit.SECONDS), JavaTimeGen.anyDuration),
-    SchemaTest("Instant", StandardType.Instant(DateTimeFormatter.ISO_DATE_TIME), JavaTimeGen.anyInstant),
-    SchemaTest("LocalDate", StandardType.LocalDate(DateTimeFormatter.ISO_DATE), JavaTimeGen.anyLocalDate),
+    SchemaTest("Instant", StandardType.InstantType(DateTimeFormatter.ISO_DATE_TIME), JavaTimeGen.anyInstant),
+    SchemaTest("LocalDate", StandardType.LocalDateType(DateTimeFormatter.ISO_DATE), JavaTimeGen.anyLocalDate),
     SchemaTest(
       "LocalDateTime",
-      StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+      StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
       JavaTimeGen.anyLocalDateTime
     ),
     SchemaTest(
       "LocalTime",
-      StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME),
+      StandardType.LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME),
       JavaTimeGen.anyLocalTime
     ),
-    SchemaTest("Month", StandardType.Month, JavaTimeGen.anyMonth),
-    SchemaTest("MonthDay", StandardType.MonthDay, JavaTimeGen.anyMonthDay),
+    SchemaTest("Month", StandardType.MonthType, JavaTimeGen.anyMonth),
+    SchemaTest("MonthDay", StandardType.MonthDayType, JavaTimeGen.anyMonthDay),
     SchemaTest(
       "OffsetDateTime",
-      StandardType.OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+      StandardType.OffsetDateTimeType(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
       JavaTimeGen.anyOffsetDateTime
     ),
     SchemaTest(
       "OffsetTime",
-      StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME),
+      StandardType.OffsetTimeType(DateTimeFormatter.ISO_OFFSET_TIME),
       JavaTimeGen.anyOffsetTime
     ),
-    SchemaTest("Period", StandardType.Period, JavaTimeGen.anyPeriod),
-    SchemaTest("Year", StandardType.Year, JavaTimeGen.anyYear),
-    SchemaTest("YearMonth", StandardType.YearMonth, JavaTimeGen.anyYearMonth),
+    SchemaTest("Period", StandardType.PeriodType, JavaTimeGen.anyPeriod),
+    SchemaTest("Year", StandardType.YearType, JavaTimeGen.anyYear),
+    SchemaTest("YearMonth", StandardType.YearMonthType, JavaTimeGen.anyYearMonth),
     SchemaTest(
       "ZonedDateTime",
-      StandardType.ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME),
+      StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME),
       JavaTimeGen.anyZonedDateTime
     ),
-    SchemaTest("ZoneId", StandardType.ZoneId, JavaTimeGen.anyZoneId),
-    SchemaTest("ZoneOffset", StandardType.ZoneOffset, JavaTimeGen.anyZoneOffset),
+    SchemaTest("ZoneId", StandardType.ZoneIdType, JavaTimeGen.anyZoneId),
+    SchemaTest("ZoneOffset", StandardType.ZoneOffsetType, JavaTimeGen.anyZoneOffset),
     SchemaTest("UnitType", StandardType.UnitType, Gen.unit)
   )
 

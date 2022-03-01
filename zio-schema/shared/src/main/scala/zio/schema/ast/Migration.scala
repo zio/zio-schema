@@ -64,15 +64,14 @@ object Migration {
       fromSubtree: SchemaAst,
       toSubtree: SchemaAst,
       ignoreRefs: Boolean
-    ): Either[String, Chunk[Migration]] = (fromSubtree, toSubtree) match {
-      case (f: SchemaAst.FailNode, t: SchemaAst.FailNode) =>
-        Right(
-          if (f.message == t.message)
-            Chunk.empty
-          else
-            transformShape(path, f, t) :+ UpdateFail(path, t.message)
-        )
-      case (f @ SchemaAst.Product(_, ffields, _, _), t @ SchemaAst.Product(_, tfields, _, _)) =>
+    ): Either[String, Chunk[Migration]] = {
+
+      def goProduct(
+        f: SchemaAst,
+        t: SchemaAst,
+        ffields: Chunk[(String, SchemaAst)],
+        tfields: Chunk[(String, SchemaAst)]
+      ): Either[String, Chunk[Migration]] =
         matchedSubtrees(ffields, tfields).map {
           case ((nextPath, fs), (_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
         }.foldRight[Either[String, Chunk[Migration]]](Right(Chunk.empty)) {
@@ -88,7 +87,13 @@ object Migration {
               tfields
             )
           )
-      case (f @ SchemaAst.Sum(_, fcases, _, _), t @ SchemaAst.Sum(_, tcases, _, _)) =>
+
+      def goSum(
+        f: SchemaAst,
+        t: SchemaAst,
+        fcases: Chunk[(String, SchemaAst)],
+        tcases: Chunk[(String, SchemaAst)]
+      ): Either[String, Chunk[Migration]] =
         matchedSubtrees(fcases, tcases).map {
           case ((nextPath, fs), (_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
         }.foldRight[Either[String, Chunk[Migration]]](Right(Chunk.empty)) {
@@ -104,19 +109,53 @@ object Migration {
               tcases
             )
           )
-      case (f @ SchemaAst.Value(ftype, _, _, _), t @ SchemaAst.Value(ttype, _, _, _)) if ttype != ftype =>
-        Right(transformShape(path, f, t) :+ ChangeType(path, ttype))
-      case (f @ SchemaAst.Value(_, _, _, _), t @ SchemaAst.Value(_, _, _, _)) =>
-        Right(transformShape(path, f, t))
-      case (f @ SchemaAst.Ref(fromRef, nodePath, _, _), t @ SchemaAst.Ref(toRef, _, _, _)) if fromRef == toRef =>
-        if (ignoreRefs) Right(Chunk.empty)
-        else {
-          val recursiveMigrations = acc
-            .filter(_.path.isSubpathOf(fromRef))
-            .map(relativize(fromRef, nodePath.relativeTo(fromRef)))
-          Right(recursiveMigrations ++ transformShape(path, f, t))
-        }
-      case (f, t) => Left(s"Subtrees at path ${renderPath(path)} are not homomorphic: $f cannot be mapped to $t")
+
+      (fromSubtree, toSubtree) match {
+        case (f: SchemaAst.FailNode, t: SchemaAst.FailNode) =>
+          Right(
+            if (f.message == t.message)
+              Chunk.empty
+            else
+              transformShape(path, f, t) :+ UpdateFail(path, t.message)
+          )
+        case (f @ SchemaAst.Product(_, ffields, _, _), t @ SchemaAst.Product(_, tfields, _, _)) =>
+          goProduct(f, t, ffields, tfields)
+        case (f @ SchemaAst.Tuple(_, fleft, fright, _, _), t @ SchemaAst.Tuple(_, tleft, tright, _, _)) =>
+          val ffields = Chunk("left" -> fleft, "right" -> fright)
+          val tfields = Chunk("left" -> tleft, "right" -> tright)
+          goProduct(f, t, ffields, tfields)
+        case (f @ SchemaAst.Product(_, ffields, _, _), t @ SchemaAst.Tuple(_, tleft, tright, _, _)) =>
+          val tfields = Chunk("left" -> tleft, "right" -> tright)
+          goProduct(f, t, ffields, tfields)
+        case (f @ SchemaAst.Tuple(_, fleft, fright, _, _), t @ SchemaAst.Product(_, tfields, _, _)) =>
+          val ffields = Chunk("left" -> fleft, "right" -> fright)
+          goProduct(f, t, ffields, tfields)
+        case (f @ SchemaAst.Sum(_, fcases, _, _), t @ SchemaAst.Sum(_, tcases, _, _)) =>
+          goSum(f, t, fcases, tcases)
+        case (f @ SchemaAst.Either(_, fleft, fright, _, _), t @ SchemaAst.Either(_, tleft, tright, _, _)) =>
+          val fcases = Chunk("left" -> fleft, "right" -> fright)
+          val tcases = Chunk("left" -> tleft, "right" -> tright)
+          goSum(f, t, fcases, tcases)
+        case (f @ SchemaAst.Sum(_, fcases, _, _), t @ SchemaAst.Either(_, tleft, tright, _, _)) =>
+          val tcases = Chunk("left" -> tleft, "right" -> tright)
+          goSum(f, t, fcases, tcases)
+        case (f @ SchemaAst.Either(_, fleft, fright, _, _), t @ SchemaAst.Sum(_, tcases, _, _)) =>
+          val fcases = Chunk("left" -> fleft, "right" -> fright)
+          goSum(f, t, fcases, tcases)
+        case (f @ SchemaAst.Value(ftype, _, _, _), t @ SchemaAst.Value(ttype, _, _, _)) if ttype != ftype =>
+          Right(transformShape(path, f, t) :+ ChangeType(path, ttype))
+        case (f @ SchemaAst.Value(_, _, _, _), t @ SchemaAst.Value(_, _, _, _)) =>
+          Right(transformShape(path, f, t))
+        case (f @ SchemaAst.Ref(fromRef, nodePath, _, _), t @ SchemaAst.Ref(toRef, _, _, _)) if fromRef == toRef =>
+          if (ignoreRefs) Right(Chunk.empty)
+          else {
+            val recursiveMigrations = acc
+              .filter(_.path.isSubpathOf(fromRef))
+              .map(relativize(fromRef, nodePath.relativeTo(fromRef)))
+            Right(recursiveMigrations ++ transformShape(path, f, t))
+          }
+        case (f, t) => Left(s"Subtrees at path ${renderPath(path)} are not homomorphic: $f cannot be mapped to $t")
+      }
     }
 
     for {

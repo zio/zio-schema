@@ -271,30 +271,33 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         test("instants") {
           val value = Instant.now()
           for {
-            ed  <- encodeAndDecode(Primitive(StandardType.Instant(DateTimeFormatter.ISO_INSTANT)), value)
-            ed2 <- encodeAndDecodeNS(Primitive(StandardType.Instant(DateTimeFormatter.ISO_INSTANT)), value)
+            ed  <- encodeAndDecode(Primitive(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT)), value)
+            ed2 <- encodeAndDecodeNS(Primitive(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT)), value)
           } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         },
         test("local dates") {
           val value = LocalDate.now()
           for {
-            ed  <- encodeAndDecode(Primitive(StandardType.LocalDate(DateTimeFormatter.ISO_LOCAL_DATE)), value)
-            ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalDate(DateTimeFormatter.ISO_LOCAL_DATE)), value)
+            ed  <- encodeAndDecode(Primitive(StandardType.LocalDateType(DateTimeFormatter.ISO_LOCAL_DATE)), value)
+            ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalDateType(DateTimeFormatter.ISO_LOCAL_DATE)), value)
           } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         },
         test("local times") {
           val value = LocalTime.now()
           for {
-            ed  <- encodeAndDecode(Primitive(StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME)), value)
-            ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME)), value)
+            ed  <- encodeAndDecode(Primitive(StandardType.LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME)), value)
+            ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME)), value)
           } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         },
         test("local date times") {
           val value = LocalDateTime.now()
           for {
-            ed <- encodeAndDecode(Primitive(StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME)), value)
+            ed <- encodeAndDecode(
+                   Primitive(StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME)),
+                   value
+                 )
             ed2 <- encodeAndDecodeNS(
-                    Primitive(StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME)),
+                    Primitive(StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME)),
                     value
                   )
           } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
@@ -302,20 +305,20 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         test("offset times") {
           val value = OffsetTime.now()
           for {
-            ed  <- encodeAndDecode(Primitive(StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME)), value)
-            ed2 <- encodeAndDecodeNS(Primitive(StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME)), value)
+            ed  <- encodeAndDecode(Primitive(StandardType.OffsetTimeType(DateTimeFormatter.ISO_OFFSET_TIME)), value)
+            ed2 <- encodeAndDecodeNS(Primitive(StandardType.OffsetTimeType(DateTimeFormatter.ISO_OFFSET_TIME)), value)
           } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         },
         test("offset date times") {
           val value            = OffsetDateTime.now()
-          val offsetDateSchema = Primitive(StandardType.OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+          val offsetDateSchema = Primitive(StandardType.OffsetDateTimeType(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
           for {
             ed  <- encodeAndDecode(offsetDateSchema, value)
             ed2 <- encodeAndDecodeNS(offsetDateSchema, value)
           } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         },
         test("zoned date times") {
-          val zoneSchema = Primitive(StandardType.ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+          val zoneSchema = Primitive(StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME))
           val now        = ZonedDateTime.now()
           for {
             ed  <- encodeAndDecode(zoneSchema, now)
@@ -538,6 +541,15 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
             ed  <- encodeAndDecode(mSchema, m)
             ed2 <- encodeAndDecodeNS(mSchema, m)
           } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
+        },
+        test("set of products") {
+          val set: Set[Record] = Set(Record("AAA", 1), Record("BBB", 2))
+          val setSchema        = Schema.set(Record.schemaRecord)
+
+          for {
+            ed  <- encodeAndDecode(setSchema, set)
+            ed2 <- encodeAndDecodeNS(setSchema, set)
+          } yield assert(ed)(equalTo(Chunk.succeed(set))) && assert(ed2)(equalTo(set))
         },
         test("recursive data types") {
           check(SchemaGen.anyRecursiveTypeAndValue) {

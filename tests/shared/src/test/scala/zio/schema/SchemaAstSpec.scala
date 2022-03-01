@@ -148,51 +148,59 @@ object SchemaAstSpec extends DefaultRunnableSpec {
       }
     ),
     suite("materialization")(
+      test("simple recursive product") {
+        val schema = Recursive.schema
+        assert(SchemaAst.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema.asInstanceOf[Schema[_]]))
+      },
+      test("simple recursive sum") {
+        val schema = RecursiveSum.schema
+        assert(SchemaAst.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema.asInstanceOf[Schema[_]]))
+      },
       test("primitive") {
         check(SchemaGen.anyPrimitive) { schema =>
-          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameAst(schema))
+          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema.asInstanceOf[Schema[_]]))
         }
       },
       test("optional") {
         check(SchemaGen.anyPrimitive) { schema =>
-          assert(SchemaAst.fromSchema(schema.optional).toSchema)(hasSameAst(schema.optional))
+          assert(SchemaAst.fromSchema(schema.optional).toSchema)(hasSameSchemaStructure(schema.optional))
         }
       },
       test("sequence") {
         check(SchemaGen.anyPrimitive) { schema =>
-          assert(SchemaAst.fromSchema(schema.repeated).toSchema)(hasSameAst(schema.repeated))
+          assert(SchemaAst.fromSchema(schema.repeated).toSchema)(hasSameSchemaStructure(schema.repeated))
         }
       },
       test("tuple") {
         check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
           case (left, right) =>
-            assert(SchemaAst.fromSchema(left <*> right).toSchema)(hasSameAst(left <*> right))
+            assert(SchemaAst.fromSchema(left <*> right).toSchema)(hasSameSchemaStructure(left <*> right))
         }
       },
       test("either") {
         check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
           case (left, right) =>
-            assert(SchemaAst.fromSchema(left <+> right).toSchema)(hasSameAst(left <+> right))
+            assert(SchemaAst.fromSchema(left <+> right).toSchema)(hasSameSchemaStructure(left <+> right))
         }
       },
       test("case class") {
         check(SchemaGen.anyCaseClassSchema) { schema =>
-          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameAst(schema))
+          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
         }
       },
       test("sealed trait") {
         check(SchemaGen.anyEnumSchema) { schema =>
-          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameAst(schema))
+          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
         }
       },
       test("recursive type") {
         check(SchemaGen.anyRecursiveType) { schema =>
-          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameAst(schema))
+          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
         }
       },
       test("any schema") {
         check(SchemaGen.anySchema) { schema =>
-          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameAst(schema))
+          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
         }
       } @@ TestAspect.shrinks(0)
     )
@@ -202,6 +210,15 @@ object SchemaAstSpec extends DefaultRunnableSpec {
 
   object Recursive {
     implicit lazy val schema: Schema[Recursive] = DeriveSchema.gen[Recursive]
+  }
+
+  sealed trait RecursiveSum
+
+  object RecursiveSum {
+    case object Leaf                                                              extends RecursiveSum
+    final case class Node(label: String, left: RecursiveSum, right: RecursiveSum) extends RecursiveSum
+
+    implicit lazy val schema: Schema[RecursiveSum] = DeriveSchema.gen[RecursiveSum]
   }
 
   sealed trait Pet
