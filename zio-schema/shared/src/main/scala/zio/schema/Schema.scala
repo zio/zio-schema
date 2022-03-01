@@ -266,7 +266,9 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
     chunk(element).transform(_.toVector, Chunk.fromIterable(_))
 
   sealed trait Enum[A] extends Schema[A] {
-    def structure: ListMap[String, Schema[_]] = structureWithAnnotations.map(kv => (kv._1, kv._2._1))
+
+    def structure: ListMap[String, Schema[_]] =
+      ListMap(structureWithAnnotations.map(kv => (kv._1, kv._2._1)).toList: _*)
     def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])]
   }
   sealed case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) {
