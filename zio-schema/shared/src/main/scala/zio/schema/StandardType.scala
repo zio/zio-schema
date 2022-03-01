@@ -62,27 +62,29 @@ object StandardType {
       case Tags.CHAR             => Some(CharType)
       case Tags.BIG_DECIMAL      => Some(BigDecimalType)
       case Tags.BIG_INTEGER      => Some(BigIntegerType)
-      case Tags.MONTH            => Some(Month)
-      case Tags.MONTH_DAY        => Some(MonthDay)
-      case Tags.PERIOD           => Some(Period)
+      case Tags.MONTH            => Some(MonthType)
+      case Tags.MONTH_DAY        => Some(MonthDayType)
+      case Tags.PERIOD           => Some(PeriodType)
       case Tags.DAY_OF_WEEK      => Some(DayOfWeekType)
-      case Tags.YEAR             => Some(Year)
-      case Tags.YEAR_MONTH       => Some(YearMonth)
-      case Tags.ZONE_ID          => Some(ZoneId)
-      case Tags.ZONE_OFFSET      => Some(ZoneOffset)
-      case Tags.INSTANT          => Some(Instant(DateTimeFormatter.ISO_INSTANT))
-      case Tags.LOCAL_DATE       => Some(LocalDate(DateTimeFormatter.ISO_LOCAL_DATE))
-      case Tags.LOCAL_TIME       => Some(LocalTime(DateTimeFormatter.ISO_LOCAL_TIME))
-      case Tags.LOCAL_DATE_TIME  => Some(LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
-      case Tags.OFFSET_TIME      => Some(OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME))
-      case Tags.OFFSET_DATE_TIME => Some(OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
-      case Tags.ZONED_DATE_TIME  => Some(ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+      case Tags.YEAR             => Some(YearType)
+      case Tags.YEAR_MONTH       => Some(YearMonthType)
+      case Tags.ZONE_ID          => Some(ZoneIdType)
+      case Tags.ZONE_OFFSET      => Some(ZoneOffsetType)
+      case Tags.INSTANT          => Some(InstantType(DateTimeFormatter.ISO_INSTANT))
+      case Tags.LOCAL_DATE       => Some(LocalDateType(DateTimeFormatter.ISO_LOCAL_DATE))
+      case Tags.LOCAL_TIME       => Some(LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME))
+      case Tags.LOCAL_DATE_TIME  => Some(LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+      case Tags.OFFSET_TIME      => Some(OffsetTimeType(DateTimeFormatter.ISO_OFFSET_TIME))
+      case Tags.OFFSET_DATE_TIME => Some(OffsetDateTimeType(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+      case Tags.ZONED_DATE_TIME  => Some(ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME))
       case Tags.UUID             => Some(UUIDType)
       case units =>
         try {
           Some(Duration(ChronoUnit.valueOf(units)))
         } catch { case _: Throwable => None }
     }
+
+  def apply[A](implicit standardType: StandardType[A]): StandardType[A] = standardType
 
   def fromTemporalUnits(units: String): Option[StandardType[java.time.Duration]] =
     ChronoUnit.values().find(_.toString == units).map(Duration(_))
@@ -175,20 +177,20 @@ object StandardType {
       Right(java.time.temporal.WeekFields.of(java.util.Locale.getDefault).getFirstDayOfWeek)
   }
 
-  implicit object Month extends StandardType[java.time.Month] {
+  implicit object MonthType extends StandardType[java.time.Month] {
     override def tag                                           = Tags.MONTH
     override def compare(x: Month, y: Month): Int              = x.getValue.compareTo(y.getValue)
     override def defaultValue: Either[String, java.time.Month] = Right(java.time.Month.JANUARY)
   }
 
-  implicit object MonthDay extends StandardType[java.time.MonthDay] {
+  implicit object MonthDayType extends StandardType[java.time.MonthDay] {
     override def tag                                    = Tags.MONTH_DAY
     override def compare(x: MonthDay, y: MonthDay): Int = x.compareTo(y)
     override def defaultValue: Either[String, java.time.MonthDay] =
       Right(java.time.MonthDay.of(java.time.Month.JANUARY, 1))
   }
 
-  implicit object Period extends StandardType[java.time.Period] {
+  implicit object PeriodType extends StandardType[java.time.Period] {
     override def tag = Tags.PERIOD
     override def compare(x: Period, y: Period): Int = {
       val startDate = time.LocalDate.of(0, 1, 1)
@@ -197,25 +199,25 @@ object StandardType {
     override def defaultValue: Either[String, java.time.Period] = Right(java.time.Period.ZERO)
   }
 
-  implicit object Year extends StandardType[java.time.Year] {
+  implicit object YearType extends StandardType[java.time.Year] {
     override def tag                                          = Tags.YEAR
     override def compare(x: Year, y: Year): Int               = x.getValue.compareTo(y.getValue)
     override def defaultValue: Either[String, java.time.Year] = Right(java.time.Year.now)
   }
 
-  implicit object YearMonth extends StandardType[java.time.YearMonth] {
+  implicit object YearMonthType extends StandardType[java.time.YearMonth] {
     override def tag                                               = Tags.YEAR_MONTH
     override def compare(x: YearMonth, y: YearMonth): Int          = x.compareTo(y)
     override def defaultValue: Either[String, java.time.YearMonth] = Right(java.time.YearMonth.now)
   }
 
-  implicit object ZoneId extends StandardType[java.time.ZoneId] {
+  implicit object ZoneIdType extends StandardType[java.time.ZoneId] {
     override def tag                                            = Tags.ZONE_ID
     override def compare(x: ZoneId, y: ZoneId): Int             = x.getId.compareTo(y.getId) // TODO is there a better comparison
     override def defaultValue: Either[String, java.time.ZoneId] = Right(java.time.ZoneId.systemDefault)
   }
 
-  implicit object ZoneOffset extends StandardType[java.time.ZoneOffset] {
+  implicit object ZoneOffsetType extends StandardType[java.time.ZoneOffset] {
     override def tag                                                = Tags.ZONE_OFFSET
     override def compare(x: ZoneOffset, y: ZoneOffset): Int         = x.compareTo(y)
     override def defaultValue: Either[String, java.time.ZoneOffset] = Right(java.time.ZoneOffset.UTC)
@@ -227,43 +229,43 @@ object StandardType {
     override def defaultValue: Either[String, java.time.Duration] = Right(java.time.Duration.ZERO)
   }
 
-  final case class Instant(formatter: DateTimeFormatter) extends StandardType[java.time.Instant] {
+  final case class InstantType(formatter: DateTimeFormatter) extends StandardType[java.time.Instant] {
     override def tag                                             = Tags.INSTANT
     override def compare(x: time.Instant, y: time.Instant): Int  = x.compareTo(y)
     override def defaultValue: Either[String, java.time.Instant] = Right(java.time.Instant.EPOCH)
   }
 
-  final case class LocalDate(formatter: DateTimeFormatter) extends StandardType[java.time.LocalDate] {
+  final case class LocalDateType(formatter: DateTimeFormatter) extends StandardType[java.time.LocalDate] {
     override def tag                                                = Tags.LOCAL_DATE
     override def compare(x: time.LocalDate, y: time.LocalDate): Int = x.compareTo(y)
     override def defaultValue: Either[String, java.time.LocalDate]  = Right(java.time.LocalDate.now)
   }
 
-  final case class LocalTime(formatter: DateTimeFormatter) extends StandardType[java.time.LocalTime] {
+  final case class LocalTimeType(formatter: DateTimeFormatter) extends StandardType[java.time.LocalTime] {
     override def tag                                                = Tags.LOCAL_TIME
     override def compare(x: time.LocalTime, y: time.LocalTime): Int = x.compareTo(y)
     override def defaultValue: Either[String, java.time.LocalTime]  = Right(java.time.LocalTime.MIDNIGHT)
   }
 
-  final case class LocalDateTime(formatter: DateTimeFormatter) extends StandardType[java.time.LocalDateTime] {
+  final case class LocalDateTimeType(formatter: DateTimeFormatter) extends StandardType[java.time.LocalDateTime] {
     override def tag                                                        = Tags.LOCAL_DATE_TIME
     override def compare(x: time.LocalDateTime, y: time.LocalDateTime): Int = x.compareTo(y)
     override def defaultValue: Either[String, java.time.LocalDateTime]      = Right(java.time.LocalDateTime.now)
   }
 
-  final case class OffsetTime(formatter: DateTimeFormatter) extends StandardType[java.time.OffsetTime] {
+  final case class OffsetTimeType(formatter: DateTimeFormatter) extends StandardType[java.time.OffsetTime] {
     override def tag                                                  = Tags.OFFSET_TIME
     override def compare(x: time.OffsetTime, y: time.OffsetTime): Int = x.compareTo(y)
     override def defaultValue: Either[String, java.time.OffsetTime]   = Right(java.time.OffsetTime.now)
   }
 
-  final case class OffsetDateTime(formatter: DateTimeFormatter) extends StandardType[java.time.OffsetDateTime] {
+  final case class OffsetDateTimeType(formatter: DateTimeFormatter) extends StandardType[java.time.OffsetDateTime] {
     override def tag                                                          = Tags.OFFSET_DATE_TIME
     override def compare(x: time.OffsetDateTime, y: time.OffsetDateTime): Int = x.compareTo(y)
     override def defaultValue: Either[String, java.time.OffsetDateTime]       = Right(java.time.OffsetDateTime.now)
   }
 
-  final case class ZonedDateTime(formatter: DateTimeFormatter) extends StandardType[java.time.ZonedDateTime] {
+  final case class ZonedDateTimeType(formatter: DateTimeFormatter) extends StandardType[java.time.ZonedDateTime] {
     override def tag                                                        = Tags.ZONED_DATE_TIME
     override def compare(x: time.ZonedDateTime, y: time.ZonedDateTime): Int = x.compareTo(y)
     override def defaultValue: Either[String, java.time.ZonedDateTime]      = Right(java.time.ZonedDateTime.now)
@@ -272,17 +274,17 @@ object StandardType {
 
 trait DefaultJavaTimeSchemas {
   implicit val instantSchema: Schema[java.time.Instant] =
-    Schema.primitive(StandardType.Instant(DateTimeFormatter.ISO_INSTANT))
+    Schema.primitive(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
   implicit val localDateSchema: Schema[java.time.LocalDate] =
-    Schema.primitive(StandardType.LocalDate(DateTimeFormatter.ISO_LOCAL_DATE))
+    Schema.primitive(StandardType.LocalDateType(DateTimeFormatter.ISO_LOCAL_DATE))
   implicit val localTimeSchema: Schema[java.time.LocalTime] =
-    Schema.primitive(StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME))
+    Schema.primitive(StandardType.LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME))
   implicit val localDateTimeSchema: Schema[java.time.LocalDateTime] =
-    Schema.primitive(StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+    Schema.primitive(StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
   implicit val offsetTimeSchema: Schema[java.time.OffsetTime] =
-    Schema.primitive(StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME))
+    Schema.primitive(StandardType.OffsetTimeType(DateTimeFormatter.ISO_OFFSET_TIME))
   implicit val offsetDateTimeSchema: Schema[java.time.OffsetDateTime] =
-    Schema.primitive(StandardType.OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+    Schema.primitive(StandardType.OffsetDateTimeType(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
   implicit val zonedDateTimeSchema: Schema[java.time.ZonedDateTime] =
-    Schema.primitive(StandardType.ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+    Schema.primitive(StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME))
 }

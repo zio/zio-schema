@@ -50,35 +50,35 @@ object JsonCodec extends Codec {
 
     private[codec] def primitiveCodec[A](standardType: StandardType[A]): ZJsonCodec[A] =
       standardType match {
-        case StandardType.UnitType          => unitCodec
-        case StandardType.StringType        => ZJsonCodec.string
-        case StandardType.BoolType          => ZJsonCodec.boolean
-        case StandardType.ShortType         => ZJsonCodec.short
-        case StandardType.IntType           => ZJsonCodec.int
-        case StandardType.LongType          => ZJsonCodec.long
-        case StandardType.FloatType         => ZJsonCodec.float
-        case StandardType.DoubleType        => ZJsonCodec.double
-        case StandardType.BinaryType        => ZJsonCodec.chunk(ZJsonCodec.byte)
-        case StandardType.CharType          => ZJsonCodec.char
-        case StandardType.BigIntegerType    => ZJsonCodec.bigInteger
-        case StandardType.BigDecimalType    => ZJsonCodec.bigDecimal
-        case StandardType.UUIDType          => ZJsonCodec.uuid
-        case StandardType.DayOfWeekType     => ZJsonCodec.dayOfWeek // ZJsonCodec[java.time.DayOfWeek]
-        case StandardType.Duration(_)       => ZJsonCodec.duration //ZJsonCodec[java.time.Duration]
-        case StandardType.Instant(_)        => ZJsonCodec.instant //ZJsonCodec[java.time.Instant]
-        case StandardType.LocalDate(_)      => ZJsonCodec.localDate //ZJsonCodec[java.time.LocalDate]
-        case StandardType.LocalDateTime(_)  => ZJsonCodec.localDateTime //ZJsonCodec[java.time.LocalDateTime]
-        case StandardType.LocalTime(_)      => ZJsonCodec.localTime //ZJsonCodec[java.time.LocalTime]
-        case StandardType.Month             => ZJsonCodec.month //ZJsonCodec[java.time.Month]
-        case StandardType.MonthDay          => ZJsonCodec.monthDay //ZJsonCodec[java.time.MonthDay]
-        case StandardType.OffsetDateTime(_) => ZJsonCodec.offsetDateTime //ZJsonCodec[java.time.OffsetDateTime]
-        case StandardType.OffsetTime(_)     => ZJsonCodec.offsetTime //ZJsonCodec[java.time.OffsetTime]
-        case StandardType.Period            => ZJsonCodec.period //ZJsonCodec[java.time.Period]
-        case StandardType.Year              => ZJsonCodec.year //ZJsonCodec[java.time.Year]
-        case StandardType.YearMonth         => ZJsonCodec.yearMonth //ZJsonCodec[java.time.YearMonth]
-        case StandardType.ZonedDateTime(_)  => ZJsonCodec.zonedDateTime //ZJsonCodec[java.time.ZonedDateTime]
-        case StandardType.ZoneId            => ZJsonCodec.zoneId //ZJsonCodec[java.time.ZoneId]
-        case StandardType.ZoneOffset        => ZJsonCodec.zoneOffset //ZJsonCodec[java.time.ZoneOffset]
+        case StandardType.UnitType              => unitCodec
+        case StandardType.StringType            => ZJsonCodec.string
+        case StandardType.BoolType              => ZJsonCodec.boolean
+        case StandardType.ShortType             => ZJsonCodec.short
+        case StandardType.IntType               => ZJsonCodec.int
+        case StandardType.LongType              => ZJsonCodec.long
+        case StandardType.FloatType             => ZJsonCodec.float
+        case StandardType.DoubleType            => ZJsonCodec.double
+        case StandardType.BinaryType            => ZJsonCodec.chunk(ZJsonCodec.byte)
+        case StandardType.CharType              => ZJsonCodec.char
+        case StandardType.BigIntegerType        => ZJsonCodec.bigInteger
+        case StandardType.BigDecimalType        => ZJsonCodec.bigDecimal
+        case StandardType.UUIDType              => ZJsonCodec.uuid
+        case StandardType.DayOfWeekType         => ZJsonCodec.dayOfWeek // ZJsonCodec[java.time.DayOfWeek]
+        case StandardType.Duration(_)           => ZJsonCodec.duration //ZJsonCodec[java.time.Duration]
+        case StandardType.InstantType(_)        => ZJsonCodec.instant //ZJsonCodec[java.time.Instant]
+        case StandardType.LocalDateType(_)      => ZJsonCodec.localDate //ZJsonCodec[java.time.LocalDate]
+        case StandardType.LocalDateTimeType(_)  => ZJsonCodec.localDateTime //ZJsonCodec[java.time.LocalDateTime]
+        case StandardType.LocalTimeType(_)      => ZJsonCodec.localTime //ZJsonCodec[java.time.LocalTime]
+        case StandardType.MonthType             => ZJsonCodec.month //ZJsonCodec[java.time.Month]
+        case StandardType.MonthDayType          => ZJsonCodec.monthDay //ZJsonCodec[java.time.MonthDay]
+        case StandardType.OffsetDateTimeType(_) => ZJsonCodec.offsetDateTime //ZJsonCodec[java.time.OffsetDateTime]
+        case StandardType.OffsetTimeType(_)     => ZJsonCodec.offsetTime //ZJsonCodec[java.time.OffsetTime]
+        case StandardType.PeriodType            => ZJsonCodec.period //ZJsonCodec[java.time.Period]
+        case StandardType.YearType              => ZJsonCodec.year //ZJsonCodec[java.time.Year]
+        case StandardType.YearMonthType         => ZJsonCodec.yearMonth //ZJsonCodec[java.time.YearMonth]
+        case StandardType.ZonedDateTimeType(_)  => ZJsonCodec.zonedDateTime //ZJsonCodec[java.time.ZonedDateTime]
+        case StandardType.ZoneIdType            => ZJsonCodec.zoneId //ZJsonCodec[java.time.ZoneId]
+        case StandardType.ZoneOffsetType        => ZJsonCodec.zoneOffset //ZJsonCodec[java.time.ZoneOffset]
       }
   }
 
@@ -100,11 +100,13 @@ object JsonCodec extends Codec {
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[codec] def schemaEncoder[A](schema: Schema[A]): JsonEncoder[A] = schema match {
-      case Schema.Primitive(standardType, _) => primitiveCodec(standardType)
-      case Schema.Sequence(schema, _, g, _)  => JsonEncoder.chunk(schemaEncoder(schema)).contramap(g)
+      case Schema.Primitive(standardType, _)   => primitiveCodec(standardType)
+      case Schema.Sequence(schema, _, g, _, _) => JsonEncoder.chunk(schemaEncoder(schema)).contramap(g)
       case Schema.MapSchema(ks, vs, _) =>
         JsonEncoder.chunk(schemaEncoder(ks).both(schemaEncoder(vs))).contramap(m => Chunk.fromIterable(m))
-      case Schema.Transform(c, _, g, _)                          => transformEncoder(c, g)
+      case Schema.SetSchema(s, _) =>
+        JsonEncoder.chunk(schemaEncoder(s)).contramap(m => Chunk.fromIterable(m))
+      case Schema.Transform(c, _, g, _, _)                       => transformEncoder(c, g)
       case Schema.Tuple(l, r, _)                                 => JsonEncoder.tuple2(schemaEncoder(l), schemaEncoder(r))
       case Schema.Optional(schema, _)                            => JsonEncoder.option(schemaEncoder(schema))
       case Schema.Fail(_, _)                                     => unitEncoder.contramap(_ => ())
@@ -267,13 +269,14 @@ object JsonCodec extends Codec {
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[codec] def schemaDecoder[A](schema: Schema[A]): JsonDecoder[A] = schema match {
-      case Schema.Primitive(standardType, _) => primitiveCodec(standardType)
-      case Schema.Optional(codec, _)         => JsonDecoder.option(schemaDecoder(codec))
-      case Schema.Tuple(left, right, _)      => JsonDecoder.tuple2(schemaDecoder(left), schemaDecoder(right))
-      case Schema.Transform(codec, f, _, _)  => schemaDecoder(codec).mapOrFail(f)
-      case Schema.Sequence(codec, f, _, _)   => JsonDecoder.chunk(schemaDecoder(codec)).map(f)
+      case Schema.Primitive(standardType, _)   => primitiveCodec(standardType)
+      case Schema.Optional(codec, _)           => JsonDecoder.option(schemaDecoder(codec))
+      case Schema.Tuple(left, right, _)        => JsonDecoder.tuple2(schemaDecoder(left), schemaDecoder(right))
+      case Schema.Transform(codec, f, _, _, _) => schemaDecoder(codec).mapOrFail(f)
+      case Schema.Sequence(codec, f, _, _, _)  => JsonDecoder.chunk(schemaDecoder(codec)).map(f)
       case Schema.MapSchema(ks, vs, _) =>
         JsonDecoder.chunk(schemaDecoder(ks) <*> schemaDecoder(vs)).map(entries => entries.toList.toMap)
+      case Schema.SetSchema(s, _)                                                                   => JsonDecoder.chunk(schemaDecoder(s)).map(entries => entries.toSet)
       case Schema.Fail(message, _)                                                                  => failDecoder(message)
       case Schema.GenericRecord(structure, _)                                                       => recordDecoder(structure.toChunk)
       case Schema.EitherSchema(left, right, _)                                                      => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))

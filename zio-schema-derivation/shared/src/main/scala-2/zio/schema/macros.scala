@@ -530,15 +530,14 @@ object DeriveSchema {
         case 22 =>
           q"""{lazy val $selfRefIdent: zio.schema.Schema.Enum22[..$typeArgs] = zio.schema.Schema.Enum22[..$typeArgs](..$applyArgs); $selfRefIdent}"""
         case _ =>
-          val caseSet     = q"zio.schema.CaseSet.apply(..$cases).asInstanceOf[zio.schema.CaseSet.Aux[$tpe]]"
-          val caseSetType = c.typecheck(caseSet, c.TYPEmode).tpe
+          val caseSet = q"zio.schema.CaseSet.apply(..$cases).asInstanceOf[zio.schema.CaseSet.Aux[$tpe]]"
 
           if (typeAnnotations.isEmpty)
-            q"""{lazy val $selfRefIdent: zio.schema.Schema.EnumN[$tpe,$caseSetType] = zio.schema.Schema.EnumN.apply[$tpe,$caseSetType]($caseSet); $selfRefIdent}"""
+            q"""{lazy val $selfRefIdent: zio.schema.Schema.EnumN[$tpe,zio.schema.CaseSet.Aux[$tpe]] = zio.schema.Schema.EnumN.apply[$tpe,zio.schema.CaseSet.Aux[$tpe]]($caseSet); $selfRefIdent}"""
           else {
             val annotationArg = q"zio.Chunk.apply(..$typeAnnotations)"
 
-            q"""{lazy val $selfRefIdent: zio.schema.Schema.EnumN[$tpe,$caseSetType] = zio.schema.Schema.EnumN.apply[$tpe,$caseSetType]($caseSet,$annotationArg); $selfRefIdent}"""
+            q"""{lazy val $selfRefIdent: zio.schema.Schema.EnumN[$tpe,zio.schema.CaseSet.Aux[$tpe]] = zio.schema.Schema.EnumN.apply[$tpe,zio.schema.CaseSet.Aux[$tpe]]($caseSet,$annotationArg); $selfRefIdent}"""
           }
       }
     }

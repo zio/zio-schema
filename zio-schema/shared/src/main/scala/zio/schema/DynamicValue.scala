@@ -1,5 +1,10 @@
 package zio.schema
 
+import java.math.{ BigDecimal, BigInteger }
+import java.time._
+import java.time.format.DateTimeFormatter
+import java.util.UUID
+
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
@@ -46,7 +51,7 @@ sealed trait DynamicValue { self =>
           case (Right(a), Right(b)) => Right(a -> b)
         }
 
-      case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t]) =>
+      case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t, _]) =>
         values
           .foldLeft[Either[String, Chunk[t]]](Right[String, Chunk[t]](Chunk.empty)) {
             case (err @ Left(_), _) => err
@@ -61,10 +66,10 @@ sealed trait DynamicValue { self =>
       case (DynamicValue.NoneValue, Schema.Optional(_, _)) =>
         Right(None)
 
-      case (DynamicValue.Transform(DynamicValue.Error(message)), Schema.Transform(_, _, _, _)) =>
+      case (DynamicValue.Transform(DynamicValue.Error(message)), Schema.Transform(_, _, _, _, _)) =>
         Left(message)
 
-      case (DynamicValue.Transform(value), Schema.Transform(schema, f, _, _)) =>
+      case (DynamicValue.Transform(value), Schema.Transform(schema, f, _, _, _)) =>
         value.toTypedValue(schema).flatMap(f)
 
       case (_, l @ Schema.Lazy(_)) =>
@@ -949,7 +954,7 @@ object DynamicValue {
 
       case Schema.Fail(message, _) => DynamicValue.Error(message)
 
-      case Schema.Sequence(schema, _, toChunk, _) =>
+      case Schema.Sequence(schema, _, toChunk, _, _) =>
         DynamicValue.Sequence(toChunk(value).map(fromSchemaAndValue(schema, _)))
 
       case Schema.MapSchema(ks: Schema[k], vs: Schema[v], _) =>
@@ -957,6 +962,9 @@ object DynamicValue {
           case (key, value) => (fromSchemaAndValue(ks, key), fromSchemaAndValue(vs, value))
         }
         DynamicValue.Dictionary(Chunk.fromIterable(entries))
+
+      case Schema.SetSchema(as: Schema[a], _) =>
+        DynamicValue.SetValue(value.asInstanceOf[Set[a]].map(fromSchemaAndValue(as, _)))
 
       case schema: Schema.EitherSchema[l, r] =>
         value.asInstanceOf[Either[l, r]] match {
@@ -974,7 +982,7 @@ object DynamicValue {
           case None           => DynamicValue.NoneValue
         }
 
-      case Schema.Transform(schema, _, g, _) =>
+      case Schema.Transform(schema, _, g, _, _) =>
         g(value) match {
           case Left(message) => DynamicValue.Transform(DynamicValue.Error(message))
           case Right(a)      => DynamicValue.Transform(fromSchemaAndValue(schema, a))
@@ -1845,7 +1853,9 @@ object DynamicValue {
 
   final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue
 
-  final case class Dictionary[K, V](entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue
+  final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue
+
+  final case class SetValue[A](values: Set[DynamicValue]) extends DynamicValue
 
   sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue
 
@@ -1866,4 +1876,476 @@ object DynamicValue {
   final case class DynamicAst(ast: SchemaAst) extends DynamicValue
 
   final case class Error(message: String) extends DynamicValue
+
+}
+
+private[schema] object DynamicValueSchema { self =>
+
+  def apply(): Schema[DynamicValue] =
+    Schema.EnumN(
+      CaseSet
+        .Cons(errorCase, CaseSet.Empty[DynamicValue]())
+        .:+:(noneValueCase)
+        .:+:(rightValueCase)
+        .:+:(leftValueCase)
+        .:+:(tupleCase)
+        .:+:(transformCase)
+        .:+:(someValueCase)
+        .:+:(dictionaryCase)
+        .:+:(sequenceCase)
+        .:+:(enumerationCase)
+        .:+:(recordCase)
+        .:+:(dynamicAstCase)
+        .:+:(primitiveUnitCase)
+        .:+:(primitiveStringCase)
+        .:+:(primitiveBooleanCase)
+        .:+:(primitiveShortCase)
+        .:+:(primitiveIntCase)
+        .:+:(primitiveLongCase)
+        .:+:(primitiveFloatCase)
+        .:+:(primitiveDoubleCase)
+        .:+:(primitiveBinaryCase)
+        .:+:(primitiveCharCase)
+        .:+:(primitiveBigDecimalCase)
+        .:+:(primitiveBigIntegerCase)
+        .:+:(primitiveDayOfWeekCase)
+        .:+:(primitiveMonthCase)
+        .:+:(primitiveMonthDayCase)
+        .:+:(primitivePeriodCase)
+        .:+:(primitiveYearCase)
+        .:+:(primitiveYearMonthCase)
+        .:+:(primitiveZoneIdCase)
+        .:+:(primitiveZoneOffsetCase)
+        .:+:(primitiveInstantCase)
+        .:+:(primitiveLocalDateCase)
+        .:+:(primitiveLocalTimeCase)
+        .:+:(primitiveLocalDateTimeCase)
+        .:+:(primitiveOffsetTimeCase)
+        .:+:(primitiveOffsetDateTimeCase)
+        .:+:(primitiveZonedDateTimeCase)
+        .:+:(primitiveUUIDCase)
+        .:+:(singletonCase)
+    )
+
+  implicit val instantStandardType: StandardType[Instant] =
+    StandardType.InstantType(DateTimeFormatter.ISO_INSTANT)
+
+  implicit val localDateStandardType: StandardType[LocalDate] =
+    StandardType.LocalDateType(DateTimeFormatter.ISO_LOCAL_DATE)
+
+  implicit val localTimeStandardType: StandardType[LocalTime] =
+    StandardType.LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME)
+
+  implicit val localDateTimeStandardType: StandardType[LocalDateTime] =
+    StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+
+  implicit val offsetTimeStandardType: StandardType[OffsetTime] =
+    StandardType.OffsetTimeType(DateTimeFormatter.ISO_OFFSET_TIME)
+
+  implicit val offsetDateTimeStandardType: StandardType[OffsetDateTime] =
+    StandardType.OffsetDateTimeType(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+
+  implicit val zonedDateTimeStandardType: StandardType[ZonedDateTime] =
+    StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)
+
+  private val errorCase: Schema.Case[DynamicValue.Error, DynamicValue] =
+    Schema.Case(
+      "Error",
+      Schema.CaseClass1[String, DynamicValue.Error](
+        Schema.Field("message", Schema.primitive[String]),
+        message => DynamicValue.Error(message),
+        error => error.message
+      ),
+      _.asInstanceOf[DynamicValue.Error]
+    )
+
+  private val noneValueCase: Schema.Case[DynamicValue.NoneValue.type, DynamicValue] =
+    Schema.Case(
+      "NoneValue",
+      Schema.none.transform(_ => DynamicValue.NoneValue, _ => None),
+      _.asInstanceOf[DynamicValue.NoneValue.type],
+      Chunk("case")
+    )
+
+  private val rightValueCase: Schema.Case[DynamicValue.RightValue, DynamicValue] =
+    Schema.Case(
+      "RightValue",
+      Schema.CaseClass1[DynamicValue, DynamicValue.RightValue](
+        Schema.Field("value", Schema.defer(DynamicValueSchema())),
+        dynamicValue => DynamicValue.RightValue(dynamicValue),
+        rightValue => rightValue.value
+      ),
+      _.asInstanceOf[DynamicValue.RightValue]
+    )
+
+  private val leftValueCase: Schema.Case[DynamicValue.LeftValue, DynamicValue] =
+    Schema.Case(
+      "LeftValue",
+      Schema.CaseClass1[DynamicValue, DynamicValue.LeftValue](
+        Schema.Field("value", Schema.defer(DynamicValueSchema())),
+        dynamicValue => DynamicValue.LeftValue(dynamicValue),
+        leftValue => leftValue.value
+      ),
+      _.asInstanceOf[DynamicValue.LeftValue]
+    )
+
+  private val tupleCase: Schema.Case[DynamicValue.Tuple, DynamicValue] =
+    Schema.Case(
+      "Tuple",
+      Schema.CaseClass2[DynamicValue, DynamicValue, DynamicValue.Tuple](
+        Schema.Field("left", Schema.defer(DynamicValueSchema())),
+        Schema.Field("right", Schema.defer(DynamicValueSchema())),
+        (left, right) => DynamicValue.Tuple(left, right),
+        tuple => tuple.left,
+        tuple => tuple.right
+      ),
+      _.asInstanceOf[DynamicValue.Tuple]
+    )
+
+  private val transformCase: Schema.Case[DynamicValue.Transform, DynamicValue] =
+    Schema.Case(
+      "Transform",
+      Schema.CaseClass1[DynamicValue, DynamicValue.Transform](
+        Schema.Field("value", Schema.defer(DynamicValueSchema())),
+        dv => DynamicValue.Transform(dv),
+        transform => transform.value
+      ),
+      _.asInstanceOf[DynamicValue.Transform]
+    )
+
+  private val someValueCase: Schema.Case[DynamicValue.SomeValue, DynamicValue] =
+    Schema.Case(
+      "SomeValue",
+      Schema.CaseClass1[DynamicValue, DynamicValue.SomeValue](
+        Schema.Field("value", Schema.defer(DynamicValueSchema())),
+        dv => DynamicValue.SomeValue(dv),
+        someValue => someValue.value
+      ),
+      _.asInstanceOf[DynamicValue.SomeValue]
+    )
+
+  private val dictionaryCase: Schema.Case[DynamicValue.Dictionary, DynamicValue] =
+    Schema.Case(
+      "Dictionary",
+      Schema.CaseClass1[Chunk[(DynamicValue, DynamicValue)], DynamicValue.Dictionary](
+        Schema.Field(
+          "entries",
+          Schema.defer(Schema.chunk(Schema.tuple2(DynamicValueSchema(), DynamicValueSchema())))
+        ),
+        chunk => DynamicValue.Dictionary(chunk),
+        dictionary => dictionary.entries
+      ),
+      _.asInstanceOf[DynamicValue.Dictionary]
+    )
+
+  private val sequenceCase: Schema.Case[DynamicValue.Sequence, DynamicValue] =
+    Schema.Case(
+      "Sequence",
+      Schema.CaseClass1[Chunk[DynamicValue], DynamicValue.Sequence](
+        Schema.Field("values", Schema.defer(Schema.chunk(DynamicValueSchema()))),
+        chunk => DynamicValue.Sequence(chunk),
+        seq => seq.values
+      ),
+      _.asInstanceOf[DynamicValue.Sequence]
+    )
+
+  private val enumerationCase: Schema.Case[DynamicValue.Enumeration, DynamicValue] =
+    Schema.Case(
+      "Enumeration",
+      Schema.CaseClass1[(String, DynamicValue), DynamicValue.Enumeration](
+        Schema.Field("value", Schema.defer(Schema.tuple2(Schema.primitive[String], DynamicValueSchema()))),
+        value => DynamicValue.Enumeration(value),
+        enumeration => enumeration.value
+      ),
+      _.asInstanceOf[DynamicValue.Enumeration]
+    )
+
+  private val recordCase: Schema.Case[DynamicValue.Record, DynamicValue] =
+    Schema.Case(
+      "Record",
+      Schema.CaseClass1[Map[String, DynamicValue], DynamicValue.Record](
+        Schema.Field("values", Schema.defer(Schema.map(Schema.primitive[String], DynamicValueSchema()))),
+        map => DynamicValue.Record(map.asInstanceOf[ListMap[String, DynamicValue]]),
+        record => record.values
+      ),
+      _.asInstanceOf[DynamicValue.Record]
+    )
+
+  private val dynamicAstCase: Schema.Case[DynamicValue.DynamicAst, DynamicValue] =
+    Schema.Case(
+      "DynamicAst",
+      Schema.CaseClass1[SchemaAst, DynamicValue.DynamicAst](
+        Schema.Field("ast", SchemaAst.schema),
+        schemaAst => DynamicValue.DynamicAst(schemaAst),
+        dynamicAst => dynamicAst.ast
+      ),
+      _.asInstanceOf[DynamicValue.DynamicAst]
+    )
+
+  private val singletonCase: Schema.Case[DynamicValue.Singleton[Any], DynamicValue] =
+    Schema.Case(
+      "Singleton",
+      Schema[Unit].transform(_ => DynamicValue.Singleton(()), _ => ()),
+      _.asInstanceOf[DynamicValue.Singleton[Any]]
+    )
+
+  private val primitiveUnitCase: Schema.Case[DynamicValue.Primitive[Unit], DynamicValue] =
+    Schema.Case(
+      "Unit",
+      Schema.primitive[Unit].transform(unit => DynamicValue.Primitive(unit, StandardType[Unit]), _.value), {
+        case dv @ DynamicValue.Primitive((), _) => dv.asInstanceOf[DynamicValue.Primitive[Unit]]
+        case _                                  => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveStringCase: Schema.Case[DynamicValue.Primitive[String], DynamicValue] =
+    Schema.Case(
+      "String",
+      Schema.primitive[String].transform(s => DynamicValue.Primitive(s, StandardType[String]), _.value), {
+        case dv @ DynamicValue.Primitive(_: String, _) => dv.asInstanceOf[DynamicValue.Primitive[String]]
+        case _                                         => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveBooleanCase: Schema.Case[DynamicValue.Primitive[Boolean], DynamicValue] =
+    Schema.Case(
+      "Boolean",
+      Schema.primitive[Boolean].transform(b => DynamicValue.Primitive(b, StandardType[Boolean]), _.value), {
+        case dv @ DynamicValue.Primitive(_: Boolean, _) => dv.asInstanceOf[DynamicValue.Primitive[Boolean]]
+        case _                                          => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveShortCase: Schema.Case[DynamicValue.Primitive[Short], DynamicValue] =
+    Schema.Case(
+      "Short",
+      Schema.primitive[Short].transform(sh => DynamicValue.Primitive(sh, StandardType[Short]), _.value), {
+        case dv @ DynamicValue.Primitive(_: Short, _) => dv.asInstanceOf[DynamicValue.Primitive[Short]]
+        case _                                        => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveIntCase: Schema.Case[DynamicValue.Primitive[Int], DynamicValue] =
+    Schema.Case(
+      "Int",
+      Schema.primitive[Int].transform(i => DynamicValue.Primitive(i, StandardType[Int]), _.value), {
+        case dv @ DynamicValue.Primitive(_: Int, _) => dv.asInstanceOf[DynamicValue.Primitive[Int]]
+        case _                                      => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveLongCase: Schema.Case[DynamicValue.Primitive[Long], DynamicValue] =
+    Schema.Case(
+      "Long",
+      Schema.primitive[Long].transform(l => DynamicValue.Primitive(l, StandardType[Long]), _.value), {
+        case dv @ DynamicValue.Primitive(_: Long, _) => dv.asInstanceOf[DynamicValue.Primitive[Long]]
+        case _                                       => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveFloatCase: Schema.Case[DynamicValue.Primitive[Float], DynamicValue] =
+    Schema.Case(
+      "Float",
+      Schema.primitive[Float].transform(f => DynamicValue.Primitive(f, StandardType[Float]), _.value), {
+        case dv @ DynamicValue.Primitive(_: Float, _) => dv.asInstanceOf[DynamicValue.Primitive[Float]]
+        case _                                        => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveDoubleCase: Schema.Case[DynamicValue.Primitive[Double], DynamicValue] =
+    Schema.Case(
+      "Double",
+      Schema.primitive[Double].transform(d => DynamicValue.Primitive(d, StandardType[Double]), _.value), {
+        case dv @ DynamicValue.Primitive(_: Double, _) => dv.asInstanceOf[DynamicValue.Primitive[Double]]
+        case _                                         => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveBinaryCase: Schema.Case[DynamicValue.Primitive[Chunk[Byte]], DynamicValue] =
+    Schema.Case(
+      "Binary",
+      Schema.primitive[Chunk[Byte]].transform(ch => DynamicValue.Primitive(ch, StandardType[Chunk[Byte]]), _.value), {
+        case dv @ DynamicValue.Primitive(_: Chunk[_], _) => dv.asInstanceOf[DynamicValue.Primitive[Chunk[Byte]]]
+        case _                                           => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveCharCase: Schema.Case[DynamicValue.Primitive[Char], DynamicValue] =
+    Schema.Case(
+      "Char",
+      Schema.primitive[Char].transform(ch => DynamicValue.Primitive(ch, StandardType[Char]), _.value), {
+        case dv @ DynamicValue.Primitive(_: Char, _) => dv.asInstanceOf[DynamicValue.Primitive[Char]]
+        case _                                       => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveBigDecimalCase: Schema.Case[DynamicValue.Primitive[BigDecimal], DynamicValue] =
+    Schema.Case(
+      "BigDecimal",
+      Schema.primitive[BigDecimal].transform(bd => DynamicValue.Primitive(bd, StandardType[BigDecimal]), _.value), {
+        case dv @ DynamicValue.Primitive(_: BigDecimal, _) => dv.asInstanceOf[DynamicValue.Primitive[BigDecimal]]
+        case _                                             => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveBigIntegerCase: Schema.Case[DynamicValue.Primitive[BigInteger], DynamicValue] =
+    Schema.Case(
+      "BigInteger",
+      Schema.primitive[BigInteger].transform(bi => DynamicValue.Primitive(bi, StandardType[BigInteger]), _.value), {
+        case dv @ DynamicValue.Primitive(_: BigInteger, _) => dv.asInstanceOf[DynamicValue.Primitive[BigInteger]]
+        case _                                             => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveDayOfWeekCase: Schema.Case[DynamicValue.Primitive[DayOfWeek], DynamicValue] =
+    Schema.Case(
+      "DayOfWeek",
+      Schema.primitive[DayOfWeek].transform(dw => DynamicValue.Primitive(dw, StandardType[DayOfWeek]), _.value), {
+        case dv @ DynamicValue.Primitive(_: DayOfWeek, _) => dv.asInstanceOf[DynamicValue.Primitive[DayOfWeek]]
+        case _                                            => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveMonthCase: Schema.Case[DynamicValue.Primitive[Month], DynamicValue] =
+    Schema.Case(
+      "Month",
+      Schema.primitive[Month].transform(m => DynamicValue.Primitive(m, StandardType[Month]), _.value), {
+        case dv @ DynamicValue.Primitive(_: Month, _) => dv.asInstanceOf[DynamicValue.Primitive[Month]]
+        case _                                        => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveMonthDayCase: Schema.Case[DynamicValue.Primitive[MonthDay], DynamicValue] =
+    Schema.Case(
+      "MonthDay",
+      Schema.primitive[MonthDay].transform(md => DynamicValue.Primitive(md, StandardType[MonthDay]), _.value), {
+        case dv @ DynamicValue.Primitive(_: MonthDay, _) => dv.asInstanceOf[DynamicValue.Primitive[MonthDay]]
+        case _                                           => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitivePeriodCase: Schema.Case[DynamicValue.Primitive[Period], DynamicValue] =
+    Schema.Case(
+      "Period",
+      Schema.primitive[Period].transform(p => DynamicValue.Primitive(p, StandardType[Period]), _.value), {
+        case dv @ DynamicValue.Primitive(_: Period, _) => dv.asInstanceOf[DynamicValue.Primitive[Period]]
+        case _                                         => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveYearCase: Schema.Case[DynamicValue.Primitive[Year], DynamicValue] =
+    Schema.Case(
+      "Year",
+      Schema.primitive[Year].transform(y => DynamicValue.Primitive(y, StandardType[Year]), _.value), {
+        case dv @ DynamicValue.Primitive(_: Year, _) => dv.asInstanceOf[DynamicValue.Primitive[Year]]
+        case _                                       => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveYearMonthCase: Schema.Case[DynamicValue.Primitive[YearMonth], DynamicValue] =
+    Schema.Case(
+      "YearMonth",
+      Schema.primitive[YearMonth].transform(ym => DynamicValue.Primitive(ym, StandardType[YearMonth]), _.value), {
+        case dv @ DynamicValue.Primitive(_: YearMonth, _) => dv.asInstanceOf[DynamicValue.Primitive[YearMonth]]
+        case _                                            => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveZoneIdCase: Schema.Case[DynamicValue.Primitive[ZoneId], DynamicValue] =
+    Schema.Case(
+      "ZoneId",
+      Schema.primitive[ZoneId].transform(zid => DynamicValue.Primitive(zid, StandardType[ZoneId]), _.value), {
+        case dv @ DynamicValue.Primitive(_: ZoneId, _) => dv.asInstanceOf[DynamicValue.Primitive[ZoneId]]
+        case _                                         => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveZoneOffsetCase: Schema.Case[DynamicValue.Primitive[ZoneOffset], DynamicValue] =
+    Schema.Case(
+      "ZoneOffset",
+      Schema.primitive[ZoneOffset].transform(zo => DynamicValue.Primitive(zo, StandardType[ZoneOffset]), _.value), {
+        case dv @ DynamicValue.Primitive(_: ZoneOffset, _) => dv.asInstanceOf[DynamicValue.Primitive[ZoneOffset]]
+        case _                                             => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveInstantCase: Schema.Case[DynamicValue.Primitive[Instant], DynamicValue] =
+    Schema.Case(
+      "Instant",
+      Schema.primitive[Instant].transform(i => DynamicValue.Primitive(i, StandardType[Instant]), _.value), {
+        case dv @ DynamicValue.Primitive(_: Instant, _) => dv.asInstanceOf[DynamicValue.Primitive[Instant]]
+        case _                                          => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveLocalDateCase: Schema.Case[DynamicValue.Primitive[LocalDate], DynamicValue] =
+    Schema.Case(
+      "LocalDate",
+      Schema.primitive[LocalDate].transform(ld => DynamicValue.Primitive(ld, StandardType[LocalDate]), _.value), {
+        case dv @ DynamicValue.Primitive(_: LocalDate, _) => dv.asInstanceOf[DynamicValue.Primitive[LocalDate]]
+        case _                                            => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveLocalTimeCase: Schema.Case[DynamicValue.Primitive[LocalTime], DynamicValue] =
+    Schema.Case(
+      "LocalTime",
+      Schema.primitive[LocalTime].transform(lt => DynamicValue.Primitive(lt, StandardType[LocalTime]), _.value), {
+        case dv @ DynamicValue.Primitive(_: LocalTime, _) => dv.asInstanceOf[DynamicValue.Primitive[LocalTime]]
+        case _                                            => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveLocalDateTimeCase: Schema.Case[DynamicValue.Primitive[LocalDateTime], DynamicValue] =
+    Schema.Case(
+      "LocalDateTime",
+      Schema
+        .primitive[LocalDateTime]
+        .transform(ldt => DynamicValue.Primitive(ldt, StandardType[LocalDateTime]), _.value), {
+        case dv @ DynamicValue.Primitive(_: LocalDateTime, _) => dv.asInstanceOf[DynamicValue.Primitive[LocalDateTime]]
+        case _                                                => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveOffsetTimeCase: Schema.Case[DynamicValue.Primitive[OffsetTime], DynamicValue] =
+    Schema.Case(
+      "OffsetTime",
+      Schema.primitive[OffsetTime].transform(ot => DynamicValue.Primitive(ot, StandardType[OffsetTime]), _.value), {
+        case dv @ DynamicValue.Primitive(_: OffsetTime, _) => dv.asInstanceOf[DynamicValue.Primitive[OffsetTime]]
+        case _                                             => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveOffsetDateTimeCase: Schema.Case[DynamicValue.Primitive[OffsetDateTime], DynamicValue] =
+    Schema.Case(
+      "OffsetDateTime",
+      Schema
+        .primitive[OffsetDateTime]
+        .transform(odt => DynamicValue.Primitive(odt, StandardType[OffsetDateTime]), _.value), {
+        case dv @ DynamicValue.Primitive(_: OffsetDateTime, _) =>
+          dv.asInstanceOf[DynamicValue.Primitive[OffsetDateTime]]
+        case _ => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveZonedDateTimeCase: Schema.Case[DynamicValue.Primitive[ZonedDateTime], DynamicValue] =
+    Schema.Case(
+      "ZonedDateTime",
+      Schema
+        .primitive[ZonedDateTime]
+        .transform(zdt => DynamicValue.Primitive(zdt, StandardType[ZonedDateTime]), _.value), {
+        case dv @ DynamicValue.Primitive(_: ZonedDateTime, _) => dv.asInstanceOf[DynamicValue.Primitive[ZonedDateTime]]
+        case _                                                => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveUUIDCase: Schema.Case[DynamicValue.Primitive[UUID], DynamicValue] =
+    Schema.Case(
+      "UUID",
+      Schema.primitive[UUID].transform(uuid => DynamicValue.Primitive(uuid, StandardType[UUID]), _.value), {
+        case dv @ DynamicValue.Primitive(_: UUID, _) => dv.asInstanceOf[DynamicValue.Primitive[UUID]]
+        case _                                       => throw new IllegalArgumentException
+      }
+    )
+
 }

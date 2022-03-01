@@ -57,9 +57,10 @@ object DeriveGen {
       case c @ Schema.CaseClass21(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)       => genCaseClass21(c)
       case c @ Schema.CaseClass22(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => genCaseClass22(c)
       case generic @ Schema.GenericRecord(_, _)                                                                                                                             => genGenericRecord(generic).map(_.asInstanceOf[A])
-      case seq @ Schema.Sequence(_, _, _, _)                                                                                                                                => genSequence(seq)
+      case seq @ Schema.Sequence(_, _, _, _, _)                                                                                                                             => genSequence(seq)
       case map @ Schema.MapSchema(_, _, _)                                                                                                                                  => genMap(map)
-      case transform @ Schema.Transform(_, _, _, _)                                                                                                                         => genTransform(transform)
+      case set @ Schema.SetSchema(_, _)                                                                                                                                     => genSet(set)
+      case transform @ Schema.Transform(_, _, _, _, _)                                                                                                                      => genTransform(transform)
       case Schema.Primitive(standardType, _)                                                                                                                                => genPrimitive(standardType)
       case optional @ Schema.Optional(_, _)                                                                                                                                 => genOptional(optional)
       case fail @ Schema.Fail(_, _)                                                                                                                                         => genFail(fail)
@@ -461,46 +462,49 @@ object DeriveGen {
           } yield listMap.updated(field.label, value)
       }
 
-  private def genSequence[Z, A](seq: Schema.Sequence[Z, A]): Gen[Random with Sized, Z] =
+  private def genSequence[Z, A](seq: Schema.Sequence[Z, A, _]): Gen[Random with Sized, Z] =
     Gen.oneOf(Gen.chunkOfN(2)(gen(seq.schemaA)), Gen.const(Chunk.empty)).map(seq.fromChunk(_))
 
   private def genMap[K, V](map: Schema.MapSchema[K, V]): Gen[Random with Sized, Map[K, V]] =
     Gen.oneOf(Gen.mapOfN(2)(gen(map.ks), gen(map.vs)), Gen.const(Map.empty[K, V]))
 
-  private def genTransform[A, B](transform: Schema.Transform[A, B]): Gen[Random with Sized, B] =
+  private def genSet[A](set: Schema.SetSchema[A]): Gen[Random with Sized, Set[A]] =
+    Gen.oneOf(Gen.setOf(gen(set.as)), Gen.const(Set.empty[A]))
+
+  private def genTransform[A, B, I](transform: Schema.Transform[A, B, I]): Gen[Random with Sized, B] =
     gen(transform.codec).flatMap(a => transform.f(a).fold(_ => Gen.empty, (b: B) => Gen.const(b)))
 
   def genPrimitive[A](standardType: StandardType[A]): Gen[Random with Sized, A] = {
     val gen = standardType match {
-      case StandardType.UnitType          => Gen.unit
-      case StandardType.StringType        => Gen.string
-      case StandardType.BoolType          => Gen.boolean
-      case StandardType.ShortType         => Gen.short
-      case StandardType.IntType           => Gen.int
-      case StandardType.LongType          => Gen.long
-      case StandardType.FloatType         => Gen.float
-      case StandardType.DoubleType        => Gen.double
-      case StandardType.BinaryType        => Gen.chunkOf1(Gen.byte).map(_.toChunk)
-      case StandardType.CharType          => Gen.char
-      case StandardType.UUIDType          => Gen.uuid
-      case StandardType.BigDecimalType    => Gen.double.map(new java.math.BigDecimal(_))
-      case StandardType.BigIntegerType    => Gen.long.map(java.math.BigInteger.valueOf(_))
-      case StandardType.DayOfWeekType     => Gen.dayOfWeek
-      case StandardType.Month             => Gen.month
-      case StandardType.MonthDay          => Gen.monthDay
-      case StandardType.Period            => Gen.period
-      case StandardType.Year              => Gen.year
-      case StandardType.YearMonth         => Gen.yearMonth
-      case StandardType.ZoneId            => Gen.zoneId
-      case StandardType.ZoneOffset        => Gen.zoneOffset
-      case StandardType.Duration(_)       => Gen.finiteDuration
-      case StandardType.Instant(_)        => Gen.instant
-      case StandardType.LocalDate(_)      => Gen.localDate
-      case StandardType.LocalTime(_)      => Gen.localTime
-      case StandardType.LocalDateTime(_)  => Gen.localDateTime
-      case StandardType.OffsetTime(_)     => Gen.offsetTime
-      case StandardType.OffsetDateTime(_) => Gen.offsetDateTime
-      case StandardType.ZonedDateTime(_)  => Gen.zonedDateTime
+      case StandardType.UnitType              => Gen.unit
+      case StandardType.StringType            => Gen.string
+      case StandardType.BoolType              => Gen.boolean
+      case StandardType.ShortType             => Gen.short
+      case StandardType.IntType               => Gen.int
+      case StandardType.LongType              => Gen.long
+      case StandardType.FloatType             => Gen.float
+      case StandardType.DoubleType            => Gen.double
+      case StandardType.BinaryType            => Gen.chunkOf1(Gen.byte).map(_.toChunk)
+      case StandardType.CharType              => Gen.char
+      case StandardType.UUIDType              => Gen.uuid
+      case StandardType.BigDecimalType        => Gen.double.map(new java.math.BigDecimal(_))
+      case StandardType.BigIntegerType        => Gen.long.map(java.math.BigInteger.valueOf(_))
+      case StandardType.DayOfWeekType         => Gen.dayOfWeek
+      case StandardType.MonthType             => Gen.month
+      case StandardType.MonthDayType          => Gen.monthDay
+      case StandardType.PeriodType            => Gen.period
+      case StandardType.YearType              => Gen.year
+      case StandardType.YearMonthType         => Gen.yearMonth
+      case StandardType.ZoneIdType            => Gen.zoneId
+      case StandardType.ZoneOffsetType        => Gen.zoneOffset
+      case StandardType.Duration(_)           => Gen.finiteDuration
+      case StandardType.InstantType(_)        => Gen.instant
+      case StandardType.LocalDateType(_)      => Gen.localDate
+      case StandardType.LocalTimeType(_)      => Gen.localTime
+      case StandardType.LocalDateTimeType(_)  => Gen.localDateTime
+      case StandardType.OffsetTimeType(_)     => Gen.offsetTime
+      case StandardType.OffsetDateTimeType(_) => Gen.offsetDateTime
+      case StandardType.ZonedDateTimeType(_)  => Gen.zonedDateTime
     }
 
     gen.map(_.asInstanceOf[A])

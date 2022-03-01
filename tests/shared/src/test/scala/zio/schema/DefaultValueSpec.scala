@@ -77,29 +77,29 @@ object DefaultValueSpec extends DefaultRunnableSpec {
         )
       },
       test("Month default value") {
-        assert(Primitive(StandardType.Month).defaultValue)(isRight(equalTo(java.time.Month.JANUARY)))
+        assert(Primitive(StandardType.MonthType).defaultValue)(isRight(equalTo(java.time.Month.JANUARY)))
       },
       test("MonthDay default value") {
-        assert(Primitive(StandardType.MonthDay).defaultValue)(
+        assert(Primitive(StandardType.MonthDayType).defaultValue)(
           isRight(equalTo(java.time.MonthDay.of(java.time.Month.JANUARY, 1)))
         )
       },
       test("Period default value") {
-        assert(Primitive(StandardType.Period).defaultValue)(isRight(equalTo(java.time.Period.ZERO)))
+        assert(Primitive(StandardType.PeriodType).defaultValue)(isRight(equalTo(java.time.Period.ZERO)))
       },
       test("Year default value") {
-        assert(Primitive(StandardType.Year).defaultValue)(
+        assert(Primitive(StandardType.YearType).defaultValue)(
           isRight(equalTo(java.time.Year.now))
         )
       },
       test("YearMonth default value") {
-        assert(Primitive(StandardType.YearMonth).defaultValue)(isRight(equalTo(java.time.YearMonth.now)))
+        assert(Primitive(StandardType.YearMonthType).defaultValue)(isRight(equalTo(java.time.YearMonth.now)))
       },
       test("ZoneId default value") {
-        assert(Primitive(StandardType.ZoneId).defaultValue)(isRight(equalTo(java.time.ZoneId.systemDefault)))
+        assert(Primitive(StandardType.ZoneIdType).defaultValue)(isRight(equalTo(java.time.ZoneId.systemDefault)))
       },
       test("ZoneOffset default value") {
-        assert(Primitive(StandardType.ZoneOffset).defaultValue)(isRight(equalTo(java.time.ZoneOffset.UTC)))
+        assert(Primitive(StandardType.ZoneOffsetType).defaultValue)(isRight(equalTo(java.time.ZoneOffset.UTC)))
       },
       test("Duration default value") {
         assert(Primitive(StandardType.Duration(ChronoUnit.SECONDS)).defaultValue)(
@@ -107,37 +107,37 @@ object DefaultValueSpec extends DefaultRunnableSpec {
         )
       },
       test("Instant default value") {
-        assert(Primitive(StandardType.Instant(DateTimeFormatter.ISO_INSTANT)).defaultValue)(
+        assert(Primitive(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT)).defaultValue)(
           isRight(equalTo(java.time.Instant.EPOCH))
         )
       },
       test("LocalDate default value") {
-        assert(Primitive(StandardType.LocalDate(DateTimeFormatter.ISO_LOCAL_DATE)).defaultValue)(
+        assert(Primitive(StandardType.LocalDateType(DateTimeFormatter.ISO_LOCAL_DATE)).defaultValue)(
           isRight(isSubtype[java.time.LocalDate](anything))
         )
       },
       test("LocalTime default value") {
-        assert(Primitive(StandardType.LocalTime(DateTimeFormatter.ISO_LOCAL_TIME)).defaultValue)(
+        assert(Primitive(StandardType.LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME)).defaultValue)(
           isRight(equalTo(java.time.LocalTime.MIDNIGHT))
         )
       },
       test("LocalDateTime default value") {
-        assert(Primitive(StandardType.LocalDateTime(DateTimeFormatter.ISO_LOCAL_DATE_TIME)).defaultValue)(
+        assert(Primitive(StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME)).defaultValue)(
           isRight(isSubtype[java.time.LocalDateTime](anything))
         )
       },
       test("OffsetTime default value") {
-        assert(Primitive(StandardType.OffsetTime(DateTimeFormatter.ISO_OFFSET_TIME)).defaultValue)(
+        assert(Primitive(StandardType.OffsetTimeType(DateTimeFormatter.ISO_OFFSET_TIME)).defaultValue)(
           isRight(isSubtype[java.time.OffsetTime](anything))
         )
       },
       test("OffsetDateTime default value") {
-        assert(Primitive(StandardType.OffsetDateTime(DateTimeFormatter.ISO_OFFSET_DATE_TIME)).defaultValue)(
+        assert(Primitive(StandardType.OffsetDateTimeType(DateTimeFormatter.ISO_OFFSET_DATE_TIME)).defaultValue)(
           isRight(isSubtype[java.time.OffsetDateTime](anything))
         )
       },
       test("ZonedDateTime default value") {
-        assert(Primitive(StandardType.ZonedDateTime(DateTimeFormatter.ISO_ZONED_DATE_TIME)).defaultValue)(
+        assert(Primitive(StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)).defaultValue)(
           isRight(isSubtype[java.time.ZonedDateTime](anything))
         )
       }
