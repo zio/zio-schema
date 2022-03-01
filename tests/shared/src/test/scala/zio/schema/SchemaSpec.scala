@@ -1,8 +1,8 @@
 package zio.schema
 
-import zio.Chunk
-
 import scala.collection.immutable.ListMap
+
+import zio.Chunk
 import zio.schema.CaseSet._
 import zio.test.Assertion._
 import zio.test.{ ZSpec, _ }
