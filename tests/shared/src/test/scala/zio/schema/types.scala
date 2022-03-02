@@ -1,21 +1,6 @@
 package zio.schema
 
-import java.time.temporal.ChronoUnit
-import java.time.{
-  DayOfWeek,
-  Instant,
-  LocalDate,
-  Month,
-  MonthDay,
-  OffsetDateTime,
-  OffsetTime,
-  Period,
-  Year,
-  YearMonth,
-  ZoneId,
-  ZoneOffset,
-  ZonedDateTime
-}
+import java.time._
 import java.util.UUID
 
 import zio.test.{ Gen, Sized }
@@ -27,7 +12,7 @@ object types {
   sealed trait Arities
 
   object Arities extends DefaultJavaTimeSchemas {
-    implicit val durationSchema: Schema[java.time.Duration] = Schema.primitive(StandardType.Duration(ChronoUnit.SECONDS))
+    implicit val durationSchema: Schema[java.time.Duration] = Schema.primitive(StandardType.DurationType)
 
     case object Arity0         extends Arities
     case class Arity1(f1: Int) extends Arities

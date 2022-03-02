@@ -202,7 +202,12 @@ object SchemaAstSpec extends DefaultRunnableSpec {
         check(SchemaGen.anySchema) { schema =>
           assert(SchemaAst.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
         }
-      } @@ TestAspect.shrinks(0)
+      } @@ TestAspect.shrinks(0),
+      test("sequence of optional primitives") {
+        val schema       = Schema[List[Option[Int]]]
+        val materialized = SchemaAst.fromSchema(schema).toSchema
+        assert(materialized)(hasSameSchemaStructure(schema))
+      }
     )
   )
 

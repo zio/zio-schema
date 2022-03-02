@@ -1,7 +1,6 @@
 package zio.schema
 
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 
 import zio.Chunk
 import zio.schema.CaseSet.caseOf
@@ -102,7 +101,7 @@ object DefaultValueSpec extends DefaultRunnableSpec {
         assert(Primitive(StandardType.ZoneOffsetType).defaultValue)(isRight(equalTo(java.time.ZoneOffset.UTC)))
       },
       test("Duration default value") {
-        assert(Primitive(StandardType.Duration(ChronoUnit.SECONDS)).defaultValue)(
+        assert(Primitive(StandardType.DurationType).defaultValue)(
           isRight(equalTo(java.time.Duration.ZERO))
         )
       },

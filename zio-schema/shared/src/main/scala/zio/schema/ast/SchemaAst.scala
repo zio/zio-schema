@@ -89,7 +89,7 @@ object SchemaAst {
   ) extends SchemaAst
 
   object Sum {
-    implicit val schema: Schema[Sum] =
+    implicit lazy val schema: Schema[Sum] =
       Schema.CaseClass4(
         field1 = Schema.Field("path", Schema[String].repeated),
         field2 = Schema.Field("cases", Schema[Labelled].repeated),
@@ -209,6 +209,29 @@ object SchemaAst {
       )
   }
 
+  final case class Dynamic(
+    withSchema: Boolean,
+    override val path: NodePath,
+    optional: Boolean = false,
+    dimensions: Int = 0
+  ) extends SchemaAst
+
+  object Dynamic {
+    implicit val schema: Schema[Dynamic] =
+      Schema.CaseClass4(
+        field1 = Schema.Field("withSchema", Schema[Boolean]),
+        field2 = Schema.Field("path", Schema[String].repeated),
+        field3 = Schema.Field("optional", Schema[Boolean]),
+        field4 = Schema.Field("dimensions", Schema[Int]),
+        (withSchema: Boolean, path: Chunk[String], optional: Boolean, dimensions: Int) =>
+          Dynamic(withSchema, NodePath(path), optional, dimensions),
+        _.withSchema,
+        _.path,
+        _.optional,
+        _.dimensions
+      )
+  }
+
   final private[schema] case class NodeBuilder(
     path: NodePath,
     lineage: Lineage,
@@ -268,7 +291,9 @@ object SchemaAst {
             node.addLabelledSubtree(id, schema)
         }
         .buildSum()
-    case Schema.Meta(ast, _) => ast
+    case Schema.Meta(ast, _)      => ast
+    case Schema.Dynamic(_)        => Dynamic(withSchema = false, NodePath.root)
+    case Schema.SemiDynamic(_, _) => Dynamic(withSchema = true, NodePath.root)
   }
 
   private[schema] def subtree(
@@ -325,8 +350,10 @@ object SchemaAst {
                   node.addLabelledSubtree(id, schema)
               }
               .buildSum()
-          case Schema.Fail(message, _) => FailNode(message, path)
-          case Schema.Meta(ast, _)     => ast
+          case Schema.Fail(message, _)  => FailNode(message, path)
+          case Schema.Meta(ast, _)      => ast
+          case Schema.Dynamic(_)        => Dynamic(withSchema = false, path, optional, dimensions)
+          case Schema.SemiDynamic(_, _) => Dynamic(withSchema = true, path, optional, dimensions)
         }
       }
 
@@ -370,6 +397,9 @@ object SchemaAst {
           materialize(left, refs),
           materialize(right, refs)
         )
+      case SchemaAst.Dynamic(withSchema, _, _, _) =>
+        if (withSchema) Schema.semiDynamic()
+        else Schema.dynamicValue
       case ast => Schema.Fail(s"AST cannot be materialized to a Schema:\n$ast")
     }
     refs += ast.path -> baseSchema
@@ -384,13 +414,17 @@ object SchemaAst {
   }
 
   implicit lazy val schema: Schema[SchemaAst] =
-    Schema.EnumN[SchemaAst, CaseSet.Aux[SchemaAst]](
-      caseOf[Value, SchemaAst]("Value")(_.asInstanceOf[Value]) ++
-        caseOf[Sum, SchemaAst]("Sum")(_.asInstanceOf[Sum]) ++
-        caseOf[Product, SchemaAst]("Product")(_.asInstanceOf[Product]) ++
-        caseOf[Ref, SchemaAst]("Ref")(_.asInstanceOf[Ref]),
-      Chunk.empty
-    )
+    Schema.Lazy { () =>
+      Schema.EnumN[SchemaAst, CaseSet.Aux[SchemaAst]](
+        caseOf[Value, SchemaAst]("Value")(_.asInstanceOf[Value]) ++
+          caseOf[Sum, SchemaAst]("Sum")(_.asInstanceOf[Sum]) ++
+          caseOf[Either, SchemaAst]("Either")(_.asInstanceOf[Either]) ++
+          caseOf[Product, SchemaAst]("Product")(_.asInstanceOf[Product]) ++
+          caseOf[Tuple, SchemaAst]("Tuple")(_.asInstanceOf[Tuple]) ++
+          caseOf[Ref, SchemaAst]("Ref")(_.asInstanceOf[Ref]),
+        Chunk.empty
+      )
+    }
 
   implicit val equals: Equal[SchemaAst] = Equal.default
 }
@@ -431,6 +465,12 @@ private[schema] object AstRenderer {
       val buffer = new StringBuffer()
       if (optional) buffer.append("?")
       buffer.append(s"{ref#${refPath.render}}").append(renderDimensions(dimensions))
+      buffer.toString
+    case SchemaAst.Dynamic(withSchema, _, optional, dimensions) =>
+      val buffer = new StringBuffer()
+      if (optional) buffer.append("?")
+      if (withSchema) buffer.append("semidynamic") else buffer.append(s"dynamic")
+      buffer.append(renderDimensions(dimensions))
       buffer.toString
   }
 
@@ -476,6 +516,13 @@ private[schema] object AstRenderer {
         buffer.append(s"$label: ")
         if (optional) buffer.append("?")
         buffer.append(s"{ref#${refPath.render}}").append(renderDimensions(dimensions)).toString
+      case (label, SchemaAst.Dynamic(withSchema, _, optional, dimensions)) =>
+        pad(buffer, indent)
+        buffer.append(s"$label: ")
+        if (optional) buffer.append("?")
+        if (withSchema) buffer.append("semidynamic") else buffer.append(s"dynamic")
+        buffer.append(renderDimensions(dimensions))
+        buffer.toString
     }
   }
 
