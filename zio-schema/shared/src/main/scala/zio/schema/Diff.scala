@@ -26,6 +26,7 @@ import java.util.UUID
 import scala.annotation.{ nowarn, tailrec }
 import scala.collection.immutable.ListMap
 
+import zio.schema.StandardType.DurationType
 import zio.schema.ast.Migration
 import zio.schema.diff.Edit
 import zio.{ Chunk, ChunkBuilder }
@@ -250,7 +251,7 @@ object Differ {
     case Schema.Primitive(StandardType.YearMonthType, _)               => yearMonth
     case Schema.Primitive(tpe @ StandardType.LocalDateType(_), _)      => localDate(tpe)
     case Schema.Primitive(tpe @ StandardType.InstantType(_), _)        => instant(tpe)
-    case Schema.Primitive(tpe @ StandardType.Duration(_), _)           => duration(tpe)
+    case Schema.Primitive(StandardType.DurationType, _)                => duration
     case Schema.Primitive(tpe @ StandardType.LocalTimeType(_), _)      => localTime(tpe)
     case Schema.Primitive(tpe @ StandardType.LocalDateTimeType(_), _)  => localDateTime(tpe)
     case Schema.Primitive(tpe @ StandardType.OffsetTimeType(_), _)     => offsetTime(tpe)
@@ -315,6 +316,8 @@ object Differ {
     case Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)      => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
     case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
     case Schema.EnumN(cs, _)                                                                                                   => enumN(cs.toSeq: _*)
+    case Schema.Dynamic(_)                                                                                                     => ??? // TODO
+    case Schema.SemiDynamic(_, _)                                                                                              => ??? // TODO
   }
   //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -392,7 +395,7 @@ object Differ {
           tpe
         )
 
-  def duration(tpe: StandardType.Duration): Differ[JDuration] =
+  def duration: Differ[JDuration] =
     (thisDuration: JDuration, thatDuration: JDuration) =>
       if (thisDuration == thatDuration)
         Diff.identical
@@ -402,7 +405,7 @@ object Differ {
             thisDuration.getSeconds - thatDuration.getSeconds,
             (thisDuration.getNano - thatDuration.getNano).toLong
           ),
-          tpe
+          DurationType
         )
 
   def localTime(tpe: StandardType.LocalTimeType): Differ[LocalTime] =
@@ -720,7 +723,7 @@ object Diff {
           Right(a.asInstanceOf[DayOfWeek].plus(distance).asInstanceOf[A])
         case (_: StandardType.MonthType.type, distance :: Nil) =>
           Right(a.asInstanceOf[java.time.Month].plus(distance).asInstanceOf[A])
-        case (_: StandardType.Duration, dist1 :: dist2 :: Nil) =>
+        case (_: StandardType.DurationType.type, dist1 :: dist2 :: Nil) =>
           Right(
             JDuration
               .ofSeconds(a.asInstanceOf[JDuration].getSeconds - dist1, a.asInstanceOf[JDuration].getNano() - dist2)

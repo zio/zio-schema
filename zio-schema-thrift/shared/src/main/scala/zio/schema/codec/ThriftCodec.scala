@@ -28,8 +28,14 @@ import scala.util.{ Failure, Success, Try }
 import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TProtocol, TType }
 
 import zio.schema.ast.SchemaAst
-import zio.schema.codec.ThriftCodec.Thrift.{ durationStructure, monthDayStructure, periodStructure, yearMonthStructure }
-import zio.schema.{ Schema, StandardType }
+import zio.schema.codec.ThriftCodec.Thrift.{
+  bigDecimalStructure,
+  durationStructure,
+  monthDayStructure,
+  periodStructure,
+  yearMonthStructure
+}
+import zio.schema.{ DynamicValue, DynamicValueSchema, Schema, StandardType }
 import zio.stream.ZPipeline
 import zio.{ Chunk, ChunkBuilder, ZIO }
 
@@ -68,6 +74,13 @@ object ThriftCodec extends Codec {
 
   object Thrift {
 
+    val bigDecimalStructure: Seq[Schema.Field[_]] =
+      Seq(
+        Schema.Field("unscaled", Schema.Primitive(StandardType.BigIntegerType)),
+        Schema.Field("precision", Schema.Primitive(StandardType.IntType)),
+        Schema.Field("scale", Schema.Primitive(StandardType.IntType))
+      )
+
     val monthDayStructure: Seq[Schema.Field[Int]] =
       Seq(
         Schema.Field("month", Schema.Primitive(StandardType.IntType)),
@@ -91,17 +104,6 @@ object ThriftCodec extends Codec {
         Schema.Field("seconds", Schema.Primitive(StandardType.LongType)),
         Schema.Field("nanos", Schema.Primitive(StandardType.IntType))
       )
-  }
-
-  private def unwrapLazy(schema: Schema[_]) = schema match {
-    case s @ Schema.Lazy(_) => s.schema
-    case s                  => s
-  }
-
-  private def isOptional(schema: Schema[_]): Boolean = schema match {
-    case Schema.Optional(_, _) => true
-    case Schema.Lazy(s)        => isOptional(s())
-    case _                     => false
   }
 
   class Encoder {
@@ -147,6 +149,10 @@ object ThriftCodec extends Codec {
           TType.DOUBLE
         case StandardType.DoubleType =>
           TType.DOUBLE
+        case StandardType.BigIntegerType =>
+          TType.STRING
+        case StandardType.BigDecimalType =>
+          TType.STRUCT
         case StandardType.BinaryType =>
           TType.STRING
         case StandardType.CharType =>
@@ -163,7 +169,7 @@ object ThriftCodec extends Codec {
         case StandardType.YearMonthType         => TType.STRUCT
         case StandardType.ZoneIdType            => TType.STRING
         case StandardType.ZoneOffsetType        => TType.I32
-        case StandardType.Duration(_)           => TType.STRUCT
+        case StandardType.DurationType          => TType.STRUCT
         case StandardType.InstantType(_)        => TType.STRING
         case StandardType.LocalDateType(_)      => TType.STRING
         case StandardType.LocalTimeType(_)      => TType.STRING
@@ -191,6 +197,17 @@ object ThriftCodec extends Codec {
           p.writeDouble(v.toDouble)
         case (StandardType.DoubleType, v: Double) =>
           p.writeDouble(v.toDouble)
+        case (StandardType.BigIntegerType, v: java.math.BigInteger) =>
+          p.writeBinary(ByteBuffer.wrap(v.toByteArray))
+        case (StandardType.BigDecimalType, v: java.math.BigDecimal) =>
+          val unscaled  = v.unscaledValue()
+          val precision = v.precision()
+          val scale     = v.scale()
+          encodeRecord(
+            None,
+            bigDecimalStructure,
+            ListMap("unscaled" -> unscaled, "precision" -> precision, "scale" -> scale)
+          )
         case (StandardType.BinaryType, bytes: Chunk[Byte]) =>
           p.writeBinary(ByteBuffer.wrap(bytes.toArray))
         case (StandardType.CharType, c: Char) =>
@@ -217,7 +234,7 @@ object ThriftCodec extends Codec {
           p.writeString(v.getId)
         case (StandardType.ZoneOffsetType, v: ZoneOffset) =>
           p.writeI32(v.getTotalSeconds)
-        case (StandardType.Duration(_), v: Duration) =>
+        case (StandardType.DurationType, v: Duration) =>
           encodeRecord(None, durationStructure, ListMap("seconds" -> v.getSeconds, "nanos" -> v.getNano))
         case (StandardType.InstantType(formatter), v: Instant) =>
           p.writeString(formatter.format(v))
@@ -233,7 +250,8 @@ object ThriftCodec extends Codec {
           p.writeString(formatter.format(v))
         case (StandardType.ZonedDateTimeType(formatter), v: ZonedDateTime) =>
           p.writeString(formatter.format(v))
-        case (_, _) => ()
+        case (_, _) =>
+          throw new NotImplementedError(s"No encoder for $standardType")
       }
 
     def writeFieldBegin(fieldNumber: Option[Short], ttype: Byte): Unit =
@@ -336,9 +354,20 @@ object ThriftCodec extends Codec {
           encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
         case (Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) =>
           encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-        case (Schema.EnumN(cs, _), v) => encodeEnum(fieldNumber, v, cs.toSeq: _*)
-        case (_, _)                   => ()
+        case (Schema.EnumN(cs, _), v)      => encodeEnum(fieldNumber, v, cs.toSeq: _*)
+        case (Schema.Dynamic(_), v)        => encodeDynamic(fieldNumber, v)
+        case (Schema.SemiDynamic(_, _), v) => encodeSemiDynamic[Any](fieldNumber, v)
+        case (_, _)                        => ()
       }
+
+    private def encodeDynamic(fieldNumber: Option[Short], v: DynamicValue): Unit =
+      encodeValue(fieldNumber, DynamicValueSchema.schema, v)
+
+    private def encodeSemiDynamic[A](fieldNumber: Option[Short], v: (A, Schema[A])): Unit = {
+      val (value, schema) = v
+      writeFieldBegin(fieldNumber, TType.STRUCT)
+      writeStructure(Seq(Schema.Field("schema", SchemaAst.schema) -> schema.ast, Schema.Field("value", schema) -> value))
+    }
 
     private def encodeEnum[Z, A](fieldNumber: Option[Short], value: Z, cases: Schema.Case[_, Z]*): Unit = {
       writeFieldBegin(fieldNumber, TType.STRUCT)
@@ -474,18 +503,6 @@ object ThriftCodec extends Codec {
     def decodeInt: PrimitiveResult[Int] =
       decodePrimitive(_.readI32(), "Int")
 
-    def decodeVarInt: PrimitiveResult[Int] =
-      decodePrimitive(
-        p =>
-          Try(p.readI64())
-            .map(_.intValue)
-            .orElse(Try(p.readI32()))
-            .orElse(Try(p.readI16()).map(_.intValue))
-            .orElse(Try(p.readByte()).map(_.intValue))
-            .get,
-        "VarInt"
-      )
-
     def decodeLong: PrimitiveResult[Long] =
       decodePrimitive(_.readI64(), "Long")
 
@@ -494,6 +511,9 @@ object ThriftCodec extends Codec {
 
     def decodeDouble: PrimitiveResult[Double] =
       decodePrimitive(_.readDouble(), "Double")
+
+    def decodeBigInteger: PrimitiveResult[java.math.BigInteger] =
+      decodePrimitive(p => new java.math.BigInteger(p.readBinary().array()), "BigInteger")
 
     def decodeBinary: PrimitiveResult[Chunk[Byte]] =
       decodePrimitive(p => Chunk.fromByteBuffer(p.readBinary()), "Binary")
@@ -539,8 +559,26 @@ object ThriftCodec extends Codec {
         case Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)      => enumDecoder(path, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
         case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumDecoder(path, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case Schema.EnumN(cs, _)                                                                                                   => enumDecoder(path, cs.toSeq: _*)
+        case Schema.Dynamic(_)                                                                                                     => dynamicDecoder(path)
+        case Schema.SemiDynamic(_, _)                                                                                              => semiDynamicDecoder[Any](path)
         case _                                                                                                                     => fail(path, s"Unknown schema ${schema.getClass.getName}")
+
       }
+
+    private def dynamicDecoder(path: Path): Result[DynamicValue] =
+      decode(path, DynamicValueSchema.schema)
+
+    private def semiDynamicDecoder[A](path: Path): Result[(A, Schema[A])] = {
+      p.readFieldBegin()
+      decode(path :+ "schema", SchemaAst.schema).flatMap { schemaAst =>
+        val schema = schemaAst.toSchema
+        p.readFieldBegin()
+        decode(path :+ "value", schema).flatMap { value =>
+          p.readFieldBegin()
+          Right((value, schema).asInstanceOf[(A, Schema[A])])
+        }
+      }
+    }
 
     private def optionalDecoder[A](path: Path, schema: Schema.Optional[A]): Result[Option[A]] =
       Try {
@@ -568,7 +606,7 @@ object ThriftCodec extends Codec {
           }
           res.asInstanceOf[Result[Z]]
         }
-      }.fold(err => fail(path, s"Error decoding enum with cases ${cases.map(_.id).mkString(", ")} ${err.getMessage}"), identity)
+      }.fold(err => fail(path, s"Error decoding enum with cases ${cases.map(_.id).mkString(", ")}: ${err.getMessage}"), identity)
 
     private def eitherDecoder[A, B](path: Path, left: Schema[A], right: Schema[B]): Result[Either[A, B]] = {
       val readField = p.readFieldBegin()
@@ -594,14 +632,29 @@ object ThriftCodec extends Codec {
 
     private def primitiveDecoder[A](path: Path, standardType: StandardType[A]): Result[A] =
       standardType match {
-        case StandardType.UnitType   => Right(())
-        case StandardType.StringType => decodeString(path)
-        case StandardType.BoolType   => decodeBoolean(path)
-        case StandardType.ShortType  => decodeShort(path)
-        case StandardType.IntType    => decodeInt(path)
-        case StandardType.LongType   => decodeLong(path)
-        case StandardType.FloatType  => decodeFloat(path)
-        case StandardType.DoubleType => decodeDouble(path)
+        case StandardType.UnitType       => Right(())
+        case StandardType.StringType     => decodeString(path)
+        case StandardType.BoolType       => decodeBoolean(path)
+        case StandardType.ShortType      => decodeShort(path)
+        case StandardType.IntType        => decodeInt(path)
+        case StandardType.LongType       => decodeLong(path)
+        case StandardType.FloatType      => decodeFloat(path)
+        case StandardType.DoubleType     => decodeDouble(path)
+        case StandardType.BigIntegerType => decodeBigInteger(path)
+        case StandardType.BigDecimalType =>
+          decodeRecord(path, bigDecimalStructure).flatMap { data =>
+            val opt = for {
+              unscaled  <- data.get(1).asInstanceOf[Option[java.math.BigInteger]]
+              precision <- data.get(2).asInstanceOf[Option[Int]]
+              scale     <- data.get(3).asInstanceOf[Option[Int]]
+              ctx       = new java.math.MathContext(precision)
+            } yield new java.math.BigDecimal(unscaled, scale, ctx)
+
+            opt match {
+              case Some(value) => Right(value)
+              case None        => fail(path, s"Invalid big decimal record $data")
+            }
+          }
         case StandardType.BinaryType => decodeBinary(path)
         case StandardType.CharType =>
           decodeString(path).flatMap(
@@ -620,9 +673,9 @@ object ThriftCodec extends Codec {
             }
           }
         case StandardType.DayOfWeekType =>
-          decodeVarInt(path).map(_.intValue).map(DayOfWeek.of)
+          decodeByte(path).map(_.toInt).map(DayOfWeek.of)
         case StandardType.MonthType =>
-          decodeVarInt(path).map(_.intValue).map(Month.of)
+          decodeByte(path).map(_.toInt).map(Month.of)
         case StandardType.MonthDayType =>
           decodeRecord(path, monthDayStructure)
             .map(data => MonthDay.of(data.getOrElse(1, 0).asInstanceOf[Int], data.getOrElse(2, 0).asInstanceOf[Int]))
@@ -630,16 +683,16 @@ object ThriftCodec extends Codec {
           decodeRecord(path, periodStructure)
             .map(data => Period.of(data.getOrElse(1, 0).asInstanceOf[Int], data.getOrElse(2, 0).asInstanceOf[Int], data.getOrElse(3, 0).asInstanceOf[Int]))
         case StandardType.YearType =>
-          decodeVarInt(path).map(_.intValue).map(Year.of)
+          decodeInt(path).map(_.intValue).map(Year.of)
         case StandardType.YearMonthType =>
           decodeRecord(path, yearMonthStructure)
             .map(data => YearMonth.of(data.getOrElse(1, 0).asInstanceOf[Int], data.getOrElse(2, 0).asInstanceOf[Int]))
         case StandardType.ZoneIdType => decodeString(path).map(ZoneId.of)
         case StandardType.ZoneOffsetType =>
-          decodeVarInt(path)
+          decodeInt(path)
             .map(_.intValue)
             .map(ZoneOffset.ofTotalSeconds)
-        case StandardType.Duration(_) =>
+        case StandardType.DurationType =>
           decodeRecord(path, durationStructure)
             .map(data => Duration.ofSeconds(data.getOrElse(1, 0L).asInstanceOf[Long], data.getOrElse(2, 0L).asInstanceOf[Int].toLong))
         case StandardType.InstantType(formatter) =>
@@ -656,7 +709,7 @@ object ThriftCodec extends Codec {
           decodeString(path).map(OffsetDateTime.parse(_, formatter))
         case StandardType.ZonedDateTimeType(formatter) =>
           decodeString(path).map(ZonedDateTime.parse(_, formatter))
-        case _ => fail(path, "Unsupported primitive type")
+        case _ => fail(path, s"Unsupported primitive type $standardType")
       }
 
     private def emptyValue[A](schema: Schema[A]): Option[A] = schema match {
@@ -671,37 +724,25 @@ object ThriftCodec extends Codec {
       structDecoder(fields.map(_.schema), path)
 
     def structDecoder(fields: Seq[Schema[_]], path: Path): Result[ListMap[Short, Any]] = {
-      def safeRead[A](path: Path, name: String, f: TProtocol => A) =
-        Try {
-          f(p)
-        }.toEither.left.map(_ => Error(path, s"Unable to decode $name"))
+      val fieldSchemas = fields.zipWithIndex.map { case (schema, idx) => (idx + 1) -> schema }.toMap[Int, Schema[_]]
 
       @tailrec
       def readFields(m: ListMap[Short, Any]): Result[ListMap[Short, Any]] =
         Try { p.readFieldBegin() } match {
-          case Failure(_) => fail(path, "Error reading field begin")
+          case Failure(err) => fail(path, s"Error reading field begin: ${err.getMessage}")
           case Success(readField) => {
             if (readField.`type` == TType.STOP)
               succeed(m)
             else {
               val actualPath = path :+ s"fieldId:${readField.id}"
-              (readField.`type` match {
-                case TType.BOOL   => safeRead(actualPath, "Bool", _.readBool())
-                case TType.BYTE   => safeRead(actualPath, "Byte", _.readByte())
-                case TType.DOUBLE => safeRead(actualPath, "Double", _.readDouble())
-                case TType.I16    => safeRead(actualPath, "Short", _.readI16())
-                case TType.I32    => safeRead(actualPath, "Int", _.readI32())
-                case TType.I64    => safeRead(actualPath, "Long", _.readI64())
-                case TType.STRING => safeRead(actualPath, "String", _.readString())
-                case TType.STRUCT => decode(actualPath, fields(readField.id - 1))
-                case TType.MAP    => decodeMap(actualPath, unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.MapSchema[_, _]])
-                case TType.SET    => decodeSet(actualPath, unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.SetSchema[_]])
-                case TType.LIST   => decodeSequence(actualPath, unwrapLazy(fields(readField.id - 1)).asInstanceOf[Schema.Sequence[_, _, _]])
-                case TType.ENUM   => safeRead(actualPath, "Enum", _.readI32())
-                case _            => fail(actualPath, s"Unknown type ${readField.`type`}")
-              }) match {
-                case Right(value) => readFields(m.updated(readField.id, value))
-                case Left(err)    => Left(err)
+              fieldSchemas.get(readField.id.toInt) match {
+                case Some(fieldSchema) =>
+                  decode(actualPath, fieldSchema) match {
+                    case Left(err)    => Left(err)
+                    case Right(value) => readFields(m.updated(readField.id, value))
+                  }
+                case None =>
+                  fail(actualPath, s"Could not find schema for field ID ${readField.id}")
               }
             }
           }
@@ -715,8 +756,8 @@ object ThriftCodec extends Codec {
       def decodeElements(n: Int, cb: ChunkBuilder[Elem]): Result[Chunk[Elem]] =
         if (n > 0)
           decode(path, schema.schemaA) match {
-            case Right(elem) => decodeElements(n - 1, cb += (elem))
-            case Left(_)     => fail(path, "Error decoding Sequence element")
+            case Right(elem)   => decodeElements(n - 1, cb += (elem))
+            case Left(failure) => fail(path, s"Error decoding Sequence element: $failure")
           } else
           succeed(cb.result())
 
@@ -729,7 +770,10 @@ object ThriftCodec extends Codec {
         if (n > 0)
           (decode(path, schema.ks), decode(path, schema.vs)) match {
             case (Right(key), Right(value)) => decodeElements(n - 1, m += ((key, value)))
-            case _                          => fail(path, "Error decoding Map element")
+            case (l, r) =>
+              val key   = l.fold(_.error, _.toString)
+              val value = r.fold(_.error, _.toString)
+              fail(path, s"Error decoding Map element (key: $key; value: $value)")
           } else
           succeed(m.toMap)
 
