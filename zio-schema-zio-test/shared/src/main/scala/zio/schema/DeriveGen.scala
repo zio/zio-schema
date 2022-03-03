@@ -542,20 +542,20 @@ object DeriveGen {
       optional <- Gen.boolean
       fields <- Gen.chunkOf(
                  Gen
-                   .string1(Gen.anyASCIIChar)
+                   .string1(Gen.asciiChar)
                    .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
                )
-    } yield SchemaAst.Product(path, fields, optional, dimensions = 1)
+    } yield SchemaAst.Product(path, fields, optional)
 
   private def genSchemaAstSum(path: NodePath): Gen[Random with Sized, SchemaAst.Sum] =
     for {
       optional <- Gen.boolean
       fields <- Gen.chunkOf(
                  Gen
-                   .string1(Gen.anyASCIIChar)
+                   .string1(Gen.asciiChar)
                    .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
                )
-    } yield SchemaAst.Sum(path, fields, optional, dimensions = 1)
+    } yield SchemaAst.Sum(path, fields, optional)
 
   private def genSchemaAstValue(path: NodePath): Gen[Random, SchemaAst.Value] =
     for {
@@ -594,13 +594,13 @@ object DeriveGen {
                     Gen.const(StandardType.ZonedDateTimeType(formatter))
                   )
       optional <- Gen.boolean
-    } yield SchemaAst.Value(valueType, path, optional, dimensions = 1)
+    } yield SchemaAst.Value(valueType, path, optional)
 
   private def genSchemaAstDynamic(path: NodePath): Gen[Random, SchemaAst.Dynamic] =
     for {
       withSchema <- Gen.boolean
       optional   <- Gen.boolean
-    } yield SchemaAst.Dynamic(withSchema, path, optional, dimensions = 1)
+    } yield SchemaAst.Dynamic(withSchema, path, optional)
 
   private def genAst(path: NodePath = NodePath.root): Gen[Random with Sized, SchemaAst] =
     Gen.weighted(
