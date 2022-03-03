@@ -118,16 +118,16 @@ object Migration {
             else
               transformShape(path, f, t) :+ UpdateFail(path, t.message)
           )
-        case (f @ SchemaAst.Product(_, ffields, _, _), t @ SchemaAst.Product(_, tfields, _, _)) =>
+        case (f @ SchemaAst.Product(_, ffields, _), t @ SchemaAst.Product(_, tfields, _)) =>
           goProduct(f, t, ffields, tfields)
-        case (f @ SchemaAst.Tuple(_, fleft, fright, _, _), t @ SchemaAst.Tuple(_, tleft, tright, _, _)) =>
+        case (f @ SchemaAst.Tuple(_, fleft, fright, _), t @ SchemaAst.Tuple(_, tleft, tright, _)) =>
           val ffields = Chunk("left" -> fleft, "right" -> fright)
           val tfields = Chunk("left" -> tleft, "right" -> tright)
           goProduct(f, t, ffields, tfields)
-        case (f @ SchemaAst.Product(_, ffields, _, _), t @ SchemaAst.Tuple(_, tleft, tright, _, _)) =>
+        case (f @ SchemaAst.Product(_, ffields, _), t @ SchemaAst.Tuple(_, tleft, tright, _)) =>
           val tfields = Chunk("left" -> tleft, "right" -> tright)
           goProduct(f, t, ffields, tfields)
-        case (f @ SchemaAst.Tuple(_, fleft, fright, _, _), t @ SchemaAst.Product(_, tfields, _, _)) =>
+        case (f @ SchemaAst.Tuple(_, fleft, fright, _), t @ SchemaAst.Product(_, tfields, _)) =>
           val ffields = Chunk("left" -> fleft, "right" -> fright)
           goProduct(f, t, ffields, tfields)
         case (f @ SchemaAst.ListNode(fitem, _, _), t @ SchemaAst.ListNode(titem, _, _)) =>
@@ -142,23 +142,23 @@ object Migration {
           val ffields = Chunk("keys" -> fkeys, "values" -> fvalues)
           val tfields = Chunk("keys" -> tkeys, "values" -> tvalues)
           goProduct(f, t, ffields, tfields)
-        case (f @ SchemaAst.Sum(_, fcases, _, _), t @ SchemaAst.Sum(_, tcases, _, _)) =>
+        case (f @ SchemaAst.Sum(_, fcases, _), t @ SchemaAst.Sum(_, tcases, _)) =>
           goSum(f, t, fcases, tcases)
-        case (f @ SchemaAst.Either(_, fleft, fright, _, _), t @ SchemaAst.Either(_, tleft, tright, _, _)) =>
+        case (f @ SchemaAst.Either(_, fleft, fright, _), t @ SchemaAst.Either(_, tleft, tright, _)) =>
           val fcases = Chunk("left" -> fleft, "right" -> fright)
           val tcases = Chunk("left" -> tleft, "right" -> tright)
           goSum(f, t, fcases, tcases)
-        case (f @ SchemaAst.Sum(_, fcases, _, _), t @ SchemaAst.Either(_, tleft, tright, _, _)) =>
+        case (f @ SchemaAst.Sum(_, fcases, _), t @ SchemaAst.Either(_, tleft, tright, _)) =>
           val tcases = Chunk("left" -> tleft, "right" -> tright)
           goSum(f, t, fcases, tcases)
-        case (f @ SchemaAst.Either(_, fleft, fright, _, _), t @ SchemaAst.Sum(_, tcases, _, _)) =>
+        case (f @ SchemaAst.Either(_, fleft, fright, _), t @ SchemaAst.Sum(_, tcases, _)) =>
           val fcases = Chunk("left" -> fleft, "right" -> fright)
           goSum(f, t, fcases, tcases)
-        case (f @ SchemaAst.Value(ftype, _, _, _), t @ SchemaAst.Value(ttype, _, _, _)) if ttype != ftype =>
+        case (f @ SchemaAst.Value(ftype, _, _), t @ SchemaAst.Value(ttype, _, _)) if ttype != ftype =>
           Right(transformShape(path, f, t) :+ ChangeType(path, ttype))
-        case (f @ SchemaAst.Value(_, _, _, _), t @ SchemaAst.Value(_, _, _, _)) =>
+        case (f @ SchemaAst.Value(_, _, _), t @ SchemaAst.Value(_, _, _)) =>
           Right(transformShape(path, f, t))
-        case (f @ SchemaAst.Ref(fromRef, nodePath, _, _), t @ SchemaAst.Ref(toRef, _, _, _)) if fromRef == toRef =>
+        case (f @ SchemaAst.Ref(fromRef, nodePath, _), t @ SchemaAst.Ref(toRef, _, _)) if fromRef == toRef =>
           if (ignoreRefs) Right(Chunk.empty)
           else {
             val recursiveMigrations = acc

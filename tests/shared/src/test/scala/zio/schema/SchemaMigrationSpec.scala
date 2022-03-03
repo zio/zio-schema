@@ -72,13 +72,13 @@ object SchemaMigrationSpec extends DefaultRunnableSpec {
       }
     ),
     suite("map")(
-      testM("map keys") {
+      test("map keys") {
         check(Gen.mapOf(Gen.int(0, 100), Gen.int(1, 100))) { map =>
           val expected: Map[Option[Int], Int] = map.map { case (k, v) => Some(k) -> v }.toMap
           assert(map)(migratesTo(expected))
         }
       },
-      testM("map values") {
+      test("map values") {
         check(Gen.mapOf(Gen.int(0, 100), Gen.int(1, 100))) { map =>
           val expected: Map[Int, Option[Int]] = map.map { case (k, v) => k -> Some(v) }
           assert(map)(migratesTo(expected))
