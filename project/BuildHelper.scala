@@ -82,7 +82,9 @@ object BuildHelper {
       if (sys.env.contains("CI")) {
         Seq("-Xfatal-warnings", "-Ypatmat-exhaust-depth", "80")
       } else {
-        Seq("-Ypatmat-exhaust-depth", "80")
+        Seq("-Xfatal-warnings", "-Ypatmat-exhaust-depth", "80")
+
+//        Seq("-Ypatmat-exhaust-depth", "80")
 //        Nil // to enable Scalafix locally
       }
     }
