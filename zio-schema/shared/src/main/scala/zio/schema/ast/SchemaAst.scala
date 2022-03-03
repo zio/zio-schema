@@ -318,15 +318,16 @@ object SchemaAst {
               optional
             )
           case Schema.Sequence(schema, _, _, _, _) =>
-            ListNode(item = subtree(path / "item", lineage, schema, optional = false), path)
+            ListNode(item = subtree(path / "item", lineage, schema, optional), path)
           case Schema.MapSchema(ks, vs, _) =>
             Dictionary(
               keys = subtree(path / "keys", Chunk.empty, ks, optional = false),
               values = subtree(path / "values", Chunk.empty, vs, optional = false),
-              path
+              path,
+              optional
             )
           case Schema.SetSchema(schema @ _, _) =>
-            ListNode(item = subtree(path / "item", lineage, schema, optional = false), path)
+            ListNode(item = subtree(path / "item", lineage, schema, optional), path)
           case Schema.Transform(schema, _, _, _, _) => subtree(path, lineage, schema, optional)
           case lzy @ Schema.Lazy(_)                 => subtree(path, lineage, lzy.schema, optional)
           case s: Schema.Record[_] =>
