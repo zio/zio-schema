@@ -207,7 +207,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
         }
       } @@ TestAspect.shrinks(0),
       test("sequence of optional primitives") {
-        val schema = Schema[List[Option[Int]]]
+        val schema       = Schema[List[Option[Int]]]
         val materialized = SchemaAst.fromSchema(schema).toSchema
         assert(materialized)(hasSameSchemaStructure(schema))
       }
