@@ -3,7 +3,24 @@ package zio.schema
 import java.math.{ BigInteger, MathContext }
 import java.time.format.DateTimeFormatter
 import java.time.temporal.{ ChronoField, ChronoUnit }
-import java.time.{DayOfWeek, Duration => JDuration, Instant, LocalDate, LocalDateTime, LocalTime, Month => JMonth, MonthDay, OffsetDateTime, OffsetTime, Period, Year, YearMonth, ZoneId, ZoneOffset, ZonedDateTime => JZonedDateTime}
+import java.time.{
+  DayOfWeek,
+  Duration => JDuration,
+  Instant,
+  LocalDate,
+  LocalDateTime,
+  LocalTime,
+  Month => JMonth,
+  MonthDay,
+  OffsetDateTime,
+  OffsetTime,
+  Period,
+  Year,
+  YearMonth,
+  ZoneId,
+  ZoneOffset,
+  ZonedDateTime => JZonedDateTime
+}
 import java.util.UUID
 
 import scala.annotation.{ nowarn, tailrec }

@@ -34,7 +34,7 @@ import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-import zio.{Chunk, Console, Task, ZIO}
+import zio.{ Chunk, Console, Task, ZIO }
 
 // TODO: use generators instead of manual encode/decode
 
