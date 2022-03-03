@@ -41,21 +41,23 @@ object MigrationSpec extends DefaultRunnableSpec {
           )
         },
         test("increment dimensions") {
-          val from = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true, dimensions = 0)
-          val to   = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true, dimensions = 2)
+          val from = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true)
+          val to =
+            SchemaAst.ListNode(SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true), NodePath.root)
 
           assertTrue(
             Migration
-              .derive(from, to) == Right(Chunk(Migration.IncrementDimensions(NodePath.root, 2)))
+              .derive(from, to) == Right(Chunk(Migration.IncrementDimensions(NodePath.root, 1)))
           )
         },
         test("decrement dimensions") {
-          val from = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true, dimensions = 2)
-          val to   = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true, dimensions = 0)
+          val from =
+            SchemaAst.ListNode(SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true), NodePath.root)
+          val to = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true)
 
           assertTrue(
             Migration
-              .derive(from, to) == Right(Chunk(Migration.DecrementDimensions(NodePath.root, 2)))
+              .derive(from, to) == Right(Chunk(Migration.DecrementDimensions(NodePath.root, 1)))
           )
         }
       ),

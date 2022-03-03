@@ -72,6 +72,17 @@ sealed trait DynamicValue { self =>
       case (DynamicValue.Transform(value), Schema.Transform(schema, f, _, _, _)) =>
         value.toTypedValue(schema).flatMap(f)
 
+      case (DynamicValue.Dictionary(entries), schema: Schema.MapSchema[k, v]) =>
+        entries.foldLeft[Either[String, Map[k, v]]](Right[String, Map[k, v]](Map.empty)) {
+          case (err @ Left(_), _) => err
+          case (Right(map), entry) => {
+            for {
+              key   <- entry._1.toTypedValue(schema.ks)
+              value <- entry._2.toTypedValue(schema.vs)
+            } yield map ++ Map(key -> value)
+          }
+        }
+
       case (_, l @ Schema.Lazy(_)) =>
         toTypedValue(l.schema)
 

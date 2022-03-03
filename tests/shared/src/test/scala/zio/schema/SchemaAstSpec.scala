@@ -29,7 +29,10 @@ object SchemaAstSpec extends DefaultRunnableSpec {
       test("primitive") {
         check(SchemaGen.anyPrimitive) {
           case s @ Schema.Primitive(typ, _) =>
-            assertTrue(SchemaAst.fromSchema(Schema.chunk(s)) == SchemaAst.Value(typ, dimensions = 1))
+            assertTrue(
+              SchemaAst.fromSchema(Schema.chunk(s)) == SchemaAst
+                .ListNode(SchemaAst.Value(typ, path = NodePath.root / "item"), NodePath.root)
+            )
         }
       }
     ),
@@ -75,7 +78,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
         val ast    = SchemaAst.fromSchema(schema)
 
         val recursiveRef: Option[SchemaAst] = ast match {
-          case SchemaAst.Product(_, elements, _, _) =>
+          case SchemaAst.Product(_, elements, _) =>
             elements.find {
               case ("r", _) => true
               case _        => false
@@ -84,8 +87,8 @@ object SchemaAstSpec extends DefaultRunnableSpec {
         }
         assertTrue(
           recursiveRef.exists {
-            case SchemaAst.Ref(pathRef, _, _, _) => pathRef == Chunk.empty
-            case _                               => false
+            case SchemaAst.Ref(pathRef, _, _) => pathRef == Chunk.empty
+            case _                            => false
           }
         )
       }
@@ -202,7 +205,12 @@ object SchemaAstSpec extends DefaultRunnableSpec {
         check(SchemaGen.anySchema) { schema =>
           assert(SchemaAst.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
         }
-      } @@ TestAspect.shrinks(0)
+      } @@ TestAspect.shrinks(0),
+      test("sequence of optional primitives") {
+        val schema       = Schema[List[Option[Int]]]
+        val materialized = SchemaAst.fromSchema(schema).toSchema
+        assert(materialized)(hasSameSchemaStructure(schema))
+      }
     )
   )
 
