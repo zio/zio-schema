@@ -64,15 +64,14 @@ object Migration {
       fromSubtree: SchemaAst,
       toSubtree: SchemaAst,
       ignoreRefs: Boolean
-    ): Either[String, Chunk[Migration]] = (fromSubtree, toSubtree) match {
-      case (f: SchemaAst.FailNode, t: SchemaAst.FailNode) =>
-        Right(
-          if (f.message == t.message)
-            Chunk.empty
-          else
-            transformShape(path, f, t) :+ UpdateFail(path, t.message)
-        )
-      case (f @ SchemaAst.Product(_, ffields, _, _), t @ SchemaAst.Product(_, tfields, _, _)) =>
+    ): Either[String, Chunk[Migration]] = {
+
+      def goProduct(
+        f: SchemaAst,
+        t: SchemaAst,
+        ffields: Chunk[(String, SchemaAst)],
+        tfields: Chunk[(String, SchemaAst)]
+      ): Either[String, Chunk[Migration]] =
         matchedSubtrees(ffields, tfields).map {
           case ((nextPath, fs), (_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
         }.foldRight[Either[String, Chunk[Migration]]](Right(Chunk.empty)) {
@@ -88,7 +87,13 @@ object Migration {
               tfields
             )
           )
-      case (f @ SchemaAst.Sum(_, fcases, _, _), t @ SchemaAst.Sum(_, tcases, _, _)) =>
+
+      def goSum(
+        f: SchemaAst,
+        t: SchemaAst,
+        fcases: Chunk[(String, SchemaAst)],
+        tcases: Chunk[(String, SchemaAst)]
+      ): Either[String, Chunk[Migration]] =
         matchedSubtrees(fcases, tcases).map {
           case ((nextPath, fs), (_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
         }.foldRight[Either[String, Chunk[Migration]]](Right(Chunk.empty)) {
@@ -104,19 +109,65 @@ object Migration {
               tcases
             )
           )
-      case (f @ SchemaAst.Value(ftype, _, _, _), t @ SchemaAst.Value(ttype, _, _, _)) if ttype != ftype =>
-        Right(transformShape(path, f, t) :+ ChangeType(path, ttype))
-      case (f @ SchemaAst.Value(_, _, _, _), t @ SchemaAst.Value(_, _, _, _)) =>
-        Right(transformShape(path, f, t))
-      case (f @ SchemaAst.Ref(fromRef, nodePath, _, _), t @ SchemaAst.Ref(toRef, _, _, _)) if fromRef == toRef =>
-        if (ignoreRefs) Right(Chunk.empty)
-        else {
-          val recursiveMigrations = acc
-            .filter(_.path.isSubpathOf(fromRef))
-            .map(relativize(fromRef, nodePath.relativeTo(fromRef)))
-          Right(recursiveMigrations ++ transformShape(path, f, t))
-        }
-      case (f, t) => Left(s"Subtrees at path ${renderPath(path)} are not homomorphic: $f cannot be mapped to $t")
+
+      (fromSubtree, toSubtree) match {
+        case (f: SchemaAst.FailNode, t: SchemaAst.FailNode) =>
+          Right(
+            if (f.message == t.message)
+              Chunk.empty
+            else
+              transformShape(path, f, t) :+ UpdateFail(path, t.message)
+          )
+        case (f @ SchemaAst.Product(_, ffields, _), t @ SchemaAst.Product(_, tfields, _)) =>
+          goProduct(f, t, ffields, tfields)
+        case (f @ SchemaAst.Tuple(_, fleft, fright, _), t @ SchemaAst.Tuple(_, tleft, tright, _)) =>
+          val ffields = Chunk("left" -> fleft, "right" -> fright)
+          val tfields = Chunk("left" -> tleft, "right" -> tright)
+          goProduct(f, t, ffields, tfields)
+        case (f @ SchemaAst.Product(_, ffields, _), t @ SchemaAst.Tuple(_, tleft, tright, _)) =>
+          val tfields = Chunk("left" -> tleft, "right" -> tright)
+          goProduct(f, t, ffields, tfields)
+        case (f @ SchemaAst.Tuple(_, fleft, fright, _), t @ SchemaAst.Product(_, tfields, _)) =>
+          val ffields = Chunk("left" -> fleft, "right" -> fright)
+          goProduct(f, t, ffields, tfields)
+        case (f @ SchemaAst.ListNode(fitem, _, _), t @ SchemaAst.ListNode(titem, _, _)) =>
+          val ffields = Chunk("item" -> fitem)
+          val tfields = Chunk("item" -> titem)
+          goProduct(f, t, ffields, tfields)
+        case (SchemaAst.ListNode(fitem, _, _), titem) =>
+          derive(fitem, titem).map(migrations => DecrementDimensions(titem.path, 1) +: migrations)
+        case (fitem, SchemaAst.ListNode(titem, _, _)) =>
+          derive(fitem, titem).map(migrations => IncrementDimensions(titem.path, 1) +: migrations)
+        case (f @ SchemaAst.Dictionary(fkeys, fvalues, _, _), t @ SchemaAst.Dictionary(tkeys, tvalues, _, _)) =>
+          val ffields = Chunk("keys" -> fkeys, "values" -> fvalues)
+          val tfields = Chunk("keys" -> tkeys, "values" -> tvalues)
+          goProduct(f, t, ffields, tfields)
+        case (f @ SchemaAst.Sum(_, fcases, _), t @ SchemaAst.Sum(_, tcases, _)) =>
+          goSum(f, t, fcases, tcases)
+        case (f @ SchemaAst.Either(_, fleft, fright, _), t @ SchemaAst.Either(_, tleft, tright, _)) =>
+          val fcases = Chunk("left" -> fleft, "right" -> fright)
+          val tcases = Chunk("left" -> tleft, "right" -> tright)
+          goSum(f, t, fcases, tcases)
+        case (f @ SchemaAst.Sum(_, fcases, _), t @ SchemaAst.Either(_, tleft, tright, _)) =>
+          val tcases = Chunk("left" -> tleft, "right" -> tright)
+          goSum(f, t, fcases, tcases)
+        case (f @ SchemaAst.Either(_, fleft, fright, _), t @ SchemaAst.Sum(_, tcases, _)) =>
+          val fcases = Chunk("left" -> fleft, "right" -> fright)
+          goSum(f, t, fcases, tcases)
+        case (f @ SchemaAst.Value(ftype, _, _), t @ SchemaAst.Value(ttype, _, _)) if ttype != ftype =>
+          Right(transformShape(path, f, t) :+ ChangeType(path, ttype))
+        case (f @ SchemaAst.Value(_, _, _), t @ SchemaAst.Value(_, _, _)) =>
+          Right(transformShape(path, f, t))
+        case (f @ SchemaAst.Ref(fromRef, nodePath, _), t @ SchemaAst.Ref(toRef, _, _)) if fromRef == toRef =>
+          if (ignoreRefs) Right(Chunk.empty)
+          else {
+            val recursiveMigrations = acc
+              .filter(_.path.isSubpathOf(fromRef))
+              .map(relativize(fromRef, nodePath.relativeTo(fromRef)))
+            Right(recursiveMigrations ++ transformShape(path, f, t))
+          }
+        case (f, t) => Left(s"Subtrees at path ${renderPath(path)} are not homomorphic: $f cannot be mapped to $t")
+      }
     }
 
     for {
@@ -213,12 +264,6 @@ object Migration {
     if (to.optional && !from.optional)
       builder += Optional(path)
 
-    if (to.dimensions > from.dimensions)
-      builder += IncrementDimensions(path, to.dimensions - from.dimensions)
-
-    if (from.dimensions > to.dimensions)
-      builder += DecrementDimensions(path, from.dimensions - to.dimensions)
-
     builder.result()
   }
 
@@ -226,16 +271,15 @@ object Migration {
     value: DynamicValue,
     path: List[String],
     trace: Chunk[String] = Chunk.empty
-  )(op: (String, DynamicValue) => Either[String, Option[(String, DynamicValue)]]): Either[String, DynamicValue] =
+  )(op: (String, DynamicValue) => Either[String, Option[(String, DynamicValue)]]): Either[String, DynamicValue] = {
     (value, path) match {
       case (DynamicValue.Transform(value), _) =>
         updateLeaf(value, path, trace)(op).map(DynamicValue.Transform(_))
       case (DynamicValue.SomeValue(value), _) =>
         updateLeaf(value, path, trace)(op).map(DynamicValue.SomeValue(_))
       case (DynamicValue.NoneValue, _) => Right(DynamicValue.NoneValue)
-      case (DynamicValue.Sequence(values), _) =>
-        values
-          .map(v => updateLeaf(v, path, trace)(op))
+      case (DynamicValue.Sequence(values), "item" :: remainder) =>
+        values.zipWithIndex.map { case (v, idx) => updateLeaf(v, remainder, trace :+ s"item[$idx]")(op) }
           .foldRight[Either[String, DynamicValue.Sequence]](Right(DynamicValue.Sequence(Chunk.empty))) {
             case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
             case (Left(e), Right(_))  => Left(e)
@@ -282,9 +326,88 @@ object Migration {
         updateLeaf(caseValue, remainder, trace :+ nextLabel)(op).map { updatedValue =>
           DynamicValue.Enumeration(nextLabel -> updatedValue)
         }
+      case (DynamicValue.Dictionary(entries), "keys" :: Nil) =>
+        entries
+          .map(_._1)
+          .zipWithIndex
+          .map {
+            case (k, idx) =>
+              op(s"key[$idx]", k).flatMap {
+                case Some((_, migrated)) => Right(migrated)
+                case None                => Left(s"invalid update at $path, cannot remove map key")
+              }
+          }
+          .foldRight[Either[String, Chunk[DynamicValue]]](Right(Chunk.empty)) {
+            case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
+            case (Left(e), Right(_))  => Left(e)
+            case (Right(_), Left(e))  => Left(e)
+            case (Right(value), Right(chunk)) =>
+              Right(value +: chunk)
+          }
+          .map { keys =>
+            DynamicValue.Dictionary(keys.zip(entries.map(_._2)))
+          }
+      case (DynamicValue.Dictionary(entries), "keys" :: remainder) =>
+        entries
+          .map(_._1)
+          .zipWithIndex
+          .map {
+            case (k, idx) =>
+              updateLeaf(k, remainder, trace :+ s"key[$idx]")(op)
+          }
+          .foldRight[Either[String, Chunk[DynamicValue]]](Right(Chunk.empty)) {
+            case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
+            case (Left(e), Right(_))  => Left(e)
+            case (Right(_), Left(e))  => Left(e)
+            case (Right(value), Right(chunk)) =>
+              Right(value +: chunk)
+          }
+          .map { keys =>
+            DynamicValue.Dictionary(keys.zip(entries.map(_._2)))
+          }
+      case (DynamicValue.Dictionary(entries), "values" :: Nil) =>
+        entries
+          .map(_._2)
+          .zipWithIndex
+          .map {
+            case (k, idx) =>
+              op(s"key[$idx]", k).flatMap {
+                case Some((_, migrated)) => Right(migrated)
+                case None                => Left(s"invalid update at $path, cannot remove map value")
+              }
+          }
+          .foldRight[Either[String, Chunk[DynamicValue]]](Right(Chunk.empty)) {
+            case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
+            case (Left(e), Right(_))  => Left(e)
+            case (Right(_), Left(e))  => Left(e)
+            case (Right(value), Right(chunk)) =>
+              Right(value +: chunk)
+          }
+          .map { values =>
+            DynamicValue.Dictionary(entries.map(_._1).zip(values))
+          }
+      case (DynamicValue.Dictionary(entries), "values" :: remainder) =>
+        entries
+          .map(_._2)
+          .zipWithIndex
+          .map {
+            case (k, idx) =>
+              updateLeaf(k, remainder, trace :+ s"value[$idx]")(op)
+          }
+          .foldRight[Either[String, Chunk[DynamicValue]]](Right(Chunk.empty)) {
+            case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
+            case (Left(e), Right(_))  => Left(e)
+            case (Right(_), Left(e))  => Left(e)
+            case (Right(value), Right(chunk)) =>
+              Right(value +: chunk)
+          }
+          .map { values =>
+            DynamicValue.Dictionary(entries.map(_._1).zip(values))
+          }
       case _ =>
         Left(s"Failed to update leaf at path ${renderPath(trace ++ path)}: Unexpected node at ${renderPath(trace)}")
     }
+  }
 
   private def spliceRecord(
     fields: ListMap[String, DynamicValue],

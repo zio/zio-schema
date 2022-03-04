@@ -51,7 +51,7 @@ sealed trait DynamicValue { self =>
           case (Right(a), Right(b)) => Right(a -> b)
         }
 
-      case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t]) =>
+      case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t, _]) =>
         values
           .foldLeft[Either[String, Chunk[t]]](Right[String, Chunk[t]](Chunk.empty)) {
             case (err @ Left(_), _) => err
@@ -66,11 +66,22 @@ sealed trait DynamicValue { self =>
       case (DynamicValue.NoneValue, Schema.Optional(_, _)) =>
         Right(None)
 
-      case (DynamicValue.Transform(DynamicValue.Error(message)), Schema.Transform(_, _, _, _)) =>
+      case (DynamicValue.Transform(DynamicValue.Error(message)), Schema.Transform(_, _, _, _, _)) =>
         Left(message)
 
-      case (DynamicValue.Transform(value), Schema.Transform(schema, f, _, _)) =>
+      case (DynamicValue.Transform(value), Schema.Transform(schema, f, _, _, _)) =>
         value.toTypedValue(schema).flatMap(f)
+
+      case (DynamicValue.Dictionary(entries), schema: Schema.MapSchema[k, v]) =>
+        entries.foldLeft[Either[String, Map[k, v]]](Right[String, Map[k, v]](Map.empty)) {
+          case (err @ Left(_), _) => err
+          case (Right(map), entry) => {
+            for {
+              key   <- entry._1.toTypedValue(schema.ks)
+              value <- entry._2.toTypedValue(schema.vs)
+            } yield map ++ Map(key -> value)
+          }
+        }
 
       case (_, l @ Schema.Lazy(_)) =>
         toTypedValue(l.schema)
@@ -954,7 +965,7 @@ object DynamicValue {
 
       case Schema.Fail(message, _) => DynamicValue.Error(message)
 
-      case Schema.Sequence(schema, _, toChunk, _) =>
+      case Schema.Sequence(schema, _, toChunk, _, _) =>
         DynamicValue.Sequence(toChunk(value).map(fromSchemaAndValue(schema, _)))
 
       case Schema.MapSchema(ks: Schema[k], vs: Schema[v], _) =>
@@ -982,7 +993,7 @@ object DynamicValue {
           case None           => DynamicValue.NoneValue
         }
 
-      case Schema.Transform(schema, _, g, _) =>
+      case Schema.Transform(schema, _, g, _, _) =>
         g(value) match {
           case Left(message) => DynamicValue.Transform(DynamicValue.Error(message))
           case Right(a)      => DynamicValue.Transform(fromSchemaAndValue(schema, a))
