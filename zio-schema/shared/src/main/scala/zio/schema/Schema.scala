@@ -6,6 +6,7 @@ import zio.Chunk
 import zio.schema.ast._
 import zio.schema.internal.SourceLocation
 
+import java.util.regex.Pattern
 import scala.annotation.tailrec
 
 /**
@@ -156,7 +157,9 @@ sealed trait Schema[A] {
 
 object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with SchemaEquality {
 
-  private def fuzzyReformat(str: String): String = str.replaceAll("[-_]", "").toLowerCase
+  val reformatPattern: Pattern = Pattern.compile("[-_]")
+
+  private def fuzzyReformat(str: String): String = reformatPattern.matcher(str).replaceAll("").toLowerCase
 
   @tailrec
   private def isTypeMatch(schema: Schema[_], valueType: StandardType[_]): Boolean =
