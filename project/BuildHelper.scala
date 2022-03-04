@@ -83,7 +83,6 @@ object BuildHelper {
         Seq("-Xfatal-warnings", "-Ypatmat-exhaust-depth", "80")
       } else {
         Seq("-Ypatmat-exhaust-depth", "80")
-//        Nil // to enable Scalafix locally
       }
     }
 
