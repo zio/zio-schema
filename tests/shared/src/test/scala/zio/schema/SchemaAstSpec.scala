@@ -2,7 +2,6 @@ package zio.schema
 
 import zio._
 import zio.schema.CaseSet._
-import zio.schema.Schema.Field
 import zio.schema.SchemaAssertions._
 import zio.schema.ast._
 import zio.test._
