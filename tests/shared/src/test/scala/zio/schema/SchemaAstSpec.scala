@@ -2,6 +2,7 @@ package zio.schema
 
 import zio._
 import zio.schema.CaseSet._
+import zio.schema.Schema.Field
 import zio.schema.SchemaAssertions._
 import zio.schema.ast._
 import zio.test._
@@ -208,6 +209,11 @@ object SchemaAstSpec extends DefaultRunnableSpec {
       } @@ TestAspect.shrinks(0),
       test("sequence of optional primitives") {
         val schema       = Schema[List[Option[Int]]]
+        val materialized = SchemaAst.fromSchema(schema).toSchema
+        assert(materialized)(hasSameSchemaStructure(schema))
+      },
+      test("optional sequence of primitives") {
+        val schema       = Schema[Option[List[String]]]
         val materialized = SchemaAst.fromSchema(schema).toSchema
         assert(materialized)(hasSameSchemaStructure(schema))
       }
