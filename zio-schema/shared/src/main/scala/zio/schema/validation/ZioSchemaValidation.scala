@@ -4,12 +4,11 @@ object ZioSchemaValidation {
   // Goal: a way to validate zio-schema data that can be serialized
   // - validation cannot embed any scala functions
   // - validations should be able to be stored as generic data
-  // - meta-level 
+  // - meta-level
   // Want: A DSL That can encode rules about what valid data is
   //  1) generated in a way that does not care about types
   //  2) we can also try to leverage a type system
   //   validation: A => Boolean
-
 
   // validation.fromJsonSchema(schema)
 
@@ -18,11 +17,11 @@ object ZioSchemaValidation {
 
     val nameValidation: Validation[String] = minLength(4) && maxLength(50)
 
-    val anyInt: Validation[Int] = anyOf(greaterThan(2), lessThan(4), equalTo(3))
+    val anyInt: Validation[Int]       = anyOf(greaterThan(2), lessThan(4), equalTo(3))
     val anyString: Validation[String] = anyOf(minLength(3), maxLength(10))
 
     val all: Validation[String] = allOf(minLength(3), maxLength(4))
-    val allInt = allOf(greaterThan(2), lessThan(4), equalTo(3))
+    val allInt                  = allOf(greaterThan(2), lessThan(4), equalTo(3))
   }
 
   // object Validation {
@@ -34,7 +33,7 @@ object ZioSchemaValidation {
   //   // 5) verify that a decimal number falls within a certain range. *
   //   // 6) verify that strings represent/contain date-time information.
   //   // 7) cross-field validation
-    
+
   //   final case class Str(stringValidation: Bool[Str]) extends Validation[String] { self =>
   //     def &&(that: Str): Str = {
   //       Str(self.stringValidation && that.stringValidation)

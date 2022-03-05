@@ -1,7 +1,5 @@
 package zio.schema.validation
 
-import zio.schema.validation.utils._
-
 final case class Validation[A](bool: Bool[Predicate[A]]) { self =>
   def &&(that: Validation[A]): Validation[A] = Validation(self.bool && that.bool)
   def ||(that: Validation[A]): Validation[A] = Validation(self.bool || that.bool)
@@ -12,7 +10,6 @@ final case class Validation[A](bool: Bool[Predicate[A]]) { self =>
     type Result = Either[Errors, Errors]
     def combineAnd(left: Result, right: Result): Result =
       (left, right) match {
-        // helper to convert List[String] to ::[String]?
         case (Left(leftErrors), Left(rightErrors))         => Left((leftErrors ++ rightErrors))
         case (Left(leftErrors), _)                         => Left(leftErrors)
         case (_, Left(rightErrors))                        => Left(rightErrors)
@@ -21,7 +18,6 @@ final case class Validation[A](bool: Bool[Predicate[A]]) { self =>
 
     def combineOr(left: Result, right: Result): Result =
       (left, right) match {
-        // helper to convert List[String] to ::[String]?
         case (Left(leftErrors), Left(rightErrors))         => Left((leftErrors ++ rightErrors))
         case (Left(_), right)                              => right
         case (right, Left(_))                              => right
@@ -48,12 +44,14 @@ final case class Validation[A](bool: Bool[Predicate[A]]) { self =>
   }
 }
 
-object Validation {
+object Validation extends Regexs {
   import Predicate._
 
   // String operations
   def minLength(n: Int): Validation[String] = Validation(Bool.Leaf(Str.MinLength(n)))
   def maxLength(n: Int): Validation[String] = Validation(Bool.Leaf(Str.MaxLength(n)))
+  //Regex
+  def regex(r: Regex): Validation[String] = Validation(Bool.Leaf(Str.Matches(r)))
 
   // Numerical operations
   def greaterThan[A](value: A)(implicit numType: NumType[A]): Validation[A] =

@@ -1,7 +1,5 @@
 package zio.schema.validation
 
-import zio.schema.validation.utils._
-
 sealed trait Predicate[A] {
   type Errors = List[ValidationErrors]
   type Result = Either[Errors, Errors]
@@ -16,10 +14,10 @@ object Predicate {
     final case class MinLength(n: Int) extends Str[String] {
 
       def validate(value: String): Result =
-        if (value.length() >= n) Right(::(ValidationErrors.MinLength(n, value.length(), value), Nil)) // right is too long
+        if (value.length() >= n)
+          Right(::(ValidationErrors.MinLength(n, value.length(), value), Nil)) // right is too long
         else
-          Left(::(ValidationErrors.MinLength(n, value.length(), value), Nil)) // TODO create error messages here for "" left is too short
-      // TODO finish validate implementation for predicates and try to add tests
+          Left(::(ValidationErrors.MinLength(n, value.length(), value), Nil)) // TODO create inverted Errors as well
     }
     final case class MaxLength(n: Int) extends Str[String] {
 
@@ -28,8 +26,10 @@ object Predicate {
         else Left(::(ValidationErrors.MaxLength(n, value.length(), value), Nil))
     }
     final case class Matches(r: Regex) extends Str[String] {
-      // TODO Q: do we need a Regex implementation?
-      def validate(value: String): Result = ???
+
+      def validate(value: String): Result =
+        if (r.test(value)) Right(::(ValidationErrors.Regex(value, r), Nil))
+        else Left(::(ValidationErrors.Regex(value, r), Nil))
     }
   }
 

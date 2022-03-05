@@ -1,4 +1,6 @@
-package zio.schema.validation.utils
+package zio.schema.validation
+
+import zio.schema.validation
 
 //TODO move top level to the .validation package and put in a file called
 // ValidationError.scala
@@ -30,5 +32,10 @@ object ValidationErrors {
   final case class EqualTo[A](value: A, expected: A) extends ValidationErrors {
     override def message =
       s"$value should be equal to $expected"
+  }
+
+  final case class Regex(str: String, expected: validation.Regex) extends ValidationErrors {
+    override def message =
+      s"$str does not match $expected"
   }
 }
