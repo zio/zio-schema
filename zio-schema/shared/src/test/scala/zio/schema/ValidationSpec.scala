@@ -42,6 +42,15 @@ object ValidationSpec extends DefaultRunnableSpec {
       assertTrue(validation.validate("Todd").isRight) &&
       assertTrue(validation.validate("how").isRight)
       assertTrue(validation.validate("Automobile").isLeft)
+    },
+    test("Regex identifier Validation") {
+      //val validation = Validation.regex(Regex.digitOrCharacter)
+      val validation = Validation.identifier
+
+      assertTrue(validation.validate("a").isRight) &&
+      assertTrue(validation.validate("ab").isRight) &&
+      assertTrue(validation.validate("").isLeft) //&&
+      //assertTrue(validation.validate("&").isLeft)
     }
   )
 }
