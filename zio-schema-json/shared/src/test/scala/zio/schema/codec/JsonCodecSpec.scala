@@ -758,7 +758,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     implicit keyEncoder: JsonEncoder[K],
     valueEncoder: JsonEncoder[V]
   ): JsonEncoder[Map[K, V]] =
-    JsonEncoder.chunk(keyEncoder.both(valueEncoder)).contramap[Map[K, V]](m => Chunk.fromIterable(m))
+    JsonEncoder.chunk(keyEncoder.zip(valueEncoder)).contramap[Map[K, V]](m => Chunk.fromIterable(m))
 
   private def jsonEncoded[A](value: A)(implicit enc: JsonEncoder[A]): Chunk[Byte] =
     JsonCodec.Encoder.charSequenceToByteChunk(enc.encodeJson(value, None))
