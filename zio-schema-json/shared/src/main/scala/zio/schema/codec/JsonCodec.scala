@@ -58,7 +58,7 @@ object JsonCodec extends Codec {
         case StandardType.LongType              => ZJsonCodec.long
         case StandardType.FloatType             => ZJsonCodec.float
         case StandardType.DoubleType            => ZJsonCodec.double
-        case StandardType.BinaryType            => ZJsonCodec.chunk(ZJsonCodec.byte)
+        case StandardType.BinaryType            => ZJsonCodec.chunk(ZJsonCodec.byte.encoder, ZJsonCodec.byte.decoder)
         case StandardType.CharType              => ZJsonCodec.char
         case StandardType.BigIntegerType        => ZJsonCodec.bigInteger
         case StandardType.BigDecimalType        => ZJsonCodec.bigDecimal
@@ -100,10 +100,10 @@ object JsonCodec extends Codec {
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[codec] def schemaEncoder[A](schema: Schema[A]): JsonEncoder[A] = schema match {
-      case Schema.Primitive(standardType, _)   => primitiveCodec(standardType)
+      case Schema.Primitive(standardType, _)   => primitiveCodec(standardType).encoder
       case Schema.Sequence(schema, _, g, _, _) => JsonEncoder.chunk(schemaEncoder(schema)).contramap(g)
       case Schema.MapSchema(ks, vs, _) =>
-        JsonEncoder.chunk(schemaEncoder(ks).both(schemaEncoder(vs))).contramap(m => Chunk.fromIterable(m))
+        JsonEncoder.chunk(schemaEncoder(ks).zip(schemaEncoder(vs))).contramap(m => Chunk.fromIterable(m))
       case Schema.SetSchema(s, _) =>
         JsonEncoder.chunk(schemaEncoder(s)).contramap(m => Chunk.fromIterable(m))
       case Schema.Transform(c, _, g, _, _)                       => transformEncoder(c, g)
@@ -217,7 +217,7 @@ object JsonCodec extends Codec {
           out.write('{')
           val indent_ = bump(indent)
           pad(indent_, out)
-          string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(case_.id), indent_, out)
+          string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(case_.id), indent_, out)
           if (indent.isEmpty) out.write(':')
           else out.write(" : ")
           schemaEncoder(case_.codec.asInstanceOf[Schema[Any]]).unsafeEncode(case_.unsafeDeconstruct(value), indent, out)
@@ -247,7 +247,7 @@ object JsonCodec extends Codec {
                   if (indent.isDefined)
                     JsonEncoder.pad(indent_, out)
                 }
-                string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(k), indent_, out)
+                string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(k), indent_, out)
                 if (indent.isEmpty) out.write(':')
                 else out.write(" : ")
                 enc.unsafeEncode(value(k), indent_, out)
@@ -269,7 +269,7 @@ object JsonCodec extends Codec {
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[codec] def schemaDecoder[A](schema: Schema[A]): JsonDecoder[A] = schema match {
-      case Schema.Primitive(standardType, _)   => primitiveCodec(standardType)
+      case Schema.Primitive(standardType, _)   => primitiveCodec(standardType).decoder
       case Schema.Optional(codec, _)           => JsonDecoder.option(schemaDecoder(codec))
       case Schema.Tuple(left, right, _)        => JsonDecoder.tuple2(schemaDecoder(left), schemaDecoder(right))
       case Schema.Transform(codec, f, _, _, _) => schemaDecoder(codec).mapOrFail(f)
@@ -430,7 +430,7 @@ object JsonCodec extends Codec {
                 JsonEncoder.pad(indent_, out)
             }
 
-            string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(key), indent_, out)
+            string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(key), indent_, out)
             if (indent.isEmpty) out.write(':')
             else out.write(" : ")
             enc.unsafeEncode(ext(a), indent_, out)
