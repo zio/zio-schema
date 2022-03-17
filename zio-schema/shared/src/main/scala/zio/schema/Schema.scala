@@ -131,6 +131,8 @@ sealed trait Schema[A] {
   def toDynamic(value: A): DynamicValue =
     DynamicValue.fromSchemaAndValue(self, value)
 
+  def toSemiDynamic: Schema[(A, Schema[A])] = Schema.semiDynamic(defaultValue = self.defaultValue.map(_ -> self))
+
   /**
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
    * between `A` and `B`, without possibility of failure.

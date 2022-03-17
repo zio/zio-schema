@@ -210,7 +210,6 @@ object Differ {
       (as: Set[A]) => Chunk.fromIterable(as),
       (as: Chunk[A]) => as.toSet
     )
-
   }
 
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
@@ -316,14 +315,31 @@ object Differ {
     case Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)      => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
     case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
     case Schema.EnumN(cs, _)                                                                                                   => enumN(cs.toSeq: _*)
-    case Schema.Dynamic(_)                                                                                                     => ??? // TODO
-    case Schema.SemiDynamic(_, _)                                                                                              => ??? // TODO
+    case Schema.Dynamic(_)                                                                                                     => Differ.dynamicValue
+    case s @ Schema.SemiDynamic(_, _)                                                                                          => Differ.semiDynamic(s)
   }
   //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
   def unit: Differ[Unit] = (_: Unit, _: Unit) => Diff.identical
 
   def binary: Differ[Chunk[Byte]] = LCSDiff.apply[Byte]
+
+  //TODO We can probably actually diff DynamicValues properly
+  def dynamicValue: Differ[DynamicValue] = new Differ[DynamicValue] {
+    def apply(thisValue: DynamicValue, thatValue: DynamicValue): Diff[DynamicValue] = Diff.notComparable[DynamicValue]
+  }
+
+  def semiDynamic[A](schema: Schema.SemiDynamic[A]): Differ[(A, Schema[A])] = {
+    val _ = schema
+    new Differ[(A, Schema[A])] {
+      def apply(thisValue: (A, Schema[A]), thatValue: (A, Schema[A])): Diff[(A, Schema[A])] = {
+        val valueDiffer                     = Differ.fromSchema(thisValue._2)
+        val schemaDiffer: Differ[Schema[A]] = (_: Schema[A], _: Schema[A]) => Diff.identical[Schema[A]]
+
+        valueDiffer.zip(schemaDiffer).apply(thisValue, thatValue)
+      }
+    }
+  }
 
   def bool: Differ[Boolean] =
     (thisBool: Boolean, thatBool: Boolean) =>
@@ -756,6 +772,8 @@ object Diff {
   }
 
   final case class Tuple[A, B](leftDifference: Diff[A], rightDifference: Diff[B]) extends Diff[(A, B)] {
+
+    override def isIdentical: Boolean = leftDifference.isIdentical && rightDifference.isIdentical
     override def patch(input: (A, B)): Either[String, (A, B)] =
       for {
         l <- leftDifference.patch(input._1)
