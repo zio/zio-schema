@@ -5,7 +5,6 @@ import scala.annotation.tailrec
 import zio.Chunk
 import zio.schema.DynamicValue._
 import zio.schema.StandardType.UnitType
-import zio.schema.ast.SchemaAst
 
 object SchemaOrdering {
 
