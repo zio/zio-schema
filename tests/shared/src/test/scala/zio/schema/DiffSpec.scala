@@ -157,6 +157,32 @@ object DiffSpec extends DefaultRunnableSpec with DefaultJavaTimeSchemas {
         testM("sealed trait")(diffLaw[Pet]),
         testM("high arity")(diffLaw[Arities]) @@ TestAspect.ignore,
         testM("recursive")(diffLaw[Recursive])
+      ),
+      suite("semiDynamic")(
+        testM("identity") {
+          val schema            = Schema[Person]
+          val semiDynamicSchema = Schema.semiDynamic[Person]()
+          val gen               = DeriveGen.gen[Person]
+          check(gen) { value =>
+            assertTrue(semiDynamicSchema.diff(value -> schema, value -> schema).isIdentical)
+          }
+        },
+        testM("diffLaw") {
+          val schema            = Schema[Person]
+          val semiDynamicSchema = Schema.semiDynamic[Person]()
+          val gen               = DeriveGen.gen[Person]
+          check(gen <*> gen) {
+            case (l, r) =>
+              val diff = semiDynamicSchema.diff(l -> schema, r -> schema)
+              if (diff.isComparable) {
+                val patched = diff.patch(l -> schema)
+                if (patched.isLeft) println(diff)
+                assert(patched)(isRight(equalTo(r -> schema)))
+              } else {
+                assertTrue(true)
+              }
+          }
+        }
       )
     ),
     suite("not comparable")(
