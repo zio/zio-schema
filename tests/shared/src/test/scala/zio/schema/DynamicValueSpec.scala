@@ -69,7 +69,7 @@ object DynamicValueSpec extends DefaultRunnableSpec {
             assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
         }
       },
-      testM("round-trip semiDynamic") {
+      test("round-trip semiDynamic") {
         val gen = for {
           schemaAndGen       <- SchemaGen.anyGenericRecordAndGen
           (schema, valueGen) = schemaAndGen
