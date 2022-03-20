@@ -829,7 +829,7 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
     )
   )
 
-  def writeManually(f: TBinaryProtocol => Unit): Task[String] = Task {
+  def writeManually(f: TBinaryProtocol => Unit): Task[String] = Task.attempt {
     val writeRecord = new ChunkTransport.Write()
     f(new TBinaryProtocol(writeRecord))
     toHex(writeRecord.chunk)
