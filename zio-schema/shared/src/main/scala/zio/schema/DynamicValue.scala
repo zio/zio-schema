@@ -66,10 +66,7 @@ sealed trait DynamicValue { self =>
       case (DynamicValue.NoneValue, Schema.Optional(_, _)) =>
         Right(None)
 
-      case (DynamicValue.Transform(DynamicValue.Error(message)), Schema.Transform(_, _, _, _, _)) =>
-        Left(message)
-
-      case (DynamicValue.Transform(value), Schema.Transform(schema, f, _, _, _)) =>
+      case (value, Schema.Transform(schema, f, _, _, _)) =>
         value.toTypedValue(schema).flatMap(f)
 
       case (DynamicValue.Dictionary(entries), schema: Schema.MapSchema[k, v]) =>
@@ -1001,8 +998,8 @@ object DynamicValue {
 
       case Schema.Transform(schema, _, g, _, _) =>
         g(value) match {
-          case Left(message) => DynamicValue.Transform(DynamicValue.Error(message))
-          case Right(a)      => DynamicValue.Transform(fromSchemaAndValue(schema, a))
+          case Left(message) => DynamicValue.Error(message)
+          case Right(a)      => fromSchemaAndValue(schema, a)
         }
 
       case Schema.Meta(ast, _) => DynamicValue.DynamicAst(ast)
@@ -1886,8 +1883,6 @@ object DynamicValue {
 
   final case class SomeValue(value: DynamicValue) extends DynamicValue
 
-  final case class Transform(value: DynamicValue) extends DynamicValue
-
   case object NoneValue extends DynamicValue
 
   sealed case class Tuple(left: DynamicValue, right: DynamicValue) extends DynamicValue
@@ -1913,7 +1908,6 @@ private[schema] object DynamicValueSchema { self =>
         .:+:(rightValueCase)
         .:+:(leftValueCase)
         .:+:(tupleCase)
-        .:+:(transformCase)
         .:+:(someValueCase)
         .:+:(dictionaryCase)
         .:+:(sequenceCase)
@@ -2025,17 +2019,6 @@ private[schema] object DynamicValueSchema { self =>
         tuple => tuple.right
       ),
       _.asInstanceOf[DynamicValue.Tuple]
-    )
-
-  private val transformCase: Schema.Case[DynamicValue.Transform, DynamicValue] =
-    Schema.Case(
-      "Transform",
-      Schema.CaseClass1[DynamicValue, DynamicValue.Transform](
-        Schema.Field("value", Schema.defer(DynamicValueSchema())),
-        dv => DynamicValue.Transform(dv),
-        transform => transform.value
-      ),
-      _.asInstanceOf[DynamicValue.Transform]
     )
 
   private val someValueCase: Schema.Case[DynamicValue.SomeValue, DynamicValue] =
