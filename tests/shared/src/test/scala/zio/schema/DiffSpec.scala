@@ -153,12 +153,12 @@ object DiffSpec extends DefaultRunnableSpec with DefaultJavaTimeSchemas {
         test("recursive")(diffLaw[Recursive.RecursiveEither])
       ),
       suite("enums")(
-        testM("sealed trait")(diffLaw[Pet]),
-        testM("high arity")(diffLaw[Arities]) @@ TestAspect.ignore,
-        testM("recursive")(diffLaw[Recursive])
+        test("sealed trait")(diffLaw[Pet]),
+        test("high arity")(diffLaw[Arities]) @@ TestAspect.ignore,
+        test("recursive")(diffLaw[Recursive])
       ),
       suite("semiDynamic")(
-        testM("identity") {
+        test("identity") {
           val schema            = Schema[Person]
           val semiDynamicSchema = Schema.semiDynamic[Person]()
           val gen               = DeriveGen.gen[Person]
@@ -166,7 +166,7 @@ object DiffSpec extends DefaultRunnableSpec with DefaultJavaTimeSchemas {
             assertTrue(semiDynamicSchema.diff(value -> schema, value -> schema).isIdentical)
           }
         },
-        testM("diffLaw")(semiDynamicDiffLaw[Person])
+        test("diffLaw")(semiDynamicDiffLaw[Person])
       )
     ),
     suite("not comparable")(

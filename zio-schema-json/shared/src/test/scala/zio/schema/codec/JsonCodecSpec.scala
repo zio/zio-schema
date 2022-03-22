@@ -402,15 +402,15 @@ object JsonCodecSpec extends DefaultRunnableSpec {
               assertEncodesThenDecodes(Schema.Optional(schema), None)
         }
       },
-      testM("of Map") {
-        checkM(SchemaGen.anyMapAndValue) {
+      test("of Map") {
+        check(SchemaGen.anyMapAndValue) {
           case (schema, value) =>
             assertEncodesThenDecodes(Schema.Optional(schema), Some(value)) &>
               assertEncodesThenDecodes(Schema.Optional(schema), None)
         }
       },
-      testM("of Set") {
-        checkM(SchemaGen.anySetAndValue) {
+      test("of Set") {
+        check(SchemaGen.anySetAndValue) {
           case (schema, value) =>
             assertEncodesThenDecodes(Schema.Optional(schema), Some(value)) &>
               assertEncodesThenDecodes(Schema.Optional(schema), None)
@@ -568,22 +568,22 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         }
       },
       suite("dynamic")(
-        testM("dynamic int") {
-          checkM(
+        test("dynamic int") {
+          check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.IntType)
           ) { dynamicValue =>
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
           }
         },
-        testM("dynamic instant") {
-          checkM(
+        test("dynamic instant") {
+          check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
           ) { dynamicValue =>
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
           }
         },
-        testM("dynamic zoned date time") {
-          checkM(
+        test("dynamic zoned date time") {
+          check(
             DynamicValueGen.anyPrimitiveDynamicValue(
               StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)
             )
@@ -591,58 +591,58 @@ object JsonCodecSpec extends DefaultRunnableSpec {
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
           }
         },
-        testM("dynamic duration") {
-          checkM(
+        test("dynamic duration") {
+          check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.DurationType)
           ) { dynamicValue =>
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
           }
         },
-        testM("dynamic string") {
-          checkM(
+        test("dynamic string") {
+          check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.StringType)
           ) { dynamicValue =>
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
           }
         },
-        testM("dynamic unit") {
-          checkM(
+        test("dynamic unit") {
+          check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.UnitType)
           ) { dynamicValue =>
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
           }
         },
-        testM("dynamic json") {
-          checkM(
+        test("dynamic json") {
+          check(
             DynamicValueGen.anyDynamicValueOfSchema(SchemaGen.Json.schema)
           ) { dynamicValue =>
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
           }
         },
-        testM("dynamic tuple") {
-          checkM(
+        test("dynamic tuple") {
+          check(
             DynamicValueGen.anyDynamicTupleValue(Schema[String], Schema[Int])
           ) { dynamicValue =>
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
           }
         },
-        testM("dynamic record") {
-          checkM(
+        test("dynamic record") {
+          check(
             SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicValueOfSchema)
           ) { dynamicValue =>
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
           }
         },
-        testM("dynamic (string, record)") {
-          checkM(
+        test("dynamic (string, record)") {
+          check(
             SchemaGen.anyRecord.flatMap(record => DynamicValueGen.anyDynamicTupleValue(Schema[String], record))
           ) { dynamicValue =>
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
           }
         }
       ),
-      testM("semi dynamic record") {
-        checkM(
+      test("semi dynamic record") {
+        check(
           SchemaGen.anyRecord.flatMap(
             record =>
               DynamicValueGen
