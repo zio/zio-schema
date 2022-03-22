@@ -26,7 +26,7 @@ object DynamicValueGen {
       case typ: StandardType.BigDecimalType.type => gen(typ, Gen.double.map(d => java.math.BigDecimal.valueOf(d)))
       case typ: StandardType.BigIntegerType.type => gen(typ, Gen.long.map(n => java.math.BigInteger.valueOf(n)))
       case typ: StandardType.DayOfWeekType.type  => gen(typ, JavaTimeGen.anyDayOfWeek)
-      case typ: StandardType.Duration            => gen(typ, JavaTimeGen.anyDuration)
+      case typ: StandardType.DurationType.type   => gen(typ, JavaTimeGen.anyDuration)
       case typ: StandardType.InstantType         => gen(typ, JavaTimeGen.anyInstant)
       case typ: StandardType.LocalDateType       => gen(typ, JavaTimeGen.anyLocalDate)
       case typ: StandardType.LocalDateTimeType   => gen(typ, JavaTimeGen.anyLocalDateTime)
@@ -85,6 +85,8 @@ object DynamicValueGen {
       case Schema.Fail(message, _)              => Gen.const(DynamicValue.Error(message))
       case l @ Schema.Lazy(_)                   => anyDynamicValueOfSchema(l.schema)
       case Schema.Meta(meta, _)                 => anyDynamicValueOfSchema(meta.toSchema)
+      case Schema.Dynamic(_)                    => SchemaGen.anySchema.flatMap(anyDynamicValueOfSchema(_))
+      case Schema.SemiDynamic(_, _)             => ??? // cannot generate dynamic value that corresponds to A
     }
   //scalafmt: { maxColumn = 120 }
 

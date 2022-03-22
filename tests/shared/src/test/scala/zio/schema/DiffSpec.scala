@@ -156,6 +156,17 @@ object DiffSpec extends DefaultRunnableSpec with DefaultJavaTimeSchemas {
         test("sealed trait")(diffLaw[Pet]),
         test("high arity")(diffLaw[Arities]) @@ TestAspect.ignore,
         test("recursive")(diffLaw[Recursive])
+      ),
+      suite("semiDynamic")(
+        test("identity") {
+          val schema            = Schema[Person]
+          val semiDynamicSchema = Schema.semiDynamic[Person]()
+          val gen               = DeriveGen.gen[Person]
+          check(gen) { value =>
+            assertTrue(semiDynamicSchema.diff(value -> schema, value -> schema).isIdentical)
+          }
+        },
+        test("diffLaw")(semiDynamicDiffLaw[Person])
       )
     ),
     suite("not comparable")(
@@ -172,6 +183,25 @@ object DiffSpec extends DefaultRunnableSpec with DefaultJavaTimeSchemas {
     check(DeriveGen.gen[A]) { a =>
       assertTrue(schema.diff(a, a).isIdentical)
     }
+
+  private def semiDynamicDiffLaw[A](
+    implicit checkConstructor: CheckConstructor[Random with Sized with TestConfig, TestResult],
+    schema: Schema[A]
+  ): ZIO[checkConstructor.OutEnvironment, checkConstructor.OutError, TestResult] = {
+    val semiDynamicSchema = schema.toSemiDynamic
+    val gen               = DeriveGen.gen(schema)
+    check(gen <*> gen) {
+      case (l, r) =>
+        val diff = semiDynamicSchema.diff(l -> schema, r -> schema)
+        if (diff.isComparable) {
+          val patched = diff.patch(l -> schema)
+          if (patched.isLeft) println(diff)
+          assert(patched)(isRight(equalTo(r -> schema)))
+        } else {
+          assertCompletes
+        }
+    }
+  }
 
   private def diffLaw[A](
     implicit checkConstructor: CheckConstructor[Random with Sized with TestConfig, TestResult],

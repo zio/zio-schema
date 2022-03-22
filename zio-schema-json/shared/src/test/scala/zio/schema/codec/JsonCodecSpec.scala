@@ -1,5 +1,7 @@
 package zio.schema.codec
 
+// import java.time.Year
+import java.time.format.DateTimeFormatter
 import java.time.{ ZoneId, ZoneOffset }
 
 import scala.collection.immutable.ListMap
@@ -399,6 +401,20 @@ object JsonCodecSpec extends DefaultRunnableSpec {
             assertEncodesThenDecodes(Schema.Optional(schema), Some(value)) &>
               assertEncodesThenDecodes(Schema.Optional(schema), None)
         }
+      },
+      test("of Map") {
+        check(SchemaGen.anyMapAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(Schema.Optional(schema), Some(value)) &>
+              assertEncodesThenDecodes(Schema.Optional(schema), None)
+        }
+      },
+      test("of Set") {
+        check(SchemaGen.anySetAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(Schema.Optional(schema), Some(value)) &>
+              assertEncodesThenDecodes(Schema.Optional(schema), None)
+        }
       }
     ),
     test("tuple") {
@@ -550,9 +566,115 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           case (schema, value) =>
             assertEncodesThenDecodes(schema, value)
         }
+      },
+      suite("dynamic")(
+        test("dynamic int") {
+          check(
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.IntType)
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        test("dynamic instant") {
+          check(
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        test("dynamic zoned date time") {
+          check(
+            DynamicValueGen.anyPrimitiveDynamicValue(
+              StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)
+            )
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        test("dynamic duration") {
+          check(
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.DurationType)
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        test("dynamic string") {
+          check(
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.StringType)
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        test("dynamic unit") {
+          check(
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.UnitType)
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        test("dynamic json") {
+          check(
+            DynamicValueGen.anyDynamicValueOfSchema(SchemaGen.Json.schema)
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        test("dynamic tuple") {
+          check(
+            DynamicValueGen.anyDynamicTupleValue(Schema[String], Schema[Int])
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        test("dynamic record") {
+          check(
+            SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicValueOfSchema)
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        test("dynamic (string, record)") {
+          check(
+            SchemaGen.anyRecord.flatMap(record => DynamicValueGen.anyDynamicTupleValue(Schema[String], record))
+          ) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        }
+      ),
+      test("semi dynamic record") {
+        check(
+          SchemaGen.anyRecord.flatMap(
+            record =>
+              DynamicValueGen
+                .anyDynamicValueOfSchema(record)
+                .map(dyn => (dyn.toTypedValue(record).toOption.get, record))
+          )
+        ) { value =>
+          val schema = Schema.semiDynamic[ListMap[String, _]]()
+          assertEncodesThenDecodesWithDifferentSchemas(
+            encodingSchema = schema,
+            decodingSchema = schema,
+            value = value,
+            compare = compareRandomRecords
+          )
+        }
       }
     )
   )
+
+  private def compareRandomRecords(
+    a: (ListMap[String, _], Schema[ListMap[String, _]]),
+    b: (ListMap[String, _], Schema[ListMap[String, _]])
+  ): Boolean = {
+    val (aValue, aSchema) = a
+    val (bValue, bSchema) = b
+    if (Schema.structureEquality.equal(aSchema, bSchema)) {
+      // We cannot check real equality because the transformations are lost
+      aValue.keySet == bValue.keySet
+    } else {
+      false
+    }
+  }
 
   private def assertEncodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {
     val stream = ZStream
@@ -622,8 +744,6 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       .either
       .map { result =>
         assertTrue(
-          result.isRight,
-          result.toOption.get.size == 1,
           compare(value, result.toOption.get.head)
         )
       }

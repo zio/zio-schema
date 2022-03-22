@@ -36,7 +36,7 @@ object SchemaAssertions {
     Assertion.assertion("hasSameAst")(param(expected))(actual => equalsAst(expected, actual))
 
   private def equalsAst(expected: Schema[_], actual: Schema[_], depth: Int = 0): Boolean = (expected, actual) match {
-    case (Schema.Primitive(StandardType.Duration(_), _), Schema.Primitive(StandardType.Duration(_), _))       => true
+    case (Schema.Primitive(StandardType.DurationType, _), Schema.Primitive(StandardType.DurationType, _))     => true
     case (Schema.Primitive(StandardType.InstantType(_), _), Schema.Primitive(StandardType.InstantType(_), _)) => true
     case (Schema.Primitive(StandardType.LocalDateType(_), _), Schema.Primitive(StandardType.LocalDateType(_), _)) =>
       true
