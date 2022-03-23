@@ -217,13 +217,13 @@ object JsonCodec extends Codec {
         val indent_ = bump(indent)
         pad(indent_, out)
         // schema
-        string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField("schema"), indent_, out)
+        string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField("schema"), indent_, out)
         if (indent.isEmpty) out.write(':')
         else out.write(" : ")
         astEncoder.unsafeEncode(schema, indent_, out)
         out.write(',')
         // value
-        string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField("value"), indent_, out)
+        string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField("value"), indent_, out)
         if (indent.isEmpty) out.write(':')
         else out.write(" : ")
         schemaEncoder(schema).unsafeEncode(value._1, indent_, out)
