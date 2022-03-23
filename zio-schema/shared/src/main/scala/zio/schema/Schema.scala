@@ -131,6 +131,8 @@ sealed trait Schema[A] {
   def toDynamic(value: A): DynamicValue =
     DynamicValue.fromSchemaAndValue(self, value)
 
+  def toSemiDynamic: Schema[(A, Schema[A])] = Schema.semiDynamic(defaultValue = self.defaultValue.map(_ -> self))
+
   /**
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
    * between `A` and `B`, without possibility of failure.
@@ -219,7 +221,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
 
   implicit val none: Schema[None.type] = singleton(None)
 
-  implicit val dynamicValue: Schema[DynamicValue] = DynamicValueSchema()
+  implicit val dynamicValue: Schema[DynamicValue] = Schema.Dynamic()
 
   implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
     Schema.Sequence[Chunk[A], A, String](schemaA, identity, identity, Chunk.empty, "Chunk")
@@ -251,6 +253,9 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
 
   implicit def primitive[A](implicit standardType: StandardType[A]): Schema[A] =
     Primitive(standardType, Chunk.empty)
+
+  def semiDynamic[A](defaultValue: Either[String, (A, Schema[A])] = Left("no default value")): Schema[(A, Schema[A])] =
+    Schema.SemiDynamic(defaultValue)
 
   implicit def right[B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
     either[Nothing, B](Schema.fail[Nothing]("no schema for Left"), schemaB)
@@ -492,6 +497,38 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
       b.makeTraversal(self, as)
   }
 
+  final case class Dynamic(override val annotations: Chunk[Any] = Chunk.empty) extends Schema[DynamicValue] {
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
+
+    /**
+     * The default value for a `Schema` of type `A`.
+     */
+    override def defaultValue: Either[String, DynamicValue] =
+      Right(DynamicValue.NoneValue)
+
+    /**
+     * Returns a new schema that with `annotation`
+     */
+    override def annotate(annotation: Any): Schema[DynamicValue] =
+      this.copy(annotations = annotations :+ annotation)
+
+    override def makeAccessors(b: AccessorBuilder): Unit = ()
+  }
+
+  final case class SemiDynamic[A](
+    override val defaultValue: Either[String, (A, Schema[A])],
+    override val annotations: Chunk[Any] = Chunk.empty
+  ) extends Schema[(A, Schema[A])] {
+    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
+
+    /**
+     * Returns a new schema that with `annotation`
+     */
+    override def annotate(annotation: Any): Schema[(A, Schema[A])] =
+      copy(annotations = annotations :+ annotation)
+
+    override def makeAccessors(b: AccessorBuilder): Unit = ()
+  }
 }
 
 //scalafmt: { maxColumn = 400 }

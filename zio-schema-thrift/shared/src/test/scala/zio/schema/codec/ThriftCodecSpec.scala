@@ -1,7 +1,6 @@
 package zio.schema.codec
 
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 import java.time.{
   DayOfWeek,
   Duration,
@@ -23,6 +22,7 @@ import java.time.{
 import java.util
 import java.util.UUID
 
+import scala.collection.immutable.ListMap
 import scala.util.Try
 
 import org.apache.thrift.TSerializable
@@ -31,7 +31,7 @@ import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
 import zio.console.putStrLn
 import zio.schema.CaseSet.caseOf
 import zio.schema.codec.{ generated => g }
-import zio.schema.{ CaseSet, DeriveSchema, Schema, SchemaGen, StandardType }
+import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
@@ -331,8 +331,8 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
       testM("durations") {
         val value = Duration.ofDays(12)
         for {
-          ed  <- encodeAndDecode(Primitive(StandardType.Duration(ChronoUnit.DAYS)), value)
-          ed2 <- encodeAndDecodeNS(Primitive(StandardType.Duration(ChronoUnit.DAYS)), value)
+          ed  <- encodeAndDecode(Primitive(StandardType.DurationType), value)
+          ed2 <- encodeAndDecodeNS(Primitive(StandardType.DurationType), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("instants") {
@@ -660,6 +660,107 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
               ed2 <- encodeAndDecodeNS(schema, value)
             } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         }
+      },
+      suite("dynamic")(
+        testM("dynamic int") {
+          checkM(
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.IntType)
+          ) { dynamicValue =>
+            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+          }
+        },
+        testM("dynamic instant") {
+          checkM(
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
+          ) { dynamicValue =>
+            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+          }
+        },
+        testM("dynamic zoned date time") {
+          checkM(
+            DynamicValueGen.anyPrimitiveDynamicValue(
+              StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)
+            )
+          ) { dynamicValue =>
+            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+          }
+        },
+        testM("dynamic duration") {
+          checkM(
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.DurationType)
+          ) { dynamicValue =>
+            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+          }
+        },
+        testM("dynamic string") {
+          checkM(
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.StringType)
+          ) { dynamicValue =>
+            assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
+          }
+        },
+        testM("dynamic unit") {
+          checkM(
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.UnitType)
+          ) { dynamicValue =>
+            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+          }
+        },
+        testM("dynamic json") {
+          checkM(
+            DynamicValueGen.anyDynamicValueOfSchema(SchemaGen.Json.schema)
+          ) { dynamicValue =>
+            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+          }
+        },
+        testM("dynamic tuple") {
+          checkM(
+            DynamicValueGen.anyDynamicTupleValue(Schema[String], Schema[Int])
+          ) { dynamicValue =>
+            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+          }
+        },
+        testM("dynamic record") {
+          checkM(
+            SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicValueOfSchema)
+          ) { dynamicValue =>
+            assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
+          }
+        },
+        testM("dynamic record example") {
+          val dynamicValue: DynamicValue = DynamicValue.Record(
+            ListMap("0" -> DynamicValue.Primitive(new java.math.BigDecimal(0.0), StandardType[java.math.BigDecimal]))
+          )
+          for {
+            dynamicValue2 <- encodeAndDecodeNS(Schema.dynamicValue, dynamicValue)
+          } yield assertTrue(dynamicValue == dynamicValue2)
+        },
+        testM("dynamic (string, record)") {
+          checkM(
+            SchemaGen.anyRecord.flatMap(record => DynamicValueGen.anyDynamicTupleValue(Schema[String], record))
+          ) { dynamicValue =>
+            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+          }
+        }
+      ),
+      testM("semi dynamic record") {
+        checkM(
+          SchemaGen.anyRecord.flatMap(
+            record =>
+              DynamicValueGen
+                .anyDynamicValueOfSchema(record)
+                .map(dyn => (dyn.toTypedValue(record).toOption.get, record))
+          )
+        ) { value =>
+          val schema = Schema.semiDynamic[ListMap[String, _]]()
+          for {
+            result                      <- encodeAndDecode(schema, value)
+            (resultValue, resultSchema) = result.head
+          } yield assertTrue(
+            Schema.structureEquality.equal(value._2, resultSchema),
+            resultValue.keySet == value._1.keySet
+          )
+        }
       }
     ),
     suite("Should successfully decode")(
@@ -685,8 +786,8 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
         for {
           d  <- decode(Record.schemaRecord, "0F").run
           d2 <- decodeNS(Record.schemaRecord, "0F").run
-        } yield assert(d)(fails(equalTo("Error at path /: Error reading field begin"))) &&
-          assert(d2)(fails(equalTo("Error at path /: Error reading field begin")))
+        } yield assert(d)(fails(equalTo("Error at path /: Error reading field begin: MaxMessageSize reached"))) &&
+          assert(d2)(fails(equalTo("Error at path /: Error reading field begin: MaxMessageSize reached")))
       },
       testM("missing value") {
         for {
@@ -724,7 +825,7 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
                     p.writeFieldStop()
                   }
           d <- decode(Record.schemaRecord, bytes).run
-        } yield assert(d)(fails(equalTo("Error at path /fieldId:26729: Unknown type 84")))
+        } yield assert(d)(fails(startsWithString("Error at path /fieldId:26729")))
       }
     )
   )

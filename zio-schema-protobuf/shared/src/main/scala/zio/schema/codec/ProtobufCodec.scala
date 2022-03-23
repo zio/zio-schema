@@ -31,11 +31,7 @@ object ProtobufCodec extends Codec {
     )
 
   override def decode[A](schema: Schema[A]): Chunk[Byte] => Either[String, A] =
-    ch =>
-      if (ch.isEmpty)
-        Left("No bytes to decode")
-      else
-        Decoder.decode(schema, ch)
+    ch => Decoder.decode(schema, ch)
 
   object Protobuf {
 
@@ -55,6 +51,13 @@ object ProtobufCodec extends Codec {
 
     private[codec] def singleSchema[A](codec: Schema[A]): Schema[ListMap[String, _]] =
       Schema.record(Schema.Field("value", codec))
+
+    private[codec] val bigDecimalStructure: Seq[Schema.Field[_]] =
+      Seq(
+        Schema.Field("unscaled", Schema.Primitive(StandardType.BigIntegerType)),
+        Schema.Field("precision", Schema.Primitive(StandardType.IntType)),
+        Schema.Field("scale", Schema.Primitive(StandardType.IntType))
+      )
 
     private[codec] val monthDayStructure: Seq[Schema.Field[Int]] =
       Seq(
@@ -118,7 +121,7 @@ object ProtobufCodec extends Codec {
       case StandardType.YearMonthType         => false
       case StandardType.ZoneIdType            => false
       case StandardType.ZoneOffsetType        => true
-      case StandardType.Duration(_)           => true
+      case StandardType.DurationType          => true
       case StandardType.InstantType(_)        => false
       case StandardType.LocalDateType(_)      => false
       case StandardType.LocalTimeType(_)      => false
@@ -214,9 +217,15 @@ object ProtobufCodec extends Codec {
         case (Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _), v)      => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
         case (Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case (Schema.EnumN(cs, _), v)                                                                                                   => encodeEnum(fieldNumber, v, cs.toSeq: _*)
+        case (Schema.Dynamic(_), v)                                                                                                     => encode(fieldNumber, DynamicValueSchema.schema, v)
+        case (Schema.SemiDynamic(_, _), v)                                                                                              => encodeSemiDynamic[Any](fieldNumber, v)
         case (_, _)                                                                                                                     => Chunk.empty
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
+
+    private def encodeSemiDynamic[A](fieldNumber: Option[Int], valueAndSchema: (A, Schema[A])): Chunk[Byte] =
+      encode(fieldNumber, Schema[SchemaAst], valueAndSchema._2.ast) ++
+        encode(fieldNumber, valueAndSchema._2, valueAndSchema._1)
 
     private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[_, Z]*): Chunk[Byte] = {
       val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
@@ -303,6 +312,19 @@ object ProtobufCodec extends Codec {
           encodeKey(WireType.VarInt, fieldNumber) ++ encodeVarInt(v)
         case (StandardType.LongType, v: Long) =>
           encodeKey(WireType.VarInt, fieldNumber) ++ encodeVarInt(v)
+        case (StandardType.BigDecimalType, v: java.math.BigDecimal) =>
+          val unscaled  = v.unscaledValue()
+          val precision = v.precision()
+          val scale     = v.scale()
+          encodeRecord(
+            fieldNumber,
+            bigDecimalStructure,
+            ListMap("unscaled" -> unscaled, "precision" -> precision, "scale" -> scale)
+          )
+        case (StandardType.BigIntegerType, v: java.math.BigInteger) =>
+          val encoded = Chunk.fromArray(v.toByteArray)
+          encodeKey(WireType.LengthDelimited(encoded.size), fieldNumber) ++ encoded
+
         case (StandardType.FloatType, v: Float) =>
           val byteBuffer = ByteBuffer.allocate(4)
           byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
@@ -339,7 +361,7 @@ object ProtobufCodec extends Codec {
           encodePrimitive(fieldNumber, StandardType.StringType, v.getId)
         case (StandardType.ZoneOffsetType, v: ZoneOffset) =>
           encodePrimitive(fieldNumber, StandardType.IntType, v.getTotalSeconds)
-        case (StandardType.Duration(_), v: Duration) =>
+        case (StandardType.DurationType, v: Duration) =>
           encodeRecord(fieldNumber, durationStructure, ListMap("seconds" -> v.getSeconds, "nanos" -> v.getNano))
         case (StandardType.InstantType(formatter), v: Instant) =>
           encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
@@ -356,7 +378,7 @@ object ProtobufCodec extends Codec {
         case (StandardType.ZonedDateTimeType(formatter), v: ZonedDateTime) =>
           encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
         case (_, _) =>
-          Chunk.empty
+          throw new NotImplementedError(s"No encoder for $standardType")
       }
 
     private def encodeTuple[A, B](
@@ -441,13 +463,9 @@ object ProtobufCodec extends Codec {
 
     def flatMap[B](f: A => Decoder[B]): Decoder[B] =
       Decoder { bytes =>
-        if (bytes.isEmpty) {
-          Left("Unexpected end of bytes")
-        } else {
-          self.run(bytes).flatMap {
-            case (remainder, a) =>
-              f(a).run(remainder)
-          }
+        self.run(bytes).flatMap {
+          case (remainder, a) =>
+            f(a).run(remainder)
         }
       }
 
@@ -564,11 +582,23 @@ object ProtobufCodec extends Codec {
         case Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)      => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
         case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case Schema.EnumN(cs, _)                                                                                                   => enumDecoder(cs.toSeq: _*)
+        case Schema.Dynamic(_)                                                                                                     => dynamicDecoder
+        case Schema.SemiDynamic(_, _)                                                                                              => semiDynamicDecoder
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
     private val astDecoder: Decoder[Schema[_]] =
       decoder(Schema[SchemaAst]).map(_.toSchema)
+
+    private val dynamicDecoder: Decoder[DynamicValue] =
+      decoder(DynamicValueSchema.schema)
+
+    private def semiDynamicDecoder[A]: Decoder[(A, Schema[A])] =
+      astDecoder.flatMap { schema =>
+        decoder(schema).map { value =>
+          (value, schema).asInstanceOf[(A, Schema[A])]
+        }
+      }
 
     private def enumDecoder[Z](cases: Schema.Case[_, Z]*): Decoder[Z] =
       keyDecoder.flatMap {
@@ -724,6 +754,24 @@ object ProtobufCodec extends Codec {
         case StandardType.LongType   => varIntDecoder
         case StandardType.FloatType  => floatDecoder
         case StandardType.DoubleType => doubleDecoder
+        case StandardType.BigIntegerType =>
+          binaryDecoder.map { bytes =>
+            new java.math.BigInteger(bytes.toArray)
+          }
+        case StandardType.BigDecimalType =>
+          recordDecoder(bigDecimalStructure).flatMap { data =>
+            val opt = for {
+              unscaled  <- data.get("unscaled").asInstanceOf[Option[java.math.BigInteger]]
+              scale     <- data.get("scale").asInstanceOf[Option[Int]]
+              precision <- data.get("precision").asInstanceOf[Option[Int]]
+              ctx       = new java.math.MathContext(precision)
+            } yield new java.math.BigDecimal(unscaled, scale, ctx)
+
+            opt match {
+              case Some(value) => succeedNow(value)
+              case None        => fail(s"Invalid big decimal record $data")
+            }
+          }
         case StandardType.BinaryType => binaryDecoder
         case StandardType.CharType   => stringDecoder.map(_.charAt(0))
         case StandardType.UUIDType =>
@@ -766,7 +814,7 @@ object ProtobufCodec extends Codec {
           varIntDecoder
             .map(_.intValue)
             .map(ZoneOffset.ofTotalSeconds)
-        case StandardType.Duration(_) =>
+        case StandardType.DurationType =>
           recordDecoder(durationStructure)
             .map(
               data =>

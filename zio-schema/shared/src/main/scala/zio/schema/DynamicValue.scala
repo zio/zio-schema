@@ -86,6 +86,12 @@ sealed trait DynamicValue { self =>
       case (DynamicValue.Error(message), _) =>
         Left(message)
 
+      case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), Schema.SemiDynamic(_, _)) =>
+        val valueSchema = ast.toSchema.asInstanceOf[Schema[Any]]
+        dyn.toTypedValue(valueSchema).map(_ -> valueSchema)
+
+      case (dyn, Schema.Dynamic(_)) => Right(dyn)
+
       case _ =>
         Left(s"Failed to cast $self to schema $schema")
     }
@@ -1834,6 +1840,11 @@ object DynamicValue {
             f22.label -> fromSchemaAndValue(f22.schema, ext22(value))
           )
         )
+      case Schema.Dynamic(_) => value
+
+      case Schema.SemiDynamic(_, _) =>
+        val (a, schema) = value.asInstanceOf[(Any, Schema[Any])]
+        Tuple(fromSchemaAndValue(schema, a), DynamicAst(schema.ast))
     }
 
   def decodeStructure(
@@ -1857,7 +1868,8 @@ object DynamicValue {
   }
 
   final case class Record(values: ListMap[String, DynamicValue]) extends DynamicValue
-  final case class Enumeration(value: (String, DynamicValue))    extends DynamicValue
+
+  final case class Enumeration(value: (String, DynamicValue)) extends DynamicValue
 
   final case class Sequence(values: Chunk[DynamicValue]) extends DynamicValue
 
@@ -1887,7 +1899,9 @@ object DynamicValue {
 
 private[schema] object DynamicValueSchema { self =>
 
-  def apply(): Schema[DynamicValue] =
+  def apply(): Schema[DynamicValue] = schema
+
+  lazy val schema: Schema[DynamicValue] =
     Schema.EnumN(
       CaseSet
         .Cons(errorCase, CaseSet.Empty[DynamicValue]())
@@ -1922,6 +1936,7 @@ private[schema] object DynamicValueSchema { self =>
         .:+:(primitiveZoneIdCase)
         .:+:(primitiveZoneOffsetCase)
         .:+:(primitiveInstantCase)
+        .:+:(primitiveDurationCase)
         .:+:(primitiveLocalDateCase)
         .:+:(primitiveLocalTimeCase)
         .:+:(primitiveLocalDateTimeCase)
@@ -2059,7 +2074,7 @@ private[schema] object DynamicValueSchema { self =>
       "Record",
       Schema.CaseClass1[Map[String, DynamicValue], DynamicValue.Record](
         Schema.Field("values", Schema.defer(Schema.map(Schema.primitive[String], DynamicValueSchema()))),
-        map => DynamicValue.Record(map.asInstanceOf[ListMap[String, DynamicValue]]),
+        map => DynamicValue.Record(ListMap(map.toSeq: _*)),
         record => record.values
       ),
       _.asInstanceOf[DynamicValue.Record]
@@ -2269,6 +2284,15 @@ private[schema] object DynamicValueSchema { self =>
       Schema.primitive[Instant].transform(i => DynamicValue.Primitive(i, StandardType[Instant]), _.value), {
         case dv @ DynamicValue.Primitive(_: Instant, _) => dv.asInstanceOf[DynamicValue.Primitive[Instant]]
         case _                                          => throw new IllegalArgumentException
+      }
+    )
+
+  private val primitiveDurationCase: Schema.Case[DynamicValue.Primitive[Duration], DynamicValue] =
+    Schema.Case(
+      "Duration",
+      Schema.primitive[Duration].transform(i => DynamicValue.Primitive(i, StandardType[Duration]), _.value), {
+        case dv @ DynamicValue.Primitive(_: Duration, _) => dv.asInstanceOf[DynamicValue.Primitive[Duration]]
+        case _                                           => throw new IllegalArgumentException
       }
     )
 

@@ -52,6 +52,10 @@ object SchemaOrdering {
     }
     case (r: Schema.Record[_], Record(lVals), Record(rVals)) =>
       compareRecords(r, lVals, rVals)
+    case (Schema.SemiDynamic(_, _), Tuple(l, DynamicAst(ast)), Tuple(r, DynamicAst(_))) =>
+      compareBySchema(ast.toSchema)(l, r)
+    case (Schema.Dynamic(_), left, right) =>
+      ordering(Schema[DynamicValue]).compare(left, right)
     case _ => 0
   }
 

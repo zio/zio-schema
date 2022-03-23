@@ -1,7 +1,6 @@
 package zio.schema
 
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 
 import scala.collection.immutable.ListMap
 
@@ -592,6 +591,10 @@ object SchemaGen {
       value  <- Json.gen
     } yield (schema, value)
 
+  lazy val anyDynamic: Gen[Any, Schema[DynamicValue]] = Gen.const(Schema.dynamicValue)
+
+  def anySemiDynamic[A]: Gen[Any, Schema[(A, Schema[A])]] = Gen.const(Schema.semiDynamic[A]())
+
   case class SchemaTest[A](name: String, schema: StandardType[A], gen: Gen[Sized with Random, A])
 
   def schemasAndGens: List[SchemaTest[_]] = List(
@@ -616,7 +619,7 @@ object SchemaGen {
       Gen.anyLong.map(n => java.math.BigInteger.valueOf(n))
     ),
     SchemaTest("DayOfWeek", StandardType.DayOfWeekType, JavaTimeGen.anyDayOfWeek),
-    SchemaTest("Duration", StandardType.Duration(ChronoUnit.SECONDS), JavaTimeGen.anyDuration),
+    SchemaTest("Duration", StandardType.DurationType, JavaTimeGen.anyDuration),
     SchemaTest("Instant", StandardType.InstantType(DateTimeFormatter.ISO_DATE_TIME), JavaTimeGen.anyInstant),
     SchemaTest("LocalDate", StandardType.LocalDateType(DateTimeFormatter.ISO_DATE), JavaTimeGen.anyLocalDate),
     SchemaTest(

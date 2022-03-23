@@ -69,6 +69,20 @@ object DynamicValueSpec extends DefaultRunnableSpec {
           case (schema, a) =>
             assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
         }
+      },
+      testM("round-trip semiDynamic") {
+        val gen = for {
+          schemaAndGen       <- SchemaGen.anyGenericRecordAndGen
+          (schema, valueGen) = schemaAndGen
+          value              <- valueGen
+        } yield schema -> value
+        check(gen) {
+          case (schema, value) =>
+            val semiDynamicSchema = Schema.semiDynamic(defaultValue = Right(value -> schema))
+            assert(semiDynamicSchema.fromDynamic(semiDynamicSchema.toDynamic(value -> schema)))(
+              isRight(equalTo(value -> schema))
+            )
+        }
       }
     )
 

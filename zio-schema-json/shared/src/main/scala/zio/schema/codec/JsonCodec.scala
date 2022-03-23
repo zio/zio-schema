@@ -7,7 +7,7 @@ import scala.collection.immutable.ListMap
 
 import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
-import zio.json.internal.{ Lexer, RetractReader, StringMatrix, Write }
+import zio.json.internal.{ Lexer, RecordingReader, RetractReader, StringMatrix, Write }
 import zio.json.{ JsonCodec => ZJsonCodec, JsonDecoder, JsonEncoder, JsonFieldDecoder, JsonFieldEncoder }
 import zio.schema.Schema.EitherSchema
 import zio.schema.ast.SchemaAst
@@ -22,7 +22,7 @@ object JsonCodec extends Codec {
       (opt: Option[Chunk[A]]) =>
         ZIO
           .effect(opt.map(values => values.flatMap(Encoder.encode(schema, _))).getOrElse(Chunk.empty))
-          .catchAll(_ => ZIO.succeed(Chunk.empty))
+          .orDie
     )
 
   override def decoder[A](schema: Schema[A]): ZTransducer[Any, String, Byte, A] =
@@ -67,7 +67,7 @@ object JsonCodec extends Codec {
         case StandardType.BigDecimalType        => ZJsonCodec.bigDecimal
         case StandardType.UUIDType              => ZJsonCodec.uuid
         case StandardType.DayOfWeekType         => ZJsonCodec.dayOfWeek // ZJsonCodec[java.time.DayOfWeek]
-        case StandardType.Duration(_)           => ZJsonCodec.duration //ZJsonCodec[java.time.Duration]
+        case StandardType.DurationType          => ZJsonCodec.duration //ZJsonCodec[java.time.Duration]
         case StandardType.InstantType(_)        => ZJsonCodec.instant //ZJsonCodec[java.time.Instant]
         case StandardType.LocalDateType(_)      => ZJsonCodec.localDate //ZJsonCodec[java.time.LocalDate]
         case StandardType.LocalDateTimeType(_)  => ZJsonCodec.localDateTime //ZJsonCodec[java.time.LocalDateTime]
@@ -197,12 +197,43 @@ object JsonCodec extends Codec {
       case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
         enumEncoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case Schema.EnumN(cs, _) => enumEncoder(cs.toSeq: _*)
+      case Schema.Dynamic(_) =>
+        dynamicEncoder
+      case Schema.SemiDynamic(_, _) =>
+        semiDynamicEncoder
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
     private val astEncoder: JsonEncoder[Schema[_]] =
       (schema: Schema[_], indent: Option[Int], out: Write) =>
         schemaEncoder(Schema[SchemaAst]).unsafeEncode(SchemaAst.fromSchema(schema), indent, out)
+
+    private def dynamicEncoder[A]: JsonEncoder[A] =
+      schemaEncoder(DynamicValueSchema()).asInstanceOf[JsonEncoder[A]]
+
+    private def semiDynamicEncoder[A]: JsonEncoder[(A, Schema[A])] =
+      (value: (A, Schema[A]), indent: Option[Int], out: Write) => {
+        val schema = value._2
+
+        // open
+        out.write('{')
+        val indent_ = bump(indent)
+        pad(indent_, out)
+        // schema
+        string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField("schema"), indent_, out)
+        if (indent.isEmpty) out.write(':')
+        else out.write(" : ")
+        astEncoder.unsafeEncode(schema, indent_, out)
+        out.write(',')
+        // value
+        string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField("value"), indent_, out)
+        if (indent.isEmpty) out.write(':')
+        else out.write(" : ")
+        schemaEncoder(schema).unsafeEncode(value._1, indent_, out)
+        // close
+        pad(indent, out)
+        out.write('}')
+      }
 
     private def transformEncoder[A, B](schema: Schema[A], g: B => Either[String, A]): JsonEncoder[B] = {
       (b: B, indent: Option[Int], out: Write) =>
@@ -357,12 +388,61 @@ object JsonCodec extends Codec {
         enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
       case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
         enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-      case Schema.EnumN(cs, _) => enumDecoder(cs.toSeq: _*)
+      case Schema.EnumN(cs, _)      => enumDecoder(cs.toSeq: _*)
+      case Schema.Dynamic(_)        => dynamicDecoder
+      case Schema.SemiDynamic(_, _) => semiDynamicDecoder
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
     private def astDecoder: JsonDecoder[Schema[_]] =
       schemaDecoder(Schema[SchemaAst]).map(ast => ast.toSchema)
+
+    private def dynamicDecoder[A]: JsonDecoder[A] =
+      schemaDecoder(DynamicValueSchema()).asInstanceOf[JsonDecoder[A]]
+
+    private def semiDynamicDecoder[A]: JsonDecoder[(A, Schema[A])] =
+      (trace: List[JsonError], in: RetractReader) => {
+        var schema: Schema[A]                = null
+        var value: Any                       = null
+        var reader: RetractReader            = in
+        var recordingReader: RecordingReader = null
+        val matrix                           = new StringMatrix(Array("schema", "value"))
+
+        Lexer.char(trace, reader, '{')
+        if (Lexer.firstField(trace, reader)) {
+          do {
+            var trace_ = trace
+            val field  = Lexer.field(trace, reader, matrix)
+            if (field == 0) {
+              trace_ = JsonError.ObjectAccess("schema") :: trace
+              schema = astDecoder.unsafeDecode(trace_, reader).asInstanceOf[Schema[A]]
+            } else if (field == 1) {
+              if (schema != null) {
+                trace_ = JsonError.ObjectAccess("value") :: trace
+                value = schemaDecoder(schema).unsafeDecode(trace_, reader)
+              } else {
+                recordingReader = RecordingReader(in)
+                reader = recordingReader
+                Lexer.skipValue(trace_, reader)
+              }
+            } else Lexer.skipValue(trace_, reader)
+          } while (Lexer.nextField(trace, reader))
+        }
+
+        if (value == null) {
+          if (recordingReader == null) {
+            throw UnsafeJson(JsonError.Message("missing 'value' field") :: trace)
+          } else if (schema == null) {
+            throw UnsafeJson(JsonError.Message("missing 'schema' field") :: trace)
+          } else {
+            recordingReader.rewind()
+            val trace_ = JsonError.ObjectAccess("value") :: trace
+            value = schemaDecoder(schema).unsafeDecode(trace_, reader)
+          }
+        }
+
+        (value.asInstanceOf[A], schema)
+      }
 
     private def enumDecoder[Z](cases: Schema.Case[_, Z]*): JsonDecoder[Z] = {
       (trace: List[JsonError], in: RetractReader) =>

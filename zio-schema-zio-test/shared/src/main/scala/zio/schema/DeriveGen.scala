@@ -1,10 +1,12 @@
 package zio.schema
 
+import java.time.format.DateTimeFormatter
+
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
 import zio.random.Random
-import zio.schema.ast.SchemaAst
+import zio.schema.ast.{ NodePath, SchemaAst }
 import zio.test.{ Gen, Sized }
 
 object DeriveGen {
@@ -69,6 +71,8 @@ object DeriveGen {
       case either @ Schema.EitherSchema(_, _, _)                                                                                                                            => genEither(either)
       case lazzy @ Schema.Lazy(_)                                                                                                                                           => genLazy(lazzy)
       case Schema.Meta(ast, _)                                                                                                                                              => genMeta(ast)
+      case Schema.Dynamic(_)                                                                                                                                                => gen(DynamicValueSchema())
+      case Schema.SemiDynamic(_, _)                                                                                                                                         => genSemiDynamic
     } // scalafmt: { maxColumn = 120 }
 
   private def genEnum[Z](cases: Schema.Case[_, Z]*): Gen[Random with Sized, Z] =
@@ -498,7 +502,7 @@ object DeriveGen {
       case StandardType.YearMonthType         => Gen.anyYearMonth
       case StandardType.ZoneIdType            => Gen.anyZoneId
       case StandardType.ZoneOffsetType        => Gen.anyZoneOffset
-      case StandardType.Duration(_)           => Gen.anyFiniteDuration
+      case StandardType.DurationType          => Gen.anyFiniteDuration
       case StandardType.InstantType(_)        => Gen.anyInstant
       case StandardType.LocalDateType(_)      => Gen.anyLocalDate
       case StandardType.LocalTimeType(_)      => Gen.anyLocalTime
@@ -530,4 +534,80 @@ object DeriveGen {
 
   private def genMeta[A](ast: SchemaAst): Gen[Random with Sized, A] =
     gen(ast.toSchema).map(_.asInstanceOf[A])
+
+  private def genSemiDynamic[A]: Gen[Random with Sized, A] =
+    genAst().map(_.toSchema).flatMap(schema => gen(schema).map(value => (value, schema).asInstanceOf[A]))
+
+  private def genSchemaAstProduct(path: NodePath): Gen[Random with Sized, SchemaAst.Product] =
+    for {
+      optional <- Gen.boolean
+      fields <- Gen.chunkOf(
+                 Gen
+                   .string1(Gen.anyASCIIChar)
+                   .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
+               )
+    } yield SchemaAst.Product(path, fields, optional)
+
+  private def genSchemaAstSum(path: NodePath): Gen[Random with Sized, SchemaAst.Sum] =
+    for {
+      optional <- Gen.boolean
+      fields <- Gen.chunkOf(
+                 Gen
+                   .string1(Gen.anyASCIIChar)
+                   .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
+               )
+    } yield SchemaAst.Sum(path, fields, optional)
+
+  private def genSchemaAstValue(path: NodePath): Gen[Random, SchemaAst.Value] =
+    for {
+      formatter <- Gen.oneOf(
+                    Gen.const(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                    Gen.const(DateTimeFormatter.RFC_1123_DATE_TIME)
+                  )
+      valueType <- Gen.oneOf(
+                    Gen.const(StandardType.UnitType),
+                    Gen.const(StandardType.StringType),
+                    Gen.const(StandardType.BoolType),
+                    Gen.const(StandardType.ShortType),
+                    Gen.const(StandardType.IntType),
+                    Gen.const(StandardType.LongType),
+                    Gen.const(StandardType.FloatType),
+                    Gen.const(StandardType.BinaryType),
+                    Gen.const(StandardType.CharType),
+                    Gen.const(StandardType.UUIDType),
+                    Gen.const(StandardType.BigDecimalType),
+                    Gen.const(StandardType.BigIntegerType),
+                    Gen.const(StandardType.DayOfWeekType),
+                    Gen.const(StandardType.MonthType),
+                    Gen.const(StandardType.MonthDayType),
+                    Gen.const(StandardType.PeriodType),
+                    Gen.const(StandardType.YearType),
+                    Gen.const(StandardType.YearMonthType),
+                    Gen.const(StandardType.ZoneIdType),
+                    Gen.const(StandardType.ZoneOffsetType),
+                    Gen.const(StandardType.DurationType),
+                    Gen.const(StandardType.InstantType(formatter)),
+                    Gen.const(StandardType.LocalDateType(formatter)),
+                    Gen.const(StandardType.LocalTimeType(formatter)),
+                    Gen.const(StandardType.LocalDateTimeType(formatter)),
+                    Gen.const(StandardType.OffsetTimeType(formatter)),
+                    Gen.const(StandardType.OffsetDateTimeType(formatter)),
+                    Gen.const(StandardType.ZonedDateTimeType(formatter))
+                  )
+      optional <- Gen.boolean
+    } yield SchemaAst.Value(valueType, path, optional)
+
+  private def genSchemaAstDynamic(path: NodePath): Gen[Random, SchemaAst.Dynamic] =
+    for {
+      withSchema <- Gen.boolean
+      optional   <- Gen.boolean
+    } yield SchemaAst.Dynamic(withSchema, path, optional)
+
+  private def genAst(path: NodePath = NodePath.root): Gen[Random with Sized, SchemaAst] =
+    Gen.weighted(
+      genSchemaAstProduct(path) -> 3,
+      genSchemaAstSum(path)     -> 1,
+      genSchemaAstValue(path)   -> 5,
+      genSchemaAstDynamic(path) -> 1
+    )
 }

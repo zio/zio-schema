@@ -31,6 +31,29 @@ object OrderingSpec extends DefaultRunnableSpec {
             case (schema, x, _, z) => assert(schema.ordering.compare(x, z))(isLessThan(0))
           }
         }
+      ),
+      suite("semiDynamic")(
+        testM("reflexivity") {
+          check(anySchemaAndValue) {
+            case (schema, a) =>
+              val semiDynamicSchema = Schema.semiDynamic(defaultValue = Right(a -> schema))
+              assert(semiDynamicSchema.ordering.compare(a -> schema, a -> schema))(equalTo(0))
+          }
+        },
+        testM("antisymmetry") {
+          check(genAnyOrderedPair) {
+            case (schema, x, y) =>
+              val semiDynamicSchema = Schema.semiDynamic(defaultValue = Right(x -> schema))
+              assert(semiDynamicSchema.ordering.compare(y -> schema, x -> schema))(isGreaterThan(0))
+          }
+        },
+        testM("transitivity") {
+          check(genAnyOrderedTriplet) {
+            case (schema, x, _, z) =>
+              val semiDynamicSchema = Schema.semiDynamic(defaultValue = Right(x -> schema))
+              assert(semiDynamicSchema.ordering.compare(x -> schema, z -> schema))(isLessThan(0))
+          }
+        }
       )
     )
 

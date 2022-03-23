@@ -80,7 +80,7 @@ object SchemaAst {
   ) extends SchemaAst
 
   object Sum {
-    implicit val schema: Schema[Sum] =
+    implicit lazy val schema: Schema[Sum] =
       Schema.CaseClass3(
         field1 = Schema.Field("path", Schema[String].repeated),
         field2 = Schema.Field("cases", Schema[Labelled].repeated),
@@ -225,6 +225,25 @@ object SchemaAst {
       )
   }
 
+  final case class Dynamic(
+    withSchema: Boolean,
+    override val path: NodePath,
+    optional: Boolean = false
+  ) extends SchemaAst
+
+  object Dynamic {
+    implicit val schema: Schema[Dynamic] =
+      Schema.CaseClass3(
+        field1 = Schema.Field("withSchema", Schema[Boolean]),
+        field2 = Schema.Field("path", Schema[String].repeated),
+        field3 = Schema.Field("optional", Schema[Boolean]),
+        (withSchema: Boolean, path: Chunk[String], optional: Boolean) => Dynamic(withSchema, NodePath(path), optional),
+        _.withSchema,
+        _.path,
+        _.optional
+      )
+  }
+
   final private[schema] case class NodeBuilder(
     path: NodePath,
     lineage: Lineage,
@@ -284,7 +303,9 @@ object SchemaAst {
             node.addLabelledSubtree(id, schema)
         }
         .buildSum()
-    case Schema.Meta(ast, _) => ast
+    case Schema.Meta(ast, _)      => ast
+    case Schema.Dynamic(_)        => Dynamic(withSchema = false, NodePath.root)
+    case Schema.SemiDynamic(_, _) => Dynamic(withSchema = true, NodePath.root)
   }
 
   private[schema] def subtree(
@@ -343,8 +364,10 @@ object SchemaAst {
                   node.addLabelledSubtree(id, schema)
               }
               .buildSum()
-          case Schema.Fail(message, _) => FailNode(message, path)
-          case Schema.Meta(ast, _)     => ast
+          case Schema.Fail(message, _)  => FailNode(message, path)
+          case Schema.Meta(ast, _)      => ast
+          case Schema.Dynamic(_)        => Dynamic(withSchema = false, path, optional)
+          case Schema.SemiDynamic(_, _) => Dynamic(withSchema = true, path, optional)
         }
       }
 
@@ -388,6 +411,9 @@ object SchemaAst {
           materialize(left, refs),
           materialize(right, refs)
         )
+      case SchemaAst.Dynamic(withSchema, _, _) =>
+        if (withSchema) Schema.semiDynamic()
+        else Schema.dynamicValue
       case SchemaAst.ListNode(itemAst, _, _) =>
         Schema.chunk(materialize(itemAst, refs))
       case SchemaAst.Dictionary(keyAst, valueAst, _, _) =>
@@ -401,16 +427,19 @@ object SchemaAst {
   }
 
   implicit lazy val schema: Schema[SchemaAst] =
-    Schema.EnumN[SchemaAst, CaseSet.Aux[SchemaAst]](
-      caseOf[Value, SchemaAst]("Value")(_.asInstanceOf[Value]) ++
-        caseOf[Sum, SchemaAst]("Sum")(_.asInstanceOf[Sum]) ++
-        caseOf[Product, SchemaAst]("Product")(_.asInstanceOf[Product]) ++
-        caseOf[Ref, SchemaAst]("Ref")(_.asInstanceOf[Ref]) ++ caseOf[ListNode, SchemaAst]("ListNode")(
-        _.asInstanceOf[ListNode]
-      ) ++
-        caseOf[Dictionary, SchemaAst]("Dictionary")(_.asInstanceOf[Dictionary]),
-      Chunk.empty
-    )
+    Schema.Lazy { () =>
+      Schema.EnumN[SchemaAst, CaseSet.Aux[SchemaAst]](
+        caseOf[Value, SchemaAst]("Value")(_.asInstanceOf[Value]) ++
+          caseOf[Sum, SchemaAst]("Sum")(_.asInstanceOf[Sum]) ++
+          caseOf[Either, SchemaAst]("Either")(_.asInstanceOf[Either]) ++
+          caseOf[Product, SchemaAst]("Product")(_.asInstanceOf[Product]) ++
+          caseOf[Tuple, SchemaAst]("Tuple")(_.asInstanceOf[Tuple]) ++
+          caseOf[Ref, SchemaAst]("Ref")(_.asInstanceOf[Ref]) ++
+          caseOf[ListNode, SchemaAst]("ListNode")(_.asInstanceOf[ListNode]) ++
+          caseOf[Dictionary, SchemaAst]("Dictionary")(_.asInstanceOf[Dictionary]),
+        Chunk.empty
+      )
+    }
 
   implicit val equals: Equal[SchemaAst] = Equal.default
 }
@@ -468,6 +497,11 @@ private[schema] object AstRenderer {
       buffer.append(s"ref#$refPath")
       if (optional) buffer.append("?")
       buffer.toString
+    case SchemaAst.Dynamic(withSchema, _, optional) =>
+      val buffer = new StringBuffer()
+      if (optional) buffer.append("?")
+      if (withSchema) buffer.append("semidynamic") else buffer.append(s"dynamic")
+      buffer.toString
   }
 
   def renderField(value: SchemaAst.Labelled, indent: Int): String = {
@@ -524,6 +558,12 @@ private[schema] object AstRenderer {
         buffer.append(s"$label: ")
         if (optional) buffer.append("?")
         buffer.append(s"{ref#${refPath.render}}").toString
+      case (label, SchemaAst.Dynamic(withSchema, _, optional)) =>
+        pad(buffer, indent)
+        buffer.append(s"$label: ")
+        if (optional) buffer.append("?")
+        if (withSchema) buffer.append("semidynamic") else buffer.append(s"dynamic")
+        buffer.toString
       case _ => ???
     }
   }

@@ -2,7 +2,6 @@ package zio.schema.codec
 
 import java.time._
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 import scala.collection.immutable.ListMap
@@ -13,7 +12,7 @@ import zio.blocking.Blocking
 import zio.console._
 import zio.random.Random
 import zio.schema.CaseSet._
-import zio.schema.{ CaseSet, DeriveSchema, Schema, SchemaGen, StandardType }
+import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
@@ -137,6 +136,29 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
         for {
           ed2 <- encodeAndDecodeNS(basicIntWrapperSchema, BasicIntWrapper(BasicInt(150)))
         } yield assert(ed2)(equalTo(BasicIntWrapper(BasicInt(150))))
+      },
+      testM("string") {
+        for {
+          ed2 <- encodeAndDecodeNS(Schema[String], "hello world")
+        } yield assert(ed2)(equalTo("hello world"))
+      },
+      testM("empty string") {
+        for {
+          ed2 <- encodeAndDecodeNS(Schema[String], "")
+        } yield assert(ed2)(equalTo(""))
+      },
+      testM("empty string in wrapper class") {
+        for {
+          ed2 <- encodeAndDecodeNS(schemaBasicString, BasicString(""))
+        } yield assert(ed2)(equalTo(BasicString("")))
+      },
+      testM("empty dynamic string") {
+        for {
+          ed2 <- encodeAndDecodeNS(
+                  Schema.dynamicValue,
+                  DynamicValue.Primitive("", StandardType.StringType)
+                )
+        } yield assert(ed2)(equalTo(DynamicValue.Primitive("", StandardType.StringType)))
       },
       testM("two integers") {
         for {
@@ -273,8 +295,8 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       testM("durations") {
         val value = Duration.ofDays(12)
         for {
-          ed  <- encodeAndDecode(Primitive(StandardType.Duration(ChronoUnit.DAYS)), value)
-          ed2 <- encodeAndDecodeNS(Primitive(StandardType.Duration(ChronoUnit.DAYS)), value)
+          ed  <- encodeAndDecode(Primitive(StandardType.DurationType), value)
+          ed2 <- encodeAndDecodeNS(Primitive(StandardType.DurationType), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       testM("instants") {
@@ -575,7 +597,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       },
       testM("empty input by non streaming variant") {
         assertM(decodeNS(Schema[Int], "").run)(
-          fails(equalTo("No bytes to decode"))
+          fails(equalTo("Failed to decode VarInt. Unexpected end of chunk"))
         )
       }
     ),
@@ -614,7 +636,106 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
           d2 <- decodeNS(schemaFail, "0F").run
         } yield assert(d)(fails(equalTo("failing schema"))) && assert(d2)(fails(equalTo("failing schema")))
       }
-    )
+    ),
+    suite("dynamic")(
+      testM("dynamic int") {
+        checkM(
+          DynamicValueGen.anyPrimitiveDynamicValue(StandardType.IntType)
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("dynamic instant") {
+        checkM(
+          DynamicValueGen.anyPrimitiveDynamicValue(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("dynamic zoned date time") {
+        checkM(
+          DynamicValueGen.anyPrimitiveDynamicValue(
+            StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)
+          )
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("dynamic duration") {
+        checkM(
+          DynamicValueGen.anyPrimitiveDynamicValue(StandardType.DurationType)
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("dynamic string") {
+        checkM(
+          DynamicValueGen.anyPrimitiveDynamicValue(StandardType.StringType)
+        ) { dynamicValue =>
+          assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
+        }
+      },
+      testM("dynamic unit") {
+        checkM(
+          DynamicValueGen.anyPrimitiveDynamicValue(StandardType.UnitType)
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("dynamic json") {
+        checkM(
+          DynamicValueGen.anyDynamicValueOfSchema(SchemaGen.Json.schema)
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("dynamic tuple") {
+        checkM(
+          DynamicValueGen.anyDynamicTupleValue(Schema[String], Schema[Int])
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("dynamic record") {
+        checkM(
+          SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicValueOfSchema)
+        ) { dynamicValue =>
+          assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
+        }
+      },
+      testM("dynamic record example") {
+        val dynamicValue = DynamicValue.Record(
+          ListMap("0" -> DynamicValue.Primitive(new java.math.BigDecimal(0.0), StandardType[java.math.BigDecimal]))
+        )
+        assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
+      },
+      testM("dynamic (string, record)") {
+        checkM(
+          SchemaGen.anyRecord.flatMap(record => DynamicValueGen.anyDynamicTupleValue(Schema[String], record))
+        ) { dynamicValue =>
+          assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      }
+    ),
+    testM("semi dynamic record") {
+      checkM(
+        SchemaGen.anyRecord.flatMap(
+          record =>
+            DynamicValueGen
+              .anyDynamicValueOfSchema(record)
+              .map(dyn => (dyn.toTypedValue(record).toOption.get, record))
+        )
+      ) { value =>
+        val schema = Schema.semiDynamic[ListMap[String, _]]()
+        for {
+          result                      <- encodeAndDecode(schema, value)
+          (resultValue, resultSchema) = result.head
+        } yield assertTrue(
+          Schema.structureEquality.equal(value._2, resultSchema),
+          resultValue.keySet == value._1.keySet
+        )
+      }
+    }
   )
 
   // some tests are based on https://developers.google.com/protocol-buffers/docs/encoding
@@ -843,7 +964,9 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .succeed(input)
       .tap(value => putStrLn(s"Input Value: $value").when(print).ignore)
       .map(a => ProtobufCodec.encode(schema)(a))
-      .tap(encoded => putStrLn(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
+      .tap { encoded =>
+        putStrLn(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore
+      }
       .map(ch => ProtobufCodec.decode(schema)(ch))
       .absolve
 

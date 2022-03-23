@@ -2,7 +2,6 @@ package zio.schema
 
 import java.math.{ BigDecimal => JBigDecimal, BigInteger => JBigInt }
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 
 import zio.random.Random
 import zio.test.{ Gen, Sized }
@@ -24,9 +23,9 @@ object StandardTypeGen {
       (StandardType.CharType),
       (StandardType.UUIDType),
       (StandardType.DayOfWeekType),
-      (StandardType.Duration(ChronoUnit.SECONDS)),
-      (StandardType.InstantType(DateTimeFormatter.ISO_DATE_TIME)),
-      (StandardType.LocalDateType(DateTimeFormatter.ISO_DATE)),
+      (StandardType.DurationType),
+      (StandardType.InstantType(DateTimeFormatter.ISO_INSTANT)),
+      (StandardType.LocalDateType(DateTimeFormatter.ISO_LOCAL_DATE)),
       (StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME)),
       (StandardType.LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME)),
       (StandardType.MonthType),
@@ -68,7 +67,7 @@ object StandardTypeGen {
       case typ: StandardType.BigDecimalType.type => typ -> javaBigDecimal
       case typ: StandardType.BigIntegerType.type => typ -> javaBigInt
       case typ: StandardType.DayOfWeekType.type  => typ -> JavaTimeGen.anyDayOfWeek
-      case typ: StandardType.Duration            => typ -> JavaTimeGen.anyDuration
+      case typ: StandardType.DurationType.type   => typ -> JavaTimeGen.anyDuration
       case typ: StandardType.InstantType         => typ -> JavaTimeGen.anyInstant
       case typ: StandardType.LocalDateType       => typ -> JavaTimeGen.anyLocalDate
       case typ: StandardType.LocalDateTimeType   => typ -> JavaTimeGen.anyLocalDateTime
