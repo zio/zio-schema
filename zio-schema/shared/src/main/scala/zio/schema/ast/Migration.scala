@@ -273,8 +273,6 @@ object Migration {
     trace: Chunk[String] = Chunk.empty
   )(op: (String, DynamicValue) => Either[String, Option[(String, DynamicValue)]]): Either[String, DynamicValue] = {
     (value, path) match {
-      case (DynamicValue.Transform(value), _) =>
-        updateLeaf(value, path, trace)(op).map(DynamicValue.Transform(_))
       case (DynamicValue.SomeValue(value), _) =>
         updateLeaf(value, path, trace)(op).map(DynamicValue.SomeValue(_))
       case (DynamicValue.NoneValue, _) => Right(DynamicValue.NoneValue)
