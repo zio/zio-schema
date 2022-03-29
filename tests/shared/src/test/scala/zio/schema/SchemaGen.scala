@@ -14,7 +14,7 @@ object SchemaGen {
   def anyStructure(
     schemaGen: Gen[Random with Sized, Schema[_]]
   ): Gen[Random with Sized, Seq[Schema.Field[_]]] =
-    Gen.setOfBounded(1, 8)(anyLabel).flatMap { keySet =>
+    Gen.setOfBounded(1, 3)(anyLabel).flatMap { keySet =>
       Gen.setOfN(keySet.size)(schemaGen).map { schemas =>
         keySet
           .zip(schemas)
@@ -27,7 +27,7 @@ object SchemaGen {
 
   def anyStructure[A](schema: Schema[A]): Gen[Random with Sized, Seq[Schema.Field[A]]] =
     Gen
-      .setOfBounded(1, 8)(
+      .setOfBounded(1, 3)(
         anyLabel.map(Schema.Field(_, schema))
       )
       .map(_.toSeq)
@@ -36,13 +36,13 @@ object SchemaGen {
     schemaGen: Gen[Random with Sized, Schema[_]]
   ): Gen[Random with Sized, ListMap[String, Schema[_]]] =
     Gen
-      .setOfBounded(1, 8)(
+      .setOfBounded(1, 3)(
         anyLabel.zip(schemaGen)
       )
       .map(ListMap.empty ++ _)
 
   def anyEnumeration[A](schema: Schema[A]): Gen[Random with Sized, ListMap[String, Schema[A]]] =
-    Gen.setOfBounded(1, 8)(anyLabel.map(_ -> schema)).map(ListMap.empty ++ _)
+    Gen.setOfBounded(1, 3)(anyLabel.map(_ -> schema)).map(ListMap.empty ++ _)
 
   val anyPrimitive: Gen[Random, Schema.Primitive[_]] =
     StandardTypeGen.anyStandardType.map(Schema.Primitive(_, Chunk.empty))
