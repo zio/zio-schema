@@ -52,7 +52,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         extends Status
     case object Pending extends Status
 
-    implicit lazy val schema: Schema.Enum3[Failed, Ok, zio.schema.DeriveSchemaSpec.Status.Pending.type, Status] =
+    implicit lazy val schema: Schema.Enum3[Ok, Failed, zio.schema.DeriveSchemaSpec.Status.Pending.type, Status] =
       DeriveSchema.gen[Status]
   }
 
@@ -63,7 +63,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
     case class IntValue(value: Int)         extends OneOf
     case class BooleanValue(value: Boolean) extends OneOf
 
-    implicit lazy val schema: Schema.Enum3[BooleanValue, IntValue, StringValue, OneOf] = DeriveSchema.gen[OneOf]
+    implicit lazy val schema: Schema.Enum3[StringValue, IntValue, BooleanValue, OneOf] = DeriveSchema.gen[OneOf]
   }
 
   case object Singleton
@@ -289,10 +289,11 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       },
       test("correctly derives Enum") {
         val derived: Schema[Status] = Schema[Status]
+        println(derived)
         val expected: Schema[Status] =
           Schema.Enum3(
-            Schema.Case("Failed", DeriveSchema.gen[Status.Failed], (s: Status) => s.asInstanceOf[Status.Failed]),
             Schema.Case("Ok", DeriveSchema.gen[Status.Ok], (s: Status) => s.asInstanceOf[Status.Ok]),
+            Schema.Case("Failed", DeriveSchema.gen[Status.Failed], (s: Status) => s.asInstanceOf[Status.Failed]),
             Schema.Case(
               "Pending",
               DeriveSchema.gen[Status.Pending.type],
@@ -300,7 +301,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
             )
           )
 
-        assert(derived)(hasSameSchema(expected))
+        assert(derived)(hasSameAst(expected))
       },
       test("correctly capture annotations on Enum and cases") {
         val derived: Schema.Enum1[AnnotatedEnum.AnnotatedCase, AnnotatedEnum] = AnnotatedEnum.schema
