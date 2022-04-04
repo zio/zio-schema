@@ -1,9 +1,8 @@
 package zio.schema.ast
 
-import zio.Random
 import zio.test._
 
-object NodePathSpec extends DefaultRunnableSpec {
+object NodePathSpec extends ZIOSpecDefault {
 
   override def spec: ZSpec[Environment, Failure] = suite("NodePath")(
     suite("relativeTo")(
@@ -67,8 +66,8 @@ object NodePathSpec extends DefaultRunnableSpec {
     )
   )
 
-  def anyPathOfN(n: Int): Gen[Random with Sized, NodePath] = Gen.chunkOfN(n)(Gen.string).map(NodePath(_))
+  def anyPathOfN(n: Int): Gen[Sized, NodePath] = Gen.chunkOfN(n)(Gen.string).map(NodePath(_))
 
-  val anyPath: Gen[Random with Sized, NodePath] = Gen.chunkOf(Gen.string).map(NodePath(_))
+  val anyPath: Gen[Sized, NodePath] = Gen.chunkOf(Gen.string).map(NodePath(_))
 
 }

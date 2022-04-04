@@ -4,8 +4,6 @@ import zio.{BootstrapRuntime, Chunk}
 import zio.internal.{Platform, Tracing}
 import zio.schema.{DeriveSchema, Schema}
 
-import scala.util.Random
-
 object CodecBenchmarks {
 
   val TracedRuntime: BootstrapRuntime = new BootstrapRuntime {

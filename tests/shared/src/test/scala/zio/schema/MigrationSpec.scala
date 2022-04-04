@@ -8,7 +8,7 @@ import zio.schema.syntax._
 import zio.test.AssertionM.Render.param
 import zio.test._
 
-object MigrationSpec extends DefaultRunnableSpec {
+object MigrationSpec extends ZIOSpecDefault {
 
   override def spec: ZSpec[Environment, Failure] = suite("Migration Spec")(
     suite("Derivation")(

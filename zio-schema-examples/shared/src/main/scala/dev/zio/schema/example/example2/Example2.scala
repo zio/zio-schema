@@ -108,7 +108,7 @@ object JsonSample extends zio.ZIOAppDefault {
   import zio.schema.codec.JsonCodec
   import zio.stream.ZStream
 
-  override def run: ZIO[Environment with ZEnv with ZIOAppArgs, Any, Any] =
+  override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
       _                    <- ZIO.unit
       person               = Person("Michelle", 32)
@@ -124,7 +124,7 @@ object ProtobufExample extends ZIOAppDefault {
   import zio.schema.codec.ProtobufCodec
   import zio.stream.ZStream
 
-  override def run: ZIO[Environment with ZEnv with ZIOAppArgs, Any, Any] =
+  override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
       _      <- ZIO.unit
       _      <- ZIO.debug("protobuf roundtrip")
@@ -149,7 +149,7 @@ object CombiningExample extends zio.ZIOAppDefault {
   import zio.schema.codec.{ JsonCodec, ProtobufCodec }
   import zio.stream.ZStream
 
-  override def run: ZIO[Environment with ZEnv with ZIOAppArgs, Any, Any] =
+  override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
       _      <- ZIO.unit
       _      <- ZIO.debug("combining roundtrip")

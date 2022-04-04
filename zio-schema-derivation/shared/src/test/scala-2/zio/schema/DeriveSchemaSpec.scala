@@ -5,7 +5,7 @@ import scala.annotation.Annotation
 import zio.Chunk
 import zio.test._
 
-object DeriveSchemaSpec extends DefaultRunnableSpec {
+object DeriveSchemaSpec extends ZIOSpecDefault {
   import Assertion._
   import SchemaAssertions._
 

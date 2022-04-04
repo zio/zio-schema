@@ -6,9 +6,9 @@ import zio.Chunk
 import zio.schema.CaseSet.caseOf
 import zio.schema.Schema.{ Lazy, Primitive }
 import zio.test.Assertion._
-import zio.test.{ DefaultRunnableSpec, ZSpec, assert }
+import zio.test.{ ZIOSpecDefault, ZSpec, assert }
 
-object DefaultValueSpec extends DefaultRunnableSpec {
+object DefaultValueSpec extends ZIOSpecDefault {
   // Record Tests
   sealed case class UserId(id: String)
   sealed case class User(id: UserId, name: String, age: Int)

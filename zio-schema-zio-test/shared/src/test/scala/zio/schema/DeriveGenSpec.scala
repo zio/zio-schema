@@ -5,7 +5,7 @@ import zio.schema.TestData._
 import zio.test.Assertion._
 import zio.test._
 
-object DeriveGenSpec extends DefaultRunnableSpec {
+object DeriveGenSpec extends ZIOSpecDefault {
   override def spec: ZSpec[Environment, Failure] = suite("DeriveGenSpec")(
     test("correctly derives Primitives") {
       for {

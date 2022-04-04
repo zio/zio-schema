@@ -44,7 +44,7 @@ import zio.{ Chunk, Console, Task, ZIO }
  * cd zio-schema-thrift/shared/src/test                                                                                                                                                           ±[●●●][thrift]
  * thrift -r --gen java:generated_annotations=undated -out scala resources/testing-data.thrift
  */
-object ThriftCodecSpec extends DefaultRunnableSpec {
+object ThriftCodecSpec extends ZIOSpecDefault {
 
   import Schema._
 
@@ -1061,7 +1061,7 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Console, String, A] =
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, String, A] =
     ZIO
       .succeed(input)
       .tap(value => Console.printLine(s"Input Value: $value").when(print).ignore)

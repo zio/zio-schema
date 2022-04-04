@@ -6,7 +6,7 @@ import zio.schema.SchemaAssertions._
 import zio.schema.ast._
 import zio.test._
 
-object SchemaAstSpec extends DefaultRunnableSpec {
+object SchemaAstSpec extends ZIOSpecDefault {
 
   def spec: ZSpec[Environment, Failure] = suite("SchemaAst")(
     suite("from schema")(
