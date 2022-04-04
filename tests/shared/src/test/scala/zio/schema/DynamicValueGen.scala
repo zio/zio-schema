@@ -2,8 +2,8 @@ package zio.schema
 
 import scala.collection.immutable.ListMap
 
+import zio.Chunk
 import zio.test._
-import zio.{ Chunk, _ }
 
 object DynamicValueGen {
 
