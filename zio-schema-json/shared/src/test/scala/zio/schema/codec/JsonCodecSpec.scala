@@ -17,7 +17,7 @@ import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 
-object JsonCodecSpec extends DefaultRunnableSpec {
+object JsonCodecSpec extends ZIOSpecDefault {
 
   def spec: ZSpec[TestEnvironment, Any] =
     suite("JsonCodec Spec")(
@@ -774,7 +774,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     implicit val encoder: JsonEncoder[SearchRequest] = DeriveJsonEncoder.gen[SearchRequest]
   }
 
-  private val searchRequestGen: Gen[Random with Sized, SearchRequest] =
+  private val searchRequestGen: Gen[Sized, SearchRequest] =
     for {
       query      <- Gen.string
       pageNumber <- Gen.int(Int.MinValue, Int.MaxValue)

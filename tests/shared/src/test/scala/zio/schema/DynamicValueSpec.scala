@@ -1,12 +1,12 @@
 package zio.schema
 
+import zio._
 import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen._
 import zio.test.Assertion._
 import zio.test.{ Sized, TestConfig, _ }
-import zio.{ Random, _ }
 
-object DynamicValueSpec extends DefaultRunnableSpec {
+object DynamicValueSpec extends ZIOSpecDefault {
 
   def spec: ZSpec[Environment, Failure] =
     suite("DynamicValueSpec")(
@@ -85,7 +85,7 @@ object DynamicValueSpec extends DefaultRunnableSpec {
       }
     )
 
-  val primitiveTests: List[ZSpec[Sized with Random with TestConfig, Nothing]] = schemasAndGens.map {
+  val primitiveTests: List[ZSpec[Sized with TestConfig, Nothing]] = schemasAndGens.map {
     case SchemaTest(name, standardType, gen) =>
       test(s"round-trips $name") {
         dynamicValueLaw(gen, Primitive(standardType, Chunk.empty))

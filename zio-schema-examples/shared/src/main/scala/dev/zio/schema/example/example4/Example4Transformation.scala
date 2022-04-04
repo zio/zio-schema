@@ -112,7 +112,7 @@ object Example4Ast2 extends zio.ZIOAppDefault {
   val migrationWebPersonAstToDomainPersonAst: Either[String, Chunk[Migration]] =
     Migration.derive(webPersonAst, domainPersonAst)
 
-  override def run: ZIO[Environment with ZEnv with ZIOAppArgs, Any, Any] =
+  override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
       _ <- ZIO.debug(webPersonAst)
       _ <- ZIO.debug(domainPersonAst)

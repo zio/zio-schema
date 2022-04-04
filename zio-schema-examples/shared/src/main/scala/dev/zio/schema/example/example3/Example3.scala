@@ -58,7 +58,7 @@ object Example3 extends ZIOAppDefault {
     }
   )
 
-  override val run: ZIO[Environment with ZEnv with ZIOAppArgs, Any, Any] = for {
+  override val run: ZIO[Environment with ZIOAppArgs, Any, Any] = for {
     _      <- ZIO.unit
     json   = """{"firstname":"John","lastname":"Doe","years":42}"""
     chunks = Chunk.fromArray(json.getBytes)

@@ -7,7 +7,7 @@ import zio.schema.CaseSet._
 import zio.test.Assertion._
 import zio.test.{ ZSpec, _ }
 
-object SchemaSpec extends DefaultRunnableSpec {
+object SchemaSpec extends ZIOSpecDefault {
 
   def spec: ZSpec[Environment, Failure] = suite("Schema Spec")(
     suite("Should have valid equals")(

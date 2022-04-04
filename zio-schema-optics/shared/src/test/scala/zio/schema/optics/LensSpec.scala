@@ -6,7 +6,7 @@ import zio.schema._
 import zio.test.Assertion._
 import zio.test._
 
-object LensSpec extends DefaultRunnableSpec {
+object LensSpec extends ZIOSpecDefault {
 
   def spec: ZSpec[Environment, Failure] = suite("LensSpec")(
     suite("constructors")(
@@ -57,7 +57,7 @@ object LensSpec extends DefaultRunnableSpec {
   object TestClass {
     implicit val schema: Schema.CaseClass3[Int, String, Long, TestClass] = DeriveSchema.gen[TestClass]
 
-    val gen: Gen[Random with Sized, TestClass] = for {
+    val gen: Gen[Sized, TestClass] = for {
       f1 <- Gen.int
       f2 <- Gen.string
       f3 <- Gen.long

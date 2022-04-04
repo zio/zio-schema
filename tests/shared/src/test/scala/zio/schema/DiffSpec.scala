@@ -5,9 +5,9 @@ import zio.schema.types.Arities._
 import zio.schema.types.{ Arities, Recursive }
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, Random, URIO, ZIO }
+import zio.{ Chunk, URIO, ZIO }
 
-object DiffSpec extends DefaultRunnableSpec with DefaultJavaTimeSchemas {
+object DiffSpec extends ZIOSpecDefault with DefaultJavaTimeSchemas {
 
   def spec: ZSpec[Environment, Failure] = suite("DiffSpec")(
     suite("identity law")(
@@ -179,13 +179,13 @@ object DiffSpec extends DefaultRunnableSpec with DefaultJavaTimeSchemas {
     )
   )
 
-  private def diffIdentityLaw[A](implicit schema: Schema[A]): URIO[Random with Sized with TestConfig, TestResult] =
+  private def diffIdentityLaw[A](implicit schema: Schema[A]): URIO[Sized with TestConfig, TestResult] =
     check(DeriveGen.gen[A]) { a =>
       assertTrue(schema.diff(a, a).isIdentical)
     }
 
   private def semiDynamicDiffLaw[A](
-    implicit checkConstructor: CheckConstructor[Random with Sized with TestConfig, TestResult],
+    implicit checkConstructor: CheckConstructor[Sized with TestConfig, TestResult],
     schema: Schema[A]
   ): ZIO[checkConstructor.OutEnvironment, checkConstructor.OutError, TestResult] = {
     val semiDynamicSchema = schema.toSemiDynamic
@@ -204,7 +204,7 @@ object DiffSpec extends DefaultRunnableSpec with DefaultJavaTimeSchemas {
   }
 
   private def diffLaw[A](
-    implicit checkConstructor: CheckConstructor[Random with Sized with TestConfig, TestResult],
+    implicit checkConstructor: CheckConstructor[Sized with TestConfig, TestResult],
     schema: Schema[A]
   ): ZIO[checkConstructor.OutEnvironment, checkConstructor.OutError, TestResult] = {
     val gen = DeriveGen.gen[A]
@@ -223,7 +223,7 @@ object DiffSpec extends DefaultRunnableSpec with DefaultJavaTimeSchemas {
 
   private def notComparable[A](leftFilter: A => Boolean, rightFilter: A => Boolean)(
     assertion: Either[String, A] => Boolean
-  )(implicit schema: Schema[A]): URIO[Random with Sized with TestConfig, TestResult] = {
+  )(implicit schema: Schema[A]): URIO[Sized with TestConfig, TestResult] = {
     val gen = DeriveGen.gen[A]
 
     check(gen.withFilter(leftFilter) <*> gen.withFilter(rightFilter)) {

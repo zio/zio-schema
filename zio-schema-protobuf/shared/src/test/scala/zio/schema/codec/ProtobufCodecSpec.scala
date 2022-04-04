@@ -16,10 +16,10 @@ import zio.test.Assertion._
 import zio.test._
 
 // TODO: use generators instead of manual encode/decode
-object ProtobufCodecSpec extends DefaultRunnableSpec {
+object ProtobufCodecSpec extends ZIOSpecDefault {
   import Schema._
 
-  def spec: Spec[TestConfig with Random with Sized with Console, TestFailure[Any], TestSuccess] =
+  def spec: Spec[TestConfig with Sized, TestFailure[Any], TestSuccess] =
     suite("ProtobufCodec Spec")(
       suite("Should correctly encode")(
         test("integers") {
@@ -939,7 +939,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .apply(ZStream.succeed(input))
       .run(ZSink.collectAll)
 
-  def encodeAndDecode2[A](schema: Schema[A], input: A): ZIO[Console, Any, Either[String, Chunk[A]]] =
+  def encodeAndDecode2[A](schema: Schema[A], input: A): ZIO[Any, Any, Either[String, Chunk[A]]] =
     ProtobufCodec
       .encoder(schema)
       .andThen(ProtobufCodec.decoder(schema))
@@ -959,7 +959,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Console, String, A] =
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, String, A] =
     ZIO
       .succeed(input)
       .tap(value => printLine(s"Input Value: $value").when(print).ignore)
@@ -972,7 +972,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
     schema: Schema[A],
     input: A,
     print: Boolean = false
-  ): ZIO[Console, String, Either[String, A]] =
+  ): ZIO[Any, String, Either[String, A]] =
     ZIO
       .succeed(input)
       .tap(value => printLine(s"Input Value: $value").when(print).ignore)

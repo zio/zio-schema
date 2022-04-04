@@ -4,14 +4,14 @@ import java.time.format.DateTimeFormatter
 
 import scala.collection.immutable.ListMap
 
+import zio.Chunk
 import zio.schema.ast.{ NodePath, SchemaAst }
 import zio.test.{ Gen, Sized }
-import zio.{ Chunk, Random }
 
 object DeriveGen {
 
   // scalafmt: { maxColumn = 400 }
-  def gen[A](implicit schema: Schema[A]): Gen[Random with Sized, A] =
+  def gen[A](implicit schema: Schema[A]): Gen[Sized, A] =
     schema match {
       case Schema.Enum1(c1, _)                                                                                                                                              => genEnum(c1)
       case Schema.Enum2(c1, c2, _)                                                                                                                                          => genEnum(c1, c2)
@@ -77,16 +77,16 @@ object DeriveGen {
   private def genEnum[Z](cases: Schema.Case[_, Z]*) =
     Gen.elements(cases: _*).flatMap(c => gen(c.codec).map(_.asInstanceOf[Z]))
 
-  private def genCaseClass1[A, Z](caseClass1: Schema.CaseClass1[A, Z]): Gen[Random with Sized, Z] =
+  private def genCaseClass1[A, Z](caseClass1: Schema.CaseClass1[A, Z]): Gen[Sized, Z] =
     gen(caseClass1.field.schema).map(caseClass1.construct)
 
-  private def genCaseClass2[A1, A2, Z](caseClass2: Schema.CaseClass2[A1, A2, Z]): Gen[Random with Sized, Z] =
+  private def genCaseClass2[A1, A2, Z](caseClass2: Schema.CaseClass2[A1, A2, Z]): Gen[Sized, Z] =
     for {
       f1 <- gen(caseClass2.field1.schema)
       f2 <- gen(caseClass2.field2.schema)
     } yield caseClass2.construct(f1, f2)
 
-  private def genCaseClass3[A1, A2, A3, Z](caseClass3: Schema.CaseClass3[A1, A2, A3, Z]): Gen[Random with Sized, Z] =
+  private def genCaseClass3[A1, A2, A3, Z](caseClass3: Schema.CaseClass3[A1, A2, A3, Z]): Gen[Sized, Z] =
     for {
       f1 <- gen(caseClass3.field1.schema)
       f2 <- gen(caseClass3.field2.schema)
@@ -95,7 +95,7 @@ object DeriveGen {
 
   private def genCaseClass4[A1, A2, A3, A4, Z](
     caseClass4: Schema.CaseClass4[A1, A2, A3, A4, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1 <- gen(caseClass4.field1.schema)
       f2 <- gen(caseClass4.field2.schema)
@@ -105,7 +105,7 @@ object DeriveGen {
 
   private def genCaseClass5[A1, A2, A3, A4, A5, Z](
     caseClass5: Schema.CaseClass5[A1, A2, A3, A4, A5, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1 <- gen(caseClass5.field1.schema)
       f2 <- gen(caseClass5.field2.schema)
@@ -116,7 +116,7 @@ object DeriveGen {
 
   private def genCaseClass6[A1, A2, A3, A4, A5, A6, Z](
     caseClass6: Schema.CaseClass6[A1, A2, A3, A4, A5, A6, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1 <- gen(caseClass6.field1.schema)
       f2 <- gen(caseClass6.field2.schema)
@@ -128,7 +128,7 @@ object DeriveGen {
 
   private def genCaseClass7[A1, A2, A3, A4, A5, A6, A7, Z](
     caseClass7: Schema.CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1 <- gen(caseClass7.field1.schema)
       f2 <- gen(caseClass7.field2.schema)
@@ -141,7 +141,7 @@ object DeriveGen {
 
   private def genCaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
     caseClass8: Schema.CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1 <- gen(caseClass8.field1.schema)
       f2 <- gen(caseClass8.field2.schema)
@@ -155,7 +155,7 @@ object DeriveGen {
 
   private def genCaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
     caseClass9: Schema.CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1 <- gen(caseClass9.field1.schema)
       f2 <- gen(caseClass9.field2.schema)
@@ -170,7 +170,7 @@ object DeriveGen {
 
   private def genCaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
     caseClass10: Schema.CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass10.field1.schema)
       f2  <- gen(caseClass10.field2.schema)
@@ -186,7 +186,7 @@ object DeriveGen {
 
   private def genCaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
     caseClass11: Schema.CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass11.field1.schema)
       f2  <- gen(caseClass11.field2.schema)
@@ -203,7 +203,7 @@ object DeriveGen {
 
   private def genCaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
     caseClass12: Schema.CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass12.field1.schema)
       f2  <- gen(caseClass12.field2.schema)
@@ -221,7 +221,7 @@ object DeriveGen {
 
   private def genCaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
     caseClass13: Schema.CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass13.field1.schema)
       f2  <- gen(caseClass13.field2.schema)
@@ -240,7 +240,7 @@ object DeriveGen {
 
   private def genCaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
     caseClass14: Schema.CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass14.field1.schema)
       f2  <- gen(caseClass14.field2.schema)
@@ -260,7 +260,7 @@ object DeriveGen {
 
   private def genCaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
     caseClass15: Schema.CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass15.field1.schema)
       f2  <- gen(caseClass15.field2.schema)
@@ -281,7 +281,7 @@ object DeriveGen {
 
   private def genCaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
     caseClass16: Schema.CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass16.field1.schema)
       f2  <- gen(caseClass16.field2.schema)
@@ -303,7 +303,7 @@ object DeriveGen {
 
   private def genCaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
     caseClass17: Schema.CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass17.field1.schema)
       f2  <- gen(caseClass17.field2.schema)
@@ -326,7 +326,7 @@ object DeriveGen {
 
   private def genCaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
     caseClass18: Schema.CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass18.field1.schema)
       f2  <- gen(caseClass18.field2.schema)
@@ -351,7 +351,7 @@ object DeriveGen {
   // scalafmt: { maxColumn = 200 }
   private def genCaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
     caseClass19: Schema.CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass19.field1.schema)
       f2  <- gen(caseClass19.field2.schema)
@@ -376,7 +376,7 @@ object DeriveGen {
 
   private def genCaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](
     caseClass20: Schema.CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass20.field1.schema)
       f2  <- gen(caseClass20.field2.schema)
@@ -402,7 +402,7 @@ object DeriveGen {
 
   private def genCaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](
     caseClass21: Schema.CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass21.field1.schema)
       f2  <- gen(caseClass21.field2.schema)
@@ -429,7 +429,7 @@ object DeriveGen {
 
   private def genCaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](
     caseClass22: Schema.CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass22.field1.schema)
       f2  <- gen(caseClass22.field2.schema)
@@ -456,9 +456,9 @@ object DeriveGen {
     } yield caseClass22.construct(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22)
   // scalafmt: { maxColumn = 120 }
 
-  private def genGenericRecord(record: Schema.GenericRecord): Gen[Random with Sized, ListMap[String, _]] =
+  private def genGenericRecord(record: Schema.GenericRecord): Gen[Sized, ListMap[String, _]] =
     record.structure
-      .foldLeft[Gen[Random with Sized, ListMap[String, _]]](Gen.const(ListMap.empty)) {
+      .foldLeft[Gen[Sized, ListMap[String, _]]](Gen.const(ListMap.empty)) {
         case (genListMap, field) =>
           for {
             listMap <- genListMap
@@ -466,19 +466,19 @@ object DeriveGen {
           } yield listMap.updated(field.label, value)
       }
 
-  private def genSequence[Z, A](seq: Schema.Sequence[Z, A, _]): Gen[Random with Sized, Z] =
+  private def genSequence[Z, A](seq: Schema.Sequence[Z, A, _]): Gen[Sized, Z] =
     Gen.oneOf(Gen.chunkOfN(2)(gen(seq.schemaA)), Gen.const(Chunk.empty)).map(seq.fromChunk(_))
 
-  private def genMap[K, V](map: Schema.MapSchema[K, V]): Gen[Random with Sized, Map[K, V]] =
+  private def genMap[K, V](map: Schema.MapSchema[K, V]): Gen[Sized, Map[K, V]] =
     Gen.oneOf(Gen.mapOfN(2)(gen(map.ks), gen(map.vs)), Gen.const(Map.empty[K, V]))
 
-  private def genSet[A](set: Schema.SetSchema[A]): Gen[Random with Sized, Set[A]] =
+  private def genSet[A](set: Schema.SetSchema[A]): Gen[Sized, Set[A]] =
     Gen.oneOf(Gen.setOf(gen(set.as)), Gen.const(Set.empty[A]))
 
-  private def genTransform[A, B, I](transform: Schema.Transform[A, B, I]): Gen[Random with Sized, B] =
+  private def genTransform[A, B, I](transform: Schema.Transform[A, B, I]): Gen[Sized, B] =
     gen(transform.codec).flatMap(a => transform.f(a).fold(_ => Gen.empty, (b: B) => Gen.const(b)))
 
-  def genPrimitive[A](standardType: StandardType[A]): Gen[Random with Sized, A] = {
+  def genPrimitive[A](standardType: StandardType[A]): Gen[Sized, A] = {
     val gen = standardType match {
       case StandardType.UnitType              => Gen.unit
       case StandardType.StringType            => Gen.string
@@ -514,30 +514,30 @@ object DeriveGen {
     gen.map(_.asInstanceOf[A])
   }
 
-  private def genOptional[A](optional: Schema.Optional[A]): Gen[Random with Sized, Option[A]] =
+  private def genOptional[A](optional: Schema.Optional[A]): Gen[Sized, Option[A]] =
     Gen.option(gen(optional.codec))
 
-  private def genFail[A](fail: Schema.Fail[A]): Gen[Random with Sized, A] = {
+  private def genFail[A](fail: Schema.Fail[A]): Gen[Sized, A] = {
     val _ = fail
     Gen.empty
   }
 
-  private def genTuple[A, B](tuple: Schema.Tuple[A, B]): Gen[Random with Sized, (A, B)] =
+  private def genTuple[A, B](tuple: Schema.Tuple[A, B]): Gen[Sized, (A, B)] =
     gen(tuple.left).zip(gen(tuple.right))
 
-  private def genEither[A, B](either: Schema.EitherSchema[A, B]): Gen[Random with Sized, Either[A, B]] =
+  private def genEither[A, B](either: Schema.EitherSchema[A, B]): Gen[Sized, Either[A, B]] =
     Gen.either(gen(either.left), gen(either.right))
 
-  private def genLazy[A](lazySchema: Schema.Lazy[A]): Gen[Random with Sized, A] =
+  private def genLazy[A](lazySchema: Schema.Lazy[A]): Gen[Sized, A] =
     Gen.suspend(gen(lazySchema.schema))
 
-  private def genMeta[A](ast: SchemaAst): Gen[Random with Sized, A] =
+  private def genMeta[A](ast: SchemaAst): Gen[Sized, A] =
     gen(ast.toSchema).map(_.asInstanceOf[A])
 
-  private def genSemiDynamic[A]: Gen[Random with Sized, A] =
+  private def genSemiDynamic[A]: Gen[Sized, A] =
     genAst().map(_.toSchema).flatMap(schema => gen(schema).map(value => (value, schema).asInstanceOf[A]))
 
-  private def genSchemaAstProduct(path: NodePath): Gen[Random with Sized, SchemaAst.Product] =
+  private def genSchemaAstProduct(path: NodePath): Gen[Sized, SchemaAst.Product] =
     for {
       optional <- Gen.boolean
       fields <- Gen.chunkOf(
@@ -547,7 +547,7 @@ object DeriveGen {
                )
     } yield SchemaAst.Product(path, fields, optional)
 
-  private def genSchemaAstSum(path: NodePath): Gen[Random with Sized, SchemaAst.Sum] =
+  private def genSchemaAstSum(path: NodePath): Gen[Sized, SchemaAst.Sum] =
     for {
       optional <- Gen.boolean
       fields <- Gen.chunkOf(
@@ -557,7 +557,7 @@ object DeriveGen {
                )
     } yield SchemaAst.Sum(path, fields, optional)
 
-  private def genSchemaAstValue(path: NodePath): Gen[Random, SchemaAst.Value] =
+  private def genSchemaAstValue(path: NodePath): Gen[Any, SchemaAst.Value] =
     for {
       formatter <- Gen.oneOf(
                     Gen.const(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
@@ -596,13 +596,13 @@ object DeriveGen {
       optional <- Gen.boolean
     } yield SchemaAst.Value(valueType, path, optional)
 
-  private def genSchemaAstDynamic(path: NodePath): Gen[Random, SchemaAst.Dynamic] =
+  private def genSchemaAstDynamic(path: NodePath): Gen[Any, SchemaAst.Dynamic] =
     for {
       withSchema <- Gen.boolean
       optional   <- Gen.boolean
     } yield SchemaAst.Dynamic(withSchema, path, optional)
 
-  private def genAst(path: NodePath = NodePath.root): Gen[Random with Sized, SchemaAst] =
+  private def genAst(path: NodePath = NodePath.root): Gen[Sized, SchemaAst] =
     Gen.weighted(
       genSchemaAstProduct(path) -> 3,
       genSchemaAstSum(path)     -> 1,

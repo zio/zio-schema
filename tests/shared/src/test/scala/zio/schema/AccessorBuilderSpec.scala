@@ -4,7 +4,7 @@ import zio.schema.Schema._
 import zio.schema.SchemaGen.Json.schema
 import zio.test._
 
-object AccessorBuilderSpec extends DefaultRunnableSpec {
+object AccessorBuilderSpec extends ZIOSpecDefault {
   import TestAccessorBuilder._
   import Assertion._
 

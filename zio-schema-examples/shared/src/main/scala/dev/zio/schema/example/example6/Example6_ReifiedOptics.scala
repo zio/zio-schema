@@ -102,7 +102,7 @@ object Example6_ReifiedOptics extends ZIOAppDefault {
     _ <- ZIO.debug("updated company2: " + updatedCompany2)
   } yield ()
 
-  override def run: ZIO[Environment with ZEnv with ZIOAppArgs, Any, Any] = (lensTest1 *> lensTest2 *> traversalTest1)
+  override def run: ZIO[Environment with ZIOAppArgs, Any, Any] = (lensTest1 *> lensTest2 *> traversalTest1)
 }
 
 /**
