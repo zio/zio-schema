@@ -80,6 +80,10 @@ trait SchemaEquality {
             recursiveEqual(lTransform.codec, r, visitedPairs)
           case (l: Schema[_], rTransform: Schema.Transform[_, _, _]) if ignoreTransformations =>
             recursiveEqual(l, rTransform.codec, visitedPairs)
+          case (l: Schema.SemiDynamic[_], r: Schema.SemiDynamic[_]) =>
+            l.annotations == r.annotations
+          case (l: Schema.Dynamic, r: Schema.Dynamic) =>
+            l.annotations == r.annotations
           case (_, _) => false
         }
         result
