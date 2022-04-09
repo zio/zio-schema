@@ -9,7 +9,7 @@ import zio.{ Chunk, URIO, ZIO }
 
 object DiffSpec extends ZIOSpecDefault with DefaultJavaTimeSchemas {
 
-  def spec: ZSpec[Environment, Failure] = suite("DiffSpec")(
+  def spec: ZSpec[Environment, Any] = suite("DiffSpec")(
     suite("identity law")(
       suite("standard types")(
         test("Int")(diffIdentityLaw[Int]),

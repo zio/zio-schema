@@ -8,7 +8,7 @@ import zio.test.{ Sized, TestConfig, _ }
 
 object DynamicValueSpec extends ZIOSpecDefault {
 
-  def spec: ZSpec[Environment, Failure] =
+  def spec: ZSpec[Environment, Any] =
     suite("DynamicValueSpec")(
       suite("Primitives")(primitiveTests: _*),
       test("round-trips Records") {

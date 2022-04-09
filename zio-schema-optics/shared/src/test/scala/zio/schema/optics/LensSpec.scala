@@ -8,7 +8,7 @@ import zio.test._
 
 object LensSpec extends ZIOSpecDefault {
 
-  def spec: ZSpec[Environment, Failure] = suite("LensSpec")(
+  def spec: ZSpec[Environment, Any] = suite("LensSpec")(
     suite("constructors")(
       test("first")(lensLaws(Gen.int.zip(Gen.int), Gen.int)(Lens.first)),
       test("second")(lensLaws(Gen.int.zip(Gen.int), Gen.int)(Lens.second)),
