@@ -10,7 +10,7 @@ import zio.test._
 
 object MigrationSpec extends ZIOSpecDefault {
 
-  override def spec: ZSpec[Environment, Failure] = suite("Migration Spec")(
+  override def spec: ZSpec[Environment, Any] = suite("Migration Spec")(
     suite("Derivation")(
       suite("Value")(
         test("change type") {

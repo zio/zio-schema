@@ -8,7 +8,7 @@ import zio.test._
 object SchemaMigrationSpec extends ZIOSpecDefault {
   import SchemaAssertions._
 
-  override def spec: ZSpec[TestEnvironment, Failure] = suite("Schema Migration Spec")(
+  override def spec: ZSpec[TestEnvironment, Any] = suite("Schema Migration Spec")(
     suite("case class")(
       suite("isomorphisms")(isomorphismTests: _*),
       test("delete field recursively") {

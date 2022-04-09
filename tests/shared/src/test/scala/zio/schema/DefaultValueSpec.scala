@@ -32,7 +32,7 @@ object DefaultValueSpec extends ZIOSpecDefault {
     implicit lazy val schema: Schema[Status] = DeriveSchema.gen[Status]
   }
 
-  def spec: ZSpec[Environment, Failure] = suite("Default Value Spec")(
+  def spec: ZSpec[Environment, Any] = suite("Default Value Spec")(
     suite("Primitive")(
       test("UnitType default value") {
         assert(Primitive(StandardType.UnitType).defaultValue)(isRight(equalTo(())))

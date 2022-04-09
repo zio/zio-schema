@@ -9,7 +9,7 @@ import zio.test.{ ZSpec, _ }
 
 object SchemaSpec extends ZIOSpecDefault {
 
-  def spec: ZSpec[Environment, Failure] = suite("Schema Spec")(
+  def spec: ZSpec[Environment, Any] = suite("Schema Spec")(
     suite("Should have valid equals")(
       test("primitive") {
         assert(schemaUnit)(equalTo(schemaUnit))
