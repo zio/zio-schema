@@ -43,18 +43,18 @@ sealed trait Regex {
           val n2 = loop(left, n)
           if (n2 >= 0) n2
           else loop(right, n)
-        case Regex.Character =>
+        case Regex.Letter =>
           if (n >= string.length) -1
           else {
             val char = string.charAt(n)
-            if (char.isValidChar) n + 1 //TODO check isValidChar does what we want
+            if (char.isLetter) n + 1
             else -1
           }
         case Regex.Digit =>
           if (n >= string.length) -1
           else {
             val char = string.charAt(n)
-            if (char.isValidInt) n + 1 //TODO check isValidInt does what we want
+            if (char.isDigit) n + 1
             else -1
           }
         case Regex.Sequence(first, second) =>
@@ -63,18 +63,18 @@ sealed trait Regex {
           else loop(second, n2)
       }
 
-    loop(this, 0) >= 0
+    loop(this, 0) == string.length()
   }
 }
 
-object Regex /*extends Regexs*/ {
+object Regex {
   final case class CharacterSet(set: Set[Char]) extends Regex
 
   final case class Repeat(regex: Regex, min: Option[Int], max: Option[Int]) extends Regex
 
   final case class Sequence(first: Regex, second: Regex) extends Regex
 
-  final case object Character extends Regex
+  final case object Letter extends Regex
 
   final case object Digit extends Regex
 
@@ -90,7 +90,7 @@ object Regex /*extends Regexs*/ {
 
   val digit: Regex = Digit
 
-  val character: Regex = Character
+  val letter: Regex = Letter
 
-  val digitOrCharacter: Regex = digit | character
+  val digitOrLetter: Regex = digit | letter
 }

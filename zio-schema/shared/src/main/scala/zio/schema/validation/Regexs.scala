@@ -3,7 +3,22 @@ package zio.schema.validation
 trait Regexs {
 
   val identifier: Validation[String] =
-    Validation.regex((Regex.character | Regex.digit).atLeast(1)) // TODO allow underscore _
-//   lazy val email: Validation[String] = ??? //TODO write regex here
-// val idenfitier: Regex = (Regex.digitOrCharacter).atLeast(1)
+    Validation.regex((Regex.digitOrLetter | Regex.oneOf('_')).atLeast(1))
+
+  //^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$
+  lazy val email: Validation[String] = {
+    // val username       = (Regex.digitOrLetter | Regex.oneOf('_', '.', '+', '-')).atLeast(1)
+    val username       = (Regex.letter | Regex.digitOrLetter | Regex.oneOf('_', '.', '+', '-')).atLeast(1)
+    val topLevelDomain = (Regex.digitOrLetter | Regex.oneOf('-')).between(2, 4)
+    val domain =
+      ((Regex.digitOrLetter | Regex.oneOf('-')).atLeast(1) ~
+        (Regex.oneOf('.'))).atLeast(1) ~
+        topLevelDomain
+
+    Validation.regex(
+      username ~
+        Regex.oneOf('@') ~
+        domain
+    )
+  }
 }
