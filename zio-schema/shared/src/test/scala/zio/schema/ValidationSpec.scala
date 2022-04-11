@@ -43,14 +43,32 @@ object ValidationSpec extends DefaultRunnableSpec {
       assertTrue(validation.validate("how").isRight)
       assertTrue(validation.validate("Automobile").isLeft)
     },
-    test("Regex identifier Validation") {
-      //val validation = Validation.regex(Regex.digitOrCharacter)
-      val validation = Validation.identifier
+    test("Regex digit or letter Validation") {
+      val validation = Validation.regex(Regex.digitOrLetter)
+      //val validation = Validation.identifier
 
       assertTrue(validation.validate("a").isRight) &&
-      assertTrue(validation.validate("ab").isRight) &&
-      assertTrue(validation.validate("").isLeft) //&&
-      //assertTrue(validation.validate("&").isLeft)
-    }
+      assertTrue(validation.validate("ab").isLeft) &&
+      assertTrue(validation.validate("").isLeft) &&
+      assertTrue(validation.validate("&").isLeft)
+    },
+    test("Regex identifier Validation") {
+      val validation = Validation.identifier
+
+      assertTrue(validation.validate("_").isRight)
+
+    },
+    test("Regex email Validation") {
+      val validation = Validation.email
+
+      assertTrue(validation.validate("_").isLeft) &&
+      assertTrue(validation.validate("bob101@gmail.com").isRight) &&
+      assertTrue(validation.validate("bob101*@gmail.com").isLeft) &&
+      assertTrue(validation.validate("@").isLeft) &&
+      assertTrue(validation.validate("@.").isLeft) &&
+      assertTrue(validation.validate("b@.com").isLeft) &&
+      assertTrue(validation.validate("").isLeft) &&
+      assertTrue(validation.validate("1@.com").isLeft)
+    },
   )
 }
