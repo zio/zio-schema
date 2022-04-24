@@ -219,9 +219,9 @@ object BuildHelper {
       ThisBuild / scalaVersion := Scala3, //crossScalaVersions.value.head, //Scala3,
       scalacOptions := compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ testDeps,
-      ThisBuild / semanticdbEnabled := scalaVersion.value != Scala3, // enable SemanticDB,
-      ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
-      ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
+      // ThisBuild / semanticdbEnabled := scalaVersion.value != Scala3, // enable SemanticDB,
+      // ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
+      // ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
       ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
       ThisBuild / scalafixDependencies ++= List(
         "com.github.liancheng" %% "organize-imports" % "0.6.0",

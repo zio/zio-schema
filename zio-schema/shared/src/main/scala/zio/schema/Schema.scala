@@ -1950,6 +1950,28 @@ sealed trait RecordSchemas { self: Schema.type =>
 
   }
 
+  sealed case class CaseClass0[Z](construct: () => Z, override val annotations: Chunk[Any] = Chunk.empty) extends Record[Z] { self =>
+
+    type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Nothing
+
+    override def annotate(annotation: Any): CaseClass0[Z] = copy(annotations = annotations :+ annotation)
+
+    override def makeAccessors(b: AccessorBuilder): Nothing = ???
+
+    override def structure: Chunk[Field[_]] = Chunk.empty
+
+    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+      if (values.size == 0)
+        try {
+          Right(construct())
+        } catch {
+          case _: Throwable => Left("invalid type in values")
+        } else
+        Left(s"wrong number of values for $structure")
+
+    override def toString: String = s"CaseClass1(${structure.mkString(",")})"
+  }
+
   sealed case class CaseClass1[A, Z](field: Field[A], construct: A => Z, extractField: Z => A, override val annotations: Chunk[Any] = Chunk.empty) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Lens[Z, A]

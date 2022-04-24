@@ -38,14 +38,14 @@ class ReflectionUtils[Q <: Quotes & Singleton](val q: Q) {
       for {
         mt   <- findMemberType(mirrorTpe, "MirroredType")
         mmt  <- findMemberType(mirrorTpe, "MirroredMonoType")
-        mets <- findMemberType(mirrorTpe, "MirroredElemTypes")
+        mets <- findMemberType(mirrorTpe, "MirroredElemTypes").map(tupleTypeElements(_)).orElse(Some(Seq.empty))
         ml   <- findMemberType(mirrorTpe, "MirroredLabel")
-        mels <- findMemberType(mirrorTpe, "MirroredElemLabels")
+        mels <- findMemberType(mirrorTpe, "MirroredElemLabels").map { mels =>
+            tupleTypeElements(mels).map { case ConstantType(StringConstant(l)) => l }
+          }.orElse(Some(Seq.empty))
       } yield {
-        val mets0 = tupleTypeElements(mets)
         val ConstantType(StringConstant(ml0)) = ml
-        val mels0 = tupleTypeElements(mels).map { case ConstantType(StringConstant(l)) => l }
-        Mirror(mt, mmt, mets0, ml0, mels0, MirrorType.from(mirror))
+        Mirror(mt, mmt, mets, ml0, mels, MirrorType.from(mirror))
       }
     }
 
