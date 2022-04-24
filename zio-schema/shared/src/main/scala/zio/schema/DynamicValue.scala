@@ -1004,6 +1004,9 @@ object DynamicValue {
 
       case Schema.Meta(ast, _) => DynamicValue.DynamicAst(ast)
 
+      case Schema.CaseClass0(_, _) =>
+        DynamicValue.Record(ListMap())
+
       case Schema.CaseClass1(f, _, ext, _) =>
         DynamicValue.Record(ListMap(f.label -> fromSchemaAndValue(f.schema, ext(value))))
 

@@ -18,6 +18,7 @@ object DynamicValueGen {
       case typ: StandardType.DoubleType.type     => gen(typ, Gen.anyDouble)
       case typ: StandardType.StringType.type     => gen(typ, Gen.anyString)
       case typ: StandardType.ShortType.type      => gen(typ, Gen.anyShort)
+      case typ: StandardType.ByteType.type       => gen(typ, Gen.anyByte)
       case typ: StandardType.IntType.type        => gen(typ, Gen.anyInt)
       case typ: StandardType.LongType.type       => gen(typ, Gen.anyLong)
       case typ: StandardType.FloatType.type      => gen(typ, Gen.anyFloat)

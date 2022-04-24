@@ -190,7 +190,8 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   @annotation1("enum") sealed trait AnnotatedEnum
 
   object AnnotatedEnum {
-    @annotation2("case") 
+
+    @annotation2("case")
     case class AnnotatedCase(field: String) extends AnnotatedEnum
 
     object AnnotatedCase {
@@ -328,7 +329,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       },
       test("correctly derives recursive Enum") {
         assert(Schema[RecursiveEnum].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
-      },
+      }
       // test("correctly derives Enum with > 22 cases") {
       //   assert(Schema[Enum23].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       // }

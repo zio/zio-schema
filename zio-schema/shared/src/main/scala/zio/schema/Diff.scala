@@ -907,8 +907,10 @@ object Diff {
 //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
 private[schema] object ProductDiffer {
 
-  def product0[Z](schema: Schema.CaseClass0[Z]): Differ[Z] =
-    (thisZ: Z, thatZ: Z) => Diff.identical
+  def product0[Z](schema: Schema.CaseClass0[Z]): Differ[Z] = {
+    val _ = schema
+    (_: Z, _: Z) => Diff.identical
+  }
 
   def product1[A, Z](schema: Schema.CaseClass1[A, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>

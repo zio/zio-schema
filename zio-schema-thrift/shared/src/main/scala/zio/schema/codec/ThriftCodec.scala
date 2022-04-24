@@ -146,6 +146,8 @@ object ThriftCodec extends Codec {
           TType.BOOL
         case StandardType.ShortType =>
           TType.I16
+        case StandardType.ByteType =>
+          TType.BYTE
         case StandardType.IntType =>
           TType.I32
         case StandardType.LongType =>
@@ -194,6 +196,8 @@ object ThriftCodec extends Codec {
           p.writeBool(b)
         case (StandardType.ShortType, v: Short) =>
           p.writeI16(v)
+        case (StandardType.ByteType, v: Byte) =>
+          p.writeByte(v)
         case (StandardType.IntType, v: Int) =>
           p.writeI32(v)
         case (StandardType.LongType, v: Long) =>
@@ -641,6 +645,7 @@ object ThriftCodec extends Codec {
         case StandardType.StringType     => decodeString(path)
         case StandardType.BoolType       => decodeBoolean(path)
         case StandardType.ShortType      => decodeShort(path)
+        case StandardType.ByteType       => decodeByte(path)
         case StandardType.IntType        => decodeInt(path)
         case StandardType.LongType       => decodeLong(path)
         case StandardType.FloatType      => decodeFloat(path)

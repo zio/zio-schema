@@ -104,6 +104,7 @@ object ProtobufCodec extends Codec {
       case StandardType.StringType            => false
       case StandardType.BoolType              => true
       case StandardType.ShortType             => true
+      case StandardType.ByteType              => true
       case StandardType.IntType               => true
       case StandardType.LongType              => true
       case StandardType.FloatType             => true
@@ -307,6 +308,8 @@ object ProtobufCodec extends Codec {
         case (StandardType.BoolType, b: Boolean) =>
           encodeKey(WireType.VarInt, fieldNumber) ++ encodeVarInt(if (b) 1 else 0)
         case (StandardType.ShortType, v: Short) =>
+          encodeKey(WireType.VarInt, fieldNumber) ++ encodeVarInt(v.toLong)
+        case (StandardType.ByteType, v: Byte) =>
           encodeKey(WireType.VarInt, fieldNumber) ++ encodeVarInt(v.toLong)
         case (StandardType.IntType, v: Int) =>
           encodeKey(WireType.VarInt, fieldNumber) ++ encodeVarInt(v)
@@ -534,6 +537,7 @@ object ProtobufCodec extends Codec {
         case Schema.EitherSchema(left, right, _)                                               => eitherDecoder(left, right)
         case lzy @ Schema.Lazy(_)                                                              => decoder(lzy.schema)
         case Schema.Meta(_, _)                                                                 => astDecoder
+        case s: Schema.CaseClass0[A]                                                           => caseClass0Decoder(s)
         case s: Schema.CaseClass1[_, A]                                                        => caseClass1Decoder(s)
         case s: Schema.CaseClass2[_, _, A]                                                     => caseClass2Decoder(s)
         case s: Schema.CaseClass3[_, _, _, A]                                                  => caseClass3Decoder(s)
@@ -747,10 +751,9 @@ object ProtobufCodec extends Codec {
         case StandardType.UnitType   => Decoder((chunk: Chunk[Byte]) => Right((chunk, ())))
         case StandardType.StringType => stringDecoder
         case StandardType.BoolType   => varIntDecoder.map(_ != 0)
-        case StandardType.ShortType =>
-          varIntDecoder.map(_.shortValue())
-        case StandardType.IntType =>
-          varIntDecoder.map(_.intValue())
+        case StandardType.ShortType  => varIntDecoder.map(_.shortValue())
+        case StandardType.ByteType   => varIntDecoder.map(_.byteValue())
+        case StandardType.IntType    => varIntDecoder.map(_.intValue())
         case StandardType.LongType   => varIntDecoder
         case StandardType.FloatType  => floatDecoder
         case StandardType.DoubleType => doubleDecoder
@@ -954,6 +957,9 @@ object ProtobufCodec extends Codec {
       else
         validateBuffer(index + 1, buffer)
 
+    private[codec] def caseClass0Decoder[Z](schema: Schema.CaseClass0[Z]): Decoder[Z] =
+      succeed(schema.construct())
+
     private[codec] def caseClass1Decoder[A, Z](schema: Schema.CaseClass1[A, Z]): Decoder[Z] =
       unsafeDecodeFields(Array.ofDim[Any](1), schema.field).flatMap { buffer =>
         if (buffer(0) == null)
@@ -961,6 +967,7 @@ object ProtobufCodec extends Codec {
         else
           succeed(schema.construct(buffer(0).asInstanceOf[A]))
       }
+
 
     private[codec] def caseClass2Decoder[A1, A2, Z](schema: Schema.CaseClass2[A1, A2, Z]): Decoder[Z] =
       for {

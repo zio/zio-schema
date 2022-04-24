@@ -21,7 +21,7 @@ object Domain {
 
   object Person {
     val name: Field[String] = Schema.Field[String]("name", Schema.primitive[String])
-    val age: Field[Int]  = Schema.Field[Int]("age", Schema.primitive[Int])
+    val age: Field[Int]     = Schema.Field[Int]("age", Schema.primitive[Int])
 
     val schema: Schema[Person] = Schema.CaseClass2[String, Int, Person](
       field1 = name,
@@ -36,7 +36,7 @@ object Domain {
     final case class CreditCard(number: String, expirationMonth: Int, expirationYear: Int) extends PaymentMethod
 
     object CreditCard {
-      val number: Field[String]          = Schema.Field[String]("number", Schema.primitive[String])
+      val number: Field[String]       = Schema.Field[String]("number", Schema.primitive[String])
       val expirationMonth: Field[Int] = Schema.Field[Int]("expirationMonth", Schema.primitive[Int])
       val expirationYear: Field[Int]  = Schema.Field[Int]("expirationYear", Schema.primitive[Int])
       implicit val schema: Schema[CreditCard] = Schema.CaseClass3[String, Int, Int, CreditCard](

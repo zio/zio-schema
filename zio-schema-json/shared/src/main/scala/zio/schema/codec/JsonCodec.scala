@@ -57,6 +57,7 @@ object JsonCodec extends Codec {
         case StandardType.StringType            => ZJsonCodec.string
         case StandardType.BoolType              => ZJsonCodec.boolean
         case StandardType.ShortType             => ZJsonCodec.short
+        case StandardType.ByteType              => ZJsonCodec.byte
         case StandardType.IntType               => ZJsonCodec.int
         case StandardType.LongType              => ZJsonCodec.long
         case StandardType.FloatType             => ZJsonCodec.float
@@ -117,6 +118,7 @@ object JsonCodec extends Codec {
       case EitherSchema(left, right, _)                          => JsonEncoder.either(schemaEncoder(left), schemaEncoder(right))
       case l @ Schema.Lazy(_)                                    => schemaEncoder(l.schema)
       case Schema.Meta(_, _)                                     => astEncoder
+      case Schema.CaseClass0(_, _)                                  => caseClassEncoder()
       case Schema.CaseClass1(f, _, ext, _)                       => caseClassEncoder(f -> ext)
       case Schema.CaseClass2(f1, f2, _, ext1, ext2, _)           => caseClassEncoder(f1 -> ext1, f2 -> ext2)
       case Schema.CaseClass3(f1, f2, f3, _, ext1, ext2, ext3, _) => caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3)
@@ -316,6 +318,7 @@ object JsonCodec extends Codec {
       case Schema.EitherSchema(left, right, _)                                                      => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
       case l @ Schema.Lazy(_)                                                                       => schemaDecoder(l.schema)
       case Schema.Meta(_, _)                                                                        => astDecoder
+      case s @ Schema.CaseClass0(_, _)                                                              => caseClass0Decoder(s)
       case s @ Schema.CaseClass1(_, _, _, _)                                                        => caseClass1Decoder(s)
       case s @ Schema.CaseClass2(_, _, _, _, _, _)                                                  => caseClass2Decoder(s)
       case s @ Schema.CaseClass3(_, _, _, _, _, _, _, _)                                            => caseClass3Decoder(s)
@@ -531,6 +534,10 @@ object JsonCodec extends Codec {
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   private[codec] object ProductDecoder {
     import Decoder.schemaDecoder
+
+    private[codec] def caseClass0Decoder[Z](schema: Schema.CaseClass0[Z]): JsonDecoder[Z] = { (_: List[JsonError], _: RetractReader) =>
+        schema.construct()
+    }
 
     private[codec] def caseClass1Decoder[A, Z](schema: Schema.CaseClass1[A, Z]): JsonDecoder[Z] = { (trace: List[JsonError], in: RetractReader) =>
       {

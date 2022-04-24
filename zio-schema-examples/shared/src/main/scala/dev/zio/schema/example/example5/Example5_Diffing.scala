@@ -13,7 +13,7 @@ private[example5] object Domain {
 
   object Person {
     val name: Field[String] = Field[String]("name", primitive[String])
-    val age: Field[Int]  = Field[Int]("age", primitive[Int])
+    val age: Field[Int]     = Field[Int]("age", primitive[Int])
 
     val schema: Schema[Person] = CaseClass2[String, Int, Person](
       field1 = name,
@@ -29,7 +29,7 @@ private[example5] object Domain {
   object PersonDTO {
     val firstname: Field[String] = Field("firstname", primitive[String])
     val lastname: Field[String]  = Field("lastname", primitive[String])
-    val years: Field[Int]     = Field("years", primitive[Int])
+    val years: Field[Int]        = Field("years", primitive[Int])
 
     val schema: Schema[PersonDTO] =
       CaseClass3[String, String, Int, PersonDTO](

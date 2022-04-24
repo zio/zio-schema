@@ -80,9 +80,9 @@ object BuildHelper {
       "-language:existentials"
     ) ++ {
       if (sys.env.contains("CI")) {
-        Seq("-Xfatal-warnings", "-Ypatmat-exhaust-depth", "80")
+        Seq("-Xfatal-warnings")
       } else {
-        Seq("-Ypatmat-exhaust-depth", "80")
+        Seq()
       }
     }
 
@@ -90,7 +90,9 @@ object BuildHelper {
       "-language:higherKinds",
       "-explaintypes",
       "-Yrangepos",
-      "-Xlint:_,-missing-interpolator,-type-parameter-shadow",
+      "-Xlint:_,-missing-interpolator,-type-parameter-shadow,-infer-any",
+      "-Ypatmat-exhaust-depth",
+      "40",
       "-Ywarn-numeric-widen",
       "-Ywarn-value-discard",
       "-Xsource:3.0"
@@ -124,7 +126,6 @@ object BuildHelper {
           "-Ywarn-unused",
           "-Yno-adapted-args",
           "-Ywarn-inaccessible",
-          "-Ywarn-infer-any",
           "-Ywarn-nullary-override",
           "-Ywarn-nullary-unit"
         ) ++ std2xOptions ++ optimizerOptions
@@ -216,7 +217,7 @@ object BuildHelper {
     Seq(
       name := s"$prjName",
       crossScalaVersions := Seq(Scala213, Scala212, Scala3),
-      ThisBuild / scalaVersion := Scala3, //crossScalaVersions.value.head, //Scala3,
+      ThisBuild / scalaVersion := Scala213, //crossScalaVersions.value.head, //Scala3,
       scalacOptions := compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ testDeps,
       // ThisBuild / semanticdbEnabled := scalaVersion.value != Scala3, // enable SemanticDB,
