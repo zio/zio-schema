@@ -2,22 +2,28 @@ package zio.schema
 
 object UseMacros {
 
-  val personSchema = DeriveSchema.gen[Person]
+  // val personSchema = DeriveSchema.gen[Person]
   // implicit val address   = DeriveSchema.gen[Address]
   // val schema      = DeriveSchema.gen[PersonWithAddress]
   // val colorSchema = DeriveSchema.gen[Color]
+  val i = 12
 
   @main
   def cool = {
-    println("PERSON SCHEMA!")
-    println(personSchema)
-    println(personSchema.annotations)
-    println(personSchema.field1.annotations)
-    println("")
-    // val person = schema.construct(Person("Kit", 31, true), Address("123 Main St", "Anytown", "CA", 90210), 12)
+    println("CYLCE!")
+    println("CYLCE!")
+    println("CYLCE!")
+    // println(Cyclic.schema)
+    // println("PERSON SCHEMA!")
+    // println(personSchema)
+    // println(personSchema)
+    // println(personSchema.annotations)
+    // println(personSchema.field1.annotations)
+    // println("")
+    // val person = personSchema.construct(PersonId(123),"Kit", 31, true, List.empty)
     // println(person)
-    // println(schema.extractField1(person))
-    // println(schema.extractField2(person))
+    // println(personSchema.extractField1(person))
+    // println(personSchema.extractField2(person))
 
     // println("\nCOLOR SCHEMA")
     // println(schema)

@@ -32,7 +32,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   final case class ContainerFields(field1: Option[String], field2: List[String])
 
   object ContainerFields {
-    implicit lazy val schema: Schema[ContainerFields] = DeriveSchema.gen[ContainerFields]
+    // implicit lazy val schema: Schema[ContainerFields] = DeriveSchema.gen[ContainerFields]
   }
 
   sealed case class UserId(id: String)
@@ -59,8 +59,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         extends Status
     case object Pending extends Status
 
-    implicit lazy val schema: Schema.Enum3[Ok, Failed, Pending.type, Status] =
-      DeriveSchema.gen[Status]
+    implicit lazy val schema: Schema.Enum3[Ok, Failed, Pending.type, Status] = DeriveSchema.gen[Status]
   }
 
   sealed trait OneOf
@@ -77,21 +76,24 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
 
   case class Recursive(
     field1: Int,
-    field2: Option[Recursive] = None,
-    field3: List[Recursive] = Nil,
+    field2: Option[Recursive],
+    field3: List[Recursive],
     field4: Set[Recursive] = Set.empty,
     field5: Vector[Recursive] = Vector.empty,
     field6: Chunk[Recursive] = Chunk.empty
   )
 
   object Recursive {
-    // implicit lazy val schema: Schema[Recursive] = DeriveSchema.gen[Recursive]
+    implicit lazy val schema: Schema.CaseClass6[Int, Option[Recursive], List[Recursive], Set[Recursive], Vector[
+      Recursive
+    ], Chunk[Recursive], Recursive] =
+      DeriveSchema.gen[Recursive]
   }
 
   case class Cyclic(field1: Long, child: CyclicChild1)
 
   object Cyclic {
-    // implicit lazy val schema: Schema.CaseClass2[Long, CyclicChild1, Cyclic] = DeriveSchema.gen[Cyclic]
+    implicit lazy val schema: Schema.CaseClass2[Long, CyclicChild1, Cyclic] = DeriveSchema.gen[Cyclic]
   }
 
   case class CyclicChild1(field1: Int, child: CyclicChild2)
@@ -155,18 +157,18 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
   object TupleArities {
-    implicit lazy val schema: Schema[TupleArities] = DeriveSchema.gen[TupleArities]
+    // implicit lazy val schema: Schema[TupleArities] = DeriveSchema.gen[TupleArities]
   }
 
   case class DependsOnA(a: Option[DependsOnB])
 
   object DependsOnA {
-    // implicit lazy val schema: Schema[DependsOnA] = DeriveSchema.gen[DependsOnA]
+    implicit lazy val schema: Schema[DependsOnA] = DeriveSchema.gen[DependsOnA]
   }
   case class DependsOnB(b: Option[DependsOnA])
 
   object DependsOnB {
-    // implicit lazy val schema: Schema[DependsOnB] = DeriveSchema.gen[DependsOnB]
+    implicit lazy val schema: Schema[DependsOnB] = DeriveSchema.gen[DependsOnB]
   }
 
   sealed trait Tree[+A]
@@ -191,10 +193,10 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
     @annotation2("case") case class AnnotatedCase(field: String) extends AnnotatedEnum
 
     object AnnotatedCase {
-      implicit val schema: Schema.CaseClass1[String, AnnotatedCase] = DeriveSchema.gen[AnnotatedCase]
+      // implicit val schema: Schema.CaseClass1[String, AnnotatedCase] = DeriveSchema.gen[AnnotatedCase]
     }
 
-    implicit val schema: Schema.Enum1[AnnotatedCase, AnnotatedEnum] = DeriveSchema.gen[AnnotatedEnum]
+    // implicit val schema: Schema.Enum1[AnnotatedCase, AnnotatedEnum] = DeriveSchema.gen[AnnotatedEnum]
   }
 
   @annotation1("enum") sealed trait RecursiveEnum
@@ -244,28 +246,30 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       // test("correctly derives case class with arity > 22") {
       //   assert(Schema[Arity24].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       // },
-      // test("correctly derives recursive data structure") {
-      //   assert(Schema[Recursive].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
-      // },
-      test("correctly derives tuple arities from 2 to 22") {
-        assert(Schema[TupleArities].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+      test("correctly derives recursive data structure") {
+        println(Recursive.schema.field2.schema.asInstanceOf[Schema.Optional[_]].toEnum)
+        println(Recursive.schema.field2.schema.asInstanceOf[Schema.Optional[_]].toEnum)
+        assert(Schema[Recursive].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
-      // test("correctly derive mutually recursive data structure") {
-      //   val c = Cyclic(1, CyclicChild1(2, CyclicChild2("3", None)))
-      //   val _ = Schema[Cyclic].toDynamic(c)
-      //   assert(Schema[Cyclic].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+      // test("correctly derives tuple arities from 2 to 22") {
+      //   assert(Schema[TupleArities].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       // },
-      // test("correctly derives recursively for case class") {
-      //   val derived: Schema[UserId] = DeriveSchema.gen[UserId]
-      //   val expected: Schema[UserId] =
-      //     Schema.CaseClass1(
-      //       field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
-      //       UserId.apply,
-      //       (uid: UserId) => uid.id
-      //     )
+      test("correctly derive mutually recursive data structure") {
+        val c = Cyclic(1, CyclicChild1(2, CyclicChild2("3", None)))
+        val _ = Schema[Cyclic].toDynamic(c)
+        assert(Schema[Cyclic].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+      },
+      test("correctly derives recursively for case class") {
+        val derived: Schema[UserId] = DeriveSchema.gen[UserId]
+        val expected: Schema[UserId] =
+          Schema.CaseClass1(
+            field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
+            UserId.apply,
+            (uid: UserId) => uid.id
+          )
 
-      //   assert(derived)(hasSameSchema(expected))
-      // },
+        assert(derived)(hasSameSchema(expected))
+      },
       test("correctly derives for case object") {
         val derived: Schema[Singleton.type]  = DeriveSchema.gen[Singleton.type]
         val expected: Schema[Singleton.type] = Schema.CaseClass0(() => Singleton)
@@ -274,24 +278,6 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       },
       test("correctly captures annotations on case class") {
         val derived: Schema[User] = Schema[User]
-        val expected: Schema[User] = {
-          Schema.CaseClass2(
-            field1 = Schema.Field("name", Schema.Primitive(StandardType.StringType)),
-            field2 = Schema.Field(
-              "id",
-              Schema.CaseClass1(
-                field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
-                UserId.apply,
-                (uid: UserId) => uid.id
-              ),
-              Chunk(annotation1("foo"), annotation2("bar"), new annotation3, new annotation4(0))
-            ),
-            User.apply,
-            (u: User) => u.name,
-            (u: User) => u.id,
-            annotations = Chunk(new annotation3)
-          )
-        }
         derived match {
           case Schema.CaseClass2(field1, field2, _, _, _, anns) =>
             assertTrue(
@@ -300,48 +286,48 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
               field2.annotations == Chunk(annotation1("foo"), annotation2("bar"), new annotation3, new annotation4(0))
             )
         }
-      }
-      // test("correctly derives Enum") {
-      //   val derived: Schema[Status] = Schema[Status]
-      //   val expected: Schema[Status] =
-      //     Schema.Enum3(
-      //       Schema.Case("Failed", DeriveSchema.gen[Status.Failed], (s: Status) => s.asInstanceOf[Status.Failed]),
-      //       Schema.Case("Ok", DeriveSchema.gen[Status.Ok], (s: Status) => s.asInstanceOf[Status.Ok]),
-      //       Schema.Case(
-      //         "Pending",
-      //         DeriveSchema.gen[Status.Pending.type],
-      //         (s: Status) => s.asInstanceOf[Status.Pending.type]
-      //       )
-      //     )
+      },
+      test("correctly derives Enum") {
+        val derived: Schema[Status] = Schema[Status]
+        val expected: Schema[Status] =
+          Schema.Enum3(
+            Schema.Case("Failed", DeriveSchema.gen[Status.Failed], (s: Status) => s.asInstanceOf[Status.Failed]),
+            Schema.Case("Ok", DeriveSchema.gen[Status.Ok], (s: Status) => s.asInstanceOf[Status.Ok]),
+            Schema.Case(
+              "Pending",
+              DeriveSchema.gen[Status.Pending.type],
+              (s: Status) => s.asInstanceOf[Status.Pending.type]
+            )
+          )
 
-      //   assert(derived)(hasSameSchema(expected))
-      // },
+        assert(derived)(hasSameSchema(expected))
+      },
       // test("correctly capture annotations on Enum and cases") {
       //   val derived: Schema.Enum1[AnnotatedEnum.AnnotatedCase, AnnotatedEnum] = AnnotatedEnum.schema
       //   assertTrue(
       //     derived.annotations == Chunk(annotation1("enum")) && derived.case1.annotations == Chunk(annotation2("case"))
       //   )
       // }
-      // test("correctly derives mutually recursive case classes") {
-      //   val a  = DependsOnA(Some(DependsOnB(None)))
-      //   val a0 = Schema[DependsOnA].fromDynamic(Schema[DependsOnA].toDynamic(a))
-      //   assert(Schema[DependsOnA])(anything)
-      //   assert(a0)(isRight(equalTo(a)))
+      test("correctly derives mutually recursive case classes") {
+        val a  = DependsOnA(Some(DependsOnB(None)))
+        val a0 = Schema[DependsOnA].fromDynamic(Schema[DependsOnA].toDynamic(a))
+        assert(Schema[DependsOnA])(anything)
+        assert(a0)(isRight(equalTo(a)))
 
-      //   val b  = DependsOnB(Some(DependsOnA(None)))
-      //   val b0 = Schema[DependsOnB].fromDynamic(Schema[DependsOnB].toDynamic(b))
-      //   assert(Schema[DependsOnB])(anything)
-      //   assert(b0)(isRight(equalTo(b)))
-      // },
-      // test("correctly derives recursive Enum with type parameters") {
-      //   assert(DeriveSchema.gen[Tree[Recursive]])(anything)
-      // },
-      // test("correctly derives recursive Enum with multiple type parameters") {
-      //   assert(DeriveSchema.gen[RBTree[String, Int]])(anything)
-      // },
+        val b  = DependsOnB(Some(DependsOnA(None)))
+        val b0 = Schema[DependsOnB].fromDynamic(Schema[DependsOnB].toDynamic(b))
+        assert(Schema[DependsOnB])(anything)
+        assert(b0)(isRight(equalTo(b)))
+      },
+      test("correctly derives recursive Enum with type parameters") {
+        assert(DeriveSchema.gen[Tree[Recursive]])(anything)
+      },
+      test("correctly derives recursive Enum with multiple type parameters") {
+        assert(DeriveSchema.gen[RBTree[String, Int]])(anything)
+      }
       // test("correctly derives recursive Enum") {
       //   assert(Schema[RecursiveEnum].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
-      // },
+      // }
       // test("correctly derives Enum with > 22 cases") {
       //   assert(Schema[Enum23].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       // }

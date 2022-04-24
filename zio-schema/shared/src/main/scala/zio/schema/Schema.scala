@@ -353,14 +353,15 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
   final case class Optional[A](codec: Schema[A], annotations: Chunk[Any] = Chunk.empty) extends Schema[Option[A]] {
     self =>
 
-    private[schema] val someCodec: Schema[Some[A]] = codec.transform(a => Some(a), _.get)
+    private[schema] lazy val someCodec: Schema[Some[A]] = 
+      codec.transform(a => Some(a), _.get)
 
     override def annotate(annotation: Any): Optional[A] = copy(annotations = annotations :+ annotation)
 
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] =
       (Prism[Option[A], Some[A]], Prism[Option[A], None.type])
 
-    val toEnum: Enum2[Some[A], None.type, Option[A]] = Enum2(
+    lazy val toEnum: Enum2[Some[A], None.type, Option[A]] = Enum2(
       Case[Some[A], Option[A]]("Some", someCodec, _.asInstanceOf[Some[A]], Chunk.empty),
       Case[None.type, Option[A]]("None", singleton(None), _.asInstanceOf[None.type], Chunk.empty),
       Chunk.empty

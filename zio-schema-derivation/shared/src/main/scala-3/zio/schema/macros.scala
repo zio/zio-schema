@@ -7,37 +7,116 @@ import Schema.{Tuple => SchemaTuple, _}
 
 object DeriveSchema {
 
-  transparent inline implicit def gen[T]: Schema[T] = ${ deriveSchema[T] }
+  transparent inline def gen[T]: Schema[T] = ${ deriveSchema[T] }
 
   def deriveSchema[T: Type](using Quotes): Expr[Schema[T]] = 
-    DeriveSchema().deriveSchema[T]
+    DeriveSchema().deriveSchema[T](top = true)
 }
 
 private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils(ctx) {
   import ctx.reflect._
+   
+  case class Frame(ref: Term, tpe: TypeRepr)
+  case class Stack(frames: List[Frame]) {
+    def find(tpe: TypeRepr): Option[Term] = frames.find(_.tpe =:= tpe).map(_.ref)
 
-  def deriveSchema[T: Type]: Expr[Schema[T]] = {
-    val typeRepr = TypeRepr.of[T]
-    val mirror = Mirror(typeRepr).get
-    mirror.mirrorType match {
-      case MirrorType.Sum => 
-        deriveEnum[T](mirror)
-      case MirrorType.Product =>
-        deriveCaseClass[T](mirror)
-    }
+    def push(ref: Term, tpe: TypeRepr): Stack = Stack(Frame(ref, tpe) :: frames)
+
+    def pop: Stack = Stack(frames.tail)
+
+    def size = frames.size
+
+    override def toString = 
+      frames.map(f => s"${f.ref.show} : ${f.tpe.show}").mkString("Stack(", ", ", ")")
   }
 
-  def deriveCaseClass[T: Type](mirror: Mirror) = {
+  object Stack {
+    val empty: Stack = Stack(Nil)
+  }
+
+  var depth = 0
+
+  def deriveSchema[T: Type](stack: Stack = Stack.empty, top: Boolean = false): Expr[Schema[T]] = {
+    depth += 1
+    println(s"STACK ${stack} ${TypeRepr.of[T].show}")
+    if (depth > 85)
+      throw new Exception("Schema derivation exceeded")
+
+    val typeRepr = TypeRepr.of[T]
+    val result = stack.find(typeRepr) match {
+      case Some(ref) =>
+        '{ Schema.defer(${ref.asExprOf[Schema[T]]}) }
+      case None => 
+        typeRepr.asType match {
+          case '[List[a]] =>
+            val schema = deriveSchema[a](stack)
+            '{ Schema.list(Schema.defer(${schema})) }.asExprOf[Schema[T]]
+          case '[Either[a, b]] =>
+            val schemaA = deriveSchema[a](stack)
+            val schemaB = deriveSchema[b](stack)
+            '{ Schema.either(Schema.defer(${schemaA}), Schema.defer(${schemaB})) }.asExprOf[Schema[T]]
+          case '[Option[a]] =>
+            val schema = deriveSchema[a](stack)
+            // throw new Error(s"OPITOS ${schema.show}")
+            '{ Schema.option(Schema.defer($schema)) }.asExprOf[Schema[T]]
+          case '[Set[a]] =>
+            val schema = deriveSchema[a](stack)
+            '{ Schema.set(Schema.defer(${schema})) }.asExprOf[Schema[T]]
+          case '[Vector[a]] =>
+            val schema = deriveSchema[a](stack)
+            '{ Schema.vector(Schema.defer(${schema})) }.asExprOf[Schema[T]]
+          case '[Map[a, b]] =>
+            val schemaA = deriveSchema[a](stack)
+            val schemaB = deriveSchema[b](stack)
+            '{ Schema.map(Schema.defer(${schemaA}), Schema.defer(${schemaB})) }.asExprOf[Schema[T]]
+          case '[zio.Chunk[a]] =>
+            val schema = deriveSchema[a](stack)
+            '{ Schema.chunk(Schema.defer(${schema})) }.asExprOf[Schema[T]]
+          case _ => 
+            Expr.summon[Schema[T]] match {
+              case Some(schema) if !top =>
+                println(s"FOR TYPE ${typeRepr.show}")
+                println(s"STACK ${stack.find(typeRepr)}")
+                println(s"Found schema ${schema.show}")
+                schema
+              case _ =>
+                println(s"TYPE REPR ${typeRepr.show}")
+                val mirror = Mirror(typeRepr).get
+                mirror.mirrorType match {
+                  case MirrorType.Sum => 
+                    deriveEnum[T](mirror, stack)
+                  case MirrorType.Product =>
+                    deriveCaseClass[T](mirror, stack, top)
+                }
+            }
+        }
+    }
+
+    println()
+    println()
+    println(s"RESULT ${typeRepr.show}")
+    println(s"------")
+    println(s"RESULT ${result.show}")
+    println("HELLO")
+
+    result
+  }
+
+  def deriveCaseClass[T: Type](mirror: Mirror, stack: Stack, top: Boolean) = {
+    val selfRefSymbol = 
+      Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.spliceOwner)
+    val selfRef = Ref(selfRefSymbol)
+    val newStack = stack.push(selfRef, TypeRepr.of[T])
+
     val labels = mirror.labels.toList
     val types = mirror.types.toList
     val typesAndLabels = types.zip(labels)
 
     val paramAnns = fromConstructor(TypeRepr.of[T].typeSymbol)
-    val fields = typesAndLabels.map { case (tpe, label) => deriveField(tpe, label, paramAnns(label)) }
+    val fields = typesAndLabels.map { case (tpe, label) => deriveField(tpe, label, paramAnns.getOrElse(label, List.empty), newStack) }
     val selects = typesAndLabels.map { case (tpe, label) => deriveSelect[T](tpe, label) }
     val constructor = caseClassConstructor[T](mirror).asExpr
 
-    println(s"paramAnns: $paramAnns")
     val annotationExprs = TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
     val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) }
     val args = fields ++ Seq(constructor) ++ selects ++ Seq(annotations)
@@ -60,17 +139,35 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
       ),
       args.map(_.asTerm)
     )
-    applied.asExprOf[Schema[T]]
+
+    val lazyValDef = ValDef(selfRefSymbol, Some(applied.changeOwner(selfRefSymbol)))
+
+    applied.asExpr match {
+      case '{ type tt <: Schema[T]; $ex : `tt` } =>
+        if (top) {
+          '{
+            ${Block(
+              List(lazyValDef), 
+              selfRef
+            ).asExpr}.asInstanceOf[tt]
+          }
+        } else {
+          val deferredSelf = '{ Schema.defer(${selfRef.asExprOf[Schema[T]]}) }.asTerm
+          '{
+            ${Block(
+              List(lazyValDef), 
+              deferredSelf
+            ).asExpr}.asInstanceOf[Schema[T]]
+          }
+        }
+    }
   }
 
 
   private def fromDeclarations(from: Symbol): List[(String, List[Expr[Any]])] = 
     from.declaredFields.map {
       field =>
-        println(field)
-        field.name -> field.annotations
-          // .filter(filterAnnotation)
-          .map(_.asExpr)
+        field.name -> field.annotations.filter(filterAnnotation).map(_.asExpr)
     }
 
   private def fromConstructor(from: Symbol): Map[String, List[Expr[Any]]] =
@@ -82,12 +179,12 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
 
   //   sealed case class Enum2[A1 <: Z, A2 <: Z, Z](
   //      case1: Case[A1, Z], case2: Case[A2, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
-  def deriveEnum[T: Type](mirror: Mirror) = {
+  def deriveEnum[T: Type](mirror: Mirror, stack: Stack) = {
     val labels = mirror.labels.toList
     val types = mirror.types.toList
     val typesAndLabels = types.zip(labels)
 
-    val cases = typesAndLabels.map { case (tpe, label) => deriveCase[T](tpe, label) }
+    val cases = typesAndLabels.map { case (tpe, label) => deriveCase[T](tpe, label, stack) }
     val args = cases :+ '{ zio.Chunk.empty }
     val terms = Expr.ofTupleFromSeq(args)
     val ctor = TypeRepr.of[Enum2[_, _, _]].typeSymbol.primaryConstructor
@@ -111,23 +208,24 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
   }
 
   // Derive Field for a CaseClass
-  def deriveField(repr: TypeRepr, label: String, anns: List[Expr[Any]]) = {
+  def deriveField(repr: TypeRepr, label: String, anns: List[Expr[Any]], stack: Stack) = {
     repr.asType match { case '[t] => 
-      val schema = Expr.summon[Schema[t]].getOrElse(deriveSchema[t])
-      val chunk = '{ zio.Chunk.fromIterable(${ Expr.ofSeq(anns) }) }
+      val schema = deriveSchema[t](stack)
+      val chunk = '{ zio.Chunk.fromIterable(${ Expr.ofSeq(anns.reverse) }) }
       '{ Field(${Expr(label)}, $schema, $chunk) }
     }
   }
 
 
   // sealed case class Case[A, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A, annotations: Chunk[Any] = Chunk.empty) {
-  def deriveCase[T: Type](repr: TypeRepr, label: String) = {
+  def deriveCase[T: Type](repr: TypeRepr, label: String, stack: Stack) = {
     repr.asType match { case '[t] => 
-      val schema = Expr.summon[Schema[t]].getOrElse(deriveSchema[t])
+      val schema = deriveSchema[t](stack)
       val stringExpr = Expr(label)
       val unsafeDeconstruct = '{ 
         (z: T) => z match {
           case (sub: t) => sub
+          case other => throw new MatchError(other)
         }
        }
       '{ Case(${Expr(label)}, $schema, $unsafeDeconstruct) }
