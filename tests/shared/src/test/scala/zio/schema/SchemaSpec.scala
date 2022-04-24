@@ -35,7 +35,7 @@ object SchemaSpec extends DefaultRunnableSpec {
       test("enumeration") {
         assert(schemaEnum("key"))(equalTo(schemaEnum("key"))) &&
         assert(schemaEnum("key1"))(not(equalTo(schemaEnum("key2"))))
-      } @@ TestAspect.scala2Only,
+      } @@ TestAspect.scala2Only
     ),
     test("Tuple.toRecord should preserve annotations") {
       val left        = Schema.primitive(StandardType.StringType)

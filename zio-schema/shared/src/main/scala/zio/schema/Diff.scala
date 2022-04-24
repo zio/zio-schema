@@ -218,7 +218,7 @@ object Differ {
     case Schema.Primitive(StandardType.BinaryType, _)     => binary
     case Schema.Primitive(StandardType.IntType, _)        => numeric[Int]
     case Schema.Primitive(StandardType.ShortType, _)      => numeric[Short]
-    case Schema.Primitive(StandardType.ByteType, _)           => numeric[Byte]
+    case Schema.Primitive(StandardType.ByteType, _)       => numeric[Byte]
     case Schema.Primitive(StandardType.DoubleType, _)     => numeric[Double]
     case Schema.Primitive(StandardType.FloatType, _)      => numeric[Float]
     case Schema.Primitive(StandardType.LongType, _)       => numeric[Long]

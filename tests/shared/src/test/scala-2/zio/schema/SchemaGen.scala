@@ -565,7 +565,7 @@ object SchemaGen {
   case class JArray(fields: List[Json])            extends Json
 
   object Json {
-    implicit lazy val schema: Schema.Enum6[_,_,_,_,_,_, Json] =
+    implicit lazy val schema: Schema.Enum6[_, _, _, _, _, _, Json] =
       DeriveSchema.gen[Json]
 
     val leafGen: Gen[Random with Sized, Json] =
