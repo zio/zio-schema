@@ -22,9 +22,9 @@ object BuildHelper {
     list.map(v => (v.split('.').take(2).mkString("."), v)).toMap
   }
 
-  val Scala212: String   = versions("2.12")
-  val Scala213: String   = versions("2.13")
-  val ScalaDotty: String = "3.1.0" //versions.getOrElse("3.0", versions("3.1"))
+  val Scala212: String = versions("2.12")
+  val Scala213: String = versions("2.13")
+  val Scala3: String   = "3.1.2" //versions.getOrElse("3.0", versions("3.1"))
 
   val zioVersion        = "1.0.13"
   val zioJsonVersion    = "0.2.0-M2"
@@ -40,7 +40,7 @@ object BuildHelper {
   def macroDefinitionSettings = Seq(
     scalacOptions += "-language:experimental.macros",
     libraryDependencies ++= {
-      if (scalaVersion.value == ScalaDotty) Seq()
+      if (scalaVersion.value == Scala3) Seq()
       else
         Seq(
           "org.scala-lang" % "scala-reflect"  % scalaVersion.value % "provided",
@@ -51,7 +51,7 @@ object BuildHelper {
 
   private def compileOnlyDeps(scalaVersion: String) = {
     val stdCompileOnlyDeps = {
-      if (scalaVersion == ScalaDotty)
+      if (scalaVersion == Scala3)
         Seq(
           "com.github.ghik" % s"silencer-lib_$Scala213" % silencerVersion % Provided
         )
@@ -135,22 +135,22 @@ object BuildHelper {
   }
 
   val dottySettings = Seq(
-    crossScalaVersions += ScalaDotty,
+    crossScalaVersions += Scala3,
     scalacOptions ++= {
-      if (scalaVersion.value == ScalaDotty)
+      if (scalaVersion.value == Scala3)
         Seq("-noindent")
       else
         Seq()
     },
     scalacOptions --= {
-      if (scalaVersion.value == ScalaDotty)
+      if (scalaVersion.value == Scala3)
         Seq("-Xfatal-warnings")
       else
         Seq()
     },
     Compile / doc / sources := {
       val old = (Compile / doc / sources).value
-      if (scalaVersion.value == ScalaDotty) {
+      if (scalaVersion.value == Scala3) {
         Nil
       } else {
         old
@@ -158,7 +158,7 @@ object BuildHelper {
     },
     Test / parallelExecution := {
       val old = (Test / parallelExecution).value
-      if (scalaVersion.value == ScalaDotty) {
+      if (scalaVersion.value == Scala3) {
         false
       } else {
         old
@@ -215,11 +215,11 @@ object BuildHelper {
   def stdSettings(prjName: String) =
     Seq(
       name := s"$prjName",
-      crossScalaVersions := Seq(Scala213, Scala212),
-      ThisBuild / scalaVersion := crossScalaVersions.value.head, //ScalaDotty,
+      crossScalaVersions := Seq(Scala213, Scala212, Scala3),
+      ThisBuild / scalaVersion := Scala3, //crossScalaVersions.value.head, //Scala3,
       scalacOptions := compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ testDeps,
-      ThisBuild / semanticdbEnabled := scalaVersion.value != ScalaDotty, // enable SemanticDB,
+      ThisBuild / semanticdbEnabled := scalaVersion.value != Scala3, // enable SemanticDB,
       ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
       ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
       ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
