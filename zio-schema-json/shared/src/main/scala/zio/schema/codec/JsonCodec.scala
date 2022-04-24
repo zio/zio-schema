@@ -200,7 +200,7 @@ object JsonCodec extends Codec {
       case Schema.Dynamic(_) =>
         dynamicEncoder
       case Schema.SemiDynamic(_, _) =>
-        semiDynamicEncoder
+        semiDynamicEncoder.asInstanceOf[JsonEncoder[A]]
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -390,7 +390,7 @@ object JsonCodec extends Codec {
         enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case Schema.EnumN(cs, _)      => enumDecoder(cs.toSeq: _*)
       case Schema.Dynamic(_)        => dynamicDecoder
-      case Schema.SemiDynamic(_, _) => semiDynamicDecoder
+      case Schema.SemiDynamic(_, _) => semiDynamicDecoder.asInstanceOf[JsonDecoder[A]]
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -410,7 +410,7 @@ object JsonCodec extends Codec {
 
         Lexer.char(trace, reader, '{')
         if (Lexer.firstField(trace, reader)) {
-          do {
+          while ({
             var trace_ = trace
             val field  = Lexer.field(trace, reader, matrix)
             if (field == 0) {
@@ -426,7 +426,8 @@ object JsonCodec extends Codec {
                 Lexer.skipValue(trace_, reader)
               }
             } else Lexer.skipValue(trace_, reader)
-          } while (Lexer.nextField(trace, reader))
+            (Lexer.nextField(trace, reader))
+          }) { () }
         }
 
         if (value == null) {
@@ -472,7 +473,7 @@ object JsonCodec extends Codec {
           val builder: ChunkBuilder[(String, Any)] = zio.ChunkBuilder.make[(String, Any)](structure.size)
           Lexer.char(trace, in, '{')
           if (Lexer.firstField(trace, in)) {
-            do {
+            while ({
               val field = Lexer.string(trace, in).toString
               structure.find(_.label == field) match {
                 case Some(Schema.Field(label, schema, _)) =>
@@ -484,7 +485,10 @@ object JsonCodec extends Codec {
                   Lexer.skipValue(trace, in)
 
               }
-            } while (Lexer.nextField(trace, in))
+              (Lexer.nextField(trace, in))
+            }) {
+              ()
+            }
           }
           (ListMap.newBuilder[String, Any] ++= builder.result()).result()
         }
@@ -864,7 +868,7 @@ object JsonCodec extends Codec {
       val schemas: Array[Schema[_]] = fields.map(_.schema).toArray
       Lexer.char(trace, in, '{')
       if (Lexer.firstField(trace, in)) {
-        do {
+        while ({
           var trace_ = trace
           val field  = Lexer.field(trace, in, matrix)
           if (field != -1) {
@@ -874,7 +878,8 @@ object JsonCodec extends Codec {
             else
               buffer(field) = schemaDecoder(schemas(field)).unsafeDecode(trace_, in)
           } else Lexer.skipValue(trace_, in)
-        } while (Lexer.nextField(trace, in))
+          (Lexer.nextField(trace, in))
+        }) { () }
       }
 
       var i = 0

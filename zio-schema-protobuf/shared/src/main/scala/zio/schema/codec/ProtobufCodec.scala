@@ -142,18 +142,18 @@ object ProtobufCodec extends Codec {
       (schema, value) match {
         case (Schema.GenericRecord(structure, _), v: Map[String, _]) =>
           encodeRecord(fieldNumber, structure.toChunk, v)
-        case (Schema.Sequence(element, _, g, _, _), v)              => encodeSequence(fieldNumber, element, g(v))
-        case (Schema.MapSchema(ks, vs, _), map: Map[k, v])          => encodeSequence(fieldNumber, ks <*> vs, Chunk.fromIterable(map))
-        case (Schema.SetSchema(s, _), set: Set[_])                  => encodeSequence(fieldNumber, s, Chunk.fromIterable(set))
-        case (Schema.Transform(codec, _, g, _, _), _)               => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
-        case (Schema.Primitive(standardType, _), v)                 => encodePrimitive(fieldNumber, standardType, v)
-        case (Schema.Tuple(left, right, _), v @ (_, _))             => encodeTuple(fieldNumber, left, right, v)
-        case (Schema.Optional(codec, _), v: Option[_])              => encodeOptional(fieldNumber, codec, v)
-        case (Schema.EitherSchema(left, right, _), v: Either[_, _]) => encodeEither(fieldNumber, left, right, v)
-        case (lzy @ Schema.Lazy(_), v)                              => encode(fieldNumber, lzy.schema, v)
-        case (Schema.Meta(ast, _), _)                               => encode(fieldNumber, Schema[SchemaAst], ast)
-        case (Schema.CaseClass1(f, _, ext, _), v)                   => encodeCaseClass(v, f -> ext)(fieldNumber)
-        case (Schema.CaseClass2(f1, f2, _, ext1, ext2, _), v)       => encodeCaseClass(v, f1 -> ext1, f2 -> ext2)(fieldNumber)
+        case (Schema.Sequence(element, _, g, _, _), v)                                    => encodeSequence(fieldNumber, element, g(v))
+        case (Schema.MapSchema(ks, vs, _), map)                                           => encodeSequence(fieldNumber, ks <*> vs, Chunk.fromIterable(map))
+        case (Schema.SetSchema(s, _), set)                                                => encodeSequence(fieldNumber, s, Chunk.fromIterable(set))
+        case (Schema.Transform(codec, _, g, _, _), _)                                     => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
+        case (Schema.Primitive(standardType, _), v)                                       => encodePrimitive(fieldNumber, standardType, v)
+        case (Schema.Tuple(left, right, _), v @ (_, _))                                   => encodeTuple(fieldNumber, left, right, v)
+        case (Schema.Optional(codec: Schema[a], _), v: Option[_])                         => encodeOptional(fieldNumber, codec, v.asInstanceOf[Option[a]])
+        case (Schema.EitherSchema(left: Schema[a], right: Schema[b], _), v: Either[_, _]) => encodeEither(fieldNumber, left, right, v.asInstanceOf[Either[a, b]])
+        case (lzy @ Schema.Lazy(_), v)                                                    => encode(fieldNumber, lzy.schema, v)
+        case (Schema.Meta(ast, _), _)                                                     => encode(fieldNumber, Schema[SchemaAst], ast)
+        case (Schema.CaseClass1(f, _, ext, _), v)                                         => encodeCaseClass(v, f -> ext)(fieldNumber)
+        case (Schema.CaseClass2(f1, f2, _, ext1, ext2, _), v)                             => encodeCaseClass(v, f1 -> ext1, f2 -> ext2)(fieldNumber)
         case (Schema.CaseClass3(f1, f2, f3, _, ext1, ext2, ext3, _), v) =>
           encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3)(fieldNumber)
         case (Schema.CaseClass4(f1, f2, f3, f4, _, ext1, ext2, ext3, ext4, _), v) =>
@@ -218,7 +218,7 @@ object ProtobufCodec extends Codec {
         case (Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case (Schema.EnumN(cs, _), v)                                                                                                   => encodeEnum(fieldNumber, v, cs.toSeq: _*)
         case (Schema.Dynamic(_), v)                                                                                                     => encode(fieldNumber, DynamicValueSchema.schema, v)
-        case (Schema.SemiDynamic(_, _), v)                                                                                              => encodeSemiDynamic[Any](fieldNumber, v)
+        case (Schema.SemiDynamic(_, _), v)                                                                                              => encodeSemiDynamic[Any](fieldNumber, v.asInstanceOf[(Any, Schema[Any])])
         case (_, _)                                                                                                                     => Chunk.empty
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
@@ -583,7 +583,7 @@ object ProtobufCodec extends Codec {
         case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case Schema.EnumN(cs, _)                                                                                                   => enumDecoder(cs.toSeq: _*)
         case Schema.Dynamic(_)                                                                                                     => dynamicDecoder
-        case Schema.SemiDynamic(_, _)                                                                                              => semiDynamicDecoder
+        case Schema.SemiDynamic(_, _)                                                                                              => semiDynamicDecoder.asInstanceOf[Decoder[A]]
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 

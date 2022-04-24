@@ -38,7 +38,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
 
   def deriveSchema[T: Type](stack: Stack = Stack.empty, top: Boolean = false): Expr[Schema[T]] = {
     depth += 1
-    println(s"STACK ${stack} ${TypeRepr.of[T].show}")
+    // println(s"STACK ${stack} ${TypeRepr.of[T].show}")
     if (depth > 85)
       throw new Exception("Schema derivation exceeded")
 
@@ -75,9 +75,9 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
           case _ => 
             Expr.summon[Schema[T]] match {
               case Some(schema) if !top =>
-                println(s"FOR TYPE ${typeRepr.show}")
-                println(s"STACK ${stack.find(typeRepr)}")
-                println(s"Found schema ${schema.show}")
+                // println(s"FOR TYPE ${typeRepr.show}")
+                // println(s"STACK ${stack.find(typeRepr)}")
+                // println(s"Found schema ${schema.show}")
                 schema
               case _ =>
                 println(s"TYPE REPR ${typeRepr.show}")
@@ -92,12 +92,12 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
         }
     }
 
-    println()
-    println()
-    println(s"RESULT ${typeRepr.show}")
-    println(s"------")
-    println(s"RESULT ${result.show}")
-    println("HELLO")
+    // println()
+    // println()
+    // println(s"RESULT ${typeRepr.show}")
+    // println(s"------")
+    // println(s"RESULT ${result.show}")
+    // println("HELLO")
 
     result
   }

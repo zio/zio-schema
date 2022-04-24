@@ -20,13 +20,17 @@ object DefaultValueSpec extends DefaultRunnableSpec {
   object Ok {
     implicit lazy val schema: Schema[Ok] = DeriveSchema.gen[Ok]
   }
+
   case class Failed(code: Int, reason: String, additionalExplanation: Option[String], remark: String = "oops")
       extends Status
 
   object Failed {
     implicit lazy val schema: Schema[Failed] = DeriveSchema.gen[Failed]
   }
-  case object Pending extends Status
+
+  case object Pending extends Status {
+    implicit lazy val schema: Schema[Pending.type] = DeriveSchema.gen[Pending.type]
+  }
 
   object Status {
     implicit lazy val schema: Schema[Status] = DeriveSchema.gen[Status]

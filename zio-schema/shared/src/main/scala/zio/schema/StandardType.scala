@@ -19,6 +19,7 @@ object StandardType {
     final val UNIT             = "unit"
     final val STRING           = "string"
     final val BOOL             = "boolean"
+    final val BYTE             = "byte"
     final val SHORT            = "short"
     final val INT              = "int"
     final val LONG             = "long"
@@ -52,6 +53,7 @@ object StandardType {
       case Tags.UNIT             => Some(UnitType)
       case Tags.STRING           => Some(StringType)
       case Tags.BOOL             => Some(BoolType)
+      case Tags.BYTE             => Some(ByteType)
       case Tags.SHORT            => Some(ShortType)
       case Tags.INT              => Some(IntType)
       case Tags.LONG             => Some(LongType)
@@ -98,6 +100,12 @@ object StandardType {
     override def tag                                   = Tags.BOOL
     override def compare(x: Boolean, y: Boolean): Int  = x.compareTo(y)
     override def defaultValue: Either[String, Boolean] = Right(false)
+  }
+
+  implicit object ByteType extends StandardType[Byte] {
+    override def tag                                = Tags.BYTE
+    override def compare(x: Byte, y: Byte): Int     = x.compareTo(y)
+    override def defaultValue: Either[String, Byte] = Right(0.toByte)
   }
 
   implicit object ShortType extends StandardType[Short] {

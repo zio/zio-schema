@@ -1,6 +1,7 @@
 package dev.zio.schema.example.example5
 
 import zio.schema.{ Diff, Schema }
+import zio.schema.Schema._
 import zio.{ ExitCode, URIO, ZIO }
 
 /**
@@ -11,10 +12,10 @@ private[example5] object Domain {
   final case class Person(name: String, age: Int)
 
   object Person {
-    val name: Schema.Field[String] = Schema.Field[String]("name", Schema.primitive[String])
-    val age: Schema.Field[Int]     = Schema.Field[Int]("age", Schema.primitive[Int])
+    val name = Field[String]("name", primitive[String])
+    val age  = Field[Int]("age", primitive[Int])
 
-    val schema: Schema[Person] = Schema.CaseClass2[String, Int, Person](
+    val schema: Schema[Person] = CaseClass2[String, Int, Person](
       field1 = name,
       field2 = age,
       construct = (name, age) => Person(name, age),
@@ -26,19 +27,20 @@ private[example5] object Domain {
   final case class PersonDTO(firstname: String, lastname: String, years: Int)
 
   object PersonDTO {
-    val firstname: Schema.Field[String] = Schema.Field("firstname", Schema.primitive[String])
-    val lastname: Schema.Field[String]  = Schema.Field("lastname", Schema.primitive[String])
-    val years: Schema.Field[Int]        = Schema.Field("years", Schema.primitive[Int])
+    val firstname = Field("firstname", primitive[String])
+    val lastname  = Field("lastname", primitive[String])
+    val years     = Field("years", primitive[Int])
 
-    val schema: Schema[PersonDTO] = Schema.CaseClass3[String, String, Int, PersonDTO](
-      field1 = firstname,
-      field2 = lastname,
-      field3 = years,
-      construct = (fn, ln, y) => PersonDTO(fn, ln, y),
-      extractField1 = _.firstname,
-      extractField2 = _.lastname,
-      extractField3 = _.years
-    )
+    val schema: Schema[PersonDTO] =
+      CaseClass3[String, String, Int, PersonDTO](
+        field1 = firstname,
+        field2 = lastname,
+        field3 = years,
+        construct = (fn, ln, y) => PersonDTO(fn, ln, y),
+        extractField1 = _.firstname,
+        extractField2 = _.lastname,
+        extractField3 = _.years
+      )
   }
 
 }

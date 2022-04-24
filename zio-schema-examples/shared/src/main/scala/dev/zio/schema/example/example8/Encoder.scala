@@ -8,7 +8,7 @@ trait Encoder[A] {
 
 object Encoder {
 
-  def deriveEncoder[A](implicit schema: Schema[A]): Encoder[A] = { in: A =>
+  def deriveEncoder[A](implicit schema: Schema[A]): Encoder[A] = { (in: A) =>
     toJson(schema.toDynamic(in))
   }
 

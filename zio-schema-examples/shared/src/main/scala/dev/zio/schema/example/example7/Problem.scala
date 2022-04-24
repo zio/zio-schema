@@ -177,7 +177,7 @@ private[example7] object Problem {
                 .flatMap(record.rawConstruct(_))
             }
 
-          case enum: Enum[_] => ???
+          case enumer: Enum[_] => ???
           //        case Optional(codec) => ???
           case Fail(message, _) => Function.const(Left(message))
           //        case Tuple(left, right) => ???

@@ -189,9 +189,9 @@ object OrderingSpec extends DefaultRunnableSpec {
   def genOrderedPairIdentityTransform[A](schema: Schema[A]): Gen[Random with Sized, SchemaAndPair[_]] =
     for {
       (small, large) <- genOrderedPair(schema)
-    } yield (schema.transformOrFail({ a: A =>
+    } yield (schema.transformOrFail({ (a: A) =>
       Right(a)
-    }, { a: A =>
+    }, { (a: A) =>
       Right(a)
     }), small, large)
 

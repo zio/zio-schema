@@ -276,7 +276,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
       ListMap(structureWithAnnotations.map(kv => (kv._1, kv._2._1)).toList: _*)
     def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])]
   }
-  sealed case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) {
+  final case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) {
     override def toString: String = s"Field($label,$schema)"
   }
 
@@ -353,7 +353,7 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
   final case class Optional[A](codec: Schema[A], annotations: Chunk[Any] = Chunk.empty) extends Schema[Option[A]] {
     self =>
 
-    private[schema] lazy val someCodec: Schema[Some[A]] = 
+    private[schema] lazy val someCodec: Schema[Some[A]] =
       codec.transform(a => Some(a), _.get)
 
     override def annotate(annotation: Any): Optional[A] = copy(annotations = annotations :+ annotation)

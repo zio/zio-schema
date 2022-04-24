@@ -16,7 +16,7 @@ object SchemaSpec extends DefaultRunnableSpec {
       },
       test("sequence") {
         assert(Schema.chunk(schemaUnit))(equalTo(Schema.chunk(schemaUnit)))
-      },
+      } @@ TestAspect.scala2Only,
       test("tuple") {
         assert(Schema.Tuple(schemaUnit, schemaUnit))(equalTo(Schema.Tuple(schemaUnit, schemaUnit))) &&
         assert(Schema.Tuple(schemaTransform, schemaTransform))(equalTo(Schema.Tuple(schemaTransform, schemaTransform)))
@@ -28,15 +28,14 @@ object SchemaSpec extends DefaultRunnableSpec {
       test("transform") {
         assert(schemaTransform)(equalTo(schemaTransform)) &&
         assert(schemaTransformMethod)(equalTo(schemaTransformMethod))
-      },
+      } @@ TestAspect.scala2Only,
       test("optional") {
         assert(Schema.Optional(schemaUnit))(equalTo(Schema.Optional(schemaUnit)))
       },
       test("enumeration") {
         assert(schemaEnum("key"))(equalTo(schemaEnum("key"))) &&
         assert(schemaEnum("key1"))(not(equalTo(schemaEnum("key2"))))
-
-      }
+      } @@ TestAspect.scala2Only,
     ),
     test("Tuple.toRecord should preserve annotations") {
       val left        = Schema.primitive(StandardType.StringType)

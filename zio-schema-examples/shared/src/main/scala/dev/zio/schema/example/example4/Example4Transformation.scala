@@ -14,8 +14,8 @@ private[example4] object Domain {
   final case class WebPerson(name: String, age: Int)
 
   object WebPerson {
-    val name: Schema.Field[String] = Schema.Field[String]("name", Schema.primitive[String])
-    val age: Schema.Field[Int]     = Schema.Field[Int]("age", Schema.primitive[Int])
+    val name = Schema.Field[String]("name", Schema.primitive[String])
+    val age  = Schema.Field[Int]("age", Schema.primitive[Int])
 
     val schema: Schema[WebPerson] = Schema.CaseClass2[String, Int, WebPerson](
       field1 = name,
@@ -29,9 +29,9 @@ private[example4] object Domain {
   final case class DomainPerson(firstname: String, lastname: String, years: Int)
 
   object DomainPerson {
-    val firstname: Schema.Field[String] = Schema.Field("firstname", Schema.primitive[String])
-    val lastname: Schema.Field[String]  = Schema.Field("lastname", Schema.primitive[String])
-    val years: Schema.Field[Int]        = Schema.Field("years", Schema.primitive[Int])
+    val firstname = Schema.Field("firstname", Schema.primitive[String])
+    val lastname  = Schema.Field("lastname", Schema.primitive[String])
+    val years     = Schema.Field("years", Schema.primitive[Int])
 
     val schema: Schema[DomainPerson] = Schema.CaseClass3[String, String, Int, DomainPerson](
       field1 = firstname,
