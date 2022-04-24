@@ -157,7 +157,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
   object TupleArities {
-    // implicit lazy val schema: Schema[TupleArities] = DeriveSchema.gen[TupleArities]
+    implicit lazy val schema: Schema[TupleArities] = DeriveSchema.gen[TupleArities]
   }
 
   case class DependsOnA(a: Option[DependsOnB])
@@ -190,13 +190,14 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   @annotation1("enum") sealed trait AnnotatedEnum
 
   object AnnotatedEnum {
-    @annotation2("case") case class AnnotatedCase(field: String) extends AnnotatedEnum
+    @annotation2("case") 
+    case class AnnotatedCase(field: String) extends AnnotatedEnum
 
     object AnnotatedCase {
-      // implicit val schema: Schema.CaseClass1[String, AnnotatedCase] = DeriveSchema.gen[AnnotatedCase]
+      implicit val schema: Schema.CaseClass1[String, AnnotatedCase] = DeriveSchema.gen[AnnotatedCase]
     }
 
-    // implicit val schema: Schema.Enum1[AnnotatedCase, AnnotatedEnum] = DeriveSchema.gen[AnnotatedEnum]
+    implicit val schema: Schema.Enum1[AnnotatedCase, AnnotatedEnum] = DeriveSchema.gen[AnnotatedEnum]
   }
 
   @annotation1("enum") sealed trait RecursiveEnum
@@ -204,7 +205,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   case object RecursiveEnum2                                                             extends RecursiveEnum
 
   object RecursiveEnum {
-    // implicit lazy val schema: Schema[RecursiveEnum] = DeriveSchema.gen[RecursiveEnum]
+    implicit lazy val schema: Schema[RecursiveEnum] = DeriveSchema.gen[RecursiveEnum]
   }
 
   @annotation1("enum") sealed trait Enum23
@@ -251,9 +252,9 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         println(Recursive.schema.field2.schema.asInstanceOf[Schema.Optional[_]].toEnum)
         assert(Schema[Recursive].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
-      // test("correctly derives tuple arities from 2 to 22") {
-      //   assert(Schema[TupleArities].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
-      // },
+      test("correctly derives tuple arities from 2 to 22") {
+        assert(Schema[TupleArities].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+      },
       test("correctly derive mutually recursive data structure") {
         val c = Cyclic(1, CyclicChild1(2, CyclicChild2("3", None)))
         val _ = Schema[Cyclic].toDynamic(c)
@@ -302,12 +303,12 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
 
         assert(derived)(hasSameSchema(expected))
       },
-      // test("correctly capture annotations on Enum and cases") {
-      //   val derived: Schema.Enum1[AnnotatedEnum.AnnotatedCase, AnnotatedEnum] = AnnotatedEnum.schema
-      //   assertTrue(
-      //     derived.annotations == Chunk(annotation1("enum")) && derived.case1.annotations == Chunk(annotation2("case"))
-      //   )
-      // }
+      test("correctly capture annotations on Enum and cases") {
+        val derived: Schema.Enum1[AnnotatedEnum.AnnotatedCase, AnnotatedEnum] = AnnotatedEnum.schema
+        assertTrue(
+          derived.annotations == Chunk(annotation1("enum")) && derived.case1.annotations == Chunk(annotation2("case"))
+        )
+      },
       test("correctly derives mutually recursive case classes") {
         val a  = DependsOnA(Some(DependsOnB(None)))
         val a0 = Schema[DependsOnA].fromDynamic(Schema[DependsOnA].toDynamic(a))
@@ -324,10 +325,10 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       },
       test("correctly derives recursive Enum with multiple type parameters") {
         assert(DeriveSchema.gen[RBTree[String, Int]])(anything)
-      }
-      // test("correctly derives recursive Enum") {
-      //   assert(Schema[RecursiveEnum].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
-      // }
+      },
+      test("correctly derives recursive Enum") {
+        assert(Schema[RecursiveEnum].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+      },
       // test("correctly derives Enum with > 22 cases") {
       //   assert(Schema[Enum23].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       // }

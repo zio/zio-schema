@@ -80,7 +80,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
                 // println(s"Found schema ${schema.show}")
                 schema
               case _ =>
-                println(s"TYPE REPR ${typeRepr.show}")
+                // println(s"TYPE REPR ${typeRepr.show}")
                 val mirror = Mirror(typeRepr).get
                 mirror.mirrorType match {
                   case MirrorType.Sum => 
@@ -103,8 +103,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
   }
 
   def deriveCaseClass[T: Type](mirror: Mirror, stack: Stack, top: Boolean) = {
-    val selfRefSymbol = 
-      Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.spliceOwner)
+    val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.spliceOwner)
     val selfRef = Ref(selfRefSymbol)
     val newStack = stack.push(selfRef, TypeRepr.of[T])
 
@@ -144,21 +143,11 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
 
     applied.asExpr match {
       case '{ type tt <: Schema[T]; $ex : `tt` } =>
-        if (top) {
-          '{
-            ${Block(
-              List(lazyValDef), 
-              selfRef
-            ).asExpr}.asInstanceOf[tt]
-          }
-        } else {
-          val deferredSelf = '{ Schema.defer(${selfRef.asExprOf[Schema[T]]}) }.asTerm
-          '{
-            ${Block(
-              List(lazyValDef), 
-              deferredSelf
-            ).asExpr}.asInstanceOf[Schema[T]]
-          }
+        '{
+          ${Block(
+            List(lazyValDef), 
+            selfRef
+          ).asExpr}.asInstanceOf[tt]
         }
     }
   }
@@ -180,12 +169,20 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
   //   sealed case class Enum2[A1 <: Z, A2 <: Z, Z](
   //      case1: Case[A1, Z], case2: Case[A2, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
   def deriveEnum[T: Type](mirror: Mirror, stack: Stack) = {
+    val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.spliceOwner)
+    val selfRef = Ref(selfRefSymbol)
+    val newStack = stack.push(selfRef, TypeRepr.of[T])
+
     val labels = mirror.labels.toList
     val types = mirror.types.toList
     val typesAndLabels = types.zip(labels)
 
-    val cases = typesAndLabels.map { case (tpe, label) => deriveCase[T](tpe, label, stack) }
-    val args = cases :+ '{ zio.Chunk.empty }
+    val cases = typesAndLabels.map { case (tpe, label) => deriveCase[T](tpe, label, newStack) }
+
+    val annotationExprs = TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
+    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) }
+
+    val args = cases :+ annotations
     val terms = Expr.ofTupleFromSeq(args)
     val ctor = TypeRepr.of[Enum2[_, _, _]].typeSymbol.primaryConstructor
 
@@ -204,7 +201,18 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
       ),
       args.map(_.asTerm)
     )
-    applied.asExprOf[Schema[T]]
+
+    val lazyValDef = ValDef(selfRefSymbol, Some(applied.changeOwner(selfRefSymbol)))
+
+    applied.asExpr match {
+      case '{ type tt <: Schema[T]; $ex : `tt` } =>
+        '{
+          ${Block(
+            List(lazyValDef), 
+            selfRef
+          ).asExpr}.asInstanceOf[tt]
+        }
+    }
   }
 
   // Derive Field for a CaseClass
@@ -222,13 +230,17 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
     repr.asType match { case '[t] => 
       val schema = deriveSchema[t](stack)
       val stringExpr = Expr(label)
+
+      val annotationExprs = TypeRepr.of[t].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
+      val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) }
+
       val unsafeDeconstruct = '{ 
         (z: T) => z match {
           case (sub: t) => sub
           case other => throw new MatchError(other)
         }
        }
-      '{ Case(${Expr(label)}, $schema, $unsafeDeconstruct) }
+      '{ Case(${Expr(label)}, $schema, $unsafeDeconstruct, $annotations) }
     }
   }
 
