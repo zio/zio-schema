@@ -137,33 +137,11 @@ object BuildHelper {
 
   val dottySettings = Seq(
     crossScalaVersions += Scala3,
-    scalacOptions ++= {
-      if (scalaVersion.value == Scala3)
-        Seq("-noindent")
-      else
-        Seq()
-    },
     scalacOptions --= {
       if (scalaVersion.value == Scala3)
         Seq("-Xfatal-warnings")
       else
         Seq()
-    },
-    Compile / doc / sources := {
-      val old = (Compile / doc / sources).value
-      if (scalaVersion.value == Scala3) {
-        Nil
-      } else {
-        old
-      }
-    },
-    Test / parallelExecution := {
-      val old = (Test / parallelExecution).value
-      if (scalaVersion.value == Scala3) {
-        false
-      } else {
-        old
-      }
     }
   )
 
@@ -220,9 +198,9 @@ object BuildHelper {
       ThisBuild / scalaVersion := Scala213, //crossScalaVersions.value.head, //Scala3,
       scalacOptions := compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ testDeps,
-      // ThisBuild / semanticdbEnabled := scalaVersion.value != Scala3, // enable SemanticDB,
-      // ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
-      // ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
+      ThisBuild / semanticdbEnabled := scalaVersion.value != Scala3, // enable SemanticDB,
+      ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
+      ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
       ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
       ThisBuild / scalafixDependencies ++= List(
         "com.github.liancheng" %% "organize-imports" % "0.6.0",
