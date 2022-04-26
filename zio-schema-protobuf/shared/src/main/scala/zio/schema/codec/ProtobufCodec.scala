@@ -968,7 +968,6 @@ object ProtobufCodec extends Codec {
           succeed(schema.construct(buffer(0).asInstanceOf[A]))
       }
 
-
     private[codec] def caseClass2Decoder[A1, A2, Z](schema: Schema.CaseClass2[A1, A2, Z]): Decoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](2), schema.field1, schema.field2)

@@ -111,7 +111,7 @@ object Migration {
           )
 
       (fromSubtree, toSubtree) match {
-        case (f: SchemaAst.FailNode, t: SchemaAst.FailNode) =>
+        case (f @ SchemaAst.FailNode(_, _, _), t @ SchemaAst.FailNode(_, _, _)) =>
           Right(
             if (f.message == t.message)
               Chunk.empty

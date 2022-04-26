@@ -36,17 +36,3 @@ case class PersonWithAddress(
   address: Address,
   meta: Int
 )
-// object Person {
-//   val schema = DeriveSchema.gen[Person]
-// }
-
-
-  case class Cyclic(field1: Long, child: CyclicChild1)
-
-  object Cyclic {
-    // implicit lazy val schema: Schema[Cyclic] = DeriveSchema.gen[Cyclic]
-  }
-
-  case class CyclicChild1(field1: Int, child: CyclicChild2)
-  case class CyclicChild2(field1: String, recursive: Option[Cyclic])
-

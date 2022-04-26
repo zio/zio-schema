@@ -118,7 +118,7 @@ object JsonCodec extends Codec {
       case EitherSchema(left, right, _)                          => JsonEncoder.either(schemaEncoder(left), schemaEncoder(right))
       case l @ Schema.Lazy(_)                                    => schemaEncoder(l.schema)
       case Schema.Meta(_, _)                                     => astEncoder
-      case Schema.CaseClass0(_, _)                                  => caseClassEncoder()
+      case Schema.CaseClass0(_, _)                               => caseClassEncoder()
       case Schema.CaseClass1(f, _, ext, _)                       => caseClassEncoder(f -> ext)
       case Schema.CaseClass2(f1, f2, _, ext1, ext2, _)           => caseClassEncoder(f1 -> ext1, f2 -> ext2)
       case Schema.CaseClass3(f1, f2, f3, _, ext1, ext2, ext3, _) => caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3)
@@ -536,7 +536,7 @@ object JsonCodec extends Codec {
     import Decoder.schemaDecoder
 
     private[codec] def caseClass0Decoder[Z](schema: Schema.CaseClass0[Z]): JsonDecoder[Z] = { (_: List[JsonError], _: RetractReader) =>
-        schema.construct()
+      schema.construct()
     }
 
     private[codec] def caseClass1Decoder[A, Z](schema: Schema.CaseClass1[A, Z]): JsonDecoder[Z] = { (trace: List[JsonError], in: RetractReader) =>

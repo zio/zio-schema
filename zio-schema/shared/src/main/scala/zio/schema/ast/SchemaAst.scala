@@ -448,8 +448,8 @@ private[schema] object AstRenderer {
   private val INDENT_STEP = 2
 
   def render(ast: SchemaAst): String = ast match {
-    case v: SchemaAst.Value    => renderValue(v, 0, None)
-    case f: SchemaAst.FailNode => renderFail(f, 0, None)
+    case v @ SchemaAst.Value(_, _, _)    => renderValue(v, 0, None)
+    case f @ SchemaAst.FailNode(_, _, _) => renderFail(f, 0, None)
     case SchemaAst.Product(_, fields, optional) =>
       val buffer = new StringBuffer()
       buffer.append(s"product")
@@ -507,9 +507,9 @@ private[schema] object AstRenderer {
   def renderField(value: SchemaAst.Labelled, indent: Int): String = {
     val buffer = new StringBuffer()
     value match {
-      case (label, value: SchemaAst.Value) =>
+      case (label, value @ SchemaAst.Value(_, _, _)) =>
         renderValue(value, indent, Some(label))
-      case (label, fail: SchemaAst.FailNode) =>
+      case (label, fail @ SchemaAst.FailNode(_, _, _)) =>
         renderFail(fail, indent, Some(label))
       case (label, SchemaAst.Product(_, fields, optional)) =>
         pad(buffer, indent)
