@@ -218,6 +218,7 @@ object Differ {
     case Schema.Primitive(StandardType.BinaryType, _)     => binary
     case Schema.Primitive(StandardType.IntType, _)        => numeric[Int]
     case Schema.Primitive(StandardType.ShortType, _)      => numeric[Short]
+    case Schema.Primitive(StandardType.ByteType, _)       => numeric[Byte]
     case Schema.Primitive(StandardType.DoubleType, _)     => numeric[Double]
     case Schema.Primitive(StandardType.FloatType, _)      => numeric[Float]
     case Schema.Primitive(StandardType.LongType, _)       => numeric[Long]
@@ -269,6 +270,7 @@ object Differ {
     case Schema.Transform(schema, g, f, _, _)                                                    => fromSchema(schema).transformOrFail(f, g)
     case Schema.Fail(_, _)                                                                       => fail
     case s @ Schema.GenericRecord(_, _)                                                          => record(s)
+    case s: Schema.CaseClass0[A]                                                                 => product0(s)
     case s: Schema.CaseClass1[_, A]                                                              => product1(s)
     case s: Schema.CaseClass2[_, _, A]                                                           => product2(s)
     case s: Schema.CaseClass3[_, _, _, A]                                                        => product3(s)
@@ -904,6 +906,11 @@ object Diff {
 
 //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
 private[schema] object ProductDiffer {
+
+  def product0[Z](schema: Schema.CaseClass0[Z]): Differ[Z] = {
+    val _ = schema
+    (_: Z, _: Z) => Diff.identical
+  }
 
   def product1[A, Z](schema: Schema.CaseClass1[A, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>

@@ -37,6 +37,7 @@ object DeriveGen {
       case Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)                                                 => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
       case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _)                                            => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case Schema.EnumN(caseSet, _)                                                                                                                                         => genEnum(caseSet.toSeq.asInstanceOf[Seq[Schema.Case[_, A]]]: _*)
+      case c @ Schema.CaseClass0(_, _)                                                                                                                                      => genCaseClass0(c)
       case c @ Schema.CaseClass1(_, _, _, _)                                                                                                                                => genCaseClass1(c)
       case c @ Schema.CaseClass2(_, _, _, _, _, _)                                                                                                                          => genCaseClass2(c)
       case c @ Schema.CaseClass3(_, _, _, _, _, _, _, _)                                                                                                                    => genCaseClass3(c)
@@ -77,6 +78,9 @@ object DeriveGen {
 
   private def genEnum[Z](cases: Schema.Case[_, Z]*): Gen[Random with Sized, Z] =
     Gen.elements(cases: _*).flatMap(c => gen(c.codec).map(_.asInstanceOf[Z]))
+
+  private def genCaseClass0[Z](caseClass0: Schema.CaseClass0[Z]): Gen[Random with Sized, Z] =
+    Gen.elements(caseClass0.construct())
 
   private def genCaseClass1[A, Z](caseClass1: Schema.CaseClass1[A, Z]): Gen[Random with Sized, Z] =
     gen(caseClass1.field.schema).map(caseClass1.construct)
@@ -482,6 +486,7 @@ object DeriveGen {
   def genPrimitive[A](standardType: StandardType[A]): Gen[Random with Sized, A] = {
     val gen = standardType match {
       case StandardType.UnitType              => Gen.unit
+      case StandardType.ByteType              => Gen.anyByte
       case StandardType.StringType            => Gen.anyString
       case StandardType.BoolType              => Gen.boolean
       case StandardType.ShortType             => Gen.anyShort

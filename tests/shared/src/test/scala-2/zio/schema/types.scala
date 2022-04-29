@@ -121,21 +121,22 @@ object types {
     object Arity21 {
       implicit lazy val schema: Schema[Arity21] = DeriveSchema.gen
     }
-    case class Arity22(f1: Arity1, f2: Arity2, f3: Arity3, f4: Arity4, f5: Arity5, f6: Arity6, f7: Arity7, f8: Arity8, f9: Arity9, f10: Arity10, f11: Arity11, f12: Arity12, f13: Arity13, f14: Arity14, f15: Arity15, f16: Arity16, f17: Arity17, f18: Arity18, f19: Arity19, f20: Arity20, f21: Arity21, f22: ZonedDateTime) extends Arities
+    // case class Arity22(f1: Arity1, f2: Arity2, f3: Arity3, f4: Arity4, f5: Arity5, f6: Arity6, f7: Arity7, f8: Arity8, f9: Arity9, f10: Arity10, f11: Arity11, f12: Arity12, f13: Arity13, f14: Arity14, f15: Arity15, f16: Arity16, f17: Arity17, f18: Arity18, f19: Arity19, f20: Arity20, f21: Arity21, f22: ZonedDateTime) extends Arities
 
-    object Arity22 {
-      implicit lazy val schema: Schema[Arity22] = DeriveSchema.gen
-    }
-    case class Arity23(f1: Arity1, f2: Arity2, f3: Arity3, f4: Arity4, f5: Arity5, f6: Arity6, f7: Arity7, f8: Arity8, f9: Arity9, f10: Arity10, f11: Arity11, f12: Arity12, f13: Arity13, f14: Arity14, f15: Arity15, f16: Arity16, f17: Arity17, f18: Arity18, f19: Arity19, f20: Arity20, f21: Arity21, f22: Arity22, f23: OffsetTime) extends Arities
+    // object Arity22 {
+    //   implicit lazy val schema: Schema[Arity22] = DeriveSchema.gen
+    // }
+    // case class Arity23(f1: Arity1, f2: Arity2, f3: Arity3, f4: Arity4, f5: Arity5, f6: Arity6, f7: Arity7, f8: Arity8, f9: Arity9, f10: Arity10, f11: Arity11, f12: Arity12, f13: Arity13, f14: Arity14, f15: Arity15, f16: Arity16, f17: Arity17, f18: Arity18, f19: Arity19, f20: Arity20, f21: Arity21, f22: Arity22, f23: OffsetTime) extends Arities
 
-    object Arity23 {
-      implicit lazy val schema: Schema[Arity23] = DeriveSchema.gen
-    }
-    case class Arity24(f1: Arity1, f2: Arity2, f3: Arity3, f4: Arity4, f5: Arity5, f6: Arity6, f7: Arity7, f8: Arity8, f9: Arity9, f10: Arity10, f11: Arity11, f12: Arity12, f13: Arity13, f14: Arity14, f15: Arity15, f16: Arity16, f17: Arity17, f18: Arity18, f19: Arity19, f20: Arity20, f21: Arity21, f22: Arity22, f23: Arity23, f24: OffsetDateTime) extends Arities
+    // object Arity23 {
+    //   implicit lazy val schema: Schema[Arity23] = DeriveSchema.gen
+    // }
 
-    object Arity24 {
-      implicit lazy val schema: Schema[Arity24] = DeriveSchema.gen
-    }
+    // case class Arity24(f1: Arity1, f2: Arity2, f3: Arity3, f4: Arity4, f5: Arity5, f6: Arity6, f7: Arity7, f8: Arity8, f9: Arity9, f10: Arity10, f11: Arity11, f12: Arity12, f13: Arity13, f14: Arity14, f15: Arity15, f16: Arity16, f17: Arity17, f18: Arity18, f19: Arity19, f20: Arity20, f21: Arity21, f22: Arity22, f23: Arity23, f24: OffsetDateTime) extends Arities
+
+    // object Arity24 {
+    //   implicit lazy val schema: Schema[Arity24] = DeriveSchema.gen
+    // }
 
     implicit lazy val schema: Schema[Arities] = DeriveSchema.gen
 
@@ -229,13 +230,13 @@ object types {
       Gen.const(Schema[Arities])
     )
 
-  def anySchemaAndValue: Gen[Random with Sized, SchemaAndValue[_]] =
+  def anySchemaAndValue: Gen[Random with Sized, SchemaAndValue[Any]] =
     for {
       schema       <- anySchema
       dynamicValue <- DynamicValueGen.anyDynamicValueOfSchema(schema)
     } yield schema.asInstanceOf[Schema[Any]] -> dynamicValue.toTypedValue(schema).toOption.get
 
-  def anySchemaAndValuePair: Gen[Random with Sized, SchemaAndValuePair[_]] =
+  def anySchemaAndValuePair: Gen[Random with Sized, SchemaAndValuePair[Any]] =
     for {
       schema        <- anySchema
       dynamicValue1 <- DynamicValueGen.anyDynamicValueOfSchema(schema)
@@ -245,7 +246,7 @@ object types {
       .toOption
       .get)
 
-  def anySchemaAndValues(n: Int): Gen[Random with Sized, SchemaAndValues[_]] =
+  def anySchemaAndValues(n: Int): Gen[Random with Sized, SchemaAndValues[Any]] =
     for {
       schema        <- anySchema
       dynamicValues <- Gen.listOfN(n)(DynamicValueGen.anyDynamicValueOfSchema(schema))

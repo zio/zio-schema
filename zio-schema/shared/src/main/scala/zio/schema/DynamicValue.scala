@@ -88,7 +88,7 @@ sealed trait DynamicValue { self =>
 
       case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), Schema.SemiDynamic(_, _)) =>
         val valueSchema = ast.toSchema.asInstanceOf[Schema[Any]]
-        dyn.toTypedValue(valueSchema).map(_ -> valueSchema)
+        dyn.toTypedValue(valueSchema).map(a => (a -> valueSchema).asInstanceOf[A])
 
       case (dyn, Schema.Dynamic(_)) => Right(dyn)
 
@@ -1003,6 +1003,9 @@ object DynamicValue {
         }
 
       case Schema.Meta(ast, _) => DynamicValue.DynamicAst(ast)
+
+      case Schema.CaseClass0(_, _) =>
+        DynamicValue.Record(ListMap())
 
       case Schema.CaseClass1(f, _, ext, _) =>
         DynamicValue.Record(ListMap(f.label -> fromSchemaAndValue(f.schema, ext(value))))
