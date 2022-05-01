@@ -77,10 +77,14 @@ object SchemaAssertions {
       equalsAst(expected, actual, depth)
     case (expected: Schema.Record[_], actual: Schema.Record[_]) =>
       expected.structure.zipAll(actual.structure).forall {
+<<<<<<< HEAD
         case (
             Some(Schema.Field(expectedLabel, expectedSchema, _, _)),
             Some(Schema.Field(actualLabel, actualSchema, _, _))
             ) =>
+=======
+        case (Some(Schema.Field(expectedLabel, expectedSchema, _, _)), Some(Schema.Field(actualLabel, actualSchema, _, _))) =>
+>>>>>>> fixed compilation errors
           expectedLabel == actualLabel && equalsAst(expectedSchema, actualSchema, depth)
         case _ => false
       }
