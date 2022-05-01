@@ -7,6 +7,7 @@ import scala.collection.immutable.ListMap
 import zio.Chunk
 import zio.schema.ast._
 import zio.schema.internal.SourceLocation
+import zio.schema.validation._
 
 /**
  * A `Schema[A]` describes the structure of some data type `A`, in terms of case classes,
@@ -276,7 +277,8 @@ object Schema extends SchemaEquality {
       ListMap(structureWithAnnotations.map(kv => (kv._1, kv._2._1)).toList: _*)
     def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])]
   }
-  final case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) {
+  // TODO - 1) add to macro so it adds the validation to the case class
+  sealed case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty, validation: Validation[A] = Validation.succeed[A]) {
     override def toString: String = s"Field($label,$schema)"
   }
 
@@ -391,8 +393,8 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Tuple[A, B] = copy(annotations = annotations :+ annotation)
 
     val toRecord: CaseClass2[A, B, (A, B)] = CaseClass2[A, B, (A, B)](
-      field1 = Field("_1", left),
-      field2 = Field("_2", right),
+      field1 = Field[A]("_1", left),
+      field2 = Field[B]("_2", right),
       construct = (a, b) => (a, b),
       extractField1 = _._1,
       extractField2 = _._2,

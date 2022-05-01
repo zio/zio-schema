@@ -112,7 +112,7 @@ object DynamicValue {
         val map: ListMap[String, _] = value
         DynamicValue.Record(
           ListMap.empty ++ structure.toChunk.map {
-            case Schema.Field(key, schema: Schema[a], _) =>
+            case Schema.Field(key, schema: Schema[a], _, _) =>
               key -> fromSchemaAndValue(schema, map(key).asInstanceOf[a])
           }
         )

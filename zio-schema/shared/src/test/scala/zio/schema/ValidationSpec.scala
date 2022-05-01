@@ -68,7 +68,11 @@ object ValidationSpec extends DefaultRunnableSpec {
       assertTrue(validation.validate("@.").isLeft) &&
       assertTrue(validation.validate("b@.com").isLeft) &&
       assertTrue(validation.validate("").isLeft) &&
-      assertTrue(validation.validate("1@.com").isLeft)
+      assertTrue(validation.validate("1@.com").isLeft) &&
+      assertTrue(validation.validate("1@a.com").isLeft) &&
+      assertTrue(validation.validate("1@a.b.com").isLeft) &&
+      assertTrue(validation.validate("a@a..b.com").isLeft)
+      // assertTrue(validation.validate("a..b@a.com").isLeft) TODO - should this be Left or Right?
     },
   )
 }

@@ -5,8 +5,8 @@ final case class Validation[A](bool: Bool[Predicate[A]]) { self =>
   def ||(that: Validation[A]): Validation[A] = Validation(self.bool || that.bool)
   def unary_! : Validation[A]                = Validation(!self.bool)
 
-  def validate(value: A): Either[List[ValidationErrors], Unit] = {
-    type Errors = List[ValidationErrors]
+  def validate(value: A): Either[List[ValidationError], Unit] = {
+    type Errors = List[ValidationError]
     type Result = Either[Errors, Errors]
     def combineAnd(left: Result, right: Result): Result =
       (left, right) match {
@@ -63,12 +63,12 @@ object Validation extends Regexs {
   def equalTo[A](value: A)(implicit numType: NumType[A]): Validation[A] =
     Validation(Bool.Leaf(Num.EqualTo(numType, value)))
 
-  def any[A]: Validation[A]  = Validation(Bool.Leaf(Predicate.True[A]()))
-  def none[A]: Validation[A] = !any[A]
+  def succeed[A]: Validation[A]  = Validation(Bool.Leaf(Predicate.True[A]()))
+  def fail[A]: Validation[A] = !succeed[A]
 
-  def allOf[A](vs: Validation[A]*): Validation[A]          = vs.foldLeft(any[A])(_ && _)
+  def allOf[A](vs: Validation[A]*): Validation[A]          = vs.foldLeft(succeed[A])(_ && _)
   def allOf[A](vl: Iterable[Validation[A]]): Validation[A] = allOf(vl.toSeq: _*)
 
-  def anyOf[A](vs: Validation[A]*): Validation[A]          = vs.foldLeft(none[A])(_ || _)
+  def anyOf[A](vs: Validation[A]*): Validation[A]          = vs.foldLeft(fail[A])(_ || _)
   def anyOf[A](vl: Iterable[Validation[A]]): Validation[A] = anyOf(vl.toSeq: _*)
 }
