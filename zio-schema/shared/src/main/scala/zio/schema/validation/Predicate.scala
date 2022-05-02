@@ -15,21 +15,20 @@ object Predicate {
 
       def validate(value: String): Result =
         if (value.length() >= n)
-          Right(::(ValidationError.MinLength(n, value.length(), value), Nil)) // right is too long
+          Right(::(ValidationError.MaxLength(n, value.length(), value), Nil))
         else
-          Left(::(ValidationError.MinLength(n, value.length(), value), Nil)) // TODO create inverted Errors as well
-          // NOTE: inversion of MinLength error is MaxLength error for example
+          Left(::(ValidationError.MinLength(n, value.length(), value), Nil))
     }
     final case class MaxLength(n: Int) extends Str[String] {
 
       def validate(value: String): Result =
-        if (value.length() <= n) Right(::(ValidationError.MaxLength(n, value.length(), value), Nil))
+        if (value.length() <= n) Right(::(ValidationError.MinLength(n, value.length(), value), Nil))
         else Left(::(ValidationError.MaxLength(n, value.length(), value), Nil))
     }
     final case class Matches(r: Regex) extends Str[String] {
 
       def validate(value: String): Result =
-        if (r.test(value)) Right(::(ValidationError.RegexMatch(value, r), Nil))
+        if (r.test(value)) Right(::(ValidationError.NotRegexMatch(value, r), Nil))
         else Left(::(ValidationError.RegexMatch(value, r), Nil))
     }
   }
@@ -44,7 +43,7 @@ object Predicate {
 
       def validate(v: A): Result =
         if (numType.numeric.compare(v, value) > 0)
-          Right(::(ValidationError.GreaterThan(v, value), Nil))
+          Right(::(ValidationError.LessThan(v, value), Nil))
         else
           Left(::(ValidationError.GreaterThan(v, value), Nil))
     }
@@ -52,7 +51,7 @@ object Predicate {
 
       def validate(v: A): Result =
         if (numType.numeric.compare(v, value) < 0)
-          Right(::(ValidationError.LessThan(v, value), Nil))
+          Right(::(ValidationError.GreaterThan(v, value), Nil))
         else
           Left(::(ValidationError.LessThan(v, value), Nil))
     }
@@ -60,7 +59,7 @@ object Predicate {
 
       def validate(v: A): Result =
         if (numType.numeric.compare(v, value) == 0)
-          Right(::(ValidationError.EqualTo(v, value), Nil))
+          Right(::(ValidationError.NotEqualTo(v, value), Nil))
         else
           Left(::(ValidationError.EqualTo(v, value), Nil))
     }

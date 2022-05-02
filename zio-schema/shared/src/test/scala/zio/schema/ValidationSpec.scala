@@ -38,16 +38,18 @@ object ValidationSpec extends DefaultRunnableSpec {
     test("MaxLength") {
       val validation = Validation.maxLength(4)
 
-      assertTrue(validation.validate("hello").isLeft) &&
       assertTrue(validation.validate("Todd").isRight) &&
-      assertTrue(validation.validate("how").isRight)
+      assertTrue(validation.validate("how").isRight) &&
+      assertTrue(validation.validate("hello").isLeft) &&
       assertTrue(validation.validate("Automobile").isLeft)
     },
     test("Regex digit or letter Validation") {
       val validation = Validation.regex(Regex.digitOrLetter)
-      //val validation = Validation.identifier
 
       assertTrue(validation.validate("a").isRight) &&
+      assertTrue(validation.validate("1").isRight) &&
+      assertTrue(validation.validate("12").isLeft) &&
+      assertTrue(validation.validate("*").isLeft) &&
       assertTrue(validation.validate("ab").isLeft) &&
       assertTrue(validation.validate("").isLeft) &&
       assertTrue(validation.validate("&").isLeft)
@@ -55,15 +57,19 @@ object ValidationSpec extends DefaultRunnableSpec {
     test("Regex identifier Validation") {
       val validation = Validation.identifier
 
-      assertTrue(validation.validate("_").isRight)
-
+      assertTrue(validation.validate("_").isRight) &&
+      assertTrue(validation.validate("a").isRight) &&
+      assertTrue(validation.validate("ab").isRight) &&
+      assertTrue(validation.validate("").isLeft) &&
+      assertTrue(validation.validate("*").isLeft)
     },
     test("Regex email Validation") {
       val validation = Validation.email
 
-      assertTrue(validation.validate("_").isLeft) &&
       assertTrue(validation.validate("bob101@gmail.com").isRight) &&
+      assertTrue(validation.validate("bob_and_alice@gmail.com").isRight) &&
       assertTrue(validation.validate("bob101*@gmail.com").isLeft) &&
+      assertTrue(validation.validate("_").isLeft) &&
       assertTrue(validation.validate("@").isLeft) &&
       assertTrue(validation.validate("@.").isLeft) &&
       assertTrue(validation.validate("b@.com").isLeft) &&
@@ -73,6 +79,6 @@ object ValidationSpec extends DefaultRunnableSpec {
       assertTrue(validation.validate("1@a.b.com").isLeft) &&
       assertTrue(validation.validate("a@a..b.com").isLeft)
       // assertTrue(validation.validate("a..b@a.com").isLeft) TODO - should this be Left or Right?
-    },
+    }
   )
 }
