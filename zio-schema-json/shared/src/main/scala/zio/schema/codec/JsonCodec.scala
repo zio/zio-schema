@@ -23,7 +23,7 @@ object JsonCodec extends Codec {
     )
 
   override def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Byte, A] =
-    ZPipeline.utfDecode >>> ZPipeline.mapZIO(
+    ZPipeline.fromChannel(ZPipeline.utfDecode.channel.mapError(_.toString)) >>> ZPipeline.mapZIO(
       (s: String) => ZIO.fromEither(Decoder.decode(schema, s))
     )
 
