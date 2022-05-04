@@ -229,7 +229,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
 
   }
 
-  override def spec: ZSpec[Environment, Any] = suite("DeriveSchemaSpec")(
+  override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("correctly derives case class") {
         assert(Schema[User].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
