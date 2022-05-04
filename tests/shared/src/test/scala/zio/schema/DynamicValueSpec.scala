@@ -8,7 +8,7 @@ import zio.test.{ Sized, TestConfig, _ }
 
 object DynamicValueSpec extends ZIOSpecDefault {
 
-  def spec: ZSpec[Environment, Any] =
+  def spec: Spec[Environment, Any] =
     suite("DynamicValueSpec")(
       suite("Primitives")(primitiveTests: _*),
       test("round-trips Records") {
@@ -85,7 +85,7 @@ object DynamicValueSpec extends ZIOSpecDefault {
       }
     )
 
-  val primitiveTests: List[ZSpec[Sized with TestConfig, Nothing]] = schemasAndGens.map {
+  val primitiveTests: List[Spec[Sized with TestConfig, Nothing]] = schemasAndGens.map {
     case SchemaTest(name, standardType, gen) =>
       test(s"round-trips $name") {
         dynamicValueLaw(gen, Primitive(standardType, Chunk.empty))

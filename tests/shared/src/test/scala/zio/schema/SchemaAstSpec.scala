@@ -8,7 +8,7 @@ import zio.test._
 
 object SchemaAstSpec extends ZIOSpecDefault {
 
-  def spec: ZSpec[Environment, Any] = suite("SchemaAst")(
+  def spec: Spec[Environment, Any] = suite("SchemaAst")(
     suite("from schema")(
       test("primitive") {
         check(SchemaGen.anyPrimitive) {

@@ -4,7 +4,7 @@ import zio.test._
 
 object NodePathSpec extends ZIOSpecDefault {
 
-  override def spec: ZSpec[Environment, Any] = suite("NodePath")(
+  override def spec: Spec[Environment, Any] = suite("NodePath")(
     suite("relativeTo")(
       test("compute relative subpath") {
         val path    = NodePath.root / "foo" / "bar"

@@ -5,12 +5,11 @@ import scala.collection.immutable.ListMap
 import zio._
 import zio.schema.ast._
 import zio.schema.syntax._
-import zio.test.AssertionM.Render.param
 import zio.test._
 
 object MigrationSpec extends ZIOSpecDefault {
 
-  override def spec: ZSpec[Environment, Any] = suite("Migration Spec")(
+  override def spec: Spec[Environment, Any] = suite("Migration Spec")(
     suite("Derivation")(
       suite("Value")(
         test("change type") {
@@ -257,13 +256,13 @@ object MigrationSpec extends ZIOSpecDefault {
       .getOrElse(false)
 
   def transformsValueTo[A: Schema](value: A, expected: DynamicValue): Assertion[Migration] =
-    Assertion.assertion("transformsValueTo")(param(value), param(expected)) { transform =>
+    Assertion.assertion("transformsValueTo") { transform =>
       val transformed = transform.migrate(value.dynamic)
       transformed == Right(expected)
     }
 
   def failsToTransform[A: Schema](value: A): Assertion[Migration] =
-    Assertion.assertion("failsToTransform")(param(value)) { transform =>
+    Assertion.assertion("failsToTransform") { transform =>
       transform.migrate(value.dynamic).isLeft
     }
 

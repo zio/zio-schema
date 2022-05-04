@@ -19,7 +19,7 @@ import zio.test._
 object ProtobufCodecSpec extends ZIOSpecDefault {
   import Schema._
 
-  def spec: Spec[TestConfig with Sized, TestFailure[Any], TestSuccess] =
+  def spec: Spec[TestConfig with Sized, Any] =
     suite("ProtobufCodec Spec")(
       suite("Should correctly encode")(
         test("integers") {
@@ -585,12 +585,12 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       ),
       suite("Should successfully decode")(
         test("empty input") {
-          assertM(decode(Schema[Int], ""))(
+          assertZIO(decode(Schema[Int], ""))(
             equalTo(Chunk.empty)
           )
         },
         test("empty input by non streaming variant") {
-          assertM(decodeNS(Schema[Int], "").exit)(
+          assertZIO(decodeNS(Schema[Int], "").exit)(
             fails(equalTo("Failed to decode VarInt. Unexpected end of chunk"))
           )
         }
@@ -636,14 +636,14 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.IntType)
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
         test("dynamic instant") {
           check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
         test("dynamic zoned date time") {
@@ -652,62 +652,62 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
               StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)
             )
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
         test("dynamic duration") {
           check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.DurationType)
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
         test("dynamic string") {
           check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.StringType)
           ) { dynamicValue =>
-            assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
+            assertZIO(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
           }
         },
         test("dynamic unit") {
           check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.UnitType)
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
         test("dynamic json") {
           check(
             DynamicValueGen.anyDynamicValueOfSchema(SchemaGen.Json.schema)
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
         test("dynamic tuple") {
           check(
             DynamicValueGen.anyDynamicTupleValue(Schema[String], Schema[Int])
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
         test("dynamic record") {
           check(
             SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicValueOfSchema)
           ) { dynamicValue =>
-            assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
+            assertZIO(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
           }
         },
         test("dynamic record example") {
           val dynamicValue = DynamicValue.Record(
             ListMap("0" -> DynamicValue.Primitive(new java.math.BigDecimal(0.0), StandardType[java.math.BigDecimal]))
           )
-          assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
+          assertZIO(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
         },
         test("dynamic (string, record)") {
           check(
             SchemaGen.anyRecord.flatMap(record => DynamicValueGen.anyDynamicTupleValue(Schema[String], record))
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         }
       ),

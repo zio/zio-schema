@@ -6,7 +6,7 @@ import zio.Chunk
 import zio.schema.CaseSet.caseOf
 import zio.schema.Schema.{ Lazy, Primitive }
 import zio.test.Assertion._
-import zio.test.{ ZIOSpecDefault, ZSpec, assert }
+import zio.test.{ Spec, ZIOSpecDefault, assert }
 
 object DefaultValueSpec extends ZIOSpecDefault {
   // Record Tests
@@ -32,7 +32,7 @@ object DefaultValueSpec extends ZIOSpecDefault {
     implicit lazy val schema: Schema[Status] = DeriveSchema.gen[Status]
   }
 
-  def spec: ZSpec[Environment, Any] = suite("Default Value Spec")(
+  def spec: Spec[Environment, Any] = suite("Default Value Spec")(
     suite("Primitive")(
       test("UnitType default value") {
         assert(Primitive(StandardType.UnitType).defaultValue)(isRight(equalTo(())))
