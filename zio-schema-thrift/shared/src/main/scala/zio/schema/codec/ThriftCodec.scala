@@ -404,7 +404,7 @@ object ThriftCodec extends Codec {
 
     private def writeStructure(fields: Seq[(Schema.Field[_], Any)]): Unit = {
       fields.zipWithIndex.foreach {
-        case ((Schema.Field(_, schema: Schema[a], _), value), fieldNumber) =>
+        case ((Schema.Field(_, schema: Schema[a], _, _), value), fieldNumber) =>
           encodeValue(Some((fieldNumber + 1).shortValue), schema, value.asInstanceOf[a])
       }
       p.writeFieldStop()
@@ -843,7 +843,7 @@ object ThriftCodec extends Codec {
         def addFields(values: ListMap[Short, Any], index: Int): Result[Array[Any]] =
           if (index >= fields.size) Right(buffer)
           else {
-            val Schema.Field(label, schema, _) = fields(index)
+            val Schema.Field(label, schema, _, _) = fields(index)
             val rawValue                       = values.get((index + 1).toShort)
             rawValue match {
               case Some(value) =>

@@ -278,7 +278,7 @@ object Schema extends SchemaEquality {
     def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])]
   }
   // TODO - 1) add to macro so it adds the validation to the case class
-  sealed case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty, validation: Validation[A] = Validation.succeed[A]) {
+  final case class Field[A](label: String, schema: Schema[A], annotations: Chunk[Any] = Chunk.empty, validation: Validation[A] = Validation.succeed[A]) {
     override def toString: String = s"Field($label,$schema)"
   }
 
