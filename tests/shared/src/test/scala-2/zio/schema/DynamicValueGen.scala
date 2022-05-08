@@ -103,15 +103,6 @@ object DynamicValueGen {
       case (l, r) => DynamicValue.Tuple(l, r)
     }
 
-  def anyDynamicValueOfEnumeration(
-    structure: ListMap[String, Schema[_]]
-  ): Gen[Random with Sized, DynamicValue.Enumeration] =
-    for {
-      index <- Gen.int(0, structure.size - 1)
-      id    <- Gen.string(Gen.alphaChar).map(TypeId.parse)
-      value <- anyDynamicValueOfSchema(structure.values.toSeq(index))
-    } yield DynamicValue.Enumeration(id, structure.keys.toSeq(index) -> value)
-
   def anyDynamicValueOfEnum[A](cases: Chunk[Schema.Case[_, A]]): Gen[Random with Sized, DynamicValue.Enumeration] =
     for {
       index <- Gen.int(0, cases.size - 1)

@@ -478,7 +478,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         SchemaGen.anyRecordAndValue.runHead.flatMap {
           case Some((schema, value)) =>
             val key      = new String(Array('\u0007', '\n'))
-            val embedded = Schema.record(TypeId.parse("Record"), Schema.Field(key, schema))
+            val embedded = Schema.record(TypeId.Structural, Schema.Field(key, schema))
             assertEncodesThenDecodes(embedded, ListMap(key -> value))
           case None => ZIO.fail("Should never happen!")
         }
@@ -498,7 +498,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         checkM(JavaTimeGen.anyZoneOffset) { zoneOffset =>
           assertEncodesThenDecodes(
             Schema.record(
-              TypeId.parse("ZoneOffsetRecord"),
+              TypeId.parse("java.time.ZoneOffset"),
               Schema.Field("zoneOffset", Schema.Primitive(StandardType.ZoneOffsetType))
             ),
             ListMap[String, Any]("zoneOffset" -> zoneOffset)
@@ -615,7 +615,6 @@ object JsonCodecSpec extends DefaultRunnableSpec {
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
           }
         },
-        //TODO fails
         testM("dynamic record") {
           checkM(
             SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicValueOfSchema)
@@ -739,9 +738,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           compare(value, result.toOption.get.head)
         )
       }
-  // Enumeration((JDecimal,Record(Json,ListMap(d -> Primitive(0.6062659035461998,double)))))
 
-  // Enumeration((JDecimal,Record(Record,ListMap(d -> Primitive(0.6062659035461998,double)))))
   private def flatten[A](value: A): A = value match {
     case Some(None)    => None.asInstanceOf[A]
     case Some(Some(a)) => flatten(Some(flatten(a))).asInstanceOf[A]

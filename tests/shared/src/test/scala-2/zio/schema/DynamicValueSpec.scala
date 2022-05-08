@@ -5,7 +5,6 @@ import zio.random.Random
 import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen._
 import zio.test.Assertion._
-import zio.test.TestAspect.ignore
 import zio.test._
 
 object DynamicValueSpec extends DefaultRunnableSpec {

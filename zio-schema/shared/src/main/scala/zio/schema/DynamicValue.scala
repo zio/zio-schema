@@ -2138,11 +2138,6 @@ private[schema] object DynamicValueSchema { self =>
       _.asInstanceOf[DynamicValue.Enumeration]
     )
 
-  /**
-   * DynamicValue is an untyped representation of a data.
-   * Schema of a DynamicValue describes DynamicValue itself - not the underlying data structure - so in case of a Person(name, age) it's just a CaseClass1 with name "DynamicValue.Record" and one field (ListMap which contains person fields).
-   * Therefore when we create Schema[DynamicValue] we loose information as Person class name and we put in just TypeId.Structural.
-   */
   private val recordCase: Schema.Case[DynamicValue.Record, DynamicValue] =
     Schema.Case(
       "Record",

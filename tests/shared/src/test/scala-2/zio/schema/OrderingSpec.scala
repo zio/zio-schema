@@ -208,7 +208,7 @@ object OrderingSpec extends DefaultRunnableSpec {
 
   def genAnyOrderedPairRecord: Gen[Random with Sized, SchemaAndPair[_]] =
     for {
-      name <- Gen.string(Gen.alphaChar).map(TypeId.parse(_))
+      name <- Gen.string(Gen.alphaChar).map(TypeId.parse)
       schema <- anyStructure(anyTree(1)).map(fields => {
                  val fieldSet = fields.foldRight[FieldSet](FieldSet.Empty)((field, acc) => field :*: acc)
                  Schema.GenericRecord(name, fieldSet)

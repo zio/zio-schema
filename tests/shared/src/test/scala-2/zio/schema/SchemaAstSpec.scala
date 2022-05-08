@@ -40,7 +40,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
       test("generic") {
         val schema =
           Schema.record(
-            TypeId.parse("Product"),
+            TypeId.parse("zio.schema.SchemaAst.Product"),
             Chunk(
               Schema.Field("a", Schema[String]),
               Schema.Field("b", Schema[Int])
@@ -48,7 +48,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
           )
         val expectedAst =
           SchemaAst.Product(
-            id = TypeId.parse("Product"),
+            id = TypeId.parse("zio.schema.SchemaAst.Product"),
             path = NodePath.root,
             fields = Chunk(
               ("a", SchemaAst.Value(StandardType.StringType, NodePath.root / "a")),

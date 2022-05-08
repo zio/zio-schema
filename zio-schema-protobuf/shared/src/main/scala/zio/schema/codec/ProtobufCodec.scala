@@ -46,12 +46,6 @@ object ProtobufCodec extends Codec {
       case object Bit32                      extends WireType
     }
 
-    private[codec] def tupleSchema[A, B](first: Schema[A], second: Schema[B]): Schema[ListMap[String, _]] =
-      Schema.record(TypeId.parse("Tuple"), Schema.Field("first", first), Schema.Field("second", second))
-
-    private[codec] def singleSchema[A](codec: Schema[A]): Schema[ListMap[String, _]] =
-      Schema.record(TypeId.parse("Record"), Schema.Field("value", codec))
-
     private[codec] val bigDecimalStructure: Seq[Schema.Field[_]] =
       Seq(
         Schema.Field("unscaled", Schema.Primitive(StandardType.BigIntegerType)),
