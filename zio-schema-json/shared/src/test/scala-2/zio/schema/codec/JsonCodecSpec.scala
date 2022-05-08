@@ -778,18 +778,19 @@ object JsonCodecSpec extends DefaultRunnableSpec {
   val searchRequestSchema: Schema[SearchRequest] = DeriveSchema.gen[SearchRequest]
 
   val recordSchema: Schema[ListMap[String, _]] = Schema.record(
-    TypeId.parse("ListMap"),
+    TypeId.Structural,
     Schema.Field("foo", Schema.Primitive(StandardType.StringType)),
     Schema.Field("bar", Schema.Primitive(StandardType.IntType))
   )
 
   val nestedRecordSchema: Schema[ListMap[String, _]] = Schema.record(
-    TypeId.parse("ListMap"),
+    TypeId.Structural,
     Schema.Field("l1", Schema.Primitive(StandardType.StringType)),
     Schema.Field("l2", recordSchema)
   )
 
   val enumSchema: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
+    TypeId.Structural,
     caseOf[String, Any]("string")(_.asInstanceOf[String]) ++ caseOf[Int, Any]("int")(_.asInstanceOf[Int]) ++ caseOf[
       Boolean,
       Any

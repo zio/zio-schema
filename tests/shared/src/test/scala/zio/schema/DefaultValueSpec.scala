@@ -190,6 +190,7 @@ object DefaultValueSpec extends DefaultRunnableSpec {
     suite("Enumeration")(
       test("defaults to first case") {
         val schema = Schema.enumeration[Any, CaseSet.Aux[Any]](
+          TypeId.Structural,
           caseOf[Int, Any]("myInt")(_.asInstanceOf[Int]) ++ caseOf[String, Any]("myString")(_.asInstanceOf[String])
         )
         assert(schema.defaultValue)(isRight(equalTo(0)))
@@ -232,6 +233,7 @@ object DefaultValueSpec extends DefaultRunnableSpec {
 
         val schema: Schema[Status] =
           Schema.Enum3(
+            TypeId.parse("zio.schema.DefaultValueSpec.Status"),
             Schema.Case("Failed", Schema[Failed], (s: Status) => s.asInstanceOf[Failed]),
             Schema.Case("Ok", Schema[Ok], (s: Status) => s.asInstanceOf[Ok]),
             Schema.Case(

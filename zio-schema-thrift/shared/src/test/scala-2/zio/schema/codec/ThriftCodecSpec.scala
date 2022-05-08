@@ -984,10 +984,12 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
   lazy val schemaEnumeration: Schema[Enumeration] = DeriveSchema.gen[Enumeration]
 
   lazy val schemaGenericEnumeration: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
+    TypeId.Structural,
     caseOf[String, Any]("string")(_.asInstanceOf[String]) ++ caseOf[Int, Any]("int")(_.asInstanceOf[Int])
   )
 
   lazy val schemaGenericEnumerationSorted: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
+    TypeId.Structural,
     caseOf[Int, Any]("int")(_.asInstanceOf[Int]) ++ caseOf[String, Any]("string")(_.asInstanceOf[String])
   )
 

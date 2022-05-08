@@ -66,6 +66,7 @@ object ManualConstruction {
 
   val schemaPaymentMethod: Schema[PaymentMethod] =
     Schema.Enum2[PaymentMethod.CreditCard, PaymentMethod.WireTransfer, PaymentMethod](
+      id = TypeId.parse("dev.zio.schema.example.example1.Domain.PaymentMethod"),
       case1 = Case[PaymentMethod.CreditCard, PaymentMethod](
         id = "CreditCard",
         codec = schemaPaymentMethodCreditCard,

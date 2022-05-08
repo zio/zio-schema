@@ -14,29 +14,29 @@ object DeriveGen {
   // scalafmt: { maxColumn = 400 }
   def gen[A](implicit schema: Schema[A]): Gen[Random with Sized, A] =
     schema match {
-      case Schema.Enum1(c1, _)                                                                                                                                                 => genEnum(c1)
-      case Schema.Enum2(c1, c2, _)                                                                                                                                             => genEnum(c1, c2)
-      case Schema.Enum3(c1, c2, c3, _)                                                                                                                                         => genEnum(c1, c2, c3)
-      case Schema.Enum4(c1, c2, c3, c4, _)                                                                                                                                     => genEnum(c1, c2, c3, c4)
-      case Schema.Enum5(c1, c2, c3, c4, c5, _)                                                                                                                                 => genEnum(c1, c2, c3, c4, c5)
-      case Schema.Enum6(c1, c2, c3, c4, c5, c6, _)                                                                                                                             => genEnum(c1, c2, c3, c4, c5, c6)
-      case Schema.Enum7(c1, c2, c3, c4, c5, c6, c7, _)                                                                                                                         => genEnum(c1, c2, c3, c4, c5, c6, c7)
-      case Schema.Enum8(c1, c2, c3, c4, c5, c6, c7, c8, _)                                                                                                                     => genEnum(c1, c2, c3, c4, c5, c6, c7, c8)
-      case Schema.Enum9(c1, c2, c3, c4, c5, c6, c7, c8, c9, _)                                                                                                                 => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9)
-      case Schema.Enum10(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _)                                                                                                           => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
-      case Schema.Enum11(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _)                                                                                                      => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
-      case Schema.Enum12(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _)                                                                                                 => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
-      case Schema.Enum13(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _)                                                                                            => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
-      case Schema.Enum14(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _)                                                                                       => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
-      case Schema.Enum15(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _)                                                                                  => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
-      case Schema.Enum16(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _)                                                                             => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
-      case Schema.Enum17(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _)                                                                        => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
-      case Schema.Enum18(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _)                                                                   => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
-      case Schema.Enum19(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _)                                                              => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
-      case Schema.Enum20(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _)                                                         => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
-      case Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)                                                    => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
-      case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _)                                               => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-      case Schema.EnumN(caseSet, _)                                                                                                                                            => genEnum(caseSet.toSeq.asInstanceOf[Seq[Schema.Case[_, A]]]: _*)
+      case Schema.Enum1(_, c1, _)                                                                                                                                              => genEnum(c1)
+      case Schema.Enum2(_, c1, c2, _)                                                                                                                                          => genEnum(c1, c2)
+      case Schema.Enum3(_, c1, c2, c3, _)                                                                                                                                      => genEnum(c1, c2, c3)
+      case Schema.Enum4(_, c1, c2, c3, c4, _)                                                                                                                                  => genEnum(c1, c2, c3, c4)
+      case Schema.Enum5(_, c1, c2, c3, c4, c5, _)                                                                                                                              => genEnum(c1, c2, c3, c4, c5)
+      case Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _)                                                                                                                          => genEnum(c1, c2, c3, c4, c5, c6)
+      case Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _)                                                                                                                      => genEnum(c1, c2, c3, c4, c5, c6, c7)
+      case Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _)                                                                                                                  => genEnum(c1, c2, c3, c4, c5, c6, c7, c8)
+      case Schema.Enum9(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, _)                                                                                                              => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9)
+      case Schema.Enum10(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _)                                                                                                        => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
+      case Schema.Enum11(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _)                                                                                                   => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
+      case Schema.Enum12(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _)                                                                                              => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
+      case Schema.Enum13(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _)                                                                                         => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
+      case Schema.Enum14(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _)                                                                                    => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
+      case Schema.Enum15(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _)                                                                               => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+      case Schema.Enum16(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _)                                                                          => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
+      case Schema.Enum17(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _)                                                                     => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
+      case Schema.Enum18(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _)                                                                => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
+      case Schema.Enum19(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _)                                                           => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
+      case Schema.Enum20(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _)                                                      => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
+      case Schema.Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)                                                 => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
+      case Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _)                                            => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
+      case Schema.EnumN(_, caseSet, _)                                                                                                                                         => genEnum(caseSet.toSeq.asInstanceOf[Seq[Schema.Case[_, A]]]: _*)
       case c @ Schema.CaseClass0(_, _, _)                                                                                                                                      => genCaseClass0(c)
       case c @ Schema.CaseClass1(_, _, _, _, _)                                                                                                                                => genCaseClass1(c)
       case c @ Schema.CaseClass2(_, _, _, _, _, _, _)                                                                                                                          => genCaseClass2(c)
@@ -557,12 +557,13 @@ object DeriveGen {
   private def genSchemaAstSum(path: NodePath): Gen[Random with Sized, SchemaAst.Sum] =
     for {
       optional <- Gen.boolean
+      id       <- Gen.string(Gen.alphaChar).map(TypeId.parse)
       fields <- Gen.chunkOf(
                  Gen
                    .string1(Gen.anyASCIIChar)
                    .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
                )
-    } yield SchemaAst.Sum(path, fields, optional)
+    } yield SchemaAst.Sum(id, path, fields, optional)
 
   private def genSchemaAstValue(path: NodePath): Gen[Random, SchemaAst.Value] =
     for {

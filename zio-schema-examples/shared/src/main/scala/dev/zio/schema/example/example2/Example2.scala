@@ -71,6 +71,7 @@ object Domain {
     }
 
     val schemaPaymentMethod: Schema[PaymentMethod] = Schema.Enum2[CreditCard, WireTransfer, PaymentMethod](
+      id = TypeId.parse("dev.zio.schema.example.example2.Domain.PaymentMethod"),
       case1 = Case[CreditCard, PaymentMethod](
         id = "CreditCard",
         codec = CreditCard.schema,

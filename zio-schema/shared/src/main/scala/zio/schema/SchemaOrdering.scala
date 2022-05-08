@@ -44,9 +44,9 @@ object SchemaOrdering {
     case (Schema.Transform(_, _, _, _, _), _, Error(_))              => 1
     case (Schema.Transform(schemaA, _, _, _, _), lVal, rVal) =>
       compareBySchema(schemaA)(lVal, rVal)
-    case (e: Schema.Enum[_], Enumeration((lField, lVal)), Enumeration((rField, rVal))) if lField == rField =>
+    case (e: Schema.Enum[_], Enumeration(_, (lField, lVal)), Enumeration(_, (rField, rVal))) if lField == rField =>
       compareBySchema(e.structure(lField))(lVal, rVal)
-    case (e: Schema.Enum[_], Enumeration((lField, _)), Enumeration((rField, _))) => {
+    case (e: Schema.Enum[_], Enumeration(_, (lField, _)), Enumeration(_, (rField, _))) => {
       val fields = e.structure.keys.toList
       fields.indexOf(lField).compareTo(fields.indexOf(rField))
     }

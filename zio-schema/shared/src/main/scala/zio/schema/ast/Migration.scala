@@ -142,16 +142,16 @@ object Migration {
           val ffields = Chunk("keys" -> fkeys, "values" -> fvalues)
           val tfields = Chunk("keys" -> tkeys, "values" -> tvalues)
           goProduct(f, t, ffields, tfields)
-        case (f @ SchemaAst.Sum(_, fcases, _), t @ SchemaAst.Sum(_, tcases, _)) =>
+        case (f @ SchemaAst.Sum(_, _, fcases, _), t @ SchemaAst.Sum(_, _, tcases, _)) =>
           goSum(f, t, fcases, tcases)
         case (f @ SchemaAst.Either(_, fleft, fright, _), t @ SchemaAst.Either(_, tleft, tright, _)) =>
           val fcases = Chunk("left" -> fleft, "right" -> fright)
           val tcases = Chunk("left" -> tleft, "right" -> tright)
           goSum(f, t, fcases, tcases)
-        case (f @ SchemaAst.Sum(_, fcases, _), t @ SchemaAst.Either(_, tleft, tright, _)) =>
+        case (f @ SchemaAst.Sum(_, _, fcases, _), t @ SchemaAst.Either(_, tleft, tright, _)) =>
           val tcases = Chunk("left" -> tleft, "right" -> tright)
           goSum(f, t, fcases, tcases)
-        case (f @ SchemaAst.Either(_, fleft, fright, _), t @ SchemaAst.Sum(_, tcases, _)) =>
+        case (f @ SchemaAst.Either(_, fleft, fright, _), t @ SchemaAst.Sum(_, _, tcases, _)) =>
           val fcases = Chunk("left" -> fleft, "right" -> fright)
           goSum(f, t, fcases, tcases)
         case (f @ SchemaAst.Value(ftype, _, _), t @ SchemaAst.Value(ttype, _, _)) if ttype != ftype =>
@@ -310,19 +310,19 @@ object Migration {
         }
       case (DynamicValue.Record(_, _), nextLabel :: _) =>
         Left(s"Expected label $nextLabel not found at path ${renderPath(trace)}")
-      case (v @ DynamicValue.Enumeration((caseLabel, _)), nextLabel :: _) if caseLabel != nextLabel =>
+      case (v @ DynamicValue.Enumeration(_, (caseLabel, _)), nextLabel :: _) if caseLabel != nextLabel =>
         Right(v)
-      case (DynamicValue.Enumeration((caseLabel, caseValue)), nextLabel :: Nil) if caseLabel == nextLabel =>
+      case (DynamicValue.Enumeration(id, (caseLabel, caseValue)), nextLabel :: Nil) if caseLabel == nextLabel =>
         op(caseLabel, caseValue).flatMap {
-          case Some(newCase) => Right(DynamicValue.Enumeration(newCase))
+          case Some(newCase) => Right(DynamicValue.Enumeration(id, newCase))
           case None =>
             Left(
               s"Failed to update leaf node at path ${renderPath(trace :+ nextLabel)}: Cannot remove instantiated case"
             )
         }
-      case (DynamicValue.Enumeration((caseLabel, caseValue)), nextLabel :: remainder) if caseLabel == nextLabel =>
+      case (DynamicValue.Enumeration(id, (caseLabel, caseValue)), nextLabel :: remainder) if caseLabel == nextLabel =>
         updateLeaf(caseValue, remainder, trace :+ nextLabel)(op).map { updatedValue =>
-          DynamicValue.Enumeration(nextLabel -> updatedValue)
+          DynamicValue.Enumeration(id, nextLabel -> updatedValue)
         }
       case (DynamicValue.Dictionary(entries), "keys" :: Nil) =>
         entries

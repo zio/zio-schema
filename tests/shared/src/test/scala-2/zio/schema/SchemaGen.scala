@@ -7,6 +7,7 @@ import scala.collection.immutable.ListMap
 import zio.Chunk
 import zio.random.Random
 import zio.test.{ Gen, Sized }
+import zio.schema.TypeId
 
 object SchemaGen {
 
@@ -183,7 +184,10 @@ object SchemaGen {
     } yield schema -> value
 
   val anyEnumeration: Gen[Random with Sized, Schema[Any]] =
-    anyEnumeration(anySchema).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_))
+    for {
+      caseSet <- anyEnumeration(anySchema).map(toCaseSet)
+      id      <- Gen.string(Gen.alphaChar).map(TypeId.parse)
+    } yield Schema.enumeration[Any, CaseSet.Aux[Any]](id, caseSet)
 
   type EnumerationAndGen = (Schema[Any], Gen[Random with Sized, Any])
 
@@ -192,9 +196,10 @@ object SchemaGen {
       primitiveAndGen <- anyPrimitiveAndGen
       structure       <- anyEnumeration(primitiveAndGen._1)
       primitiveValue  <- primitiveAndGen._2
+      id              <- Gen.string(Gen.alphaChar).map(TypeId.parse)
     } yield {
       val gen = Gen.oneOf(structure.keys.map(Gen.const(_)).toSeq: _*).map(_ => primitiveValue)
-      Schema.enumeration[Any, CaseSet.Aux[Any]](toCaseSet(structure)) -> gen
+      Schema.enumeration[Any, CaseSet.Aux[Any]](id, toCaseSet(structure)) -> gen
     }
 
   type EnumerationAndValue = (Schema[Any], Any)

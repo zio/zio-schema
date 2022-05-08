@@ -101,12 +101,14 @@ object SchemaAstSpec extends DefaultRunnableSpec {
       test("generic") {
         val schema =
           Schema.enumeration[Any, CaseSet.Aux[Any]](
+            TypeId.Structural,
             caseOf[SchemaGen.Arity1, Any]("type1")(_.asInstanceOf[SchemaGen.Arity1]) ++ caseOf[SchemaGen.Arity2, Any](
               "type2"
             )(_.asInstanceOf[SchemaGen.Arity2])
           )
         val expectedAst =
           SchemaAst.Sum(
+            TypeId.Structural,
             path = NodePath.root,
             cases = Chunk(
               "type1" -> SchemaAst.Product(
@@ -138,6 +140,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
       test("sealed trait") {
         val schema = Schema[Pet]
         val expectedAst = SchemaAst.Sum(
+          TypeId.parse("zio.schema.SchemaAstSpec.Pet"),
           path = NodePath.root,
           cases = Chunk(
             "Cat" -> SchemaAst.Product(
