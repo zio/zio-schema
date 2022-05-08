@@ -118,16 +118,16 @@ object Migration {
             else
               transformShape(path, f, t) :+ UpdateFail(path, t.message)
           )
-        case (f @ SchemaAst.Product(_, ffields, _), t @ SchemaAst.Product(_, tfields, _)) =>
+        case (f @ SchemaAst.Product(_, _, ffields, _), t @ SchemaAst.Product(_, _, tfields, _)) =>
           goProduct(f, t, ffields, tfields)
         case (f @ SchemaAst.Tuple(_, fleft, fright, _), t @ SchemaAst.Tuple(_, tleft, tright, _)) =>
           val ffields = Chunk("left" -> fleft, "right" -> fright)
           val tfields = Chunk("left" -> tleft, "right" -> tright)
           goProduct(f, t, ffields, tfields)
-        case (f @ SchemaAst.Product(_, ffields, _), t @ SchemaAst.Tuple(_, tleft, tright, _)) =>
+        case (f @ SchemaAst.Product(_, _, ffields, _), t @ SchemaAst.Tuple(_, tleft, tright, _)) =>
           val tfields = Chunk("left" -> tleft, "right" -> tright)
           goProduct(f, t, ffields, tfields)
-        case (f @ SchemaAst.Tuple(_, fleft, fright, _), t @ SchemaAst.Product(_, tfields, _)) =>
+        case (f @ SchemaAst.Tuple(_, fleft, fright, _), t @ SchemaAst.Product(_, _, tfields, _)) =>
           val ffields = Chunk("left" -> fleft, "right" -> fright)
           goProduct(f, t, ffields, tfields)
         case (f @ SchemaAst.ListNode(fitem, _, _), t @ SchemaAst.ListNode(titem, _, _)) =>
@@ -298,17 +298,17 @@ object Migration {
         updateLeaf(r, remainder, trace :+ "right")(op).map(DynamicValue.RightValue(_))
       case (value @ DynamicValue.RightValue(_), "left" :: _) =>
         Right(value)
-      case (DynamicValue.Record(values), leafLabel :: Nil) if values.keySet.contains(leafLabel) =>
+      case (DynamicValue.Record(name, values), leafLabel :: Nil) if values.keySet.contains(leafLabel) =>
         op(leafLabel, values(leafLabel)).map {
           case Some((newLeafLabel, newLeafValue)) =>
-            DynamicValue.Record(spliceRecord(values, leafLabel, newLeafLabel -> newLeafValue))
-          case None => DynamicValue.Record(values - leafLabel)
+            DynamicValue.Record(name, spliceRecord(values, leafLabel, newLeafLabel -> newLeafValue))
+          case None => DynamicValue.Record(name, values - leafLabel)
         }
-      case (DynamicValue.Record(values), nextLabel :: remainder) if values.keySet.contains(nextLabel) =>
+      case (DynamicValue.Record(name, values), nextLabel :: remainder) if values.keySet.contains(nextLabel) =>
         updateLeaf(values(nextLabel), remainder, trace :+ nextLabel)(op).map { updatedValue =>
-          DynamicValue.Record(spliceRecord(values, nextLabel, nextLabel -> updatedValue))
+          DynamicValue.Record(name, spliceRecord(values, nextLabel, nextLabel -> updatedValue))
         }
-      case (DynamicValue.Record(_), nextLabel :: _) =>
+      case (DynamicValue.Record(_, _), nextLabel :: _) =>
         Left(s"Expected label $nextLabel not found at path ${renderPath(trace)}")
       case (v @ DynamicValue.Enumeration((caseLabel, _)), nextLabel :: _) if caseLabel != nextLabel =>
         Right(v)

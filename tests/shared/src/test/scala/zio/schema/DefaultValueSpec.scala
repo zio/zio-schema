@@ -149,6 +149,7 @@ object DefaultValueSpec extends DefaultRunnableSpec {
       test("basic") {
         val schema: Schema[UserId] =
           Schema.CaseClass1(
+            TypeId.parse("zio.schema.DefaultValueSpec.UserId"),
             field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
             UserId.apply,
             (uid: UserId) => uid.id
@@ -158,9 +159,11 @@ object DefaultValueSpec extends DefaultRunnableSpec {
       test("recursive") {
         val expected: Schema[User] =
           Schema.CaseClass3(
+            TypeId.parse("zio.schema.DefaultValueSpec.User"),
             field1 = Schema.Field(
               "id",
               Schema.CaseClass1(
+                TypeId.parse("zio.schema.DefaultValueSpec.UserId"),
                 field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
                 UserId.apply,
                 (uid: UserId) => uid.id

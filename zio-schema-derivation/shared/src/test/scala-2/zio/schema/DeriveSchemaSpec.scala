@@ -4,11 +4,13 @@ import scala.annotation.Annotation
 
 import zio.Chunk
 import zio.test._
+import scala.reflect.api.TypeTags
 
 object DeriveSchemaSpec extends DefaultRunnableSpec {
   import Assertion._
   import SchemaAssertions._
 
+  final case class SimpleZero()
   final case class annotation1(value: String) extends Annotation
   final case class annotation2(value: String) extends Annotation
   final class annotation3 extends Annotation {
@@ -231,6 +233,15 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
 
   override def spec: ZSpec[Environment, Failure] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
+      test("correctly derives case class 0") {
+        val derived: Schema[SimpleZero] = DeriveSchema.gen[SimpleZero]
+        val expected: Schema[SimpleZero] =
+          Schema.CaseClass0(
+            TypeId.parse("zio.schema.DeriveSchemaSpec.SimpleZero"),
+            SimpleZero.apply
+          )
+        assert(derived)(hasSameSchema(expected))
+      },
       test("correctly derives case class") {
         assert(Schema[User].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
@@ -252,6 +263,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         val derived: Schema[UserId] = DeriveSchema.gen[UserId]
         val expected: Schema[UserId] =
           Schema.CaseClass1(
+            TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
             field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
             UserId.apply,
             (uid: UserId) => uid.id
@@ -269,10 +281,12 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         val derived: Schema[User] = Schema[User]
         val expected: Schema[User] = {
           Schema.CaseClass2(
+            TypeId.parse("zio.schema.DeriveSchemaSpec.User"),
             field1 = Schema.Field("name", Schema.Primitive(StandardType.StringType)),
             field2 = Schema.Field(
               "id",
               Schema.CaseClass1(
+                TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
                 field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
                 UserId.apply,
                 (uid: UserId) => uid.id

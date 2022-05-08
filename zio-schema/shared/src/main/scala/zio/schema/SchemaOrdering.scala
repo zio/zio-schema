@@ -50,7 +50,8 @@ object SchemaOrdering {
       val fields = e.structure.keys.toList
       fields.indexOf(lField).compareTo(fields.indexOf(rField))
     }
-    case (r: Schema.Record[_], Record(lVals), Record(rVals)) =>
+    //are two record with the different name equal?
+    case (r: Schema.Record[_], Record(_, lVals), Record(_, rVals)) =>
       compareRecords(r, lVals, rVals)
     case (Schema.SemiDynamic(_, _), Tuple(l, DynamicAst(ast)), Tuple(r, DynamicAst(_))) =>
       compareBySchema(ast.toSchema)(l, r)

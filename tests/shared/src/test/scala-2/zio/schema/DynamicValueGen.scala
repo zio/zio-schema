@@ -124,7 +124,7 @@ object DynamicValueGen {
           .map(field => Gen.const(field.label).zip(anyDynamicValueOfSchema(field.schema)))
       )
       .map { values =>
-        DynamicValue.Record(ListMap.empty ++ values)
+        DynamicValue.Record(TypeId.Structural, ListMap.empty ++ values)
       }
 
 }

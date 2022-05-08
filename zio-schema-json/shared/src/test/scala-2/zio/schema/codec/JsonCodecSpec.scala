@@ -1,11 +1,8 @@
 package zio.schema.codec
 
-// import java.time.Year
 import java.time.format.DateTimeFormatter
 import java.time.{ ZoneId, ZoneOffset }
-
 import scala.collection.immutable.ListMap
-
 import zio.console._
 import zio.duration._
 import zio.json.JsonDecoder.JsonError
@@ -481,7 +478,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         SchemaGen.anyRecordAndValue.runHead.flatMap {
           case Some((schema, value)) =>
             val key      = new String(Array('\u0007', '\n'))
-            val embedded = Schema.record(Schema.Field(key, schema))
+            val embedded = Schema.record(TypeId.parse("Record"), Schema.Field(key, schema))
             assertEncodesThenDecodes(embedded, ListMap(key -> value))
           case None => ZIO.fail("Should never happen!")
         }
@@ -500,7 +497,10 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       testM("of ZoneOffsets") {
         checkM(JavaTimeGen.anyZoneOffset) { zoneOffset =>
           assertEncodesThenDecodes(
-            Schema.record(Schema.Field("zoneOffset", Schema.Primitive(StandardType.ZoneOffsetType))),
+            Schema.record(
+              TypeId.parse("ZoneOffsetRecord"),
+              Schema.Field("zoneOffset", Schema.Primitive(StandardType.ZoneOffsetType))
+            ),
             ListMap[String, Any]("zoneOffset" -> zoneOffset)
           )
         }
@@ -615,6 +615,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
           }
         },
+        //TODO fails
         testM("dynamic record") {
           checkM(
             SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicValueOfSchema)
@@ -738,7 +739,9 @@ object JsonCodecSpec extends DefaultRunnableSpec {
           compare(value, result.toOption.get.head)
         )
       }
+  // Enumeration((JDecimal,Record(Json,ListMap(d -> Primitive(0.6062659035461998,double)))))
 
+  // Enumeration((JDecimal,Record(Record,ListMap(d -> Primitive(0.6062659035461998,double)))))
   private def flatten[A](value: A): A = value match {
     case Some(None)    => None.asInstanceOf[A]
     case Some(Some(a)) => flatten(Some(flatten(a))).asInstanceOf[A]
@@ -775,11 +778,13 @@ object JsonCodecSpec extends DefaultRunnableSpec {
   val searchRequestSchema: Schema[SearchRequest] = DeriveSchema.gen[SearchRequest]
 
   val recordSchema: Schema[ListMap[String, _]] = Schema.record(
+    TypeId.parse("ListMap"),
     Schema.Field("foo", Schema.Primitive(StandardType.StringType)),
     Schema.Field("bar", Schema.Primitive(StandardType.IntType))
   )
 
   val nestedRecordSchema: Schema[ListMap[String, _]] = Schema.record(
+    TypeId.parse("ListMap"),
     Schema.Field("l1", Schema.Primitive(StandardType.StringType)),
     Schema.Field("l2", recordSchema)
   )

@@ -1,11 +1,11 @@
 package zio.schema
 
 trait AccessorBuilder {
-  type Lens[S, A]
+  type Lens[F, S, A]
   type Prism[S, A]
   type Traversal[S, A]
 
-  def makeLens[S, A](product: Schema.Record[S], term: Schema.Field[A]): Lens[S, A]
+  def makeLens[F, S, A](product: Schema.Record[S], term: Schema.Field[A]): Lens[F, S, A]
 
   def makePrism[S, A](sum: Schema.Enum[S], term: Schema.Case[A, S]): Prism[S, A]
 

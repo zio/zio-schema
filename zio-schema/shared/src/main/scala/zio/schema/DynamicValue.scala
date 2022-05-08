@@ -23,10 +23,10 @@ sealed trait DynamicValue { self =>
       case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
         Right(value.asInstanceOf[A])
 
-      case (DynamicValue.Record(values), Schema.GenericRecord(structure, _)) =>
+      case (DynamicValue.Record(_, values), Schema.GenericRecord(_, structure, _)) =>
         DynamicValue.decodeStructure(values, structure.toChunk).asInstanceOf[Either[String, A]]
 
-      case (DynamicValue.Record(values), s: Schema.Record[A]) =>
+      case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
         DynamicValue.decodeStructure(values, s.structure).map(m => Chunk.fromIterable(m.values)).flatMap(s.rawConstruct)
 
       case (DynamicValue.Enumeration((key, value)), s: Schema.Enum[A]) =>
@@ -108,9 +108,10 @@ object DynamicValue {
 
       case Schema.Primitive(p, _) => DynamicValue.Primitive(value, p)
 
-      case Schema.GenericRecord(structure, _) =>
+      case Schema.GenericRecord(id, structure, _) =>
         val map: ListMap[String, _] = value
         DynamicValue.Record(
+          id,
           ListMap.empty ++ structure.toChunk.map {
             case Schema.Field(key, schema: Schema[a], _) =>
               key -> fromSchemaAndValue(schema, map(key).asInstanceOf[a])
@@ -1004,29 +1005,32 @@ object DynamicValue {
 
       case Schema.Meta(ast, _) => DynamicValue.DynamicAst(ast)
 
-      case Schema.CaseClass0(_, _) =>
-        DynamicValue.Record(ListMap())
+      case Schema.CaseClass0(id, _, _) =>
+        DynamicValue.Record(id, ListMap())
 
-      case Schema.CaseClass1(f, _, ext, _) =>
-        DynamicValue.Record(ListMap(f.label -> fromSchemaAndValue(f.schema, ext(value))))
+      case Schema.CaseClass1(id, f, _, ext, _) =>
+        DynamicValue.Record(id, ListMap(f.label -> fromSchemaAndValue(f.schema, ext(value))))
 
-      case Schema.CaseClass2(f1, f2, _, ext1, ext2, _) =>
+      case Schema.CaseClass2(id, f1, f2, _, ext1, ext2, _) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label -> fromSchemaAndValue(f2.schema, ext2(value))
           )
         )
-      case Schema.CaseClass3(f1, f2, f3, _, ext1, ext2, ext3, _) =>
+      case Schema.CaseClass3(id, f1, f2, f3, _, ext1, ext2, ext3, _) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label -> fromSchemaAndValue(f2.schema, ext2(value)),
             f3.label -> fromSchemaAndValue(f3.schema, ext3(value))
           )
         )
-      case Schema.CaseClass4(f1, f2, f3, f4, _, ext1, ext2, ext3, ext4, _) =>
+      case Schema.CaseClass4(id, f1, f2, f3, f4, _, ext1, ext2, ext3, ext4, _) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1034,8 +1038,9 @@ object DynamicValue {
             f4.label -> fromSchemaAndValue(f4.schema, ext4(value))
           )
         )
-      case Schema.CaseClass5(f1, f2, f3, f4, f5, _, ext1, ext2, ext3, ext4, ext5, _) =>
+      case Schema.CaseClass5(id, f1, f2, f3, f4, f5, _, ext1, ext2, ext3, ext4, ext5, _) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1044,8 +1049,9 @@ object DynamicValue {
             f5.label -> fromSchemaAndValue(f5.schema, ext5(value))
           )
         )
-      case Schema.CaseClass6(f1, f2, f3, f4, f5, f6, _, ext1, ext2, ext3, ext4, ext5, ext6, _) =>
+      case Schema.CaseClass6(id, f1, f2, f3, f4, f5, f6, _, ext1, ext2, ext3, ext4, ext5, ext6, _) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1055,8 +1061,9 @@ object DynamicValue {
             f6.label -> fromSchemaAndValue(f6.schema, ext6(value))
           )
         )
-      case Schema.CaseClass7(f1, f2, f3, f4, f5, f6, f7, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, _) =>
+      case Schema.CaseClass7(id, f1, f2, f3, f4, f5, f6, f7, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, _) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1067,8 +1074,29 @@ object DynamicValue {
             f7.label -> fromSchemaAndValue(f7.schema, ext7(value))
           )
         )
-      case Schema.CaseClass8(f1, f2, f3, f4, f5, f6, f7, f8, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, _) =>
+      case Schema.CaseClass8(
+          id,
+          f1,
+          f2,
+          f3,
+          f4,
+          f5,
+          f6,
+          f7,
+          f8,
+          _,
+          ext1,
+          ext2,
+          ext3,
+          ext4,
+          ext5,
+          ext6,
+          ext7,
+          ext8,
+          _
+          ) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1081,6 +1109,7 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass9(
+          id,
           f1,
           f2,
           f3,
@@ -1103,6 +1132,7 @@ object DynamicValue {
           _
           ) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1116,6 +1146,7 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass10(
+          id,
           f1,
           f2,
           f3,
@@ -1140,6 +1171,7 @@ object DynamicValue {
           _
           ) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label  -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label  -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1154,6 +1186,7 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass11(
+          id,
           f1,
           f2,
           f3,
@@ -1180,6 +1213,7 @@ object DynamicValue {
           _
           ) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label  -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label  -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1195,6 +1229,7 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass12(
+          id,
           f1,
           f2,
           f3,
@@ -1223,6 +1258,7 @@ object DynamicValue {
           _
           ) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label  -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label  -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1239,6 +1275,7 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass13(
+          id,
           f1,
           f2,
           f3,
@@ -1269,6 +1306,7 @@ object DynamicValue {
           _
           ) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label  -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label  -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1286,6 +1324,7 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass14(
+          id,
           f1,
           f2,
           f3,
@@ -1318,6 +1357,7 @@ object DynamicValue {
           _
           ) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label  -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label  -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1336,6 +1376,7 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass15(
+          id,
           f1,
           f2,
           f3,
@@ -1370,6 +1411,7 @@ object DynamicValue {
           _
           ) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label  -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label  -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1389,6 +1431,7 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass16(
+          id,
           f1,
           f2,
           f3,
@@ -1425,6 +1468,7 @@ object DynamicValue {
           _
           ) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label  -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label  -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1445,6 +1489,7 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass17(
+          id,
           f1,
           f2,
           f3,
@@ -1483,6 +1528,7 @@ object DynamicValue {
           _
           ) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label  -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label  -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1504,6 +1550,7 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass18(
+          id,
           f1,
           f2,
           f3,
@@ -1544,6 +1591,7 @@ object DynamicValue {
           _
           ) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label  -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label  -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1566,6 +1614,7 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass19(
+          id,
           f1,
           f2,
           f3,
@@ -1608,6 +1657,7 @@ object DynamicValue {
           _
           ) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label  -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label  -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1631,6 +1681,7 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass20(
+          id,
           f1,
           f2,
           f3,
@@ -1675,6 +1726,7 @@ object DynamicValue {
           _
           ) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label  -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label  -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1699,6 +1751,7 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass21(
+          id,
           f1,
           f2,
           f3,
@@ -1745,6 +1798,7 @@ object DynamicValue {
           _
           ) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label  -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label  -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1770,6 +1824,7 @@ object DynamicValue {
           )
         )
       case Schema.CaseClass22(
+          id,
           f1,
           f2,
           f3,
@@ -1818,6 +1873,7 @@ object DynamicValue {
           _
           ) =>
         DynamicValue.Record(
+          id,
           ListMap(
             f1.label  -> fromSchemaAndValue(f1.schema, ext1(value)),
             f2.label  -> fromSchemaAndValue(f2.schema, ext2(value)),
@@ -1870,7 +1926,7 @@ object DynamicValue {
     }
   }
 
-  final case class Record(values: ListMap[String, DynamicValue]) extends DynamicValue
+  final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
 
   final case class Enumeration(value: (String, DynamicValue)) extends DynamicValue
 
@@ -1975,6 +2031,7 @@ private[schema] object DynamicValueSchema { self =>
     Schema.Case(
       "Error",
       Schema.CaseClass1[String, DynamicValue.Error](
+        TypeId.parse("zio.scheema.DynamicValue.Error"),
         Schema.Field("message", Schema.primitive[String]),
         message => DynamicValue.Error(message),
         error => error.message
@@ -1994,6 +2051,7 @@ private[schema] object DynamicValueSchema { self =>
     Schema.Case(
       "RightValue",
       Schema.CaseClass1[DynamicValue, DynamicValue.RightValue](
+        TypeId.parse("zio.scheema.DynamicValue.RightValue"),
         Schema.Field("value", Schema.defer(DynamicValueSchema())),
         dynamicValue => DynamicValue.RightValue(dynamicValue),
         rightValue => rightValue.value
@@ -2005,6 +2063,7 @@ private[schema] object DynamicValueSchema { self =>
     Schema.Case(
       "LeftValue",
       Schema.CaseClass1[DynamicValue, DynamicValue.LeftValue](
+        TypeId.parse("zio.scheema.DynamicValue.LeftValue"),
         Schema.Field("value", Schema.defer(DynamicValueSchema())),
         dynamicValue => DynamicValue.LeftValue(dynamicValue),
         leftValue => leftValue.value
@@ -2016,6 +2075,7 @@ private[schema] object DynamicValueSchema { self =>
     Schema.Case(
       "Tuple",
       Schema.CaseClass2[DynamicValue, DynamicValue, DynamicValue.Tuple](
+        TypeId.parse("zio.scheema.DynamicValue.Tuple"),
         Schema.Field("left", Schema.defer(DynamicValueSchema())),
         Schema.Field("right", Schema.defer(DynamicValueSchema())),
         (left, right) => DynamicValue.Tuple(left, right),
@@ -2029,6 +2089,7 @@ private[schema] object DynamicValueSchema { self =>
     Schema.Case(
       "SomeValue",
       Schema.CaseClass1[DynamicValue, DynamicValue.SomeValue](
+        TypeId.parse("zio.scheema.DynamicValue.SomeValue"),
         Schema.Field("value", Schema.defer(DynamicValueSchema())),
         dv => DynamicValue.SomeValue(dv),
         someValue => someValue.value
@@ -2040,6 +2101,7 @@ private[schema] object DynamicValueSchema { self =>
     Schema.Case(
       "Dictionary",
       Schema.CaseClass1[Chunk[(DynamicValue, DynamicValue)], DynamicValue.Dictionary](
+        TypeId.parse("zio.scheema.DynamicValue.Dictionary"),
         Schema.Field(
           "entries",
           Schema.defer(Schema.chunk(Schema.tuple2(DynamicValueSchema(), DynamicValueSchema())))
@@ -2054,6 +2116,7 @@ private[schema] object DynamicValueSchema { self =>
     Schema.Case(
       "Sequence",
       Schema.CaseClass1[Chunk[DynamicValue], DynamicValue.Sequence](
+        TypeId.parse("zio.scheema.DynamicValue.Sequence"),
         Schema.Field("values", Schema.defer(Schema.chunk(DynamicValueSchema()))),
         chunk => DynamicValue.Sequence(chunk),
         seq => seq.values
@@ -2065,6 +2128,7 @@ private[schema] object DynamicValueSchema { self =>
     Schema.Case(
       "Enumeration",
       Schema.CaseClass1[(String, DynamicValue), DynamicValue.Enumeration](
+        TypeId.parse("zio.scheema.DynamicValue.Enumeration"),
         Schema.Field("value", Schema.defer(Schema.tuple2(Schema.primitive[String], DynamicValueSchema()))),
         value => DynamicValue.Enumeration(value),
         enumeration => enumeration.value
@@ -2072,12 +2136,18 @@ private[schema] object DynamicValueSchema { self =>
       _.asInstanceOf[DynamicValue.Enumeration]
     )
 
+  /**
+   * DynamicValue is an untyped representation of a data.
+   * Schema of a DynamicValue describes DynamicValue itself - not the underlying data structure - so in case of a Person(name, age) it's just a CaseClass1 with name "DynamicValue.Record" and one field (ListMap which contains person fields).
+   * Therefore when we create Schema[DynamicValue] we loose information as Person class name and we put in just TypeId.Structural.
+   */
   private val recordCase: Schema.Case[DynamicValue.Record, DynamicValue] =
     Schema.Case(
       "Record",
       Schema.CaseClass1[Map[String, DynamicValue], DynamicValue.Record](
+        TypeId.parse("zio.scheema.DynamicValue.Record"),
         Schema.Field("values", Schema.defer(Schema.map(Schema.primitive[String], DynamicValueSchema()))),
-        map => DynamicValue.Record(ListMap(map.toSeq: _*)),
+        map => DynamicValue.Record(TypeId.Structural, ListMap(map.toSeq: _*)),
         record => record.values
       ),
       _.asInstanceOf[DynamicValue.Record]
@@ -2087,6 +2157,7 @@ private[schema] object DynamicValueSchema { self =>
     Schema.Case(
       "DynamicAst",
       Schema.CaseClass1[SchemaAst, DynamicValue.DynamicAst](
+        TypeId.parse("zio.scheema.DynamicValue.DynamicAst"),
         Schema.Field("ast", SchemaAst.schema),
         schemaAst => DynamicValue.DynamicAst(schemaAst),
         dynamicAst => dynamicAst.ast

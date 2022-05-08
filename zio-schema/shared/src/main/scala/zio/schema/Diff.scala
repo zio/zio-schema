@@ -269,7 +269,7 @@ object Differ {
     case s @ Schema.Lazy(_)                                                                      => fromSchema(s.schema)
     case Schema.Transform(schema, g, f, _, _)                                                    => fromSchema(schema).transformOrFail(f, g)
     case Schema.Fail(_, _)                                                                       => fail
-    case s @ Schema.GenericRecord(_, _)                                                          => record(s)
+    case s @ Schema.GenericRecord(_, _, _)                                                       => record(s)
     case s: Schema.CaseClass0[A]                                                                 => product0(s)
     case s: Schema.CaseClass1[_, A]                                                              => product1(s)
     case s: Schema.CaseClass2[_, _, A]                                                           => product2(s)
@@ -870,28 +870,33 @@ object Diff {
       val structure = schema.structure
 
       val patchedDynamicValue = schema.toDynamic(input) match {
-        case DynamicValue.Record(values) =>
-          differences.foldLeft[Either[String, ListMap[String, DynamicValue]]](Right(values)) {
-            case (Right(record), (key, diff)) =>
-              (structure.find(_.label == key).map(_.schema), values.get(key)) match {
-                case (Some(schema: Schema[b]), Some(oldValue)) =>
-                  val oldVal = oldValue.toTypedValue(schema)
-                  oldVal
-                    .flatMap(v => diff.asInstanceOf[Diff[Any]].patch(v))
-                    .map(v => schema.asInstanceOf[Schema[Any]].toDynamic(v)) match {
-                    case Left(error)     => Left(error)
-                    case Right(newValue) => Right(record + (key -> newValue))
-                  }
-                case _ =>
-                  Left(s"Values=$values and structure=$structure have incompatible shape.")
-              }
-            case (Left(string), _) => Left(string)
-          }
+        case DynamicValue.Record(name, values) => {
+          differences
+            .foldLeft[Either[String, ListMap[String, DynamicValue]]](Right(values)) {
+              case (Right(record), (key, diff)) =>
+                (structure.find(_.label == key).map(_.schema), values.get(key)) match {
+                  case (Some(schema: Schema[b]), Some(oldValue)) =>
+                    val oldVal = oldValue.toTypedValue(schema)
+                    oldVal
+                      .flatMap(v => diff.asInstanceOf[Diff[Any]].patch(v))
+                      .map(v => schema.asInstanceOf[Schema[Any]].toDynamic(v)) match {
+                      case Left(error)     => Left(error)
+                      case Right(newValue) => Right(record + (key -> newValue))
+                    }
+                  case _ =>
+                    Left(s"Values=$values and structure=$structure have incompatible shape.")
+                }
+              case (Left(string), _) => Left(string)
+            }
+            .map(r => (name, r))
+
+        }
+
         case dv => Left(s"Failed to apply record diff. Unexpected dynamic value for record: $dv")
       }
 
       patchedDynamicValue.flatMap { newValues =>
-        schema.fromDynamic(DynamicValue.Record(newValues))
+        schema.fromDynamic(DynamicValue.Record(newValues._1, newValues._2))
       }
     }
 

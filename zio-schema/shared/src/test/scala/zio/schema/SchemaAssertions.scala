@@ -63,7 +63,7 @@ object SchemaAssertions {
     case (Schema.Optional(expected, _), Schema.Optional(actual, _)) => equalsAst(expected, actual, depth)
     case (Schema.Tuple(expectedLeft, expectedRight, _), Schema.Tuple(actualLeft, actualRight, _)) =>
       equalsAst(expectedLeft, actualLeft, depth) && equalsAst(expectedRight, actualRight, depth)
-    case (Schema.Tuple(expectedLeft, expectedRight, _), Schema.GenericRecord(structure, _)) =>
+    case (Schema.Tuple(expectedLeft, expectedRight, _), Schema.GenericRecord(_, structure, _)) =>
       structure.toChunk.size == 2 &&
         structure.toChunk.find(_.label == "left").exists(f => equalsAst(expectedLeft, f.schema, depth)) &&
         structure.toChunk.find(_.label == "right").exists(f => equalsAst(expectedRight, f.schema, depth))

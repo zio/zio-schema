@@ -18,8 +18,8 @@ object LensSpec extends DefaultRunnableSpec {
     )
   )
 
-  def lensLaws[Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
-    lens: ZioOpticsBuilder.Lens[Whole, Piece]
+  def lensLaws[F, Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
+    lens: ZioOpticsBuilder.Lens[F, Whole, Piece]
   ): URIO[Env, TestResult] =
     for {
       getSetIdentity <- getSetIdentity(genWhole)(lens)
@@ -27,24 +27,24 @@ object LensSpec extends DefaultRunnableSpec {
       setSetIdentity <- setSetIdentity(genWhole, genPiece)(lens)
     } yield setGetIdentity && getSetIdentity && setSetIdentity
 
-  def getSetIdentity[Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole])(
-    lens: ZioOpticsBuilder.Lens[Whole, Piece]
+  def getSetIdentity[F, Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole])(
+    lens: ZioOpticsBuilder.Lens[F, Whole, Piece]
   ): URIO[Env, TestResult] =
     check(genWhole) { wholeBefore =>
       val wholeAfter = lens.get(wholeBefore).flatMap(lens.set(_)(wholeBefore))
       assert(wholeAfter)(isRight(equalTo(wholeBefore)))
     }
 
-  def setGetIdentity[Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
-    lens: ZioOpticsBuilder.Lens[Whole, Piece]
+  def setGetIdentity[F, Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
+    lens: ZioOpticsBuilder.Lens[F, Whole, Piece]
   ): URIO[Env, TestResult] =
     check(genWhole, genPiece) { (whole, pieceBefore) =>
       val pieceAfter = lens.set(pieceBefore)(whole).flatMap(lens.get)
       assert(pieceAfter)(isRight(equalTo(pieceBefore)))
     }
 
-  def setSetIdentity[Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
-    lens: ZioOpticsBuilder.Lens[Whole, Piece]
+  def setSetIdentity[F, Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
+    lens: ZioOpticsBuilder.Lens[F, Whole, Piece]
   ): URIO[Env, TestResult] =
     check(genWhole, genPiece) { (whole, piece) =>
       val wholeBefore = lens.set(piece)(whole)

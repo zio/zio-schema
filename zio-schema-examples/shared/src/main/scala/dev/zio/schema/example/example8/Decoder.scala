@@ -37,9 +37,9 @@ object Decoder {
       case Json.JObj(map) =>
         map.map {
           case (k, v) => k -> jsonToDynamicValue(v)
-        }.foldRight[Either[String, DynamicValue]](Right(DynamicValue.Record(ListMap.empty))) {
-          case ((key, Right(value)), Right(DynamicValue.Record(values))) =>
-            Right(DynamicValue.Record(values + (key -> value)))
+        }.foldRight[Either[String, DynamicValue]](Right(DynamicValue.Record(TypeId.Structural, ListMap.empty))) {
+          case ((key, Right(value)), Right(DynamicValue.Record(_, values))) =>
+            Right(DynamicValue.Record(TypeId.parse(key), values + (key -> value)))
           case ((_, Left(err)), _) => Left(err)
           case (_, Left(err))      => Left(err)
         }

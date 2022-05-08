@@ -1,8 +1,8 @@
 package dev.zio.schema.example.example5
 
-import zio.schema.Schema._
 import zio.schema.{ Diff, Schema }
 import zio.{ ExitCode, URIO, ZIO }
+import zio.schema.TypeId
 
 /**
  * Example 5: In this example, we use ZIO-Schema to detect changes in our objects.
@@ -12,10 +12,11 @@ private[example5] object Domain {
   final case class Person(name: String, age: Int)
 
   object Person {
-    val name: Field[String] = Field[String]("name", primitive[String])
-    val age: Field[Int]     = Field[Int]("age", primitive[Int])
+    val name: Schema.Field[String] = Schema.Field[String]("name", Schema.primitive[String])
+    val age: Schema.Field[Int]     = Schema.Field[Int]("age", Schema.primitive[Int])
 
-    val schema: Schema[Person] = CaseClass2[String, Int, Person](
+    val schema: Schema[Person] = Schema.CaseClass2[String, Int, Person](
+      TypeId.parse("dev.zio.schema.example.example5.Domain.Person"),
       field1 = name,
       field2 = age,
       construct = (name, age) => Person(name, age),
@@ -27,20 +28,20 @@ private[example5] object Domain {
   final case class PersonDTO(firstname: String, lastname: String, years: Int)
 
   object PersonDTO {
-    val firstname: Field[String] = Field("firstname", primitive[String])
-    val lastname: Field[String]  = Field("lastname", primitive[String])
-    val years: Field[Int]        = Field("years", primitive[Int])
+    val firstname: Schema.Field[String] = Schema.Field("firstname", Schema.primitive[String])
+    val lastname: Schema.Field[String]  = Schema.Field("lastname", Schema.primitive[String])
+    val years: Schema.Field[Int]        = Schema.Field("years", Schema.primitive[Int])
 
-    val schema: Schema[PersonDTO] =
-      CaseClass3[String, String, Int, PersonDTO](
-        field1 = firstname,
-        field2 = lastname,
-        field3 = years,
-        construct = (fn, ln, y) => PersonDTO(fn, ln, y),
-        extractField1 = _.firstname,
-        extractField2 = _.lastname,
-        extractField3 = _.years
-      )
+    val schema: Schema[PersonDTO] = Schema.CaseClass3[String, String, Int, PersonDTO](
+      TypeId.parse("dev.zio.schema.example.example5.Domain.PersonDTO"),
+      field1 = firstname,
+      field2 = lastname,
+      field3 = years,
+      construct = (fn, ln, y) => PersonDTO(fn, ln, y),
+      extractField1 = _.firstname,
+      extractField2 = _.lastname,
+      extractField3 = _.years
+    )
   }
 
 }

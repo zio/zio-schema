@@ -17,6 +17,7 @@ import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
 import zio.test.environment.{ Live, TestClock, TestConsole, TestRandom, TestSystem }
+import zio.schema.TypeId
 
 // TODO: use generators instead of manual encode/decode
 object ProtobufCodecSpec extends DefaultRunnableSpec {
@@ -705,6 +706,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       },
       testM("dynamic record example") {
         val dynamicValue = DynamicValue.Record(
+          TypeId.Structural,
           ListMap("0" -> DynamicValue.Primitive(new java.math.BigDecimal(0.0), StandardType[java.math.BigDecimal]))
         )
         assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
@@ -793,12 +795,14 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
     implicit val schemaRecord: Schema[Record] = DeriveSchema.gen[Record]
 
     val genericRecord: Schema[ListMap[String, _]] = Schema.record(
+      TypeId.parse("ListMap"),
       Schema.Field("c", Schema.Primitive(StandardType.IntType)),
       Schema.Field("b", Schema.Primitive(StandardType.IntType)),
       Schema.Field("a", Schema.Primitive(StandardType.IntType))
     )
 
     val genericRecordSorted: Schema[ListMap[String, _]] = Schema.record(
+      TypeId.parse("ListMap"),
       Schema.Field("a", Schema.Primitive(StandardType.IntType)),
       Schema.Field("b", Schema.Primitive(StandardType.IntType)),
       Schema.Field("c", Schema.Primitive(StandardType.IntType))

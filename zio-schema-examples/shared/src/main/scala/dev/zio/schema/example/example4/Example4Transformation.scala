@@ -3,6 +3,7 @@ package dev.zio.schema.example.example4
 import zio.schema.ast.{ Migration, NodePath, SchemaAst }
 import zio.schema.{ DynamicValue, Schema }
 import zio.{ Chunk, ExitCode, URIO, ZIO }
+import zio.schema.TypeId
 
 /**
  * Example 4: In this Example, we use ZIO-Schema to migrate objects from one representation to another.
@@ -18,6 +19,7 @@ private[example4] object Domain {
     val age: Schema.Field[Int]     = Schema.Field[Int]("age", Schema.primitive[Int])
 
     val schema: Schema[WebPerson] = Schema.CaseClass2[String, Int, WebPerson](
+      TypeId.parse("dev.zio.schema.example.example4.Domain.WebPerson"),
       field1 = name,
       field2 = age,
       construct = (name, age) => WebPerson(name, age),
@@ -34,6 +36,7 @@ private[example4] object Domain {
     val years: Schema.Field[Int]        = Schema.Field("years", Schema.primitive[Int])
 
     val schema: Schema[DomainPerson] = Schema.CaseClass3[String, String, Int, DomainPerson](
+      TypeId.parse("dev.zio.schema.example.example4.Domain.DomainPerson"),
       field1 = firstname,
       field2 = lastname,
       field3 = years,
