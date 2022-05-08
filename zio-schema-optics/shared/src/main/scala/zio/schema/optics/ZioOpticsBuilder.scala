@@ -16,7 +16,7 @@ import zio.{ Chunk, ChunkBuilder }
 object ZioOpticsBuilder extends AccessorBuilder {
 
   type Lens[F, S, A]   = Optic[S, S, A, OpticFailure, OpticFailure, A, S]
-  type Prism[S, A]     = ZPrism[S, S, A, A]
+  type Prism[F, S, A]  = ZPrism[S, S, A, A]
   type Traversal[S, A] = ZTraversal[S, S, A, A]
 
   override def makeLens[F, S, A](
@@ -28,7 +28,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
       setOptic = ZioOpticsBuilder.makeLensSet(product, term)
     )
 
-  override def makePrism[S, A](
+  override def makePrism[F, S, A](
     sum: Schema.Enum[S],
     term: Schema.Case[A, S]
   ): ZPrism[S, S, A, A] =
