@@ -21,10 +21,13 @@ import java.time.{
 }
 import java.util
 import java.util.UUID
+
 import scala.collection.immutable.ListMap
 import scala.util.Try
+
 import org.apache.thrift.TSerializable
 import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
+
 import zio.console.putStrLn
 import zio.schema.CaseSet.caseOf
 import zio.schema.codec.{ generated => g }

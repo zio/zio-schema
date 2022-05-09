@@ -1,10 +1,8 @@
 package zio.schema
 
-import zio.test.DefaultRunnableSpec
-import zio.test.ZSpec
-import zio.test._
-import zio.test.Assertion._
 import zio.Chunk
+import zio.test.Assertion._
+import zio.test.{ DefaultRunnableSpec, ZSpec, _ }
 
 object TypeIdSpec extends DefaultRunnableSpec {
 

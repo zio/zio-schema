@@ -12,12 +12,11 @@ import zio.blocking.Blocking
 import zio.console._
 import zio.random.Random
 import zio.schema.CaseSet._
-import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType }
+import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
 import zio.test.environment.{ Live, TestClock, TestConsole, TestRandom, TestSystem }
-import zio.schema.TypeId
 
 // TODO: use generators instead of manual encode/decode
 object ProtobufCodecSpec extends DefaultRunnableSpec {

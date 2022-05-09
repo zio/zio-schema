@@ -6,8 +6,8 @@ import scala.collection.immutable.ListMap
 
 import zio.Chunk
 import zio.random.Random
-import zio.test.{ Gen, Sized }
 import zio.schema.TypeId
+import zio.test.{ Gen, Sized }
 
 object SchemaGen {
 
