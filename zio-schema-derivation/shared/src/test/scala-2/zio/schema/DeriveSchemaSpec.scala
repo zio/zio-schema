@@ -4,7 +4,6 @@ import scala.annotation.Annotation
 
 import zio.Chunk
 import zio.test._
-import scala.reflect.api.TypeTags
 
 object DeriveSchemaSpec extends DefaultRunnableSpec {
   import Assertion._
@@ -238,7 +237,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         val expected: Schema[SimpleZero] =
           Schema.CaseClass0(
             TypeId.parse("zio.schema.DeriveSchemaSpec.SimpleZero"),
-            SimpleZero.apply
+            SimpleZero.apply()
           )
         assert(derived)(hasSameSchema(expected))
       },
