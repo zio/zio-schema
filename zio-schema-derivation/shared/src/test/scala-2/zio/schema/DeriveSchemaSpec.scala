@@ -237,7 +237,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         val expected: Schema[SimpleZero] =
           Schema.CaseClass0(
             TypeId.parse("zio.schema.DeriveSchemaSpec.SimpleZero"),
-            SimpleZero.apply()
+            () => SimpleZero()
           )
         assert(derived)(hasSameSchema(expected))
       },
