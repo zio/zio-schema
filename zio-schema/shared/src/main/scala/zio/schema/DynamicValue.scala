@@ -10,7 +10,8 @@ import scala.collection.immutable.ListMap
 import zio.Chunk
 import zio.schema.ast.{ Migration, SchemaAst }
 
-sealed trait DynamicValue { self =>
+sealed trait DynamicValue {
+  self =>
 
   def transform(transforms: Chunk[Migration]): Either[String, DynamicValue] =
     transforms.foldRight[Either[String, DynamicValue]](Right(self)) {
@@ -1957,7 +1958,8 @@ object DynamicValue {
 
 }
 
-private[schema] object DynamicValueSchema { self =>
+private[schema] object DynamicValueSchema {
+  self =>
 
   def apply(): Schema[DynamicValue] = schema
 

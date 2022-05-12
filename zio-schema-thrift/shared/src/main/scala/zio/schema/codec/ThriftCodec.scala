@@ -1,17 +1,44 @@
 package zio.schema.codec
+
 import java.nio.ByteBuffer
-import java.time.{DayOfWeek, Duration, Instant, LocalDate, LocalDateTime, LocalTime, Month, MonthDay, OffsetDateTime, OffsetTime, Period, Year, YearMonth, ZoneId, ZoneOffset, ZonedDateTime}
+import java.time.{
+  DayOfWeek,
+  Duration,
+  Instant,
+  LocalDate,
+  LocalDateTime,
+  LocalTime,
+  Month,
+  MonthDay,
+  OffsetDateTime,
+  OffsetTime,
+  Period,
+  Year,
+  YearMonth,
+  ZoneId,
+  ZoneOffset,
+  ZonedDateTime
+}
 import java.util.UUID
+
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try}
-import org.apache.thrift.protocol.{TBinaryProtocol, TField, TProtocol, TType}
+import scala.util.{ Failure, Success, Try }
+
+import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TProtocol, TType }
+
 import zio.schema.ast.SchemaAst
-import zio.schema.codec.ThriftCodec.Thrift.{bigDecimalStructure, durationStructure, monthDayStructure, periodStructure, yearMonthStructure}
-import zio.schema.{DynamicValue, DynamicValueSchema, Schema, StandardType}
+import zio.schema.codec.ThriftCodec.Thrift.{
+  bigDecimalStructure,
+  durationStructure,
+  monthDayStructure,
+  periodStructure,
+  yearMonthStructure
+}
+import zio.schema.{ DynamicValue, DynamicValueSchema, Schema, StandardType }
 import zio.stream.ZTransducer
-import zio.{Chunk, ChunkBuilder, ZIO}
+import zio.{ Chunk, ChunkBuilder, ZIO }
 
 object ThriftCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
@@ -413,27 +440,258 @@ object ThriftCodec extends Codec {
         case (cc: Schema.CaseClass11[_, _, _, _, _, _, _, _, _, _, _, _], v) =>
           Some(encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9, cc.field10 -> cc.extractField10, cc.field11 -> cc.extractField11))
         case (cc: Schema.CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          Some(encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9, cc.field10 -> cc.extractField10, cc.field11 -> cc.extractField11, cc.field12 -> cc.extractField12))
+          Some(
+            encodeCaseClass(
+              v,
+              cc.field1  -> cc.extractField1,
+              cc.field2  -> cc.extractField2,
+              cc.field3  -> cc.extractField3,
+              cc.field4  -> cc.extractField4,
+              cc.field5  -> cc.extractField5,
+              cc.field6  -> cc.extractField6,
+              cc.field7  -> cc.extractField7,
+              cc.field8  -> cc.extractField8,
+              cc.field9  -> cc.extractField9,
+              cc.field10 -> cc.extractField10,
+              cc.field11 -> cc.extractField11,
+              cc.field12 -> cc.extractField12
+            )
+          )
         case (cc: Schema.CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          Some(encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9, cc.field10 -> cc.extractField10, cc.field11 -> cc.extractField11, cc.field12 -> cc.extractField12, cc.field13 -> cc.extractField13))
+          Some(
+            encodeCaseClass(
+              v,
+              cc.field1  -> cc.extractField1,
+              cc.field2  -> cc.extractField2,
+              cc.field3  -> cc.extractField3,
+              cc.field4  -> cc.extractField4,
+              cc.field5  -> cc.extractField5,
+              cc.field6  -> cc.extractField6,
+              cc.field7  -> cc.extractField7,
+              cc.field8  -> cc.extractField8,
+              cc.field9  -> cc.extractField9,
+              cc.field10 -> cc.extractField10,
+              cc.field11 -> cc.extractField11,
+              cc.field12 -> cc.extractField12,
+              cc.field13 -> cc.extractField13
+            )
+          )
         case (cc: Schema.CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          Some(encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9, cc.field10 -> cc.extractField10, cc.field11 -> cc.extractField11, cc.field12 -> cc.extractField12, cc.field13 -> cc.extractField13, cc.field14 -> cc.extractField14))
+          Some(
+            encodeCaseClass(
+              v,
+              cc.field1  -> cc.extractField1,
+              cc.field2  -> cc.extractField2,
+              cc.field3  -> cc.extractField3,
+              cc.field4  -> cc.extractField4,
+              cc.field5  -> cc.extractField5,
+              cc.field6  -> cc.extractField6,
+              cc.field7  -> cc.extractField7,
+              cc.field8  -> cc.extractField8,
+              cc.field9  -> cc.extractField9,
+              cc.field10 -> cc.extractField10,
+              cc.field11 -> cc.extractField11,
+              cc.field12 -> cc.extractField12,
+              cc.field13 -> cc.extractField13,
+              cc.field14 -> cc.extractField14
+            )
+          )
         case (cc: Schema.CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          Some(encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9, cc.field10 -> cc.extractField10, cc.field11 -> cc.extractField11, cc.field12 -> cc.extractField12, cc.field13 -> cc.extractField13, cc.field14 -> cc.extractField14, cc.field15 -> cc.extractField15))
+          Some(
+            encodeCaseClass(
+              v,
+              cc.field1  -> cc.extractField1,
+              cc.field2  -> cc.extractField2,
+              cc.field3  -> cc.extractField3,
+              cc.field4  -> cc.extractField4,
+              cc.field5  -> cc.extractField5,
+              cc.field6  -> cc.extractField6,
+              cc.field7  -> cc.extractField7,
+              cc.field8  -> cc.extractField8,
+              cc.field9  -> cc.extractField9,
+              cc.field10 -> cc.extractField10,
+              cc.field11 -> cc.extractField11,
+              cc.field12 -> cc.extractField12,
+              cc.field13 -> cc.extractField13,
+              cc.field14 -> cc.extractField14,
+              cc.field15 -> cc.extractField15
+            )
+          )
         case (cc: Schema.CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          Some(encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9, cc.field10 -> cc.extractField10, cc.field11 -> cc.extractField11, cc.field12 -> cc.extractField12, cc.field13 -> cc.extractField13, cc.field14 -> cc.extractField14, cc.field15 -> cc.extractField15, cc.field16 -> cc.extractField16))
+          Some(
+            encodeCaseClass(
+              v,
+              cc.field1  -> cc.extractField1,
+              cc.field2  -> cc.extractField2,
+              cc.field3  -> cc.extractField3,
+              cc.field4  -> cc.extractField4,
+              cc.field5  -> cc.extractField5,
+              cc.field6  -> cc.extractField6,
+              cc.field7  -> cc.extractField7,
+              cc.field8  -> cc.extractField8,
+              cc.field9  -> cc.extractField9,
+              cc.field10 -> cc.extractField10,
+              cc.field11 -> cc.extractField11,
+              cc.field12 -> cc.extractField12,
+              cc.field13 -> cc.extractField13,
+              cc.field14 -> cc.extractField14,
+              cc.field15 -> cc.extractField15,
+              cc.field16 -> cc.extractField16
+            )
+          )
         case (cc: Schema.CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          Some(encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9, cc.field10 -> cc.extractField10, cc.field11 -> cc.extractField11, cc.field12 -> cc.extractField12, cc.field13 -> cc.extractField13, cc.field14 -> cc.extractField14, cc.field15 -> cc.extractField15, cc.field16 -> cc.extractField16, cc.field17 -> cc.extractField17))
+          Some(
+            encodeCaseClass(
+              v,
+              cc.field1  -> cc.extractField1,
+              cc.field2  -> cc.extractField2,
+              cc.field3  -> cc.extractField3,
+              cc.field4  -> cc.extractField4,
+              cc.field5  -> cc.extractField5,
+              cc.field6  -> cc.extractField6,
+              cc.field7  -> cc.extractField7,
+              cc.field8  -> cc.extractField8,
+              cc.field9  -> cc.extractField9,
+              cc.field10 -> cc.extractField10,
+              cc.field11 -> cc.extractField11,
+              cc.field12 -> cc.extractField12,
+              cc.field13 -> cc.extractField13,
+              cc.field14 -> cc.extractField14,
+              cc.field15 -> cc.extractField15,
+              cc.field16 -> cc.extractField16,
+              cc.field17 -> cc.extractField17
+            )
+          )
         case (cc: Schema.CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          Some(encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9, cc.field10 -> cc.extractField10, cc.field11 -> cc.extractField11, cc.field12 -> cc.extractField12, cc.field13 -> cc.extractField13, cc.field14 -> cc.extractField14, cc.field15 -> cc.extractField15, cc.field16 -> cc.extractField16, cc.field17 -> cc.extractField17, cc.field18 -> cc.extractField18))
+          Some(
+            encodeCaseClass(
+              v,
+              cc.field1  -> cc.extractField1,
+              cc.field2  -> cc.extractField2,
+              cc.field3  -> cc.extractField3,
+              cc.field4  -> cc.extractField4,
+              cc.field5  -> cc.extractField5,
+              cc.field6  -> cc.extractField6,
+              cc.field7  -> cc.extractField7,
+              cc.field8  -> cc.extractField8,
+              cc.field9  -> cc.extractField9,
+              cc.field10 -> cc.extractField10,
+              cc.field11 -> cc.extractField11,
+              cc.field12 -> cc.extractField12,
+              cc.field13 -> cc.extractField13,
+              cc.field14 -> cc.extractField14,
+              cc.field15 -> cc.extractField15,
+              cc.field16 -> cc.extractField16,
+              cc.field17 -> cc.extractField17,
+              cc.field18 -> cc.extractField18
+            )
+          )
         case (cc: Schema.CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          Some(encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9, cc.field10 -> cc.extractField10, cc.field11 -> cc.extractField11, cc.field12 -> cc.extractField12, cc.field13 -> cc.extractField13, cc.field14 -> cc.extractField14, cc.field15 -> cc.extractField15, cc.field16 -> cc.extractField16, cc.field17 -> cc.extractField17, cc.field18 -> cc.extractField18, cc.field19 -> cc.extractField19))
+          Some(
+            encodeCaseClass(
+              v,
+              cc.field1  -> cc.extractField1,
+              cc.field2  -> cc.extractField2,
+              cc.field3  -> cc.extractField3,
+              cc.field4  -> cc.extractField4,
+              cc.field5  -> cc.extractField5,
+              cc.field6  -> cc.extractField6,
+              cc.field7  -> cc.extractField7,
+              cc.field8  -> cc.extractField8,
+              cc.field9  -> cc.extractField9,
+              cc.field10 -> cc.extractField10,
+              cc.field11 -> cc.extractField11,
+              cc.field12 -> cc.extractField12,
+              cc.field13 -> cc.extractField13,
+              cc.field14 -> cc.extractField14,
+              cc.field15 -> cc.extractField15,
+              cc.field16 -> cc.extractField16,
+              cc.field17 -> cc.extractField17,
+              cc.field18 -> cc.extractField18,
+              cc.field19 -> cc.extractField19
+            )
+          )
         case (cc: Schema.CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          Some(encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9, cc.field10 -> cc.extractField10, cc.field11 -> cc.extractField11, cc.field12 -> cc.extractField12, cc.field13 -> cc.extractField13, cc.field14 -> cc.extractField14, cc.field15 -> cc.extractField15, cc.field16 -> cc.extractField16, cc.field17 -> cc.extractField17, cc.field18 -> cc.extractField18, cc.field19 -> cc.extractField19, cc.field20 -> cc.extractField20))
+          Some(
+            encodeCaseClass(
+              v,
+              cc.field1  -> cc.extractField1,
+              cc.field2  -> cc.extractField2,
+              cc.field3  -> cc.extractField3,
+              cc.field4  -> cc.extractField4,
+              cc.field5  -> cc.extractField5,
+              cc.field6  -> cc.extractField6,
+              cc.field7  -> cc.extractField7,
+              cc.field8  -> cc.extractField8,
+              cc.field9  -> cc.extractField9,
+              cc.field10 -> cc.extractField10,
+              cc.field11 -> cc.extractField11,
+              cc.field12 -> cc.extractField12,
+              cc.field13 -> cc.extractField13,
+              cc.field14 -> cc.extractField14,
+              cc.field15 -> cc.extractField15,
+              cc.field16 -> cc.extractField16,
+              cc.field17 -> cc.extractField17,
+              cc.field18 -> cc.extractField18,
+              cc.field19 -> cc.extractField19,
+              cc.field20 -> cc.extractField20
+            )
+          )
         case (cc: Schema.CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          Some(encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9, cc.field10 -> cc.extractField10, cc.field11 -> cc.extractField11, cc.field12 -> cc.extractField12, cc.field13 -> cc.extractField13, cc.field14 -> cc.extractField14, cc.field15 -> cc.extractField15, cc.field16 -> cc.extractField16, cc.field17 -> cc.extractField17, cc.field18 -> cc.extractField18, cc.field19 -> cc.extractField19, cc.field20 -> cc.extractField20, cc.field21 -> cc.extractField21))
+          Some(
+            encodeCaseClass(
+              v,
+              cc.field1  -> cc.extractField1,
+              cc.field2  -> cc.extractField2,
+              cc.field3  -> cc.extractField3,
+              cc.field4  -> cc.extractField4,
+              cc.field5  -> cc.extractField5,
+              cc.field6  -> cc.extractField6,
+              cc.field7  -> cc.extractField7,
+              cc.field8  -> cc.extractField8,
+              cc.field9  -> cc.extractField9,
+              cc.field10 -> cc.extractField10,
+              cc.field11 -> cc.extractField11,
+              cc.field12 -> cc.extractField12,
+              cc.field13 -> cc.extractField13,
+              cc.field14 -> cc.extractField14,
+              cc.field15 -> cc.extractField15,
+              cc.field16 -> cc.extractField16,
+              cc.field17 -> cc.extractField17,
+              cc.field18 -> cc.extractField18,
+              cc.field19 -> cc.extractField19,
+              cc.field20 -> cc.extractField20,
+              cc.field21 -> cc.extractField21
+            )
+          )
         case (cc: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          Some(encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9, cc.field10 -> cc.extractField10, cc.field11 -> cc.extractField11, cc.field12 -> cc.extractField12, cc.field13 -> cc.extractField13, cc.field14 -> cc.extractField14, cc.field15 -> cc.extractField15, cc.field16 -> cc.extractField16, cc.field17 -> cc.extractField17, cc.field18 -> cc.extractField18, cc.field19 -> cc.extractField19, cc.field20 -> cc.extractField20, cc.field21 -> cc.extractField21, cc.field22 -> cc.extractField22))
+          Some(
+            encodeCaseClass(
+              v,
+              cc.field1  -> cc.extractField1,
+              cc.field2  -> cc.extractField2,
+              cc.field3  -> cc.extractField3,
+              cc.field4  -> cc.extractField4,
+              cc.field5  -> cc.extractField5,
+              cc.field6  -> cc.extractField6,
+              cc.field7  -> cc.extractField7,
+              cc.field8  -> cc.extractField8,
+              cc.field9  -> cc.extractField9,
+              cc.field10 -> cc.extractField10,
+              cc.field11 -> cc.extractField11,
+              cc.field12 -> cc.extractField12,
+              cc.field13 -> cc.extractField13,
+              cc.field14 -> cc.extractField14,
+              cc.field15 -> cc.extractField15,
+              cc.field16 -> cc.extractField16,
+              cc.field17 -> cc.extractField17,
+              cc.field18 -> cc.extractField18,
+              cc.field19 -> cc.extractField19,
+              cc.field20 -> cc.extractField20,
+              cc.field21 -> cc.extractField21,
+              cc.field22 -> cc.extractField22
+            )
+          )
         case _ => None
       }
 
@@ -458,7 +716,9 @@ object ThriftCodec extends Codec {
 
   class Decoder(chunk: Chunk[Byte]) {
     type Path = Chunk[String]
+
     case class Error(path: Path, error: String)
+
     type Result[A]          = Either[Error, A]
     type PrimitiveResult[A] = Path => Result[A]
 
@@ -716,7 +976,9 @@ object ThriftCodec extends Codec {
 
       @tailrec
       def readFields(m: ListMap[Short, Any]): Result[ListMap[Short, Any]] =
-        Try { p.readFieldBegin() } match {
+        Try {
+          p.readFieldBegin()
+        } match {
           case Failure(err) => fail(path, s"Error reading field begin: ${err.getMessage}")
           case Success(readField) => {
             if (readField.`type` == TType.STOP)
@@ -749,7 +1011,9 @@ object ThriftCodec extends Codec {
           } else
           succeed(cb.result())
 
-      Try { p.readListBegin() }.fold(_ => fail(path, "Can not decode Sequence begin"), begin => decodeElements(begin.size, ChunkBuilder.make[Elem]()).map(schema.fromChunk))
+      Try {
+        p.readListBegin()
+      }.fold(_ => fail(path, "Can not decode Sequence begin"), begin => decodeElements(begin.size, ChunkBuilder.make[Elem]()).map(schema.fromChunk))
     }
 
     def decodeMap[K, V](path: Path, schema: Schema.MapSchema[K, V]): Result[Map[K, V]] = {
@@ -780,7 +1044,9 @@ object ThriftCodec extends Codec {
           } else
           succeed(cb.result())
 
-      Try { p.readSetBegin() }.fold(_ => fail(path, "Can not decode Set begin"), begin => decodeElements(begin.size, ChunkBuilder.make[A]()).map(_.toSet))
+      Try {
+        p.readSetBegin()
+      }.fold(_ => fail(path, "Can not decode Set begin"), begin => decodeElements(begin.size, ChunkBuilder.make[A]()).map(_.toSet))
     }
 
     private[codec] object ProductDecoder {
