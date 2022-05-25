@@ -19,7 +19,7 @@ import zio.test._
 
 object JsonCodecSpec extends ZIOSpecDefault {
 
-  def spec: ZSpec[TestEnvironment, Any] =
+  def spec: Spec[TestEnvironment, Any] =
     suite("JsonCodec Spec")(
       encoderSuite,
       decoderSuite,
@@ -681,7 +681,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
       .succeed(value)
       .via(JsonCodec.encoder(schema))
       .runCollect
-    assertM(stream)(equalTo(chunk))
+    assertZIO(stream)(equalTo(chunk))
   }
 
   private def assertEncodesJson[A](schema: Schema[A], value: A, json: String) = {
@@ -690,7 +690,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
       .via(JsonCodec.encoder(schema))
       .runCollect
       .map(chunk => new String(chunk.toArray))
-    assertM(stream)(equalTo(json))
+    assertZIO(stream)(equalTo(json))
   }
 
   private def assertEncodesJson[A](schema: Schema[A], value: A)(implicit enc: JsonEncoder[A]) = {
@@ -698,7 +698,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
       .succeed(value)
       .via(JsonCodec.encoder(schema))
       .runCollect
-    assertM(stream)(equalTo(jsonEncoded(value)))
+    assertZIO(stream)(equalTo(jsonEncoded(value)))
   }
 
   private def assertDecodesToError[A](schema: Schema[A], json: CharSequence, errors: List[JsonError]) = {
@@ -707,12 +707,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
       .via(JsonCodec.decoder(schema))
       .catchAll(ZStream.succeed[String](_))
       .runHead
-    assertM(stream)(isSome(equalTo(JsonError.render(errors))))
+    assertZIO(stream)(isSome(equalTo(JsonError.render(errors))))
   }
 
   private def assertDecodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {
     val result = ZStream.fromChunk(chunk).via(JsonCodec.decoder(schema)).runCollect
-    assertM(result)(equalTo(Chunk(value)))
+    assertZIO(result)(equalTo(Chunk(value)))
   }
 
   private def assertEncodesThenDecodes[A](schema: Schema[A], value: A, print: Boolean = false) =

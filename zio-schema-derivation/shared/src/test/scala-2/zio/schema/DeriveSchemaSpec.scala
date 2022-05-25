@@ -229,7 +229,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
 
   }
 
-  override def spec: ZSpec[Environment, Any] = suite("DeriveSchemaSpec")(
+  override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("correctly derives case class") {
         assert(Schema[User].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
@@ -320,10 +320,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         assert(b0)(isRight(equalTo(b)))
       },
       test("correctly derives recursive Enum with type parameters") {
-        assert(DeriveSchema.gen[Tree[Recursive]])(anything)
+        val derived: Schema[Tree[Recursive]] = DeriveSchema.gen[Tree[Recursive]]
+        assert(derived)(anything)
       },
       test("correctly derives recursive Enum with multiple type parameters") {
-        assert(DeriveSchema.gen[RBTree[String, Int]])(anything)
+        val derived: Schema[RBTree[String, Int]] = DeriveSchema.gen[RBTree[String, Int]]
+        assert(derived)(anything)
       },
       test("correctly derives recursive Enum") {
         assert(Schema[RecursiveEnum].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))

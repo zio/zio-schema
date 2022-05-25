@@ -13,7 +13,7 @@ import zio.schema.Schema.EitherSchema
 import zio.schema.ast.SchemaAst
 import zio.schema.{ StandardType, _ }
 import zio.stream.ZPipeline
-import zio.{ Chunk, ChunkBuilder, ZIO }
+import zio.{ Chunk, ChunkBuilder, NonEmptyChunk, ZIO }
 
 object JsonCodec extends Codec {
 
@@ -23,9 +23,13 @@ object JsonCodec extends Codec {
     )
 
   override def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Byte, A] =
-    ZPipeline.utfDecode >>> ZPipeline.mapZIO(
-      (s: String) => ZIO.fromEither(Decoder.decode(schema, s))
-    )
+    ZPipeline.fromChannel(ZPipeline.utfDecode.channel.mapError(_.toString)) >>>
+      ZPipeline.groupAdjacentBy[String, Unit](_ => ()) >>>
+      ZPipeline.map[(Unit, NonEmptyChunk[String]), String] {
+        case (_, fragments) => fragments.mkString
+      } >>> ZPipeline.mapZIO { (s: String) =>
+      ZIO.fromEither(Decoder.decode(schema, s))
+    }
 
   override def encode[A](schema: Schema[A]): A => Chunk[Byte] = Encoder.encode(schema, _)
 
@@ -85,7 +89,8 @@ object JsonCodec extends Codec {
   object Encoder {
 
     import Codecs._
-    import JsonEncoder.{ bump, pad }
+    import JsonEncoder.bump
+    import JsonEncoder.pad
     import ProductEncoder._
 
     private[codec] val CHARSET = StandardCharsets.UTF_8
@@ -491,7 +496,8 @@ object JsonCodec extends Codec {
 
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   private[codec] object ProductEncoder {
-    import JsonEncoder.{ bump, pad }
+    import JsonEncoder.bump
+    import JsonEncoder.pad
 
     private[codec] def caseClassEncoder[Z](fields: (Schema.Field[_], Z => Any)*): JsonEncoder[Z] = { (a: Z, indent: Option[Int], out: Write) =>
       {

@@ -6,7 +6,7 @@ import zio.test.Assertion._
 import zio.test._
 
 object DeriveGenSpec extends ZIOSpecDefault {
-  override def spec: ZSpec[Environment, Any] = suite("DeriveGenSpec")(
+  override def spec: Spec[Environment, Any] = suite("DeriveGenSpec")(
     test("correctly derives Primitives") {
       for {
         unit           <- generateValue(DeriveGen.gen(unitSchema))
@@ -75,5 +75,5 @@ object DeriveGenSpec extends ZIOSpecDefault {
   )
 
   private def generateValue[R, A](gen: Gen[R, A]): ZIO[R, Nothing, TestResult] =
-    assertM(gen.runCollect)(isNonEmpty)
+    assertZIO(gen.runCollect)(isNonEmpty)
 }

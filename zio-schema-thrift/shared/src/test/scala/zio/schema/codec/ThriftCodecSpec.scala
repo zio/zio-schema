@@ -665,14 +665,14 @@ object ThriftCodecSpec extends ZIOSpecDefault {
           check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.IntType)
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
         test("dynamic instant") {
           check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
         test("dynamic zoned date time") {
@@ -681,49 +681,49 @@ object ThriftCodecSpec extends ZIOSpecDefault {
               StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)
             )
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
         test("dynamic duration") {
           check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.DurationType)
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
         test("dynamic string") {
           check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.StringType)
           ) { dynamicValue =>
-            assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
+            assertZIO(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
           }
         },
         test("dynamic unit") {
           check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.UnitType)
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
         test("dynamic json") {
           check(
             DynamicValueGen.anyDynamicValueOfSchema(SchemaGen.Json.schema)
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
         test("dynamic tuple") {
           check(
             DynamicValueGen.anyDynamicTupleValue(Schema[String], Schema[Int])
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
         test("dynamic record") {
           check(
             SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicValueOfSchema)
           ) { dynamicValue =>
-            assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
+            assertZIO(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
           }
         },
         test("dynamic record example") {
@@ -738,7 +738,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
           check(
             SchemaGen.anyRecord.flatMap(record => DynamicValueGen.anyDynamicTupleValue(Schema[String], record))
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         }
       ),
@@ -764,12 +764,12 @@ object ThriftCodecSpec extends ZIOSpecDefault {
     ),
     suite("Should successfully decode")(
       test("empty input") {
-        assertM(decode(Schema[Int], ""))(
+        assertZIO(decode(Schema[Int], ""))(
           equalTo(Chunk.empty)
         )
       },
       test("empty input by non streaming variant") {
-        assertM(decodeNS(Schema[Int], "").exit)(
+        assertZIO(decodeNS(Schema[Int], "").exit)(
           fails(equalTo("No bytes to decode"))
         )
       },
@@ -829,7 +829,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
     )
   )
 
-  def writeManually(f: TBinaryProtocol => Unit): Task[String] = Task.attempt {
+  def writeManually(f: TBinaryProtocol => Unit): Task[String] = ZIO.attempt {
     val writeRecord = new ChunkTransport.Write()
     f(new TBinaryProtocol(writeRecord))
     toHex(writeRecord.chunk)

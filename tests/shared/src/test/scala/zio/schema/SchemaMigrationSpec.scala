@@ -8,7 +8,7 @@ import zio.test._
 object SchemaMigrationSpec extends ZIOSpecDefault {
   import SchemaAssertions._
 
-  override def spec: ZSpec[TestEnvironment, Any] = suite("Schema Migration Spec")(
+  override def spec: Spec[TestEnvironment, Any] = suite("Schema Migration Spec")(
     suite("case class")(
       suite("isomorphisms")(isomorphismTests: _*),
       test("delete field recursively") {
@@ -87,7 +87,7 @@ object SchemaMigrationSpec extends ZIOSpecDefault {
     )
   )
 
-  val isomorphismTests: List[ZSpec[TestEnvironment with Sized with TestConfig, Nothing]] =
+  val isomorphismTests: List[Spec[TestEnvironment with Sized with TestConfig, Nothing]] =
     List(
       test("DogFood <-> CatFood")(
         isomorphismLaw[TestEnvironment, PetFood.DogFood, PetFood.CatFood](

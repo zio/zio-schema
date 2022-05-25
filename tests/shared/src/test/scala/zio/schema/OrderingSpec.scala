@@ -10,7 +10,7 @@ import zio.{ Chunk, URIO }
 
 object OrderingSpec extends ZIOSpecDefault {
 
-  override def spec: ZSpec[Environment, Any] =
+  override def spec: Spec[Environment, Any] =
     suite("schemas should generate correct orderings")(
       suite("primitives")(primitiveOrderingTests: _*),
       suite("structures")(structureTestCases.map(structureOrderingTest): _*),
@@ -56,7 +56,7 @@ object OrderingSpec extends ZIOSpecDefault {
       )
     )
 
-  val primitiveOrderingTests: List[ZSpec[Sized with TestConfig, Nothing]] =
+  val primitiveOrderingTests: List[Spec[Sized with TestConfig, Nothing]] =
     schemasAndGens.map {
       case SchemaTest(name, schema, gen) =>
         test(s"$name") {
@@ -89,7 +89,7 @@ object OrderingSpec extends ZIOSpecDefault {
       StructureTestCase("enumN", genAnyOrderedPairEnum)
     )
 
-  def structureOrderingTest(t: StructureTestCase): ZSpec[TestConfig with Sized, Nothing] =
+  def structureOrderingTest(t: StructureTestCase): Spec[TestConfig with Sized, Nothing] =
     test(t.name)(check(t.increasingPairGen)(_ match {
       case (schema, l, r) =>
         assert(schema.ordering.compare(l, r))(isLessThan(0))

@@ -10,7 +10,7 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
 
   private val builder: TestAccessorBuilder = new TestAccessorBuilder
 
-  override def spec: ZSpec[Environment, Any] = suite("AccessorBuilder")(
+  override def spec: Spec[Environment, Any] = suite("AccessorBuilder")(
     test("fail") {
       assert(Schema.fail("error").makeAccessors(builder).asInstanceOf[Unit])(isUnit)
     },
