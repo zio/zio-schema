@@ -1,5 +1,9 @@
 package zio.schema.validation
 
+import java.time.format.DateTimeFormatter
+
+import scala.util.{Failure, Success, Try}
+
 sealed trait Predicate[A] {
   type Errors = List[ValidationError]
   type Result = Either[Errors, Errors]
@@ -24,6 +28,16 @@ object Predicate {
       def validate(value: String): Result =
         if (value.length() <= n) Right(::(ValidationError.MinLength(n, value.length(), value), Nil))
         else Left(::(ValidationError.MaxLength(n, value.length(), value), Nil))
+    }
+
+    final case class DateFormat(format: String) extends Str[String] {
+
+      def validate(value: String): Result =
+        Try(DateTimeFormatter.ofPattern(format).parse(value)) match {
+          case Failure(_) => Left(::(ValidationError.DateTimeFormatMatch(format, value), Nil))
+          case Success(_) => Right(::(ValidationError.DateTimeFormatNotMatch(format, value), Nil))
+        }
+
     }
     final case class Matches(r: Regex) extends Str[String] {
 

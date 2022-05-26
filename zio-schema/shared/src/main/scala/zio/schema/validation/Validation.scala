@@ -48,8 +48,9 @@ object Validation extends Regexs {
   import Predicate._
 
   // String operations
-  def minLength(n: Int): Validation[String] = Validation(Bool.Leaf(Str.MinLength(n)))
-  def maxLength(n: Int): Validation[String] = Validation(Bool.Leaf(Str.MaxLength(n)))
+  def minLength(n: Int): Validation[String]        = Validation(Bool.Leaf(Str.MinLength(n)))
+  def maxLength(n: Int): Validation[String]        = Validation(Bool.Leaf(Str.MaxLength(n)))
+  def dateTime(format: String): Validation[String] = Validation(Bool.Leaf(Str.DateFormat(format)))
   //Regex
   def regex(r: Regex): Validation[String] = Validation(Bool.Leaf(Str.Matches(r)))
 

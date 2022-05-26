@@ -43,6 +43,17 @@ object ValidationSpec extends DefaultRunnableSpec {
       assertTrue(validation.validate("hello").isLeft) &&
       assertTrue(validation.validate("Automobile").isLeft)
     },
+    test("DateFormat") {
+      val mmddyyyy = Validation.dateTime("mm-dd-yyyy")
+      val mmdd     = Validation.dateTime("mm/dd")
+
+      assertTrue(mmddyyyy.validate("09-13-2020").isRight) &&
+      assertTrue(mmddyyyy.validate("09-13").isLeft) &&
+      assertTrue(mmddyyyy.validate("09/13/2020").isLeft) &&
+      assertTrue(mmdd.validate("09/13").isRight) &&
+      assertTrue(mmdd.validate("09-13").isLeft) &&
+      assertTrue(mmdd.validate("09/13/2020").isLeft)
+    },
     test("Regex digit or letter Validation") {
       val validation = Validation.regex(Regex.digitOrLetter)
 

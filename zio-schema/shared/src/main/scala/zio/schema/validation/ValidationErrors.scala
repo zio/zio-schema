@@ -14,6 +14,16 @@ object ValidationError {
       s"Expected the length of $string to be at most $maxLength characters but was $actualLength characters."
   }
 
+  final case class DateTimeFormatMatch(format: String, value: String) extends ValidationError {
+    override def message: String =
+      s"Format of $value should match $format"
+  }
+
+  final case class DateTimeFormatNotMatch(format: String, value: String) extends ValidationError {
+    override def message: String =
+      s"Format of $value should not match $format"
+  }
+
   final case class GreaterThan[A](value: A, expected: A) extends ValidationError {
     override def message: String =
       s"$value should be greater than $expected"
