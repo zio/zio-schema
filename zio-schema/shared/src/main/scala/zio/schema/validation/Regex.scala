@@ -96,9 +96,6 @@ object Regex {
     loop(str.toList, Empty)
   }
 
-  //def ()
-  // `^hallo$` -> hallo
-
   def filter(f: Char => Boolean): Regex = CharacterSet((Char.MinValue to Char.MaxValue).filter(f).toSet)
 
   def between(minChar: Char, maxChar: Char): Regex = CharacterSet((minChar to maxChar).toSet)
