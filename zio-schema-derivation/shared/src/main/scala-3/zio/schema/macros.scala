@@ -118,7 +118,8 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
 
     val annotationExprs = TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
     val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) }
-    val args = fields ++ Seq(constructor) ++ selects ++ Seq(annotations)
+    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
+    val args = List(typeInfo) ++ fields ++ Seq(constructor) ++ selects ++ Seq(annotations)
     val terms = Expr.ofTupleFromSeq(args)
 
     val typeArgs = 
@@ -182,7 +183,8 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
     val annotationExprs = TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
     val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) }
 
-    val args = cases :+ annotations
+    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
+    val args = List(typeInfo) ++ cases :+ annotations
     val terms = Expr.ofTupleFromSeq(args)
     val ctor = TypeRepr.of[Enum2[_, _, _]].typeSymbol.primaryConstructor
 

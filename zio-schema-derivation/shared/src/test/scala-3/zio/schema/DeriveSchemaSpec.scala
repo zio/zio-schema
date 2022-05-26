@@ -265,6 +265,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         val derived: Schema[UserId] = DeriveSchema.gen[UserId]
         val expected: Schema[UserId] =
           Schema.CaseClass1(
+            id = TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
             field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
             UserId.apply,
             (uid: UserId) => uid.id
@@ -274,14 +275,14 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       },
       test("correctly derives for case object") {
         val derived: Schema[Singleton.type]  = DeriveSchema.gen[Singleton.type]
-        val expected: Schema[Singleton.type] = Schema.CaseClass0(() => Singleton)
+        val expected: Schema[Singleton.type] = Schema.CaseClass0(TypeId.parse("zio.schema.DeriveSchemaSpec.Singleton"), () => Singleton)
 
         assert(derived)(hasSameSchema(expected))
       },
       test("correctly captures annotations on case class") {
         val derived: Schema[User] = Schema[User]
         derived match {
-          case Schema.CaseClass2(field1, field2, _, _, _, anns) =>
+          case Schema.CaseClass2(id, field1, field2, _, _, _, anns) =>
             assertTrue(
               anns.contains(new annotation3),
               field1.annotations.isEmpty,
@@ -293,6 +294,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         val derived: Schema[Status] = Schema[Status]
         val expected: Schema[Status] =
           Schema.Enum3(
+            TypeId.parse("zio.schema.DeriveSchemaSpec.Status"),
             Schema.Case("Failed", DeriveSchema.gen[Status.Failed], (s: Status) => s.asInstanceOf[Status.Failed]),
             Schema.Case("Ok", DeriveSchema.gen[Status.Ok], (s: Status) => s.asInstanceOf[Status.Ok]),
             Schema.Case(
