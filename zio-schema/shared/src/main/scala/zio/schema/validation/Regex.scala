@@ -81,24 +81,22 @@ object Regex {
 
   final case class Alternate(left: Regex, right: Regex) extends Regex
 
-  def oneOf(chars: Char*): Regex = CharacterSet(chars.toSet)
+  def between(minChar: Char, maxChar: Char): Regex = CharacterSet((minChar to maxChar).toSet)
 
-  def literalCharacter(char: Char): Regex = CharacterSet(Set(char))
+  def filter(f: Char => Boolean): Regex = CharacterSet((Char.MinValue to Char.MaxValue).filter(f).toSet)
 
-  def concatenation(str: String): Regex = {
+  def literal(str: String): Regex = {
     def loop(l: List[Char], acc: Regex): Regex =
       l.toList match {
-        case head :: Nil  => acc ~ literalCharacter(head)
-        case head :: tail => loop(tail, acc ~ literalCharacter(head))
+        case head :: Nil  => acc ~ CharacterSet(Set(head))
+        case head :: tail => loop(tail, acc ~ CharacterSet(Set(head)))
         case Nil          => acc
       }
 
     loop(str.toList, Empty)
   }
 
-  def filter(f: Char => Boolean): Regex = CharacterSet((Char.MinValue to Char.MaxValue).filter(f).toSet)
-
-  def between(minChar: Char, maxChar: Char): Regex = CharacterSet((minChar to maxChar).toSet)
+  def oneOf(chars: Char*): Regex = CharacterSet(chars.toSet)
 
   val digit: Regex = Digit
 
