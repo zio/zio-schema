@@ -20,4 +20,19 @@ trait Regexs {
         domain
     )
   }
+
+  lazy val phoneNumberCh: Validation[String] = {
+    val optionalSpace = Regex.oneOf(' ').atMost(1)
+    val twoDigits     = Regex.digit.between(2, 2)
+    val threeDigits   = Regex.digit.between(3, 3)
+    Validation.regex(
+      (((Regex.oneOf('+') | Regex
+        .oneOf('0')
+        .between(2, 2)) ~ Regex.oneOf('4') ~ Regex.oneOf('1')) | Regex.oneOf('0')) ~ optionalSpace ~
+        twoDigits ~ optionalSpace ~
+        threeDigits ~ optionalSpace ~
+        twoDigits ~ optionalSpace ~
+        twoDigits
+    )
+  }
 }
