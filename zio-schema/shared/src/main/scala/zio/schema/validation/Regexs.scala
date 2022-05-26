@@ -22,13 +22,16 @@ trait Regexs {
   }
 
   lazy val phoneNumberCh: Validation[String] = {
-    val optionalSpace = Regex.oneOf(' ').atMost(1)
-    val twoDigits     = Regex.digit.between(2, 2)
-    val threeDigits   = Regex.digit.between(3, 3)
+    val optionalSpace       = Regex.literalCharacter(' ').atMost(1)
+    val twoDigits           = Regex.digit.exactly(2)
+    val threeDigits         = Regex.digit.exactly(3)
+    val plus                = Regex.literalCharacter('+')
+    val doubleZero          = Regex.concatenation("00")
+    val internationalPrefix = (plus | doubleZero) ~ Regex.concatenation("41")
+    val nationalPrefix      = Regex.literalCharacter('0')
+    val prefix              = (internationalPrefix | nationalPrefix)
     Validation.regex(
-      (((Regex.oneOf('+') | Regex
-        .oneOf('0')
-        .between(2, 2)) ~ Regex.oneOf('4') ~ Regex.oneOf('1')) | Regex.oneOf('0')) ~ optionalSpace ~
+      prefix ~ optionalSpace ~
         twoDigits ~ optionalSpace ~
         threeDigits ~ optionalSpace ~
         twoDigits ~ optionalSpace ~

@@ -6,6 +6,7 @@ sealed trait Regex {
   def atLeast(n: Int): Regex             = Regex.Repeat(this, Some(n), None)
   def atMost(n: Int): Regex              = Regex.Repeat(this, None, Some(n))
   def between(min: Int, max: Int): Regex = Regex.Repeat(this, Some(min), Some(max))
+  def exactly(n: Int): Regex             = Regex.Repeat(this, Some(n), Some(n))
   def + : Regex                          = atLeast(1)
   def * : Regex                          = atLeast(0)
   def ~(that: Regex): Regex              = Regex.Sequence(this, that)
@@ -81,6 +82,22 @@ object Regex {
   final case class Alternate(left: Regex, right: Regex) extends Regex
 
   def oneOf(chars: Char*): Regex = CharacterSet(chars.toSet)
+
+  def literalCharacter(char: Char): Regex = CharacterSet(Set(char))
+
+  def concatenation(str: String): Regex = {
+    def loop(l: List[Char], acc: Regex): Regex =
+      l.toList match {
+        case head :: Nil  => acc ~ literalCharacter(head)
+        case head :: tail => loop(tail, acc ~ literalCharacter(head))
+        case Nil          => acc
+      }
+
+    loop(str.toList, Empty)
+  }
+
+  //def ()
+  // `^hallo$` -> hallo
 
   def filter(f: Char => Boolean): Regex = CharacterSet((Char.MinValue to Char.MaxValue).filter(f).toSet)
 
