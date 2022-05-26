@@ -41,9 +41,4 @@ object ValidationError {
     override def message: String =
       s"$str matches a regex other than $expected"
   }
-
-  final case class UnexpectedCountryCode(countryCode: String) extends ValidationError {
-    override def message: String =
-      s"Unexpected country code $countryCode"
-  }
 }
