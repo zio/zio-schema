@@ -218,8 +218,7 @@ object ProtobufCodec extends Codec {
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
     private def encodeSemiDynamic[A](fieldNumber: Option[Int], valueAndSchema: (A, Schema[A])): Chunk[Byte] =
-      encode(fieldNumber, Schema[SchemaAst], valueAndSchema._2.ast) ++
-        encode(fieldNumber, valueAndSchema._2, valueAndSchema._1)
+      encodeTuple(fieldNumber, Schema[SchemaAst], valueAndSchema._2, (valueAndSchema._2.ast, valueAndSchema._1))
 
     private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[_, Z]*): Chunk[Byte] = {
       val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
@@ -503,6 +502,9 @@ object ProtobufCodec extends Codec {
 
     def collectAll[A](chunk: Chunk[Decoder[A]]): Decoder[Chunk[A]] = ???
 
+    def failWhen(cond: Boolean, message: String): Decoder[Unit] =
+      if (cond) Decoder.fail(message) else Decoder.succeed(())
+
     private[codec] val stringDecoder: Decoder[String] =
       Decoder(bytes => Right((Chunk.empty, new String(bytes.toArray, StandardCharsets.UTF_8))))
 
@@ -587,12 +589,24 @@ object ProtobufCodec extends Codec {
     private val dynamicDecoder: Decoder[DynamicValue] =
       decoder(DynamicValueSchema.schema)
 
-    private def semiDynamicDecoder[A]: Decoder[(A, Schema[A])] =
-      astDecoder.flatMap { schema =>
-        decoder(schema).map { value =>
-          (value, schema).asInstanceOf[(A, Schema[A])]
-        }
+    private def decoder[T](wt: WireType, decoder: Decoder[T]): Decoder[T] =
+      wt match {
+        case LengthDelimited(width) =>
+          decoder.take(width)
+        case _ =>
+          decoder
       }
+
+    private def semiDynamicDecoder[A]: Decoder[(A, Schema[A])] =
+      for {
+        key1                <- keyDecoder
+        (wt1, fieldNumber1) = key1
+        _                   <- Decoder.failWhen(fieldNumber1 != 1, "serialized AST should come first for SemiDynamic types")
+        schema              <- decoder(wt1, astDecoder)
+        key2                <- keyDecoder
+        (wt2, _)            = key2
+        value               <- decoder(wt2, decoder(schema))
+      } yield (value.asInstanceOf[A], schema.asInstanceOf[Schema[A]])
 
     private def enumDecoder[Z](cases: Schema.Case[_, Z]*): Decoder[Z] =
       keyDecoder.flatMap {
