@@ -167,7 +167,7 @@ private[example7] object Problem {
           case record: Record[B] =>
             (qp: QueryParams) => {
               record.structure.map {
-                case Schema.Field(label, schema, _) =>
+                case Schema.Field(label, schema, _, _) =>
                   compile(Some(label), schema)(qp)
               }.foldRight[Either[String, Chunk[Any]]](Right(Chunk.empty)) {
                   case (Right(nextValue), Right(values)) => Right(values :+ nextValue)
