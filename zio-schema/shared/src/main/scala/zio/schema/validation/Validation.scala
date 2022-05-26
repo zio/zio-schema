@@ -44,7 +44,7 @@ final case class Validation[A](bool: Bool[Predicate[A]]) { self =>
   }
 }
 
-object Validation extends Regexs {
+object Validation extends Regexs with Time {
   import Predicate._
 
   // String operations
