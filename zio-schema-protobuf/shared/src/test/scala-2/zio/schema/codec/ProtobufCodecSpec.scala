@@ -587,6 +587,18 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
 //              ed2 <- encodeAndDecodeNS(schema, value)
             } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
         }
+      },
+      testM("semi dynamic within an enum") {
+        checkM(SchemaGen.anyPrimitiveAndValue) { case (s, value) =>
+          val schema = s.asInstanceOf[Schema[value.type]]
+          val dynamicValue = DynamicValue.fromSchemaAndValue(s, value)
+          val semiDynamicSchema = Schema.semiDynamic[value.type]().transformOrFail(
+            { case (str, schema) => Right(DynamicValue.fromSchemaAndValue(schema, str)) },
+            (v: DynamicValue) => v.toTypedValue(schema).map((_, schema))
+          )
+          val enumSchema = Schema.Enum1[DynamicValue, DynamicValue](Schema.Case("one", semiDynamicSchema, identity))
+          assertM(encodeAndDecode(enumSchema, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
       }
     ),
     suite("Should successfully decode")(
