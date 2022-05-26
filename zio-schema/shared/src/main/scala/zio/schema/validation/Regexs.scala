@@ -21,6 +21,9 @@ trait Regexs {
     )
   }
 
+  /**
+   * Validates phone numbers from Switzerland
+   */
   lazy val phoneNumberCh: Validation[String] = {
     val optionalSpace       = Regex.literal(" ").atMost(1)
     val twoDigits           = Regex.digit.exactly(2)
@@ -30,6 +33,7 @@ trait Regexs {
     val internationalPrefix = (plus | doubleZero) ~ Regex.literal("41")
     val nationalPrefix      = Regex.literal("0")
     val prefix              = (internationalPrefix | nationalPrefix)
+
     Validation.regex(
       prefix ~ optionalSpace ~
         twoDigits ~ optionalSpace ~
@@ -38,4 +42,27 @@ trait Regexs {
         twoDigits
     )
   }
+
+  /**
+   * Validates phone numbers from Serbia
+   */
+  lazy val phoneNumberRs: Validation[String] = {
+    val optionalSpaces      = Regex.oneOf(' ').*
+    val twoDigits           = Regex.digit.exactly(2)
+    val threeDigits         = Regex.digit.exactly(3)
+    val plus                = Regex.literal("+")
+    val doubleZero          = Regex.literal("00")
+    val internationalPrefix = (plus | doubleZero) ~ Regex.literal("381")
+    val nationalPrefix      = Regex.literal("0")
+    val prefix              = (internationalPrefix | nationalPrefix)
+
+    Validation.regex(
+      prefix ~ optionalSpaces ~
+        twoDigits ~ optionalSpaces ~
+        threeDigits ~ optionalSpaces ~
+        twoDigits ~ optionalSpaces ~
+        twoDigits
+    )
+  }
+
 }
