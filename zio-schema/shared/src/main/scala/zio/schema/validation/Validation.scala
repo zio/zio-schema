@@ -63,8 +63,8 @@ object Validation extends Regexs {
   def equalTo[A](value: A)(implicit numType: NumType[A]): Validation[A] =
     Validation(Bool.Leaf(Num.EqualTo(numType, value)))
 
-  def succeed[A]: Validation[A]  = Validation(Bool.Leaf(Predicate.True[A]()))
-  def fail[A]: Validation[A] = !succeed[A]
+  def succeed[A]: Validation[A] = Validation(Bool.Leaf(Predicate.True[A]()))
+  def fail[A]: Validation[A]    = !succeed[A]
 
   def allOf[A](vs: Validation[A]*): Validation[A]          = vs.foldLeft(succeed[A])(_ && _)
   def allOf[A](vl: Iterable[Validation[A]]): Validation[A] = allOf(vl.toSeq: _*)

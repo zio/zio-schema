@@ -20,10 +20,4 @@ trait Regexs {
         domain
     )
   }
-  // TODO - add uuid
-  // TODO - add age
-  // TODO - date-time stuff
-  // TODO - add phone numbers
-  // TODO - Countries/Country codes
-  // TODO - postal codes
 }

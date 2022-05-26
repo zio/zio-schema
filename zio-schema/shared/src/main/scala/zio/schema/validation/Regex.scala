@@ -1,8 +1,6 @@
 package zio.schema.validation
-import zio.schema.validation.Regex.CharacterSet
-import zio.schema.validation.Regex.Repeat
-import zio.schema.validation.Regex.Empty
-import zio.schema.validation.Regex.Alternate
+
+import zio.schema.validation.Regex.{ Alternate, CharacterSet, Empty, Repeat }
 
 sealed trait Regex {
   def atLeast(n: Int): Regex             = Regex.Repeat(this, Some(n), None)
@@ -74,11 +72,11 @@ object Regex {
 
   final case class Sequence(first: Regex, second: Regex) extends Regex
 
-  final case object Letter extends Regex
+  case object Letter extends Regex
 
-  final case object Digit extends Regex
+  case object Digit extends Regex
 
-  final case object Empty extends Regex
+  case object Empty extends Regex
 
   final case class Alternate(left: Regex, right: Regex) extends Regex
 

@@ -844,7 +844,7 @@ object ThriftCodec extends Codec {
           if (index >= fields.size) Right(buffer)
           else {
             val Schema.Field(label, schema, _, _) = fields(index)
-            val rawValue                       = values.get((index + 1).toShort)
+            val rawValue                          = values.get((index + 1).toShort)
             rawValue match {
               case Some(value) =>
                 buffer.update(index, value)
