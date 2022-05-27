@@ -90,6 +90,22 @@ object ValidationSpec extends DefaultRunnableSpec {
       assertTrue(validation.validate("-41 79 123 45 67").isLeft) &&
       assertTrue(validation.validate("+41 79 123 45 678").isLeft) &&
       assertTrue(validation.validate("79 123 45 678").isLeft)
+    },
+    test("Regex phone number Validation for DE") {
+      val validation = Validation.phoneNumberDe
+
+      assertTrue(validation.validate("+49 30 901820").isRight) &&
+      assertTrue(validation.validate("004930901820").isRight) &&
+      assertTrue(validation.validate("030901820").isRight) &&
+      assertTrue(validation.validate("030 901820").isRight) &&
+      assertTrue(validation.validate("+49 1522 3433333").isRight) &&
+      assertTrue(validation.validate("+49 152 901820").isRight) &&
+      assertTrue(validation.validate("0049 152 901820").isRight) &&
+      assertTrue(validation.validate("+49 152 901820").isRight) &&
+      assertTrue(validation.validate("0041 30 901820").isLeft) &&
+      assertTrue(validation.validate("+49 0152 901820").isLeft) &&
+      assertTrue(validation.validate("49 152 901820").isLeft) &&
+      assertTrue(validation.validate("049 152 901820").isLeft)
     }
   )
 }
