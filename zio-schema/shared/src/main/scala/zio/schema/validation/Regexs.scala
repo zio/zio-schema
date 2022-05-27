@@ -86,7 +86,7 @@ trait Regexs {
   lazy val phoneNumberRs: Validation[String] = {
     import PhoneNumberRegexs._
 
-    val optionalSpaces          = optionalSpace.*
+    val optionalSpaces          = Regex.literal(" ").*
     val digitWithOptionalSpaces = Regex.digit.exactly(1) ~ optionalSpaces
     val internationalPrefix     = (plus | doubleZero) ~ Regex.literal("381")
     val nationalPrefix          = Regex.literal("0")
