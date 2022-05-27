@@ -38,4 +38,19 @@ trait Regexs {
         twoDigits
     )
   }
+
+  lazy val phoneNumberDe: Validation[String] = {
+    val optionalSpace       = Regex.literal(" ").atMost(1)
+    val internationalPrefix = (Regex.literal("+") | Regex.literal("00")) ~ Regex.literal("49")
+    val nationalPrefix      = Regex.literal("0")
+    val digitNonZero        = Regex.oneOf('1', '2', '3', '4', '5', '6', '7', '8', '9')
+    val areaPrefix          = digitNonZero ~ Regex.digit.between(1, 4)
+    val phoneNumber         = Regex.digit.between(3, 9)
+
+    Validation.regex(
+      (internationalPrefix | nationalPrefix) ~ optionalSpace ~
+        areaPrefix ~ optionalSpace ~
+        phoneNumber
+    )
+  }
 }
