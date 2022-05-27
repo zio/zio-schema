@@ -251,7 +251,7 @@ object ProtobufCodec extends Codec {
     ): Chunk[Byte] = {
       val encodedRecord = Chunk
         .fromIterable(structure.zipWithIndex.map {
-          case (Schema.Field(label, schema, _), fieldNumber) =>
+          case (Schema.Field(label, schema, _, _), fieldNumber) =>
             data
               .get(label)
               .map(value => encode(Some(fieldNumber + 1), schema.asInstanceOf[Schema[Any]], value))
@@ -642,7 +642,7 @@ object ProtobufCodec extends Codec {
         keyDecoder.flatMap {
           case (wt, fieldNumber) =>
             if (fields.isDefinedAt(fieldNumber - 1)) {
-              val Schema.Field(fieldName, schema, _) = fields(fieldNumber - 1)
+              val Schema.Field(fieldName, schema, _, _) = fields(fieldNumber - 1)
 
               wt match {
                 case LengthDelimited(width) =>
@@ -915,7 +915,7 @@ object ProtobufCodec extends Codec {
       {
         val encoded = Chunk
           .fromIterable(fields.zipWithIndex.map {
-            case ((Schema.Field(_, schema, _), ext), fieldNumber) =>
+            case ((Schema.Field(_, schema, _, _), ext), fieldNumber) =>
               Encoder.encode(Some(fieldNumber + 1), schema.asInstanceOf[Schema[Any]], ext(value))
           })
           .flatten
