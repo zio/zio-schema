@@ -21,12 +21,16 @@ trait Regexs {
     )
   }
 
+  object PhoneNumberRegexs {
+    val optionalSpace: Regex = Regex.literal(" ").atMost(1)
+    val twoDigits: Regex     = Regex.digit.exactly(2)
+    val threeDigits: Regex   = Regex.digit.exactly(3)
+    val plus: Regex          = Regex.literal("+")
+    val doubleZero: Regex    = Regex.literal("00")
+  }
+
   lazy val phoneNumberCh: Validation[String] = {
-    val optionalSpace       = Regex.literal(" ").atMost(1)
-    val twoDigits           = Regex.digit.exactly(2)
-    val threeDigits         = Regex.digit.exactly(3)
-    val plus                = Regex.literal("+")
-    val doubleZero          = Regex.literal("00")
+    import PhoneNumberRegexs._
     val internationalPrefix = (plus | doubleZero) ~ Regex.literal("41")
     val nationalPrefix      = Regex.literal("0")
     val prefix              = (internationalPrefix | nationalPrefix)
@@ -40,11 +44,7 @@ trait Regexs {
   }
 
   lazy val phoneNumberPt: Validation[String] = {
-    val optionalSpace       = Regex.literal(" ").atMost(1)
-    val twoDigits           = Regex.digit.exactly(2)
-    val threeDigits         = Regex.digit.exactly(3)
-    val plus                = Regex.literal("+")
-    val doubleZero          = Regex.literal("00")
+    import PhoneNumberRegexs._
     val internationalPrefix = (plus | doubleZero) ~ Regex.literal("351")
     val nationalPrefix      = Regex.literal("")
     val prefix              = (internationalPrefix | nationalPrefix)
