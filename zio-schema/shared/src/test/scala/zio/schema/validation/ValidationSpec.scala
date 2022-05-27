@@ -218,6 +218,12 @@ object ValidationSpec extends DefaultRunnableSpec {
         "HH:mm:ss SSSSSSSSS a"
       )
       assertParsedTimes(parsedTimes)
+    },
+    testM("Regex duration Validation") {
+      val validation = Validation.duration
+      check(Gen.anyFiniteDuration) { duration =>
+        assertTrue(validation.validate(duration.toString).isRight)
+      }
     }
   )
 

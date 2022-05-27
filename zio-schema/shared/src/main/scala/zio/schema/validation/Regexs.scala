@@ -57,4 +57,24 @@ trait Regexs {
     )
   }
 
+  lazy val duration: Validation[String] = {
+    val posDigit = Regex.between('1', '9')
+    val integer  = Regex.digit.+
+    val number   = integer ~ (Regex.oneOf('.') ~ Regex.digit.* ~ posDigit).?
+
+    val second = number ~ Regex.oneOf('S')
+    val minute = number ~ Regex.oneOf('M') ~ second.?
+    val hour   = number ~ Regex.oneOf('H') ~ minute.? ~ second.?
+    val time   = Regex.oneOf('T') ~ (hour | minute | second)
+
+    val day      = number ~ Regex.oneOf('D')
+    val week     = number ~ Regex.oneOf('W')
+    val month    = number ~ Regex.oneOf('M') ~ day.?
+    val year     = number ~ Regex.oneOf('Y') ~ month.? ~ day.?
+    val date     = (day | month | year) ~ time.?
+    val duration = Regex.oneOf('P') ~ (date | time | week)
+
+    Validation.regex(duration)
+  }
+
 }

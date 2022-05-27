@@ -4,8 +4,8 @@ object PhoneNumberValidation extends PhoneNumberValidation {}
 
 trait PhoneNumberValidation {
 
-  val optionalSpace: Regex       = Regex.literal(" ").atMost(1)
-  val optionalSeparator: Regex   = Regex.oneOf('-', ' ').atMost(1)
+  val optionalSpace: Regex       = Regex.literal(" ").?
+  val optionalSeparator: Regex   = Regex.oneOf('-', ' ').?
   val twoDigits: Regex           = Regex.digit.exactly(2)
   val threeDigits: Regex         = Regex.digit.exactly(3)
   val plus: Regex                = Regex.literal("+")
@@ -14,7 +14,7 @@ trait PhoneNumberValidation {
   val nationalPrefixZero: Regex  = Regex.literal("0")
   val nationalPrefixOne: Regex   = Regex.literal("1")
   val nationalPrefixEight: Regex = Regex.literal("8")
-  val digitsWithSeparator: Regex = Regex.digit.exactly(1) ~ optionalSeparator
+  val digitsWithSeparator: Regex = Regex.digit ~ optionalSeparator
 
   /** Phone number validation for Ascension Island */
   lazy val phoneNumberAC: Validation[String] = {
