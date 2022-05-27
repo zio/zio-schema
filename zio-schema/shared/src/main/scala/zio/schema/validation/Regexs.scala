@@ -38,4 +38,20 @@ trait Regexs {
         twoDigits
     )
   }
+
+  lazy val phoneNumberPt: Validation[String] = {
+    val optionalSpace       = Regex.literal(" ").atMost(1)
+    val twoDigits           = Regex.digit.exactly(2)
+    val threeDigits         = Regex.digit.exactly(3)
+    val plus                = Regex.literal("+")
+    val doubleZero          = Regex.literal("00")
+    val internationalPrefix = (plus | doubleZero) ~ Regex.literal("351")
+    val nationalPrefix      = Regex.literal("")
+    val prefix              = (internationalPrefix | nationalPrefix)
+    Validation.regex(
+      prefix ~ optionalSpace ~
+        ((twoDigits ~ optionalSpace ~ threeDigits ~ optionalSpace ~ twoDigits ~ optionalSpace ~ twoDigits) |
+            (threeDigits ~ optionalSpace ~ threeDigits ~ optionalSpace ~ threeDigits))
+    )
+  }
 }
