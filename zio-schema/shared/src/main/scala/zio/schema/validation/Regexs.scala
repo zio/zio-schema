@@ -47,21 +47,17 @@ trait Regexs {
    * Validates phone numbers from Serbia
    */
   lazy val phoneNumberRs: Validation[String] = {
-    val optionalSpaces      = Regex.oneOf(' ').*
-    val twoDigits           = Regex.digit.exactly(2)
-    val threeDigits         = Regex.digit.exactly(3)
-    val plus                = Regex.literal("+")
-    val doubleZero          = Regex.literal("00")
-    val internationalPrefix = (plus | doubleZero) ~ Regex.literal("381")
-    val nationalPrefix      = Regex.literal("0")
-    val prefix              = (internationalPrefix | nationalPrefix)
+    val optionalSpaces          = Regex.oneOf(' ').*
+    val digitWithOptionalSpaces = Regex.digit.exactly(1) ~ optionalSpaces
+    val plus                    = Regex.literal("+")
+    val doubleZero              = Regex.literal("00")
+    val internationalPrefix     = (plus | doubleZero) ~ Regex.literal("381")
+    val nationalPrefix          = Regex.literal("0")
+    val prefix                  = (internationalPrefix | nationalPrefix)
+    val number                  = digitWithOptionalSpaces.between(9, 10)
 
     Validation.regex(
-      prefix ~ optionalSpaces ~
-        twoDigits ~ optionalSpaces ~
-        threeDigits ~ optionalSpaces ~
-        twoDigits ~ optionalSpaces ~
-        twoDigits
+      prefix ~ optionalSpaces ~ number
     )
   }
 

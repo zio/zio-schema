@@ -98,6 +98,7 @@ object ValidationSpec extends DefaultRunnableSpec {
       assertTrue(validation.validate("+381 11 123 45 67").isRight) &&
       assertTrue(validation.validate("00381111234567").isRight) &&
       assertTrue(validation.validate("00381 11 123 45 67").isRight) &&
+      assertTrue(validation.validate("00381 230 123 45 67").isRight) &&
       assertTrue(validation.validate("0111234567").isRight) &&
       assertTrue(validation.validate("-381 11 123 45 67").isLeft) &&
       assertTrue(validation.validate("+381 11 123 45 6789").isLeft) &&
