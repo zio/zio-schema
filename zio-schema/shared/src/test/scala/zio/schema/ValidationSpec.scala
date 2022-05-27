@@ -78,6 +78,18 @@ object ValidationSpec extends DefaultRunnableSpec {
       assertTrue(validation.validate("1@a.com").isLeft) &&
       assertTrue(validation.validate("1@a.b.com").isLeft) &&
       assertTrue(validation.validate("a@a..b.com").isLeft)
+    },
+    test("Regex phone number Validation for CH") {
+      val validation = Validation.phoneNumberCh
+
+      assertTrue(validation.validate("0041791234567").isRight) &&
+      assertTrue(validation.validate("0041 79 123 45 67").isRight) &&
+      assertTrue(validation.validate("+41791234567").isRight) &&
+      assertTrue(validation.validate("+41 79 123 45 67").isRight) &&
+      assertTrue(validation.validate("0791234567").isRight) &&
+      assertTrue(validation.validate("-41 79 123 45 67").isLeft) &&
+      assertTrue(validation.validate("+41 79 123 45 678").isLeft) &&
+      assertTrue(validation.validate("79 123 45 678").isLeft)
     }
   )
 }
