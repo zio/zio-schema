@@ -133,18 +133,18 @@ object SchemaAstSpec extends DefaultRunnableSpec {
         val expectedAst = SchemaAst.Sum(
           path = NodePath.root,
           cases = Chunk(
+            "Rock" -> SchemaAst.Value(StandardType.UnitType, NodePath.root / "Rock"),
+            "Dog" -> SchemaAst.Product(
+              path = NodePath.root / "Dog",
+              fields = Chunk("name" -> SchemaAst.Value(StandardType.StringType, NodePath.root / "Dog" / "name"))
+            ),
             "Cat" -> SchemaAst.Product(
               path = NodePath.root / "Cat",
               fields = Chunk(
                 "name"    -> SchemaAst.Value(StandardType.StringType, NodePath.root / "Cat" / "name"),
                 "hasHair" -> SchemaAst.Value(StandardType.BoolType, NodePath.root / "Cat" / "hasHair")
               )
-            ),
-            "Dog" -> SchemaAst.Product(
-              path = NodePath.root / "Dog",
-              fields = Chunk("name" -> SchemaAst.Value(StandardType.StringType, NodePath.root / "Dog" / "name"))
-            ),
-            "Rock" -> SchemaAst.Value(StandardType.UnitType, NodePath.root / "Rock")
+            )
           )
         )
         assertTrue(SchemaAst.fromSchema(schema) == expectedAst)
