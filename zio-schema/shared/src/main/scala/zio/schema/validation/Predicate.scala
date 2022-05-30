@@ -2,7 +2,7 @@ package zio.schema.validation
 
 import java.time.format.DateTimeFormatter
 
-import scala.util.{Failure, Success, Try}
+import scala.util.{ Failure, Success, Try }
 
 sealed trait Predicate[A] {
   type Errors = List[ValidationError]
