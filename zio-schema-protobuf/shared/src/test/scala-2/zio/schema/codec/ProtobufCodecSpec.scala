@@ -587,6 +587,34 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
 //              ed2 <- encodeAndDecodeNS(schema, value)
             } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
         }
+      },
+      testM("semi dynamic string within an enum") {
+        checkM(Gen.anyString) {
+          case (value) =>
+            val dynamicValue = DynamicValue.fromSchemaAndValue(Schema[String], value)
+            val semiDynamicSchema = Schema
+              .semiDynamic[String]()
+              .transformOrFail(
+                { case (str, schema) => Right(DynamicValue.fromSchemaAndValue(schema, str)) },
+                (v: DynamicValue) => v.toTypedValue(Schema[String]).map((_, Schema[String]))
+              )
+            val enumSchema = Schema.Enum1[DynamicValue, DynamicValue](Schema.Case("one", semiDynamicSchema, identity))
+            assertM(encodeAndDecode(enumSchema, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
+      },
+      testM("semi dynamic list of ints within an enum") {
+        checkM(Gen.chunkOf(Gen.anyInt)) {
+          case (value) =>
+            val dynamicValue = DynamicValue.fromSchemaAndValue(Schema[Chunk[Int]], value)
+            val semiDynamicSchema = Schema
+              .semiDynamic[Chunk[Int]]()
+              .transformOrFail(
+                { case (str, schema) => Right(DynamicValue.fromSchemaAndValue(schema, str)) },
+                (v: DynamicValue) => v.toTypedValue(Schema[Chunk[Int]]).map((_, Schema[Chunk[Int]]))
+              )
+            val enumSchema = Schema.Enum1[DynamicValue, DynamicValue](Schema.Case("one", semiDynamicSchema, identity))
+            assertM(encodeAndDecode(enumSchema, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        }
       }
     ),
     suite("Should successfully decode")(
