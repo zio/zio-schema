@@ -25,11 +25,10 @@ trait Regexs {
    * Checks whether a certain string represents a valid IPv4 address.
    */
   lazy val ipV4: Validation[String] = {
-    // Four parts of "^(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$".r
     val separator           = Regex.literal(".").exactly(1)
-    val isZeroToFour: Regex = Regex.oneOf('0', '1', '2', '3', '4')
-    val isZeroToFive: Regex = isZeroToFour | Regex.oneOf('5')
     val isZeroOrOne: Regex  = Regex.oneOf('0', '1')
+    val isZeroToFour: Regex = isZeroOrOne | Regex.oneOf('2', '3', '4')
+    val isZeroToFive: Regex = isZeroToFour | Regex.oneOf('5')
     val is250To255: Regex   = Regex.literal("25") ~ isZeroToFive
     val is200To249: Regex   = Regex.literal("2") ~ isZeroToFour ~ Regex.digit
     val isZeroTo199: Regex  = (isZeroOrOne ~ Regex.digit.exactly(2)) | Regex.digit.atMost(2)
