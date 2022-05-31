@@ -65,7 +65,7 @@ object AvroAnnotations {
       case Field.Order.ASCENDING  => FieldOrderType.Ascending
       case Field.Order.DESCENDING => FieldOrderType.Descending
       case Field.Order.IGNORE     => FieldOrderType.Ignore
-      case _                      => default
+      case null                   => default
     }
     case object Ascending  extends FieldOrderType
     case object Descending extends FieldOrderType

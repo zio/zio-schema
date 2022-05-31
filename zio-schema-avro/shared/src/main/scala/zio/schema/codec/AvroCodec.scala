@@ -207,7 +207,7 @@ object AvroCodec extends AvroCodec {
                  case SchemaAvro.Type.DOUBLE  => Right(Schema.primitive(StandardType.DoubleType))
                  case SchemaAvro.Type.BOOLEAN => Right(Schema.primitive(StandardType.BoolType))
                  case SchemaAvro.Type.NULL    => Right(Schema.primitive(StandardType.UnitType))
-                 case _                       => Left(s"Unsupported type ${avroSchema.getType}")
+                 case null                    => Left(s"Unsupported type ${avroSchema.getType}")
                }
     } yield result
 
