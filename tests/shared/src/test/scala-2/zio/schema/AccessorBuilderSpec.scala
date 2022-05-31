@@ -133,12 +133,12 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
 
       assertTrue(
         s1 == schema && s2 == schema && s3 == schema & s4 == schema && s5 == schema && s6 == schema &&
-          c1.id == "JArray" &&
-          c2.id == "JDecimal" &&
-          c3.id == "JNull" &&
-          c4.id == "JNumber" &&
+          c1.id == "JNull" &&
+          c2.id == "JString" &&
+          c3.id == "JNumber" &&
+          c4.id == "JDecimal" &&
           c5.id == "JObject" &&
-          c6.id == "JString"
+          c6.id == "JArray"
       )
     }
   )
