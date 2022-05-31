@@ -17,11 +17,11 @@ object AvroPropMarker {
   val wrapperNamePrefix = "wrapper"
   val wrapperNamespace  = "zio.schema.codec.avro"
 
-  final case object UnionWrapper extends AvroPropMarker {
+  case object UnionWrapper extends AvroPropMarker {
     override def propName: String = "zio.schema.codec.avro.wrapper"
   }
 
-  final case object EitherWrapper extends AvroPropMarker {
+  case object EitherWrapper extends AvroPropMarker {
     override def propName: String = "zio.schema.codec.avro.either"
   }
 
@@ -96,29 +96,27 @@ object AvroPropMarker {
       }
 
     private def fromAvroString(avroSchema: SchemaAvro): Either[String, Option[Formatter]] =
-      avroSchema.getObjectProps.asScala
-        .get(propName)
-        .collectFirst {
-          case "ISO_LOCAL_DATE_TIME"  => Right(Formatter(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
-          case "ISO_DATE"             => Right(Formatter(DateTimeFormatter.ISO_DATE))
-          case "ISO_TIME"             => Right(Formatter(DateTimeFormatter.ISO_TIME))
-          case "ISO_LOCAL_TIME"       => Right(Formatter(DateTimeFormatter.ISO_LOCAL_TIME))
-          case "ISO_LOCAL_DATE"       => Right(Formatter(DateTimeFormatter.ISO_LOCAL_DATE))
-          case "ISO_OFFSET_DATE_TIME" => Right(Formatter(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
-          case "ISO_OFFSET_DATE"      => Right(Formatter(DateTimeFormatter.ISO_OFFSET_DATE))
-          case "ISO_OFFSET_TIME"      => Right(Formatter(DateTimeFormatter.ISO_OFFSET_TIME))
-          case "ISO_ZONED_DATE_TIME"  => Right(Formatter(DateTimeFormatter.ISO_ZONED_DATE_TIME))
-          case "ISO_ORDINAL_DATE"     => Right(Formatter(DateTimeFormatter.ISO_ORDINAL_DATE))
-          case "ISO_WEEK_DATE"        => Right(Formatter(DateTimeFormatter.ISO_WEEK_DATE))
-          case "ISO_INSTANT"          => Right(Formatter(DateTimeFormatter.ISO_INSTANT))
-          case "ISO_DATE_TIME"        => Right(Formatter(DateTimeFormatter.ISO_DATE_TIME))
-          case "RFC_1123_DATE_TIME"   => Right(Formatter(DateTimeFormatter.RFC_1123_DATE_TIME))
-          case "BASIC_ISO_DATE"       => Right(Formatter(DateTimeFormatter.BASIC_ISO_DATE))
-          case s: String =>
-            Try {
-              Formatter(DateTimeFormatter.ofPattern(s))
-            }.toEither.left.map(_.getMessage)
-        } match {
+      avroSchema.getObjectProps.asScala.get(propName).collect {
+        case "ISO_LOCAL_DATE_TIME"  => Right(Formatter(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+        case "ISO_DATE"             => Right(Formatter(DateTimeFormatter.ISO_DATE))
+        case "ISO_TIME"             => Right(Formatter(DateTimeFormatter.ISO_TIME))
+        case "ISO_LOCAL_TIME"       => Right(Formatter(DateTimeFormatter.ISO_LOCAL_TIME))
+        case "ISO_LOCAL_DATE"       => Right(Formatter(DateTimeFormatter.ISO_LOCAL_DATE))
+        case "ISO_OFFSET_DATE_TIME" => Right(Formatter(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+        case "ISO_OFFSET_DATE"      => Right(Formatter(DateTimeFormatter.ISO_OFFSET_DATE))
+        case "ISO_OFFSET_TIME"      => Right(Formatter(DateTimeFormatter.ISO_OFFSET_TIME))
+        case "ISO_ZONED_DATE_TIME"  => Right(Formatter(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+        case "ISO_ORDINAL_DATE"     => Right(Formatter(DateTimeFormatter.ISO_ORDINAL_DATE))
+        case "ISO_WEEK_DATE"        => Right(Formatter(DateTimeFormatter.ISO_WEEK_DATE))
+        case "ISO_INSTANT"          => Right(Formatter(DateTimeFormatter.ISO_INSTANT))
+        case "ISO_DATE_TIME"        => Right(Formatter(DateTimeFormatter.ISO_DATE_TIME))
+        case "RFC_1123_DATE_TIME"   => Right(Formatter(DateTimeFormatter.RFC_1123_DATE_TIME))
+        case "BASIC_ISO_DATE"       => Right(Formatter(DateTimeFormatter.BASIC_ISO_DATE))
+        case s: String =>
+          Try {
+            Formatter(DateTimeFormatter.ofPattern(s))
+          }.toEither.left.map(_.getMessage)
+      } match {
         case Some(value) => value.map(Some(_))
         case None        => Right(None)
       }
@@ -130,7 +128,7 @@ object AvroPropMarker {
     val propName                    = "zio.schema.codec.avro.durationChronoUnit"
 
     def fromAvroDuration(avroSchema: SchemaAvro): Option[DurationChronoUnit] =
-      avroSchema.getObjectProps.asScala.get(propName).collectFirst {
+      avroSchema.getObjectProps.asScala.get(propName).collect {
         case "NANOS"     => DurationChronoUnit(ChronoUnit.NANOS)
         case "MICROS"    => DurationChronoUnit(ChronoUnit.MICROS)
         case "MILLIS"    => DurationChronoUnit(ChronoUnit.MILLIS)
@@ -184,11 +182,11 @@ sealed trait RecordType { self =>
 }
 
 object RecordType {
-  val propName = "zio.schema.codec.recordType"
+  val propName: String = "zio.schema.codec.recordType"
 
   def fromAvroRecord(avroSchema: SchemaAvro): Option[RecordType] =
     if (avroSchema.getType == SchemaAvro.Type.RECORD) {
-      avroSchema.getObjectProps.asScala.get(propName).collectFirst {
+      avroSchema.getObjectProps.asScala.get(propName).collect {
         case "monthDay"  => RecordType.MonthDay
         case "period"    => RecordType.Period
         case "yearMonth" => RecordType.YearMonth
@@ -223,7 +221,7 @@ object StringType {
 
   def fromAvroString(avroSchema: SchemaAvro): Option[StringType] =
     if (avroSchema.getType == SchemaAvro.Type.STRING) {
-      avroSchema.getObjectProps.asScala.get(propName).collectFirst {
+      avroSchema.getObjectProps.asScala.get(propName).collect {
         case "zoneId"         => StringType.ZoneId
         case "instant"        => StringType.Instant
         case "localDate"      => StringType.LocalDate
@@ -262,7 +260,7 @@ object IntType {
 
   def fromAvroInt(avroSchema: SchemaAvro): Option[IntType] =
     if (avroSchema.getType == SchemaAvro.Type.INT) {
-      avroSchema.getObjectProps.asScala.get(propName).collectFirst {
+      avroSchema.getObjectProps.asScala.get(propName).collect {
         case "char"       => IntType.Char
         case "short"      => IntType.Short
         case "dayOfWeek"  => IntType.DayOfWeek

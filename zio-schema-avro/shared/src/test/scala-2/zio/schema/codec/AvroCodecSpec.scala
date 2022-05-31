@@ -1,7 +1,11 @@
 package zio.schema.codec
 
 import java.time.format.DateTimeFormatter
-//import java.time.temporal.ChronoUnit
+import java.util.UUID
+
+import scala.collection.immutable.ListMap
+import scala.util.Try
+
 import zio.Chunk
 import zio.schema.Schema._
 import zio.schema._
@@ -12,10 +16,6 @@ import zio.test.Assertion._
 import zio.test.AssertionM.Render.param
 import zio.test._
 import zio.test.environment.TestEnvironment
-
-import java.util.UUID
-import scala.collection.immutable.ListMap
-import scala.util.Try
 
 object AvroCodecTest extends DefaultRunnableSpec {
 

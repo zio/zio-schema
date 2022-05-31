@@ -29,7 +29,7 @@ object AvroAnnotations {
    *  Used to annotate fields of type LocalDate, LocalTime, LocalDateTime or Instant in order to render them as a string
    *  using the given formatter instead of rendering them as avro logical types.
    */
-  final case object formatToString extends StaticAnnotation
+  case object formatToString extends StaticAnnotation
 
   /**
    * Used to indicate the precision (millisecond precision or microsecond precision) of avro logical types 'Time', 'Timestamp' and 'Local timestamp'
@@ -42,7 +42,7 @@ object AvroAnnotations {
   /**
    * Used to annotate a record in order to render it as a avro error record
    */
-  final case object error extends StaticAnnotation
+  case object error extends StaticAnnotation
 
   /**
    * Used to indicate the avro field order of a record
@@ -67,9 +67,9 @@ object AvroAnnotations {
       case Field.Order.IGNORE     => FieldOrderType.Ignore
       case _                      => default
     }
-    final case object Ascending  extends FieldOrderType
-    final case object Descending extends FieldOrderType
-    final case object Ignore     extends FieldOrderType
+    case object Ascending  extends FieldOrderType
+    case object Descending extends FieldOrderType
+    case object Ignore     extends FieldOrderType
   }
 
   sealed trait DecimalType
