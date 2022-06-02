@@ -357,26 +357,29 @@ object Schema extends SchemaEquality {
   final case class Optional[A](codec: Schema[A], annotations: Chunk[Any] = Chunk.empty) extends Schema[Option[A]] {
     self =>
 
+    val some = "Some"
+    val none = "None"
+
     private[schema] lazy val someCodec: Schema[Some[A]] =
       codec.transform(a => Some(a), _.get)
 
     override def annotate(annotation: Any): Optional[A] = copy(annotations = annotations :+ annotation)
 
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
-      (Prism["Some", Option[A], Some[A]], Prism["None", Option[A], None.type])
+      (Prism[some.type, Option[A], Some[A]], Prism[none.type, Option[A], None.type])
 
     lazy val toEnum: Enum2[Some[A], None.type, Option[A]] = Enum2(
-      TypeId.parse("zio.schema.Schema.Optional"),
-      Case[Some[A], Option[A]]("Some", someCodec, _.asInstanceOf[Some[A]], Chunk.empty),
-      Case[None.type, Option[A]]("None", singleton(None), _.asInstanceOf[None.type], Chunk.empty),
-      Chunk.empty
-    )
+       TypeId.parse("zio.schema.Schema.Optional"),
+       Case[Some[A], Option[A]]("Some", someCodec, _.asInstanceOf[Some[A]], Chunk.empty),
+       Case[None.type, Option[A]]("None", singleton(None), _.asInstanceOf[None.type], Chunk.empty),
+       Chunk.empty
+     )
 
     def defaultValue: Either[String, Option[A]] = Right(None)
 
     override def makeAccessors(
       b: AccessorBuilder
-    ): (b.Prism["Some", Option[A], Some[A]], b.Prism["None", Option[A], None.type]) =
+    ): (b.Prism[some.type, Option[A], Some[A]], b.Prism[none.type, Option[A], None.type]) =
       b.makePrism(toEnum, toEnum.case1) -> b.makePrism(toEnum, toEnum.case2)
 
   }
@@ -393,8 +396,11 @@ object Schema extends SchemaEquality {
 
   final case class Tuple[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
       extends Schema[(A, B)] { self =>
+
+    val first = "_1"    
+    val second = "_2"
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
-      (Lens["_1", (A, B), A], Lens["_2", (A, B), B])
+      (Lens[first.type, (A, B), A], Lens[second.type, (A, B), B])
 
     override def annotate(annotation: Any): Tuple[A, B] = copy(annotations = annotations :+ annotation)
 
@@ -411,15 +417,17 @@ object Schema extends SchemaEquality {
     override def defaultValue: Either[String, (A, B)] =
       left.defaultValue.flatMap(a => right.defaultValue.map(b => (a, b)))
 
-    override def makeAccessors(b: AccessorBuilder): (b.Lens["_1", (A, B), A], b.Lens["_2", (A, B), B]) =
+    override def makeAccessors(b: AccessorBuilder): (b.Lens[first.type, (A, B), A], b.Lens[second.type, (A, B), B]) =
       b.makeLens(toRecord, toRecord.field1) -> b.makeLens(toRecord, toRecord.field2)
-
   }
 
   final case class EitherSchema[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
       extends Schema[Either[A, B]] { self =>
+
+    val leftSingleton = "Left" 
+    val rightSingleton = "Right"   
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
-      (Prism["Right", Either[A, B], Right[Nothing, B]], Prism["Left", Either[A, B], Left[A, Nothing]])
+      (Prism[rightSingleton.type, Either[A, B], Right[Nothing, B]], Prism[leftSingleton.type, Either[A, B], Left[A, Nothing]])
 
     override def annotate(annotation: Any): EitherSchema[A, B] = copy(annotations = annotations :+ annotation)
 
@@ -445,7 +453,7 @@ object Schema extends SchemaEquality {
 
     override def makeAccessors(
       b: AccessorBuilder
-    ): (b.Prism["Right", Either[A, B], Right[Nothing, B]], b.Prism["Left", Either[A, B], Left[A, Nothing]]) =
+    ): (b.Prism[rightSingleton.type, Either[A, B], Right[Nothing, B]], b.Prism[leftSingleton.type, Either[A, B], Left[A, Nothing]]) =
       b.makePrism(toEnum, toEnum.case1) -> b.makePrism(toEnum, toEnum.case2)
 
   }
