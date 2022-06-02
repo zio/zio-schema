@@ -376,11 +376,11 @@ object Schema extends SchemaEquality {
       (Prism[some.type, Option[A], Some[A]], Prism[none.type, Option[A], None.type])
 
     lazy val toEnum: Enum2[Some[A], None.type, Option[A]] = Enum2(
-       TypeId.parse("zio.schema.Schema.Optional"),
-       Case[Some[A], Option[A]]("Some", someCodec, _.asInstanceOf[Some[A]], Chunk.empty),
-       Case[None.type, Option[A]]("None", singleton(None), _.asInstanceOf[None.type], Chunk.empty),
-       Chunk.empty
-     )
+      TypeId.parse("zio.schema.Schema.Optional"),
+      Case[Some[A], Option[A]]("Some", someCodec, _.asInstanceOf[Some[A]], Chunk.empty),
+      Case[None.type, Option[A]]("None", singleton(None), _.asInstanceOf[None.type], Chunk.empty),
+      Chunk.empty
+    )
 
     def defaultValue: Either[String, Option[A]] = Right(None)
 
@@ -404,7 +404,7 @@ object Schema extends SchemaEquality {
   final case class Tuple[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
       extends Schema[(A, B)] { self =>
 
-    val first = "_1"
+    val first  = "_1"
     val second = "_2"
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (Lens[first.type, (A, B), A], Lens[second.type, (A, B), B])
@@ -431,10 +431,13 @@ object Schema extends SchemaEquality {
   final case class EitherSchema[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
       extends Schema[Either[A, B]] { self =>
 
-    val leftSingleton = "Left"
+    val leftSingleton  = "Left"
     val rightSingleton = "Right"
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
-      (Prism[rightSingleton.type, Either[A, B], Right[Nothing, B]], Prism[leftSingleton.type, Either[A, B], Left[A, Nothing]])
+      (
+        Prism[rightSingleton.type, Either[A, B], Right[Nothing, B]],
+        Prism[leftSingleton.type, Either[A, B], Left[A, Nothing]]
+      )
 
     override def annotate(annotation: Any): EitherSchema[A, B] = copy(annotations = annotations :+ annotation)
 
@@ -460,7 +463,10 @@ object Schema extends SchemaEquality {
 
     override def makeAccessors(
       b: AccessorBuilder
-    ): (b.Prism[rightSingleton.type, Either[A, B], Right[Nothing, B]], b.Prism[leftSingleton.type, Either[A, B], Left[A, Nothing]]) =
+    ): (
+      b.Prism[rightSingleton.type, Either[A, B], Right[Nothing, B]],
+      b.Prism[leftSingleton.type, Either[A, B], Left[A, Nothing]]
+    ) =
       b.makePrism(toEnum, toEnum.case1) -> b.makePrism(toEnum, toEnum.case2)
 
   }

@@ -598,7 +598,10 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
                 { case (str, schema) => Right(DynamicValue.fromSchemaAndValue(schema, str)) },
                 (v: DynamicValue) => v.toTypedValue(Schema[String]).map((_, Schema[String]))
               )
-            val enumSchema = Schema.Enum1[DynamicValue, DynamicValue](TypeId.parse("zio.schema.DynamicValue"), Schema.Case("one", semiDynamicSchema, identity))
+            val enumSchema = Schema.Enum1[DynamicValue, DynamicValue](
+              TypeId.parse("zio.schema.DynamicValue"),
+              Schema.Case("one", semiDynamicSchema, identity)
+            )
             assertM(encodeAndDecode(enumSchema, dynamicValue))(equalTo(Chunk(dynamicValue)))
         }
       },
@@ -612,7 +615,10 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
                 { case (str, schema) => Right(DynamicValue.fromSchemaAndValue(schema, str)) },
                 (v: DynamicValue) => v.toTypedValue(Schema[Chunk[Int]]).map((_, Schema[Chunk[Int]]))
               )
-            val enumSchema = Schema.Enum1[DynamicValue, DynamicValue](TypeId.parse("zio.schema.DynamicValue"), Schema.Case("one", semiDynamicSchema, identity))
+            val enumSchema = Schema.Enum1[DynamicValue, DynamicValue](
+              TypeId.parse("zio.schema.DynamicValue"),
+              Schema.Case("one", semiDynamicSchema, identity)
+            )
             assertM(encodeAndDecode(enumSchema, dynamicValue))(equalTo(Chunk(dynamicValue)))
         }
       }
