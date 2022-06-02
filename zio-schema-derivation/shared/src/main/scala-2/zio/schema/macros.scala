@@ -172,7 +172,8 @@ object DeriveSchema {
 
         val currentFrame = Frame[c.type](c, selfRefName, tpe)
 
-        val fieldTypes: Iterable[TermSymbol] = tpe.decls.collect {
+        val sortedDecls = tpe.decls.sorted
+        val fieldTypes: Iterable[TermSymbol] = sortedDecls.collect {
           case p: TermSymbol if p.isCaseAccessor && !p.isMethod => p
         }
         val arity = fieldTypes.size
@@ -182,7 +183,7 @@ object DeriveSchema {
           q"$fieldType"
         } ++ Iterable(q"$tpe")
 
-        val fieldAccessors = tpe.decls.collect {
+        val fieldAccessors = sortedDecls.collect {
           case p: TermSymbol if p.isCaseAccessor && p.isMethod => p.name
         }
 
@@ -409,15 +410,20 @@ object DeriveSchema {
           appliedType(subtype, appliedTypes: _*)
         }
 
-      def knownSubclassesOf(parent: ClassSymbol): Set[Type] = {
-        val (abstractChildren, concreteChildren) = parent.knownDirectSubclasses.partition(_.isAbstract)
-        for (child <- concreteChildren) {
-          child.typeSignature
-          if (!child.isFinal && !child.asClass.isCaseClass)
-            c.abort(c.enclosingPosition, s"child $child of $parent is neither final nor a case class")
-        }
+      def knownSubclassesOf(parent: ClassSymbol): List[Type] = {
 
-        concreteChildren.union(abstractChildren).flatMap { child =>
+        val sortedKnownSubclasses =
+          parent.knownDirectSubclasses.toList.sortBy(subclass => (subclass.pos.line, subclass.pos.column))
+
+        sortedKnownSubclasses
+          .filter(s => !s.isAbstract)
+          .foreach { child =>
+            child.typeSignature
+            if (!child.isFinal && !child.asClass.isCaseClass)
+              c.abort(c.enclosingPosition, s"child $child of $parent is neither final nor a case class")
+          }
+
+        sortedKnownSubclasses.flatMap { child =>
           child.typeSignature
           val childClass = child.asClass
           if (childClass.isSealed && childClass.isTrait) knownSubclassesOf(childClass)
@@ -451,8 +457,7 @@ object DeriveSchema {
 
       val currentFrame = Frame[c.type](c, selfRefName, tpe)
 
-      val subtypes = knownSubclassesOf(tpe.typeSymbol.asClass).toList
-        .sortBy(_.typeSymbol.asClass.name.toString.trim)
+      val subtypes = knownSubclassesOf(tpe.typeSymbol.asClass)
         .map(concreteType(tpe, _))
 
       val typeArgs = subtypes ++ Iterable(tpe)

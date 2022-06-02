@@ -4,7 +4,6 @@ import zio._
 import zio.schema.Schema._
 import zio.schema._
 import zio.schema.optics.ZioOpticsBuilder
-import zio.schema.syntax._
 
 private[example6] object Domain {
   final case class User(name: String, age: Int)

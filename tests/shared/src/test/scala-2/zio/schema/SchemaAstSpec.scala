@@ -143,6 +143,12 @@ object SchemaAstSpec extends DefaultRunnableSpec {
           TypeId.parse("zio.schema.SchemaAstSpec.Pet"),
           path = NodePath.root,
           cases = Chunk(
+            "Rock" -> SchemaAst.Value(StandardType.UnitType, NodePath.root / "Rock"),
+            "Dog" -> SchemaAst.Product(
+              id = TypeId.parse("zio.schema.SchemaAstSpec.Dog"),
+              path = NodePath.root / "Dog",
+              fields = Chunk("name" -> SchemaAst.Value(StandardType.StringType, NodePath.root / "Dog" / "name"))
+            ),
             "Cat" -> SchemaAst.Product(
               id = TypeId.parse("zio.schema.SchemaAstSpec.Cat"),
               path = NodePath.root / "Cat",
@@ -150,13 +156,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
                 "name"    -> SchemaAst.Value(StandardType.StringType, NodePath.root / "Cat" / "name"),
                 "hasHair" -> SchemaAst.Value(StandardType.BoolType, NodePath.root / "Cat" / "hasHair")
               )
-            ),
-            "Dog" -> SchemaAst.Product(
-              id = TypeId.parse("zio.schema.SchemaAstSpec.Dog"),
-              path = NodePath.root / "Dog",
-              fields = Chunk("name" -> SchemaAst.Value(StandardType.StringType, NodePath.root / "Dog" / "name"))
-            ),
-            "Rock" -> SchemaAst.Value(StandardType.UnitType, NodePath.root / "Rock")
+            )
           )
         )
         assertTrue(SchemaAst.fromSchema(schema) == expectedAst)

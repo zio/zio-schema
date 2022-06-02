@@ -114,7 +114,7 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap.empty ++ structure.toChunk.map {
-            case Schema.Field(key, schema: Schema[a], _) =>
+            case Schema.Field(key, schema: Schema[a], _, _) =>
               key -> fromSchemaAndValue(schema, map(key).asInstanceOf[a])
           }
         )

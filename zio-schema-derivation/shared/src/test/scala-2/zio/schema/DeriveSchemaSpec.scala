@@ -53,7 +53,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         extends Status
     case object Pending extends Status
 
-    implicit lazy val schema: Schema.Enum3[Failed, Ok, zio.schema.DeriveSchemaSpec.Status.Pending.type, Status] =
+    implicit lazy val schema: Schema.Enum3[Ok, Failed, zio.schema.DeriveSchemaSpec.Status.Pending.type, Status] =
       DeriveSchema.gen[Status]
   }
 
@@ -64,7 +64,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
     case class IntValue(value: Int)         extends OneOf
     case class BooleanValue(value: Boolean) extends OneOf
 
-    implicit lazy val schema: Schema.Enum3[BooleanValue, IntValue, StringValue, OneOf] = DeriveSchema.gen[OneOf]
+    implicit lazy val schema: Schema.Enum3[StringValue, IntValue, BooleanValue, OneOf] = DeriveSchema.gen[OneOf]
   }
 
   case object Singleton
