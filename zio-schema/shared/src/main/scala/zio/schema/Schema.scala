@@ -285,6 +285,9 @@ object Schema extends SchemaEquality {
     validation: Validation[A] = Validation.succeed[A]
   ) {
     override def toString: String = s"Field($label,$schema)"
+    // lazy val validate: Validation[A] = annotations.collectFirst {
+    //   case v: zio.schema.annotation.validate[_] =>  v.asInstanceOf[Validation[A]]
+    // }.getOrElse(Validation.succeed[A])
   }
 
   sealed trait Record[R] extends Schema[R] { self =>

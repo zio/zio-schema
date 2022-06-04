@@ -1,6 +1,8 @@
 package dev.zio.schema.example.example1
 
 import zio.schema.{ DeriveSchema, Schema }
+import zio.schema.annotation.validate
+import zio.schema.validation.Validation
 import zio.stream.ZTransducer
 import zio.{ Chunk, ExitCode, URIO, ZIO }
 
@@ -17,7 +19,7 @@ import zio.{ Chunk, ExitCode, URIO, ZIO }
 object Domain {
   sealed trait PaymentMethod
 
-  final case class Person(name: String, age: Int)
+  final case class Person(name: String, @validate(Validation.between(0, 120)) age: Int)
 
   final case class Customer(person: Person, paymentMethod: PaymentMethod)
 
