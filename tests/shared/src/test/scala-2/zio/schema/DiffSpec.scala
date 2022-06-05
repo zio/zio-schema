@@ -200,15 +200,21 @@ object DiffSpec extends DefaultRunnableSpec with DefaultJavaTimeSchemas {
       assertTrue(schema.diff(a, a).isIdentical)
     }
 
+
   private def diffLaw[A](implicit schema: Schema[A]): URIO[Random with Sized with TestConfig, TestResult] = {
     val gen = DeriveGen.gen[A]
     check(gen <*> gen) {
       case (l, r) =>
         val diff = schema.diff(l, r)
+        val diffInverse = diff.inverse
         if (diff.isComparable) {
-          val patched = schema.diff(l, r).patch(l)
-          if (patched.isLeft) println(diff)
-          assert(patched)(isRight(equalTo(r)))
+            val patched = diff.patch(l)
+            val patchedInverse = diffInverse.patch(r)
+          
+            assert(patched)(isRight(equalTo(r))) &&
+            assert(patchedInverse)(isRight(equalTo(l)))&&
+            assert(diffInverse.inverse)(equalTo(diff))
+          
         } else {
           assertTrue(true)
         }

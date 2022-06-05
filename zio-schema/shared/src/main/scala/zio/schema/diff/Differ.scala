@@ -23,13 +23,11 @@ import java.time.{
 }
 import java.util.UUID
 
-import scala.annotation.{ nowarn, tailrec }
+import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
 
 import zio.schema.StandardType.DurationType
 import zio.schema.Diff
-import zio.schema.Diff._
-import zio.schema.ast.Migration
 import zio.schema.diff.Edit
 import zio.{ Chunk, ChunkBuilder }
 import zio.schema.Schema

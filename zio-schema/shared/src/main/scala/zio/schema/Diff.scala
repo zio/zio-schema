@@ -1,7 +1,6 @@
 package zio.schema
 
 import java.math.{ BigInteger, MathContext }
-import java.time.format.DateTimeFormatter
 import java.time.temporal.{ ChronoField, ChronoUnit }
 import java.time.{
   DayOfWeek,
@@ -10,7 +9,6 @@ import java.time.{
   LocalDate,
   LocalDateTime,
   LocalTime,
-  Month => JMonth,
   MonthDay,
   OffsetDateTime,
   OffsetTime,
@@ -21,15 +19,13 @@ import java.time.{
   ZoneOffset,
   ZonedDateTime => JZonedDateTime
 }
-import java.util.UUID
 
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 
+import zio.Chunk
 import zio.schema.ast.Migration
 import zio.schema.diff._
-import zio.Chunk
-
 
 sealed trait Diff[A] { self =>
 
@@ -40,10 +36,23 @@ sealed trait Diff[A] { self =>
 
   def zip[B](that: Diff[B]): Diff[(A, B)] = Diff.Tuple(self, that)
 
+  /**
+   * Apply this Diff[A] to the given `a`, returning the patched object or an error.
+   */
   def patch(a: A): Either[String, A]
 
+  /**
+   * Checks if this Diff is a no-op
+   */
   def isIdentical: Boolean = false
 
+  /**
+   * Invert this Diff to create a Diff that will undo the changes made by this Diff.
+   * diff.inverse.inverse == diff.
+   */
+  def inverse: Diff[A]
+
+  //todo javadoc. Not clear what a Diff that is not comparable is.
   def isComparable: Boolean = true
 }
 
@@ -54,32 +63,51 @@ object Diff {
   def notComparable[A]: NotComparable[A] = NotComparable()
 
   final case class Identical[A]() extends Diff[A] {
+
+    override def inverse: Diff[A] = this
+
     override def patch(a: A): Either[String, A] = Right(a)
     override def isIdentical: Boolean           = true
   }
 
   final case class Bool(xor: Boolean) extends Diff[Boolean] {
+
+    override def inverse: Diff[Boolean] = Bool(!xor)
+
     override def patch(a: Boolean): Either[String, Boolean] = Right(a ^ xor)
   }
 
   final case class Number[A](distance: A)(implicit ev: Numeric[A]) extends Diff[A] {
+
+    override def inverse: Diff[A] = Number(ev.negate(distance))
+
     override def patch(input: A): Either[String, A] =
       Right(ev.minus(input, distance))
   }
 
   final case class BigInt(distance: BigInteger) extends Diff[BigInteger] {
+
+    override def inverse: Diff[BigInteger] = BigInt(distance.negate())
+
     override def patch(input: BigInteger): Either[String, BigInteger] =
       Right(input.subtract(distance))
   }
 
   final case class BigDecimal(distance: java.math.BigDecimal, precision: Int) extends Diff[java.math.BigDecimal] {
+
+    override def inverse: Diff[java.math.BigDecimal] = BigDecimal(distance.negate(), precision)
+
     override def patch(input: java.math.BigDecimal): Either[String, java.math.BigDecimal] = {
       val mc = new MathContext(precision)
       Right(input.round(mc).subtract(distance, mc))
     }
   }
 
-  final case class Temporal[A](distances: List[Long], tpe: StandardType[A]) extends Diff[A] { self =>
+  final case class Temporal[A](distances: List[Long], tpe: StandardType[A]) extends Diff[A] {
+    self =>
+
+    //todo figure out what this is
+    override def inverse: Diff[A] = ???
     override def patch(a: A): Either[String, A] =
       (tpe, distances) match {
         case (_: StandardType.YearType.type, distance :: Nil) =>
@@ -171,6 +199,10 @@ object Diff {
 
   final case class ZonedDateTime(localDateTimeDiff: Diff[java.time.LocalDateTime], zoneIdDiff: Diff[String])
       extends Diff[java.time.ZonedDateTime] {
+
+    //todo figure out what this is
+    override def inverse: Diff[JZonedDateTime] = ???
+
     override def patch(input: JZonedDateTime): scala.Either[String, JZonedDateTime] =
       for {
         patchedLocalDateTime <- localDateTimeDiff.patch(input.toLocalDateTime)
@@ -188,6 +220,8 @@ object Diff {
 
   final case class Tuple[A, B](leftDifference: Diff[A], rightDifference: Diff[B]) extends Diff[(A, B)] {
 
+    override def inverse: Diff[(A, B)] = leftDifference.inverse <*> rightDifference.inverse
+
     override def isIdentical: Boolean = leftDifference.isIdentical && rightDifference.isIdentical
     override def patch(input: (A, B)): Either[String, (A, B)] =
       for {
@@ -197,6 +231,9 @@ object Diff {
   }
 
   final case class LCS[A](edits: Chunk[Edit[A]]) extends Diff[Chunk[A]] {
+
+    override def inverse: Diff[Chunk[A]] = ???
+
     override def patch(as: Chunk[A]): Either[String, Chunk[A]] = {
       import zio.schema.diff.{ Edit => ZEdit }
 
@@ -218,10 +255,18 @@ object Diff {
   }
 
   final case class Total[A](value: A) extends Diff[A] {
+
+    //todo - I think we need to keep both values?
+    override def inverse: Diff[A] = ???
+
     override def patch(input: A): Either[String, A] = Right(value)
   }
 
   final case class EitherDiff[A, B](diff: Either[Diff[A], Diff[B]]) extends Diff[Either[A, B]] {
+
+    override def inverse: Diff[Either[A, B]] =
+      diff.fold(l => Left(l.inverse), r => Right(r.inverse)).asInstanceOf[Diff[Either[A, B]]]
+
     override def isIdentical: Boolean = diff.fold(_.isIdentical, _.isIdentical)
 
     override def isComparable: Boolean = diff.fold(_.isComparable, _.isComparable)
@@ -238,6 +283,10 @@ object Diff {
 
   final case class Transform[A, B](diff: Diff[A], f: A => Either[String, B], g: B => Either[String, A])
       extends Diff[B] {
+
+    //todo - I don't think this can be done, does inverse need to represent failure?
+    override def inverse: Diff[B] = ???
+
     override def isIdentical: Boolean = diff.isIdentical
 
     override def isComparable: Boolean = diff.isComparable
@@ -254,15 +303,22 @@ object Diff {
    * Represents diff between incomparable values. For instance Left(1) and Right("a")
    */
   final case class NotComparable[A]() extends Diff[A] {
+
+    override def inverse: Diff[A] = this
+
     override def patch(input: A): Either[String, A] =
       Left(s"Non-comparable diff cannot be applied")
 
     override def isComparable: Boolean = false
   }
 
-  final case class SchemaMigration(migrations: Chunk[Migration]) extends Diff[Schema[_]] { self =>
+  final case class SchemaMigration(migrations: Chunk[Migration]) extends Diff[Schema[_]] {
+    self =>
 
-    //TODO Probably need to implement this
+    //TODO pointless unless patch is implemented
+    override def inverse: Diff[Schema[_]] = this
+
+    //TODO Probably need to implement this (and inverse)
     override def patch(input: Schema[_]): Either[String, Schema[_]] = Left(s"Schema migrations cannot be applied")
 
     def orIdentical: Diff[Schema[_]] =
@@ -275,6 +331,9 @@ object Diff {
    * is keyed to the records field names.
    */
   final case class Record[R](differences: ListMap[String, Diff[_]], schema: Schema.Record[R]) extends Diff[R] { self =>
+
+    override def inverse: Diff[R] = ???
+
     override def isIdentical: Boolean = differences.forall(_._2.isIdentical)
 
     override def isComparable: Boolean = differences.forall(_._2.isComparable)
@@ -316,4 +375,3 @@ object Diff {
   }
 
 }
-
