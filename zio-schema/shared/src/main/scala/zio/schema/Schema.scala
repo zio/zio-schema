@@ -6,6 +6,7 @@ import scala.collection.immutable.ListMap
 
 import zio.Chunk
 import zio.schema.ast._
+import zio.schema.diff.Differ
 import zio.schema.internal.SourceLocation
 import zio.schema.validation._
 
