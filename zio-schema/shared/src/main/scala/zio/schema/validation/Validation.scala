@@ -10,18 +10,18 @@ final case class Validation[A](bool: Bool[Predicate[A]]) { self =>
     type Result = Either[Errors, Errors]
     def combineAnd(left: Result, right: Result): Result =
       (left, right) match {
-        case (Left(leftErrors), Left(rightErrors))         => Left((leftErrors ++ rightErrors))
+        case (Left(leftErrors), Left(rightErrors))         => Left(leftErrors ++ rightErrors)
         case (Left(leftErrors), _)                         => Left(leftErrors)
         case (_, Left(rightErrors))                        => Left(rightErrors)
-        case (Right(leftSuccesses), Right(rightSuccesses)) => Right((leftSuccesses ++ rightSuccesses))
+        case (Right(leftSuccesses), Right(rightSuccesses)) => Right(leftSuccesses ++ rightSuccesses)
       }
 
     def combineOr(left: Result, right: Result): Result =
       (left, right) match {
-        case (Left(leftErrors), Left(rightErrors))         => Left((leftErrors ++ rightErrors))
+        case (Left(leftErrors), Left(rightErrors))         => Left(leftErrors ++ rightErrors)
         case (Left(_), right)                              => right
         case (right, Left(_))                              => right
-        case (Right(leftSuccesses), Right(rightSuccesses)) => Right((leftSuccesses ++ rightSuccesses))
+        case (Right(leftSuccesses), Right(rightSuccesses)) => Right(leftSuccesses ++ rightSuccesses)
       }
 
     def loop(bool: Bool[Predicate[A]]): Result = {
@@ -50,8 +50,10 @@ object Validation extends Regexs with Time {
   // String operations
   def minLength(n: Int): Validation[String] = Validation(Bool.Leaf(Str.MinLength(n)))
   def maxLength(n: Int): Validation[String] = Validation(Bool.Leaf(Str.MaxLength(n)))
+
   //Regex
-  def regex(r: Regex): Validation[String] = Validation(Bool.Leaf(Str.Matches(r)))
+  def regex(r: Regex): Validation[String]               = Validation(Bool.Leaf(Str.Matches(r)))
+  def builtInRegex(r: BuiltInRegex): Validation[String] = Validation(Bool.Leaf(Str.BuiltIn(r)))
 
   // Numerical operations
   def greaterThan[A](value: A)(implicit numType: NumType[A]): Validation[A] =

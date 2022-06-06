@@ -204,6 +204,15 @@ object ValidationSpec extends DefaultRunnableSpec {
       )
       assertParsedTimes(parsedTimes)
     }
+    /* TODO: Fix me to run in Scala 2.12.15
+    ,testM("Regex duration Validation") {
+      val validation = Validation.duration
+
+      check(Gen.anyFiniteDuration) { duration =>
+        assertTrue(validation.validate(duration.toString).isRight)
+      }
+    }
+   */
   )
 
   private def assertParsedTimes(parsedTimes: ParsedTimes) =

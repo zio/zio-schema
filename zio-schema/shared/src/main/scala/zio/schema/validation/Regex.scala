@@ -1,5 +1,7 @@
 package zio.schema.validation
 
+import scala.annotation.tailrec
+
 import zio.schema.validation.Regex.{ Alternate, CharacterSet, Empty, Repeat }
 
 sealed trait Regex {
@@ -9,6 +11,7 @@ sealed trait Regex {
   def exactly(n: Int): Regex             = Regex.Repeat(this, Some(n), Some(n))
   def + : Regex                          = atLeast(1)
   def * : Regex                          = atLeast(0)
+  def ? : Regex                          = atMost(1)
   def ~(that: Regex): Regex              = Regex.Sequence(this, that)
   def |(that: Regex): Regex              = Regex.Alternate(this, that)
 
@@ -86,8 +89,9 @@ object Regex {
   def filter(f: Char => Boolean): Regex = CharacterSet((Char.MinValue to Char.MaxValue).filter(f).toSet)
 
   def literal(str: String): Regex = {
+    @tailrec
     def loop(l: List[Char], acc: Regex): Regex =
-      l.toList match {
+      l match {
         case head :: Nil  => acc ~ CharacterSet(Set(head))
         case head :: tail => loop(tail, acc ~ CharacterSet(Set(head)))
         case Nil          => acc

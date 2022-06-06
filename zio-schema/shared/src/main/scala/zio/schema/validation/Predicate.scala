@@ -7,7 +7,7 @@ sealed trait Predicate[A] {
 }
 
 object Predicate {
-  // String => Boolean
+
   sealed trait Str[A] extends Predicate[A]
 
   object Str {
@@ -30,6 +30,12 @@ object Predicate {
       def validate(value: String): Result =
         if (r.test(value)) Right(::(ValidationError.NotRegexMatch(value, r), Nil))
         else Left(::(ValidationError.RegexMatch(value, r), Nil))
+    }
+    final case class BuiltIn(r: BuiltInRegex) extends Str[String] {
+
+      def validate(value: String): Result =
+        if (r.test(value)) Right(::(ValidationError.NotRegexMatch(value, r.rege), Nil))
+        else Left(::(ValidationError.RegexMatch(value, r.rege), Nil))
     }
   }
 
