@@ -217,10 +217,6 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
     }
   )
 
-  implicit val nil: Schema[Nil.type] = singleton(Nil)
-
-  implicit val none: Schema[None.type] = singleton(None)
-
   implicit val dynamicValue: Schema[DynamicValue] = DynamicValueSchema()
 
   implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
@@ -235,16 +231,6 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
   implicit def either[A, B](implicit left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
     EitherSchema(left, right)
 
-  implicit def left[A](implicit schemaA: Schema[A]): Schema[Left[A, Nothing]] =
-    either[A, Nothing](schemaA, Schema.fail[Nothing]("no schema for Right"))
-      .transformOrFail[Left[A, Nothing]](
-        {
-          case left @ Left(_) => Right(left)
-          case Right(_)       => Left("cannot encode Right")
-        },
-        left => Right(left)
-      )
-
   implicit def list[A](implicit schemaA: Schema[A]): Schema[List[A]] =
     Schema.Sequence[List[A], A, String](schemaA, _.toList, Chunk.fromIterable(_), Chunk.empty, "List")
 
@@ -256,16 +242,6 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
 
   def semiDynamic[A](defaultValue: Either[String, (A, Schema[A])] = Left("no default value")): Schema[(A, Schema[A])] =
     Schema.SemiDynamic(defaultValue)
-
-  implicit def right[B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
-    either[Nothing, B](Schema.fail[Nothing]("no schema for Left"), schemaB)
-      .transformOrFail[Right[Nothing, B]](
-        {
-          case right @ Right(_) => Right(right)
-          case Left(_)          => Left("cannot encode Left")
-        },
-        right => Right(right)
-      )
 
   implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
     chunk(element).transform(_.toVector, Chunk.fromIterable(_))
