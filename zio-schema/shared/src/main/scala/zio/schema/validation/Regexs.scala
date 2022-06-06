@@ -38,4 +38,23 @@ trait Regexs {
     Validation.regex(bytePart ~ separator ~ bytePart ~ separator ~ bytePart ~ separator ~ bytePart)
   }
 
+  lazy val uuidV4: Validation[String] = {
+    val hexOctect = Regex.hexDigit ~ Regex.hexDigit
+    val sep       = Regex.oneOf('-')
+
+    val timeLow            = hexOctect.exactly(4)
+    val timeMid            = hexOctect.exactly(2)
+    val timeHighAndVersion = Regex.oneOf('4') ~ Regex.hexDigit ~ hexOctect
+    val clockSeq           = Regex.CharacterSet(Set('8', '9', 'a', 'A', 'b', 'B')) ~ Regex.hexDigit ~ hexOctect
+    val node               = hexOctect.exactly(6)
+
+    Validation.regex(
+      timeLow ~ sep ~
+        timeMid ~ sep ~
+        timeHighAndVersion ~ sep ~
+        clockSeq ~ sep ~
+        node
+    )
+  }
+
 }
