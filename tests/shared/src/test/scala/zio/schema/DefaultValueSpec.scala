@@ -245,11 +245,11 @@ object DefaultValueSpec extends ZIOSpecDefault {
         assert(eitherSchema.defaultValue)(isRight(isLeft(equalTo(0))))
       },
       test("left") {
-        val leftSchema: Schema[Left[Int, Nothing]] = Schema.left(Schema.primitive(StandardType.IntType))
+        val leftSchema = Schema.either(Schema.primitive(StandardType.IntType), Schema.fail("Nothing"))
         assert(leftSchema.defaultValue)(isRight(isLeft(equalTo(0))))
       },
       test("right") {
-        val rightSchema: Schema[Right[Nothing, String]] = Schema.right(Schema.primitive(StandardType.StringType))
+        val rightSchema = Schema.either(Schema.fail("Nothing"), Schema.primitive(StandardType.StringType))
         assert(rightSchema.defaultValue)(isRight(isRight(equalTo(""))))
       }
     )

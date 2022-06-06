@@ -1981,7 +1981,7 @@ private[schema] object DynamicValueSchema { self =>
   private val noneValueCase: Schema.Case[DynamicValue.NoneValue.type, DynamicValue] =
     Schema.Case(
       "NoneValue",
-      Schema.none.transform(_ => DynamicValue.NoneValue, _ => None),
+      Schema.singleton(None).transform(_ => DynamicValue.NoneValue, _ => None),
       _.asInstanceOf[DynamicValue.NoneValue.type],
       Chunk("case")
     )

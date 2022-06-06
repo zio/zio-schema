@@ -268,48 +268,6 @@ object JsonCodecSpec extends ZIOSpecDefault {
             )
         }
       },
-      test("compatible with left/right") {
-        check(
-          for {
-            left  <- SchemaGen.anyPrimitiveAndValue
-            right <- SchemaGen.anyPrimitiveAndValue
-          } yield (
-            Schema.either(left._1, right._1),
-            Schema.left(left._1),
-            Schema.right(right._1),
-            Left(left._2),
-            Right(right._2)
-          )
-        ) {
-          case (eitherSchema, leftSchema, rightSchema, leftValue, rightValue) =>
-            for {
-              a1 <- assertEncodesThenDecodesWithDifferentSchemas[Either[Any, Any], Left[Any, Nothing]](
-                     eitherSchema.asInstanceOf[Schema[Either[Any, Any]]],
-                     leftSchema.asInstanceOf[Schema[Left[Any, Nothing]]],
-                     leftValue.asInstanceOf[Either[Any, Any]],
-                     (x: Either[Any, Any], y: Left[Any, Nothing]) => x == y
-                   )
-              a2 <- assertEncodesThenDecodesWithDifferentSchemas(
-                     eitherSchema.asInstanceOf[Schema[Either[Any, Any]]],
-                     rightSchema.asInstanceOf[Schema[Right[Nothing, Any]]],
-                     rightValue,
-                     (x: Either[Any, Any], y: Right[Nothing, Any]) => x == y
-                   )
-              a3 <- assertEncodesThenDecodesWithDifferentSchemas(
-                     leftSchema.asInstanceOf[Schema[Left[Any, Nothing]]],
-                     eitherSchema.asInstanceOf[Schema[Either[Any, Any]]],
-                     leftValue,
-                     (x: Left[Any, Nothing], y: Either[Any, Any]) => x == y
-                   )
-              a4 <- assertEncodesThenDecodesWithDifferentSchemas(
-                     rightSchema.asInstanceOf[Schema[Right[Nothing, Any]]],
-                     eitherSchema.asInstanceOf[Schema[Either[Any, Any]]],
-                     rightValue,
-                     (x: Right[Nothing, Any], y: Either[Any, Any]) => x == y
-                   )
-            } yield a1 && a2 && a3 && a4
-        }
-      },
       test("Map of complex keys and values") {
         assertEncodes(
           Schema.map[Key, Value],
