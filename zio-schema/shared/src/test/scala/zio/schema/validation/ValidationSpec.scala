@@ -109,6 +109,21 @@ object ValidationSpec extends DefaultRunnableSpec {
       assertTrue(validation.validate("192.168.1").isLeft) &&
       assertTrue(validation.validate("-1.0.0.1").isLeft)
     },
+    suite("Regex uuid Validations")(
+      testM("valid UUID") {
+        val validation = Validation.uuidV4
+        check(Gen.anyUUID) { uuid =>
+          assertTrue(validation.validate(uuid.toString).isRight)
+        }
+      },
+      test("invalid UUID") {
+        val validation = Validation.uuidV4
+        assertTrue(validation.validate("1e3118de-ddb6-11ec-8653-93e6961d46be").isLeft) &&
+        assertTrue(validation.validate("487f5075-fa89-4723-a26d-2e7a13245").isLeft) &&
+        assertTrue(validation.validate("487f5075fa894723a26d2e7a13245135").isLeft) &&
+        assertTrue(validation.validate("").isLeft)
+      }
+    ),
     test("Time Validation HH") {
       val parsedTimes =
         parseTimes(CreateTimesConfig(HasHour, "", NoMinute, "", NoSecond, "", NoFraction, "", NoAmPm), "HH")

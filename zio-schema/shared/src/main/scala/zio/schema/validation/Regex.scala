@@ -5,7 +5,6 @@ import zio.schema.validation.Regex.{ Alternate, CharacterSet, Empty, Repeat }
 sealed trait Regex {
   def atLeast(n: Int): Regex             = Regex.Repeat(this, Some(n), None)
   def atMost(n: Int): Regex              = Regex.Repeat(this, None, Some(n))
-  def exactly(n: Int): Regex             = Regex.Repeat(this, Some(n), Some(n))
   def between(min: Int, max: Int): Regex = Regex.Repeat(this, Some(min), Some(max))
   def exactly(n: Int): Regex             = Regex.Repeat(this, Some(n), Some(n))
   def + : Regex                          = atLeast(1)
