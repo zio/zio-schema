@@ -36,6 +36,7 @@ trait Regexs {
     val bytePart = is250To255 | is200To249 | isZeroTo199
 
     Validation.regex(bytePart ~ separator ~ bytePart ~ separator ~ bytePart ~ separator ~ bytePart)
+  }
 
   lazy val uuidV4: Validation[String] = {
     val hexOctect = Regex.hexDigit ~ Regex.hexDigit
