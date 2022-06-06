@@ -107,4 +107,6 @@ object Regex {
   val letter: Regex = Letter
 
   val digitOrLetter: Regex = digit | letter
+
+  val hexDigit: Regex = Digit | between('a', 'f') | between('A', 'F')
 }
