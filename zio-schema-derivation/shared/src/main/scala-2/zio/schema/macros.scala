@@ -258,17 +258,15 @@ object DeriveSchema {
                 case annotation if (annotation.tree.tpe.toString.startsWith("zio.schema.annotation.validate")) =>
                   annotation.tree match {
                     case q"new $annConstructor(..$annotationArgs)" =>
-                      q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
-                    case q"new $annConstructor()" =>
-                      q"new ${annConstructor.tpe.typeSymbol}()"
+                      q"..$annotationArgs"
                     case tree =>
                       c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
                       EmptyTree
                   }
               }
             }.filter(_ != EmptyTree)
-              .map(_.foldLeft(q"zio.schema.validation.Validation.succeed") {
-                case (acc, t) => q"($acc && $t).toString"
+              .map(_.foldLeft[c.universe.Tree](q"zio.schema.validation.Validation.succeed") {
+                case (acc, t) => q"$acc && $t"
               })
           }.getOrElse(Nil)
 

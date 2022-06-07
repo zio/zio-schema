@@ -220,7 +220,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
     repr.asType match { case '[t] => 
       val schema = deriveSchema[t](stack)
       val chunk = '{ zio.Chunk.fromIterable(${ Expr.ofSeq(anns.reverse) }) }
-      '{ Field(${Expr(label)}, $schema, $chunk) }
+      '{ Field(${Expr(label)}, $schema, $chunk) } //TODO add validations here
     }
   }
 
