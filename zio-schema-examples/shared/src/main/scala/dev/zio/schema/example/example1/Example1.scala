@@ -1,8 +1,8 @@
 package dev.zio.schema.example.example1
 
-import zio.schema.{ DeriveSchema, Schema }
 import zio.schema.annotation.validate
 import zio.schema.validation.Validation
+import zio.schema.{ DeriveSchema, Schema }
 import zio.stream.ZTransducer
 import zio.{ Chunk, ExitCode, URIO, ZIO }
 

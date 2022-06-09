@@ -12,7 +12,7 @@ object ZioSchemaValidation {
     val anyString: Validation[String] = anyOf(minLength(3), maxLength(10))
 
     val all: Validation[String] = allOf(minLength(3), maxLength(4))
-    val allInt                  = allOf(greaterThan(2), lessThan(4), equalTo(3))
+    val allInt: Validation[Int] = allOf(greaterThan(2), lessThan(4), equalTo(3))
   }
 
   // object Validation {
