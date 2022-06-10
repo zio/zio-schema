@@ -9,7 +9,7 @@ import zio.test.{ Gen, Sized }
 
 object SchemaGen {
 
-  val anyLabel: Gen[Sized, String] = Gen.alphaNumericStringBounded(1, 3)
+  val anyLabel: Gen[Sized, String] = Gen.alphaNumericStringBounded(1, 15)
 
   def anyStructure(
     schemaGen: Gen[Sized, Schema[_]]
@@ -25,9 +25,9 @@ object SchemaGen {
       }
     }
 
-  def anyStructure[A](schema: Schema[A]): Gen[Sized, Seq[Schema.Field[A]]] =
+  def anyStructure[A](schema: Schema[A], max: Int = 3): Gen[Sized, Seq[Schema.Field[A]]] =
     Gen
-      .setOfBounded(1, 3)(
+      .setOfBounded(1, max)(
         anyLabel.map(Schema.Field(_, schema))
       )
       .map(_.toSeq)
@@ -215,10 +215,10 @@ object SchemaGen {
 
   type GenericRecordAndGen = (Schema[ListMap[String, _]], Gen[Sized, ListMap[String, _]])
 
-  val anyGenericRecordAndGen: Gen[Sized, GenericRecordAndGen] =
+  def anyGenericRecordAndGen(maxFieldCount: Int = 3): Gen[Sized, GenericRecordAndGen] =
     for {
       (schema, gen) <- anyPrimitiveAndGen
-      structure     <- anyStructure(schema)
+      structure     <- anyStructure(schema, maxFieldCount)
     } yield {
       val valueGen = Gen
         .const(structure.map(_.label))
@@ -234,17 +234,17 @@ object SchemaGen {
 
   type RecordAndValue = (Schema[ListMap[String, _]], ListMap[String, _])
 
-  val anyRecordAndValue: Gen[Sized, RecordAndValue] =
+  def anyRecordAndValue(maxFieldCount: Int = 3): Gen[Sized, RecordAndValue] =
     for {
-      (schema, gen) <- anyGenericRecordAndGen
+      (schema, gen) <- anyGenericRecordAndGen(maxFieldCount)
       value         <- gen
     } yield schema -> value
 
   val anyRecordOfRecordsAndValue: Gen[Sized, RecordAndValue] =
     for {
-      (schema1, gen1) <- anyGenericRecordAndGen
-      (schema2, gen2) <- anyGenericRecordAndGen
-      (schema3, gen3) <- anyGenericRecordAndGen
+      (schema1, gen1) <- anyGenericRecordAndGen()
+      (schema2, gen2) <- anyGenericRecordAndGen()
+      (schema3, gen3) <- anyGenericRecordAndGen()
       keys            <- Gen.setOfN(3)(anyLabel).map(_.toSeq)
       (key1, value1)  <- Gen.const(keys(0)).zip(gen1)
       (key2, value2)  <- Gen.const(keys(1)).zip(gen2)

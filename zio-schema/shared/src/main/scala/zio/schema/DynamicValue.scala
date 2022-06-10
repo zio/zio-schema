@@ -2071,10 +2071,11 @@ private[schema] object DynamicValueSchema { self =>
   private val recordCase: Schema.Case[DynamicValue.Record, DynamicValue] =
     Schema.Case(
       "Record",
-      Schema.CaseClass1[Map[String, DynamicValue], DynamicValue.Record](
-        Schema.Field("values", Schema.defer(Schema.map(Schema.primitive[String], DynamicValueSchema()))),
-        map => DynamicValue.Record(ListMap(map.toSeq: _*)),
-        record => record.values
+      Schema.CaseClass1[Chunk[(String, DynamicValue)], DynamicValue.Record](
+        Schema
+          .Field("values", Schema.defer(Schema.chunk(Schema.tuple2(Schema.primitive[String], DynamicValueSchema())))),
+        chunk => DynamicValue.Record(ListMap(chunk.toSeq: _*)),
+        record => Chunk.fromIterable(record.values)
       ),
       _.asInstanceOf[DynamicValue.Record]
     )
