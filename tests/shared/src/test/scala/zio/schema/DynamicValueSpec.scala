@@ -71,7 +71,7 @@ object DynamicValueSpec extends ZIOSpecDefault {
       },
       test("round-trip semiDynamic") {
         val gen = for {
-          schemaAndGen       <- SchemaGen.anyGenericRecordAndGen
+          schemaAndGen       <- SchemaGen.anyGenericRecordAndGen()
           (schema, valueGen) = schemaAndGen
           value              <- valueGen
         } yield schema -> value

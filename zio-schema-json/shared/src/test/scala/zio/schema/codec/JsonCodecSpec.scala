@@ -288,7 +288,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
       },
       test("of records") {
         check(for {
-          (left, a)       <- SchemaGen.anyRecordAndValue
+          (left, a)       <- SchemaGen.anyRecordAndValue()
           primitiveSchema <- SchemaGen.anyPrimitive
         } yield (Schema.EitherSchema(left, primitiveSchema), Left(a))) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
@@ -326,7 +326,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         }
       },
       test("of record") {
-        check(SchemaGen.anyRecordAndValue) {
+        check(SchemaGen.anyRecordAndValue()) {
           case (schema, value) =>
             assertEncodesThenDecodes(Schema.Optional(schema), Some(value)) &>
               assertEncodesThenDecodes(Schema.Optional(schema), None)
@@ -442,12 +442,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
     ),
     suite("record")(
       test("any") {
-        check(SchemaGen.anyRecordAndValue) {
+        check(SchemaGen.anyRecordAndValue()) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
         }
       },
       test("minimal test case") {
-        SchemaGen.anyRecordAndValue.runHead.flatMap {
+        SchemaGen.anyRecordAndValue().runHead.flatMap {
           case Some((schema, value)) =>
             val key      = new String(Array('\u0007', '\n'))
             val embedded = Schema.record(Schema.Field(key, schema))
@@ -462,7 +462,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         }
       },
       test("of primitives") {
-        check(SchemaGen.anyRecordAndValue) {
+        check(SchemaGen.anyRecordAndValue()) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
         }
       },
@@ -616,7 +616,25 @@ object JsonCodecSpec extends ZIOSpecDefault {
             compare = compareRandomRecords
           )
         }
-      }
+      },
+      test("deserialized dynamic record converted to typed value") {
+        check(SchemaGen.anyRecordAndValue(maxFieldCount = 15)) {
+          case (schema, value) =>
+            val dyn = DynamicValue.fromSchemaAndValue(schema, value)
+            ZStream
+              .succeed(dyn)
+              .via(JsonCodec.encoder(Schema.dynamicValue))
+              .via(JsonCodec.decoder(Schema.dynamicValue))
+              .map(_.toTypedValue(schema))
+              .runHead
+              .map { result =>
+                val resultList = result.get.toOption.get.toList
+                assertTrue(
+                  resultList == value.toList
+                )
+              }
+        }
+      } @@ TestAspect.sized(1000) @@ TestAspect.samples(1000)
     )
   )
 
