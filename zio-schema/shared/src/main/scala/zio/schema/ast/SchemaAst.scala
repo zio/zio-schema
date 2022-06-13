@@ -16,7 +16,7 @@ sealed trait SchemaAst { self =>
     SchemaAst.materialize(self, refMap)
   }
 
-  override def toString: String = AstRenderer.render(self)
+  //override def toString: String = AstRenderer.render(self)
 }
 
 object SchemaAst {

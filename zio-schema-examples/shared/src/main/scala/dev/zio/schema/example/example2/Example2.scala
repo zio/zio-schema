@@ -104,6 +104,104 @@ object Domain {
 
 import Domain._
 
+object magic extends App {
+  val person        = Person("Michelle", 32)
+  val paymentMethod = PaymentMethod.CreditCard("123456789", 1, 2020)
+  val customer      = Customer(person, paymentMethod)
+  import Schema._
+  //schema
+  // CaseClass2(
+  //   Field("person", CaseClass2(Field("name", Primitive("string", Chunk())), Field("age", Primitive("int", Chunk())))),
+  //   Field(
+  //     "paymentMethod",
+  //     Enum2(
+  //       Case(
+  //         "CreditCard",
+  //         CaseClass3(
+  //           Field("number", Primitive("string", Chunk())),
+  //           Field("expirationMonth", Primitive("int", Chunk())),
+  //           Field("expirationYear", Primitive("int", Chunk()))
+  //         ),
+  //         Chunk()
+  //       ),
+  //       Case(
+  //         "WireTransfer",
+  //         CaseClass2(
+  //           Field("accountNumber", Primitive("string", Chunk())),
+  //           Field("bankCode", Primitive("string", Chunk()))
+  //         ),
+  //         Chunk()
+  //       ),
+  //       Chunk()
+  //     )
+  //   )
+  // )
+
+  // Record(
+  //   ListMap(
+  //     "person" -> Record(ListMap("name" -> Primitive(Michelle, "string"), "age" -> Primitive(32, "int"))),
+  //     "paymentMethod" -> Enumeration(
+  //       (
+  //         "CreditCard",
+  //         Record(
+  //           ListMap(
+  //             "number"          -> Primitive("123456789", "string"),
+  //             "expirationMonth" -> Primitive(1, "int"),
+  //             "expirationYear"  -> Primitive(2020, "int")
+  //           )
+  //         )
+  //       )
+  //     )
+  //   )
+  // )
+  // Product(
+  //   Chunk(),
+  //   Chunk(
+  //     (
+  //       person,
+  //       Product(
+  //         Chunk(person),
+  //         Chunk((name, Value(string, Chunk(person, name), false)), (age, Value(int, Chunk(person, age), false))),
+  //         false
+  //       )
+  //     ),
+  //     (
+  //       paymentMethod,
+  //       Sum(
+  //         Chunk(paymentMethod),
+  //         Chunk(
+  //           (
+  //             CreditCard,
+  //             Product(
+  //               Chunk(paymentMethod, CreditCard),
+  //               Chunk(
+  //                 (number, Value(string, Chunk(paymentMethod, CreditCard, number), false)),
+  //                 (expirationMonth, Value(int, Chunk(paymentMethod, CreditCard, expirationMonth), false)),
+  //                 (expirationYear, Value(int, Chunk(paymentMethod, CreditCard, expirationYear), false))
+  //               ),
+  //               false
+  //             )
+  //           ),
+  //           (
+  //             WireTransfer,
+  //             Product(
+  //               Chunk(paymentMethod, WireTransfer),
+  //               Chunk(
+  //                 (accountNumber, Value(string, Chunk(paymentMethod, WireTransfer, accountNumber), false)),
+  //                 (bankCode, Value(string, Chunk(paymentMethod, WireTransfer, bankCode), false))
+  //               ),
+  //               false
+  //             )
+  //           )
+  //         ),
+  //         false
+  //       )
+  //     )
+  //   ),
+  //   false
+  // )
+}
+
 object JsonSample extends zio.App {
   import zio.schema.codec.JsonCodec
   import zio.stream.ZStream
@@ -112,8 +210,14 @@ object JsonSample extends zio.App {
     for {
       _                      <- ZIO.unit
       person                 = Person("Michelle", 32)
-      personToJsonTransducer = JsonCodec.encoder[Person](Person.schema)
-      _ <- ZStream(person)
+      paymentMethod          = PaymentMethod.CreditCard("123456789", 1, 2020)
+      customer               = Customer(person, paymentMethod)
+      personToJsonTransducer = JsonCodec.encoder[Customer](Customer.schema)
+      _                      <- ZIO.debug(s"Customer Schema: ${Customer.schema}")
+      _                      <- ZIO.debug(s"Customer: $customer")
+      _                      <- ZIO.debug(s"Customer dynamic value: ${Customer.schema.toDynamic(customer)}")
+      _                      <- ZIO.debug(s"Schema AST for Customer: ${Customer.schema.ast}")
+      _ <- ZStream(customer)
             .transduce(personToJsonTransducer)
             .transduce(ZTransducer.utf8Decode)
             .foreach(ZIO.debug)
