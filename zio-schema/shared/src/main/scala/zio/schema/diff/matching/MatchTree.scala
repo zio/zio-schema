@@ -12,18 +12,49 @@ import zio.Chunk
 
 import Leaf._
 import Node._
+import scala.annotation.tailrec
 
 /**
  * A mutable representation of a value with its schema used for diffing, matching and patching.
  **/
-sealed trait MatchTree[A] {
+sealed trait MatchTree[A] { self =>
   val id: Int
   val schema: Schema[_]
+  override def toString(): String = show
+
+  def show: String = {
+    val sb = new StringBuilder
+    showImpl(0, sb)
+    sb.toString
+  }
+
+  private def showImpl(indent: Int, sb: StringBuilder, prefix: String = ""): Unit = {
+    sb.append("\n")
+    sb.append(self.id.toString.padTo(5, ' '))
+    sb.append(" " * indent)
+    if (prefix ne "") sb.append(prefix).append(": ")
+    self match {
+      case MatchTreeRoot(nodes, leaves, child, schema) => ???
+      case EnumNode(id, parent, caseName, children, schema) =>
+        sb.append(s"EnumNode(id, parent, $caseName, _, schema)")
+        children.showImpl(indent + 2, sb)
+      case RecordNode(id, parent, children, schema) =>
+        sb.append(s"RecordNode(id, parent, _, schema)")
+        children.foreach({ case (label, tree) => tree.showImpl(indent + 2, sb, label) })
+      case SequenceNode(id, parent, children, schema) =>
+        sb.append(s"SequenceNode(id, parent, _, schema)")
+        children.foreach(tree => tree.showImpl(indent + 2, sb))
+      case PrimitiveLeaf(id, parent, value, schema) =>
+        sb.append(s"PrimitiveLeaf(id, parent, $value, schema)")
+
+    }
+  }
 }
 
 final case class MatchTreeRoot[A](
   protected val nodes: MutableMap[Int, Node[Any, Any, Any]],
   protected val leaves: MutableMap[Int, Leaf[Any]],
+  protected var child: MatchTree[A],
   schema: Schema[A]
 ) extends MatchTree[A] {
   val id: Int = 0
@@ -49,7 +80,7 @@ object Node {
     caseName: String,
     protected var children: MatchTree[Elem],
     schema: Schema.Enum[A]
-  ) extends Node[A, MatchTree[Elem], Elem]
+  ) extends Node[A, MatchTree[Elem], Elem] {}
 
   object EnumNode {
 
@@ -122,6 +153,7 @@ sealed protected class Counter {
   //used via the companion object
   protected def increment: Int = {
     count += 1
+    println(s"incrementing count to $count")
     count
   }
 }
@@ -132,9 +164,9 @@ object Counter {
   implicit def toInt(c: Counter): Int = c.increment
 }
 
-object MatchingTree {
+object MatchTree {
 
-  def fromSchemaAndValue[A](value: A)(implicit schema: Schema[A]): MatchTree[A] = {
+  def fromValue[A](value: A)(implicit schema: Schema[A]): MatchTree[A] = {
     val i      = Counter()
     val leaves = MutableMap.empty[Int, Leaf[Any]]
     val nodes  = MutableMap.empty[Int, Node[Any, Any, Any]]
@@ -289,7 +321,7 @@ object MatchingTree {
 
       }
     }
-    loop(MatchTreeRoot(nodes, leaves, schema), value, schema)
+    loop(null.asInstanceOf[MatchTree[A]], value, schema)
 
   }
 
