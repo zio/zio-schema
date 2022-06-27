@@ -26,10 +26,10 @@ object BuildHelper {
   val Scala213: String   = versions("2.13")
   val ScalaDotty: String = "3.1.0" //versions.getOrElse("3.0", versions("3.1"))
 
-  val zioVersion        = "2.0.0-RC6"
-  val zioJsonVersion    = "0.3.0-RC8"
-  val zioPreludeVersion = "1.0.0-RC14"
-  val zioOpticsVersion  = "0.2.0-RC4"
+  val zioVersion        = "2.0.0"
+  val zioJsonVersion    = "0.3.0-RC9"
+  val zioPreludeVersion = "1.0.0-RC15"
+  val zioOpticsVersion  = "0.2.0"
   val silencerVersion   = "1.7.8"
 
   private val testDeps = Seq(
