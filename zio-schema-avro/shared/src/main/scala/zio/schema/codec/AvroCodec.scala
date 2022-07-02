@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets
 import java.time.format.DateTimeFormatter
 
 import scala.annotation.StaticAnnotation
-import scala.jdk.CollectionConverters.{ CollectionHasAsScala, SeqHasAsJava }
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 import org.apache.avro.{ LogicalTypes, Schema => SchemaAvro }
@@ -24,8 +24,6 @@ trait AvroCodec {
 }
 
 object AvroCodec extends AvroCodec {
-  private val validNameRegex      = raw"[A-Za-z_][A-Za-z0-9_]*".r
-  private val validNamespaceRegex = raw"[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*".r
 
   def encode: Schema[_] => Either[String, String] = schema => toAvroSchema(schema).map(_.toString)
 
@@ -239,135 +237,132 @@ object AvroCodec extends AvroCodec {
   )
 
   private def toAvroSchema(schema: Schema[_]): Either[String, SchemaAvro] = {
-    Try {
-      schema match {
-        case e: Enum[_]                    => toAvroEnum(e)
-        case record: Record[_]             => toAvroRecord(record)
-        case map: Schema.MapSchema[_, _]   => toAvroMap(map)
-        case seq: Schema.Sequence[_, _, _] => toAvroSchema(seq.schemaA).map(SchemaAvro.createArray)
-        case set: Schema.SetSchema[_]      => toAvroSchema(set.as).map(SchemaAvro.createArray)
-        case Transform(codec, _, _, _, _)  => toAvroSchema(codec)
-        case Primitive(standardType, _) =>
-          standardType match {
-            case StandardType.UnitType   => Right(SchemaAvro.create(SchemaAvro.Type.NULL))
-            case StandardType.StringType => Right(SchemaAvro.create(SchemaAvro.Type.STRING))
-            case StandardType.BoolType   => Right(SchemaAvro.create(SchemaAvro.Type.BOOLEAN))
-            case StandardType.ShortType =>
-              Right(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Short)))
-            case StandardType.ByteType   => Right(SchemaAvro.create(SchemaAvro.Type.INT))
-            case StandardType.IntType    => Right(SchemaAvro.create(SchemaAvro.Type.INT))
-            case StandardType.LongType   => Right(SchemaAvro.create(SchemaAvro.Type.LONG))
-            case StandardType.FloatType  => Right(SchemaAvro.create(SchemaAvro.Type.FLOAT))
-            case StandardType.DoubleType => Right(SchemaAvro.create(SchemaAvro.Type.DOUBLE))
-            case StandardType.BinaryType => Right(toAvroBinary(schema))
-            case StandardType.CharType =>
-              Right(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Char)))
-            case StandardType.UUIDType =>
-              Right(LogicalTypes.uuid().addToSchema(SchemaAvro.create(SchemaAvro.Type.STRING)))
-            case StandardType.BigDecimalType => toAvroDecimal(schema)
-            case StandardType.BigIntegerType => toAvroDecimal(schema)
-            case StandardType.DayOfWeekType =>
-              Right(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.DayOfWeek)))
-            case StandardType.MonthType =>
-              Right(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Month)))
-            case StandardType.YearType =>
-              Right(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Year)))
-            case StandardType.ZoneIdType =>
-              Right(SchemaAvro.create(SchemaAvro.Type.STRING).addMarkerProp(StringDiscriminator(StringType.ZoneId)))
-            case StandardType.ZoneOffsetType =>
-              Right(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.ZoneOffset)))
-            case StandardType.MonthDayType =>
-              //TODO 1
-              //Right(SchemaAvro.create(monthDayStructure).addMarkerProp(RecordDiscriminator(RecordType.MonthDay)))
-              Right(SchemaAvro.create(SchemaAvro.Type.RECORD))
-            case StandardType.PeriodType =>
-              //TODO 2
-              //toAvroSchema(periodStructure).map(_.addMarkerProp(RecordDiscriminator(RecordType.Period)))
-              Right(SchemaAvro.create(SchemaAvro.Type.RECORD))
-            case StandardType.YearMonthType =>
-              //TODO 3
-              //toAvroSchema(yearMonthStructure).map(_.addMarkerProp(RecordDiscriminator(RecordType.YearMonth)))
-              Right(SchemaAvro.create(SchemaAvro.Type.RECORD))
-            case StandardType.DurationType =>
-              // TODO: Java implementation of Apache Avro does not support logical type Duration yet:
-              //  AVRO-2123 with PR https://github.com/apache/avro/pull/1263
-              //TODO 4
-              //val chronoUnitMarker =
-              //DurationChronoUnit.fromTemporalUnit(temporalUnit).getOrElse(DurationChronoUnit.default)
-              //toAvroSchema(durationStructure).map(
-              //  _.addMarkerProp(RecordDiscriminator(RecordType.Duration)).addMarkerProp(chronoUnitMarker))
-              Right(SchemaAvro.create(SchemaAvro.Type.RECORD))
+    schema match {
+      case e: Enum[_]                    => toAvroEnum(e)
+      case record: Record[_]             => toAvroRecord(record)
+      case map: Schema.MapSchema[_, _]   => toAvroMap(map)
+      case seq: Schema.Sequence[_, _, _] => toAvroSchema(seq.schemaA).map(SchemaAvro.createArray)
+      case set: Schema.SetSchema[_]      => toAvroSchema(set.as).map(SchemaAvro.createArray)
+      case Transform(codec, _, _, _, _)  => toAvroSchema(codec)
+      case Primitive(standardType, _) =>
+        standardType match {
+          case StandardType.UnitType   => Right(SchemaAvro.create(SchemaAvro.Type.NULL))
+          case StandardType.StringType => Right(SchemaAvro.create(SchemaAvro.Type.STRING))
+          case StandardType.BoolType   => Right(SchemaAvro.create(SchemaAvro.Type.BOOLEAN))
+          case StandardType.ShortType =>
+            Right(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Short)))
+          case StandardType.ByteType   => Right(SchemaAvro.create(SchemaAvro.Type.INT))
+          case StandardType.IntType    => Right(SchemaAvro.create(SchemaAvro.Type.INT))
+          case StandardType.LongType   => Right(SchemaAvro.create(SchemaAvro.Type.LONG))
+          case StandardType.FloatType  => Right(SchemaAvro.create(SchemaAvro.Type.FLOAT))
+          case StandardType.DoubleType => Right(SchemaAvro.create(SchemaAvro.Type.DOUBLE))
+          case StandardType.BinaryType => Right(toAvroBinary(schema))
+          case StandardType.CharType =>
+            Right(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Char)))
+          case StandardType.UUIDType =>
+            Right(LogicalTypes.uuid().addToSchema(SchemaAvro.create(SchemaAvro.Type.STRING)))
+          case StandardType.BigDecimalType => toAvroDecimal(schema)
+          case StandardType.BigIntegerType => toAvroDecimal(schema)
+          case StandardType.DayOfWeekType =>
+            Right(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.DayOfWeek)))
+          case StandardType.MonthType =>
+            Right(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Month)))
+          case StandardType.YearType =>
+            Right(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Year)))
+          case StandardType.ZoneIdType =>
+            Right(SchemaAvro.create(SchemaAvro.Type.STRING).addMarkerProp(StringDiscriminator(StringType.ZoneId)))
+          case StandardType.ZoneOffsetType =>
+            Right(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.ZoneOffset)))
+          case StandardType.MonthDayType =>
+            //TODO 1
+            //Right(SchemaAvro.create(monthDayStructure).addMarkerProp(RecordDiscriminator(RecordType.MonthDay)))
+            Right(SchemaAvro.create(SchemaAvro.Type.RECORD))
+          case StandardType.PeriodType =>
+            //TODO 2
+            //toAvroSchema(periodStructure).map(_.addMarkerProp(RecordDiscriminator(RecordType.Period)))
+            Right(SchemaAvro.create(SchemaAvro.Type.RECORD))
+          case StandardType.YearMonthType =>
+            //TODO 3
+            //toAvroSchema(yearMonthStructure).map(_.addMarkerProp(RecordDiscriminator(RecordType.YearMonth)))
+            Right(SchemaAvro.create(SchemaAvro.Type.RECORD))
+          case StandardType.DurationType =>
+            // TODO: Java implementation of Apache Avro does not support logical type Duration yet:
+            //  AVRO-2123 with PR https://github.com/apache/avro/pull/1263
+            //TODO 4
+            //val chronoUnitMarker =
+            //DurationChronoUnit.fromTemporalUnit(temporalUnit).getOrElse(DurationChronoUnit.default)
+            //toAvroSchema(durationStructure).map(
+            //  _.addMarkerProp(RecordDiscriminator(RecordType.Duration)).addMarkerProp(chronoUnitMarker))
+            Right(SchemaAvro.create(SchemaAvro.Type.RECORD))
 
-            case t: StandardType.InstantType       => toAvroInstant(t.formatter, schema.annotations)
-            case t: StandardType.LocalDateType     => toAvroLocalDate(t.formatter, schema.annotations)
-            case t: StandardType.LocalTimeType     => toAvroLocalTime(t.formatter, schema.annotations)
-            case t: StandardType.LocalDateTimeType => toAvroLocalDateTime(t.formatter, schema.annotations)
-            case StandardType.OffsetTimeType(formatter) =>
-              Right(
-                SchemaAvro
-                  .create(SchemaAvro.Type.STRING)
-                  .addMarkerProp(StringDiscriminator(StringType.OffsetTime))
-                  .addMarkerProp(Formatter(formatter))
-              )
-            case StandardType.OffsetDateTimeType(formatter) =>
-              Right(
-                SchemaAvro
-                  .create(SchemaAvro.Type.STRING)
-                  .addMarkerProp(StringDiscriminator(StringType.OffsetDateTime))
-                  .addMarkerProp(Formatter(formatter))
-              )
-            case StandardType.ZonedDateTimeType(formatter) =>
-              Right(
-                SchemaAvro
-                  .create(SchemaAvro.Type.STRING)
-                  .addMarkerProp(StringDiscriminator(StringType.ZoneDateTime))
-                  .addMarkerProp(Formatter(formatter))
-              )
+          case t: StandardType.InstantType       => toAvroInstant(t.formatter, schema.annotations)
+          case t: StandardType.LocalDateType     => toAvroLocalDate(t.formatter, schema.annotations)
+          case t: StandardType.LocalTimeType     => toAvroLocalTime(t.formatter, schema.annotations)
+          case t: StandardType.LocalDateTimeType => toAvroLocalDateTime(t.formatter, schema.annotations)
+          case StandardType.OffsetTimeType(formatter) =>
+            Right(
+              SchemaAvro
+                .create(SchemaAvro.Type.STRING)
+                .addMarkerProp(StringDiscriminator(StringType.OffsetTime))
+                .addMarkerProp(Formatter(formatter))
+            )
+          case StandardType.OffsetDateTimeType(formatter) =>
+            Right(
+              SchemaAvro
+                .create(SchemaAvro.Type.STRING)
+                .addMarkerProp(StringDiscriminator(StringType.OffsetDateTime))
+                .addMarkerProp(Formatter(formatter))
+            )
+          case StandardType.ZonedDateTimeType(formatter) =>
+            Right(
+              SchemaAvro
+                .create(SchemaAvro.Type.STRING)
+                .addMarkerProp(StringDiscriminator(StringType.ZoneDateTime))
+                .addMarkerProp(Formatter(formatter))
+            )
+        }
+      case Optional(codec, _) =>
+        for {
+          codecName       <- getName(codec)
+          codecAvroSchema <- toAvroSchema(codec)
+          wrappedAvroSchema = codecAvroSchema match {
+            case schema: SchemaAvro if schema.getType == SchemaAvro.Type.NULL =>
+              wrapAvro(schema, codecName, UnionWrapper)
+            case schema: SchemaAvro if schema.getType == SchemaAvro.Type.UNION =>
+              wrapAvro(schema, codecName, UnionWrapper)
+            case schema => schema
           }
-        case Optional(codec, _) =>
-          for {
-            codecName       <- getName(codec)
-            codecAvroSchema <- toAvroSchema(codec)
-            wrappedAvroSchema = codecAvroSchema match {
-              case schema: SchemaAvro if schema.getType == SchemaAvro.Type.NULL =>
-                wrapAvro(schema, codecName, UnionWrapper)
-              case schema: SchemaAvro if schema.getType == SchemaAvro.Type.UNION =>
-                wrapAvro(schema, codecName, UnionWrapper)
-              case schema => schema
-            }
-          } yield SchemaAvro.createUnion(SchemaAvro.create(SchemaAvro.Type.NULL), wrappedAvroSchema)
-        case Fail(message, _) => Left(message)
-        case tuple: Tuple[_, _] =>
-          toAvroSchema(tuple.toRecord).map(
-            _.addMarkerProp(RecordDiscriminator(RecordType.Tuple))
-          )
-        case e @ EitherSchema(left, right, _) =>
-          val eitherUnion = for {
-            l           <- toAvroSchema(left)
-            r           <- toAvroSchema(right)
-            lname       <- getName(left)
-            rname       <- getName(right)
-            leftSchema  = if (l.getType == SchemaAvro.Type.UNION) wrapAvro(l, lname, UnionWrapper) else l
-            rightSchema = if (r.getType == SchemaAvro.Type.UNION) wrapAvro(r, rname, UnionWrapper) else r
-            _ <- if (leftSchema.getFullName == rightSchema.getFullName)
-                  Left(s"Left and right schemas of either must have different fullnames: ${leftSchema.getFullName}")
-                else Right(())
-          } yield SchemaAvro.createUnion(leftSchema, rightSchema)
+        } yield SchemaAvro.createUnion(SchemaAvro.create(SchemaAvro.Type.NULL), wrappedAvroSchema)
+      case Fail(message, _) => Left(message)
+      case tuple: Tuple[_, _] =>
+        toAvroSchema(tuple.toRecord).map(
+          _.addMarkerProp(RecordDiscriminator(RecordType.Tuple))
+        )
+      case e @ EitherSchema(left, right, _) =>
+        val eitherUnion = for {
+          l           <- toAvroSchema(left)
+          r           <- toAvroSchema(right)
+          lname       <- getName(left)
+          rname       <- getName(right)
+          leftSchema  = if (l.getType == SchemaAvro.Type.UNION) wrapAvro(l, lname, UnionWrapper) else l
+          rightSchema = if (r.getType == SchemaAvro.Type.UNION) wrapAvro(r, rname, UnionWrapper) else r
+          _ <- if (leftSchema.getFullName == rightSchema.getFullName)
+                Left(s"Left and right schemas of either must have different fullnames: ${leftSchema.getFullName}")
+              else Right(())
+        } yield SchemaAvro.createUnion(leftSchema, rightSchema)
 
-          // Unions in Avro can not hold additional properties, so we need to wrap the union in a record
-          for {
-            union <- eitherUnion
-            name  <- getName(e)
-          } yield wrapAvro(union, name, EitherWrapper)
+        // Unions in Avro can not hold additional properties, so we need to wrap the union in a record
+        for {
+          union <- eitherUnion
+          name  <- getName(e)
+        } yield wrapAvro(union, name, EitherWrapper)
 
-        case Lazy(schema0)     => toAvroSchema(schema0())
-        case Meta(_, _)        => toAvroSchema(Schema[SchemaAst])
-        case Dynamic(_)        => toAvroSchema(Schema[SchemaAst])
-        case SemiDynamic(_, _) => toAvroSchema(Schema[SchemaAst])
-      }
-
-    }.toEither.left.map(toErrorMessage(_, schema))
-  }.flatten
+      case Lazy(schema0)     => toAvroSchema(schema0())
+      case Meta(_, _)        => toAvroSchema(Schema[SchemaAst])
+      case Dynamic(_)        => toAvroSchema(Schema[SchemaAst])
+      case SemiDynamic(_, _) => toAvroSchema(Schema[SchemaAst])
+    }
+  }
 
   private def hasFormatToStringAnnotation(value: Chunk[Any]) = value.exists {
     case AvroAnnotations.formatToString => true
@@ -468,17 +463,18 @@ object AvroCodec extends AvroCodec {
   }
 
   def wrapAvro(schemaAvro: SchemaAvro, name: String, marker: AvroPropMarker): SchemaAvro = {
-
-    val field        = new SchemaAvro.Field("value", schemaAvro)
+    val field  = new SchemaAvro.Field("value", schemaAvro)
+    val fields = new java.util.ArrayList[SchemaAvro.Field]()
+    fields.add(field)
     val prefixedName = s"${AvroPropMarker.wrapperNamePrefix}_$name"
     SchemaAvro
-      .createRecord(prefixedName, null, AvroPropMarker.wrapperNamespace, false, Seq(field).asJava)
+      .createRecord(prefixedName, null, AvroPropMarker.wrapperNamespace, false, fields)
       .addMarkerProp(marker)
   }
 
-  private[codec] def toAvroEnum(`enum`: Enum[_]): Either[String, SchemaAvro] = {
-    val avroEnumAnnotationExists = hasAvroEnumAnnotation(`enum`.annotations)
-    val isAvroEnumEquivalent = `enum`.structure.forall {
+  private[codec] def toAvroEnum(enu: Enum[_]): Either[String, SchemaAvro] = {
+    val avroEnumAnnotationExists = hasAvroEnumAnnotation(enu.annotations)
+    val isAvroEnumEquivalent = enu.structure.forall {
       case (_, Transform(Primitive(standardType, _), _, _, _, _))
           if standardType == StandardType.UnitType && avroEnumAnnotationExists =>
         true
@@ -487,20 +483,20 @@ object AvroCodec extends AvroCodec {
     }
     if (isAvroEnumEquivalent) {
       for {
-        name            <- getName(`enum`)
-        doc             = getDoc(`enum`.annotations).orNull
-        namespaceOption <- getNamespace(`enum`.annotations)
-        symbols = `enum`.structureWithAnnotations.map {
+        name            <- getName(enu)
+        doc             = getDoc(enu.annotations).orNull
+        namespaceOption <- getNamespace(enu.annotations)
+        symbols = enu.structureWithAnnotations.map {
           case (symbol, (_, annotations)) => getNameOption(annotations).getOrElse(symbol)
-        }.toList.asJava
-        result = SchemaAvro.createEnum(name, doc, namespaceOption.orNull, symbols)
+        }.toList
+        result = SchemaAvro.createEnum(name, doc, namespaceOption.orNull, symbols.asJava)
       } yield result
     } else {
-      val cases = `enum`.structureWithAnnotations.map {
+      val cases = enu.structureWithAnnotations.map {
         case (symbol, (Transform(Primitive(standardType, _), _, _, _, _), annotations))
             if standardType == StandardType.UnitType =>
           val name = getNameOption(annotations).getOrElse(symbol)
-          Right(SchemaAvro.createRecord(name, null, null, false, Seq.empty[SchemaAvro.Field].asJava))
+          Right(SchemaAvro.createRecord(name, null, null, false, new java.util.ArrayList[SchemaAvro.Field]))
         case (symbol, (schema, annotations)) =>
           val name           = getNameOption(annotations).getOrElse(symbol)
           val schemaWithName = addNameAnnotationIfMissing(schema, name)
@@ -510,31 +506,37 @@ object AvroCodec extends AvroCodec {
             case schema => schema
           }
       }
-      cases.toList
-        .partitionMap(identity) match {
-        case (Nil, right) => Right(SchemaAvro.createUnion(right.asJava))
-        case (left, _)    => Left(left.mkString("\n"))
+      cases.toList.map(_.merge).partition {
+        case _: String => true
+        case _         => false
+      } match {
+        case (Nil, right: List[org.apache.avro.Schema]) => Right(SchemaAvro.createUnion(right.asJava))
+        case (left, _)                                  => Left(left.mkString("\n"))
       }
     }
   }
+
+  private def extractAvroFields(record: Record[_]): List[org.apache.avro.Schema.Field] =
+    record.structure.map(toAvroRecordField).toList.map(_.merge).partition {
+      case _: String => true
+      case _         => false
+    } match {
+      case (Nil, right: List[org.apache.avro.Schema.Field]) => right
+    }
 
   private[codec] def toAvroRecord(record: Record[_]): Either[String, SchemaAvro] =
     for {
       name            <- getName(record)
       namespaceOption <- getNamespace(record.annotations)
-      result <- record.structure.map(toAvroRecordField).toList.partitionMap(identity) match {
-                 case (Nil, right) =>
-                   Right(
-                     SchemaAvro.createRecord(
-                       name,
-                       getDoc(record.annotations).orNull,
-                       namespaceOption.orNull,
-                       isErrorRecord(record),
-                       right.asJava
-                     )
-                   )
-                 case (left, _) => Left(left.mkString("\n"))
-               }
+      result <- Right(
+                 SchemaAvro.createRecord(
+                   name,
+                   getDoc(record.annotations).orNull,
+                   namespaceOption.orNull,
+                   isErrorRecord(record),
+                   extractAvroFields(record).asJava
+                 )
+               )
     } yield result
 
   private[codec] def toAvroMap(map: MapSchema[_, _]): Either[String, SchemaAvro] =
@@ -595,14 +597,17 @@ object AvroCodec extends AvroCodec {
   private[codec] def getFieldOrder(annotations: Chunk[Any]): Option[FieldOrderType] =
     annotations.collectFirst { case AvroAnnotations.fieldOrder(fieldOrderType) => fieldOrderType }
 
-  private[codec] def getName(schema: Schema[_]): Either[String, String] =
+  private[codec] def getName(schema: Schema[_]): Either[String, String] = {
+    val validNameRegex = raw"[A-Za-z_][A-Za-z0-9_]*".r
+
     schema.annotations.collectFirst { case AvroAnnotations.name(name) => name } match {
       case Some(s) if validNameRegex.matches(s) => Right(s)
       case Some(s)                              => Left(s"Invalid Avro name: $s")
       case None =>
         Right(s"hashed_${schema.ast.toString.hashCode().toString.replaceFirst("-", "n")}")
-      // TODO: better way to generate a (maybe stable) name?
+      //TODO: better way to generate a (maybe stable) name?
     }
+  }
 
   private[codec] def getNameOption(annotations: Chunk[Any]): Option[String] =
     annotations.collectFirst { case AvroAnnotations.name(name) => name }
@@ -613,12 +618,15 @@ object AvroCodec extends AvroCodec {
   private[codec] def getDefault(annotations: Chunk[Any]): Option[java.lang.Object] =
     annotations.collectFirst { case AvroAnnotations.default(javaDefaultObject) => javaDefaultObject }
 
-  private[codec] def getNamespace(annotations: Chunk[Any]): Either[String, Option[String]] =
+  private[codec] def getNamespace(annotations: Chunk[Any]): Either[String, Option[String]] = {
+    val validNamespaceRegex = raw"[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*".r
+
     annotations.collectFirst { case AvroAnnotations.namespace(ns) => ns } match {
       case Some(s) if validNamespaceRegex.matches(s) => Right(Some(s))
       case Some(s)                                   => Left(s"Invalid Avro namespace: $s")
       case None                                      => Right(None)
     }
+  }
 
   private[codec] def isErrorRecord(record: Record[_]): Boolean =
     record.annotations.collectFirst { case AvroAnnotations.error => () }.nonEmpty
@@ -651,16 +659,20 @@ object AvroCodec extends AvroCodec {
   }
 
   private[codec] def toZioEnumeration[A, Z](avroSchema: SchemaAvro): Either[String, Schema[Z]] = {
-    val cases = avroSchema.getTypes.asScala.map(t => {
-      val inner =
-        if (t.getType == SchemaAvro.Type.RECORD && t.getFields.size() == 1 && t
-              .getObjectProp(UnionWrapper.propName) == true) {
-          t.getFields.asScala.head.schema() // unwrap nested union
-        } else t
-      toZioSchema(inner).map(s => Schema.Case[A, Z](t.getFullName, s.asInstanceOf[Schema[A]], _.asInstanceOf[A]))
-    })
-    val caseSet = cases.toList.partitionMap(identity) match {
-      case (Nil, right) =>
+    val cases = avroSchema.getTypes.asScala
+      .map(t => {
+        val inner =
+          if (t.getType == SchemaAvro.Type.RECORD && t.getFields.size() == 1 && t
+                .getObjectProp(UnionWrapper.propName) == true) {
+            t.getFields.asScala.head.schema() // unwrap nested union
+          } else t
+        toZioSchema(inner).map(s => Schema.Case[A, Z](t.getFullName, s.asInstanceOf[Schema[A]], _.asInstanceOf[A]))
+      })
+    val caseSet = cases.toList.map(_.merge).partition {
+      case _: String => true
+      case _         => false
+    } match {
+      case (Nil, right: Seq[Case[_, _]]) =>
         Try {
           CaseSet(right: _*).asInstanceOf[CaseSet { type EnumType = Z }]
         }.toEither.left.map(_.getMessage)
@@ -726,17 +738,20 @@ object AvroCodec extends AvroCodec {
         case None => Left("ZIO schema wrapped record must have a single field")
       }
     } else {
-      val fields: Either[String, List[Field[_]]] = {
-        avroSchema.getFields.asScala.map(toZioField).toList.partitionMap(identity) match {
-          case (Nil, right) => Right(right)
-          case (left, _)    => Left(left.mkString("\n"))
-        }
-      }
       val annotations = buildZioAnnotations(avroSchema)
-      fields.map { fs =>
+      extractZioFields(avroSchema).map { fs =>
         if (fs.isEmpty) Schema.Primitive(StandardType.UnitType).addAllAnnotations(annotations)
         else Schema.record(fs: _*).addAllAnnotations(annotations)
       }
+    }
+
+  private def extractZioFields(avroSchema: SchemaAvro): Either[String, List[Field[_]]] =
+    avroSchema.getFields.asScala.map(toZioField).toList.map(_.merge).partition {
+      case _: String => true
+      case _         => false
+    } match {
+      case (Nil, right: List[Field[_]]) => Right(right)
+      case (left, _)                    => Left(left.mkString("\n"))
     }
 
   private[codec] def toZioField(field: SchemaAvro.Field): Either[String, Field[_]] =
@@ -745,8 +760,8 @@ object AvroCodec extends AvroCodec {
   private[codec] def toZioTuple(schema: SchemaAvro): Either[String, Schema[_]] =
     for {
       _  <- Either.cond(schema.getFields.size() == 2, (), "Tuple must have exactly 2 fields:" + schema.toString(false))
-      _1 <- toZioSchema(schema.getFields.asScala.head.schema())
-      _2 <- toZioSchema(schema.getFields.asScala.last.schema())
+      _1 <- toZioSchema(schema.getFields.get(0).schema())
+      _2 <- toZioSchema(schema.getFields.get(1).schema())
     } yield Schema.Tuple(_1, _2, buildZioAnnotations(schema))
 
   private[codec] def buildZioAnnotations(schema: SchemaAvro): Chunk[StaticAnnotation] = {
@@ -754,27 +769,28 @@ object AvroCodec extends AvroCodec {
     val namespace = Try {
       Option(schema.getNamespace).map(AvroAnnotations.namespace.apply)
     }.toOption.flatten
-    val doc = Option.when(schema.getDoc != null)(AvroAnnotations.doc(schema.getDoc))
+    val doc = if (schema.getDoc != null) Some(AvroAnnotations.doc(schema.getDoc)) else None
     val aliases = Try {
-      Option.when(schema.getAliases != null && !schema.getAliases.isEmpty)(
-        AvroAnnotations.aliases(schema.getAliases.asScala.toSet)
-      )
+      if (schema.getAliases != null && !schema.getAliases.isEmpty)
+        Some(AvroAnnotations.aliases(schema.getAliases.asScala.toSet))
+      else None
     }.toOption.flatten
     val error = Try {
-      Option.when(schema.isError)(AvroAnnotations.error)
+      if (schema.isError) Some(AvroAnnotations.error) else None
     }.toOption.flatten
     val default = Try {
-      Option.when(schema.getEnumDefault != null)(AvroAnnotations.default(schema.getEnumDefault))
+      if (schema.getEnumDefault != null) Some(AvroAnnotations.default(schema.getEnumDefault)) else None
     }.toOption.flatten
     Chunk(name) ++ namespace ++ doc ++ aliases ++ error ++ default
   }
 
   private[codec] def buildZioAnnotations(field: SchemaAvro.Field): Chunk[Any] = {
-    val nameAnnotation    = Some(AvroAnnotations.name(field.name))
-    val docAnnotation     = Option.when(field.doc() != null)(AvroAnnotations.doc(field.doc))
-    val aliasesAnnotation = Option.when(!field.aliases().isEmpty)(AvroAnnotations.aliases(field.aliases.asScala.toSet))
+    val nameAnnotation = Some(AvroAnnotations.name(field.name))
+    val docAnnotation  = if (field.doc() != null) Some(AvroAnnotations.doc(field.doc)) else None
+    val aliasesAnnotation =
+      if (!field.aliases().isEmpty) Some(AvroAnnotations.aliases(field.aliases.asScala.toSet)) else None
     val default = Try {
-      Option.when(field.hasDefaultValue)(AvroAnnotations.default(field.defaultVal()))
+      if (field.hasDefaultValue) Some(AvroAnnotations.default(field.defaultVal())) else None
     }.toOption.flatten
     val orderAnnotation = Some(AvroAnnotations.fieldOrder(FieldOrderType.fromAvroOrder(field.order())))
     val annotations: Seq[StaticAnnotation] =
@@ -794,9 +810,20 @@ object AvroCodec extends AvroCodec {
 
     def unapply(schema: SchemaAvro): Option[SchemaAvro] =
       if (schema.getType == SchemaAvro.Type.UNION) {
-        val types = schema.getTypes.asScala.toList
-        if (types.size == 2 && types.exists(_.getType == SchemaAvro.Type.NULL)) {
-          types.find(_.getType != SchemaAvro.Type.NULL)
+        val types = schema.getTypes
+        if (types.size == 2) {
+          if (types.get(0).getType == SchemaAvro.Type.NULL ||
+              types.get(1).getType == SchemaAvro.Type.NULL) {
+            if (types.get(1).getType != SchemaAvro.Type.NULL) {
+              Some(types.get(1))
+            } else if (types.get(0).getType != SchemaAvro.Type.NULL) {
+              Some(types.get(0))
+            } else {
+              None
+            }
+          } else {
+            None
+          }
         } else {
           None
         }
@@ -808,10 +835,11 @@ object AvroCodec extends AvroCodec {
   private case object EitherUnion {
 
     def unapply(schema: SchemaAvro): Option[(SchemaAvro, SchemaAvro)] =
-      if (schema.getType == SchemaAvro.Type.UNION && schema.getObjectProp(EitherWrapper.propName) == EitherWrapper.value) {
-        val types = schema.getTypes.asScala.toList
+      if (schema.getType == SchemaAvro.Type.UNION &&
+          schema.getObjectProp(EitherWrapper.propName) == EitherWrapper.value) {
+        val types = schema.getTypes
         if (types.size == 2) {
-          Some(types.head -> types.last)
+          Some(types.get(0) -> types.get(1))
         } else {
           None
         }
