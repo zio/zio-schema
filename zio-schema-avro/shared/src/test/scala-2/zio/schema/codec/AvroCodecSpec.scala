@@ -19,7 +19,8 @@ import zio.test.environment.TestEnvironment
 
 object AvroCodecSpec extends DefaultRunnableSpec {
 
-  override def spec: ZSpec[TestEnvironment, Any] = suite("AvroCodecSpec")(/*
+  override def spec: ZSpec[TestEnvironment, Any] =
+    suite("AvroCodecSpec")( /*
     suite("encode")(
       suite("enum")(
         test("encodes string only enum as avro enum") {
@@ -1734,7 +1735,7 @@ object AvroCodecSpec extends DefaultRunnableSpec {
 
       assert(decoded)(isRight(hasField("ast", _.ast, equalTo(initialSchemaDerived.ast))))
     }*/
-  )
+    )
 }
 
 object AssertionHelper {
