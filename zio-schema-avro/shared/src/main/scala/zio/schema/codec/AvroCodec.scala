@@ -510,8 +510,8 @@ object AvroCodec extends AvroCodec {
         case _: String => true
         case _         => false
       } match {
-        case (Nil, right: List[org.apache.avro.Schema]) => Right(SchemaAvro.createUnion(right.asJava))
-        case (left, _)                                  => Left(left.mkString("\n"))
+        case (Nil, right: List[org.apache.avro.Schema @unchecked]) => Right(SchemaAvro.createUnion(right.asJava))
+        case (left, _)                                             => Left(left.mkString("\n"))
       }
     }
   }
@@ -521,7 +521,8 @@ object AvroCodec extends AvroCodec {
       case _: String => true
       case _         => false
     } match {
-      case (Nil, right: List[org.apache.avro.Schema.Field]) => right
+      case (Nil, right: List[org.apache.avro.Schema.Field @unchecked]) => right
+      case _                                                           => null
     }
 
   private[codec] def toAvroRecord(record: Record[_]): Either[String, SchemaAvro] =
@@ -672,7 +673,7 @@ object AvroCodec extends AvroCodec {
       case _: String => true
       case _         => false
     } match {
-      case (Nil, right: Seq[Case[_, _]]) =>
+      case (Nil, right: Seq[Case[_, _] @unchecked]) =>
         Try {
           CaseSet(right: _*).asInstanceOf[CaseSet { type EnumType = Z }]
         }.toEither.left.map(_.getMessage)
@@ -750,8 +751,8 @@ object AvroCodec extends AvroCodec {
       case _: String => true
       case _         => false
     } match {
-      case (Nil, right: List[Field[_]]) => Right(right)
-      case (left, _)                    => Left(left.mkString("\n"))
+      case (Nil, right: List[Field[_] @unchecked]) => Right(right)
+      case (left, _)                               => Left(left.mkString("\n"))
     }
 
   private[codec] def toZioField(field: SchemaAvro.Field): Either[String, Field[_]] =
