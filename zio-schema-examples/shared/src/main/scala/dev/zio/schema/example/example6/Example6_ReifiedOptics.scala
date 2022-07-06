@@ -4,7 +4,6 @@ import zio._
 import zio.schema.Schema._
 import zio.schema._
 import zio.schema.optics.ZioOpticsBuilder
-import zio.schema.syntax._
 
 private[example6] object Domain {
   final case class User(name: String, age: Int)
@@ -71,8 +70,8 @@ object Example6_ReifiedOptics extends zio.App {
     address              = Address("Street", "City", "State")
     userAddress          = UserAddress(user, address)
     userAddressAccessors = userAddressSchema.makeAccessors(ZioOpticsBuilder)
-    userAccessors        = userSchema.makeAccessors(ZioOpticsBuilder)
-    addressAccessors     = addressSchema.makeAccessors(ZioOpticsBuilder)
+    //userAccessors        = userSchema.makeAccessors(ZioOpticsBuilder)
+    addressAccessors = addressSchema.makeAccessors(ZioOpticsBuilder)
 
     changedUserAddress = (userAddressAccessors._2 >>> addressAccessors._3).setOptic("New State")(userAddress)
     _                  <- ZIO.debug(userAddress)
@@ -80,11 +79,11 @@ object Example6_ReifiedOptics extends zio.App {
   } yield ()
 
   val traversalTest1: ZIO[Any, Nothing, Unit] = for {
-    _                         <- ZIO.debug("\n\n\n\n")
-    _                         <- ZIO.debug("traversal test 1.. trying to add a employee to a company")
-    company                   = Company(boss = User("Dominik", 36), List.empty[UserAddress])
-    _                         <- ZIO.debug("old company     :       " + company)
-    (bossLens, employeesLens) = companySchema.makeAccessors(ZioOpticsBuilder)
+    _                  <- ZIO.debug("\n\n\n\n")
+    _                  <- ZIO.debug("traversal test 1.. trying to add a employee to a company")
+    company            = Company(boss = User("Dominik", 36), List.empty[UserAddress])
+    _                  <- ZIO.debug("old company     :       " + company)
+    (_, employeesLens) = companySchema.makeAccessors(ZioOpticsBuilder)
 
     employeeSchema = companySchema.field2.schema.asInstanceOf[Sequence[List[UserAddress], UserAddress, _]]
     employeesTraversal = ZioOpticsBuilder
