@@ -1,6 +1,12 @@
 package zio.schema.validation
 
+// sealed trait AbstractValidation {
+//   type Type
+//   def bool: Bool[Predicate[Type]]
+// }
+
 final case class Validation[A](bool: Bool[Predicate[A]]) { self =>
+  // override type Type = A
   def &&(that: Validation[A]): Validation[A] = Validation(self.bool && that.bool)
   def ||(that: Validation[A]): Validation[A] = Validation(self.bool || that.bool)
   def unary_! : Validation[A]                = Validation(!self.bool)

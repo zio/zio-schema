@@ -15,8 +15,6 @@ object DeriveSchema {
 
     val JavaAnnotationTpe = typeOf[java.lang.annotation.Annotation]
 
-    // val ValidateAnnotationTpe = typeOf[zio.schema.annotation.validate] TODO
-
     val tpe = weakTypeOf[T]
 
     def concreteType(seenFrom: Type, tpe: Type): Type =
@@ -208,7 +206,7 @@ object DeriveSchema {
           }.filter(_ != EmptyTree)
 
         @nowarn
-        val fieldAnnotations: List[List[Tree]] = //List.fill(arity)(Nil)
+        val fieldAnnotations: List[List[Tree]] =
           tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
             symbols
               .map(_.annotations.collect {
@@ -229,29 +227,8 @@ object DeriveSchema {
               .filter(_ != EmptyTree)
           }.getOrElse(Nil)
 
-        // @nowarn
-        // val fieldValidations: List[Tree] = //List.fill(arity)(Nil)
-        //   tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
-        //     symbols
-        //       .map{ symbol => symbol.annotations.collect {
-        //         case annotation if (annotation.tree.tpe.toString.startsWith("zio.schema.annotation.validate")) =>
-        //           annotation.tree match {
-        //             case q"new $annConstructor(..$annotationArgs)" =>
-        //               q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
-        //             case q"new $annConstructor()" =>
-        //               q"new ${annConstructor.tpe.typeSymbol}()"
-        //             case tree =>
-        //               c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
-        //               EmptyTree
-        //           }
-        //       }
-        //     }.filter(_ != EmptyTree).foldLeft(q"zio.schema.validation.Validation.succeed") {
-        //       case (acc, t) => q"$acc && $t"
-        //     }
-        //   }.getOrElse(Nil)
-
         @nowarn
-        val fieldValidations: List[Tree] = //List.fill(arity)(Nil)
+        val fieldValidations: List[Tree] =
           tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
             symbols.map { symbol =>
               symbol.annotations.collect {
