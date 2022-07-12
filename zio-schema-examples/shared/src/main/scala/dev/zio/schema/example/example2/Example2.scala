@@ -1,7 +1,7 @@
 package dev.zio.schema.example.example2
 
+import zio.schema.Schema
 import zio.schema.Schema._
-import zio.schema.{ DeriveSchema, Schema }
 import zio.stream.ZTransducer
 import zio.{ Chunk, ExitCode, URIO, ZIO }
 
