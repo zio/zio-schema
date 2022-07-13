@@ -60,6 +60,9 @@ object Validation extends Regexs with Time {
   def lessThan[A](value: A)(implicit numType: NumType[A]): Validation[A] =
     Validation(Bool.Leaf(Num.LessThan(numType, value)))
 
+  def between[A](lower: A, upper: A)(implicit numType: NumType[A]): Validation[A] =
+    (greaterThan(lower) || equalTo(lower)) && ((lessThan(upper) || equalTo(upper)))
+
   def equalTo[A](value: A)(implicit numType: NumType[A]): Validation[A] =
     Validation(Bool.Leaf(Num.EqualTo(numType, value)))
 

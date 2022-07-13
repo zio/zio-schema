@@ -227,6 +227,26 @@ object DeriveSchema {
               .filter(_ != EmptyTree)
           }.getOrElse(Nil)
 
+        @nowarn
+        val fieldValidations: List[Tree] =
+          tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
+            symbols.map { symbol =>
+              symbol.annotations.collect {
+                case annotation if (annotation.tree.tpe.toString.startsWith("zio.schema.annotation.validate")) =>
+                  annotation.tree match {
+                    case q"new $annConstructor(..$annotationArgs)" =>
+                      q"..$annotationArgs"
+                    case tree =>
+                      c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
+                      EmptyTree
+                  }
+              }
+            }.filter(_ != EmptyTree)
+              .map(_.foldLeft[c.universe.Tree](q"zio.schema.validation.Validation.succeed") {
+                case (acc, t) => q"$acc && $t"
+              })
+          }.getOrElse(Nil)
+
         if (arity > 22) {
           val fields = fieldTypes.zip(fieldAnnotations).map {
             case (termSymbol, annotations) =>
@@ -284,8 +304,8 @@ object DeriveSchema {
             case 22 => q"zio.schema.Schema.CaseClass22[..$typeArgs]"
           }
 
-          val fieldDefs = fieldTypes.zip(fieldAnnotations).zipWithIndex.map {
-            case ((termSymbol, annotations), idx) =>
+          val fieldDefs = fieldTypes.zip(fieldAnnotations).zip(fieldValidations).zipWithIndex.map {
+            case (((termSymbol, annotations), validation),idx) =>
               val fieldSchema = directInferSchema(
                 tpe,
                 concreteType(tpe, termSymbol.typeSignature),
@@ -295,9 +315,9 @@ object DeriveSchema {
               val fieldLabel = termSymbol.name.toString.trim
 
               if (annotations.nonEmpty)
-                q"""$fieldArg = zio.schema.Schema.Field.apply(label = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations))"""
+                q"""$fieldArg = zio.schema.Schema.Field.apply(label = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), validation = $validation)"""
               else
-                q"""$fieldArg = zio.schema.Schema.Field.apply(label = $fieldLabel, schema = $fieldSchema)"""
+                q"""$fieldArg = zio.schema.Schema.Field.apply(label = $fieldLabel, schema = $fieldSchema, validation = $validation)"""
           }
 
           val constructArgs = fieldTypes.zipWithIndex.map {
