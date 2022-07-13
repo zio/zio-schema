@@ -305,7 +305,7 @@ object DeriveSchema {
           }
 
           val fieldDefs = fieldTypes.zip(fieldAnnotations).zip(fieldValidations).zipWithIndex.map {
-            case (((termSymbol, annotations), validation),idx) =>
+            case (((termSymbol, annotations), validation), idx) =>
               val fieldSchema = directInferSchema(
                 tpe,
                 concreteType(tpe, termSymbol.typeSignature),
