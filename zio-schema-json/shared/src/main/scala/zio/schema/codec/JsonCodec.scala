@@ -103,7 +103,7 @@ object JsonCodec extends Codec {
     }
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
-    private[codec] def schemaEncoder[A](schema: Schema[A]): JsonEncoder[A] = schema match {
+    def schemaEncoder[A](schema: Schema[A]): JsonEncoder[A] = schema match {
       case Schema.Primitive(standardType, _)   => primitiveCodec(standardType)
       case Schema.Sequence(schema, _, g, _, _) => JsonEncoder.chunk(schemaEncoder(schema)).contramap(g)
       case Schema.MapSchema(ks, vs, _) =>
@@ -304,7 +304,7 @@ object JsonCodec extends Codec {
       schemaDecoder(schema).decodeJson(json)
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
-    private[codec] def schemaDecoder[A](schema: Schema[A]): JsonDecoder[A] = schema match {
+    def schemaDecoder[A](schema: Schema[A]): JsonDecoder[A] = schema match {
       case Schema.Primitive(standardType, _)   => primitiveCodec(standardType)
       case Schema.Optional(codec, _)           => JsonDecoder.option(schemaDecoder(codec))
       case Schema.Tuple(left, right, _)        => JsonDecoder.tuple2(schemaDecoder(left), schemaDecoder(right))
