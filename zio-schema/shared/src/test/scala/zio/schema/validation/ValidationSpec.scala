@@ -109,6 +109,16 @@ object ValidationSpec extends DefaultRunnableSpec {
       assertTrue(validation.validate("192.168.1").isLeft) &&
       assertTrue(validation.validate("-1.0.0.1").isLeft)
     },
+    test("Regex IPv6 Validation") {
+      val validation = Validation.ipV6
+      assertTrue(validation.validate("2001:470:9b36:1::2").isRight) &&
+      assertTrue(validation.validate("2001:cdba:0:0:0:0:3257:9652").isRight) &&
+      assertTrue(validation.validate("2001:cdba::3257:9652").isRight) &&
+      assertTrue(validation.validate("2001:db8:122:344::192.0.2.33").isLeft) &&
+      assertTrue(validation.validate("1200::AB00:1234::2552:7777:1313").isLeft) &&
+      assertTrue(validation.validate("2001:cdba:0000:0000:0000:0000:3257:9652").isLeft) &&
+      assertTrue(validation.validate("1200:0000:AB00:1234:O000:2552:7777:1313").isLeft)
+    },
     suite("Regex uuid Validations")(
       testM("valid UUID") {
         val validation = Validation.uuidV4

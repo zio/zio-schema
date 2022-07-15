@@ -11,7 +11,7 @@ trait Regexs {
     val topLevelDomain = (Regex.digitOrLetter | Regex.oneOf('-')).between(2, 4)
     val domain =
       ((Regex.digitOrLetter | Regex.oneOf('-')).atLeast(1) ~
-        (Regex.oneOf('.'))).atLeast(1) ~
+        Regex.oneOf('.')).atLeast(1) ~
         topLevelDomain
 
     Validation.regex(
@@ -36,6 +36,40 @@ trait Regexs {
     val bytePart = is250To255 | is200To249 | isZeroTo199
 
     Validation.regex(bytePart ~ separator ~ bytePart ~ separator ~ bytePart ~ separator ~ bytePart)
+  }
+
+  /**
+   * Checks whether a certain string represents a valid IPv6 address.
+   */
+  lazy val ipV6: Validation[String] = {
+
+    val is0To4: Regex     = Regex.oneOf('0', '1', '2', '3', '4')
+    val is0To5: Regex     = is0To4 | Regex.oneOf('5')
+    val twoDigits: Regex  = Regex.digitNonZero.exactly(1) ~ Regex.digit.exactly(1)
+    val is0To99: Regex    = Regex.digit.exactly(1) | twoDigits.exactly(1)
+    val is100To199: Regex = Regex.oneOf('1') ~ Regex.digit.exactly(2)
+    val is200To249: Regex = Regex.oneOf('2') ~ is0To4 ~ Regex.digit
+    val is250To255: Regex = Regex.literal("25") ~ is0To5
+    val ipv4Part: Regex   = is250To255 | is200To249 | is100To199 | is0To99
+    val ipv4: Regex       = ipv4Part ~ (Regex.oneOf('.').exactly(1) ~ ipv4Part).exactly(3)
+
+    val oneDigitHex   = Regex.hexDigit.exactly(1)
+    val twoDigitHex   = Regex.hexDigitNonZero.exactly(1) ~ Regex.hexDigit.exactly(1)
+    val threeDigitHex = Regex.hexDigitNonZero.exactly(1) ~ Regex.hexDigit.exactly(2)
+    val fourDigitHex  = Regex.hexDigitNonZero.exactly(1) ~ Regex.hexDigit.exactly(3)
+
+    val hexGroup: Regex = fourDigitHex | threeDigitHex | twoDigitHex | oneDigitHex
+
+    val colon: Regex = Regex.oneOf(':').exactly(1)
+
+    val g8: Regex = (hexGroup ~ colon).exactly(7) ~ (hexGroup | colon)
+    val g7: Regex = (hexGroup ~ colon).exactly(6) ~ ((colon ~ hexGroup) | ipv4 | colon)
+
+    def g(n: Int): Regex =
+      (hexGroup ~ colon).exactly(n - 1) ~
+        ((colon ~ hexGroup).between(1, 8 - n) | ((colon ~ hexGroup).between(0, 6 - n) ~ (colon ~ ipv4)) | colon)
+
+    Validation.regex(g(1) | g(2) | g(3) | g(4) | g(5) | g(6) | g7 | g8)
   }
 
   lazy val uuidV4: Validation[String] = {
