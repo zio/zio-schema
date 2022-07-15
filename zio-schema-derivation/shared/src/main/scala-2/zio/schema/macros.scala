@@ -277,7 +277,11 @@ object DeriveSchema {
             q"""(b: $tpe) => Right(scala.collection.immutable.ListMap.apply(..$tuples))"""
           }
 
-          q"""zio.schema.Schema.record(..$fields).transformOrFail[$tpe]($fromMap,$toMap)"""
+          val applyArgs =
+            if (typeAnnotations.isEmpty) Iterable(q"annotations = zio.Chunk.empty")
+            else Iterable(q"annotations = zio.Chunk.apply(..$typeAnnotations)")
+
+          q"""zio.schema.Schema.GenericRecord(zio.schema.FieldSet(..$fields), ..$applyArgs).transformOrFail[$tpe]($fromMap,$toMap)"""
         } else {
           val schemaType = arity match {
             case 1  => q"zio.schema.Schema.CaseClass1[..$typeArgs]"

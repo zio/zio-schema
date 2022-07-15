@@ -61,6 +61,9 @@ object FieldSet {
     override def toString: String = s"$head :*: $tail"
   }
 
+  def apply(fields: Field[_]*): FieldSet =
+    fields.foldRight[FieldSet](FieldSet.Empty)((field, acc) => field :*: acc)
+
   def field[A: Schema](name: String): A :*: Empty = Field(name, Schema[A]) :*: Empty
 
 }
