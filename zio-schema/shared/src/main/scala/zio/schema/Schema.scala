@@ -170,10 +170,8 @@ object Schema extends SchemaEquality {
   def first[A](codec: Schema[(A, Unit)]): Schema[A] =
     codec.transform[A](_._1, a => (a, ()))
 
-  def record(field: Field[_]*): Schema[ListMap[String, _]] =
-    GenericRecord(
-      field.foldRight[FieldSet](FieldSet.Empty)((field, acc) => field :*: acc)
-    )
+  def record(fields: Field[_]*): Schema[ListMap[String, _]] =
+    GenericRecord(FieldSet(fields: _*))
 
   def second[A](codec: Schema[(Unit, A)]): Schema[A] =
     codec.transform[A](_._2, a => ((), a))
