@@ -42,7 +42,7 @@ object ValidationSpec extends DefaultRunnableSpec {
 
       assertTrue(validation.validate("hello").isRight) &&
       assertTrue(validation.validate("Todd").isRight) &&
-      assertTrue(validation.validate("how").isLeft)
+      assertTrue(validation.validate("how").isLeft) &&
       assertTrue(validation.validate("hi").isLeft)
     },
     test("MaxLength") {
@@ -99,13 +99,13 @@ object ValidationSpec extends DefaultRunnableSpec {
       assertTrue(validation.validate("1.1.1.1").isRight) &&
       assertTrue(validation.validate("1.0.128.0").isRight) &&
       assertTrue(validation.validate("127.0.0.1").isRight) &&
-      assertTrue(validation.validate("0.0.0.1").isRight)
-      assertTrue(validation.validate("10.0.0.255").isRight)
-      assertTrue(validation.validate("69.89.31.226").isRight)
-      assertTrue(validation.validate("01.001.100.199").isRight)
-      assertTrue(validation.validate("10.0.0.256").isLeft)
-      assertTrue(validation.validate("256.256.256.256").isLeft)
-      assertTrue(validation.validate("127.0.0 1").isLeft)
+      assertTrue(validation.validate("0.0.0.1").isRight) &&
+      assertTrue(validation.validate("10.0.0.255").isRight) &&
+      assertTrue(validation.validate("69.89.31.226").isRight) &&
+      assertTrue(validation.validate("01.001.100.199").isRight) &&
+      assertTrue(validation.validate("10.0.0.256").isLeft) &&
+      assertTrue(validation.validate("256.256.256.256").isLeft) &&
+      assertTrue(validation.validate("127.0.0 1").isLeft) &&
       assertTrue(validation.validate("192.168.1").isLeft) &&
       assertTrue(validation.validate("-1.0.0.1").isLeft)
     },
