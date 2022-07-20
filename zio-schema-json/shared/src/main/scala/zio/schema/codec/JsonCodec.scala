@@ -103,7 +103,7 @@ object JsonCodec extends Codec {
     }
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
-    private[codec] def schemaEncoder[A](schema: Schema[A]): JsonEncoder[A] = schema match {
+    def schemaEncoder[A](schema: Schema[A]): JsonEncoder[A] = schema match {
       case Schema.Primitive(standardType, _)   => primitiveCodec(standardType)
       case Schema.Sequence(schema, _, g, _, _) => JsonEncoder.chunk(schemaEncoder(schema)).contramap(g)
       case Schema.MapSchema(ks, vs, _) =>
@@ -304,7 +304,7 @@ object JsonCodec extends Codec {
       schemaDecoder(schema).decodeJson(json)
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
-    private[codec] def schemaDecoder[A](schema: Schema[A]): JsonDecoder[A] = schema match {
+    def schemaDecoder[A](schema: Schema[A]): JsonDecoder[A] = schema match {
       case Schema.Primitive(standardType, _)   => primitiveCodec(standardType)
       case Schema.Optional(codec, _)           => JsonDecoder.option(schemaDecoder(codec))
       case Schema.Tuple(left, right, _)        => JsonDecoder.tuple2(schemaDecoder(left), schemaDecoder(right))
@@ -512,18 +512,20 @@ object JsonCodec extends Codec {
         fields.foreach {
           case (Schema.Field(key, schema, _, _), ext) =>
             val enc = Encoder.schemaEncoder(schema.asInstanceOf[Schema[Any]])
-            if (first)
-              first = false
-            else {
-              out.write(',')
-              if (indent.isDefined)
-                JsonEncoder.pad(indent_, out)
-            }
+            if (!enc.isNothing(ext(a))) {
+              if (first)
+                first = false
+              else {
+                out.write(',')
+                if (indent.isDefined)
+                  JsonEncoder.pad(indent_, out)
+              }
 
-            string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(key), indent_, out)
-            if (indent.isEmpty) out.write(':')
-            else out.write(" : ")
-            enc.unsafeEncode(ext(a), indent_, out)
+              string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(key), indent_, out)
+              if (indent.isEmpty) out.write(':')
+              else out.write(" : ")
+              enc.unsafeEncode(ext(a), indent_, out)
+            }
         }
         pad(indent, out)
         out.write('}')

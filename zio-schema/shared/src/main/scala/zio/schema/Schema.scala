@@ -170,11 +170,8 @@ object Schema extends SchemaEquality {
   def first[A](codec: Schema[(A, Unit)]): Schema[A] =
     codec.transform[A](_._1, a => (a, ()))
 
-  def record(id: TypeId, field: Field[_]*): Schema[ListMap[String, _]] =
-    GenericRecord(
-      id,
-      field.foldRight[FieldSet](FieldSet.Empty)((field, acc) => field :*: acc)
-    )
+  def record(id: TypeId, fields: Field[_]*): Schema[ListMap[String, _]] =
+    GenericRecord(id, FieldSet(fields: _*))
 
   def second[A](codec: Schema[(Unit, A)]): Schema[A] =
     codec.transform[A](_._2, a => ((), a))
@@ -426,6 +423,7 @@ object Schema extends SchemaEquality {
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[first.type, (A, B), A], b.Lens[second.type, (A, B), B]) =
       b.makeLens(toRecord, toRecord.field1) -> b.makeLens(toRecord, toRecord.field2)
+
   }
 
   final case class EitherSchema[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)

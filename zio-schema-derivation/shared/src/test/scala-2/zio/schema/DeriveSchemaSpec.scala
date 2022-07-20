@@ -91,6 +91,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   case class CyclicChild1(field1: Int, child: CyclicChild2)
   case class CyclicChild2(field1: String, recursive: Option[Cyclic])
 
+  @annotation1("Arity24")
   final case class Arity24(
     a1: String,
     a2: Long,
@@ -299,6 +300,9 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
           )
         }
         assert(derived)(hasSameSchema(expected))
+      },
+      test("correctly captures annotations on case class with arity greater than 22") {
+        assertTrue(Schema[Arity24].annotations == Chunk(annotation1("Arity24")))
       },
       test("correctly derives Enum") {
         val derived: Schema[Status] = Schema[Status]

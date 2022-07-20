@@ -86,8 +86,11 @@ object Regex {
   def filter(f: Char => Boolean): Regex = CharacterSet((Char.MinValue to Char.MaxValue).filter(f).toSet)
 
   def literal(str: String): Regex = {
+    import scala.annotation.tailrec
+
+    @tailrec
     def loop(l: List[Char], acc: Regex): Regex =
-      l.toList match {
+      l match {
         case head :: Nil  => acc ~ CharacterSet(Set(head))
         case head :: tail => loop(tail, acc ~ CharacterSet(Set(head)))
         case Nil          => acc
@@ -100,7 +103,13 @@ object Regex {
 
   val digit: Regex = Digit
 
+  val digitNonZero: Regex = between('1', '9')
+
   val letter: Regex = Letter
 
   val digitOrLetter: Regex = digit | letter
+
+  val hexDigit: Regex = Digit | between('a', 'f') | between('A', 'F')
+
+  val hexDigitNonZero: Regex = digitNonZero | between('a', 'f') | between('A', 'F')
 }

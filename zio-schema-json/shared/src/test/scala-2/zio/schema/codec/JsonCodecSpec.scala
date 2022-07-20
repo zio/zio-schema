@@ -761,7 +761,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
     JsonCodec.Encoder.charSequenceToByteChunk(encoded)
   }
 
-  case class SearchRequest(query: String, pageNumber: Int, resultPerPage: Int)
+  case class SearchRequest(query: String, pageNumber: Int, resultPerPage: Int, nextPage: Option[String])
 
   object SearchRequest {
     implicit val encoder: JsonEncoder[SearchRequest] = DeriveJsonEncoder.gen[SearchRequest]
@@ -772,7 +772,8 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       query      <- Gen.anyString
       pageNumber <- Gen.int(Int.MinValue, Int.MaxValue)
       results    <- Gen.int(Int.MinValue, Int.MaxValue)
-    } yield SearchRequest(query, pageNumber, results)
+      nextPage   <- Gen.option(Gen.anyASCIIString)
+    } yield SearchRequest(query, pageNumber, results, nextPage)
 
   val searchRequestSchema: Schema[SearchRequest] = DeriveSchema.gen[SearchRequest]
 
