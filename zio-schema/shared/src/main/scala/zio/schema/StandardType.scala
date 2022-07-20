@@ -7,10 +7,16 @@ import java.time.format.DateTimeFormatter
 
 import zio.Chunk
 
-sealed trait StandardType[A] extends Ordering[A] {
+sealed trait StandardType[A] extends Ordering[A] {self =>
   def tag: String
   def defaultValue: Either[String, A]
   override def toString: String = tag
+
+  /**
+   * Converts a DynamicValue into a primitive type.
+   */
+  def toTypedPrimitive(value: DynamicValue): Either[String, A] =
+    value.toTypedValue(Schema.primitive[A](self))
 }
 
 object StandardType {
