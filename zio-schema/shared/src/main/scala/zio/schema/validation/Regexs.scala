@@ -21,38 +21,30 @@ trait Regexs {
     )
   }
 
-  /**
-   * Checks whether a certain string represents a valid IPv4 address.
-   */
-  lazy val ipV4: Validation[String] = {
-    val separator           = Regex.literal(".").exactly(1)
-    val isZeroOrOne: Regex  = Regex.oneOf('0', '1')
-    val isZeroToFour: Regex = isZeroOrOne | Regex.oneOf('2', '3', '4')
-    val isZeroToFive: Regex = isZeroToFour | Regex.oneOf('5')
-    val is250To255: Regex   = Regex.literal("25") ~ isZeroToFive
-    val is200To249: Regex   = Regex.literal("2") ~ isZeroToFour ~ Regex.digit
-    val isZeroTo199: Regex  = (isZeroOrOne ~ Regex.digit.exactly(2)) | Regex.digit.atMost(2)
+  private lazy val ipV4Regex: Regex = {
+    val separator          = Regex.literal(".").exactly(1)
+    val is0Or1: Regex      = Regex.oneOf('0', '1')
+    val is0To4: Regex      = is0Or1 | Regex.oneOf('2', '3', '4')
+    val is0To5: Regex      = is0To4 | Regex.oneOf('5')
+    val is250To255: Regex  = Regex.literal("25") ~ is0To5
+    val is200To249: Regex  = Regex.oneOf('2') ~ is0To4 ~ Regex.digit
+    val isZeroTo199: Regex = (is0Or1 ~ Regex.digit.exactly(2)) | Regex.digit.atMost(2)
 
     val bytePart = is250To255 | is200To249 | isZeroTo199
 
-    Validation.regex(bytePart ~ separator ~ bytePart ~ separator ~ bytePart ~ separator ~ bytePart)
+    bytePart ~ separator ~ bytePart ~ separator ~ bytePart ~ separator ~ bytePart
   }
+
+  /**
+   * Checks whether a certain string represents a valid IPv4 address.
+   */
+  lazy val ipV4: Validation[String] = Validation.regex(ipV4Regex)
 
   /**
    * Checks whether a certain string represents a valid IPv6 address.
    */
   lazy val ipV6: Validation[String] = {
-
-    val is0To4: Regex     = Regex.oneOf('0', '1', '2', '3', '4')
-    val is0To5: Regex     = is0To4 | Regex.oneOf('5')
-    val twoDigits: Regex  = Regex.digitNonZero.exactly(1) ~ Regex.digit.exactly(1)
-    val is0To99: Regex    = Regex.digit.exactly(1) | twoDigits.exactly(1)
-    val is100To199: Regex = Regex.oneOf('1') ~ Regex.digit.exactly(2)
-    val is200To249: Regex = Regex.oneOf('2') ~ is0To4 ~ Regex.digit
-    val is250To255: Regex = Regex.literal("25") ~ is0To5
-    val ipv4Part: Regex   = is250To255 | is200To249 | is100To199 | is0To99
-    val ipv4: Regex       = ipv4Part ~ (Regex.oneOf('.').exactly(1) ~ ipv4Part).exactly(3)
-
+    val ipv4: Regex   = ipV4Regex
     val oneDigitHex   = Regex.hexDigit.exactly(1)
     val twoDigitHex   = Regex.hexDigitNonZero.exactly(1) ~ Regex.hexDigit.exactly(1)
     val threeDigitHex = Regex.hexDigitNonZero.exactly(1) ~ Regex.hexDigit.exactly(2)
