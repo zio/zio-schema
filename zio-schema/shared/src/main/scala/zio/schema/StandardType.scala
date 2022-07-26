@@ -7,7 +7,7 @@ import java.time.format.DateTimeFormatter
 
 import zio.Chunk
 
-sealed trait StandardType[A] extends Ordering[A] {self =>
+sealed trait StandardType[A] extends Ordering[A] { self =>
   def tag: String
   def defaultValue: Either[String, A]
   override def toString: String = tag
