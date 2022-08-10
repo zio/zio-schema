@@ -605,8 +605,12 @@ object AvroCodec extends AvroCodec {
       case Some(s) if validNameRegex.matches(s) => Right(s)
       case Some(s)                              => Left(s"Invalid Avro name: $s")
       case None =>
-        Right(s"hashed_${schema.ast.toString.hashCode().toString.replaceFirst("-", "n")}")
-      //TODO: better way to generate a (maybe stable) name?
+        schema match {
+          case r: Record[_] => Right(r.id.name)
+          case e: Enum[_] => Right(e.id.name)
+          case _ => Right(s"hashed_${schema.ast.toString.hashCode().toString.replaceFirst("-", "n")}")
+                    //TODO: better way to generate a (maybe stable) name?
+        }
     }
   }
 
@@ -679,7 +683,7 @@ object AvroCodec extends AvroCodec {
         }.toEither.left.map(_.getMessage)
       case (left, _) => Left(left.mkString("\n"))
     }
-    caseSet.map(Schema.enumeration)
+    caseSet.map(cs => Schema.enumeration(TypeId.parse(avroSchema.getName), cs))
   }
 
   private[codec] def toZioRecord(avroSchema: SchemaAvro): Either[String, Schema[_]] =
@@ -742,7 +746,7 @@ object AvroCodec extends AvroCodec {
       val annotations = buildZioAnnotations(avroSchema)
       extractZioFields(avroSchema).map { fs =>
         if (fs.isEmpty) Schema.Primitive(StandardType.UnitType).addAllAnnotations(annotations)
-        else Schema.record(fs: _*).addAllAnnotations(annotations)
+        else Schema.record(TypeId.parse(avroSchema.getName), fs: _*).addAllAnnotations(annotations)
       }
     }
 
@@ -803,7 +807,7 @@ object AvroCodec extends AvroCodec {
     val cases =
       avroSchema.getEnumSymbols.asScala.map(s => Schema.Case[String, String](s, Schema[String], identity)).toSeq
     val caseSet                     = CaseSet[String](cases: _*).asInstanceOf[Aux[String]]
-    val enumeration: Schema[String] = Schema.enumeration(caseSet)
+    val enumeration: Schema[String] = Schema.enumeration(TypeId.parse("org.apache.avro.Schema"), caseSet)
     Right(enumeration.addAllAnnotations(buildZioAnnotations(avroSchema)))
   }
 
