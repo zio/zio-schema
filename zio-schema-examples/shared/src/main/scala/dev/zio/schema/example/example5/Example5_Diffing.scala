@@ -1,7 +1,7 @@
 package dev.zio.schema.example.example5
 
 import zio.schema.Schema._
-import zio.schema.{ Diff, Schema }
+import zio.schema.{ Diff, Schema, TypeId }
 import zio.{ ExitCode, URIO, ZIO }
 
 /**
@@ -16,6 +16,7 @@ private[example5] object Domain {
     val age: Field[Int]     = Field[Int]("age", primitive[Int])
 
     val schema: Schema[Person] = CaseClass2[String, Int, Person](
+      TypeId.parse("dev.zio.schema.example.example5.Domain.Person"),
       field1 = name,
       field2 = age,
       construct = (name, age) => Person(name, age),
@@ -31,16 +32,16 @@ private[example5] object Domain {
     val lastname: Field[String]  = Field("lastname", primitive[String])
     val years: Field[Int]        = Field("years", primitive[Int])
 
-    val schema: Schema[PersonDTO] =
-      CaseClass3[String, String, Int, PersonDTO](
-        field1 = firstname,
-        field2 = lastname,
-        field3 = years,
-        construct = (fn, ln, y) => PersonDTO(fn, ln, y),
-        extractField1 = _.firstname,
-        extractField2 = _.lastname,
-        extractField3 = _.years
-      )
+    val schema: Schema[PersonDTO] = CaseClass3[String, String, Int, PersonDTO](
+      TypeId.parse("dev.zio.schema.example.example5.Domain.PersonDTO"),
+      field1 = firstname,
+      field2 = lastname,
+      field3 = years,
+      construct = (fn, ln, y) => PersonDTO(fn, ln, y),
+      extractField1 = _.firstname,
+      extractField2 = _.lastname,
+      extractField3 = _.years
+    )
   }
 
 }
