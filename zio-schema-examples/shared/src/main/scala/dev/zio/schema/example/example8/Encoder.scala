@@ -32,7 +32,7 @@ object Encoder {
       case DynamicValue.Sequence(chunk) =>
         Json.JArr(chunk.map(toJson).toList)
 
-      case DynamicValue.Record(values) =>
+      case DynamicValue.Record(_, values) =>
         Json.JObj(values.map { case (k, v) => (k, toJson(v)) })
     }
 }

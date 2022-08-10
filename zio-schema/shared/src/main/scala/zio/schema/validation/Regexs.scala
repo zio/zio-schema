@@ -5,20 +5,17 @@ trait Regexs {
   val identifier: Validation[String] =
     Validation.regex((Regex.digitOrLetter | Regex.oneOf('_')).atLeast(1))
 
-  //^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$
+  /**
+   * Checks whether a certain string represents a valid email address.
+   */
   lazy val email: Validation[String] = {
-    val username       = Regex.letter ~ (Regex.digitOrLetter | Regex.oneOf('_', '.', '+', '-')).atLeast(0)
-    val topLevelDomain = (Regex.digitOrLetter | Regex.oneOf('-')).between(2, 4)
-    val domain =
-      ((Regex.digitOrLetter | Regex.oneOf('-')).atLeast(1) ~
-        Regex.oneOf('.')).atLeast(1) ~
-        topLevelDomain
+    val localPart      = Regex.letter ~ (Regex.digitOrLetter | Regex.oneOf('_', '.', '+', '-')).atMost(63)
+    val domainSegment  = Regex.digitOrLetter | Regex.oneOf('-')
+    val topLevelDomain = domainSegment.between(2, 4)
+    val domainPart     = (domainSegment.atLeast(1) ~ Regex.oneOf('.')).atLeast(1) ~ topLevelDomain
+    val completeEmail  = localPart ~ Regex.oneOf('@') ~ domainPart
 
-    Validation.regex(
-      username ~
-        Regex.oneOf('@') ~
-        domain
-    )
+    Validation.regex(completeEmail) && Validation.maxLength(254)
   }
 
   private lazy val ipV4Regex: Regex = {

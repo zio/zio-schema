@@ -12,7 +12,7 @@ import zio.blocking.Blocking
 import zio.console._
 import zio.random.Random
 import zio.schema.CaseSet._
-import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType }
+import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
@@ -598,7 +598,10 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
                 { case (str, schema) => Right(DynamicValue.fromSchemaAndValue(schema, str)) },
                 (v: DynamicValue) => v.toTypedValue(Schema[String]).map((_, Schema[String]))
               )
-            val enumSchema = Schema.Enum1[DynamicValue, DynamicValue](Schema.Case("one", semiDynamicSchema, identity))
+            val enumSchema = Schema.Enum1[DynamicValue, DynamicValue](
+              TypeId.parse("zio.schema.DynamicValue"),
+              Schema.Case("one", semiDynamicSchema, identity)
+            )
             assertM(encodeAndDecode(enumSchema, dynamicValue))(equalTo(Chunk(dynamicValue)))
         }
       },
@@ -612,7 +615,10 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
                 { case (str, schema) => Right(DynamicValue.fromSchemaAndValue(schema, str)) },
                 (v: DynamicValue) => v.toTypedValue(Schema[Chunk[Int]]).map((_, Schema[Chunk[Int]]))
               )
-            val enumSchema = Schema.Enum1[DynamicValue, DynamicValue](Schema.Case("one", semiDynamicSchema, identity))
+            val enumSchema = Schema.Enum1[DynamicValue, DynamicValue](
+              TypeId.parse("zio.schema.DynamicValue"),
+              Schema.Case("one", semiDynamicSchema, identity)
+            )
             assertM(encodeAndDecode(enumSchema, dynamicValue))(equalTo(Chunk(dynamicValue)))
         }
       }
@@ -733,6 +739,7 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
       },
       testM("dynamic record example") {
         val dynamicValue = DynamicValue.Record(
+          TypeId.Structural,
           ListMap("0" -> DynamicValue.Primitive(new java.math.BigDecimal(0.0), StandardType[java.math.BigDecimal]))
         )
         assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
@@ -821,12 +828,14 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
     implicit val schemaRecord: Schema[Record] = DeriveSchema.gen[Record]
 
     val genericRecord: Schema[ListMap[String, _]] = Schema.record(
+      TypeId.Structural,
       Schema.Field("c", Schema.Primitive(StandardType.IntType)),
       Schema.Field("b", Schema.Primitive(StandardType.IntType)),
       Schema.Field("a", Schema.Primitive(StandardType.IntType))
     )
 
     val genericRecordSorted: Schema[ListMap[String, _]] = Schema.record(
+      TypeId.Structural,
       Schema.Field("a", Schema.Primitive(StandardType.IntType)),
       Schema.Field("b", Schema.Primitive(StandardType.IntType)),
       Schema.Field("c", Schema.Primitive(StandardType.IntType))
@@ -904,10 +913,12 @@ object ProtobufCodecSpec extends DefaultRunnableSpec {
   lazy val schemaEnumeration: Schema[Enumeration] = DeriveSchema.gen[Enumeration]
 
   lazy val schemaGenericEnumeration: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
+    TypeId.Structural,
     caseOf[String, Any]("string")(_.asInstanceOf[String]) ++ caseOf[Int, Any]("int")(_.asInstanceOf[Int])
   )
 
   lazy val schemaGenericEnumerationSorted: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
+    TypeId.Structural,
     caseOf[Int, Any]("int")(_.asInstanceOf[Int]) ++ caseOf[String, Any]("string")(_.asInstanceOf[String])
   )
 

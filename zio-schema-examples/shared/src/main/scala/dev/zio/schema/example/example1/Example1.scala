@@ -1,6 +1,6 @@
 package dev.zio.schema.example.example1
 
-import zio.schema.{ DeriveSchema, Schema }
+import zio.schema.{ DeriveSchema, Schema, TypeId }
 import zio.stream.ZTransducer
 import zio.{ Chunk, ExitCode, URIO, ZIO }
 
@@ -34,6 +34,7 @@ object ManualConstruction {
   import zio.schema.Schema._
 
   val schemaPerson: Schema[Person] = Schema.CaseClass2[String, Int, Person](
+    TypeId.parse("dev.zio.schema.example.example1.Domain.Person"),
     field1 = Schema.Field[String]("name", Schema.primitive[String]),
     field2 = Schema.Field[Int]("age", Schema.primitive[Int]),
     construct = (name, age) => Person(name, age),
@@ -42,6 +43,7 @@ object ManualConstruction {
   )
 
   val schemaPaymentMethodWireTransfer: Schema[WireTransfer] = Schema.CaseClass2[String, String, WireTransfer](
+    TypeId.parse("dev.zio.schema.example.example1.Domain.PaymentMethod.WireTransfer"),
     field1 = Schema.Field[String]("accountNumber", Schema.primitive[String]),
     field2 = Schema.Field[String]("bankCode", Schema.primitive[String]),
     construct = (number, bankCode) => PaymentMethod.WireTransfer(number, bankCode),
@@ -50,6 +52,7 @@ object ManualConstruction {
   )
 
   val schemaPaymentMethodCreditCard: Schema[CreditCard] = Schema.CaseClass3[String, Int, Int, CreditCard](
+    TypeId.parse("dev.zio.schema.example.example1.Domain.PaymentMethod.CreditCard"),
     field1 = Schema.Field[String]("number", Schema.primitive[String]),
     field2 = Schema.Field[Int]("expirationMonth", Schema.primitive[Int]),
     field3 = Schema.Field[Int]("expirationYear", Schema.primitive[Int]),
@@ -62,6 +65,7 @@ object ManualConstruction {
 
   val schemaPaymentMethod: Schema[PaymentMethod] =
     Schema.Enum2[PaymentMethod.CreditCard, PaymentMethod.WireTransfer, PaymentMethod](
+      id = TypeId.parse("dev.zio.schema.example.example1.Domain.PaymentMethod"),
       case1 = Case[PaymentMethod.CreditCard, PaymentMethod](
         id = "CreditCard",
         codec = schemaPaymentMethodCreditCard,
@@ -78,6 +82,7 @@ object ManualConstruction {
     )
 
   val schemaCustomer: Schema[Customer] = Schema.CaseClass2[Person, PaymentMethod, Customer](
+    TypeId.parse("dev.zio.schema.example.example1.Domain.Customer"),
     field1 = Schema.Field[Person]("person", schemaPerson),
     field2 = Schema.Field[PaymentMethod]("paymentMethod", schemaPaymentMethod),
     construct = (person, paymentMethod) => Customer(person, paymentMethod),

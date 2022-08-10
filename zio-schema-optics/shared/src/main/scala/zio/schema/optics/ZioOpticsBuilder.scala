@@ -15,11 +15,11 @@ import zio.{ Chunk, ChunkBuilder }
  */
 object ZioOpticsBuilder extends AccessorBuilder {
 
-  type Lens[S, A]      = Optic[S, S, A, OpticFailure, OpticFailure, A, S]
-  type Prism[S, A]     = ZPrism[S, S, A, A]
+  type Lens[F, S, A]   = Optic[S, S, A, OpticFailure, OpticFailure, A, S]
+  type Prism[F, S, A]  = ZPrism[S, S, A, A]
   type Traversal[S, A] = ZTraversal[S, S, A, A]
 
-  override def makeLens[S, A](
+  override def makeLens[F, S, A](
     product: Schema.Record[S],
     term: Schema.Field[A]
   ): Optic[S, S, A, OpticFailure, OpticFailure, A, S] =
@@ -28,7 +28,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
       setOptic = ZioOpticsBuilder.makeLensSet(product, term)
     )
 
-  override def makePrism[S, A](
+  override def makePrism[F, S, A](
     sum: Schema.Enum[S],
     term: Schema.Case[A, S]
   ): ZPrism[S, S, A, A] =
@@ -64,7 +64,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
     term: Schema.Field[A]
   ): S => Either[(OpticFailure, S), A] = { (whole: S) =>
     product.toDynamic(whole) match {
-      case DynamicValue.Record(values) =>
+      case DynamicValue.Record(_, values) =>
         values
           .get(term.label)
           .map { dynamicField =>
@@ -83,9 +83,9 @@ object ZioOpticsBuilder extends AccessorBuilder {
     term: Schema.Field[A]
   ): A => S => Either[(OpticFailure, S), S] = { (piece: A) => (whole: S) =>
     product.toDynamic(whole) match {
-      case DynamicValue.Record(values) =>
+      case DynamicValue.Record(name, values) =>
         val updated = spliceRecord(values, term.label, term.label -> term.schema.toDynamic(piece))
-        product.fromDynamic(DynamicValue.Record(updated)) match {
+        product.fromDynamic(DynamicValue.Record(name, updated)) match {
           case Left(error)  => Left(OpticFailure(error) -> whole)
           case Right(value) => Right(value)
         }

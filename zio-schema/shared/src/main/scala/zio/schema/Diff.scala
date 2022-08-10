@@ -269,7 +269,7 @@ object Differ {
     case s @ Schema.Lazy(_)                                                                      => fromSchema(s.schema)
     case Schema.Transform(schema, g, f, _, _)                                                    => fromSchema(schema).transformOrFail(f, g)
     case Schema.Fail(_, _)                                                                       => fail
-    case s @ Schema.GenericRecord(_, _)                                                          => record(s)
+    case s @ Schema.GenericRecord(_, _, _)                                                       => record(s)
     case s: Schema.CaseClass0[A]                                                                 => product0(s)
     case s: Schema.CaseClass1[_, A]                                                              => product1(s)
     case s: Schema.CaseClass2[_, _, A]                                                           => product2(s)
@@ -294,31 +294,31 @@ object Differ {
     case s: Schema.CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] => product21(s)
     case s: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
       product22(s)
-    case Schema.Enum1(c, _)                                                                                                    => enumN(c)
-    case Schema.Enum2(c1, c2, _)                                                                                               => enumN(c1, c2)
-    case Schema.Enum3(c1, c2, c3, _)                                                                                           => enumN(c1, c2, c3)
-    case Schema.Enum4(c1, c2, c3, c4, _)                                                                                       => enumN(c1, c2, c3, c4)
-    case Schema.Enum5(c1, c2, c3, c4, c5, _)                                                                                   => enumN(c1, c2, c3, c4, c5)
-    case Schema.Enum6(c1, c2, c3, c4, c5, c6, _)                                                                               => enumN(c1, c2, c3, c4, c5, c6)
-    case Schema.Enum7(c1, c2, c3, c4, c5, c6, c7, _)                                                                           => enumN(c1, c2, c3, c4, c5, c6, c7)
-    case Schema.Enum8(c1, c2, c3, c4, c5, c6, c7, c8, _)                                                                       => enumN(c1, c2, c3, c4, c5, c6, c7, c8)
-    case Schema.Enum9(c1, c2, c3, c4, c5, c6, c7, c8, c9, _)                                                                   => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9)
-    case Schema.Enum10(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _)                                                             => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
-    case Schema.Enum11(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _)                                                        => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
-    case Schema.Enum12(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _)                                                   => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
-    case Schema.Enum13(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _)                                              => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
-    case Schema.Enum14(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _)                                         => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
-    case Schema.Enum15(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _)                                    => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
-    case Schema.Enum16(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _)                               => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
-    case Schema.Enum17(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _)                          => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
-    case Schema.Enum18(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _)                     => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
-    case Schema.Enum19(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _)                => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
-    case Schema.Enum20(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _)           => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
-    case Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)      => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
-    case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-    case Schema.EnumN(cs, _)                                                                                                   => enumN(cs.toSeq: _*)
-    case Schema.Dynamic(_)                                                                                                     => Differ.dynamicValue
-    case s @ Schema.SemiDynamic(_, _)                                                                                          => Differ.semiDynamic(s)
+    case Schema.Enum1(_, c, _)                                                                                                    => enumN(c)
+    case Schema.Enum2(_, c1, c2, _)                                                                                               => enumN(c1, c2)
+    case Schema.Enum3(_, c1, c2, c3, _)                                                                                           => enumN(c1, c2, c3)
+    case Schema.Enum4(_, c1, c2, c3, c4, _)                                                                                       => enumN(c1, c2, c3, c4)
+    case Schema.Enum5(_, c1, c2, c3, c4, c5, _)                                                                                   => enumN(c1, c2, c3, c4, c5)
+    case Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _)                                                                               => enumN(c1, c2, c3, c4, c5, c6)
+    case Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _)                                                                           => enumN(c1, c2, c3, c4, c5, c6, c7)
+    case Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _)                                                                       => enumN(c1, c2, c3, c4, c5, c6, c7, c8)
+    case Schema.Enum9(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, _)                                                                   => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9)
+    case Schema.Enum10(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _)                                                             => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
+    case Schema.Enum11(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _)                                                        => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
+    case Schema.Enum12(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _)                                                   => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
+    case Schema.Enum13(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _)                                              => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
+    case Schema.Enum14(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _)                                         => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
+    case Schema.Enum15(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _)                                    => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+    case Schema.Enum16(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _)                               => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
+    case Schema.Enum17(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _)                          => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
+    case Schema.Enum18(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _)                     => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
+    case Schema.Enum19(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _)                => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
+    case Schema.Enum20(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _)           => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
+    case Schema.Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)      => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
+    case Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
+    case Schema.EnumN(_, cs, _)                                                                                                   => enumN(cs.toSeq: _*)
+    case Schema.Dynamic(_)                                                                                                        => Differ.dynamicValue
+    case s @ Schema.SemiDynamic(_, _)                                                                                             => Differ.semiDynamic(s)
   }
   //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -870,28 +870,33 @@ object Diff {
       val structure = schema.structure
 
       val patchedDynamicValue = schema.toDynamic(input) match {
-        case DynamicValue.Record(values) =>
-          differences.foldLeft[Either[String, ListMap[String, DynamicValue]]](Right(values)) {
-            case (Right(record), (key, diff)) =>
-              (structure.find(_.label == key).map(_.schema), values.get(key)) match {
-                case (Some(schema: Schema[b]), Some(oldValue)) =>
-                  val oldVal = oldValue.toTypedValue(schema)
-                  oldVal
-                    .flatMap(v => diff.asInstanceOf[Diff[Any]].patch(v))
-                    .map(v => schema.asInstanceOf[Schema[Any]].toDynamic(v)) match {
-                    case Left(error)     => Left(error)
-                    case Right(newValue) => Right(record + (key -> newValue))
-                  }
-                case _ =>
-                  Left(s"Values=$values and structure=$structure have incompatible shape.")
-              }
-            case (Left(string), _) => Left(string)
-          }
+        case DynamicValue.Record(name, values) => {
+          differences
+            .foldLeft[Either[String, ListMap[String, DynamicValue]]](Right(values)) {
+              case (Right(record), (key, diff)) =>
+                (structure.find(_.label == key).map(_.schema), values.get(key)) match {
+                  case (Some(schema: Schema[b]), Some(oldValue)) =>
+                    val oldVal = oldValue.toTypedValue(schema)
+                    oldVal
+                      .flatMap(v => diff.asInstanceOf[Diff[Any]].patch(v))
+                      .map(v => schema.asInstanceOf[Schema[Any]].toDynamic(v)) match {
+                      case Left(error)     => Left(error)
+                      case Right(newValue) => Right(record + (key -> newValue))
+                    }
+                  case _ =>
+                    Left(s"Values=$values and structure=$structure have incompatible shape.")
+                }
+              case (Left(string), _) => Left(string)
+            }
+            .map(r => (name, r))
+
+        }
+
         case dv => Left(s"Failed to apply record diff. Unexpected dynamic value for record: $dv")
       }
 
       patchedDynamicValue.flatMap { newValues =>
-        schema.fromDynamic(DynamicValue.Record(newValues))
+        schema.fromDynamic(DynamicValue.Record(newValues._1, newValues._2))
       }
     }
 
