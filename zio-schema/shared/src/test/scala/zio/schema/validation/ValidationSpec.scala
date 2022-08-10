@@ -73,22 +73,55 @@ object ValidationSpec extends DefaultRunnableSpec {
       assertTrue(validation.validate("").isLeft) &&
       assertTrue(validation.validate("*").isLeft)
     },
-    test("Regex email Validation") {
-      val validation = Validation.email
+    suite("Regex email Validation")(
+      testM("should reject an invalid email") {
+        val data = Gen.fromIterable {
+          Seq(
+            "bob101*@gmail.com",
+            "_",
+            "@",
+            "@.",
+            "b@.com",
+            "",
+            "1@.com",
+            "1@a.com",
+            "1@a.b.com",
+            "a@@a.com",
+            "a@a..b.com",
+            "john@doe..",
+            "john.doe@foo.bar,com",
+            "xy@email.is-too-long.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.a123",
+            "the-local-part-too-long-over-64-so.invalid.123456789.123456789.a1@even.broad.definition.of.RFC5322.accepts.it"
+          )
+        }
+        val validationResult = (value: String) => Validation.email.validate(value)
 
-      assertTrue(validation.validate("bob101@gmail.com").isRight) &&
-      assertTrue(validation.validate("bob_and_alice@gmail.com").isRight) &&
-      assertTrue(validation.validate("bob101*@gmail.com").isLeft) &&
-      assertTrue(validation.validate("_").isLeft) &&
-      assertTrue(validation.validate("@").isLeft) &&
-      assertTrue(validation.validate("@.").isLeft) &&
-      assertTrue(validation.validate("b@.com").isLeft) &&
-      assertTrue(validation.validate("").isLeft) &&
-      assertTrue(validation.validate("1@.com").isLeft) &&
-      assertTrue(validation.validate("1@a.com").isLeft) &&
-      assertTrue(validation.validate("1@a.b.com").isLeft) &&
-      assertTrue(validation.validate("a@a..b.com").isLeft)
-    },
+        checkAll(data) { email =>
+          assertTrue(validationResult(email).isLeft)
+        }
+      },
+      testM("should accept a correct email") {
+        val data = Gen.fromIterable {
+          Seq(
+            "bob101@gmail.com",
+            "bob+and-alice@gmail.com",
+            "bob_and_alice@gmail.com",
+            "johndoe@total.length.up.to.254-chars.so.still-valid.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.a1",
+            "the-local-part-is-below-64-so.valid.123456789.123456789.a1234567@foo.com",
+            "name@a--b.pl",
+            "bob-@foo.co.uk",
+            "bob+@foo.co.uk",
+            "a.b@a.com",
+            "a..b@a.com"
+          )
+        }
+        val validationResult = (value: String) => Validation.email.validate(value)
+
+        checkAll(data) { email =>
+          assertTrue(validationResult(email).isRight)
+        }
+      }
+    ),
     test("Regex IPv4 Validation") {
       val validation = Validation.ipV4
 
