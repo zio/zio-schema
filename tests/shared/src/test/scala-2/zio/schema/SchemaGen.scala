@@ -6,6 +6,7 @@ import scala.collection.immutable.ListMap
 
 import zio.Chunk
 import zio.random.Random
+import zio.schema.TypeId
 import zio.test.{ Gen, Sized }
 
 object SchemaGen {
@@ -183,7 +184,10 @@ object SchemaGen {
     } yield schema -> value
 
   val anyEnumeration: Gen[Random with Sized, Schema[Any]] =
-    anyEnumeration(anySchema).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_))
+    for {
+      caseSet <- anyEnumeration(anySchema).map(toCaseSet)
+      id      <- Gen.string(Gen.alphaChar).map(TypeId.parse)
+    } yield Schema.enumeration[Any, CaseSet.Aux[Any]](id, caseSet)
 
   type EnumerationAndGen = (Schema[Any], Gen[Random with Sized, Any])
 
@@ -192,9 +196,10 @@ object SchemaGen {
       primitiveAndGen <- anyPrimitiveAndGen
       structure       <- anyEnumeration(primitiveAndGen._1)
       primitiveValue  <- primitiveAndGen._2
+      id              <- Gen.string(Gen.alphaChar).map(TypeId.parse)
     } yield {
       val gen = Gen.oneOf(structure.keys.map(Gen.const(_)).toSeq: _*).map(_ => primitiveValue)
-      Schema.enumeration[Any, CaseSet.Aux[Any]](toCaseSet(structure)) -> gen
+      Schema.enumeration[Any, CaseSet.Aux[Any]](id, toCaseSet(structure)) -> gen
     }
 
   type EnumerationAndValue = (Schema[Any], Any)
@@ -206,13 +211,17 @@ object SchemaGen {
     } yield schema -> value
 
   val anyRecord: Gen[Random with Sized, Schema[ListMap[String, _]]] =
-    anyStructure(anySchema).map(Schema.record)
+    for {
+      name   <- Gen.string(Gen.alphaChar).map(TypeId.parse)
+      fields <- anyStructure(anySchema)
+    } yield Schema.record(name, fields: _*)
 
   type GenericRecordAndGen = (Schema[ListMap[String, _]], Gen[Random with Sized, ListMap[String, _]])
 
   val anyGenericRecordAndGen: Gen[Random with Sized, GenericRecordAndGen] =
     for {
       (schema, gen) <- anyPrimitiveAndGen
+      name          <- Gen.string(Gen.alphaChar).map(TypeId.parse)
       structure     <- anyStructure(schema)
     } yield {
       val valueGen = Gen
@@ -224,7 +233,7 @@ object SchemaGen {
         }
         .map(ListMap.empty ++ _)
 
-      Schema.record(structure: _*) -> valueGen
+      Schema.record(name, structure: _*) -> valueGen
     }
 
   type RecordAndValue = (Schema[ListMap[String, _]], ListMap[String, _])
@@ -240,11 +249,12 @@ object SchemaGen {
       (schema1, gen1) <- anyGenericRecordAndGen
       (schema2, gen2) <- anyGenericRecordAndGen
       (schema3, gen3) <- anyGenericRecordAndGen
+      name            <- Gen.string(Gen.alphaChar).map(TypeId.parse)
       keys            <- Gen.setOfN(3)(anyLabel).map(_.toSeq)
       (key1, value1)  <- Gen.const(keys(0)).zip(gen1)
       (key2, value2)  <- Gen.const(keys(1)).zip(gen2)
       (key3, value3)  <- Gen.const(keys(2)).zip(gen3)
-    } yield Schema.record(Schema.Field(key1, schema1), Schema.Field(key2, schema2), Schema.Field(key3, schema3)) -> ListMap(
+    } yield Schema.record(name, Schema.Field(key1, schema1), Schema.Field(key2, schema2), Schema.Field(key3, schema3)) -> ListMap(
       (key1, value1),
       (key2, value2),
       (key3, value3)
@@ -483,10 +493,10 @@ object SchemaGen {
 
   val anyCaseClassAndGen: Gen[Random with Sized, CaseClassAndGen[_]] =
     anyCaseClassSchema.map {
-      case s @ Schema.CaseClass1(_, _, _, _)             => (s -> anyArity1).asInstanceOf[CaseClassAndGen[Any]]
-      case s @ Schema.CaseClass2(_, _, _, _, _, _)       => (s -> anyArity2).asInstanceOf[CaseClassAndGen[Any]]
-      case s @ Schema.CaseClass3(_, _, _, _, _, _, _, _) => (s -> anyArity3).asInstanceOf[CaseClassAndGen[Any]]
-      case s                                             => (s -> anyArity24).asInstanceOf[CaseClassAndGen[Any]]
+      case s @ Schema.CaseClass1(_, _, _, _, _)             => (s -> anyArity1).asInstanceOf[CaseClassAndGen[Any]]
+      case s @ Schema.CaseClass2(_, _, _, _, _, _, _)       => (s -> anyArity2).asInstanceOf[CaseClassAndGen[Any]]
+      case s @ Schema.CaseClass3(_, _, _, _, _, _, _, _, _) => (s -> anyArity3).asInstanceOf[CaseClassAndGen[Any]]
+      case s                                                => (s -> anyArity24).asInstanceOf[CaseClassAndGen[Any]]
     }
 
   val anyCaseClassAndValue: Gen[Random with Sized, CaseClassAndValue[_]] =
@@ -517,7 +527,9 @@ object SchemaGen {
       anyPrimitive.map(_.optional),
       anyPrimitive.zip(anyPrimitive).map { case (l, r) => Schema.either(l, r) },
       anyPrimitive.zip(anyPrimitive).map { case (l, r) => Schema.tuple2(l, r) },
-      anyStructure(anyPrimitive).map(fields => Schema.record(fields: _*)),
+      anyStructure(anyPrimitive)
+        .zip(Gen.string(Gen.alphaChar).map(TypeId.parse))
+        .map(z => Schema.record(z._2, z._1: _*)),
       Gen.const(Schema[Json]),
 //      anyEnumeration(anyPrimitive).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_)),
       anyCaseClassSchema,
@@ -537,7 +549,9 @@ object SchemaGen {
         },
         anyTree(depth - 1).zip(anyTree(depth - 1)).map { case (l, r) => Schema.either(l, r) },
         anyTree(depth - 1).zip(anyTree(depth - 1)).map { case (l, r) => Schema.tuple2(l, r) },
-        anyStructure(anyTree(depth - 1)).map(fields => Schema.record(fields: _*)),
+        anyStructure(anyTree(depth - 1))
+          .zip(Gen.string(Gen.alphaChar).map(TypeId.parse))
+          .map(z => Schema.record(z._2, z._1: _*)),
         Gen.const(Schema[Json])
 //        anyEnumeration(anyTree(depth - 1)).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_))
       )

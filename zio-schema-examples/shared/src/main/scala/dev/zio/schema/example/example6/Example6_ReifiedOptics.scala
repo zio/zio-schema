@@ -12,6 +12,7 @@ private[example6] object Domain {
   final case class Company(boss: User, employees: List[UserAddress])
 
   implicit val userSchema: Schema.CaseClass2[String, Int, User] = Schema.CaseClass2[String, Int, User](
+    TypeId.parse("dev.zio.schema.example.example6.Domain.User"),
     field1 = Field("name", Schema.primitive[String]),
     field2 = Field("age", Schema.primitive[Int]),
     construct = (name, years) => User(name, years),
@@ -21,6 +22,7 @@ private[example6] object Domain {
 
   implicit val addressSchema: CaseClass3[String, String, String, Address] =
     Schema.CaseClass3[String, String, String, Address](
+      TypeId.parse("dev.zio.schema.example.example6.Domain.Address"),
       field1 = Field("street", Schema.primitive[String]),
       field2 = Field("city", Schema.primitive[String]),
       field3 = Field("state", Schema.primitive[String]),
@@ -32,6 +34,7 @@ private[example6] object Domain {
 
   implicit val userAddressSchema: CaseClass2[User, Address, UserAddress] =
     Schema.CaseClass2[User, Address, UserAddress](
+      TypeId.parse("dev.zio.schema.example.example6.Domain.UserAddress"),
       field1 = Field("user", userSchema),
       field2 = Field("address", addressSchema),
       construct = (user, address) => UserAddress(user, address),
@@ -41,6 +44,7 @@ private[example6] object Domain {
 
   implicit val companySchema: CaseClass2[User, List[UserAddress], Company] =
     Schema.CaseClass2[User, List[UserAddress], Company](
+      TypeId.parse("dev.zio.schema.example.example6.Domain.Company"),
       field1 = Field("boss", userSchema),
       field2 = Field("employees", Schema.list(userAddressSchema)),
       construct = (boss, employees) => Company(boss, employees),

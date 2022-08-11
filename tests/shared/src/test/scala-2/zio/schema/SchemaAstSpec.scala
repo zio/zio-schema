@@ -40,6 +40,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
       test("generic") {
         val schema =
           Schema.record(
+            TypeId.parse("zio.schema.SchemaAst.Product"),
             Chunk(
               Schema.Field("a", Schema[String]),
               Schema.Field("b", Schema[Int])
@@ -47,6 +48,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
           )
         val expectedAst =
           SchemaAst.Product(
+            id = TypeId.parse("zio.schema.SchemaAst.Product"),
             path = NodePath.root,
             fields = Chunk(
               ("a", SchemaAst.Value(StandardType.StringType, NodePath.root / "a")),
@@ -59,10 +61,12 @@ object SchemaAstSpec extends DefaultRunnableSpec {
         val schema = Schema[SchemaGen.Arity2]
         val expectedAst =
           SchemaAst.Product(
+            id = TypeId.parse("zio.schema.SchemaGen.Arity2"),
             path = NodePath.root,
             fields = Chunk(
               "value1" -> SchemaAst.Value(StandardType.StringType, NodePath.root / "value1"),
               "value2" -> SchemaAst.Product(
+                id = TypeId.parse("zio.schema.SchemaGen.Arity1"),
                 path = NodePath.root / "value2",
                 fields = Chunk(
                   "value" -> SchemaAst.Value(StandardType.IntType, NodePath.root / "value2" / "value")
@@ -78,7 +82,7 @@ object SchemaAstSpec extends DefaultRunnableSpec {
         val ast    = SchemaAst.fromSchema(schema)
 
         val recursiveRef: Option[SchemaAst] = ast match {
-          case SchemaAst.Product(_, elements, _) =>
+          case SchemaAst.Product(_, _, elements, _) =>
             elements.find {
               case ("r", _) => true
               case _        => false
@@ -97,25 +101,30 @@ object SchemaAstSpec extends DefaultRunnableSpec {
       test("generic") {
         val schema =
           Schema.enumeration[Any, CaseSet.Aux[Any]](
+            TypeId.Structural,
             caseOf[SchemaGen.Arity1, Any]("type1")(_.asInstanceOf[SchemaGen.Arity1]) ++ caseOf[SchemaGen.Arity2, Any](
               "type2"
             )(_.asInstanceOf[SchemaGen.Arity2])
           )
         val expectedAst =
           SchemaAst.Sum(
+            TypeId.Structural,
             path = NodePath.root,
             cases = Chunk(
               "type1" -> SchemaAst.Product(
+                id = TypeId.parse("zio.schema.SchemaGen.Arity1"),
                 path = NodePath.root / "type1",
                 fields = Chunk(
                   "value" -> SchemaAst.Value(StandardType.IntType, NodePath.root / "type1" / "value")
                 )
               ),
               "type2" -> SchemaAst.Product(
+                id = TypeId.parse("zio.schema.SchemaGen.Arity2"),
                 path = NodePath.root / "type2",
                 fields = Chunk(
                   "value1" -> SchemaAst.Value(StandardType.StringType, NodePath.root / "type2" / "value1"),
                   "value2" -> SchemaAst.Product(
+                    id = TypeId.parse("zio.schema.SchemaGen.Arity1"),
                     path = NodePath.root / "type2" / "value2",
                     fields = Chunk(
                       "value" -> SchemaAst
@@ -131,14 +140,17 @@ object SchemaAstSpec extends DefaultRunnableSpec {
       test("sealed trait") {
         val schema = Schema[Pet]
         val expectedAst = SchemaAst.Sum(
+          TypeId.parse("zio.schema.SchemaAstSpec.Pet"),
           path = NodePath.root,
           cases = Chunk(
             "Rock" -> SchemaAst.Value(StandardType.UnitType, NodePath.root / "Rock"),
             "Dog" -> SchemaAst.Product(
+              id = TypeId.parse("zio.schema.SchemaAstSpec.Dog"),
               path = NodePath.root / "Dog",
               fields = Chunk("name" -> SchemaAst.Value(StandardType.StringType, NodePath.root / "Dog" / "name"))
             ),
             "Cat" -> SchemaAst.Product(
+              id = TypeId.parse("zio.schema.SchemaAstSpec.Cat"),
               path = NodePath.root / "Cat",
               fields = Chunk(
                 "name"    -> SchemaAst.Value(StandardType.StringType, NodePath.root / "Cat" / "name"),

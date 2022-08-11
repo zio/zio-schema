@@ -1,6 +1,5 @@
 package zio.schema.codec
 
-// import java.time.Year
 import java.time.format.DateTimeFormatter
 import java.time.{ ZoneId, ZoneOffset }
 
@@ -481,7 +480,7 @@ object JsonCodecSpec extends DefaultRunnableSpec {
         SchemaGen.anyRecordAndValue.runHead.flatMap {
           case Some((schema, value)) =>
             val key      = new String(Array('\u0007', '\n'))
-            val embedded = Schema.record(Schema.Field(key, schema))
+            val embedded = Schema.record(TypeId.Structural, Schema.Field(key, schema))
             assertEncodesThenDecodes(embedded, ListMap(key -> value))
           case None => ZIO.fail("Should never happen!")
         }
@@ -500,7 +499,10 @@ object JsonCodecSpec extends DefaultRunnableSpec {
       testM("of ZoneOffsets") {
         checkM(JavaTimeGen.anyZoneOffset) { zoneOffset =>
           assertEncodesThenDecodes(
-            Schema.record(Schema.Field("zoneOffset", Schema.Primitive(StandardType.ZoneOffsetType))),
+            Schema.record(
+              TypeId.parse("java.time.ZoneOffset"),
+              Schema.Field("zoneOffset", Schema.Primitive(StandardType.ZoneOffsetType))
+            ),
             ListMap[String, Any]("zoneOffset" -> zoneOffset)
           )
         }
@@ -776,16 +778,19 @@ object JsonCodecSpec extends DefaultRunnableSpec {
   val searchRequestSchema: Schema[SearchRequest] = DeriveSchema.gen[SearchRequest]
 
   val recordSchema: Schema[ListMap[String, _]] = Schema.record(
+    TypeId.Structural,
     Schema.Field("foo", Schema.Primitive(StandardType.StringType)),
     Schema.Field("bar", Schema.Primitive(StandardType.IntType))
   )
 
   val nestedRecordSchema: Schema[ListMap[String, _]] = Schema.record(
+    TypeId.Structural,
     Schema.Field("l1", Schema.Primitive(StandardType.StringType)),
     Schema.Field("l2", recordSchema)
   )
 
   val enumSchema: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
+    TypeId.Structural,
     caseOf[String, Any]("string")(_.asInstanceOf[String]) ++ caseOf[Int, Any]("int")(_.asInstanceOf[Int]) ++ caseOf[
       Boolean,
       Any

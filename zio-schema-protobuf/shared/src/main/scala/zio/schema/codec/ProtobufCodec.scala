@@ -46,12 +46,6 @@ object ProtobufCodec extends Codec {
       case object Bit32                      extends WireType
     }
 
-    private[codec] def tupleSchema[A, B](first: Schema[A], second: Schema[B]): Schema[ListMap[String, _]] =
-      Schema.record(Schema.Field("first", first), Schema.Field("second", second))
-
-    private[codec] def singleSchema[A](codec: Schema[A]): Schema[ListMap[String, _]] =
-      Schema.record(Schema.Field("value", codec))
-
     private[codec] val bigDecimalStructure: Seq[Schema.Field[_]] =
       Seq(
         Schema.Field("unscaled", Schema.Primitive(StandardType.BigIntegerType)),
@@ -141,7 +135,7 @@ object ProtobufCodec extends Codec {
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
       (schema, value) match {
-        case (Schema.GenericRecord(structure, _), v: Map[String, _]) =>
+        case (Schema.GenericRecord(_, structure, _), v: Map[String, _]) =>
           encodeRecord(fieldNumber, structure.toChunk, v)
         case (Schema.Sequence(element, _, g, _, _), v)                                    => encodeSequence(fieldNumber, element, g(v))
         case (Schema.MapSchema(ks, vs, _), map)                                           => encodeSequence(fieldNumber, ks <*> vs, Chunk.fromIterable(map))
@@ -153,74 +147,287 @@ object ProtobufCodec extends Codec {
         case (Schema.EitherSchema(left: Schema[a], right: Schema[b], _), v: Either[_, _]) => encodeEither(fieldNumber, left, right, v.asInstanceOf[Either[a, b]])
         case (lzy @ Schema.Lazy(_), v)                                                    => encode(fieldNumber, lzy.schema, v)
         case (Schema.Meta(ast, _), _)                                                     => encode(fieldNumber, Schema[SchemaAst], ast)
-        case (Schema.CaseClass1(f, _, ext, _), v)                                         => encodeCaseClass(v, f -> ext)(fieldNumber)
-        case (Schema.CaseClass2(f1, f2, _, ext1, ext2, _), v)                             => encodeCaseClass(v, f1 -> ext1, f2 -> ext2)(fieldNumber)
-        case (Schema.CaseClass3(f1, f2, f3, _, ext1, ext2, ext3, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3)(fieldNumber)
-        case (Schema.CaseClass4(f1, f2, f3, f4, _, ext1, ext2, ext3, ext4, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4)(fieldNumber)
-        case (Schema.CaseClass5(f1, f2, f3, f4, f5, _, ext1, ext2, ext3, ext4, ext5, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5)(fieldNumber)
-        case (Schema.CaseClass6(f1, f2, f3, f4, f5, f6, _, ext1, ext2, ext3, ext4, ext5, ext6, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6)(fieldNumber)
-        case (Schema.CaseClass7(f1, f2, f3, f4, f5, f6, f7, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7)(fieldNumber)
-        case (Schema.CaseClass8(f1, f2, f3, f4, f5, f6, f7, f8, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8)(fieldNumber)
-        case (Schema.CaseClass9(f1, f2, f3, f4, f5, f6, f7, f8, f9, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9)(fieldNumber)
-        case (Schema.CaseClass10(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10)(fieldNumber)
-        case (Schema.CaseClass11(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11)(fieldNumber)
-        case (Schema.CaseClass12(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12)(fieldNumber)
-        case (Schema.CaseClass13(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13)(fieldNumber)
-        case (Schema.CaseClass14(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14)(fieldNumber)
-        case (Schema.CaseClass15(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15)(fieldNumber)
-        case (Schema.CaseClass16(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16)(fieldNumber)
-        case (Schema.CaseClass17(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17)(fieldNumber)
-        case (Schema.CaseClass18(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18)(fieldNumber)
-        case (Schema.CaseClass19(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19)(fieldNumber)
-        case (Schema.CaseClass20(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, ext20, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19, f20 -> ext20)(fieldNumber)
-        case (Schema.CaseClass21(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, ext20, ext21, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19, f20 -> ext20, f21 -> ext21)(fieldNumber)
-        case (Schema.CaseClass22(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, ext20, ext21, ext22, _), v) =>
-          encodeCaseClass(v, f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19, f20 -> ext20, f21 -> ext21, f22 -> ext22)(fieldNumber)
-        case (Schema.Enum1(c, _), v)                                                                                                    => encodeEnum(fieldNumber, v, c)
-        case (Schema.Enum2(c1, c2, _), v)                                                                                               => encodeEnum(fieldNumber, v, c1, c2)
-        case (Schema.Enum3(c1, c2, c3, _), v)                                                                                           => encodeEnum(fieldNumber, v, c1, c2, c3)
-        case (Schema.Enum4(c1, c2, c3, c4, _), v)                                                                                       => encodeEnum(fieldNumber, v, c1, c2, c3, c4)
-        case (Schema.Enum5(c1, c2, c3, c4, c5, _), v)                                                                                   => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5)
-        case (Schema.Enum6(c1, c2, c3, c4, c5, c6, _), v)                                                                               => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6)
-        case (Schema.Enum7(c1, c2, c3, c4, c5, c6, c7, _), v)                                                                           => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7)
-        case (Schema.Enum8(c1, c2, c3, c4, c5, c6, c7, c8, _), v)                                                                       => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8)
-        case (Schema.Enum9(c1, c2, c3, c4, c5, c6, c7, c8, c9, _), v)                                                                   => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9)
-        case (Schema.Enum10(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _), v)                                                             => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
-        case (Schema.Enum11(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _), v)                                                        => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
-        case (Schema.Enum12(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _), v)                                                   => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
-        case (Schema.Enum13(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _), v)                                              => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
-        case (Schema.Enum14(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _), v)                                         => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
-        case (Schema.Enum15(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _), v)                                    => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
-        case (Schema.Enum16(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _), v)                               => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
-        case (Schema.Enum17(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _), v)                          => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
-        case (Schema.Enum18(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _), v)                     => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
-        case (Schema.Enum19(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _), v)                => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
-        case (Schema.Enum20(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _), v)           => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
-        case (Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _), v)      => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
-        case (Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-        case (Schema.EnumN(cs, _), v)                                                                                                   => encodeEnum(fieldNumber, v, cs.toSeq: _*)
-        case (Schema.Dynamic(_), v)                                                                                                     => encode(fieldNumber, DynamicValueSchema.schema, v)
-        case (Schema.SemiDynamic(_, _), v)                                                                                              => encodeSemiDynamic[Any](fieldNumber, v.asInstanceOf[(Any, Schema[Any])])
-        case (_, _)                                                                                                                     => Chunk.empty
+        case (_: Schema.CaseClass0[_], v) =>
+          encodeCaseClass(v)(fieldNumber)
+        case (cc: Schema.CaseClass1[_, _], v) =>
+          encodeCaseClass(v, cc.field -> cc.extractField)(fieldNumber)
+        case (cc: Schema.CaseClass2[_, _, _], v) =>
+          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2)(fieldNumber)
+        case (cc: Schema.CaseClass3[_, _, _, _], v) =>
+          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3)(fieldNumber)
+        case (cc: Schema.CaseClass4[_, _, _, _, _], v) =>
+          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4)(fieldNumber)
+        case (cc: Schema.CaseClass5[_, _, _, _, _, _], v) =>
+          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5)(fieldNumber)
+        case (cc: Schema.CaseClass6[_, _, _, _, _, _, _], v) =>
+          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6)(fieldNumber)
+        case (cc: Schema.CaseClass7[_, _, _, _, _, _, _, _], v) =>
+          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7)(fieldNumber)
+        case (cc: Schema.CaseClass8[_, _, _, _, _, _, _, _, _], v) =>
+          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8)(fieldNumber)
+        case (cc: Schema.CaseClass9[_, _, _, _, _, _, _, _, _, _], v) =>
+          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9)(fieldNumber)
+        case (cc: Schema.CaseClass10[_, _, _, _, _, _, _, _, _, _, _], v) =>
+          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9, cc.field10 -> cc.extractField10)(fieldNumber)
+        case (cc: Schema.CaseClass11[_, _, _, _, _, _, _, _, _, _, _, _], v) =>
+          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9, cc.field10 -> cc.extractField10, cc.field11 -> cc.extractField11)(fieldNumber)
+        case (cc: Schema.CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
+          encodeCaseClass(
+            v,
+            cc.field1  -> cc.extractField1,
+            cc.field2  -> cc.extractField2,
+            cc.field3  -> cc.extractField3,
+            cc.field4  -> cc.extractField4,
+            cc.field5  -> cc.extractField5,
+            cc.field6  -> cc.extractField6,
+            cc.field7  -> cc.extractField7,
+            cc.field8  -> cc.extractField8,
+            cc.field9  -> cc.extractField9,
+            cc.field10 -> cc.extractField10,
+            cc.field11 -> cc.extractField11,
+            cc.field12 -> cc.extractField12
+          )(fieldNumber)
+        case (cc: Schema.CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
+          encodeCaseClass(
+            v,
+            cc.field1  -> cc.extractField1,
+            cc.field2  -> cc.extractField2,
+            cc.field3  -> cc.extractField3,
+            cc.field4  -> cc.extractField4,
+            cc.field5  -> cc.extractField5,
+            cc.field6  -> cc.extractField6,
+            cc.field7  -> cc.extractField7,
+            cc.field8  -> cc.extractField8,
+            cc.field9  -> cc.extractField9,
+            cc.field10 -> cc.extractField10,
+            cc.field11 -> cc.extractField11,
+            cc.field12 -> cc.extractField12,
+            cc.field13 -> cc.extractField13
+          )(fieldNumber)
+        case (cc: Schema.CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
+          encodeCaseClass(
+            v,
+            cc.field1  -> cc.extractField1,
+            cc.field2  -> cc.extractField2,
+            cc.field3  -> cc.extractField3,
+            cc.field4  -> cc.extractField4,
+            cc.field5  -> cc.extractField5,
+            cc.field6  -> cc.extractField6,
+            cc.field7  -> cc.extractField7,
+            cc.field8  -> cc.extractField8,
+            cc.field9  -> cc.extractField9,
+            cc.field10 -> cc.extractField10,
+            cc.field11 -> cc.extractField11,
+            cc.field12 -> cc.extractField12,
+            cc.field13 -> cc.extractField13,
+            cc.field14 -> cc.extractField14
+          )(fieldNumber)
+        case (cc: Schema.CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
+          encodeCaseClass(
+            v,
+            cc.field1  -> cc.extractField1,
+            cc.field2  -> cc.extractField2,
+            cc.field3  -> cc.extractField3,
+            cc.field4  -> cc.extractField4,
+            cc.field5  -> cc.extractField5,
+            cc.field6  -> cc.extractField6,
+            cc.field7  -> cc.extractField7,
+            cc.field8  -> cc.extractField8,
+            cc.field9  -> cc.extractField9,
+            cc.field10 -> cc.extractField10,
+            cc.field11 -> cc.extractField11,
+            cc.field12 -> cc.extractField12,
+            cc.field13 -> cc.extractField13,
+            cc.field14 -> cc.extractField14,
+            cc.field15 -> cc.extractField15
+          )(fieldNumber)
+        case (cc: Schema.CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
+          encodeCaseClass(
+            v,
+            cc.field1  -> cc.extractField1,
+            cc.field2  -> cc.extractField2,
+            cc.field3  -> cc.extractField3,
+            cc.field4  -> cc.extractField4,
+            cc.field5  -> cc.extractField5,
+            cc.field6  -> cc.extractField6,
+            cc.field7  -> cc.extractField7,
+            cc.field8  -> cc.extractField8,
+            cc.field9  -> cc.extractField9,
+            cc.field10 -> cc.extractField10,
+            cc.field11 -> cc.extractField11,
+            cc.field12 -> cc.extractField12,
+            cc.field13 -> cc.extractField13,
+            cc.field14 -> cc.extractField14,
+            cc.field15 -> cc.extractField15,
+            cc.field16 -> cc.extractField16
+          )(fieldNumber)
+        case (cc: Schema.CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
+          encodeCaseClass(
+            v,
+            cc.field1  -> cc.extractField1,
+            cc.field2  -> cc.extractField2,
+            cc.field3  -> cc.extractField3,
+            cc.field4  -> cc.extractField4,
+            cc.field5  -> cc.extractField5,
+            cc.field6  -> cc.extractField6,
+            cc.field7  -> cc.extractField7,
+            cc.field8  -> cc.extractField8,
+            cc.field9  -> cc.extractField9,
+            cc.field10 -> cc.extractField10,
+            cc.field11 -> cc.extractField11,
+            cc.field12 -> cc.extractField12,
+            cc.field13 -> cc.extractField13,
+            cc.field14 -> cc.extractField14,
+            cc.field15 -> cc.extractField15,
+            cc.field16 -> cc.extractField16,
+            cc.field17 -> cc.extractField17
+          )(fieldNumber)
+        case (cc: Schema.CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
+          encodeCaseClass(
+            v,
+            cc.field1  -> cc.extractField1,
+            cc.field2  -> cc.extractField2,
+            cc.field3  -> cc.extractField3,
+            cc.field4  -> cc.extractField4,
+            cc.field5  -> cc.extractField5,
+            cc.field6  -> cc.extractField6,
+            cc.field7  -> cc.extractField7,
+            cc.field8  -> cc.extractField8,
+            cc.field9  -> cc.extractField9,
+            cc.field10 -> cc.extractField10,
+            cc.field11 -> cc.extractField11,
+            cc.field12 -> cc.extractField12,
+            cc.field13 -> cc.extractField13,
+            cc.field14 -> cc.extractField14,
+            cc.field15 -> cc.extractField15,
+            cc.field16 -> cc.extractField16,
+            cc.field17 -> cc.extractField17,
+            cc.field18 -> cc.extractField18
+          )(fieldNumber)
+        case (cc: Schema.CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
+          encodeCaseClass(
+            v,
+            cc.field1  -> cc.extractField1,
+            cc.field2  -> cc.extractField2,
+            cc.field3  -> cc.extractField3,
+            cc.field4  -> cc.extractField4,
+            cc.field5  -> cc.extractField5,
+            cc.field6  -> cc.extractField6,
+            cc.field7  -> cc.extractField7,
+            cc.field8  -> cc.extractField8,
+            cc.field9  -> cc.extractField9,
+            cc.field10 -> cc.extractField10,
+            cc.field11 -> cc.extractField11,
+            cc.field12 -> cc.extractField12,
+            cc.field13 -> cc.extractField13,
+            cc.field14 -> cc.extractField14,
+            cc.field15 -> cc.extractField15,
+            cc.field16 -> cc.extractField16,
+            cc.field17 -> cc.extractField17,
+            cc.field18 -> cc.extractField18,
+            cc.field19 -> cc.extractField19
+          )(fieldNumber)
+        case (cc: Schema.CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
+          encodeCaseClass(
+            v,
+            cc.field1  -> cc.extractField1,
+            cc.field2  -> cc.extractField2,
+            cc.field3  -> cc.extractField3,
+            cc.field4  -> cc.extractField4,
+            cc.field5  -> cc.extractField5,
+            cc.field6  -> cc.extractField6,
+            cc.field7  -> cc.extractField7,
+            cc.field8  -> cc.extractField8,
+            cc.field9  -> cc.extractField9,
+            cc.field10 -> cc.extractField10,
+            cc.field11 -> cc.extractField11,
+            cc.field12 -> cc.extractField12,
+            cc.field13 -> cc.extractField13,
+            cc.field14 -> cc.extractField14,
+            cc.field15 -> cc.extractField15,
+            cc.field16 -> cc.extractField16,
+            cc.field17 -> cc.extractField17,
+            cc.field18 -> cc.extractField18,
+            cc.field19 -> cc.extractField19,
+            cc.field20 -> cc.extractField20
+          )(fieldNumber)
+        case (cc: Schema.CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
+          encodeCaseClass(
+            v,
+            cc.field1  -> cc.extractField1,
+            cc.field2  -> cc.extractField2,
+            cc.field3  -> cc.extractField3,
+            cc.field4  -> cc.extractField4,
+            cc.field5  -> cc.extractField5,
+            cc.field6  -> cc.extractField6,
+            cc.field7  -> cc.extractField7,
+            cc.field8  -> cc.extractField8,
+            cc.field9  -> cc.extractField9,
+            cc.field10 -> cc.extractField10,
+            cc.field11 -> cc.extractField11,
+            cc.field12 -> cc.extractField12,
+            cc.field13 -> cc.extractField13,
+            cc.field14 -> cc.extractField14,
+            cc.field15 -> cc.extractField15,
+            cc.field16 -> cc.extractField16,
+            cc.field17 -> cc.extractField17,
+            cc.field18 -> cc.extractField18,
+            cc.field19 -> cc.extractField19,
+            cc.field20 -> cc.extractField20,
+            cc.field21 -> cc.extractField21
+          )(fieldNumber)
+        case (cc: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
+          encodeCaseClass(
+            v,
+            cc.field1  -> cc.extractField1,
+            cc.field2  -> cc.extractField2,
+            cc.field3  -> cc.extractField3,
+            cc.field4  -> cc.extractField4,
+            cc.field5  -> cc.extractField5,
+            cc.field6  -> cc.extractField6,
+            cc.field7  -> cc.extractField7,
+            cc.field8  -> cc.extractField8,
+            cc.field9  -> cc.extractField9,
+            cc.field10 -> cc.extractField10,
+            cc.field11 -> cc.extractField11,
+            cc.field12 -> cc.extractField12,
+            cc.field13 -> cc.extractField13,
+            cc.field14 -> cc.extractField14,
+            cc.field15 -> cc.extractField15,
+            cc.field16 -> cc.extractField16,
+            cc.field17 -> cc.extractField17,
+            cc.field18 -> cc.extractField18,
+            cc.field19 -> cc.extractField19,
+            cc.field20 -> cc.extractField20,
+            cc.field21 -> cc.extractField21,
+            cc.field22 -> cc.extractField22
+          )(fieldNumber)
+        case (Schema.Enum1(_, c, _), v)                                                                                                    => encodeEnum(fieldNumber, v, c)
+        case (Schema.Enum2(_, c1, c2, _), v)                                                                                               => encodeEnum(fieldNumber, v, c1, c2)
+        case (Schema.Enum3(_, c1, c2, c3, _), v)                                                                                           => encodeEnum(fieldNumber, v, c1, c2, c3)
+        case (Schema.Enum4(_, c1, c2, c3, c4, _), v)                                                                                       => encodeEnum(fieldNumber, v, c1, c2, c3, c4)
+        case (Schema.Enum5(_, c1, c2, c3, c4, c5, _), v)                                                                                   => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5)
+        case (Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _), v)                                                                               => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6)
+        case (Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _), v)                                                                           => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7)
+        case (Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _), v)                                                                       => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8)
+        case (Schema.Enum9(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, _), v)                                                                   => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9)
+        case (Schema.Enum10(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _), v)                                                             => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
+        case (Schema.Enum11(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _), v)                                                        => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
+        case (Schema.Enum12(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _), v)                                                   => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
+        case (Schema.Enum13(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _), v)                                              => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
+        case (Schema.Enum14(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _), v)                                         => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
+        case (Schema.Enum15(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _), v)                                    => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+        case (Schema.Enum16(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _), v)                               => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
+        case (Schema.Enum17(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _), v)                          => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
+        case (Schema.Enum18(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _), v)                     => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
+        case (Schema.Enum19(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _), v)                => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
+        case (Schema.Enum20(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _), v)           => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
+        case (Schema.Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _), v)      => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
+        case (Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
+        case (Schema.EnumN(_, cs, _), v)                                                                                                   => encodeEnum(fieldNumber, v, cs.toSeq: _*)
+        case (Schema.Dynamic(_), v)                                                                                                        => encode(fieldNumber, DynamicValueSchema.schema, v)
+        case (Schema.SemiDynamic(_, _), v)                                                                                                 => encodeSemiDynamic[Any](fieldNumber, v.asInstanceOf[(Any, Schema[Any])])
+        case (_, _)                                                                                                                        => Chunk.empty
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -525,7 +732,7 @@ object ProtobufCodec extends Codec {
     private[codec] def decoder[A](schema: Schema[A]): Decoder[A] =
       //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
       schema match {
-        case Schema.GenericRecord(structure, _) => recordDecoder(structure.toChunk)
+        case Schema.GenericRecord(_, structure, _) => recordDecoder(structure.toChunk)
         case Schema.Sequence(elementSchema, fromChunk, _, _, _) =>
           if (canBePacked(elementSchema)) packedSequenceDecoder(elementSchema).map(fromChunk)
           else nonPackedSequenceDecoder(elementSchema).map(fromChunk)
@@ -565,31 +772,31 @@ object ProtobufCodec extends Codec {
           caseClass21Decoder(s)
         case s: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
           caseClass22Decoder(s)
-        case Schema.Enum1(c, _)                                                                                                    => enumDecoder(c)
-        case Schema.Enum2(c1, c2, _)                                                                                               => enumDecoder(c1, c2)
-        case Schema.Enum3(c1, c2, c3, _)                                                                                           => enumDecoder(c1, c2, c3)
-        case Schema.Enum4(c1, c2, c3, c4, _)                                                                                       => enumDecoder(c1, c2, c3, c4)
-        case Schema.Enum5(c1, c2, c3, c4, c5, _)                                                                                   => enumDecoder(c1, c2, c3, c4, c5)
-        case Schema.Enum6(c1, c2, c3, c4, c5, c6, _)                                                                               => enumDecoder(c1, c2, c3, c4, c5, c6)
-        case Schema.Enum7(c1, c2, c3, c4, c5, c6, c7, _)                                                                           => enumDecoder(c1, c2, c3, c4, c5, c6, c7)
-        case Schema.Enum8(c1, c2, c3, c4, c5, c6, c7, c8, _)                                                                       => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8)
-        case Schema.Enum9(c1, c2, c3, c4, c5, c6, c7, c8, c9, _)                                                                   => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9)
-        case Schema.Enum10(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _)                                                             => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
-        case Schema.Enum11(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _)                                                        => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
-        case Schema.Enum12(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _)                                                   => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
-        case Schema.Enum13(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _)                                              => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
-        case Schema.Enum14(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _)                                         => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
-        case Schema.Enum15(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _)                                    => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
-        case Schema.Enum16(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _)                               => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
-        case Schema.Enum17(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _)                          => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
-        case Schema.Enum18(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _)                     => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
-        case Schema.Enum19(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _)                => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
-        case Schema.Enum20(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _)           => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
-        case Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)      => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
-        case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-        case Schema.EnumN(cs, _)                                                                                                   => enumDecoder(cs.toSeq: _*)
-        case Schema.Dynamic(_)                                                                                                     => dynamicDecoder
-        case Schema.SemiDynamic(_, _)                                                                                              => semiDynamicDecoder.asInstanceOf[Decoder[A]]
+        case Schema.Enum1(_, c, _)                                                                                                    => enumDecoder(c)
+        case Schema.Enum2(_, c1, c2, _)                                                                                               => enumDecoder(c1, c2)
+        case Schema.Enum3(_, c1, c2, c3, _)                                                                                           => enumDecoder(c1, c2, c3)
+        case Schema.Enum4(_, c1, c2, c3, c4, _)                                                                                       => enumDecoder(c1, c2, c3, c4)
+        case Schema.Enum5(_, c1, c2, c3, c4, c5, _)                                                                                   => enumDecoder(c1, c2, c3, c4, c5)
+        case Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _)                                                                               => enumDecoder(c1, c2, c3, c4, c5, c6)
+        case Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _)                                                                           => enumDecoder(c1, c2, c3, c4, c5, c6, c7)
+        case Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _)                                                                       => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8)
+        case Schema.Enum9(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, _)                                                                   => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9)
+        case Schema.Enum10(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _)                                                             => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
+        case Schema.Enum11(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _)                                                        => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
+        case Schema.Enum12(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _)                                                   => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
+        case Schema.Enum13(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _)                                              => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
+        case Schema.Enum14(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _)                                         => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
+        case Schema.Enum15(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _)                                    => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+        case Schema.Enum16(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _)                               => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
+        case Schema.Enum17(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _)                          => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
+        case Schema.Enum18(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _)                     => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
+        case Schema.Enum19(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _)                => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
+        case Schema.Enum20(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _)           => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
+        case Schema.Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)      => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
+        case Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
+        case Schema.EnumN(_, cs, _)                                                                                                   => enumDecoder(cs.toSeq: _*)
+        case Schema.Dynamic(_)                                                                                                        => dynamicDecoder
+        case Schema.SemiDynamic(_, _)                                                                                                 => semiDynamicDecoder.asInstanceOf[Decoder[A]]
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 

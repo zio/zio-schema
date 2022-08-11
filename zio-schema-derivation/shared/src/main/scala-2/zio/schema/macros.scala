@@ -187,6 +187,8 @@ object DeriveSchema {
           case p: TermSymbol if p.isCaseAccessor && p.isMethod => p.name
         }
 
+        val typeId = q"zio.schema.TypeId.parse(${tpe.toString()})"
+
         @nowarn
         val typeAnnotations: List[Tree] =
           tpe.typeSymbol.annotations.collect {
@@ -281,9 +283,10 @@ object DeriveSchema {
             if (typeAnnotations.isEmpty) Iterable(q"annotations = zio.Chunk.empty")
             else Iterable(q"annotations = zio.Chunk.apply(..$typeAnnotations)")
 
-          q"""zio.schema.Schema.GenericRecord(zio.schema.FieldSet(..$fields), ..$applyArgs).transformOrFail[$tpe]($fromMap,$toMap)"""
+          q"""zio.schema.Schema.GenericRecord($typeId, zio.schema.FieldSet(..$fields), ..$applyArgs).transformOrFail[$tpe]($fromMap,$toMap)"""
         } else {
           val schemaType = arity match {
+            case 0  => q"zio.schema.Schema.CaseClass0[..$typeArgs]"
             case 1  => q"zio.schema.Schema.CaseClass1[..$typeArgs]"
             case 2  => q"zio.schema.Schema.CaseClass2[..$typeArgs]"
             case 3  => q"zio.schema.Schema.CaseClass3[..$typeArgs]"
@@ -345,11 +348,17 @@ object DeriveSchema {
 
           val applyArgs =
             if (typeAnnotations.isEmpty)
-              Iterable(q"annotations = zio.Chunk.empty") ++ fieldDefs ++ Iterable(constructExpr) ++ extractors
+              Iterable(q"annotations = zio.Chunk.empty") ++ Iterable(q"id = ${typeId}") ++ fieldDefs ++ Iterable(
+                constructExpr
+              ) ++ extractors
             else
-              Iterable(q"annotations = zio.Chunk.apply(..$typeAnnotations)") ++ fieldDefs ++ Iterable(constructExpr) ++ extractors
+              Iterable(q"annotations = zio.Chunk.apply(..$typeAnnotations)") ++ Iterable(q"id = ${typeId}") ++ fieldDefs ++ Iterable(
+                constructExpr
+              ) ++ extractors
 
           fieldTypes.size match {
+            case 0 =>
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass0[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
             case 1 =>
               q"{lazy val $selfRef: zio.schema.Schema.CaseClass1[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
             case 2 =>
@@ -404,6 +413,7 @@ object DeriveSchema {
     }
 
     def deriveEnum(tpe: Type, stack: List[Frame[c.type]]): Tree = {
+      val typeId = q"zio.schema.TypeId.parse(${tpe.toString()})"
 
       val appliedTypeArgs: Map[String, Type] =
         tpe.typeConstructor.typeParams.map(_.name.toString).zip(tpe.typeArgs).toMap
@@ -508,9 +518,9 @@ object DeriveSchema {
 
       val applyArgs =
         if (typeAnnotations.isEmpty)
-          cases ++ Iterable(q"annotations = zio.Chunk.empty")
+          Iterable(q"id = ${typeId}") ++ cases ++ Iterable(q"annotations = zio.Chunk.empty")
         else
-          cases ++ Iterable(q"annotations = zio.Chunk.apply(..$typeAnnotations)")
+          Iterable(q"id = ${typeId}") ++ cases ++ Iterable(q"annotations = zio.Chunk.apply(..$typeAnnotations)")
 
       cases.size match {
         case 0 => c.abort(c.enclosingPosition, s"No subtypes found for ${show(tpe)}")
@@ -562,24 +572,16 @@ object DeriveSchema {
           val caseSet = q"zio.schema.CaseSet.apply(..$cases).asInstanceOf[zio.schema.CaseSet.Aux[$tpe]]"
 
           if (typeAnnotations.isEmpty)
-            q"""{lazy val $selfRefIdent: zio.schema.Schema.EnumN[$tpe,zio.schema.CaseSet.Aux[$tpe]] = zio.schema.Schema.EnumN.apply[$tpe,zio.schema.CaseSet.Aux[$tpe]]($caseSet); $selfRefIdent}"""
+            q"""{lazy val $selfRefIdent: zio.schema.Schema.EnumN[$tpe,zio.schema.CaseSet.Aux[$tpe]] = zio.schema.Schema.EnumN.apply[$tpe,zio.schema.CaseSet.Aux[$tpe]]($typeId, $caseSet); $selfRefIdent}"""
           else {
             val annotationArg = q"zio.Chunk.apply(..$typeAnnotations)"
 
-            q"""{lazy val $selfRefIdent: zio.schema.Schema.EnumN[$tpe,zio.schema.CaseSet.Aux[$tpe]] = zio.schema.Schema.EnumN.apply[$tpe,zio.schema.CaseSet.Aux[$tpe]]($caseSet,$annotationArg); $selfRefIdent}"""
+            q"""{lazy val $selfRefIdent: zio.schema.Schema.EnumN[$tpe,zio.schema.CaseSet.Aux[$tpe]] = zio.schema.Schema.EnumN.apply[$tpe,zio.schema.CaseSet.Aux[$tpe]]($typeId, $caseSet, $annotationArg); $selfRefIdent}"""
           }
       }
     }
 
-    if (isCaseObject(tpe)) q"zio.schema.Schema.singleton(${tpe.typeSymbol.asClass.module})"
-    else if (isCaseClass(tpe)) deriveRecord(tpe, List.empty[Frame[c.type]])
-    else if (isSealedTrait(tpe))
-      deriveEnum(tpe, List.empty[Frame[c.type]])
-    else
-      c.abort(
-        c.enclosingPosition,
-        s"Failed to derive schema for $tpe. Can only derive Schema for case class or sealed trait"
-      )
+    recurse(tpe, List.empty[Frame[c.type]])
   }
 
   case class Frame[C <: whitebox.Context](ctx: C, ref: String, tpe: C#Type)

@@ -208,9 +208,10 @@ object OrderingSpec extends DefaultRunnableSpec {
 
   def genAnyOrderedPairRecord: Gen[Random with Sized, SchemaAndPair[_]] =
     for {
+      name <- Gen.string(Gen.alphaChar).map(TypeId.parse)
       schema <- anyStructure(anyTree(1)).map(fields => {
                  val fieldSet = fields.foldRight[FieldSet](FieldSet.Empty)((field, acc) => field :*: acc)
-                 Schema.GenericRecord(fieldSet)
+                 Schema.GenericRecord(name, fieldSet)
                })
       pair <- genOrderedPairRecord(schema)
     } yield pair
@@ -222,12 +223,13 @@ object OrderingSpec extends DefaultRunnableSpec {
       equalFields   <- genEqualFields(fields, 0, diffInd)
       orderedFields <- genOrderedField(fields(diffInd))
       randomFields  <- genRandomFields(fields, diffInd + 1)
+      name          <- Gen.string(Gen.alphaChar).map(TypeId.parse)
     } yield {
       val allFields = (equalFields :+ orderedFields) ++ randomFields
       val xFields   = allFields.map { case (label, value, _) => (label, value) }
       val yFields   = allFields.map { case (label, _, value) => (label, value) }
-      val x         = DynamicValue.Record(ListMap(xFields: _*)).toTypedValue(schema).toOption.get
-      val y         = DynamicValue.Record(ListMap(yFields: _*)).toTypedValue(schema).toOption.get
+      val x         = DynamicValue.Record(name, ListMap(xFields: _*)).toTypedValue(schema).toOption.get
+      val y         = DynamicValue.Record(name, ListMap(yFields: _*)).toTypedValue(schema).toOption.get
       (schema, x, y)
     }
   }
@@ -285,8 +287,9 @@ object OrderingSpec extends DefaultRunnableSpec {
     for {
       (label, caseSchema)    <- Gen.elements(schema.structure.toList: _*)
       (smallCase, largeCase) <- genOrderedDynamicPair(caseSchema)
-      small                  = DynamicValue.Enumeration((label, smallCase)).toTypedValue(schema).toOption.get
-      large                  = DynamicValue.Enumeration((label, largeCase)).toTypedValue(schema).toOption.get
+      id                     <- Gen.string(Gen.alphaChar).map(TypeId.parse)
+      small                  = DynamicValue.Enumeration(id, (label, smallCase)).toTypedValue(schema).toOption.get
+      large                  = DynamicValue.Enumeration(id, (label, largeCase)).toTypedValue(schema).toOption.get
     } yield (schema, small, large)
 
   def genOrderedPairEnumDiffCase[A](schema: Schema.Enum[A]): Gen[Random with Sized, SchemaAndPair[A]] = {
@@ -301,10 +304,10 @@ object OrderingSpec extends DefaultRunnableSpec {
     } yield (schema, small, large)
   }
 
-  def genElemOfCase[A, B](enumSchema: Schema[A], label: String, caseSchema: Schema[B]): Gen[Random with Sized, A] =
+  def genElemOfCase[A, B](enumSchema: Schema.Enum[A], label: String, caseSchema: Schema[B]): Gen[Random with Sized, A] =
     genFromSchema(caseSchema).map(b => {
       val innerValue = caseSchema.toDynamic(b)
-      val enumValue  = DynamicValue.Enumeration((label, innerValue))
+      val enumValue  = DynamicValue.Enumeration(enumSchema.id, (label, innerValue))
       enumValue.toTypedValue(enumSchema).toOption.get
     })
 
