@@ -75,7 +75,7 @@ object ValidationSpec extends DefaultRunnableSpec {
     },
     suite("Regex email Validation")(
       testM("should reject an invalid email") {
-        val data = Gen.fromIterable {
+        val examples = Gen.fromIterable {
           Seq(
             "bob101*@gmail.com",
             "_",
@@ -87,21 +87,26 @@ object ValidationSpec extends DefaultRunnableSpec {
             "1@a.com",
             "1@a.b.com",
             "a@@a.com",
+            "a@b@c@example.com",
             "a@a..b.com",
             "john@doe..",
             "john.doe@foo.bar,com",
+            "john.doe@underscore_not_allowed_in_domain_part.example.com",
             "xy@email.is-too-long.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.123456789.a123",
-            "the-local-part-too-long-over-64-so.invalid.123456789.123456789.a1@even.broad.definition.of.RFC5322.accepts.it"
+            "the-local-part-too-long-over-64-so.invalid.123456789.123456789.a1@even.broad.definition.of.RFC5322.accepts.it",
+            "postmaster@[123.123.123]",
+            "postmaster@[IPv6:1200::AB00:1234::2552:7777:1313]",
+            "postmaster@[2001:cdba:0:0:0:0:3257:9652]"
           )
         }
         val validationResult = (value: String) => Validation.email.validate(value)
 
-        checkAll(data) { email =>
+        checkAll(examples) { email =>
           assertTrue(validationResult(email).isLeft)
         }
       },
       testM("should accept a correct email") {
-        val data = Gen.fromIterable {
+        val examples = Gen.fromIterable {
           Seq(
             "bob101@gmail.com",
             "bob+and-alice@gmail.com",
@@ -112,46 +117,93 @@ object ValidationSpec extends DefaultRunnableSpec {
             "bob-@foo.co.uk",
             "bob+@foo.co.uk",
             "a.b@a.com",
-            "a..b@a.com"
+            "a..b@a.com",
+            "postmaster@[123.123.123.123]",
+            "postmaster@[IPv6:2001:cdba:0:0:0:0:3257:9652]"
           )
         }
         val validationResult = (value: String) => Validation.email.validate(value)
 
-        checkAll(data) { email =>
+        checkAll(examples) { email =>
           assertTrue(validationResult(email).isRight)
         }
       }
     ),
-    test("Regex IPv4 Validation") {
-      val validation = Validation.ipV4
+    suite("Regex IPv4 Validation")(
+      testM("should accept a valid IPv4 address") {
+        val examples = Gen.fromIterable {
+          Seq(
+            "255.255.255.255",
+            "192.168.1.255",
+            "192.168.001.255",
+            "0.0.0.0",
+            "1.1.1.1",
+            "1.0.128.0",
+            "127.0.0.1",
+            "0.0.0.1",
+            "10.0.0.255",
+            "69.89.31.226",
+            "01.001.100.199"
+          )
+        }
 
-      assertTrue(validation.validate("255.255.255.255").isRight) &&
-      assertTrue(validation.validate("192.168.1.255").isRight) &&
-      assertTrue(validation.validate("192.168.001.255").isRight) &&
-      assertTrue(validation.validate("0.0.0.0").isRight) &&
-      assertTrue(validation.validate("1.1.1.1").isRight) &&
-      assertTrue(validation.validate("1.0.128.0").isRight) &&
-      assertTrue(validation.validate("127.0.0.1").isRight) &&
-      assertTrue(validation.validate("0.0.0.1").isRight) &&
-      assertTrue(validation.validate("10.0.0.255").isRight) &&
-      assertTrue(validation.validate("69.89.31.226").isRight) &&
-      assertTrue(validation.validate("01.001.100.199").isRight) &&
-      assertTrue(validation.validate("10.0.0.256").isLeft) &&
-      assertTrue(validation.validate("256.256.256.256").isLeft) &&
-      assertTrue(validation.validate("127.0.0 1").isLeft) &&
-      assertTrue(validation.validate("192.168.1").isLeft) &&
-      assertTrue(validation.validate("-1.0.0.1").isLeft)
-    },
-    test("Regex IPv6 Validation") {
-      val validation = Validation.ipV6
-      assertTrue(validation.validate("2001:470:9b36:1::2").isRight) &&
-      assertTrue(validation.validate("2001:cdba:0:0:0:0:3257:9652").isRight) &&
-      assertTrue(validation.validate("2001:cdba::3257:9652").isRight) &&
-      assertTrue(validation.validate("2001:db8:122:344::192.0.2.33").isLeft) &&
-      assertTrue(validation.validate("1200::AB00:1234::2552:7777:1313").isLeft) &&
-      assertTrue(validation.validate("2001:cdba:0000:0000:0000:0000:3257:9652").isLeft) &&
-      assertTrue(validation.validate("1200:0000:AB00:1234:O000:2552:7777:1313").isLeft)
-    },
+        val validationResult = (value: String) => Validation.ipV4.validate(value)
+
+        checkAll(examples) { ip =>
+          assertTrue(validationResult(ip).isRight)
+        }
+      },
+      testM("should reject an invalid IPv4 address") {
+        val examples = Gen.fromIterable {
+          Seq(
+            "10.0.0.256",
+            "256.256.256.256",
+            "127.0.0 1",
+            "192.168.1",
+            "-1.0.0.1"
+          )
+        }
+
+        val validationResult = (value: String) => Validation.ipV4.validate(value)
+
+        checkAll(examples) { ip =>
+          assertTrue(validationResult(ip).isLeft)
+        }
+      }
+    ),
+    suite("Regex IPv6 Validation")(
+      testM("should accept a valid IPv6 address") {
+        val examples = Gen.fromIterable {
+          Seq(
+            "2001:470:9b36:1::2",
+            "2001:cdba:0:0:0:0:3257:9652",
+            "2001:cdba::3257:9652"
+          )
+        }
+
+        val validationResult = (value: String) => Validation.ipV6.validate(value)
+
+        checkAll(examples) { ip =>
+          assertTrue(validationResult(ip).isRight)
+        }
+      },
+      testM("should reject an invalid IPv6 address") {
+        val examples = Gen.fromIterable {
+          Seq(
+            "2001:db8:122:344::192.0.2.33",
+            "1200::AB00:1234::2552:7777:1313",
+            "2001:cdba:0000:0000:0000:0000:3257:9652",
+            "1200:0000:AB00:1234:O000:2552:7777:1313"
+          )
+        }
+
+        val validationResult = (value: String) => Validation.ipV6.validate(value)
+
+        checkAll(examples) { ip =>
+          assertTrue(validationResult(ip).isLeft)
+        }
+      }
+    ),
     suite("Regex uuid Validations")(
       testM("valid UUID") {
         val validation = Validation.uuidV4
