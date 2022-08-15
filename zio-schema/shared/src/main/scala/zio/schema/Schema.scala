@@ -257,6 +257,8 @@ object Schema extends SchemaEquality {
   def semiDynamic[A](defaultValue: Either[String, (A, Schema[A])] = Left("no default value")): Schema[(A, Schema[A])] =
     Schema.SemiDynamic(defaultValue)
 
+  def toDynamic[A](a: A)(implicit schema: Schema[A]): DynamicValue = schema.toDynamic(a)
+
   implicit def right[B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
     either[Nothing, B](Schema.fail[Nothing]("no schema for Left"), schemaB)
       .transformOrFail[Right[Nothing, B]](
