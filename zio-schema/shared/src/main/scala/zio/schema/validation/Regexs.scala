@@ -46,7 +46,7 @@ trait Regexs {
     val oneDigitHex   = Regex.hexDigit.exactly(1)
     val twoDigitHex   = Regex.hexDigitNonZero.exactly(1) ~ Regex.hexDigit.exactly(1)
     val threeDigitHex = Regex.hexDigitNonZero.exactly(1) ~ Regex.hexDigit.exactly(2)
-    val fourDigitHex  = Regex.hexDigitNonZero.exactly(1) ~ Regex.hexDigit.exactly(3)
+    val fourDigitHex  = Regex.hexDigit.exactly(1) ~ Regex.hexDigit.exactly(3)
 
     val hexGroup: Regex = fourDigitHex | threeDigitHex | twoDigitHex | oneDigitHex
 
