@@ -5,7 +5,7 @@ import scala.annotation.Annotation
 import zio.Chunk
 import zio.test._
 
-object DeriveSchemaSpec extends DefaultRunnableSpec {
+object DeriveSchemaSpec extends ZIOSpecDefault {
   import Assertion._
   import SchemaAssertions._
 
@@ -240,7 +240,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
 
   }
 
-  override def spec: ZSpec[Environment, Failure] = suite("DeriveSchemaSpec")(
+  override def spec = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("correctly derives case class") {
         assert(Schema[User].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
@@ -274,8 +274,9 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         assert(derived)(hasSameSchema(expected))
       },
       test("correctly derives for case object") {
-        val derived: Schema[Singleton.type]  = DeriveSchema.gen[Singleton.type]
-        val expected: Schema[Singleton.type] = Schema.CaseClass0(TypeId.parse("zio.schema.DeriveSchemaSpec.Singleton"), () => Singleton)
+        val derived: Schema[Singleton.type] = DeriveSchema.gen[Singleton.type]
+        val expected: Schema[Singleton.type] =
+          Schema.CaseClass0(TypeId.parse("zio.schema.DeriveSchemaSpec.Singleton"), () => Singleton)
 
         assert(derived)(hasSameSchema(expected))
       },
