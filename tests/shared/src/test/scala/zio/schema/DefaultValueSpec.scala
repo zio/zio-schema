@@ -20,13 +20,17 @@ object DefaultValueSpec extends ZIOSpecDefault {
   object Ok {
     implicit lazy val schema: Schema[Ok] = DeriveSchema.gen[Ok]
   }
+
   case class Failed(code: Int, reason: String, additionalExplanation: Option[String], remark: String = "oops")
       extends Status
 
   object Failed {
     implicit lazy val schema: Schema[Failed] = DeriveSchema.gen[Failed]
   }
-  case object Pending extends Status
+
+  case object Pending extends Status {
+    implicit lazy val schema: Schema[Pending.type] = DeriveSchema.gen[Pending.type]
+  }
 
   object Status {
     implicit lazy val schema: Schema[Status] = DeriveSchema.gen[Status]
@@ -145,6 +149,7 @@ object DefaultValueSpec extends ZIOSpecDefault {
       test("basic") {
         val schema: Schema[UserId] =
           Schema.CaseClass1(
+            TypeId.parse("zio.schema.DefaultValueSpec.UserId"),
             field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
             UserId.apply,
             (uid: UserId) => uid.id
@@ -154,9 +159,11 @@ object DefaultValueSpec extends ZIOSpecDefault {
       test("recursive") {
         val expected: Schema[User] =
           Schema.CaseClass3(
+            TypeId.parse("zio.schema.DefaultValueSpec.User"),
             field1 = Schema.Field(
               "id",
               Schema.CaseClass1(
+                TypeId.parse("zio.schema.DefaultValueSpec.UserId"),
                 field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
                 UserId.apply,
                 (uid: UserId) => uid.id
@@ -183,6 +190,7 @@ object DefaultValueSpec extends ZIOSpecDefault {
     suite("Enumeration")(
       test("defaults to first case") {
         val schema = Schema.enumeration[Any, CaseSet.Aux[Any]](
+          TypeId.Structural,
           caseOf[Int, Any]("myInt")(_.asInstanceOf[Int]) ++ caseOf[String, Any]("myString")(_.asInstanceOf[String])
         )
         assert(schema.defaultValue)(isRight(equalTo(0)))
@@ -225,6 +233,7 @@ object DefaultValueSpec extends ZIOSpecDefault {
 
         val schema: Schema[Status] =
           Schema.Enum3(
+            TypeId.parse("zio.schema.DefaultValueSpec.Status"),
             Schema.Case("Failed", Schema[Failed], (s: Status) => s.asInstanceOf[Failed]),
             Schema.Case("Ok", Schema[Ok], (s: Status) => s.asInstanceOf[Ok]),
             Schema.Case(

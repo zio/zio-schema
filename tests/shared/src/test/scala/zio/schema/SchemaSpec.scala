@@ -16,7 +16,7 @@ object SchemaSpec extends ZIOSpecDefault {
       },
       test("sequence") {
         assert(Schema.chunk(schemaUnit))(equalTo(Schema.chunk(schemaUnit)))
-      },
+      } @@ TestAspect.scala2Only,
       test("tuple") {
         assert(Schema.Tuple(schemaUnit, schemaUnit))(equalTo(Schema.Tuple(schemaUnit, schemaUnit))) &&
         assert(Schema.Tuple(schemaTransform, schemaTransform))(equalTo(Schema.Tuple(schemaTransform, schemaTransform)))
@@ -28,7 +28,7 @@ object SchemaSpec extends ZIOSpecDefault {
       test("transform") {
         assert(schemaTransform)(equalTo(schemaTransform)) &&
         assert(schemaTransformMethod)(equalTo(schemaTransformMethod))
-      },
+      } @@ TestAspect.scala2Only,
       test("optional") {
         assert(Schema.Optional(schemaUnit))(equalTo(Schema.Optional(schemaUnit)))
       },
@@ -36,7 +36,7 @@ object SchemaSpec extends ZIOSpecDefault {
         assert(schemaEnum("key"))(equalTo(schemaEnum("key"))) &&
         assert(schemaEnum("key1"))(not(equalTo(schemaEnum("key2"))))
 
-      }
+      } @@ TestAspect.scala2Only
     ),
     test("Tuple.toRecord should preserve annotations") {
       val left        = Schema.primitive(StandardType.StringType)
@@ -50,10 +50,11 @@ object SchemaSpec extends ZIOSpecDefault {
   def schemaUnit: Schema[Unit] = Schema[Unit]
   def schemaInt: Schema[Int]   = Schema[Int]
 
-  def schemaRecord(key: String): Schema[ListMap[String, _]] = Schema.record(Schema.Field(key, schemaUnit))
+  def schemaRecord(key: String): Schema[ListMap[String, _]] =
+    Schema.record(TypeId.Structural, Schema.Field(key, schemaUnit))
 
   def schemaEnum(key: String): Schema[Any] =
-    Schema.enumeration[Any, CaseSet.Aux[Any]](caseOf[Unit, Any](key)(_ => ()))
+    Schema.enumeration[Any, CaseSet.Aux[Any]](TypeId.Structural, caseOf[Unit, Any](key)(_ => ()))
 
   val f: Unit => Either[String, Int] = _ => Right(0)
   val g: Int => Either[String, Unit] = _ => Right(())

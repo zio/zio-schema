@@ -82,7 +82,7 @@ private[example7] object Problem {
               }
             }
         }
-        .map(DynamicValue.Record)
+        .map(v => DynamicValue.Record(TypeId.Structural, v))
     }
 
     val p: Either[String, Person] = decode[Person](Map("name" -> List("John"), "age" -> List("42")))
@@ -131,7 +131,7 @@ private[example7] object Problem {
                       }
                     f
                   case _ =>
-                    val error = Left(s"Expected String or Int but found ${standardType}")
+                    val error = Left(s"Expected String or Int but found $standardType")
                     Function.const(error)
                 }
             }
@@ -167,21 +167,21 @@ private[example7] object Problem {
           case record: Record[B] =>
             (qp: QueryParams) => {
               record.structure.map {
-                case Schema.Field(label, schema, _) =>
+                case Schema.Field(label, schema, _, _) =>
                   compile(Some(label), schema)(qp)
               }.foldRight[Either[String, Chunk[Any]]](Right(Chunk.empty)) {
                   case (Right(nextValue), Right(values)) => Right(values :+ nextValue)
                   case (Left(err), _)                    => Left(err)
                   case (_, Left(err))                    => Left(err)
                 }
-                .flatMap(record.rawConstruct(_))
+                .flatMap(record.rawConstruct)
             }
 
-          case enum: Enum[_] => ???
-          //        case Optional(codec) => ???
           case Fail(message, _) => Function.const(Left(message))
-          //        case Tuple(left, right) => ???
-          //        case EitherSchema(left, right) => ???
+          //case enumer: Enum[_] => ???
+          //case Optional(codec) => ???
+          //case Tuple(left, right) => ???
+          //case EitherSchema(left, right) => ???
           case lzy @ Lazy(_) =>
             // lazy val to make sure its only compiled on first usage and not instantly recursing
             lazy val compiled = compile(key, lzy.schema)

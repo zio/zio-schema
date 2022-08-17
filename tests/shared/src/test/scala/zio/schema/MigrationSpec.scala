@@ -114,7 +114,10 @@ object MigrationSpec extends ZIOSpecDefault {
         assert(Migration.DeleteNode(NodePath.root / "v2"))(
           transformsValueTo(
             Nested1(0, "foo"),
-            DynamicValue.Record(ListMap("v1" -> DynamicValue.Primitive(0, StandardType.IntType)))
+            DynamicValue.Record(
+              TypeId.parse("zio.schema.MigrationSpec.Nested1"),
+              ListMap("v1" -> DynamicValue.Primitive(0, StandardType.IntType))
+            )
           )
         )
       },
@@ -123,9 +126,11 @@ object MigrationSpec extends ZIOSpecDefault {
           transformsValueTo(
             Outer1("foo", Nested1(0, "bar")),
             DynamicValue.Record(
+              TypeId.parse("zio.schema.MigrationSpec.Outer1"),
               ListMap(
                 "v1" -> DynamicValue.Primitive("foo", StandardType.StringType),
                 "v2" -> DynamicValue.Record(
+                  TypeId.parse("zio.schema.MigrationSpec.Nested1"),
                   ListMap(
                     "v1" -> DynamicValue.Primitive(0, StandardType.IntType)
                   )
@@ -140,15 +145,18 @@ object MigrationSpec extends ZIOSpecDefault {
           transformsValueTo(
             Recursive1(0, "", Some(Recursive1(1, "", Some(Recursive1(2, "", None))))),
             DynamicValue.Record(
+              TypeId.parse("zio.schema.MigrationSpec.Recursive1"),
               ListMap(
                 "v1" -> DynamicValue.Primitive(0, StandardType.IntType),
                 "v2" -> DynamicValue.Primitive("", StandardType.StringType),
                 "r" -> DynamicValue.SomeValue(
                   DynamicValue.Record(
+                    TypeId.parse("zio.schema.MigrationSpec.Recursive1"),
                     ListMap(
                       "v1" -> DynamicValue.Primitive(1, StandardType.IntType),
                       "r" -> DynamicValue.SomeValue(
                         DynamicValue.Record(
+                          TypeId.parse("zio.schema.MigrationSpec.Recursive1"),
                           ListMap(
                             "v1" -> DynamicValue.Primitive(2, StandardType.IntType),
                             "r"  -> DynamicValue.NoneValue
@@ -168,6 +176,7 @@ object MigrationSpec extends ZIOSpecDefault {
           transformsValueTo(
             OptionalField(0, Some("foo")),
             DynamicValue.Record(
+              TypeId.parse("zio.schema.MigrationSpec.OptionalField"),
               ListMap(
                 "v1" -> DynamicValue.Primitive(0, StandardType.IntType),
                 "v2" -> DynamicValue.Primitive("foo", StandardType.StringType)
@@ -184,6 +193,7 @@ object MigrationSpec extends ZIOSpecDefault {
           transformsValueTo(
             Nested1(0, "foo"),
             DynamicValue.Record(
+              TypeId.parse("zio.schema.MigrationSpec.Nested1"),
               ListMap(
                 "v1" -> DynamicValue.Primitive(0, StandardType.IntType),
                 "v2" -> DynamicValue.SomeValue(DynamicValue.Primitive("foo", StandardType.StringType))

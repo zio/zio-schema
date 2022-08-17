@@ -12,6 +12,7 @@ private[example6] object Domain {
   final case class Company(boss: User, employees: List[UserAddress])
 
   implicit val userSchema: Schema.CaseClass2[String, Int, User] = Schema.CaseClass2[String, Int, User](
+    TypeId.parse("dev.zio.schema.example.example6.Domain.User"),
     field1 = Field("name", Schema.primitive[String]),
     field2 = Field("age", Schema.primitive[Int]),
     construct = (name, years) => User(name, years),
@@ -21,6 +22,7 @@ private[example6] object Domain {
 
   implicit val addressSchema: CaseClass3[String, String, String, Address] =
     Schema.CaseClass3[String, String, String, Address](
+      TypeId.parse("dev.zio.schema.example.example6.Domain.Address"),
       field1 = Field("street", Schema.primitive[String]),
       field2 = Field("city", Schema.primitive[String]),
       field3 = Field("state", Schema.primitive[String]),
@@ -32,6 +34,7 @@ private[example6] object Domain {
 
   implicit val userAddressSchema: CaseClass2[User, Address, UserAddress] =
     Schema.CaseClass2[User, Address, UserAddress](
+      TypeId.parse("dev.zio.schema.example.example6.Domain.UserAddress"),
       field1 = Field("user", userSchema),
       field2 = Field("address", addressSchema),
       construct = (user, address) => UserAddress(user, address),
@@ -41,6 +44,7 @@ private[example6] object Domain {
 
   implicit val companySchema: CaseClass2[User, List[UserAddress], Company] =
     Schema.CaseClass2[User, List[UserAddress], Company](
+      TypeId.parse("dev.zio.schema.example.example6.Domain.Company"),
       field1 = Field("boss", userSchema),
       field2 = Field("employees", Schema.list(userAddressSchema)),
       construct = (boss, employees) => Company(boss, employees),
@@ -70,8 +74,8 @@ object Example6_ReifiedOptics extends ZIOAppDefault {
     address              = Address("Street", "City", "State")
     userAddress          = UserAddress(user, address)
     userAddressAccessors = userAddressSchema.makeAccessors(ZioOpticsBuilder)
-    userAccessors        = userSchema.makeAccessors(ZioOpticsBuilder)
-    addressAccessors     = addressSchema.makeAccessors(ZioOpticsBuilder)
+    //userAccessors        = userSchema.makeAccessors(ZioOpticsBuilder)
+    addressAccessors = addressSchema.makeAccessors(ZioOpticsBuilder)
 
     changedUserAddress = (userAddressAccessors._2 >>> addressAccessors._3).setOptic("New State")(userAddress)
     _                  <- ZIO.debug(userAddress)
@@ -79,11 +83,11 @@ object Example6_ReifiedOptics extends ZIOAppDefault {
   } yield ()
 
   val traversalTest1: ZIO[Any, Nothing, Unit] = for {
-    _                         <- ZIO.debug("\n\n\n\n")
-    _                         <- ZIO.debug("traversal test 1.. trying to add a employee to a company")
-    company                   = Company(boss = User("Dominik", 36), List.empty[UserAddress])
-    _                         <- ZIO.debug("old company     :       " + company)
-    (bossLens, employeesLens) = companySchema.makeAccessors(ZioOpticsBuilder)
+    _                  <- ZIO.debug("\n\n\n\n")
+    _                  <- ZIO.debug("traversal test 1.. trying to add a employee to a company")
+    company            = Company(boss = User("Dominik", 36), List.empty[UserAddress])
+    _                  <- ZIO.debug("old company     :       " + company)
+    (_, employeesLens) = companySchema.makeAccessors(ZioOpticsBuilder)
 
     employeeSchema = companySchema.field2.schema.asInstanceOf[Sequence[List[UserAddress], UserAddress, _]]
     employeesTraversal = ZioOpticsBuilder

@@ -52,8 +52,7 @@ object NodePathSpec extends ZIOSpecDefault {
       test("partition path into internal path and leaf label") {
         check(anyPathOfN(2)) { path =>
           val (internalPath, leaf) = path.partitionLeaf
-
-          assertTrue(internalPath == NodePath(path.dropRight(1)))
+          assert(internalPath)(Assertion.equalTo(NodePath(path.dropRight(1)))) &&
           assertTrue(leaf == Some(path.last))
         }
       },

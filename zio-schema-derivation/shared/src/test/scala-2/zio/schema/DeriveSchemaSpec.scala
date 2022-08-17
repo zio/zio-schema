@@ -9,6 +9,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
   import Assertion._
   import SchemaAssertions._
 
+  final case class SimpleZero()
   final case class annotation1(value: String) extends Annotation
   final case class annotation2(value: String) extends Annotation
   final class annotation3 extends Annotation {
@@ -52,7 +53,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         extends Status
     case object Pending extends Status
 
-    implicit lazy val schema: Schema.Enum3[Failed, Ok, zio.schema.DeriveSchemaSpec.Status.Pending.type, Status] =
+    implicit lazy val schema: Schema.Enum3[Ok, Failed, zio.schema.DeriveSchemaSpec.Status.Pending.type, Status] =
       DeriveSchema.gen[Status]
   }
 
@@ -63,7 +64,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
     case class IntValue(value: Int)         extends OneOf
     case class BooleanValue(value: Boolean) extends OneOf
 
-    implicit lazy val schema: Schema.Enum3[BooleanValue, IntValue, StringValue, OneOf] = DeriveSchema.gen[OneOf]
+    implicit lazy val schema: Schema.Enum3[StringValue, IntValue, BooleanValue, OneOf] = DeriveSchema.gen[OneOf]
   }
 
   case object Singleton
@@ -90,6 +91,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
   case class CyclicChild1(field1: Int, child: CyclicChild2)
   case class CyclicChild2(field1: String, recursive: Option[Cyclic])
 
+  @annotation1("Arity24")
   final case class Arity24(
     a1: String,
     a2: Long,
@@ -231,6 +233,15 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
 
   override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
+      test("correctly derives case class 0") {
+        val derived: Schema[SimpleZero] = DeriveSchema.gen[SimpleZero]
+        val expected: Schema[SimpleZero] =
+          Schema.CaseClass0(
+            TypeId.parse("zio.schema.DeriveSchemaSpec.SimpleZero"),
+            () => SimpleZero()
+          )
+        assert(derived)(hasSameSchema(expected))
+      },
       test("correctly derives case class") {
         assert(Schema[User].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
@@ -252,6 +263,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         val derived: Schema[UserId] = DeriveSchema.gen[UserId]
         val expected: Schema[UserId] =
           Schema.CaseClass1(
+            TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
             field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
             UserId.apply,
             (uid: UserId) => uid.id
@@ -269,10 +281,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         val derived: Schema[User] = Schema[User]
         val expected: Schema[User] = {
           Schema.CaseClass2(
+            TypeId.parse("zio.schema.DeriveSchemaSpec.User"),
             field1 = Schema.Field("name", Schema.Primitive(StandardType.StringType)),
             field2 = Schema.Field(
               "id",
               Schema.CaseClass1(
+                TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
                 field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
                 UserId.apply,
                 (uid: UserId) => uid.id
@@ -287,10 +301,14 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         }
         assert(derived)(hasSameSchema(expected))
       },
+      test("correctly captures annotations on case class with arity greater than 22") {
+        assertTrue(Schema[Arity24].annotations == Chunk(annotation1("Arity24")))
+      },
       test("correctly derives Enum") {
         val derived: Schema[Status] = Schema[Status]
         val expected: Schema[Status] =
           Schema.Enum3(
+            TypeId.parse("zio.schema.DeriveSchemaSpec.Status"),
             Schema.Case("Failed", DeriveSchema.gen[Status.Failed], (s: Status) => s.asInstanceOf[Status.Failed]),
             Schema.Case("Ok", DeriveSchema.gen[Status.Ok], (s: Status) => s.asInstanceOf[Status.Ok]),
             Schema.Case(

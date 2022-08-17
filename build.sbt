@@ -1,8 +1,6 @@
 import sbtcrossproject.CrossPlugin.autoImport.crossProject
 import BuildHelper.{ crossProjectSettings, _ }
-import explicitdeps.ExplicitDepsPlugin.autoImport.{ moduleFilterRemoveValue, unusedCompileDependenciesFilter }
 import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport.scalaJSUseMainModuleInitializer
-import sbt.moduleFilter
 
 inThisBuild(
   List(
@@ -71,7 +69,9 @@ lazy val root = project
     zioSchemaZioTestJVM,
     zioSchemaZioTestJS,
     zioSchemaThriftJS,
-    zioSchemaThriftJVM
+    zioSchemaThriftJVM,
+    zioSchemaAvroJS,
+    zioSchemaAvroJVM
   )
 
 lazy val tests = crossProject(JSPlatform, JVMPlatform)
@@ -122,6 +122,7 @@ lazy val zioSchemaDerivation = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-derivation"))
   .dependsOn(zioSchema, zioSchema, zioSchema % "test->test")
   .settings(stdSettings("zio-schema-derivation"))
+  .settings(dottySettings)
   .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema"))
   .settings(
@@ -171,6 +172,7 @@ lazy val zioSchemaProtobuf = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-protobuf"))
   .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
   .settings(stdSettings("zio-schema-protobuf"))
+  .settings(dottySettings)
   .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema.protobuf"))
 
@@ -184,11 +186,12 @@ lazy val zioSchemaThrift = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-thrift"))
   .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
   .settings(stdSettings("zio-schema-thrift"))
+  .settings(dottySettings)
   .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema.thrift"))
   .settings(
     libraryDependencies ++= Seq(
-      "org.apache.thrift" % "libthrift" % "0.15.0"
+      "org.apache.thrift" % "libthrift" % "0.16.0"
     )
   )
 
@@ -198,10 +201,30 @@ lazy val zioSchemaThriftJS = zioSchemaThrift.js
 lazy val zioSchemaThriftJVM = zioSchemaThrift.jvm
   .settings(Test / fork := true)
 
+lazy val zioSchemaAvro = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-schema-avro"))
+  .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
+  .settings(stdSettings("zio-schema-avro"))
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema.avro"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio"         %% "zio-json" % zioJsonVersion,
+      "org.apache.avro" % "avro"      % avroVersion
+    )
+  )
+
+lazy val zioSchemaAvroJS = zioSchemaAvro.js
+  .settings(scalaJSUseMainModuleInitializer := true)
+
+lazy val zioSchemaAvroJVM = zioSchemaAvro.jvm
+  .settings(Test / fork := true)
+
 lazy val zioSchemaOptics = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-optics"))
   .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
   .settings(stdSettings("zio-schema-optics"))
+  .settings(dottySettings)
   .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema.optics"))
   .settings(
