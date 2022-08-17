@@ -10,13 +10,11 @@ import zio.schema.Schema._
 import zio.schema._
 import zio.schema.codec.AvroAnnotations.FieldOrderType
 import zio.test.Assertion._
-import zio.test.AssertionM.Render.param
 import zio.test._
-import zio.test.environment.TestEnvironment
 
-object AvroCodecSpec extends DefaultRunnableSpec {
+object AvroCodecSpec extends ZIOSpecDefault {
 
-  override def spec: ZSpec[TestEnvironment, Any] =
+  override def spec: Spec[Any, Nothing] =
     suite("AvroCodecSpec")( /*
     suite("encode")(
       suite("enum")(
@@ -1829,12 +1827,12 @@ object AssertionHelper {
     hasField("vs", _.vs, assertion)
 
   def enumStructure(assertion: Assertion[ListMap[String, (Schema[_], Chunk[Any])]]): Assertion[Schema.Enum[_]] =
-    Assertion.assertionRec("enumStructure")(param("structure"), param(assertion))(assertion)(
+    Assertion.assertionRec("enumStructure")(assertion)(
       enum => Some(`enum`.structureWithAnnotations)
     )
 
   def annotations(assertion: Assertion[Chunk[Any]]): Assertion[Any] =
-    Assertion.assertionRec("hasAnnotations")(param("annotations"), param(assertion))(assertion) {
+    Assertion.assertionRec("hasAnnotations")(assertion) {
       case s: Schema[_]       => Some(s.annotations)
       case f: Schema.Field[_] => Some(f.annotations)
       case _                  => None
@@ -1881,10 +1879,10 @@ object AssertionHelper {
     annotations(Assertion.exists(Assertion.isSubtype[AvroAnnotations.error.type](Assertion.anything)))
 
   def asString(assertion: Assertion[String]): Assertion[Any] =
-    Assertion.assertionRec("asString")(param(assertion))(assertion)(v => Some(v.toString))
+    Assertion.assertionRec("asString")(assertion)(v => Some(v.toString))
 
   def recordFields(assertion: Assertion[Iterable[Schema.Field[_]]]): Assertion[Schema.Record[_]] =
-    Assertion.assertionRec[Schema.Record[_], Chunk[Field[_]]]("hasRecordField")(param("recordField"), param(assertion))(
+    Assertion.assertionRec[Schema.Record[_], Chunk[Field[_]]]("hasRecordField")(
       assertion
     ) {
       case r: Schema.Record[_] => Some(r.structure)

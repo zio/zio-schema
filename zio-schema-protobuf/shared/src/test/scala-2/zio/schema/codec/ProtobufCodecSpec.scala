@@ -10,7 +10,7 @@ import scala.util.Try
 import zio.Console._
 import zio._
 import zio.schema.CaseSet._
-import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType }
+import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
@@ -592,7 +592,8 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
                   { case (str, schema) => Right(DynamicValue.fromSchemaAndValue(schema, str)) },
                   (v: DynamicValue) => v.toTypedValue(Schema[String]).map((_, Schema[String]))
                 )
-              val enumSchema = Schema.Enum1[DynamicValue, DynamicValue](Schema.Case("one", semiDynamicSchema, identity))
+              val enumSchema = Schema
+                .Enum1[DynamicValue, DynamicValue](TypeId.Structural, Schema.Case("one", semiDynamicSchema, identity))
               assertZIO(encodeAndDecode(enumSchema, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
@@ -606,7 +607,8 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
                   { case (str, schema) => Right(DynamicValue.fromSchemaAndValue(schema, str)) },
                   (v: DynamicValue) => v.toTypedValue(Schema[Chunk[Int]]).map((_, Schema[Chunk[Int]]))
                 )
-              val enumSchema = Schema.Enum1[DynamicValue, DynamicValue](Schema.Case("one", semiDynamicSchema, identity))
+              val enumSchema = Schema
+                .Enum1[DynamicValue, DynamicValue](TypeId.Structural, Schema.Case("one", semiDynamicSchema, identity))
               assertZIO(encodeAndDecode(enumSchema, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         }
@@ -727,6 +729,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         },
         test("dynamic record example") {
           val dynamicValue = DynamicValue.Record(
+            TypeId.Structural,
             ListMap("0" -> DynamicValue.Primitive(new java.math.BigDecimal(0.0), StandardType[java.math.BigDecimal]))
           )
           assertZIO(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))

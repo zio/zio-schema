@@ -47,13 +47,6 @@ object ProtobufCodec extends Codec {
         Schema.Field("scale", Schema.Primitive(StandardType.IntType))
       )
 
-    private[codec] val bigDecimalStructure: Seq[Schema.Field[_]] =
-      Seq(
-        Schema.Field("unscaled", Schema.Primitive(StandardType.BigIntegerType)),
-        Schema.Field("precision", Schema.Primitive(StandardType.IntType)),
-        Schema.Field("scale", Schema.Primitive(StandardType.IntType))
-      )
-
     private[codec] val monthDayStructure: Seq[Schema.Field[Int]] =
       Seq(
         Schema.Field("month", Schema.Primitive(StandardType.IntType)),

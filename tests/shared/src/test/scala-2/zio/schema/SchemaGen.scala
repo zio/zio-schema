@@ -5,8 +5,8 @@ import java.time.format.DateTimeFormatter
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
-import zio.test.{ Gen, Sized }
 import zio.schema.TypeId
+import zio.test.{ Gen, Sized }
 
 object SchemaGen {
 
@@ -189,7 +189,10 @@ object SchemaGen {
     } yield schema -> value
 
   val anyEnumeration: Gen[Sized, Schema[Any]] =
-    anyEnumeration(anySchema).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_))
+    for {
+      caseSet <- anyEnumeration(anySchema).map(toCaseSet)
+      id      <- Gen.string(Gen.alphaChar).map(TypeId.parse)
+    } yield Schema.enumeration[Any, CaseSet.Aux[Any]](id, caseSet)
 
   type EnumerationAndGen = (Schema[Any], Gen[Sized, Any])
 

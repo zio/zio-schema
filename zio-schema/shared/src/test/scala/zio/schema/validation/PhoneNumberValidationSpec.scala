@@ -1,9 +1,10 @@
 package zio.schema.validation
+import zio.Scope
 import zio.test._
 
-object PhoneNumberValidationSpec extends DefaultRunnableSpec {
+object PhoneNumberValidationSpec extends ZIOSpecDefault {
 
-  def spec: ZSpec[Environment, Failure] = suite("PhoneNumberValidationSpec")(
+  def spec: Spec[Environment with TestEnvironment with Scope, Any] = suite("PhoneNumberValidationSpec")(
     test("Regex phone number validation for Ascension Island") {
       val validation = PhoneNumberValidation.phoneNumberAC
 

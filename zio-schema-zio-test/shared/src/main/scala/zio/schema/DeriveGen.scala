@@ -63,7 +63,7 @@ object DeriveGen {
       case seq @ Schema.Sequence(_, _, _, _, _)                                                                                                                                => genSequence(seq)
       case map @ Schema.MapSchema(_, _, _)                                                                                                                                     => genMap(map)
       case set @ Schema.SetSchema(_, _)                                                                                                                                        => genSet(set)
-      case transform @ Schema.Transform(_, _, _, _)                                                                                                                            => genTransform(transform)
+      case transform @ Schema.Transform(_, _, _, _, _)                                                                                                                         => genTransform(transform)
       case Schema.Primitive(standardType, _)                                                                                                                                   => genPrimitive(standardType)
       case optional @ Schema.Optional(_, _)                                                                                                                                    => genOptional(optional)
       case fail @ Schema.Fail(_, _)                                                                                                                                            => genFail(fail)
@@ -544,23 +544,25 @@ object DeriveGen {
 
   private def genSchemaAstProduct(path: NodePath): Gen[Sized, SchemaAst.Product] =
     for {
+      id       <- Gen.string(Gen.alphaChar).map(TypeId.parse)
       optional <- Gen.boolean
       fields <- Gen.chunkOf(
                  Gen
                    .string1(Gen.asciiChar)
                    .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
                )
-    } yield SchemaAst.Product(path, fields, optional)
+    } yield SchemaAst.Product(id, path, fields, optional)
 
   private def genSchemaAstSum(path: NodePath): Gen[Sized, SchemaAst.Sum] =
     for {
+      id       <- Gen.string(Gen.alphaChar).map(TypeId.parse)
       optional <- Gen.boolean
       fields <- Gen.chunkOf(
                  Gen
                    .string1(Gen.asciiChar)
                    .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
                )
-    } yield SchemaAst.Sum(path, fields, optional)
+    } yield SchemaAst.Sum(id, path, fields, optional)
 
   private def genSchemaAstValue(path: NodePath): Gen[Any, SchemaAst.Value] =
     for {

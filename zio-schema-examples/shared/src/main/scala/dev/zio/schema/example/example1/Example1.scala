@@ -1,7 +1,7 @@
 package dev.zio.schema.example.example1
 
 import zio._
-import zio.schema.{ DeriveSchema, Schema }
+import zio.schema.{ DeriveSchema, Schema, TypeId }
 import zio.stream.ZPipeline
 
 /**

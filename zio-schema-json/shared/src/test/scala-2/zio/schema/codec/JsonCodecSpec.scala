@@ -373,15 +373,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
               assertEncodesThenDecodes(Schema.Optional(schema), None)
         }
       },
-      testM("of Map") {
-        checkM(SchemaGen.anyMapAndValue) {
+      test("of Map") {
+        check(SchemaGen.anyMapAndValue) {
           case (schema, value) =>
             assertEncodesThenDecodes(Schema.Optional(schema), Some(value)) &>
               assertEncodesThenDecodes(Schema.Optional(schema), None)
         }
       },
-      testM("of Set") {
-        checkM(SchemaGen.anySetAndValue) {
+      test("of Set") {
+        check(SchemaGen.anySetAndValue) {
           case (schema, value) =>
             assertEncodesThenDecodes(Schema.Optional(schema), Some(value)) &>
               assertEncodesThenDecodes(Schema.Optional(schema), None)
@@ -771,7 +771,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
       query      <- Gen.string
       pageNumber <- Gen.int(Int.MinValue, Int.MaxValue)
       results    <- Gen.int(Int.MinValue, Int.MaxValue)
-      nextPage   <- Gen.option(Gen.anyASCIIString)
+      nextPage   <- Gen.option(Gen.asciiString)
     } yield SearchRequest(query, pageNumber, results, nextPage)
 
   val searchRequestSchema: Schema[SearchRequest] = DeriveSchema.gen[SearchRequest]

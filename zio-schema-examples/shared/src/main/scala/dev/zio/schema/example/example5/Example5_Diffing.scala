@@ -1,6 +1,7 @@
 package dev.zio.schema.example.example5
 
 import zio._
+import zio.schema.Schema._
 import zio.schema._
 
 /**

@@ -1,8 +1,8 @@
 package dev.zio.schema.example.example3
 
 import zio._
-import zio.schema._
 import zio.schema.Schema._
+import zio.schema._
 
 /**
  * Example3:

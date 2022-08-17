@@ -109,7 +109,7 @@ object JsonCodec extends Codec {
       case Schema.Primitive(standardType, _)   => primitiveCodec(standardType).encoder
       case Schema.Sequence(schema, _, g, _, _) => JsonEncoder.chunk(schemaEncoder(schema)).contramap(g)
       case Schema.MapSchema(ks, vs, _) =>
-        JsonEncoder.chunk(schemaEncoder(ks).both(schemaEncoder(vs))).contramap(m => Chunk.fromIterable(m))
+        JsonEncoder.chunk(schemaEncoder(ks).zip(schemaEncoder(vs))).contramap(m => Chunk.fromIterable(m))
       case Schema.SetSchema(s, _) =>
         JsonEncoder.chunk(schemaEncoder(s)).contramap(m => Chunk.fromIterable(m))
       case Schema.Transform(c, _, g, _, _)                          => transformEncoder(c, g)
@@ -125,7 +125,7 @@ object JsonCodec extends Codec {
       case Schema.CaseClass2(_, f1, f2, _, ext1, ext2, _)           => caseClassEncoder(f1 -> ext1, f2 -> ext2)
       case Schema.CaseClass3(_, f1, f2, f3, _, ext1, ext2, ext3, _) => caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3)
       case Schema.CaseClass4(_, f1, f2, f3, f4, _, ext1, ext2, ext3, ext4, _) =>
-        JsonEncoder.chunk(schemaEncoder(ks).zip(schemaEncoder(vs))).contramap(m => Chunk.fromIterable(m))
+        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4)
       case Schema.CaseClass5(_, f1, f2, f3, f4, f5, _, ext1, ext2, ext3, ext4, ext5, _) =>
         caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5)
       case Schema.CaseClass6(_, f1, f2, f3, f4, f5, f6, _, ext1, ext2, ext3, ext4, ext5, ext6, _) =>
@@ -524,7 +524,7 @@ object JsonCodec extends Codec {
                   JsonEncoder.pad(indent_, out)
               }
 
-              string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(key), indent_, out)
+              string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(key), indent_, out)
               if (indent.isEmpty) out.write(':')
               else out.write(" : ")
               enc.unsafeEncode(ext(a), indent_, out)
