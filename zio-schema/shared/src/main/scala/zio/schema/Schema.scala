@@ -157,7 +157,7 @@ sealed trait Schema[A] {
   def zip[B](that: Schema[B]): Schema[(A, B)] = Schema.Tuple(self, that)
 }
 
-object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with SchemaEquality {
+object Schema extends SchemaEquality {
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
   def defer[A](schema: => Schema[A]): Schema[A] = Lazy(() => schema)
@@ -546,12 +546,9 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
-}
 
 // # ENUM SCHEMAS
 
-sealed trait EnumSchemas {
-  self: Schema.type =>
   sealed case class Case[A, Z](
     id: String,
     codec: Schema[A],
@@ -2569,10 +2566,7 @@ sealed trait EnumSchemas {
     override def makeAccessors(b: AccessorBuilder): caseSet.Accessors[Z, b.Lens, b.Prism, b.Traversal] =
       caseSet.makeAccessors(self, b)
   }
-}
 
-// # TUPLE SCHEMAS
-sealed trait TupleSchemas {
   implicit def tuple2[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
     c1.zip(c2)
 
@@ -3226,11 +3220,8 @@ sealed trait TupleSchemas {
             (((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u), v)
         }
       )
-}
-
 // # RECORD SCHEMAS
 
-sealed trait RecordSchemas { self: Schema.type =>
   sealed case class GenericRecord(id: TypeId, fieldSet: FieldSet, override val annotations: Chunk[Any] = Chunk.empty)
       extends Record[ListMap[String, _]] { self =>
 

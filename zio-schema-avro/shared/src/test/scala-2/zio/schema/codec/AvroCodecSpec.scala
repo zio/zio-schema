@@ -1,22 +1,24 @@
 package zio.schema.codec
 
+import java.time.format.DateTimeFormatter
 import java.util.UUID
+
 import scala.collection.immutable.ListMap
 import scala.util.Try
+
 import zio.Chunk
 import zio.schema.Schema._
 import zio.schema._
 import zio.schema.codec.AvroAnnotations.{ BytesType, DecimalType, FieldOrderType, TimePrecisionType }
 import zio.test.Assertion._
 import zio.test._
-
-import java.time.format.DateTimeFormatter
+import zio.Scope
 
 object AvroCodecSpec extends ZIOSpecDefault {
   import AssertionHelper._
   import SpecTestData._
 
-  override def spec =
+  override def spec: Spec[Environment with TestEnvironment with Scope, Any] =
     suite("AvroCodecSpec")(
       suite("encode")(
         suite("enum")(
