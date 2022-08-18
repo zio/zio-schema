@@ -106,10 +106,10 @@ object BuildHelper {
       else Seq.empty
 
     val extraOptions = CrossVersion.partialVersion(scalaVersion) match {
-      case Some((3, 0)) =>
+      case Some((3, _)) =>
         Seq(
           "-language:implicitConversions",
-          "-Xignore-scala2-macros"
+          "-Xignore-scala2-macros",
         )
       case Some((2, 13)) =>
         Seq(
