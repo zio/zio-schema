@@ -204,7 +204,7 @@ object JsonCodec extends Codec {
       case Schema.Dynamic(_) =>
         dynamicEncoder
       case Schema.SemiDynamic(_, _) =>
-        semiDynamicEncoder
+        semiDynamicEncoder.asInstanceOf[JsonEncoder[A]]
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -395,7 +395,7 @@ object JsonCodec extends Codec {
         enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case Schema.EnumN(_, cs, _)   => enumDecoder(cs.toSeq: _*)
       case Schema.Dynamic(_)        => dynamicDecoder
-      case Schema.SemiDynamic(_, _) => semiDynamicDecoder
+      case Schema.SemiDynamic(_, _) => semiDynamicDecoder.asInstanceOf[JsonDecoder[A]]
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
