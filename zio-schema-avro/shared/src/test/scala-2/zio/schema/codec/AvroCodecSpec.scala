@@ -6,13 +6,12 @@ import java.util.UUID
 import scala.collection.immutable.ListMap
 import scala.util.Try
 
-import zio.Chunk
 import zio.schema.Schema._
 import zio.schema._
 import zio.schema.codec.AvroAnnotations.{ BytesType, DecimalType, FieldOrderType, TimePrecisionType }
 import zio.test.Assertion._
 import zio.test._
-import zio.Scope
+import zio.{ Chunk, Scope }
 
 object AvroCodecSpec extends ZIOSpecDefault {
   import AssertionHelper._

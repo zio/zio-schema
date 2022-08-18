@@ -305,17 +305,17 @@ object ThriftCodec extends Codec {
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     def encodeValue[A](fieldNumber: Option[Short], schema: Schema[A], value: A): Unit =
       (schema, value) match {
-        case (Schema.GenericRecord(_, structure, _), v: Map[String, _]) => encodeRecord(fieldNumber, structure.toChunk, v)
-        case (Schema.Sequence(element, _, g, _, _), v)                  => encodeSequence(fieldNumber, element, g(v))
-        case (mapSchema @ Schema.MapSchema(_, _, _), map: Map[k, v])    => encodeMap(fieldNumber, mapSchema, map)
-        case (Schema.SetSchema(s, _), set: Set[_])                      => encodeSet(fieldNumber, s, set)
-        case (Schema.Transform(codec, _, g, _, _), _)                   => g(value).foreach(encodeValue(fieldNumber, codec, _))
-        case (Schema.Primitive(standardType, _), v)                     => encodePrimitive(fieldNumber, standardType, v)
-        case (Schema.Tuple(left, right, _), v @ (_, _))                 => encodeTuple(fieldNumber, left, right, v)
-        case (Schema.Optional(codec, _), v: Option[_])                  => encodeOptional(fieldNumber, codec, v)
-        case (Schema.EitherSchema(left, right, _), v: Either[_, _])     => encodeEither(fieldNumber, left, right, v)
-        case (lzy @ Schema.Lazy(_), v)                                  => encodeValue(fieldNumber, lzy.schema, v)
-        case (Schema.Meta(ast, _), _)                                   => encodeValue(fieldNumber, Schema[SchemaAst], ast)
+        case (Schema.GenericRecord(_, structure, _), v: Map[String, _])         => encodeRecord(fieldNumber, structure.toChunk, v)
+        case (Schema.Sequence(element, _, g, _, _), v)                          => encodeSequence(fieldNumber, element, g(v))
+        case (mapSchema: Schema.MapSchema[Any, Any], map: Map[Any, Any])        => encodeMap(fieldNumber, mapSchema, map)
+        case (setSchema: Schema.SetSchema[Any], set: Set[Any])                  => encodeSet(fieldNumber, setSchema.as, set)
+        case (Schema.Transform(codec, _, g, _, _), _)                           => g(value).foreach(encodeValue(fieldNumber, codec, _))
+        case (Schema.Primitive(standardType, _), v)                             => encodePrimitive(fieldNumber, standardType, v)
+        case (Schema.Tuple(left, right, _), v @ (_, _))                         => encodeTuple(fieldNumber, left, right, v)
+        case (optSchema: Schema.Optional[Any], v: Option[Any])                  => encodeOptional(fieldNumber, optSchema.codec, v)
+        case (eitherSchema: Schema.EitherSchema[Any, Any], v: Either[Any, Any]) => encodeEither(fieldNumber, eitherSchema.left, eitherSchema.right, v)
+        case (lzy @ Schema.Lazy(_), v)                                          => encodeValue(fieldNumber, lzy.schema, v)
+        case (Schema.Meta(ast, _), _)                                           => encodeValue(fieldNumber, Schema[SchemaAst], ast)
         case ProductEncoder(encode) =>
           writeFieldBegin(fieldNumber, TType.STRUCT)
           encode()
@@ -356,10 +356,10 @@ object ThriftCodec extends Codec {
           encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
         case (Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) =>
           encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-        case (Schema.EnumN(_, cs, _), v)   => encodeEnum(fieldNumber, v, cs.toSeq: _*)
-        case (Schema.Dynamic(_), v)        => encodeDynamic(fieldNumber, v)
-        case (Schema.SemiDynamic(_, _), v) => encodeSemiDynamic[Any](fieldNumber, v)
-        case (_, _)                        => ()
+        case (Schema.EnumN(_, cs, _), v)          => encodeEnum(fieldNumber, v, cs.toSeq: _*)
+        case (Schema.Dynamic(_), v)               => encodeDynamic(fieldNumber, v)
+        case (schema: Schema.SemiDynamic[Any], v) => encodeSemiDynamic[Any](fieldNumber, v)
+        case (_, _)                               => ()
       }
 
     private def encodeDynamic(fieldNumber: Option[Short], v: DynamicValue): Unit =
@@ -397,8 +397,8 @@ object ThriftCodec extends Codec {
 
     private def writeStructure(fields: Seq[(Schema.Field[_], Any)]): Unit = {
       fields.zipWithIndex.foreach {
-        case ((Schema.Field(_, schema, _, _), value), fieldNumber) =>
-          encodeValue(Some((fieldNumber + 1).shortValue), schema, value)
+        case ((fieldSchema: Schema.Field[Any], value), fieldNumber) =>
+          encodeValue(Some((fieldNumber + 1).shortValue), fieldSchema.schema, value)
       }
       p.writeFieldStop()
     }
@@ -562,7 +562,7 @@ object ThriftCodec extends Codec {
         case Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumDecoder(path, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case Schema.EnumN(_, cs, _)                                                                                                   => enumDecoder(path, cs.toSeq: _*)
         case Schema.Dynamic(_)                                                                                                        => dynamicDecoder(path)
-        case Schema.SemiDynamic(_, _)                                                                                                 => semiDynamicDecoder[Any](path)
+        case _: Schema.SemiDynamic[Any]                                                                                               => semiDynamicDecoder[Any](path)
         case _                                                                                                                        => fail(path, s"Unknown schema ${schema.getClass.getName}")
       }
 
