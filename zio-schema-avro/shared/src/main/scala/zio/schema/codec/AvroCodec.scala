@@ -2,13 +2,10 @@ package zio.schema.codec
 
 import java.nio.charset.StandardCharsets
 import java.time.format.DateTimeFormatter
-
 import scala.annotation.StaticAnnotation
 import scala.jdk.CollectionConverters._
-import scala.util.Try
-
+import scala.util.{ Right, Try }
 import org.apache.avro.{ LogicalTypes, Schema => SchemaAvro }
-
 import zio.Chunk
 import zio.schema.CaseSet.Aux
 import zio.schema.Schema.{ Record, _ }
@@ -18,28 +15,28 @@ import zio.schema.codec.AvroAnnotations._
 import zio.schema.codec.AvroPropMarker._
 
 trait AvroCodec {
-  def encode: Schema[_] => Either[String, String]
+  def encode(schema: Schema[_]): Either[String, String]
 
-  def decode: Chunk[Byte] => Either[String, Schema[_]]
+  def decode(bytes: Chunk[Byte]): Either[String, Schema[_]]
 }
 
 object AvroCodec extends AvroCodec {
 
-  def encode: Schema[_] => Either[String, String] = schema => toAvroSchema(schema).map(_.toString)
+  def encode(schema: Schema[_]): Either[String, String] =
+    toAvroSchema(schema).map(_.toString)
 
-  def encodeToApacheAvro: Schema[_] => Either[String, SchemaAvro] = schema => toAvroSchema(schema)
+  def encodeToApacheAvro(schema: Schema[_]): Either[String, SchemaAvro] =
+    toAvroSchema(schema)
 
-  def decode: Chunk[Byte] => Either[String, Schema[_]] = {
+  def decode(bytes: Chunk[Byte]): Either[String, Schema[_]] = {
     val avroSchemaParser = new SchemaAvro.Parser()
-    bytes => {
-      val avroSchema = Try {
-        avroSchemaParser.parse(new String(bytes.toArray, StandardCharsets.UTF_8))
-      }.fold(
-        e => Left(e.getMessage),
-        s => Right(s)
-      )
-      avroSchema.flatMap(toZioSchema)
-    }
+    val avroSchema = Try {
+      avroSchemaParser.parse(new String(bytes.toArray, StandardCharsets.UTF_8))
+    }.fold(
+      e => Left(e.getMessage),
+      s => Right(s)
+    )
+    avroSchema.flatMap(toZioSchema)
   }
 
   def decodeFromApacheAvro: SchemaAvro => Either[String, Schema[_]] = toZioSchema
@@ -215,23 +212,23 @@ object AvroCodec extends AvroCodec {
         SchemaAvro.createFixed(name, doc, space, size)
     }.getOrElse(SchemaAvro.create(SchemaAvro.Type.BYTES))
 
-  private[codec] val monthDayStructure: Seq[Schema.Field[Int]] = Seq(
+  private[codec] lazy val monthDayStructure: Seq[Schema.Field[Int]] = Seq(
     Schema.Field("month", Schema.Primitive(StandardType.IntType)),
     Schema.Field("day", Schema.Primitive(StandardType.IntType))
   )
 
-  private[codec] val periodStructure: Seq[Schema.Field[Int]] = Seq(
+  private[codec] lazy val periodStructure: Seq[Schema.Field[Int]] = Seq(
     Schema.Field("years", Schema.Primitive(StandardType.IntType)),
     Schema.Field("months", Schema.Primitive(StandardType.IntType)),
     Schema.Field("days", Schema.Primitive(StandardType.IntType))
   )
 
-  private[codec] val yearMonthStructure: Seq[Schema.Field[Int]] = Seq(
+  private[codec] lazy val yearMonthStructure: Seq[Schema.Field[Int]] = Seq(
     Schema.Field("year", Schema.Primitive(StandardType.IntType)),
     Schema.Field("month", Schema.Primitive(StandardType.IntType))
   )
 
-  private[codec] val durationStructure: Seq[Schema.Field[_]] = Seq(
+  private[codec] lazy val durationStructure: Seq[Schema.Field[_]] = Seq(
     Schema.Field("seconds", Schema.Primitive(StandardType.LongType)),
     Schema.Field("nanos", Schema.Primitive(StandardType.IntType))
   )
@@ -602,14 +599,18 @@ object AvroCodec extends AvroCodec {
     val validNameRegex = raw"[A-Za-z_][A-Za-z0-9_]*".r
 
     schema.annotations.collectFirst { case AvroAnnotations.name(name) => name } match {
-      case Some(s) if validNameRegex.matches(s) => Right(s)
-      case Some(s)                              => Left(s"Invalid Avro name: $s")
+      case Some(s) =>
+        s match {
+          case validNameRegex() => Right(s)
+          case _ =>
+            Left(s"Invalid Avro name: $s")
+        }
       case None =>
         schema match {
           case r: Record[_] => Right(r.id.name)
           case e: Enum[_]   => Right(e.id.name)
           case _            => Right(s"hashed_${schema.ast.toString.hashCode().toString.replaceFirst("-", "n")}")
-          //TODO: better way to generate a (maybe stable) name?
+          // TODO: better way to generate a (maybe stable) name?
         }
     }
   }
@@ -627,9 +628,12 @@ object AvroCodec extends AvroCodec {
     val validNamespaceRegex = raw"[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*".r
 
     annotations.collectFirst { case AvroAnnotations.namespace(ns) => ns } match {
-      case Some(s) if validNamespaceRegex.matches(s) => Right(Some(s))
-      case Some(s)                                   => Left(s"Invalid Avro namespace: $s")
-      case None                                      => Right(None)
+      case Some(s) =>
+        s match {
+          case validNamespaceRegex(_) => Right(Some(s))
+          case _                      => Left(s"Invalid Avro namespace: $s")
+        }
+      case None => Right(None)
     }
   }
 
@@ -866,5 +870,4 @@ object AvroCodec extends AvroCodec {
       schemaAvro
     }
   }
-
 }
