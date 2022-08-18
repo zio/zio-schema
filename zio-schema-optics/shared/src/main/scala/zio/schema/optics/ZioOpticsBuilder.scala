@@ -59,8 +59,8 @@ object ZioOpticsBuilder extends AccessorBuilder {
         )
       case Schema.SetSchema(_, _) =>
         ZTraversal(
-          ZioOpticsBuilder.makeSetTraversalGet,
-          ZioOpticsBuilder.makeSetTraversalSet
+          ZioOpticsBuilder.makeSetTraversalGet[A],
+          ZioOpticsBuilder.makeSetTraversalSet[A]
         )
     }
 
