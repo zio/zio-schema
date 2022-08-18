@@ -1,5 +1,6 @@
 package zio.schema
 
+import java.net.{ URI, URL }
 import java.time.temporal.ChronoUnit
 
 import scala.collection.immutable.ListMap
@@ -270,6 +271,24 @@ object Schema extends SchemaEquality {
 
   implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
     chunk(element).transform(_.toVector, Chunk.fromIterable(_))
+
+  implicit val url: Schema[java.net.URL] =
+    Schema[String].transformOrFail(
+      string =>
+        try {
+          Right(new URL(string))
+        } catch { case _: Exception => Left(s"Invalid URL: $string") },
+      url => Right(url.toString)
+    )
+
+  implicit val uri: Schema[java.net.URI] =
+    Schema[String].transformOrFail(
+      string =>
+        try {
+          Right(new URI(string))
+        } catch { case _: Exception => Left(s"Invalid URI: $string") },
+      uri => Right(uri.toString)
+    )
 
   sealed trait Enum[A] extends Schema[A] {
     def id: TypeId
