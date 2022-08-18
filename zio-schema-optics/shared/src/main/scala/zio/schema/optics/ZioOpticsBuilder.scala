@@ -57,11 +57,6 @@ object ZioOpticsBuilder extends AccessorBuilder {
           ZioOpticsBuilder.makeSetTraversalGet[A],
           ZioOpticsBuilder.makeSetTraversalSet[A]
         )
-      case Schema.SetSchema(_, _) =>
-        ZTraversal(
-          ZioOpticsBuilder.makeSetTraversalGet[A],
-          ZioOpticsBuilder.makeSetTraversalSet[A]
-        )
     }
 
   private[optics] def makeLensGet[S, A](
