@@ -602,8 +602,12 @@ object AvroCodec extends AvroCodec {
     val validNameRegex = raw"[A-Za-z_][A-Za-z0-9_]*".r
 
     schema.annotations.collectFirst { case AvroAnnotations.name(name) => name } match {
-      case Some(s) if validNameRegex.matches(s) => Right(s)
-      case Some(s)                              => Left(s"Invalid Avro name: $s")
+      case Some(s) =>
+        s match {
+          case validNameRegex() => Right(s)
+          case _ =>
+            Left(s"Invalid Avro name: $s")
+        }
       case None =>
         schema match {
           case r: Record[_] => Right(r.id.name)
@@ -627,9 +631,12 @@ object AvroCodec extends AvroCodec {
     val validNamespaceRegex = raw"[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*".r
 
     annotations.collectFirst { case AvroAnnotations.namespace(ns) => ns } match {
-      case Some(s) if validNamespaceRegex.matches(s) => Right(Some(s))
-      case Some(s)                                   => Left(s"Invalid Avro namespace: $s")
-      case None                                      => Right(None)
+      case Some(s) =>
+        s match {
+          case validNamespaceRegex(_) => Right(Some(s))
+          case _                      => Left(s"Invalid Avro namespace: $s")
+        }
+      case None => Right(None)
     }
   }
 
