@@ -82,7 +82,7 @@ object BuildHelper {
       if (sys.env.contains("CI")) {
         Seq("-Xfatal-warnings")
       } else {
-        Seq("-Ypatmat-exhaust-depth", "80")
+        Seq()
       }
     }
 
