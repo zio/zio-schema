@@ -12,7 +12,7 @@ object RegexCompileSpec extends ZIOSpecDefault {
       assertTrue(regexStr == "a")
     },
     test("compile literal") {
-      val regex = Regex.literal("abc")
+      val regex    = Regex.literal("abc")
       val regexStr = Regex.toRegexString(regex)
       assertTrue(regexStr == "(abc)")
     },
@@ -22,7 +22,7 @@ object RegexCompileSpec extends ZIOSpecDefault {
       assertTrue(regexStr == "[abc]")
     },
     test("compile between") {
-      val regex = Regex.between('a', 'z')
+      val regex    = Regex.between('a', 'z')
       val regexStr = Regex.toRegexString(regex)
       assertTrue(regexStr == "[a-z]")
     },
