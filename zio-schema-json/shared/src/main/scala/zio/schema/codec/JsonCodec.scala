@@ -12,23 +12,24 @@ import zio.json.{ JsonCodec => ZJsonCodec, JsonDecoder, JsonEncoder, JsonFieldDe
 import zio.schema.Schema.EitherSchema
 import zio.schema.ast.SchemaAst
 import zio.schema.{ StandardType, _ }
-import zio.stream.ZTransducer
-import zio.{ Chunk, ChunkBuilder, ZIO }
+import zio.stream.ZPipeline
+import zio.{ Chunk, ChunkBuilder, NonEmptyChunk, ZIO }
 
 object JsonCodec extends Codec {
 
-  override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
-    ZTransducer.fromPush(
-      (opt: Option[Chunk[A]]) =>
-        ZIO
-          .effect(opt.map(values => values.flatMap(Encoder.encode(schema, _))).getOrElse(Chunk.empty))
-          .orDie
+  override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] =
+    ZPipeline.mapChunks(
+      values => values.flatMap(Encoder.encode(schema, _))
     )
 
-  override def decoder[A](schema: Schema[A]): ZTransducer[Any, String, Byte, A] =
-    ZTransducer.utfDecode >>> ZTransducer.fromFunctionM(
-      (s: String) => ZIO.fromEither(Decoder.decode(schema, s))
-    )
+  override def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Byte, A] =
+    ZPipeline.fromChannel(ZPipeline.utfDecode.channel.mapError(_.toString)) >>>
+      ZPipeline.groupAdjacentBy[String, Unit](_ => ()) >>>
+      ZPipeline.map[(Unit, NonEmptyChunk[String]), String] {
+        case (_, fragments) => fragments.mkString
+      } >>> ZPipeline.mapZIO { (s: String) =>
+      ZIO.fromEither(Decoder.decode(schema, s))
+    }
 
   override def encode[A](schema: Schema[A]): A => Chunk[Byte] = Encoder.encode(schema, _)
 
@@ -56,13 +57,13 @@ object JsonCodec extends Codec {
         case StandardType.UnitType              => unitCodec
         case StandardType.StringType            => ZJsonCodec.string
         case StandardType.BoolType              => ZJsonCodec.boolean
-        case StandardType.ShortType             => ZJsonCodec.short
         case StandardType.ByteType              => ZJsonCodec.byte
+        case StandardType.ShortType             => ZJsonCodec.short
         case StandardType.IntType               => ZJsonCodec.int
         case StandardType.LongType              => ZJsonCodec.long
         case StandardType.FloatType             => ZJsonCodec.float
         case StandardType.DoubleType            => ZJsonCodec.double
-        case StandardType.BinaryType            => ZJsonCodec.chunk(ZJsonCodec.byte)
+        case StandardType.BinaryType            => ZJsonCodec.chunk(ZJsonCodec.byte.encoder, ZJsonCodec.byte.decoder)
         case StandardType.CharType              => ZJsonCodec.char
         case StandardType.BigIntegerType        => ZJsonCodec.bigInteger
         case StandardType.BigDecimalType        => ZJsonCodec.bigDecimal
@@ -89,7 +90,8 @@ object JsonCodec extends Codec {
   object Encoder {
 
     import Codecs._
-    import JsonEncoder.{ bump, pad }
+    import JsonEncoder.bump
+    import JsonEncoder.pad
     import ProductEncoder._
 
     private[codec] val CHARSET = StandardCharsets.UTF_8
@@ -103,11 +105,11 @@ object JsonCodec extends Codec {
     }
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
-    def schemaEncoder[A](schema: Schema[A]): JsonEncoder[A] = schema match {
-      case Schema.Primitive(standardType, _)   => primitiveCodec(standardType)
+    private[codec] def schemaEncoder[A](schema: Schema[A]): JsonEncoder[A] = schema match {
+      case Schema.Primitive(standardType, _)   => primitiveCodec(standardType).encoder
       case Schema.Sequence(schema, _, g, _, _) => JsonEncoder.chunk(schemaEncoder(schema)).contramap(g)
       case Schema.MapSchema(ks, vs, _) =>
-        JsonEncoder.chunk(schemaEncoder(ks).both(schemaEncoder(vs))).contramap(m => Chunk.fromIterable(m))
+        JsonEncoder.chunk(schemaEncoder(ks).zip(schemaEncoder(vs))).contramap(m => Chunk.fromIterable(m))
       case Schema.SetSchema(s, _) =>
         JsonEncoder.chunk(schemaEncoder(s)).contramap(m => Chunk.fromIterable(m))
       case Schema.Transform(c, _, g, _, _)                          => transformEncoder(c, g)
@@ -222,13 +224,13 @@ object JsonCodec extends Codec {
         val indent_ = bump(indent)
         pad(indent_, out)
         // schema
-        string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField("schema"), indent_, out)
+        string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField("schema"), indent_, out)
         if (indent.isEmpty) out.write(':')
         else out.write(" : ")
         astEncoder.unsafeEncode(schema, indent_, out)
         out.write(',')
         // value
-        string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField("value"), indent_, out)
+        string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField("value"), indent_, out)
         if (indent.isEmpty) out.write(':')
         else out.write(" : ")
         schemaEncoder(schema).unsafeEncode(value._1, indent_, out)
@@ -253,7 +255,7 @@ object JsonCodec extends Codec {
           out.write('{')
           val indent_ = bump(indent)
           pad(indent_, out)
-          string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(case_.id), indent_, out)
+          string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(case_.id), indent_, out)
           if (indent.isEmpty) out.write(':')
           else out.write(" : ")
           schemaEncoder(case_.codec.asInstanceOf[Schema[Any]]).unsafeEncode(case_.unsafeDeconstruct(value), indent, out)
@@ -283,7 +285,7 @@ object JsonCodec extends Codec {
                   if (indent.isDefined)
                     JsonEncoder.pad(indent_, out)
                 }
-                string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(k), indent_, out)
+                string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(k), indent_, out)
                 if (indent.isEmpty) out.write(':')
                 else out.write(" : ")
                 enc.unsafeEncode(value(k), indent_, out)
@@ -304,8 +306,8 @@ object JsonCodec extends Codec {
       schemaDecoder(schema).decodeJson(json)
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
-    def schemaDecoder[A](schema: Schema[A]): JsonDecoder[A] = schema match {
-      case Schema.Primitive(standardType, _)   => primitiveCodec(standardType)
+    private[codec] def schemaDecoder[A](schema: Schema[A]): JsonDecoder[A] = schema match {
+      case Schema.Primitive(standardType, _)   => primitiveCodec(standardType).decoder
       case Schema.Optional(codec, _)           => JsonDecoder.option(schemaDecoder(codec))
       case Schema.Tuple(left, right, _)        => JsonDecoder.tuple2(schemaDecoder(left), schemaDecoder(right))
       case Schema.Transform(codec, f, _, _, _) => schemaDecoder(codec).mapOrFail(f)
@@ -501,7 +503,8 @@ object JsonCodec extends Codec {
 
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   private[codec] object ProductEncoder {
-    import JsonEncoder.{ bump, pad }
+    import JsonEncoder.bump
+    import JsonEncoder.pad
 
     private[codec] def caseClassEncoder[Z](fields: (Schema.Field[_], Z => Any)*): JsonEncoder[Z] = { (a: Z, indent: Option[Int], out: Write) =>
       {
@@ -521,7 +524,7 @@ object JsonCodec extends Codec {
                   JsonEncoder.pad(indent_, out)
               }
 
-              string.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(key), indent_, out)
+              string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(key), indent_, out)
               if (indent.isEmpty) out.write(':')
               else out.write(" : ")
               enc.unsafeEncode(ext(a), indent_, out)

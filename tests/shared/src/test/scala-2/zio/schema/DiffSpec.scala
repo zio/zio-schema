@@ -1,6 +1,5 @@
 package zio.schema
 
-import zio.random.Random
 import zio.schema.StandardType._
 import zio.schema.types.Arities._
 import zio.schema.types.{ Arities, Recursive }
@@ -8,158 +7,158 @@ import zio.test.Assertion._
 import zio.test._
 import zio.{ Chunk, URIO }
 
-object DiffSpec extends DefaultRunnableSpec with DefaultJavaTimeSchemas {
+object DiffSpec extends ZIOSpecDefault with DefaultJavaTimeSchemas {
 
-  def spec: ZSpec[Environment, Failure] = suite("DiffSpec")(
+  def spec = suite("DiffSpec")(
     suite("identity law")(
       suite("standard types")(
-        testM("Int")(diffIdentityLaw[Int]),
-        testM("Long")(diffIdentityLaw[Long]),
-        testM("Float")(diffIdentityLaw[Float]),
-        testM("Double")(diffIdentityLaw[Double]),
-        testM("Boolean")(diffIdentityLaw[Boolean]),
-        testM("Bytes")(diffIdentityLaw[Chunk[Byte]]),
+        test("Int")(diffIdentityLaw[Int]),
+        test("Long")(diffIdentityLaw[Long]),
+        test("Float")(diffIdentityLaw[Float]),
+        test("Double")(diffIdentityLaw[Double]),
+        test("Boolean")(diffIdentityLaw[Boolean]),
+        test("Bytes")(diffIdentityLaw[Chunk[Byte]]),
         suite("Either") {
-          testM("primitive")(diffIdentityLaw[Either[String, String]])
+          test("primitive")(diffIdentityLaw[Either[String, String]])
         },
         suite("Option") {
-          testM("primitive")(diffIdentityLaw[Option[String]])
+          test("primitive")(diffIdentityLaw[Option[String]])
         }
       ),
       suite("records")(
-        testM("singleton")(diffIdentityLaw[Singleton.type]),
-        testM("case class")(diffIdentityLaw[Pet.Dog]),
-        testM("generic record")(diffIdentityLaw[SchemaGen.Arity24]),
-        testM("recursive")(diffIdentityLaw[Recursive.RecursiveList])
+        test("singleton")(diffIdentityLaw[Singleton.type]),
+        test("case class")(diffIdentityLaw[Pet.Dog]),
+        test("generic record")(diffIdentityLaw[SchemaGen.Arity24]),
+        test("recursive")(diffIdentityLaw[Recursive.RecursiveList])
       ),
       suite("enums")(
-        testM("sealed trait")(diffIdentityLaw[Pet]),
-        testM("high arity")(diffIdentityLaw[Arities]) @@ TestAspect.ignore,
-        testM("recursive")(diffIdentityLaw[Recursive])
+        test("sealed trait")(diffIdentityLaw[Pet]),
+        test("high arity")(diffIdentityLaw[Arities]) @@ TestAspect.ignore,
+        test("recursive")(diffIdentityLaw[Recursive])
       )
     ),
     suite("diff law")(
       suite("standard types")(
-        testM("Int")(diffLaw[Int]),
-        testM("Long")(diffLaw[Long]),
-        testM("Float")(diffLaw[Float]),
-        testM("Double")(diffLaw[Double]),
-        testM("Boolean")(diffLaw[Boolean]),
-        testM("String")(diffLaw[String]),
-        testM("ZonedDateTime")(diffLaw[java.time.ZonedDateTime]),
-        testM("OffsetDateTime")(diffLaw[java.time.OffsetDateTime]),
-        testM("OffsetTime")(diffLaw[java.time.OffsetTime]),
-        testM("LocalTime")(diffLaw[java.time.LocalTime]),
-        testM("LocalDate")(diffLaw[java.time.LocalDate]),
-        testM("Instant")(diffLaw[java.time.Instant]),
-        testM("Duration")(diffLaw[java.time.Duration]),
-        testM("ZoneOffset")(diffLaw[java.time.ZoneOffset]),
-        testM("ZoneId")(diffLaw[java.time.ZoneId]),
-        testM("YearMonth")(diffLaw[java.time.YearMonth]),
-        testM("Year")(diffLaw[java.time.Year]),
-        testM("Period")(diffLaw[java.time.Period]),
-        testM("MonthDay")(diffLaw[java.time.MonthDay]) @@ TestAspect.ignore, // TODO Leap years!
-        testM("Month")(diffLaw[java.time.Month]),
-        testM("DayOfWeek")(diffLaw[java.time.DayOfWeek]),
-        testM("BigInteger")(diffLaw[java.math.BigInteger]),
-        testM("BigDecimal")(diffLaw[java.math.BigDecimal]),
-        testM("Bytes")(diffLaw[Chunk[Byte]])
+        test("Int")(diffLaw[Int]),
+        test("Long")(diffLaw[Long]),
+        test("Float")(diffLaw[Float]),
+        test("Double")(diffLaw[Double]),
+        test("Boolean")(diffLaw[Boolean]),
+        test("String")(diffLaw[String]),
+        test("ZonedDateTime")(diffLaw[java.time.ZonedDateTime]),
+        test("OffsetDateTime")(diffLaw[java.time.OffsetDateTime]),
+        test("OffsetTime")(diffLaw[java.time.OffsetTime]),
+        test("LocalTime")(diffLaw[java.time.LocalTime]),
+        test("LocalDate")(diffLaw[java.time.LocalDate]),
+        test("Instant")(diffLaw[java.time.Instant]),
+        test("Duration")(diffLaw[java.time.Duration]),
+        test("ZoneOffset")(diffLaw[java.time.ZoneOffset]),
+        test("ZoneId")(diffLaw[java.time.ZoneId]),
+        test("YearMonth")(diffLaw[java.time.YearMonth]),
+        test("Year")(diffLaw[java.time.Year]),
+        test("Period")(diffLaw[java.time.Period]),
+        test("MonthDay")(diffLaw[java.time.MonthDay]) @@ TestAspect.ignore, // TODO Leap years!
+        test("Month")(diffLaw[java.time.Month]),
+        test("DayOfWeek")(diffLaw[java.time.DayOfWeek]),
+        test("BigInteger")(diffLaw[java.math.BigInteger]),
+        test("BigDecimal")(diffLaw[java.math.BigDecimal]),
+        test("Bytes")(diffLaw[Chunk[Byte]])
       ),
       suite("sequences")(
         suite("of standard types")(
-          testM("Int")(diffLaw[List[Int]]),
-          testM("Long")(diffLaw[List[Long]]),
-          testM("Float")(diffLaw[List[Float]]),
-          testM("Double")(diffLaw[List[Double]]),
-          testM("Boolean")(diffLaw[List[Boolean]]),
-          testM("String")(diffLaw[List[String]]),
-          testM("ZonedDateTime")(diffLaw[List[java.time.ZonedDateTime]]),
-          testM("OffsetDateTime")(diffLaw[List[java.time.OffsetDateTime]]),
-          testM("OffsetTime")(diffLaw[List[java.time.OffsetTime]]),
-          testM("LocalTime")(diffLaw[List[java.time.LocalTime]]),
-          testM("LocalDate")(diffLaw[List[java.time.LocalDate]]),
-          testM("Instant")(diffLaw[List[java.time.Instant]]),
-          testM("Duration")(diffLaw[List[java.time.Duration]]),
-          testM("ZoneOffset")(diffLaw[List[java.time.ZoneOffset]]),
-          testM("ZoneId")(diffLaw[List[java.time.ZoneId]]),
-          testM("YearMonth")(diffLaw[List[java.time.YearMonth]]),
-          testM("Year")(diffLaw[List[java.time.Year]]),
-          testM("Period")(diffLaw[List[java.time.Period]]),
-          testM("MonthDay")(diffLaw[List[java.time.MonthDay]]) @@ TestAspect.ignore, // TODO Leap years!
-          testM("Month")(diffLaw[List[java.time.Month]]),
-          testM("DayOfWeek")(diffLaw[List[java.time.DayOfWeek]]),
-          testM("BigInteger")(diffLaw[List[java.math.BigInteger]]),
-          testM("BigDecimal")(diffLaw[List[java.math.BigDecimal]])
+          test("Int")(diffLaw[List[Int]]),
+          test("Long")(diffLaw[List[Long]]),
+          test("Float")(diffLaw[List[Float]]),
+          test("Double")(diffLaw[List[Double]]),
+          test("Boolean")(diffLaw[List[Boolean]]),
+          test("String")(diffLaw[List[String]]),
+          test("ZonedDateTime")(diffLaw[List[java.time.ZonedDateTime]]),
+          test("OffsetDateTime")(diffLaw[List[java.time.OffsetDateTime]]),
+          test("OffsetTime")(diffLaw[List[java.time.OffsetTime]]),
+          test("LocalTime")(diffLaw[List[java.time.LocalTime]]),
+          test("LocalDate")(diffLaw[List[java.time.LocalDate]]),
+          test("Instant")(diffLaw[List[java.time.Instant]]),
+          test("Duration")(diffLaw[List[java.time.Duration]]),
+          test("ZoneOffset")(diffLaw[List[java.time.ZoneOffset]]),
+          test("ZoneId")(diffLaw[List[java.time.ZoneId]]),
+          test("YearMonth")(diffLaw[List[java.time.YearMonth]]),
+          test("Year")(diffLaw[List[java.time.Year]]),
+          test("Period")(diffLaw[List[java.time.Period]]),
+          test("MonthDay")(diffLaw[List[java.time.MonthDay]]) @@ TestAspect.ignore, // TODO Leap years!
+          test("Month")(diffLaw[List[java.time.Month]]),
+          test("DayOfWeek")(diffLaw[List[java.time.DayOfWeek]]),
+          test("BigInteger")(diffLaw[List[java.math.BigInteger]]),
+          test("BigDecimal")(diffLaw[List[java.math.BigDecimal]])
         ),
         suite("of records")(
-          testM("Dog")(diffLaw[List[Pet.Dog]])
+          test("Dog")(diffLaw[List[Pet.Dog]])
         ),
         suite("of enumerations")(
-          testM("Pet")(diffLaw[List[Pet]]),
-          testM("recursive")(diffLaw[List[Recursive]])
+          test("Pet")(diffLaw[List[Pet]]),
+          test("recursive")(diffLaw[List[Recursive]])
         )
       ),
       suite("sets")(
         suite("of standard types")(
-          testM("Int")(diffLaw[Set[Int]]),
-          testM("Long")(diffLaw[Set[Long]]),
-          testM("Float")(diffLaw[Set[Float]]),
-          testM("Double")(diffLaw[Set[Double]]),
-          testM("Boolean")(diffLaw[Set[Boolean]]),
-          testM("String")(diffLaw[Set[String]]),
-          testM("ZonedDateTime")(diffLaw[Set[java.time.ZonedDateTime]]),
-          testM("OffsetDateTime")(diffLaw[Set[java.time.OffsetDateTime]]),
-          testM("OffsetTime")(diffLaw[Set[java.time.OffsetTime]]),
-          testM("LocalTime")(diffLaw[Set[java.time.LocalTime]]),
-          testM("LocalDate")(diffLaw[Set[java.time.LocalDate]]),
-          testM("Instant")(diffLaw[Set[java.time.Instant]]),
-          testM("Duration")(diffLaw[Set[java.time.Duration]]),
-          testM("ZoneOffset")(diffLaw[Set[java.time.ZoneOffset]]),
-          testM("ZoneId")(diffLaw[Set[java.time.ZoneId]]),
-          testM("YearMonth")(diffLaw[Set[java.time.YearMonth]]),
-          testM("Year")(diffLaw[Set[java.time.Year]]),
-          testM("Period")(diffLaw[Set[java.time.Period]]),
-          testM("MonthDay")(diffLaw[Set[java.time.MonthDay]]) @@ TestAspect.ignore, // TODO Leap years!
-          testM("Month")(diffLaw[Set[java.time.Month]]),
-          testM("DayOfWeek")(diffLaw[Set[java.time.DayOfWeek]]),
-          testM("BigInteger")(diffLaw[Set[java.math.BigInteger]]),
-          testM("BigDecimal")(diffLaw[Set[java.math.BigDecimal]])
+          test("Int")(diffLaw[Set[Int]]),
+          test("Long")(diffLaw[Set[Long]]),
+          test("Float")(diffLaw[Set[Float]]),
+          test("Double")(diffLaw[Set[Double]]),
+          test("Boolean")(diffLaw[Set[Boolean]]),
+          test("String")(diffLaw[Set[String]]),
+          test("ZonedDateTime")(diffLaw[Set[java.time.ZonedDateTime]]),
+          test("OffsetDateTime")(diffLaw[Set[java.time.OffsetDateTime]]),
+          test("OffsetTime")(diffLaw[Set[java.time.OffsetTime]]),
+          test("LocalTime")(diffLaw[Set[java.time.LocalTime]]),
+          test("LocalDate")(diffLaw[Set[java.time.LocalDate]]),
+          test("Instant")(diffLaw[Set[java.time.Instant]]),
+          test("Duration")(diffLaw[Set[java.time.Duration]]),
+          test("ZoneOffset")(diffLaw[Set[java.time.ZoneOffset]]),
+          test("ZoneId")(diffLaw[Set[java.time.ZoneId]]),
+          test("YearMonth")(diffLaw[Set[java.time.YearMonth]]),
+          test("Year")(diffLaw[Set[java.time.Year]]),
+          test("Period")(diffLaw[Set[java.time.Period]]),
+          test("MonthDay")(diffLaw[Set[java.time.MonthDay]]) @@ TestAspect.ignore, // TODO Leap years!
+          test("Month")(diffLaw[Set[java.time.Month]]),
+          test("DayOfWeek")(diffLaw[Set[java.time.DayOfWeek]]),
+          test("BigInteger")(diffLaw[Set[java.math.BigInteger]]),
+          test("BigDecimal")(diffLaw[Set[java.math.BigDecimal]])
         ),
         suite("of records")(
-          testM("Dog")(diffLaw[Set[Pet.Dog]])
+          test("Dog")(diffLaw[Set[Pet.Dog]])
         ),
         suite("of enumerations")(
-          testM("Pet")(diffLaw[Set[Pet]]),
-          testM("recursive")(diffLaw[Set[Recursive]])
+          test("Pet")(diffLaw[Set[Pet]]),
+          test("recursive")(diffLaw[Set[Recursive]])
         )
       ),
       suite("maps")(
         suite("of standard types")(
-          testM("Int -> Int")(diffLaw[Map[Int, Int]])
+          test("Int -> Int")(diffLaw[Map[Int, Int]])
         ),
         suite("of records")(
-          testM("Int -> Dog")(diffLaw[Map[Int, Pet.Dog]]),
-          testM("Dog -> Cat")(diffLaw[Map[Pet.Dog, Pet.Cat]])
+          test("Int -> Dog")(diffLaw[Map[Int, Pet.Dog]]),
+          test("Dog -> Cat")(diffLaw[Map[Pet.Dog, Pet.Cat]])
         ),
         suite("of enumerations")(
-          testM("Int -> Pet")(diffLaw[Map[Int, Pet]]),
-          testM("Dog -> Pet")(diffLaw[Map[Pet.Dog, Pet]]),
-          testM("Pet -> Pet")(diffLaw[Map[Pet, Pet]])
+          test("Int -> Pet")(diffLaw[Map[Int, Pet]]),
+          test("Dog -> Pet")(diffLaw[Map[Pet.Dog, Pet]]),
+          test("Pet -> Pet")(diffLaw[Map[Pet, Pet]])
         )
       ),
       suite("records")(
-        testM("singleton")(diffLaw[Singleton.type]),
-        testM("case class")(diffLaw[Pet.Dog]),
-        testM("generic record")(diffLaw[SchemaGen.Arity24]),
-        testM("recursive")(diffLaw[Recursive.RecursiveEither])
+        test("singleton")(diffLaw[Singleton.type]),
+        test("case class")(diffLaw[Pet.Dog]),
+        test("generic record")(diffLaw[SchemaGen.Arity24]),
+        test("recursive")(diffLaw[Recursive.RecursiveEither])
       ),
       suite("enums")(
-        testM("sealed trait")(diffLaw[Pet]),
-        testM("high arity")(diffLaw[Arities]) @@ TestAspect.ignore,
-        testM("recursive")(diffLaw[Recursive])
+        test("sealed trait")(diffLaw[Pet]),
+        test("high arity")(diffLaw[Arities]) @@ TestAspect.ignore,
+        test("recursive")(diffLaw[Recursive])
       ),
       suite("semiDynamic")(
-        testM("identity") {
+        test("identity") {
           val schema            = Schema[Person]
           val semiDynamicSchema = Schema.semiDynamic[Person]()
           val gen               = DeriveGen.gen[Person]
@@ -167,7 +166,7 @@ object DiffSpec extends DefaultRunnableSpec with DefaultJavaTimeSchemas {
             assertTrue(semiDynamicSchema.diff(value -> schema, value -> schema).isIdentical)
           }
         },
-        testM("diffLaw") {
+        test("diffLaw") {
           val schema            = Schema[Person]
           val semiDynamicSchema = Schema.semiDynamic[Person]()
           val gen               = DeriveGen.gen[Person]
@@ -186,21 +185,21 @@ object DiffSpec extends DefaultRunnableSpec with DefaultJavaTimeSchemas {
       )
     ),
     suite("not comparable")(
-      testM("Left <-> Right") {
+      test("Left <-> Right") {
         notComparable[Either[String, String]](_.isLeft, _.isRight)(_.isLeft)
       },
-      testM("Separate enum cases") {
+      test("Separate enum cases") {
         notComparable[Pet](_.isInstanceOf[Pet.Dog], _.isInstanceOf[Pet.Cat])(_.isLeft)
       }
     )
   )
 
-  private def diffIdentityLaw[A](implicit schema: Schema[A]): URIO[Random with Sized with TestConfig, TestResult] =
+  private def diffIdentityLaw[A](implicit schema: Schema[A]): URIO[Sized with TestConfig, TestResult] =
     check(DeriveGen.gen[A]) { a =>
       assertTrue(schema.diff(a, a).isIdentical)
     }
 
-  private def diffLaw[A](implicit schema: Schema[A]): URIO[Random with Sized with TestConfig, TestResult] = {
+  private def diffLaw[A](implicit schema: Schema[A]): URIO[Sized with TestConfig, TestResult] = {
     val gen = DeriveGen.gen[A]
     check(gen <*> gen) {
       case (l, r) =>
@@ -217,7 +216,7 @@ object DiffSpec extends DefaultRunnableSpec with DefaultJavaTimeSchemas {
 
   private def notComparable[A](leftFilter: A => Boolean, rightFilter: A => Boolean)(
     assertion: Either[String, A] => Boolean
-  )(implicit schema: Schema[A]): URIO[Random with Sized with TestConfig, TestResult] = {
+  )(implicit schema: Schema[A]): URIO[Sized with TestConfig, TestResult] = {
     val gen = DeriveGen.gen[A]
 
     check(gen.withFilter(leftFilter) <*> gen.withFilter(rightFilter)) {

@@ -39,7 +39,7 @@ object SchemaAst {
   object Product {
     implicit val schema: Schema[Product] = {
       Schema.CaseClass3(
-        TypeId.parse("zio.scheema.ast.SchemaAst.Product"),
+        TypeId.parse("zio.schema.ast.SchemaAst.Product"),
         field1 = Schema.Field("path", Schema[String].repeated),
         field2 = Schema.Field("fields", Schema[Labelled].repeated),
         field3 = Schema.Field("optional", Schema[Boolean]),
@@ -51,7 +51,6 @@ object SchemaAst {
       )
     }
   }
-
   final case class Tuple(
     override val path: NodePath,
     left: SchemaAst,
@@ -62,7 +61,7 @@ object SchemaAst {
   object Tuple {
     implicit val schema: Schema[Tuple] = {
       Schema.CaseClass4(
-        TypeId.parse("zio.scheema.ast.SchemaAst.Tuple"),
+        TypeId.parse("zio.schema.ast.SchemaAst.Tuple"),
         field1 = Schema.Field("path", Schema[String].repeated),
         field2 = Schema.Field("left", Schema[SchemaAst]),
         field3 = Schema.Field("right", Schema[SchemaAst]),
@@ -87,7 +86,7 @@ object SchemaAst {
   object Sum {
     implicit lazy val schema: Schema[Sum] =
       Schema.CaseClass3(
-        TypeId.parse("zio.scheema.ast.SchemaAst.Sum"),
+        TypeId.parse("zio.schema.ast.SchemaAst.Sum"),
         field1 = Schema.Field("path", Schema[String].repeated),
         field2 = Schema.Field("cases", Schema[Labelled].repeated),
         field3 = Schema.Field("optional", Schema[Boolean]),
@@ -109,7 +108,7 @@ object SchemaAst {
   object Either {
     implicit val schema: Schema[Either] = {
       Schema.CaseClass4(
-        TypeId.parse("zio.scheema.ast.SchemaAst.Either"),
+        TypeId.parse("zio.schema.ast.SchemaAst.Either"),
         field1 = Schema.Field("path", Schema[String].repeated),
         field2 = Schema.Field("left", Schema[SchemaAst]),
         field3 = Schema.Field("right", Schema[SchemaAst]),
@@ -132,7 +131,7 @@ object SchemaAst {
 
   object FailNode {
     implicit val schema: Schema[FailNode] = Schema.CaseClass3(
-      TypeId.parse("zio.scheema.ast.SchemaAst.FailNode"),
+      TypeId.parse("zio.schema.ast.SchemaAst.FailNode"),
       field1 = Schema.Field("message", Schema[String]),
       field2 = Schema.Field("path", Schema[String].repeated),
       field3 = Schema.Field("optional", Schema[Boolean]),
@@ -151,7 +150,7 @@ object SchemaAst {
 
   object ListNode {
     implicit val schema: Schema[ListNode] = Schema.CaseClass3(
-      TypeId.parse("zio.scheema.ast.SchemaAst.ListNode"),
+      TypeId.parse("zio.schema.ast.SchemaAst.ListNode"),
       field1 = Schema.Field("item", Schema[SchemaAst]),
       field2 = Schema.Field("path", Schema[String].repeated),
       field3 = Schema.Field("optional", Schema[Boolean]),
@@ -171,7 +170,7 @@ object SchemaAst {
 
   object Dictionary {
     implicit val schema: Schema[Dictionary] = Schema.CaseClass4(
-      TypeId.parse("zio.scheema.ast.SchemaAst.Dictionary"),
+      TypeId.parse("zio.schema.ast.SchemaAst.Dictionary"),
       field1 = Schema.Field("keys", Schema[SchemaAst]),
       field2 = Schema.Field("values", Schema[SchemaAst]),
       field3 = Schema.Field("path", Schema[String].repeated),
@@ -195,7 +194,7 @@ object SchemaAst {
     implicit val schema: Schema[Value] =
       Schema
         .CaseClass3[String, Chunk[String], Boolean, (String, Chunk[String], Boolean)](
-          TypeId.parse("zio.scheema.ast.SchemaAst.Value"),
+          TypeId.parse("zio.schema.ast.SchemaAst.Value"),
           field1 = Schema.Field("valueType", Schema[String]),
           field2 = Schema.Field("path", Schema[String].repeated),
           field3 = Schema.Field("optional", Schema[Boolean]),
@@ -226,7 +225,7 @@ object SchemaAst {
   object Ref {
     implicit val schema: Schema[Ref] =
       Schema.CaseClass3(
-        TypeId.parse("zio.scheema.ast.SchemaAst.Ref"),
+        TypeId.parse("zio.schema.ast.SchemaAst.Ref"),
         field1 = Schema.Field("refPath", Schema[String].repeated),
         field2 = Schema.Field("path", Schema[String].repeated),
         field3 = Schema.Field("optional", Schema[Boolean]),
@@ -247,7 +246,7 @@ object SchemaAst {
   object Dynamic {
     implicit val schema: Schema[Dynamic] =
       Schema.CaseClass3(
-        TypeId.parse("zio.scheema.ast.SchemaAst.Dynamic"),
+        TypeId.parse("zio.schema.ast.SchemaAst.Dynamic"),
         field1 = Schema.Field("withSchema", Schema[Boolean]),
         field2 = Schema.Field("path", Schema[String].repeated),
         field3 = Schema.Field("optional", Schema[Boolean]),
@@ -427,13 +426,13 @@ object SchemaAst {
           materialize(left, refs),
           materialize(right, refs)
         )
-      case SchemaAst.Dynamic(withSchema, _, _) =>
-        if (withSchema) Schema.semiDynamic()
-        else Schema.dynamicValue
       case SchemaAst.ListNode(itemAst, _, _) =>
         Schema.chunk(materialize(itemAst, refs))
       case SchemaAst.Dictionary(keyAst, valueAst, _, _) =>
         Schema.MapSchema(materialize(keyAst, refs), materialize(valueAst, refs), Chunk.empty)
+      case SchemaAst.Dynamic(withSchema, _, _) =>
+        if (withSchema) Schema.semiDynamic()
+        else Schema.dynamicValue
       case ast => Schema.Fail(s"AST cannot be materialized to a Schema:\n$ast")
     }
 
@@ -445,7 +444,7 @@ object SchemaAst {
   implicit lazy val schema: Schema[SchemaAst] =
     Schema.Lazy { () =>
       Schema.EnumN[SchemaAst, CaseSet.Aux[SchemaAst]](
-        TypeId.parse("zio.scheema.ast.SchemaAst"),
+        TypeId.parse("zio.schema.ast.SchemaAst"),
         caseOf[Value, SchemaAst]("Value")(_.asInstanceOf[Value]) ++
           caseOf[Sum, SchemaAst]("Sum")(_.asInstanceOf[Sum]) ++
           caseOf[Either, SchemaAst]("Either")(_.asInstanceOf[Either]) ++
@@ -516,6 +515,7 @@ private[schema] object AstRenderer {
       buffer.toString
     case SchemaAst.Dynamic(withSchema, _, optional) =>
       val buffer = new StringBuffer()
+      buffer.append(s"list")
       if (optional) buffer.append("?")
       if (withSchema) buffer.append("semidynamic") else buffer.append(s"dynamic")
       buffer.toString

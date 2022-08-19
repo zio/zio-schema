@@ -217,11 +217,7 @@ object Schema extends SchemaEquality {
     }
   )
 
-  implicit val nil: Schema[Nil.type] = singleton(Nil)
-
-  implicit val none: Schema[None.type] = singleton(None)
-
-  implicit val dynamicValue: Schema[DynamicValue] = Schema.Dynamic()
+  implicit val dynamicValue: Schema[DynamicValue] = DynamicValueSchema()
 
   implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
     Schema.Sequence[Chunk[A], A, String](schemaA, identity, identity, Chunk.empty, "Chunk")
@@ -234,16 +230,6 @@ object Schema extends SchemaEquality {
 
   implicit def either[A, B](implicit left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
     EitherSchema(left, right)
-
-  implicit def left[A](implicit schemaA: Schema[A]): Schema[Left[A, Nothing]] =
-    either[A, Nothing](schemaA, Schema.fail[Nothing]("no schema for Right"))
-      .transformOrFail[Left[A, Nothing]](
-        {
-          case left @ Left(_) => Right(left)
-          case Right(_)       => Left("cannot encode Right")
-        },
-        left => Right(left)
-      )
 
   implicit def list[A](implicit schemaA: Schema[A]): Schema[List[A]] =
     Schema.Sequence[List[A], A, String](schemaA, _.toList, Chunk.fromIterable(_), Chunk.empty, "List")
@@ -258,16 +244,6 @@ object Schema extends SchemaEquality {
     Schema.SemiDynamic(defaultValue)
 
   def toDynamic[A](a: A)(implicit schema: Schema[A]): DynamicValue = schema.toDynamic(a)
-
-  implicit def right[B](implicit schemaB: Schema[B]): Schema[Right[Nothing, B]] =
-    either[Nothing, B](Schema.fail[Nothing]("no schema for Left"), schemaB)
-      .transformOrFail[Right[Nothing, B]](
-        {
-          case right @ Right(_) => Right(right)
-          case Left(_)          => Left("cannot encode Left")
-        },
-        right => Right(right)
-      )
 
   implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
     chunk(element).transform(_.toVector, Chunk.fromIterable(_))
@@ -295,6 +271,7 @@ object Schema extends SchemaEquality {
 
     def structure: ListMap[String, Schema[_]] =
       ListMap(structureWithAnnotations.map(kv => (kv._1, kv._2._1)).toList: _*)
+
     def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])]
   }
 
@@ -307,8 +284,10 @@ object Schema extends SchemaEquality {
     override def toString: String = s"Field($label,$schema)"
   }
 
-  sealed trait Record[R] extends Schema[R] { self =>
+  sealed trait Record[R] extends Schema[R] {
+    self =>
     def structure: Chunk[Field[_]]
+
     def rawConstruct(values: Chunk[Any]): Either[String, R]
 
     def id: TypeId
@@ -332,7 +311,8 @@ object Schema extends SchemaEquality {
     toChunk: Col => Chunk[Elem],
     override val annotations: Chunk[Any] = Chunk.empty,
     identity: I
-  ) extends Collection[Col, Elem] { self =>
+  ) extends Collection[Col, Elem] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Traversal[Col, Elem]
 
     override def annotate(annotation: Any): Sequence[Col, Elem, I] = copy(annotations = annotations :+ annotation)
@@ -340,7 +320,8 @@ object Schema extends SchemaEquality {
     override def defaultValue: Either[String, Col] = schemaA.defaultValue.map(fromChunk.compose(Chunk(_)))
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, schemaA)
-    override def toString: String                                          = s"Sequence($schemaA, $identity)"
+
+    override def toString: String = s"Sequence($schemaA, $identity)"
 
   }
 
@@ -364,6 +345,7 @@ object Schema extends SchemaEquality {
       s => s.coerce(codec).flatMap(s1 => Right(s1.transformOrFail(f, g))),
       s => Right(s.transformOrFail(g, f).ast.toSchema)
     )
+
     override def toString: String = s"Transform($codec, $identity)"
 
   }
@@ -420,7 +402,8 @@ object Schema extends SchemaEquality {
   }
 
   final case class Tuple[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
-      extends Schema[(A, B)] { self =>
+      extends Schema[(A, B)] {
+    self =>
 
     val first  = "_1"
     val second = "_2"
@@ -448,7 +431,8 @@ object Schema extends SchemaEquality {
   }
 
   final case class EitherSchema[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
-      extends Schema[Either[A, B]] { self =>
+      extends Schema[Either[A, B]] {
+    self =>
 
     val leftSingleton  = "Left"
     val rightSingleton = "Right"
@@ -521,7 +505,8 @@ object Schema extends SchemaEquality {
   }
 
   final case class MapSchema[K, V](ks: Schema[K], vs: Schema[V], override val annotations: Chunk[Any] = Chunk.empty)
-      extends Collection[Map[K, V], (K, V)] { self =>
+      extends Collection[Map[K, V], (K, V)] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Traversal[Map[K, V], (K, V)]
 
     override def annotate(annotation: Any): MapSchema[K, V] = copy(annotations = annotations :+ annotation)
@@ -581,7 +566,7 @@ object Schema extends SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
 
-  // # ENUM SCHEMAS
+// # ENUM SCHEMAS
 
   sealed case class Case[A, Z](
     id: String,
@@ -593,13 +578,16 @@ object Schema extends SchemaEquality {
     def deconstruct(z: Z): Option[A] =
       try {
         Some(unsafeDeconstruct(z))
-      } catch { case _: Throwable => None }
+      } catch {
+        case _: Throwable => None
+      }
 
     override def toString: String = s"Case($id,$codec,$annotations)"
   }
 
   sealed case class Enum1[A <: Z, Z](id: TypeId, case1: Case[A, Z], annotations: Chunk[Any] = Chunk.empty)
-      extends Enum[Z] { self =>
+      extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Prism[case1.id.type, Z, A]
 
     override def annotate(annotation: Any): Enum1[A, Z] = copy(annotations = annotations :+ annotation)
@@ -617,7 +605,8 @@ object Schema extends SchemaEquality {
     case1: Case[A1, Z],
     case2: Case[A2, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (Prism[case1.id.type, Z, A1], Prism[case2.id.type, Z, A2])
 
@@ -638,7 +627,8 @@ object Schema extends SchemaEquality {
     case2: Case[A2, Z],
     case3: Case[A3, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (Prism[case1.id.type, Z, A1], Prism[case2.id.type, Z, A2], Prism[case3.id.type, Z, A3])
 
@@ -666,7 +656,8 @@ object Schema extends SchemaEquality {
     case3: Case[A3, Z],
     case4: Case[A4, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (
         Prism[case1.id.type, Z, A1],
@@ -704,7 +695,8 @@ object Schema extends SchemaEquality {
     case4: Case[A4, Z],
     case5: Case[A5, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (
         Prism[case1.id.type, Z, A1],
@@ -754,7 +746,8 @@ object Schema extends SchemaEquality {
     case5: Case[A5, Z],
     case6: Case[A6, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (
         Prism[case1.id.type, Z, A1],
@@ -810,7 +803,8 @@ object Schema extends SchemaEquality {
     case6: Case[A6, Z],
     case7: Case[A7, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (
         Prism[case1.id.type, Z, A1],
@@ -869,7 +863,8 @@ object Schema extends SchemaEquality {
     case7: Case[A7, Z],
     case8: Case[A8, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (
         Prism[case1.id.type, Z, A1],
@@ -933,7 +928,8 @@ object Schema extends SchemaEquality {
     case8: Case[A8, Z],
     case9: Case[A9, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
       Prism[case1.id.type, Z, A1],
       Prism[case2.id.type, Z, A2],
@@ -987,6 +983,7 @@ object Schema extends SchemaEquality {
         case9.id -> (case9.codec -> case9.annotations)
       )
   }
+
   sealed case class Enum10[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, Z](
     id: TypeId,
     case1: Case[A1, Z],
@@ -1000,7 +997,8 @@ object Schema extends SchemaEquality {
     case9: Case[A9, Z],
     case10: Case[A10, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
       Prism[case1.id.type, Z, A1],
       Prism[case2.id.type, Z, A2],
@@ -1058,6 +1056,7 @@ object Schema extends SchemaEquality {
         case10.id -> (case10.codec -> case10.annotations)
       )
   }
+
   sealed case class Enum11[
     A1 <: Z,
     A2 <: Z,
@@ -1085,7 +1084,8 @@ object Schema extends SchemaEquality {
     case10: Case[A10, Z],
     case11: Case[A11, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
       Prism[case1.id.type, Z, A1],
       Prism[case2.id.type, Z, A2],
@@ -1147,6 +1147,7 @@ object Schema extends SchemaEquality {
         case11.id -> (case11.codec -> case11.annotations)
       )
   }
+
   sealed case class Enum12[
     A1 <: Z,
     A2 <: Z,
@@ -1176,7 +1177,8 @@ object Schema extends SchemaEquality {
     case11: Case[A11, Z],
     case12: Case[A12, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
       Prism[case1.id.type, Z, A1],
       Prism[case2.id.type, Z, A2],
@@ -1242,6 +1244,7 @@ object Schema extends SchemaEquality {
         case12.id -> (case12.codec -> case12.annotations)
       )
   }
+
   sealed case class Enum13[
     A1 <: Z,
     A2 <: Z,
@@ -1273,7 +1276,8 @@ object Schema extends SchemaEquality {
     case12: Case[A12, Z],
     case13: Case[A13, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
       Prism[case1.id.type, Z, A1],
       Prism[case2.id.type, Z, A2],
@@ -1377,7 +1381,8 @@ object Schema extends SchemaEquality {
     case13: Case[A13, Z],
     case14: Case[A14, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
       Prism[case1.id.type, Z, A1],
       Prism[case2.id.type, Z, A2],
@@ -1451,6 +1456,7 @@ object Schema extends SchemaEquality {
         case14.id -> (case14.codec -> case14.annotations)
       )
   }
+
   sealed case class Enum15[
     A1 <: Z,
     A2 <: Z,
@@ -1486,7 +1492,8 @@ object Schema extends SchemaEquality {
     case14: Case[A14, Z],
     case15: Case[A15, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
       Prism[case1.id.type, Z, A1],
       Prism[case2.id.type, Z, A2],
@@ -1566,6 +1573,7 @@ object Schema extends SchemaEquality {
         case15.id -> (case15.codec -> case15.annotations)
       )
   }
+
   sealed case class Enum16[
     A1 <: Z,
     A2 <: Z,
@@ -1603,7 +1611,8 @@ object Schema extends SchemaEquality {
     case15: Case[A15, Z],
     case16: Case[A16, Z],
     override val annotations: Chunk[Any]
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
       Prism[case1.id.type, Z, A1],
       Prism[case2.id.type, Z, A2],
@@ -1687,6 +1696,7 @@ object Schema extends SchemaEquality {
         case16.id -> (case16.codec -> case16.annotations)
       )
   }
+
   sealed case class Enum17[
     A1 <: Z,
     A2 <: Z,
@@ -1726,7 +1736,8 @@ object Schema extends SchemaEquality {
     case16: Case[A16, Z],
     case17: Case[A17, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
       Prism[case1.id.type, Z, A1],
       Prism[case2.id.type, Z, A2],
@@ -1814,6 +1825,7 @@ object Schema extends SchemaEquality {
         case17.id -> (case17.codec -> case17.annotations)
       )
   }
+
   sealed case class Enum18[
     A1 <: Z,
     A2 <: Z,
@@ -1855,7 +1867,8 @@ object Schema extends SchemaEquality {
     case17: Case[A17, Z],
     case18: Case[A18, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
       Prism[case1.id.type, Z, A1],
       Prism[case2.id.type, Z, A2],
@@ -1947,6 +1960,7 @@ object Schema extends SchemaEquality {
         case18.id -> (case18.codec -> case18.annotations)
       )
   }
+
   sealed case class Enum19[
     A1 <: Z,
     A2 <: Z,
@@ -1990,7 +2004,8 @@ object Schema extends SchemaEquality {
     case18: Case[A18, Z],
     case19: Case[A19, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
       Prism[case1.id.type, Z, A1],
       Prism[case2.id.type, Z, A2],
@@ -2086,6 +2101,7 @@ object Schema extends SchemaEquality {
         case19.id -> (case19.codec -> case19.annotations)
       )
   }
+
   sealed case class Enum20[
     A1 <: Z,
     A2 <: Z,
@@ -2131,7 +2147,8 @@ object Schema extends SchemaEquality {
     case19: Case[A19, Z],
     case20: Case[A20, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
       Prism[case1.id.type, Z, A1],
       Prism[case2.id.type, Z, A2],
@@ -2231,6 +2248,7 @@ object Schema extends SchemaEquality {
         case20.id -> (case20.codec -> case20.annotations)
       )
   }
+
   sealed case class Enum21[
     A1 <: Z,
     A2 <: Z,
@@ -2278,7 +2296,8 @@ object Schema extends SchemaEquality {
     case20: Case[A20, Z],
     case21: Case[A21, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
       Prism[case1.id.type, Z, A1],
       Prism[case2.id.type, Z, A2],
@@ -2384,6 +2403,7 @@ object Schema extends SchemaEquality {
         case21.id -> (case21.codec -> case21.annotations)
       )
   }
+
   sealed case class Enum22[
     A1 <: Z,
     A2 <: Z,
@@ -2433,7 +2453,8 @@ object Schema extends SchemaEquality {
     case21: Case[A21, Z],
     case22: Case[A22, Z],
     annotations: Chunk[Any] = Chunk.empty
-  ) extends Enum[Z] { self =>
+  ) extends Enum[Z] {
+    self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
       Prism[case1.id.type, Z, A1],
       Prism[case2.id.type, Z, A2],
@@ -2543,6 +2564,7 @@ object Schema extends SchemaEquality {
         case22.id -> (case22.codec -> case22.annotations)
       )
   }
+
   sealed case class EnumN[Z, C <: CaseSet.Aux[Z]](id: TypeId, caseSet: C, annotations: Chunk[Any] = Chunk.empty)
       extends Enum[Z] {
     self =>
@@ -2563,8 +2585,6 @@ object Schema extends SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): caseSet.Accessors[Z, b.Lens, b.Prism, b.Traversal] =
       caseSet.makeAccessors(self, b)
   }
-
-  // # TUPLE SCHEMAS
 
   implicit def tuple2[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
     c1.zip(c2)
@@ -3219,8 +3239,7 @@ object Schema extends SchemaEquality {
             (((((((((((((((((((((a, b), c), d), e), f), g), h), i), j), k), l), m), n), o), p), q), r), s), t), u), v)
         }
       )
-
-  // # RECORD SCHEMAS
+// # RECORD SCHEMAS
 
   sealed case class GenericRecord(id: TypeId, fieldSet: FieldSet, override val annotations: Chunk[Any] = Chunk.empty)
       extends Record[ListMap[String, _]] { self =>

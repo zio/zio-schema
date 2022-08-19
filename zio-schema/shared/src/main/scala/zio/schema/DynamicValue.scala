@@ -2035,7 +2035,7 @@ private[schema] object DynamicValueSchema {
     Schema.Case(
       "Error",
       Schema.CaseClass1[String, DynamicValue.Error](
-        TypeId.parse("zio.scheema.DynamicValue.Error"),
+        TypeId.parse("zio.schema.DynamicValue.Error"),
         Schema.Field("message", Schema.primitive[String]),
         message => DynamicValue.Error(message),
         error => error.message
@@ -2046,7 +2046,7 @@ private[schema] object DynamicValueSchema {
   private val noneValueCase: Schema.Case[DynamicValue.NoneValue.type, DynamicValue] =
     Schema.Case(
       "NoneValue",
-      Schema.none.transform(_ => DynamicValue.NoneValue, _ => None),
+      Schema.singleton(None).transform(_ => DynamicValue.NoneValue, _ => None),
       _.asInstanceOf[DynamicValue.NoneValue.type],
       Chunk("case")
     )
@@ -2055,7 +2055,7 @@ private[schema] object DynamicValueSchema {
     Schema.Case(
       "RightValue",
       Schema.CaseClass1[DynamicValue, DynamicValue.RightValue](
-        TypeId.parse("zio.scheema.DynamicValue.RightValue"),
+        TypeId.parse("zio.schema.DynamicValue.RightValue"),
         Schema.Field("value", Schema.defer(DynamicValueSchema())),
         dynamicValue => DynamicValue.RightValue(dynamicValue),
         rightValue => rightValue.value
@@ -2067,7 +2067,7 @@ private[schema] object DynamicValueSchema {
     Schema.Case(
       "LeftValue",
       Schema.CaseClass1[DynamicValue, DynamicValue.LeftValue](
-        TypeId.parse("zio.scheema.DynamicValue.LeftValue"),
+        TypeId.parse("zio.schema.DynamicValue.LeftValue"),
         Schema.Field("value", Schema.defer(DynamicValueSchema())),
         dynamicValue => DynamicValue.LeftValue(dynamicValue),
         leftValue => leftValue.value
@@ -2079,7 +2079,7 @@ private[schema] object DynamicValueSchema {
     Schema.Case(
       "Tuple",
       Schema.CaseClass2[DynamicValue, DynamicValue, DynamicValue.Tuple](
-        TypeId.parse("zio.scheema.DynamicValue.Tuple"),
+        TypeId.parse("zio.schema.DynamicValue.Tuple"),
         Schema.Field("left", Schema.defer(DynamicValueSchema())),
         Schema.Field("right", Schema.defer(DynamicValueSchema())),
         (left, right) => DynamicValue.Tuple(left, right),
@@ -2093,7 +2093,7 @@ private[schema] object DynamicValueSchema {
     Schema.Case(
       "SomeValue",
       Schema.CaseClass1[DynamicValue, DynamicValue.SomeValue](
-        TypeId.parse("zio.scheema.DynamicValue.SomeValue"),
+        TypeId.parse("zio.schema.DynamicValue.SomeValue"),
         Schema.Field("value", Schema.defer(DynamicValueSchema())),
         dv => DynamicValue.SomeValue(dv),
         someValue => someValue.value
@@ -2105,7 +2105,7 @@ private[schema] object DynamicValueSchema {
     Schema.Case(
       "Dictionary",
       Schema.CaseClass1[Chunk[(DynamicValue, DynamicValue)], DynamicValue.Dictionary](
-        TypeId.parse("zio.scheema.DynamicValue.Dictionary"),
+        TypeId.parse("zio.schema.DynamicValue.Dictionary"),
         Schema.Field(
           "entries",
           Schema.defer(Schema.chunk(Schema.tuple2(DynamicValueSchema(), DynamicValueSchema())))
@@ -2120,7 +2120,7 @@ private[schema] object DynamicValueSchema {
     Schema.Case(
       "Sequence",
       Schema.CaseClass1[Chunk[DynamicValue], DynamicValue.Sequence](
-        TypeId.parse("zio.scheema.DynamicValue.Sequence"),
+        TypeId.parse("zio.schema.DynamicValue.Sequence"),
         Schema.Field("values", Schema.defer(Schema.chunk(DynamicValueSchema()))),
         chunk => DynamicValue.Sequence(chunk),
         seq => seq.values
@@ -2132,7 +2132,7 @@ private[schema] object DynamicValueSchema {
     Schema.Case(
       "Enumeration",
       Schema.CaseClass1[(String, DynamicValue), DynamicValue.Enumeration](
-        TypeId.parse("zio.scheema.DynamicValue.Enumeration"),
+        TypeId.parse("zio.schema.DynamicValue.Enumeration"),
         Schema.Field("value", Schema.defer(Schema.tuple2(Schema.primitive[String], DynamicValueSchema()))),
         value => DynamicValue.Enumeration(TypeId.Structural, value),
         enumeration => enumeration.value
@@ -2143,11 +2143,12 @@ private[schema] object DynamicValueSchema {
   private val recordCase: Schema.Case[DynamicValue.Record, DynamicValue] =
     Schema.Case(
       "Record",
-      Schema.CaseClass1[Map[String, DynamicValue], DynamicValue.Record](
-        TypeId.parse("zio.scheema.DynamicValue.Record"),
-        Schema.Field("values", Schema.defer(Schema.map(Schema.primitive[String], DynamicValueSchema()))),
-        map => DynamicValue.Record(TypeId.Structural, ListMap(map.toSeq: _*)),
-        record => record.values
+      Schema.CaseClass1[Chunk[(String, DynamicValue)], DynamicValue.Record](
+        TypeId.parse("zio.schema.DynamicValue.Record"),
+        Schema
+          .Field("values", Schema.defer(Schema.chunk(Schema.tuple2(Schema.primitive[String], DynamicValueSchema())))),
+        chunk => DynamicValue.Record(TypeId.Structural, ListMap(chunk.toSeq: _*)),
+        record => Chunk.fromIterable(record.values)
       ),
       _.asInstanceOf[DynamicValue.Record]
     )
@@ -2156,7 +2157,7 @@ private[schema] object DynamicValueSchema {
     Schema.Case(
       "DynamicAst",
       Schema.CaseClass1[SchemaAst, DynamicValue.DynamicAst](
-        TypeId.parse("zio.scheema.DynamicValue.DynamicAst"),
+        TypeId.parse("zio.schema.DynamicValue.DynamicAst"),
         Schema.Field("ast", SchemaAst.schema),
         schemaAst => DynamicValue.DynamicAst(schemaAst),
         dynamicAst => dynamicAst.ast

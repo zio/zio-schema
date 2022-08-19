@@ -1,11 +1,10 @@
 package zio.schema.ast
 
-import zio.random.Random
-import zio.test.{ DefaultRunnableSpec, _ }
+import zio.test._
 
-object NodePathSpec extends DefaultRunnableSpec {
+object NodePathSpec extends ZIOSpecDefault {
 
-  override def spec: ZSpec[Environment, Failure] = suite("NodePath")(
+  override def spec: Spec[Environment, Any] = suite("NodePath")(
     suite("relativeTo")(
       test("compute relative subpath") {
         val path    = NodePath.root / "foo" / "bar"
@@ -31,12 +30,12 @@ object NodePathSpec extends DefaultRunnableSpec {
       }
     ),
     suite("isSubpathOf")(
-      testM("any path is subpath of root") {
+      test("any path is subpath of root") {
         check(anyPath) { path =>
           assertTrue(path.isSubpathOf(NodePath.root))
         }
       },
-      testM("any relative path is subpath") {
+      test("any relative path is subpath") {
         val pathAndSubpath =
           for {
             path         <- anyPath
@@ -50,7 +49,7 @@ object NodePathSpec extends DefaultRunnableSpec {
       }
     ),
     suite("partitionLeaf")(
-      testM("partition path into internal path and leaf label") {
+      test("partition path into internal path and leaf label") {
         check(anyPathOfN(2)) { path =>
           val (internalPath, leaf) = path.partitionLeaf
           assert(internalPath)(Assertion.equalTo(NodePath(path.dropRight(1)))) &&
@@ -66,8 +65,8 @@ object NodePathSpec extends DefaultRunnableSpec {
     )
   )
 
-  def anyPathOfN(n: Int): Gen[Random with Sized, NodePath] = Gen.chunkOfN(n)(Gen.anyString).map(NodePath(_))
+  def anyPathOfN(n: Int): Gen[Sized, NodePath] = Gen.chunkOfN(n)(Gen.string).map(NodePath(_))
 
-  val anyPath: Gen[Random with Sized, NodePath] = Gen.chunkOf(Gen.anyString).map(NodePath(_))
+  val anyPath: Gen[Sized, NodePath] = Gen.chunkOf(Gen.string).map(NodePath(_))
 
 }
