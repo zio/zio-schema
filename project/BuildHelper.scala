@@ -206,7 +206,7 @@ object BuildHelper {
         "com.github.liancheng" %% "organize-imports" % "0.6.0",
         "com.github.vovapolu"  %% "scaluzzi"         % "0.1.21"
       ),
-      Test / parallelExecution := true,
+      Test / parallelExecution := !sys.env.contains("CI"),
       incOptions ~= (_.withLogRecompileOnMacro(true)),
       autoAPIMappings := true,
       testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
