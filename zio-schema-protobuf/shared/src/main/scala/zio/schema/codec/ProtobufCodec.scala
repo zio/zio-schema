@@ -12,23 +12,17 @@ import scala.util.control.NonFatal
 import zio.schema._
 import zio.schema.ast.SchemaAst
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
-import zio.stream.ZTransducer
+import zio.stream.ZPipeline
 import zio.{ Chunk, ZIO }
 
 object ProtobufCodec extends Codec {
-  override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
-    ZTransducer.fromPush(
-      (opt: Option[Chunk[A]]) =>
-        ZIO.succeed(opt.map(values => values.flatMap(Encoder.encode(None, schema, _))).getOrElse(Chunk.empty))
-    )
+  override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] =
+    ZPipeline.mapChunks(values => values.flatMap(Encoder.encode(None, schema, _)))
 
   override def encode[A](schema: Schema[A]): A => Chunk[Byte] = a => Encoder.encode(None, schema, a)
 
-  override def decoder[A](schema: Schema[A]): ZTransducer[Any, String, Byte, A] =
-    ZTransducer.fromPush(
-      (opt: Option[Chunk[Byte]]) =>
-        ZIO.fromEither(opt.map(chunk => Decoder.decode(schema, chunk).map(Chunk(_))).getOrElse(Right(Chunk.empty)))
-    )
+  override def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Byte, A] =
+    ZPipeline.mapChunksZIO(chunk => ZIO.fromEither(Decoder.decode(schema, chunk).map(Chunk(_))))
 
   override def decode[A](schema: Schema[A]): Chunk[Byte] => Either[String, A] =
     ch => Decoder.decode(schema, ch)
@@ -97,8 +91,8 @@ object ProtobufCodec extends Codec {
       case StandardType.UnitType              => false
       case StandardType.StringType            => false
       case StandardType.BoolType              => true
-      case StandardType.ShortType             => true
       case StandardType.ByteType              => true
+      case StandardType.ShortType             => true
       case StandardType.IntType               => true
       case StandardType.LongType              => true
       case StandardType.FloatType             => true
@@ -129,8 +123,8 @@ object ProtobufCodec extends Codec {
 
   object Encoder {
 
-    import Protobuf._
     import ProductEncoder._
+    import Protobuf._
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
@@ -705,8 +699,8 @@ object ProtobufCodec extends Codec {
 
   object Decoder {
 
-    import Protobuf._
     import ProductDecoder._
+    import Protobuf._
 
     def fail(failure: String): Decoder[Nothing] = Decoder(_ => Left(failure))
 

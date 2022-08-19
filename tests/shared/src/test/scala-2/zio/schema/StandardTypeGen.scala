@@ -3,12 +3,11 @@ package zio.schema
 import java.math.{ BigDecimal => JBigDecimal, BigInteger => JBigInt }
 import java.time.format.DateTimeFormatter
 
-import zio.random.Random
 import zio.test.{ Gen, Sized }
 
 object StandardTypeGen {
 
-  val anyStandardType: Gen[Random, StandardType[_]] = Gen.fromIterable(
+  val anyStandardType: Gen[Any, StandardType[_]] = Gen.fromIterable(
     List(
       (StandardType.StringType),
       (StandardType.BoolType),
@@ -42,28 +41,28 @@ object StandardTypeGen {
 //    Gen.const(StandardType.ZoneOffset)
   )
 
-  val javaBigInt: Gen[Random, JBigInt] =
+  val javaBigInt: Gen[Any, JBigInt] =
     Gen.bigInt(JBigInt.valueOf(Long.MinValue), JBigInt.valueOf(Long.MaxValue)).map { sBigInt =>
       new JBigInt(sBigInt.toByteArray)
     }
 
-  val javaBigDecimal: Gen[Random, JBigDecimal] =
+  val javaBigDecimal: Gen[Any, JBigDecimal] =
     Gen.bigDecimal(JBigDecimal.valueOf(Long.MinValue), JBigDecimal.valueOf(Long.MaxValue)).map(_.bigDecimal)
 
-  type StandardTypeAndGen[A] = (StandardType[A], Gen[Random with Sized, A])
+  type StandardTypeAndGen[A] = (StandardType[A], Gen[Sized, A])
 
-  val anyStandardTypeAndGen: Gen[Random, StandardTypeAndGen[_]] = {
+  val anyStandardTypeAndGen: Gen[Any, StandardTypeAndGen[_]] = {
     anyStandardType.map {
-      case typ: StandardType.StringType.type     => typ -> Gen.anyString
+      case typ: StandardType.StringType.type     => typ -> Gen.string
       case typ: StandardType.BoolType.type       => typ -> Gen.boolean
-      case typ: StandardType.ShortType.type      => typ -> Gen.anyShort
-      case typ: StandardType.IntType.type        => typ -> Gen.anyInt
-      case typ: StandardType.LongType.type       => typ -> Gen.anyLong
-      case typ: StandardType.FloatType.type      => typ -> Gen.anyFloat
-      case typ: StandardType.DoubleType.type     => typ -> Gen.anyDouble
-      case typ: StandardType.BinaryType.type     => typ -> Gen.chunkOf(Gen.anyByte)
-      case typ: StandardType.CharType.type       => typ -> Gen.anyASCIIChar
-      case typ: StandardType.UUIDType.type       => typ -> Gen.anyUUID
+      case typ: StandardType.ShortType.type      => typ -> Gen.short
+      case typ: StandardType.IntType.type        => typ -> Gen.int
+      case typ: StandardType.LongType.type       => typ -> Gen.long
+      case typ: StandardType.FloatType.type      => typ -> Gen.float
+      case typ: StandardType.DoubleType.type     => typ -> Gen.double
+      case typ: StandardType.BinaryType.type     => typ -> Gen.chunkOf(Gen.byte)
+      case typ: StandardType.CharType.type       => typ -> Gen.asciiChar
+      case typ: StandardType.UUIDType.type       => typ -> Gen.uuid
       case typ: StandardType.BigDecimalType.type => typ -> javaBigDecimal
       case typ: StandardType.BigIntegerType.type => typ -> javaBigInt
       case typ: StandardType.DayOfWeekType.type  => typ -> JavaTimeGen.anyDayOfWeek

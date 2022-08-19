@@ -1,11 +1,12 @@
 package zio.schema.validation
 
+import zio.Scope
 import zio.test.Assertion._
 import zio.test._
 
-object TimeSpec extends DefaultRunnableSpec {
+object TimeSpec extends ZIOSpecDefault {
 
-  def spec: ZSpec[Environment, Failure] = suite("TimeSpec")(
+  def spec: Spec[Environment with TestEnvironment with Scope, Any] = suite("TimeSpec")(
     test("Valid formats") {
       assert(Validation.time("H"))(isSubtype[Validation[String]](anything)) &&
       assert(Validation.time("HH"))(isSubtype[Validation[String]](anything)) &&

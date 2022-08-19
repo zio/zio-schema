@@ -54,7 +54,7 @@ private[example6] object Domain {
 
 }
 
-object Example6_ReifiedOptics extends zio.App {
+object Example6_ReifiedOptics extends ZIOAppDefault {
   import Domain._
 
   val lensTest1: ZIO[Any, Nothing, Unit] = for {
@@ -106,7 +106,7 @@ object Example6_ReifiedOptics extends zio.App {
     _ <- ZIO.debug("updated company2: " + updatedCompany2)
   } yield ()
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = (lensTest1 *> lensTest2 *> traversalTest1).exitCode
+  override def run: ZIO[Environment with ZIOAppArgs, Any, Any] = (lensTest1 *> lensTest2 *> traversalTest1)
 }
 
 /**

@@ -26,7 +26,6 @@ import java.util.UUID
 import scala.annotation.{ nowarn, tailrec }
 import scala.collection.immutable.ListMap
 
-import zio.schema.StandardType.DurationType
 import zio.schema.ast.Migration
 import zio.schema.diff.Edit
 import zio.{ Chunk, ChunkBuilder }
@@ -217,8 +216,8 @@ object Differ {
     case Schema.Primitive(StandardType.UnitType, _)       => unit
     case Schema.Primitive(StandardType.BinaryType, _)     => binary
     case Schema.Primitive(StandardType.IntType, _)        => numeric[Int]
-    case Schema.Primitive(StandardType.ShortType, _)      => numeric[Short]
     case Schema.Primitive(StandardType.ByteType, _)       => numeric[Byte]
+    case Schema.Primitive(StandardType.ShortType, _)      => numeric[Short]
     case Schema.Primitive(StandardType.DoubleType, _)     => numeric[Double]
     case Schema.Primitive(StandardType.FloatType, _)      => numeric[Float]
     case Schema.Primitive(StandardType.LongType, _)       => numeric[Long]
@@ -423,7 +422,7 @@ object Differ {
             thisDuration.getSeconds - thatDuration.getSeconds,
             (thisDuration.getNano - thatDuration.getNano).toLong
           ),
-          DurationType
+          StandardType.DurationType
         )
 
   def localTime(tpe: StandardType.LocalTimeType): Differ[LocalTime] =

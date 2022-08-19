@@ -5,11 +5,11 @@ import scala.collection.immutable.ListMap
 import zio.Chunk
 import zio.schema.CaseSet._
 import zio.test.Assertion._
-import zio.test.{ ZSpec, _ }
+import zio.test._
 
-object SchemaSpec extends DefaultRunnableSpec {
+object SchemaSpec extends ZIOSpecDefault {
 
-  def spec: ZSpec[Environment, Failure] = suite("Schema Spec")(
+  def spec: Spec[Environment, Any] = suite("Schema Spec")(
     suite("Should have valid equals")(
       test("primitive") {
         assert(schemaUnit)(equalTo(schemaUnit))
@@ -35,6 +35,7 @@ object SchemaSpec extends DefaultRunnableSpec {
       test("enumeration") {
         assert(schemaEnum("key"))(equalTo(schemaEnum("key"))) &&
         assert(schemaEnum("key1"))(not(equalTo(schemaEnum("key2"))))
+
       } @@ TestAspect.scala2Only
     ),
     test("Tuple.toRecord should preserve annotations") {
