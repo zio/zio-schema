@@ -19,7 +19,7 @@ sealed trait DynamicValue {
       case (_, error @ Left(_))      => error
     }
 
-  def toTypedValue[A](schema: Schema[A]): Either[String, A] =
+  def toTypedValue[A](implicit schema: Schema[A]): Either[String, A] =
     (self, schema) match {
       case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
         Right(value.asInstanceOf[A])
