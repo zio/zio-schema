@@ -202,7 +202,7 @@ object ValidationSpec extends ZIOSpecDefault {
       test("should reject an invalid IPv6 address") {
         val examples = Gen.fromIterable {
           Seq(
-            "2001:db8:122:344::192.0.2.33",
+            " 001:db8:122:344::192.0.2.33",
             "1200::AB00:1234::2552:7777:1313",
             "1200:0000:AB00:1234:O000:2552:7777:1313"
           )
@@ -324,6 +324,11 @@ object ValidationSpec extends ZIOSpecDefault {
         "HH:mm:ss SSSSSSSSS a"
       )
       assertParsedTimes(parsedTimes)
+    },
+    test("Regex duration Validation") {
+      check(Gen.finiteDuration) { duration =>
+        assertTrue(Validation.duration.validate(duration.toString).isRight)
+      }
     }
   )
 

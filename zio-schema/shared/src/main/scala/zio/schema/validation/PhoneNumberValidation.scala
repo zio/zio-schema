@@ -4,8 +4,8 @@ object PhoneNumberValidation extends PhoneNumberValidation {}
 
 trait PhoneNumberValidation {
 
-  val optionalSpace: Regex       = Regex.literal(" ").atMost(1)
-  val optionalSeparator: Regex   = Regex.oneOf('-', ' ').atMost(1)
+  val optionalSpace: Regex       = Regex.literal(" ").?
+  val optionalSeparator: Regex   = Regex.oneOf('-', ' ').?
   val twoDigits: Regex           = Regex.digit.exactly(2)
   val threeDigits: Regex         = Regex.digit.exactly(3)
   val plus: Regex                = Regex.literal("+")
