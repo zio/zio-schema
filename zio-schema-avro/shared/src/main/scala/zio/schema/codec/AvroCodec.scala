@@ -215,23 +215,23 @@ object AvroCodec extends AvroCodec {
         SchemaAvro.createFixed(name, doc, space, size)
     }.getOrElse(SchemaAvro.create(SchemaAvro.Type.BYTES))
 
-  private[codec] val monthDayStructure: Seq[Schema.Field[Int]] = Seq(
+  private[codec] val monthDayStructure: Seq[Schema.Field[_, Int]] = Seq(
     Schema.Field("month", Schema.Primitive(StandardType.IntType)),
     Schema.Field("day", Schema.Primitive(StandardType.IntType))
   )
 
-  private[codec] val periodStructure: Seq[Schema.Field[Int]] = Seq(
+  private[codec] val periodStructure: Seq[Schema.Field[_, Int]] = Seq(
     Schema.Field("years", Schema.Primitive(StandardType.IntType)),
     Schema.Field("months", Schema.Primitive(StandardType.IntType)),
     Schema.Field("days", Schema.Primitive(StandardType.IntType))
   )
 
-  private[codec] val yearMonthStructure: Seq[Schema.Field[Int]] = Seq(
+  private[codec] val yearMonthStructure: Seq[Schema.Field[_, Int]] = Seq(
     Schema.Field("year", Schema.Primitive(StandardType.IntType)),
     Schema.Field("month", Schema.Primitive(StandardType.IntType))
   )
 
-  private[codec] val durationStructure: Seq[Schema.Field[_]] = Seq(
+  private[codec] val durationStructure: Seq[Schema.Field[_, _]] = Seq(
     Schema.Field("seconds", Schema.Primitive(StandardType.LongType)),
     Schema.Field("nanos", Schema.Primitive(StandardType.IntType))
   )
@@ -583,11 +583,11 @@ object AvroCodec extends AvroCodec {
   private[codec] def toErrorMessage(err: Throwable, at: AnyRef) =
     s"Error mapping to Apache Avro schema: $err at ${at.toString}"
 
-  private[codec] def toAvroRecordField(value: Field[_]): Either[String, SchemaAvro.Field] =
+  private[codec] def toAvroRecordField(value: Field[_, _]): Either[String, SchemaAvro.Field] =
     toAvroSchema(value.schema).map(
       schema =>
         new SchemaAvro.Field(
-          getNameOption(value.annotations).getOrElse(value.label),
+          getNameOption(value.annotations).getOrElse(value.label.toString()),
           schema,
           getDoc(value.annotations).orNull,
           getDefault(value.annotations).orNull,
@@ -701,43 +701,395 @@ object AvroCodec extends AvroCodec {
                 case first :: second :: Nil => Right(Schema.either(first._2, second._2))
                 case _                      => Left("ZIO schema wrapped either must have exactly two cases")
               }
-            case e: EitherSchema[_, _]                                                               => Right(e)
-            case c: CaseClass0[_]                                                                    => Right(c)
-            case c: CaseClass1[_, _]                                                                 => Right(c)
-            case c: CaseClass2[_, _, _]                                                              => Right(c)
-            case c: CaseClass3[_, _, _, _]                                                           => Right(c)
-            case c: CaseClass4[_, _, _, _, _]                                                        => Right(c)
-            case c: CaseClass5[_, _, _, _, _, _]                                                     => Right(c)
-            case c: CaseClass6[_, _, _, _, _, _, _]                                                  => Right(c)
-            case c: CaseClass7[_, _, _, _, _, _, _, _]                                               => Right(c)
-            case c: CaseClass8[_, _, _, _, _, _, _, _, _]                                            => Right(c)
-            case c: CaseClass9[_, _, _, _, _, _, _, _, _, _]                                         => Right(c)
-            case c: CaseClass10[_, _, _, _, _, _, _, _, _, _, _]                                     => Right(c)
-            case c: CaseClass11[_, _, _, _, _, _, _, _, _, _, _, _]                                  => Right(c)
-            case c: CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, _]                               => Right(c)
-            case c: CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, _]                            => Right(c)
-            case c: CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                         => Right(c)
-            case c: CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                      => Right(c)
-            case c: CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                   => Right(c)
-            case c: CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                => Right(c)
-            case c: CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]             => Right(c)
-            case c: CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]          => Right(c)
-            case c: CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]       => Right(c)
-            case c: CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]    => Right(c)
-            case c: CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _] => Right(c)
-            case c: Dynamic                                                                          => Right(c)
-            case c: GenericRecord                                                                    => Right(c)
-            case c: MapSchema[_, _]                                                                  => Right(c)
-            case c: Sequence[_, _, _]                                                                => Right(c)
-            case c: SetSchema[_]                                                                     => Right(c)
-            case c: Fail[_]                                                                          => Right(c)
-            case c: Lazy[_]                                                                          => Right(c)
-            case c: Meta                                                                             => Right(c)
-            case c: Optional[_]                                                                      => Right(c)
-            case c: Primitive[_]                                                                     => Right(c)
-            case c: SemiDynamic[_]                                                                   => Right(c)
-            case c: Transform[_, _, _]                                                               => Right(c)
-            case c: Tuple[_, _]                                                                      => Right(c)
+            case e: EitherSchema[_, _]                                                                     => Right(e)
+            case c: CaseClass0[_]                                                                          => Right(c)
+            case c: CaseClass1[_, _, _]                                                                    => Right(c)
+            case c: CaseClass2[_, _, _, _, _]                                                              => Right(c)
+            case c: CaseClass3[_, _, _, _, _, _, _]                                                        => Right(c)
+            case c: CaseClass4[_, _, _, _, _, _, _, _, _]                                                  => Right(c)
+            case c: CaseClass5[_, _, _, _, _, _, _, _, _, _, _]                                            => Right(c)
+            case c: CaseClass6[_, _, _, _, _, _, _, _, _, _, _, _, _]                                      => Right(c)
+            case c: CaseClass7[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                                => Right(c)
+            case c: CaseClass8[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                          => Right(c)
+            case c: CaseClass9[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                    => Right(c)
+            case c: CaseClass10[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]             => Right(c)
+            case c: CaseClass11[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]       => Right(c)
+            case c: CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _] => Right(c)
+            case c: CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _] =>
+              Right(c)
+            case c: CaseClass14[
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _
+                ] =>
+              Right(c)
+            case c: CaseClass15[
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _
+                ] =>
+              Right(c)
+            case c: CaseClass16[
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _
+                ] =>
+              Right(c)
+            case c: CaseClass17[
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _
+                ] =>
+              Right(c)
+            case c: CaseClass18[
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _
+                ] =>
+              Right(c)
+            case c: CaseClass19[
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _
+                ] =>
+              Right(c)
+            case c: CaseClass20[
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _
+                ] =>
+              Right(c)
+            case c: CaseClass21[
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _
+                ] =>
+              Right(c)
+            case c: CaseClass22[
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _,
+                  _
+                ] =>
+              Right(c)
+            case c: Dynamic            => Right(c)
+            case c: GenericRecord      => Right(c)
+            case c: MapSchema[_, _]    => Right(c)
+            case c: Sequence[_, _, _]  => Right(c)
+            case c: SetSchema[_]       => Right(c)
+            case c: Fail[_]            => Right(c)
+            case c: Lazy[_]            => Right(c)
+            case c: Meta               => Right(c)
+            case c: Optional[_]        => Right(c)
+            case c: Primitive[_]       => Right(c)
+            case c: SemiDynamic[_]     => Right(c)
+            case c: Transform[_, _, _] => Right(c)
+            case c: Tuple[_, _]        => Right(c)
 
           }
         case None => Left("ZIO schema wrapped record must have a single field")
@@ -750,17 +1102,18 @@ object AvroCodec extends AvroCodec {
       }
     }
 
-  private def extractZioFields(avroSchema: SchemaAvro): Either[String, List[Field[_]]] =
+  private def extractZioFields(avroSchema: SchemaAvro): Either[String, List[Field[_ <: Singleton with String, _]]] =
     avroSchema.getFields.asScala.map(toZioField).toList.map(_.merge).partition {
       case _: String => true
       case _         => false
     } match {
-      case (Nil, right: List[Field[_] @unchecked]) => Right(right)
-      case (left, _)                               => Left(left.mkString("\n"))
+      case (Nil, right: List[Field[_, _] @unchecked]) => Right(right)
+      case (left, _)                                  => Left(left.mkString("\n"))
     }
 
-  private[codec] def toZioField(field: SchemaAvro.Field): Either[String, Field[_]] =
-    toZioSchema(field.schema()).map((s: Schema[_]) => Field(field.name(), s, buildZioAnnotations(field)))
+  private[codec] def toZioField(field: SchemaAvro.Field): Either[String, Field[_ <: Singleton with String, _]] =
+    toZioSchema(field.schema())
+      .map((s: Schema[_]) => Field(field.name.asInstanceOf[String with Singleton], s, buildZioAnnotations(field)))
 
   private[codec] def toZioTuple(schema: SchemaAvro): Either[String, Schema[_]] =
     for {

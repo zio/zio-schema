@@ -33,35 +33,37 @@ object ManualConstruction {
   import Domain.PaymentMethod._
   import zio.schema.Schema._
 
-  val schemaPerson: Schema[Person] = Schema.CaseClass2[String, Int, Person](
+  val schemaPerson: Schema[Person] = Schema.CaseClass2["name", "age", String, Int, Person](
     TypeId.parse("dev.zio.schema.example.example1.Domain.Person"),
-    field1 = Schema.Field[String]("name", Schema.primitive[String]),
-    field2 = Schema.Field[Int]("age", Schema.primitive[Int]),
+    field1 = Schema.Field["name", String]("name", Schema.primitive[String]),
+    field2 = Schema.Field["age", Int]("age", Schema.primitive[Int]),
     construct = (name, age) => Person(name, age),
     extractField1 = p => p.name,
     extractField2 = p => p.age
   )
 
-  val schemaPaymentMethodWireTransfer: Schema[WireTransfer] = Schema.CaseClass2[String, String, WireTransfer](
-    TypeId.parse("dev.zio.schema.example.example1.Domain.PaymentMethod.WireTransfer"),
-    field1 = Schema.Field[String]("accountNumber", Schema.primitive[String]),
-    field2 = Schema.Field[String]("bankCode", Schema.primitive[String]),
-    construct = (number, bankCode) => PaymentMethod.WireTransfer(number, bankCode),
-    extractField1 = p => p.accountNumber,
-    extractField2 = p => p.bankCode
-  )
+  val schemaPaymentMethodWireTransfer: Schema[WireTransfer] =
+    Schema.CaseClass2["accountNumber", "bankCode", String, String, WireTransfer](
+      TypeId.parse("dev.zio.schema.example.example1.Domain.PaymentMethod.WireTransfer"),
+      field1 = Schema.Field["accountNumber", String]("accountNumber", Schema.primitive[String]),
+      field2 = Schema.Field["bankCode", String]("bankCode", Schema.primitive[String]),
+      construct = (number, bankCode) => PaymentMethod.WireTransfer(number, bankCode),
+      extractField1 = p => p.accountNumber,
+      extractField2 = p => p.bankCode
+    )
 
-  val schemaPaymentMethodCreditCard: Schema[CreditCard] = Schema.CaseClass3[String, Int, Int, CreditCard](
-    TypeId.parse("dev.zio.schema.example.example1.Domain.PaymentMethod.CreditCard"),
-    field1 = Schema.Field[String]("number", Schema.primitive[String]),
-    field2 = Schema.Field[Int]("expirationMonth", Schema.primitive[Int]),
-    field3 = Schema.Field[Int]("expirationYear", Schema.primitive[Int]),
-    construct =
-      (number, expirationMonth, expirationYear) => PaymentMethod.CreditCard(number, expirationMonth, expirationYear),
-    extractField1 = p => p.number,
-    extractField2 = p => p.expirationMonth,
-    extractField3 = p => p.expirationYear
-  )
+  val schemaPaymentMethodCreditCard: Schema[CreditCard] =
+    Schema.CaseClass3["number", "expirationMonth", "expirationYear", String, Int, Int, CreditCard](
+      TypeId.parse("dev.zio.schema.example.example1.Domain.PaymentMethod.CreditCard"),
+      field1 = Schema.Field["number", String]("number", Schema.primitive[String]),
+      field2 = Schema.Field["expirationMonth", Int]("expirationMonth", Schema.primitive[Int]),
+      field3 = Schema.Field["expirationYear", Int]("expirationYear", Schema.primitive[Int]),
+      construct =
+        (number, expirationMonth, expirationYear) => PaymentMethod.CreditCard(number, expirationMonth, expirationYear),
+      extractField1 = p => p.number,
+      extractField2 = p => p.expirationMonth,
+      extractField3 = p => p.expirationYear
+    )
 
   val schemaPaymentMethod: Schema[PaymentMethod] =
     Schema.Enum2[PaymentMethod.CreditCard, PaymentMethod.WireTransfer, PaymentMethod](
@@ -81,10 +83,10 @@ object ManualConstruction {
       annotations = Chunk.empty
     )
 
-  val schemaCustomer: Schema[Customer] = Schema.CaseClass2[Person, PaymentMethod, Customer](
+  val schemaCustomer: Schema[Customer] = Schema.CaseClass2["person", "paymentMethod", Person, PaymentMethod, Customer](
     TypeId.parse("dev.zio.schema.example.example1.Domain.Customer"),
-    field1 = Schema.Field[Person]("person", schemaPerson),
-    field2 = Schema.Field[PaymentMethod]("paymentMethod", schemaPaymentMethod),
+    field1 = Schema.Field["person", Person]("person", schemaPerson),
+    field2 = Schema.Field["paymentMethod", PaymentMethod]("paymentMethod", schemaPaymentMethod),
     construct = (person, paymentMethod) => Customer(person, paymentMethod),
     extractField1 = c => c.person,
     extractField2 = c => c.paymentMethod

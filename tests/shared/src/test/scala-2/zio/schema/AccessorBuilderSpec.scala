@@ -113,9 +113,25 @@ object AccessorBuilderSpec extends DefaultRunnableSpec {
       }
     },
     test("case class") {
-      val schema: Schema.CaseClass3[String, SchemaGen.Arity2, SchemaGen.Arity1, SchemaGen.Arity3] =
+      val schema: Schema.CaseClass3[
+        "value1",
+        "value2",
+        "value3",
+        String,
+        SchemaGen.Arity2,
+        SchemaGen.Arity1,
+        SchemaGen.Arity3
+      ] =
         Schema[SchemaGen.Arity3]
-          .asInstanceOf[Schema.CaseClass3[String, SchemaGen.Arity2, SchemaGen.Arity1, SchemaGen.Arity3]]
+          .asInstanceOf[Schema.CaseClass3[
+            "value1",
+            "value2",
+            "value3",
+            String,
+            SchemaGen.Arity2,
+            SchemaGen.Arity1,
+            SchemaGen.Arity3
+          ]]
       val accessor = schema.makeAccessors(builder)
 
       assertTrue(

@@ -18,8 +18,8 @@ trait SchemaEquality {
       visitedPairs: mutable.Set[(Schema[_], Schema[_])]
     ): Boolean = {
       implicit lazy val selfEqual: Equal[Schema[_]] = Equal.make(recursiveEqual(_, _, visitedPairs))
-      implicit lazy val fieldEqual: Equal[Schema.Field[_]] =
-        (l: Schema.Field[_], r: Schema.Field[_]) => {
+      implicit lazy val fieldEqual: Equal[Schema.Field[_ <: Singleton with String, _]] =
+        (l: Schema.Field[_ <: Singleton with String, _], r: Schema.Field[_ <: Singleton with String, _]) => {
           l.label === r.label &&
             l.schema === r.schema &&
             l.annotations == r.annotations

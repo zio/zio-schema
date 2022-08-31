@@ -217,7 +217,7 @@ object OrderingSpec extends DefaultRunnableSpec {
     } yield pair
 
   def genOrderedPairRecord[A](schema: Schema.Record[A]): Gen[Random with Sized, SchemaAndPair[A]] = {
-    val fields: Chunk[Schema.Field[_]] = schema.structure
+    val fields: Chunk[Schema.Field[_ <: Singleton with String, _]] = schema.structure
     for {
       diffInd       <- Gen.int(0, fields.size - 1)
       equalFields   <- genEqualFields(fields, 0, diffInd)
@@ -235,7 +235,7 @@ object OrderingSpec extends DefaultRunnableSpec {
   }
 
   def genEqualFields(
-    fields: Chunk[Schema.Field[_]],
+    fields: Chunk[Schema.Field[_, _]],
     currentInd: Int,
     diffInd: Int
   ): Gen[Random with Sized, Chunk[(String, DynamicValue, DynamicValue)]] =
@@ -246,21 +246,21 @@ object OrderingSpec extends DefaultRunnableSpec {
         x   <- genFromSchema(field.schema)
         d   = DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], x)
         rem <- genEqualFields(fields, currentInd + 1, diffInd)
-      } yield (field.label, d, d) +: rem
+      } yield (field.label.toString(), d, d) +: rem
     }
 
-  def genOrderedField(field: Schema.Field[_]): Gen[Random with Sized, (String, DynamicValue, DynamicValue)] =
+  def genOrderedField(field: Schema.Field[_, _]): Gen[Random with Sized, (String, DynamicValue, DynamicValue)] =
     genOrderedPair(field.schema).map {
       case (a, b) =>
         (
-          field.label,
+          field.label.toString(),
           DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], a),
           DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], b)
         )
     }
 
   def genRandomFields(
-    fields: Chunk[Schema.Field[_]],
+    fields: Chunk[Schema.Field[_ <: Singleton with String, _]],
     currentInd: Int
   ): Gen[Random with Sized, Chunk[(String, DynamicValue, DynamicValue)]] =
     if (currentInd >= fields.size) Gen.unit.map(_ => Chunk())

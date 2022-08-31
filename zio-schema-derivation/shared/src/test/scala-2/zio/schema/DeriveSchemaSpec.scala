@@ -42,7 +42,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   sealed case class User(name: String, @annotation1("foo") @annotation2("bar") @annotation3 @annotation4(0) id: UserId)
 
   object User {
-    implicit lazy val schema: Schema.CaseClass2[String, UserId, User] = DeriveSchema.gen[User]
+    implicit lazy val schema: Schema.CaseClass2["name", "id", String, UserId, User] = DeriveSchema.gen[User]
   }
 
   sealed trait Status
@@ -85,7 +85,8 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   case class Cyclic(field1: Long, child: CyclicChild1)
 
   object Cyclic {
-    implicit lazy val schema: Schema.CaseClass2[Long, CyclicChild1, Cyclic] = DeriveSchema.gen[Cyclic]
+    implicit lazy val schema: Schema.CaseClass2["field1", "child", Long, CyclicChild1, Cyclic] =
+      DeriveSchema.gen[Cyclic]
   }
 
   case class CyclicChild1(field1: Int, child: CyclicChild2)
@@ -186,7 +187,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
     @annotation2("case") case class AnnotatedCase(field: String) extends AnnotatedEnum
 
     object AnnotatedCase {
-      implicit val schema: Schema.CaseClass1[String, AnnotatedCase] = DeriveSchema.gen[AnnotatedCase]
+      implicit val schema: Schema.CaseClass1["field", String, AnnotatedCase] = DeriveSchema.gen[AnnotatedCase]
     }
 
     implicit val schema: Schema.Enum1[AnnotatedCase, AnnotatedEnum] = DeriveSchema.gen[AnnotatedEnum]

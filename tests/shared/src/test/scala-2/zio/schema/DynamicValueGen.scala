@@ -109,11 +109,11 @@ object DynamicValueGen {
       value <- anyDynamicValueOfSchema(cases(index).codec)
     } yield DynamicValue.Enumeration(TypeId.Structural, cases(index).id -> value)
 
-  def anyDynamicValueWithStructure(structure: Chunk[Schema.Field[_]]): Gen[Random with Sized, DynamicValue.Record] =
+  def anyDynamicValueWithStructure(structure: Chunk[Schema.Field[_, _]]): Gen[Random with Sized, DynamicValue.Record] =
     Gen
       .crossAll(
         structure
-          .map(field => Gen.const(field.label).zip(anyDynamicValueOfSchema(field.schema)))
+          .map(field => Gen.const(field.label.toString()).zip(anyDynamicValueOfSchema(field.schema)))
       )
       .map { values =>
         DynamicValue.Record(TypeId.Structural, ListMap.empty ++ values)

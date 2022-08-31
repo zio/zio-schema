@@ -41,9 +41,9 @@ object SchemaAstSpec extends DefaultRunnableSpec {
         val schema =
           Schema.record(
             TypeId.parse("zio.schema.SchemaAst.Product"),
-            Chunk(
-              Schema.Field("a", Schema[String]),
-              Schema.Field("b", Schema[Int])
+            Chunk[zio.schema.Schema.Field[_ <: Singleton with String, _]](
+              Schema.Field["a", String]("a", Schema[String]),
+              Schema.Field["b", Int]("b", Schema[Int])
             ): _*
           )
         val expectedAst =

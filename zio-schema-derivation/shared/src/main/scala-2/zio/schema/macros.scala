@@ -178,10 +178,15 @@ object DeriveSchema {
         }
         val arity = fieldTypes.size
 
-        val typeArgs = fieldTypes.map { ft =>
-          val fieldType = concreteType(tpe, tpe.decl(ft.name).typeSignature)
-          q"$fieldType"
-        } ++ Iterable(q"$tpe")
+        // derive all
+        val typeArgs =
+          fieldTypes.map { ft =>
+            tq"${ft.name.toString().trim()}.type"
+          } ++
+            fieldTypes.map { ft =>
+              val fieldType = concreteType(tpe, tpe.decl(ft.name).typeSignature)
+              q"$fieldType"
+            } ++ Iterable(q"$tpe")
 
         val fieldAccessors = sortedDecls.collect {
           case p: TermSymbol if p.isCaseAccessor && p.isMethod => p.name

@@ -262,37 +262,37 @@ object Differ {
     case Schema.Optional(schema, _)                                    => fromSchema(schema).optional
     case Schema.Sequence(schema, g, f, _, _) =>
       fromSchema(schema).chunk.transform(f, g)
-    case Schema.SetSchema(s, _)                                                                  => set(s)
-    case Schema.MapSchema(k, v, _)                                                               => map(k, v)
-    case Schema.Meta(_, _)                                                                       => (_: A, _: A) => Diff.notComparable[Schema[_]]
-    case Schema.EitherSchema(leftSchema, rightSchema, _)                                         => either(fromSchema(leftSchema), fromSchema(rightSchema))
-    case s @ Schema.Lazy(_)                                                                      => fromSchema(s.schema)
-    case Schema.Transform(schema, g, f, _, _)                                                    => fromSchema(schema).transformOrFail(f, g)
-    case Schema.Fail(_, _)                                                                       => fail
-    case s @ Schema.GenericRecord(_, _, _)                                                       => record(s)
-    case s: Schema.CaseClass0[A]                                                                 => product0(s)
-    case s: Schema.CaseClass1[_, A]                                                              => product1(s)
-    case s: Schema.CaseClass2[_, _, A]                                                           => product2(s)
-    case s: Schema.CaseClass3[_, _, _, A]                                                        => product3(s)
-    case s: Schema.CaseClass4[_, _, _, _, A]                                                     => product4(s)
-    case s: Schema.CaseClass5[_, _, _, _, _, A]                                                  => product5(s)
-    case s: Schema.CaseClass6[_, _, _, _, _, _, A]                                               => product6(s)
-    case s: Schema.CaseClass7[_, _, _, _, _, _, _, A]                                            => product7(s)
-    case s: Schema.CaseClass8[_, _, _, _, _, _, _, _, A]                                         => product8(s)
-    case s: Schema.CaseClass9[_, _, _, _, _, _, _, _, _, A]                                      => product9(s)
-    case s: Schema.CaseClass10[_, _, _, _, _, _, _, _, _, _, A]                                  => product10(s)
-    case s: Schema.CaseClass11[_, _, _, _, _, _, _, _, _, _, _, A]                               => product11(s)
-    case s: Schema.CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, A]                            => product12(s)
-    case s: Schema.CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, A]                         => product13(s)
-    case s: Schema.CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                      => product14(s)
-    case s: Schema.CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                   => product15(s)
-    case s: Schema.CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                => product16(s)
-    case s: Schema.CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]             => product17(s)
-    case s: Schema.CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]          => product18(s)
-    case s: Schema.CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]       => product19(s)
-    case s: Schema.CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]    => product20(s)
-    case s: Schema.CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] => product21(s)
-    case s: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
+    case Schema.SetSchema(s, _)                                                                                                                                 => set(s)
+    case Schema.MapSchema(k, v, _)                                                                                                                              => map(k, v)
+    case Schema.Meta(_, _)                                                                                                                                      => (_: A, _: A) => Diff.notComparable[Schema[_]]
+    case Schema.EitherSchema(leftSchema, rightSchema, _)                                                                                                        => either(fromSchema(leftSchema), fromSchema(rightSchema))
+    case s @ Schema.Lazy(_)                                                                                                                                     => fromSchema(s.schema)
+    case Schema.Transform(schema, g, f, _, _)                                                                                                                   => fromSchema(schema).transformOrFail(f, g)
+    case Schema.Fail(_, _)                                                                                                                                      => fail
+    case s @ Schema.GenericRecord(_, _, _)                                                                                                                      => record(s)
+    case s: Schema.CaseClass0[A]                                                                                                                                => product0(s)
+    case s: Schema.CaseClass1[_, _, A]                                                                                                                          => product1(s)
+    case s: Schema.CaseClass2[_, _, _, _, A]                                                                                                                    => product2(s)
+    case s: Schema.CaseClass3[_, _, _, _, _, _, A]                                                                                                              => product3(s)
+    case s: Schema.CaseClass4[_, _, _, _, _, _, _, _, A]                                                                                                        => product4(s)
+    case s: Schema.CaseClass5[_, _, _, _, _, _, _, _, _, _, A]                                                                                                  => product5(s)
+    case s: Schema.CaseClass6[_, _, _, _, _, _, _, _, _, _, _, _, A]                                                                                            => product6(s)
+    case s: Schema.CaseClass7[_, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                                                                                      => product7(s)
+    case s: Schema.CaseClass8[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                                                                                => product8(s)
+    case s: Schema.CaseClass9[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                                                                          => product9(s)
+    case s: Schema.CaseClass10[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                                                                   => product10(s)
+    case s: Schema.CaseClass11[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                                                             => product11(s)
+    case s: Schema.CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                                                       => product12(s)
+    case s: Schema.CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                                                 => product13(s)
+    case s: Schema.CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                                           => product14(s)
+    case s: Schema.CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                                     => product15(s)
+    case s: Schema.CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                               => product16(s)
+    case s: Schema.CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                         => product17(s)
+    case s: Schema.CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]                   => product18(s)
+    case s: Schema.CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]             => product19(s)
+    case s: Schema.CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A]       => product20(s)
+    case s: Schema.CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] => product21(s)
+    case s: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A] =>
       product22(s)
     case Schema.Enum1(_, c, _)                                                                                                    => enumN(c)
     case Schema.Enum2(_, c1, c2, _)                                                                                               => enumN(c1, c2)
@@ -573,10 +573,13 @@ object Differ {
             Diff.Record(ListMap.empty ++ diffs, schema).orIdentical
         }
 
-  private def conformsToStructure(map: ListMap[String, _], structure: Chunk[Schema.Field[_]]): Boolean =
+  private def conformsToStructure(
+    map: ListMap[String, _],
+    structure: Chunk[Schema.Field[_ <: Singleton with String, _]]
+  ): Boolean =
     structure.foldRight(true) {
-      case (_, false)                  => false
-      case (field: Schema.Field[a], _) => map.get(field.label).exists(_.isInstanceOf[a])
+      case (_, false)                     => false
+      case (field: Schema.Field[_, a], _) => map.get(field.label).exists(_.isInstanceOf[a])
     }
 
   def enumN[Z](cases: Schema.Case[_, Z]*): Differ[Z] =
@@ -917,43 +920,43 @@ private[schema] object ProductDiffer {
     (_: Z, _: Z) => Diff.identical
   }
 
-  def product1[A, Z](schema: Schema.CaseClass1[A, Z]): Differ[Z] =
+  def product1[A, Z](schema: Schema.CaseClass1[_, A, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record[Z](ListMap(fieldDiffer(schema.field, schema.extractField)(thisZ, thatZ)), schema)
         .orIdentical
 
-  def product2[A1, A2, Z](schema: Schema.CaseClass2[A1, A2, Z]): Differ[Z] =
+  def product2[A1, A2, Z](schema: Schema.CaseClass2[_, _, A1, A2, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(ListMap.empty ++ Chunk(fieldDiffer(schema.field1, schema.extractField1), fieldDiffer(schema.field2, schema.extractField2)).map(_.apply(thisZ, thatZ)), schema)
         .orIdentical
 
-  def product3[A1, A2, A3, Z](schema: Schema.CaseClass3[A1, A2, A3, Z]): Differ[Z] =
+  def product3[A1, A2, A3, Z](schema: Schema.CaseClass3[_, _, _, A1, A2, A3, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(ListMap.empty ++ Chunk(fieldDiffer(schema.field1, schema.extractField1), fieldDiffer(schema.field2, schema.extractField2), fieldDiffer(schema.field3, schema.extractField3)).map(_.apply(thisZ, thatZ)), schema)
         .orIdentical
 
-  def product4[A1, A2, A3, A4, Z](schema: Schema.CaseClass4[A1, A2, A3, A4, Z]): Differ[Z] =
+  def product4[A1, A2, A3, A4, Z](schema: Schema.CaseClass4[_, _, _, _, A1, A2, A3, A4, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(ListMap.empty ++ Chunk(fieldDiffer(schema.field1, schema.extractField1), fieldDiffer(schema.field2, schema.extractField2), fieldDiffer(schema.field3, schema.extractField3), fieldDiffer(schema.field4, schema.extractField4)).map(_.apply(thisZ, thatZ)), schema)
         .orIdentical
 
-  def product5[A1, A2, A3, A4, A5, Z](schema: Schema.CaseClass5[A1, A2, A3, A4, A5, Z]): Differ[Z] =
+  def product5[A1, A2, A3, A4, A5, Z](schema: Schema.CaseClass5[_, _, _, _, _, A1, A2, A3, A4, A5, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(ListMap.empty ++ Chunk(fieldDiffer(schema.field1, schema.extractField1), fieldDiffer(schema.field2, schema.extractField2), fieldDiffer(schema.field3, schema.extractField3), fieldDiffer(schema.field4, schema.extractField4), fieldDiffer(schema.field5, schema.extractField5)).map(_.apply(thisZ, thatZ)), schema)
         .orIdentical
 
-  def product6[A1, A2, A3, A4, A5, A6, Z](schema: Schema.CaseClass6[A1, A2, A3, A4, A5, A6, Z]): Differ[Z] =
+  def product6[A1, A2, A3, A4, A5, A6, Z](schema: Schema.CaseClass6[_, _, _, _, _, _, A1, A2, A3, A4, A5, A6, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(ListMap.empty ++ Chunk(fieldDiffer(schema.field1, schema.extractField1), fieldDiffer(schema.field2, schema.extractField2), fieldDiffer(schema.field3, schema.extractField3), fieldDiffer(schema.field4, schema.extractField4), fieldDiffer(schema.field5, schema.extractField5), fieldDiffer(schema.field6, schema.extractField6)).map(_.apply(thisZ, thatZ)), schema)
         .orIdentical
 
-  def product7[A1, A2, A3, A4, A5, A6, A7, Z](schema: Schema.CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z]): Differ[Z] =
+  def product7[A1, A2, A3, A4, A5, A6, A7, Z](schema: Schema.CaseClass7[_, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(
@@ -963,7 +966,7 @@ private[schema] object ProductDiffer {
         )
         .orIdentical
 
-  def product8[A1, A2, A3, A4, A5, A6, A7, A8, Z](schema: Schema.CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z]): Differ[Z] =
+  def product8[A1, A2, A3, A4, A5, A6, A7, A8, Z](schema: Schema.CaseClass8[_, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(
@@ -981,7 +984,7 @@ private[schema] object ProductDiffer {
         )
         .orIdentical
 
-  def product9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](schema: Schema.CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]): Differ[Z] =
+  def product9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](schema: Schema.CaseClass9[_, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(
@@ -1000,7 +1003,7 @@ private[schema] object ProductDiffer {
         )
         .orIdentical
 
-  def product10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](schema: Schema.CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]): Differ[Z] =
+  def product10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](schema: Schema.CaseClass10[_, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(
@@ -1020,7 +1023,7 @@ private[schema] object ProductDiffer {
         )
         .orIdentical
 
-  def product11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](schema: Schema.CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]): Differ[Z] =
+  def product11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](schema: Schema.CaseClass11[_, _, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(
@@ -1041,7 +1044,7 @@ private[schema] object ProductDiffer {
         )
         .orIdentical
 
-  def product12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](schema: Schema.CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]): Differ[Z] =
+  def product12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](schema: Schema.CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(
@@ -1063,7 +1066,7 @@ private[schema] object ProductDiffer {
         )
         .orIdentical
 
-  def product13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](schema: Schema.CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]): Differ[Z] =
+  def product13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](schema: Schema.CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(
@@ -1086,7 +1089,7 @@ private[schema] object ProductDiffer {
         )
         .orIdentical
 
-  def product14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](schema: Schema.CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]): Differ[Z] =
+  def product14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](schema: Schema.CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(
@@ -1110,7 +1113,7 @@ private[schema] object ProductDiffer {
         )
         .orIdentical
 
-  def product15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](schema: Schema.CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]): Differ[Z] =
+  def product15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](schema: Schema.CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(
@@ -1135,7 +1138,7 @@ private[schema] object ProductDiffer {
         )
         .orIdentical
 
-  def product16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](schema: Schema.CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]): Differ[Z] =
+  def product16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](schema: Schema.CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(
@@ -1161,7 +1164,7 @@ private[schema] object ProductDiffer {
         )
         .orIdentical
 
-  def product17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](schema: Schema.CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]): Differ[Z] =
+  def product17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](schema: Schema.CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(
@@ -1188,7 +1191,7 @@ private[schema] object ProductDiffer {
         )
         .orIdentical
 
-  def product18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](schema: Schema.CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]): Differ[Z] =
+  def product18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](schema: Schema.CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(
@@ -1216,7 +1219,7 @@ private[schema] object ProductDiffer {
         )
         .orIdentical
 
-  def product19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](schema: Schema.CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]): Differ[Z] =
+  def product19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](schema: Schema.CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(
@@ -1245,7 +1248,7 @@ private[schema] object ProductDiffer {
         )
         .orIdentical
 
-  def product20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](schema: Schema.CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]): Differ[Z] =
+  def product20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](schema: Schema.CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(
@@ -1275,7 +1278,7 @@ private[schema] object ProductDiffer {
         )
         .orIdentical
 
-  def product21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](schema: Schema.CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]): Differ[Z] =
+  def product21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](schema: Schema.CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(
@@ -1306,7 +1309,7 @@ private[schema] object ProductDiffer {
         )
         .orIdentical
 
-  def product22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](schema: Schema.CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z]): Differ[Z] =
+  def product22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](schema: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z]): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       Diff
         .Record(
@@ -1338,6 +1341,6 @@ private[schema] object ProductDiffer {
         )
         .orIdentical
 
-  private def fieldDiffer[A, Z](field: Schema.Field[A], extract: Z => A): (Z, Z) => (String, Diff[A]) =
-    (thisZ: Z, thatZ: Z) => field.label -> Differ.fromSchema(field.schema)(extract(thisZ), extract(thatZ))
+  private def fieldDiffer[A, Z](field: Schema.Field[_, A], extract: Z => A): (Z, Z) => (String, Diff[A]) =
+    (thisZ: Z, thatZ: Z) => field.label.toString -> Differ.fromSchema(field.schema)(extract(thisZ), extract(thatZ))
 }

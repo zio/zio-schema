@@ -82,16 +82,18 @@ object DeriveGen {
   private def genCaseClass0[Z](caseClass0: Schema.CaseClass0[Z]): Gen[Random with Sized, Z] =
     Gen.elements(caseClass0.construct())
 
-  private def genCaseClass1[A, Z](caseClass1: Schema.CaseClass1[A, Z]): Gen[Random with Sized, Z] =
+  private def genCaseClass1[A, Z](caseClass1: Schema.CaseClass1[_, A, Z]): Gen[Random with Sized, Z] =
     gen(caseClass1.field.schema).map(caseClass1.construct)
 
-  private def genCaseClass2[A1, A2, Z](caseClass2: Schema.CaseClass2[A1, A2, Z]): Gen[Random with Sized, Z] =
+  private def genCaseClass2[A1, A2, Z](caseClass2: Schema.CaseClass2[_, _, A1, A2, Z]): Gen[Random with Sized, Z] =
     for {
       f1 <- gen(caseClass2.field1.schema)
       f2 <- gen(caseClass2.field2.schema)
     } yield caseClass2.construct(f1, f2)
 
-  private def genCaseClass3[A1, A2, A3, Z](caseClass3: Schema.CaseClass3[A1, A2, A3, Z]): Gen[Random with Sized, Z] =
+  private def genCaseClass3[A1, A2, A3, Z](
+    caseClass3: Schema.CaseClass3[_, _, _, A1, A2, A3, Z]
+  ): Gen[Random with Sized, Z] =
     for {
       f1 <- gen(caseClass3.field1.schema)
       f2 <- gen(caseClass3.field2.schema)
@@ -99,7 +101,7 @@ object DeriveGen {
     } yield caseClass3.construct(f1, f2, f3)
 
   private def genCaseClass4[A1, A2, A3, A4, Z](
-    caseClass4: Schema.CaseClass4[A1, A2, A3, A4, Z]
+    caseClass4: Schema.CaseClass4[_, _, _, _, A1, A2, A3, A4, Z]
   ): Gen[Random with Sized, Z] =
     for {
       f1 <- gen(caseClass4.field1.schema)
@@ -109,7 +111,7 @@ object DeriveGen {
     } yield caseClass4.construct(f1, f2, f3, f4)
 
   private def genCaseClass5[A1, A2, A3, A4, A5, Z](
-    caseClass5: Schema.CaseClass5[A1, A2, A3, A4, A5, Z]
+    caseClass5: Schema.CaseClass5[_, _, _, _, _, A1, A2, A3, A4, A5, Z]
   ): Gen[Random with Sized, Z] =
     for {
       f1 <- gen(caseClass5.field1.schema)
@@ -120,7 +122,7 @@ object DeriveGen {
     } yield caseClass5.construct(f1, f2, f3, f4, f5)
 
   private def genCaseClass6[A1, A2, A3, A4, A5, A6, Z](
-    caseClass6: Schema.CaseClass6[A1, A2, A3, A4, A5, A6, Z]
+    caseClass6: Schema.CaseClass6[_, _, _, _, _, _, A1, A2, A3, A4, A5, A6, Z]
   ): Gen[Random with Sized, Z] =
     for {
       f1 <- gen(caseClass6.field1.schema)
@@ -132,7 +134,7 @@ object DeriveGen {
     } yield caseClass6.construct(f1, f2, f3, f4, f5, f6)
 
   private def genCaseClass7[A1, A2, A3, A4, A5, A6, A7, Z](
-    caseClass7: Schema.CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z]
+    caseClass7: Schema.CaseClass7[_, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, Z]
   ): Gen[Random with Sized, Z] =
     for {
       f1 <- gen(caseClass7.field1.schema)
@@ -145,7 +147,7 @@ object DeriveGen {
     } yield caseClass7.construct(f1, f2, f3, f4, f5, f6, f7)
 
   private def genCaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
-    caseClass8: Schema.CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z]
+    caseClass8: Schema.CaseClass8[_, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, Z]
   ): Gen[Random with Sized, Z] =
     for {
       f1 <- gen(caseClass8.field1.schema)
@@ -159,7 +161,7 @@ object DeriveGen {
     } yield caseClass8.construct(f1, f2, f3, f4, f5, f6, f7, f8)
 
   private def genCaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
-    caseClass9: Schema.CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]
+    caseClass9: Schema.CaseClass9[_, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]
   ): Gen[Random with Sized, Z] =
     for {
       f1 <- gen(caseClass9.field1.schema)
@@ -174,7 +176,7 @@ object DeriveGen {
     } yield caseClass9.construct(f1, f2, f3, f4, f5, f6, f7, f8, f9)
 
   private def genCaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
-    caseClass10: Schema.CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]
+    caseClass10: Schema.CaseClass10[_, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]
   ): Gen[Random with Sized, Z] =
     for {
       f1  <- gen(caseClass10.field1.schema)
@@ -190,7 +192,7 @@ object DeriveGen {
     } yield caseClass10.construct(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10)
 
   private def genCaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
-    caseClass11: Schema.CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]
+    caseClass11: Schema.CaseClass11[_, _, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]
   ): Gen[Random with Sized, Z] =
     for {
       f1  <- gen(caseClass11.field1.schema)
@@ -207,7 +209,33 @@ object DeriveGen {
     } yield caseClass11.construct(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11)
 
   private def genCaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
-    caseClass12: Schema.CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]
+    caseClass12: Schema.CaseClass12[
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      Z
+    ]
   ): Gen[Random with Sized, Z] =
     for {
       f1  <- gen(caseClass12.field1.schema)
@@ -225,7 +253,35 @@ object DeriveGen {
     } yield caseClass12.construct(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12)
 
   private def genCaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
-    caseClass13: Schema.CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]
+    caseClass13: Schema.CaseClass13[
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      Z
+    ]
   ): Gen[Random with Sized, Z] =
     for {
       f1  <- gen(caseClass13.field1.schema)
@@ -244,7 +300,37 @@ object DeriveGen {
     } yield caseClass13.construct(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13)
 
   private def genCaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
-    caseClass14: Schema.CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]
+    caseClass14: Schema.CaseClass14[
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      Z
+    ]
   ): Gen[Random with Sized, Z] =
     for {
       f1  <- gen(caseClass14.field1.schema)
@@ -264,7 +350,39 @@ object DeriveGen {
     } yield caseClass14.construct(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14)
 
   private def genCaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
-    caseClass15: Schema.CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]
+    caseClass15: Schema.CaseClass15[
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      Z
+    ]
   ): Gen[Random with Sized, Z] =
     for {
       f1  <- gen(caseClass15.field1.schema)
@@ -285,7 +403,41 @@ object DeriveGen {
     } yield caseClass15.construct(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15)
 
   private def genCaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
-    caseClass16: Schema.CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]
+    caseClass16: Schema.CaseClass16[
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      Z
+    ]
   ): Gen[Random with Sized, Z] =
     for {
       f1  <- gen(caseClass16.field1.schema)
@@ -307,7 +459,43 @@ object DeriveGen {
     } yield caseClass16.construct(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16)
 
   private def genCaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
-    caseClass17: Schema.CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]
+    caseClass17: Schema.CaseClass17[
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      Z
+    ]
   ): Gen[Random with Sized, Z] =
     for {
       f1  <- gen(caseClass17.field1.schema)
@@ -330,7 +518,45 @@ object DeriveGen {
     } yield caseClass17.construct(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17)
 
   private def genCaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
-    caseClass18: Schema.CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]
+    caseClass18: Schema.CaseClass18[
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      Z
+    ]
   ): Gen[Random with Sized, Z] =
     for {
       f1  <- gen(caseClass18.field1.schema)
@@ -355,7 +581,7 @@ object DeriveGen {
 
   // scalafmt: { maxColumn = 200 }
   private def genCaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
-    caseClass19: Schema.CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]
+    caseClass19: Schema.CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]
   ): Gen[Random with Sized, Z] =
     for {
       f1  <- gen(caseClass19.field1.schema)
@@ -380,7 +606,7 @@ object DeriveGen {
     } yield caseClass19.construct(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19)
 
   private def genCaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](
-    caseClass20: Schema.CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]
+    caseClass20: Schema.CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]
   ): Gen[Random with Sized, Z] =
     for {
       f1  <- gen(caseClass20.field1.schema)
@@ -406,7 +632,7 @@ object DeriveGen {
     } yield caseClass20.construct(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20)
 
   private def genCaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](
-    caseClass21: Schema.CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]
+    caseClass21: Schema.CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]
   ): Gen[Random with Sized, Z] =
     for {
       f1  <- gen(caseClass21.field1.schema)
@@ -433,7 +659,53 @@ object DeriveGen {
     } yield caseClass21.construct(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21)
 
   private def genCaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](
-    caseClass22: Schema.CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z]
+    caseClass22: Schema.CaseClass22[
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      _,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      A19,
+      A20,
+      A21,
+      A22,
+      Z
+    ]
   ): Gen[Random with Sized, Z] =
     for {
       f1  <- gen(caseClass22.field1.schema)

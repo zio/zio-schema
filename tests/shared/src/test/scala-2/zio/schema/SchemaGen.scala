@@ -13,7 +13,9 @@ object SchemaGen {
 
   val anyLabel: Gen[Random with Sized, String] = Gen.alphaNumericStringBounded(1, 3)
 
-  def anyStructure(schemaGen: Gen[Random with Sized, Schema[_]]): Gen[Random with Sized, Seq[Schema.Field[_]]] =
+  def anyStructure(
+    schemaGen: Gen[Random with Sized, Schema[_]]
+  ): Gen[Random with Sized, Seq[Schema.Field[_ <: Singleton with String, _]]] =
     Gen.setOfBounded(1, 8)(anyLabel).flatMap { keySet =>
       Gen.setOfN(keySet.size)(schemaGen).map { schemas =>
         keySet
@@ -25,7 +27,7 @@ object SchemaGen {
       }
     }
 
-  def anyStructure[A](schema: Schema[A]): Gen[Random with Sized, Seq[Schema.Field[A]]] =
+  def anyStructure[A](schema: Schema[A]): Gen[Random with Sized, Seq[Schema.Field[_ <: Singleton with String, A]]] =
     Gen
       .setOfBounded(1, 8)(
         anyLabel.map(Schema.Field(_, schema))

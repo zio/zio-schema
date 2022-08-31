@@ -11,7 +11,7 @@ sealed trait CaseSet { self =>
 
   type EnumType
 
-  type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]]
+  type Accessors[Whole, Lens[_ <: Singleton with String, _, _], Prism[_, _, _], Traversal[_, _]]
 
   def :+:[A](head: Case[A, EnumType]): A :+: CaseSet.Aux[EnumType]
 
@@ -31,7 +31,7 @@ object CaseSet {
   final case class Empty[Z]() extends CaseSet { self =>
     type EnumType = Z
 
-    override type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Unit
+    override type Accessors[Whole, Lens[_ <: Singleton with String, _, _], Prism[_, _, _], Traversal[_, _]] = Unit
 
     override def :+:[A](head: Case[A, EnumType]): A :+: Empty[EnumType] = Cons(head, self)
 
@@ -61,7 +61,7 @@ object CaseSet {
   final case class Cons[A, +T <: CaseSet.Aux[Z], Z](head: Case[A, Z], tail: T) extends :+:[A, T] { self =>
     type EnumType = Z
 
-    override type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
+    override type Accessors[Whole, Lens[_ <: Singleton with String, _, _], Prism[_, _, _], Traversal[_, _]] =
       (Prism[head.id.type, Whole, A], tail.Accessors[Whole, Lens, Prism, Traversal])
 
     override def :+:[B](head2: Case[B, Z]): Cons[B, Cons[A, T, Z], Z] = Cons(head2, self)

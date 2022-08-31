@@ -19,9 +19,9 @@ object ZioOpticsBuilder extends AccessorBuilder {
   type Prism[F, S, A]  = ZPrism[S, S, A, A]
   type Traversal[S, A] = ZTraversal[S, S, A, A]
 
-  override def makeLens[F, S, A](
+  override def makeLens[F <: Singleton with String, S, A](
     product: Schema.Record[S],
-    term: Schema.Field[A]
+    term: Schema.Field[F, A]
   ): Optic[S, S, A, OpticFailure, OpticFailure, A, S] =
     Optic(
       getOptic = ZioOpticsBuilder.makeLensGet(product, term),
@@ -59,9 +59,9 @@ object ZioOpticsBuilder extends AccessorBuilder {
         )
     }
 
-  private[optics] def makeLensGet[S, A](
+  private[optics] def makeLensGet[F <: Singleton with String, S, A](
     product: Schema.Record[S],
-    term: Schema.Field[A]
+    term: Schema.Field[F, A]
   ): S => Either[(OpticFailure, S), A] = { (whole: S) =>
     product.toDynamic(whole) match {
       case DynamicValue.Record(_, values) =>
@@ -78,9 +78,9 @@ object ZioOpticsBuilder extends AccessorBuilder {
     }
   }
 
-  private[optics] def makeLensSet[S, A](
+  private[optics] def makeLensSet[F <: Singleton with String, S, A](
     product: Schema.Record[S],
-    term: Schema.Field[A]
+    term: Schema.Field[F, A]
   ): A => S => Either[(OpticFailure, S), S] = { (piece: A) => (whole: S) =>
     product.toDynamic(whole) match {
       case DynamicValue.Record(name, values) =>
