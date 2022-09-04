@@ -1,5 +1,6 @@
-package zio.schema.ast
+package zio.schema.meta
 
+import zio.schema.meta.NodePath
 import zio.test._
 
 object NodePathSpec extends ZIOSpecDefault {

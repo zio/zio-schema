@@ -5,7 +5,7 @@ import java.time.format.DateTimeFormatter
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
-import zio.schema.ast.{ NodePath, SchemaAst }
+import zio.schema.meta.{ MetaSchema, NodePath }
 import zio.test.{ Gen, Sized }
 
 object DeriveGen {
@@ -531,13 +531,13 @@ object DeriveGen {
   private def genLazy[A](lazySchema: Schema.Lazy[A]): Gen[Sized, A] =
     Gen.suspend(gen(lazySchema.schema))
 
-  private def genMeta[A](ast: SchemaAst): Gen[Sized, A] =
+  private def genMeta[A](ast: MetaSchema): Gen[Sized, A] =
     gen(ast.toSchema).map(_.asInstanceOf[A])
 
   private def genSemiDynamic[A]: Gen[Sized, A] =
     genAst().map(_.toSchema).flatMap(schema => gen(schema).map(value => (value, schema).asInstanceOf[A]))
 
-  private def genSchemaAstProduct(path: NodePath): Gen[Sized, SchemaAst.Product] =
+  private def genSchemaAstProduct(path: NodePath): Gen[Sized, MetaSchema.Product] =
     for {
       optional <- Gen.boolean
       fields <- Gen.chunkOf(
@@ -545,9 +545,9 @@ object DeriveGen {
                    .string1(Gen.asciiChar)
                    .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
                )
-    } yield SchemaAst.Product(path, fields, optional)
+    } yield MetaSchema.Product(path, fields, optional)
 
-  private def genSchemaAstSum(path: NodePath): Gen[Sized, SchemaAst.Sum] =
+  private def genSchemaAstSum(path: NodePath): Gen[Sized, MetaSchema.Sum] =
     for {
       optional <- Gen.boolean
       fields <- Gen.chunkOf(
@@ -555,9 +555,9 @@ object DeriveGen {
                    .string1(Gen.asciiChar)
                    .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
                )
-    } yield SchemaAst.Sum(path, fields, optional)
+    } yield MetaSchema.Sum(path, fields, optional)
 
-  private def genSchemaAstValue(path: NodePath): Gen[Any, SchemaAst.Value] =
+  private def genSchemaAstValue(path: NodePath): Gen[Any, MetaSchema.Value] =
     for {
       formatter <- Gen.oneOf(
                     Gen.const(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
@@ -594,15 +594,15 @@ object DeriveGen {
                     Gen.const(StandardType.ZonedDateTimeType(formatter))
                   )
       optional <- Gen.boolean
-    } yield SchemaAst.Value(valueType, path, optional)
+    } yield MetaSchema.Value(valueType, path, optional)
 
-  private def genSchemaAstDynamic(path: NodePath): Gen[Any, SchemaAst.Dynamic] =
+  private def genSchemaAstDynamic(path: NodePath): Gen[Any, MetaSchema.Dynamic] =
     for {
       withSchema <- Gen.boolean
       optional   <- Gen.boolean
-    } yield SchemaAst.Dynamic(withSchema, path, optional)
+    } yield MetaSchema.Dynamic(withSchema, path, optional)
 
-  private def genAst(path: NodePath = NodePath.root): Gen[Sized, SchemaAst] =
+  private def genAst(path: NodePath = NodePath.root): Gen[Sized, MetaSchema] =
     Gen.weighted(
       genSchemaAstProduct(path) -> 3,
       genSchemaAstSum(path)     -> 1,

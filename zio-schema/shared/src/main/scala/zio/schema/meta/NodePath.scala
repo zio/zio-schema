@@ -1,4 +1,4 @@
-package zio.schema.ast
+package zio.schema.meta
 
 import zio.Chunk
 import zio.prelude._

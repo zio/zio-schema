@@ -26,7 +26,7 @@ import java.util.UUID
 import scala.annotation.{ nowarn, tailrec }
 import scala.collection.immutable.ListMap
 
-import zio.schema.ast.Migration
+import zio.schema.meta.Migration
 import zio.schema.diff.Edit
 import zio.{ Chunk, ChunkBuilder }
 

@@ -8,7 +8,7 @@ import java.util.UUID
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
-import zio.schema.ast.{ Migration, SchemaAst }
+import zio.schema.meta.{ MetaSchema, Migration }
 
 sealed trait DynamicValue { self =>
 
@@ -1844,7 +1844,7 @@ object DynamicValue {
 
       case Schema.SemiDynamic(_, _) =>
         val (a, schema) = value.asInstanceOf[(Any, Schema[Any])]
-        Tuple(fromSchemaAndValue(schema, a), DynamicAst(schema.ast))
+        Tuple(fromSchemaAndValue(schema, a), DynamicAst(schema.metaSchema))
     }
 
   def decodeStructure(
@@ -1891,7 +1891,7 @@ object DynamicValue {
 
   final case class RightValue(value: DynamicValue) extends DynamicValue
 
-  final case class DynamicAst(ast: SchemaAst) extends DynamicValue
+  final case class DynamicAst(ast: MetaSchema) extends DynamicValue
 
   final case class Error(message: String) extends DynamicValue
 
@@ -2083,8 +2083,8 @@ private[schema] object DynamicValueSchema { self =>
   private val dynamicAstCase: Schema.Case[DynamicValue.DynamicAst, DynamicValue] =
     Schema.Case(
       "DynamicAst",
-      Schema.CaseClass1[SchemaAst, DynamicValue.DynamicAst](
-        Schema.Field("ast", SchemaAst.schema),
+      Schema.CaseClass1[MetaSchema, DynamicValue.DynamicAst](
+        Schema.Field("ast", MetaSchema.schema),
         schemaAst => DynamicValue.DynamicAst(schemaAst),
         dynamicAst => dynamicAst.ast
       ),

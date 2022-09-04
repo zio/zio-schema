@@ -2,7 +2,7 @@ package dev.zio.schema.example.example4
 
 import zio._
 import zio.schema._
-import zio.schema.ast._
+import zio.schema.meta._
 
 /**
  * Example 4: In this Example, we use ZIO-Schema to migrate objects from one representation to another.
@@ -81,7 +81,7 @@ object Example4Ast extends zio.ZIOAppDefault {
     .toDynamic(webPerson)
     .transform(
       Chunk(
-        Migration.AddNode(NodePath.root / "lastname", SchemaAst.fromSchema(DomainPerson.lastname.schema))
+        Migration.AddNode(NodePath.root / "lastname", MetaSchema.fromSchema(DomainPerson.lastname.schema))
 //      Migration.Relabel(NodePath.root / "years", Migration.LabelTransformation("age")) // does not compile, LabelTransformation
       )
     )
@@ -102,9 +102,9 @@ object Example4Ast2 extends zio.ZIOAppDefault {
     },
     (dto: DomainPerson) => WebPerson(dto.firstname + " " + dto.lastname, dto.years)
   )
-  val webPersonAst: SchemaAst    = SchemaAst.fromSchema(WebPerson.schema)
-  val domainPersonAst: SchemaAst = SchemaAst.fromSchema(DomainPerson.schema)
-  val migrationAst: SchemaAst    = SchemaAst.fromSchema(personTransformation)
+  val webPersonAst: MetaSchema    = MetaSchema.fromSchema(WebPerson.schema)
+  val domainPersonAst: MetaSchema = MetaSchema.fromSchema(DomainPerson.schema)
+  val migrationAst: MetaSchema    = MetaSchema.fromSchema(personTransformation)
 
   val migrationWebPersonAstToMigrationAst: Either[String, Chunk[Migration]] =
     Migration.derive(webPersonAst, migrationAst)

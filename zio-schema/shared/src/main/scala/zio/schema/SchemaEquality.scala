@@ -66,7 +66,7 @@ trait SchemaEquality {
               lEither.right === rEither.right
           case (lMeta: Schema.Meta, rMeta: Schema.Meta) =>
             lMeta.annotations == rMeta.annotations &&
-              lMeta.ast === rMeta.ast
+              lMeta.metaSchema === rMeta.metaSchema
           case (lLazy: Schema.Lazy[_], rLazy: Schema.Lazy[_]) =>
             if (lLazy.schema eq rLazy.schema)
               true

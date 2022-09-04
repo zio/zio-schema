@@ -1,9 +1,8 @@
 package zio.schema
 
 import scala.collection.immutable.ListMap
-
 import zio._
-import zio.schema.ast._
+import zio.schema.meta.{ MetaSchema, Migration, NodePath }
 import zio.schema.syntax._
 import zio.test._
 
@@ -13,8 +12,8 @@ object MigrationSpec extends ZIOSpecDefault {
     suite("Derivation")(
       suite("Value")(
         test("change type") {
-          val from = SchemaAst.Value(StandardType.IntType, NodePath.root)
-          val to   = SchemaAst.Value(StandardType.StringType, NodePath.root)
+          val from = MetaSchema.Value(StandardType.IntType, NodePath.root)
+          val to   = MetaSchema.Value(StandardType.StringType, NodePath.root)
 
           assertTrue(
             Migration
@@ -22,8 +21,8 @@ object MigrationSpec extends ZIOSpecDefault {
           )
         },
         test("optional") {
-          val from = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = false)
-          val to   = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true)
+          val from = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = false)
+          val to   = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true)
 
           assertTrue(
             Migration
@@ -31,8 +30,8 @@ object MigrationSpec extends ZIOSpecDefault {
           )
         },
         test("require") {
-          val from = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true)
-          val to   = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = false)
+          val from = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true)
+          val to   = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = false)
 
           assertTrue(
             Migration
@@ -40,9 +39,9 @@ object MigrationSpec extends ZIOSpecDefault {
           )
         },
         test("increment dimensions") {
-          val from = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true)
+          val from = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true)
           val to =
-            SchemaAst.ListNode(SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true), NodePath.root)
+            MetaSchema.ListNode(MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true), NodePath.root)
 
           assertTrue(
             Migration
@@ -51,8 +50,8 @@ object MigrationSpec extends ZIOSpecDefault {
         },
         test("decrement dimensions") {
           val from =
-            SchemaAst.ListNode(SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true), NodePath.root)
-          val to = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true)
+            MetaSchema.ListNode(MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true), NodePath.root)
+          val to = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true)
 
           assertTrue(
             Migration
@@ -195,7 +194,7 @@ object MigrationSpec extends ZIOSpecDefault {
       test("ignore add case") {
         val value: Pet1  = Pet1.Dog("name")
         val dynamicValue = value.dynamic
-        assert(Migration.AddCase(NodePath.root, SchemaAst.Value(StandardType.UnitType, NodePath.root)))(
+        assert(Migration.AddCase(NodePath.root, MetaSchema.Value(StandardType.UnitType, NodePath.root)))(
           transformsValueTo(value, dynamicValue)
         )
       },
@@ -210,13 +209,13 @@ object MigrationSpec extends ZIOSpecDefault {
 
   def containsTransformation[From: Schema, To: Schema](expectedTransform: Migration): Boolean =
     Migration
-      .derive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
+      .derive(MetaSchema.fromSchema(Schema[From]), MetaSchema.fromSchema(Schema[To]))
       .map(_.contains(expectedTransform))
       .getOrElse(false)
 
   def addsNode[From: Schema, To: Schema](expectedPath: Chunk[String]): Boolean =
     Migration
-      .derive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
+      .derive(MetaSchema.fromSchema(Schema[From]), MetaSchema.fromSchema(Schema[To]))
       .map(
         _.exists {
           case Migration.AddNode(path, _) => path == expectedPath
@@ -227,7 +226,7 @@ object MigrationSpec extends ZIOSpecDefault {
 
   def addsCase[From: Schema, To: Schema](expectedPath: Chunk[String]): Boolean =
     Migration
-      .derive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
+      .derive(MetaSchema.fromSchema(Schema[From]), MetaSchema.fromSchema(Schema[To]))
       .map(
         _.exists {
           case Migration.AddCase(path, _) => path == expectedPath
@@ -238,7 +237,7 @@ object MigrationSpec extends ZIOSpecDefault {
 
   def deletesNode[From: Schema, To: Schema](expectedPath: Chunk[String]): Boolean =
     Migration
-      .derive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
+      .derive(MetaSchema.fromSchema(Schema[From]), MetaSchema.fromSchema(Schema[To]))
       .map(
         _.exists {
           case Migration.DeleteNode(path) => path == expectedPath
@@ -249,7 +248,7 @@ object MigrationSpec extends ZIOSpecDefault {
 
   def includesMigration[From: Schema, To: Schema](m: Migration): Boolean =
     Migration
-      .derive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
+      .derive(MetaSchema.fromSchema(Schema[From]), MetaSchema.fromSchema(Schema[To]))
       .map(
         _.contains(m)
       )

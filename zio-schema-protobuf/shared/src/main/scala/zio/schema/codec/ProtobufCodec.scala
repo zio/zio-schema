@@ -10,7 +10,7 @@ import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 
 import zio.schema._
-import zio.schema.ast.SchemaAst
+import zio.schema.meta.MetaSchema
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZPipeline
 import zio.{ Chunk, ZIO }
@@ -145,7 +145,7 @@ object ProtobufCodec extends Codec {
         case (Schema.Optional(codec, _), v: Option[_])              => encodeOptional(fieldNumber, codec, v)
         case (Schema.EitherSchema(left, right, _), v: Either[_, _]) => encodeEither(fieldNumber, left, right, v)
         case (lzy @ Schema.Lazy(_), v)                              => encode(fieldNumber, lzy.schema, v)
-        case (Schema.Meta(ast, _), _)                               => encode(fieldNumber, Schema[SchemaAst], ast)
+        case (Schema.Meta(ast, _), _)                               => encode(fieldNumber, Schema[MetaSchema], ast)
         case (Schema.CaseClass1(f, _, ext, _), v)                   => encodeCaseClass(v, f -> ext)(fieldNumber)
         case (Schema.CaseClass2(f1, f2, _, ext1, ext2, _), v)       => encodeCaseClass(v, f1 -> ext1, f2 -> ext2)(fieldNumber)
         case (Schema.CaseClass3(f1, f2, f3, _, ext1, ext2, ext3, _), v) =>
@@ -218,7 +218,7 @@ object ProtobufCodec extends Codec {
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
     private def encodeSemiDynamic[A](fieldNumber: Option[Int], valueAndSchema: (A, Schema[A])): Chunk[Byte] =
-      encodeTuple(fieldNumber, Schema[SchemaAst], valueAndSchema._2, (valueAndSchema._2.ast, valueAndSchema._1))
+      encodeTuple(fieldNumber, Schema[MetaSchema], valueAndSchema._2, (valueAndSchema._2.metaSchema, valueAndSchema._1))
 
     private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[_, Z]*): Chunk[Byte] = {
       val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
@@ -584,7 +584,7 @@ object ProtobufCodec extends Codec {
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
     private val astDecoder: Decoder[Schema[_]] =
-      decoder(Schema[SchemaAst]).map(_.toSchema)
+      decoder(Schema[MetaSchema]).map(_.toSchema)
 
     private val dynamicDecoder: Decoder[DynamicValue] =
       decoder(DynamicValueSchema.schema)

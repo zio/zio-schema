@@ -5,7 +5,7 @@ import java.time.temporal.ChronoUnit
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
-import zio.schema.ast._
+import zio.schema.meta._
 import zio.schema.internal.SourceLocation
 
 /**
@@ -57,7 +57,10 @@ sealed trait Schema[A] {
    */
   def annotations: Chunk[Any]
 
-  def ast: SchemaAst = SchemaAst.fromSchema(self)
+  /**
+   * Schema of a schema
+   */
+  def metaSchema: MetaSchema = MetaSchema.fromSchema(self)
 
   /**
    * Returns a new schema that with `annotation`
@@ -101,7 +104,7 @@ sealed trait Schema[A] {
    *  Generate a homomorphism from A to B iff A and B are homomorphic
    */
   def migrate[B](newSchema: Schema[B]): Either[String, A => Either[String, B]] =
-    Migration.derive(SchemaAst.fromSchema(self), SchemaAst.fromSchema(newSchema)).map { transforms => (a: A) =>
+    Migration.derive(MetaSchema.fromSchema(self), MetaSchema.fromSchema(newSchema)).map { transforms => (a: A) =>
       self.toDynamic(a).transform(transforms).flatMap(newSchema.fromDynamic)
     }
 
@@ -122,10 +125,10 @@ sealed trait Schema[A] {
 
   def serializable: Schema[Schema[A]] =
     Schema
-      .Meta(SchemaAst.fromSchema(self))
+      .Meta(MetaSchema.fromSchema(self))
       .transformOrFail(
         s => s.coerce(self),
-        s => Right(s.ast.toSchema)
+        s => Right(s.metaSchema.toSchema)
       )
 
   def toDynamic(value: A): DynamicValue =
@@ -304,9 +307,9 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
 
     override def annotate(annotation: Any): Transform[A, B, I] = copy(annotations = annotations :+ annotation)
 
-    override def serializable: Schema[Schema[B]] = Meta(SchemaAst.fromSchema(codec)).transformOrFail(
+    override def serializable: Schema[Schema[B]] = Meta(MetaSchema.fromSchema(codec)).transformOrFail(
       s => s.coerce(codec).flatMap(s1 => Right(s1.transformOrFail(f, g))),
-      s => Right(s.transformOrFail(g, f).ast.toSchema)
+      s => Right(s.transformOrFail(g, f).metaSchema.toSchema)
     )
     override def toString: String = s"Transform($codec, $identity)"
 
@@ -429,14 +432,15 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
     override def annotations: Chunk[Any] = schema0().annotations
   }
 
-  final case class Meta(override val ast: SchemaAst, annotations: Chunk[Any] = Chunk.empty) extends Schema[Schema[_]] {
+  final case class Meta(override val metaSchema: MetaSchema, annotations: Chunk[Any] = Chunk.empty)
+      extends Schema[Schema[_]] {
 
     override def annotate(annotation: Any): Meta = copy(annotations = annotations :+ annotation)
 
     override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
 
     override def defaultValue: Either[String, Schema[_]] =
-      ast.toSchema.defaultValue.asInstanceOf[Either[String, Schema[_]]]
+      metaSchema.toSchema.defaultValue.asInstanceOf[Either[String, Schema[_]]]
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
 
