@@ -166,127 +166,6 @@ object DiffSpec extends ZIOSpecDefault with DefaultJavaTimeSchemas {
         notComparable[Pet](_.isInstanceOf[Pet.Dog], _.isInstanceOf[Pet.Cat])(_.isLeft)
       }
     ),
-    suite("patch invertible law")(
-      suite("standard types")(
-        test("Int")(patchInvertibleLaw[Int]),
-        test("Long")(patchInvertibleLaw[Long]),
-        test("Float")(patchInvertibleLaw[Float]),
-        test("Double")(patchInvertibleLaw[Double]),
-        test("Boolean")(patchInvertibleLaw[Boolean]),
-        test("String")(patchInvertibleLaw[String]),
-        test("ZonedDateTime")(patchInvertibleLaw[java.time.ZonedDateTime]),
-        test("OffsetDateTime")(patchInvertibleLaw[java.time.OffsetDateTime]),
-        test("OffsetTime")(patchInvertibleLaw[java.time.OffsetTime]),
-        test("LocalTime")(patchInvertibleLaw[java.time.LocalTime]),
-        test("LocalDate")(patchInvertibleLaw[java.time.LocalDate]),
-        test("Instant")(patchInvertibleLaw[java.time.Instant]),
-        test("Duration")(patchInvertibleLaw[java.time.Duration]),
-        test("ZoneOffset")(patchInvertibleLaw[java.time.ZoneOffset]),
-        test("ZoneId")(patchInvertibleLaw[java.time.ZoneId]),
-        test("YearMonth")(patchInvertibleLaw[java.time.YearMonth]),
-        test("Year")(patchInvertibleLaw[java.time.Year]),
-        test("Period")(patchInvertibleLaw[java.time.Period]),
-        test("MonthDay")(patchInvertibleLaw[java.time.MonthDay]) @@ TestAspect.ignore, // TODO Leap years!
-        test("Month")(patchInvertibleLaw[java.time.Month]),
-        test("DayOfWeek")(patchInvertibleLaw[java.time.DayOfWeek]),
-        test("BigInteger")(patchInvertibleLaw[java.math.BigInteger]),
-        test("BigDecimal")(patchInvertibleLaw[java.math.BigDecimal]),
-        test("Bytes")(patchInvertibleLaw[Chunk[Byte]])
-      ),
-      suite("sequences")(
-        suite("of standard types")(
-          test("Int")(patchInvertibleLaw[List[Int]]),
-          test("Long")(patchInvertibleLaw[List[Long]]),
-          test("Float")(patchInvertibleLaw[List[Float]]),
-          test("Double")(patchInvertibleLaw[List[Double]]),
-          test("Boolean")(patchInvertibleLaw[List[Boolean]]),
-          test("String")(patchInvertibleLaw[List[String]]),
-          test("ZonedDateTime")(patchInvertibleLaw[List[java.time.ZonedDateTime]]),
-          test("OffsetDateTime")(patchInvertibleLaw[List[java.time.OffsetDateTime]]),
-          test("OffsetTime")(patchInvertibleLaw[List[java.time.OffsetTime]]),
-          test("LocalTime")(patchInvertibleLaw[List[java.time.LocalTime]]),
-          test("LocalDate")(patchInvertibleLaw[List[java.time.LocalDate]]),
-          test("Instant")(patchInvertibleLaw[List[java.time.Instant]]),
-          test("Duration")(patchInvertibleLaw[List[java.time.Duration]]),
-          test("ZoneOffset")(patchInvertibleLaw[List[java.time.ZoneOffset]]),
-          test("ZoneId")(patchInvertibleLaw[List[java.time.ZoneId]]),
-          test("YearMonth")(patchInvertibleLaw[List[java.time.YearMonth]]),
-          test("Year")(patchInvertibleLaw[List[java.time.Year]]),
-          test("Period")(patchInvertibleLaw[List[java.time.Period]]),
-          test("MonthDay")(patchInvertibleLaw[List[java.time.MonthDay]]) @@ TestAspect.ignore, // TODO Leap years!
-          test("Month")(patchInvertibleLaw[List[java.time.Month]]),
-          test("DayOfWeek")(patchInvertibleLaw[List[java.time.DayOfWeek]]),
-          test("BigInteger")(patchInvertibleLaw[List[java.math.BigInteger]]),
-          test("BigDecimal")(patchInvertibleLaw[List[java.math.BigDecimal]])
-        ),
-        suite("of records")(
-          test("Dog")(patchInvertibleLaw[List[Pet.Dog]])
-        ),
-        suite("of enumerations")(
-          test("Pet")(patchInvertibleLaw[List[Pet]]),
-          test("recursive")(patchInvertibleLaw[List[Recursive]])
-        )
-      ),
-      suite("sets")(
-        suite("of standard types")(
-          test("Int")(patchInvertibleLaw[Set[Int]]),
-          test("Long")(patchInvertibleLaw[Set[Long]]),
-          test("Float")(patchInvertibleLaw[Set[Float]]),
-          test("Double")(patchInvertibleLaw[Set[Double]]),
-          test("Boolean")(patchInvertibleLaw[Set[Boolean]]),
-          test("String")(patchInvertibleLaw[Set[String]]),
-          test("ZonedDateTime")(patchInvertibleLaw[Set[java.time.ZonedDateTime]]),
-          test("OffsetDateTime")(patchInvertibleLaw[Set[java.time.OffsetDateTime]]),
-          test("OffsetTime")(patchInvertibleLaw[Set[java.time.OffsetTime]]),
-          test("LocalTime")(patchInvertibleLaw[Set[java.time.LocalTime]]),
-          test("LocalDate")(patchInvertibleLaw[Set[java.time.LocalDate]]),
-          test("Instant")(patchInvertibleLaw[Set[java.time.Instant]]),
-          test("Duration")(patchInvertibleLaw[Set[java.time.Duration]]),
-          test("ZoneOffset")(patchInvertibleLaw[Set[java.time.ZoneOffset]]),
-          test("ZoneId")(patchInvertibleLaw[Set[java.time.ZoneId]]),
-          test("YearMonth")(patchInvertibleLaw[Set[java.time.YearMonth]]),
-          test("Year")(patchInvertibleLaw[Set[java.time.Year]]),
-          test("Period")(patchInvertibleLaw[Set[java.time.Period]]),
-          test("MonthDay")(patchInvertibleLaw[Set[java.time.MonthDay]]) @@ TestAspect.ignore, // TODO Leap years!
-          test("Month")(patchInvertibleLaw[Set[java.time.Month]]),
-          test("DayOfWeek")(patchInvertibleLaw[Set[java.time.DayOfWeek]]),
-          test("BigInteger")(patchInvertibleLaw[Set[java.math.BigInteger]]),
-          test("BigDecimal")(patchInvertibleLaw[Set[java.math.BigDecimal]])
-        ),
-        suite("of records")(
-          test("Dog")(patchInvertibleLaw[Set[Pet.Dog]])
-        ),
-        suite("of enumerations")(
-          test("Pet")(patchInvertibleLaw[Set[Pet]]),
-          test("recursive")(patchInvertibleLaw[Set[Recursive]])
-        )
-      ),
-      suite("maps")(
-        suite("of standard types")(
-          test("Int -> Int")(patchInvertibleLaw[Map[Int, Int]])
-        ),
-        suite("of records")(
-          test("Int -> Dog")(patchInvertibleLaw[Map[Int, Pet.Dog]]),
-          test("Dog -> Cat")(patchInvertibleLaw[Map[Pet.Dog, Pet.Cat]])
-        ),
-        suite("of enumerations")(
-          test("Int -> Pet")(patchInvertibleLaw[Map[Int, Pet]]),
-          test("Dog -> Pet")(patchInvertibleLaw[Map[Pet.Dog, Pet]]),
-          test("Pet -> Pet")(patchInvertibleLaw[Map[Pet, Pet]])
-        )
-      ),
-      suite("records")(
-        test("singleton")(patchInvertibleLaw[Singleton.type]),
-        test("case class")(patchInvertibleLaw[Pet.Dog]),
-        test("generic record")(patchInvertibleLaw[SchemaGen.Arity24]),
-        test("recursive")(patchInvertibleLaw[Recursive.RecursiveEither])
-      ),
-      suite("enums")(
-        test("sealed trait")(patchInvertibleLaw[Pet]),
-        test("high arity")(patchInvertibleLaw[Arities]) @@ TestAspect.ignore,
-        test("recursive")(patchInvertibleLaw[Recursive])
-      )
-    ),
     suite("not comparable")(
       test("Left <-> Right") {
         notComparable[Either[String, String]](_.isLeft, _.isRight)(_.isLeft)
@@ -311,30 +190,11 @@ object DiffSpec extends ZIOSpecDefault with DefaultJavaTimeSchemas {
       case (l, r) =>
         val diff = schema.diff(l, r)
         if (diff.isComparable) {
-          val patched = schema.diff(l, r).patch(l)
-          if (patched.isLeft) println(diff)
-          assert(patched)(isRight(equalTo(r)))
-        } else {
-          assertCompletes
-        }
-    }
-  }
-
-  private def patchInvertibleLaw[A](
-    implicit checkConstructor: CheckConstructor[Sized with TestConfig, TestResult],
-    schema: Schema[A]
-  ): ZIO[checkConstructor.OutEnvironment, checkConstructor.OutError, TestResult] = {
-    val gen = DeriveGen.gen[A]
-    check(gen <*> gen) {
-      case (l, r) =>
-        val diff = schema.diff(l, r)
-        if (diff.isComparable) {
-          val patch     = schema.diff(l, r)
-          val patched   = patch.patch(l)
-          val unpatched = patch.unpatch(r)
-          if (patched.isLeft) println(diff)
-          assert(patched)(isRight(equalTo(r))) &&
-          assert(unpatched)(isRight(equalTo(l)))
+          val patched  = diff.patch(l)
+          val inverse  = diff.inverse
+          val inverted = inverse.patch(r)
+          if (patched.isLeft || inverted.isLeft) println(diff)
+          assert(patched)(isRight(equalTo(r))) && assert(inverted)(isRight(equalTo(l)))
         } else {
           assertCompletes
         }

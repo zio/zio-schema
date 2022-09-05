@@ -55,9 +55,11 @@ object Example5_Diffing extends ZIOAppDefault {
   val patch: Patch[PersonDTO] =
     PersonDTO.schema.diff(personDTO, personDTO.copy(lastname = "Max", years = 40, isMajor = false))
 
+  val invertedPatch = patch.inverse
+
   val result: Either[String, PersonDTO] = PersonDTO.schema.patch(personDTO, patch)
 
-  val inverted: Either[String, PersonDTO] = result.flatMap(t => PersonDTO.schema.unpatch(t, patch))
+  val inverted: Either[String, PersonDTO] = result.flatMap(t => PersonDTO.schema.patch(t, invertedPatch))
 
-  override val run: UIO[Unit] = ZIO.debug(result) *> ZIO.debug(inverted)
+  override val run: UIO[Unit] = ZIO.debug(patch) *> ZIO.debug(result) *> ZIO.debug(invertedPatch) *> ZIO.debug(inverted)
 }
