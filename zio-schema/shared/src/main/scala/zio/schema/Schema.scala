@@ -91,9 +91,14 @@ sealed trait Schema[A] {
   }
 
   /**
-   * Patch value with a Diff.
+   * Patch value with a Patch.
    */
-  def patch(oldValue: A, diff: Patch[A]): Either[String, A] = diff.patch(oldValue)
+  def patch(oldValue: A, patch: Patch[A]): Either[String, A] = patch.patch(oldValue)
+
+  /**
+   * Unpatch value with a Patch.
+   */
+  def unpatch(newValue: A, patch: Patch[A]): Either[String, A] = patch.unpatch(newValue)
 
   def fromDynamic(value: DynamicValue): Either[String, A] =
     value.toTypedValue(self)
