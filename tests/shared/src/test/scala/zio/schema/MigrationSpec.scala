@@ -1,6 +1,7 @@
 package zio.schema
 
 import scala.collection.immutable.ListMap
+
 import zio._
 import zio.schema.meta.{ MetaSchema, Migration, NodePath }
 import zio.schema.syntax._

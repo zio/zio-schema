@@ -599,24 +599,6 @@ object JsonCodecSpec extends ZIOSpecDefault {
           }
         }
       ),
-      test("semi dynamic record") {
-        check(
-          SchemaGen.anyRecord.flatMap(
-            record =>
-              DynamicValueGen
-                .anyDynamicValueOfSchema(record)
-                .map(dyn => (dyn.toTypedValue(record).toOption.get, record))
-          )
-        ) { value =>
-          val schema = Schema.semiDynamic[ListMap[String, _]]()
-          assertEncodesThenDecodesWithDifferentSchemas(
-            encodingSchema = schema,
-            decodingSchema = schema,
-            value = value,
-            compare = compareRandomRecords
-          )
-        }
-      },
       test("deserialized dynamic record converted to typed value") {
         check(SchemaGen.anyRecordAndValue(maxFieldCount = 15)) {
           case (schema, value) =>

@@ -302,9 +302,8 @@ object MetaSchema {
             node.addLabelledSubtree(id, schema)
         }
         .buildSum()
-    case Schema.Meta(ast, _)      => ast
-    case Schema.Dynamic(_)        => Dynamic(withSchema = false, NodePath.root)
-    case Schema.SemiDynamic(_, _) => Dynamic(withSchema = true, NodePath.root)
+    case Schema.Meta(ast, _) => ast
+    case Schema.Dynamic(_)   => Dynamic(withSchema = false, NodePath.root)
   }
 
   private[schema] def subtree(
@@ -363,10 +362,9 @@ object MetaSchema {
                   node.addLabelledSubtree(id, schema)
               }
               .buildSum()
-          case Schema.Fail(message, _)  => FailNode(message, path)
-          case Schema.Meta(ast, _)      => ast
-          case Schema.Dynamic(_)        => Dynamic(withSchema = false, path, optional)
-          case Schema.SemiDynamic(_, _) => Dynamic(withSchema = true, path, optional)
+          case Schema.Fail(message, _) => FailNode(message, path)
+          case Schema.Meta(ast, _)     => ast
+          case Schema.Dynamic(_)       => Dynamic(withSchema = false, path, optional)
         }
       }
 
@@ -414,10 +412,8 @@ object MetaSchema {
         Schema.chunk(materialize(itemAst, refs))
       case MetaSchema.Dictionary(keyAst, valueAst, _, _) =>
         Schema.MapSchema(materialize(keyAst, refs), materialize(valueAst, refs), Chunk.empty)
-      case MetaSchema.Dynamic(withSchema, _, _) =>
-        if (withSchema) Schema.semiDynamic()
-        else Schema.dynamicValue
-      case ast => Schema.Fail(s"AST cannot be materialized to a Schema:\n$ast")
+      case MetaSchema.Dynamic(_, _, _) => Schema.dynamicValue
+      case ast                         => Schema.Fail(s"AST cannot be materialized to a Schema:\n$ast")
     }
 
     refs += ast.path -> baseSchema

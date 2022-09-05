@@ -26,8 +26,8 @@ import java.util.UUID
 import scala.annotation.{ nowarn, tailrec }
 import scala.collection.immutable.ListMap
 
-import zio.schema.meta.Migration
 import zio.schema.diff.Edit
+import zio.schema.meta.Migration
 import zio.{ Chunk, ChunkBuilder }
 
 trait Differ[A] { self =>
@@ -315,7 +315,6 @@ object Differ {
     case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumN(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
     case Schema.EnumN(cs, _)                                                                                                   => enumN(cs.toSeq: _*)
     case Schema.Dynamic(_)                                                                                                     => Differ.dynamicValue
-    case s @ Schema.SemiDynamic(_, _)                                                                                          => Differ.semiDynamic(s)
   }
   //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -326,18 +325,6 @@ object Differ {
   //TODO We can probably actually diff DynamicValues properly
   def dynamicValue: Differ[DynamicValue] = new Differ[DynamicValue] {
     def apply(thisValue: DynamicValue, thatValue: DynamicValue): Diff[DynamicValue] = Diff.notComparable[DynamicValue]
-  }
-
-  def semiDynamic[A](schema: Schema.SemiDynamic[A]): Differ[(A, Schema[A])] = {
-    val _ = schema
-    new Differ[(A, Schema[A])] {
-      def apply(thisValue: (A, Schema[A]), thatValue: (A, Schema[A])): Diff[(A, Schema[A])] = {
-        val valueDiffer                     = Differ.fromSchema(thisValue._2)
-        val schemaDiffer: Differ[Schema[A]] = (_: Schema[A], _: Schema[A]) => Diff.identical[Schema[A]]
-
-        valueDiffer.zip(schemaDiffer).apply(thisValue, thatValue)
-      }
-    }
   }
 
   def bool: Differ[Boolean] =

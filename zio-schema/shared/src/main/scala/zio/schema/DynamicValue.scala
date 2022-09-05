@@ -86,10 +86,6 @@ sealed trait DynamicValue { self =>
       case (DynamicValue.Error(message), _) =>
         Left(message)
 
-      case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), Schema.SemiDynamic(_, _)) =>
-        val valueSchema = ast.toSchema.asInstanceOf[Schema[Any]]
-        dyn.toTypedValue(valueSchema).map(_ -> valueSchema)
-
       case (dyn, Schema.Dynamic(_)) => Right(dyn)
 
       case _ =>
@@ -1841,10 +1837,6 @@ object DynamicValue {
           )
         )
       case Schema.Dynamic(_) => value
-
-      case Schema.SemiDynamic(_, _) =>
-        val (a, schema) = value.asInstanceOf[(Any, Schema[Any])]
-        Tuple(fromSchemaAndValue(schema, a), DynamicAst(schema.metaSchema))
     }
 
   def decodeStructure(

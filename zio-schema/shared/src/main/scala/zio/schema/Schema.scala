@@ -5,8 +5,8 @@ import java.time.temporal.ChronoUnit
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
-import zio.schema.meta._
 import zio.schema.internal.SourceLocation
+import zio.schema.meta._
 
 /**
  * A `Schema[A]` describes the structure of some data type `A`, in terms of case classes,
@@ -134,8 +134,6 @@ sealed trait Schema[A] {
   def toDynamic(value: A): DynamicValue =
     DynamicValue.fromSchemaAndValue(self, value)
 
-  def toSemiDynamic: Schema[(A, Schema[A])] = Schema.semiDynamic(defaultValue = self.defaultValue.map(_ -> self))
-
   /**
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
    * between `A` and `B`, without possibility of failure.
@@ -242,9 +240,6 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
 
   implicit def primitive[A](implicit standardType: StandardType[A]): Schema[A] =
     Primitive(standardType, Chunk.empty)
-
-  def semiDynamic[A](defaultValue: Either[String, (A, Schema[A])] = Left("no default value")): Schema[(A, Schema[A])] =
-    Schema.SemiDynamic(defaultValue)
 
   implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
     chunk(element).transform(_.toVector, Chunk.fromIterable(_))
@@ -492,20 +487,6 @@ object Schema extends TupleSchemas with RecordSchemas with EnumSchemas with Sche
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
 
-  final case class SemiDynamic[A](
-    override val defaultValue: Either[String, (A, Schema[A])],
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Schema[(A, Schema[A])] {
-    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
-
-    /**
-     * Returns a new schema that with `annotation`
-     */
-    override def annotate(annotation: Any): Schema[(A, Schema[A])] =
-      copy(annotations = annotations :+ annotation)
-
-    override def makeAccessors(b: AccessorBuilder): Unit = ()
-  }
 }
 
 //scalafmt: { maxColumn = 400 }

@@ -741,26 +741,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
             assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         }
-      ),
-      test("semi dynamic record") {
-        check(
-          SchemaGen.anyRecord.flatMap(
-            record =>
-              DynamicValueGen
-                .anyDynamicValueOfSchema(record)
-                .map(dyn => (dyn.toTypedValue(record).toOption.get, record))
-          )
-        ) { value =>
-          val schema = Schema.semiDynamic[ListMap[String, _]]()
-          for {
-            result                      <- encodeAndDecode(schema, value)
-            (resultValue, resultSchema) = result.head
-          } yield assertTrue(
-            Schema.structureEquality.equal(value._2, resultSchema),
-            resultValue.keySet == value._1.keySet
-          )
-        }
-      }
+      )
     ),
     suite("Should successfully decode")(
       test("empty input") {

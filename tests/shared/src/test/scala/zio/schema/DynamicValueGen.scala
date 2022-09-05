@@ -86,7 +86,6 @@ object DynamicValueGen {
       case l @ Schema.Lazy(_)                   => anyDynamicValueOfSchema(l.schema)
       case Schema.Meta(meta, _)                 => anyDynamicValueOfSchema(meta.toSchema)
       case Schema.Dynamic(_)                    => SchemaGen.anySchema.flatMap(anyDynamicValueOfSchema(_))
-      case Schema.SemiDynamic(_, _)             => ??? // cannot generate dynamic value that corresponds to A
     }
   //scalafmt: { maxColumn = 120 }
 

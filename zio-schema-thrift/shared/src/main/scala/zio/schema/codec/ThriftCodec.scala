@@ -27,7 +27,6 @@ import scala.util.{ Failure, Success, Try }
 
 import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TProtocol, TType }
 
-import zio.schema.meta.MetaSchema
 import zio.schema.codec.ThriftCodec.Thrift.{
   bigDecimalStructure,
   durationStructure,
@@ -35,6 +34,7 @@ import zio.schema.codec.ThriftCodec.Thrift.{
   periodStructure,
   yearMonthStructure
 }
+import zio.schema.meta.MetaSchema
 import zio.schema.{ DynamicValue, DynamicValueSchema, Schema, StandardType }
 import zio.stream.ZPipeline
 import zio.{ Chunk, ChunkBuilder, ZIO }
@@ -354,20 +354,13 @@ object ThriftCodec extends Codec {
           encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
         case (Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) =>
           encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-        case (Schema.EnumN(cs, _), v)      => encodeEnum(fieldNumber, v, cs.toSeq: _*)
-        case (Schema.Dynamic(_), v)        => encodeDynamic(fieldNumber, v)
-        case (Schema.SemiDynamic(_, _), v) => encodeSemiDynamic[Any](fieldNumber, v)
-        case (_, _)                        => ()
+        case (Schema.EnumN(cs, _), v) => encodeEnum(fieldNumber, v, cs.toSeq: _*)
+        case (Schema.Dynamic(_), v)   => encodeDynamic(fieldNumber, v)
+        case (_, _)                   => ()
       }
 
     private def encodeDynamic(fieldNumber: Option[Short], v: DynamicValue): Unit =
       encodeValue(fieldNumber, DynamicValueSchema.schema, v)
-
-    private def encodeSemiDynamic[A](fieldNumber: Option[Short], v: (A, Schema[A])): Unit = {
-      val (value, schema) = v
-      writeFieldBegin(fieldNumber, TType.STRUCT)
-      writeStructure(Seq(Schema.Field("schema", MetaSchema.schema) -> schema.metaSchema, Schema.Field("value", schema) -> value))
-    }
 
     private def encodeEnum[Z, A](fieldNumber: Option[Short], value: Z, cases: Schema.Case[_, Z]*): Unit = {
       writeFieldBegin(fieldNumber, TType.STRUCT)
@@ -560,24 +553,11 @@ object ThriftCodec extends Codec {
         case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumDecoder(path, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case Schema.EnumN(cs, _)                                                                                                   => enumDecoder(path, cs.toSeq: _*)
         case Schema.Dynamic(_)                                                                                                     => dynamicDecoder(path)
-        case Schema.SemiDynamic(_, _)                                                                                              => semiDynamicDecoder[Any](path)
         case _                                                                                                                     => fail(path, s"Unknown schema ${schema.getClass.getName}")
       }
 
     private def dynamicDecoder(path: Path): Result[DynamicValue] =
       decode(path, DynamicValueSchema.schema)
-
-    private def semiDynamicDecoder[A](path: Path): Result[(A, Schema[A])] = {
-      p.readFieldBegin()
-      decode(path :+ "schema", MetaSchema.schema).flatMap { schemaAst =>
-        val schema = schemaAst.toSchema
-        p.readFieldBegin()
-        decode(path :+ "value", schema).flatMap { value =>
-          p.readFieldBegin()
-          Right((value, schema).asInstanceOf[(A, Schema[A])])
-        }
-      }
-    }
 
     private def optionalDecoder[A](path: Path, schema: Schema.Optional[A]): Result[Option[A]] =
       Try {

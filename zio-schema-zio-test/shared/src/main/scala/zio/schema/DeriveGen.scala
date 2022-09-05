@@ -71,7 +71,6 @@ object DeriveGen {
       case lazzy @ Schema.Lazy(_)                                                                                                                                           => genLazy(lazzy)
       case Schema.Meta(ast, _)                                                                                                                                              => genMeta(ast)
       case Schema.Dynamic(_)                                                                                                                                                => gen(DynamicValueSchema())
-      case Schema.SemiDynamic(_, _)                                                                                                                                         => genSemiDynamic
     } // scalafmt: { maxColumn = 120 }
 
   private def genEnum[Z](cases: Schema.Case[_, Z]*) =
@@ -533,9 +532,6 @@ object DeriveGen {
 
   private def genMeta[A](ast: MetaSchema): Gen[Sized, A] =
     gen(ast.toSchema).map(_.asInstanceOf[A])
-
-  private def genSemiDynamic[A]: Gen[Sized, A] =
-    genAst().map(_.toSchema).flatMap(schema => gen(schema).map(value => (value, schema).asInstanceOf[A]))
 
   private def genSchemaAstProduct(path: NodePath): Gen[Sized, MetaSchema.Product] =
     for {
