@@ -1,11 +1,9 @@
 package zio.schema
 
 import java.time.format.DateTimeFormatter
-
 import scala.collection.immutable.ListMap
-
-import zio.Chunk
-import zio.test.{ Gen, Sized }
+import zio.{Chunk, Tag}
+import zio.test.{Gen, Sized}
 
 object SchemaGen {
 
@@ -342,7 +340,7 @@ object SchemaGen {
       _ => Left("Not implemented."),
       _ => Left("Not implemented."),
       Chunk.empty,
-      "transformEnumeration"
+      Tag[A]
     )
 
   type EnumerationTransformAndValue[A] = (EnumerationTransform[A], A)

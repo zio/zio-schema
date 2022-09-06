@@ -2,10 +2,9 @@ package zio.schema.meta
 
 import scala.annotation.tailrec
 import scala.collection.mutable
-
 import zio.prelude.Equal
 import zio.schema._
-import zio.{ Chunk, ChunkBuilder }
+import zio.{Chunk, ChunkBuilder, Tag}
 
 sealed trait MetaSchema { self =>
   def path: NodePath
@@ -25,9 +24,11 @@ object MetaSchema {
   type Labelled = (String, MetaSchema)
   type Lineage  = Chunk[(Int, NodePath)]
 
-  implicit val nodePathSchema: Schema[NodePath] =
+  implicit val nodePathSchema: Schema[NodePath] = {
+    implicit  val tag = Tag[NodePath.Type]
     Schema[String].repeated
       .transform(NodePath(_), NodePath.unwrap)
+  }
 
   final case class Product(
     override val path: NodePath,
@@ -403,11 +404,12 @@ object MetaSchema {
               CaseSet.Cons(_case, acc)
           }
         )
-      case MetaSchema.Either(_, left, right, _) =>
+      case MetaSchema.Either(_, left, right, _) => {
         Schema.either(
           materialize(left, refs),
-          materialize(right, refs)
-        )
+          materialize(right, refs))
+      }
+
       case MetaSchema.ListNode(itemAst, _, _) =>
         Schema.chunk(materialize(itemAst, refs))
       case MetaSchema.Dictionary(keyAst, valueAst, _, _) =>

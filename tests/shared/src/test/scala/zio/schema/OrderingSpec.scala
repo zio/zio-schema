@@ -1,12 +1,11 @@
 package zio.schema
 
 import scala.collection.immutable.ListMap
-
 import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen._
 import zio.test.Assertion._
-import zio.test.{ Sized, TestConfig, _ }
-import zio.{ Chunk, URIO }
+import zio.test.{Sized, TestConfig, _}
+import zio.{Chunk, Tag, URIO}
 
 object OrderingSpec extends ZIOSpecDefault {
 
@@ -167,7 +166,7 @@ object OrderingSpec extends ZIOSpecDefault {
       anySchema.flatMap(genOrderedPairDecodeTransform(_))
     )
 
-  def genOrderedPairIdentityTransform[A](schema: Schema[A]): Gen[Sized, SchemaAndPair[_]] =
+  def genOrderedPairIdentityTransform[A: Tag](schema: Schema[A]): Gen[Sized, SchemaAndPair[_]] =
     for {
       (small, large) <- genOrderedPair(schema)
     } yield (schema.transformOrFail({ a: A =>
