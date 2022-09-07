@@ -316,9 +316,8 @@ object MetaSchema {
             node.addLabelledSubtree(id, schema)
         }
         .buildSum(s.id)
-    case Schema.Meta(ast, _)      => ast
-    case Schema.Dynamic(_)        => Dynamic(withSchema = false, NodePath.root)
-    case Schema.SemiDynamic(_, _) => Dynamic(withSchema = true, NodePath.root)
+    case Schema.Meta(ast, _) => ast
+    case Schema.Dynamic(_)   => Dynamic(withSchema = false, NodePath.root)
   }
 
   private[schema] def subtree(
@@ -377,10 +376,9 @@ object MetaSchema {
                   node.addLabelledSubtree(id, schema)
               }
               .buildSum(s.id)
-          case Schema.Fail(message, _)  => FailNode(message, path)
-          case Schema.Meta(ast, _)      => ast
-          case Schema.Dynamic(_)        => Dynamic(withSchema = false, path, optional)
-          case Schema.SemiDynamic(_, _) => Dynamic(withSchema = true, path, optional)
+          case Schema.Fail(message, _) => FailNode(message, path)
+          case Schema.Meta(ast, _)     => ast
+          case Schema.Dynamic(_)       => Dynamic(withSchema = false, path, optional)
         }
       }
 

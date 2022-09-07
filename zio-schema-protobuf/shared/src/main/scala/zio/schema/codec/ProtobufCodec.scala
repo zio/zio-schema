@@ -420,13 +420,9 @@ object ProtobufCodec extends Codec {
         case (Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case (Schema.EnumN(_, cs, _), v)                                                                                                   => encodeEnum(fieldNumber, v, cs.toSeq: _*)
         case (Schema.Dynamic(_), v)                                                                                                        => encode(fieldNumber, DynamicValueSchema.schema, v)
-        case (Schema.SemiDynamic(_, _), v)                                                                                                 => encodeSemiDynamic[Any](fieldNumber, v.asInstanceOf[(Any, Schema[Any])])
         case (_, _)                                                                                                                        => Chunk.empty
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
-
-    private def encodeSemiDynamic[A](fieldNumber: Option[Int], valueAndSchema: (A, Schema[A])): Chunk[Byte] =
-      encodeTuple(fieldNumber, Schema[MetaSchema], valueAndSchema._2, (valueAndSchema._2.ast, valueAndSchema._1))
 
     private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[_, Z]*): Chunk[Byte] = {
       val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
@@ -790,7 +786,6 @@ object ProtobufCodec extends Codec {
         case Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case Schema.EnumN(_, cs, _)                                                                                                   => enumDecoder(cs.toSeq: _*)
         case Schema.Dynamic(_)                                                                                                        => dynamicDecoder
-        case Schema.SemiDynamic(_, _)                                                                                                 => semiDynamicDecoder.asInstanceOf[Decoder[A]]
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -807,17 +802,6 @@ object ProtobufCodec extends Codec {
         case _ =>
           decoder
       }
-
-    private def semiDynamicDecoder[A]: Decoder[(A, Schema[A])] =
-      for {
-        key1                <- keyDecoder
-        (wt1, fieldNumber1) = key1
-        _                   <- Decoder.failWhen(fieldNumber1 != 1, "serialized AST should come first for SemiDynamic types")
-        schema              <- decoder(wt1, astDecoder)
-        key2                <- keyDecoder
-        (wt2, _)            = key2
-        value               <- decoder(wt2, decoder(schema))
-      } yield (value.asInstanceOf[A], schema.asInstanceOf[Schema[A]])
 
     private def enumDecoder[Z](cases: Schema.Case[_, Z]*): Decoder[Z] =
       keyDecoder.flatMap {

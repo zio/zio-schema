@@ -546,21 +546,6 @@ object Schema extends SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
 
-  final case class SemiDynamic[A](
-    override val defaultValue: Either[String, (A, Schema[A])],
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Schema[(A, Schema[A])] {
-    override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Unit
-
-    /**
-     * Returns a new schema that with `annotation`
-     */
-    override def annotate(annotation: Any): Schema[(A, Schema[A])] =
-      copy(annotations = annotations :+ annotation)
-
-    override def makeAccessors(b: AccessorBuilder): Unit = ()
-  }
-
 // # ENUM SCHEMAS
 
   sealed case class Case[A, Z](

@@ -357,10 +357,9 @@ object AvroCodec extends AvroCodec {
           name  <- getName(e)
         } yield wrapAvro(union, name, EitherWrapper)
 
-      case Lazy(schema0)     => toAvroSchema(schema0())
-      case Meta(_, _)        => toAvroSchema(Schema[MetaSchema])
-      case Dynamic(_)        => toAvroSchema(Schema[MetaSchema])
-      case SemiDynamic(_, _) => toAvroSchema(Schema[MetaSchema])
+      case Lazy(schema0) => toAvroSchema(schema0())
+      case Meta(_, _)    => toAvroSchema(Schema[MetaSchema])
+      case Dynamic(_)    => toAvroSchema(Schema[MetaSchema])
     }
   }
 
@@ -742,7 +741,6 @@ object AvroCodec extends AvroCodec {
             case c: Meta                                                                             => Right(c)
             case c: Optional[_]                                                                      => Right(c)
             case c: Primitive[_]                                                                     => Right(c)
-            case c: SemiDynamic[_]                                                                   => Right(c)
             case c: Transform[_, _, _]                                                               => Right(c)
             case c: Tuple[_, _]                                                                      => Right(c)
 
