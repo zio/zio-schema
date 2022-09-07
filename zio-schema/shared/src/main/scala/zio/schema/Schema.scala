@@ -82,12 +82,8 @@ sealed trait Schema[A] {
    * Performs a diff between thisValue and thatValue. See [[zio.schema.Differ]] for details
    * on the default diff algorithms.
    *
-   * A custom [[zio.schema.Differ]] can be supplied if the default behavior is not acceptable.
    */
-  def diff(thisValue: A, thatValue: A, differ: Option[Differ[A]] = None): Patch[A] = differ match {
-    case Some(differ) => differ(thisValue, thatValue)
-    case None         => Differ.fromSchema(self)(thisValue, thatValue)
-  }
+  def diff(thisValue: A, thatValue: A): Patch[A] =  Differ.fromSchema(self)(thisValue, thatValue)
 
   /**
    * Patch value with a Patch.
