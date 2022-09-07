@@ -26,8 +26,8 @@ import java.util.UUID
 import scala.annotation.{ nowarn, tailrec }
 import scala.collection.immutable.ListMap
 
-import zio.schema.meta.Migration
 import zio.schema.diff.Edit
+import zio.schema.meta.Migration
 import zio.{ Chunk, ChunkBuilder }
 
 trait Differ[A] { self =>

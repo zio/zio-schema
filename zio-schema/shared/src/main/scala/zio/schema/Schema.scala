@@ -6,8 +6,8 @@ import java.time.temporal.ChronoUnit
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
-import zio.schema.meta._
 import zio.schema.internal.SourceLocation
+import zio.schema.meta._
 import zio.schema.validation._
 
 /**
@@ -103,7 +103,7 @@ sealed trait Schema[A] {
    *  Generate a homomorphism from A to B iff A and B are homomorphic
    */
   def migrate[B](newSchema: Schema[B]): Either[String, A => Either[String, B]] =
-    Migration.derive(MetaSchema.fromSchema(self), MetaSchema.fromSchema(newSchema)).map { transforms =>(a: A) =>
+    Migration.derive(MetaSchema.fromSchema(self), MetaSchema.fromSchema(newSchema)).map { transforms => (a: A) =>
       self.toDynamic(a).transform(transforms).flatMap(newSchema.fromDynamic)
     }
 
@@ -132,8 +132,6 @@ sealed trait Schema[A] {
 
   def toDynamic(value: A): DynamicValue =
     DynamicValue.fromSchemaAndValue(self, value)
-
-  def toSemiDynamic: Schema[(A, Schema[A])] = Schema.semiDynamic(defaultValue = self.defaultValue.map(_ -> self))
 
   /**
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform

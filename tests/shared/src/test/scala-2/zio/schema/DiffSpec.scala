@@ -156,32 +156,6 @@ object DiffSpec extends ZIOSpecDefault with DefaultJavaTimeSchemas {
         test("sealed trait")(diffLaw[Pet]),
         test("high arity")(diffLaw[Arities]) @@ TestAspect.ignore,
         test("recursive")(diffLaw[Recursive])
-      ),
-      suite("semiDynamic")(
-        test("identity") {
-          val schema            = Schema[Person]
-          val semiDynamicSchema = Schema.semiDynamic[Person]()
-          val gen               = DeriveGen.gen[Person]
-          check(gen) { value =>
-            assertTrue(semiDynamicSchema.diff(value -> schema, value -> schema).isIdentical)
-          }
-        },
-        test("diffLaw") {
-          val schema            = Schema[Person]
-          val semiDynamicSchema = Schema.semiDynamic[Person]()
-          val gen               = DeriveGen.gen[Person]
-          check(gen <*> gen) {
-            case (l, r) =>
-              val diff = semiDynamicSchema.diff(l -> schema, r -> schema)
-              if (diff.isComparable) {
-                val patched = diff.patch(l -> schema)
-                if (patched.isLeft) println(diff)
-                assert(patched)(isRight(equalTo(r -> schema)))
-              } else {
-                assertTrue(true)
-              }
-          }
-        }
       )
     ),
     suite("not comparable")(

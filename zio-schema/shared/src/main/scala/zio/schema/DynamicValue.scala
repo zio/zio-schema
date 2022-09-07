@@ -8,7 +8,7 @@ import java.util.UUID
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
-import zio.schema.meta.{ Migration, MetaSchema }
+import zio.schema.meta.{ MetaSchema, Migration }
 
 sealed trait DynamicValue {
   self =>

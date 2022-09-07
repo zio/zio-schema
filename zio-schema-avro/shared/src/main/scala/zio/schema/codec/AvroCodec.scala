@@ -13,9 +13,9 @@ import zio.Chunk
 import zio.schema.CaseSet.Aux
 import zio.schema.Schema.{ Record, _ }
 import zio.schema._
-import zio.schema.meta.MetaSchema
 import zio.schema.codec.AvroAnnotations._
 import zio.schema.codec.AvroPropMarker._
+import zio.schema.meta.MetaSchema
 
 trait AvroCodec {
   def encode(schema: Schema[_]): Either[String, String]

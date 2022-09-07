@@ -5,7 +5,7 @@ import java.time.format.DateTimeFormatter
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
-import zio.schema.meta.{ NodePath, MetaSchema }
+import zio.schema.meta.{ MetaSchema, NodePath }
 import zio.test.{ Gen, Sized }
 
 object DeriveGen {

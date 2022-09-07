@@ -3,8 +3,7 @@ package zio.schema
 import zio._
 import zio.schema.CaseSet._
 import zio.schema.SchemaAssertions._
-import zio.schema.ast._
-import zio.schema.meta.{MetaSchema, NodePath}
+import zio.schema.meta.{ MetaSchema, NodePath }
 import zio.test._
 
 object MetaSchemaSpec extends ZIOSpecDefault {
@@ -93,7 +92,7 @@ object MetaSchemaSpec extends ZIOSpecDefault {
         assertTrue(
           recursiveRef.exists {
             case MetaSchema.Ref(pathRef, _, _) => pathRef == Chunk.empty
-            case _                            => false
+            case _                             => false
           }
         )
       }

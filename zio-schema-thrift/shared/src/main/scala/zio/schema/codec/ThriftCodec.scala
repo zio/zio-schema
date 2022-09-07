@@ -27,7 +27,6 @@ import scala.util.{ Failure, Success, Try }
 
 import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TProtocol, TType }
 
-import zio.schema.meta.MetaSchema
 import zio.schema.codec.ThriftCodec.Thrift.{
   bigDecimalStructure,
   durationStructure,
@@ -35,6 +34,7 @@ import zio.schema.codec.ThriftCodec.Thrift.{
   periodStructure,
   yearMonthStructure
 }
+import zio.schema.meta.MetaSchema
 import zio.schema.{ DynamicValue, DynamicValueSchema, Schema, StandardType }
 import zio.stream.ZPipeline
 import zio.{ Chunk, ChunkBuilder, ZIO }

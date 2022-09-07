@@ -59,18 +59,18 @@ object Migration {
 
   def derive(from: MetaSchema, to: MetaSchema): Either[String, Chunk[Migration]] = {
     def go(
-            acc: Chunk[Migration],
-            path: NodePath,
-            fromSubtree: MetaSchema,
-            toSubtree: MetaSchema,
-            ignoreRefs: Boolean
+      acc: Chunk[Migration],
+      path: NodePath,
+      fromSubtree: MetaSchema,
+      toSubtree: MetaSchema,
+      ignoreRefs: Boolean
     ): Either[String, Chunk[Migration]] = {
 
       def goProduct(
-                     f: MetaSchema,
-                     t: MetaSchema,
-                     ffields: Chunk[(String, MetaSchema)],
-                     tfields: Chunk[(String, MetaSchema)]
+        f: MetaSchema,
+        t: MetaSchema,
+        ffields: Chunk[(String, MetaSchema)],
+        tfields: Chunk[(String, MetaSchema)]
       ): Either[String, Chunk[Migration]] =
         matchedSubtrees(ffields, tfields).map {
           case ((nextPath, fs), (_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
@@ -89,10 +89,10 @@ object Migration {
           )
 
       def goSum(
-                 f: MetaSchema,
-                 t: MetaSchema,
-                 fcases: Chunk[(String, MetaSchema)],
-                 tcases: Chunk[(String, MetaSchema)]
+        f: MetaSchema,
+        t: MetaSchema,
+        fcases: Chunk[(String, MetaSchema)],
+        tcases: Chunk[(String, MetaSchema)]
       ): Either[String, Chunk[Migration]] =
         matchedSubtrees(fcases, tcases).map {
           case ((nextPath, fs), (_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
@@ -216,8 +216,8 @@ object Migration {
   object LabelTransformation {}
 
   private def matchedSubtrees(
-                               from: Chunk[MetaSchema.Labelled],
-                               to: Chunk[MetaSchema.Labelled]
+    from: Chunk[MetaSchema.Labelled],
+    to: Chunk[MetaSchema.Labelled]
   ): Chunk[(MetaSchema.Labelled, MetaSchema.Labelled)] =
     from.map {
       case fromNode @ (label, _) => to.find(_._1 == label).map(toNode => fromNode -> toNode)
@@ -226,9 +226,9 @@ object Migration {
     }
 
   private def insertions(
-                          path: NodePath,
-                          from: Chunk[MetaSchema.Labelled],
-                          to: Chunk[MetaSchema.Labelled]
+    path: NodePath,
+    from: Chunk[MetaSchema.Labelled],
+    to: Chunk[MetaSchema.Labelled]
   ): Chunk[Migration] =
     to.foldRight[Chunk[Migration]](Chunk.empty) {
       case ((nodeLabel, _), acc) if from.exists(_._1 == nodeLabel) => acc
@@ -236,9 +236,9 @@ object Migration {
     }
 
   private def caseInsertions(
-                              path: NodePath,
-                              from: Chunk[MetaSchema.Labelled],
-                              to: Chunk[MetaSchema.Labelled]
+    path: NodePath,
+    from: Chunk[MetaSchema.Labelled],
+    to: Chunk[MetaSchema.Labelled]
   ): Chunk[Migration] =
     to.foldRight[Chunk[Migration]](Chunk.empty) {
       case ((nodeLabel, _), acc) if from.exists(_._1 == nodeLabel) => acc
@@ -246,9 +246,9 @@ object Migration {
     }
 
   private def deletions(
-                         path: NodePath,
-                         from: Chunk[MetaSchema.Labelled],
-                         to: Chunk[MetaSchema.Labelled]
+    path: NodePath,
+    from: Chunk[MetaSchema.Labelled],
+    to: Chunk[MetaSchema.Labelled]
   ): Chunk[Migration] =
     from.foldRight[Chunk[Migration]](Chunk.empty) {
       case ((nodeLabel, _), acc) if !to.exists(_._1 == nodeLabel) => acc :+ DeleteNode(path / nodeLabel)

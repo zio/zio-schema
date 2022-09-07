@@ -52,10 +52,10 @@ object MetaSchema {
     }
   }
   final case class Tuple(
-                          override val path: NodePath,
-                          left: MetaSchema,
-                          right: MetaSchema,
-                          override val optional: Boolean = false
+    override val path: NodePath,
+    left: MetaSchema,
+    right: MetaSchema,
+    override val optional: Boolean = false
   ) extends MetaSchema
 
   object Tuple {
@@ -99,10 +99,10 @@ object MetaSchema {
   }
 
   final case class Either(
-                           override val path: NodePath,
-                           left: MetaSchema,
-                           right: MetaSchema,
-                           override val optional: Boolean = false
+    override val path: NodePath,
+    left: MetaSchema,
+    right: MetaSchema,
+    override val optional: Boolean = false
   ) extends MetaSchema
 
   object Either {
@@ -143,9 +143,9 @@ object MetaSchema {
   }
 
   final case class ListNode(
-                             item: MetaSchema,
-                             override val path: NodePath,
-                             override val optional: Boolean = false
+    item: MetaSchema,
+    override val path: NodePath,
+    override val optional: Boolean = false
   ) extends MetaSchema
 
   object ListNode {
@@ -162,10 +162,10 @@ object MetaSchema {
   }
 
   final case class Dictionary(
-                               keys: MetaSchema,
-                               values: MetaSchema,
-                               override val path: NodePath,
-                               override val optional: Boolean = false
+    keys: MetaSchema,
+    values: MetaSchema,
+    override val path: NodePath,
+    override val optional: Boolean = false
   ) extends MetaSchema
 
   object Dictionary {

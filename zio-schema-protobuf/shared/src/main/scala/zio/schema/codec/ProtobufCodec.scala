@@ -10,8 +10,8 @@ import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 
 import zio.schema._
-import zio.schema.meta.MetaSchema
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
+import zio.schema.meta.MetaSchema
 import zio.stream.ZPipeline
 import zio.{ Chunk, ZIO }
 

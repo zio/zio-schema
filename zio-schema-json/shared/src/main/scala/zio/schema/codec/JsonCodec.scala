@@ -10,8 +10,8 @@ import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.internal.{ Lexer, RecordingReader, RetractReader, StringMatrix, Write }
 import zio.json.{ JsonCodec => ZJsonCodec, JsonDecoder, JsonEncoder, JsonFieldDecoder, JsonFieldEncoder }
 import zio.schema.Schema.EitherSchema
-import zio.schema.meta.MetaSchema
 import zio.schema._
+import zio.schema.meta.MetaSchema
 import zio.stream.ZPipeline
 import zio.{ Chunk, ChunkBuilder, NonEmptyChunk, ZIO }
 
