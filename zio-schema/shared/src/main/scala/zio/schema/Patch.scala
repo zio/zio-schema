@@ -37,12 +37,16 @@ sealed trait Patch[A] { self =>
 
   def patch(a: A): Either[String, A]
 
+  def invert: Patch[A]
+
   def isIdentical: Boolean = false
 
   def isComparable: Boolean = true
 }
 
 object Patch {
+
+  def invert[A](patch: Patch[A]): Patch[A] = ???
 
   def identical[A]: Identical[A] = Identical()
 
@@ -51,20 +55,28 @@ object Patch {
   final case class Identical[A]() extends Patch[A] {
     override def patch(a: A): Either[String, A] = Right(a)
     override def isIdentical: Boolean           = true
+
+    override def invert: Patch[A] = this
   }
 
   final case class Bool(xor: Boolean) extends Patch[Boolean] {
     override def patch(a: Boolean): Either[String, Boolean] = Right(a ^ xor)
+
+    override def invert: Patch[Boolean] = this
   }
 
   final case class Number[A](distance: A)(implicit ev: Numeric[A]) extends Patch[A] {
     override def patch(input: A): Either[String, A] =
       Right(ev.minus(input, distance))
+
+    override def invert: Patch[A] = Number(ev.negate(distance))
   }
 
   final case class BigInt(distance: BigInteger) extends Patch[BigInteger] {
     override def patch(input: BigInteger): Either[String, BigInteger] =
       Right(input.subtract(distance))
+
+    override def invert: Patch[BigInteger] = BigInt(distance.negate())
   }
 
   final case class BigDecimal(distance: java.math.BigDecimal, precision: Int) extends Patch[java.math.BigDecimal] {
@@ -72,6 +84,8 @@ object Patch {
       val mc = new MathContext(precision)
       Right(input.round(mc).subtract(distance, mc))
     }
+
+    override def invert: Patch[java.math.BigDecimal] = BigDecimal(distance.negate(), precision)
   }
 
   final case class Temporal[A](distances: List[Long], tpe: StandardType[A]) extends Patch[A] { self =>
@@ -162,6 +176,8 @@ object Patch {
           )
         case (s, _) => Left(s"Cannot apply temporal diff to value with type $s")
       }
+
+    override def invert: Patch[A] = Temporal(distances.map(-_), tpe)
   }
 
   final case class ZonedDateTime(localDateTimeDiff: Patch[java.time.LocalDateTime], zoneIdDiff: Patch[String])
@@ -179,6 +195,8 @@ object Patch {
             )
         }
       } yield patched
+
+    override def invert: Patch[JZonedDateTime] = ZonedDateTime(localDateTimeDiff.invert, zoneIdDiff.invert)
   }
 
   final case class Tuple[A, B](leftDifference: Patch[A], rightDifference: Patch[B]) extends Patch[(A, B)] {
@@ -189,6 +207,8 @@ object Patch {
         l <- leftDifference.patch(input._1)
         r <- rightDifference.patch(input._2)
       } yield (l, r)
+
+    override def invert: Patch[(A, B)] = Tuple(leftDifference.invert, rightDifference.invert)
   }
 
   final case class LCS[A](edits: Chunk[Edit[A]]) extends Patch[Chunk[A]] {
@@ -210,10 +230,13 @@ object Patch {
 
       calc(as.toList, edits.toList, Nil)
     }
+
+    override def invert: Patch[Chunk[A]] = LCS(edits.map(Edit.invert))
   }
 
   final case class Total[A](value: A) extends Patch[A] {
     override def patch(input: A): Either[String, A] = Right(value)
+    override def invert: Patch[A] = Total(value)
   }
 
   final case class EitherDiff[A, B](diff: Either[Patch[A], Patch[B]]) extends Patch[Either[A, B]] {
@@ -229,6 +252,11 @@ object Patch {
       case (Right(in), Right(diff)) =>
         diff.patch(in).map(Right(_))
     }
+
+    override def invert: Patch[Either[A, B]] = diff match {
+      case Left(value) => EitherDiff(Left(value.invert))
+      case Right(value) => EitherDiff(Right(value.invert))
+    }
   }
 
   final case class Transform[A, B](patch: Patch[A], f: A => Either[String, B], g: B => Either[String, A])
@@ -243,6 +271,8 @@ object Patch {
         a1 <- patch.patch(a)
         b  <- f(a1)
       } yield b
+
+    override def invert: Patch[B] = Transform(patch.invert, f, g)
   }
 
   /**
@@ -253,6 +283,8 @@ object Patch {
       Left(s"Non-comparable diff cannot be applied")
 
     override def isComparable: Boolean = false
+
+    override def invert: Patch[A] = this
   }
 
   final case class SchemaMigration(migrations: Chunk[Migration]) extends Patch[Schema[_]] { self =>
@@ -263,6 +295,8 @@ object Patch {
     def orIdentical: Patch[Schema[_]] =
       if (migrations.isEmpty) Patch.identical
       else self
+
+    override def invert: Patch[Schema[_]] = SchemaMigration(migrations.reverse)
   }
 
   /**
@@ -314,6 +348,10 @@ object Patch {
         Patch.identical
       else
         self
+
+    override def invert: Patch[R] = Record(differences.map {
+      case (key, patch) => (key, patch.invert)
+    }, schema)
   }
 
 }
