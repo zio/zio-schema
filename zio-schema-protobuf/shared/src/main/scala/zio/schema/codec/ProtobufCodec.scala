@@ -795,14 +795,6 @@ object ProtobufCodec extends Codec {
     private val dynamicDecoder: Decoder[DynamicValue] =
       decoder(DynamicValueSchema.schema)
 
-    private def decoder[T](wt: WireType, decoder: Decoder[T]): Decoder[T] =
-      wt match {
-        case LengthDelimited(width) =>
-          decoder.take(width)
-        case _ =>
-          decoder
-      }
-
     private def enumDecoder[Z](cases: Schema.Case[_, Z]*): Decoder[Z] =
       keyDecoder.flatMap {
         case (wt, fieldNumber) if fieldNumber <= cases.length =>
