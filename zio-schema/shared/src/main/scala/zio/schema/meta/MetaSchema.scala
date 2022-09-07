@@ -430,9 +430,8 @@ object MetaSchema {
         Schema.chunk(materialize(itemAst, refs))
       case MetaSchema.Dictionary(keyAst, valueAst, _, _) =>
         Schema.MapSchema(materialize(keyAst, refs), materialize(valueAst, refs), Chunk.empty)
-      case MetaSchema.Dynamic(withSchema, _, _) =>
-        if (withSchema) Schema.semiDynamic()
-        else Schema.dynamicValue
+      case MetaSchema.Dynamic(_, _, _) =>
+        Schema.dynamicValue
       case ast => Schema.Fail(s"AST cannot be materialized to a Schema:\n$ast")
     }
 

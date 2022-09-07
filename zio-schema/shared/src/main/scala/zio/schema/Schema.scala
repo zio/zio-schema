@@ -238,9 +238,6 @@ object Schema extends SchemaEquality {
   implicit def primitive[A](implicit standardType: StandardType[A]): Schema[A] =
     Primitive(standardType, Chunk.empty)
 
-  def semiDynamic[A](defaultValue: Either[String, (A, Schema[A])] = Left("no default value")): Schema[(A, Schema[A])] =
-    Schema.SemiDynamic(defaultValue)
-
   def toDynamic[A](a: A)(implicit schema: Schema[A]): DynamicValue = schema.toDynamic(a)
 
   implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
