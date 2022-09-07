@@ -83,7 +83,7 @@ sealed trait Schema[A] {
    * on the default diff algorithms.
    *
    */
-  def diff(thisValue: A, thatValue: A): Patch[A] =  Differ.fromSchema(self)(thisValue, thatValue)
+  def diff(thisValue: A, thatValue: A): Patch[A] = Differ.fromSchema(self)(thisValue, thatValue)
 
   /**
    * Patch value with a Patch.

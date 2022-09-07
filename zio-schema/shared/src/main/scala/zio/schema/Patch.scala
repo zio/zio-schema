@@ -1,10 +1,7 @@
 package zio.schema
 
-import zio.Chunk
-import zio.schema.diff.Edit
-import zio.schema.meta.Migration
-
-import java.math.{BigInteger, MathContext}
+import java.math.{ BigInteger, MathContext }
+import java.time.temporal.{ ChronoField, ChronoUnit }
 import java.time.{
   DayOfWeek,
   Duration => JDuration,
@@ -22,9 +19,13 @@ import java.time.{
   ZoneOffset,
   ZonedDateTime => JZonedDateTime
 }
-import java.time.temporal.{ChronoField, ChronoUnit}
+
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
+
+import zio.Chunk
+import zio.schema.diff.Edit
+import zio.schema.meta.Migration
 
 sealed trait Patch[A] { self =>
 
@@ -46,7 +47,7 @@ sealed trait Patch[A] { self =>
 
 object Patch {
 
-  def invert[A](patch: Patch[A]): Patch[A] = ???
+  def invert[A](patch: Patch[A]): Patch[A] = patch.invert
 
   def identical[A]: Identical[A] = Identical()
 
@@ -181,19 +182,19 @@ object Patch {
   }
 
   final case class ZonedDateTime(localDateTimeDiff: Patch[java.time.LocalDateTime], zoneIdDiff: Patch[String])
-    extends Patch[java.time.ZonedDateTime] {
+      extends Patch[java.time.ZonedDateTime] {
     override def patch(input: JZonedDateTime): scala.Either[String, JZonedDateTime] =
       for {
         patchedLocalDateTime <- localDateTimeDiff.patch(input.toLocalDateTime)
         patchedZoneId        <- zoneIdDiff.patch(input.getZone.getId)
         patched <- try {
-          Right(JZonedDateTime.of(patchedLocalDateTime, ZoneId.of(patchedZoneId)))
-        } catch {
-          case e: Throwable =>
-            Left(
-              s"Patched ZonedDateTime is not valid. Patched values $patchedLocalDateTime, $patchedZoneId. Error=${e.getMessage}"
-            )
-        }
+                    Right(JZonedDateTime.of(patchedLocalDateTime, ZoneId.of(patchedZoneId)))
+                  } catch {
+                    case e: Throwable =>
+                      Left(
+                        s"Patched ZonedDateTime is not valid. Patched values $patchedLocalDateTime, $patchedZoneId. Error=${e.getMessage}"
+                      )
+                  }
       } yield patched
 
     override def invert: Patch[JZonedDateTime] = ZonedDateTime(localDateTimeDiff.invert, zoneIdDiff.invert)
@@ -236,7 +237,7 @@ object Patch {
 
   final case class Total[A](value: A) extends Patch[A] {
     override def patch(input: A): Either[String, A] = Right(value)
-    override def invert: Patch[A] = Total(value)
+    override def invert: Patch[A]                   = Total(value)
   }
 
   final case class EitherDiff[A, B](diff: Either[Patch[A], Patch[B]]) extends Patch[Either[A, B]] {
@@ -254,13 +255,13 @@ object Patch {
     }
 
     override def invert: Patch[Either[A, B]] = diff match {
-      case Left(value) => EitherDiff(Left(value.invert))
+      case Left(value)  => EitherDiff(Left(value.invert))
       case Right(value) => EitherDiff(Right(value.invert))
     }
   }
 
   final case class Transform[A, B](patch: Patch[A], f: A => Either[String, B], g: B => Either[String, A])
-    extends Patch[B] {
+      extends Patch[B] {
     override def isIdentical: Boolean = patch.isIdentical
 
     override def isComparable: Boolean = patch.isComparable
@@ -349,9 +350,10 @@ object Patch {
       else
         self
 
-    override def invert: Patch[R] = Record(differences.map {
-      case (key, patch) => (key, patch.invert)
-    }, schema)
+    override def invert: Patch[R] =
+      Record(differences.map {
+        case (key, patch) => (key, patch.invert)
+      }, schema)
   }
 
 }

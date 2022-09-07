@@ -1,15 +1,33 @@
 package zio.schema
 
-import zio.schema.diff.Edit
-import zio.{Chunk, ChunkBuilder}
-
-import java.math.{BigInteger, MathContext}
+import java.math.{ BigInteger, MathContext }
 import java.time.format.DateTimeFormatter
-import java.time.temporal.{ChronoField, ChronoUnit}
-import java.time.{DayOfWeek, Instant, LocalDate, LocalDateTime, LocalTime, MonthDay, OffsetDateTime, OffsetTime, Period, Year, YearMonth, ZoneId, ZoneOffset, Duration => JDuration, Month => JMonth, ZonedDateTime => JZonedDateTime}
+import java.time.temporal.{ ChronoField, ChronoUnit }
+import java.time.{
+  DayOfWeek,
+  Duration => JDuration,
+  Instant,
+  LocalDate,
+  LocalDateTime,
+  LocalTime,
+  Month => JMonth,
+  MonthDay,
+  OffsetDateTime,
+  OffsetTime,
+  Period,
+  Year,
+  YearMonth,
+  ZoneId,
+  ZoneOffset,
+  ZonedDateTime => JZonedDateTime
+}
 import java.util.UUID
+
 import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
+
+import zio.schema.diff.Edit
+import zio.{ Chunk, ChunkBuilder }
 
 trait Differ[A] { self =>
 
