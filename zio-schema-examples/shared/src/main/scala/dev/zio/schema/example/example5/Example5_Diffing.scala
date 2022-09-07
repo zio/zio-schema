@@ -52,7 +52,7 @@ object Example5_Diffing extends ZIOAppDefault {
 
   val personDTO: PersonDTO = PersonDTO("Mike", "Moe", 32)
 
-  val diff: Diff[PersonDTO] = PersonDTO.schema.diff(personDTO, personDTO.copy(lastname = "Max"))
+  val diff: Patch[PersonDTO] = PersonDTO.schema.diff(personDTO, personDTO.copy(lastname = "Max"))
 
   override val run: UIO[Unit] = ZIO.debug(diff)
 }
