@@ -10,8 +10,8 @@ import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.internal.{ Lexer, RecordingReader, RetractReader, StringMatrix, Write }
 import zio.json.{ JsonCodec => ZJsonCodec, JsonDecoder, JsonEncoder, JsonFieldDecoder, JsonFieldEncoder }
 import zio.schema.Schema.EitherSchema
-import zio.schema.ast.SchemaAst
-import zio.schema.{ StandardType, _ }
+import zio.schema.meta.MetaSchema
+import zio.schema._
 import zio.stream.ZPipeline
 import zio.{ Chunk, ChunkBuilder, NonEmptyChunk, ZIO }
 
@@ -210,7 +210,7 @@ object JsonCodec extends Codec {
 
     private val astEncoder: JsonEncoder[Schema[_]] =
       (schema: Schema[_], indent: Option[Int], out: Write) =>
-        schemaEncoder(Schema[SchemaAst]).unsafeEncode(SchemaAst.fromSchema(schema), indent, out)
+        schemaEncoder(Schema[MetaSchema]).unsafeEncode(MetaSchema.fromSchema(schema), indent, out)
 
     private def dynamicEncoder[A]: JsonEncoder[A] =
       schemaEncoder(DynamicValueSchema()).asInstanceOf[JsonEncoder[A]]
@@ -400,7 +400,7 @@ object JsonCodec extends Codec {
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
     private def astDecoder: JsonDecoder[Schema[_]] =
-      schemaDecoder(Schema[SchemaAst]).map(ast => ast.toSchema)
+      schemaDecoder(Schema[MetaSchema]).map(ast => ast.toSchema)
 
     private def dynamicDecoder[A]: JsonDecoder[A] =
       schemaDecoder(DynamicValueSchema()).asInstanceOf[JsonDecoder[A]]

@@ -1,4 +1,4 @@
-package zio.schema.ast
+package zio.schema.meta
 
 import scala.collection.immutable.ListMap
 
@@ -42,9 +42,9 @@ object Migration {
 
   final case class ChangeType(override val path: NodePath, value: StandardType[_]) extends Migration
 
-  final case class AddNode(override val path: NodePath, node: SchemaAst) extends Migration
+  final case class AddNode(override val path: NodePath, node: MetaSchema) extends Migration
 
-  final case class AddCase(override val path: NodePath, node: SchemaAst) extends Migration
+  final case class AddCase(override val path: NodePath, node: MetaSchema) extends Migration
 
   final case class DeleteNode(override val path: NodePath) extends Migration
 
@@ -57,20 +57,20 @@ object Migration {
   final case class Recursive(override val path: NodePath, relativeNodePath: NodePath, relativeMigration: Migration)
       extends Migration
 
-  def derive(from: SchemaAst, to: SchemaAst): Either[String, Chunk[Migration]] = {
+  def derive(from: MetaSchema, to: MetaSchema): Either[String, Chunk[Migration]] = {
     def go(
-      acc: Chunk[Migration],
-      path: NodePath,
-      fromSubtree: SchemaAst,
-      toSubtree: SchemaAst,
-      ignoreRefs: Boolean
+            acc: Chunk[Migration],
+            path: NodePath,
+            fromSubtree: MetaSchema,
+            toSubtree: MetaSchema,
+            ignoreRefs: Boolean
     ): Either[String, Chunk[Migration]] = {
 
       def goProduct(
-        f: SchemaAst,
-        t: SchemaAst,
-        ffields: Chunk[(String, SchemaAst)],
-        tfields: Chunk[(String, SchemaAst)]
+                     f: MetaSchema,
+                     t: MetaSchema,
+                     ffields: Chunk[(String, MetaSchema)],
+                     tfields: Chunk[(String, MetaSchema)]
       ): Either[String, Chunk[Migration]] =
         matchedSubtrees(ffields, tfields).map {
           case ((nextPath, fs), (_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
@@ -89,10 +89,10 @@ object Migration {
           )
 
       def goSum(
-        f: SchemaAst,
-        t: SchemaAst,
-        fcases: Chunk[(String, SchemaAst)],
-        tcases: Chunk[(String, SchemaAst)]
+                 f: MetaSchema,
+                 t: MetaSchema,
+                 fcases: Chunk[(String, MetaSchema)],
+                 tcases: Chunk[(String, MetaSchema)]
       ): Either[String, Chunk[Migration]] =
         matchedSubtrees(fcases, tcases).map {
           case ((nextPath, fs), (_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
@@ -111,54 +111,54 @@ object Migration {
           )
 
       (fromSubtree, toSubtree) match {
-        case (f @ SchemaAst.FailNode(_, _, _), t @ SchemaAst.FailNode(_, _, _)) =>
+        case (f @ MetaSchema.FailNode(_, _, _), t @ MetaSchema.FailNode(_, _, _)) =>
           Right(
             if (f.message == t.message)
               Chunk.empty
             else
               transformShape(path, f, t) :+ UpdateFail(path, t.message)
           )
-        case (f @ SchemaAst.Product(_, _, ffields, _), t @ SchemaAst.Product(_, _, tfields, _)) =>
+        case (f @ MetaSchema.Product(_, _, ffields, _), t @ MetaSchema.Product(_, _, tfields, _)) =>
           goProduct(f, t, ffields, tfields)
-        case (f @ SchemaAst.Tuple(_, fleft, fright, _), t @ SchemaAst.Tuple(_, tleft, tright, _)) =>
+        case (f @ MetaSchema.Tuple(_, fleft, fright, _), t @ MetaSchema.Tuple(_, tleft, tright, _)) =>
           val ffields = Chunk("left" -> fleft, "right" -> fright)
           val tfields = Chunk("left" -> tleft, "right" -> tright)
           goProduct(f, t, ffields, tfields)
-        case (f @ SchemaAst.Product(_, _, ffields, _), t @ SchemaAst.Tuple(_, tleft, tright, _)) =>
+        case (f @ MetaSchema.Product(_, _, ffields, _), t @ MetaSchema.Tuple(_, tleft, tright, _)) =>
           val tfields = Chunk("left" -> tleft, "right" -> tright)
           goProduct(f, t, ffields, tfields)
-        case (f @ SchemaAst.Tuple(_, fleft, fright, _), t @ SchemaAst.Product(_, _, tfields, _)) =>
+        case (f @ MetaSchema.Tuple(_, fleft, fright, _), t @ MetaSchema.Product(_, _, tfields, _)) =>
           val ffields = Chunk("left" -> fleft, "right" -> fright)
           goProduct(f, t, ffields, tfields)
-        case (f @ SchemaAst.ListNode(fitem, _, _), t @ SchemaAst.ListNode(titem, _, _)) =>
+        case (f @ MetaSchema.ListNode(fitem, _, _), t @ MetaSchema.ListNode(titem, _, _)) =>
           val ffields = Chunk("item" -> fitem)
           val tfields = Chunk("item" -> titem)
           goProduct(f, t, ffields, tfields)
-        case (SchemaAst.ListNode(fitem, _, _), titem) =>
+        case (MetaSchema.ListNode(fitem, _, _), titem) =>
           derive(fitem, titem).map(migrations => DecrementDimensions(titem.path, 1) +: migrations)
-        case (fitem, SchemaAst.ListNode(titem, _, _)) =>
+        case (fitem, MetaSchema.ListNode(titem, _, _)) =>
           derive(fitem, titem).map(migrations => IncrementDimensions(titem.path, 1) +: migrations)
-        case (f @ SchemaAst.Dictionary(fkeys, fvalues, _, _), t @ SchemaAst.Dictionary(tkeys, tvalues, _, _)) =>
+        case (f @ MetaSchema.Dictionary(fkeys, fvalues, _, _), t @ MetaSchema.Dictionary(tkeys, tvalues, _, _)) =>
           val ffields = Chunk("keys" -> fkeys, "values" -> fvalues)
           val tfields = Chunk("keys" -> tkeys, "values" -> tvalues)
           goProduct(f, t, ffields, tfields)
-        case (f @ SchemaAst.Sum(_, _, fcases, _), t @ SchemaAst.Sum(_, _, tcases, _)) =>
+        case (f @ MetaSchema.Sum(_, _, fcases, _), t @ MetaSchema.Sum(_, _, tcases, _)) =>
           goSum(f, t, fcases, tcases)
-        case (f @ SchemaAst.Either(_, fleft, fright, _), t @ SchemaAst.Either(_, tleft, tright, _)) =>
+        case (f @ MetaSchema.Either(_, fleft, fright, _), t @ MetaSchema.Either(_, tleft, tright, _)) =>
           val fcases = Chunk("left" -> fleft, "right" -> fright)
           val tcases = Chunk("left" -> tleft, "right" -> tright)
           goSum(f, t, fcases, tcases)
-        case (f @ SchemaAst.Sum(_, _, fcases, _), t @ SchemaAst.Either(_, tleft, tright, _)) =>
+        case (f @ MetaSchema.Sum(_, _, fcases, _), t @ MetaSchema.Either(_, tleft, tright, _)) =>
           val tcases = Chunk("left" -> tleft, "right" -> tright)
           goSum(f, t, fcases, tcases)
-        case (f @ SchemaAst.Either(_, fleft, fright, _), t @ SchemaAst.Sum(_, _, tcases, _)) =>
+        case (f @ MetaSchema.Either(_, fleft, fright, _), t @ MetaSchema.Sum(_, _, tcases, _)) =>
           val fcases = Chunk("left" -> fleft, "right" -> fright)
           goSum(f, t, fcases, tcases)
-        case (f @ SchemaAst.Value(ftype, _, _), t @ SchemaAst.Value(ttype, _, _)) if ttype != ftype =>
+        case (f @ MetaSchema.Value(ftype, _, _), t @ MetaSchema.Value(ttype, _, _)) if ttype != ftype =>
           Right(transformShape(path, f, t) :+ ChangeType(path, ttype))
-        case (f @ SchemaAst.Value(_, _, _), t @ SchemaAst.Value(_, _, _)) =>
+        case (f @ MetaSchema.Value(_, _, _), t @ MetaSchema.Value(_, _, _)) =>
           Right(transformShape(path, f, t))
-        case (f @ SchemaAst.Ref(fromRef, nodePath, _), t @ SchemaAst.Ref(toRef, _, _)) if fromRef == toRef =>
+        case (f @ MetaSchema.Ref(fromRef, nodePath, _), t @ MetaSchema.Ref(toRef, _, _)) if fromRef == toRef =>
           if (ignoreRefs) Right(Chunk.empty)
           else {
             val recursiveMigrations = acc
@@ -216,9 +216,9 @@ object Migration {
   object LabelTransformation {}
 
   private def matchedSubtrees(
-    from: Chunk[SchemaAst.Labelled],
-    to: Chunk[SchemaAst.Labelled]
-  ): Chunk[(SchemaAst.Labelled, SchemaAst.Labelled)] =
+                               from: Chunk[MetaSchema.Labelled],
+                               to: Chunk[MetaSchema.Labelled]
+  ): Chunk[(MetaSchema.Labelled, MetaSchema.Labelled)] =
     from.map {
       case fromNode @ (label, _) => to.find(_._1 == label).map(toNode => fromNode -> toNode)
     }.collect {
@@ -226,9 +226,9 @@ object Migration {
     }
 
   private def insertions(
-    path: NodePath,
-    from: Chunk[SchemaAst.Labelled],
-    to: Chunk[SchemaAst.Labelled]
+                          path: NodePath,
+                          from: Chunk[MetaSchema.Labelled],
+                          to: Chunk[MetaSchema.Labelled]
   ): Chunk[Migration] =
     to.foldRight[Chunk[Migration]](Chunk.empty) {
       case ((nodeLabel, _), acc) if from.exists(_._1 == nodeLabel) => acc
@@ -236,9 +236,9 @@ object Migration {
     }
 
   private def caseInsertions(
-    path: NodePath,
-    from: Chunk[SchemaAst.Labelled],
-    to: Chunk[SchemaAst.Labelled]
+                              path: NodePath,
+                              from: Chunk[MetaSchema.Labelled],
+                              to: Chunk[MetaSchema.Labelled]
   ): Chunk[Migration] =
     to.foldRight[Chunk[Migration]](Chunk.empty) {
       case ((nodeLabel, _), acc) if from.exists(_._1 == nodeLabel) => acc
@@ -246,16 +246,16 @@ object Migration {
     }
 
   private def deletions(
-    path: NodePath,
-    from: Chunk[SchemaAst.Labelled],
-    to: Chunk[SchemaAst.Labelled]
+                         path: NodePath,
+                         from: Chunk[MetaSchema.Labelled],
+                         to: Chunk[MetaSchema.Labelled]
   ): Chunk[Migration] =
     from.foldRight[Chunk[Migration]](Chunk.empty) {
       case ((nodeLabel, _), acc) if !to.exists(_._1 == nodeLabel) => acc :+ DeleteNode(path / nodeLabel)
       case (_, acc)                                               => acc
     }
 
-  private def transformShape(path: NodePath, from: SchemaAst, to: SchemaAst): Chunk[Migration] = {
+  private def transformShape(path: NodePath, from: MetaSchema, to: MetaSchema): Chunk[Migration] = {
     val builder = ChunkBuilder.make[Migration]()
 
     if (from.optional && !to.optional)

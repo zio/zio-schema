@@ -8,7 +8,7 @@ import java.util.UUID
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
-import zio.schema.ast.{ Migration, SchemaAst }
+import zio.schema.meta.{ Migration, MetaSchema }
 
 sealed trait DynamicValue {
   self =>
@@ -1952,7 +1952,7 @@ object DynamicValue {
 
   final case class RightValue(value: DynamicValue) extends DynamicValue
 
-  final case class DynamicAst(ast: SchemaAst) extends DynamicValue
+  final case class DynamicAst(ast: MetaSchema) extends DynamicValue
 
   final case class Error(message: String) extends DynamicValue
 
@@ -2156,9 +2156,9 @@ private[schema] object DynamicValueSchema {
   private val dynamicAstCase: Schema.Case[DynamicValue.DynamicAst, DynamicValue] =
     Schema.Case(
       "DynamicAst",
-      Schema.CaseClass1[SchemaAst, DynamicValue.DynamicAst](
+      Schema.CaseClass1[MetaSchema, DynamicValue.DynamicAst](
         TypeId.parse("zio.schema.DynamicValue.DynamicAst"),
-        Schema.Field("ast", SchemaAst.schema),
+        Schema.Field("ast", MetaSchema.schema),
         schemaAst => DynamicValue.DynamicAst(schemaAst),
         dynamicAst => dynamicAst.ast
       ),

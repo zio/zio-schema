@@ -13,7 +13,7 @@ import zio.Chunk
 import zio.schema.CaseSet.Aux
 import zio.schema.Schema.{ Record, _ }
 import zio.schema._
-import zio.schema.ast.SchemaAst
+import zio.schema.meta.MetaSchema
 import zio.schema.codec.AvroAnnotations._
 import zio.schema.codec.AvroPropMarker._
 
@@ -358,9 +358,9 @@ object AvroCodec extends AvroCodec {
         } yield wrapAvro(union, name, EitherWrapper)
 
       case Lazy(schema0)     => toAvroSchema(schema0())
-      case Meta(_, _)        => toAvroSchema(Schema[SchemaAst])
-      case Dynamic(_)        => toAvroSchema(Schema[SchemaAst])
-      case SemiDynamic(_, _) => toAvroSchema(Schema[SchemaAst])
+      case Meta(_, _)        => toAvroSchema(Schema[MetaSchema])
+      case Dynamic(_)        => toAvroSchema(Schema[MetaSchema])
+      case SemiDynamic(_, _) => toAvroSchema(Schema[MetaSchema])
     }
   }
 
