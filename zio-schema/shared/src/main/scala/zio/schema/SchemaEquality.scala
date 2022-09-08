@@ -47,13 +47,13 @@ trait SchemaEquality {
           case (lTransform: Schema.Transform[_, _, _], rTransform: Schema.Transform[_, _, _]) =>
             (ignoreTransformations || (lTransform.identity == rTransform.identity)) &&
               lTransform.annotations == rTransform.annotations &&
-              lTransform.codec === rTransform.codec
+              lTransform.schema === rTransform.schema
           case (lPrimitive: Schema.Primitive[_], rPrimitive: Schema.Primitive[_]) =>
             lPrimitive.annotations == rPrimitive.annotations &&
               lPrimitive.standardType == rPrimitive.standardType
           case (lOptional: Schema.Optional[_], rOptional: Schema.Optional[_]) =>
             lOptional.annotations == rOptional.annotations &&
-              lOptional.codec === rOptional.codec
+              lOptional.schema === rOptional.schema
           case (lFail: Schema.Fail[_], rFail: Schema.Fail[_]) =>
             lFail.annotations == rFail.annotations && lFail.message == rFail.message
           case (lTuple: Schema.Tuple[_, _], rTuple: Schema.Tuple[_, _]) =>
@@ -77,9 +77,9 @@ trait SchemaEquality {
           case (l: Schema[_], rLazy: Schema.Lazy[_]) =>
             recursiveEqual(l, rLazy.schema, visitedPairs)
           case (lTransform: Schema.Transform[_, _, _], r: Schema[_]) if ignoreTransformations =>
-            recursiveEqual(lTransform.codec, r, visitedPairs)
+            recursiveEqual(lTransform.schema, r, visitedPairs)
           case (l: Schema[_], rTransform: Schema.Transform[_, _, _]) if ignoreTransformations =>
-            recursiveEqual(l, rTransform.codec, visitedPairs)
+            recursiveEqual(l, rTransform.schema, visitedPairs)
           case (_, _) => false
         }
         result

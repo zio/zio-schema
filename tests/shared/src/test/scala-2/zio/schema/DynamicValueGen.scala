@@ -104,7 +104,7 @@ object DynamicValueGen {
   def anyDynamicValueOfEnum[A](cases: Chunk[Schema.Case[_, A]]): Gen[Sized, DynamicValue.Enumeration] =
     for {
       index <- Gen.int(0, cases.size - 1)
-      value <- anyDynamicValueOfSchema(cases(index).codec)
+      value <- anyDynamicValueOfSchema(cases(index).schema)
     } yield DynamicValue.Enumeration(TypeId.Structural, cases(index).id -> value)
 
   def anyDynamicValueWithStructure(structure: Chunk[Schema.Field[_]]): Gen[Sized, DynamicValue.Record] =

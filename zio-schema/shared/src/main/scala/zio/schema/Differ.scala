@@ -573,7 +573,7 @@ object Differ {
             subtype.deconstruct(thisZ) -> (subtype.deconstruct(thatZ)) match {
               case (Some(thisA), Some(thatA)) =>
                 val subtypeDiffer: Differ[Z] =
-                  fromSchema(subtype.codec).transform(
+                  fromSchema(subtype.schema).transform(
                     (z: Z) => subtype.unsafeDeconstruct(z),
                     (a: a) => a.asInstanceOf[Z]
                   )

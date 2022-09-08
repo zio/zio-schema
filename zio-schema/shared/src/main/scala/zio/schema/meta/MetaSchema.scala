@@ -2,9 +2,10 @@ package zio.schema.meta
 
 import scala.annotation.tailrec
 import scala.collection.mutable
+
 import zio.prelude.Equal
 import zio.schema._
-import zio.{Chunk, ChunkBuilder, Tag}
+import zio.{ Chunk, ChunkBuilder }
 
 sealed trait MetaSchema { self =>
   def path: NodePath

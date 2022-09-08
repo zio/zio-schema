@@ -75,7 +75,7 @@ object DeriveGen {
     } // scalafmt: { maxColumn = 120 }
 
   private def genEnum[Z](cases: Schema.Case[_, Z]*) =
-    Gen.elements(cases: _*).flatMap(c => gen(c.codec).map(_.asInstanceOf[Z]))
+    Gen.elements(cases: _*).flatMap(c => gen(c.schema).map(_.asInstanceOf[Z]))
 
   private def genCaseClass0[Z](caseClass0: Schema.CaseClass0[Z]): Gen[Sized, Z] =
     Gen.elements(caseClass0.construct())
@@ -479,7 +479,7 @@ object DeriveGen {
     Gen.oneOf(Gen.setOf(gen(set.as)), Gen.const(Set.empty[A]))
 
   private def genTransform[A, B, I](transform: Schema.Transform[A, B, I]): Gen[Sized, B] =
-    gen(transform.codec).flatMap(a => transform.f(a).fold(_ => Gen.empty, (b: B) => Gen.const(b)))
+    gen(transform.schema).flatMap(a => transform.f(a).fold(_ => Gen.empty, (b: B) => Gen.const(b)))
 
   def genPrimitive[A](standardType: StandardType[A]): Gen[Sized, A] = {
     val gen = standardType match {
@@ -519,7 +519,7 @@ object DeriveGen {
   }
 
   private def genOptional[A](optional: Schema.Optional[A]): Gen[Sized, Option[A]] =
-    Gen.option(gen(optional.codec))
+    Gen.option(gen(optional.schema))
 
   private def genFail[A](fail: Schema.Fail[A]): Gen[Sized, A] = {
     val _ = fail

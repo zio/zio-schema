@@ -162,14 +162,14 @@ object Schema extends SchemaEquality {
 
   def fail[A](message: String): Schema[A] = Fail(message)
 
-  def first[A](codec: Schema[(A, Unit)]): Schema[A] =
-    codec.transform[A](_._1, a => (a, ()))
+  def first[A](schema: Schema[(A, Unit)]): Schema[A] =
+    schema.transform[A](_._1, a => (a, ()))
 
   def record(id: TypeId, fields: Field[_]*): Schema[ListMap[String, _]] =
     GenericRecord(id, FieldSet(fields: _*))
 
-  def second[A](codec: Schema[(Unit, A)]): Schema[A] =
-    codec.transform[A](_._2, a => ((), a))
+  def second[A](schema: Schema[(Unit, A)]): Schema[A] =
+    schema.transform[A](_._2, a => ((), a))
 
   def singleton[A](instance: A): Schema[A] = Schema[Unit].transform(_ => instance, _ => ())
 
@@ -317,27 +317,27 @@ object Schema extends SchemaEquality {
   }
 
   final case class Transform[A, B, I](
-    codec: Schema[A],
+    schema: Schema[A],
     f: A => Either[String, B],
     g: B => Either[String, A],
     annotations: Chunk[Any],
     identity: I
   ) extends Schema[B] {
-    override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = codec.Accessors[Lens, Prism, Traversal]
+    override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = schema.Accessors[Lens, Prism, Traversal]
 
-    def defaultValue: Either[String, B] = codec.defaultValue.flatMap(f)
+    def defaultValue: Either[String, B] = schema.defaultValue.flatMap(f)
 
-    override def makeAccessors(b: AccessorBuilder): codec.Accessors[b.Lens, b.Prism, b.Traversal] =
-      codec.makeAccessors(b)
+    override def makeAccessors(b: AccessorBuilder): schema.Accessors[b.Lens, b.Prism, b.Traversal] =
+      schema.makeAccessors(b)
 
     override def annotate(annotation: Any): Transform[A, B, I] = copy(annotations = annotations :+ annotation)
 
-    override def serializable: Schema[Schema[B]] = Meta(MetaSchema.fromSchema(codec)).transformOrFail(
-      s => s.coerce(codec).flatMap(s1 => Right(s1.transformOrFail(f, g))),
+    override def serializable: Schema[Schema[B]] = Meta(MetaSchema.fromSchema(schema)).transformOrFail(
+      s => s.coerce(schema).flatMap(s1 => Right(s1.transformOrFail(f, g))),
       s => Right(s.transformOrFail(g, f).ast.toSchema)
     )
 
-    override def toString: String = s"Transform($codec, $identity)"
+    override def toString: String = s"Transform($schema, $identity)"
 
   }
 
@@ -352,14 +352,14 @@ object Schema extends SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
 
-  final case class Optional[A](codec: Schema[A], annotations: Chunk[Any] = Chunk.empty) extends Schema[Option[A]] {
+  final case class Optional[A](schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) extends Schema[Option[A]] {
     self =>
 
     val some = "Some"
     val none = "None"
 
     private[schema] lazy val someCodec: Schema[Some[A]] =
-      codec.transform(a => Some(a), _.get)
+      schema.transform(a => Some(a), _.get)
 
     override def annotate(annotation: Any): Optional[A] = copy(annotations = annotations :+ annotation)
 
@@ -546,7 +546,7 @@ object Schema extends SchemaEquality {
 
   sealed case class Case[A, Z](
     id: String,
-    codec: Schema[A],
+    schema: Schema[A],
     unsafeDeconstruct: Z => A,
     annotations: Chunk[Any] = Chunk.empty
   ) {
@@ -558,7 +558,7 @@ object Schema extends SchemaEquality {
         case _: Throwable => None
       }
 
-    override def toString: String = s"Case($id,$codec,$annotations)"
+    override def toString: String = s"Case($id,$schema,$annotations)"
   }
 
   sealed case class Enum1[A <: Z, Z](id: TypeId, case1: Case[A, Z], annotations: Chunk[Any] = Chunk.empty)
@@ -568,12 +568,12 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum1[A, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): b.Prism[case1.id.type, Z, A] = b.makePrism(self, case1)
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(case1.id -> (case1.codec -> case1.annotations))
+      ListMap(case1.id -> (case1.schema -> case1.annotations))
   }
 
   sealed case class Enum2[A1 <: Z, A2 <: Z, Z](
@@ -588,13 +588,13 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum2[A1, A2, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[case1.id.type, Z, A1], b.Prism[case2.id.type, Z, A2]) =
       (b.makePrism(self, case1), b.makePrism(self, case2))
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(case1.id -> (case1.codec -> case1.annotations), case2.id -> (case2.codec -> case2.annotations))
+      ListMap(case1.id -> (case1.schema -> case1.annotations), case2.id -> (case2.schema -> case2.annotations))
   }
 
   sealed case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](
@@ -610,7 +610,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum3[A1, A2, A3, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -619,9 +619,9 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id -> (case1.codec -> case1.annotations),
-        case2.id -> (case2.codec -> case2.annotations),
-        case3.id -> (case3.codec -> case3.annotations)
+        case1.id -> (case1.schema -> case1.annotations),
+        case2.id -> (case2.schema -> case2.annotations),
+        case3.id -> (case3.schema -> case3.annotations)
       )
   }
 
@@ -644,7 +644,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum4[A1, A2, A3, A4, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -656,10 +656,10 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id -> (case1.codec -> case1.annotations),
-        case2.id -> (case2.codec -> case2.annotations),
-        case3.id -> (case3.codec -> case3.annotations),
-        case4.id -> (case4.codec -> case4.annotations)
+        case1.id -> (case1.schema -> case1.annotations),
+        case2.id -> (case2.schema -> case2.annotations),
+        case3.id -> (case3.schema -> case3.annotations),
+        case4.id -> (case4.schema -> case4.annotations)
       )
   }
 
@@ -684,7 +684,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum5[A1, A2, A3, A4, A5, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -705,11 +705,11 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id -> (case1.codec -> case1.annotations),
-        case2.id -> (case2.codec -> case2.annotations),
-        case3.id -> (case3.codec -> case3.annotations),
-        case4.id -> (case4.codec -> case4.annotations),
-        case5.id -> (case5.codec -> case5.annotations)
+        case1.id -> (case1.schema -> case1.annotations),
+        case2.id -> (case2.schema -> case2.annotations),
+        case3.id -> (case3.schema -> case3.annotations),
+        case4.id -> (case4.schema -> case4.annotations),
+        case5.id -> (case5.schema -> case5.annotations)
       )
   }
 
@@ -737,7 +737,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum6[A1, A2, A3, A4, A5, A6, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -760,12 +760,12 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id -> (case1.codec -> case1.annotations),
-        case2.id -> (case2.codec -> case2.annotations),
-        case3.id -> (case3.codec -> case3.annotations),
-        case4.id -> (case4.codec -> case4.annotations),
-        case5.id -> (case5.codec -> case5.annotations),
-        case6.id -> (case6.codec -> case6.annotations)
+        case1.id -> (case1.schema -> case1.annotations),
+        case2.id -> (case2.schema -> case2.annotations),
+        case3.id -> (case3.schema -> case3.annotations),
+        case4.id -> (case4.schema -> case4.annotations),
+        case5.id -> (case5.schema -> case5.annotations),
+        case6.id -> (case6.schema -> case6.annotations)
       )
   }
 
@@ -795,7 +795,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum7[A1, A2, A3, A4, A5, A6, A7, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -818,13 +818,13 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id -> (case1.codec -> case1.annotations),
-        case2.id -> (case2.codec -> case2.annotations),
-        case3.id -> (case3.codec -> case3.annotations),
-        case4.id -> (case4.codec -> case4.annotations),
-        case5.id -> (case5.codec -> case5.annotations),
-        case6.id -> (case6.codec -> case6.annotations),
-        case7.id -> (case7.codec -> case7.annotations)
+        case1.id -> (case1.schema -> case1.annotations),
+        case2.id -> (case2.schema -> case2.annotations),
+        case3.id -> (case3.schema -> case3.annotations),
+        case4.id -> (case4.schema -> case4.annotations),
+        case5.id -> (case5.schema -> case5.annotations),
+        case6.id -> (case6.schema -> case6.annotations),
+        case7.id -> (case7.schema -> case7.annotations)
       )
   }
 
@@ -856,7 +856,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum8[A1, A2, A3, A4, A5, A6, A7, A8, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -881,14 +881,14 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id -> (case1.codec -> case1.annotations),
-        case2.id -> (case2.codec -> case2.annotations),
-        case3.id -> (case3.codec -> case3.annotations),
-        case4.id -> (case4.codec -> case4.annotations),
-        case5.id -> (case5.codec -> case5.annotations),
-        case6.id -> (case6.codec -> case6.annotations),
-        case7.id -> (case7.codec -> case7.annotations),
-        case8.id -> (case8.codec -> case8.annotations)
+        case1.id -> (case1.schema -> case1.annotations),
+        case2.id -> (case2.schema -> case2.annotations),
+        case3.id -> (case3.schema -> case3.annotations),
+        case4.id -> (case4.schema -> case4.annotations),
+        case5.id -> (case5.schema -> case5.annotations),
+        case6.id -> (case6.schema -> case6.annotations),
+        case7.id -> (case7.schema -> case7.annotations),
+        case8.id -> (case8.schema -> case8.annotations)
       )
   }
 
@@ -921,7 +921,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -948,15 +948,15 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id -> (case1.codec -> case1.annotations),
-        case2.id -> (case2.codec -> case2.annotations),
-        case3.id -> (case3.codec -> case3.annotations),
-        case4.id -> (case4.codec -> case4.annotations),
-        case5.id -> (case5.codec -> case5.annotations),
-        case6.id -> (case6.codec -> case6.annotations),
-        case7.id -> (case7.codec -> case7.annotations),
-        case8.id -> (case8.codec -> case8.annotations),
-        case9.id -> (case9.codec -> case9.annotations)
+        case1.id -> (case1.schema -> case1.annotations),
+        case2.id -> (case2.schema -> case2.annotations),
+        case3.id -> (case3.schema -> case3.annotations),
+        case4.id -> (case4.schema -> case4.annotations),
+        case5.id -> (case5.schema -> case5.annotations),
+        case6.id -> (case6.schema -> case6.annotations),
+        case7.id -> (case7.schema -> case7.annotations),
+        case8.id -> (case8.schema -> case8.annotations),
+        case9.id -> (case9.schema -> case9.annotations)
       )
   }
 
@@ -991,7 +991,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1020,16 +1020,16 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec  -> case1.annotations),
-        case2.id  -> (case2.codec  -> case2.annotations),
-        case3.id  -> (case3.codec  -> case3.annotations),
-        case4.id  -> (case4.codec  -> case4.annotations),
-        case5.id  -> (case5.codec  -> case5.annotations),
-        case6.id  -> (case6.codec  -> case6.annotations),
-        case7.id  -> (case7.codec  -> case7.annotations),
-        case8.id  -> (case8.codec  -> case8.annotations),
-        case9.id  -> (case9.codec  -> case9.annotations),
-        case10.id -> (case10.codec -> case10.annotations)
+        case1.id  -> (case1.schema  -> case1.annotations),
+        case2.id  -> (case2.schema  -> case2.annotations),
+        case3.id  -> (case3.schema  -> case3.annotations),
+        case4.id  -> (case4.schema  -> case4.annotations),
+        case5.id  -> (case5.schema  -> case5.annotations),
+        case6.id  -> (case6.schema  -> case6.annotations),
+        case7.id  -> (case7.schema  -> case7.annotations),
+        case8.id  -> (case8.schema  -> case8.annotations),
+        case9.id  -> (case9.schema  -> case9.annotations),
+        case10.id -> (case10.schema -> case10.annotations)
       )
   }
 
@@ -1079,7 +1079,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1110,17 +1110,17 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec  -> case1.annotations),
-        case2.id  -> (case2.codec  -> case2.annotations),
-        case3.id  -> (case3.codec  -> case3.annotations),
-        case4.id  -> (case4.codec  -> case4.annotations),
-        case5.id  -> (case5.codec  -> case5.annotations),
-        case6.id  -> (case6.codec  -> case6.annotations),
-        case7.id  -> (case7.codec  -> case7.annotations),
-        case8.id  -> (case8.codec  -> case8.annotations),
-        case9.id  -> (case9.codec  -> case9.annotations),
-        case10.id -> (case10.codec -> case10.annotations),
-        case11.id -> (case11.codec -> case11.annotations)
+        case1.id  -> (case1.schema  -> case1.annotations),
+        case2.id  -> (case2.schema  -> case2.annotations),
+        case3.id  -> (case3.schema  -> case3.annotations),
+        case4.id  -> (case4.schema  -> case4.annotations),
+        case5.id  -> (case5.schema  -> case5.annotations),
+        case6.id  -> (case6.schema  -> case6.annotations),
+        case7.id  -> (case7.schema  -> case7.annotations),
+        case8.id  -> (case8.schema  -> case8.annotations),
+        case9.id  -> (case9.schema  -> case9.annotations),
+        case10.id -> (case10.schema -> case10.annotations),
+        case11.id -> (case11.schema -> case11.annotations)
       )
   }
 
@@ -1173,7 +1173,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1206,18 +1206,18 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec  -> case1.annotations),
-        case2.id  -> (case2.codec  -> case2.annotations),
-        case3.id  -> (case3.codec  -> case3.annotations),
-        case4.id  -> (case4.codec  -> case4.annotations),
-        case5.id  -> (case5.codec  -> case5.annotations),
-        case6.id  -> (case6.codec  -> case6.annotations),
-        case7.id  -> (case7.codec  -> case7.annotations),
-        case8.id  -> (case8.codec  -> case8.annotations),
-        case9.id  -> (case9.codec  -> case9.annotations),
-        case10.id -> (case10.codec -> case10.annotations),
-        case11.id -> (case11.codec -> case11.annotations),
-        case12.id -> (case12.codec -> case12.annotations)
+        case1.id  -> (case1.schema  -> case1.annotations),
+        case2.id  -> (case2.schema  -> case2.annotations),
+        case3.id  -> (case3.schema  -> case3.annotations),
+        case4.id  -> (case4.schema  -> case4.annotations),
+        case5.id  -> (case5.schema  -> case5.annotations),
+        case6.id  -> (case6.schema  -> case6.annotations),
+        case7.id  -> (case7.schema  -> case7.annotations),
+        case8.id  -> (case8.schema  -> case8.annotations),
+        case9.id  -> (case9.schema  -> case9.annotations),
+        case10.id -> (case10.schema -> case10.annotations),
+        case11.id -> (case11.schema -> case11.annotations),
+        case12.id -> (case12.schema -> case12.annotations)
       )
   }
 
@@ -1273,7 +1273,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1308,19 +1308,19 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec  -> case1.annotations),
-        case2.id  -> (case2.codec  -> case2.annotations),
-        case3.id  -> (case3.codec  -> case3.annotations),
-        case4.id  -> (case4.codec  -> case4.annotations),
-        case5.id  -> (case5.codec  -> case5.annotations),
-        case6.id  -> (case6.codec  -> case6.annotations),
-        case7.id  -> (case7.codec  -> case7.annotations),
-        case8.id  -> (case8.codec  -> case8.annotations),
-        case9.id  -> (case9.codec  -> case9.annotations),
-        case10.id -> (case10.codec -> case10.annotations),
-        case11.id -> (case11.codec -> case11.annotations),
-        case12.id -> (case12.codec -> case12.annotations),
-        case13.id -> (case13.codec -> case13.annotations)
+        case1.id  -> (case1.schema  -> case1.annotations),
+        case2.id  -> (case2.schema  -> case2.annotations),
+        case3.id  -> (case3.schema  -> case3.annotations),
+        case4.id  -> (case4.schema  -> case4.annotations),
+        case5.id  -> (case5.schema  -> case5.annotations),
+        case6.id  -> (case6.schema  -> case6.annotations),
+        case7.id  -> (case7.schema  -> case7.annotations),
+        case8.id  -> (case8.schema  -> case8.annotations),
+        case9.id  -> (case9.schema  -> case9.annotations),
+        case10.id -> (case10.schema -> case10.annotations),
+        case11.id -> (case11.schema -> case11.annotations),
+        case12.id -> (case12.schema -> case12.annotations),
+        case13.id -> (case13.schema -> case13.annotations)
       )
   }
 
@@ -1379,7 +1379,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1416,20 +1416,20 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec  -> case1.annotations),
-        case2.id  -> (case2.codec  -> case2.annotations),
-        case3.id  -> (case3.codec  -> case3.annotations),
-        case4.id  -> (case4.codec  -> case4.annotations),
-        case5.id  -> (case5.codec  -> case5.annotations),
-        case6.id  -> (case6.codec  -> case6.annotations),
-        case7.id  -> (case7.codec  -> case7.annotations),
-        case8.id  -> (case8.codec  -> case8.annotations),
-        case9.id  -> (case9.codec  -> case9.annotations),
-        case10.id -> (case10.codec -> case10.annotations),
-        case11.id -> (case11.codec -> case11.annotations),
-        case12.id -> (case12.codec -> case12.annotations),
-        case13.id -> (case13.codec -> case13.annotations),
-        case14.id -> (case14.codec -> case14.annotations)
+        case1.id  -> (case1.schema  -> case1.annotations),
+        case2.id  -> (case2.schema  -> case2.annotations),
+        case3.id  -> (case3.schema  -> case3.annotations),
+        case4.id  -> (case4.schema  -> case4.annotations),
+        case5.id  -> (case5.schema  -> case5.annotations),
+        case6.id  -> (case6.schema  -> case6.annotations),
+        case7.id  -> (case7.schema  -> case7.annotations),
+        case8.id  -> (case8.schema  -> case8.annotations),
+        case9.id  -> (case9.schema  -> case9.annotations),
+        case10.id -> (case10.schema -> case10.annotations),
+        case11.id -> (case11.schema -> case11.annotations),
+        case12.id -> (case12.schema -> case12.annotations),
+        case13.id -> (case13.schema -> case13.annotations),
+        case14.id -> (case14.schema -> case14.annotations)
       )
   }
 
@@ -1493,7 +1493,7 @@ object Schema extends SchemaEquality {
     ): Enum15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1532,21 +1532,21 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec  -> case1.annotations),
-        case2.id  -> (case2.codec  -> case2.annotations),
-        case3.id  -> (case3.codec  -> case3.annotations),
-        case4.id  -> (case4.codec  -> case4.annotations),
-        case5.id  -> (case5.codec  -> case5.annotations),
-        case6.id  -> (case6.codec  -> case6.annotations),
-        case7.id  -> (case7.codec  -> case7.annotations),
-        case8.id  -> (case8.codec  -> case8.annotations),
-        case9.id  -> (case9.codec  -> case9.annotations),
-        case10.id -> (case10.codec -> case10.annotations),
-        case11.id -> (case11.codec -> case11.annotations),
-        case12.id -> (case12.codec -> case12.annotations),
-        case13.id -> (case13.codec -> case13.annotations),
-        case14.id -> (case14.codec -> case14.annotations),
-        case15.id -> (case15.codec -> case15.annotations)
+        case1.id  -> (case1.schema  -> case1.annotations),
+        case2.id  -> (case2.schema  -> case2.annotations),
+        case3.id  -> (case3.schema  -> case3.annotations),
+        case4.id  -> (case4.schema  -> case4.annotations),
+        case5.id  -> (case5.schema  -> case5.annotations),
+        case6.id  -> (case6.schema  -> case6.annotations),
+        case7.id  -> (case7.schema  -> case7.annotations),
+        case8.id  -> (case8.schema  -> case8.annotations),
+        case9.id  -> (case9.schema  -> case9.annotations),
+        case10.id -> (case10.schema -> case10.annotations),
+        case11.id -> (case11.schema -> case11.annotations),
+        case12.id -> (case12.schema -> case12.annotations),
+        case13.id -> (case13.schema -> case13.annotations),
+        case14.id -> (case14.schema -> case14.annotations),
+        case15.id -> (case15.schema -> case15.annotations)
       )
   }
 
@@ -1613,7 +1613,7 @@ object Schema extends SchemaEquality {
     ): Enum16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1654,22 +1654,22 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec  -> case1.annotations),
-        case2.id  -> (case2.codec  -> case2.annotations),
-        case3.id  -> (case3.codec  -> case3.annotations),
-        case4.id  -> (case4.codec  -> case4.annotations),
-        case5.id  -> (case5.codec  -> case5.annotations),
-        case6.id  -> (case6.codec  -> case6.annotations),
-        case7.id  -> (case7.codec  -> case7.annotations),
-        case8.id  -> (case8.codec  -> case8.annotations),
-        case9.id  -> (case9.codec  -> case9.annotations),
-        case10.id -> (case10.codec -> case10.annotations),
-        case11.id -> (case11.codec -> case11.annotations),
-        case12.id -> (case12.codec -> case12.annotations),
-        case13.id -> (case13.codec -> case13.annotations),
-        case14.id -> (case14.codec -> case14.annotations),
-        case15.id -> (case15.codec -> case15.annotations),
-        case16.id -> (case16.codec -> case16.annotations)
+        case1.id  -> (case1.schema  -> case1.annotations),
+        case2.id  -> (case2.schema  -> case2.annotations),
+        case3.id  -> (case3.schema  -> case3.annotations),
+        case4.id  -> (case4.schema  -> case4.annotations),
+        case5.id  -> (case5.schema  -> case5.annotations),
+        case6.id  -> (case6.schema  -> case6.annotations),
+        case7.id  -> (case7.schema  -> case7.annotations),
+        case8.id  -> (case8.schema  -> case8.annotations),
+        case9.id  -> (case9.schema  -> case9.annotations),
+        case10.id -> (case10.schema -> case10.annotations),
+        case11.id -> (case11.schema -> case11.annotations),
+        case12.id -> (case12.schema -> case12.annotations),
+        case13.id -> (case13.schema -> case13.annotations),
+        case14.id -> (case14.schema -> case14.annotations),
+        case15.id -> (case15.schema -> case15.annotations),
+        case16.id -> (case16.schema -> case16.annotations)
       )
   }
 
@@ -1739,7 +1739,7 @@ object Schema extends SchemaEquality {
     ): Enum17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1782,23 +1782,23 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec  -> case1.annotations),
-        case2.id  -> (case2.codec  -> case2.annotations),
-        case3.id  -> (case3.codec  -> case3.annotations),
-        case4.id  -> (case4.codec  -> case4.annotations),
-        case5.id  -> (case5.codec  -> case5.annotations),
-        case6.id  -> (case6.codec  -> case6.annotations),
-        case7.id  -> (case7.codec  -> case7.annotations),
-        case8.id  -> (case8.codec  -> case8.annotations),
-        case9.id  -> (case9.codec  -> case9.annotations),
-        case10.id -> (case10.codec -> case10.annotations),
-        case11.id -> (case11.codec -> case11.annotations),
-        case12.id -> (case12.codec -> case12.annotations),
-        case13.id -> (case13.codec -> case13.annotations),
-        case14.id -> (case14.codec -> case14.annotations),
-        case15.id -> (case15.codec -> case15.annotations),
-        case16.id -> (case16.codec -> case16.annotations),
-        case17.id -> (case17.codec -> case17.annotations)
+        case1.id  -> (case1.schema  -> case1.annotations),
+        case2.id  -> (case2.schema  -> case2.annotations),
+        case3.id  -> (case3.schema  -> case3.annotations),
+        case4.id  -> (case4.schema  -> case4.annotations),
+        case5.id  -> (case5.schema  -> case5.annotations),
+        case6.id  -> (case6.schema  -> case6.annotations),
+        case7.id  -> (case7.schema  -> case7.annotations),
+        case8.id  -> (case8.schema  -> case8.annotations),
+        case9.id  -> (case9.schema  -> case9.annotations),
+        case10.id -> (case10.schema -> case10.annotations),
+        case11.id -> (case11.schema -> case11.annotations),
+        case12.id -> (case12.schema -> case12.annotations),
+        case13.id -> (case13.schema -> case13.annotations),
+        case14.id -> (case14.schema -> case14.annotations),
+        case15.id -> (case15.schema -> case15.annotations),
+        case16.id -> (case16.schema -> case16.annotations),
+        case17.id -> (case17.schema -> case17.annotations)
       )
   }
 
@@ -1871,7 +1871,7 @@ object Schema extends SchemaEquality {
     ): Enum18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1916,24 +1916,24 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec  -> case1.annotations),
-        case2.id  -> (case2.codec  -> case2.annotations),
-        case3.id  -> (case3.codec  -> case3.annotations),
-        case4.id  -> (case4.codec  -> case4.annotations),
-        case5.id  -> (case5.codec  -> case5.annotations),
-        case6.id  -> (case6.codec  -> case6.annotations),
-        case7.id  -> (case7.codec  -> case7.annotations),
-        case8.id  -> (case8.codec  -> case8.annotations),
-        case9.id  -> (case9.codec  -> case9.annotations),
-        case10.id -> (case10.codec -> case10.annotations),
-        case11.id -> (case11.codec -> case11.annotations),
-        case12.id -> (case12.codec -> case12.annotations),
-        case13.id -> (case13.codec -> case13.annotations),
-        case14.id -> (case14.codec -> case14.annotations),
-        case15.id -> (case15.codec -> case15.annotations),
-        case16.id -> (case16.codec -> case16.annotations),
-        case17.id -> (case17.codec -> case17.annotations),
-        case18.id -> (case18.codec -> case18.annotations)
+        case1.id  -> (case1.schema  -> case1.annotations),
+        case2.id  -> (case2.schema  -> case2.annotations),
+        case3.id  -> (case3.schema  -> case3.annotations),
+        case4.id  -> (case4.schema  -> case4.annotations),
+        case5.id  -> (case5.schema  -> case5.annotations),
+        case6.id  -> (case6.schema  -> case6.annotations),
+        case7.id  -> (case7.schema  -> case7.annotations),
+        case8.id  -> (case8.schema  -> case8.annotations),
+        case9.id  -> (case9.schema  -> case9.annotations),
+        case10.id -> (case10.schema -> case10.annotations),
+        case11.id -> (case11.schema -> case11.annotations),
+        case12.id -> (case12.schema -> case12.annotations),
+        case13.id -> (case13.schema -> case13.annotations),
+        case14.id -> (case14.schema -> case14.annotations),
+        case15.id -> (case15.schema -> case15.annotations),
+        case16.id -> (case16.schema -> case16.annotations),
+        case17.id -> (case17.schema -> case17.annotations),
+        case18.id -> (case18.schema -> case18.annotations)
       )
   }
 
@@ -2009,7 +2009,7 @@ object Schema extends SchemaEquality {
     ): Enum19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -2056,25 +2056,25 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec  -> case1.annotations),
-        case2.id  -> (case2.codec  -> case2.annotations),
-        case3.id  -> (case3.codec  -> case3.annotations),
-        case4.id  -> (case4.codec  -> case4.annotations),
-        case5.id  -> (case5.codec  -> case5.annotations),
-        case6.id  -> (case6.codec  -> case6.annotations),
-        case7.id  -> (case7.codec  -> case7.annotations),
-        case8.id  -> (case8.codec  -> case8.annotations),
-        case9.id  -> (case9.codec  -> case9.annotations),
-        case10.id -> (case10.codec -> case10.annotations),
-        case11.id -> (case11.codec -> case11.annotations),
-        case12.id -> (case12.codec -> case12.annotations),
-        case13.id -> (case13.codec -> case13.annotations),
-        case14.id -> (case14.codec -> case14.annotations),
-        case15.id -> (case15.codec -> case15.annotations),
-        case16.id -> (case16.codec -> case16.annotations),
-        case17.id -> (case17.codec -> case17.annotations),
-        case18.id -> (case18.codec -> case18.annotations),
-        case19.id -> (case19.codec -> case19.annotations)
+        case1.id  -> (case1.schema  -> case1.annotations),
+        case2.id  -> (case2.schema  -> case2.annotations),
+        case3.id  -> (case3.schema  -> case3.annotations),
+        case4.id  -> (case4.schema  -> case4.annotations),
+        case5.id  -> (case5.schema  -> case5.annotations),
+        case6.id  -> (case6.schema  -> case6.annotations),
+        case7.id  -> (case7.schema  -> case7.annotations),
+        case8.id  -> (case8.schema  -> case8.annotations),
+        case9.id  -> (case9.schema  -> case9.annotations),
+        case10.id -> (case10.schema -> case10.annotations),
+        case11.id -> (case11.schema -> case11.annotations),
+        case12.id -> (case12.schema -> case12.annotations),
+        case13.id -> (case13.schema -> case13.annotations),
+        case14.id -> (case14.schema -> case14.annotations),
+        case15.id -> (case15.schema -> case15.annotations),
+        case16.id -> (case16.schema -> case16.annotations),
+        case17.id -> (case17.schema -> case17.annotations),
+        case18.id -> (case18.schema -> case18.annotations),
+        case19.id -> (case19.schema -> case19.annotations)
       )
   }
 
@@ -2153,7 +2153,7 @@ object Schema extends SchemaEquality {
     ): Enum20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -2202,26 +2202,26 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec  -> case1.annotations),
-        case2.id  -> (case2.codec  -> case2.annotations),
-        case3.id  -> (case3.codec  -> case3.annotations),
-        case4.id  -> (case4.codec  -> case4.annotations),
-        case5.id  -> (case5.codec  -> case5.annotations),
-        case6.id  -> (case6.codec  -> case6.annotations),
-        case7.id  -> (case7.codec  -> case7.annotations),
-        case8.id  -> (case8.codec  -> case8.annotations),
-        case9.id  -> (case9.codec  -> case9.annotations),
-        case10.id -> (case10.codec -> case10.annotations),
-        case11.id -> (case11.codec -> case11.annotations),
-        case12.id -> (case12.codec -> case12.annotations),
-        case13.id -> (case13.codec -> case13.annotations),
-        case14.id -> (case14.codec -> case14.annotations),
-        case15.id -> (case15.codec -> case15.annotations),
-        case16.id -> (case16.codec -> case16.annotations),
-        case17.id -> (case17.codec -> case17.annotations),
-        case18.id -> (case18.codec -> case18.annotations),
-        case19.id -> (case19.codec -> case19.annotations),
-        case20.id -> (case20.codec -> case20.annotations)
+        case1.id  -> (case1.schema  -> case1.annotations),
+        case2.id  -> (case2.schema  -> case2.annotations),
+        case3.id  -> (case3.schema  -> case3.annotations),
+        case4.id  -> (case4.schema  -> case4.annotations),
+        case5.id  -> (case5.schema  -> case5.annotations),
+        case6.id  -> (case6.schema  -> case6.annotations),
+        case7.id  -> (case7.schema  -> case7.annotations),
+        case8.id  -> (case8.schema  -> case8.annotations),
+        case9.id  -> (case9.schema  -> case9.annotations),
+        case10.id -> (case10.schema -> case10.annotations),
+        case11.id -> (case11.schema -> case11.annotations),
+        case12.id -> (case12.schema -> case12.annotations),
+        case13.id -> (case13.schema -> case13.annotations),
+        case14.id -> (case14.schema -> case14.annotations),
+        case15.id -> (case15.schema -> case15.annotations),
+        case16.id -> (case16.schema -> case16.annotations),
+        case17.id -> (case17.schema -> case17.annotations),
+        case18.id -> (case18.schema -> case18.annotations),
+        case19.id -> (case19.schema -> case19.annotations),
+        case20.id -> (case20.schema -> case20.annotations)
       )
   }
 
@@ -2303,7 +2303,7 @@ object Schema extends SchemaEquality {
     ): Enum21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -2356,27 +2356,27 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec  -> case1.annotations),
-        case2.id  -> (case2.codec  -> case2.annotations),
-        case3.id  -> (case3.codec  -> case3.annotations),
-        case4.id  -> (case4.codec  -> case4.annotations),
-        case5.id  -> (case5.codec  -> case5.annotations),
-        case6.id  -> (case6.codec  -> case6.annotations),
-        case7.id  -> (case7.codec  -> case7.annotations),
-        case8.id  -> (case8.codec  -> case8.annotations),
-        case9.id  -> (case9.codec  -> case9.annotations),
-        case10.id -> (case10.codec -> case10.annotations),
-        case11.id -> (case11.codec -> case11.annotations),
-        case12.id -> (case12.codec -> case12.annotations),
-        case13.id -> (case13.codec -> case13.annotations),
-        case14.id -> (case14.codec -> case14.annotations),
-        case15.id -> (case15.codec -> case15.annotations),
-        case16.id -> (case16.codec -> case16.annotations),
-        case17.id -> (case17.codec -> case17.annotations),
-        case18.id -> (case18.codec -> case18.annotations),
-        case19.id -> (case19.codec -> case19.annotations),
-        case20.id -> (case20.codec -> case20.annotations),
-        case21.id -> (case21.codec -> case21.annotations)
+        case1.id  -> (case1.schema  -> case1.annotations),
+        case2.id  -> (case2.schema  -> case2.annotations),
+        case3.id  -> (case3.schema  -> case3.annotations),
+        case4.id  -> (case4.schema  -> case4.annotations),
+        case5.id  -> (case5.schema  -> case5.annotations),
+        case6.id  -> (case6.schema  -> case6.annotations),
+        case7.id  -> (case7.schema  -> case7.annotations),
+        case8.id  -> (case8.schema  -> case8.annotations),
+        case9.id  -> (case9.schema  -> case9.annotations),
+        case10.id -> (case10.schema -> case10.annotations),
+        case11.id -> (case11.schema -> case11.annotations),
+        case12.id -> (case12.schema -> case12.annotations),
+        case13.id -> (case13.schema -> case13.annotations),
+        case14.id -> (case14.schema -> case14.annotations),
+        case15.id -> (case15.schema -> case15.annotations),
+        case16.id -> (case16.schema -> case16.annotations),
+        case17.id -> (case17.schema -> case17.annotations),
+        case18.id -> (case18.schema -> case18.annotations),
+        case19.id -> (case19.schema -> case19.annotations),
+        case20.id -> (case20.schema -> case20.annotations),
+        case21.id -> (case21.schema -> case21.annotations)
       )
   }
 
@@ -2461,7 +2461,7 @@ object Schema extends SchemaEquality {
     ): Enum22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.codec.defaultValue
+    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -2516,28 +2516,28 @@ object Schema extends SchemaEquality {
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(
-        case1.id  -> (case1.codec  -> case1.annotations),
-        case2.id  -> (case2.codec  -> case2.annotations),
-        case3.id  -> (case3.codec  -> case3.annotations),
-        case4.id  -> (case4.codec  -> case4.annotations),
-        case5.id  -> (case5.codec  -> case5.annotations),
-        case6.id  -> (case6.codec  -> case6.annotations),
-        case7.id  -> (case7.codec  -> case7.annotations),
-        case8.id  -> (case8.codec  -> case8.annotations),
-        case9.id  -> (case9.codec  -> case9.annotations),
-        case10.id -> (case10.codec -> case10.annotations),
-        case11.id -> (case11.codec -> case11.annotations),
-        case12.id -> (case12.codec -> case12.annotations),
-        case13.id -> (case13.codec -> case13.annotations),
-        case14.id -> (case14.codec -> case14.annotations),
-        case15.id -> (case15.codec -> case15.annotations),
-        case16.id -> (case16.codec -> case16.annotations),
-        case17.id -> (case17.codec -> case17.annotations),
-        case18.id -> (case18.codec -> case18.annotations),
-        case19.id -> (case19.codec -> case19.annotations),
-        case20.id -> (case20.codec -> case20.annotations),
-        case21.id -> (case21.codec -> case21.annotations),
-        case22.id -> (case22.codec -> case22.annotations)
+        case1.id  -> (case1.schema  -> case1.annotations),
+        case2.id  -> (case2.schema  -> case2.annotations),
+        case3.id  -> (case3.schema  -> case3.annotations),
+        case4.id  -> (case4.schema  -> case4.annotations),
+        case5.id  -> (case5.schema  -> case5.annotations),
+        case6.id  -> (case6.schema  -> case6.annotations),
+        case7.id  -> (case7.schema  -> case7.annotations),
+        case8.id  -> (case8.schema  -> case8.annotations),
+        case9.id  -> (case9.schema  -> case9.annotations),
+        case10.id -> (case10.schema -> case10.annotations),
+        case11.id -> (case11.schema -> case11.annotations),
+        case12.id -> (case12.schema -> case12.annotations),
+        case13.id -> (case13.schema -> case13.annotations),
+        case14.id -> (case14.schema -> case14.annotations),
+        case15.id -> (case15.schema -> case15.annotations),
+        case16.id -> (case16.schema -> case16.annotations),
+        case17.id -> (case17.schema -> case17.annotations),
+        case18.id -> (case18.schema -> case18.annotations),
+        case19.id -> (case19.schema -> case19.annotations),
+        case20.id -> (case20.schema -> case20.annotations),
+        case21.id -> (case21.schema -> case21.annotations),
+        case22.id -> (case22.schema -> case22.annotations)
       )
   }
 
@@ -2550,13 +2550,13 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): EnumN[Z, C] = copy(annotations = annotations :+ annotation)
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(caseSet.toSeq.map(c => c.id -> (c.codec -> c.annotations)): _*)
+      ListMap(caseSet.toSeq.map(c => c.id -> (c.schema -> c.annotations)): _*)
 
     def defaultValue: Either[String, Z] =
       if (caseSet.toSeq.isEmpty)
         Left("cannot access default value for enum with no members")
       else
-        caseSet.toSeq.head.codec.defaultValue.asInstanceOf[Either[String, Z]]
+        caseSet.toSeq.head.schema.defaultValue.asInstanceOf[Either[String, Z]]
 
     override def makeAccessors(b: AccessorBuilder): caseSet.Accessors[Z, b.Lens, b.Prism, b.Traversal] =
       caseSet.makeAccessors(self, b)

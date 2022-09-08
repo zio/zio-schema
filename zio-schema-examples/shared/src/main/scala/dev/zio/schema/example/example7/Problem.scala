@@ -100,13 +100,13 @@ private[example7] object Problem {
     )(implicit schema: Schema[A], decoder: QueryParams => Either[String, A]): Either[String, A] =
       decoder(params)
 
-    def buildDecoder[A](implicit schema: Schema[A]): QueryParams => Either[String, A] = {
+    def buildDecoder[A](implicit schemaA: Schema[A]): QueryParams => Either[String, A] = {
 
-      def compile[B](key: Option[String], schema: Schema[B]): QueryParams => Either[String, B] =
-        schema match {
+      def compile[B](key: Option[String], schemaB: Schema[B]): QueryParams => Either[String, B] =
+        schemaB match {
           case transform: Transform[a, B, _] =>
-            import transform.{ codec, f }
-            val func: QueryParams => Either[String, Any] = compile(key, codec)
+            import transform.{ f, schema }
+            val func: QueryParams => Either[String, Any] = compile(key, schema)
             (params: QueryParams) => func(params).flatMap(v => f(v.asInstanceOf[a]))
           case Primitive(standardType, _) =>
             key match {
@@ -187,11 +187,11 @@ private[example7] object Problem {
             lazy val compiled = compile(key, lzy.schema)
             (qp: QueryParams) => compiled(qp)
           case _ =>
-            val err = Left(s"Decoding from query parameters is not supported for $schema")
+            val err = Left(s"Decoding from query parameters is not supported for $schemaB")
             Function.const(err)
         }
 
-      compile(None, schema)
+      compile(None, schemaA)
     }
 
     implicit val personDecoder: QueryParams => Either[String, Person] = buildDecoder[Person]

@@ -1925,7 +1925,7 @@ object AssertionHelper {
     Assertion.hasField("schemaA", _.schemaA, assertion)
 
   def hasOptionElementSchema[A](assertion: Assertion[Schema[A]]): Assertion[Schema.Optional[A]] =
-    Assertion.hasField("codec", _.codec, assertion)
+    Assertion.hasField("schema", _.schema, assertion)
 
   def hasRecordField(assertion: Assertion[Schema.Field[_]]): Assertion[Schema.Record[_]] =
     recordFields(Assertion.exists(assertion))

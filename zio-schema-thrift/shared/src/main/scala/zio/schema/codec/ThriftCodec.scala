@@ -117,19 +117,19 @@ object ThriftCodec extends Codec {
 
     @tailrec
     final def getType[A](schema: Schema[A]): Byte = schema match {
-      case _: Schema.Record[A]                 => TType.STRUCT
-      case Schema.Sequence(_, _, _, _, _)      => TType.LIST
-      case Schema.MapSchema(_, _, _)           => TType.MAP
-      case Schema.SetSchema(_, _)              => TType.SET
-      case Schema.Transform(codec, _, _, _, _) => getType(codec)
-      case Schema.Primitive(standardType, _)   => getPrimitiveType(standardType)
-      case Schema.Tuple(_, _, _)               => TType.STRUCT
-      case Schema.Optional(codec, _)           => getType(codec)
-      case Schema.EitherSchema(_, _, _)        => TType.STRUCT
-      case Schema.Lazy(lzy)                    => getType(lzy())
-      case Schema.Meta(_, _)                   => getType(Schema[MetaSchema])
-      case _: Schema.Enum[A]                   => TType.STRUCT
-      case _                                   => TType.VOID
+      case _: Schema.Record[A]                  => TType.STRUCT
+      case Schema.Sequence(_, _, _, _, _)       => TType.LIST
+      case Schema.MapSchema(_, _, _)            => TType.MAP
+      case Schema.SetSchema(_, _)               => TType.SET
+      case Schema.Transform(schema, _, _, _, _) => getType(schema)
+      case Schema.Primitive(standardType, _)    => getPrimitiveType(standardType)
+      case Schema.Tuple(_, _, _)                => TType.STRUCT
+      case Schema.Optional(schema, _)           => getType(schema)
+      case Schema.EitherSchema(_, _, _)         => TType.STRUCT
+      case Schema.Lazy(lzy)                     => getType(lzy())
+      case Schema.Meta(_, _)                    => getType(Schema[MetaSchema])
+      case _: Schema.Enum[A]                    => TType.STRUCT
+      case _                                    => TType.VOID
     }
 
     def getPrimitiveType[A](standardType: StandardType[A]): Byte =
@@ -291,13 +291,13 @@ object ThriftCodec extends Codec {
       v.foreach(encodeValue(None, schema, _))
     }
 
-    def encodeOptional[A](fieldNumber: Option[Short], codec: Schema[A], v: Option[A]): Unit = {
+    def encodeOptional[A](fieldNumber: Option[Short], schema: Schema[A], v: Option[A]): Unit = {
       writeFieldBegin(fieldNumber, TType.STRUCT)
       v match {
         case None =>
           encodeValue(Some(1), Schema.primitive(StandardType.UnitType), ())
         case Some(value) =>
-          encodeValue(Some(2), codec, value)
+          encodeValue(Some(2), schema, value)
       }
       p.writeFieldStop()
     }
@@ -309,10 +309,10 @@ object ThriftCodec extends Codec {
         case (Schema.Sequence(element, _, g, _, _), v)                  => encodeSequence(fieldNumber, element, g(v))
         case (mapSchema: Schema.MapSchema[_, _], map: Map[_, _])        => encodeMap(fieldNumber, mapSchema.asInstanceOf[Schema.MapSchema[Any, Any]], map.asInstanceOf[Map[Any, Any]])
         case (setSchema: Schema.SetSchema[_], set: Set[_])              => encodeSet(fieldNumber, setSchema.asInstanceOf[Schema.SetSchema[Any]].as, set.asInstanceOf[Set[Any]])
-        case (Schema.Transform(codec, _, g, _, _), _)                   => g(value).foreach(encodeValue(fieldNumber, codec, _))
+        case (Schema.Transform(schema, _, g, _, _), _)                  => g(value).foreach(encodeValue(fieldNumber, schema, _))
         case (Schema.Primitive(standardType, _), v)                     => encodePrimitive(fieldNumber, standardType, v)
         case (Schema.Tuple(left, right, _), v @ (_, _))                 => encodeTuple(fieldNumber, left, right, v)
-        case (optSchema: Schema.Optional[_], v: Option[_])              => encodeOptional(fieldNumber, optSchema.asInstanceOf[Schema.Optional[Any]].codec, v.asInstanceOf[Option[Any]])
+        case (optSchema: Schema.Optional[_], v: Option[_])              => encodeOptional(fieldNumber, optSchema.asInstanceOf[Schema.Optional[Any]].schema, v.asInstanceOf[Option[Any]])
         case (eitherSchema: Schema.EitherSchema[_, _], v: Either[_, _]) => encodeEither(fieldNumber, eitherSchema.asInstanceOf[Schema.EitherSchema[Any, Any]].left, eitherSchema.asInstanceOf[Schema.EitherSchema[Any, Any]].right, v.asInstanceOf[Either[Any, Any]])
         case (lzy @ Schema.Lazy(_), v)                                  => encodeValue(fieldNumber, lzy.schema, v)
         case (Schema.Meta(ast, _), _)                                   => encodeValue(fieldNumber, Schema[MetaSchema], ast)
@@ -369,7 +369,7 @@ object ThriftCodec extends Codec {
       val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
       if (fieldIndex >= 0) {
         val subtypeCase = cases(fieldIndex)
-        encodeValue(Some((fieldIndex + 1).shortValue), subtypeCase.codec.asInstanceOf[Schema[Any]], subtypeCase.unsafeDeconstruct(value))
+        encodeValue(Some((fieldIndex + 1).shortValue), subtypeCase.schema.asInstanceOf[Schema[Any]], subtypeCase.unsafeDeconstruct(value))
       }
       p.writeFieldStop()
     }
@@ -451,7 +451,7 @@ object ThriftCodec extends Codec {
 
         def unapply(schema: Schema[Any]): Option[Schema[Any]] =
           if (schema.isInstanceOf[Schema.Optional[_]])
-            Some(schema.asInstanceOf[Schema.Optional[Any]].codec)
+            Some(schema.asInstanceOf[Schema.Optional[Any]].schema)
           else
             None
       }
@@ -522,7 +522,7 @@ object ThriftCodec extends Codec {
         case seqSchema @ Schema.Sequence(_, _, _, _, _)                                                                               => decodeSequence(path, seqSchema)
         case mapSchema @ Schema.MapSchema(_, _, _)                                                                                    => decodeMap(path, mapSchema)
         case setSchema @ Schema.SetSchema(_, _)                                                                                       => decodeSet(path, setSchema)
-        case Schema.Transform(codec, f, _, _, _)                                                                                      => transformDecoder(path, codec, f)
+        case Schema.Transform(schema, f, _, _, _)                                                                                     => transformDecoder(path, schema, f)
         case Schema.Primitive(standardType, _)                                                                                        => primitiveDecoder(path, standardType)
         case Schema.Tuple(left, right, _)                                                                                             => tupleDecoder(path, left, right)
         case optionalSchema @ Schema.Optional(_, _)                                                                                   => optionalDecoder(path, optionalSchema)
@@ -566,7 +566,7 @@ object ThriftCodec extends Codec {
         val readField = p.readFieldBegin()
         val res = readField.id match {
           case 1 => succeed(None)
-          case 2 => decode(path :+ "Some", schema.codec).map(Some(_))
+          case 2 => decode(path :+ "Some", schema.schema).map(Some(_))
           case _ =>
             fail(path, s"Error decoding optional, wrong field id ${readField.id}")
         }
@@ -581,7 +581,7 @@ object ThriftCodec extends Codec {
           fail(path, s"Error decoding enum with cases ${cases.map(_.id).mkString(", ")}, enum id out of range: ${readField.id}")
         else {
           val subtypeCase = cases(readField.id - 1)
-          val res         = decode(path :+ s"[case:${subtypeCase.id}]", subtypeCase.codec)
+          val res         = decode(path :+ s"[case:${subtypeCase.id}]", subtypeCase.schema)
           res.foreach { _ =>
             p.readFieldBegin()
           }

@@ -433,7 +433,7 @@ object ProtobufCodec extends Codec {
           val subtypeCase = cases(fieldIndex)
           encode(
             Some(fieldIndex + 1),
-            subtypeCase.codec.asInstanceOf[Schema[Any]],
+            subtypeCase.schema.asInstanceOf[Schema[Any]],
             subtypeCase.unsafeDeconstruct(value)
           )
         }
@@ -801,11 +801,11 @@ object ProtobufCodec extends Codec {
           val subtypeCase = cases(fieldNumber - 1)
           wt match {
             case LengthDelimited(width) =>
-              decoder(subtypeCase.codec)
+              decoder(subtypeCase.schema)
                 .take(width)
                 .asInstanceOf[Decoder[Z]]
             case _ =>
-              decoder(subtypeCase.codec)
+              decoder(subtypeCase.schema)
                 .asInstanceOf[Decoder[Z]]
           }
         case (_, fieldNumber) =>

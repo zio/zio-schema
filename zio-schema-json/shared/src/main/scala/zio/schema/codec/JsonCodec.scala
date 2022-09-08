@@ -232,7 +232,8 @@ object JsonCodec extends Codec {
           string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(case_.id), indent_, out)
           if (indent.isEmpty) out.write(':')
           else out.write(" : ")
-          schemaEncoder(case_.codec.asInstanceOf[Schema[Any]]).unsafeEncode(case_.unsafeDeconstruct(value), indent, out)
+          schemaEncoder(case_.schema.asInstanceOf[Schema[Any]])
+            .unsafeEncode(case_.unsafeDeconstruct(value), indent, out)
           out.write('}')
         } else {
           out.write("{}")
@@ -388,7 +389,7 @@ object JsonCodec extends Codec {
             Lexer.char(trace_, in, ':')
             cases.find(_.id == subtype) match {
               case Some(c) =>
-                val decoded = schemaDecoder(c.codec).unsafeDecode(trace_, in).asInstanceOf[Z]
+                val decoded = schemaDecoder(c.schema).unsafeDecode(trace_, in).asInstanceOf[Z]
                 Lexer.nextField(trace, in)
                 decoded
               case None =>
