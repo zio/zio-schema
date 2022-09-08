@@ -39,10 +39,10 @@ object SchemaOrdering {
     case (Schema.Sequence(schema, _, _, _, _), Sequence(lVal), Sequence(rVal)) =>
       compareSequences(lVal, rVal, compareBySchema(schema))
     case (Schema.Fail(_, _), Error(lVal), Error(rVal))               => lVal.compareTo(rVal)
-    case (Schema.Transform(_, _, _, _, _), Error(lval), Error(rVal)) => lval.compareTo(rVal)
-    case (Schema.Transform(_, _, _, _, _), Error(_), _)              => -1
-    case (Schema.Transform(_, _, _, _, _), _, Error(_))              => 1
-    case (Schema.Transform(schemaA, _, _, _, _), lVal, rVal) =>
+    case (Schema.Transform(_, _, _, _), Error(lval), Error(rVal)) => lval.compareTo(rVal)
+    case (Schema.Transform(_, _, _, _), Error(_), _)              => -1
+    case (Schema.Transform(_, _, _, _), _, Error(_))              => 1
+    case (Schema.Transform(schemaA, _, _, _), lVal, rVal) =>
       compareBySchema(schemaA)(lVal, rVal)
     case (e: Schema.Enum[_], Enumeration(_, (lField, lVal)), Enumeration(_, (rField, rVal))) if lField == rField =>
       compareBySchema(e.structure(lField))(lVal, rVal)

@@ -117,7 +117,7 @@ sealed trait Schema[A] {
    * Returns a new schema that combines this schema and the specified schema together, modeling
    * their either composition.
    */
-  def orElseEither[B: Tag](that: Schema[B]): Schema[Either[A, B]] = Schema.EitherSchema(self, that)
+  def orElseEither[B](that: Schema[B]): Schema[Either[A, B]] = Schema.EitherSchema(self, that)
 
   def repeated: Schema[Chunk[A]] = Schema.chunk(self)
 
@@ -138,14 +138,14 @@ sealed trait Schema[A] {
    * between `A` and `B`, without possibility of failure.
    */
   def transform[B: Tag](f: A => B, g: B => A): Schema[B] =
-    Schema.Transform[A, B, Tag[B]](self, a => Right(f(a)), b => Right(g(b)), annotations, Tag[B])
+    Schema.Transform[A, B](self, a => Right(f(a)), b => Right(g(b)), annotations)
 
   /**
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
    * between `A` and `B` (possibly failing in some cases).
    */
-  def transformOrFail[B: Tag](f: A => Either[String, B], g: B => Either[String, A]): Schema[B] =
-    Schema.Transform[A, B, Tag[B]](self, f, g, annotations, Tag[B])
+  def transformOrFail[B](f: A => Either[String, B], g: B => Either[String, A]): Schema[B] =
+    Schema.Transform[A, B](self, f, g, annotations)
 
   /**
    * Returns a new schema that combines this schema and the specified schema together, modeling
@@ -318,21 +318,23 @@ object Schema extends SchemaEquality {
 
   }
 
-  final case class Transform[A: Tag, B: Tag, I](
+  final case class Transform[A, B](
     codec: Schema[A],
     f: A => Either[String, B],
     g: B => Either[String, A],
-    annotations: Chunk[Any],
-    identity: I
+    annotations: Chunk[Any]
   ) extends Schema[B] {
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = codec.Accessors[Lens, Prism, Traversal]
+
+    implicit val tagA: Tag[A] = Tag[A]
+    implicit val tagB: Tag[B] = Tag[B]
 
     def defaultValue: Either[String, B] = codec.defaultValue.flatMap(f)
 
     override def makeAccessors(b: AccessorBuilder): codec.Accessors[b.Lens, b.Prism, b.Traversal] =
       codec.makeAccessors(b)
 
-    override def annotate(annotation: Any): Transform[A, B, I] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Transform[A, B] = copy(annotations = annotations :+ annotation)
 
     override def serializable: Schema[Schema[B]] = {
       Meta(MetaSchema.fromSchema(codec)).transformOrFail(
@@ -341,7 +343,8 @@ object Schema extends SchemaEquality {
       )
     }
 
-    override def toString: String = s"Transform($codec, $identity)"
+    val identity: Tag[B] = Tag[B]
+    override def toString: String = s"Transform($codec $identity)"
 
   }
 

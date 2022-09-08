@@ -265,7 +265,7 @@ object Differ {
     case Schema.Meta(_, _)                                                                       => (_: A, _: A) => Patch.notComparable[Schema[_]]
     case Schema.EitherSchema(leftSchema, rightSchema, _)                                         => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                                                                      => fromSchema(s.schema)
-    case Schema.Transform(schema, g, f, _, _)                                                    => fromSchema(schema).transformOrFail(f, g)
+    case Schema.Transform(schema, g, f, _)                                                    => fromSchema(schema).transformOrFail(f, g)
     case Schema.Fail(_, _)                                                                       => fail
     case s @ Schema.GenericRecord(_, _, _)                                                       => record(s)
     case s: Schema.CaseClass0[A]                                                                 => product0(s)

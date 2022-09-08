@@ -44,7 +44,7 @@ trait SchemaEquality {
             (ignoreTransformations || (lSeq.identity == rSeq.identity)) &&
               lSeq.annotations == rSeq.annotations &&
               lSeq.schemaA === rSeq.schemaA
-          case (lTransform: Schema.Transform[_, _, _], rTransform: Schema.Transform[_, _, _]) =>
+          case (lTransform: Schema.Transform[_, _], rTransform: Schema.Transform[_, _]) =>
             (ignoreTransformations || (lTransform.identity == rTransform.identity)) &&
               lTransform.annotations == rTransform.annotations &&
               lTransform.codec === rTransform.codec
@@ -76,9 +76,9 @@ trait SchemaEquality {
             recursiveEqual(lLazy.schema, r, visitedPairs)
           case (l: Schema[_], rLazy: Schema.Lazy[_]) =>
             recursiveEqual(l, rLazy.schema, visitedPairs)
-          case (lTransform: Schema.Transform[_, _, _], r: Schema[_]) if ignoreTransformations =>
+          case (lTransform: Schema.Transform[_, _], r: Schema[_]) if ignoreTransformations =>
             recursiveEqual(lTransform.codec, r, visitedPairs)
-          case (l: Schema[_], rTransform: Schema.Transform[_, _, _]) if ignoreTransformations =>
+          case (l: Schema[_], rTransform: Schema.Transform[_, _]) if ignoreTransformations =>
             recursiveEqual(l, rTransform.codec, visitedPairs)
           case (_, _) => false
         }

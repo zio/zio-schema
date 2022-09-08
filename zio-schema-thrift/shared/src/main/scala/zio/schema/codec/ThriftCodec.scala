@@ -121,7 +121,7 @@ object ThriftCodec extends Codec {
       case Schema.Sequence(_, _, _, _, _)      => TType.LIST
       case Schema.MapSchema(_, _, _)           => TType.MAP
       case Schema.SetSchema(_, _)              => TType.SET
-      case Schema.Transform(codec, _, _, _, _) => getType(codec)
+      case Schema.Transform(codec, _, _, _) => getType(codec)
       case Schema.Primitive(standardType, _)   => getPrimitiveType(standardType)
       case Schema.Tuple(_, _, _)               => TType.STRUCT
       case Schema.Optional(codec, _)           => getType(codec)
@@ -309,7 +309,7 @@ object ThriftCodec extends Codec {
         case (Schema.Sequence(element, _, g, _, _), v)                  => encodeSequence(fieldNumber, element, g(v))
         case (mapSchema: Schema.MapSchema[_, _], map: Map[_, _])        => encodeMap(fieldNumber, mapSchema.asInstanceOf[Schema.MapSchema[Any, Any]], map.asInstanceOf[Map[Any, Any]])
         case (setSchema: Schema.SetSchema[_], set: Set[_])              => encodeSet(fieldNumber, setSchema.asInstanceOf[Schema.SetSchema[Any]].as, set.asInstanceOf[Set[Any]])
-        case (Schema.Transform(codec, _, g, _, _), _)                   => g(value).foreach(encodeValue(fieldNumber, codec, _))
+        case (Schema.Transform(codec, _, g, _), _)                   => g(value).foreach(encodeValue(fieldNumber, codec, _))
         case (Schema.Primitive(standardType, _), v)                     => encodePrimitive(fieldNumber, standardType, v)
         case (Schema.Tuple(left, right, _), v @ (_, _))                 => encodeTuple(fieldNumber, left, right, v)
         case (optSchema: Schema.Optional[_], v: Option[_])              => encodeOptional(fieldNumber, optSchema.asInstanceOf[Schema.Optional[Any]].codec, v.asInstanceOf[Option[Any]])
@@ -522,7 +522,7 @@ object ThriftCodec extends Codec {
         case seqSchema @ Schema.Sequence(_, _, _, _, _)                                                                               => decodeSequence(path, seqSchema)
         case mapSchema @ Schema.MapSchema(_, _, _)                                                                                    => decodeMap(path, mapSchema)
         case setSchema @ Schema.SetSchema(_, _)                                                                                       => decodeSet(path, setSchema)
-        case Schema.Transform(codec, f, _, _, _)                                                                                      => transformDecoder(path, codec, f)
+        case Schema.Transform(codec, f, _, _)                                                                                      => transformDecoder(path, codec, f)
         case Schema.Primitive(standardType, _)                                                                                        => primitiveDecoder(path, standardType)
         case Schema.Tuple(left, right, _)                                                                                             => tupleDecoder(path, left, right)
         case optionalSchema @ Schema.Optional(_, _)                                                                                   => optionalDecoder(path, optionalSchema)

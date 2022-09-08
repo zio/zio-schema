@@ -89,9 +89,9 @@ object SchemaAssertions {
           actualId == expectedId && equalsAst(expectedSchema, actualSchema, depth)
         case _ => false
       }
-    case (expected, Schema.Transform(actualSchema, _, _, _, _)) =>
+    case (expected, Schema.Transform(actualSchema, _, _, _)) =>
       equalsAst(expected, actualSchema, depth)
-    case (Schema.Transform(expected, _, _, _, _), actual) =>
+    case (Schema.Transform(expected, _, _, _), actual) =>
       equalsAst(expected, actual, depth)
     case (expected: Schema.Lazy[_], actual) => if (depth > 10) true else equalsAst(expected.schema, actual, depth + 1)
     case (expected, actual: Schema.Lazy[_]) => if (depth > 10) true else equalsAst(expected, actual.schema, depth + 1)

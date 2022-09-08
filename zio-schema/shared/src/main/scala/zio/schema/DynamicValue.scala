@@ -67,7 +67,7 @@ sealed trait DynamicValue {
       case (DynamicValue.NoneValue, Schema.Optional(_, _)) =>
         Right(None)
 
-      case (value, Schema.Transform(schema, f, _, _, _)) =>
+      case (value, Schema.Transform(schema, f, _, _)) =>
         value.toTypedValue(schema).flatMap(f)
 
       case (DynamicValue.Dictionary(entries), schema: Schema.MapSchema[k, v]) =>
@@ -999,7 +999,7 @@ object DynamicValue {
           case None           => DynamicValue.NoneValue
         }
 
-      case Schema.Transform(schema, _, g, _, _) =>
+      case Schema.Transform(schema, _, g, _) =>
         g(value) match {
           case Left(message) => DynamicValue.Error(message)
           case Right(a)      => fromSchemaAndValue(schema, a)

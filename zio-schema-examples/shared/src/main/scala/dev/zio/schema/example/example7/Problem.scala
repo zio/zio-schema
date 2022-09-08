@@ -104,7 +104,7 @@ private[example7] object Problem {
 
       def compile[B](key: Option[String], schema: Schema[B]): QueryParams => Either[String, B] =
         schema match {
-          case transform: Transform[a, B, _] =>
+          case transform: Transform[a, B] =>
             import transform.{ codec, f }
             val func: QueryParams => Either[String, Any] = compile(key, codec)
             (params: QueryParams) => func(params).flatMap(v => f(v.asInstanceOf[a]))

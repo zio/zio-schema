@@ -265,7 +265,7 @@ object SchemaGen {
       (key3, value3)
     )
 
-  type SequenceTransform[A] = Schema.Transform[Chunk[A], List[A], String]
+  type SequenceTransform[A] = Schema.Transform[Chunk[A], List[A]]
 
   val anySequenceTransform: Gen[Sized, SequenceTransform[_]] = {
     anySequence.map(schema => transformSequence(schema))
@@ -281,12 +281,11 @@ object SchemaGen {
 
   // TODO: Add some random Left values.
   private def transformSequence[A](schema: Schema[Chunk[A]]): SequenceTransform[A] =
-    Schema.Transform[Chunk[A], List[A], String](
+    Schema.Transform[Chunk[A], List[A]](
       schema,
       chunk => Right(chunk.toList),
       list => Right(Chunk.fromIterable(list)),
-      Chunk.empty,
-      "transformSequence"
+      Chunk.empty
     )
 
   type SequenceTransformAndValue[A] = (SequenceTransform[A], List[A])
@@ -297,7 +296,7 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  type RecordTransform[A] = Schema.Transform[ListMap[String, _], A, String]
+  type RecordTransform[A] = Schema.Transform[ListMap[String, _], A]
 
   val anyRecordTransform: Gen[Sized, RecordTransform[_]] = {
     anyRecord.map(schema => transformRecord(schema))
@@ -314,12 +313,11 @@ object SchemaGen {
 
   // TODO: Dynamically generate a case class.
   def transformRecord[A](schema: Schema[ListMap[String, _]]): RecordTransform[A] =
-    Schema.Transform[ListMap[String, _], A, String](
+    Schema.Transform[ListMap[String, _], A](
       schema,
       _ => Left("Not implemented."),
       _ => Left("Not implemented."),
-      Chunk.empty,
-      "transformRecord"
+      Chunk.empty
     )
 
   type RecordTransformAndValue[A] = (RecordTransform[A], A)
@@ -330,7 +328,7 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  type EnumerationTransform[A] = Schema.Transform[Any, A, String]
+  type EnumerationTransform[A] = Schema.Transform[Any, A]
 
   val anyEnumerationTransform: Gen[Sized, EnumerationTransform[_]] = {
     anyEnumeration.map(schema => transformEnumeration(schema))
@@ -347,12 +345,11 @@ object SchemaGen {
 
   // TODO: Dynamically generate a sealed trait and case/value classes.
   def transformEnumeration[A](schema: Schema[Any]): EnumerationTransform[_] =
-    Schema.Transform[Any, A, String](
+    Schema.Transform[Any, A](
       schema,
       _ => Left("Not implemented."),
       _ => Left("Not implemented."),
-      Chunk.empty,
-      "transformEnumeration"
+      Chunk.empty
     )
 
   type EnumerationTransformAndValue[A] = (EnumerationTransform[A], A)
@@ -363,13 +360,13 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  val anyTransform: Gen[Sized, Schema.Transform[_, _, _]] = Gen.oneOf(
+  val anyTransform: Gen[Sized, Schema.Transform[_, _]] = Gen.oneOf(
     anySequenceTransform,
     anyRecordTransform,
     anyEnumerationTransform
   )
 
-  type TransformAndValue[A] = (Schema.Transform[_, A, String], A)
+  type TransformAndValue[A] = (Schema.Transform[_, A], A)
 
   val anyTransformAndValue: Gen[Sized, TransformAndValue[_]] =
     Gen.oneOf[Sized, TransformAndValue[_]](
@@ -378,7 +375,7 @@ object SchemaGen {
       // anyEnumerationTransformAndValue
     )
 
-  type TransformAndGen[A] = (Schema.Transform[_, A, String], Gen[Sized, A])
+  type TransformAndGen[A] = (Schema.Transform[_, A], Gen[Sized, A])
 
   val anyTransformAndGen: Gen[Sized, TransformAndGen[_]] =
     Gen.oneOf[Sized, TransformAndGen[_]](

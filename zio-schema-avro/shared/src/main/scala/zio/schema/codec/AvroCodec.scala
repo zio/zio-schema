@@ -243,7 +243,7 @@ object AvroCodec extends AvroCodec {
       case map: Schema.MapSchema[_, _]   => toAvroMap(map)
       case seq: Schema.Sequence[_, _, _] => toAvroSchema(seq.schemaA).map(SchemaAvro.createArray)
       case set: Schema.SetSchema[_]      => toAvroSchema(set.as).map(SchemaAvro.createArray)
-      case Transform(codec, _, _, _, _)  => toAvroSchema(codec)
+      case Transform(codec, _, _, _)  => toAvroSchema(codec)
       case Primitive(standardType, _) =>
         standardType match {
           case StandardType.UnitType   => Right(SchemaAvro.create(SchemaAvro.Type.NULL))
@@ -474,7 +474,7 @@ object AvroCodec extends AvroCodec {
   private[codec] def toAvroEnum(enu: Enum[_]): Either[String, SchemaAvro] = {
     val avroEnumAnnotationExists = hasAvroEnumAnnotation(enu.annotations)
     val isAvroEnumEquivalent = enu.structure.forall {
-      case (_, Transform(Primitive(standardType, _), _, _, _, _))
+      case (_, Transform(Primitive(standardType, _), _, _, _))
           if standardType == StandardType.UnitType && avroEnumAnnotationExists =>
         true
       case (_, Primitive(standardType, _)) if standardType == StandardType.StringType => true
@@ -492,7 +492,7 @@ object AvroCodec extends AvroCodec {
       } yield result
     } else {
       val cases = enu.structureWithAnnotations.map {
-        case (symbol, (Transform(Primitive(standardType, _), _, _, _, _), annotations))
+        case (symbol, (Transform(Primitive(standardType, _), _, _, _), annotations))
             if standardType == StandardType.UnitType =>
           val name = getNameOption(annotations).getOrElse(symbol)
           Right(SchemaAvro.createRecord(name, null, null, false, new java.util.ArrayList[SchemaAvro.Field]))
@@ -741,7 +741,7 @@ object AvroCodec extends AvroCodec {
             case c: Meta                                                                             => Right(c)
             case c: Optional[_]                                                                      => Right(c)
             case c: Primitive[_]                                                                     => Right(c)
-            case c: Transform[_, _, _]                                                               => Right(c)
+            case c: Transform[_, _]                                                               => Right(c)
             case c: Tuple[_, _]                                                                      => Right(c)
 
           }
