@@ -1,21 +1,19 @@
 package zio.schema.codec
 
-import java.nio.charset.StandardCharsets
-import java.time.format.DateTimeFormatter
-
-import scala.annotation.StaticAnnotation
-import scala.jdk.CollectionConverters._
-import scala.util.{ Right, Try }
-
-import org.apache.avro.{ LogicalTypes, Schema => SchemaAvro }
-
+import org.apache.avro.{LogicalTypes, Schema => SchemaAvro}
 import zio.Chunk
 import zio.schema.CaseSet.Aux
-import zio.schema.Schema.{ Record, _ }
+import zio.schema.Schema.{Record, _}
 import zio.schema._
 import zio.schema.codec.AvroAnnotations._
 import zio.schema.codec.AvroPropMarker._
 import zio.schema.meta.MetaSchema
+
+import java.nio.charset.StandardCharsets
+import java.time.format.DateTimeFormatter
+import scala.annotation.StaticAnnotation
+import scala.jdk.CollectionConverters._
+import scala.util.{Right, Try}
 
 trait AvroCodec {
   def encode(schema: Schema[_]): Either[String, String]
@@ -68,7 +66,9 @@ object AvroCodec extends AvroCodec {
                    toZioSchema(avroSchema.getValueType).map(Schema.map(Schema.primitive(StandardType.StringType), _))
                  case SchemaAvro.Type.UNION =>
                    avroSchema match {
-                     case OptionUnion(optionSchema) => toZioSchema(optionSchema).map(Schema.option(_))
+                     case OptionUnion(optionSchema) => {
+                       toZioSchema(optionSchema).map(Schema.option(_))
+                     }
                      case EitherUnion(left, right) =>
                        toZioSchema(left).flatMap(l => toZioSchema(right).map(r => Schema.either(l, r)))
                      case _ => toZioEnumeration(avroSchema)

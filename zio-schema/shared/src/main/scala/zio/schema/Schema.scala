@@ -1,14 +1,12 @@
 package zio.schema
 
-import java.net.{ URI, URL }
-import java.time.temporal.ChronoUnit
-
-import scala.collection.immutable.ListMap
-
-import zio.Chunk
-import zio.schema.internal.SourceLocation
+import zio.{Chunk, Tag}
 import zio.schema.meta._
 import zio.schema.validation._
+
+import java.net.{URI, URL}
+import java.time.temporal.ChronoUnit
+import scala.collection.immutable.ListMap
 
 /**
  * A `Schema[A]` describes the structure of some data type `A`, in terms of case classes,
@@ -32,7 +30,11 @@ import zio.schema.validation._
 sealed trait Schema[A] {
   self =>
 
+  type tagA = A
+
   type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]]
+
+  implicit val tag: Tag[A] = Tag[A]
 
   /**
    * A symbolic operator for [[optional]].
@@ -47,7 +49,7 @@ sealed trait Schema[A] {
   /**
    * A symbolic operator for [[orElseEither]].
    */
-  def <+>[B](that: Schema[B]): Schema[Either[A, B]] = self.orElseEither(that)
+  def <+>[B: Tag](that: Schema[B]): Schema[Either[A, B]] = self.orElseEither(that)
 
   /**
    * The default value for a `Schema` of type `A`.
@@ -72,11 +74,12 @@ sealed trait Schema[A] {
    *  This can be used to e.g convert between a case class and it's
    *  "generic" representation as a ListMap[String,_]
    */
-  def coerce[B](newSchema: Schema[B]): Either[String, Schema[B]] =
+  def coerce[B: Tag](newSchema: Schema[B]): Either[String, Schema[B]] = {
     for {
       f <- self.migrate(newSchema)
       g <- newSchema.migrate(self)
     } yield self.transformOrFail(f, g)
+  }
 
   /**
    * Performs a diff between thisValue and thatValue. See [[zio.schema.Differ]] for details
@@ -114,17 +117,18 @@ sealed trait Schema[A] {
    * Returns a new schema that combines this schema and the specified schema together, modeling
    * their either composition.
    */
-  def orElseEither[B](that: Schema[B]): Schema[Either[A, B]] = Schema.EitherSchema(self, that)
+  def orElseEither[B: Tag](that: Schema[B]): Schema[Either[A, B]] = Schema.EitherSchema(self, that)
 
   def repeated: Schema[Chunk[A]] = Schema.chunk(self)
 
-  def serializable: Schema[Schema[A]] =
+  def serializable: Schema[Schema[A]] = {
     Schema
       .Meta(MetaSchema.fromSchema(self))
       .transformOrFail(
         s => s.coerce(self),
         s => Right(s.ast.toSchema)
       )
+  }
 
   def toDynamic(value: A): DynamicValue =
     DynamicValue.fromSchemaAndValue(self, value)
@@ -133,17 +137,15 @@ sealed trait Schema[A] {
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
    * between `A` and `B`, without possibility of failure.
    */
-  def transform[B](f: A => B, g: B => A)(implicit loc: SourceLocation): Schema[B] =
-    Schema.Transform[A, B, SourceLocation](self, a => Right(f(a)), b => Right(g(b)), annotations, loc)
+  def transform[B: Tag](f: A => B, g: B => A): Schema[B] =
+    Schema.Transform[A, B, Tag[B]](self, a => Right(f(a)), b => Right(g(b)), annotations, Tag[B])
 
   /**
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
    * between `A` and `B` (possibly failing in some cases).
    */
-  def transformOrFail[B](f: A => Either[String, B], g: B => Either[String, A])(
-    implicit loc: SourceLocation
-  ): Schema[B] =
-    Schema.Transform[A, B, SourceLocation](self, f, g, annotations, loc)
+  def transformOrFail[B: Tag](f: A => Either[String, B], g: B => Either[String, A]): Schema[B] =
+    Schema.Transform[A, B, Tag[B]](self, f, g, annotations, Tag[B])
 
   /**
    * Returns a new schema that combines this schema and the specified schema together, modeling
@@ -162,16 +164,16 @@ object Schema extends SchemaEquality {
 
   def fail[A](message: String): Schema[A] = Fail(message)
 
-  def first[A](codec: Schema[(A, Unit)]): Schema[A] =
+  def first[A: Tag](codec: Schema[(A, Unit)]): Schema[A] =
     codec.transform[A](_._1, a => (a, ()))
 
   def record(id: TypeId, fields: Field[_]*): Schema[ListMap[String, _]] =
     GenericRecord(id, FieldSet(fields: _*))
 
-  def second[A](codec: Schema[(Unit, A)]): Schema[A] =
+  def second[A: Tag](codec: Schema[(Unit, A)]): Schema[A] =
     codec.transform[A](_._2, a => ((), a))
 
-  def singleton[A](instance: A): Schema[A] = Schema[Unit].transform(_ => instance, _ => ())
+  def singleton[A: Tag](instance: A): Schema[A] = Schema[Unit].transform(_ => instance, _ => ())
 
   implicit val bigDecimal: Schema[BigDecimal] = primitive[java.math.BigDecimal].transform(BigDecimal(_), _.bigDecimal)
 
@@ -236,7 +238,7 @@ object Schema extends SchemaEquality {
 
   def toDynamic[A](a: A)(implicit schema: Schema[A]): DynamicValue = schema.toDynamic(a)
 
-  implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
+  implicit def vector[A: Tag](implicit element: Schema[A]): Schema[Vector[A]] =
     chunk(element).transform(_.toVector, Chunk.fromIterable(_))
 
   implicit val url: Schema[java.net.URL] =
@@ -316,7 +318,7 @@ object Schema extends SchemaEquality {
 
   }
 
-  final case class Transform[A, B, I](
+  final case class Transform[A: Tag, B: Tag, I](
     codec: Schema[A],
     f: A => Either[String, B],
     g: B => Either[String, A],
@@ -332,10 +334,12 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Transform[A, B, I] = copy(annotations = annotations :+ annotation)
 
-    override def serializable: Schema[Schema[B]] = Meta(MetaSchema.fromSchema(codec)).transformOrFail(
-      s => s.coerce(codec).flatMap(s1 => Right(s1.transformOrFail(f, g))),
-      s => Right(s.transformOrFail(g, f).ast.toSchema)
-    )
+    override def serializable: Schema[Schema[B]] = {
+      Meta(MetaSchema.fromSchema(codec)).transformOrFail(
+        s => s.coerce(codec).flatMap(s1 => Right(s1.transformOrFail(f, g))),
+        s => Right(s.transformOrFail(g, f).ast.toSchema)
+      )
+    }
 
     override def toString: String = s"Transform($codec, $identity)"
 
@@ -355,11 +359,13 @@ object Schema extends SchemaEquality {
   final case class Optional[A](codec: Schema[A], annotations: Chunk[Any] = Chunk.empty) extends Schema[Option[A]] {
     self =>
 
+    implicit val tagA: Tag[A] = Tag[A]
     val some = "Some"
     val none = "None"
 
     private[schema] lazy val someCodec: Schema[Some[A]] =
       codec.transform(a => Some(a), _.get)
+
 
     override def annotate(annotation: Any): Optional[A] = copy(annotations = annotations :+ annotation)
 
@@ -425,6 +431,9 @@ object Schema extends SchemaEquality {
       extends Schema[Either[A, B]] {
     self =>
 
+    implicit val tagA: Tag[A] = Tag[A]
+    implicit val tagB: Tag[B] = Tag[B]
+
     val leftSingleton  = "Left"
     val rightSingleton = "Right"
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
@@ -435,8 +444,12 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): EitherSchema[A, B] = copy(annotations = annotations :+ annotation)
 
-    val rightSchema: Schema[Right[Nothing, B]] = right.transform(b => Right(b), _.value)
-    val leftSchema: Schema[Left[A, Nothing]]   = left.transform(a => Left(a), _.value)
+    val rightSchema: Schema[Right[Nothing, B]] =
+      right.transform(b => Right(b), _.value)
+
+    val leftSchema: Schema[Left[A, Nothing]]   =
+      left.transform(a => Left(a), _.value)
+
 
     val toEnum: Enum2[Right[Nothing, B], Left[A, Nothing], Either[A, B]] = Enum2(
       TypeId.parse("zio.schema.Schema.EitherSchema"),
@@ -2565,10 +2578,10 @@ object Schema extends SchemaEquality {
   implicit def tuple2[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
     c1.zip(c2)
 
-  implicit def tuple3[A, B, C](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C]): Schema[(A, B, C)] =
+  implicit def tuple3[A: Tag, B: Tag, C: Tag](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C]): Schema[(A, B, C)] =
     c1.zip(c2).zip(c3).transform({ case ((a, b), c) => (a, b, c) }, { case (a, b, c) => ((a, b), c) })
 
-  implicit def tuple4[A, B, C, D](
+  implicit def tuple4[A: Tag, B: Tag, C: Tag, D: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -2579,7 +2592,7 @@ object Schema extends SchemaEquality {
       .zip(c4)
       .transform({ case (((a, b), c), d) => (a, b, c, d) }, { case (a, b, c, d) => (((a, b), c), d) })
 
-  implicit def tuple5[A, B, C, D, E](
+  implicit def tuple5[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -2592,7 +2605,7 @@ object Schema extends SchemaEquality {
       .zip(c5)
       .transform({ case ((((a, b), c), d), e) => (a, b, c, d, e) }, { case (a, b, c, d, e) => ((((a, b), c), d), e) })
 
-  implicit def tuple6[A, B, C, D, E, F](
+  implicit def tuple6[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -2609,7 +2622,7 @@ object Schema extends SchemaEquality {
         case (a, b, c, d, e, f)                    => (((((a, b), c), d), e), f)
       })
 
-  implicit def tuple7[A, B, C, D, E, F, G](
+  implicit def tuple7[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag, G: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -2628,7 +2641,7 @@ object Schema extends SchemaEquality {
         case (a, b, c, d, e, f, g)                      => ((((((a, b), c), d), e), f), g)
       })
 
-  implicit def tuple8[A, B, C, D, E, F, G, H](
+  implicit def tuple8[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag, G: Tag, H: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -2649,7 +2662,7 @@ object Schema extends SchemaEquality {
         case (a, b, c, d, e, f, g, h)                        => (((((((a, b), c), d), e), f), g), h)
       })
 
-  implicit def tuple9[A, B, C, D, E, F, G, H, I](
+  implicit def tuple9[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag, G: Tag, H: Tag, I: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -2672,7 +2685,7 @@ object Schema extends SchemaEquality {
         case (a, b, c, d, e, f, g, h, i)                          => ((((((((a, b), c), d), e), f), g), h), i)
       })
 
-  implicit def tuple10[A, B, C, D, E, F, G, H, I, J](
+  implicit def tuple10[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag, G: Tag, H: Tag, I: Tag, J: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -2697,7 +2710,7 @@ object Schema extends SchemaEquality {
         case (a, b, c, d, e, f, g, h, i, j)                            => (((((((((a, b), c), d), e), f), g), h), i), j)
       })
 
-  implicit def tuple11[A, B, C, D, E, F, G, H, I, J, K](
+  implicit def tuple11[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag, G: Tag, H: Tag, I: Tag, J: Tag, K: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -2724,7 +2737,7 @@ object Schema extends SchemaEquality {
         case (a, b, c, d, e, f, g, h, i, j, k)                              => ((((((((((a, b), c), d), e), f), g), h), i), j), k)
       })
 
-  implicit def tuple12[A, B, C, D, E, F, G, H, I, J, K, L](
+  implicit def tuple12[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag, G: Tag, H: Tag, I: Tag, J: Tag, K: Tag, L: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -2755,7 +2768,7 @@ object Schema extends SchemaEquality {
         }
       )
 
-  implicit def tuple13[A, B, C, D, E, F, G, H, I, J, K, L, M](
+  implicit def tuple13[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag, G: Tag, H: Tag, I: Tag, J: Tag, K: Tag, L: Tag, M: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -2790,7 +2803,7 @@ object Schema extends SchemaEquality {
         }
       )
 
-  implicit def tuple14[A, B, C, D, E, F, G, H, I, J, K, L, M, N](
+  implicit def tuple14[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag, G: Tag, H: Tag, I: Tag, J: Tag, K: Tag, L: Tag, M: Tag, N: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -2829,7 +2842,7 @@ object Schema extends SchemaEquality {
         }
       )
 
-  implicit def tuple15[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O](
+  implicit def tuple15[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag, G: Tag, H: Tag, I: Tag, J: Tag, K: Tag, L: Tag, M: Tag, N: Tag, O: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -2870,7 +2883,7 @@ object Schema extends SchemaEquality {
         }
       )
 
-  implicit def tuple16[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P](
+  implicit def tuple16[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag, G: Tag, H: Tag, I: Tag, J: Tag, K: Tag, L: Tag, M: Tag, N: Tag, O: Tag, P: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -2913,7 +2926,7 @@ object Schema extends SchemaEquality {
         }
       )
 
-  implicit def tuple17[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q](
+  implicit def tuple17[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag, G: Tag, H: Tag, I: Tag, J: Tag, K: Tag, L: Tag, M: Tag, N: Tag, O: Tag, P: Tag, Q: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -2958,7 +2971,7 @@ object Schema extends SchemaEquality {
         }
       )
 
-  implicit def tuple18[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R](
+  implicit def tuple18[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag, G: Tag, H: Tag, I: Tag, J: Tag, K: Tag, L: Tag, M: Tag, N: Tag, O: Tag, P: Tag, Q: Tag, R: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -3005,7 +3018,7 @@ object Schema extends SchemaEquality {
         }
       )
 
-  implicit def tuple19[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S](
+  implicit def tuple19[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag, G: Tag, H: Tag, I: Tag, J: Tag, K: Tag, L: Tag, M: Tag, N: Tag, O: Tag, P: Tag, Q: Tag, R: Tag, S: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -3054,7 +3067,7 @@ object Schema extends SchemaEquality {
         }
       )
 
-  implicit def tuple20[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T](
+  implicit def tuple20[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag, G: Tag, H: Tag, I: Tag, J: Tag, K: Tag, L: Tag, M: Tag, N: Tag, O: Tag, P: Tag, Q: Tag, R: Tag, S: Tag, T: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -3105,7 +3118,7 @@ object Schema extends SchemaEquality {
         }
       )
 
-  implicit def tuple21[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U](
+  implicit def tuple21[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag, G: Tag, H: Tag, I: Tag, J: Tag, K: Tag, L: Tag, M: Tag, N: Tag, O: Tag, P: Tag, Q: Tag, R: Tag, S: Tag, T: Tag, U: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],
@@ -3158,7 +3171,7 @@ object Schema extends SchemaEquality {
         }
       )
 
-  implicit def tuple22[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V](
+  implicit def tuple22[A: Tag, B: Tag, C: Tag, D: Tag, E: Tag, F: Tag, G: Tag, H: Tag, I: Tag, J: Tag, K: Tag, L: Tag, M: Tag, N: Tag, O: Tag, P: Tag, Q: Tag, R: Tag, S: Tag, T: Tag, U: Tag, V: Tag](
     implicit c1: Schema[A],
     c2: Schema[B],
     c3: Schema[C],

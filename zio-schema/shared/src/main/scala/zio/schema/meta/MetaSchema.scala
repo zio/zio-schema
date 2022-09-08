@@ -7,6 +7,7 @@ import zio.schema._
 import zio.{Chunk, ChunkBuilder, Tag}
 
 sealed trait MetaSchema { self =>
+  type tag = Tag[Any]
   def path: NodePath
   def optional: Boolean
 
@@ -23,6 +24,7 @@ object MetaSchema {
 
   type Labelled = (String, MetaSchema)
   type Lineage  = Chunk[(Int, NodePath)]
+  implicit val tag: Tag[NodePath] = Tag[NodePath]
 
   implicit val nodePathSchema: Schema[NodePath] =
     Schema[String].repeated
