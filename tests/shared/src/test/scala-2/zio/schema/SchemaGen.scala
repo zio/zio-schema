@@ -162,7 +162,9 @@ object SchemaGen {
     for {
       (schemaK, genK) <- anyPrimitiveAndGen
       (schemaV, genV) <- anyPrimitiveAndGen
-    } yield Schema.Map(schemaK, schemaV, Chunk.empty) -> (genK.flatMap(k => genV.map(v => scala.collection.immutable.Map(k -> v))))
+    } yield Schema.Map(schemaK, schemaV, Chunk.empty) -> (genK.flatMap(
+      k => genV.map(v => scala.collection.immutable.Map(k -> v))
+    ))
 
   type MapAndValue[K, V] = (Schema.Map[K, V], Map[K, V])
 
@@ -172,15 +174,15 @@ object SchemaGen {
       map           <- gen
     } yield schema -> map
 
-  type SetAndGen[A] = (Schema.SetSchema[A], Gen[Sized, Set[A]])
+  type SetAndGen[A] = (Schema.Set[A], Gen[Sized, scala.collection.immutable.Set[A]])
 
   val anySetAndGen: Gen[Sized, SetAndGen[_]] =
     anyPrimitiveAndGen.map {
       case (schema, gen) =>
-        Schema.SetSchema(schema, Chunk.empty) -> Gen.setOf(gen)
+        Schema.Set(schema, Chunk.empty) -> Gen.setOf(gen)
     }
 
-  type SetAndValue[A] = (Schema.SetSchema[A], Set[A])
+  type SetAndValue[A] = (Schema.Set[A], scala.collection.immutable.Set[A])
 
   val anySetAndValue: Gen[Sized, SetAndValue[_]] =
     for {

@@ -119,8 +119,8 @@ object ThriftCodec extends Codec {
     final def getType[A](schema: Schema[A]): Byte = schema match {
       case _: Schema.Record[A]                  => TType.STRUCT
       case Schema.Sequence(_, _, _, _, _)       => TType.LIST
-      case Schema.Map(_, _, _)            => TType.MAP
-      case Schema.SetSchema(_, _)               => TType.SET
+      case Schema.Map(_, _, _)                  => TType.MAP
+      case Schema.Set(_, _)                     => TType.SET
       case Schema.Transform(schema, _, _, _, _) => getType(schema)
       case Schema.Primitive(standardType, _)    => getPrimitiveType(standardType)
       case Schema.Tuple2(_, _, _)               => TType.STRUCT
@@ -277,7 +277,9 @@ object ThriftCodec extends Codec {
 
     def encodeMap[K, V](fieldNumber: Option[Short], schema: Schema.Map[K, V], v: Map[K, V]): Unit = {
       writeFieldBegin(fieldNumber, TType.MAP)
-      p.writeMapBegin(new org.apache.thrift.protocol.TMap(getType(schema.keySchema), getType(schema.valueSchema), v.size))
+      p.writeMapBegin(
+        new org.apache.thrift.protocol.TMap(getType(schema.keySchema), getType(schema.valueSchema), v.size)
+      )
       v.foreach {
         case (k, v) =>
           encodeValue(None, schema.keySchema, k)
@@ -285,7 +287,7 @@ object ThriftCodec extends Codec {
       }
     }
 
-    def encodeSet[A](fieldNumber: Option[Short], schema: Schema[A], v: Set[A]): Unit = {
+    def encodeSet[A](fieldNumber: Option[Short], schema: Schema[A], v: scala.collection.immutable.Set[A]): Unit = {
       writeFieldBegin(fieldNumber, TType.SET)
       p.writeSetBegin(new org.apache.thrift.protocol.TSet(getType(schema), v.size))
       v.foreach(encodeValue(None, schema, _))
@@ -307,8 +309,8 @@ object ThriftCodec extends Codec {
       (schema, value) match {
         case (Schema.GenericRecord(_, structure, _), v: Map[String, _]) => encodeRecord(fieldNumber, structure.toChunk, v)
         case (Schema.Sequence(element, _, g, _, _), v)                  => encodeSequence(fieldNumber, element, g(v))
-        case (mapSchema: Schema.Map[_, _], map: Map[_, _])        => encodeMap(fieldNumber, mapSchema.asInstanceOf[Schema.Map[Any, Any]], map.asInstanceOf[scala.collection.immutable.Map[Any, Any]])
-        case (setSchema: Schema.SetSchema[_], set: Set[_])              => encodeSet(fieldNumber, setSchema.asInstanceOf[Schema.SetSchema[Any]].as, set.asInstanceOf[Set[Any]])
+        case (mapSchema: Schema.Map[_, _], map: Map[_, _])              => encodeMap(fieldNumber, mapSchema.asInstanceOf[Schema.Map[Any, Any]], map.asInstanceOf[scala.collection.immutable.Map[Any, Any]])
+        case (setSchema: Schema.Set[_], set: Set[_])                    => encodeSet(fieldNumber, setSchema.asInstanceOf[Schema.Set[Any]].elementSchema, set.asInstanceOf[scala.collection.immutable.Set[Any]])
         case (Schema.Transform(schema, _, g, _, _), _)                  => g(value).foreach(encodeValue(fieldNumber, schema, _))
         case (Schema.Primitive(standardType, _), v)                     => encodePrimitive(fieldNumber, standardType, v)
         case (Schema.Tuple2(left, right, _), v @ (_, _))                => encodeTuple(fieldNumber, left, right, v)
@@ -520,8 +522,8 @@ object ThriftCodec extends Codec {
           decodeRecord(path, fields).map(_.map { case (index, value) => (fields(index - 1).label, value) })
         }
         case seqSchema @ Schema.Sequence(_, _, _, _, _)                                                                               => decodeSequence(path, seqSchema)
-        case mapSchema @ Schema.Map(_, _, _)                                                                                    => decodeMap(path, mapSchema)
-        case setSchema @ Schema.SetSchema(_, _)                                                                                       => decodeSet(path, setSchema)
+        case mapSchema @ Schema.Map(_, _, _)                                                                                          => decodeMap(path, mapSchema)
+        case setSchema @ Schema.Set(_, _)                                                                                             => decodeSet(path, setSchema)
         case Schema.Transform(schema, f, _, _, _)                                                                                     => transformDecoder(path, schema, f)
         case Schema.Primitive(standardType, _)                                                                                        => primitiveDecoder(path, standardType)
         case Schema.Tuple2(left, right, _)                                                                                            => tupleDecoder(path, left, right)
@@ -764,11 +766,11 @@ object ThriftCodec extends Codec {
       }.fold(_ => fail(path, "Can not decode Map begin"), begin => decodeElements(begin.size, scala.collection.mutable.Map.empty[K, V]))
     }
 
-    def decodeSet[A](path: Path, schema: Schema.SetSchema[A]): Result[Set[A]] = {
+    def decodeSet[A](path: Path, schema: Schema.Set[A]): Result[scala.collection.immutable.Set[A]] = {
       @tailrec
       def decodeElements(n: Int, cb: ChunkBuilder[A]): Result[Chunk[A]] =
         if (n > 0)
-          decode(path, schema.as) match {
+          decode(path, schema.elementSchema) match {
             case Right(elem) => decodeElements(n - 1, cb += (elem))
             case Left(_)     => fail(path, "Error decoding Set element")
           } else

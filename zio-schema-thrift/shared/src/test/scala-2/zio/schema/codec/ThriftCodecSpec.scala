@@ -134,7 +134,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         } yield assert(e)(equalTo(res))
       },
       test("set") {
-        val m       = SetValue(Set(Record("Foo", 123), Record("Bar", 456)))
+        val m       = SetValue(scala.collection.immutable.Set(Record("Foo", 123), Record("Bar", 456)))
         val javaSet = new util.HashSet[g.Record]()
         javaSet.add(new g.Record("Foo", 123))
         javaSet.add(new g.Record("Bar", 456))
@@ -636,8 +636,9 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
       },
       test("set of products") {
-        val set: Set[Record] = Set(Record("AAA", 1), Record("BBB", 2))
-        val setSchema        = Schema.set(Record.schemaRecord)
+        val set: scala.collection.immutable.Set[Record] =
+          scala.collection.immutable.Set(Record("AAA", 1), Record("BBB", 2))
+        val setSchema = Schema.set(Record.schemaRecord)
 
         for {
           ed  <- encodeAndDecode(setSchema, set)
@@ -645,7 +646,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk.succeed(set))) && assert(ed2)(equalTo(set))
       },
       test("set in record") {
-        val m = SetRecord(1, Set("aaa", "ccc"))
+        val m = SetRecord(1, scala.collection.immutable.Set("aaa", "ccc"))
         for {
           ed  <- encodeAndDecode(schemaSetRecord, m)
           ed2 <- encodeAndDecodeNS(schemaSetRecord, m)
@@ -881,7 +882,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
 
   val schemaMapValue: Schema[MapValue] = DeriveSchema.gen[MapValue]
 
-  case class SetValue(value: Set[Record])
+  case class SetValue(value: scala.collection.immutable.Set[Record])
 
   val schemaSetValue: Schema[SetValue] = DeriveSchema.gen[SetValue]
 
@@ -932,7 +933,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
 
   lazy val schemaMapRecord: Schema[MapRecord] = DeriveSchema.gen[MapRecord]
 
-  case class SetRecord(age: Int, set: Set[String])
+  case class SetRecord(age: Int, set: scala.collection.immutable.Set[String])
 
   lazy val schemaSetRecord: Schema[SetRecord] = DeriveSchema.gen[SetRecord]
 

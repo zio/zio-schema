@@ -299,7 +299,7 @@ object MetaSchema {
         values = subtree(NodePath.root / "values", Chunk.empty, vs),
         NodePath.root
       )
-    case Schema.SetSchema(schema, _) =>
+    case Schema.Set(schema, _) =>
       ListNode(item = subtree(NodePath.root / "item", Chunk.empty, schema), NodePath.root)
     case Schema.Transform(schema, _, _, _, _) => subtree(NodePath.root, Chunk.empty, schema)
     case lzy @ Schema.Lazy(_)                 => fromSchema(lzy.schema)
@@ -359,7 +359,7 @@ object MetaSchema {
               path,
               optional
             )
-          case Schema.SetSchema(schema @ _, _) =>
+          case Schema.Set(schema @ _, _) =>
             ListNode(item = subtree(path / "item", lineage, schema, optional = false), path, optional)
           case Schema.Transform(schema, _, _, _, _) => subtree(path, lineage, schema, optional)
           case lzy @ Schema.Lazy(_)                 => subtree(path, lineage, lzy.schema, optional)

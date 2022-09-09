@@ -38,8 +38,8 @@ trait SchemaEquality {
             l.annotations == r.annotations && lRecord.structure === rRecord.structure
           case (lMap: Schema.Map[_, _], rMap: Schema.Map[_, _]) =>
             lMap.annotations == rMap.annotations && lMap.keySchema === rMap.keySchema && lMap.valueSchema === rMap.valueSchema
-          case (lSet: Schema.SetSchema[_], rSet: Schema.SetSchema[_]) =>
-            lSet.annotations == rSet.annotations && lSet.as === rSet.as
+          case (lSet: Schema.Set[_], rSet: Schema.Set[_]) =>
+            lSet.annotations == rSet.annotations && lSet.elementSchema === rSet.elementSchema
           case (lSeq: Schema.Sequence[_, _, _], rSeq: Schema.Sequence[_, _, _]) =>
             (ignoreTransformations || (lSeq.identity == rSeq.identity)) &&
               lSeq.annotations == rSeq.annotations &&

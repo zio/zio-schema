@@ -980,7 +980,7 @@ object DynamicValue {
         }
         DynamicValue.Dictionary(Chunk.fromIterable(entries))
 
-      case Schema.SetSchema(as: Schema[a], _) =>
+      case Schema.Set(as: Schema[a], _) =>
         DynamicValue.SetValue(value.asInstanceOf[Set[a]].map(fromSchemaAndValue(as, _)))
 
       case schema: Schema.EitherSchema[l, r] =>

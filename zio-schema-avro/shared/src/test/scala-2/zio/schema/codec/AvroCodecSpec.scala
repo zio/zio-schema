@@ -1798,7 +1798,7 @@ object AssertionHelper {
     Assertion.isCase[Schema[_], Schema.Map[K, V]](
       "Map", {
         case r: Schema.Map[_, _] => Try { r.asInstanceOf[Schema.Map[K, V]] }.toOption
-        case _                         => None
+        case _                   => None
       },
       assertion
     )
@@ -2020,9 +2020,9 @@ object SpecTestData {
         char: Char,
         uuid: UUID
       ) extends TopLevelUnion
-      case class NestedRecord(innerRecord: InnerRecord)               extends TopLevelUnion
-      case class Unions(union: Union)                                 extends TopLevelUnion
-      case class Enumeration(`enum`: Enum)                            extends TopLevelUnion
+      case class NestedRecord(innerRecord: InnerRecord)                                          extends TopLevelUnion
+      case class Unions(union: Union)                                                            extends TopLevelUnion
+      case class Enumeration(`enum`: Enum)                                                       extends TopLevelUnion
       case class Iterables(list: List[String], map: scala.collection.immutable.Map[String, Int]) extends TopLevelUnion
 
       // TODO: Schema derivation fails for the following case classes

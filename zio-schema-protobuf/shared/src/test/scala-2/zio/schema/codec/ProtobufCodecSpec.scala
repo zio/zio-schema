@@ -565,8 +565,9 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
         },
         test("set of products") {
-          val set: Set[Record] = Set(Record("AAA", 1), Record("BBB", 2))
-          val setSchema        = Schema.set(Record.schemaRecord)
+          val set: scala.collection.immutable.Set[Record] =
+            scala.collection.immutable.Set(Record("AAA", 1), Record("BBB", 2))
+          val setSchema = Schema.set(Record.schemaRecord)
 
           for {
             ed  <- encodeAndDecode(setSchema, set)

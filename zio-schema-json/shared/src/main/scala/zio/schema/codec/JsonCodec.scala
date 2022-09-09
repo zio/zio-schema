@@ -110,7 +110,7 @@ object JsonCodec extends Codec {
       case Schema.Sequence(schema, _, g, _, _) => JsonEncoder.chunk(schemaEncoder(schema)).contramap(g)
       case Schema.Map(ks, vs, _) =>
         JsonEncoder.chunk(schemaEncoder(ks).zip(schemaEncoder(vs))).contramap(m => Chunk.fromIterable(m))
-      case Schema.SetSchema(s, _) =>
+      case Schema.Set(s, _) =>
         JsonEncoder.chunk(schemaEncoder(s)).contramap(m => Chunk.fromIterable(m))
       case Schema.Transform(c, _, g, _, _)                          => transformEncoder(c, g)
       case Schema.Tuple2(l, r, _)                                   => JsonEncoder.tuple2(schemaEncoder(l), schemaEncoder(r))
@@ -289,7 +289,7 @@ object JsonCodec extends Codec {
       case Schema.Sequence(codec, f, _, _, _)  => JsonDecoder.chunk(schemaDecoder(codec)).map(f)
       case Schema.Map(ks, vs, _) =>
         JsonDecoder.chunk(schemaDecoder(ks) <*> schemaDecoder(vs)).map(entries => entries.toList.toMap)
-      case Schema.SetSchema(s, _)                                                                      => JsonDecoder.chunk(schemaDecoder(s)).map(entries => entries.toSet)
+      case Schema.Set(s, _)                                                                            => JsonDecoder.chunk(schemaDecoder(s)).map(entries => entries.toSet)
       case Schema.Fail(message, _)                                                                     => failDecoder(message)
       case Schema.GenericRecord(_, structure, _)                                                       => recordDecoder(structure.toChunk)
       case Schema.EitherSchema(left, right, _)                                                         => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))

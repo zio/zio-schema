@@ -240,9 +240,9 @@ object AvroCodec extends AvroCodec {
     schema match {
       case e: Enum[_]                    => toAvroEnum(e)
       case record: Record[_]             => toAvroRecord(record)
-      case map: Schema.Map[_, _]   => toAvroMap(map)
+      case map: Schema.Map[_, _]         => toAvroMap(map)
       case seq: Schema.Sequence[_, _, _] => toAvroSchema(seq.schemaA).map(SchemaAvro.createArray)
-      case set: Schema.SetSchema[_]      => toAvroSchema(set.as).map(SchemaAvro.createArray)
+      case set: Schema.Set[_]            => toAvroSchema(set.elementSchema).map(SchemaAvro.createArray)
       case Transform(codec, _, _, _, _)  => toAvroSchema(codec)
       case Primitive(standardType, _) =>
         standardType match {
@@ -733,9 +733,9 @@ object AvroCodec extends AvroCodec {
             case c: CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _] => Right(c)
             case c: Dynamic                                                                          => Right(c)
             case c: GenericRecord                                                                    => Right(c)
-            case c: Map[_, _]                                                                  => Right(c)
+            case c: Map[_, _]                                                                        => Right(c)
             case c: Sequence[_, _, _]                                                                => Right(c)
-            case c: SetSchema[_]                                                                     => Right(c)
+            case c: Set[_]                                                                           => Right(c)
             case c: Fail[_]                                                                          => Right(c)
             case c: Lazy[_]                                                                          => Right(c)
             case c: Meta                                                                             => Right(c)

@@ -52,7 +52,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
           ZioOpticsBuilder.makeMapTraversalGet[k, v],
           ZioOpticsBuilder.makeMapTraversalSet[k, v]
         )
-      case Schema.SetSchema(_, _) =>
+      case Schema.Set(_, _) =>
         ZTraversal(
           ZioOpticsBuilder.makeSetTraversalGet[A],
           ZioOpticsBuilder.makeSetTraversalSet[A]
