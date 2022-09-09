@@ -36,10 +36,10 @@ sealed trait DynamicValue {
           case None         => Left(s"Failed to find case $key in enumN $s")
         }
 
-      case (DynamicValue.LeftValue(value), Schema.EitherSchema(schema1, _, _)) =>
+      case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
         value.toTypedValue(schema1).map(Left(_))
 
-      case (DynamicValue.RightValue(value), Schema.EitherSchema(_, schema1, _)) =>
+      case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
         value.toTypedValue(schema1).map(Right(_))
 
       case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
@@ -983,7 +983,7 @@ object DynamicValue {
       case Schema.Set(as: Schema[a], _) =>
         DynamicValue.SetValue(value.asInstanceOf[Set[a]].map(fromSchemaAndValue(as, _)))
 
-      case schema: Schema.EitherSchema[l, r] =>
+      case schema: Schema.Either[l, r] =>
         value.asInstanceOf[Either[l, r]] match {
           case Left(value: l)  => DynamicValue.LeftValue(fromSchemaAndValue(schema.left, value))
           case Right(value: r) => DynamicValue.RightValue(fromSchemaAndValue(schema.right, value))

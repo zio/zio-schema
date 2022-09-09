@@ -828,13 +828,13 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
   val complexTupleSchema: Schema.Tuple2[Record, OneOf] = Schema.Tuple2(Record.schemaRecord, schemaOneOf)
 
-  val eitherSchema: Schema.EitherSchema[Int, String] = Schema.EitherSchema(Schema[Int], Schema[String])
+  val eitherSchema: Schema.Either[Int, String] = Schema.Either(Schema[Int], Schema[String])
 
-  val complexEitherSchema: Schema.EitherSchema[Record, OneOf] =
-    Schema.EitherSchema(Record.schemaRecord, schemaOneOf)
+  val complexEitherSchema: Schema.Either[Record, OneOf] =
+    Schema.Either(Record.schemaRecord, schemaOneOf)
 
-  val complexEitherSchema2: Schema.EitherSchema[MyRecord, MyRecord] =
-    Schema.EitherSchema(myRecord, myRecord)
+  val complexEitherSchema2: Schema.Either[MyRecord, MyRecord] =
+    Schema.Either(myRecord, myRecord)
 
   case class RichProduct(stringOneOf: OneOf, basicString: BasicString, record: Record)
 
@@ -926,7 +926,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .apply(ZStream.succeed(input))
       .run(ZSink.collectAll)
 
-  def encodeAndDecode2[A](schema: Schema[A], input: A): ZIO[Any, Any, Either[String, Chunk[A]]] =
+  def encodeAndDecode2[A](schema: Schema[A], input: A): ZIO[Any, Any, scala.util.Either[String, Chunk[A]]] =
     ProtobufCodec
       .encoder(schema)
       .andThen(ProtobufCodec.decoder(schema))
@@ -959,7 +959,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
     schema: Schema[A],
     input: A,
     print: Boolean = false
-  ): ZIO[Any, String, Either[String, A]] =
+  ): ZIO[Any, String, scala.util.Either[String, A]] =
     ZIO
       .succeed(input)
       .tap(value => printLine(s"Input Value: $value").when(print).ignore)

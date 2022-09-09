@@ -68,7 +68,7 @@ object DeriveGen {
       case optional @ Schema.Optional(_, _)                                                                                                                                    => genOptional(optional)
       case fail @ Schema.Fail(_, _)                                                                                                                                            => genFail(fail)
       case tuple @ Schema.Tuple2(_, _, _)                                                                                                                                      => genTuple(tuple)
-      case either @ Schema.EitherSchema(_, _, _)                                                                                                                               => genEither(either)
+      case either @ Schema.Either(_, _, _)                                                                                                                               => genEither(either)
       case lazzy @ Schema.Lazy(_)                                                                                                                                              => genLazy(lazzy)
       case Schema.Meta(ast, _)                                                                                                                                                 => genMeta(ast)
       case Schema.Dynamic(_)                                                                                                                                                   => gen(DynamicValueSchema())
@@ -529,7 +529,7 @@ object DeriveGen {
   private def genTuple[A, B](tuple: Schema.Tuple2[A, B]): Gen[Sized, (A, B)] =
     gen(tuple.left).zip(gen(tuple.right))
 
-  private def genEither[A, B](either: Schema.EitherSchema[A, B]): Gen[Sized, Either[A, B]] =
+  private def genEither[A, B](either: Schema.Either[A, B]): Gen[Sized, scala.util.Either[A, B]] =
     Gen.either(gen(either.left), gen(either.right))
 
   private def genLazy[A](lazySchema: Schema.Lazy[A]): Gen[Sized, A] =

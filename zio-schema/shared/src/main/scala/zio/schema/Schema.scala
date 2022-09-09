@@ -47,12 +47,12 @@ sealed trait Schema[A] {
   /**
    * A symbolic operator for [[orElseEither]].
    */
-  def <+>[B](that: Schema[B]): Schema[Either[A, B]] = self.orElseEither(that)
+  def <+>[B](that: Schema[B]): Schema[scala.util.Either[A, B]] = self.orElseEither(that)
 
   /**
    * The default value for a `Schema` of type `A`.
    */
-  def defaultValue: Either[String, A]
+  def defaultValue: scala.util.Either[String, A]
 
   /**
    * Chunk of annotations for this schema
@@ -88,9 +88,9 @@ sealed trait Schema[A] {
   /**
    * Patch value with a Patch.
    */
-  def patch(oldValue: A, diff: Patch[A]): Either[String, A] = diff.patch(oldValue)
+  def patch(oldValue: A, diff: Patch[A]): scala.util.Either[String, A] = diff.patch(oldValue)
 
-  def fromDynamic(value: DynamicValue): Either[String, A] =
+  def fromDynamic(value: DynamicValue): scala.util.Either[String, A] =
     value.toTypedValue(self)
 
   def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal]
@@ -98,7 +98,7 @@ sealed trait Schema[A] {
   /**
    *  Generate a homomorphism from A to B iff A and B are homomorphic
    */
-  def migrate[B](newSchema: Schema[B]): Either[String, A => Either[String, B]] =
+  def migrate[B](newSchema: Schema[B]): Either[String, A => scala.util.Either[String, B]] =
     Migration.derive(MetaSchema.fromSchema(self), MetaSchema.fromSchema(newSchema)).map { transforms => (a: A) =>
       self.toDynamic(a).transform(transforms).flatMap(newSchema.fromDynamic)
     }
@@ -114,7 +114,7 @@ sealed trait Schema[A] {
    * Returns a new schema that combines this schema and the specified schema together, modeling
    * their either composition.
    */
-  def orElseEither[B](that: Schema[B]): Schema[Either[A, B]] = Schema.EitherSchema(self, that)
+  def orElseEither[B](that: Schema[B]): Schema[scala.util.Either[A, B]] = Schema.Either(self, that)
 
   def repeated: Schema[Chunk[A]] = Schema.chunk(self)
 
@@ -140,7 +140,7 @@ sealed trait Schema[A] {
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
    * between `A` and `B` (possibly failing in some cases).
    */
-  def transformOrFail[B](f: A => Either[String, B], g: B => Either[String, A])(
+  def transformOrFail[B](f: A => scala.util.Either[String, B], g: B => scala.util.Either[String, A])(
     implicit loc: SourceLocation
   ): Schema[B] =
     Schema.Transform[A, B, SourceLocation](self, f, g, annotations, loc)
@@ -225,8 +225,8 @@ object Schema extends SchemaEquality {
   implicit def set[A](implicit schemaA: Schema[A]): Schema[scala.collection.immutable.Set[A]] =
     Schema.Set(schemaA, Chunk.empty)
 
-  implicit def either[A, B](implicit left: Schema[A], right: Schema[B]): Schema[Either[A, B]] =
-    EitherSchema(left, right)
+  implicit def either[A, B](implicit left: Schema[A], right: Schema[B]): Schema[scala.util.Either[A, B]] =
+    Schema.Either(left, right)
 
   implicit def list[A](implicit schemaA: Schema[A]): Schema[List[A]] =
     Schema.Sequence[List[A], A, String](schemaA, _.toList, Chunk.fromIterable(_), Chunk.empty, "List")
@@ -282,14 +282,14 @@ object Schema extends SchemaEquality {
     self =>
     def structure: Chunk[Field[_]]
 
-    def rawConstruct(values: Chunk[Any]): Either[String, R]
+    def rawConstruct(values: Chunk[Any]): scala.util.Either[String, R]
 
     def id: TypeId
 
-    def defaultValue: Either[String, R] =
+    def defaultValue: scala.util.Either[String, R] =
       self.structure
         .map(_.schema.defaultValue)
-        .foldLeft[Either[String, Chunk[R]]](Right(Chunk.empty)) {
+        .foldLeft[scala.util.Either[String, Chunk[R]]](Right(Chunk.empty)) {
           case (e @ Left(_), _)              => e
           case (_, Left(e))                  => Left[String, Chunk[R]](e)
           case (Right(values), Right(value)) => Right[String, Chunk[R]](values :+ value.asInstanceOf[R])
@@ -311,7 +311,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Sequence[Col, Elem, I] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Col] = schemaA.defaultValue.map(fromChunk.compose(Chunk(_)))
+    override def defaultValue: scala.util.Either[String, Col] = schemaA.defaultValue.map(fromChunk.compose(Chunk(_)))
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, schemaA)
 
@@ -321,14 +321,14 @@ object Schema extends SchemaEquality {
 
   final case class Transform[A, B, I](
     schema: Schema[A],
-    f: A => Either[String, B],
-    g: B => Either[String, A],
+    f: A => scala.util.Either[String, B],
+    g: B => scala.util.Either[String, A],
     annotations: Chunk[Any],
     identity: I
   ) extends Schema[B] {
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = schema.Accessors[Lens, Prism, Traversal]
 
-    def defaultValue: Either[String, B] = schema.defaultValue.flatMap(f)
+    def defaultValue: scala.util.Either[String, B] = schema.defaultValue.flatMap(f)
 
     override def makeAccessors(b: AccessorBuilder): schema.Accessors[b.Lens, b.Prism, b.Traversal] =
       schema.makeAccessors(b)
@@ -350,7 +350,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Primitive[A] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, A] = standardType.defaultValue
+    override def defaultValue: scala.util.Either[String, A] = standardType.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
@@ -376,7 +376,7 @@ object Schema extends SchemaEquality {
       Chunk.empty
     )
 
-    def defaultValue: Either[String, Option[A]] = Right(None)
+    def defaultValue: scala.util.Either[String, Option[A]] = Right(None)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -390,7 +390,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Fail[A] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, A] = Left(message)
+    override def defaultValue: scala.util.Either[String, A] = Left(message)
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
@@ -416,7 +416,7 @@ object Schema extends SchemaEquality {
       annotations
     )
 
-    override def defaultValue: Either[String, (A, B)] =
+    override def defaultValue: scala.util.Either[String, (A, B)] =
       left.defaultValue.flatMap(a => right.defaultValue.map(b => (a, b)))
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[first.type, (A, B), A], b.Lens[second.type, (A, B), B]) =
@@ -424,45 +424,45 @@ object Schema extends SchemaEquality {
 
   }
 
-  final case class EitherSchema[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
-      extends Schema[Either[A, B]] {
+  final case class Either[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
+      extends Schema[scala.util.Either[A, B]] {
     self =>
 
     val leftSingleton  = "Left"
     val rightSingleton = "Right"
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (
-        Prism[rightSingleton.type, Either[A, B], Right[Nothing, B]],
-        Prism[leftSingleton.type, Either[A, B], Left[A, Nothing]]
+        Prism[rightSingleton.type, scala.util.Either[A, B], Right[Nothing, B]],
+        Prism[leftSingleton.type, scala.util.Either[A, B], Left[A, Nothing]]
       )
 
-    override def annotate(annotation: Any): EitherSchema[A, B] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Schema.Either[A, B] = copy(annotations = annotations :+ annotation)
 
     val rightSchema: Schema[Right[Nothing, B]] = right.transform(b => Right(b), _.value)
     val leftSchema: Schema[Left[A, Nothing]]   = left.transform(a => Left(a), _.value)
 
-    val toEnum: Enum2[Right[Nothing, B], Left[A, Nothing], Either[A, B]] = Enum2(
-      TypeId.parse("zio.schema.Schema.EitherSchema"),
+    val toEnum: Enum2[Right[Nothing, B], Left[A, Nothing], scala.util.Either[A, B]] = Enum2(
+      TypeId.parse("zio.schema.Schema.Either"),
       Case("Right", rightSchema, _.asInstanceOf[Right[Nothing, B]], Chunk.empty),
       Case("Left", leftSchema, _.asInstanceOf[Left[A, Nothing]], Chunk.empty),
       Chunk.empty
     )
 
-    override def defaultValue: Either[String, Either[A, B]] =
+    override def defaultValue: scala.util.Either[String, scala.util.Either[A, B]] =
       left.defaultValue match {
         case Right(a) => Right(Left(a))
         case _ =>
           right.defaultValue match {
             case Right(b) => Right(Right(b))
-            case _        => Left("unable to extract default value for EitherSchema")
+            case _        => Left("unable to extract default value for Either")
           }
       }
 
     override def makeAccessors(
       b: AccessorBuilder
     ): (
-      b.Prism[rightSingleton.type, Either[A, B], Right[Nothing, B]],
-      b.Prism[leftSingleton.type, Either[A, B], Left[A, Nothing]]
+      b.Prism[rightSingleton.type, scala.util.Either[A, B], Right[Nothing, B]],
+      b.Prism[leftSingleton.type, scala.util.Either[A, B], Left[A, Nothing]]
     ) =
       b.makePrism(toEnum, toEnum.case1) -> b.makePrism(toEnum, toEnum.case2)
 
@@ -475,7 +475,7 @@ object Schema extends SchemaEquality {
 
     lazy val schema: Schema[A] = schema0()
 
-    def defaultValue: Either[String, A] = schema.defaultValue
+    def defaultValue: scala.util.Either[String, A] = schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): schema.Accessors[b.Lens, b.Prism, b.Traversal] =
       schema.makeAccessors(b)
@@ -491,8 +491,8 @@ object Schema extends SchemaEquality {
 
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Unit
 
-    override def defaultValue: Either[String, Schema[_]] =
-      ast.toSchema.defaultValue.asInstanceOf[Either[String, Schema[_]]]
+    override def defaultValue: scala.util.Either[String, Schema[_]] =
+      ast.toSchema.defaultValue.asInstanceOf[scala.util.Either[String, Schema[_]]]
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
 
@@ -509,7 +509,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Map[K, V] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, scala.collection.immutable.Map[K, V]] =
+    override def defaultValue: scala.util.Either[String, scala.collection.immutable.Map[K, V]] =
       keySchema.defaultValue.flatMap(
         defaultKey =>
           valueSchema.defaultValue.map(defaultValue => scala.collection.immutable.Map(defaultKey -> defaultValue))
@@ -528,7 +528,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Set[A] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, scala.collection.immutable.Set[A]] =
+    override def defaultValue: scala.util.Either[String, scala.collection.immutable.Set[A]] =
       elementSchema.defaultValue.map(scala.collection.immutable.Set(_))
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[scala.collection.immutable.Set[A], A] =
@@ -541,7 +541,7 @@ object Schema extends SchemaEquality {
     /**
      * The default value for a `Schema` of type `A`.
      */
-    override def defaultValue: Either[String, DynamicValue] =
+    override def defaultValue: scala.util.Either[String, DynamicValue] =
       Right(DynamicValue.NoneValue)
 
     /**
@@ -579,7 +579,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum1[A, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): b.Prism[case1.id.type, Z, A] = b.makePrism(self, case1)
 
@@ -599,7 +599,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum2[A1, A2, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[case1.id.type, Z, A1], b.Prism[case2.id.type, Z, A2]) =
       (b.makePrism(self, case1), b.makePrism(self, case2))
@@ -621,7 +621,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum3[A1, A2, A3, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -655,7 +655,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum4[A1, A2, A3, A4, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -695,7 +695,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum5[A1, A2, A3, A4, A5, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -748,7 +748,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum6[A1, A2, A3, A4, A5, A6, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -806,7 +806,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum7[A1, A2, A3, A4, A5, A6, A7, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -867,7 +867,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum8[A1, A2, A3, A4, A5, A6, A7, A8, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -932,7 +932,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1002,7 +1002,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1090,7 +1090,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1184,7 +1184,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1284,7 +1284,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1390,7 +1390,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1504,7 +1504,7 @@ object Schema extends SchemaEquality {
     ): Enum15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1624,7 +1624,7 @@ object Schema extends SchemaEquality {
     ): Enum16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1750,7 +1750,7 @@ object Schema extends SchemaEquality {
     ): Enum17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1882,7 +1882,7 @@ object Schema extends SchemaEquality {
     ): Enum18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -2020,7 +2020,7 @@ object Schema extends SchemaEquality {
     ): Enum19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -2164,7 +2164,7 @@ object Schema extends SchemaEquality {
     ): Enum20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -2314,7 +2314,7 @@ object Schema extends SchemaEquality {
     ): Enum21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -2472,7 +2472,7 @@ object Schema extends SchemaEquality {
     ): Enum22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -2563,11 +2563,11 @@ object Schema extends SchemaEquality {
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
       ListMap(caseSet.toSeq.map(c => c.id -> (c.schema -> c.annotations)): _*)
 
-    def defaultValue: Either[String, Z] =
+    def defaultValue: scala.util.Either[String, Z] =
       if (caseSet.toSeq.isEmpty)
         Left("cannot access default value for enum with no members")
       else
-        caseSet.toSeq.head.schema.defaultValue.asInstanceOf[Either[String, Z]]
+        caseSet.toSeq.head.schema.defaultValue.asInstanceOf[scala.util.Either[String, Z]]
 
     override def makeAccessors(b: AccessorBuilder): caseSet.Accessors[Z, b.Lens, b.Prism, b.Traversal] =
       caseSet.makeAccessors(self, b)
@@ -3239,7 +3239,7 @@ object Schema extends SchemaEquality {
 
     override def structure: Chunk[Schema.Field[_]] = fieldSet.toChunk
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, ListMap[String, _]] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, ListMap[String, _]] =
       if (values.size == structure.size)
         Right(ListMap(structure.map(_.label).zip(values): _*))
       else
@@ -3263,7 +3263,7 @@ object Schema extends SchemaEquality {
 
     override def structure: Chunk[Field[_]] = Chunk.empty
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 0)
         try {
           Right(construct())
@@ -3291,7 +3291,7 @@ object Schema extends SchemaEquality {
 
     override def structure: Chunk[Field[_]] = Chunk(field)
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 1)
         try {
           Right(construct(values(0).asInstanceOf[A]))
@@ -3325,7 +3325,7 @@ object Schema extends SchemaEquality {
 
     override def structure: Chunk[Field[_]] = Chunk(field1, field2)
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 2)
         try {
           Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2]))
@@ -3361,7 +3361,7 @@ object Schema extends SchemaEquality {
 
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3)
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 3)
         try {
           Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3]))
@@ -3408,7 +3408,7 @@ object Schema extends SchemaEquality {
 
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4)
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 4)
         try {
           Right(
@@ -3472,7 +3472,7 @@ object Schema extends SchemaEquality {
 
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5)
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 5)
         try {
           Right(
@@ -3541,7 +3541,7 @@ object Schema extends SchemaEquality {
 
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6)
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 6)
         try {
           Right(
@@ -3617,7 +3617,7 @@ object Schema extends SchemaEquality {
 
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6, field7)
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 7)
         try {
           Right(
@@ -3699,7 +3699,7 @@ object Schema extends SchemaEquality {
 
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6, field7, field8)
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 8)
         try {
           Right(
@@ -3787,7 +3787,7 @@ object Schema extends SchemaEquality {
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9)
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 9)
         try {
           Right(
@@ -3882,7 +3882,7 @@ object Schema extends SchemaEquality {
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10)
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 10)
         try {
           Right(
@@ -3985,7 +3985,7 @@ object Schema extends SchemaEquality {
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11)
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 11)
         try {
           Right(
@@ -4092,7 +4092,7 @@ object Schema extends SchemaEquality {
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12)
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 12)
         try {
           Right(
@@ -4204,7 +4204,7 @@ object Schema extends SchemaEquality {
     override def structure: Chunk[Field[_]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13)
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 13)
         try {
           Right(
@@ -4339,7 +4339,7 @@ object Schema extends SchemaEquality {
         field14
       )
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 14)
         try {
           Right(
@@ -4482,7 +4482,7 @@ object Schema extends SchemaEquality {
         field15
       )
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 15)
         try {
           Right(
@@ -4632,7 +4632,7 @@ object Schema extends SchemaEquality {
         field16
       )
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 16)
         try {
           Right(
@@ -4789,7 +4789,7 @@ object Schema extends SchemaEquality {
         field17
       )
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 17)
         try {
           Right(
@@ -4953,7 +4953,7 @@ object Schema extends SchemaEquality {
         field18
       )
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 18)
         try {
           Right(
@@ -5124,7 +5124,7 @@ object Schema extends SchemaEquality {
         field19
       )
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 19)
         try {
           Right(
@@ -5324,7 +5324,7 @@ object Schema extends SchemaEquality {
         field20
       )
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 20)
         try {
           Right(
@@ -5532,7 +5532,7 @@ object Schema extends SchemaEquality {
         field21
       )
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 21)
         try {
           Right(
@@ -5792,7 +5792,7 @@ object Schema extends SchemaEquality {
         field22
       )
 
-    override def rawConstruct(values: Chunk[Any]): Either[String, Z] =
+    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 22)
         try {
           Right(

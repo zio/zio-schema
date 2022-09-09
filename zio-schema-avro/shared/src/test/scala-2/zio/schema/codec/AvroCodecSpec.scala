@@ -374,7 +374,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           },
           test("encodes optionals of either") {
             val either =
-              Schema.EitherSchema(Schema.primitive(StandardType.StringType), Schema.primitive(StandardType.IntType))
+              Schema.Either(Schema.primitive(StandardType.StringType), Schema.primitive(StandardType.IntType))
             val schema = Schema.Optional(either)
             val result = AvroCodec.encode(schema)
 
@@ -390,7 +390,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
         suite("either")(
           test("create an union") {
             val schema =
-              Schema.EitherSchema(Schema.primitive(StandardType.StringType), Schema.primitive(StandardType.IntType))
+              Schema.Either(Schema.primitive(StandardType.StringType), Schema.primitive(StandardType.IntType))
             val result = AvroCodec.encode(schema)
 
             val expected =
@@ -399,7 +399,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           },
           test("create a named union") {
             val schema = Schema
-              .EitherSchema(Schema.primitive(StandardType.StringType), Schema.primitive(StandardType.IntType))
+              .Either(Schema.primitive(StandardType.StringType), Schema.primitive(StandardType.IntType))
               .annotate(AvroAnnotations.name("MyEither"))
             val result = AvroCodec.encode(schema)
 
@@ -410,7 +410,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("encodes complex types") {
             val left   = DeriveSchema.gen[SpecTestData.SimpleRecord]
             val right  = Schema.primitive(StandardType.StringType)
-            val schema = Schema.EitherSchema(left, right)
+            val schema = Schema.Either(left, right)
             val result = AvroCodec.encode(schema)
 
             val expected =
@@ -420,7 +420,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("fails with duplicate names") {
             val left   = DeriveSchema.gen[SpecTestData.SimpleRecord]
             val right  = DeriveSchema.gen[SpecTestData.SimpleRecord]
-            val schema = Schema.EitherSchema(left, right)
+            val schema = Schema.Either(left, right)
             val result = AvroCodec.encode(schema)
 
             assert(result)(
@@ -430,7 +430,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("encodes either containing optional") {
             val left   = Schema.Optional(Schema.primitive(StandardType.StringType))
             val right  = Schema.primitive(StandardType.StringType)
-            val schema = Schema.EitherSchema(left, right)
+            val schema = Schema.Either(left, right)
             val result = AvroCodec.encode(schema)
 
             assert(result)(
@@ -444,8 +444,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("encodes nested either") {
             val left   = Schema.Optional(Schema.primitive(StandardType.StringType))
             val right  = Schema.primitive(StandardType.StringType)
-            val nested = Schema.EitherSchema(left, right)
-            val schema = Schema.EitherSchema(nested, right)
+            val nested = Schema.Either(left, right)
+            val schema = Schema.Either(nested, right)
             val result = AvroCodec.encode(schema)
 
             val expected =
@@ -1821,10 +1821,10 @@ object AssertionHelper {
       )
     )
 
-  def isEither[A, B](assertion: Assertion[Schema.EitherSchema[A, B]]): Assertion[Schema[_]] =
-    Assertion.isCase[Schema[_], Schema.EitherSchema[A, B]](
+  def isEither[A, B](assertion: Assertion[Schema.Either[A, B]]): Assertion[Schema[_]] =
+    Assertion.isCase[Schema[_], Schema.Either[A, B]](
       "Either", {
-        case r: Schema.EitherSchema[_, _] => Try { r.asInstanceOf[Schema.EitherSchema[A, B]] }.toOption
+        case r: Schema.Either[_, _] => Try { r.asInstanceOf[Schema.Either[A, B]] }.toOption
         case _                            => None
       },
       assertion
@@ -1832,8 +1832,8 @@ object AssertionHelper {
 
   def isEither[A, B](leftAssertion: Assertion[Schema[A]], rightAssertion: Assertion[Schema[B]]): Assertion[Schema[_]] =
     isEither[A, B](
-      hasField[Schema.EitherSchema[A, B], Schema[A]]("left", _.left, leftAssertion) && hasField[
-        Schema.EitherSchema[A, B],
+      hasField[Schema.Either[A, B], Schema[A]]("left", _.left, leftAssertion) && hasField[
+        Schema.Either[A, B],
         Schema[B]
       ]("right", _.right, rightAssertion)
     )
@@ -2030,7 +2030,7 @@ object SpecTestData {
       // case class IterablesComplex(list: List[InnerRecord], map: Map[InnerRecord, Enum]) extends TopLevelUnion
     }
 
-    case class InnerRecord(s: String, union: Option[Either[String, Int]])
+    case class InnerRecord(s: String, union: Option[scala.util.Either[String, Int]])
 
     sealed trait Union
     case class NestedUnion(inner: InnerUnion) extends Union

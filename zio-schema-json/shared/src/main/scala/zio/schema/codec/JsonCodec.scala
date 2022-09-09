@@ -9,7 +9,6 @@ import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.internal.{ Lexer, RetractReader, StringMatrix, Write }
 import zio.json.{ JsonCodec => ZJsonCodec, JsonDecoder, JsonEncoder, JsonFieldDecoder, JsonFieldEncoder }
-import zio.schema.Schema.EitherSchema
 import zio.schema._
 import zio.schema.meta.MetaSchema
 import zio.stream.ZPipeline
@@ -117,7 +116,7 @@ object JsonCodec extends Codec {
       case Schema.Optional(schema, _)                               => JsonEncoder.option(schemaEncoder(schema))
       case Schema.Fail(_, _)                                        => unitEncoder.contramap(_ => ())
       case Schema.GenericRecord(_, structure, _)                    => recordEncoder(structure.toChunk)
-      case EitherSchema(left, right, _)                             => JsonEncoder.either(schemaEncoder(left), schemaEncoder(right))
+      case Schema.Either(left, right, _)                             => JsonEncoder.either(schemaEncoder(left), schemaEncoder(right))
       case l @ Schema.Lazy(_)                                       => schemaEncoder(l.schema)
       case Schema.Meta(_, _)                                        => astEncoder
       case Schema.CaseClass0(_, _, _)                               => caseClassEncoder()
@@ -292,7 +291,7 @@ object JsonCodec extends Codec {
       case Schema.Set(s, _)                                                                            => JsonDecoder.chunk(schemaDecoder(s)).map(entries => entries.toSet)
       case Schema.Fail(message, _)                                                                     => failDecoder(message)
       case Schema.GenericRecord(_, structure, _)                                                       => recordDecoder(structure.toChunk)
-      case Schema.EitherSchema(left, right, _)                                                         => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
+      case Schema.Either(left, right, _)                                                         => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
       case l @ Schema.Lazy(_)                                                                          => schemaDecoder(l.schema)
       case Schema.Meta(_, _)                                                                           => astDecoder
       case s @ Schema.CaseClass0(_, _, _)                                                              => caseClass0Decoder(s)

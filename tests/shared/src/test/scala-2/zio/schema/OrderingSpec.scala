@@ -93,7 +93,7 @@ object OrderingSpec extends ZIOSpecDefault {
       leftSchema  <- anySchema
       rightSchema <- anySchema
       (l, r)      <- genOrderedPairEither(leftSchema, rightSchema)
-    } yield (Schema.EitherSchema(leftSchema, rightSchema), l, r).asInstanceOf[SchemaAndPair[Either[_, _]]]
+    } yield (Schema.Either(leftSchema, rightSchema), l, r).asInstanceOf[SchemaAndPair[Either[_, _]]]
 
   def genOrderedPairEither[A, B](
     lSchema: Schema[A],

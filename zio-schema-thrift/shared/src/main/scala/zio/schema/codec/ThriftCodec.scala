@@ -60,7 +60,7 @@ object ThriftCodec extends Codec {
 
   override def encode[A](schema: Schema[A]): A => Chunk[Byte] = a => new Encoder().encode(schema, a)
 
-  override def decode[A](schema: Schema[A]): Chunk[Byte] => Either[String, A] =
+  override def decode[A](schema: Schema[A]): Chunk[Byte] => scala.util.Either[String, A] =
     ch =>
       if (ch.isEmpty)
         Left("No bytes to decode")
@@ -125,7 +125,7 @@ object ThriftCodec extends Codec {
       case Schema.Primitive(standardType, _)    => getPrimitiveType(standardType)
       case Schema.Tuple2(_, _, _)               => TType.STRUCT
       case Schema.Optional(schema, _)           => getType(schema)
-      case Schema.EitherSchema(_, _, _)         => TType.STRUCT
+      case Schema.Either(_, _, _)         => TType.STRUCT
       case Schema.Lazy(lzy)                     => getType(lzy())
       case Schema.Meta(_, _)                    => getType(Schema[MetaSchema])
       case _: Schema.Enum[A]                    => TType.STRUCT
@@ -315,7 +315,7 @@ object ThriftCodec extends Codec {
         case (Schema.Primitive(standardType, _), v)                     => encodePrimitive(fieldNumber, standardType, v)
         case (Schema.Tuple2(left, right, _), v @ (_, _))                => encodeTuple(fieldNumber, left, right, v)
         case (optSchema: Schema.Optional[_], v: Option[_])              => encodeOptional(fieldNumber, optSchema.asInstanceOf[Schema.Optional[Any]].schema, v.asInstanceOf[Option[Any]])
-        case (eitherSchema: Schema.EitherSchema[_, _], v: Either[_, _]) => encodeEither(fieldNumber, eitherSchema.asInstanceOf[Schema.EitherSchema[Any, Any]].left, eitherSchema.asInstanceOf[Schema.EitherSchema[Any, Any]].right, v.asInstanceOf[Either[Any, Any]])
+        case (eitherSchema: Schema.Either[_, _], v: scala.util.Either[_, _]) => encodeEither(fieldNumber, eitherSchema.asInstanceOf[Schema.Either[Any, Any]].left, eitherSchema.asInstanceOf[Schema.Either[Any, Any]].right, v.asInstanceOf[scala.util.Either[Any, Any]])
         case (lzy @ Schema.Lazy(_), v)                                  => encodeValue(fieldNumber, lzy.schema, v)
         case (Schema.Meta(ast, _), _)                                   => encodeValue(fieldNumber, Schema[MetaSchema], ast)
         case ProductEncoder(encode) =>
@@ -376,7 +376,7 @@ object ThriftCodec extends Codec {
       p.writeFieldStop()
     }
 
-    private def encodeEither[A, B](fieldNumber: Option[Short], left: Schema[A], right: Schema[B], either: Either[A, B]): Unit = {
+    private def encodeEither[A, B](fieldNumber: Option[Short], left: Schema[A], right: Schema[B], either: scala.util.Either[A, B]): Unit = {
       writeFieldBegin(fieldNumber, TType.STRUCT)
       either match {
         case Left(value)  => encodeValue(Some(1), left, value)
@@ -469,7 +469,7 @@ object ThriftCodec extends Codec {
   class Decoder(chunk: Chunk[Byte]) {
     type Path = Chunk[String]
     case class Error(path: Path, error: String)
-    type Result[A]          = Either[Error, A]
+    type Result[A]          = scala.util.Either[Error, A]
     type PrimitiveResult[A] = Path => Result[A]
 
     val read = new ChunkTransport.Read(chunk)
@@ -529,7 +529,7 @@ object ThriftCodec extends Codec {
         case Schema.Tuple2(left, right, _)                                                                                            => tupleDecoder(path, left, right)
         case optionalSchema @ Schema.Optional(_, _)                                                                                   => optionalDecoder(path, optionalSchema)
         case Schema.Fail(message, _)                                                                                                  => fail(path, message)
-        case Schema.EitherSchema(left, right, _)                                                                                      => eitherDecoder(path, left, right)
+        case Schema.Either(left, right, _)                                                                                      => eitherDecoder(path, left, right)
         case lzy @ Schema.Lazy(_)                                                                                                     => decode(path, lzy.schema)
         case Schema.Meta(_, _)                                                                                                        => decode(path, Schema[MetaSchema]).map(_.toSchema)
         case ProductDecoder(decoder)                                                                                                  => decoder(path)
@@ -591,7 +591,7 @@ object ThriftCodec extends Codec {
         }
       }.fold(err => fail(path, s"Error decoding enum with cases ${cases.map(_.id).mkString(", ")}: ${err.getMessage}"), identity)
 
-    private def eitherDecoder[A, B](path: Path, left: Schema[A], right: Schema[B]): Result[Either[A, B]] = {
+    private def eitherDecoder[A, B](path: Path, left: Schema[A], right: Schema[B]): Result[scala.util.Either[A, B]] = {
       val readField = p.readFieldBegin()
       readField.id match {
         case 1 => decode(path :+ "either:left", left).map(Left(_))
@@ -610,7 +610,7 @@ object ThriftCodec extends Codec {
             }
         )
 
-    private def transformDecoder[A, B](path: Path, schema: Schema[B], f: B => Either[String, A]): Result[A] =
+    private def transformDecoder[A, B](path: Path, schema: Schema[B], f: B => scala.util.Either[String, A]): Result[A] =
       decode(path, schema).flatMap(a => f(a).left.map(msg => Error(path, msg)))
 
     private def primitiveDecoder[A](path: Path, standardType: StandardType[A]): Result[A] =

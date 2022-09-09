@@ -24,7 +24,7 @@ object ProtobufCodec extends Codec {
   override def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Byte, A] =
     ZPipeline.mapChunksZIO(chunk => ZIO.fromEither(Decoder.decode(schema, chunk).map(Chunk(_))))
 
-  override def decode[A](schema: Schema[A]): Chunk[Byte] => Either[String, A] =
+  override def decode[A](schema: Schema[A]): Chunk[Byte] => scala.util.Either[String, A] =
     ch => Decoder.decode(schema, ch)
 
   object Protobuf {
@@ -82,7 +82,7 @@ object ProtobufCodec extends Codec {
       case _: Schema.Tuple2[_, _]               => false
       case _: Schema.Optional[_]                => false
       case _: Schema.Fail[_]                    => false
-      case _: Schema.EitherSchema[_, _]         => false
+      case _: Schema.Either[_, _]         => false
       case lzy @ Schema.Lazy(_)                 => canBePacked(lzy.schema)
       case _                                    => false
     }
@@ -138,7 +138,7 @@ object ProtobufCodec extends Codec {
         case (Schema.Primitive(standardType, _), v)                                       => encodePrimitive(fieldNumber, standardType, v)
         case (Schema.Tuple2(left, right, _), v @ (_, _))                                  => encodeTuple(fieldNumber, left, right, v)
         case (Schema.Optional(codec: Schema[a], _), v: Option[_])                         => encodeOptional(fieldNumber, codec, v.asInstanceOf[Option[a]])
-        case (Schema.EitherSchema(left: Schema[a], right: Schema[b], _), v: Either[_, _]) => encodeEither(fieldNumber, left, right, v.asInstanceOf[Either[a, b]])
+        case (Schema.Either(left: Schema[a], right: Schema[b], _), v: scala.util.Either[_, _]) => encodeEither(fieldNumber, left, right, v.asInstanceOf[scala.util.Either[a, b]])
         case (lzy @ Schema.Lazy(_), v)                                                    => encode(fieldNumber, lzy.schema, v)
         case (Schema.Meta(ast, _), _)                                                     => encode(fieldNumber, Schema[MetaSchema], ast)
         case (_: Schema.CaseClass0[_], v) =>
@@ -595,7 +595,7 @@ object ProtobufCodec extends Codec {
       fieldNumber: Option[Int],
       left: Schema[A],
       right: Schema[B],
-      either: Either[A, B]
+      either: scala.util.Either[A, B]
     ): Chunk[Byte] = {
       val encodedEither = either match {
         case Left(value)  => encode(Some(1), left, value)
@@ -649,7 +649,7 @@ object ProtobufCodec extends Codec {
       }.getOrElse(Chunk.empty)
   }
 
-  final case class Decoder[+A](run: Chunk[Byte] => Either[String, (Chunk[Byte], A)]) {
+  final case class Decoder[+A](run: Chunk[Byte] => scala.util.Either[String, (Chunk[Byte], A)]) {
     self =>
 
     def map[B](f: A => B): Decoder[B] =
@@ -714,7 +714,7 @@ object ProtobufCodec extends Codec {
     private[codec] val stringDecoder: Decoder[String] =
       Decoder(bytes => Right((Chunk.empty, new String(bytes.toArray, StandardCharsets.UTF_8))))
 
-    def decode[A](schema: Schema[A], chunk: Chunk[Byte]): Either[String, A] =
+    def decode[A](schema: Schema[A], chunk: Chunk[Byte]): scala.util.Either[String, A] =
       decoder(schema)
         .run(chunk)
         .map(_._2)
@@ -733,7 +733,7 @@ object ProtobufCodec extends Codec {
         case Schema.Tuple2(left, right, _)                                                     => tupleDecoder(left, right)
         case Schema.Optional(codec, _)                                                         => optionalDecoder(codec)
         case Schema.Fail(message, _)                                                           => fail(message)
-        case Schema.EitherSchema(left, right, _)                                               => eitherDecoder(left, right)
+        case Schema.Either(left, right, _)                                               => eitherDecoder(left, right)
         case lzy @ Schema.Lazy(_)                                                              => decoder(lzy.schema)
         case Schema.Meta(_, _)                                                                 => astDecoder
         case s: Schema.CaseClass0[A]                                                           => caseClass0Decoder(s)
@@ -892,7 +892,7 @@ object ProtobufCodec extends Codec {
       }
     }
 
-    private def eitherDecoder[A, B](left: Schema[A], right: Schema[B]): Decoder[Either[A, B]] =
+    private def eitherDecoder[A, B](left: Schema[A], right: Schema[B]): Decoder[scala.util.Either[A, B]] =
       keyDecoder.flatMap {
         case (_, fieldNumber) if fieldNumber == 1 => decoder(left).map(Left(_))
         case (_, fieldNumber) if fieldNumber == 2 => decoder(right).map(Right(_))
@@ -925,7 +925,7 @@ object ProtobufCodec extends Codec {
         }
       }).take(8)
 
-    private def transformDecoder[A, B](schema: Schema[B], f: B => Either[String, A]): Decoder[A] =
+    private def transformDecoder[A, B](schema: Schema[B], f: B => scala.util.Either[String, A]): Decoder[A] =
       schema match {
         case Schema.Primitive(typ, _) if typ == StandardType.UnitType =>
           Decoder { (chunk: Chunk[Byte]) =>

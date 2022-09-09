@@ -19,12 +19,12 @@ object SchemaOrdering {
       val lTypeCoerced = lType.asInstanceOf[StandardType[t]]
       lTypeCoerced.compare(lVal.asInstanceOf[t], rVal.asInstanceOf[t])
     case (Schema.Primitive(UnitType, _), _, _) => 0
-    case (Schema.EitherSchema(leftSchema, _, _), LeftValue(lVal), LeftValue(rVal)) =>
+    case (Schema.Either(leftSchema, _, _), LeftValue(lVal), LeftValue(rVal)) =>
       compareBySchema(leftSchema)(lVal, rVal)
-    case (Schema.EitherSchema(_, rightSchema, _), RightValue(lVal), RightValue(rVal)) =>
+    case (Schema.Either(_, rightSchema, _), RightValue(lVal), RightValue(rVal)) =>
       compareBySchema(rightSchema)(lVal, rVal)
-    case (Schema.EitherSchema(_, _, _), LeftValue(_), RightValue(_)) => -1
-    case (Schema.EitherSchema(_, _, _), RightValue(_), LeftValue(_)) => 1
+    case (Schema.Either(_, _, _), LeftValue(_), RightValue(_)) => -1
+    case (Schema.Either(_, _, _), RightValue(_), LeftValue(_)) => 1
     case (Schema.Optional(innerSchema, _), SomeValue(lVal), SomeValue(rVal)) =>
       compareBySchema(innerSchema)(lVal, rVal)
     case (Schema.Optional(_, _), NoneValue, SomeValue(_)) => -1

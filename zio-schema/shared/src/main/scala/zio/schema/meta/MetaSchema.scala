@@ -279,7 +279,7 @@ object MetaSchema {
     case Schema.Primitive(typ, _)   => Value(typ, NodePath.root)
     case Schema.Fail(message, _)    => FailNode(message, NodePath.root)
     case Schema.Optional(schema, _) => subtree(NodePath.root, Chunk.empty, schema, optional = true)
-    case Schema.EitherSchema(left, right, _) =>
+    case Schema.Either(left, right, _) =>
       Either(
         NodePath.root,
         subtree(NodePath.root / "left", Chunk.empty, left),
@@ -336,7 +336,7 @@ object MetaSchema {
         schema match {
           case Schema.Primitive(typ, _)   => Value(typ, path, optional)
           case Schema.Optional(schema, _) => subtree(path, lineage, schema, optional = true)
-          case Schema.EitherSchema(left, right, _) =>
+          case Schema.Either(left, right, _) =>
             Either(
               path,
               subtree(path / "left", lineage, left, optional = false),

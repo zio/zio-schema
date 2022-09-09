@@ -50,7 +50,7 @@ object TestData {
 
   val uuidSchema: Schema[java.util.UUID] = Schema.Primitive(StandardType.UUIDType)
 
-  val eitherSchema: Schema[Either[String, Unit]] = Schema.EitherSchema(stringSchema, unitSchema)
+  val eitherSchema: Schema[Either[String, Unit]] = Schema.Either(stringSchema, unitSchema)
   val tupleSchema: Schema[(String, Unit)]        = Schema.Tuple2(stringSchema, unitSchema)
   val listSchema: Schema[List[Int]]              = Schema.list(intSchema)
   val mapSchema: Schema[Map[Int, String]]        = Schema.map(intSchema, stringSchema)

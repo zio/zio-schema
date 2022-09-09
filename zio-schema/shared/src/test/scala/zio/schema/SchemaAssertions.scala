@@ -66,9 +66,9 @@ object SchemaAssertions {
       structure.toChunk.size == 2 &&
         structure.toChunk.find(_.label == "left").exists(f => equalsAst(expectedLeft, f.schema, depth)) &&
         structure.toChunk.find(_.label == "right").exists(f => equalsAst(expectedRight, f.schema, depth))
-    case (Schema.EitherSchema(expectedLeft, expectedRight, _), Schema.EitherSchema(actualLeft, actualRight, _)) =>
+    case (Schema.Either(expectedLeft, expectedRight, _), Schema.Either(actualLeft, actualRight, _)) =>
       equalsAst(expectedLeft, actualLeft, depth) && equalsAst(expectedRight, actualRight, depth)
-    case (Schema.EitherSchema(expectedLeft, expectedRight, _), right: Schema.Enum[_]) =>
+    case (Schema.Either(expectedLeft, expectedRight, _), right: Schema.Enum[_]) =>
       right.structure.size == 2 &&
         right.structure.get("left").exists(actualLeft => equalsAst(expectedLeft, actualLeft, depth)) &&
         right.structure.get("right").exists(actualRight => equalsAst(expectedRight, actualRight, depth))

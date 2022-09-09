@@ -263,7 +263,7 @@ object Differ {
     case Schema.Set(s, _)                                                                        => set(s)
     case Schema.Map(k, v, _)                                                                     => map(k, v)
     case Schema.Meta(_, _)                                                                       => (_: A, _: A) => Patch.notComparable[Schema[_]]
-    case Schema.EitherSchema(leftSchema, rightSchema, _)                                         => either(fromSchema(leftSchema), fromSchema(rightSchema))
+    case Schema.Either(leftSchema, rightSchema, _)                                         => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                                                                      => fromSchema(s.schema)
     case Schema.Transform(schema, g, f, _, _)                                                    => fromSchema(schema).transformOrFail(f, g)
     case Schema.Fail(_, _)                                                                       => fail
