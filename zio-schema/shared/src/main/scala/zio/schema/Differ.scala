@@ -256,7 +256,7 @@ object Differ {
     case Schema.Primitive(tpe @ StandardType.OffsetDateTimeType(_), _) => offsetDateTime(tpe)
     case Schema.Primitive(StandardType.ZonedDateTimeType(fmt), _)      => zonedDateTime(fmt)
     case Schema.Primitive(StandardType.ZoneOffsetType, _)              => zoneOffset
-    case Schema.Tuple(leftSchema, rightSchema, _)                      => fromSchema(leftSchema) <*> fromSchema(rightSchema)
+    case Schema.Tuple2(leftSchema, rightSchema, _)                     => fromSchema(leftSchema) <*> fromSchema(rightSchema)
     case Schema.Optional(schema, _)                                    => fromSchema(schema).optional
     case Schema.Sequence(schema, g, f, _, _) =>
       fromSchema(schema).chunk.transform(f, g)

@@ -67,7 +67,7 @@ object DeriveGen {
       case Schema.Primitive(standardType, _)                                                                                                                                   => genPrimitive(standardType)
       case optional @ Schema.Optional(_, _)                                                                                                                                    => genOptional(optional)
       case fail @ Schema.Fail(_, _)                                                                                                                                            => genFail(fail)
-      case tuple @ Schema.Tuple(_, _, _)                                                                                                                                       => genTuple(tuple)
+      case tuple @ Schema.Tuple2(_, _, _)                                                                                                                                      => genTuple(tuple)
       case either @ Schema.EitherSchema(_, _, _)                                                                                                                               => genEither(either)
       case lazzy @ Schema.Lazy(_)                                                                                                                                              => genLazy(lazzy)
       case Schema.Meta(ast, _)                                                                                                                                                 => genMeta(ast)
@@ -526,7 +526,7 @@ object DeriveGen {
     Gen.empty
   }
 
-  private def genTuple[A, B](tuple: Schema.Tuple[A, B]): Gen[Sized, (A, B)] =
+  private def genTuple[A, B](tuple: Schema.Tuple2[A, B]): Gen[Sized, (A, B)] =
     gen(tuple.left).zip(gen(tuple.right))
 
   private def genEither[A, B](either: Schema.EitherSchema[A, B]): Gen[Sized, Either[A, B]] =

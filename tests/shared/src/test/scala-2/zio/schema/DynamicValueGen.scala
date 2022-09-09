@@ -76,7 +76,7 @@ object DynamicValueGen {
       case Schema.MapSchema(ks, vs, _)                                                                                                                                                                => Gen.chunkOfBounded(0, 2)(anyDynamicValueOfSchema(ks).zip(anyDynamicValueOfSchema(vs))).map(DynamicValue.Dictionary(_))
       case Schema.SetSchema(schema, _)                                                                                                                                                                => Gen.setOfBounded(0, 2)(anyDynamicValueOfSchema(schema)).map(DynamicValue.SetValue(_))
       case Schema.Optional(schema, _)                                                                                                                                                                 => Gen.oneOf(anyDynamicSomeValueOfSchema(schema), Gen.const(DynamicValue.NoneValue))
-      case Schema.Tuple(left, right, _)                                                                                                                                                               => anyDynamicTupleValue(left, right)
+      case Schema.Tuple2(left, right, _)                                                                                                                                                              => anyDynamicTupleValue(left, right)
       case Schema.EitherSchema(left, right, _) =>
         Gen.oneOf(anyDynamicLeftValueOfSchema(left), anyDynamicRightValueOfSchema(right))
       case Schema.Transform(schema, _, _, _, _) => anyDynamicValueOfSchema(schema)

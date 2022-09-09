@@ -29,7 +29,7 @@ object SchemaOrdering {
       compareBySchema(innerSchema)(lVal, rVal)
     case (Schema.Optional(_, _), NoneValue, SomeValue(_)) => -1
     case (Schema.Optional(_, _), SomeValue(_), NoneValue) => 1
-    case (Schema.Tuple(lSchema, rSchema, _), l: Tuple, r: Tuple) => {
+    case (Schema.Tuple2(lSchema, rSchema, _), l: Tuple, r: Tuple) => {
       val leftComparison = compareBySchema(lSchema)(l.left, r.left)
       if (leftComparison != 0)
         leftComparison

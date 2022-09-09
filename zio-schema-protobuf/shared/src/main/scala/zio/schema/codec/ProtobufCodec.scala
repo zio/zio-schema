@@ -79,7 +79,7 @@ object ProtobufCodec extends Codec {
       case Schema.Sequence(element, _, _, _, _) => canBePacked(element)
       case Schema.Transform(codec, _, _, _, _)  => canBePacked(codec)
       case Schema.Primitive(standardType, _)    => canBePacked(standardType)
-      case _: Schema.Tuple[_, _]                => false
+      case _: Schema.Tuple2[_, _]               => false
       case _: Schema.Optional[_]                => false
       case _: Schema.Fail[_]                    => false
       case _: Schema.EitherSchema[_, _]         => false
@@ -136,7 +136,7 @@ object ProtobufCodec extends Codec {
         case (Schema.SetSchema(s, _), set)                                                => encodeSequence(fieldNumber, s, Chunk.fromIterable(set))
         case (Schema.Transform(codec, _, g, _, _), _)                                     => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
         case (Schema.Primitive(standardType, _), v)                                       => encodePrimitive(fieldNumber, standardType, v)
-        case (Schema.Tuple(left, right, _), v @ (_, _))                                   => encodeTuple(fieldNumber, left, right, v)
+        case (Schema.Tuple2(left, right, _), v @ (_, _))                                  => encodeTuple(fieldNumber, left, right, v)
         case (Schema.Optional(codec: Schema[a], _), v: Option[_])                         => encodeOptional(fieldNumber, codec, v.asInstanceOf[Option[a]])
         case (Schema.EitherSchema(left: Schema[a], right: Schema[b], _), v: Either[_, _]) => encodeEither(fieldNumber, left, right, v.asInstanceOf[Either[a, b]])
         case (lzy @ Schema.Lazy(_), v)                                                    => encode(fieldNumber, lzy.schema, v)
@@ -730,7 +730,7 @@ object ProtobufCodec extends Codec {
         case Schema.SetSchema(schema: Schema[s], _)                                            => decoder(Schema.Sequence(schema, (c: Chunk[s]) => Set(c: _*), (m: Set[s]) => Chunk.fromIterable(m), identity = "Set"))
         case Schema.Transform(codec, f, _, _, _)                                               => transformDecoder(codec, f)
         case Schema.Primitive(standardType, _)                                                 => primitiveDecoder(standardType)
-        case Schema.Tuple(left, right, _)                                                      => tupleDecoder(left, right)
+        case Schema.Tuple2(left, right, _)                                                     => tupleDecoder(left, right)
         case Schema.Optional(codec, _)                                                         => optionalDecoder(codec)
         case Schema.Fail(message, _)                                                           => fail(message)
         case Schema.EitherSchema(left, right, _)                                               => eitherDecoder(left, right)

@@ -42,7 +42,7 @@ sealed trait DynamicValue {
       case (DynamicValue.RightValue(value), Schema.EitherSchema(_, schema1, _)) =>
         value.toTypedValue(schema1).map(Right(_))
 
-      case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple(leftSchema, rightSchema, _)) =>
+      case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
         val typedLeft  = leftValue.toTypedValue(leftSchema)
         val typedRight = rightValue.toTypedValue(rightSchema)
         (typedLeft, typedRight) match {
@@ -989,7 +989,7 @@ object DynamicValue {
           case Right(value: r) => DynamicValue.RightValue(fromSchemaAndValue(schema.right, value))
         }
 
-      case schema: Schema.Tuple[a, b] =>
+      case schema: Schema.Tuple2[a, b] =>
         val (a: a, b: b) = value.asInstanceOf[(a, b)]
         DynamicValue.Tuple(fromSchemaAndValue(schema.left, a), fromSchemaAndValue(schema.right, b))
 

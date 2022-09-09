@@ -285,7 +285,7 @@ object MetaSchema {
         subtree(NodePath.root / "left", Chunk.empty, left),
         subtree(NodePath.root / "right", Chunk.empty, right)
       )
-    case Schema.Tuple(left, right, _) =>
+    case Schema.Tuple2(left, right, _) =>
       Tuple(
         NodePath.root,
         subtree(NodePath.root / "left", Chunk.empty, left),
@@ -343,7 +343,7 @@ object MetaSchema {
               subtree(path / "right", lineage, right, optional = false),
               optional
             )
-          case Schema.Tuple(left, right, _) =>
+          case Schema.Tuple2(left, right, _) =>
             Tuple(
               path,
               subtree(path / "left", lineage, left, optional = false),

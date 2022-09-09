@@ -66,7 +66,7 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
     test("tuple") {
       check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
         case (leftSchema, rightSchema) =>
-          val tupleSchema: Schema.Tuple[_, _] = (leftSchema <*> rightSchema).asInstanceOf[Schema.Tuple[_, _]]
+          val tupleSchema: Schema.Tuple2[_, _] = (leftSchema <*> rightSchema).asInstanceOf[Schema.Tuple2[_, _]]
 
           val accessor = tupleSchema.makeAccessors(builder)
 

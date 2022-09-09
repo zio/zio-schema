@@ -105,20 +105,20 @@ object SchemaGen {
       value         <- gen
     } yield (schema, value)
 
-  lazy val anyTuple: Gen[Sized, Schema.Tuple[_, _]] =
+  lazy val anyTuple: Gen[Sized, Schema.Tuple2[_, _]] =
     anySchema.zipWith(anySchema) { (a, b) =>
-      Schema.Tuple(a, b)
+      Schema.Tuple2(a, b)
     }
 
-  type TupleAndGen[A, B] = (Schema.Tuple[A, B], Gen[Sized, (A, B)])
+  type TupleAndGen[A, B] = (Schema.Tuple2[A, B], Gen[Sized, (A, B)])
 
   val anyTupleAndGen: Gen[Sized, TupleAndGen[_, _]] =
     for {
       (schemaA, genA) <- anyPrimitiveAndGen
       (schemaB, genB) <- anyPrimitiveAndGen
-    } yield Schema.Tuple(schemaA, schemaB) -> genA.zip(genB)
+    } yield Schema.Tuple2(schemaA, schemaB) -> genA.zip(genB)
 
-  type TupleAndValue[A, B] = (Schema.Tuple[A, B], (A, B))
+  type TupleAndValue[A, B] = (Schema.Tuple2[A, B], (A, B))
 
   val anyTupleAndValue: Gen[Sized, TupleAndValue[_, _]] =
     for {

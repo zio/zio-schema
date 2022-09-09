@@ -57,7 +57,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     suite("tuple")(
       test("of primitives") {
         assertEncodesJson(
-          Schema.Tuple(
+          Schema.Tuple2(
             Schema.Primitive(StandardType.StringType),
             Schema.Primitive(StandardType.IntType)
           ),

@@ -334,7 +334,7 @@ object AvroCodec extends AvroCodec {
           }
         } yield SchemaAvro.createUnion(SchemaAvro.create(SchemaAvro.Type.NULL), wrappedAvroSchema)
       case Fail(message, _) => Left(message)
-      case tuple: Tuple[_, _] =>
+      case tuple: Tuple2[_, _] =>
         toAvroSchema(tuple.toRecord).map(
           _.addMarkerProp(RecordDiscriminator(RecordType.Tuple))
         )
@@ -545,7 +545,7 @@ object AvroCodec extends AvroCodec {
         toAvroSchema(map.vs).map(SchemaAvro.createMap)
       case _ =>
         val tupleSchema = Schema
-          .Tuple(map.ks, map.vs)
+          .Tuple2(map.ks, map.vs)
           .annotate(AvroAnnotations.name("Tuple"))
           .annotate(AvroAnnotations.namespace("scala"))
         toAvroSchema(tupleSchema).map(SchemaAvro.createArray)
@@ -742,7 +742,7 @@ object AvroCodec extends AvroCodec {
             case c: Optional[_]                                                                      => Right(c)
             case c: Primitive[_]                                                                     => Right(c)
             case c: Transform[_, _, _]                                                               => Right(c)
-            case c: Tuple[_, _]                                                                      => Right(c)
+            case c: Tuple2[_, _]                                                                     => Right(c)
 
           }
         case None => Left("ZIO schema wrapped record must have a single field")
@@ -772,7 +772,7 @@ object AvroCodec extends AvroCodec {
       _  <- Either.cond(schema.getFields.size() == 2, (), "Tuple must have exactly 2 fields:" + schema.toString(false))
       _1 <- toZioSchema(schema.getFields.get(0).schema())
       _2 <- toZioSchema(schema.getFields.get(1).schema())
-    } yield Schema.Tuple(_1, _2, buildZioAnnotations(schema))
+    } yield Schema.Tuple2(_1, _2, buildZioAnnotations(schema))
 
   private[codec] def buildZioAnnotations(schema: SchemaAvro): Chunk[StaticAnnotation] = {
     val name = AvroAnnotations.name(schema.getName)

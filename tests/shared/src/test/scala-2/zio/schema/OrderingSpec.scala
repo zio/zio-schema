@@ -116,7 +116,7 @@ object OrderingSpec extends ZIOSpecDefault {
       xSchema <- anySchema
       ySchema <- anySchema
       (l, r)  <- genOrderedPairTuple(xSchema, ySchema)
-    } yield (Schema.Tuple(xSchema, ySchema), l, r).asInstanceOf[SchemaAndPair[Either[_, _]]]
+    } yield (Schema.Tuple2(xSchema, ySchema), l, r).asInstanceOf[SchemaAndPair[Either[_, _]]]
 
   def genOrderedPairTuple[A, B](
     xSchema: Schema[A],

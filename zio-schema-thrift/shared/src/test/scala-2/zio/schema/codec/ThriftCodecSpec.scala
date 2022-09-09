@@ -875,7 +875,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
     implicit val schemaRecord: Schema[Record] = DeriveSchema.gen[Record]
   }
 
-  val schemaTuple: Schema.Tuple[Int, String] = Schema.Tuple(Schema[Int], Schema[String])
+  val schemaTuple: Schema.Tuple2[Int, String] = Schema.Tuple2(Schema[Int], Schema[String])
 
   case class MapValue(value: Map[String, Record])
 
@@ -936,7 +936,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
 
   lazy val schemaSetRecord: Schema[SetRecord] = DeriveSchema.gen[SetRecord]
 
-  val complexTupleSchema: Schema.Tuple[Record, OneOf] = Schema.Tuple(Record.schemaRecord, schemaOneOf)
+  val complexTupleSchema: Schema.Tuple2[Record, OneOf] = Schema.Tuple2(Record.schemaRecord, schemaOneOf)
 
   val eitherSchema: Schema.EitherSchema[Int, String] = Schema.EitherSchema(Schema[Int], Schema[String])
 

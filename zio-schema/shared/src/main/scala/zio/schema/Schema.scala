@@ -149,7 +149,7 @@ sealed trait Schema[A] {
    * Returns a new schema that combines this schema and the specified schema together, modeling
    * their tuple composition.
    */
-  def zip[B](that: Schema[B]): Schema[(A, B)] = Schema.Tuple(self, that)
+  def zip[B](that: Schema[B]): Schema[(A, B)] = Schema.Tuple2(self, that)
 }
 
 object Schema extends SchemaEquality {
@@ -392,7 +392,7 @@ object Schema extends SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
 
-  final case class Tuple[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
+  final case class Tuple2[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
       extends Schema[(A, B)] {
     self =>
 
@@ -401,10 +401,10 @@ object Schema extends SchemaEquality {
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (Lens[first.type, (A, B), A], Lens[second.type, (A, B), B])
 
-    override def annotate(annotation: Any): Tuple[A, B] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Tuple2[A, B] = copy(annotations = annotations :+ annotation)
 
     val toRecord: CaseClass2[A, B, (A, B)] = CaseClass2[A, B, (A, B)](
-      id = TypeId.parse("zio.schema.Schena.Tuple"),
+      id = TypeId.parse("zio.schema.Schena.Tuple2"),
       field1 = Field[A]("_1", left),
       field2 = Field[B]("_2", right),
       construct = (a, b) => (a, b),

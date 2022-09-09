@@ -123,7 +123,7 @@ object ThriftCodec extends Codec {
       case Schema.SetSchema(_, _)               => TType.SET
       case Schema.Transform(schema, _, _, _, _) => getType(schema)
       case Schema.Primitive(standardType, _)    => getPrimitiveType(standardType)
-      case Schema.Tuple(_, _, _)                => TType.STRUCT
+      case Schema.Tuple2(_, _, _)               => TType.STRUCT
       case Schema.Optional(schema, _)           => getType(schema)
       case Schema.EitherSchema(_, _, _)         => TType.STRUCT
       case Schema.Lazy(lzy)                     => getType(lzy())
@@ -311,7 +311,7 @@ object ThriftCodec extends Codec {
         case (setSchema: Schema.SetSchema[_], set: Set[_])              => encodeSet(fieldNumber, setSchema.asInstanceOf[Schema.SetSchema[Any]].as, set.asInstanceOf[Set[Any]])
         case (Schema.Transform(schema, _, g, _, _), _)                  => g(value).foreach(encodeValue(fieldNumber, schema, _))
         case (Schema.Primitive(standardType, _), v)                     => encodePrimitive(fieldNumber, standardType, v)
-        case (Schema.Tuple(left, right, _), v @ (_, _))                 => encodeTuple(fieldNumber, left, right, v)
+        case (Schema.Tuple2(left, right, _), v @ (_, _))                => encodeTuple(fieldNumber, left, right, v)
         case (optSchema: Schema.Optional[_], v: Option[_])              => encodeOptional(fieldNumber, optSchema.asInstanceOf[Schema.Optional[Any]].schema, v.asInstanceOf[Option[Any]])
         case (eitherSchema: Schema.EitherSchema[_, _], v: Either[_, _]) => encodeEither(fieldNumber, eitherSchema.asInstanceOf[Schema.EitherSchema[Any, Any]].left, eitherSchema.asInstanceOf[Schema.EitherSchema[Any, Any]].right, v.asInstanceOf[Either[Any, Any]])
         case (lzy @ Schema.Lazy(_), v)                                  => encodeValue(fieldNumber, lzy.schema, v)
@@ -524,7 +524,7 @@ object ThriftCodec extends Codec {
         case setSchema @ Schema.SetSchema(_, _)                                                                                       => decodeSet(path, setSchema)
         case Schema.Transform(schema, f, _, _, _)                                                                                     => transformDecoder(path, schema, f)
         case Schema.Primitive(standardType, _)                                                                                        => primitiveDecoder(path, standardType)
-        case Schema.Tuple(left, right, _)                                                                                             => tupleDecoder(path, left, right)
+        case Schema.Tuple2(left, right, _)                                                                                            => tupleDecoder(path, left, right)
         case optionalSchema @ Schema.Optional(_, _)                                                                                   => optionalDecoder(path, optionalSchema)
         case Schema.Fail(message, _)                                                                                                  => fail(path, message)
         case Schema.EitherSchema(left, right, _)                                                                                      => eitherDecoder(path, left, right)

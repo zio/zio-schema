@@ -457,7 +457,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("creates a record type and applies the name") {
             val left   = Schema.primitive(StandardType.StringType)
             val right  = Schema.primitive(StandardType.StringType)
-            val schema = Schema.Tuple(left, right).annotate(AvroAnnotations.name("MyTuple"))
+            val schema = Schema.Tuple2(left, right).annotate(AvroAnnotations.name("MyTuple"))
             val result = AvroCodec.encode(schema)
 
             assert(result)(
@@ -471,7 +471,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("encodes complex types") {
             val left   = DeriveSchema.gen[SpecTestData.SimpleRecord]
             val right  = DeriveSchema.gen[SpecTestData.NamedRecord]
-            val schema = Schema.Tuple(left, right).annotate(AvroAnnotations.name("MyTuple"))
+            val schema = Schema.Tuple2(left, right).annotate(AvroAnnotations.name("MyTuple"))
             val result = AvroCodec.encode(schema)
 
             val field_1 =
@@ -483,7 +483,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("encodes duplicate complex types by reference") {
             val left   = DeriveSchema.gen[SpecTestData.SimpleRecord]
             val right  = DeriveSchema.gen[SpecTestData.SimpleRecord]
-            val schema = Schema.Tuple(left, right).annotate(AvroAnnotations.name("MyTuple"))
+            val schema = Schema.Tuple2(left, right).annotate(AvroAnnotations.name("MyTuple"))
             val result = AvroCodec.encode(schema)
 
             val field_1 =
@@ -1803,18 +1803,18 @@ object AssertionHelper {
       assertion
     )
 
-  def isTuple[A, B](assertion: Assertion[Schema.Tuple[A, B]]): Assertion[Schema[_]] =
-    Assertion.isCase[Schema[_], Schema.Tuple[A, B]](
+  def isTuple[A, B](assertion: Assertion[Schema.Tuple2[A, B]]): Assertion[Schema[_]] =
+    Assertion.isCase[Schema[_], Schema.Tuple2[A, B]](
       "Tuple", {
-        case r: Schema.Tuple[_, _] => Try { r.asInstanceOf[Schema.Tuple[A, B]] }.toOption
-        case _                     => None
+        case r: Schema.Tuple2[_, _] => Try { r.asInstanceOf[Schema.Tuple2[A, B]] }.toOption
+        case _                      => None
       },
       assertion
     )
 
   def isTuple[A, B](assertionA: Assertion[Schema[A]], assertionB: Assertion[Schema[B]]): Assertion[Schema[_]] =
     isTuple[A, B](
-      hasField[Schema.Tuple[A, B], Schema[A]]("left", _.left, assertionA) && hasField[Schema.Tuple[A, B], Schema[B]](
+      hasField[Schema.Tuple2[A, B], Schema[A]]("left", _.left, assertionA) && hasField[Schema.Tuple2[A, B], Schema[B]](
         "right",
         _.right,
         assertionB

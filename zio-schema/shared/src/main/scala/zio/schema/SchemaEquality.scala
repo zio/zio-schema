@@ -56,7 +56,7 @@ trait SchemaEquality {
               lOptional.schema === rOptional.schema
           case (lFail: Schema.Fail[_], rFail: Schema.Fail[_]) =>
             lFail.annotations == rFail.annotations && lFail.message == rFail.message
-          case (lTuple: Schema.Tuple[_, _], rTuple: Schema.Tuple[_, _]) =>
+          case (lTuple: Schema.Tuple2[_, _], rTuple: Schema.Tuple2[_, _]) =>
             lTuple.annotations == rTuple.annotations &&
               lTuple.left === rTuple.left &&
               rTuple.right === rTuple.right

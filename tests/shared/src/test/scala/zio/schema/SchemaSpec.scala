@@ -18,8 +18,10 @@ object SchemaSpec extends ZIOSpecDefault {
         assert(Schema.chunk(schemaUnit))(equalTo(Schema.chunk(schemaUnit)))
       } @@ TestAspect.scala2Only,
       test("tuple") {
-        assert(Schema.Tuple(schemaUnit, schemaUnit))(equalTo(Schema.Tuple(schemaUnit, schemaUnit))) &&
-        assert(Schema.Tuple(schemaTransform, schemaTransform))(equalTo(Schema.Tuple(schemaTransform, schemaTransform)))
+        assert(Schema.Tuple2(schemaUnit, schemaUnit))(equalTo(Schema.Tuple2(schemaUnit, schemaUnit))) &&
+        assert(Schema.Tuple2(schemaTransform, schemaTransform))(
+          equalTo(Schema.Tuple2(schemaTransform, schemaTransform))
+        )
       },
       test("record") {
         assert(schemaRecord("key"))(equalTo(schemaRecord("key"))) &&
@@ -41,7 +43,7 @@ object SchemaSpec extends ZIOSpecDefault {
     test("Tuple.toRecord should preserve annotations") {
       val left        = Schema.primitive(StandardType.StringType)
       val right       = Schema.primitive(StandardType.StringType)
-      val tupleSchema = Schema.Tuple(left, right, Chunk("some Annotation"))
+      val tupleSchema = Schema.Tuple2(left, right, Chunk("some Annotation"))
       val record      = tupleSchema.toRecord
       assert(record.annotations)(hasFirst(equalTo("some Annotation")))
     }
