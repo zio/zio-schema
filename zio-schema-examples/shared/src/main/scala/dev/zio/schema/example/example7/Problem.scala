@@ -92,7 +92,7 @@ private[example7] object Problem {
 
   object Approach2 extends scala.App {
     import Schema._
-    type QueryParams = Map[String, List[String]]
+    type QueryParams = scala.collection.immutable.Map[String, List[String]]
 
     // this will be a sophisticated solution for a high performance library like ZIO
     def decodeFromQueryParams[A](
@@ -198,7 +198,7 @@ private[example7] object Problem {
 
     println("approach 2")
 
-    private val data = Map("name" -> List("John"), "age" -> List("42"))
+    private val data = scala.collection.immutable.Map("name" -> List("John"), "age" -> List("42"))
 
     println(decodeFromQueryParams[Person](data))
   }

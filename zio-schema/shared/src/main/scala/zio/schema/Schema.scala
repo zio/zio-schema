@@ -216,8 +216,8 @@ object Schema extends SchemaEquality {
   implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
     Schema.Sequence[Chunk[A], A, String](schemaA, identity, identity, Chunk.empty, "Chunk")
 
-  implicit def map[K, V](implicit ks: Schema[K], vs: Schema[V]): Schema[Map[K, V]] =
-    Schema.MapSchema(ks, vs, Chunk.empty)
+  implicit def map[K, V](implicit keySchema: Schema[K], valueSchema: Schema[V]): Schema[scala.collection.immutable.Map[K, V]] =
+    Schema.Map(keySchema, valueSchema, Chunk.empty)
 
   implicit def set[A](implicit schemaA: Schema[A]): Schema[Set[A]] =
     Schema.SetSchema(schemaA, Chunk.empty)
@@ -495,18 +495,18 @@ object Schema extends SchemaEquality {
 
   }
 
-  final case class MapSchema[K, V](ks: Schema[K], vs: Schema[V], override val annotations: Chunk[Any] = Chunk.empty)
-      extends Collection[Map[K, V], (K, V)] {
+  final case class Map[K, V](keySchema: Schema[K], valueSchema: Schema[V], override val annotations: Chunk[Any] = Chunk.empty)
+      extends Collection[scala.collection.immutable.Map[K, V], (K, V)] {
     self =>
-    override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Traversal[Map[K, V], (K, V)]
+    override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Traversal[scala.collection.immutable.Map[K, V], (K, V)]
 
-    override def annotate(annotation: Any): MapSchema[K, V] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Map[K, V] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: Either[String, Map[K, V]] =
-      ks.defaultValue.flatMap(defaultKey => vs.defaultValue.map(defaultValue => Map(defaultKey -> defaultValue)))
+    override def defaultValue: Either[String, scala.collection.immutable.Map[K, V]] =
+      keySchema.defaultValue.flatMap(defaultKey => valueSchema.defaultValue.map(defaultValue => scala.collection.immutable.Map(defaultKey -> defaultValue)))
 
-    override def makeAccessors(b: AccessorBuilder): b.Traversal[Map[K, V], (K, V)] =
-      b.makeTraversal(self, ks <*> vs)
+    override def makeAccessors(b: AccessorBuilder): b.Traversal[scala.collection.immutable.Map[K, V], (K, V)] =
+      b.makeTraversal(self, keySchema <*> valueSchema)
   }
 
   final case class SetSchema[A](as: Schema[A], override val annotations: Chunk[Any] = Chunk.empty)

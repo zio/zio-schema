@@ -70,13 +70,13 @@ sealed trait DynamicValue {
       case (value, Schema.Transform(schema, f, _, _, _)) =>
         value.toTypedValue(schema).flatMap(f)
 
-      case (DynamicValue.Dictionary(entries), schema: Schema.MapSchema[k, v]) =>
+      case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
         entries.foldLeft[Either[String, Map[k, v]]](Right[String, Map[k, v]](Map.empty)) {
           case (err @ Left(_), _) => err
           case (Right(map), entry) => {
             for {
-              key   <- entry._1.toTypedValue(schema.ks)
-              value <- entry._2.toTypedValue(schema.vs)
+              key   <- entry._1.toTypedValue(schema.keySchema)
+              value <- entry._2.toTypedValue(schema.valueSchema)
             } yield map ++ Map(key -> value)
           }
         }
@@ -974,7 +974,7 @@ object DynamicValue {
       case Schema.Sequence(schema, _, toChunk, _, _) =>
         DynamicValue.Sequence(toChunk(value).map(fromSchemaAndValue(schema, _)))
 
-      case Schema.MapSchema(ks: Schema[k], vs: Schema[v], _) =>
+      case Schema.Map(ks: Schema[k], vs: Schema[v], _) =>
         val entries = value.asInstanceOf[Map[k, v]].map {
           case (key, value) => (fromSchemaAndValue(ks, key), fromSchemaAndValue(vs, value))
         }

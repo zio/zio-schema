@@ -293,7 +293,7 @@ object MetaSchema {
       )
     case Schema.Sequence(schema, _, _, _, _) =>
       ListNode(item = subtree(NodePath.root / "item", Chunk.empty, schema), NodePath.root)
-    case Schema.MapSchema(ks, vs, _) =>
+    case Schema.Map(ks, vs, _) =>
       Dictionary(
         keys = subtree(NodePath.root / "keys", Chunk.empty, ks),
         values = subtree(NodePath.root / "values", Chunk.empty, vs),
@@ -352,7 +352,7 @@ object MetaSchema {
             )
           case Schema.Sequence(schema, _, _, _, _) =>
             ListNode(item = subtree(path / "item", lineage, schema, optional = false), path, optional)
-          case Schema.MapSchema(ks, vs, _) =>
+          case Schema.Map(ks, vs, _) =>
             Dictionary(
               keys = subtree(path / "keys", Chunk.empty, ks, optional = false),
               values = subtree(path / "values", Chunk.empty, vs, optional = false),
@@ -427,7 +427,7 @@ object MetaSchema {
       case MetaSchema.ListNode(itemAst, _, _) =>
         Schema.chunk(materialize(itemAst, refs))
       case MetaSchema.Dictionary(keyAst, valueAst, _, _) =>
-        Schema.MapSchema(materialize(keyAst, refs), materialize(valueAst, refs), Chunk.empty)
+        Schema.Map(materialize(keyAst, refs), materialize(valueAst, refs), Chunk.empty)
       case MetaSchema.Dynamic(_, _, _) =>
         Schema.dynamicValue
       case ast => Schema.Fail(s"AST cannot be materialized to a Schema:\n$ast")

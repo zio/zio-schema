@@ -206,7 +206,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("string keys and string values") {
             val keySchema   = Schema.primitive(StandardType.StringType)
             val valueSchema = Schema.primitive(StandardType.StringType)
-            val schema      = Schema.MapSchema(keySchema, valueSchema)
+            val schema      = Schema.Map(keySchema, valueSchema)
             val result      = AvroCodec.encode(schema)
 
             assert(result)(isRight(equalTo("""{"type":"map","values":"string"}""")))
@@ -214,7 +214,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("string keys and complex values") {
             val keySchema   = Schema.primitive(StandardType.StringType)
             val valueSchema = DeriveSchema.gen[SpecTestData.SimpleRecord]
-            val schema      = Schema.MapSchema(keySchema, valueSchema)
+            val schema      = Schema.Map(keySchema, valueSchema)
             val result      = AvroCodec.encode(schema)
 
             assert(result)(
@@ -228,7 +228,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("complex keys and string values") {
             val keySchema   = DeriveSchema.gen[SpecTestData.SimpleRecord]
             val valueSchema = Schema.primitive(StandardType.StringType)
-            val schema      = Schema.MapSchema(keySchema, valueSchema)
+            val schema      = Schema.Map(keySchema, valueSchema)
             val result      = AvroCodec.encode(schema)
 
             val isArray    = startsWithString("""{"type":"array"""")
@@ -243,7 +243,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("complex keys and complex values") {
             val keySchema   = DeriveSchema.gen[SpecTestData.SimpleRecord]
             val valueSchema = DeriveSchema.gen[SpecTestData.NamedRecord]
-            val schema      = Schema.MapSchema(keySchema, valueSchema)
+            val schema      = Schema.Map(keySchema, valueSchema)
             val result      = AvroCodec.encode(schema)
 
             val isArray    = startsWithString("""{"type":"array"""")
@@ -1794,10 +1794,10 @@ object AssertionHelper {
       assertion
     )
 
-  def isMap[K, V](assertion: Assertion[Schema.MapSchema[K, V]]): Assertion[Schema[_]] =
-    Assertion.isCase[Schema[_], Schema.MapSchema[K, V]](
+  def isMap[K, V](assertion: Assertion[Schema.Map[K, V]]): Assertion[Schema[_]] =
+    Assertion.isCase[Schema[_], Schema.Map[K, V]](
       "Map", {
-        case r: Schema.MapSchema[_, _] => Try { r.asInstanceOf[Schema.MapSchema[K, V]] }.toOption
+        case r: Schema.Map[_, _] => Try { r.asInstanceOf[Schema.Map[K, V]] }.toOption
         case _                         => None
       },
       assertion
@@ -1852,11 +1852,11 @@ object AssertionHelper {
       case (a, _) => Some(a)
     }, assertion)
 
-  def hasMapKeys[K](assertion: Assertion[Schema[K]]): Assertion[Schema.MapSchema[K, _]] =
-    hasField("ks", _.ks, assertion)
+  def hasMapKeys[K](assertion: Assertion[Schema[K]]): Assertion[Schema.Map[K, _]] =
+    hasField("keySchema", _.keySchema, assertion)
 
-  def hasMapValues[V](assertion: Assertion[Schema[V]]): Assertion[Schema.MapSchema[_, V]] =
-    hasField("vs", _.vs, assertion)
+  def hasMapValues[V](assertion: Assertion[Schema[V]]): Assertion[Schema.Map[_, V]] =
+    hasField("valueSchema", _.valueSchema, assertion)
 
   def enumStructure(assertion: Assertion[ListMap[String, (Schema[_], Chunk[Any])]]): Assertion[Schema.Enum[_]] =
     Assertion.assertionRec("enumStructure")(assertion)(
@@ -2023,7 +2023,7 @@ object SpecTestData {
       case class NestedRecord(innerRecord: InnerRecord)               extends TopLevelUnion
       case class Unions(union: Union)                                 extends TopLevelUnion
       case class Enumeration(`enum`: Enum)                            extends TopLevelUnion
-      case class Iterables(list: List[String], map: Map[String, Int]) extends TopLevelUnion
+      case class Iterables(list: List[String], map: scala.collection.immutable.Map[String, Int]) extends TopLevelUnion
 
       // TODO: Schema derivation fails for the following case classes
       // case class RecordWithTimeRelatedPrimitives(localDateTime: LocalDateTime, localTime: LocalTime, localDate: LocalDate, offsetTime: OffsetTime, offsetDateTime: OffsetDateTime, zonedDateTime: ZonedDateTime, zoneOffset: ZoneOffset, zoneId: ZoneId, instant: Instant) extends TopLevelUnion

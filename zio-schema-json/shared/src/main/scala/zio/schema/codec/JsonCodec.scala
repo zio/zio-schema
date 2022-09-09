@@ -108,7 +108,7 @@ object JsonCodec extends Codec {
     private[codec] def schemaEncoder[A](schema: Schema[A]): JsonEncoder[A] = schema match {
       case Schema.Primitive(standardType, _)   => primitiveCodec(standardType).encoder
       case Schema.Sequence(schema, _, g, _, _) => JsonEncoder.chunk(schemaEncoder(schema)).contramap(g)
-      case Schema.MapSchema(ks, vs, _) =>
+      case Schema.Map(ks, vs, _) =>
         JsonEncoder.chunk(schemaEncoder(ks).zip(schemaEncoder(vs))).contramap(m => Chunk.fromIterable(m))
       case Schema.SetSchema(s, _) =>
         JsonEncoder.chunk(schemaEncoder(s)).contramap(m => Chunk.fromIterable(m))
@@ -287,7 +287,7 @@ object JsonCodec extends Codec {
       case Schema.Tuple2(left, right, _)       => JsonDecoder.tuple2(schemaDecoder(left), schemaDecoder(right))
       case Schema.Transform(codec, f, _, _, _) => schemaDecoder(codec).mapOrFail(f)
       case Schema.Sequence(codec, f, _, _, _)  => JsonDecoder.chunk(schemaDecoder(codec)).map(f)
-      case Schema.MapSchema(ks, vs, _) =>
+      case Schema.Map(ks, vs, _) =>
         JsonDecoder.chunk(schemaDecoder(ks) <*> schemaDecoder(vs)).map(entries => entries.toList.toMap)
       case Schema.SetSchema(s, _)                                                                      => JsonDecoder.chunk(schemaDecoder(s)).map(entries => entries.toSet)
       case Schema.Fail(message, _)                                                                     => failDecoder(message)

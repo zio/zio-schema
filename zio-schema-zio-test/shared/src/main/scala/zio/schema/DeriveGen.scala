@@ -61,7 +61,7 @@ object DeriveGen {
       case c @ Schema.CaseClass22(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => genCaseClass22(c)
       case generic @ Schema.GenericRecord(_, _, _)                                                                                                                             => genGenericRecord(generic).map(_.asInstanceOf[A])
       case seq @ Schema.Sequence(_, _, _, _, _)                                                                                                                                => genSequence(seq)
-      case map @ Schema.MapSchema(_, _, _)                                                                                                                                     => genMap(map)
+      case map @ Schema.Map(_, _, _)                                                                                                                                     => genMap(map)
       case set @ Schema.SetSchema(_, _)                                                                                                                                        => genSet(set)
       case transform @ Schema.Transform(_, _, _, _, _)                                                                                                                         => genTransform(transform)
       case Schema.Primitive(standardType, _)                                                                                                                                   => genPrimitive(standardType)
@@ -472,8 +472,8 @@ object DeriveGen {
   private def genSequence[Z, A](seq: Schema.Sequence[Z, A, _]): Gen[Sized, Z] =
     Gen.oneOf(Gen.chunkOfN(2)(gen(seq.schemaA)), Gen.const(Chunk.empty)).map(seq.fromChunk(_))
 
-  private def genMap[K, V](map: Schema.MapSchema[K, V]): Gen[Sized, Map[K, V]] =
-    Gen.oneOf(Gen.mapOfN(2)(gen(map.ks), gen(map.vs)), Gen.const(Map.empty[K, V]))
+  private def genMap[K, V](map: Schema.Map[K, V]): Gen[Sized, Map[K, V]] =
+    Gen.oneOf(Gen.mapOfN(2)(gen(map.keySchema), gen(map.valueSchema)), Gen.const(Map.empty[K, V]))
 
   private def genSet[A](set: Schema.SetSchema[A]): Gen[Sized, Set[A]] =
     Gen.oneOf(Gen.setOf(gen(set.as)), Gen.const(Set.empty[A]))

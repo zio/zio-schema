@@ -553,7 +553,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
         },
         test("map of products") {
-          val m: Map[Record, MyRecord] = Map(
+          val m: scala.collection.immutable.Map[Record, MyRecord] = scala.collection.immutable.Map(
             Record("AAA", 1) -> MyRecord(1),
             Record("BBB", 2) -> MyRecord(2)
           )

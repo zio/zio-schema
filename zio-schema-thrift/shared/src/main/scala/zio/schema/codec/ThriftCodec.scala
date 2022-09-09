@@ -119,7 +119,7 @@ object ThriftCodec extends Codec {
     final def getType[A](schema: Schema[A]): Byte = schema match {
       case _: Schema.Record[A]                  => TType.STRUCT
       case Schema.Sequence(_, _, _, _, _)       => TType.LIST
-      case Schema.MapSchema(_, _, _)            => TType.MAP
+      case Schema.Map(_, _, _)            => TType.MAP
       case Schema.SetSchema(_, _)               => TType.SET
       case Schema.Transform(schema, _, _, _, _) => getType(schema)
       case Schema.Primitive(standardType, _)    => getPrimitiveType(standardType)
@@ -275,13 +275,13 @@ object ThriftCodec extends Codec {
       v.foreach(encodeValue(None, schema, _))
     }
 
-    def encodeMap[K, V](fieldNumber: Option[Short], schema: Schema.MapSchema[K, V], v: Map[K, V]): Unit = {
+    def encodeMap[K, V](fieldNumber: Option[Short], schema: Schema.Map[K, V], v: Map[K, V]): Unit = {
       writeFieldBegin(fieldNumber, TType.MAP)
-      p.writeMapBegin(new org.apache.thrift.protocol.TMap(getType(schema.ks), getType(schema.vs), v.size))
+      p.writeMapBegin(new org.apache.thrift.protocol.TMap(getType(schema.keySchema), getType(schema.valueSchema), v.size))
       v.foreach {
         case (k, v) =>
-          encodeValue(None, schema.ks, k)
-          encodeValue(None, schema.vs, v)
+          encodeValue(None, schema.keySchema, k)
+          encodeValue(None, schema.valueSchema, v)
       }
     }
 
@@ -307,7 +307,7 @@ object ThriftCodec extends Codec {
       (schema, value) match {
         case (Schema.GenericRecord(_, structure, _), v: Map[String, _]) => encodeRecord(fieldNumber, structure.toChunk, v)
         case (Schema.Sequence(element, _, g, _, _), v)                  => encodeSequence(fieldNumber, element, g(v))
-        case (mapSchema: Schema.MapSchema[_, _], map: Map[_, _])        => encodeMap(fieldNumber, mapSchema.asInstanceOf[Schema.MapSchema[Any, Any]], map.asInstanceOf[Map[Any, Any]])
+        case (mapSchema: Schema.Map[_, _], map: Map[_, _])        => encodeMap(fieldNumber, mapSchema.asInstanceOf[Schema.Map[Any, Any]], map.asInstanceOf[scala.collection.immutable.Map[Any, Any]])
         case (setSchema: Schema.SetSchema[_], set: Set[_])              => encodeSet(fieldNumber, setSchema.asInstanceOf[Schema.SetSchema[Any]].as, set.asInstanceOf[Set[Any]])
         case (Schema.Transform(schema, _, g, _, _), _)                  => g(value).foreach(encodeValue(fieldNumber, schema, _))
         case (Schema.Primitive(standardType, _), v)                     => encodePrimitive(fieldNumber, standardType, v)
@@ -520,7 +520,7 @@ object ThriftCodec extends Codec {
           decodeRecord(path, fields).map(_.map { case (index, value) => (fields(index - 1).label, value) })
         }
         case seqSchema @ Schema.Sequence(_, _, _, _, _)                                                                               => decodeSequence(path, seqSchema)
-        case mapSchema @ Schema.MapSchema(_, _, _)                                                                                    => decodeMap(path, mapSchema)
+        case mapSchema @ Schema.Map(_, _, _)                                                                                    => decodeMap(path, mapSchema)
         case setSchema @ Schema.SetSchema(_, _)                                                                                       => decodeSet(path, setSchema)
         case Schema.Transform(schema, f, _, _, _)                                                                                     => transformDecoder(path, schema, f)
         case Schema.Primitive(standardType, _)                                                                                        => primitiveDecoder(path, standardType)
@@ -746,11 +746,11 @@ object ThriftCodec extends Codec {
       Try { p.readListBegin() }.fold(_ => fail(path, "Can not decode Sequence begin"), begin => decodeElements(begin.size, ChunkBuilder.make[Elem]()).map(schema.fromChunk))
     }
 
-    def decodeMap[K, V](path: Path, schema: Schema.MapSchema[K, V]): Result[Map[K, V]] = {
+    def decodeMap[K, V](path: Path, schema: Schema.Map[K, V]): Result[scala.collection.immutable.Map[K, V]] = {
       @tailrec
-      def decodeElements(n: Int, m: scala.collection.mutable.Map[K, V]): Result[Map[K, V]] =
+      def decodeElements(n: Int, m: scala.collection.mutable.Map[K, V]): Result[scala.collection.immutable.Map[K, V]] =
         if (n > 0)
-          (decode(path, schema.ks), decode(path, schema.vs)) match {
+          (decode(path, schema.keySchema), decode(path, schema.valueSchema)) match {
             case (Right(key), Right(value)) => decodeElements(n - 1, m += ((key, value)))
             case (l, r) =>
               val key   = l.fold(_.error, _.toString)

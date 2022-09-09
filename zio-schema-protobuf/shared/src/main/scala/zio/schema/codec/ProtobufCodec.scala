@@ -132,7 +132,7 @@ object ProtobufCodec extends Codec {
         case (Schema.GenericRecord(_, structure, _), v: Map[String, _]) =>
           encodeRecord(fieldNumber, structure.toChunk, v)
         case (Schema.Sequence(element, _, g, _, _), v)                                    => encodeSequence(fieldNumber, element, g(v))
-        case (Schema.MapSchema(ks, vs, _), map)                                           => encodeSequence(fieldNumber, ks <*> vs, Chunk.fromIterable(map))
+        case (Schema.Map(ks, vs, _), map)                                           => encodeSequence(fieldNumber, ks <*> vs, Chunk.fromIterable(map))
         case (Schema.SetSchema(s, _), set)                                                => encodeSequence(fieldNumber, s, Chunk.fromIterable(set))
         case (Schema.Transform(codec, _, g, _, _), _)                                     => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
         case (Schema.Primitive(standardType, _), v)                                       => encodePrimitive(fieldNumber, standardType, v)
@@ -726,7 +726,7 @@ object ProtobufCodec extends Codec {
         case Schema.Sequence(elementSchema, fromChunk, _, _, _) =>
           if (canBePacked(elementSchema)) packedSequenceDecoder(elementSchema).map(fromChunk)
           else nonPackedSequenceDecoder(elementSchema).map(fromChunk)
-        case Schema.MapSchema(ks: Schema[k], vs: Schema[v], _)                                 => decoder(Schema.Sequence(ks <*> vs, (c: Chunk[(k, v)]) => Map(c: _*), (m: Map[k, v]) => Chunk.fromIterable(m), identity = "Map"))
+        case Schema.Map(ks: Schema[k], vs: Schema[v], _)                                 => decoder(Schema.Sequence(ks <*> vs, (c: Chunk[(k, v)]) => Map(c: _*), (m: Map[k, v]) => Chunk.fromIterable(m), identity = "Map"))
         case Schema.SetSchema(schema: Schema[s], _)                                            => decoder(Schema.Sequence(schema, (c: Chunk[s]) => Set(c: _*), (m: Set[s]) => Chunk.fromIterable(m), identity = "Set"))
         case Schema.Transform(codec, f, _, _, _)                                               => transformDecoder(codec, f)
         case Schema.Primitive(standardType, _)                                                 => primitiveDecoder(standardType)

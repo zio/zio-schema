@@ -240,7 +240,7 @@ object AvroCodec extends AvroCodec {
     schema match {
       case e: Enum[_]                    => toAvroEnum(e)
       case record: Record[_]             => toAvroRecord(record)
-      case map: Schema.MapSchema[_, _]   => toAvroMap(map)
+      case map: Schema.Map[_, _]   => toAvroMap(map)
       case seq: Schema.Sequence[_, _, _] => toAvroSchema(seq.schemaA).map(SchemaAvro.createArray)
       case set: Schema.SetSchema[_]      => toAvroSchema(set.as).map(SchemaAvro.createArray)
       case Transform(codec, _, _, _, _)  => toAvroSchema(codec)
@@ -539,13 +539,13 @@ object AvroCodec extends AvroCodec {
                )
     } yield result
 
-  private[codec] def toAvroMap(map: MapSchema[_, _]): Either[String, SchemaAvro] =
-    map.ks match {
+  private[codec] def toAvroMap(map: Map[_, _]): Either[String, SchemaAvro] =
+    map.keySchema match {
       case p: Schema.Primitive[_] if p.standardType == StandardType.StringType =>
-        toAvroSchema(map.vs).map(SchemaAvro.createMap)
+        toAvroSchema(map.valueSchema).map(SchemaAvro.createMap)
       case _ =>
         val tupleSchema = Schema
-          .Tuple2(map.ks, map.vs)
+          .Tuple2(map.keySchema, map.valueSchema)
           .annotate(AvroAnnotations.name("Tuple"))
           .annotate(AvroAnnotations.namespace("scala"))
         toAvroSchema(tupleSchema).map(SchemaAvro.createArray)
@@ -733,7 +733,7 @@ object AvroCodec extends AvroCodec {
             case c: CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _] => Right(c)
             case c: Dynamic                                                                          => Right(c)
             case c: GenericRecord                                                                    => Right(c)
-            case c: MapSchema[_, _]                                                                  => Right(c)
+            case c: Map[_, _]                                                                  => Right(c)
             case c: Sequence[_, _, _]                                                                => Right(c)
             case c: SetSchema[_]                                                                     => Right(c)
             case c: Fail[_]                                                                          => Right(c)

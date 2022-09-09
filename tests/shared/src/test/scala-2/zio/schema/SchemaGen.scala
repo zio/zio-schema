@@ -152,19 +152,19 @@ object SchemaGen {
         CaseSet.Cons(_case, acc)
     }
 
-  lazy val anyMap: Gen[Sized, Schema.MapSchema[_, _]] =
+  lazy val anyMap: Gen[Sized, Schema.Map[_, _]] =
     anySchema.zipWith(anySchema) { (a, b) =>
-      Schema.MapSchema(a, b, Chunk.empty)
+      Schema.Map(a, b, Chunk.empty)
     }
-  type MapAndGen[K, V] = (Schema.MapSchema[K, V], Gen[Sized, Map[K, V]])
+  type MapAndGen[K, V] = (Schema.Map[K, V], Gen[Sized, Map[K, V]])
 
   val anyMapAndGen: Gen[Sized, MapAndGen[_, _]] =
     for {
       (schemaK, genK) <- anyPrimitiveAndGen
       (schemaV, genV) <- anyPrimitiveAndGen
-    } yield Schema.MapSchema(schemaK, schemaV, Chunk.empty) -> (genK.flatMap(k => genV.map(v => Map(k -> v))))
+    } yield Schema.Map(schemaK, schemaV, Chunk.empty) -> (genK.flatMap(k => genV.map(v => scala.collection.immutable.Map(k -> v))))
 
-  type MapAndValue[K, V] = (Schema.MapSchema[K, V], Map[K, V])
+  type MapAndValue[K, V] = (Schema.Map[K, V], Map[K, V])
 
   val anyMapAndValue: Gen[Sized, MapAndValue[_, _]] =
     for {

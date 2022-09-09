@@ -123,7 +123,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
       test("map") {
-        val m       = MapValue(Map("a" -> Record("Foo", 123), "b" -> Record("Bar", 456)))
+        val m       = MapValue(scala.collection.immutable.Map("a" -> Record("Foo", 123), "b" -> Record("Bar", 456)))
         val javaMap = new util.HashMap[String, g.Record]()
         javaMap.put("a", new g.Record("Foo", 123))
         javaMap.put("b", new g.Record("Bar", 456))
@@ -618,7 +618,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
       },
       test("map of products") {
-        val m: Map[Record, MyRecord] = Map(
+        val m: scala.collection.immutable.Map[Record, MyRecord] = scala.collection.immutable.Map(
           Record("AAA", 1) -> MyRecord(1),
           Record("BBB", 2) -> MyRecord(2)
         )
@@ -629,7 +629,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
       },
       test("map in record") {
-        val m = MapRecord(1, Map(1 -> "aaa", 3 -> "ccc"))
+        val m = MapRecord(1, scala.collection.immutable.Map(1 -> "aaa", 3 -> "ccc"))
         for {
           ed  <- encodeAndDecode(schemaMapRecord, m)
           ed2 <- encodeAndDecodeNS(schemaMapRecord, m)
@@ -877,7 +877,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
 
   val schemaTuple: Schema.Tuple2[Int, String] = Schema.Tuple2(Schema[Int], Schema[String])
 
-  case class MapValue(value: Map[String, Record])
+  case class MapValue(value: scala.collection.immutable.Map[String, Record])
 
   val schemaMapValue: Schema[MapValue] = DeriveSchema.gen[MapValue]
 
@@ -928,7 +928,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
 
   lazy val myRecord: Schema[MyRecord] = DeriveSchema.gen[MyRecord]
 
-  case class MapRecord(age: Int, map: Map[Int, String])
+  case class MapRecord(age: Int, map: scala.collection.immutable.Map[Int, String])
 
   lazy val schemaMapRecord: Schema[MapRecord] = DeriveSchema.gen[MapRecord]
 
