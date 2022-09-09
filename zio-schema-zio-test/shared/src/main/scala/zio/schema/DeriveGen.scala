@@ -68,7 +68,7 @@ object DeriveGen {
       case optional @ Schema.Optional(_, _)                                                                                                                                    => genOptional(optional)
       case fail @ Schema.Fail(_, _)                                                                                                                                            => genFail(fail)
       case tuple @ Schema.Tuple2(_, _, _)                                                                                                                                      => genTuple(tuple)
-      case either @ Schema.Either(_, _, _)                                                                                                                               => genEither(either)
+      case either @ Schema.Either(_, _, _)                                                                                                                                     => genEither(either)
       case lazzy @ Schema.Lazy(_)                                                                                                                                              => genLazy(lazzy)
       case Schema.Meta(ast, _)                                                                                                                                                 => genMeta(ast)
       case Schema.Dynamic(_)                                                                                                                                                   => gen(DynamicValueSchema())

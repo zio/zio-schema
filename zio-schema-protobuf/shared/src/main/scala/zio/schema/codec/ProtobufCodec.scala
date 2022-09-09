@@ -82,7 +82,7 @@ object ProtobufCodec extends Codec {
       case _: Schema.Tuple2[_, _]               => false
       case _: Schema.Optional[_]                => false
       case _: Schema.Fail[_]                    => false
-      case _: Schema.Either[_, _]         => false
+      case _: Schema.Either[_, _]               => false
       case lzy @ Schema.Lazy(_)                 => canBePacked(lzy.schema)
       case _                                    => false
     }
@@ -131,16 +131,16 @@ object ProtobufCodec extends Codec {
       (schema, value) match {
         case (Schema.GenericRecord(_, structure, _), v: Map[String, _]) =>
           encodeRecord(fieldNumber, structure.toChunk, v)
-        case (Schema.Sequence(element, _, g, _, _), v)                                    => encodeSequence(fieldNumber, element, g(v))
-        case (Schema.Map(ks, vs, _), map)                                                 => encodeSequence(fieldNumber, ks <*> vs, Chunk.fromIterable(map))
-        case (Schema.Set(s, _), set)                                                      => encodeSequence(fieldNumber, s, Chunk.fromIterable(set))
-        case (Schema.Transform(codec, _, g, _, _), _)                                     => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
-        case (Schema.Primitive(standardType, _), v)                                       => encodePrimitive(fieldNumber, standardType, v)
-        case (Schema.Tuple2(left, right, _), v @ (_, _))                                  => encodeTuple(fieldNumber, left, right, v)
-        case (Schema.Optional(codec: Schema[a], _), v: Option[_])                         => encodeOptional(fieldNumber, codec, v.asInstanceOf[Option[a]])
+        case (Schema.Sequence(element, _, g, _, _), v)                                         => encodeSequence(fieldNumber, element, g(v))
+        case (Schema.Map(ks, vs, _), map)                                                      => encodeSequence(fieldNumber, ks <*> vs, Chunk.fromIterable(map))
+        case (Schema.Set(s, _), set)                                                           => encodeSequence(fieldNumber, s, Chunk.fromIterable(set))
+        case (Schema.Transform(codec, _, g, _, _), _)                                          => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
+        case (Schema.Primitive(standardType, _), v)                                            => encodePrimitive(fieldNumber, standardType, v)
+        case (Schema.Tuple2(left, right, _), v @ (_, _))                                       => encodeTuple(fieldNumber, left, right, v)
+        case (Schema.Optional(codec: Schema[a], _), v: Option[_])                              => encodeOptional(fieldNumber, codec, v.asInstanceOf[Option[a]])
         case (Schema.Either(left: Schema[a], right: Schema[b], _), v: scala.util.Either[_, _]) => encodeEither(fieldNumber, left, right, v.asInstanceOf[scala.util.Either[a, b]])
-        case (lzy @ Schema.Lazy(_), v)                                                    => encode(fieldNumber, lzy.schema, v)
-        case (Schema.Meta(ast, _), _)                                                     => encode(fieldNumber, Schema[MetaSchema], ast)
+        case (lzy @ Schema.Lazy(_), v)                                                         => encode(fieldNumber, lzy.schema, v)
+        case (Schema.Meta(ast, _), _)                                                          => encode(fieldNumber, Schema[MetaSchema], ast)
         case (_: Schema.CaseClass0[_], v) =>
           encodeCaseClass(v)(fieldNumber)
         case (cc: Schema.CaseClass1[_, _], v) =>
@@ -733,7 +733,7 @@ object ProtobufCodec extends Codec {
         case Schema.Tuple2(left, right, _)                                                     => tupleDecoder(left, right)
         case Schema.Optional(codec, _)                                                         => optionalDecoder(codec)
         case Schema.Fail(message, _)                                                           => fail(message)
-        case Schema.Either(left, right, _)                                               => eitherDecoder(left, right)
+        case Schema.Either(left, right, _)                                                     => eitherDecoder(left, right)
         case lzy @ Schema.Lazy(_)                                                              => decoder(lzy.schema)
         case Schema.Meta(_, _)                                                                 => astDecoder
         case s: Schema.CaseClass0[A]                                                           => caseClass0Decoder(s)

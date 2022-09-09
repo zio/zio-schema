@@ -372,7 +372,10 @@ object AvroCodec extends AvroCodec {
     case AvroAnnotations.timeprecision(precision) => precision
   }
 
-  private[codec] def toAvroInstant(formatter: DateTimeFormatter, annotations: Chunk[Any]): scala.util.Either[String, SchemaAvro] =
+  private[codec] def toAvroInstant(
+    formatter: DateTimeFormatter,
+    annotations: Chunk[Any]
+  ): scala.util.Either[String, SchemaAvro] =
     if (hasFormatToStringAnnotation(annotations)) {
       Right(
         SchemaAvro
@@ -646,7 +649,10 @@ object AvroCodec extends AvroCodec {
     schema.annotations.collectFirst { case AvroAnnotations.name(_) => schema }
       .getOrElse(schema.annotate(AvroAnnotations.name(name)))
 
-  private[codec] def toZioDecimal(avroSchema: SchemaAvro, decimalType: DecimalType): scala.util.Either[String, Schema[_]] = {
+  private[codec] def toZioDecimal(
+    avroSchema: SchemaAvro,
+    decimalType: DecimalType
+  ): scala.util.Either[String, Schema[_]] = {
     val decimalTypeAnnotation = AvroAnnotations.decimal(decimalType)
     val decimalLogicalType    = avroSchema.getLogicalType.asInstanceOf[LogicalTypes.Decimal]
     val precision             = decimalLogicalType.getPrecision
@@ -707,7 +713,7 @@ object AvroCodec extends AvroCodec {
                 case first :: second :: Nil => Right(Schema.either(first._2, second._2))
                 case _                      => Left("ZIO schema wrapped either must have exactly two cases")
               }
-            case e: Schema.Either[_, _]                                                               => Right(e)
+            case e: Schema.Either[_, _]                                                              => Right(e)
             case c: CaseClass0[_]                                                                    => Right(c)
             case c: CaseClass1[_, _]                                                                 => Right(c)
             case c: CaseClass2[_, _, _]                                                              => Right(c)
@@ -769,7 +775,8 @@ object AvroCodec extends AvroCodec {
 
   private[codec] def toZioTuple(schema: SchemaAvro): scala.util.Either[String, Schema[_]] =
     for {
-      _  <- scala.util.Either.cond(schema.getFields.size() == 2, (), "Tuple must have exactly 2 fields:" + schema.toString(false))
+      _ <- scala.util.Either
+            .cond(schema.getFields.size() == 2, (), "Tuple must have exactly 2 fields:" + schema.toString(false))
       _1 <- toZioSchema(schema.getFields.get(0).schema())
       _2 <- toZioSchema(schema.getFields.get(1).schema())
     } yield Schema.Tuple2(_1, _2, buildZioAnnotations(schema))

@@ -1825,7 +1825,7 @@ object AssertionHelper {
     Assertion.isCase[Schema[_], Schema.Either[A, B]](
       "Either", {
         case r: Schema.Either[_, _] => Try { r.asInstanceOf[Schema.Either[A, B]] }.toOption
-        case _                            => None
+        case _                      => None
       },
       assertion
     )
