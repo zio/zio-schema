@@ -70,7 +70,6 @@ object DeriveGen {
       case tuple @ Schema.Tuple2(_, _, _)                                                                                                                                      => genTuple(tuple)
       case either @ Schema.Either(_, _, _)                                                                                                                                     => genEither(either)
       case lazzy @ Schema.Lazy(_)                                                                                                                                              => genLazy(lazzy)
-      case Schema.Meta(ast, _)                                                                                                                                                 => genMeta(ast)
       case Schema.Dynamic(_)                                                                                                                                                   => gen(DynamicValueSchema())
     } // scalafmt: { maxColumn = 120 }
 

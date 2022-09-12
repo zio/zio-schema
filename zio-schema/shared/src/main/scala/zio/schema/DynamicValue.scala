@@ -1005,8 +1005,6 @@ object DynamicValue {
           case Right(a)      => fromSchemaAndValue(schema, a)
         }
 
-      case Schema.Meta(ast, _) => DynamicValue.DynamicAst(ast)
-
       case Schema.CaseClass0(id, _, _) =>
         DynamicValue.Record(id, ListMap())
 

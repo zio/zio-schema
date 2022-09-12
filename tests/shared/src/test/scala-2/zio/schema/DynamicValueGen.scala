@@ -82,7 +82,6 @@ object DynamicValueGen {
       case Schema.Transform(schema, _, _, _, _) => anyDynamicValueOfSchema(schema)
       case Schema.Fail(message, _)              => Gen.const(DynamicValue.Error(message))
       case l @ Schema.Lazy(_)                   => anyDynamicValueOfSchema(l.schema)
-      case Schema.Meta(meta, _)                 => anyDynamicValueOfSchema(meta.toSchema)
       case Schema.Dynamic(_)                    => SchemaGen.anySchema.flatMap(anyDynamicValueOfSchema(_))
     }
   //scalafmt: { maxColumn = 120 }

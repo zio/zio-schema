@@ -358,7 +358,6 @@ object AvroCodec extends AvroCodec {
         } yield wrapAvro(union, name, EitherWrapper)
 
       case Lazy(schema0) => toAvroSchema(schema0())
-      case Meta(_, _)    => toAvroSchema(Schema[MetaSchema])
       case Dynamic(_)    => toAvroSchema(Schema[MetaSchema])
     }
   }
@@ -744,11 +743,11 @@ object AvroCodec extends AvroCodec {
             case c: Set[_]                                                                           => Right(c)
             case c: Fail[_]                                                                          => Right(c)
             case c: Lazy[_]                                                                          => Right(c)
-            case c: Meta                                                                             => Right(c)
-            case c: Optional[_]                                                                      => Right(c)
-            case c: Primitive[_]                                                                     => Right(c)
-            case c: Transform[_, _, _]                                                               => Right(c)
-            case c: Tuple2[_, _]                                                                     => Right(c)
+            //case c: Meta                                                                             => Right(c)
+            case c: Optional[_]        => Right(c)
+            case c: Primitive[_]       => Right(c)
+            case c: Transform[_, _, _] => Right(c)
+            case c: Tuple2[_, _]       => Right(c)
 
           }
         case None => Left("ZIO schema wrapped record must have a single field")

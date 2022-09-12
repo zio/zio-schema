@@ -119,8 +119,9 @@ sealed trait Schema[A] {
   def repeated: Schema[Chunk[A]] = Schema.chunk(self)
 
   def serializable: Schema[Schema[A]] =
-    Schema
-      .Meta(MetaSchema.fromSchema(self))
+    MetaSchema
+      .fromSchema(self)
+      .asInstanceOf[Schema[Schema[_]]]
       .transformOrFail(
         s => s.coerce(self),
         s => Right(s.ast.toSchema)
@@ -335,10 +336,14 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Transform[A, B, I] = copy(annotations = annotations :+ annotation)
 
-    override def serializable: Schema[Schema[B]] = Meta(MetaSchema.fromSchema(schema)).transformOrFail(
-      s => s.coerce(schema).flatMap(s1 => Right(s1.transformOrFail(f, g))),
-      s => Right(s.transformOrFail(g, f).ast.toSchema)
-    )
+    override def serializable: Schema[Schema[B]] =
+      MetaSchema
+        .fromSchema(schema)
+        .asInstanceOf[Schema[Schema[_]]]
+        .transformOrFail(
+          s => s.coerce(schema).flatMap(s1 => Right(s1.transformOrFail(f, g))),
+          s => Right(s.transformOrFail(g, f).ast.toSchema)
+        )
 
     override def toString: String = s"Transform($schema, $identity)"
 
@@ -483,19 +488,6 @@ object Schema extends SchemaEquality {
     override def toString: String = "$Lazy$"
 
     override def annotations: Chunk[Any] = schema0().annotations
-  }
-
-  final case class Meta(override val ast: MetaSchema, annotations: Chunk[Any] = Chunk.empty) extends Schema[Schema[_]] {
-
-    override def annotate(annotation: Any): Meta = copy(annotations = annotations :+ annotation)
-
-    override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Unit
-
-    override def defaultValue: scala.util.Either[String, Schema[_]] =
-      ast.toSchema.defaultValue.asInstanceOf[scala.util.Either[String, Schema[_]]]
-
-    override def makeAccessors(b: AccessorBuilder): Unit = ()
-
   }
 
   final case class Map[K, V](
@@ -3264,7 +3256,7 @@ object Schema extends SchemaEquality {
     override def structure: Chunk[Field[_]] = Chunk.empty
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
-      if (values.size == 0)
+      if (values.isEmpty)
         try {
           Right(construct())
         } catch {

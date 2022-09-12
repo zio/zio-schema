@@ -1,23 +1,6 @@
 package zio.schema.codec
 import java.nio.ByteBuffer
-import java.time.{
-  DayOfWeek,
-  Duration,
-  Instant,
-  LocalDate,
-  LocalDateTime,
-  LocalTime,
-  Month,
-  MonthDay,
-  OffsetDateTime,
-  OffsetTime,
-  Period,
-  Year,
-  YearMonth,
-  ZoneId,
-  ZoneOffset,
-  ZonedDateTime
-}
+import java.time._
 import java.util.UUID
 
 import scala.annotation.tailrec
@@ -25,8 +8,9 @@ import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 import scala.util.{ Failure, Success, Try }
 
-import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TProtocol, TType }
+import org.apache.thrift.protocol._
 
+import zio.schema._
 import zio.schema.codec.ThriftCodec.Thrift.{
   bigDecimalStructure,
   durationStructure,
@@ -34,8 +18,6 @@ import zio.schema.codec.ThriftCodec.Thrift.{
   periodStructure,
   yearMonthStructure
 }
-import zio.schema.meta.MetaSchema
-import zio.schema.{ DynamicValue, DynamicValueSchema, Schema, StandardType }
 import zio.stream.ZPipeline
 import zio.{ Chunk, ChunkBuilder, ZIO }
 
@@ -127,7 +109,6 @@ object ThriftCodec extends Codec {
       case Schema.Optional(schema, _)           => getType(schema)
       case Schema.Either(_, _, _)               => TType.STRUCT
       case Schema.Lazy(lzy)                     => getType(lzy())
-      case Schema.Meta(_, _)                    => getType(Schema[MetaSchema])
       case _: Schema.Enum[A]                    => TType.STRUCT
       case _                                    => TType.VOID
     }
@@ -317,7 +298,7 @@ object ThriftCodec extends Codec {
         case (optSchema: Schema.Optional[_], v: Option[_])                   => encodeOptional(fieldNumber, optSchema.asInstanceOf[Schema.Optional[Any]].schema, v.asInstanceOf[Option[Any]])
         case (eitherSchema: Schema.Either[_, _], v: scala.util.Either[_, _]) => encodeEither(fieldNumber, eitherSchema.asInstanceOf[Schema.Either[Any, Any]].left, eitherSchema.asInstanceOf[Schema.Either[Any, Any]].right, v.asInstanceOf[scala.util.Either[Any, Any]])
         case (lzy @ Schema.Lazy(_), v)                                       => encodeValue(fieldNumber, lzy.schema, v)
-        case (Schema.Meta(ast, _), _)                                        => encodeValue(fieldNumber, Schema[MetaSchema], ast)
+        //  case (Schema.Meta(ast, _), _)                                        => encodeValue(fieldNumber, Schema[MetaSchema], ast)
         case ProductEncoder(encode) =>
           writeFieldBegin(fieldNumber, TType.STRUCT)
           encode()
@@ -521,17 +502,17 @@ object ThriftCodec extends Codec {
           val fields = structure.toChunk
           decodeRecord(path, fields).map(_.map { case (index, value) => (fields(index - 1).label, value) })
         }
-        case seqSchema @ Schema.Sequence(_, _, _, _, _)                                                                               => decodeSequence(path, seqSchema)
-        case mapSchema @ Schema.Map(_, _, _)                                                                                          => decodeMap(path, mapSchema)
-        case setSchema @ Schema.Set(_, _)                                                                                             => decodeSet(path, setSchema)
-        case Schema.Transform(schema, f, _, _, _)                                                                                     => transformDecoder(path, schema, f)
-        case Schema.Primitive(standardType, _)                                                                                        => primitiveDecoder(path, standardType)
-        case Schema.Tuple2(left, right, _)                                                                                            => tupleDecoder(path, left, right)
-        case optionalSchema @ Schema.Optional(_, _)                                                                                   => optionalDecoder(path, optionalSchema)
-        case Schema.Fail(message, _)                                                                                                  => fail(path, message)
-        case Schema.Either(left, right, _)                                                                                            => eitherDecoder(path, left, right)
-        case lzy @ Schema.Lazy(_)                                                                                                     => decode(path, lzy.schema)
-        case Schema.Meta(_, _)                                                                                                        => decode(path, Schema[MetaSchema]).map(_.toSchema)
+        case seqSchema @ Schema.Sequence(_, _, _, _, _) => decodeSequence(path, seqSchema)
+        case mapSchema @ Schema.Map(_, _, _)            => decodeMap(path, mapSchema)
+        case setSchema @ Schema.Set(_, _)               => decodeSet(path, setSchema)
+        case Schema.Transform(schema, f, _, _, _)       => transformDecoder(path, schema, f)
+        case Schema.Primitive(standardType, _)          => primitiveDecoder(path, standardType)
+        case Schema.Tuple2(left, right, _)              => tupleDecoder(path, left, right)
+        case optionalSchema @ Schema.Optional(_, _)     => optionalDecoder(path, optionalSchema)
+        case Schema.Fail(message, _)                    => fail(path, message)
+        case Schema.Either(left, right, _)              => eitherDecoder(path, left, right)
+        case lzy @ Schema.Lazy(_)                       => decode(path, lzy.schema)
+        //case Schema.Meta(_, _)                                                                                                        => decode(path, Schema[MetaSchema]).map(_.toSchema)
         case ProductDecoder(decoder)                                                                                                  => decoder(path)
         case Schema.Enum1(_, c, _)                                                                                                    => enumDecoder(path, c)
         case Schema.Enum2(_, c1, c2, _)                                                                                               => enumDecoder(path, c1, c2)

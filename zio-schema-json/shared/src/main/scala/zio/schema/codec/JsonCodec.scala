@@ -10,7 +10,6 @@ import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.internal.{ Lexer, RetractReader, StringMatrix, Write }
 import zio.json.{ JsonCodec => ZJsonCodec, JsonDecoder, JsonEncoder, JsonFieldDecoder, JsonFieldEncoder }
 import zio.schema._
-import zio.schema.meta.MetaSchema
 import zio.stream.ZPipeline
 import zio.{ Chunk, ChunkBuilder, NonEmptyChunk, ZIO }
 
@@ -118,7 +117,6 @@ object JsonCodec extends Codec {
       case Schema.GenericRecord(_, structure, _)                    => recordEncoder(structure.toChunk)
       case Schema.Either(left, right, _)                            => JsonEncoder.either(schemaEncoder(left), schemaEncoder(right))
       case l @ Schema.Lazy(_)                                       => schemaEncoder(l.schema)
-      case Schema.Meta(_, _)                                        => astEncoder
       case Schema.CaseClass0(_, _, _)                               => caseClassEncoder()
       case Schema.CaseClass1(_, f, _, ext, _)                       => caseClassEncoder(f -> ext)
       case Schema.CaseClass2(_, f1, f2, _, ext1, ext2, _)           => caseClassEncoder(f1 -> ext1, f2 -> ext2)
@@ -205,10 +203,6 @@ object JsonCodec extends Codec {
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
-    private val astEncoder: JsonEncoder[Schema[_]] =
-      (schema: Schema[_], indent: Option[Int], out: Write) =>
-        schemaEncoder(Schema[MetaSchema]).unsafeEncode(MetaSchema.fromSchema(schema), indent, out)
-
     private def dynamicEncoder[A]: JsonEncoder[A] =
       schemaEncoder(DynamicValueSchema()).asInstanceOf[JsonEncoder[A]]
 
@@ -288,12 +282,12 @@ object JsonCodec extends Codec {
       case Schema.Sequence(codec, f, _, _, _)  => JsonDecoder.chunk(schemaDecoder(codec)).map(f)
       case Schema.Map(ks, vs, _) =>
         JsonDecoder.chunk(schemaDecoder(ks) <*> schemaDecoder(vs)).map(entries => entries.toList.toMap)
-      case Schema.Set(s, _)                                                                            => JsonDecoder.chunk(schemaDecoder(s)).map(entries => entries.toSet)
-      case Schema.Fail(message, _)                                                                     => failDecoder(message)
-      case Schema.GenericRecord(_, structure, _)                                                       => recordDecoder(structure.toChunk)
-      case Schema.Either(left, right, _)                                                               => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
-      case l @ Schema.Lazy(_)                                                                          => schemaDecoder(l.schema)
-      case Schema.Meta(_, _)                                                                           => astDecoder
+      case Schema.Set(s, _)                      => JsonDecoder.chunk(schemaDecoder(s)).map(entries => entries.toSet)
+      case Schema.Fail(message, _)               => failDecoder(message)
+      case Schema.GenericRecord(_, structure, _) => recordDecoder(structure.toChunk)
+      case Schema.Either(left, right, _)         => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
+      case l @ Schema.Lazy(_)                    => schemaDecoder(l.schema)
+      //case Schema.Meta(_, _)                                                                           => astDecoder
       case s @ Schema.CaseClass0(_, _, _)                                                              => caseClass0Decoder(s)
       case s @ Schema.CaseClass1(_, _, _, _, _)                                                        => caseClass1Decoder(s)
       case s @ Schema.CaseClass2(_, _, _, _, _, _, _)                                                  => caseClass2Decoder(s)
@@ -371,9 +365,6 @@ object JsonCodec extends Codec {
       case Schema.Dynamic(_)      => dynamicDecoder
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
-
-    private def astDecoder: JsonDecoder[Schema[_]] =
-      schemaDecoder(Schema[MetaSchema]).map(ast => ast.toSchema)
 
     private def dynamicDecoder[A]: JsonDecoder[A] =
       schemaDecoder(DynamicValueSchema()).asInstanceOf[JsonDecoder[A]]
