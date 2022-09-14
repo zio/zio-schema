@@ -305,6 +305,10 @@ object Schema extends SchemaEquality {
 
   sealed trait Collection[Col, Elem] extends Schema[Col]
 
+  /**
+   * Schema of a collection of type Col[Elem]
+   * I don't know what I is yet
+   */
   final case class Sequence[Col, Elem, I](
     schemaA: Schema[Elem],
     fromChunk: Chunk[Elem] => Col,

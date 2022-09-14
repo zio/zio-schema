@@ -13,6 +13,7 @@ import zio.Chunk
 import Leaf._
 import Node._
 import scala.annotation.tailrec
+import scala.collection.mutable
 
 /**
  * A mutable representation of a value with its schema used for diffing, matching and patching.
@@ -21,6 +22,8 @@ sealed trait MatchTree[A] { self =>
   val id: Int
   val schema: Schema[_]
   override def toString(): String = show
+
+  def leaves: MutableMap[Int, Leaf[_]]
 
   def show: String = {
     val sb = new StringBuilder
@@ -34,7 +37,6 @@ sealed trait MatchTree[A] { self =>
     sb.append(" " * indent)
     if (prefix ne "") sb.append(prefix).append(": ")
     self match {
-      case MatchTreeRoot(nodes, leaves, child, schema) => ???
       case EnumNode(id, parent, caseName, children, schema) =>
         sb.append(s"EnumNode(id, parent, $caseName, _, schema)")
         children.showImpl(indent + 2, sb)
@@ -51,25 +53,25 @@ sealed trait MatchTree[A] { self =>
   }
 }
 
-final case class MatchTreeRoot[A](
-  protected val nodes: MutableMap[Int, Node[Any, Any, Any]],
-  protected val leaves: MutableMap[Int, Leaf[Any]],
-  protected var child: MatchTree[A],
-  schema: Schema[A]
-) extends MatchTree[A] {
-  val id: Int = 0
-
-}
 sealed trait Child {
   var parent: MatchTree[_]
 }
 
 sealed trait Node[A, Col, Elem] extends MatchTree[A] with Child {
-  protected var children: Col
+  protected var _children: Col
+  protected def children = _children
+  protected def children_=(children: Col) =
+    _children = children
+  //if(parent ne Null) then parent.registerChildren()
 }
 
-sealed trait CollectionNode[A, C[_], Elem] extends Node[A, C[MatchTree[Elem]], Elem] {
+sealed trait CollectionNode[A, C[Elem] <: Iterable[Elem], Elem] extends Node[A, C[MatchTree[Elem]], Elem] with Child {
   protected var children: C[MatchTree[Elem]]
+
+  override def leaves: MutableMap[Int, Leaf[_]] =
+    children.foldLeft(MutableMap.empty[Int, Leaf[_]])(
+      (acc, next) => acc.addAll(next.leaves)
+    )
 }
 
 object Node {
@@ -78,9 +80,12 @@ object Node {
     id: Int,
     var parent: MatchTree[_],
     caseName: String,
-    protected var children: MatchTree[Elem],
+    protected var _children: MatchTree[Elem],
     schema: Schema.Enum[A]
-  ) extends Node[A, MatchTree[Elem], Elem] {}
+  ) extends Node[A, MatchTree[Elem], Elem] {
+
+    override def leaves: mutable.Map[Int, Leaf[_]] = _children.leaves
+  }
 
   object EnumNode {
 
@@ -100,20 +105,27 @@ object Node {
   final case class RecordNode[A](
     id: Int,
     var parent: MatchTree[_],
-    protected var children: ListMap[String, MatchTree[Any]],
+    protected var _children: ListMap[String, MatchTree[Any]],
     schema: Schema.Record[A]
-  ) extends Node[A, ListMap[String, MatchTree[Any]], Any]
+  ) extends Node[A, ListMap[String, MatchTree[Any]], Any] {
+
+    override def leaves: MutableMap[Int, Leaf[_]] =
+      _children.foldLeft(MutableMap.empty[Int, Leaf[_]])(
+        (acc, next) => acc.addAll(next._2.leaves)
+      )
+
+  }
 
   object RecordNode {
 
     def apply[A](
       id: Int,
       parent: MatchTree[_],
-      child: (RecordNode[A]) => ListMap[String, MatchTree[Any]],
+      children: (RecordNode[A]) => ListMap[String, MatchTree[Any]],
       schema: Schema.Record[A]
     ): RecordNode[A] = {
       val res = new RecordNode(id, parent, null.asInstanceOf[ListMap[String, MatchTree[Any]]], schema)
-      res.children = child(res)
+      res.children = children(res)
       res
     }
   }
@@ -121,9 +133,9 @@ object Node {
   final case class SequenceNode[A, Col, Elem](
     id: Int,
     var parent: MatchTree[_],
-    protected var children: Chunk[MatchTree[Elem]],
+    protected var _children: Chunk[MatchTree[Elem]],
     schema: Schema.Sequence[Col, Elem, A]
-  ) extends CollectionNode[A, Chunk, Elem]
+  ) extends CollectionNode[A, Chunk, Elem] {}
 
   object SequenceNode {
 
@@ -144,7 +156,11 @@ sealed trait Leaf[A] extends MatchTree[A] with Child
 
 object Leaf {
   final case class PrimitiveLeaf[A](id: Int, var parent: MatchTree[_], value: A, schema: Schema.Primitive[A])
-      extends Leaf[A]
+      extends Leaf[A] { self =>
+
+    override def leaves: MutableMap[Int, Leaf[_]] = MutableMap((self.id -> self))
+
+  }
 }
 
 //prevents forgetting to increment the count
@@ -168,8 +184,6 @@ object MatchTree {
 
   def fromValue[A](value: A)(implicit schema: Schema[A]): MatchTree[A] = {
     val i      = Counter()
-    val leaves = MutableMap.empty[Int, Leaf[Any]]
-    val nodes  = MutableMap.empty[Int, Node[Any, Any, Any]]
 
     def loop[A](parent: MatchTree[_], value: A, schema: Schema[A]): MatchTree[A] = {
       def buildEnum[A, B](caseN: Case[B, A], valueN: B, schema: Schema.Enum[A]): EnumNode[A, B] =

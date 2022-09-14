@@ -4,6 +4,7 @@ import zio.schema.Schema._
 import zio.schema.{ DeriveSchema, Schema }
 import zio.stream.ZTransducer
 import zio.{ Chunk, ExitCode, URIO, ZIO }
+import zio.schema.diff.matching.MatchTree
 
 /**
  * Example 2 of ZIO-Schema
@@ -108,7 +109,14 @@ object magic extends App {
   val person        = Person("Michelle", 32)
   val paymentMethod = PaymentMethod.CreditCard("123456789", 1, 2020)
   val customer      = Customer(person, paymentMethod)
-  import Schema._
+  println(customer)
+  println("---------------------------------------------------")
+  val uglyThing     = MatchTree.fromValue(customer)
+  println("---------------------------------------------------")
+  println(uglyThing)
+  println("---------------------------------------------------")
+  println(uglyThing.leaves.mkString("\n"))
+
   //schema
   // CaseClass2(
   //   Field("person", CaseClass2(Field("name", Primitive("string", Chunk())), Field("age", Primitive("int", Chunk())))),
