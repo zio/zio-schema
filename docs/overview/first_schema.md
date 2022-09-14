@@ -114,7 +114,7 @@ object JsonSample extends zio.App {
   import ManualConstruction._
   import zio.stream.ZStream
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = for {
+  override def run(args: List[String]): UIO[ExitCode] = for {
     _ <- ZIO.unit
     person = Person("Michelle", 32)
     personToJsonTransducer = JsonCodec.encoder[Person](schemaPerson)
@@ -139,7 +139,7 @@ object ProtobufExample extends zio.App {
   import ManualConstruction._
   import zio.stream.ZStream
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = for {
+  override def run(args: List[String]): UIO[ExitCode] = for {
     _ <- ZIO.unit
     _ <- ZIO.debug("protobuf roundtrip")
     person = Person("Michelle", 32)
@@ -172,7 +172,7 @@ object CombiningExample extends zio.App {
   import ManualConstruction._
   import zio.stream.ZStream
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = for {
+  override def run(args: List[String]): UIO[ExitCode] = for {
     _ <- ZIO.unit
     _ <- ZIO.debug("combining roundtrip")
     person = Person("Michelle", 32)

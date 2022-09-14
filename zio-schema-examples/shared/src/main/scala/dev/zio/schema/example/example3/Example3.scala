@@ -1,8 +1,8 @@
 package dev.zio.schema.example.example3
 
+import zio._
 import zio.schema.Schema._
 import zio.schema._
-import zio.{ Chunk, ExitCode, URIO, ZIO }
 
 /**
  * Example3:
@@ -19,6 +19,7 @@ private[example3] object Domain {
     val age: Field[Int]     = Field[Int]("age", primitive[Int])
 
     val schema: Schema[Person] = CaseClass2[String, Int, Person](
+      TypeId.parse("dev.zio.example.example3.Domain.Person"),
       field1 = name,
       field2 = age,
       construct = (name, age) => Person(name, age),
@@ -35,6 +36,7 @@ private[example3] object Domain {
     val years: Field[Int]        = Field("years", primitive[Int])
 
     val schema: Schema[PersonDTO] = CaseClass3[String, String, Int, PersonDTO](
+      TypeId.parse("dev.zio.example.example3.Domain.PersonDTO"),
       field1 = firstname,
       field2 = lastname,
       field3 = years,
@@ -47,7 +49,7 @@ private[example3] object Domain {
 
 }
 
-object Example3 extends zio.App {
+object Example3 extends ZIOAppDefault {
   import dev.zio.schema.example.example3.Domain._
   import zio.schema.codec.JsonCodec
 
@@ -59,7 +61,7 @@ object Example3 extends zio.App {
     }
   )
 
-  val example: ZIO[Any, String, Person] = for {
+  override val run: ZIO[Environment with ZIOAppArgs, Any, Any] = for {
     _      <- ZIO.unit
     json   = """{"firstname":"John","lastname":"Doe","years":42}"""
     chunks = Chunk.fromArray(json.getBytes)
@@ -77,7 +79,5 @@ object Example3 extends zio.App {
     _             <- ZIO.debug("Person    JSON: " + personJson)
     _             <- ZIO.debug("PersonDTO JSON: " + personDTOJson)
 
-  } yield person
-
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = example.exitCode
+  } yield ()
 }

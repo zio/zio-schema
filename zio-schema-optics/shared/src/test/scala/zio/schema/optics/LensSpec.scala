@@ -1,25 +1,25 @@
 package zio.schema.optics
+
 import zio._
 import zio.optics._
-import zio.random.Random
 import zio.schema._
 import zio.test.Assertion._
 import zio.test._
 
-object LensSpec extends DefaultRunnableSpec {
+object LensSpec extends ZIOSpecDefault {
 
-  def spec: ZSpec[Environment, Failure] = suite("LensSpec")(
+  def spec: Spec[Environment, Any] = suite("LensSpec")(
     suite("constructors")(
-      testM("first")(lensLaws(Gen.anyInt.zip(Gen.anyInt), Gen.anyInt)(Lens.first)),
-      testM("second")(lensLaws(Gen.anyInt.zip(Gen.anyInt), Gen.anyInt)(Lens.second)),
-      testM("field1")(lensLaws(TestClass.gen, Gen.anyInt)(TestClass.field1)),
-      testM("field2")(lensLaws(TestClass.gen, Gen.anyString)(TestClass.field2)),
-      testM("field2")(lensLaws(TestClass.gen, Gen.anyLong)(TestClass.field3))
+      test("first")(lensLaws(Gen.int.zip(Gen.int), Gen.int)(Lens.first)),
+      test("second")(lensLaws(Gen.int.zip(Gen.int), Gen.int)(Lens.second)),
+      test("field1")(lensLaws(TestClass.gen, Gen.int)(TestClass.field1)),
+      test("field2")(lensLaws(TestClass.gen, Gen.string)(TestClass.field2)),
+      test("field2")(lensLaws(TestClass.gen, Gen.long)(TestClass.field3))
     )
   )
 
-  def lensLaws[Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
-    lens: ZioOpticsBuilder.Lens[Whole, Piece]
+  def lensLaws[F, Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
+    lens: ZioOpticsBuilder.Lens[F, Whole, Piece]
   ): URIO[Env, TestResult] =
     for {
       getSetIdentity <- getSetIdentity(genWhole)(lens)
@@ -27,24 +27,24 @@ object LensSpec extends DefaultRunnableSpec {
       setSetIdentity <- setSetIdentity(genWhole, genPiece)(lens)
     } yield setGetIdentity && getSetIdentity && setSetIdentity
 
-  def getSetIdentity[Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole])(
-    lens: ZioOpticsBuilder.Lens[Whole, Piece]
+  def getSetIdentity[F, Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole])(
+    lens: ZioOpticsBuilder.Lens[F, Whole, Piece]
   ): URIO[Env, TestResult] =
     check(genWhole) { wholeBefore =>
       val wholeAfter = lens.get(wholeBefore).flatMap(lens.set(_)(wholeBefore))
       assert(wholeAfter)(isRight(equalTo(wholeBefore)))
     }
 
-  def setGetIdentity[Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
-    lens: ZioOpticsBuilder.Lens[Whole, Piece]
+  def setGetIdentity[F, Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
+    lens: ZioOpticsBuilder.Lens[F, Whole, Piece]
   ): URIO[Env, TestResult] =
     check(genWhole, genPiece) { (whole, pieceBefore) =>
       val pieceAfter = lens.set(pieceBefore)(whole).flatMap(lens.get)
       assert(pieceAfter)(isRight(equalTo(pieceBefore)))
     }
 
-  def setSetIdentity[Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
-    lens: ZioOpticsBuilder.Lens[Whole, Piece]
+  def setSetIdentity[F, Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
+    lens: ZioOpticsBuilder.Lens[F, Whole, Piece]
   ): URIO[Env, TestResult] =
     check(genWhole, genPiece) { (whole, piece) =>
       val wholeBefore = lens.set(piece)(whole)
@@ -57,10 +57,10 @@ object LensSpec extends DefaultRunnableSpec {
   object TestClass {
     implicit val schema: Schema.CaseClass3[Int, String, Long, TestClass] = DeriveSchema.gen[TestClass]
 
-    val gen: Gen[Random with Sized, TestClass] = for {
-      f1 <- Gen.anyInt
-      f2 <- Gen.anyString
-      f3 <- Gen.anyLong
+    val gen: Gen[Sized, TestClass] = for {
+      f1 <- Gen.int
+      f2 <- Gen.string
+      f3 <- Gen.long
     } yield TestClass(f1, f2, f3)
 
     val (field1, field2, field3) = schema.makeAccessors(ZioOpticsBuilder)

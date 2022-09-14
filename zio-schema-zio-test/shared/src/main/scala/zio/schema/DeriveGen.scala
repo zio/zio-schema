@@ -5,93 +5,92 @@ import java.time.format.DateTimeFormatter
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
-import zio.random.Random
 import zio.schema.ast.{ NodePath, SchemaAst }
 import zio.test.{ Gen, Sized }
 
 object DeriveGen {
 
   // scalafmt: { maxColumn = 400 }
-  def gen[A](implicit schema: Schema[A]): Gen[Random with Sized, A] =
+  def gen[A](implicit schema: Schema[A]): Gen[Sized, A] =
     schema match {
-      case Schema.Enum1(c1, _)                                                                                                                                              => genEnum(c1)
-      case Schema.Enum2(c1, c2, _)                                                                                                                                          => genEnum(c1, c2)
-      case Schema.Enum3(c1, c2, c3, _)                                                                                                                                      => genEnum(c1, c2, c3)
-      case Schema.Enum4(c1, c2, c3, c4, _)                                                                                                                                  => genEnum(c1, c2, c3, c4)
-      case Schema.Enum5(c1, c2, c3, c4, c5, _)                                                                                                                              => genEnum(c1, c2, c3, c4, c5)
-      case Schema.Enum6(c1, c2, c3, c4, c5, c6, _)                                                                                                                          => genEnum(c1, c2, c3, c4, c5, c6)
-      case Schema.Enum7(c1, c2, c3, c4, c5, c6, c7, _)                                                                                                                      => genEnum(c1, c2, c3, c4, c5, c6, c7)
-      case Schema.Enum8(c1, c2, c3, c4, c5, c6, c7, c8, _)                                                                                                                  => genEnum(c1, c2, c3, c4, c5, c6, c7, c8)
-      case Schema.Enum9(c1, c2, c3, c4, c5, c6, c7, c8, c9, _)                                                                                                              => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9)
-      case Schema.Enum10(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _)                                                                                                        => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
-      case Schema.Enum11(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _)                                                                                                   => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
-      case Schema.Enum12(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _)                                                                                              => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
-      case Schema.Enum13(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _)                                                                                         => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
-      case Schema.Enum14(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _)                                                                                    => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
-      case Schema.Enum15(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _)                                                                               => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
-      case Schema.Enum16(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _)                                                                          => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
-      case Schema.Enum17(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _)                                                                     => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
-      case Schema.Enum18(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _)                                                                => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
-      case Schema.Enum19(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _)                                                           => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
-      case Schema.Enum20(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _)                                                      => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
-      case Schema.Enum21(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)                                                 => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
-      case Schema.Enum22(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _)                                            => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-      case Schema.EnumN(caseSet, _)                                                                                                                                         => genEnum(caseSet.toSeq.asInstanceOf[Seq[Schema.Case[_, A]]]: _*)
-      case c @ Schema.CaseClass0(_, _)                                                                                                                                      => genCaseClass0(c)
-      case c @ Schema.CaseClass1(_, _, _, _)                                                                                                                                => genCaseClass1(c)
-      case c @ Schema.CaseClass2(_, _, _, _, _, _)                                                                                                                          => genCaseClass2(c)
-      case c @ Schema.CaseClass3(_, _, _, _, _, _, _, _)                                                                                                                    => genCaseClass3(c)
-      case c @ Schema.CaseClass4(_, _, _, _, _, _, _, _, _, _)                                                                                                              => genCaseClass4(c)
-      case c @ Schema.CaseClass5(_, _, _, _, _, _, _, _, _, _, _, _)                                                                                                        => genCaseClass5(c)
-      case c @ Schema.CaseClass6(_, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                                                                  => genCaseClass6(c)
-      case c @ Schema.CaseClass7(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                                                            => genCaseClass7(c)
-      case c @ Schema.CaseClass8(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                                                      => genCaseClass8(c)
-      case c @ Schema.CaseClass9(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                                                => genCaseClass9(c)
-      case c @ Schema.CaseClass10(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                                         => genCaseClass10(c)
-      case c @ Schema.CaseClass11(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                                   => genCaseClass11(c)
-      case c @ Schema.CaseClass12(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                             => genCaseClass12(c)
-      case c @ Schema.CaseClass13(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                       => genCaseClass13(c)
-      case c @ Schema.CaseClass14(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                 => genCaseClass14(c)
-      case c @ Schema.CaseClass15(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                           => genCaseClass15(c)
-      case c @ Schema.CaseClass16(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                     => genCaseClass16(c)
-      case c @ Schema.CaseClass17(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                               => genCaseClass17(c)
-      case c @ Schema.CaseClass18(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                         => genCaseClass18(c)
-      case c @ Schema.CaseClass19(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                   => genCaseClass19(c)
-      case c @ Schema.CaseClass20(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)             => genCaseClass20(c)
-      case c @ Schema.CaseClass21(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)       => genCaseClass21(c)
-      case c @ Schema.CaseClass22(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => genCaseClass22(c)
-      case generic @ Schema.GenericRecord(_, _)                                                                                                                             => genGenericRecord(generic).map(_.asInstanceOf[A])
-      case seq @ Schema.Sequence(_, _, _, _, _)                                                                                                                             => genSequence(seq)
-      case map @ Schema.MapSchema(_, _, _)                                                                                                                                  => genMap(map)
-      case set @ Schema.SetSchema(_, _)                                                                                                                                     => genSet(set)
-      case transform @ Schema.Transform(_, _, _, _, _)                                                                                                                      => genTransform(transform)
-      case Schema.Primitive(standardType, _)                                                                                                                                => genPrimitive(standardType)
-      case optional @ Schema.Optional(_, _)                                                                                                                                 => genOptional(optional)
-      case fail @ Schema.Fail(_, _)                                                                                                                                         => genFail(fail)
-      case tuple @ Schema.Tuple(_, _, _)                                                                                                                                    => genTuple(tuple)
-      case either @ Schema.EitherSchema(_, _, _)                                                                                                                            => genEither(either)
-      case lazzy @ Schema.Lazy(_)                                                                                                                                           => genLazy(lazzy)
-      case Schema.Meta(ast, _)                                                                                                                                              => genMeta(ast)
-      case Schema.Dynamic(_)                                                                                                                                                => gen(DynamicValueSchema())
-      case Schema.SemiDynamic(_, _)                                                                                                                                         => genSemiDynamic
+      case Schema.Enum1(_, c1, _)                                                                                                                                              => genEnum(c1)
+      case Schema.Enum2(_, c1, c2, _)                                                                                                                                          => genEnum(c1, c2)
+      case Schema.Enum3(_, c1, c2, c3, _)                                                                                                                                      => genEnum(c1, c2, c3)
+      case Schema.Enum4(_, c1, c2, c3, c4, _)                                                                                                                                  => genEnum(c1, c2, c3, c4)
+      case Schema.Enum5(_, c1, c2, c3, c4, c5, _)                                                                                                                              => genEnum(c1, c2, c3, c4, c5)
+      case Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _)                                                                                                                          => genEnum(c1, c2, c3, c4, c5, c6)
+      case Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _)                                                                                                                      => genEnum(c1, c2, c3, c4, c5, c6, c7)
+      case Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _)                                                                                                                  => genEnum(c1, c2, c3, c4, c5, c6, c7, c8)
+      case Schema.Enum9(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, _)                                                                                                              => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9)
+      case Schema.Enum10(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _)                                                                                                        => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
+      case Schema.Enum11(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _)                                                                                                   => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
+      case Schema.Enum12(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _)                                                                                              => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
+      case Schema.Enum13(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _)                                                                                         => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
+      case Schema.Enum14(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _)                                                                                    => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
+      case Schema.Enum15(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _)                                                                               => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+      case Schema.Enum16(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _)                                                                          => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
+      case Schema.Enum17(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _)                                                                     => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
+      case Schema.Enum18(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _)                                                                => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
+      case Schema.Enum19(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _)                                                           => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
+      case Schema.Enum20(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _)                                                      => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
+      case Schema.Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)                                                 => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
+      case Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _)                                            => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
+      case Schema.EnumN(_, caseSet, _)                                                                                                                                         => genEnum(caseSet.toSeq.asInstanceOf[Seq[Schema.Case[_, A]]]: _*)
+      case c @ Schema.CaseClass0(_, _, _)                                                                                                                                      => genCaseClass0(c)
+      case c @ Schema.CaseClass1(_, _, _, _, _)                                                                                                                                => genCaseClass1(c)
+      case c @ Schema.CaseClass2(_, _, _, _, _, _, _)                                                                                                                          => genCaseClass2(c)
+      case c @ Schema.CaseClass3(_, _, _, _, _, _, _, _, _)                                                                                                                    => genCaseClass3(c)
+      case c @ Schema.CaseClass4(_, _, _, _, _, _, _, _, _, _, _)                                                                                                              => genCaseClass4(c)
+      case c @ Schema.CaseClass5(_, _, _, _, _, _, _, _, _, _, _, _, _)                                                                                                        => genCaseClass5(c)
+      case c @ Schema.CaseClass6(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                                                                  => genCaseClass6(c)
+      case c @ Schema.CaseClass7(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                                                            => genCaseClass7(c)
+      case c @ Schema.CaseClass8(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                                                      => genCaseClass8(c)
+      case c @ Schema.CaseClass9(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                                                => genCaseClass9(c)
+      case c @ Schema.CaseClass10(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                                         => genCaseClass10(c)
+      case c @ Schema.CaseClass11(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                                   => genCaseClass11(c)
+      case c @ Schema.CaseClass12(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                             => genCaseClass12(c)
+      case c @ Schema.CaseClass13(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                       => genCaseClass13(c)
+      case c @ Schema.CaseClass14(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                                 => genCaseClass14(c)
+      case c @ Schema.CaseClass15(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                           => genCaseClass15(c)
+      case c @ Schema.CaseClass16(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                                     => genCaseClass16(c)
+      case c @ Schema.CaseClass17(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                               => genCaseClass17(c)
+      case c @ Schema.CaseClass18(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                         => genCaseClass18(c)
+      case c @ Schema.CaseClass19(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                   => genCaseClass19(c)
+      case c @ Schema.CaseClass20(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)             => genCaseClass20(c)
+      case c @ Schema.CaseClass21(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)       => genCaseClass21(c)
+      case c @ Schema.CaseClass22(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => genCaseClass22(c)
+      case generic @ Schema.GenericRecord(_, _, _)                                                                                                                             => genGenericRecord(generic).map(_.asInstanceOf[A])
+      case seq @ Schema.Sequence(_, _, _, _, _)                                                                                                                                => genSequence(seq)
+      case map @ Schema.MapSchema(_, _, _)                                                                                                                                     => genMap(map)
+      case set @ Schema.SetSchema(_, _)                                                                                                                                        => genSet(set)
+      case transform @ Schema.Transform(_, _, _, _, _)                                                                                                                         => genTransform(transform)
+      case Schema.Primitive(standardType, _)                                                                                                                                   => genPrimitive(standardType)
+      case optional @ Schema.Optional(_, _)                                                                                                                                    => genOptional(optional)
+      case fail @ Schema.Fail(_, _)                                                                                                                                            => genFail(fail)
+      case tuple @ Schema.Tuple(_, _, _)                                                                                                                                       => genTuple(tuple)
+      case either @ Schema.EitherSchema(_, _, _)                                                                                                                               => genEither(either)
+      case lazzy @ Schema.Lazy(_)                                                                                                                                              => genLazy(lazzy)
+      case Schema.Meta(ast, _)                                                                                                                                                 => genMeta(ast)
+      case Schema.Dynamic(_)                                                                                                                                                   => gen(DynamicValueSchema())
+      case Schema.SemiDynamic(_, _)                                                                                                                                            => genSemiDynamic
     } // scalafmt: { maxColumn = 120 }
 
-  private def genEnum[Z](cases: Schema.Case[_, Z]*): Gen[Random with Sized, Z] =
+  private def genEnum[Z](cases: Schema.Case[_, Z]*) =
     Gen.elements(cases: _*).flatMap(c => gen(c.codec).map(_.asInstanceOf[Z]))
 
-  private def genCaseClass0[Z](caseClass0: Schema.CaseClass0[Z]): Gen[Random with Sized, Z] =
+  private def genCaseClass0[Z](caseClass0: Schema.CaseClass0[Z]): Gen[Sized, Z] =
     Gen.elements(caseClass0.construct())
 
-  private def genCaseClass1[A, Z](caseClass1: Schema.CaseClass1[A, Z]): Gen[Random with Sized, Z] =
+  private def genCaseClass1[A, Z](caseClass1: Schema.CaseClass1[A, Z]): Gen[Sized, Z] =
     gen(caseClass1.field.schema).map(caseClass1.construct)
 
-  private def genCaseClass2[A1, A2, Z](caseClass2: Schema.CaseClass2[A1, A2, Z]): Gen[Random with Sized, Z] =
+  private def genCaseClass2[A1, A2, Z](caseClass2: Schema.CaseClass2[A1, A2, Z]): Gen[Sized, Z] =
     for {
       f1 <- gen(caseClass2.field1.schema)
       f2 <- gen(caseClass2.field2.schema)
     } yield caseClass2.construct(f1, f2)
 
-  private def genCaseClass3[A1, A2, A3, Z](caseClass3: Schema.CaseClass3[A1, A2, A3, Z]): Gen[Random with Sized, Z] =
+  private def genCaseClass3[A1, A2, A3, Z](caseClass3: Schema.CaseClass3[A1, A2, A3, Z]): Gen[Sized, Z] =
     for {
       f1 <- gen(caseClass3.field1.schema)
       f2 <- gen(caseClass3.field2.schema)
@@ -100,7 +99,7 @@ object DeriveGen {
 
   private def genCaseClass4[A1, A2, A3, A4, Z](
     caseClass4: Schema.CaseClass4[A1, A2, A3, A4, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1 <- gen(caseClass4.field1.schema)
       f2 <- gen(caseClass4.field2.schema)
@@ -110,7 +109,7 @@ object DeriveGen {
 
   private def genCaseClass5[A1, A2, A3, A4, A5, Z](
     caseClass5: Schema.CaseClass5[A1, A2, A3, A4, A5, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1 <- gen(caseClass5.field1.schema)
       f2 <- gen(caseClass5.field2.schema)
@@ -121,7 +120,7 @@ object DeriveGen {
 
   private def genCaseClass6[A1, A2, A3, A4, A5, A6, Z](
     caseClass6: Schema.CaseClass6[A1, A2, A3, A4, A5, A6, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1 <- gen(caseClass6.field1.schema)
       f2 <- gen(caseClass6.field2.schema)
@@ -133,7 +132,7 @@ object DeriveGen {
 
   private def genCaseClass7[A1, A2, A3, A4, A5, A6, A7, Z](
     caseClass7: Schema.CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1 <- gen(caseClass7.field1.schema)
       f2 <- gen(caseClass7.field2.schema)
@@ -146,7 +145,7 @@ object DeriveGen {
 
   private def genCaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
     caseClass8: Schema.CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1 <- gen(caseClass8.field1.schema)
       f2 <- gen(caseClass8.field2.schema)
@@ -160,7 +159,7 @@ object DeriveGen {
 
   private def genCaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
     caseClass9: Schema.CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1 <- gen(caseClass9.field1.schema)
       f2 <- gen(caseClass9.field2.schema)
@@ -175,7 +174,7 @@ object DeriveGen {
 
   private def genCaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
     caseClass10: Schema.CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass10.field1.schema)
       f2  <- gen(caseClass10.field2.schema)
@@ -191,7 +190,7 @@ object DeriveGen {
 
   private def genCaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
     caseClass11: Schema.CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass11.field1.schema)
       f2  <- gen(caseClass11.field2.schema)
@@ -208,7 +207,7 @@ object DeriveGen {
 
   private def genCaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
     caseClass12: Schema.CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass12.field1.schema)
       f2  <- gen(caseClass12.field2.schema)
@@ -226,7 +225,7 @@ object DeriveGen {
 
   private def genCaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
     caseClass13: Schema.CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass13.field1.schema)
       f2  <- gen(caseClass13.field2.schema)
@@ -245,7 +244,7 @@ object DeriveGen {
 
   private def genCaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
     caseClass14: Schema.CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass14.field1.schema)
       f2  <- gen(caseClass14.field2.schema)
@@ -265,7 +264,7 @@ object DeriveGen {
 
   private def genCaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
     caseClass15: Schema.CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass15.field1.schema)
       f2  <- gen(caseClass15.field2.schema)
@@ -286,7 +285,7 @@ object DeriveGen {
 
   private def genCaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
     caseClass16: Schema.CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass16.field1.schema)
       f2  <- gen(caseClass16.field2.schema)
@@ -308,7 +307,7 @@ object DeriveGen {
 
   private def genCaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
     caseClass17: Schema.CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass17.field1.schema)
       f2  <- gen(caseClass17.field2.schema)
@@ -331,7 +330,7 @@ object DeriveGen {
 
   private def genCaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
     caseClass18: Schema.CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass18.field1.schema)
       f2  <- gen(caseClass18.field2.schema)
@@ -356,7 +355,7 @@ object DeriveGen {
   // scalafmt: { maxColumn = 200 }
   private def genCaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
     caseClass19: Schema.CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass19.field1.schema)
       f2  <- gen(caseClass19.field2.schema)
@@ -381,7 +380,7 @@ object DeriveGen {
 
   private def genCaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](
     caseClass20: Schema.CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass20.field1.schema)
       f2  <- gen(caseClass20.field2.schema)
@@ -407,7 +406,7 @@ object DeriveGen {
 
   private def genCaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](
     caseClass21: Schema.CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass21.field1.schema)
       f2  <- gen(caseClass21.field2.schema)
@@ -434,7 +433,7 @@ object DeriveGen {
 
   private def genCaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](
     caseClass22: Schema.CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z]
-  ): Gen[Random with Sized, Z] =
+  ): Gen[Sized, Z] =
     for {
       f1  <- gen(caseClass22.field1.schema)
       f2  <- gen(caseClass22.field2.schema)
@@ -461,9 +460,9 @@ object DeriveGen {
     } yield caseClass22.construct(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22)
   // scalafmt: { maxColumn = 120 }
 
-  private def genGenericRecord(record: Schema.GenericRecord): Gen[Random with Sized, ListMap[String, _]] =
+  private def genGenericRecord(record: Schema.GenericRecord): Gen[Sized, ListMap[String, _]] =
     record.structure
-      .foldLeft[Gen[Random with Sized, ListMap[String, _]]](Gen.const(ListMap.empty)) {
+      .foldLeft[Gen[Sized, ListMap[String, _]]](Gen.const(ListMap.empty)) {
         case (genListMap, field) =>
           for {
             listMap <- genListMap
@@ -471,99 +470,101 @@ object DeriveGen {
           } yield listMap.updated(field.label, value)
       }
 
-  private def genSequence[Z, A](seq: Schema.Sequence[Z, A, _]): Gen[Random with Sized, Z] =
+  private def genSequence[Z, A](seq: Schema.Sequence[Z, A, _]): Gen[Sized, Z] =
     Gen.oneOf(Gen.chunkOfN(2)(gen(seq.schemaA)), Gen.const(Chunk.empty)).map(seq.fromChunk(_))
 
-  private def genMap[K, V](map: Schema.MapSchema[K, V]): Gen[Random with Sized, Map[K, V]] =
+  private def genMap[K, V](map: Schema.MapSchema[K, V]): Gen[Sized, Map[K, V]] =
     Gen.oneOf(Gen.mapOfN(2)(gen(map.ks), gen(map.vs)), Gen.const(Map.empty[K, V]))
 
-  private def genSet[A](set: Schema.SetSchema[A]): Gen[Random with Sized, Set[A]] =
+  private def genSet[A](set: Schema.SetSchema[A]): Gen[Sized, Set[A]] =
     Gen.oneOf(Gen.setOf(gen(set.as)), Gen.const(Set.empty[A]))
 
-  private def genTransform[A, B, I](transform: Schema.Transform[A, B, I]): Gen[Random with Sized, B] =
+  private def genTransform[A, B, I](transform: Schema.Transform[A, B, I]): Gen[Sized, B] =
     gen(transform.codec).flatMap(a => transform.f(a).fold(_ => Gen.empty, (b: B) => Gen.const(b)))
 
-  def genPrimitive[A](standardType: StandardType[A]): Gen[Random with Sized, A] = {
+  def genPrimitive[A](standardType: StandardType[A]): Gen[Sized, A] = {
     val gen = standardType match {
       case StandardType.UnitType              => Gen.unit
-      case StandardType.ByteType              => Gen.anyByte
-      case StandardType.StringType            => Gen.anyString
+      case StandardType.StringType            => Gen.string
       case StandardType.BoolType              => Gen.boolean
-      case StandardType.ShortType             => Gen.anyShort
-      case StandardType.IntType               => Gen.anyInt
-      case StandardType.LongType              => Gen.anyLong
-      case StandardType.FloatType             => Gen.anyFloat
-      case StandardType.DoubleType            => Gen.anyDouble
-      case StandardType.BinaryType            => Gen.chunkOf1(Gen.anyByte).map(_.toChunk)
-      case StandardType.CharType              => Gen.anyChar
-      case StandardType.UUIDType              => Gen.anyUUID
-      case StandardType.BigDecimalType        => Gen.anyDouble.map(new java.math.BigDecimal(_))
-      case StandardType.BigIntegerType        => Gen.anyLong.map(java.math.BigInteger.valueOf(_))
-      case StandardType.DayOfWeekType         => Gen.anyDayOfWeek
-      case StandardType.MonthType             => Gen.anyMonth
-      case StandardType.MonthDayType          => Gen.anyMonthDay
-      case StandardType.PeriodType            => Gen.anyPeriod
-      case StandardType.YearType              => Gen.anyYear
-      case StandardType.YearMonthType         => Gen.anyYearMonth
-      case StandardType.ZoneIdType            => Gen.anyZoneId
-      case StandardType.ZoneOffsetType        => Gen.anyZoneOffset
-      case StandardType.DurationType          => Gen.anyFiniteDuration
-      case StandardType.InstantType(_)        => Gen.anyInstant
-      case StandardType.LocalDateType(_)      => Gen.anyLocalDate
-      case StandardType.LocalTimeType(_)      => Gen.anyLocalTime
-      case StandardType.LocalDateTimeType(_)  => Gen.anyLocalDateTime
-      case StandardType.OffsetTimeType(_)     => Gen.anyOffsetTime
-      case StandardType.OffsetDateTimeType(_) => Gen.anyOffsetDateTime
-      case StandardType.ZonedDateTimeType(_)  => Gen.anyZonedDateTime
+      case StandardType.ByteType              => Gen.byte
+      case StandardType.ShortType             => Gen.short
+      case StandardType.IntType               => Gen.int
+      case StandardType.LongType              => Gen.long
+      case StandardType.FloatType             => Gen.float
+      case StandardType.DoubleType            => Gen.double
+      case StandardType.BinaryType            => Gen.chunkOf1(Gen.byte).map(_.toChunk)
+      case StandardType.CharType              => Gen.char
+      case StandardType.UUIDType              => Gen.uuid
+      case StandardType.BigDecimalType        => Gen.double.map(new java.math.BigDecimal(_))
+      case StandardType.BigIntegerType        => Gen.long.map(java.math.BigInteger.valueOf(_))
+      case StandardType.DayOfWeekType         => Gen.dayOfWeek
+      case StandardType.MonthType             => Gen.month
+      case StandardType.MonthDayType          => Gen.monthDay
+      case StandardType.PeriodType            => Gen.period
+      case StandardType.YearType              => Gen.year
+      case StandardType.YearMonthType         => Gen.yearMonth
+      case StandardType.ZoneIdType            => Gen.zoneId
+      case StandardType.ZoneOffsetType        => Gen.zoneOffset
+      case StandardType.DurationType          => Gen.finiteDuration
+      case StandardType.InstantType(_)        => Gen.instant
+      case StandardType.LocalDateType(_)      => Gen.localDate
+      case StandardType.LocalTimeType(_)      => Gen.localTime
+      case StandardType.LocalDateTimeType(_)  => Gen.localDateTime
+      case StandardType.OffsetTimeType(_)     => Gen.offsetTime
+      case StandardType.OffsetDateTimeType(_) => Gen.offsetDateTime
+      case StandardType.ZonedDateTimeType(_)  => Gen.zonedDateTime
     }
 
     gen.map(_.asInstanceOf[A])
   }
 
-  private def genOptional[A](optional: Schema.Optional[A]): Gen[Random with Sized, Option[A]] =
+  private def genOptional[A](optional: Schema.Optional[A]): Gen[Sized, Option[A]] =
     Gen.option(gen(optional.codec))
 
-  private def genFail[A](fail: Schema.Fail[A]): Gen[Random with Sized, A] = {
+  private def genFail[A](fail: Schema.Fail[A]): Gen[Sized, A] = {
     val _ = fail
     Gen.empty
   }
 
-  private def genTuple[A, B](tuple: Schema.Tuple[A, B]): Gen[Random with Sized, (A, B)] =
+  private def genTuple[A, B](tuple: Schema.Tuple[A, B]): Gen[Sized, (A, B)] =
     gen(tuple.left).zip(gen(tuple.right))
 
-  private def genEither[A, B](either: Schema.EitherSchema[A, B]): Gen[Random with Sized, Either[A, B]] =
+  private def genEither[A, B](either: Schema.EitherSchema[A, B]): Gen[Sized, Either[A, B]] =
     Gen.either(gen(either.left), gen(either.right))
 
-  private def genLazy[A](lazySchema: Schema.Lazy[A]): Gen[Random with Sized, A] =
+  private def genLazy[A](lazySchema: Schema.Lazy[A]): Gen[Sized, A] =
     Gen.suspend(gen(lazySchema.schema))
 
-  private def genMeta[A](ast: SchemaAst): Gen[Random with Sized, A] =
+  private def genMeta[A](ast: SchemaAst): Gen[Sized, A] =
     gen(ast.toSchema).map(_.asInstanceOf[A])
 
-  private def genSemiDynamic[A]: Gen[Random with Sized, A] =
+  private def genSemiDynamic[A]: Gen[Sized, A] =
     genAst().map(_.toSchema).flatMap(schema => gen(schema).map(value => (value, schema).asInstanceOf[A]))
 
-  private def genSchemaAstProduct(path: NodePath): Gen[Random with Sized, SchemaAst.Product] =
+  private def genSchemaAstProduct(path: NodePath): Gen[Sized, SchemaAst.Product] =
     for {
+      id       <- Gen.string(Gen.alphaChar).map(TypeId.parse)
       optional <- Gen.boolean
       fields <- Gen.chunkOf(
                  Gen
-                   .string1(Gen.anyASCIIChar)
+                   .string1(Gen.asciiChar)
                    .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
                )
-    } yield SchemaAst.Product(path, fields, optional)
+    } yield SchemaAst.Product(id, path, fields, optional)
 
-  private def genSchemaAstSum(path: NodePath): Gen[Random with Sized, SchemaAst.Sum] =
+  private def genSchemaAstSum(path: NodePath): Gen[Sized, SchemaAst.Sum] =
     for {
+      id       <- Gen.string(Gen.alphaChar).map(TypeId.parse)
       optional <- Gen.boolean
       fields <- Gen.chunkOf(
                  Gen
-                   .string1(Gen.anyASCIIChar)
+                   .string1(Gen.asciiChar)
                    .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
                )
-    } yield SchemaAst.Sum(path, fields, optional)
+    } yield SchemaAst.Sum(id, path, fields, optional)
 
-  private def genSchemaAstValue(path: NodePath): Gen[Random, SchemaAst.Value] =
+  private def genSchemaAstValue(path: NodePath): Gen[Any, SchemaAst.Value] =
     for {
       formatter <- Gen.oneOf(
                     Gen.const(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
@@ -602,13 +603,13 @@ object DeriveGen {
       optional <- Gen.boolean
     } yield SchemaAst.Value(valueType, path, optional)
 
-  private def genSchemaAstDynamic(path: NodePath): Gen[Random, SchemaAst.Dynamic] =
+  private def genSchemaAstDynamic(path: NodePath): Gen[Any, SchemaAst.Dynamic] =
     for {
       withSchema <- Gen.boolean
       optional   <- Gen.boolean
     } yield SchemaAst.Dynamic(withSchema, path, optional)
 
-  private def genAst(path: NodePath = NodePath.root): Gen[Random with Sized, SchemaAst] =
+  private def genAst(path: NodePath = NodePath.root): Gen[Sized, SchemaAst] =
     Gen.weighted(
       genSchemaAstProduct(path) -> 3,
       genSchemaAstSum(path)     -> 1,

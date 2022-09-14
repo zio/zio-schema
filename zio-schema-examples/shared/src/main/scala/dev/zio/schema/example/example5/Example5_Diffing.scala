@@ -1,8 +1,8 @@
 package dev.zio.schema.example.example5
 
+import zio._
 import zio.schema.Schema._
-import zio.schema.{ Diff, Schema }
-import zio.{ ExitCode, URIO, ZIO }
+import zio.schema._
 
 /**
  * Example 5: In this example, we use ZIO-Schema to detect changes in our objects.
@@ -16,6 +16,7 @@ private[example5] object Domain {
     val age: Field[Int]     = Field[Int]("age", primitive[Int])
 
     val schema: Schema[Person] = CaseClass2[String, Int, Person](
+      TypeId.parse("dev.zio.schema.example.example5.Domain.Person"),
       field1 = name,
       field2 = age,
       construct = (name, age) => Person(name, age),
@@ -31,21 +32,21 @@ private[example5] object Domain {
     val lastname: Field[String]  = Field("lastname", primitive[String])
     val years: Field[Int]        = Field("years", primitive[Int])
 
-    val schema: Schema[PersonDTO] =
-      CaseClass3[String, String, Int, PersonDTO](
-        field1 = firstname,
-        field2 = lastname,
-        field3 = years,
-        construct = (fn, ln, y) => PersonDTO(fn, ln, y),
-        extractField1 = _.firstname,
-        extractField2 = _.lastname,
-        extractField3 = _.years
-      )
+    val schema: Schema[PersonDTO] = CaseClass3[String, String, Int, PersonDTO](
+      TypeId.parse("dev.zio.schema.example.example5.Domain.PersonDTO"),
+      field1 = firstname,
+      field2 = lastname,
+      field3 = years,
+      construct = (fn, ln, y) => PersonDTO(fn, ln, y),
+      extractField1 = _.firstname,
+      extractField2 = _.lastname,
+      extractField3 = _.years
+    )
   }
 
 }
 
-object Example5_Diffing extends zio.App {
+object Example5_Diffing extends ZIOAppDefault {
 
   import Domain._
 
@@ -53,5 +54,5 @@ object Example5_Diffing extends zio.App {
 
   val diff: Diff[PersonDTO] = PersonDTO.schema.diff(personDTO, personDTO.copy(lastname = "Max"))
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] = ZIO.debug(diff).exitCode
+  override val run: UIO[Unit] = ZIO.debug(diff)
 }

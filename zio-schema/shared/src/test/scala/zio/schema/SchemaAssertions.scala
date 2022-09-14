@@ -3,12 +3,11 @@ package zio.schema
 import zio.Chunk
 import zio.schema.syntax._
 import zio.test.Assertion
-import zio.test.AssertionM.Render.param
 
 object SchemaAssertions {
 
   def migratesTo[A: Schema, B: Schema](expected: B): Assertion[A] =
-    Assertion.assertion("migratesTo")(param(expected)) { value =>
+    Assertion.assertion("migratesTo") { value =>
       value.migrate[B] match {
         case Left(_)                   => false
         case Right(m) if m != expected => false
@@ -18,22 +17,22 @@ object SchemaAssertions {
     }
 
   def cannotMigrateValue[A: Schema, B: Schema]: Assertion[A] =
-    Assertion.assertion("cannotMigrateTo")() { value =>
+    Assertion.assertion("cannotMigrateTo") { value =>
       value.migrate[B].isLeft
     }
 
   def hasSameSchema(expected: Schema[_]): Assertion[Schema[_]] =
-    Assertion.assertion("hasSameSchema")(param(expected))(
+    Assertion.assertion("hasSameSchema")(
       actual => Schema.strictEquality.equal(expected, actual)
     )
 
   def hasSameSchemaStructure(expected: Schema[_]): Assertion[Schema[_]] =
-    Assertion.assertion("hasSameSchemaStructure")(param(expected))(
+    Assertion.assertion("hasSameSchemaStructure")(
       actual => Schema.structureEquality.equal(expected, actual)
     )
 
   def hasSameAst(expected: Schema[_]): Assertion[Schema[_]] =
-    Assertion.assertion("hasSameAst")(param(expected))(actual => equalsAst(expected, actual))
+    Assertion.assertion("hasSameAst")(actual => equalsAst(expected, actual))
 
   private def equalsAst(expected: Schema[_], actual: Schema[_], depth: Int = 0): Boolean = (expected, actual) match {
     case (Schema.Primitive(StandardType.DurationType, _), Schema.Primitive(StandardType.DurationType, _))     => true
@@ -63,7 +62,7 @@ object SchemaAssertions {
     case (Schema.Optional(expected, _), Schema.Optional(actual, _)) => equalsAst(expected, actual, depth)
     case (Schema.Tuple(expectedLeft, expectedRight, _), Schema.Tuple(actualLeft, actualRight, _)) =>
       equalsAst(expectedLeft, actualLeft, depth) && equalsAst(expectedRight, actualRight, depth)
-    case (Schema.Tuple(expectedLeft, expectedRight, _), Schema.GenericRecord(structure, _)) =>
+    case (Schema.Tuple(expectedLeft, expectedRight, _), Schema.GenericRecord(_, structure, _)) =>
       structure.toChunk.size == 2 &&
         structure.toChunk.find(_.label == "left").exists(f => equalsAst(expectedLeft, f.schema, depth)) &&
         structure.toChunk.find(_.label == "right").exists(f => equalsAst(expectedRight, f.schema, depth))

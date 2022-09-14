@@ -1,8 +1,7 @@
 import sbt._
 import Keys._
 
-import explicitdeps.ExplicitDepsPlugin.autoImport._
-import sbtcrossproject.CrossPlugin.autoImport.{ CrossType, crossProjectPlatform }
+import sbtcrossproject.CrossPlugin.autoImport.crossProjectPlatform
 import sbtbuildinfo._
 import BuildInfoKeys._
 import scalafix.sbt.ScalafixPlugin.autoImport._
@@ -26,11 +25,12 @@ object BuildHelper {
   val Scala213: String = versions("2.13")
   val Scala3: String   = versions("3.1") //versions.getOrElse("3.0", versions("3.1"))
 
-  val zioVersion        = "1.0.13"
-  val zioJsonVersion    = "0.2.0-M2"
-  val zioPreludeVersion = "1.0.0-RC7"
-  val zioOpticsVersion  = "0.1.0"
+  val zioVersion        = "2.0.1"
+  val zioJsonVersion    = "0.3.0-RC9"
+  val zioPreludeVersion = "1.0.0-RC15"
+  val zioOpticsVersion  = "0.2.0"
   val silencerVersion   = "1.7.8"
+  val avroVersion       = "1.11.0"
 
   private val testDeps = Seq(
     "dev.zio" %% "zio-test"     % zioVersion % "test",
@@ -106,7 +106,7 @@ object BuildHelper {
       else Seq.empty
 
     val extraOptions = CrossVersion.partialVersion(scalaVersion) match {
-      case Some((3, 0)) =>
+      case Some((3, _)) =>
         Seq(
           "-language:implicitConversions",
           "-Xignore-scala2-macros"
@@ -145,7 +145,7 @@ object BuildHelper {
     }
   )
 
-  def platformSpecificSources(platform: String, conf: String, baseDirectory: File)(versions: String*) =
+  def platformSpecificSources(platform: String, conf: String, baseDirectory: File)(versions: String*): Seq[File] =
     for {
       platform <- List("shared", platform)
       version  <- "scala" :: versions.toList.map("scala-" + _)
@@ -153,7 +153,7 @@ object BuildHelper {
       if result.exists
     } yield result
 
-  def crossPlatformSources(scalaVer: String, platform: String, conf: String, baseDir: File) = {
+  def crossPlatformSources(scalaVer: String, platform: String, conf: String, baseDir: File): Seq[sbt.File] = {
     val versions = CrossVersion.partialVersion(scalaVer) match {
       case Some((2, 11)) =>
         List("2.11", "2.11+", "2.11-2.12", "2.x")
@@ -204,9 +204,9 @@ object BuildHelper {
       ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
       ThisBuild / scalafixDependencies ++= List(
         "com.github.liancheng" %% "organize-imports" % "0.6.0",
-        "com.github.vovapolu"  %% "scaluzzi"         % "0.1.20"
+        "com.github.vovapolu"  %% "scaluzzi"         % "0.1.21"
       ),
-      Test / parallelExecution := true,
+      Test / parallelExecution := !sys.env.contains("CI"),
       incOptions ~= (_.withLogRecompileOnMacro(true)),
       autoAPIMappings := true,
       testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))

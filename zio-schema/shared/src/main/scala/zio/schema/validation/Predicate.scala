@@ -7,7 +7,6 @@ sealed trait Predicate[A] {
 }
 
 object Predicate {
-  // String => Boolean
   sealed trait Str[A] extends Predicate[A]
 
   object Str {

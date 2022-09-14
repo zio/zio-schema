@@ -4,7 +4,6 @@ import java.time._
 import java.util.UUID
 
 import zio.Chunk
-import zio.random.Random
 import zio.test.{ Gen, Sized }
 
 object types {
@@ -140,7 +139,7 @@ object types {
 
     implicit lazy val schema: Schema[Arities] = DeriveSchema.gen
 
-    implicit val genBytes: Gen[Random with Sized, Chunk[Byte]] = Gen.chunkOf(Gen.anyByte)
+    implicit val genBytes: Gen[Sized, Chunk[Byte]] = Gen.chunkOf(Gen.byte)
   }
   //scalafmt: { maxColumn = 120 }
 
@@ -221,7 +220,7 @@ object types {
   type SchemaAndValues[A]    = (Schema[A], List[A])
   type SchemaAndValuePair[A] = (Schema[A], (A, A))
 
-  val anySchema: Gen[Random with Sized, Schema[_]] =
+  val anySchema: Gen[Sized, Schema[_]] =
     Gen.oneOf(
       Gen.const(Schema[SequenceVariants]),
       Gen.const(Schema[OptionVariants]),
@@ -230,13 +229,13 @@ object types {
       Gen.const(Schema[Arities])
     )
 
-  def anySchemaAndValue: Gen[Random with Sized, SchemaAndValue[Any]] =
+  def anySchemaAndValue: Gen[Sized, SchemaAndValue[_]] =
     for {
       schema       <- anySchema
       dynamicValue <- DynamicValueGen.anyDynamicValueOfSchema(schema)
     } yield schema.asInstanceOf[Schema[Any]] -> dynamicValue.toTypedValue(schema).toOption.get
 
-  def anySchemaAndValuePair: Gen[Random with Sized, SchemaAndValuePair[Any]] =
+  def anySchemaAndValuePair: Gen[Sized, SchemaAndValuePair[_]] =
     for {
       schema        <- anySchema
       dynamicValue1 <- DynamicValueGen.anyDynamicValueOfSchema(schema)
@@ -246,7 +245,7 @@ object types {
       .toOption
       .get)
 
-  def anySchemaAndValues(n: Int): Gen[Random with Sized, SchemaAndValues[Any]] =
+  def anySchemaAndValues(n: Int): Gen[Sized, SchemaAndValues[_]] =
     for {
       schema        <- anySchema
       dynamicValues <- Gen.listOfN(n)(DynamicValueGen.anyDynamicValueOfSchema(schema))

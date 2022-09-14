@@ -5,12 +5,11 @@ import scala.collection.immutable.ListMap
 import zio._
 import zio.schema.ast._
 import zio.schema.syntax._
-import zio.test.AssertionM.Render.param
 import zio.test._
 
-object MigrationSpec extends DefaultRunnableSpec {
+object MigrationSpec extends ZIOSpecDefault {
 
-  override def spec: ZSpec[Environment, Failure] = suite("Migration Spec")(
+  override def spec: Spec[Environment, Any] = suite("Migration Spec")(
     suite("Derivation")(
       suite("Value")(
         test("change type") {
@@ -115,7 +114,10 @@ object MigrationSpec extends DefaultRunnableSpec {
         assert(Migration.DeleteNode(NodePath.root / "v2"))(
           transformsValueTo(
             Nested1(0, "foo"),
-            DynamicValue.Record(ListMap("v1" -> DynamicValue.Primitive(0, StandardType.IntType)))
+            DynamicValue.Record(
+              TypeId.parse("zio.schema.MigrationSpec.Nested1"),
+              ListMap("v1" -> DynamicValue.Primitive(0, StandardType.IntType))
+            )
           )
         )
       },
@@ -124,9 +126,11 @@ object MigrationSpec extends DefaultRunnableSpec {
           transformsValueTo(
             Outer1("foo", Nested1(0, "bar")),
             DynamicValue.Record(
+              TypeId.parse("zio.schema.MigrationSpec.Outer1"),
               ListMap(
                 "v1" -> DynamicValue.Primitive("foo", StandardType.StringType),
                 "v2" -> DynamicValue.Record(
+                  TypeId.parse("zio.schema.MigrationSpec.Nested1"),
                   ListMap(
                     "v1" -> DynamicValue.Primitive(0, StandardType.IntType)
                   )
@@ -141,15 +145,18 @@ object MigrationSpec extends DefaultRunnableSpec {
           transformsValueTo(
             Recursive1(0, "", Some(Recursive1(1, "", Some(Recursive1(2, "", None))))),
             DynamicValue.Record(
+              TypeId.parse("zio.schema.MigrationSpec.Recursive1"),
               ListMap(
                 "v1" -> DynamicValue.Primitive(0, StandardType.IntType),
                 "v2" -> DynamicValue.Primitive("", StandardType.StringType),
                 "r" -> DynamicValue.SomeValue(
                   DynamicValue.Record(
+                    TypeId.parse("zio.schema.MigrationSpec.Recursive1"),
                     ListMap(
                       "v1" -> DynamicValue.Primitive(1, StandardType.IntType),
                       "r" -> DynamicValue.SomeValue(
                         DynamicValue.Record(
+                          TypeId.parse("zio.schema.MigrationSpec.Recursive1"),
                           ListMap(
                             "v1" -> DynamicValue.Primitive(2, StandardType.IntType),
                             "r"  -> DynamicValue.NoneValue
@@ -169,6 +176,7 @@ object MigrationSpec extends DefaultRunnableSpec {
           transformsValueTo(
             OptionalField(0, Some("foo")),
             DynamicValue.Record(
+              TypeId.parse("zio.schema.MigrationSpec.OptionalField"),
               ListMap(
                 "v1" -> DynamicValue.Primitive(0, StandardType.IntType),
                 "v2" -> DynamicValue.Primitive("foo", StandardType.StringType)
@@ -185,6 +193,7 @@ object MigrationSpec extends DefaultRunnableSpec {
           transformsValueTo(
             Nested1(0, "foo"),
             DynamicValue.Record(
+              TypeId.parse("zio.schema.MigrationSpec.Nested1"),
               ListMap(
                 "v1" -> DynamicValue.Primitive(0, StandardType.IntType),
                 "v2" -> DynamicValue.SomeValue(DynamicValue.Primitive("foo", StandardType.StringType))
@@ -257,13 +266,13 @@ object MigrationSpec extends DefaultRunnableSpec {
       .getOrElse(false)
 
   def transformsValueTo[A: Schema](value: A, expected: DynamicValue): Assertion[Migration] =
-    Assertion.assertion("transformsValueTo")(param(value), param(expected)) { transform =>
+    Assertion.assertion("transformsValueTo") { transform =>
       val transformed = transform.migrate(value.dynamic)
       transformed == Right(expected)
     }
 
   def failsToTransform[A: Schema](value: A): Assertion[Migration] =
-    Assertion.assertion("failsToTransform")(param(value)) { transform =>
+    Assertion.assertion("failsToTransform") { transform =>
       transform.migrate(value.dynamic).isLeft
     }
 

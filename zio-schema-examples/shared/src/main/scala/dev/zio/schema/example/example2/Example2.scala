@@ -1,5 +1,6 @@
 package dev.zio.schema.example.example2
 
+import zio._
 import zio.schema.Schema._
 import zio.schema.{ DeriveSchema, Schema }
 import zio.stream.ZTransducer
@@ -25,6 +26,7 @@ object Domain {
     val age: Field[Int]     = Schema.Field[Int]("age", Schema.primitive[Int])
 
     val schema: Schema[Person] = Schema.CaseClass2[String, Int, Person](
+      TypeId.parse("dev.zio.schema.example.example2.Domain.Person"),
       field1 = name,
       field2 = age,
       construct = (name, age) => Person(name, age),
@@ -41,6 +43,7 @@ object Domain {
       val expirationMonth: Field[Int] = Schema.Field[Int]("expirationMonth", Schema.primitive[Int])
       val expirationYear: Field[Int]  = Schema.Field[Int]("expirationYear", Schema.primitive[Int])
       implicit val schema: Schema[CreditCard] = Schema.CaseClass3[String, Int, Int, CreditCard](
+        TypeId.parse("dev.zio.schema.example.example2.Domain.PaymentMethod.CreditCard"),
         field1 = number,
         field2 = expirationMonth,
         field3 = expirationYear,
@@ -59,6 +62,7 @@ object Domain {
       val bankCode: Field[String]      = Schema.Field[String]("bankCode", Schema.primitive[String])
 
       implicit val schema: Schema[WireTransfer] = Schema.CaseClass2[String, String, WireTransfer](
+        TypeId.parse("dev.zio.schema.example.example2.Domain.PaymentMethod.WireTransfer"),
         field1 = accountNumber,
         field2 = bankCode,
         construct = (number, bankCode) => PaymentMethod.WireTransfer(number, bankCode),
@@ -68,6 +72,7 @@ object Domain {
     }
 
     val schemaPaymentMethod: Schema[PaymentMethod] = Schema.Enum2[CreditCard, WireTransfer, PaymentMethod](
+      id = TypeId.parse("dev.zio.schema.example.example2.Domain.PaymentMethod"),
       case1 = Case[CreditCard, PaymentMethod](
         id = "CreditCard",
         codec = CreditCard.schema,
@@ -94,6 +99,7 @@ object Domain {
       Schema.Field[PaymentMethod]("paymentMethod", PaymentMethod.schemaPaymentMethod)
 
     implicit val schema: Schema[Customer] = Schema.CaseClass2[Person, PaymentMethod, Customer](
+      TypeId.parse("dev.zio.schema.example.example2.Domain.Customer"),
       field1 = Customer.person,
       field2 = Customer.paymentMethod,
       construct = (person, paymentMethod) => Customer(person, paymentMethod),
@@ -103,7 +109,7 @@ object Domain {
   }
 }
 
-import Domain._
+import dev.zio.schema.example.example2.Domain._
 
 object magic extends App {
   val person        = Person("Michelle", 32)
@@ -214,7 +220,7 @@ object JsonSample extends zio.App {
   import zio.schema.codec.JsonCodec
   import zio.stream.ZStream
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
       _                      <- ZIO.unit
       person                 = Person("Michelle", 32)
@@ -232,11 +238,11 @@ object JsonSample extends zio.App {
     } yield ExitCode.success
 }
 
-object ProtobufExample extends zio.App {
+object ProtobufExample extends ZIOAppDefault {
   import zio.schema.codec.ProtobufCodec
   import zio.stream.ZStream
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
       _      <- ZIO.unit
       _      <- ZIO.debug("protobuf roundtrip")
@@ -246,8 +252,8 @@ object ProtobufExample extends zio.App {
       protoToPerson = ProtobufCodec.decoder[Person](Person.schema)
 
       newPerson <- ZStream(person)
-                    .transduce(personToProto)
-                    .transduce(protoToPerson)
+                    .via(personToProto)
+                    .via(protoToPerson)
                     .runHead
                     .some
                     .catchAll(error => ZIO.debug(error))
@@ -257,11 +263,11 @@ object ProtobufExample extends zio.App {
     } yield ExitCode.success
 }
 
-object CombiningExample extends zio.App {
+object CombiningExample extends zio.ZIOAppDefault {
   import zio.schema.codec.{ JsonCodec, ProtobufCodec }
   import zio.stream.ZStream
 
-  override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
+  override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
       _      <- ZIO.unit
       _      <- ZIO.debug("combining roundtrip")
@@ -275,11 +281,11 @@ object CombiningExample extends zio.App {
 
       newPerson <- ZStream(person)
                     .tap(v => ZIO.debug("input object is: " + v))
-                    .transduce(personToJson)
-                    .transduce(jsonToPerson)
+                    .via(personToJson)
+                    .via(jsonToPerson)
                     .tap(v => ZIO.debug("object after json roundtrip: " + v))
-                    .transduce(personToProto)
-                    .transduce(protoToPerson)
+                    .via(personToProto)
+                    .via(protoToPerson)
                     .tap(v => ZIO.debug("person after protobuf roundtrip: " + v))
                     .runHead
                     .some

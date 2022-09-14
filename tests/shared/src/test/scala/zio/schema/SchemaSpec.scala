@@ -5,11 +5,11 @@ import scala.collection.immutable.ListMap
 import zio.Chunk
 import zio.schema.CaseSet._
 import zio.test.Assertion._
-import zio.test.{ ZSpec, _ }
+import zio.test._
 
-object SchemaSpec extends DefaultRunnableSpec {
+object SchemaSpec extends ZIOSpecDefault {
 
-  def spec: ZSpec[Environment, Failure] = suite("Schema Spec")(
+  def spec: Spec[Environment, Any] = suite("Schema Spec")(
     suite("Should have valid equals")(
       test("primitive") {
         assert(schemaUnit)(equalTo(schemaUnit))
@@ -35,6 +35,7 @@ object SchemaSpec extends DefaultRunnableSpec {
       test("enumeration") {
         assert(schemaEnum("key"))(equalTo(schemaEnum("key"))) &&
         assert(schemaEnum("key1"))(not(equalTo(schemaEnum("key2"))))
+
       } @@ TestAspect.scala2Only
     ),
     test("Tuple.toRecord should preserve annotations") {
@@ -49,10 +50,11 @@ object SchemaSpec extends DefaultRunnableSpec {
   def schemaUnit: Schema[Unit] = Schema[Unit]
   def schemaInt: Schema[Int]   = Schema[Int]
 
-  def schemaRecord(key: String): Schema[ListMap[String, _]] = Schema.record(Schema.Field(key, schemaUnit))
+  def schemaRecord(key: String): Schema[ListMap[String, _]] =
+    Schema.record(TypeId.Structural, Schema.Field(key, schemaUnit))
 
   def schemaEnum(key: String): Schema[Any] =
-    Schema.enumeration[Any, CaseSet.Aux[Any]](caseOf[Unit, Any](key)(_ => ()))
+    Schema.enumeration[Any, CaseSet.Aux[Any]](TypeId.Structural, caseOf[Unit, Any](key)(_ => ()))
 
   val f: Unit => Either[String, Int] = _ => Right(0)
   val g: Int => Either[String, Unit] = _ => Right(())

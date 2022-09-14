@@ -4,9 +4,9 @@ import scala.collection.immutable.ListMap
 import scala.util.Try
 
 import zio.Chunk
-import zio.schema.{ DeriveSchema, DynamicValue, Schema, StandardType }
+import zio.schema._
 
-/** This exercise is based on John DeGoes Spartan training on ZIO-Schema from 2021-11-04
+/** This exercise is based on John DeGoes' Spartan training on ZIO-Schema from 2021-11-04
  */
 private[example7] object Problem {
 
@@ -82,7 +82,7 @@ private[example7] object Problem {
               }
             }
         }
-        .map(DynamicValue.Record)
+        .map(v => DynamicValue.Record(TypeId.Structural, v))
     }
 
     val p: Either[String, Person] = decode[Person](Map("name" -> List("John"), "age" -> List("42")))
@@ -131,7 +131,7 @@ private[example7] object Problem {
                       }
                     f
                   case _ =>
-                    val error = Left(s"Expected String or Int but found ${standardType}")
+                    val error = Left(s"Expected String or Int but found $standardType")
                     Function.const(error)
                 }
             }
@@ -174,14 +174,14 @@ private[example7] object Problem {
                   case (Left(err), _)                    => Left(err)
                   case (_, Left(err))                    => Left(err)
                 }
-                .flatMap(record.rawConstruct(_))
+                .flatMap(record.rawConstruct)
             }
 
-          case enumer: Enum[_] => ???
-          //        case Optional(codec) => ???
           case Fail(message, _) => Function.const(Left(message))
-          //        case Tuple(left, right) => ???
-          //        case EitherSchema(left, right) => ???
+          //case enumer: Enum[_] => ???
+          //case Optional(codec) => ???
+          //case Tuple(left, right) => ???
+          //case EitherSchema(left, right) => ???
           case lzy @ Lazy(_) =>
             // lazy val to make sure its only compiled on first usage and not instantly recursing
             lazy val compiled = compile(key, lzy.schema)

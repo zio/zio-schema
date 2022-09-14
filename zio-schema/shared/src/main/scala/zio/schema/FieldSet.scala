@@ -4,7 +4,7 @@ import zio.Chunk
 import zio.schema.Schema._
 
 sealed trait FieldSet {
-  type Accessors[Whole, Lens[_, _], Prism[_, _], Traversal[_, _]]
+  type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]]
   type Append[That <: FieldSet] <: FieldSet
 
   def :*:[A](head: Field[A]): FieldSet.Cons[A, FieldSet]
@@ -24,8 +24,8 @@ object FieldSet {
   val Cons = :*:
 
   case object Empty extends FieldSet {
-    override type Accessors[Whole, Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
-    override type Append[That <: FieldSet]                                   = That
+    override type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Unit
+    override type Append[That <: FieldSet]                                         = That
 
     override def :*:[A](head: Field[A]): FieldSet.Cons[A, Empty] = Cons(head, Empty)
 
@@ -42,8 +42,8 @@ object FieldSet {
   }
 
   final case class :*:[A, +T <: FieldSet](head: Field[A], tail: T) extends FieldSet { self =>
-    override type Accessors[Whole, Lens[_, _], Prism[_, _], Traversal[_, _]] =
-      (Lens[Whole, A], tail.Accessors[Whole, Lens, Prism, Traversal])
+    override type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
+      (Lens[head.label.type, Whole, A], tail.Accessors[Whole, Lens, Prism, Traversal])
     override type Append[That <: FieldSet] = Cons[A, tail.Append[That]]
 
     override def :*:[B](head2: Field[B]): FieldSet.Cons[B, Cons[A, T]] = Cons(head2, self)
@@ -60,6 +60,9 @@ object FieldSet {
 
     override def toString: String = s"$head :*: $tail"
   }
+
+  def apply(fields: Field[_]*): FieldSet =
+    fields.foldRight[FieldSet](FieldSet.Empty)((field, acc) => field :*: acc)
 
   def field[A: Schema](name: String): A :*: Empty = Field(name, Schema[A]) :*: Empty
 
