@@ -613,6 +613,16 @@ object JsonCodecSpec extends ZIOSpecDefault {
           ) { dynamicValue =>
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
           }
+        },
+        test("dynamic sequence") {
+          check(SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicSequence)) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
+        },
+        test("dynamic set") {
+          check(SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicSet)) { dynamicValue =>
+            assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
+          }
         }
       ),
       test("semi dynamic record") {
