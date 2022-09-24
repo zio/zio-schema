@@ -34,6 +34,8 @@ sealed trait Schema[A] {
 
   type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]]
 
+  //def id: TypeId todo - can we capture all the types?
+
   /**
    * A symbolic operator for [[optional]].
    */
@@ -69,7 +71,7 @@ sealed trait Schema[A] {
   /**
    *  Convert to Schema[B] iff B and A are homomorphic.
    *
-   *  This can be used to e.g convert between a case class and it's
+   *  This can be used to e.g convert between a case class and its
    *  "generic" representation as a ListMap[String,_]
    */
   def coerce[B](newSchema: Schema[B]): Either[String, Schema[B]] =
@@ -88,6 +90,8 @@ sealed trait Schema[A] {
     case Some(differ) => differ(thisValue, thatValue)
     case None         => Differ.fromSchema(self)(thisValue, thatValue)
   }
+
+  val id: TypeId
 
   /**
    * Patch value with a Diff.
@@ -219,12 +223,16 @@ object Schema extends SchemaEquality {
 
   implicit val dynamicValue: Schema[DynamicValue] = DynamicValueSchema()
 
+  implicit val fieldId : Schema[FieldId] = Schema[String].transform(FieldId(_), FieldId.unwrap(_))
+
+  implicit val typeId : Schema[TypeId] = Schema[String].transform(TypeId(_), TypeId.unwrap(_))
+
   implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
     Schema.Sequence[Chunk[A], A, String](schemaA, identity, identity, Chunk.empty, "Chunk")
 
   implicit def map[K, V](implicit ks: Schema[K], vs: Schema[V]): Schema[Map[K, V]] =
     Schema.MapSchema(ks, vs, Chunk.empty)
-
+/
   implicit def set[A](implicit schemaA: Schema[A]): Schema[Set[A]] =
     Schema.SetSchema(schemaA, Chunk.empty)
 
@@ -269,14 +277,14 @@ object Schema extends SchemaEquality {
   sealed trait Enum[A] extends Schema[A] {
     def id: TypeId
 
-    def structure: ListMap[String, Schema[_]] =
+    def structure: ListMap[TypeId, Schema[_]] =
       ListMap(structureWithAnnotations.map(kv => (kv._1, kv._2._1)).toList: _*)
 
-    def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])]
+    def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])]
   }
 
   final case class Field[A](
-    label: String,
+    label: FieldId,
     schema: Schema[A],
     annotations: Chunk[Any] = Chunk.empty,
     validation: Validation[A] = Validation.succeed[A]
@@ -319,6 +327,7 @@ object Schema extends SchemaEquality {
 
     override def defaultValue: Either[String, Col] = schemaA.defaultValue.map(fromChunk.compose(Chunk(_)))
 
+    def id: TypeId                                                         = TypeId.gen[Col]
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, schemaA)
 
     override def toString: String = s"Sequence($schemaA, $identity)"
@@ -358,6 +367,7 @@ object Schema extends SchemaEquality {
 
     override def defaultValue: Either[String, A] = standardType.defaultValue
 
+    val id: TypeId                                       = standardType.id
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
 
@@ -376,9 +386,9 @@ object Schema extends SchemaEquality {
       (Prism[some.type, Option[A], Some[A]], Prism[none.type, Option[A], None.type])
 
     lazy val toEnum: Enum2[Some[A], None.type, Option[A]] = Enum2(
-      TypeId.parse("zio.schema.Schema.Optional"),
-      Case[Some[A], Option[A]]("Some", someCodec, _.asInstanceOf[Some[A]], Chunk.empty),
-      Case[None.type, Option[A]]("None", singleton(None), _.asInstanceOf[None.type], Chunk.empty),
+      TypeId.gen[self.type],
+      Case[Some[A], Option[A]](TypeId.gen[Some[A]], someCodec, _.asInstanceOf[Some[A]], Chunk.empty),
+      Case[None.type, Option[A]](TypeId.gen[None.type], singleton(None), _.asInstanceOf[None.type], Chunk.empty),
       Chunk.empty
     )
 
@@ -413,9 +423,9 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Tuple[A, B] = copy(annotations = annotations :+ annotation)
 
     val toRecord: CaseClass2[A, B, (A, B)] = CaseClass2[A, B, (A, B)](
-      id = TypeId.parse("zio.schema.Schena.Tuple"),
-      field1 = Field[A]("_1", left),
-      field2 = Field[B]("_2", right),
+      id = TypeId.gen[Tuple[A,B]],
+      field1 = Field[A](FieldId("_1"), left),
+      field2 = Field[B](FieldId("_2"), right),
       construct = (a, b) => (a, b),
       extractField1 = _._1,
       extractField2 = _._2,
@@ -448,9 +458,9 @@ object Schema extends SchemaEquality {
     val leftSchema: Schema[Left[A, Nothing]]   = left.transform(a => Left(a), _.value)
 
     val toEnum: Enum2[Right[Nothing, B], Left[A, Nothing], Either[A, B]] = Enum2(
-      TypeId.parse("zio.schema.Schema.EitherSchema"),
-      Case("Right", rightSchema, _.asInstanceOf[Right[Nothing, B]], Chunk.empty),
-      Case("Left", leftSchema, _.asInstanceOf[Left[A, Nothing]], Chunk.empty),
+      TypeId.gen[EitherSchema[A,B]],
+      Case(TypeId.gen[Right[Nothing, B]], rightSchema, _.asInstanceOf[Right[Nothing, B]], Chunk.empty),
+      Case(TypeId.gen[Left[A, Nothing]], leftSchema, _.asInstanceOf[Left[A, Nothing]], Chunk.empty),
       Chunk.empty
     )
 
@@ -569,7 +579,7 @@ object Schema extends SchemaEquality {
 // # ENUM SCHEMAS
 
   sealed case class Case[A, Z](
-    id: String,
+    id: TypeId,
     codec: Schema[A],
     unsafeDeconstruct: Z => A,
     annotations: Chunk[Any] = Chunk.empty
@@ -596,7 +606,7 @@ object Schema extends SchemaEquality {
 
     override def makeAccessors(b: AccessorBuilder): b.Prism[case1.id.type, Z, A] = b.makePrism(self, case1)
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(case1.id -> (case1.codec -> case1.annotations))
   }
 
@@ -617,7 +627,7 @@ object Schema extends SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): (b.Prism[case1.id.type, Z, A1], b.Prism[case2.id.type, Z, A2]) =
       (b.makePrism(self, case1), b.makePrism(self, case2))
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(case1.id -> (case1.codec -> case1.annotations), case2.id -> (case2.codec -> case2.annotations))
   }
 
@@ -641,7 +651,7 @@ object Schema extends SchemaEquality {
     ): (b.Prism[case1.id.type, Z, A1], b.Prism[case2.id.type, Z, A2], b.Prism[case3.id.type, Z, A3]) =
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3))
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id -> (case1.codec -> case1.annotations),
         case2.id -> (case2.codec -> case2.annotations),
@@ -678,7 +688,7 @@ object Schema extends SchemaEquality {
     ) =
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4))
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id -> (case1.codec -> case1.annotations),
         case2.id -> (case2.codec -> case2.annotations),
@@ -727,7 +737,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case5)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id -> (case1.codec -> case1.annotations),
         case2.id -> (case2.codec -> case2.annotations),
@@ -782,7 +792,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case6)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id -> (case1.codec -> case1.annotations),
         case2.id -> (case2.codec -> case2.annotations),
@@ -840,7 +850,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case7)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id -> (case1.codec -> case1.annotations),
         case2.id -> (case2.codec -> case2.annotations),
@@ -903,7 +913,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case8)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id -> (case1.codec -> case1.annotations),
         case2.id -> (case2.codec -> case2.annotations),
@@ -970,7 +980,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case9)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id -> (case1.codec -> case1.annotations),
         case2.id -> (case2.codec -> case2.annotations),
@@ -1042,7 +1052,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case10)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id  -> (case1.codec  -> case1.annotations),
         case2.id  -> (case2.codec  -> case2.annotations),
@@ -1132,7 +1142,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case11)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id  -> (case1.codec  -> case1.annotations),
         case2.id  -> (case2.codec  -> case2.annotations),
@@ -1228,7 +1238,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case12)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id  -> (case1.codec  -> case1.annotations),
         case2.id  -> (case2.codec  -> case2.annotations),
@@ -1330,7 +1340,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case13)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id  -> (case1.codec  -> case1.annotations),
         case2.id  -> (case2.codec  -> case2.annotations),
@@ -1438,7 +1448,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case14)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id  -> (case1.codec  -> case1.annotations),
         case2.id  -> (case2.codec  -> case2.annotations),
@@ -1554,7 +1564,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case15)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id  -> (case1.codec  -> case1.annotations),
         case2.id  -> (case2.codec  -> case2.annotations),
@@ -1676,7 +1686,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case16)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id  -> (case1.codec  -> case1.annotations),
         case2.id  -> (case2.codec  -> case2.annotations),
@@ -1804,7 +1814,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case17)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id  -> (case1.codec  -> case1.annotations),
         case2.id  -> (case2.codec  -> case2.annotations),
@@ -1938,7 +1948,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case18)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id  -> (case1.codec  -> case1.annotations),
         case2.id  -> (case2.codec  -> case2.annotations),
@@ -2078,7 +2088,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case19)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id  -> (case1.codec  -> case1.annotations),
         case2.id  -> (case2.codec  -> case2.annotations),
@@ -2224,7 +2234,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case20)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id  -> (case1.codec  -> case1.annotations),
         case2.id  -> (case2.codec  -> case2.annotations),
@@ -2378,7 +2388,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case21)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id  -> (case1.codec  -> case1.annotations),
         case2.id  -> (case2.codec  -> case2.annotations),
@@ -2538,7 +2548,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case22)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(
         case1.id  -> (case1.codec  -> case1.annotations),
         case2.id  -> (case2.codec  -> case2.annotations),
@@ -2573,7 +2583,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): EnumN[Z, C] = copy(annotations = annotations :+ annotation)
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+    override def structureWithAnnotations: ListMap[TypeId, (Schema[_], Chunk[Any])] =
       ListMap(caseSet.toSeq.map(c => c.id -> (c.codec -> c.annotations)): _*)
 
     def defaultValue: Either[String, Z] =

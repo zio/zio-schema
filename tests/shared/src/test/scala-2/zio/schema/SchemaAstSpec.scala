@@ -247,12 +247,15 @@ object SchemaAstSpec extends ZIOSpecDefault {
   }
 
   sealed trait Pet
+
   case object Rock             extends Pet
+
   case class Dog(name: String) extends Pet
 
   object Dog {
     implicit lazy val schema: Schema[Dog] = DeriveSchema.gen[Dog]
   }
+  
   case class Cat(name: String, hasHair: Boolean) extends Pet
 
   object Cat {

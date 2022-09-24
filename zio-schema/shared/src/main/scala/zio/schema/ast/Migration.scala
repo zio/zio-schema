@@ -2,7 +2,8 @@ package zio.schema.ast
 
 import scala.collection.immutable.ListMap
 
-import zio.schema.{ DynamicValue, StandardType }
+import zio.schema._
+import zio.schema.ast.SchemaAst.{FieldLabelled,TypeLabelled,Labelled}
 import zio.{ Chunk, ChunkBuilder }
 
 sealed trait Migration { self =>
@@ -69,8 +70,8 @@ object Migration {
       def goProduct(
         f: SchemaAst,
         t: SchemaAst,
-        ffields: Chunk[(String, SchemaAst)],
-        tfields: Chunk[(String, SchemaAst)]
+        ffields: Chunk[(FieldId, SchemaAst)],
+        tfields: Chunk[(FieldId, SchemaAst)]
       ): Either[String, Chunk[Migration]] =
         matchedSubtrees(ffields, tfields).map {
           case ((nextPath, fs), (_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
@@ -91,8 +92,8 @@ object Migration {
       def goSum(
         f: SchemaAst,
         t: SchemaAst,
-        fcases: Chunk[(String, SchemaAst)],
-        tcases: Chunk[(String, SchemaAst)]
+        fcases: Chunk[Labelled],
+        tcases: Chunk[Labelled]
       ): Either[String, Chunk[Migration]] =
         matchedSubtrees(fcases, tcases).map {
           case ((nextPath, fs), (_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
@@ -121,38 +122,38 @@ object Migration {
         case (f @ SchemaAst.Product(_, _, ffields, _), t @ SchemaAst.Product(_, _, tfields, _)) =>
           goProduct(f, t, ffields, tfields)
         case (f @ SchemaAst.Tuple(_, fleft, fright, _), t @ SchemaAst.Tuple(_, tleft, tright, _)) =>
-          val ffields = Chunk("left" -> fleft, "right" -> fright)
-          val tfields = Chunk("left" -> tleft, "right" -> tright)
+          val ffields = Chunk(FieldId("left") -> fleft, FieldId("right") -> fright)
+          val tfields = Chunk(FieldId("left") -> tleft, FieldId("right") -> tright)
           goProduct(f, t, ffields, tfields)
         case (f @ SchemaAst.Product(_, _, ffields, _), t @ SchemaAst.Tuple(_, tleft, tright, _)) =>
-          val tfields = Chunk("left" -> tleft, "right" -> tright)
+          val tfields = Chunk(FieldId("left") -> tleft, FieldId("right") -> tright)
           goProduct(f, t, ffields, tfields)
         case (f @ SchemaAst.Tuple(_, fleft, fright, _), t @ SchemaAst.Product(_, _, tfields, _)) =>
-          val ffields = Chunk("left" -> fleft, "right" -> fright)
+          val ffields = Chunk(FieldId("left") -> fleft, FieldId("right") -> fright)
           goProduct(f, t, ffields, tfields)
         case (f @ SchemaAst.ListNode(fitem, _, _), t @ SchemaAst.ListNode(titem, _, _)) =>
-          val ffields = Chunk("item" -> fitem)
-          val tfields = Chunk("item" -> titem)
+          val ffields = Chunk(FieldId("item") -> fitem)
+          val tfields = Chunk(FieldId("item") -> titem)
           goProduct(f, t, ffields, tfields)
         case (SchemaAst.ListNode(fitem, _, _), titem) =>
           derive(fitem, titem).map(migrations => DecrementDimensions(titem.path, 1) +: migrations)
         case (fitem, SchemaAst.ListNode(titem, _, _)) =>
           derive(fitem, titem).map(migrations => IncrementDimensions(titem.path, 1) +: migrations)
         case (f @ SchemaAst.Dictionary(fkeys, fvalues, _, _), t @ SchemaAst.Dictionary(tkeys, tvalues, _, _)) =>
-          val ffields = Chunk("keys" -> fkeys, "values" -> fvalues)
-          val tfields = Chunk("keys" -> tkeys, "values" -> tvalues)
+          val ffields = Chunk(FieldId("keys") -> fkeys,FieldId("values") -> fvalues)
+          val tfields = Chunk(FieldId("keys") -> tkeys,FieldId("values") -> tvalues)
           goProduct(f, t, ffields, tfields)
         case (f @ SchemaAst.Sum(_, _, fcases, _), t @ SchemaAst.Sum(_, _, tcases, _)) =>
           goSum(f, t, fcases, tcases)
         case (f @ SchemaAst.Either(_, fleft, fright, _), t @ SchemaAst.Either(_, tleft, tright, _)) =>
-          val fcases = Chunk("left" -> fleft, "right" -> fright)
-          val tcases = Chunk("left" -> tleft, "right" -> tright)
+          val fcases = Chunk(FieldId("left") -> fleft,FieldId("right") -> fright)
+          val tcases = Chunk(FieldId("left") -> tleft,FieldId("right") -> tright)
           goSum(f, t, fcases, tcases)
         case (f @ SchemaAst.Sum(_, _, fcases, _), t @ SchemaAst.Either(_, tleft, tright, _)) =>
-          val tcases = Chunk("left" -> tleft, "right" -> tright)
+          val tcases = Chunk(FieldId("left") -> tleft,FieldId("right") -> tright)
           goSum(f, t, fcases, tcases)
         case (f @ SchemaAst.Either(_, fleft, fright, _), t @ SchemaAst.Sum(_, _, tcases, _)) =>
-          val fcases = Chunk("left" -> fleft, "right" -> fright)
+          val fcases = Chunk(FieldId("left") -> fleft,FieldId("right") -> fright)
           goSum(f, t, fcases, tcases)
         case (f @ SchemaAst.Value(ftype, _, _), t @ SchemaAst.Value(ttype, _, _)) if ttype != ftype =>
           Right(transformShape(path, f, t) :+ ChangeType(path, ttype))
@@ -269,14 +270,14 @@ object Migration {
 
   private def updateLeaf(
     value: DynamicValue,
-    path: List[String],
+    path: List[FieldId],
     trace: Chunk[String] = Chunk.empty
   )(op: (String, DynamicValue) => Either[String, Option[(String, DynamicValue)]]): Either[String, DynamicValue] = {
     (value, path) match {
       case (DynamicValue.SomeValue(value), _) =>
         updateLeaf(value, path, trace)(op).map(DynamicValue.SomeValue(_))
       case (DynamicValue.NoneValue, _) => Right(DynamicValue.NoneValue)
-      case (DynamicValue.Sequence(values), "item" :: remainder) =>
+      case (DynamicValue.Sequence(values), FieldId("item") :: remainder) =>
         values.zipWithIndex.map { case (v, idx) => updateLeaf(v, remainder, trace :+ s"item[$idx]")(op) }
           .foldRight[Either[String, DynamicValue.Sequence]](Right(DynamicValue.Sequence(Chunk.empty))) {
             case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
@@ -286,17 +287,17 @@ object Migration {
               Right(DynamicValue.Sequence(v1s ++ v2s))
             case (Right(v1), Right(DynamicValue.Sequence(v2s))) => Right(DynamicValue.Sequence(v1 +: v2s))
           }
-      case (DynamicValue.Tuple(l, r), "left" :: remainder) =>
+      case (DynamicValue.Tuple(l, r), FieldId("left") :: remainder) =>
         updateLeaf(l, remainder, trace :+ "left")(op).map(newLeft => DynamicValue.Tuple(newLeft, r))
-      case (DynamicValue.Tuple(l, r), "right" :: remainder) =>
+      case (DynamicValue.Tuple(l, r), FieldId("right") :: remainder) =>
         updateLeaf(r, remainder, trace :+ "right")(op).map(newRight => DynamicValue.Tuple(l, newRight))
-      case (DynamicValue.LeftValue(l), "left" :: remainder) =>
+      case (DynamicValue.LeftValue(l), FieldId("left") :: remainder) =>
         updateLeaf(l, remainder, trace :+ "left")(op).map(DynamicValue.LeftValue(_))
-      case (value @ DynamicValue.LeftValue(_), "right" :: _) =>
+      case (value @ DynamicValue.LeftValue(_), FieldId("right") :: _) =>
         Right(value)
-      case (DynamicValue.RightValue(r), "right" :: remainder) =>
+      case (DynamicValue.RightValue(r), FieldId("right") :: remainder) =>
         updateLeaf(r, remainder, trace :+ "right")(op).map(DynamicValue.RightValue(_))
-      case (value @ DynamicValue.RightValue(_), "left" :: _) =>
+      case (value @ DynamicValue.RightValue(_), FieldId("left") :: _) =>
         Right(value)
       case (DynamicValue.Record(name, values), leafLabel :: Nil) if values.keySet.contains(leafLabel) =>
         op(leafLabel, values(leafLabel)).map {
@@ -313,8 +314,8 @@ object Migration {
       case (v @ DynamicValue.Enumeration(_, (caseLabel, _)), nextLabel :: _) if caseLabel != nextLabel =>
         Right(v)
       case (DynamicValue.Enumeration(id, (caseLabel, caseValue)), nextLabel :: Nil) if caseLabel == nextLabel =>
-        op(caseLabel, caseValue).flatMap {
-          case Some(newCase) => Right(DynamicValue.Enumeration(id, newCase))
+        op(FieldId(caseLabel), caseValue).flatMap { //caseLabel is not a FieldId, it is a TypeId!, NodePaths shouldn't contain types!! review this logic
+          case Some((newLabel, newValue)) => Right(DynamicValue.Enumeration(id, (newLabel.asInstanceOf[TypeId], newValue)))
           case None =>
             Left(
               s"Failed to update leaf node at path ${renderPath(trace :+ nextLabel)}: Cannot remove instantiated case"
@@ -322,15 +323,15 @@ object Migration {
         }
       case (DynamicValue.Enumeration(id, (caseLabel, caseValue)), nextLabel :: remainder) if caseLabel == nextLabel =>
         updateLeaf(caseValue, remainder, trace :+ nextLabel)(op).map { updatedValue =>
-          DynamicValue.Enumeration(id, nextLabel -> updatedValue)
+          DynamicValue.Enumeration(id, TypeId(nextLabel) -> updatedValue)
         }
-      case (DynamicValue.Dictionary(entries), "keys" :: Nil) =>
+      case (DynamicValue.Dictionary(entries), FieldId("keys") :: Nil) =>
         entries
           .map(_._1)
           .zipWithIndex
           .map {
             case (k, idx) =>
-              op(s"key[$idx]", k).flatMap {
+              op(FieldId(s"key[$idx]"), k).flatMap {
                 case Some((_, migrated)) => Right(migrated)
                 case None                => Left(s"invalid update at $path, cannot remove map key")
               }
@@ -345,7 +346,7 @@ object Migration {
           .map { keys =>
             DynamicValue.Dictionary(keys.zip(entries.map(_._2)))
           }
-      case (DynamicValue.Dictionary(entries), "keys" :: remainder) =>
+      case (DynamicValue.Dictionary(entries), FieldId("keys") :: remainder) =>
         entries
           .map(_._1)
           .zipWithIndex
@@ -363,13 +364,13 @@ object Migration {
           .map { keys =>
             DynamicValue.Dictionary(keys.zip(entries.map(_._2)))
           }
-      case (DynamicValue.Dictionary(entries), "values" :: Nil) =>
+      case (DynamicValue.Dictionary(entries), FieldId("values") :: Nil) =>
         entries
           .map(_._2)
           .zipWithIndex
           .map {
             case (k, idx) =>
-              op(s"key[$idx]", k).flatMap {
+              op(FieldId(s"key[$idx]"), k).flatMap {
                 case Some((_, migrated)) => Right(migrated)
                 case None                => Left(s"invalid update at $path, cannot remove map value")
               }
@@ -384,7 +385,7 @@ object Migration {
           .map { values =>
             DynamicValue.Dictionary(entries.map(_._1).zip(values))
           }
-      case (DynamicValue.Dictionary(entries), "values" :: remainder) =>
+      case (DynamicValue.Dictionary(entries), FieldId("values") :: remainder) =>
         entries
           .map(_._2)
           .zipWithIndex
@@ -460,7 +461,7 @@ object Migration {
 
   protected[schema] def updateFail(
     value: DynamicValue,
-    path: List[String],
+    path: List[FieldId],
     newMessage: String
   ): Either[String, DynamicValue] =
     (path, value) match {
@@ -477,7 +478,7 @@ object Migration {
 
   protected[schema] def incrementDimension(
     value: DynamicValue,
-    path: List[String],
+    path: List[FieldId],
     n: Int
   ): Either[String, DynamicValue] =
     path match {
@@ -504,7 +505,7 @@ object Migration {
 
   protected[schema] def decrementDimensions(
     value: DynamicValue,
-    path: List[String],
+    path: List[FieldId],
     n: Int
   ): Either[String, DynamicValue] =
     path match {
@@ -534,7 +535,7 @@ object Migration {
 
   protected[schema] def require(
     value: DynamicValue,
-    path: List[String]
+    path: List[FieldId]
   ): Either[String, DynamicValue] =
     (value, path) match {
       case (DynamicValue.SomeValue(v), Nil) => Right(v)
@@ -555,7 +556,7 @@ object Migration {
 
   protected[schema] def relabel(
     value: DynamicValue,
-    path: List[String],
+    path: List[FieldId],
     transformation: LabelTransformation
   ): Either[String, DynamicValue] =
     path match {
@@ -572,7 +573,7 @@ object Migration {
 
   protected[schema] def makeOptional(
     value: DynamicValue,
-    path: List[String]
+    path: List[FieldId]
   ): Either[String, DynamicValue] =
     (value, path) match {
       case (value, Nil) => Right(DynamicValue.SomeValue(value))
@@ -585,7 +586,7 @@ object Migration {
 
   protected[schema] def deleteNode(
     value: DynamicValue,
-    path: List[String]
+    path: List[FieldId]
   ): Either[String, DynamicValue] =
     path match {
       case Nil => Left(s"Cannot delete node: Path was empty")

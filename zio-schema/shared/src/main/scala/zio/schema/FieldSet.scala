@@ -2,6 +2,8 @@ package zio.schema
 
 import zio.Chunk
 import zio.schema.Schema._
+import zio.schema._
+import zio.schema.ast._
 
 sealed trait FieldSet {
   type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]]
@@ -64,6 +66,6 @@ object FieldSet {
   def apply(fields: Field[_]*): FieldSet =
     fields.foldRight[FieldSet](FieldSet.Empty)((field, acc) => field :*: acc)
 
-  def field[A: Schema](name: String): A :*: Empty = Field(name, Schema[A]) :*: Empty
+  def field[A: Schema](name: FieldId): A :*: Empty = Field(name, Schema[A]) :*: Empty
 
 }

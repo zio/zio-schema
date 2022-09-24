@@ -93,6 +93,12 @@ lazy val zioSchemaMacros = crossProject(JSPlatform, JVMPlatform)
   .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema"))
   .settings(macroDefinitionSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio"         % zioVersion,
+      "dev.zio" %% "zio-prelude" % zioPreludeVersion
+   )
+  )
 
 lazy val zioSchemaMacrosJS  = zioSchemaMacros.js
 lazy val zioSchemaMacrosJVM = zioSchemaMacros.jvm

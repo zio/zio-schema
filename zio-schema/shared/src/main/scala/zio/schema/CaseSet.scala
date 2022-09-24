@@ -17,7 +17,7 @@ sealed trait CaseSet { self =>
 
   // def ++[That](that: That)(implicit append: Append[EnumType, self.type, That]): append.Out
 
-  def toMap: ListMap[String, Schema[_]]
+  def toMap: ListMap[TypeId, Schema[_]]
 
   def toSeq: Seq[Case[_, EnumType]]
 
@@ -38,7 +38,7 @@ object CaseSet {
     def ++[That](that: That)(implicit append: Append[Z, Empty[Z], That]): append.Out =
       append(self, that)
 
-    override def toMap: ListMap[String, Schema[_]] = ListMap.empty
+    override def toMap: ListMap[TypeId, Schema[_]] = ListMap.empty
 
     override def toSeq: Seq[Case[_, Z]] = Seq.empty
 
@@ -69,7 +69,7 @@ object CaseSet {
     def ++[That](that: That)(implicit append: Append[Z, Cons[A, T, Z], That]): append.Out =
       append(self, that)
 
-    override def toMap: ListMap[String, Schema[_]] = ListMap(head.id -> head.codec) ++ tail.toMap
+    override def toMap: ListMap[TypeId, Schema[_]] = ListMap(head.id -> head.codec) ++ tail.toMap
 
     override def toSeq: Seq[Case[_, Z]] =
       Seq(head) ++ tail.toSeq
@@ -88,7 +88,7 @@ object CaseSet {
     case (c, cs) => Cons(c, cs)
   }
 
-  def caseOf[A: Schema, Z >: A](id: String)(unsafeDeconstruct: Z => A): Cons[A, Empty[Z], Z] =
+  def caseOf[A: Schema, Z >: A](id: TypeId)(unsafeDeconstruct: Z => A): Cons[A, Empty[Z], Z] =
     Cons(Case(id, Schema[A], unsafeDeconstruct, Chunk.empty), Empty[Z]())
 
 }

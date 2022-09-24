@@ -23,27 +23,29 @@ object SchemaAst {
   import CaseSet._
 
   type Labelled = (String, SchemaAst)
+  type FieldLabelled = (FieldId, SchemaAst)
+  type TypeLabelled = (TypeId, SchemaAst)
   type Lineage  = Chunk[(Int, NodePath)]
 
   implicit val nodePathSchema: Schema[NodePath] =
-    Schema[String].repeated
+    Schema[FieldId].repeated
       .transform(NodePath(_), NodePath.unwrap)
 
   final case class Product(
     id: TypeId,
     override val path: NodePath,
-    fields: Chunk[Labelled] = Chunk.empty,
+    fields: Chunk[FieldLabelled] = Chunk.empty,
     override val optional: Boolean = false
   ) extends SchemaAst
 
   object Product {
     implicit val schema: Schema[Product] = {
       Schema.CaseClass3(
-        TypeId.parse("zio.schema.ast.SchemaAst.Product"),
-        field1 = Schema.Field("path", Schema[String].repeated),
-        field2 = Schema.Field("fields", Schema[Labelled].repeated),
-        field3 = Schema.Field("optional", Schema[Boolean]),
-        (path: Chunk[String], fields: Chunk[Labelled], optional: Boolean) =>
+        TypeId.gen[Product],
+        field1 = Schema.Field(FieldId("path"), Schema[FieldId].repeated),
+        field2 = Schema.Field(FieldId("fields"), Schema[FieldLabelled].repeated),
+        field3 = Schema.Field(FieldId("optional"), Schema[Boolean]),
+        (path: Chunk[FieldId], fields: Chunk[FieldLabelled], optional: Boolean) =>
           Product(TypeId.Structural, NodePath(path), fields, optional),
         _.path,
         _.fields,
@@ -59,14 +61,14 @@ object SchemaAst {
   ) extends SchemaAst
 
   object Tuple {
-    implicit val schema: Schema[Tuple] = {
+    implicit val schema: Schema[Tuple] = { 
       Schema.CaseClass4(
-        TypeId.parse("zio.schema.ast.SchemaAst.Tuple"),
-        field1 = Schema.Field("path", Schema[String].repeated),
-        field2 = Schema.Field("left", Schema[SchemaAst]),
-        field3 = Schema.Field("right", Schema[SchemaAst]),
-        field4 = Schema.Field("optional", Schema[Boolean]),
-        (path: Chunk[String], left: SchemaAst, right: SchemaAst, optional: Boolean) =>
+        TypeId.gen[Tuple],
+        field1 = Schema.Field(FieldId("path"), Schema[FieldId].repeated),
+        field2 = Schema.Field(FieldId("left"), Schema[SchemaAst]),
+        field3 = Schema.Field(FieldId("right"), Schema[SchemaAst]),
+        field4 = Schema.Field(FieldId("optional"), Schema[Boolean]),
+        (path: Chunk[FieldId], left: SchemaAst, right: SchemaAst, optional: Boolean) =>
           Tuple(NodePath(path), left, right, optional),
         _.path,
         _.left,
@@ -79,18 +81,18 @@ object SchemaAst {
   final case class Sum(
     id: TypeId,
     override val path: NodePath,
-    cases: Chunk[Labelled] = Chunk.empty,
+    cases: Chunk[TypeLabelled] = Chunk.empty,
     override val optional: Boolean = false
   ) extends SchemaAst
 
   object Sum {
     implicit lazy val schema: Schema[Sum] =
       Schema.CaseClass3(
-        TypeId.parse("zio.schema.ast.SchemaAst.Sum"),
-        field1 = Schema.Field("path", Schema[String].repeated),
-        field2 = Schema.Field("cases", Schema[Labelled].repeated),
-        field3 = Schema.Field("optional", Schema[Boolean]),
-        (path: Chunk[String], fields: Chunk[Labelled], optional: Boolean) =>
+        TypeId.gen[Sum],
+        field1 = Schema.Field(FieldId("path"), Schema[FieldId].repeated),
+        field2 = Schema.Field(FieldId("cases"), Schema[TypeLabelled].repeated),
+        field3 = Schema.Field(FieldId("optional"), Schema[Boolean]),
+        (path: Chunk[FieldId], fields: Chunk[TypeLabelled], optional: Boolean) =>
           Sum(TypeId.Structural, NodePath(path), fields, optional),
         _.path,
         _.cases,
@@ -108,12 +110,12 @@ object SchemaAst {
   object Either {
     implicit val schema: Schema[Either] = {
       Schema.CaseClass4(
-        TypeId.parse("zio.schema.ast.SchemaAst.Either"),
-        field1 = Schema.Field("path", Schema[String].repeated),
-        field2 = Schema.Field("left", Schema[SchemaAst]),
-        field3 = Schema.Field("right", Schema[SchemaAst]),
-        field4 = Schema.Field("optional", Schema[Boolean]),
-        (path: Chunk[String], left: SchemaAst, right: SchemaAst, optional: Boolean) =>
+        TypeId.gen[Either],
+        field1 = Schema.Field(FieldId("path"), Schema[FieldId].repeated),
+        field2 = Schema.Field(FieldId("left"), Schema[SchemaAst]),
+        field3 = Schema.Field(FieldId("right"), Schema[SchemaAst]),
+        field4 = Schema.Field(FieldId("optional"), Schema[Boolean]),
+        (path: Chunk[FieldId], left: SchemaAst, right: SchemaAst, optional: Boolean) =>
           Either(NodePath(path), left, right, optional),
         _.path,
         _.left,
@@ -129,13 +131,13 @@ object SchemaAst {
     override val optional: Boolean = false
   ) extends SchemaAst
 
-  object FailNode {
+  object FailNode { self => 
     implicit val schema: Schema[FailNode] = Schema.CaseClass3(
-      TypeId.parse("zio.schema.ast.SchemaAst.FailNode"),
-      field1 = Schema.Field("message", Schema[String]),
-      field2 = Schema.Field("path", Schema[String].repeated),
-      field3 = Schema.Field("optional", Schema[Boolean]),
-      (m: String, path: Chunk[String], optional: Boolean) => FailNode(m, NodePath(path), optional),
+      TypeId.gen[FailNode],
+      field1 = Schema.Field(FieldId("message"), Schema[String]),
+      field2 = Schema.Field(FieldId("path"), Schema[FieldId].repeated),
+      field3 = Schema.Field(FieldId("optional"), Schema[Boolean]),
+      (m: String, path: Chunk[FieldId], optional: Boolean) => FailNode(m, NodePath(path), optional),
       _.message,
       _.path,
       _.optional
@@ -150,11 +152,11 @@ object SchemaAst {
 
   object ListNode {
     implicit val schema: Schema[ListNode] = Schema.CaseClass3(
-      TypeId.parse("zio.schema.ast.SchemaAst.ListNode"),
-      field1 = Schema.Field("item", Schema[SchemaAst]),
-      field2 = Schema.Field("path", Schema[String].repeated),
-      field3 = Schema.Field("optional", Schema[Boolean]),
-      (item: SchemaAst, path: Chunk[String], optional: Boolean) => ListNode(item, NodePath(path), optional),
+      TypeId.gen[ListNode],
+      field1 = Schema.Field(FieldId("item"), Schema[SchemaAst]),
+      field2 = Schema.Field(FieldId("path"), Schema[FieldId].repeated),
+      field3 = Schema.Field(FieldId("optional"), Schema[Boolean]),
+      (item: SchemaAst, path: Chunk[FieldId], optional: Boolean) => ListNode(item, NodePath(path), optional),
       _.item,
       _.path,
       _.optional
@@ -170,12 +172,12 @@ object SchemaAst {
 
   object Dictionary {
     implicit val schema: Schema[Dictionary] = Schema.CaseClass4(
-      TypeId.parse("zio.schema.ast.SchemaAst.Dictionary"),
-      field1 = Schema.Field("keys", Schema[SchemaAst]),
-      field2 = Schema.Field("values", Schema[SchemaAst]),
-      field3 = Schema.Field("path", Schema[String].repeated),
-      field4 = Schema.Field("optional", Schema[Boolean]),
-      (keys: SchemaAst, values: SchemaAst, path: Chunk[String], optional: Boolean) =>
+      TypeId.gen[Dictionary],
+      field1 = Schema.Field(FieldId("keys"), Schema[SchemaAst]),
+      field2 = Schema.Field(FieldId("values"), Schema[SchemaAst]),
+      field3 = Schema.Field(FieldId("path"), Schema[FieldId].repeated),
+      field4 = Schema.Field(FieldId("optional"), Schema[Boolean]),
+      (keys: SchemaAst, values: SchemaAst, path: Chunk[FieldId], optional: Boolean) =>
         Dictionary(keys, values, NodePath(path), optional),
       _.keys,
       _.values,
@@ -193,11 +195,11 @@ object SchemaAst {
   object Value {
     implicit val schema: Schema[Value] =
       Schema
-        .CaseClass3[String, Chunk[String], Boolean, (String, Chunk[String], Boolean)](
-          TypeId.parse("zio.schema.ast.SchemaAst.Value"),
-          field1 = Schema.Field("valueType", Schema[String]),
-          field2 = Schema.Field("path", Schema[String].repeated),
-          field3 = Schema.Field("optional", Schema[Boolean]),
+        .CaseClass3[TypeId, Chunk[FieldId], Boolean, (TypeId, Chunk[FieldId], Boolean)](
+          TypeId.gen[Value],
+          field1 = Schema.Field(FieldId("valueType"), Schema[TypeId]),
+          field2 = Schema.Field(FieldId("path"), Schema[FieldId].repeated),
+          field3 = Schema.Field(FieldId("optional"), Schema[Boolean]),
           construct = (v, p, o) => (v, p, o),
           extractField1 = _._1,
           extractField2 = _._2,
@@ -205,10 +207,10 @@ object SchemaAst {
         )
         .transformOrFail(fromTuple, tupled)
 
-    private def tupled(value: Value): scala.Either[String, (String, Chunk[String], Boolean)] =
-      Right((value.valueType.tag, value.path, value.optional))
+    private def tupled(value: Value): scala.Either[String, (TypeId, Chunk[FieldId], Boolean)] =
+      Right((value.valueType.id, value.path, value.optional))
 
-    private def fromTuple(tuple: (String, Chunk[String], Boolean)): scala.Either[String, Value] = tuple match {
+    private def fromTuple(tuple: (TypeId, Chunk[FieldId], Boolean)): scala.Either[String, Value] = tuple match {
       case (s, path, optional) =>
         StandardType
           .fromString(s)
@@ -225,11 +227,11 @@ object SchemaAst {
   object Ref {
     implicit val schema: Schema[Ref] =
       Schema.CaseClass3(
-        TypeId.parse("zio.schema.ast.SchemaAst.Ref"),
-        field1 = Schema.Field("refPath", Schema[String].repeated),
-        field2 = Schema.Field("path", Schema[String].repeated),
-        field3 = Schema.Field("optional", Schema[Boolean]),
-        (refPath: Chunk[String], path: Chunk[String], optional: Boolean) =>
+        TypeId.gen[Ref],
+        field1 = Schema.Field(FieldId("refPath"), Schema[FieldId].repeated),
+        field2 = Schema.Field(FieldId("path"), Schema[FieldId].repeated),
+        field3 = Schema.Field(FieldId("optional"), Schema[Boolean]),
+        (refPath: Chunk[FieldId], path: Chunk[FieldId], optional: Boolean) =>
           Ref(NodePath(refPath), NodePath(path), optional),
         _.refPath,
         _.path,
@@ -246,11 +248,11 @@ object SchemaAst {
   object Dynamic {
     implicit val schema: Schema[Dynamic] =
       Schema.CaseClass3(
-        TypeId.parse("zio.schema.ast.SchemaAst.Dynamic"),
-        field1 = Schema.Field("withSchema", Schema[Boolean]),
-        field2 = Schema.Field("path", Schema[String].repeated),
-        field3 = Schema.Field("optional", Schema[Boolean]),
-        (withSchema: Boolean, path: Chunk[String], optional: Boolean) => Dynamic(withSchema, NodePath(path), optional),
+        TypeId.gen[Dynamic],
+        field1 = Schema.Field(FieldId("withSchema"), Schema[Boolean]),
+        field2 = Schema.Field(FieldId("path"), Schema[FieldId].repeated),
+        field3 = Schema.Field(FieldId("optional"), Schema[Boolean]),
+        (withSchema: Boolean, path: Chunk[FieldId], optional: Boolean) => Dynamic(withSchema, NodePath(path), optional),
         _.withSchema,
         _.path,
         _.optional
@@ -262,14 +264,30 @@ object SchemaAst {
     lineage: Lineage,
     optional: Boolean = false
   ) { self =>
-    private val children: ChunkBuilder[Labelled] = ChunkBuilder.make[Labelled]()
+    private val children: ChunkBuilder[FieldLabelled] = ChunkBuilder.make[FieldLabelled]()
 
-    def addLabelledSubtree(label: String, schema: Schema[_]): NodeBuilder = {
+    def addLabelledSubtree(label: FieldId, schema: Schema[_]): NodeBuilder = {
       children += (label -> subtree(path / label, lineage, schema))
       self
     }
 
     def buildProduct(id: TypeId): Product = Product(id, path, children.result(), optional)
+
+    
+  }
+
+    final private[schema] case class SumNodeBuilder(
+    path: NodePath,
+    lineage: Lineage,
+    optional: Boolean = false
+  ) { self =>
+    private val children: ChunkBuilder[(TypeId,SchemaAst)] = ChunkBuilder.make[(TypeId,SchemaAst)]()
+
+    def addTypedSubtree(label: TypeId, schema: Schema[_]): SumNodeBuilder = {
+      children += (label -> subtree(path / label, lineage, schema))
+      self
+    }
+
 
     def buildSum(id: TypeId): Sum = Sum(id, path, children.result(), optional)
   }
@@ -311,9 +329,9 @@ object SchemaAst {
         .buildProduct(s.id)
     case s: Schema.Enum[A] =>
       s.structure
-        .foldLeft(NodeBuilder(NodePath.root, Chunk(s.hashCode() -> NodePath.root))) {
+        .foldLeft(SumNodeBuilder(NodePath.root, Chunk(s.hashCode() -> NodePath.root))) {
           case (node, (id, schema)) =>
-            node.addLabelledSubtree(id, schema)
+            node.addTypedSubtree(id, schema)
         }
         .buildSum(s.id)
     case Schema.Meta(ast, _)      => ast
@@ -372,9 +390,9 @@ object SchemaAst {
               .buildProduct(s.id)
           case s: Schema.Enum[_] =>
             s.structure
-              .foldLeft(NodeBuilder(path, lineage :+ (s.hashCode() -> path), optional)) {
+              .foldLeft(SumNodeBuilder(path, lineage :+ (s.hashCode() -> path), optional)) {
                 case (node, (id, schema)) =>
-                  node.addLabelledSubtree(id, schema)
+                  node.addTypedSubtree(id, schema)
               }
               .buildSum(s.id)
           case Schema.Fail(message, _)  => FailNode(message, path)
@@ -444,15 +462,15 @@ object SchemaAst {
   implicit lazy val schema: Schema[SchemaAst] =
     Schema.Lazy { () =>
       Schema.EnumN[SchemaAst, CaseSet.Aux[SchemaAst]](
-        TypeId.parse("zio.schema.ast.SchemaAst"),
-        caseOf[Value, SchemaAst]("Value")(_.asInstanceOf[Value]) ++
-          caseOf[Sum, SchemaAst]("Sum")(_.asInstanceOf[Sum]) ++
-          caseOf[Either, SchemaAst]("Either")(_.asInstanceOf[Either]) ++
-          caseOf[Product, SchemaAst]("Product")(_.asInstanceOf[Product]) ++
-          caseOf[Tuple, SchemaAst]("Tuple")(_.asInstanceOf[Tuple]) ++
-          caseOf[Ref, SchemaAst]("Ref")(_.asInstanceOf[Ref]) ++
-          caseOf[ListNode, SchemaAst]("ListNode")(_.asInstanceOf[ListNode]) ++
-          caseOf[Dictionary, SchemaAst]("Dictionary")(_.asInstanceOf[Dictionary]),
+        TypeId.gen[SchemaAst],
+        caseOf[Value, SchemaAst](TypeId.gen[Value])(_.asInstanceOf[Value]) ++
+          caseOf[Sum, SchemaAst](TypeId.gen[Sum])(_.asInstanceOf[Sum]) ++
+          caseOf[Either, SchemaAst](TypeId.gen[Either])(_.asInstanceOf[Either]) ++
+          caseOf[Product, SchemaAst](TypeId.gen[Product])(_.asInstanceOf[Product]) ++
+          caseOf[Tuple, SchemaAst](TypeId.gen[Tuple])(_.asInstanceOf[Tuple]) ++
+          caseOf[Ref, SchemaAst](TypeId.gen[Ref])(_.asInstanceOf[Ref]) ++
+          caseOf[ListNode, SchemaAst](TypeId.gen[ListNode])(_.asInstanceOf[ListNode]) ++
+          caseOf[Dictionary, SchemaAst](TypeId.gen[Dictionary])(_.asInstanceOf[Dictionary]),
         Chunk.empty
       )
     }
@@ -590,7 +608,7 @@ private[schema] object AstRenderer {
     pad(buffer, indent)
     label.foreach(l => buffer.append(s"$l: "))
     if (value.optional) buffer.append("?")
-    buffer.append(value.valueType.tag).toString
+    buffer.append(value.valueType).toString
   }
 
   def renderFail(fail: SchemaAst.FailNode, indent: Int, label: Option[String]): String = {

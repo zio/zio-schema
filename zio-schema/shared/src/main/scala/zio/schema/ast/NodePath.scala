@@ -2,15 +2,16 @@ package zio.schema.ast
 
 import zio.Chunk
 import zio.prelude._
+import zio.schema._
 
-object NodePath extends Subtype[Chunk[String]] {
-  val root: NodePath  = NodePath(Chunk.fromArray(Array.empty[String]))
-  val empty: NodePath = NodePath(Chunk.fromArray(Array.empty[String]))
+object NodePath extends Subtype[Chunk[FieldId]] {
+  val root: NodePath  = NodePath(Chunk.fromArray(Array.empty[FieldId]))
+  val empty: NodePath = NodePath(Chunk.fromArray(Array.empty[FieldId]))
 
   implicit class NodePathSyntax(private val self: NodePath) extends AnyVal {
 
     def /(label: String): NodePath =
-      NodePath(self :+ label)
+      NodePath(self :+ FieldId(label))
 
     def /(subpath: NodePath): NodePath = NodePath(self ++ subpath)
 
