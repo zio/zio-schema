@@ -189,7 +189,25 @@ object SchemaAstSpec extends ZIOSpecDefault {
       test("tuple") {
         check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
           case (left, right) =>
-            assert(SchemaAst.fromSchema(left <*> right).toSchema)(hasSameSchemaStructure(left <*> right))
+            assert(SchemaAst.fromSchema(Schema.tuple2(left, right)).toSchema)(
+              hasSameSchemaStructure(Schema.tuple2(left, right))
+            )
+        }
+      },
+      test("tuple-3") {
+        check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
+          case (a, b, c) =>
+            assert(SchemaAst.fromSchema(Schema.tuple3(a, b, c)).toSchema)(
+              hasSameSchemaStructure(Schema.tuple3(a, b, c))
+            )
+        }
+      },
+      test("nested tuple-3") {
+        check(SchemaGen.anyTuple <*> SchemaGen.anyTuple <*> SchemaGen.anyTuple) {
+          case (a, b, c) =>
+            assert(SchemaAst.fromSchema(Schema.tuple3(a, b, c)).toSchema)(
+              hasSameSchemaStructure(Schema.tuple3(a, b, c))
+            )
         }
       },
       test("either") {
