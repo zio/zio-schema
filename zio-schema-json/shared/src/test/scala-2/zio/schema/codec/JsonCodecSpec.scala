@@ -636,20 +636,6 @@ object JsonCodecSpec extends ZIOSpecDefault {
     )
   )
 
-  private def compareRandomRecords(
-    a: (ListMap[String, _], Schema[ListMap[String, _]]),
-    b: (ListMap[String, _], Schema[ListMap[String, _]])
-  ): Boolean = {
-    val (aValue, aSchema) = a
-    val (bValue, bSchema) = b
-    if (Schema.structureEquality.equal(aSchema, bSchema)) {
-      // We cannot check real equality because the transformations are lost
-      aValue.keySet == bValue.keySet
-    } else {
-      false
-    }
-  }
-
   private def assertEncodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {
     val stream = ZStream
       .succeed(value)
@@ -697,7 +683,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     decodingSchema: Schema[A2],
     value: A1,
     compare: (A1, A2) => Boolean,
-    print: Boolean = false
+    print: Boolean
   ) =
     ZStream
       .succeed(value)
