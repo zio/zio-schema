@@ -179,15 +179,17 @@ object DeriveSchema {
         val arity = fieldTypes.size
 
         val typeArgs = fieldTypes.map { ft =>
-          val fieldType = concreteType(tpe, tpe.decl(ft.name).typeSignature)
-          q"$fieldType"
+          val fieldType = concreteType(tpe, tpe.decl(ft.name).typeSignature) //need to not map TypeId/FieldId to String
+          if (fieldType <:< c.typeOf[FieldId]) //this doesn't work
+            q"$fieldType"
+          else q"$ft"
         } ++ Iterable(q"$tpe")
 
         val fieldAccessors = sortedDecls.collect {
           case p: TermSymbol if p.isCaseAccessor && p.isMethod => p.name
         }
 
-        val typeId = q"zio.schema.TypeId.parse(${tpe.toString()})"
+        val typeId = q"zio.schema.TypeId(${tpe.toString()})"
 
         @nowarn
         val typeAnnotations: List[Tree] =

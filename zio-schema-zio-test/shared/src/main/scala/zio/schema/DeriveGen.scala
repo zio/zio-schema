@@ -544,23 +544,23 @@ object DeriveGen {
 
   private def genSchemaAstProduct(path: NodePath): Gen[Sized, SchemaAst.Product] =
     for {
-      id       <- Gen.string(Gen.alphaChar).map(TypeId.parse)
+      id       <- Gen.string(Gen.alphaChar).map(TypeId(_))
       optional <- Gen.boolean
       fields <- Gen.chunkOf(
                  Gen
                    .string1(Gen.asciiChar)
-                   .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
+                   .flatMap(name => genAst(path / name).map(fieldSchema => (FieldId(name), fieldSchema)))
                )
     } yield SchemaAst.Product(id, path, fields, optional)
 
   private def genSchemaAstSum(path: NodePath): Gen[Sized, SchemaAst.Sum] =
     for {
-      id       <- Gen.string(Gen.alphaChar).map(TypeId.parse)
+      id       <- Gen.string(Gen.alphaChar).map(TypeId(_))
       optional <- Gen.boolean
       fields <- Gen.chunkOf(
                  Gen
                    .string1(Gen.asciiChar)
-                   .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
+                   .flatMap(name => genAst(path / name).map(fieldSchema => (TypeId(name), fieldSchema)))
                )
     } yield SchemaAst.Sum(id, path, fields, optional)
 

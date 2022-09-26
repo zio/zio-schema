@@ -34,7 +34,7 @@ sealed trait Schema[A] {
 
   type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]]
 
-  //def id: TypeId todo - can we capture all the types?
+
 
   /**
    * A symbolic operator for [[optional]].
@@ -90,8 +90,6 @@ sealed trait Schema[A] {
     case Some(differ) => differ(thisValue, thatValue)
     case None         => Differ.fromSchema(self)(thisValue, thatValue)
   }
-
-  val id: TypeId
 
   /**
    * Patch value with a Diff.
@@ -232,7 +230,7 @@ object Schema extends SchemaEquality {
 
   implicit def map[K, V](implicit ks: Schema[K], vs: Schema[V]): Schema[Map[K, V]] =
     Schema.MapSchema(ks, vs, Chunk.empty)
-/
+
   implicit def set[A](implicit schemaA: Schema[A]): Schema[Set[A]] =
     Schema.SetSchema(schemaA, Chunk.empty)
 
@@ -275,7 +273,7 @@ object Schema extends SchemaEquality {
     )
 
   sealed trait Enum[A] extends Schema[A] {
-    def id: TypeId
+    val id: TypeId
 
     def structure: ListMap[TypeId, Schema[_]] =
       ListMap(structureWithAnnotations.map(kv => (kv._1, kv._2._1)).toList: _*)
@@ -298,7 +296,7 @@ object Schema extends SchemaEquality {
 
     def rawConstruct(values: Chunk[Any]): Either[String, R]
 
-    def id: TypeId
+    val id: TypeId
 
     def defaultValue: Either[String, R] =
       self.structure
@@ -327,7 +325,7 @@ object Schema extends SchemaEquality {
 
     override def defaultValue: Either[String, Col] = schemaA.defaultValue.map(fromChunk.compose(Chunk(_)))
 
-    def id: TypeId                                                         = TypeId.gen[Col]
+    val id: TypeId                                                         = TypeId.gen[Col]
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, schemaA)
 
     override def toString: String = s"Sequence($schemaA, $identity)"

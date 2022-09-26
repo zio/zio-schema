@@ -3,7 +3,7 @@ package zio.schema.ast
 import scala.collection.immutable.ListMap
 
 import zio.schema._
-import zio.schema.ast.SchemaAst.{FieldLabelled,TypeLabelled,Labelled}
+import zio.schema.ast.SchemaAst.Labelled
 import zio.{ Chunk, ChunkBuilder }
 
 sealed trait Migration { self =>

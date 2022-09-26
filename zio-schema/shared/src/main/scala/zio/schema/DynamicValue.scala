@@ -14,7 +14,6 @@ import zio.schema._
 sealed trait DynamicValue {
   self =>
 
-  val id:TypeId
   def transform(transforms: Chunk[Migration]): Either[String, DynamicValue] =
     transforms.foldRight[Either[String, DynamicValue]](Right(self)) {
       case (transform, Right(value)) => transform.migrate(value)

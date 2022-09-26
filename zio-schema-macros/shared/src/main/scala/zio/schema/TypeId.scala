@@ -6,6 +6,7 @@ import zio.schema.DeriveTypeId
 
 import com.github.ghik.silencer.silent
 
+//todo protect creation
 object TypeId extends Subtype[String] with DeriveTypeId {
 
   private val cache = new java.util.concurrent.ConcurrentHashMap[TypeId, (Chunk[String], Chunk[String], String)]
