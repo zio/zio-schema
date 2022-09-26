@@ -32,8 +32,17 @@ object JsonCodec extends Codec {
 
   override def encode[A](schema: Schema[A]): A => Chunk[Byte] = Encoder.encode(schema, _)
 
+  def jsonEncoder[A](schema: Schema[A]): JsonEncoder[A] =
+    Encoder.schemaEncoder(schema)
+
   override def decode[A](schema: Schema[A]): Chunk[Byte] => Either[String, A] =
     (chunk: Chunk[Byte]) => Decoder.decode(schema, new String(chunk.toArray, Encoder.CHARSET))
+
+  def jsonDecoder[A](schema: Schema[A]): JsonDecoder[A] =
+    Decoder.schemaDecoder(schema)
+
+  def jsonCodec[A](schema: Schema[A]): ZJsonCodec[A] =
+    ZJsonCodec(jsonEncoder(schema), jsonDecoder(schema))
 
   object Codecs {
     protected[codec] val unitEncoder: JsonEncoder[Unit] =
