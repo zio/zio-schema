@@ -534,9 +534,6 @@ object DeriveGen {
   private def genLazy[A](lazySchema: Schema.Lazy[A]): Gen[Sized, A] =
     Gen.suspend(gen(lazySchema.schema))
 
-  private def genMeta[A](ast: MetaSchema): Gen[Sized, A] =
-    gen(ast.toSchema).map(_.asInstanceOf[A])
-
   private def genSchemaAstProduct(path: NodePath): Gen[Sized, MetaSchema.Product] =
     for {
       id       <- Gen.string(Gen.alphaChar).map(TypeId.parse)
@@ -604,7 +601,7 @@ object DeriveGen {
       optional   <- Gen.boolean
     } yield MetaSchema.Dynamic(withSchema, path, optional)
 
-  private def genAst(path: NodePath = NodePath.root): Gen[Sized, MetaSchema] =
+  private def genAst(path: NodePath): Gen[Sized, MetaSchema] =
     Gen.weighted(
       genSchemaAstProduct(path) -> 3,
       genSchemaAstSum(path)     -> 1,
