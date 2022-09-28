@@ -3,7 +3,7 @@ package zio.schema
 import scala.quoted._
 import scala.deriving.Mirror
 import scala.compiletime.{erasedValue, summonInline, constValueTuple}
-import Schema.{Tuple => SchemaTuple, _}
+import Schema.{Tuple2 => SchemaTuple, Map => SchemaMap, _}
 
 object DeriveSchema {
 
