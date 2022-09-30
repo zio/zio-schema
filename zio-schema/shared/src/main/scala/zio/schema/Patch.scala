@@ -4,7 +4,6 @@ import java.math.{ BigInteger, MathContext }
 import java.time.temporal.{ ChronoField, ChronoUnit }
 import java.time.{
   DayOfWeek,
-  Duration => JDuration,
   Instant,
   LocalDate,
   LocalDateTime,
@@ -17,12 +16,11 @@ import java.time.{
   YearMonth,
   ZoneId,
   ZoneOffset,
+  Duration => JDuration,
   ZonedDateTime => JZonedDateTime
 }
-
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
-
 import zio.Chunk
 import zio.schema.diff.Edit
 import zio.schema.meta.Migration
@@ -47,7 +45,7 @@ sealed trait Patch[A] { self =>
 
 object Patch {
 
-  //def invert[A](patch: Patch[A]): Patch[A] = patch.invert
+  def invert[A](patch: Patch[A]): Patch[A] = patch.invert
 
   def identical[A]: Identical[A] = Identical()
 
@@ -351,28 +349,13 @@ object Patch {
         self
 
     override def invert: Patch[R] = {
-      val inverted: Map[String, Patch[_]] = differences.map {
-        case (key, patch) =>
-          key -> (patch match {
-            case i @ Identical()         => i.invert
-            case b @ Bool(_)             => b.invert
-            case n @ Number(_)           => n.invert
-            case b @ BigInt(_)           => b.invert
-            case b @ BigDecimal(_, _)    => b.invert
-            case t @ Temporal(_, _)      => t.invert
-            case z @ ZonedDateTime(_, _) => z.invert
-            case t @ Tuple(_, _)         => t.invert
-            case l @ LCS(_)              => l.invert
-            case t @ Total(_)            => t.invert
-            case e @ EitherDiff(_)       => e.invert
-            case t @ Transform(_, _, _)  => t.invert
-            case n @ NotComparable()     => n.invert
-            case s @ SchemaMigration(_)  => s.invert
-            case r @ Record(_, _)        => r.invert
-          })
-      }
-      zio.schema.Patch.Record[R](ListMap.from(inverted), schema)
+      val inverted: ListMap[String, Patch[_]] =
+        differences.foldLeft[ListMap[String, Patch[_]]](ListMap.empty) {
+          case (map, (key, value)) => map.updated(key, value.invert)
+        }
+      Record(inverted, schema)
     }
+
   }
 
 }
