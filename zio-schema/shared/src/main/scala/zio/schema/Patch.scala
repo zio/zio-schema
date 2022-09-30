@@ -2,25 +2,11 @@ package zio.schema
 
 import java.math.{ BigInteger, MathContext }
 import java.time.temporal.{ ChronoField, ChronoUnit }
-import java.time.{
-  DayOfWeek,
-  Instant,
-  LocalDate,
-  LocalDateTime,
-  LocalTime,
-  MonthDay,
-  OffsetDateTime,
-  OffsetTime,
-  Period,
-  Year,
-  YearMonth,
-  ZoneId,
-  ZoneOffset,
-  Duration => JDuration,
-  ZonedDateTime => JZonedDateTime
-}
+import java.time.{DayOfWeek, Duration => JDuration, Instant, LocalDate, LocalDateTime, LocalTime, MonthDay, OffsetDateTime, OffsetTime, Period, Year, YearMonth, ZoneId, ZoneOffset, ZonedDateTime => JZonedDateTime}
+
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
+
 import zio.Chunk
 import zio.schema.diff.Edit
 import zio.schema.meta.Migration
