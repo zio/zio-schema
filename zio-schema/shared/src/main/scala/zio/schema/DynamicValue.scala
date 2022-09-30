@@ -20,33 +20,43 @@ sealed trait DynamicValue {
     }
 
   def toTypedValue[A](implicit schema: Schema[A]): Either[String, A] =
+    toTypedValueLazyError.left.map(_.apply())
+
+  def toTypedValueOption[A](implicit schema: Schema[A]): Option[A] =
+    toTypedValueLazyError.toOption
+
+  private def toTypedValueLazyError[A](implicit schema: Schema[A]): Either[() => String, A] =
     (self, schema) match {
       case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
         Right(value.asInstanceOf[A])
 
       case (DynamicValue.Record(_, values), Schema.GenericRecord(_, structure, _)) =>
-        DynamicValue.decodeStructure(values, structure.toChunk).asInstanceOf[Either[String, A]]
+        DynamicValue.decodeStructure(values, structure.toChunk).asInstanceOf[Either[() => String, A]]
 
       case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
-        DynamicValue.decodeStructure(values, s.structure).map(m => Chunk.fromIterable(m.values)).flatMap(s.rawConstruct)
+        DynamicValue
+          .decodeStructure(values, s.structure)
+          .map(m => Chunk.fromIterable(m.values))
+          .flatMap(values => s.rawConstruct(values).left.map(err => () => err))
 
       case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
         s.structure.get(key) match {
-          case Some(schema) => value.toTypedValue(schema).asInstanceOf[Either[String, A]]
-          case None         => Left(s"Failed to find case $key in enumN $s")
+          case Some(schema) => value.toTypedValueLazyError(schema).asInstanceOf[Either[() => String, A]]
+          case None         => Left(() => s"Failed to find case $key in enumN $s")
         }
 
       case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
-        value.toTypedValue(schema1).map(Left(_))
+        value.toTypedValueLazyError(schema1).map(Left(_))
 
       case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
-        value.toTypedValue(schema1).map(Right(_))
+        value.toTypedValueLazyError(schema1).map(Right(_))
 
       case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
-        val typedLeft  = leftValue.toTypedValue(leftSchema)
-        val typedRight = rightValue.toTypedValue(rightSchema)
+        val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
+        val typedRight = rightValue.toTypedValueLazyError(rightSchema)
         (typedLeft, typedRight) match {
-          case (Left(e1), Left(e2)) => Left(s"Converting generic tuple to typed value failed with errors $e1 and $e2")
+          case (Left(e1), Left(e2)) =>
+            Left(() => s"Converting generic tuple to typed value failed with errors ${e1()} and ${e2()}")
           case (_, Left(e))         => Left(e)
           case (Left(e), _)         => Left(e)
           case (Right(a), Right(b)) => Right(a -> b)
@@ -54,47 +64,47 @@ sealed trait DynamicValue {
 
       case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t, _]) =>
         values
-          .foldLeft[Either[String, Chunk[t]]](Right[String, Chunk[t]](Chunk.empty)) {
+          .foldLeft[Either[() => String, Chunk[t]]](Right[() => String, Chunk[t]](Chunk.empty)) {
             case (err @ Left(_), _) => err
             case (Right(values), value) =>
-              value.toTypedValue(schema.schemaA).map(values :+ _)
+              value.toTypedValueLazyError(schema.schemaA).map(values :+ _)
           }
           .map(schema.fromChunk)
 
       case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
-        value.toTypedValue(schema).map(Some(_))
+        value.toTypedValueLazyError(schema).map(Some(_))
 
       case (DynamicValue.NoneValue, Schema.Optional(_, _)) =>
         Right(None)
 
       case (value, Schema.Transform(schema, f, _, _, _)) =>
-        value.toTypedValue(schema).flatMap(f)
+        value.toTypedValueLazyError(schema).flatMap(value => f(value).left.map(err => () => err))
 
       case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
-        entries.foldLeft[Either[String, Map[k, v]]](Right[String, Map[k, v]](Map.empty)) {
+        entries.foldLeft[Either[() => String, Map[k, v]]](Right[() => String, Map[k, v]](Map.empty)) {
           case (err @ Left(_), _) => err
           case (Right(map), entry) => {
             for {
-              key   <- entry._1.toTypedValue(schema.keySchema)
-              value <- entry._2.toTypedValue(schema.valueSchema)
+              key   <- entry._1.toTypedValueLazyError(schema.keySchema)
+              value <- entry._2.toTypedValueLazyError(schema.valueSchema)
             } yield map ++ Map(key -> value)
           }
         }
 
       case (_, l @ Schema.Lazy(_)) =>
-        toTypedValue(l.schema)
+        toTypedValueLazyError(l.schema)
 
       case (DynamicValue.Error(message), _) =>
-        Left(message)
+        Left(() => message)
 
       case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), _) =>
         val valueSchema = ast.toSchema.asInstanceOf[Schema[Any]]
-        dyn.toTypedValue(valueSchema).map(a => (a -> valueSchema).asInstanceOf[A])
+        dyn.toTypedValueLazyError(valueSchema).map(a => (a -> valueSchema).asInstanceOf[A])
 
       case (dyn, Schema.Dynamic(_)) => Right(dyn)
 
       case _ =>
-        Left(s"Failed to cast $self to schema $schema")
+        Left(() => s"Failed to cast $self to schema $schema")
     }
 
 }
@@ -1905,18 +1915,15 @@ object DynamicValue {
   def decodeStructure(
     values: ListMap[String, DynamicValue],
     structure: Chunk[Schema.Field[_]]
-  ): Either[String, ListMap[String, _]] = {
+  ): Either[() => String, ListMap[String, _]] = {
     val keys = values.keySet
-    keys.foldLeft[Either[String, ListMap[String, Any]]](Right(ListMap.empty)) {
+    keys.foldLeft[Either[() => String, ListMap[String, Any]]](Right(ListMap.empty)) {
       case (Right(record), key) =>
         (structure.find(_.label == key), values.get(key)) match {
           case (Some(field), Some(value)) =>
-            value.toTypedValue(field.schema) match {
-              case Left(error)  => Left(error)
-              case Right(value) => Right(record + (key -> value))
-            }
+            value.toTypedValueLazyError(field.schema).map(value => (record + (key -> value)))
           case _ =>
-            Left(s"$values and $structure have incompatible shape")
+            Left(() => s"$values and $structure have incompatible shape")
         }
       case (Left(string), _) => Left(string)
     }
