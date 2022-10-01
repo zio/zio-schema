@@ -29,4 +29,12 @@ object TypeId {
 
         case Nil => Structural
       }
+
+  implicit val schema: Schema[TypeId] =
+    Schema[String].transform(
+      parse, {
+        case Structural       => ""
+        case nominal: Nominal => nominal.fullyQualified
+      }
+    )
 }
