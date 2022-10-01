@@ -30,7 +30,7 @@ object TypeId {
         case Nil => Structural
       }
 
-  implicit val schema: Schema[TypeId] =
+  implicit lazy val schema: Schema[TypeId] =
     Schema[String].transform(
       parse, {
         case Structural       => ""
