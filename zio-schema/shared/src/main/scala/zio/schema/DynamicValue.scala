@@ -1943,7 +1943,7 @@ object DynamicValue {
 
   final case class Dictionary(entries: Chunk[(DynamicValue, DynamicValue)]) extends DynamicValue
 
-  final case class SetValue[A](values: Set[DynamicValue]) extends DynamicValue
+  final case class SetValue(values: Set[DynamicValue]) extends DynamicValue
 
   sealed case class Primitive[A](value: A, standardType: StandardType[A]) extends DynamicValue
 
@@ -1982,6 +1982,7 @@ private[schema] object DynamicValueSchema {
         .:+:(someValueCase)
         .:+:(dictionaryCase)
         .:+:(sequenceCase)
+        .:+:(setCase)
         .:+:(enumerationCase)
         .:+:(recordCase)
         .:+:(dynamicAstCase)
@@ -2133,6 +2134,18 @@ private[schema] object DynamicValueSchema {
         seq => seq.values
       ),
       _.asInstanceOf[DynamicValue.Sequence]
+    )
+
+  private val setCase: Schema.Case[DynamicValue.SetValue, DynamicValue] =
+    Schema.Case(
+      "SetValue",
+      Schema.CaseClass1[Set[DynamicValue], DynamicValue.SetValue](
+        TypeId.parse("zio.schema.DynamicValue.SetValue"),
+        Schema.Field("values", Schema.defer(Schema.set(DynamicValueSchema()))),
+        set => DynamicValue.SetValue(set),
+        seq => seq.values
+      ),
+      _.asInstanceOf[DynamicValue.SetValue]
     )
 
   private val enumerationCase: Schema.Case[DynamicValue.Enumeration, DynamicValue] =
