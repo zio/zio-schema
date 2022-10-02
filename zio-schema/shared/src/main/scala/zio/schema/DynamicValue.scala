@@ -71,6 +71,13 @@ sealed trait DynamicValue {
           }
           .map(schema.fromChunk)
 
+      case (DynamicValue.SetValue(values), schema: Schema.SetSchema[t]) =>
+        values.foldLeft[Either[() => String, Set[t]]](Right[() => String, Set[t]](Set.empty)) {
+          case (err @ Left(_), _) => err
+          case (Right(values), value) =>
+            value.toTypedValueLazyError(schema.as).map(values + _)
+        }
+
       case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
         value.toTypedValueLazyError(schema).map(Some(_))
 
