@@ -113,6 +113,21 @@ object DynamicValueSpec extends ZIOSpecDefault {
             val semiDynamicSchema = Schema.semiDynamic(defaultValue = Right(value -> schema))
             roundtrip(semiDynamicSchema, value -> schema)
         }
+      },
+      test("round-trips sequence") {
+        check(SchemaGen.anySequenceAndValue) {
+          case (schema, a) => assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
+        }
+      },
+      test("round-trips set") {
+        check(SchemaGen.anySetAndValue) {
+          case (schema, a) => assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
+        }
+      },
+      test("round-trips map") {
+        check(SchemaGen.anyMapAndValue) {
+          case (schema, a) => assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
+        }
       }
     )
 
