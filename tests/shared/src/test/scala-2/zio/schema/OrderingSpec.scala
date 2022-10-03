@@ -30,29 +30,6 @@ object OrderingSpec extends ZIOSpecDefault {
             case (schema, x, _, z) => assert(schema.ordering.compare(x, z))(isLessThan(0))
           }
         }
-      ),
-      suite("semiDynamic")(
-        test("reflexivity") {
-          check(anySchemaAndValue) {
-            case (schema, a) =>
-              val semiDynamicSchema = Schema.semiDynamic(defaultValue = Right(a -> schema))
-              assert(semiDynamicSchema.ordering.compare(a -> schema, a -> schema))(equalTo(0))
-          }
-        },
-        test("antisymmetry") {
-          check(genAnyOrderedPair) {
-            case (schema, x, y) =>
-              val semiDynamicSchema = Schema.semiDynamic(defaultValue = Right(x -> schema))
-              assert(semiDynamicSchema.ordering.compare(y -> schema, x -> schema))(isGreaterThan(0))
-          }
-        },
-        test("transitivity") {
-          check(genAnyOrderedTriplet) {
-            case (schema, x, _, z) =>
-              val semiDynamicSchema = Schema.semiDynamic(defaultValue = Right(x -> schema))
-              assert(semiDynamicSchema.ordering.compare(x -> schema, z -> schema))(isLessThan(0))
-          }
-        }
       )
     )
 
@@ -116,7 +93,7 @@ object OrderingSpec extends ZIOSpecDefault {
       leftSchema  <- anySchema
       rightSchema <- anySchema
       (l, r)      <- genOrderedPairEither(leftSchema, rightSchema)
-    } yield (Schema.EitherSchema(leftSchema, rightSchema), l, r).asInstanceOf[SchemaAndPair[Either[_, _]]]
+    } yield (Schema.Either(leftSchema, rightSchema), l, r).asInstanceOf[SchemaAndPair[Either[_, _]]]
 
   def genOrderedPairEither[A, B](
     lSchema: Schema[A],
@@ -139,7 +116,7 @@ object OrderingSpec extends ZIOSpecDefault {
       xSchema <- anySchema
       ySchema <- anySchema
       (l, r)  <- genOrderedPairTuple(xSchema, ySchema)
-    } yield (Schema.Tuple(xSchema, ySchema), l, r).asInstanceOf[SchemaAndPair[Either[_, _]]]
+    } yield (Schema.Tuple2(xSchema, ySchema), l, r).asInstanceOf[SchemaAndPair[Either[_, _]]]
 
   def genOrderedPairTuple[A, B](
     xSchema: Schema[A],

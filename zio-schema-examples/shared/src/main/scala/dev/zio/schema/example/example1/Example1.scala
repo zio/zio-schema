@@ -68,13 +68,13 @@ object ManualConstruction {
       id = TypeId.parse("dev.zio.schema.example.example1.Domain.PaymentMethod"),
       case1 = Case[PaymentMethod.CreditCard, PaymentMethod](
         id = "CreditCard",
-        codec = schemaPaymentMethodCreditCard,
+        schema = schemaPaymentMethodCreditCard,
         unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.CreditCard],
         annotations = Chunk.empty
       ),
       case2 = Case[PaymentMethod.WireTransfer, PaymentMethod](
         id = "WireTransfer",
-        codec = schemaPaymentMethodWireTransfer,
+        schema = schemaPaymentMethodWireTransfer,
         unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.WireTransfer],
         annotations = Chunk.empty
       ),

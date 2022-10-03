@@ -83,21 +83,21 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  val anyEither: Gen[Sized, Schema.EitherSchema[_, _]] =
+  val anyEither: Gen[Sized, Schema.Either[_, _]] =
     for {
       left  <- anyPrimitive
       right <- anyPrimitive
-    } yield Schema.EitherSchema(left, right)
+    } yield Schema.Either(left, right)
 
-  type EitherAndGen[A, B] = (Schema.EitherSchema[A, B], Gen[Sized, Either[A, B]])
+  type EitherAndGen[A, B] = (Schema.Either[A, B], Gen[Sized, scala.util.Either[A, B]])
 
   val anyEitherAndGen: Gen[Sized, EitherAndGen[_, _]] =
     for {
       (leftSchema, leftGen)   <- anyPrimitiveAndGen
       (rightSchema, rightGen) <- anyPrimitiveAndGen
-    } yield (Schema.EitherSchema(leftSchema, rightSchema), Gen.either(leftGen, rightGen))
+    } yield (Schema.Either(leftSchema, rightSchema), Gen.either(leftGen, rightGen))
 
-  type EitherAndValue[A, B] = (Schema.EitherSchema[A, B], Either[A, B])
+  type EitherAndValue[A, B] = (Schema.Either[A, B], scala.util.Either[A, B])
 
   val anyEitherAndValue: Gen[Sized, EitherAndValue[_, _]] =
     for {
@@ -105,20 +105,20 @@ object SchemaGen {
       value         <- gen
     } yield (schema, value)
 
-  lazy val anyTuple: Gen[Sized, Schema.Tuple[_, _]] =
+  lazy val anyTuple: Gen[Sized, Schema.Tuple2[_, _]] =
     anySchema.zipWith(anySchema) { (a, b) =>
-      Schema.Tuple(a, b)
+      Schema.Tuple2(a, b)
     }
 
-  type TupleAndGen[A, B] = (Schema.Tuple[A, B], Gen[Sized, (A, B)])
+  type TupleAndGen[A, B] = (Schema.Tuple2[A, B], Gen[Sized, (A, B)])
 
   val anyTupleAndGen: Gen[Sized, TupleAndGen[_, _]] =
     for {
       (schemaA, genA) <- anyPrimitiveAndGen
       (schemaB, genB) <- anyPrimitiveAndGen
-    } yield Schema.Tuple(schemaA, schemaB) -> genA.zip(genB)
+    } yield Schema.Tuple2(schemaA, schemaB) -> genA.zip(genB)
 
-  type TupleAndValue[A, B] = (Schema.Tuple[A, B], (A, B))
+  type TupleAndValue[A, B] = (Schema.Tuple2[A, B], (A, B))
 
   val anyTupleAndValue: Gen[Sized, TupleAndValue[_, _]] =
     for {
@@ -152,19 +152,21 @@ object SchemaGen {
         CaseSet.Cons(_case, acc)
     }
 
-  lazy val anyMap: Gen[Sized, Schema.MapSchema[_, _]] =
+  lazy val anyMap: Gen[Sized, Schema.Map[_, _]] =
     anySchema.zipWith(anySchema) { (a, b) =>
-      Schema.MapSchema(a, b, Chunk.empty)
+      Schema.Map(a, b, Chunk.empty)
     }
-  type MapAndGen[K, V] = (Schema.MapSchema[K, V], Gen[Sized, Map[K, V]])
+  type MapAndGen[K, V] = (Schema.Map[K, V], Gen[Sized, Map[K, V]])
 
   val anyMapAndGen: Gen[Sized, MapAndGen[_, _]] =
     for {
       (schemaK, genK) <- anyPrimitiveAndGen
       (schemaV, genV) <- anyPrimitiveAndGen
-    } yield Schema.MapSchema(schemaK, schemaV, Chunk.empty) -> (genK.flatMap(k => genV.map(v => Map(k -> v))))
+    } yield Schema.Map(schemaK, schemaV, Chunk.empty) -> (genK.flatMap(
+      k => genV.map(v => scala.collection.immutable.Map(k -> v))
+    ))
 
-  type MapAndValue[K, V] = (Schema.MapSchema[K, V], Map[K, V])
+  type MapAndValue[K, V] = (Schema.Map[K, V], Map[K, V])
 
   val anyMapAndValue: Gen[Sized, MapAndValue[_, _]] =
     for {
@@ -172,15 +174,15 @@ object SchemaGen {
       map           <- gen
     } yield schema -> map
 
-  type SetAndGen[A] = (Schema.SetSchema[A], Gen[Sized, Set[A]])
+  type SetAndGen[A] = (Schema.Set[A], Gen[Sized, scala.collection.immutable.Set[A]])
 
   val anySetAndGen: Gen[Sized, SetAndGen[_]] =
     anyPrimitiveAndGen.map {
       case (schema, gen) =>
-        Schema.SetSchema(schema, Chunk.empty) -> Gen.setOf(gen)
+        Schema.Set(schema, Chunk.empty) -> Gen.setOf(gen)
     }
 
-  type SetAndValue[A] = (Schema.SetSchema[A], Set[A])
+  type SetAndValue[A] = (Schema.Set[A], scala.collection.immutable.Set[A])
 
   val anySetAndValue: Gen[Sized, SetAndValue[_]] =
     for {
@@ -561,7 +563,7 @@ object SchemaGen {
 //        anyEnumeration(anyTree(depth - 1)).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_))
       )
 
-  type SchemaAndDerivedValue[A, B] = (Schema[A], Schema[B], Chunk[Either[A, B]])
+  type SchemaAndDerivedValue[A, B] = (Schema[A], Schema[B], Chunk[scala.util.Either[A, B]])
 
   lazy val anyLeafAndValue: Gen[Sized, SchemaAndValue[_]] =
     for {
@@ -611,8 +613,6 @@ object SchemaGen {
     } yield (schema, value)
 
   lazy val anyDynamic: Gen[Any, Schema[DynamicValue]] = Gen.const(Schema.dynamicValue)
-
-  def anySemiDynamic[A]: Gen[Any, Schema[(A, Schema[A])]] = Gen.const(Schema.semiDynamic[A]())
 
   case class SchemaTest[A](name: String, schema: StandardType[A], gen: Gen[Sized, A])
 

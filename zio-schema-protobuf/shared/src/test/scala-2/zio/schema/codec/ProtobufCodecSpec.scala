@@ -553,7 +553,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
         },
         test("map of products") {
-          val m: Map[Record, MyRecord] = Map(
+          val m: scala.collection.immutable.Map[Record, MyRecord] = scala.collection.immutable.Map(
             Record("AAA", 1) -> MyRecord(1),
             Record("BBB", 2) -> MyRecord(2)
           )
@@ -565,8 +565,9 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
         },
         test("set of products") {
-          val set: Set[Record] = Set(Record("AAA", 1), Record("BBB", 2))
-          val setSchema        = Schema.set(Record.schemaRecord)
+          val set: scala.collection.immutable.Set[Record] =
+            scala.collection.immutable.Set(Record("AAA", 1), Record("BBB", 2))
+          val setSchema = Schema.set(Record.schemaRecord)
 
           for {
             ed  <- encodeAndDecode(setSchema, set)
@@ -580,36 +581,6 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
                 ed <- encodeAndDecode2(schema, value)
 //              ed2 <- encodeAndDecodeNS(schema, value)
               } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
-          }
-        },
-        test("semi dynamic string within an enum") {
-          check(Gen.string) {
-            case (value) =>
-              val dynamicValue = DynamicValue.fromSchemaAndValue(Schema[String], value)
-              val semiDynamicSchema = Schema
-                .semiDynamic[String]()
-                .transformOrFail(
-                  { case (str, schema) => Right(DynamicValue.fromSchemaAndValue(schema, str)) },
-                  (v: DynamicValue) => v.toTypedValue(Schema[String]).map((_, Schema[String]))
-                )
-              val enumSchema = Schema
-                .Enum1[DynamicValue, DynamicValue](TypeId.Structural, Schema.Case("one", semiDynamicSchema, identity))
-              assertZIO(encodeAndDecode(enumSchema, dynamicValue))(equalTo(Chunk(dynamicValue)))
-          }
-        },
-        test("semi dynamic list of ints within an enum") {
-          check(Gen.chunkOf(Gen.int)) {
-            case (value) =>
-              val dynamicValue = DynamicValue.fromSchemaAndValue(Schema[Chunk[Int]], value)
-              val semiDynamicSchema = Schema
-                .semiDynamic[Chunk[Int]]()
-                .transformOrFail(
-                  { case (str, schema) => Right(DynamicValue.fromSchemaAndValue(schema, str)) },
-                  (v: DynamicValue) => v.toTypedValue(Schema[Chunk[Int]]).map((_, Schema[Chunk[Int]]))
-                )
-              val enumSchema = Schema
-                .Enum1[DynamicValue, DynamicValue](TypeId.Structural, Schema.Case("one", semiDynamicSchema, identity))
-              assertZIO(encodeAndDecode(enumSchema, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         }
       ),
@@ -751,26 +722,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
             assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         }
-      ),
-      test("semi dynamic record") {
-        check(
-          SchemaGen.anyRecord.flatMap(
-            record =>
-              DynamicValueGen
-                .anyDynamicValueOfSchema(record)
-                .map(dyn => (dyn.toTypedValue(record).toOption.get, record))
-          )
-        ) { value =>
-          val schema = Schema.semiDynamic[ListMap[String, _]]()
-          for {
-            result                      <- encodeAndDecode(schema, value)
-            (resultValue, resultSchema) = result.head
-          } yield assertTrue(
-            Schema.structureEquality.equal(value._2, resultSchema),
-            resultValue.keySet == value._1.keySet
-          )
-        }
-      }
+      )
     )
 
   // some tests are based on https://developers.google.com/protocol-buffers/docs/encoding
@@ -842,7 +794,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
     )
   }
 
-  val schemaTuple: Schema.Tuple[Int, String] = Schema.Tuple(Schema[Int], Schema[String])
+  val schemaTuple: Schema.Tuple2[Int, String] = Schema.Tuple2(Schema[Int], Schema[String])
 
   sealed trait OneOf
   case class StringValue(value: String)   extends OneOf
@@ -884,15 +836,15 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
   lazy val myRecord: Schema[MyRecord] = DeriveSchema.gen[MyRecord]
 
-  val complexTupleSchema: Schema.Tuple[Record, OneOf] = Schema.Tuple(Record.schemaRecord, schemaOneOf)
+  val complexTupleSchema: Schema.Tuple2[Record, OneOf] = Schema.Tuple2(Record.schemaRecord, schemaOneOf)
 
-  val eitherSchema: Schema.EitherSchema[Int, String] = Schema.EitherSchema(Schema[Int], Schema[String])
+  val eitherSchema: Schema.Either[Int, String] = Schema.Either(Schema[Int], Schema[String])
 
-  val complexEitherSchema: Schema.EitherSchema[Record, OneOf] =
-    Schema.EitherSchema(Record.schemaRecord, schemaOneOf)
+  val complexEitherSchema: Schema.Either[Record, OneOf] =
+    Schema.Either(Record.schemaRecord, schemaOneOf)
 
-  val complexEitherSchema2: Schema.EitherSchema[MyRecord, MyRecord] =
-    Schema.EitherSchema(myRecord, myRecord)
+  val complexEitherSchema2: Schema.Either[MyRecord, MyRecord] =
+    Schema.Either(myRecord, myRecord)
 
   case class RichProduct(stringOneOf: OneOf, basicString: BasicString, record: Record)
 
@@ -984,7 +936,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .apply(ZStream.succeed(input))
       .run(ZSink.collectAll)
 
-  def encodeAndDecode2[A](schema: Schema[A], input: A): ZIO[Any, Any, Either[String, Chunk[A]]] =
+  def encodeAndDecode2[A](schema: Schema[A], input: A): ZIO[Any, Any, scala.util.Either[String, Chunk[A]]] =
     ProtobufCodec
       .encoder(schema)
       .andThen(ProtobufCodec.decoder(schema))
@@ -1017,7 +969,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
     schema: Schema[A],
     input: A,
     print: Boolean = false
-  ): ZIO[Any, String, Either[String, A]] =
+  ): ZIO[Any, String, scala.util.Either[String, A]] =
     ZIO
       .succeed(input)
       .tap(value => printLine(s"Input Value: $value").when(print).ignore)
