@@ -4,9 +4,7 @@ import java.math.{ BigDecimal, BigInteger }
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
-
 import zio.Chunk
 import zio.schema.meta.{ MetaSchema, Migration }
 
@@ -71,11 +69,11 @@ sealed trait DynamicValue {
           }
           .map(schema.fromChunk)
 
-      case (DynamicValue.SetValue(values), schema: Schema.SetSchema[t]) =>
+      case (DynamicValue.SetValue(values), schema: Schema.Set[t]) =>
         values.foldLeft[Either[() => String, Set[t]]](Right[() => String, Set[t]](Set.empty)) {
           case (err @ Left(_), _) => err
           case (Right(values), value) =>
-            value.toTypedValueLazyError(schema.as).map(values + _)
+            value.toTypedValueLazyError(schema.elementSchema).map(values + _)
         }
 
       case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
