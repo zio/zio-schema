@@ -8,7 +8,7 @@ import java.util.UUID
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
-import zio.schema.ast.{ Migration, SchemaAst }
+import zio.schema.meta.{ MetaSchema, Migration }
 
 sealed trait DynamicValue {
   self =>
@@ -45,13 +45,13 @@ sealed trait DynamicValue {
           case None         => Left(() => s"Failed to find case $key in enumN $s")
         }
 
-      case (DynamicValue.LeftValue(value), Schema.EitherSchema(schema1, _, _)) =>
+      case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
         value.toTypedValueLazyError(schema1).map(Left(_))
 
-      case (DynamicValue.RightValue(value), Schema.EitherSchema(_, schema1, _)) =>
+      case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
         value.toTypedValueLazyError(schema1).map(Right(_))
 
-      case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple(leftSchema, rightSchema, _)) =>
+      case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
         val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
         val typedRight = rightValue.toTypedValueLazyError(rightSchema)
         (typedLeft, typedRight) match {
@@ -71,11 +71,11 @@ sealed trait DynamicValue {
           }
           .map(schema.fromChunk)
 
-      case (DynamicValue.SetValue(values), schema: Schema.SetSchema[t]) =>
+      case (DynamicValue.SetValue(values), schema: Schema.Set[t]) =>
         values.foldLeft[Either[() => String, Set[t]]](Right[() => String, Set[t]](Set.empty)) {
           case (err @ Left(_), _) => err
           case (Right(values), value) =>
-            value.toTypedValueLazyError(schema.as).map(values + _)
+            value.toTypedValueLazyError(schema.elementSchema).map(values + _)
         }
 
       case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
@@ -87,13 +87,13 @@ sealed trait DynamicValue {
       case (value, Schema.Transform(schema, f, _, _, _)) =>
         value.toTypedValueLazyError(schema).flatMap(value => f(value).left.map(err => () => err))
 
-      case (DynamicValue.Dictionary(entries), schema: Schema.MapSchema[k, v]) =>
+      case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
         entries.foldLeft[Either[() => String, Map[k, v]]](Right[() => String, Map[k, v]](Map.empty)) {
           case (err @ Left(_), _) => err
           case (Right(map), entry) => {
             for {
-              key   <- entry._1.toTypedValueLazyError(schema.ks)
-              value <- entry._2.toTypedValueLazyError(schema.vs)
+              key   <- entry._1.toTypedValueLazyError(schema.keySchema)
+              value <- entry._2.toTypedValueLazyError(schema.valueSchema)
             } yield map ++ Map(key -> value)
           }
         }
@@ -104,7 +104,7 @@ sealed trait DynamicValue {
       case (DynamicValue.Error(message), _) =>
         Left(() => message)
 
-      case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), Schema.SemiDynamic(_, _)) =>
+      case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), _) =>
         val valueSchema = ast.toSchema.asInstanceOf[Schema[Any]]
         dyn.toTypedValueLazyError(valueSchema).map(a => (a -> valueSchema).asInstanceOf[A])
 
@@ -137,31 +137,31 @@ object DynamicValue {
         )
 
       case Schema.Enum1(id, case1, _) =>
-        DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, case1.unsafeDeconstruct(value)))
+        DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, case1.unsafeDeconstruct(value)))
 
       case Schema.Enum2(id, case1, case2, _) =>
         (case1.deconstruct(value), case2.deconstruct(value)) match {
-          case (Some(v1), _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
-          case (_, Some(v2)) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
+          case (Some(v1), _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
+          case (_, Some(v2)) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
 
       case Schema.Enum3(id, case1, case2, case3, _) =>
         (case1.deconstruct(value), case2.deconstruct(value), case3.deconstruct(value)) match {
-          case (Some(v1), _, _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
-          case (_, Some(v2), _) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
-          case (_, _, Some(v3)) => DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
+          case (Some(v1), _, _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
+          case (_, Some(v2), _) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
+          case (_, _, Some(v3)) => DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
 
       case Schema.Enum4(id, case1, case2, case3, case4, _) =>
         (case1.deconstruct(value), case2.deconstruct(value), case3.deconstruct(value), case4.deconstruct(value)) match {
-          case (Some(v1), _, _, _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
-          case (_, Some(v2), _, _) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
-          case (_, _, Some(v3), _) => DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
-          case (_, _, _, Some(v4)) => DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
+          case (Some(v1), _, _, _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
+          case (_, Some(v2), _, _) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
+          case (_, _, Some(v3), _) => DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
+          case (_, _, _, Some(v4)) => DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -174,11 +174,11 @@ object DynamicValue {
           case4.deconstruct(value),
           case5.deconstruct(value)
         ) match {
-          case (Some(v1), _, _, _, _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
-          case (_, Some(v2), _, _, _) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
-          case (_, _, Some(v3), _, _) => DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
-          case (_, _, _, Some(v4), _) => DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
-          case (_, _, _, _, Some(v5)) => DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
+          case (Some(v1), _, _, _, _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
+          case (_, Some(v2), _, _, _) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
+          case (_, _, Some(v3), _, _) => DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
+          case (_, _, _, Some(v4), _) => DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
+          case (_, _, _, _, Some(v5)) => DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -192,12 +192,12 @@ object DynamicValue {
           case5.deconstruct(value),
           case6.deconstruct(value)
         ) match {
-          case (Some(v1), _, _, _, _, _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
-          case (_, Some(v2), _, _, _, _) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
-          case (_, _, Some(v3), _, _, _) => DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
-          case (_, _, _, Some(v4), _, _) => DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
-          case (_, _, _, _, Some(v5), _) => DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
-          case (_, _, _, _, _, Some(v6)) => DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
+          case (Some(v1), _, _, _, _, _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
+          case (_, Some(v2), _, _, _, _) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
+          case (_, _, Some(v3), _, _, _) => DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
+          case (_, _, _, Some(v4), _, _) => DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
+          case (_, _, _, _, Some(v5), _) => DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
+          case (_, _, _, _, _, Some(v6)) => DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -212,13 +212,13 @@ object DynamicValue {
           case6.deconstruct(value),
           case7.deconstruct(value)
         ) match {
-          case (Some(v1), _, _, _, _, _, _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
-          case (_, Some(v2), _, _, _, _, _) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
-          case (_, _, Some(v3), _, _, _, _) => DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
-          case (_, _, _, Some(v4), _, _, _) => DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
-          case (_, _, _, _, Some(v5), _, _) => DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
-          case (_, _, _, _, _, Some(v6), _) => DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
-          case (_, _, _, _, _, _, Some(v7)) => DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.codec, v7))
+          case (Some(v1), _, _, _, _, _, _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
+          case (_, Some(v2), _, _, _, _, _) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
+          case (_, _, Some(v3), _, _, _, _) => DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
+          case (_, _, _, Some(v4), _, _, _) => DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
+          case (_, _, _, _, Some(v5), _, _) => DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
+          case (_, _, _, _, _, Some(v6), _) => DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
+          case (_, _, _, _, _, _, Some(v7)) => DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.schema, v7))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -235,21 +235,21 @@ object DynamicValue {
           case8.deconstruct(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
+            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
+            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3), _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
+            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
           case (_, _, _, Some(v4), _, _, _, _) =>
-            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
+            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
           case (_, _, _, _, Some(v5), _, _, _) =>
-            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
+            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
           case (_, _, _, _, _, Some(v6), _, _) =>
-            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
+            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
           case (_, _, _, _, _, _, Some(v7), _) =>
-            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.codec, v7))
+            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.schema, v7))
           case (_, _, _, _, _, _, _, Some(v8)) =>
-            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.codec, v8))
+            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.schema, v8))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -267,23 +267,23 @@ object DynamicValue {
           case9.deconstruct(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
+            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
+            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3), _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
+            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
           case (_, _, _, Some(v4), _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
+            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
           case (_, _, _, _, Some(v5), _, _, _, _) =>
-            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
+            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
           case (_, _, _, _, _, Some(v6), _, _, _) =>
-            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
+            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
           case (_, _, _, _, _, _, Some(v7), _, _) =>
-            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.codec, v7))
+            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.schema, v7))
           case (_, _, _, _, _, _, _, Some(v8), _) =>
-            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.codec, v8))
+            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.schema, v8))
           case (_, _, _, _, _, _, _, _, Some(v9)) =>
-            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.codec, v9))
+            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.schema, v9))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -302,25 +302,25 @@ object DynamicValue {
           case10.deconstruct(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
+            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
+            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3), _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
+            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
           case (_, _, _, Some(v4), _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
+            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
           case (_, _, _, _, Some(v5), _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
+            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
           case (_, _, _, _, _, Some(v6), _, _, _, _) =>
-            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
+            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
           case (_, _, _, _, _, _, Some(v7), _, _, _) =>
-            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.codec, v7))
+            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.schema, v7))
           case (_, _, _, _, _, _, _, Some(v8), _, _) =>
-            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.codec, v8))
+            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.schema, v8))
           case (_, _, _, _, _, _, _, _, Some(v9), _) =>
-            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.codec, v9))
+            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.schema, v9))
           case (_, _, _, _, _, _, _, _, _, Some(v10)) =>
-            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.codec, v10))
+            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.schema, v10))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -340,27 +340,27 @@ object DynamicValue {
           case11.deconstruct(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
+            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
+            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3), _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
+            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
           case (_, _, _, Some(v4), _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
+            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
           case (_, _, _, _, Some(v5), _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
+            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
           case (_, _, _, _, _, Some(v6), _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
+            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
           case (_, _, _, _, _, _, Some(v7), _, _, _, _) =>
-            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.codec, v7))
+            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.schema, v7))
           case (_, _, _, _, _, _, _, Some(v8), _, _, _) =>
-            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.codec, v8))
+            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.schema, v8))
           case (_, _, _, _, _, _, _, _, Some(v9), _, _) =>
-            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.codec, v9))
+            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.schema, v9))
           case (_, _, _, _, _, _, _, _, _, Some(v10), _) =>
-            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.codec, v10))
+            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.schema, v10))
           case (_, _, _, _, _, _, _, _, _, _, Some(v11)) =>
-            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.codec, v11))
+            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.schema, v11))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -381,29 +381,29 @@ object DynamicValue {
           case12.deconstruct(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
+            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
+            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3), _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
+            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
           case (_, _, _, Some(v4), _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
+            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
           case (_, _, _, _, Some(v5), _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
+            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
           case (_, _, _, _, _, Some(v6), _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
+            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
           case (_, _, _, _, _, _, Some(v7), _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.codec, v7))
+            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.schema, v7))
           case (_, _, _, _, _, _, _, Some(v8), _, _, _, _) =>
-            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.codec, v8))
+            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.schema, v8))
           case (_, _, _, _, _, _, _, _, Some(v9), _, _, _) =>
-            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.codec, v9))
+            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.schema, v9))
           case (_, _, _, _, _, _, _, _, _, Some(v10), _, _) =>
-            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.codec, v10))
+            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.schema, v10))
           case (_, _, _, _, _, _, _, _, _, _, Some(v11), _) =>
-            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.codec, v11))
+            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.schema, v11))
           case (_, _, _, _, _, _, _, _, _, _, _, Some(v12)) =>
-            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.codec, v12))
+            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.schema, v12))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -411,31 +411,31 @@ object DynamicValue {
       case Schema.Enum13(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, _) =>
         (case1.deconstruct(value), case2.deconstruct(value), case3.deconstruct(value), case4.deconstruct(value), case5.deconstruct(value), case6.deconstruct(value), case7.deconstruct(value), case8.deconstruct(value), case9.deconstruct(value), case10.deconstruct(value), case11.deconstruct(value), case12.deconstruct(value), case13.deconstruct(value)) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
+            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
+            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3), _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
+            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
           case (_, _, _, Some(v4), _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
+            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
           case (_, _, _, _, Some(v5), _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
+            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
           case (_, _, _, _, _, Some(v6), _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
+            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
           case (_, _, _, _, _, _, Some(v7), _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.codec, v7))
+            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.schema, v7))
           case (_, _, _, _, _, _, _, Some(v8), _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.codec, v8))
+            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.schema, v8))
           case (_, _, _, _, _, _, _, _, Some(v9), _, _, _, _) =>
-            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.codec, v9))
+            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.schema, v9))
           case (_, _, _, _, _, _, _, _, _, Some(v10), _, _, _) =>
-            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.codec, v10))
+            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.schema, v10))
           case (_, _, _, _, _, _, _, _, _, _, Some(v11), _, _) =>
-            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.codec, v11))
+            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.schema, v11))
           case (_, _, _, _, _, _, _, _, _, _, _, Some(v12), _) =>
-            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.codec, v12))
+            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.schema, v12))
           case (_, _, _, _, _, _, _, _, _, _, _, _, Some(v13)) =>
-            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.codec, v13))
+            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.schema, v13))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -443,33 +443,33 @@ object DynamicValue {
       case Schema.Enum14(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, _) =>
         (case1.deconstruct(value), case2.deconstruct(value), case3.deconstruct(value), case4.deconstruct(value), case5.deconstruct(value), case6.deconstruct(value), case7.deconstruct(value), case8.deconstruct(value), case9.deconstruct(value), case10.deconstruct(value), case11.deconstruct(value), case12.deconstruct(value), case13.deconstruct(value), case14.deconstruct(value)) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
+            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
+            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3), _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
+            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
           case (_, _, _, Some(v4), _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
+            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
           case (_, _, _, _, Some(v5), _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
+            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
           case (_, _, _, _, _, Some(v6), _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
+            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
           case (_, _, _, _, _, _, Some(v7), _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.codec, v7))
+            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.schema, v7))
           case (_, _, _, _, _, _, _, Some(v8), _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.codec, v8))
+            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.schema, v8))
           case (_, _, _, _, _, _, _, _, Some(v9), _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.codec, v9))
+            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.schema, v9))
           case (_, _, _, _, _, _, _, _, _, Some(v10), _, _, _, _) =>
-            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.codec, v10))
+            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.schema, v10))
           case (_, _, _, _, _, _, _, _, _, _, Some(v11), _, _, _) =>
-            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.codec, v11))
+            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.schema, v11))
           case (_, _, _, _, _, _, _, _, _, _, _, Some(v12), _, _) =>
-            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.codec, v12))
+            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.schema, v12))
           case (_, _, _, _, _, _, _, _, _, _, _, _, Some(v13), _) =>
-            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.codec, v13))
+            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.schema, v13))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, Some(v14)) =>
-            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.codec, v14))
+            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.schema, v14))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -493,35 +493,35 @@ object DynamicValue {
           case15.deconstruct(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
+            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
+            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3), _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
+            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
           case (_, _, _, Some(v4), _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
+            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
           case (_, _, _, _, Some(v5), _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
+            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
           case (_, _, _, _, _, Some(v6), _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
+            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
           case (_, _, _, _, _, _, Some(v7), _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.codec, v7))
+            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.schema, v7))
           case (_, _, _, _, _, _, _, Some(v8), _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.codec, v8))
+            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.schema, v8))
           case (_, _, _, _, _, _, _, _, Some(v9), _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.codec, v9))
+            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.schema, v9))
           case (_, _, _, _, _, _, _, _, _, Some(v10), _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.codec, v10))
+            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.schema, v10))
           case (_, _, _, _, _, _, _, _, _, _, Some(v11), _, _, _, _) =>
-            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.codec, v11))
+            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.schema, v11))
           case (_, _, _, _, _, _, _, _, _, _, _, Some(v12), _, _, _) =>
-            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.codec, v12))
+            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.schema, v12))
           case (_, _, _, _, _, _, _, _, _, _, _, _, Some(v13), _, _) =>
-            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.codec, v13))
+            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.schema, v13))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, Some(v14), _) =>
-            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.codec, v14))
+            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.schema, v14))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v15)) =>
-            DynamicValue.Enumeration(id, case15.id -> fromSchemaAndValue(case15.codec, v15))
+            DynamicValue.Enumeration(id, case15.id -> fromSchemaAndValue(case15.schema, v15))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -546,37 +546,37 @@ object DynamicValue {
           case16.deconstruct(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
+            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
+            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3), _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
+            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
           case (_, _, _, Some(v4), _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
+            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
           case (_, _, _, _, Some(v5), _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
+            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
           case (_, _, _, _, _, Some(v6), _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
+            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
           case (_, _, _, _, _, _, Some(v7), _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.codec, v7))
+            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.schema, v7))
           case (_, _, _, _, _, _, _, Some(v8), _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.codec, v8))
+            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.schema, v8))
           case (_, _, _, _, _, _, _, _, Some(v9), _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.codec, v9))
+            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.schema, v9))
           case (_, _, _, _, _, _, _, _, _, Some(v10), _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.codec, v10))
+            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.schema, v10))
           case (_, _, _, _, _, _, _, _, _, _, Some(v11), _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.codec, v11))
+            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.schema, v11))
           case (_, _, _, _, _, _, _, _, _, _, _, Some(v12), _, _, _, _) =>
-            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.codec, v12))
+            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.schema, v12))
           case (_, _, _, _, _, _, _, _, _, _, _, _, Some(v13), _, _, _) =>
-            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.codec, v13))
+            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.schema, v13))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, Some(v14), _, _) =>
-            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.codec, v14))
+            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.schema, v14))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v15), _) =>
-            DynamicValue.Enumeration(id, case15.id -> fromSchemaAndValue(case15.codec, v15))
+            DynamicValue.Enumeration(id, case15.id -> fromSchemaAndValue(case15.schema, v15))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v16)) =>
-            DynamicValue.Enumeration(id, case16.id -> fromSchemaAndValue(case16.codec, v16))
+            DynamicValue.Enumeration(id, case16.id -> fromSchemaAndValue(case16.schema, v16))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -602,39 +602,39 @@ object DynamicValue {
           case17.deconstruct(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
+            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
+            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3), _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
+            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
           case (_, _, _, Some(v4), _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
+            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
           case (_, _, _, _, Some(v5), _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
+            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
           case (_, _, _, _, _, Some(v6), _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
+            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
           case (_, _, _, _, _, _, Some(v7), _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.codec, v7))
+            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.schema, v7))
           case (_, _, _, _, _, _, _, Some(v8), _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.codec, v8))
+            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.schema, v8))
           case (_, _, _, _, _, _, _, _, Some(v9), _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.codec, v9))
+            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.schema, v9))
           case (_, _, _, _, _, _, _, _, _, Some(v10), _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.codec, v10))
+            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.schema, v10))
           case (_, _, _, _, _, _, _, _, _, _, Some(v11), _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.codec, v11))
+            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.schema, v11))
           case (_, _, _, _, _, _, _, _, _, _, _, Some(v12), _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.codec, v12))
+            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.schema, v12))
           case (_, _, _, _, _, _, _, _, _, _, _, _, Some(v13), _, _, _, _) =>
-            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.codec, v13))
+            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.schema, v13))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, Some(v14), _, _, _) =>
-            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.codec, v14))
+            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.schema, v14))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v15), _, _) =>
-            DynamicValue.Enumeration(id, case15.id -> fromSchemaAndValue(case15.codec, v15))
+            DynamicValue.Enumeration(id, case15.id -> fromSchemaAndValue(case15.schema, v15))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v16), _) =>
-            DynamicValue.Enumeration(id, case16.id -> fromSchemaAndValue(case16.codec, v16))
+            DynamicValue.Enumeration(id, case16.id -> fromSchemaAndValue(case16.schema, v16))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v17)) =>
-            DynamicValue.Enumeration(id, case17.id -> fromSchemaAndValue(case17.codec, v17))
+            DynamicValue.Enumeration(id, case17.id -> fromSchemaAndValue(case17.schema, v17))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -661,41 +661,41 @@ object DynamicValue {
           case18.deconstruct(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
+            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
+            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
+            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
           case (_, _, _, Some(v4), _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
+            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
           case (_, _, _, _, Some(v5), _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
+            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
           case (_, _, _, _, _, Some(v6), _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
+            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
           case (_, _, _, _, _, _, Some(v7), _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.codec, v7))
+            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.schema, v7))
           case (_, _, _, _, _, _, _, Some(v8), _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.codec, v8))
+            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.schema, v8))
           case (_, _, _, _, _, _, _, _, Some(v9), _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.codec, v9))
+            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.schema, v9))
           case (_, _, _, _, _, _, _, _, _, Some(v10), _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.codec, v10))
+            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.schema, v10))
           case (_, _, _, _, _, _, _, _, _, _, Some(v11), _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.codec, v11))
+            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.schema, v11))
           case (_, _, _, _, _, _, _, _, _, _, _, Some(v12), _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.codec, v12))
+            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.schema, v12))
           case (_, _, _, _, _, _, _, _, _, _, _, _, Some(v13), _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.codec, v13))
+            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.schema, v13))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, Some(v14), _, _, _, _) =>
-            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.codec, v14))
+            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.schema, v14))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v15), _, _, _) =>
-            DynamicValue.Enumeration(id, case15.id -> fromSchemaAndValue(case15.codec, v15))
+            DynamicValue.Enumeration(id, case15.id -> fromSchemaAndValue(case15.schema, v15))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v16), _, _) =>
-            DynamicValue.Enumeration(id, case16.id -> fromSchemaAndValue(case16.codec, v16))
+            DynamicValue.Enumeration(id, case16.id -> fromSchemaAndValue(case16.schema, v16))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v17), _) =>
-            DynamicValue.Enumeration(id, case17.id -> fromSchemaAndValue(case17.codec, v17))
+            DynamicValue.Enumeration(id, case17.id -> fromSchemaAndValue(case17.schema, v17))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v18)) =>
-            DynamicValue.Enumeration(id, case18.id -> fromSchemaAndValue(case18.codec, v18))
+            DynamicValue.Enumeration(id, case18.id -> fromSchemaAndValue(case18.schema, v18))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -723,43 +723,43 @@ object DynamicValue {
           case19.deconstruct(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
+            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
+            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
+            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
           case (_, _, _, Some(v4), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
+            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
           case (_, _, _, _, Some(v5), _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
+            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
           case (_, _, _, _, _, Some(v6), _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
+            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
           case (_, _, _, _, _, _, Some(v7), _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.codec, v7))
+            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.schema, v7))
           case (_, _, _, _, _, _, _, Some(v8), _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.codec, v8))
+            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.schema, v8))
           case (_, _, _, _, _, _, _, _, Some(v9), _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.codec, v9))
+            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.schema, v9))
           case (_, _, _, _, _, _, _, _, _, Some(v10), _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.codec, v10))
+            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.schema, v10))
           case (_, _, _, _, _, _, _, _, _, _, Some(v11), _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.codec, v11))
+            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.schema, v11))
           case (_, _, _, _, _, _, _, _, _, _, _, Some(v12), _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.codec, v12))
+            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.schema, v12))
           case (_, _, _, _, _, _, _, _, _, _, _, _, Some(v13), _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.codec, v13))
+            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.schema, v13))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, Some(v14), _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.codec, v14))
+            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.schema, v14))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v15), _, _, _, _) =>
-            DynamicValue.Enumeration(id, case15.id -> fromSchemaAndValue(case15.codec, v15))
+            DynamicValue.Enumeration(id, case15.id -> fromSchemaAndValue(case15.schema, v15))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v16), _, _, _) =>
-            DynamicValue.Enumeration(id, case16.id -> fromSchemaAndValue(case16.codec, v16))
+            DynamicValue.Enumeration(id, case16.id -> fromSchemaAndValue(case16.schema, v16))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v17), _, _) =>
-            DynamicValue.Enumeration(id, case17.id -> fromSchemaAndValue(case17.codec, v17))
+            DynamicValue.Enumeration(id, case17.id -> fromSchemaAndValue(case17.schema, v17))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v18), _) =>
-            DynamicValue.Enumeration(id, case18.id -> fromSchemaAndValue(case18.codec, v18))
+            DynamicValue.Enumeration(id, case18.id -> fromSchemaAndValue(case18.schema, v18))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v19)) =>
-            DynamicValue.Enumeration(id, case19.id -> fromSchemaAndValue(case19.codec, v19))
+            DynamicValue.Enumeration(id, case19.id -> fromSchemaAndValue(case19.schema, v19))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -788,45 +788,45 @@ object DynamicValue {
           case20.deconstruct(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
+            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
+            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
+            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
           case (_, _, _, Some(v4), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
+            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
           case (_, _, _, _, Some(v5), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
+            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
           case (_, _, _, _, _, Some(v6), _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
+            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
           case (_, _, _, _, _, _, Some(v7), _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.codec, v7))
+            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.schema, v7))
           case (_, _, _, _, _, _, _, Some(v8), _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.codec, v8))
+            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.schema, v8))
           case (_, _, _, _, _, _, _, _, Some(v9), _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.codec, v9))
+            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.schema, v9))
           case (_, _, _, _, _, _, _, _, _, Some(v10), _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.codec, v10))
+            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.schema, v10))
           case (_, _, _, _, _, _, _, _, _, _, Some(v11), _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.codec, v11))
+            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.schema, v11))
           case (_, _, _, _, _, _, _, _, _, _, _, Some(v12), _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.codec, v12))
+            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.schema, v12))
           case (_, _, _, _, _, _, _, _, _, _, _, _, Some(v13), _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.codec, v13))
+            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.schema, v13))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, Some(v14), _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.codec, v14))
+            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.schema, v14))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v15), _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case15.id -> fromSchemaAndValue(case15.codec, v15))
+            DynamicValue.Enumeration(id, case15.id -> fromSchemaAndValue(case15.schema, v15))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v16), _, _, _, _) =>
-            DynamicValue.Enumeration(id, case16.id -> fromSchemaAndValue(case16.codec, v16))
+            DynamicValue.Enumeration(id, case16.id -> fromSchemaAndValue(case16.schema, v16))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v17), _, _, _) =>
-            DynamicValue.Enumeration(id, case17.id -> fromSchemaAndValue(case17.codec, v17))
+            DynamicValue.Enumeration(id, case17.id -> fromSchemaAndValue(case17.schema, v17))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v18), _, _) =>
-            DynamicValue.Enumeration(id, case18.id -> fromSchemaAndValue(case18.codec, v18))
+            DynamicValue.Enumeration(id, case18.id -> fromSchemaAndValue(case18.schema, v18))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v19), _) =>
-            DynamicValue.Enumeration(id, case19.id -> fromSchemaAndValue(case19.codec, v19))
+            DynamicValue.Enumeration(id, case19.id -> fromSchemaAndValue(case19.schema, v19))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v20)) =>
-            DynamicValue.Enumeration(id, case20.id -> fromSchemaAndValue(case20.codec, v20))
+            DynamicValue.Enumeration(id, case20.id -> fromSchemaAndValue(case20.schema, v20))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -856,47 +856,47 @@ object DynamicValue {
           case21.deconstruct(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
+            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
+            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
+            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
           case (_, _, _, Some(v4), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
+            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
           case (_, _, _, _, Some(v5), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
+            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
           case (_, _, _, _, _, Some(v6), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
+            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
           case (_, _, _, _, _, _, Some(v7), _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.codec, v7))
+            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.schema, v7))
           case (_, _, _, _, _, _, _, Some(v8), _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.codec, v8))
+            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.schema, v8))
           case (_, _, _, _, _, _, _, _, Some(v9), _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.codec, v9))
+            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.schema, v9))
           case (_, _, _, _, _, _, _, _, _, Some(v10), _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.codec, v10))
+            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.schema, v10))
           case (_, _, _, _, _, _, _, _, _, _, Some(v11), _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.codec, v11))
+            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.schema, v11))
           case (_, _, _, _, _, _, _, _, _, _, _, Some(v12), _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.codec, v12))
+            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.schema, v12))
           case (_, _, _, _, _, _, _, _, _, _, _, _, Some(v13), _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.codec, v13))
+            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.schema, v13))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, Some(v14), _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.codec, v14))
+            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.schema, v14))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v15), _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case15.id -> fromSchemaAndValue(case15.codec, v15))
+            DynamicValue.Enumeration(id, case15.id -> fromSchemaAndValue(case15.schema, v15))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v16), _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case16.id -> fromSchemaAndValue(case16.codec, v16))
+            DynamicValue.Enumeration(id, case16.id -> fromSchemaAndValue(case16.schema, v16))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v17), _, _, _, _) =>
-            DynamicValue.Enumeration(id, case17.id -> fromSchemaAndValue(case17.codec, v17))
+            DynamicValue.Enumeration(id, case17.id -> fromSchemaAndValue(case17.schema, v17))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v18), _, _, _) =>
-            DynamicValue.Enumeration(id, case18.id -> fromSchemaAndValue(case18.codec, v18))
+            DynamicValue.Enumeration(id, case18.id -> fromSchemaAndValue(case18.schema, v18))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v19), _, _) =>
-            DynamicValue.Enumeration(id, case19.id -> fromSchemaAndValue(case19.codec, v19))
+            DynamicValue.Enumeration(id, case19.id -> fromSchemaAndValue(case19.schema, v19))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v20), _) =>
-            DynamicValue.Enumeration(id, case20.id -> fromSchemaAndValue(case20.codec, v20))
+            DynamicValue.Enumeration(id, case20.id -> fromSchemaAndValue(case20.schema, v20))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v21)) =>
-            DynamicValue.Enumeration(id, case21.id -> fromSchemaAndValue(case21.codec, v21))
+            DynamicValue.Enumeration(id, case21.id -> fromSchemaAndValue(case21.schema, v21))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -927,49 +927,49 @@ object DynamicValue {
           case22.deconstruct(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.codec, v1))
+            DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.codec, v2))
+            DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.codec, v3))
+            DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
           case (_, _, _, Some(v4), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.codec, v4))
+            DynamicValue.Enumeration(id, case4.id -> fromSchemaAndValue(case4.schema, v4))
           case (_, _, _, _, Some(v5), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.codec, v5))
+            DynamicValue.Enumeration(id, case5.id -> fromSchemaAndValue(case5.schema, v5))
           case (_, _, _, _, _, Some(v6), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.codec, v6))
+            DynamicValue.Enumeration(id, case6.id -> fromSchemaAndValue(case6.schema, v6))
           case (_, _, _, _, _, _, Some(v7), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.codec, v7))
+            DynamicValue.Enumeration(id, case7.id -> fromSchemaAndValue(case7.schema, v7))
           case (_, _, _, _, _, _, _, Some(v8), _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.codec, v8))
+            DynamicValue.Enumeration(id, case8.id -> fromSchemaAndValue(case8.schema, v8))
           case (_, _, _, _, _, _, _, _, Some(v9), _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.codec, v9))
+            DynamicValue.Enumeration(id, case9.id -> fromSchemaAndValue(case9.schema, v9))
           case (_, _, _, _, _, _, _, _, _, Some(v10), _, _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.codec, v10))
+            DynamicValue.Enumeration(id, case10.id -> fromSchemaAndValue(case10.schema, v10))
           case (_, _, _, _, _, _, _, _, _, _, Some(v11), _, _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.codec, v11))
+            DynamicValue.Enumeration(id, case11.id -> fromSchemaAndValue(case11.schema, v11))
           case (_, _, _, _, _, _, _, _, _, _, _, Some(v12), _, _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.codec, v12))
+            DynamicValue.Enumeration(id, case12.id -> fromSchemaAndValue(case12.schema, v12))
           case (_, _, _, _, _, _, _, _, _, _, _, _, Some(v13), _, _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.codec, v13))
+            DynamicValue.Enumeration(id, case13.id -> fromSchemaAndValue(case13.schema, v13))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, Some(v14), _, _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.codec, v14))
+            DynamicValue.Enumeration(id, case14.id -> fromSchemaAndValue(case14.schema, v14))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v15), _, _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case15.id -> fromSchemaAndValue(case15.codec, v15))
+            DynamicValue.Enumeration(id, case15.id -> fromSchemaAndValue(case15.schema, v15))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v16), _, _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case16.id -> fromSchemaAndValue(case16.codec, v16))
+            DynamicValue.Enumeration(id, case16.id -> fromSchemaAndValue(case16.schema, v16))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v17), _, _, _, _, _) =>
-            DynamicValue.Enumeration(id, case17.id -> fromSchemaAndValue(case17.codec, v17))
+            DynamicValue.Enumeration(id, case17.id -> fromSchemaAndValue(case17.schema, v17))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v18), _, _, _, _) =>
-            DynamicValue.Enumeration(id, case18.id -> fromSchemaAndValue(case18.codec, v18))
+            DynamicValue.Enumeration(id, case18.id -> fromSchemaAndValue(case18.schema, v18))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v19), _, _, _) =>
-            DynamicValue.Enumeration(id, case19.id -> fromSchemaAndValue(case19.codec, v19))
+            DynamicValue.Enumeration(id, case19.id -> fromSchemaAndValue(case19.schema, v19))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v20), _, _) =>
-            DynamicValue.Enumeration(id, case20.id -> fromSchemaAndValue(case20.codec, v20))
+            DynamicValue.Enumeration(id, case20.id -> fromSchemaAndValue(case20.schema, v20))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v21), _) =>
-            DynamicValue.Enumeration(id, case21.id -> fromSchemaAndValue(case21.codec, v21))
+            DynamicValue.Enumeration(id, case21.id -> fromSchemaAndValue(case21.schema, v21))
           case (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, Some(v22)) =>
-            DynamicValue.Enumeration(id, case22.id -> fromSchemaAndValue(case22.codec, v22))
+            DynamicValue.Enumeration(id, case22.id -> fromSchemaAndValue(case22.schema, v22))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
           case _ => DynamicValue.NoneValue
         }
@@ -981,7 +981,7 @@ object DynamicValue {
           case Some(c) =>
             DynamicValue.Enumeration(
               id,
-              c.id -> fromSchemaAndValue(c.codec.asInstanceOf[Schema[Any]], c.unsafeDeconstruct(value))
+              c.id -> fromSchemaAndValue(c.schema.asInstanceOf[Schema[Any]], c.unsafeDeconstruct(value))
             )
           case None => DynamicValue.NoneValue
         }
@@ -991,28 +991,28 @@ object DynamicValue {
       case Schema.Sequence(schema, _, toChunk, _, _) =>
         DynamicValue.Sequence(toChunk(value).map(fromSchemaAndValue(schema, _)))
 
-      case Schema.MapSchema(ks: Schema[k], vs: Schema[v], _) =>
+      case Schema.Map(ks: Schema[k], vs: Schema[v], _) =>
         val entries = value.asInstanceOf[Map[k, v]].map {
           case (key, value) => (fromSchemaAndValue(ks, key), fromSchemaAndValue(vs, value))
         }
         DynamicValue.Dictionary(Chunk.fromIterable(entries))
 
-      case Schema.SetSchema(as: Schema[a], _) =>
+      case Schema.Set(as: Schema[a], _) =>
         DynamicValue.SetValue(value.asInstanceOf[Set[a]].map(fromSchemaAndValue(as, _)))
 
-      case schema: Schema.EitherSchema[l, r] =>
+      case schema: Schema.Either[l, r] =>
         value.asInstanceOf[Either[l, r]] match {
           case Left(value: l)  => DynamicValue.LeftValue(fromSchemaAndValue(schema.left, value))
           case Right(value: r) => DynamicValue.RightValue(fromSchemaAndValue(schema.right, value))
         }
 
-      case schema: Schema.Tuple[a, b] =>
+      case schema: Schema.Tuple2[a, b] =>
         val (a: a, b: b) = value.asInstanceOf[(a, b)]
         DynamicValue.Tuple(fromSchemaAndValue(schema.left, a), fromSchemaAndValue(schema.right, b))
 
       case schema: Schema.Optional[a] =>
         value.asInstanceOf[Option[a]] match {
-          case Some(value: a) => DynamicValue.SomeValue(fromSchemaAndValue(schema.codec, value))
+          case Some(value: a) => DynamicValue.SomeValue(fromSchemaAndValue(schema.schema, value))
           case None           => DynamicValue.NoneValue
         }
 
@@ -1021,8 +1021,6 @@ object DynamicValue {
           case Left(message) => DynamicValue.Error(message)
           case Right(a)      => fromSchemaAndValue(schema, a)
         }
-
-      case Schema.Meta(ast, _) => DynamicValue.DynamicAst(ast)
 
       case Schema.CaseClass0(id, _, _) =>
         DynamicValue.Record(id, ListMap())
@@ -1919,10 +1917,6 @@ object DynamicValue {
           )
         )
       case Schema.Dynamic(_) => value
-
-      case Schema.SemiDynamic(_, _) =>
-        val (a, schema) = value.asInstanceOf[(Any, Schema[Any])]
-        Tuple(fromSchemaAndValue(schema, a), DynamicAst(schema.ast))
     }
 
   def decodeStructure(
@@ -1966,7 +1960,7 @@ object DynamicValue {
 
   final case class RightValue(value: DynamicValue) extends DynamicValue
 
-  final case class DynamicAst(ast: SchemaAst) extends DynamicValue
+  final case class DynamicAst(ast: MetaSchema) extends DynamicValue
 
   final case class Error(message: String) extends DynamicValue
 
@@ -2187,9 +2181,9 @@ private[schema] object DynamicValueSchema {
   private val dynamicAstCase: Schema.Case[DynamicValue.DynamicAst, DynamicValue] =
     Schema.Case(
       "DynamicAst",
-      Schema.CaseClass1[SchemaAst, DynamicValue.DynamicAst](
+      Schema.CaseClass1[MetaSchema, DynamicValue.DynamicAst](
         TypeId.parse("zio.schema.DynamicValue.DynamicAst"),
-        Schema.Field("ast", SchemaAst.schema),
+        Schema.Field("ast", MetaSchema.schema),
         schemaAst => DynamicValue.DynamicAst(schemaAst),
         dynamicAst => dynamicAst.ast
       ),

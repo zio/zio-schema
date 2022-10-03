@@ -57,7 +57,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     suite("tuple")(
       test("of primitives") {
         assertEncodesJson(
-          Schema.Tuple(
+          Schema.Tuple2(
             Schema.Primitive(StandardType.StringType),
             Schema.Primitive(StandardType.IntType)
           ),
@@ -203,7 +203,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
             left  <- SchemaGen.anyTupleAndValue
             right <- SchemaGen.anyTupleAndValue
           } yield (
-            Schema.EitherSchema(left._1.asInstanceOf[Schema[(Any, Any)]], right._1.asInstanceOf[Schema[(Any, Any)]]),
+            Schema.Either(left._1.asInstanceOf[Schema[(Any, Any)]], right._1.asInstanceOf[Schema[(Any, Any)]]),
             Right(right._2)
           )
         ) {
@@ -214,7 +214,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         check(for {
           (left, value) <- SchemaGen.anyEnumerationAndValue
           (right, _)    <- SchemaGen.anyEnumerationAndValue
-        } yield (Schema.EitherSchema(left, right), Left(value))) {
+        } yield (Schema.Either(left, right), Left(value))) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
         }
       },
@@ -224,7 +224,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
             left  <- SchemaGen.anySequenceAndValue
             right <- SchemaGen.anySequenceAndValue
           } yield (
-            Schema.EitherSchema(left._1.asInstanceOf[Schema[Chunk[Any]]], right._1.asInstanceOf[Schema[Chunk[Any]]]),
+            Schema.Either(left._1.asInstanceOf[Schema[Chunk[Any]]], right._1.asInstanceOf[Schema[Chunk[Any]]]),
             Left(left._2)
           )
         ) {
@@ -238,14 +238,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
             right <- SchemaGen.anyMapAndValue
           } yield (
             Schema
-              .EitherSchema(left._1.asInstanceOf[Schema[Map[Any, Any]]], right._1.asInstanceOf[Schema[Map[Any, Any]]]),
+              .Either(left._1.asInstanceOf[Schema[Map[Any, Any]]], right._1.asInstanceOf[Schema[Map[Any, Any]]]),
             Left(left._2)
           )
         ) {
           case (schema, value) =>
-            assertEncodesThenDecodes[Either[Map[Any, Any], Map[Any, Any]]](
-              schema.asInstanceOf[Schema[Either[Map[Any, Any], Map[Any, Any]]]],
-              value.asInstanceOf[Either[Map[Any, Any], Map[Any, Any]]]
+            assertEncodesThenDecodes[scala.util.Either[Map[Any, Any], Map[Any, Any]]](
+              schema.asInstanceOf[Schema[scala.util.Either[Map[Any, Any], Map[Any, Any]]]],
+              value.asInstanceOf[scala.util.Either[Map[Any, Any], Map[Any, Any]]]
             )
         }
       },
@@ -256,14 +256,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
             right <- SchemaGen.anySetAndValue
           } yield (
             Schema
-              .EitherSchema(left._1.asInstanceOf[Schema[Set[Any]]], right._1.asInstanceOf[Schema[Set[Any]]]),
+              .Either(left._1.asInstanceOf[Schema[Set[Any]]], right._1.asInstanceOf[Schema[Set[Any]]]),
             Left(left._2)
           )
         ) {
           case (schema, value) =>
-            assertEncodesThenDecodes[Either[Set[Any], Set[Any]]](
-              schema.asInstanceOf[Schema[Either[Set[Any], Set[Any]]]],
-              value.asInstanceOf[Either[Set[Any], Set[Any]]]
+            assertEncodesThenDecodes[scala.util.Either[Set[Any], Set[Any]]](
+              schema.asInstanceOf[Schema[scala.util.Either[Set[Any], Set[Any]]]],
+              value.asInstanceOf[scala.util.Either[Set[Any], Set[Any]]]
             )
         }
       },
@@ -289,7 +289,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         check(for {
           (left, a)       <- SchemaGen.anyRecordAndValue()
           primitiveSchema <- SchemaGen.anyPrimitive
-        } yield (Schema.EitherSchema(left, primitiveSchema), Left(a))) {
+        } yield (Schema.Either(left, primitiveSchema), Left(a))) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
         }
       },
@@ -297,7 +297,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         check(for {
           (left, _)  <- SchemaGen.anyRecordOfRecordsAndValue
           (right, b) <- SchemaGen.anyRecordOfRecordsAndValue
-        } yield (Schema.EitherSchema(left, right), Right(b))) {
+        } yield (Schema.Either(left, right), Right(b))) {
           case (schema, value) =>
             assertEncodesThenDecodes(schema, value)
         }
@@ -306,7 +306,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         check(for {
           (left, _)      <- SchemaGen.anyEnumerationAndValue
           (right, value) <- SchemaGen.anySequenceAndValue
-        } yield (Schema.EitherSchema(left, right), Right(value))) {
+        } yield (Schema.Either(left, right), Right(value))) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
         }
       }
@@ -625,24 +625,6 @@ object JsonCodecSpec extends ZIOSpecDefault {
           }
         }
       ),
-      test("semi dynamic record") {
-        check(
-          SchemaGen.anyRecord.flatMap(
-            record =>
-              DynamicValueGen
-                .anyDynamicValueOfSchema(record)
-                .map(dyn => (dyn.toTypedValue(record).toOption.get, record))
-          )
-        ) { value =>
-          val schema = Schema.semiDynamic[ListMap[String, _]]()
-          assertEncodesThenDecodesWithDifferentSchemas(
-            encodingSchema = schema,
-            decodingSchema = schema,
-            value = value,
-            compare = compareRandomRecords
-          )
-        }
-      },
       test("deserialized dynamic record converted to typed value") {
         check(SchemaGen.anyRecordAndValue(maxFieldCount = 15)) {
           case (schema, value) =>
@@ -663,20 +645,6 @@ object JsonCodecSpec extends ZIOSpecDefault {
       } @@ TestAspect.sized(1000) @@ TestAspect.samples(1000)
     )
   )
-
-  private def compareRandomRecords(
-    a: (ListMap[String, _], Schema[ListMap[String, _]]),
-    b: (ListMap[String, _], Schema[ListMap[String, _]])
-  ): Boolean = {
-    val (aValue, aSchema) = a
-    val (bValue, bSchema) = b
-    if (Schema.structureEquality.equal(aSchema, bSchema)) {
-      // We cannot check real equality because the transformations are lost
-      aValue.keySet == bValue.keySet
-    } else {
-      false
-    }
-  }
 
   private def assertEncodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {
     val stream = ZStream
@@ -725,7 +693,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     decodingSchema: Schema[A2],
     value: A1,
     compare: (A1, A2) => Boolean,
-    print: Boolean = false
+    print: Boolean
   ) =
     ZStream
       .succeed(value)

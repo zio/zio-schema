@@ -73,13 +73,13 @@ object Domain {
       id = TypeId.parse("dev.zio.schema.example.example2.Domain.PaymentMethod"),
       case1 = Case[CreditCard, PaymentMethod](
         id = "CreditCard",
-        codec = CreditCard.schema,
+        schema = CreditCard.schema,
         unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.CreditCard],
         annotations = Chunk.empty
       ),
       case2 = Case[WireTransfer, PaymentMethod](
         id = "WireTransfer",
-        codec = WireTransfer.schema,
+        schema = WireTransfer.schema,
         unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.WireTransfer],
         annotations = Chunk.empty
       ),

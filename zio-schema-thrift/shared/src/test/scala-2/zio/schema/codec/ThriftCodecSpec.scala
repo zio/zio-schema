@@ -123,7 +123,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
       test("map") {
-        val m       = MapValue(Map("a" -> Record("Foo", 123), "b" -> Record("Bar", 456)))
+        val m       = MapValue(scala.collection.immutable.Map("a" -> Record("Foo", 123), "b" -> Record("Bar", 456)))
         val javaMap = new util.HashMap[String, g.Record]()
         javaMap.put("a", new g.Record("Foo", 123))
         javaMap.put("b", new g.Record("Bar", 456))
@@ -134,7 +134,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         } yield assert(e)(equalTo(res))
       },
       test("set") {
-        val m       = SetValue(Set(Record("Foo", 123), Record("Bar", 456)))
+        val m       = SetValue(scala.collection.immutable.Set(Record("Foo", 123), Record("Bar", 456)))
         val javaSet = new util.HashSet[g.Record]()
         javaSet.add(new g.Record("Foo", 123))
         javaSet.add(new g.Record("Bar", 456))
@@ -618,7 +618,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
       },
       test("map of products") {
-        val m: Map[Record, MyRecord] = Map(
+        val m: scala.collection.immutable.Map[Record, MyRecord] = scala.collection.immutable.Map(
           Record("AAA", 1) -> MyRecord(1),
           Record("BBB", 2) -> MyRecord(2)
         )
@@ -629,15 +629,16 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
       },
       test("map in record") {
-        val m = MapRecord(1, Map(1 -> "aaa", 3 -> "ccc"))
+        val m = MapRecord(1, scala.collection.immutable.Map(1 -> "aaa", 3 -> "ccc"))
         for {
           ed  <- encodeAndDecode(schemaMapRecord, m)
           ed2 <- encodeAndDecodeNS(schemaMapRecord, m)
         } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
       },
       test("set of products") {
-        val set: Set[Record] = Set(Record("AAA", 1), Record("BBB", 2))
-        val setSchema        = Schema.set(Record.schemaRecord)
+        val set: scala.collection.immutable.Set[Record] =
+          scala.collection.immutable.Set(Record("AAA", 1), Record("BBB", 2))
+        val setSchema = Schema.set(Record.schemaRecord)
 
         for {
           ed  <- encodeAndDecode(setSchema, set)
@@ -645,7 +646,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk.succeed(set))) && assert(ed2)(equalTo(set))
       },
       test("set in record") {
-        val m = SetRecord(1, Set("aaa", "ccc"))
+        val m = SetRecord(1, scala.collection.immutable.Set("aaa", "ccc"))
         for {
           ed  <- encodeAndDecode(schemaSetRecord, m)
           ed2 <- encodeAndDecodeNS(schemaSetRecord, m)
@@ -752,26 +753,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
             assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         }
-      ),
-      test("semi dynamic record") {
-        check(
-          SchemaGen.anyRecord.flatMap(
-            record =>
-              DynamicValueGen
-                .anyDynamicValueOfSchema(record)
-                .map(dyn => (dyn.toTypedValue(record).toOption.get, record))
-          )
-        ) { value =>
-          val schema = Schema.semiDynamic[ListMap[String, _]]()
-          for {
-            result                      <- encodeAndDecode(schema, value)
-            (resultValue, resultSchema) = result.head
-          } yield assertTrue(
-            Schema.structureEquality.equal(value._2, resultSchema),
-            resultValue.keySet == value._1.keySet
-          )
-        }
-      }
+      )
     ),
     suite("Should successfully decode")(
       test("empty input") {
@@ -904,13 +886,13 @@ object ThriftCodecSpec extends ZIOSpecDefault {
     implicit val schemaRecord: Schema[Record] = DeriveSchema.gen[Record]
   }
 
-  val schemaTuple: Schema.Tuple[Int, String] = Schema.Tuple(Schema[Int], Schema[String])
+  val schemaTuple: Schema.Tuple2[Int, String] = Schema.Tuple2(Schema[Int], Schema[String])
 
-  case class MapValue(value: Map[String, Record])
+  case class MapValue(value: scala.collection.immutable.Map[String, Record])
 
   val schemaMapValue: Schema[MapValue] = DeriveSchema.gen[MapValue]
 
-  case class SetValue(value: Set[Record])
+  case class SetValue(value: scala.collection.immutable.Set[Record])
 
   val schemaSetValue: Schema[SetValue] = DeriveSchema.gen[SetValue]
 
@@ -957,23 +939,23 @@ object ThriftCodecSpec extends ZIOSpecDefault {
 
   lazy val myRecord: Schema[MyRecord] = DeriveSchema.gen[MyRecord]
 
-  case class MapRecord(age: Int, map: Map[Int, String])
+  case class MapRecord(age: Int, map: scala.collection.immutable.Map[Int, String])
 
   lazy val schemaMapRecord: Schema[MapRecord] = DeriveSchema.gen[MapRecord]
 
-  case class SetRecord(age: Int, set: Set[String])
+  case class SetRecord(age: Int, set: scala.collection.immutable.Set[String])
 
   lazy val schemaSetRecord: Schema[SetRecord] = DeriveSchema.gen[SetRecord]
 
-  val complexTupleSchema: Schema.Tuple[Record, OneOf] = Schema.Tuple(Record.schemaRecord, schemaOneOf)
+  val complexTupleSchema: Schema.Tuple2[Record, OneOf] = Schema.Tuple2(Record.schemaRecord, schemaOneOf)
 
-  val eitherSchema: Schema.EitherSchema[Int, String] = Schema.EitherSchema(Schema[Int], Schema[String])
+  val eitherSchema: Schema.Either[Int, String] = Schema.Either(Schema[Int], Schema[String])
 
-  val complexEitherSchema: Schema.EitherSchema[Record, OneOf] =
-    Schema.EitherSchema(Record.schemaRecord, schemaOneOf)
+  val complexEitherSchema: Schema.Either[Record, OneOf] =
+    Schema.Either(Record.schemaRecord, schemaOneOf)
 
-  val complexEitherSchema2: Schema.EitherSchema[MyRecord, MyRecord] =
-    Schema.EitherSchema(myRecord, myRecord)
+  val complexEitherSchema2: Schema.Either[MyRecord, MyRecord] =
+    Schema.Either(myRecord, myRecord)
 
   case class RichProduct(stringOneOf: OneOf, basicString: BasicString, record: Record)
 

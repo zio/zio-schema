@@ -69,20 +69,6 @@ object DynamicValueSpec extends ZIOSpecDefault {
             assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
         }
       },
-      test("round-trip semiDynamic") {
-        val gen = for {
-          schemaAndGen       <- SchemaGen.anyGenericRecordAndGen()
-          (schema, valueGen) = schemaAndGen
-          value              <- valueGen
-        } yield schema -> value
-        check(gen) {
-          case (schema, value) =>
-            val semiDynamicSchema = Schema.semiDynamic(defaultValue = Right(value -> schema))
-            assert(semiDynamicSchema.fromDynamic(semiDynamicSchema.toDynamic(value -> schema)))(
-              isRight(equalTo(value -> schema))
-            )
-        }
-      },
       test("round-trips sequence") {
         check(SchemaGen.anySequenceAndValue) {
           case (schema, a) => assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))

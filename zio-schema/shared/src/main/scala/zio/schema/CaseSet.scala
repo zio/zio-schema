@@ -69,7 +69,7 @@ object CaseSet {
     def ++[That](that: That)(implicit append: Append[Z, Cons[A, T, Z], That]): append.Out =
       append(self, that)
 
-    override def toMap: ListMap[String, Schema[_]] = ListMap(head.id -> head.codec) ++ tail.toMap
+    override def toMap: ListMap[String, Schema[_]] = ListMap(head.id -> head.schema) ++ tail.toMap
 
     override def toSeq: Seq[Case[_, Z]] =
       Seq(head) ++ tail.toSeq

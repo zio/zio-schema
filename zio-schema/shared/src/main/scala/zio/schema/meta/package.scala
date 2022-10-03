@@ -1,5 +1,5 @@
 package zio.schema
 
-package object ast {
+package object meta {
   type NodePath = NodePath.Type
 }
