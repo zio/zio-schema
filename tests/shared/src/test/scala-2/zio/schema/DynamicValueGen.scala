@@ -116,4 +116,13 @@ object DynamicValueGen {
         DynamicValue.Record(TypeId.Structural, ListMap.empty ++ values)
       }
 
+  def anyDynamicSequence[A](itemSchema: Schema[A]): Gen[Sized, DynamicValue.Sequence] =
+    Gen.chunkOf(anyDynamicValueOfSchema(itemSchema)).map { items =>
+      DynamicValue.Sequence(items)
+    }
+
+  def anyDynamicSet[A](itemSchema: Schema[A]): Gen[Sized, DynamicValue.SetValue] =
+    Gen.setOf(anyDynamicValueOfSchema(itemSchema)).map { items =>
+      DynamicValue.SetValue(items)
+    }
 }

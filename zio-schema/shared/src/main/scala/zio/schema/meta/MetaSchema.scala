@@ -38,13 +38,15 @@ object MetaSchema {
 
   object Product {
     implicit val schema: Schema[Product] = {
-      Schema.CaseClass3(
+      Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Product"),
-        field1 = Schema.Field("path", Schema[String].repeated),
-        field2 = Schema.Field("fields", Schema[Labelled].repeated),
-        field3 = Schema.Field("optional", Schema[Boolean]),
-        (path: Chunk[String], fields: Chunk[Labelled], optional: Boolean) =>
-          Product(TypeId.Structural, NodePath(path), fields, optional),
+        field1 = Schema.Field("id", Schema[TypeId]),
+        field2 = Schema.Field("path", Schema[String].repeated),
+        field3 = Schema.Field("fields", Schema[Labelled].repeated),
+        field4 = Schema.Field("optional", Schema[Boolean]),
+        (id: TypeId, path: Chunk[String], fields: Chunk[Labelled], optional: Boolean) =>
+          Product(id, NodePath(path), fields, optional),
+        _.id,
         _.path,
         _.fields,
         _.optional
@@ -85,13 +87,15 @@ object MetaSchema {
 
   object Sum {
     implicit lazy val schema: Schema[Sum] =
-      Schema.CaseClass3(
+      Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Sum"),
-        field1 = Schema.Field("path", Schema[String].repeated),
-        field2 = Schema.Field("cases", Schema[Labelled].repeated),
-        field3 = Schema.Field("optional", Schema[Boolean]),
-        (path: Chunk[String], fields: Chunk[Labelled], optional: Boolean) =>
-          Sum(TypeId.Structural, NodePath(path), fields, optional),
+        field1 = Schema.Field("id", Schema[TypeId]),
+        field2 = Schema.Field("path", Schema[String].repeated),
+        field3 = Schema.Field("cases", Schema[Labelled].repeated),
+        field4 = Schema.Field("optional", Schema[Boolean]),
+        (id: TypeId, path: Chunk[String], fields: Chunk[Labelled], optional: Boolean) =>
+          Sum(id, NodePath(path), fields, optional),
+        _.id,
         _.path,
         _.cases,
         _.optional
