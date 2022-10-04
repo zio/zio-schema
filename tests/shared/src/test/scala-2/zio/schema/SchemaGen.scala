@@ -14,7 +14,7 @@ object SchemaGen {
 
   def anyStructure(
     schemaGen: Gen[Sized, Schema[_]]
-  ): Gen[Sized, Seq[Schema.Field[_]]] =
+  ): Gen[Sized, Seq[Schema.Field[_, Any]]] =
     Gen.setOfBounded(1, 3)(anyLabel).flatMap { keySet =>
       Gen.setOfN(keySet.size)(schemaGen).map { schemas =>
         keySet
@@ -26,7 +26,7 @@ object SchemaGen {
       }
     }
 
-  def anyStructure[A](schema: Schema[A], max: Int = 3): Gen[Sized, Seq[Schema.Field[A]]] =
+  def anyStructure[A](schema: Schema[A], max: Int = 3): Gen[Sized, Seq[Schema.Field[A, Any]]] =
     Gen
       .setOfBounded(1, max)(
         anyLabel.map(Schema.Field(_, schema))

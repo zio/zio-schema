@@ -21,7 +21,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
 
   override def makeLens[F, S, A](
     product: Schema.Record[S],
-    term: Schema.Field[A]
+    term: Schema.Field[A, S]
   ): Optic[S, S, A, OpticFailure, OpticFailure, A, S] =
     Optic(
       getOptic = ZioOpticsBuilder.makeLensGet(product, term),
@@ -61,7 +61,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
 
   private[optics] def makeLensGet[S, A](
     product: Schema.Record[S],
-    term: Schema.Field[A]
+    term: Schema.Field[A, S]
   ): S => Either[(OpticFailure, S), A] = { (whole: S) =>
     product.toDynamic(whole) match {
       case DynamicValue.Record(_, values) =>
@@ -80,7 +80,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
 
   private[optics] def makeLensSet[S, A](
     product: Schema.Record[S],
-    term: Schema.Field[A]
+    term: Schema.Field[A, S]
   ): A => S => Either[(OpticFailure, S), S] = { (piece: A) => (whole: S) =>
     product.toDynamic(whole) match {
       case DynamicValue.Record(name, values) =>

@@ -166,7 +166,7 @@ object Schema extends SchemaEquality {
   def first[A](schema: Schema[(A, Unit)]): Schema[A] =
     schema.transform[A](_._1, a => (a, ()))
 
-  def record(id: TypeId, fields: Field[_]*): Schema[ListMap[String, _]] =
+  def record(id: TypeId, fields: Field[_, Any]*): Schema[ListMap[String, _]] =
     GenericRecord(id, FieldSet(fields: _*))
 
   def second[A](schema: Schema[(Unit, A)]): Schema[A] =
@@ -270,7 +270,7 @@ object Schema extends SchemaEquality {
     def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])]
   }
 
-  final case class Field[A](
+  final case class Field[A, -R](
     name: String,
     schema: Schema[A],
     annotations: Chunk[Any] = Chunk.empty,
@@ -281,7 +281,7 @@ object Schema extends SchemaEquality {
 
   sealed trait Record[R] extends Schema[R] {
     self =>
-    def structure: Chunk[Field[_]]
+    def structure: Chunk[Field[_, R]]
 
     def rawConstruct(values: Chunk[Any]): scala.util.Either[String, R]
 
@@ -413,8 +413,8 @@ object Schema extends SchemaEquality {
 
     val toRecord: CaseClass2[A, B, (A, B)] = CaseClass2[A, B, (A, B)](
       id = TypeId.parse("zio.schema.Schema.CaseClass2"),
-      field1 = Field[A]("_1", left),
-      field2 = Field[B]("_2", right),
+      field1 = Field[A, (A, B)]("_1", left),
+      field2 = Field[B, (A, B)]("_2", right),
       construct = (a, b) => (a, b),
       extractField1 = _._1,
       extractField2 = _._2,
@@ -3229,7 +3229,7 @@ object Schema extends SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal] =
       fieldSet.makeAccessors(self, b)
 
-    override def structure: Chunk[Schema.Field[_]] = fieldSet.toChunk
+    override def structure: Chunk[Schema.Field[_, Any]] = fieldSet.toChunk
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, ListMap[String, _]] =
       if (values.size == structure.size)
@@ -3253,7 +3253,7 @@ object Schema extends SchemaEquality {
 
     override def makeAccessors(b: AccessorBuilder): Nothing = ???
 
-    override def structure: Chunk[Field[_]] = Chunk.empty
+    override def structure: Chunk[Field[_, Z]] = Chunk.empty
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.isEmpty)
@@ -3269,7 +3269,7 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass1[A, Z](
     id: TypeId,
-    field: Field[A],
+    field: Field[A, Z],
     construct: A => Z,
     extractField: Z => A,
     override val annotations: Chunk[Any] = Chunk.empty
@@ -3281,7 +3281,7 @@ object Schema extends SchemaEquality {
 
     override def makeAccessors(b: AccessorBuilder): b.Lens[field.name.type, Z, A] = b.makeLens(self, field)
 
-    override def structure: Chunk[Field[_]] = Chunk(field)
+    override def structure: Chunk[Field[_, Z]] = Chunk(field)
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 1)
@@ -3297,8 +3297,8 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass2[A1, A2, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
     construct: (A1, A2) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -3315,7 +3315,7 @@ object Schema extends SchemaEquality {
     ): (b.Lens[field1.name.type, Z, A1], b.Lens[field2.name.type, Z, A2]) =
       (b.makeLens(self, field1), b.makeLens(self, field2))
 
-    override def structure: Chunk[Field[_]] = Chunk(field1, field2)
+    override def structure: Chunk[Field[_, Z]] = Chunk(field1, field2)
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 2)
@@ -3331,9 +3331,9 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass3[A1, A2, A3, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
     construct: (A1, A2, A3) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -3351,7 +3351,7 @@ object Schema extends SchemaEquality {
     ): (b.Lens[field1.name.type, Z, A1], b.Lens[field2.name.type, Z, A2], b.Lens[field3.name.type, Z, A3]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3))
 
-    override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3)
+    override def structure: Chunk[Field[_, Z]] = Chunk(field1, field2, field3)
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 3)
@@ -3368,10 +3368,10 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass4[A1, A2, A3, A4, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
     construct: (A1, A2, A3, A4) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -3398,7 +3398,7 @@ object Schema extends SchemaEquality {
     ) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4))
 
-    override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4)
+    override def structure: Chunk[Field[_, Z]] = Chunk(field1, field2, field3, field4)
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 4)
@@ -3422,11 +3422,11 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass5[A1, A2, A3, A4, A5, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
     construct: (A1, A2, A3, A4, A5) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -3462,7 +3462,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field5)
       )
 
-    override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5)
+    override def structure: Chunk[Field[_, Z]] = Chunk(field1, field2, field3, field4, field5)
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 5)
@@ -3486,12 +3486,12 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass6[A1, A2, A3, A4, A5, A6, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
     construct: (A1, A2, A3, A4, A5, A6) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -3531,7 +3531,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field6)
       )
 
-    override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6)
+    override def structure: Chunk[Field[_, Z]] = Chunk(field1, field2, field3, field4, field5, field6)
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 6)
@@ -3557,13 +3557,13 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
-    field7: Field[A7],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
+    field7: Field[A7, Z],
     construct: (A1, A2, A3, A4, A5, A6, A7) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -3607,7 +3607,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field7)
       )
 
-    override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6, field7)
+    override def structure: Chunk[Field[_, Z]] = Chunk(field1, field2, field3, field4, field5, field6, field7)
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 7)
@@ -3634,14 +3634,14 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
-    field7: Field[A7],
-    field8: Field[A8],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
+    field7: Field[A7, Z],
+    field8: Field[A8, Z],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -3689,7 +3689,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field8)
       )
 
-    override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3, field4, field5, field6, field7, field8)
+    override def structure: Chunk[Field[_, Z]] = Chunk(field1, field2, field3, field4, field5, field6, field7, field8)
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
       if (values.size == 8)
@@ -3717,15 +3717,15 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
-    field7: Field[A7],
-    field8: Field[A8],
-    field9: Field[A9],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
+    field7: Field[A7, Z],
+    field8: Field[A8, Z],
+    field9: Field[A9, Z],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -3776,7 +3776,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field8),
         b.makeLens(self, field9)
       )
-    override def structure: Chunk[Field[_]] =
+    override def structure: Chunk[Field[_, Z]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9)
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
@@ -3806,16 +3806,16 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
-    field7: Field[A7],
-    field8: Field[A8],
-    field9: Field[A9],
-    field10: Field[A10],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
+    field7: Field[A7, Z],
+    field8: Field[A8, Z],
+    field9: Field[A9, Z],
+    field10: Field[A10, Z],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -3871,7 +3871,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field10)
       )
 
-    override def structure: Chunk[Field[_]] =
+    override def structure: Chunk[Field[_, Z]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10)
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
@@ -3901,17 +3901,17 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
-    field7: Field[A7],
-    field8: Field[A8],
-    field9: Field[A9],
-    field10: Field[A10],
-    field11: Field[A11],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
+    field7: Field[A7, Z],
+    field8: Field[A8, Z],
+    field9: Field[A9, Z],
+    field10: Field[A10, Z],
+    field11: Field[A11, Z],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -3974,7 +3974,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field11)
       )
 
-    override def structure: Chunk[Field[_]] =
+    override def structure: Chunk[Field[_, Z]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11)
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
@@ -4005,18 +4005,18 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
-    field7: Field[A7],
-    field8: Field[A8],
-    field9: Field[A9],
-    field10: Field[A10],
-    field11: Field[A11],
-    field12: Field[A12],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
+    field7: Field[A7, Z],
+    field8: Field[A8, Z],
+    field9: Field[A9, Z],
+    field10: Field[A10, Z],
+    field11: Field[A11, Z],
+    field12: Field[A12, Z],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -4081,7 +4081,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field12)
       )
 
-    override def structure: Chunk[Field[_]] =
+    override def structure: Chunk[Field[_, Z]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12)
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
@@ -4113,19 +4113,19 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
-    field7: Field[A7],
-    field8: Field[A8],
-    field9: Field[A9],
-    field10: Field[A10],
-    field11: Field[A11],
-    field12: Field[A12],
-    field13: Field[A13],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
+    field7: Field[A7, Z],
+    field8: Field[A8, Z],
+    field9: Field[A9, Z],
+    field10: Field[A10, Z],
+    field11: Field[A11, Z],
+    field12: Field[A12, Z],
+    field13: Field[A13, Z],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -4193,7 +4193,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field13)
       )
 
-    override def structure: Chunk[Field[_]] =
+    override def structure: Chunk[Field[_, Z]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13)
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
@@ -4226,20 +4226,20 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
-    field7: Field[A7],
-    field8: Field[A8],
-    field9: Field[A9],
-    field10: Field[A10],
-    field11: Field[A11],
-    field12: Field[A12],
-    field13: Field[A13],
-    field14: Field[A14],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
+    field7: Field[A7, Z],
+    field8: Field[A8, Z],
+    field9: Field[A9, Z],
+    field10: Field[A10, Z],
+    field11: Field[A11, Z],
+    field12: Field[A12, Z],
+    field13: Field[A13, Z],
+    field14: Field[A14, Z],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -4313,7 +4313,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field14)
       )
 
-    override def structure: Chunk[Field[_]] =
+    override def structure: Chunk[Field[_, Z]] =
       Chunk(
         field1,
         field2,
@@ -4363,21 +4363,21 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
-    field7: Field[A7],
-    field8: Field[A8],
-    field9: Field[A9],
-    field10: Field[A10],
-    field11: Field[A11],
-    field12: Field[A12],
-    field13: Field[A13],
-    field14: Field[A14],
-    field15: Field[A15],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
+    field7: Field[A7, Z],
+    field8: Field[A8, Z],
+    field9: Field[A9, Z],
+    field10: Field[A10, Z],
+    field11: Field[A11, Z],
+    field12: Field[A12, Z],
+    field13: Field[A13, Z],
+    field14: Field[A14, Z],
+    field15: Field[A15, Z],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -4455,7 +4455,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field15)
       )
 
-    override def structure: Chunk[Field[_]] =
+    override def structure: Chunk[Field[_, Z]] =
       Chunk(
         field1,
         field2,
@@ -4507,22 +4507,22 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
-    field7: Field[A7],
-    field8: Field[A8],
-    field9: Field[A9],
-    field10: Field[A10],
-    field11: Field[A11],
-    field12: Field[A12],
-    field13: Field[A13],
-    field14: Field[A14],
-    field15: Field[A15],
-    field16: Field[A16],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
+    field7: Field[A7, Z],
+    field8: Field[A8, Z],
+    field9: Field[A9, Z],
+    field10: Field[A10, Z],
+    field11: Field[A11, Z],
+    field12: Field[A12, Z],
+    field13: Field[A13, Z],
+    field14: Field[A14, Z],
+    field15: Field[A15, Z],
+    field16: Field[A16, Z],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -4604,7 +4604,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field16)
       )
 
-    override def structure: Chunk[Field[_]] =
+    override def structure: Chunk[Field[_, Z]] =
       Chunk(
         field1,
         field2,
@@ -4658,23 +4658,23 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
-    field7: Field[A7],
-    field8: Field[A8],
-    field9: Field[A9],
-    field10: Field[A10],
-    field11: Field[A11],
-    field12: Field[A12],
-    field13: Field[A13],
-    field14: Field[A14],
-    field15: Field[A15],
-    field16: Field[A16],
-    field17: Field[A17],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
+    field7: Field[A7, Z],
+    field8: Field[A8, Z],
+    field9: Field[A9, Z],
+    field10: Field[A10, Z],
+    field11: Field[A11, Z],
+    field12: Field[A12, Z],
+    field13: Field[A13, Z],
+    field14: Field[A14, Z],
+    field15: Field[A15, Z],
+    field16: Field[A16, Z],
+    field17: Field[A17, Z],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -4760,7 +4760,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field17)
       )
 
-    override def structure: Chunk[Field[_]] =
+    override def structure: Chunk[Field[_, Z]] =
       Chunk(
         field1,
         field2,
@@ -4816,24 +4816,24 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
-    field7: Field[A7],
-    field8: Field[A8],
-    field9: Field[A9],
-    field10: Field[A10],
-    field11: Field[A11],
-    field12: Field[A12],
-    field13: Field[A13],
-    field14: Field[A14],
-    field15: Field[A15],
-    field16: Field[A16],
-    field17: Field[A17],
-    field18: Field[A18],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
+    field7: Field[A7, Z],
+    field8: Field[A8, Z],
+    field9: Field[A9, Z],
+    field10: Field[A10, Z],
+    field11: Field[A11, Z],
+    field12: Field[A12, Z],
+    field13: Field[A13, Z],
+    field14: Field[A14, Z],
+    field15: Field[A15, Z],
+    field16: Field[A16, Z],
+    field17: Field[A17, Z],
+    field18: Field[A18, Z],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -4923,7 +4923,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field18)
       )
 
-    override def structure: Chunk[Field[_]] =
+    override def structure: Chunk[Field[_, Z]] =
       Chunk(
         field1,
         field2,
@@ -4981,25 +4981,25 @@ object Schema extends SchemaEquality {
 
   sealed case class CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
-    field7: Field[A7],
-    field8: Field[A8],
-    field9: Field[A9],
-    field10: Field[A10],
-    field11: Field[A11],
-    field12: Field[A12],
-    field13: Field[A13],
-    field14: Field[A14],
-    field15: Field[A15],
-    field16: Field[A16],
-    field17: Field[A17],
-    field18: Field[A18],
-    field19: Field[A19],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
+    field7: Field[A7, Z],
+    field8: Field[A8, Z],
+    field9: Field[A9, Z],
+    field10: Field[A10, Z],
+    field11: Field[A11, Z],
+    field12: Field[A12, Z],
+    field13: Field[A13, Z],
+    field14: Field[A14, Z],
+    field15: Field[A15, Z],
+    field16: Field[A16, Z],
+    field17: Field[A17, Z],
+    field18: Field[A18, Z],
+    field19: Field[A19, Z],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -5093,7 +5093,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field19)
       )
 
-    override def structure: Chunk[Field[_]] =
+    override def structure: Chunk[Field[_, Z]] =
       Chunk(
         field1,
         field2,
@@ -5175,26 +5175,26 @@ object Schema extends SchemaEquality {
     Z
   ](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
-    field7: Field[A7],
-    field8: Field[A8],
-    field9: Field[A9],
-    field10: Field[A10],
-    field11: Field[A11],
-    field12: Field[A12],
-    field13: Field[A13],
-    field14: Field[A14],
-    field15: Field[A15],
-    field16: Field[A16],
-    field17: Field[A17],
-    field18: Field[A18],
-    field19: Field[A19],
-    field20: Field[A20],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
+    field7: Field[A7, Z],
+    field8: Field[A8, Z],
+    field9: Field[A9, Z],
+    field10: Field[A10, Z],
+    field11: Field[A11, Z],
+    field12: Field[A12, Z],
+    field13: Field[A13, Z],
+    field14: Field[A14, Z],
+    field15: Field[A15, Z],
+    field16: Field[A16, Z],
+    field17: Field[A17, Z],
+    field18: Field[A18, Z],
+    field19: Field[A19, Z],
+    field20: Field[A20, Z],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -5292,7 +5292,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field20)
       )
 
-    override def structure: Chunk[Field[_]] =
+    override def structure: Chunk[Field[_, Z]] =
       Chunk(
         field1,
         field2,
@@ -5377,27 +5377,27 @@ object Schema extends SchemaEquality {
     Z
   ](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
-    field7: Field[A7],
-    field8: Field[A8],
-    field9: Field[A9],
-    field10: Field[A10],
-    field11: Field[A11],
-    field12: Field[A12],
-    field13: Field[A13],
-    field14: Field[A14],
-    field15: Field[A15],
-    field16: Field[A16],
-    field17: Field[A17],
-    field18: Field[A18],
-    field19: Field[A19],
-    field20: Field[A20],
-    field21: Field[A21],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
+    field7: Field[A7, Z],
+    field8: Field[A8, Z],
+    field9: Field[A9, Z],
+    field10: Field[A10, Z],
+    field11: Field[A11, Z],
+    field12: Field[A12, Z],
+    field13: Field[A13, Z],
+    field14: Field[A14, Z],
+    field15: Field[A15, Z],
+    field16: Field[A16, Z],
+    field17: Field[A17, Z],
+    field18: Field[A18, Z],
+    field19: Field[A19, Z],
+    field20: Field[A20, Z],
+    field21: Field[A21, Z],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z,
     extractField1: Z => A1,
     extractField2: Z => A2,
@@ -5499,7 +5499,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field21)
       )
 
-    override def structure: Chunk[Field[_]] =
+    override def structure: Chunk[Field[_, Z]] =
       Chunk(
         field1,
         field2,
@@ -5587,28 +5587,28 @@ object Schema extends SchemaEquality {
     Z
   ](
     id: TypeId,
-    field1: Field[A1],
-    field2: Field[A2],
-    field3: Field[A3],
-    field4: Field[A4],
-    field5: Field[A5],
-    field6: Field[A6],
-    field7: Field[A7],
-    field8: Field[A8],
-    field9: Field[A9],
-    field10: Field[A10],
-    field11: Field[A11],
-    field12: Field[A12],
-    field13: Field[A13],
-    field14: Field[A14],
-    field15: Field[A15],
-    field16: Field[A16],
-    field17: Field[A17],
-    field18: Field[A18],
-    field19: Field[A19],
-    field20: Field[A20],
-    field21: Field[A21],
-    field22: Field[A22],
+    field1: Field[A1, Z],
+    field2: Field[A2, Z],
+    field3: Field[A3, Z],
+    field4: Field[A4, Z],
+    field5: Field[A5, Z],
+    field6: Field[A6, Z],
+    field7: Field[A7, Z],
+    field8: Field[A8, Z],
+    field9: Field[A9, Z],
+    field10: Field[A10, Z],
+    field11: Field[A11, Z],
+    field12: Field[A12, Z],
+    field13: Field[A13, Z],
+    field14: Field[A14, Z],
+    field15: Field[A15, Z],
+    field16: Field[A16, Z],
+    field17: Field[A17, Z],
+    field18: Field[A18, Z],
+    field19: Field[A19, Z],
+    field20: Field[A20, Z],
+    field21: Field[A21, Z],
+    field22: Field[A22, Z],
     construct: (
       A1,
       A2,
@@ -5758,7 +5758,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field22)
       )
 
-    override def structure: Chunk[Field[_]] =
+    override def structure: Chunk[Field[_, Z]] =
       Chunk(
         field1,
         field2,

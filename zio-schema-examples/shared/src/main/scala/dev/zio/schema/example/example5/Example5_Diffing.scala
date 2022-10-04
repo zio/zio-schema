@@ -12,8 +12,8 @@ private[example5] object Domain {
   final case class Person(name: String, age: Int)
 
   object Person {
-    val name: Field[String] = Field[String]("name", primitive[String])
-    val age: Field[Int]     = Field[Int]("age", primitive[Int])
+    val name: Field[String, Person] = Field[String, Person]("name", primitive[String])
+    val age: Field[Int, Person]     = Field[Int, Person]("age", primitive[Int])
 
     val schema: Schema[Person] = CaseClass2[String, Int, Person](
       TypeId.parse("dev.zio.schema.example.example5.Domain.Person"),
@@ -28,9 +28,9 @@ private[example5] object Domain {
   final case class PersonDTO(firstname: String, lastname: String, years: Int)
 
   object PersonDTO {
-    val firstname: Field[String] = Field("firstname", primitive[String])
-    val lastname: Field[String]  = Field("lastname", primitive[String])
-    val years: Field[Int]        = Field("years", primitive[Int])
+    val firstname: Field[String, PersonDTO] = Field("firstname", primitive[String])
+    val lastname: Field[String, PersonDTO]  = Field("lastname", primitive[String])
+    val years: Field[Int, PersonDTO]        = Field("years", primitive[Int])
 
     val schema: Schema[PersonDTO] = CaseClass3[String, String, Int, PersonDTO](
       TypeId.parse("dev.zio.schema.example.example5.Domain.PersonDTO"),

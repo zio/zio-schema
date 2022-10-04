@@ -1865,9 +1865,9 @@ object AssertionHelper {
 
   def annotations(assertion: Assertion[Chunk[Any]]): Assertion[Any] =
     Assertion.assertionRec("hasAnnotations")(assertion) {
-      case s: Schema[_]       => Some(s.annotations)
-      case f: Schema.Field[_] => Some(f.annotations)
-      case _                  => None
+      case s: Schema[_]          => Some(s.annotations)
+      case f: Schema.Field[_, _] => Some(f.annotations)
+      case _                     => None
     }
 
   def hasNameAnnotation(assertion: Assertion[String]): Assertion[Any] =
@@ -1881,7 +1881,7 @@ object AssertionHelper {
   def hasDocAnnotation(assertion: Assertion[String]): Assertion[Any] =
     annotations(Assertion.exists(Assertion.isSubtype[AvroAnnotations.doc](hasField("doc", _.doc, assertion))))
 
-  def hasFieldOrderAnnotation(assertion: Assertion[FieldOrderType]): Assertion[Field[_]] =
+  def hasFieldOrderAnnotation[Z](assertion: Assertion[FieldOrderType]): Assertion[Field[_, Z]] =
     annotations(
       Assertion.exists(
         Assertion.isSubtype[AvroAnnotations.fieldOrder](hasField("fieldOrderType", _.fieldOrderType, assertion))
@@ -1893,7 +1893,7 @@ object AssertionHelper {
       Assertion.exists(Assertion.isSubtype[AvroAnnotations.aliases](hasField("aliases", _.aliases, assertion)))
     )
 
-  def hasFieldDefaultAnnotation(assertion: Assertion[Object]): Assertion[Field[_]] =
+  def hasFieldDefaultAnnotation[Z](assertion: Assertion[Object]): Assertion[Field[_, Z]] =
     annotations(
       Assertion.exists(
         Assertion.isSubtype[AvroAnnotations.default](hasField("javaDefaultObject", _.javaDefaultObject, assertion))
@@ -1913,8 +1913,8 @@ object AssertionHelper {
   def asString(assertion: Assertion[String]): Assertion[Any] =
     Assertion.assertionRec("asString")(assertion)(v => Some(v.toString))
 
-  def recordFields(assertion: Assertion[Iterable[Schema.Field[_]]]): Assertion[Schema.Record[_]] =
-    Assertion.assertionRec[Schema.Record[_], Chunk[Field[_]]]("hasRecordField")(
+  def recordFields(assertion: Assertion[Iterable[Schema.Field[_, _]]]): Assertion[Schema.Record[_]] =
+    Assertion.assertionRec[Schema.Record[_], Chunk[Field[_, _]]]("hasRecordField")(
       assertion
     ) {
       case r: Schema.Record[_] => Some(r.structure)
@@ -1927,13 +1927,13 @@ object AssertionHelper {
   def hasOptionElementSchema[A](assertion: Assertion[Schema[A]]): Assertion[Schema.Optional[A]] =
     Assertion.hasField("schema", _.schema, assertion)
 
-  def hasRecordField(assertion: Assertion[Schema.Field[_]]): Assertion[Schema.Record[_]] =
+  def hasRecordField(assertion: Assertion[Schema.Field[_, _]]): Assertion[Schema.Record[_]] =
     recordFields(Assertion.exists(assertion))
 
-  def hasLabel(assertion: Assertion[String]): Assertion[Schema.Field[_]] =
+  def hasLabel(assertion: Assertion[String]): Assertion[Schema.Field[_, _]] =
     hasField("label", _.name, assertion)
 
-  def hasSchema(assertion: Assertion[Schema[_]]): Assertion[Schema.Field[_]] =
+  def hasSchema(assertion: Assertion[Schema[_]]): Assertion[Schema.Field[_, _]] =
     hasField("initialSchemaDerived", _.schema, assertion)
 
   def isPrimitive[A](assertion: Assertion[Primitive[A]]): Assertion[Schema[_]] =

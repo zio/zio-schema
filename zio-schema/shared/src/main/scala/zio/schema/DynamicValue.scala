@@ -1921,7 +1921,7 @@ object DynamicValue {
 
   def decodeStructure(
     values: ListMap[String, DynamicValue],
-    structure: Chunk[Schema.Field[_]]
+    structure: Chunk[Schema.Field[_, _]]
   ): Either[() => String, ListMap[String, _]] = {
     val keys = values.keySet
     keys.foldLeft[Either[() => String, ListMap[String, Any]]](Right(ListMap.empty)) {
