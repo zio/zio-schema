@@ -10,7 +10,7 @@ addSbtPlugin("com.jsuereth"       % "sbt-pgp"                       % "1.1.2")
 addSbtPlugin("org.xerial.sbt"     % "sbt-sonatype"                  % "3.9.12")
 addSbtPlugin("org.scalameta"      % "sbt-mdoc"                      % "2.3.2")
 addSbtPlugin("com.eed3si9n"       % "sbt-unidoc"                    % "0.4.3")
-addSbtPlugin("org.portable-scala" % "sbt-scala-native-crossproject" % "1.1.0")
+addSbtPlugin("org.portable-scala" % "sbt-scala-native-crossproject" % "1.2.0")
 addSbtPlugin("org.scala-native"   % "sbt-scala-native"              % "0.4.4")
 addSbtPlugin("pl.project13.scala" % "sbt-jmh"                       % "0.4.3")
 
