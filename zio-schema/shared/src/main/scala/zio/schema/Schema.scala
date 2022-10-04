@@ -271,12 +271,12 @@ object Schema extends SchemaEquality {
   }
 
   final case class Field[A](
-    label: String,
+    name: String,
     schema: Schema[A],
     annotations: Chunk[Any] = Chunk.empty,
     validation: Validation[A] = Validation.succeed[A]
   ) {
-    override def toString: String = s"Field($label,$schema)"
+    override def toString: String = s"Field($name,$schema)"
   }
 
   sealed trait Record[R] extends Schema[R] {
@@ -3233,7 +3233,7 @@ object Schema extends SchemaEquality {
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, ListMap[String, _]] =
       if (values.size == structure.size)
-        Right(ListMap(structure.map(_.label).zip(values): _*))
+        Right(ListMap(structure.map(_.name).zip(values): _*))
       else
         Left(s"wrong number of values for $structure")
 
@@ -3275,11 +3275,11 @@ object Schema extends SchemaEquality {
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
-    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Lens[field.label.type, Z, A]
+    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Lens[field.name.type, Z, A]
 
     override def annotate(annotation: Any): CaseClass1[A, Z] = copy(annotations = annotations :+ annotation)
 
-    override def makeAccessors(b: AccessorBuilder): b.Lens[field.label.type, Z, A] = b.makeLens(self, field)
+    override def makeAccessors(b: AccessorBuilder): b.Lens[field.name.type, Z, A] = b.makeLens(self, field)
 
     override def structure: Chunk[Field[_]] = Chunk(field)
 
@@ -3306,13 +3306,13 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
-      (Lens[field1.label.type, Z, A1], Lens[field2.label.type, Z, A2])
+      (Lens[field1.name.type, Z, A1], Lens[field2.name.type, Z, A2])
 
     override def annotate(annotation: Any): CaseClass2[A1, A2, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(
       b: AccessorBuilder
-    ): (b.Lens[field1.label.type, Z, A1], b.Lens[field2.label.type, Z, A2]) =
+    ): (b.Lens[field1.name.type, Z, A1], b.Lens[field2.name.type, Z, A2]) =
       (b.makeLens(self, field1), b.makeLens(self, field2))
 
     override def structure: Chunk[Field[_]] = Chunk(field1, field2)
@@ -3342,13 +3342,13 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
-      (Lens[field1.label.type, Z, A1], Lens[field2.label.type, Z, A2], Lens[field3.label.type, Z, A3])
+      (Lens[field1.name.type, Z, A1], Lens[field2.name.type, Z, A2], Lens[field3.name.type, Z, A3])
 
     override def annotate(annotation: Any): CaseClass3[A1, A2, A3, Z] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(
       b: AccessorBuilder
-    ): (b.Lens[field1.label.type, Z, A1], b.Lens[field2.label.type, Z, A2], b.Lens[field3.label.type, Z, A3]) =
+    ): (b.Lens[field1.name.type, Z, A1], b.Lens[field2.name.type, Z, A2], b.Lens[field3.name.type, Z, A3]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3))
 
     override def structure: Chunk[Field[_]] = Chunk(field1, field2, field3)
@@ -3381,20 +3381,20 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4]
     )
 
     override def annotate(annotation: Any): CaseClass4[A1, A2, A3, A4, Z] =
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4]
     ) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4))
 
@@ -3437,22 +3437,22 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4],
-      Lens[field5.label.type, Z, A5]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4],
+      Lens[field5.name.type, Z, A5]
     )
 
     override def annotate(annotation: Any): CaseClass5[A1, A2, A3, A4, A5, Z] =
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5]
     ) =
       (
         b.makeLens(self, field1),
@@ -3503,24 +3503,24 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4],
-      Lens[field5.label.type, Z, A5],
-      Lens[field6.label.type, Z, A6]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4],
+      Lens[field5.name.type, Z, A5],
+      Lens[field6.name.type, Z, A6]
     )
 
     override def annotate(annotation: Any): CaseClass6[A1, A2, A3, A4, A5, A6, Z] =
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6]
     ) =
       (
         b.makeLens(self, field1),
@@ -3576,26 +3576,26 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4],
-      Lens[field5.label.type, Z, A5],
-      Lens[field6.label.type, Z, A6],
-      Lens[field7.label.type, Z, A7]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4],
+      Lens[field5.name.type, Z, A5],
+      Lens[field6.name.type, Z, A6],
+      Lens[field7.name.type, Z, A7]
     )
 
     override def annotate(annotation: Any): CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z] =
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6],
-      b.Lens[field7.label.type, Z, A7]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6],
+      b.Lens[field7.name.type, Z, A7]
     ) =
       (
         b.makeLens(self, field1),
@@ -3655,28 +3655,28 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4],
-      Lens[field5.label.type, Z, A5],
-      Lens[field6.label.type, Z, A6],
-      Lens[field7.label.type, Z, A7],
-      Lens[field8.label.type, Z, A8]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4],
+      Lens[field5.name.type, Z, A5],
+      Lens[field6.name.type, Z, A6],
+      Lens[field7.name.type, Z, A7],
+      Lens[field8.name.type, Z, A8]
     )
 
     override def annotate(annotation: Any): CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z] =
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6],
-      b.Lens[field7.label.type, Z, A7],
-      b.Lens[field8.label.type, Z, A8]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6],
+      b.Lens[field7.name.type, Z, A7],
+      b.Lens[field8.name.type, Z, A8]
     ) =
       (
         b.makeLens(self, field1),
@@ -3740,30 +3740,30 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4],
-      Lens[field5.label.type, Z, A5],
-      Lens[field6.label.type, Z, A6],
-      Lens[field7.label.type, Z, A7],
-      Lens[field8.label.type, Z, A8],
-      Lens[field9.label.type, Z, A9]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4],
+      Lens[field5.name.type, Z, A5],
+      Lens[field6.name.type, Z, A6],
+      Lens[field7.name.type, Z, A7],
+      Lens[field8.name.type, Z, A8],
+      Lens[field9.name.type, Z, A9]
     )
 
     override def annotate(annotation: Any): CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] =
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6],
-      b.Lens[field7.label.type, Z, A7],
-      b.Lens[field8.label.type, Z, A8],
-      b.Lens[field9.label.type, Z, A9]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6],
+      b.Lens[field7.name.type, Z, A7],
+      b.Lens[field8.name.type, Z, A8],
+      b.Lens[field9.name.type, Z, A9]
     ) =
       (
         b.makeLens(self, field1),
@@ -3831,32 +3831,32 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4],
-      Lens[field5.label.type, Z, A5],
-      Lens[field6.label.type, Z, A6],
-      Lens[field7.label.type, Z, A7],
-      Lens[field8.label.type, Z, A8],
-      Lens[field9.label.type, Z, A9],
-      Lens[field10.label.type, Z, A10]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4],
+      Lens[field5.name.type, Z, A5],
+      Lens[field6.name.type, Z, A6],
+      Lens[field7.name.type, Z, A7],
+      Lens[field8.name.type, Z, A8],
+      Lens[field9.name.type, Z, A9],
+      Lens[field10.name.type, Z, A10]
     )
 
     override def annotate(annotation: Any): CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] =
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6],
-      b.Lens[field7.label.type, Z, A7],
-      b.Lens[field8.label.type, Z, A8],
-      b.Lens[field9.label.type, Z, A9],
-      b.Lens[field10.label.type, Z, A10]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6],
+      b.Lens[field7.name.type, Z, A7],
+      b.Lens[field8.name.type, Z, A8],
+      b.Lens[field9.name.type, Z, A9],
+      b.Lens[field10.name.type, Z, A10]
     ) =
       (
         b.makeLens(self, field1),
@@ -3929,17 +3929,17 @@ object Schema extends SchemaEquality {
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (
-        Lens[field1.label.type, Z, A1],
-        Lens[field2.label.type, Z, A2],
-        Lens[field3.label.type, Z, A3],
-        Lens[field4.label.type, Z, A4],
-        Lens[field5.label.type, Z, A5],
-        Lens[field6.label.type, Z, A6],
-        Lens[field7.label.type, Z, A7],
-        Lens[field8.label.type, Z, A8],
-        Lens[field9.label.type, Z, A9],
-        Lens[field10.label.type, Z, A10],
-        Lens[field11.label.type, Z, A11]
+        Lens[field1.name.type, Z, A1],
+        Lens[field2.name.type, Z, A2],
+        Lens[field3.name.type, Z, A3],
+        Lens[field4.name.type, Z, A4],
+        Lens[field5.name.type, Z, A5],
+        Lens[field6.name.type, Z, A6],
+        Lens[field7.name.type, Z, A7],
+        Lens[field8.name.type, Z, A8],
+        Lens[field9.name.type, Z, A9],
+        Lens[field10.name.type, Z, A10],
+        Lens[field11.name.type, Z, A11]
       )
 
     override def annotate(annotation: Any): CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] =
@@ -3948,17 +3948,17 @@ object Schema extends SchemaEquality {
     override def makeAccessors(
       b: AccessorBuilder
     ): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6],
-      b.Lens[field7.label.type, Z, A7],
-      b.Lens[field8.label.type, Z, A8],
-      b.Lens[field9.label.type, Z, A9],
-      b.Lens[field10.label.type, Z, A10],
-      b.Lens[field11.label.type, Z, A11]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6],
+      b.Lens[field7.name.type, Z, A7],
+      b.Lens[field8.name.type, Z, A8],
+      b.Lens[field9.name.type, Z, A9],
+      b.Lens[field10.name.type, Z, A10],
+      b.Lens[field11.name.type, Z, A11]
     ) =
       (
         b.makeLens(self, field1),
@@ -4035,36 +4035,36 @@ object Schema extends SchemaEquality {
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (
-        Lens[field1.label.type, Z, A1],
-        Lens[field2.label.type, Z, A2],
-        Lens[field3.label.type, Z, A3],
-        Lens[field4.label.type, Z, A4],
-        Lens[field5.label.type, Z, A5],
-        Lens[field6.label.type, Z, A6],
-        Lens[field7.label.type, Z, A7],
-        Lens[field8.label.type, Z, A8],
-        Lens[field9.label.type, Z, A9],
-        Lens[field10.label.type, Z, A10],
-        Lens[field11.label.type, Z, A11],
-        Lens[field12.label.type, Z, A12]
+        Lens[field1.name.type, Z, A1],
+        Lens[field2.name.type, Z, A2],
+        Lens[field3.name.type, Z, A3],
+        Lens[field4.name.type, Z, A4],
+        Lens[field5.name.type, Z, A5],
+        Lens[field6.name.type, Z, A6],
+        Lens[field7.name.type, Z, A7],
+        Lens[field8.name.type, Z, A8],
+        Lens[field9.name.type, Z, A9],
+        Lens[field10.name.type, Z, A10],
+        Lens[field11.name.type, Z, A11],
+        Lens[field12.name.type, Z, A12]
       )
 
     override def annotate(annotation: Any): CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] =
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6],
-      b.Lens[field7.label.type, Z, A7],
-      b.Lens[field8.label.type, Z, A8],
-      b.Lens[field9.label.type, Z, A9],
-      b.Lens[field10.label.type, Z, A10],
-      b.Lens[field11.label.type, Z, A11],
-      b.Lens[field12.label.type, Z, A12]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6],
+      b.Lens[field7.name.type, Z, A7],
+      b.Lens[field8.name.type, Z, A8],
+      b.Lens[field9.name.type, Z, A9],
+      b.Lens[field10.name.type, Z, A10],
+      b.Lens[field11.name.type, Z, A11],
+      b.Lens[field12.name.type, Z, A12]
     ) =
       (
         b.makeLens(self, field1),
@@ -4144,38 +4144,38 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4],
-      Lens[field5.label.type, Z, A5],
-      Lens[field6.label.type, Z, A6],
-      Lens[field7.label.type, Z, A7],
-      Lens[field8.label.type, Z, A8],
-      Lens[field9.label.type, Z, A9],
-      Lens[field10.label.type, Z, A10],
-      Lens[field11.label.type, Z, A11],
-      Lens[field12.label.type, Z, A12],
-      Lens[field13.label.type, Z, A13]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4],
+      Lens[field5.name.type, Z, A5],
+      Lens[field6.name.type, Z, A6],
+      Lens[field7.name.type, Z, A7],
+      Lens[field8.name.type, Z, A8],
+      Lens[field9.name.type, Z, A9],
+      Lens[field10.name.type, Z, A10],
+      Lens[field11.name.type, Z, A11],
+      Lens[field12.name.type, Z, A12],
+      Lens[field13.name.type, Z, A13]
     )
 
     override def annotate(annotation: Any): CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] =
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6],
-      b.Lens[field7.label.type, Z, A7],
-      b.Lens[field8.label.type, Z, A8],
-      b.Lens[field9.label.type, Z, A9],
-      b.Lens[field10.label.type, Z, A10],
-      b.Lens[field11.label.type, Z, A11],
-      b.Lens[field12.label.type, Z, A12],
-      b.Lens[field13.label.type, Z, A13]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6],
+      b.Lens[field7.name.type, Z, A7],
+      b.Lens[field8.name.type, Z, A8],
+      b.Lens[field9.name.type, Z, A9],
+      b.Lens[field10.name.type, Z, A10],
+      b.Lens[field11.name.type, Z, A11],
+      b.Lens[field12.name.type, Z, A12],
+      b.Lens[field13.name.type, Z, A13]
     ) =
       (
         b.makeLens(self, field1),
@@ -4259,20 +4259,20 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4],
-      Lens[field5.label.type, Z, A5],
-      Lens[field6.label.type, Z, A6],
-      Lens[field7.label.type, Z, A7],
-      Lens[field8.label.type, Z, A8],
-      Lens[field9.label.type, Z, A9],
-      Lens[field10.label.type, Z, A10],
-      Lens[field11.label.type, Z, A11],
-      Lens[field12.label.type, Z, A12],
-      Lens[field13.label.type, Z, A13],
-      Lens[field14.label.type, Z, A14]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4],
+      Lens[field5.name.type, Z, A5],
+      Lens[field6.name.type, Z, A6],
+      Lens[field7.name.type, Z, A7],
+      Lens[field8.name.type, Z, A8],
+      Lens[field9.name.type, Z, A9],
+      Lens[field10.name.type, Z, A10],
+      Lens[field11.name.type, Z, A11],
+      Lens[field12.name.type, Z, A12],
+      Lens[field13.name.type, Z, A13],
+      Lens[field14.name.type, Z, A14]
     )
 
     override def annotate(
@@ -4281,20 +4281,20 @@ object Schema extends SchemaEquality {
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6],
-      b.Lens[field7.label.type, Z, A7],
-      b.Lens[field8.label.type, Z, A8],
-      b.Lens[field9.label.type, Z, A9],
-      b.Lens[field10.label.type, Z, A10],
-      b.Lens[field11.label.type, Z, A11],
-      b.Lens[field12.label.type, Z, A12],
-      b.Lens[field13.label.type, Z, A13],
-      b.Lens[field14.label.type, Z, A14]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6],
+      b.Lens[field7.name.type, Z, A7],
+      b.Lens[field8.name.type, Z, A8],
+      b.Lens[field9.name.type, Z, A9],
+      b.Lens[field10.name.type, Z, A10],
+      b.Lens[field11.name.type, Z, A11],
+      b.Lens[field12.name.type, Z, A12],
+      b.Lens[field13.name.type, Z, A13],
+      b.Lens[field14.name.type, Z, A14]
     ) =
       (
         b.makeLens(self, field1),
@@ -4398,21 +4398,21 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4],
-      Lens[field5.label.type, Z, A5],
-      Lens[field6.label.type, Z, A6],
-      Lens[field7.label.type, Z, A7],
-      Lens[field8.label.type, Z, A8],
-      Lens[field9.label.type, Z, A9],
-      Lens[field10.label.type, Z, A10],
-      Lens[field11.label.type, Z, A11],
-      Lens[field12.label.type, Z, A12],
-      Lens[field13.label.type, Z, A13],
-      Lens[field14.label.type, Z, A14],
-      Lens[field15.label.type, Z, A15]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4],
+      Lens[field5.name.type, Z, A5],
+      Lens[field6.name.type, Z, A6],
+      Lens[field7.name.type, Z, A7],
+      Lens[field8.name.type, Z, A8],
+      Lens[field9.name.type, Z, A9],
+      Lens[field10.name.type, Z, A10],
+      Lens[field11.name.type, Z, A11],
+      Lens[field12.name.type, Z, A12],
+      Lens[field13.name.type, Z, A13],
+      Lens[field14.name.type, Z, A14],
+      Lens[field15.name.type, Z, A15]
     )
 
     override def annotate(
@@ -4421,21 +4421,21 @@ object Schema extends SchemaEquality {
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6],
-      b.Lens[field7.label.type, Z, A7],
-      b.Lens[field8.label.type, Z, A8],
-      b.Lens[field9.label.type, Z, A9],
-      b.Lens[field10.label.type, Z, A10],
-      b.Lens[field11.label.type, Z, A11],
-      b.Lens[field12.label.type, Z, A12],
-      b.Lens[field13.label.type, Z, A13],
-      b.Lens[field14.label.type, Z, A14],
-      b.Lens[field15.label.type, Z, A15]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6],
+      b.Lens[field7.name.type, Z, A7],
+      b.Lens[field8.name.type, Z, A8],
+      b.Lens[field9.name.type, Z, A9],
+      b.Lens[field10.name.type, Z, A10],
+      b.Lens[field11.name.type, Z, A11],
+      b.Lens[field12.name.type, Z, A12],
+      b.Lens[field13.name.type, Z, A13],
+      b.Lens[field14.name.type, Z, A14],
+      b.Lens[field15.name.type, Z, A15]
     ) =
       (
         b.makeLens(self, field1),
@@ -4544,22 +4544,22 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4],
-      Lens[field5.label.type, Z, A5],
-      Lens[field6.label.type, Z, A6],
-      Lens[field7.label.type, Z, A7],
-      Lens[field8.label.type, Z, A8],
-      Lens[field9.label.type, Z, A9],
-      Lens[field10.label.type, Z, A10],
-      Lens[field11.label.type, Z, A11],
-      Lens[field12.label.type, Z, A12],
-      Lens[field13.label.type, Z, A13],
-      Lens[field14.label.type, Z, A14],
-      Lens[field15.label.type, Z, A15],
-      Lens[field16.label.type, Z, A16]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4],
+      Lens[field5.name.type, Z, A5],
+      Lens[field6.name.type, Z, A6],
+      Lens[field7.name.type, Z, A7],
+      Lens[field8.name.type, Z, A8],
+      Lens[field9.name.type, Z, A9],
+      Lens[field10.name.type, Z, A10],
+      Lens[field11.name.type, Z, A11],
+      Lens[field12.name.type, Z, A12],
+      Lens[field13.name.type, Z, A13],
+      Lens[field14.name.type, Z, A14],
+      Lens[field15.name.type, Z, A15],
+      Lens[field16.name.type, Z, A16]
     )
 
     override def annotate(
@@ -4568,22 +4568,22 @@ object Schema extends SchemaEquality {
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6],
-      b.Lens[field7.label.type, Z, A7],
-      b.Lens[field8.label.type, Z, A8],
-      b.Lens[field9.label.type, Z, A9],
-      b.Lens[field10.label.type, Z, A10],
-      b.Lens[field11.label.type, Z, A11],
-      b.Lens[field12.label.type, Z, A12],
-      b.Lens[field13.label.type, Z, A13],
-      b.Lens[field14.label.type, Z, A14],
-      b.Lens[field15.label.type, Z, A15],
-      b.Lens[field16.label.type, Z, A16]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6],
+      b.Lens[field7.name.type, Z, A7],
+      b.Lens[field8.name.type, Z, A8],
+      b.Lens[field9.name.type, Z, A9],
+      b.Lens[field10.name.type, Z, A10],
+      b.Lens[field11.name.type, Z, A11],
+      b.Lens[field12.name.type, Z, A12],
+      b.Lens[field13.name.type, Z, A13],
+      b.Lens[field14.name.type, Z, A14],
+      b.Lens[field15.name.type, Z, A15],
+      b.Lens[field16.name.type, Z, A16]
     ) =
       (
         b.makeLens(self, field1),
@@ -4697,23 +4697,23 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4],
-      Lens[field5.label.type, Z, A5],
-      Lens[field6.label.type, Z, A6],
-      Lens[field7.label.type, Z, A7],
-      Lens[field8.label.type, Z, A8],
-      Lens[field9.label.type, Z, A9],
-      Lens[field10.label.type, Z, A10],
-      Lens[field11.label.type, Z, A11],
-      Lens[field12.label.type, Z, A12],
-      Lens[field13.label.type, Z, A13],
-      Lens[field14.label.type, Z, A14],
-      Lens[field15.label.type, Z, A15],
-      Lens[field16.label.type, Z, A16],
-      Lens[field17.label.type, Z, A17]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4],
+      Lens[field5.name.type, Z, A5],
+      Lens[field6.name.type, Z, A6],
+      Lens[field7.name.type, Z, A7],
+      Lens[field8.name.type, Z, A8],
+      Lens[field9.name.type, Z, A9],
+      Lens[field10.name.type, Z, A10],
+      Lens[field11.name.type, Z, A11],
+      Lens[field12.name.type, Z, A12],
+      Lens[field13.name.type, Z, A13],
+      Lens[field14.name.type, Z, A14],
+      Lens[field15.name.type, Z, A15],
+      Lens[field16.name.type, Z, A16],
+      Lens[field17.name.type, Z, A17]
     )
 
     override def annotate(
@@ -4722,23 +4722,23 @@ object Schema extends SchemaEquality {
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6],
-      b.Lens[field7.label.type, Z, A7],
-      b.Lens[field8.label.type, Z, A8],
-      b.Lens[field9.label.type, Z, A9],
-      b.Lens[field10.label.type, Z, A10],
-      b.Lens[field11.label.type, Z, A11],
-      b.Lens[field12.label.type, Z, A12],
-      b.Lens[field13.label.type, Z, A13],
-      b.Lens[field14.label.type, Z, A14],
-      b.Lens[field15.label.type, Z, A15],
-      b.Lens[field16.label.type, Z, A16],
-      b.Lens[field17.label.type, Z, A17]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6],
+      b.Lens[field7.name.type, Z, A7],
+      b.Lens[field8.name.type, Z, A8],
+      b.Lens[field9.name.type, Z, A9],
+      b.Lens[field10.name.type, Z, A10],
+      b.Lens[field11.name.type, Z, A11],
+      b.Lens[field12.name.type, Z, A12],
+      b.Lens[field13.name.type, Z, A13],
+      b.Lens[field14.name.type, Z, A14],
+      b.Lens[field15.name.type, Z, A15],
+      b.Lens[field16.name.type, Z, A16],
+      b.Lens[field17.name.type, Z, A17]
     ) =
       (
         b.makeLens(self, field1),
@@ -4857,24 +4857,24 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4],
-      Lens[field5.label.type, Z, A5],
-      Lens[field6.label.type, Z, A6],
-      Lens[field7.label.type, Z, A7],
-      Lens[field8.label.type, Z, A8],
-      Lens[field9.label.type, Z, A9],
-      Lens[field10.label.type, Z, A10],
-      Lens[field11.label.type, Z, A11],
-      Lens[field12.label.type, Z, A12],
-      Lens[field13.label.type, Z, A13],
-      Lens[field14.label.type, Z, A14],
-      Lens[field15.label.type, Z, A15],
-      Lens[field16.label.type, Z, A16],
-      Lens[field17.label.type, Z, A17],
-      Lens[field18.label.type, Z, A18]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4],
+      Lens[field5.name.type, Z, A5],
+      Lens[field6.name.type, Z, A6],
+      Lens[field7.name.type, Z, A7],
+      Lens[field8.name.type, Z, A8],
+      Lens[field9.name.type, Z, A9],
+      Lens[field10.name.type, Z, A10],
+      Lens[field11.name.type, Z, A11],
+      Lens[field12.name.type, Z, A12],
+      Lens[field13.name.type, Z, A13],
+      Lens[field14.name.type, Z, A14],
+      Lens[field15.name.type, Z, A15],
+      Lens[field16.name.type, Z, A16],
+      Lens[field17.name.type, Z, A17],
+      Lens[field18.name.type, Z, A18]
     )
 
     override def annotate(
@@ -4883,24 +4883,24 @@ object Schema extends SchemaEquality {
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6],
-      b.Lens[field7.label.type, Z, A7],
-      b.Lens[field8.label.type, Z, A8],
-      b.Lens[field9.label.type, Z, A9],
-      b.Lens[field10.label.type, Z, A10],
-      b.Lens[field11.label.type, Z, A11],
-      b.Lens[field12.label.type, Z, A12],
-      b.Lens[field13.label.type, Z, A13],
-      b.Lens[field14.label.type, Z, A14],
-      b.Lens[field15.label.type, Z, A15],
-      b.Lens[field16.label.type, Z, A16],
-      b.Lens[field17.label.type, Z, A17],
-      b.Lens[field18.label.type, Z, A18]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6],
+      b.Lens[field7.name.type, Z, A7],
+      b.Lens[field8.name.type, Z, A8],
+      b.Lens[field9.name.type, Z, A9],
+      b.Lens[field10.name.type, Z, A10],
+      b.Lens[field11.name.type, Z, A11],
+      b.Lens[field12.name.type, Z, A12],
+      b.Lens[field13.name.type, Z, A13],
+      b.Lens[field14.name.type, Z, A14],
+      b.Lens[field15.name.type, Z, A15],
+      b.Lens[field16.name.type, Z, A16],
+      b.Lens[field17.name.type, Z, A17],
+      b.Lens[field18.name.type, Z, A18]
     ) =
       (
         b.makeLens(self, field1),
@@ -5024,25 +5024,25 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4],
-      Lens[field5.label.type, Z, A5],
-      Lens[field6.label.type, Z, A6],
-      Lens[field7.label.type, Z, A7],
-      Lens[field8.label.type, Z, A8],
-      Lens[field9.label.type, Z, A9],
-      Lens[field10.label.type, Z, A10],
-      Lens[field11.label.type, Z, A11],
-      Lens[field12.label.type, Z, A12],
-      Lens[field13.label.type, Z, A13],
-      Lens[field14.label.type, Z, A14],
-      Lens[field15.label.type, Z, A15],
-      Lens[field16.label.type, Z, A16],
-      Lens[field17.label.type, Z, A17],
-      Lens[field18.label.type, Z, A18],
-      Lens[field19.label.type, Z, A19]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4],
+      Lens[field5.name.type, Z, A5],
+      Lens[field6.name.type, Z, A6],
+      Lens[field7.name.type, Z, A7],
+      Lens[field8.name.type, Z, A8],
+      Lens[field9.name.type, Z, A9],
+      Lens[field10.name.type, Z, A10],
+      Lens[field11.name.type, Z, A11],
+      Lens[field12.name.type, Z, A12],
+      Lens[field13.name.type, Z, A13],
+      Lens[field14.name.type, Z, A14],
+      Lens[field15.name.type, Z, A15],
+      Lens[field16.name.type, Z, A16],
+      Lens[field17.name.type, Z, A17],
+      Lens[field18.name.type, Z, A18],
+      Lens[field19.name.type, Z, A19]
     )
 
     override def annotate(
@@ -5051,25 +5051,25 @@ object Schema extends SchemaEquality {
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6],
-      b.Lens[field7.label.type, Z, A7],
-      b.Lens[field8.label.type, Z, A8],
-      b.Lens[field9.label.type, Z, A9],
-      b.Lens[field10.label.type, Z, A10],
-      b.Lens[field11.label.type, Z, A11],
-      b.Lens[field12.label.type, Z, A12],
-      b.Lens[field13.label.type, Z, A13],
-      b.Lens[field14.label.type, Z, A14],
-      b.Lens[field15.label.type, Z, A15],
-      b.Lens[field16.label.type, Z, A16],
-      b.Lens[field17.label.type, Z, A17],
-      b.Lens[field18.label.type, Z, A18],
-      b.Lens[field19.label.type, Z, A19]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6],
+      b.Lens[field7.name.type, Z, A7],
+      b.Lens[field8.name.type, Z, A8],
+      b.Lens[field9.name.type, Z, A9],
+      b.Lens[field10.name.type, Z, A10],
+      b.Lens[field11.name.type, Z, A11],
+      b.Lens[field12.name.type, Z, A12],
+      b.Lens[field13.name.type, Z, A13],
+      b.Lens[field14.name.type, Z, A14],
+      b.Lens[field15.name.type, Z, A15],
+      b.Lens[field16.name.type, Z, A16],
+      b.Lens[field17.name.type, Z, A17],
+      b.Lens[field18.name.type, Z, A18],
+      b.Lens[field19.name.type, Z, A19]
     ) =
       (
         b.makeLens(self, field1),
@@ -5220,26 +5220,26 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4],
-      Lens[field5.label.type, Z, A5],
-      Lens[field6.label.type, Z, A6],
-      Lens[field7.label.type, Z, A7],
-      Lens[field8.label.type, Z, A8],
-      Lens[field9.label.type, Z, A9],
-      Lens[field10.label.type, Z, A10],
-      Lens[field11.label.type, Z, A11],
-      Lens[field12.label.type, Z, A12],
-      Lens[field13.label.type, Z, A13],
-      Lens[field14.label.type, Z, A14],
-      Lens[field15.label.type, Z, A15],
-      Lens[field16.label.type, Z, A16],
-      Lens[field17.label.type, Z, A17],
-      Lens[field18.label.type, Z, A18],
-      Lens[field19.label.type, Z, A19],
-      Lens[field20.label.type, Z, A20]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4],
+      Lens[field5.name.type, Z, A5],
+      Lens[field6.name.type, Z, A6],
+      Lens[field7.name.type, Z, A7],
+      Lens[field8.name.type, Z, A8],
+      Lens[field9.name.type, Z, A9],
+      Lens[field10.name.type, Z, A10],
+      Lens[field11.name.type, Z, A11],
+      Lens[field12.name.type, Z, A12],
+      Lens[field13.name.type, Z, A13],
+      Lens[field14.name.type, Z, A14],
+      Lens[field15.name.type, Z, A15],
+      Lens[field16.name.type, Z, A16],
+      Lens[field17.name.type, Z, A17],
+      Lens[field18.name.type, Z, A18],
+      Lens[field19.name.type, Z, A19],
+      Lens[field20.name.type, Z, A20]
     )
 
     override def annotate(
@@ -5248,26 +5248,26 @@ object Schema extends SchemaEquality {
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6],
-      b.Lens[field7.label.type, Z, A7],
-      b.Lens[field8.label.type, Z, A8],
-      b.Lens[field9.label.type, Z, A9],
-      b.Lens[field10.label.type, Z, A10],
-      b.Lens[field11.label.type, Z, A11],
-      b.Lens[field12.label.type, Z, A12],
-      b.Lens[field13.label.type, Z, A13],
-      b.Lens[field14.label.type, Z, A14],
-      b.Lens[field15.label.type, Z, A15],
-      b.Lens[field16.label.type, Z, A16],
-      b.Lens[field17.label.type, Z, A17],
-      b.Lens[field18.label.type, Z, A18],
-      b.Lens[field19.label.type, Z, A19],
-      b.Lens[field20.label.type, Z, A20]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6],
+      b.Lens[field7.name.type, Z, A7],
+      b.Lens[field8.name.type, Z, A8],
+      b.Lens[field9.name.type, Z, A9],
+      b.Lens[field10.name.type, Z, A10],
+      b.Lens[field11.name.type, Z, A11],
+      b.Lens[field12.name.type, Z, A12],
+      b.Lens[field13.name.type, Z, A13],
+      b.Lens[field14.name.type, Z, A14],
+      b.Lens[field15.name.type, Z, A15],
+      b.Lens[field16.name.type, Z, A16],
+      b.Lens[field17.name.type, Z, A17],
+      b.Lens[field18.name.type, Z, A18],
+      b.Lens[field19.name.type, Z, A19],
+      b.Lens[field20.name.type, Z, A20]
     ) =
       (
         b.makeLens(self, field1),
@@ -5424,27 +5424,27 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4],
-      Lens[field5.label.type, Z, A5],
-      Lens[field6.label.type, Z, A6],
-      Lens[field7.label.type, Z, A7],
-      Lens[field8.label.type, Z, A8],
-      Lens[field9.label.type, Z, A9],
-      Lens[field10.label.type, Z, A10],
-      Lens[field11.label.type, Z, A11],
-      Lens[field12.label.type, Z, A12],
-      Lens[field13.label.type, Z, A13],
-      Lens[field14.label.type, Z, A14],
-      Lens[field15.label.type, Z, A15],
-      Lens[field16.label.type, Z, A16],
-      Lens[field17.label.type, Z, A17],
-      Lens[field18.label.type, Z, A18],
-      Lens[field19.label.type, Z, A19],
-      Lens[field20.label.type, Z, A20],
-      Lens[field21.label.type, Z, A21]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4],
+      Lens[field5.name.type, Z, A5],
+      Lens[field6.name.type, Z, A6],
+      Lens[field7.name.type, Z, A7],
+      Lens[field8.name.type, Z, A8],
+      Lens[field9.name.type, Z, A9],
+      Lens[field10.name.type, Z, A10],
+      Lens[field11.name.type, Z, A11],
+      Lens[field12.name.type, Z, A12],
+      Lens[field13.name.type, Z, A13],
+      Lens[field14.name.type, Z, A14],
+      Lens[field15.name.type, Z, A15],
+      Lens[field16.name.type, Z, A16],
+      Lens[field17.name.type, Z, A17],
+      Lens[field18.name.type, Z, A18],
+      Lens[field19.name.type, Z, A19],
+      Lens[field20.name.type, Z, A20],
+      Lens[field21.name.type, Z, A21]
     )
 
     override def annotate(
@@ -5453,27 +5453,27 @@ object Schema extends SchemaEquality {
       copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6],
-      b.Lens[field7.label.type, Z, A7],
-      b.Lens[field8.label.type, Z, A8],
-      b.Lens[field9.label.type, Z, A9],
-      b.Lens[field10.label.type, Z, A10],
-      b.Lens[field11.label.type, Z, A11],
-      b.Lens[field12.label.type, Z, A12],
-      b.Lens[field13.label.type, Z, A13],
-      b.Lens[field14.label.type, Z, A14],
-      b.Lens[field15.label.type, Z, A15],
-      b.Lens[field16.label.type, Z, A16],
-      b.Lens[field17.label.type, Z, A17],
-      b.Lens[field18.label.type, Z, A18],
-      b.Lens[field19.label.type, Z, A19],
-      b.Lens[field20.label.type, Z, A20],
-      b.Lens[field21.label.type, Z, A21]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6],
+      b.Lens[field7.name.type, Z, A7],
+      b.Lens[field8.name.type, Z, A8],
+      b.Lens[field9.name.type, Z, A9],
+      b.Lens[field10.name.type, Z, A10],
+      b.Lens[field11.name.type, Z, A11],
+      b.Lens[field12.name.type, Z, A12],
+      b.Lens[field13.name.type, Z, A13],
+      b.Lens[field14.name.type, Z, A14],
+      b.Lens[field15.name.type, Z, A15],
+      b.Lens[field16.name.type, Z, A16],
+      b.Lens[field17.name.type, Z, A17],
+      b.Lens[field18.name.type, Z, A18],
+      b.Lens[field19.name.type, Z, A19],
+      b.Lens[field20.name.type, Z, A20],
+      b.Lens[field21.name.type, Z, A21]
     ) =
       (
         b.makeLens(self, field1),
@@ -5659,28 +5659,28 @@ object Schema extends SchemaEquality {
   ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.label.type, Z, A1],
-      Lens[field2.label.type, Z, A2],
-      Lens[field3.label.type, Z, A3],
-      Lens[field4.label.type, Z, A4],
-      Lens[field5.label.type, Z, A5],
-      Lens[field6.label.type, Z, A6],
-      Lens[field7.label.type, Z, A7],
-      Lens[field8.label.type, Z, A8],
-      Lens[field9.label.type, Z, A9],
-      Lens[field10.label.type, Z, A10],
-      Lens[field11.label.type, Z, A11],
-      Lens[field12.label.type, Z, A12],
-      Lens[field13.label.type, Z, A13],
-      Lens[field14.label.type, Z, A14],
-      Lens[field15.label.type, Z, A15],
-      Lens[field16.label.type, Z, A16],
-      Lens[field17.label.type, Z, A17],
-      Lens[field18.label.type, Z, A18],
-      Lens[field19.label.type, Z, A19],
-      Lens[field20.label.type, Z, A20],
-      Lens[field21.label.type, Z, A21],
-      Lens[field22.label.type, Z, A22]
+      Lens[field1.name.type, Z, A1],
+      Lens[field2.name.type, Z, A2],
+      Lens[field3.name.type, Z, A3],
+      Lens[field4.name.type, Z, A4],
+      Lens[field5.name.type, Z, A5],
+      Lens[field6.name.type, Z, A6],
+      Lens[field7.name.type, Z, A7],
+      Lens[field8.name.type, Z, A8],
+      Lens[field9.name.type, Z, A9],
+      Lens[field10.name.type, Z, A10],
+      Lens[field11.name.type, Z, A11],
+      Lens[field12.name.type, Z, A12],
+      Lens[field13.name.type, Z, A13],
+      Lens[field14.name.type, Z, A14],
+      Lens[field15.name.type, Z, A15],
+      Lens[field16.name.type, Z, A16],
+      Lens[field17.name.type, Z, A17],
+      Lens[field18.name.type, Z, A18],
+      Lens[field19.name.type, Z, A19],
+      Lens[field20.name.type, Z, A20],
+      Lens[field21.name.type, Z, A21],
+      Lens[field22.name.type, Z, A22]
     )
 
     override def annotate(annotation: Any): CaseClass22[
@@ -5710,28 +5710,28 @@ object Schema extends SchemaEquality {
     ] = copy(annotations = annotations :+ annotation)
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.label.type, Z, A1],
-      b.Lens[field2.label.type, Z, A2],
-      b.Lens[field3.label.type, Z, A3],
-      b.Lens[field4.label.type, Z, A4],
-      b.Lens[field5.label.type, Z, A5],
-      b.Lens[field6.label.type, Z, A6],
-      b.Lens[field7.label.type, Z, A7],
-      b.Lens[field8.label.type, Z, A8],
-      b.Lens[field9.label.type, Z, A9],
-      b.Lens[field10.label.type, Z, A10],
-      b.Lens[field11.label.type, Z, A11],
-      b.Lens[field12.label.type, Z, A12],
-      b.Lens[field13.label.type, Z, A13],
-      b.Lens[field14.label.type, Z, A14],
-      b.Lens[field15.label.type, Z, A15],
-      b.Lens[field16.label.type, Z, A16],
-      b.Lens[field17.label.type, Z, A17],
-      b.Lens[field18.label.type, Z, A18],
-      b.Lens[field19.label.type, Z, A19],
-      b.Lens[field20.label.type, Z, A20],
-      b.Lens[field21.label.type, Z, A21],
-      b.Lens[field22.label.type, Z, A22]
+      b.Lens[field1.name.type, Z, A1],
+      b.Lens[field2.name.type, Z, A2],
+      b.Lens[field3.name.type, Z, A3],
+      b.Lens[field4.name.type, Z, A4],
+      b.Lens[field5.name.type, Z, A5],
+      b.Lens[field6.name.type, Z, A6],
+      b.Lens[field7.name.type, Z, A7],
+      b.Lens[field8.name.type, Z, A8],
+      b.Lens[field9.name.type, Z, A9],
+      b.Lens[field10.name.type, Z, A10],
+      b.Lens[field11.name.type, Z, A11],
+      b.Lens[field12.name.type, Z, A12],
+      b.Lens[field13.name.type, Z, A13],
+      b.Lens[field14.name.type, Z, A14],
+      b.Lens[field15.name.type, Z, A15],
+      b.Lens[field16.name.type, Z, A16],
+      b.Lens[field17.name.type, Z, A17],
+      b.Lens[field18.name.type, Z, A18],
+      b.Lens[field19.name.type, Z, A19],
+      b.Lens[field20.name.type, Z, A20],
+      b.Lens[field21.name.type, Z, A21],
+      b.Lens[field22.name.type, Z, A22]
     ) =
       (
         b.makeLens(self, field1),

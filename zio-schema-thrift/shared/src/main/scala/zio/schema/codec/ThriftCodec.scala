@@ -443,7 +443,7 @@ object ThriftCodec extends Codec {
 
     def encodeRecord(fieldNumber: Option[Short], structure: Seq[Schema.Field[_]], data: ListMap[String, _]): Unit = {
       writeFieldBegin(fieldNumber, TType.STRUCT)
-      writeStructure(structure.map(schema => (schema, data(schema.label))))
+      writeStructure(structure.map(schema => (schema, data(schema.name))))
     }
   }
 
@@ -500,7 +500,7 @@ object ThriftCodec extends Codec {
       schema match {
         case Schema.GenericRecord(_, structure, _) => {
           val fields = structure.toChunk
-          decodeRecord(path, fields).map(_.map { case (index, value) => (fields(index - 1).label, value) })
+          decodeRecord(path, fields).map(_.map { case (index, value) => (fields(index - 1).name, value) })
         }
         case seqSchema @ Schema.Sequence(_, _, _, _, _) => decodeSequence(path, seqSchema)
         case mapSchema @ Schema.Map(_, _, _)            => decodeMap(path, mapSchema)

@@ -229,14 +229,14 @@ object OrderingSpec extends ZIOSpecDefault {
         x   <- genFromSchema(field.schema)
         d   = DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], x)
         rem <- genEqualFields(fields, currentInd + 1, diffInd)
-      } yield (field.label, d, d) +: rem
+      } yield (field.name, d, d) +: rem
     }
 
   def genOrderedField(field: Schema.Field[_]): Gen[Sized, (String, DynamicValue, DynamicValue)] =
     genOrderedPair(field.schema).map {
       case (a, b) =>
         (
-          field.label,
+          field.name,
           DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], a),
           DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], b)
         )
@@ -255,7 +255,7 @@ object OrderingSpec extends ZIOSpecDefault {
         dx  = DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], x)
         dy  = DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], y)
         rem <- genRandomFields(fields, currentInd + 1)
-      } yield (field.label, dx, dy) +: rem
+      } yield (field.name, dx, dy) +: rem
     }
 
   def genAnyOrderedPairEnum: Gen[Sized, SchemaAndPair[_]] =

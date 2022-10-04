@@ -110,7 +110,7 @@ object DynamicValueGen {
     Gen
       .collectAll(
         structure
-          .map(field => Gen.const(field.label).zip(anyDynamicValueOfSchema(field.schema)))
+          .map(field => Gen.const(field.name).zip(anyDynamicValueOfSchema(field.schema)))
       )
       .map { values =>
         DynamicValue.Record(TypeId.Structural, ListMap.empty ++ values)

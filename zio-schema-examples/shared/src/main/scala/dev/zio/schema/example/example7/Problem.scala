@@ -137,12 +137,12 @@ private[example7] object Problem {
             }
 
           case cc: CaseClass1[a, B] =>
-            val f = compile[a](Some(cc.field.label), cc.field.schema)
+            val f = compile[a](Some(cc.field.name), cc.field.schema)
             (qp: QueryParams) => f(qp).map(v => cc.construct(v))
 
           case cc: CaseClass2[a, b, B] =>
-            val f1 = compile[a](Some(cc.field1.label), cc.field1.schema)
-            val f2 = compile[b](Some(cc.field2.label), cc.field2.schema)
+            val f1 = compile[a](Some(cc.field1.name), cc.field1.schema)
+            val f2 = compile[b](Some(cc.field2.name), cc.field2.schema)
 
             (qp: QueryParams) =>
               for {
@@ -151,9 +151,9 @@ private[example7] object Problem {
               } yield cc.construct(v1, v2)
 
           case cc: CaseClass3[a, b, c, B] =>
-            val f1 = compile[a](Some(cc.field1.label), cc.field1.schema)
-            val f2 = compile[b](Some(cc.field2.label), cc.field2.schema)
-            val f3 = compile[c](Some(cc.field3.label), cc.field3.schema)
+            val f1 = compile[a](Some(cc.field1.name), cc.field1.schema)
+            val f2 = compile[b](Some(cc.field2.name), cc.field2.schema)
+            val f3 = compile[c](Some(cc.field3.name), cc.field3.schema)
 
             (qp: QueryParams) =>
               for {

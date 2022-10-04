@@ -66,14 +66,14 @@ object ZioOpticsBuilder extends AccessorBuilder {
     product.toDynamic(whole) match {
       case DynamicValue.Record(_, values) =>
         values
-          .get(term.label)
+          .get(term.name)
           .map { dynamicField =>
             term.schema.fromDynamic(dynamicField) match {
               case Left(error)  => Left(OpticFailure(error) -> whole)
               case Right(value) => Right(value)
             }
           }
-          .getOrElse(Left(OpticFailure(s"No term found with label ${term.label}") -> whole))
+          .getOrElse(Left(OpticFailure(s"No term found with label ${term.name}") -> whole))
       case _ => Left(OpticFailure(s"Unexpected dynamic value for whole") -> whole)
     }
   }
@@ -84,7 +84,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
   ): A => S => Either[(OpticFailure, S), S] = { (piece: A) => (whole: S) =>
     product.toDynamic(whole) match {
       case DynamicValue.Record(name, values) =>
-        val updated = spliceRecord(values, term.label, term.label -> term.schema.toDynamic(piece))
+        val updated = spliceRecord(values, term.name, term.name -> term.schema.toDynamic(piece))
         product.fromDynamic(DynamicValue.Record(name, updated)) match {
           case Left(error)  => Left(OpticFailure(error) -> whole)
           case Right(value) => Right(value)

@@ -1931,7 +1931,7 @@ object AssertionHelper {
     recordFields(Assertion.exists(assertion))
 
   def hasLabel(assertion: Assertion[String]): Assertion[Schema.Field[_]] =
-    hasField("label", _.label, assertion)
+    hasField("label", _.name, assertion)
 
   def hasSchema(assertion: Assertion[Schema[_]]): Assertion[Schema.Field[_]] =
     hasField("initialSchemaDerived", _.schema, assertion)

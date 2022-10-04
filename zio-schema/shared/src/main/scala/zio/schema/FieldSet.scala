@@ -43,7 +43,7 @@ object FieldSet {
 
   final case class :*:[A, +T <: FieldSet](head: Field[A], tail: T) extends FieldSet { self =>
     override type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
-      (Lens[head.label.type, Whole, A], tail.Accessors[Whole, Lens, Prism, Traversal])
+      (Lens[head.name.type, Whole, A], tail.Accessors[Whole, Lens, Prism, Traversal])
     override type Append[That <: FieldSet] = Cons[A, tail.Append[That]]
 
     override def :*:[B](head2: Field[B]): FieldSet.Cons[B, Cons[A, T]] = Cons(head2, self)

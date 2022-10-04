@@ -560,7 +560,7 @@ object Differ {
   private def conformsToStructure(map: ListMap[String, _], structure: Chunk[Schema.Field[_]]): Boolean =
     structure.foldRight(true) {
       case (_, false)                  => false
-      case (field: Schema.Field[a], _) => map.get(field.label).exists(_.isInstanceOf[a])
+      case (field: Schema.Field[a], _) => map.get(field.name).exists(_.isInstanceOf[a])
     }
 
   def enumN[Z](cases: Schema.Case[_, Z]*): Differ[Z] =
@@ -1032,5 +1032,5 @@ private[schema] object ProductDiffer {
         .orIdentical
 
   private def fieldDiffer[A, Z](field: Schema.Field[A], extract: Z => A): (Z, Z) => (String, Patch[A]) =
-    (thisZ: Z, thatZ: Z) => field.label -> Differ.fromSchema(field.schema)(extract(thisZ), extract(thatZ))
+    (thisZ: Z, thatZ: Z) => field.name -> Differ.fromSchema(field.schema)(extract(thisZ), extract(thatZ))
 }

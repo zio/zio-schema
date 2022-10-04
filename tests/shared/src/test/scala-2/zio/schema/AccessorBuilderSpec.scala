@@ -74,8 +74,8 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
             accessor match {
               case (Lens(r1, f1), Lens(r2, f2)) =>
                 r1 == r2 && r2 == tupleSchema.toRecord &&
-                  f1.label == "_1" && f1.schema == leftSchema &&
-                  f2.label == "_2" && f2.schema == rightSchema
+                  f1.name == "_1" && f1.schema == leftSchema &&
+                  f2.name == "_2" && f2.schema == rightSchema
               case _ => false
             }
           )(isTrue)

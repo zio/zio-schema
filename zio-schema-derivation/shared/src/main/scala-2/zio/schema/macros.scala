@@ -322,9 +322,9 @@ object DeriveSchema {
               val fieldLabel = termSymbol.name.toString.trim
 
               if (annotations.nonEmpty)
-                q"""$fieldArg = zio.schema.Schema.Field.apply(label = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), validation = $validation)"""
+                q"""$fieldArg = zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), validation = $validation)"""
               else
-                q"""$fieldArg = zio.schema.Schema.Field.apply(label = $fieldLabel, schema = $fieldSchema, validation = $validation)"""
+                q"""$fieldArg = zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, validation = $validation)"""
           }
 
           val constructArgs = fieldTypes.zipWithIndex.map {

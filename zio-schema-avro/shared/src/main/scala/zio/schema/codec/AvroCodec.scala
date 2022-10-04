@@ -588,7 +588,7 @@ object AvroCodec extends AvroCodec {
     toAvroSchema(value.schema).map(
       schema =>
         new SchemaAvro.Field(
-          getNameOption(value.annotations).getOrElse(value.label),
+          getNameOption(value.annotations).getOrElse(value.name),
           schema,
           getDoc(value.annotations).orNull,
           getDefault(value.annotations).orNull,

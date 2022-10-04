@@ -218,7 +218,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
   }
 
   // Derive Field for a CaseClass
-  def deriveField(repr: TypeRepr, label: String, anns: List[Expr[Any]], stack: Stack) = {
+  def deriveField(repr: TypeRepr, name: String, anns: List[Expr[Any]], stack: Stack) = {
     import zio.schema.validation.Validation
     repr.asType match { case '[t] => 
       val schema = deriveSchema[t](stack)
@@ -231,7 +231,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
         }
       }
       val chunk = '{ zio.Chunk.fromIterable(${ Expr.ofSeq(anns.reverse) }) }
-      '{ Field(${Expr(label)}, $schema, $chunk, $validator) }
+      '{ Field(${Expr(name)}, $schema, $chunk, $validator) }
     }
   }
 

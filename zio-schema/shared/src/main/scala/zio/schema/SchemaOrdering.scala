@@ -69,7 +69,7 @@ object SchemaOrdering {
       if (i == j) 0
       else {
         val field           = r.structure(i)
-        val fieldComparison = compareBySchema(field.schema)(lVals(field.label), rVals(field.label))
+        val fieldComparison = compareBySchema(field.schema)(lVals(field.name), rVals(field.name))
         if (fieldComparison == 0) loop(i + 1) else fieldComparison
       }
     loop(0)

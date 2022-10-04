@@ -20,7 +20,7 @@ trait SchemaEquality {
       implicit lazy val selfEqual: Equal[Schema[_]] = Equal.make(recursiveEqual(_, _, visitedPairs))
       implicit lazy val fieldEqual: Equal[Schema.Field[_]] =
         (l: Schema.Field[_], r: Schema.Field[_]) => {
-          l.label === r.label &&
+          l.name === r.name &&
             l.schema === r.schema &&
             l.annotations == r.annotations
         }

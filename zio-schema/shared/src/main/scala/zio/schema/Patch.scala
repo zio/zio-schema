@@ -318,7 +318,7 @@ object Patch {
           differences
             .foldLeft[Either[String, ListMap[String, DynamicValue]]](Right(values)) {
               case (Right(record), (key, diff)) =>
-                (structure.find(_.label == key).map(_.schema), values.get(key)) match {
+                (structure.find(_.name == key).map(_.schema), values.get(key)) match {
                   case (Some(schema: Schema[b]), Some(oldValue)) =>
                     val oldVal = oldValue.toTypedValue(schema)
                     oldVal

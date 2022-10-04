@@ -465,7 +465,7 @@ object DeriveGen {
           for {
             listMap <- genListMap
             value   <- gen(field.schema)
-          } yield listMap.updated(field.label, value)
+          } yield listMap.updated(field.name, value)
       }
 
   private def genSequence[Z, A](seq: Schema.Sequence[Z, A, _]): Gen[Sized, Z] =

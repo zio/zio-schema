@@ -310,7 +310,7 @@ object MetaSchema {
     case s: Schema.Record[A] =>
       s.structure
         .foldLeft(NodeBuilder(NodePath.root, Chunk(s.hashCode() -> NodePath.root))) { (node, field) =>
-          node.addLabelledSubtree(field.label, field.schema)
+          node.addLabelledSubtree(field.name, field.schema)
         }
         .buildProduct(s.id)
     case s: Schema.Enum[A] =>
@@ -369,7 +369,7 @@ object MetaSchema {
           case s: Schema.Record[_] =>
             s.structure
               .foldLeft(NodeBuilder(path, lineage :+ (s.hashCode() -> path), optional)) { (node, field) =>
-                node.addLabelledSubtree(field.label, field.schema)
+                node.addLabelledSubtree(field.name, field.schema)
               }
               .buildProduct(s.id)
           case s: Schema.Enum[_] =>

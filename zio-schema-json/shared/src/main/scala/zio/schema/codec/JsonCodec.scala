@@ -408,7 +408,7 @@ object JsonCodec extends Codec {
           if (Lexer.firstField(trace, in)) {
             while ({
               val field = Lexer.string(trace, in).toString
-              structure.find(_.label == field) match {
+              structure.find(_.name == field) match {
                 case Some(Schema.Field(label, schema, _, _)) =>
                   val trace_ = JsonError.ObjectAccess(label) :: trace
                   Lexer.char(trace_, in, ':')
@@ -803,8 +803,8 @@ object JsonCodec extends Codec {
     private def unsafeDecodeFields(trace: List[JsonError], in: RetractReader, fields: Schema.Field[_]*): Array[Any] = {
       val len: Int                  = fields.length
       val buffer                    = Array.ofDim[Any](len)
-      val matrix                    = new StringMatrix(fields.map(_.label).toArray)
-      val spans: Array[JsonError]   = fields.map(_.label).toArray.map(JsonError.ObjectAccess(_))
+      val matrix                    = new StringMatrix(fields.map(_.name).toArray)
+      val spans: Array[JsonError]   = fields.map(_.name).toArray.map(JsonError.ObjectAccess(_))
       val schemas: Array[Schema[_]] = fields.map(_.schema).toArray
       Lexer.char(trace, in, '{')
       if (Lexer.firstField(trace, in)) {

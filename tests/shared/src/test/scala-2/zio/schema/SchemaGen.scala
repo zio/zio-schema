@@ -232,7 +232,7 @@ object SchemaGen {
       structure     <- anyStructure(schema, maxFieldCount)
     } yield {
       val valueGen = Gen
-        .const(structure.map(_.label))
+        .const(structure.map(_.name))
         .zip(Gen.listOfN(structure.size)(gen))
         .map {
           case (labels, values) =>
