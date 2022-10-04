@@ -242,7 +242,7 @@ object JsonCodec extends Codec {
         }
       }
 
-    private def recordEncoder[Z](structure: Seq[Schema.Field[_, Z]]): JsonEncoder[ListMap[String, _]] = {
+    private def recordEncoder[Z](structure: Seq[Schema.Field[Z, _]]): JsonEncoder[ListMap[String, _]] = {
       (value: ListMap[String, _], indent: Option[Int], out: Write) =>
         {
           if (structure.isEmpty) {
@@ -400,7 +400,7 @@ object JsonCodec extends Codec {
         }
     }
 
-    private def recordDecoder[Z](structure: Seq[Schema.Field[_, Z]]): JsonDecoder[ListMap[String, Any]] = {
+    private def recordDecoder[Z](structure: Seq[Schema.Field[Z, _]]): JsonDecoder[ListMap[String, Any]] = {
       (trace: List[JsonError], in: RetractReader) =>
         {
           val builder: ChunkBuilder[(String, Any)] = zio.ChunkBuilder.make[(String, Any)](structure.size)
@@ -434,7 +434,7 @@ object JsonCodec extends Codec {
     import JsonEncoder.bump
     import JsonEncoder.pad
 
-    private[codec] def caseClassEncoder[Z](fields: (Schema.Field[_, Z], Z => Any)*): JsonEncoder[Z] = { (a: Z, indent: Option[Int], out: Write) =>
+    private[codec] def caseClassEncoder[Z](fields: (Schema.Field[Z, _], Z => Any)*): JsonEncoder[Z] = { (a: Z, indent: Option[Int], out: Write) =>
       {
         out.write('{')
         val indent_ = bump(indent)
@@ -800,7 +800,7 @@ object JsonCodec extends Codec {
       }
     }
 
-    private def unsafeDecodeFields[Z](trace: List[JsonError], in: RetractReader, fields: Schema.Field[_, Z]*): Array[Any] = {
+    private def unsafeDecodeFields[Z](trace: List[JsonError], in: RetractReader, fields: Schema.Field[Z, _]*): Array[Any] = {
       val len: Int                  = fields.length
       val buffer                    = Array.ofDim[Any](len)
       val matrix                    = new StringMatrix(fields.map(_.name).toArray)

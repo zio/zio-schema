@@ -200,7 +200,7 @@ object OrderingSpec extends ZIOSpecDefault {
     } yield pair
 
   def genOrderedPairRecord[A](schema: Schema.Record[A]): Gen[Sized, SchemaAndPair[A]] = {
-    val fields: Chunk[Schema.Field[_, A]] = schema.structure
+    val fields: Chunk[Schema.Field[A, _]] = schema.structure
     for {
       diffInd       <- Gen.int(0, fields.size - 1)
       equalFields   <- genEqualFields(fields, 0, diffInd)
@@ -218,7 +218,7 @@ object OrderingSpec extends ZIOSpecDefault {
   }
 
   def genEqualFields[A](
-    fields: Chunk[Schema.Field[_, A]],
+    fields: Chunk[Schema.Field[A, _]],
     currentInd: Int,
     diffInd: Int
   ): Gen[Sized, Chunk[(String, DynamicValue, DynamicValue)]] =
@@ -232,7 +232,7 @@ object OrderingSpec extends ZIOSpecDefault {
       } yield (field.name, d, d) +: rem
     }
 
-  def genOrderedField[A](field: Schema.Field[_, A]): Gen[Sized, (String, DynamicValue, DynamicValue)] =
+  def genOrderedField[A](field: Schema.Field[A, _]): Gen[Sized, (String, DynamicValue, DynamicValue)] =
     genOrderedPair(field.schema).map {
       case (a, b) =>
         (
@@ -243,7 +243,7 @@ object OrderingSpec extends ZIOSpecDefault {
     }
 
   def genRandomFields[A](
-    fields: Chunk[Schema.Field[_, A]],
+    fields: Chunk[Schema.Field[A, _]],
     currentInd: Int
   ): Gen[Sized, Chunk[(String, DynamicValue, DynamicValue)]] =
     if (currentInd >= fields.size) Gen.unit.map(_ => Chunk())

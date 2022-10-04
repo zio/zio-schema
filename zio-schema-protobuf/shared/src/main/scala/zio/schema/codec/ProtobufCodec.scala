@@ -39,32 +39,32 @@ object ProtobufCodec extends Codec {
       case object Bit32                      extends WireType
     }
 
-    private[codec] val bigDecimalStructure: Seq[Schema.Field[_, Any]] =
+    private[codec] val bigDecimalStructure: Seq[Schema.Field[Any, _]] =
       Seq(
         Schema.Field("unscaled", Schema.Primitive(StandardType.BigIntegerType)),
         Schema.Field("precision", Schema.Primitive(StandardType.IntType)),
         Schema.Field("scale", Schema.Primitive(StandardType.IntType))
       )
 
-    private[codec] val monthDayStructure: Seq[Schema.Field[Int, Any]] =
+    private[codec] val monthDayStructure: Seq[Schema.Field[Any, Int]] =
       Seq(
         Schema.Field("month", Schema.Primitive(StandardType.IntType)),
         Schema.Field("day", Schema.Primitive(StandardType.IntType))
       )
 
-    private[codec] val periodStructure: Seq[Schema.Field[Int, Any]] = Seq(
+    private[codec] val periodStructure: Seq[Schema.Field[Any, Int]] = Seq(
       Schema.Field("years", Schema.Primitive(StandardType.IntType)),
       Schema.Field("months", Schema.Primitive(StandardType.IntType)),
       Schema.Field("days", Schema.Primitive(StandardType.IntType))
     )
 
-    private[codec] val yearMonthStructure: Seq[Schema.Field[Int, Any]] =
+    private[codec] val yearMonthStructure: Seq[Schema.Field[Any, Int]] =
       Seq(
         Schema.Field("year", Schema.Primitive(StandardType.IntType)),
         Schema.Field("month", Schema.Primitive(StandardType.IntType))
       )
 
-    private[codec] val durationStructure: Seq[Schema.Field[_, Any]] =
+    private[codec] val durationStructure: Seq[Schema.Field[Any, _]] =
       Seq(
         Schema.Field("seconds", Schema.Primitive(StandardType.LongType)),
         Schema.Field("nanos", Schema.Primitive(StandardType.IntType))
@@ -441,7 +441,7 @@ object ProtobufCodec extends Codec {
 
     private def encodeRecord(
       fieldNumber: Option[Int],
-      structure: Seq[Schema.Field[_, Any]],
+      structure: Seq[Schema.Field[Any, _]],
       data: ListMap[String, _]
     ): Chunk[Byte] = {
       val encodedRecord = Chunk
@@ -807,7 +807,7 @@ object ProtobufCodec extends Codec {
           fail(s"Failed to decode enumeration. Schema does not contain field number $fieldNumber.")
       }
 
-    private def recordDecoder[Z](fields: Seq[Schema.Field[_, Z]], decoded: Int = 0): Decoder[ListMap[String, _]] =
+    private def recordDecoder[Z](fields: Seq[Schema.Field[Z, _]], decoded: Int = 0): Decoder[ListMap[String, _]] =
       if (fields.isEmpty || (fields.size == decoded))
         Decoder.succeed(ListMap.empty)
       else
@@ -1083,7 +1083,7 @@ object ProtobufCodec extends Codec {
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   private[codec] object ProductEncoder {
 
-    private[codec] def encodeCaseClass[Z](value: Z, fields: (Schema.Field[_, Z], Z => Any)*): Option[Int] => Chunk[Byte] = { (fieldNumber: Option[Int]) =>
+    private[codec] def encodeCaseClass[Z](value: Z, fields: (Schema.Field[Z, _], Z => Any)*): Option[Int] => Chunk[Byte] = { (fieldNumber: Option[Int]) =>
       {
         val encoded = Chunk
           .fromIterable(fields.zipWithIndex.map {
@@ -1101,7 +1101,7 @@ object ProtobufCodec extends Codec {
     import Decoder.{ fail, keyDecoder, succeed }
     import Protobuf.WireType._
 
-    private def unsafeDecodeFields[Z](buffer: Array[Any], fields: Schema.Field[_, Z]*): Decoder[Array[Any]] =
+    private def unsafeDecodeFields[Z](buffer: Array[Any], fields: Schema.Field[Z, _]*): Decoder[Array[Any]] =
       keyDecoder.flatMap {
         case (wt, fieldNumber) if fieldNumber == fields.length =>
           wt match {

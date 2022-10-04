@@ -20,8 +20,8 @@ object Domain {
   final case class Person(name: String, age: Int)
 
   object Person {
-    val name: Field[String, Person] = Schema.Field[String, Person]("name", Schema.primitive[String])
-    val age: Field[Int, Person]     = Schema.Field[Int, Person]("age", Schema.primitive[Int])
+    val name: Field[Person, String] = Schema.Field[Person, String]("name", Schema.primitive[String])
+    val age: Field[Person, Int]     = Schema.Field[Person, Int]("age", Schema.primitive[Int])
 
     val schema: Schema[Person] = Schema.CaseClass2[String, Int, Person](
       TypeId.parse("dev.zio.schema.example.example2.Domain.Person"),
@@ -37,13 +37,13 @@ object Domain {
     final case class CreditCard(number: String, expirationMonth: Int, expirationYear: Int) extends PaymentMethod
 
     object CreditCard {
-      val number: Field[String, CreditCard] = Schema.Field[String, CreditCard]("number", Schema.primitive[String])
+      val number: Field[CreditCard, String] = Schema.Field[CreditCard, String]("number", Schema.primitive[String])
 
-      val expirationMonth: Field[Int, CreditCard] =
-        Schema.Field[Int, CreditCard]("expirationMonth", Schema.primitive[Int])
+      val expirationMonth: Field[CreditCard, Int] =
+        Schema.Field[CreditCard, Int]("expirationMonth", Schema.primitive[Int])
 
-      val expirationYear: Field[Int, CreditCard] =
-        Schema.Field[Int, CreditCard]("expirationYear", Schema.primitive[Int])
+      val expirationYear: Field[CreditCard, Int] =
+        Schema.Field[CreditCard, Int]("expirationYear", Schema.primitive[Int])
       implicit val schema: Schema[CreditCard] = Schema.CaseClass3[String, Int, Int, CreditCard](
         TypeId.parse("dev.zio.schema.example.example2.Domain.PaymentMethod.CreditCard"),
         field1 = number,
@@ -61,11 +61,11 @@ object Domain {
 
     object WireTransfer {
 
-      val accountNumber: Field[String, WireTransfer] =
-        Schema.Field[String, WireTransfer]("accountNumber", Schema.primitive[String])
+      val accountNumber: Field[WireTransfer, String] =
+        Schema.Field[WireTransfer, String]("accountNumber", Schema.primitive[String])
 
-      val bankCode: Field[String, WireTransfer] =
-        Schema.Field[String, WireTransfer]("bankCode", Schema.primitive[String])
+      val bankCode: Field[WireTransfer, String] =
+        Schema.Field[WireTransfer, String]("bankCode", Schema.primitive[String])
 
       implicit val schema: Schema[WireTransfer] = Schema.CaseClass2[String, String, WireTransfer](
         TypeId.parse("dev.zio.schema.example.example2.Domain.PaymentMethod.WireTransfer"),
@@ -99,10 +99,10 @@ object Domain {
   final case class Customer(person: Person, paymentMethod: PaymentMethod)
 
   object Customer {
-    val person: Field[Person, Customer] = Schema.Field[Person, Customer]("person", Person.schema)
+    val person: Field[Customer, Person] = Schema.Field[Customer, Person]("person", Person.schema)
 
-    val paymentMethod: Field[PaymentMethod, Customer] =
-      Schema.Field[PaymentMethod, Customer]("paymentMethod", PaymentMethod.schemaPaymentMethod)
+    val paymentMethod: Field[Customer, PaymentMethod] =
+      Schema.Field[Customer, PaymentMethod]("paymentMethod", PaymentMethod.schemaPaymentMethod)
 
     implicit val schema: Schema[Customer] = Schema.CaseClass2[Person, PaymentMethod, Customer](
       TypeId.parse("dev.zio.schema.example.example2.Domain.Customer"),

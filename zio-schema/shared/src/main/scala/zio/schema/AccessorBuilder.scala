@@ -5,7 +5,7 @@ trait AccessorBuilder {
   type Prism[F, S, A]
   type Traversal[S, A]
 
-  def makeLens[F, S, A](product: Schema.Record[S], term: Schema.Field[A, S]): Lens[F, S, A]
+  def makeLens[F, S, A](product: Schema.Record[S], term: Schema.Field[S, A]): Lens[F, S, A]
 
   def makePrism[F, S, A](sum: Schema.Enum[S], term: Schema.Case[A, S]): Prism[F, S, A]
 

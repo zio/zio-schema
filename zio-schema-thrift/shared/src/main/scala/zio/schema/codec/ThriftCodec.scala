@@ -56,32 +56,32 @@ object ThriftCodec extends Codec {
 
   object Thrift {
 
-    val bigDecimalStructure: Seq[Schema.Field[_, Any]] =
+    val bigDecimalStructure: Seq[Schema.Field[Any, _]] =
       Seq(
         Schema.Field("unscaled", Schema.Primitive(StandardType.BigIntegerType)),
         Schema.Field("precision", Schema.Primitive(StandardType.IntType)),
         Schema.Field("scale", Schema.Primitive(StandardType.IntType))
       )
 
-    val monthDayStructure: Seq[Schema.Field[Int, Any]] =
+    val monthDayStructure: Seq[Schema.Field[Any, Int]] =
       Seq(
         Schema.Field("month", Schema.Primitive(StandardType.IntType)),
         Schema.Field("day", Schema.Primitive(StandardType.IntType))
       )
 
-    val periodStructure: Seq[Schema.Field[Int, Any]] = Seq(
+    val periodStructure: Seq[Schema.Field[Any, Int]] = Seq(
       Schema.Field("years", Schema.Primitive(StandardType.IntType)),
       Schema.Field("months", Schema.Primitive(StandardType.IntType)),
       Schema.Field("days", Schema.Primitive(StandardType.IntType))
     )
 
-    val yearMonthStructure: Seq[Schema.Field[Int, Any]] =
+    val yearMonthStructure: Seq[Schema.Field[Any, Int]] =
       Seq(
         Schema.Field("year", Schema.Primitive(StandardType.IntType)),
         Schema.Field("month", Schema.Primitive(StandardType.IntType))
       )
 
-    val durationStructure: Seq[Schema.Field[_, Any]] =
+    val durationStructure: Seq[Schema.Field[Any, _]] =
       Seq(
         Schema.Field("seconds", Schema.Primitive(StandardType.LongType)),
         Schema.Field("nanos", Schema.Primitive(StandardType.IntType))
@@ -365,15 +365,15 @@ object ThriftCodec extends Codec {
       }
     }
 
-    def tupleSchema[A, B](first: Schema[A], second: Schema[B]): Seq[Schema.Field[_, Any]] =
+    def tupleSchema[A, B](first: Schema[A], second: Schema[B]): Seq[Schema.Field[Any, _]] =
       Seq(Schema.Field("first", first), Schema.Field("second", second))
 
     private def encodeTuple[A, B](fieldNumber: Option[Short], left: Schema[A], right: Schema[B], tuple: (A, B)): Unit =
       encodeRecord(fieldNumber, tupleSchema(left, right), ListMap[String, Any]("first" -> tuple._1, "second" -> tuple._2))
 
-    private def writeStructure[Z](fields: Seq[(Schema.Field[_, Z], Any)]): Unit = {
+    private def writeStructure[Z](fields: Seq[(Schema.Field[Z, _], Any)]): Unit = {
       fields.zipWithIndex.foreach {
-        case ((fieldSchema: Schema.Field[Any, Z], value), fieldNumber) =>
+        case ((fieldSchema: Schema.Field[Z, Any], value), fieldNumber) =>
           encodeValue(Some((fieldNumber + 1).shortValue), fieldSchema.schema, value)
       }
       p.writeFieldStop()
@@ -428,7 +428,7 @@ object ThriftCodec extends Codec {
         case _ => None
       }
 
-      private def encodeCaseClass[Z](value: Z, fields: (Schema.Field[_, Z], Z => Any)*): () => Unit = () => writeStructure(fields.map { case (schema, ext) => (schema, ext(value)) })
+      private def encodeCaseClass[Z](value: Z, fields: (Schema.Field[Z, _], Z => Any)*): () => Unit = () => writeStructure(fields.map { case (schema, ext) => (schema, ext(value)) })
 
       object OptionalSchema {
 
@@ -441,7 +441,7 @@ object ThriftCodec extends Codec {
 
     }
 
-    def encodeRecord(fieldNumber: Option[Short], structure: Seq[Schema.Field[_, Any]], data: ListMap[String, _]): Unit = {
+    def encodeRecord(fieldNumber: Option[Short], structure: Seq[Schema.Field[Any, _]], data: ListMap[String, _]): Unit = {
       writeFieldBegin(fieldNumber, TType.STRUCT)
       writeStructure(structure.map(schema => (schema, data(schema.name))))
     }
@@ -685,7 +685,7 @@ object ThriftCodec extends Codec {
       case _                                          => None
     }
 
-    private def decodeRecord[Z](path: Path, fields: Seq[Schema.Field[_, Z]]): Result[ListMap[Short, _]] =
+    private def decodeRecord[Z](path: Path, fields: Seq[Schema.Field[Z, _]]): Result[ListMap[Short, _]] =
       structDecoder(fields.map(_.schema), path)
 
     def structDecoder(fields: Seq[Schema[_]], path: Path): Result[ListMap[Short, Any]] = {
@@ -791,7 +791,7 @@ object ThriftCodec extends Codec {
         case _ => None
       }
 
-      private def unsafeDecodeFields[Z](path: Path, fields: Schema.Field[_, Z]*): Result[Array[Any]] = {
+      private def unsafeDecodeFields[Z](path: Path, fields: Schema.Field[Z, _]*): Result[Array[Any]] = {
         val buffer = Array.ofDim[Any](fields.size)
 
         @tailrec
