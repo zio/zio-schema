@@ -412,7 +412,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Tuple2[A, B] = copy(annotations = annotations :+ annotation)
 
     val toRecord: CaseClass2[A, B, (A, B)] = CaseClass2[A, B, (A, B)](
-      id = TypeId.parse("zio.schema.Schena.Tuple2"),
+      id = TypeId.parse("zio.schema.Schema.CaseClass2"),
       field1 = Field[A]("_1", left),
       field2 = Field[B]("_2", right),
       construct = (a, b) => (a, b),
