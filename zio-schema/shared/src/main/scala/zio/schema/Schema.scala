@@ -3220,8 +3220,11 @@ object Schema extends SchemaEquality {
       )
 // # RECORD SCHEMAS
 
-  sealed case class GenericRecord(id: TypeId, fieldSet: FieldSet, override val annotations: Chunk[Any] = Chunk.empty)
-      extends Record[ListMap[String, _]] { self =>
+  sealed case class GenericRecord(
+    id: TypeId,
+    fieldSet: FieldSet,
+    override val annotations: Chunk[Any] = Chunk.empty
+  ) extends Record[ListMap[String, _]] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       fieldSet.Accessors[ListMap[String, _], Lens, Prism, Traversal]
@@ -3229,7 +3232,7 @@ object Schema extends SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal] =
       fieldSet.makeAccessors(self, b)
 
-    override def structure: Chunk[Schema.Field[Any, _]] = fieldSet.toChunk
+    override def structure: Chunk[Schema.Field[ListMap[String, _], _]] = fieldSet.toChunk
 
     override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, ListMap[String, _]] =
       if (values.size == structure.size)
