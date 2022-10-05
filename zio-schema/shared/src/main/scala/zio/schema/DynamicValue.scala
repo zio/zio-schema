@@ -131,7 +131,7 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap.empty ++ structure.toChunk.map {
-            case Schema.Field(key, schema: Schema[a], _, _) =>
+            case Schema.Field(key, schema: Schema[a], _, _, _) =>
               key -> fromSchemaAndValue(schema, map(key).asInstanceOf[a])
           }
         )
@@ -1025,70 +1025,70 @@ object DynamicValue {
       case Schema.CaseClass0(id, _, _) =>
         DynamicValue.Record(id, ListMap())
 
-      case Schema.CaseClass1(id, f, _, ext, _) =>
-        DynamicValue.Record(id, ListMap(f.name -> fromSchemaAndValue(f.schema, ext(value))))
+      case Schema.CaseClass1(id, f, _, _) =>
+        DynamicValue.Record(id, ListMap(f.name -> fromSchemaAndValue(f.schema, f.get(value))))
 
-      case Schema.CaseClass2(id, f1, f2, _, ext1, ext2, _) =>
+      case Schema.CaseClass2(id, f1, f2, _, _) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name -> fromSchemaAndValue(f2.schema, ext2(value))
+            f1.name -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name -> fromSchemaAndValue(f2.schema, f2.get(value))
           )
         )
-      case Schema.CaseClass3(id, f1, f2, f3, _, ext1, ext2, ext3, _) =>
+      case Schema.CaseClass3(id, f1, f2, f3, _, _) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name -> fromSchemaAndValue(f3.schema, ext3(value))
+            f1.name -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name -> fromSchemaAndValue(f3.schema, f3.get(value))
           )
         )
-      case Schema.CaseClass4(id, f1, f2, f3, f4, _, ext1, ext2, ext3, ext4, _) =>
+      case Schema.CaseClass4(id, f1, f2, f3, f4, _, _) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name -> fromSchemaAndValue(f4.schema, ext4(value))
+            f1.name -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name -> fromSchemaAndValue(f4.schema, f4.get(value))
           )
         )
-      case Schema.CaseClass5(id, f1, f2, f3, f4, f5, _, ext1, ext2, ext3, ext4, ext5, _) =>
+      case Schema.CaseClass5(id, f1, f2, f3, f4, f5, _, _) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name -> fromSchemaAndValue(f5.schema, ext5(value))
+            f1.name -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name -> fromSchemaAndValue(f5.schema, f5.get(value))
           )
         )
-      case Schema.CaseClass6(id, f1, f2, f3, f4, f5, f6, _, ext1, ext2, ext3, ext4, ext5, ext6, _) =>
+      case Schema.CaseClass6(id, f1, f2, f3, f4, f5, f6, _, _) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name -> fromSchemaAndValue(f6.schema, ext6(value))
+            f1.name -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name -> fromSchemaAndValue(f6.schema, f6.get(value))
           )
         )
-      case Schema.CaseClass7(id, f1, f2, f3, f4, f5, f6, f7, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, _) =>
+      case Schema.CaseClass7(id, f1, f2, f3, f4, f5, f6, f7, _, _) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name -> fromSchemaAndValue(f6.schema, ext6(value)),
-            f7.name -> fromSchemaAndValue(f7.schema, ext7(value))
+            f1.name -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name -> fromSchemaAndValue(f6.schema, f6.get(value)),
+            f7.name -> fromSchemaAndValue(f7.schema, f7.get(value))
           )
         )
       case Schema.CaseClass8(
@@ -1102,27 +1102,19 @@ object DynamicValue {
           f7,
           f8,
           _,
-          ext1,
-          ext2,
-          ext3,
-          ext4,
-          ext5,
-          ext6,
-          ext7,
-          ext8,
           _
           ) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name -> fromSchemaAndValue(f6.schema, ext6(value)),
-            f7.name -> fromSchemaAndValue(f7.schema, ext7(value)),
-            f8.name -> fromSchemaAndValue(f8.schema, ext8(value))
+            f1.name -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name -> fromSchemaAndValue(f6.schema, f6.get(value)),
+            f7.name -> fromSchemaAndValue(f7.schema, f7.get(value)),
+            f8.name -> fromSchemaAndValue(f8.schema, f8.get(value))
           )
         )
       case Schema.CaseClass9(
@@ -1137,29 +1129,20 @@ object DynamicValue {
           f8,
           f9,
           _,
-          ext1,
-          ext2,
-          ext3,
-          ext4,
-          ext5,
-          ext6,
-          ext7,
-          ext8,
-          ext9,
           _
           ) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name -> fromSchemaAndValue(f6.schema, ext6(value)),
-            f7.name -> fromSchemaAndValue(f7.schema, ext7(value)),
-            f8.name -> fromSchemaAndValue(f8.schema, ext8(value)),
-            f9.name -> fromSchemaAndValue(f9.schema, ext9(value))
+            f1.name -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name -> fromSchemaAndValue(f6.schema, f6.get(value)),
+            f7.name -> fromSchemaAndValue(f7.schema, f7.get(value)),
+            f8.name -> fromSchemaAndValue(f8.schema, f8.get(value)),
+            f9.name -> fromSchemaAndValue(f9.schema, f9.get(value))
           )
         )
       case Schema.CaseClass10(
@@ -1175,31 +1158,21 @@ object DynamicValue {
           f9,
           f10,
           _,
-          ext1,
-          ext2,
-          ext3,
-          ext4,
-          ext5,
-          ext6,
-          ext7,
-          ext8,
-          ext9,
-          ext10,
           _
           ) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, ext6(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, ext7(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, ext8(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, ext9(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, ext10(value))
+            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value))
           )
         )
       case Schema.CaseClass11(
@@ -1216,33 +1189,22 @@ object DynamicValue {
           f10,
           f11,
           _,
-          ext1,
-          ext2,
-          ext3,
-          ext4,
-          ext5,
-          ext6,
-          ext7,
-          ext8,
-          ext9,
-          ext10,
-          ext11,
           _
           ) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, ext6(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, ext7(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, ext8(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, ext9(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, ext10(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, ext11(value))
+            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value))
           )
         )
       case Schema.CaseClass12(
@@ -1260,35 +1222,23 @@ object DynamicValue {
           f11,
           f12,
           _,
-          ext1,
-          ext2,
-          ext3,
-          ext4,
-          ext5,
-          ext6,
-          ext7,
-          ext8,
-          ext9,
-          ext10,
-          ext11,
-          ext12,
           _
           ) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, ext6(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, ext7(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, ext8(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, ext9(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, ext10(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, ext11(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, ext12(value))
+            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value))
           )
         )
       case Schema.CaseClass13(
@@ -1307,37 +1257,24 @@ object DynamicValue {
           f12,
           f13,
           _,
-          ext1,
-          ext2,
-          ext3,
-          ext4,
-          ext5,
-          ext6,
-          ext7,
-          ext8,
-          ext9,
-          ext10,
-          ext11,
-          ext12,
-          ext13,
           _
           ) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, ext6(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, ext7(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, ext8(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, ext9(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, ext10(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, ext11(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, ext12(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, ext13(value))
+            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value))
           )
         )
       case Schema.CaseClass14(
@@ -1357,39 +1294,25 @@ object DynamicValue {
           f13,
           f14,
           _,
-          ext1,
-          ext2,
-          ext3,
-          ext4,
-          ext5,
-          ext6,
-          ext7,
-          ext8,
-          ext9,
-          ext10,
-          ext11,
-          ext12,
-          ext13,
-          ext14,
           _
           ) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, ext6(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, ext7(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, ext8(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, ext9(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, ext10(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, ext11(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, ext12(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, ext13(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, ext14(value))
+            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value))
           )
         )
       case Schema.CaseClass15(
@@ -1410,41 +1333,26 @@ object DynamicValue {
           f14,
           f15,
           _,
-          ext1,
-          ext2,
-          ext3,
-          ext4,
-          ext5,
-          ext6,
-          ext7,
-          ext8,
-          ext9,
-          ext10,
-          ext11,
-          ext12,
-          ext13,
-          ext14,
-          ext15,
           _
           ) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, ext6(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, ext7(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, ext8(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, ext9(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, ext10(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, ext11(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, ext12(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, ext13(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, ext14(value)),
-            f15.name -> fromSchemaAndValue(f15.schema, ext15(value))
+            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value)),
+            f15.name -> fromSchemaAndValue(f15.schema, f15.get(value))
           )
         )
       case Schema.CaseClass16(
@@ -1466,43 +1374,27 @@ object DynamicValue {
           f15,
           f16,
           _,
-          ext1,
-          ext2,
-          ext3,
-          ext4,
-          ext5,
-          ext6,
-          ext7,
-          ext8,
-          ext9,
-          ext10,
-          ext11,
-          ext12,
-          ext13,
-          ext14,
-          ext15,
-          ext16,
           _
           ) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, ext6(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, ext7(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, ext8(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, ext9(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, ext10(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, ext11(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, ext12(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, ext13(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, ext14(value)),
-            f15.name -> fromSchemaAndValue(f15.schema, ext15(value)),
-            f16.name -> fromSchemaAndValue(f16.schema, ext16(value))
+            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value)),
+            f15.name -> fromSchemaAndValue(f15.schema, f15.get(value)),
+            f16.name -> fromSchemaAndValue(f16.schema, f16.get(value))
           )
         )
       case Schema.CaseClass17(
@@ -1525,45 +1417,28 @@ object DynamicValue {
           f16,
           f17,
           _,
-          ext1,
-          ext2,
-          ext3,
-          ext4,
-          ext5,
-          ext6,
-          ext7,
-          ext8,
-          ext9,
-          ext10,
-          ext11,
-          ext12,
-          ext13,
-          ext14,
-          ext15,
-          ext16,
-          ext17,
           _
           ) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, ext6(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, ext7(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, ext8(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, ext9(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, ext10(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, ext11(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, ext12(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, ext13(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, ext14(value)),
-            f15.name -> fromSchemaAndValue(f15.schema, ext15(value)),
-            f16.name -> fromSchemaAndValue(f16.schema, ext16(value)),
-            f17.name -> fromSchemaAndValue(f17.schema, ext17(value))
+            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value)),
+            f15.name -> fromSchemaAndValue(f15.schema, f15.get(value)),
+            f16.name -> fromSchemaAndValue(f16.schema, f16.get(value)),
+            f17.name -> fromSchemaAndValue(f17.schema, f17.get(value))
           )
         )
       case Schema.CaseClass18(
@@ -1587,47 +1462,29 @@ object DynamicValue {
           f17,
           f18,
           _,
-          ext1,
-          ext2,
-          ext3,
-          ext4,
-          ext5,
-          ext6,
-          ext7,
-          ext8,
-          ext9,
-          ext10,
-          ext11,
-          ext12,
-          ext13,
-          ext14,
-          ext15,
-          ext16,
-          ext17,
-          ext18,
           _
           ) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, ext6(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, ext7(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, ext8(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, ext9(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, ext10(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, ext11(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, ext12(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, ext13(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, ext14(value)),
-            f15.name -> fromSchemaAndValue(f15.schema, ext15(value)),
-            f16.name -> fromSchemaAndValue(f16.schema, ext16(value)),
-            f17.name -> fromSchemaAndValue(f17.schema, ext17(value)),
-            f18.name -> fromSchemaAndValue(f18.schema, ext18(value))
+            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value)),
+            f15.name -> fromSchemaAndValue(f15.schema, f15.get(value)),
+            f16.name -> fromSchemaAndValue(f16.schema, f16.get(value)),
+            f17.name -> fromSchemaAndValue(f17.schema, f17.get(value)),
+            f18.name -> fromSchemaAndValue(f18.schema, f18.get(value))
           )
         )
       case Schema.CaseClass19(
@@ -1652,49 +1509,30 @@ object DynamicValue {
           f18,
           f19,
           _,
-          ext1,
-          ext2,
-          ext3,
-          ext4,
-          ext5,
-          ext6,
-          ext7,
-          ext8,
-          ext9,
-          ext10,
-          ext11,
-          ext12,
-          ext13,
-          ext14,
-          ext15,
-          ext16,
-          ext17,
-          ext18,
-          ext19,
           _
           ) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, ext6(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, ext7(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, ext8(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, ext9(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, ext10(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, ext11(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, ext12(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, ext13(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, ext14(value)),
-            f15.name -> fromSchemaAndValue(f15.schema, ext15(value)),
-            f16.name -> fromSchemaAndValue(f16.schema, ext16(value)),
-            f17.name -> fromSchemaAndValue(f17.schema, ext17(value)),
-            f18.name -> fromSchemaAndValue(f18.schema, ext18(value)),
-            f19.name -> fromSchemaAndValue(f19.schema, ext19(value))
+            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value)),
+            f15.name -> fromSchemaAndValue(f15.schema, f15.get(value)),
+            f16.name -> fromSchemaAndValue(f16.schema, f16.get(value)),
+            f17.name -> fromSchemaAndValue(f17.schema, f17.get(value)),
+            f18.name -> fromSchemaAndValue(f18.schema, f18.get(value)),
+            f19.name -> fromSchemaAndValue(f19.schema, f19.get(value))
           )
         )
       case Schema.CaseClass20(
@@ -1720,51 +1558,31 @@ object DynamicValue {
           f19,
           f20,
           _,
-          ext1,
-          ext2,
-          ext3,
-          ext4,
-          ext5,
-          ext6,
-          ext7,
-          ext8,
-          ext9,
-          ext10,
-          ext11,
-          ext12,
-          ext13,
-          ext14,
-          ext15,
-          ext16,
-          ext17,
-          ext18,
-          ext19,
-          ext20,
           _
           ) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, ext6(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, ext7(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, ext8(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, ext9(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, ext10(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, ext11(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, ext12(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, ext13(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, ext14(value)),
-            f15.name -> fromSchemaAndValue(f15.schema, ext15(value)),
-            f16.name -> fromSchemaAndValue(f16.schema, ext16(value)),
-            f17.name -> fromSchemaAndValue(f17.schema, ext17(value)),
-            f18.name -> fromSchemaAndValue(f18.schema, ext18(value)),
-            f19.name -> fromSchemaAndValue(f19.schema, ext19(value)),
-            f20.name -> fromSchemaAndValue(f20.schema, ext20(value))
+            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value)),
+            f15.name -> fromSchemaAndValue(f15.schema, f15.get(value)),
+            f16.name -> fromSchemaAndValue(f16.schema, f16.get(value)),
+            f17.name -> fromSchemaAndValue(f17.schema, f17.get(value)),
+            f18.name -> fromSchemaAndValue(f18.schema, f18.get(value)),
+            f19.name -> fromSchemaAndValue(f19.schema, f19.get(value)),
+            f20.name -> fromSchemaAndValue(f20.schema, f20.get(value))
           )
         )
       case Schema.CaseClass21(
@@ -1791,53 +1609,32 @@ object DynamicValue {
           f20,
           f21,
           _,
-          ext1,
-          ext2,
-          ext3,
-          ext4,
-          ext5,
-          ext6,
-          ext7,
-          ext8,
-          ext9,
-          ext10,
-          ext11,
-          ext12,
-          ext13,
-          ext14,
-          ext15,
-          ext16,
-          ext17,
-          ext18,
-          ext19,
-          ext20,
-          ext21,
           _
           ) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, ext6(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, ext7(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, ext8(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, ext9(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, ext10(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, ext11(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, ext12(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, ext13(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, ext14(value)),
-            f15.name -> fromSchemaAndValue(f15.schema, ext15(value)),
-            f16.name -> fromSchemaAndValue(f16.schema, ext16(value)),
-            f17.name -> fromSchemaAndValue(f17.schema, ext17(value)),
-            f18.name -> fromSchemaAndValue(f18.schema, ext18(value)),
-            f19.name -> fromSchemaAndValue(f19.schema, ext19(value)),
-            f20.name -> fromSchemaAndValue(f20.schema, ext20(value)),
-            f21.name -> fromSchemaAndValue(f21.schema, ext21(value))
+            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value)),
+            f15.name -> fromSchemaAndValue(f15.schema, f15.get(value)),
+            f16.name -> fromSchemaAndValue(f16.schema, f16.get(value)),
+            f17.name -> fromSchemaAndValue(f17.schema, f17.get(value)),
+            f18.name -> fromSchemaAndValue(f18.schema, f18.get(value)),
+            f19.name -> fromSchemaAndValue(f19.schema, f19.get(value)),
+            f20.name -> fromSchemaAndValue(f20.schema, f20.get(value)),
+            f21.name -> fromSchemaAndValue(f21.schema, f21.get(value))
           )
         )
       case Schema.CaseClass22(
@@ -1865,55 +1662,33 @@ object DynamicValue {
           f21,
           f22,
           _,
-          ext1,
-          ext2,
-          ext3,
-          ext4,
-          ext5,
-          ext6,
-          ext7,
-          ext8,
-          ext9,
-          ext10,
-          ext11,
-          ext12,
-          ext13,
-          ext14,
-          ext15,
-          ext16,
-          ext17,
-          ext18,
-          ext19,
-          ext20,
-          ext21,
-          ext22,
           _
           ) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, ext1(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, ext2(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, ext3(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, ext4(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, ext5(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, ext6(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, ext7(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, ext8(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, ext9(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, ext10(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, ext11(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, ext12(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, ext13(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, ext14(value)),
-            f15.name -> fromSchemaAndValue(f15.schema, ext15(value)),
-            f16.name -> fromSchemaAndValue(f16.schema, ext16(value)),
-            f17.name -> fromSchemaAndValue(f17.schema, ext17(value)),
-            f18.name -> fromSchemaAndValue(f18.schema, ext18(value)),
-            f19.name -> fromSchemaAndValue(f19.schema, ext19(value)),
-            f20.name -> fromSchemaAndValue(f20.schema, ext20(value)),
-            f21.name -> fromSchemaAndValue(f21.schema, ext21(value)),
-            f22.name -> fromSchemaAndValue(f22.schema, ext22(value))
+            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value)),
+            f15.name -> fromSchemaAndValue(f15.schema, f15.get(value)),
+            f16.name -> fromSchemaAndValue(f16.schema, f16.get(value)),
+            f17.name -> fromSchemaAndValue(f17.schema, f17.get(value)),
+            f18.name -> fromSchemaAndValue(f18.schema, f18.get(value)),
+            f19.name -> fromSchemaAndValue(f19.schema, f19.get(value)),
+            f20.name -> fromSchemaAndValue(f20.schema, f20.get(value)),
+            f21.name -> fromSchemaAndValue(f21.schema, f21.get(value)),
+            f22.name -> fromSchemaAndValue(f22.schema, f22.get(value))
           )
         )
       case Schema.Dynamic(_) => value
@@ -2045,9 +1820,8 @@ private[schema] object DynamicValueSchema {
       "Error",
       Schema.CaseClass1[String, DynamicValue.Error](
         TypeId.parse("zio.schema.DynamicValue.Error"),
-        Schema.Field("message", Schema.primitive[String]),
-        message => DynamicValue.Error(message),
-        error => error.message
+        Schema.Field("message", Schema.primitive[String], get = error => error.message),
+        message => DynamicValue.Error(message)
       ),
       _.asInstanceOf[DynamicValue.Error]
     )
@@ -2065,9 +1839,8 @@ private[schema] object DynamicValueSchema {
       "RightValue",
       Schema.CaseClass1[DynamicValue, DynamicValue.RightValue](
         TypeId.parse("zio.schema.DynamicValue.RightValue"),
-        Schema.Field("value", Schema.defer(DynamicValueSchema())),
-        dynamicValue => DynamicValue.RightValue(dynamicValue),
-        rightValue => rightValue.value
+        Schema.Field("value", Schema.defer(DynamicValueSchema()), get = rightValue => rightValue.value),
+        dynamicValue => DynamicValue.RightValue(dynamicValue)
       ),
       _.asInstanceOf[DynamicValue.RightValue]
     )
@@ -2077,9 +1850,8 @@ private[schema] object DynamicValueSchema {
       "LeftValue",
       Schema.CaseClass1[DynamicValue, DynamicValue.LeftValue](
         TypeId.parse("zio.schema.DynamicValue.LeftValue"),
-        Schema.Field("value", Schema.defer(DynamicValueSchema())),
-        dynamicValue => DynamicValue.LeftValue(dynamicValue),
-        leftValue => leftValue.value
+        Schema.Field("value", Schema.defer(DynamicValueSchema()), get = leftValue => leftValue.value),
+        dynamicValue => DynamicValue.LeftValue(dynamicValue)
       ),
       _.asInstanceOf[DynamicValue.LeftValue]
     )
@@ -2089,11 +1861,9 @@ private[schema] object DynamicValueSchema {
       "Tuple",
       Schema.CaseClass2[DynamicValue, DynamicValue, DynamicValue.Tuple](
         TypeId.parse("zio.schema.DynamicValue.Tuple"),
-        Schema.Field("left", Schema.defer(DynamicValueSchema())),
-        Schema.Field("right", Schema.defer(DynamicValueSchema())),
-        (left, right) => DynamicValue.Tuple(left, right),
-        tuple => tuple.left,
-        tuple => tuple.right
+        Schema.Field("left", Schema.defer(DynamicValueSchema()), get = tuple => tuple.left),
+        Schema.Field("right", Schema.defer(DynamicValueSchema()), get = tuple => tuple.right),
+        (left, right) => DynamicValue.Tuple(left, right)
       ),
       _.asInstanceOf[DynamicValue.Tuple]
     )
@@ -2103,9 +1873,9 @@ private[schema] object DynamicValueSchema {
       "SomeValue",
       Schema.CaseClass1[DynamicValue, DynamicValue.SomeValue](
         TypeId.parse("zio.schema.DynamicValue.SomeValue"),
-        Schema.Field("value", Schema.defer(DynamicValueSchema())),
-        dv => DynamicValue.SomeValue(dv),
-        someValue => someValue.value
+        Schema
+          .Field("value", Schema.defer(DynamicValueSchema()), get = someValue => someValue.value),
+        dv => DynamicValue.SomeValue(dv)
       ),
       _.asInstanceOf[DynamicValue.SomeValue]
     )
@@ -2117,10 +1887,10 @@ private[schema] object DynamicValueSchema {
         TypeId.parse("zio.schema.DynamicValue.Dictionary"),
         Schema.Field(
           "entries",
-          Schema.defer(Schema.chunk(Schema.tuple2(DynamicValueSchema(), DynamicValueSchema())))
+          Schema.defer(Schema.chunk(Schema.tuple2(DynamicValueSchema(), DynamicValueSchema()))),
+          get = dictionary => dictionary.entries
         ),
-        chunk => DynamicValue.Dictionary(chunk),
-        dictionary => dictionary.entries
+        chunk => DynamicValue.Dictionary(chunk)
       ),
       _.asInstanceOf[DynamicValue.Dictionary]
     )
@@ -2130,9 +1900,8 @@ private[schema] object DynamicValueSchema {
       "Sequence",
       Schema.CaseClass1[Chunk[DynamicValue], DynamicValue.Sequence](
         TypeId.parse("zio.schema.DynamicValue.Sequence"),
-        Schema.Field("values", Schema.defer(Schema.chunk(DynamicValueSchema()))),
-        chunk => DynamicValue.Sequence(chunk),
-        seq => seq.values
+        Schema.Field("values", Schema.defer(Schema.chunk(DynamicValueSchema())), get = seq => seq.values),
+        chunk => DynamicValue.Sequence(chunk)
       ),
       _.asInstanceOf[DynamicValue.Sequence]
     )
@@ -2142,9 +1911,8 @@ private[schema] object DynamicValueSchema {
       "SetValue",
       Schema.CaseClass1[Set[DynamicValue], DynamicValue.SetValue](
         TypeId.parse("zio.schema.DynamicValue.SetValue"),
-        Schema.Field("values", Schema.defer(Schema.set(DynamicValueSchema()))),
-        set => DynamicValue.SetValue(set),
-        seq => seq.values
+        Schema.Field("values", Schema.defer(Schema.set(DynamicValueSchema())), get = seq => seq.values),
+        set => DynamicValue.SetValue(set)
       ),
       _.asInstanceOf[DynamicValue.SetValue]
     )
@@ -2154,11 +1922,13 @@ private[schema] object DynamicValueSchema {
       "Enumeration",
       Schema.CaseClass2[TypeId, (String, DynamicValue), DynamicValue.Enumeration](
         TypeId.parse("zio.schema.DynamicValue.Enumeration"),
-        Schema.Field("id", Schema[TypeId]),
-        Schema.Field("value", Schema.defer(Schema.tuple2(Schema.primitive[String], DynamicValueSchema()))),
-        (id, value) => DynamicValue.Enumeration(id, value),
-        enumeration => enumeration.id,
-        enumeration => enumeration.value
+        Schema.Field("id", Schema[TypeId], get = enumeration => enumeration.id),
+        Schema.Field(
+          "value",
+          Schema.defer(Schema.tuple2(Schema.primitive[String], DynamicValueSchema())),
+          get = enumeration => enumeration.value
+        ),
+        (id, value) => DynamicValue.Enumeration(id, value)
       ),
       _.asInstanceOf[DynamicValue.Enumeration]
     )
@@ -2168,12 +1938,14 @@ private[schema] object DynamicValueSchema {
       "Record",
       Schema.CaseClass2[TypeId, Chunk[(String, DynamicValue)], DynamicValue.Record](
         TypeId.parse("zio.schema.DynamicValue.Record"),
-        Schema.Field("id", Schema[TypeId]),
+        Schema.Field("id", Schema[TypeId], get = record => record.id),
         Schema
-          .Field("values", Schema.defer(Schema.chunk(Schema.tuple2(Schema.primitive[String], DynamicValueSchema())))),
-        (id, chunk) => DynamicValue.Record(id, ListMap(chunk.toSeq: _*)),
-        record => record.id,
-        record => Chunk.fromIterable(record.values)
+          .Field(
+            "values",
+            Schema.defer(Schema.chunk(Schema.tuple2(Schema.primitive[String], DynamicValueSchema()))),
+            get = record => Chunk.fromIterable(record.values)
+          ),
+        (id, chunk) => DynamicValue.Record(id, ListMap(chunk.toSeq: _*))
       ),
       _.asInstanceOf[DynamicValue.Record]
     )
@@ -2183,9 +1955,8 @@ private[schema] object DynamicValueSchema {
       "DynamicAst",
       Schema.CaseClass1[MetaSchema, DynamicValue.DynamicAst](
         TypeId.parse("zio.schema.DynamicValue.DynamicAst"),
-        Schema.Field("ast", MetaSchema.schema),
-        schemaAst => DynamicValue.DynamicAst(schemaAst),
-        dynamicAst => dynamicAst.ast
+        Schema.Field("ast", MetaSchema.schema, get = dynamicAst => dynamicAst.ast),
+        schemaAst => DynamicValue.DynamicAst(schemaAst)
       ),
       _.asInstanceOf[DynamicValue.DynamicAst]
     )

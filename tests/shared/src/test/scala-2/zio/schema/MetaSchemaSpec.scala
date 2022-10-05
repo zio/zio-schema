@@ -42,8 +42,8 @@ object MetaSchemaSpec extends ZIOSpecDefault {
           Schema.record(
             TypeId.parse("zio.schema.MetaSchema.Product"),
             Chunk(
-              Schema.Field("a", Schema[String]),
-              Schema.Field("b", Schema[Int])
+              Schema.Field("a", Schema[String], get = (a: Any) => a.asInstanceOf[String]),
+              Schema.Field("b", Schema[Int], get = (a: Any) => a.asInstanceOf[Int])
             ): _*
           )
         val expectedAst =

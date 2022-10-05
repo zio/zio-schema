@@ -274,8 +274,10 @@ object Schema extends SchemaEquality {
     name: String,
     schema: Schema[A],
     annotations: Chunk[Any] = Chunk.empty,
-    validation: Validation[A] = Validation.succeed[A]
+    validation: Validation[A] = Validation.succeed[A],
+    get: R => A
   ) {
+
     override def toString: String = s"Field($name,$schema)"
   }
 
@@ -413,11 +415,9 @@ object Schema extends SchemaEquality {
 
     val toRecord: CaseClass2[A, B, (A, B)] = CaseClass2[A, B, (A, B)](
       id = TypeId.parse("zio.schema.Schema.CaseClass2"),
-      field1 = Field[(A, B), A]("_1", left),
-      field2 = Field[(A, B), B]("_2", right),
+      field1 = Field[(A, B), A]("_1", left, get = _._1),
+      field2 = Field[(A, B), B]("_2", right, get = _._2),
       construct = (a, b) => (a, b),
-      extractField1 = _._1,
-      extractField2 = _._2,
       annotations
     )
 
@@ -3271,7 +3271,6 @@ object Schema extends SchemaEquality {
     id: TypeId,
     field: Field[Z, A],
     construct: A => Z,
-    extractField: Z => A,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -3300,8 +3299,6 @@ object Schema extends SchemaEquality {
     field1: Field[Z, A1],
     field2: Field[Z, A2],
     construct: (A1, A2) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -3335,9 +3332,6 @@ object Schema extends SchemaEquality {
     field2: Field[Z, A2],
     field3: Field[Z, A3],
     construct: (A1, A2, A3) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -3373,10 +3367,6 @@ object Schema extends SchemaEquality {
     field3: Field[Z, A3],
     field4: Field[Z, A4],
     construct: (A1, A2, A3, A4) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -3428,11 +3418,6 @@ object Schema extends SchemaEquality {
     field4: Field[Z, A4],
     field5: Field[Z, A5],
     construct: (A1, A2, A3, A4, A5) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -3493,12 +3478,6 @@ object Schema extends SchemaEquality {
     field5: Field[Z, A5],
     field6: Field[Z, A6],
     construct: (A1, A2, A3, A4, A5, A6) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -3565,13 +3544,6 @@ object Schema extends SchemaEquality {
     field6: Field[Z, A6],
     field7: Field[Z, A7],
     construct: (A1, A2, A3, A4, A5, A6, A7) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -3643,14 +3615,6 @@ object Schema extends SchemaEquality {
     field7: Field[Z, A7],
     field8: Field[Z, A8],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -3727,15 +3691,6 @@ object Schema extends SchemaEquality {
     field8: Field[Z, A8],
     field9: Field[Z, A9],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -3817,16 +3772,6 @@ object Schema extends SchemaEquality {
     field9: Field[Z, A9],
     field10: Field[Z, A10],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -3913,17 +3858,6 @@ object Schema extends SchemaEquality {
     field10: Field[Z, A10],
     field11: Field[Z, A11],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -4018,18 +3952,6 @@ object Schema extends SchemaEquality {
     field11: Field[Z, A11],
     field12: Field[Z, A12],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -4127,19 +4049,6 @@ object Schema extends SchemaEquality {
     field12: Field[Z, A12],
     field13: Field[Z, A13],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -4241,20 +4150,6 @@ object Schema extends SchemaEquality {
     field13: Field[Z, A13],
     field14: Field[Z, A14],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -4379,21 +4274,6 @@ object Schema extends SchemaEquality {
     field14: Field[Z, A14],
     field15: Field[Z, A15],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
-    extractField15: Z => A15,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -4524,22 +4404,6 @@ object Schema extends SchemaEquality {
     field15: Field[Z, A15],
     field16: Field[Z, A16],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
-    extractField15: Z => A15,
-    extractField16: Z => A16,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -4676,23 +4540,6 @@ object Schema extends SchemaEquality {
     field16: Field[Z, A16],
     field17: Field[Z, A17],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
-    extractField15: Z => A15,
-    extractField16: Z => A16,
-    extractField17: Z => A17,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -4835,24 +4682,6 @@ object Schema extends SchemaEquality {
     field17: Field[Z, A17],
     field18: Field[Z, A18],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
-    extractField15: Z => A15,
-    extractField16: Z => A16,
-    extractField17: Z => A17,
-    extractField18: Z => A18,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -5001,25 +4830,6 @@ object Schema extends SchemaEquality {
     field18: Field[Z, A18],
     field19: Field[Z, A19],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
-    extractField15: Z => A15,
-    extractField16: Z => A16,
-    extractField17: Z => A17,
-    extractField18: Z => A18,
-    extractField19: Z => A19,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -5196,26 +5006,6 @@ object Schema extends SchemaEquality {
     field19: Field[Z, A19],
     field20: Field[Z, A20],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
-    extractField15: Z => A15,
-    extractField16: Z => A16,
-    extractField17: Z => A17,
-    extractField18: Z => A18,
-    extractField19: Z => A19,
-    extractField20: Z => A20,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -5399,27 +5189,6 @@ object Schema extends SchemaEquality {
     field20: Field[Z, A20],
     field21: Field[Z, A21],
     construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
-    extractField15: Z => A15,
-    extractField16: Z => A16,
-    extractField17: Z => A17,
-    extractField18: Z => A18,
-    extractField19: Z => A19,
-    extractField20: Z => A20,
-    extractField21: Z => A21,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -5633,28 +5402,6 @@ object Schema extends SchemaEquality {
       A21,
       A22
     ) => Z,
-    extractField1: Z => A1,
-    extractField2: Z => A2,
-    extractField3: Z => A3,
-    extractField4: Z => A4,
-    extractField5: Z => A5,
-    extractField6: Z => A6,
-    extractField7: Z => A7,
-    extractField8: Z => A8,
-    extractField9: Z => A9,
-    extractField10: Z => A10,
-    extractField11: Z => A11,
-    extractField12: Z => A12,
-    extractField13: Z => A13,
-    extractField14: Z => A14,
-    extractField15: Z => A15,
-    extractField16: Z => A16,
-    extractField17: Z => A17,
-    extractField18: Z => A18,
-    extractField19: Z => A19,
-    extractField20: Z => A20,
-    extractField21: Z => A21,
-    extractField22: Z => A22,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 

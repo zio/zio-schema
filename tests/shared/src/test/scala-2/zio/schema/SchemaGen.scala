@@ -20,7 +20,7 @@ object SchemaGen {
         keySet
           .zip(schemas)
           .map {
-            case (label, schema) => Schema.Field(label, schema)
+            case (label, schema) => Schema.Field(label, schema, get = (a: Any) => a)
           }
           .toSeq
       }
@@ -29,7 +29,7 @@ object SchemaGen {
   def anyStructure[A](schema: Schema[A], max: Int = 3): Gen[Sized, Seq[Schema.Field[Any, A]]] =
     Gen
       .setOfBounded(1, max)(
-        anyLabel.map(Schema.Field(_, schema))
+        anyLabel.map(Schema.Field(_, schema, get = (a: Any) => a.asInstanceOf[A]))
       )
       .map(_.toSeq)
 
@@ -261,7 +261,12 @@ object SchemaGen {
       (key1, value1)  <- Gen.const(keys(0)).zip(gen1)
       (key2, value2)  <- Gen.const(keys(1)).zip(gen2)
       (key3, value3)  <- Gen.const(keys(2)).zip(gen3)
-    } yield Schema.record(name, Schema.Field(key1, schema1), Schema.Field(key2, schema2), Schema.Field(key3, schema3)) -> ListMap(
+    } yield Schema.record(
+      name,
+      Schema.Field(key1, schema1, get = (a: ListMap[String, _]) => a.get(key1)),
+      Schema.Field(key2, schema2, get = (a: ListMap[String, _]) => a.get(key2)),
+      Schema.Field(key3, schema3, get = (a: ListMap[String, _]) => a.get(key3))
+    ) -> ListMap(
       (key1, value1),
       (key2, value2),
       (key3, value3)
@@ -500,10 +505,10 @@ object SchemaGen {
 
   val anyCaseClassAndGen: Gen[Sized, CaseClassAndGen[_]] =
     anyCaseClassSchema.map {
-      case s @ Schema.CaseClass1(_, _, _, _, _)             => (s -> anyArity1).asInstanceOf[CaseClassAndGen[Any]]
-      case s @ Schema.CaseClass2(_, _, _, _, _, _, _)       => (s -> anyArity2).asInstanceOf[CaseClassAndGen[Any]]
-      case s @ Schema.CaseClass3(_, _, _, _, _, _, _, _, _) => (s -> anyArity3).asInstanceOf[CaseClassAndGen[Any]]
-      case s                                                => (s -> anyArity24).asInstanceOf[CaseClassAndGen[Any]]
+      case s @ Schema.CaseClass1(_, _, _, _)       => (s -> anyArity1).asInstanceOf[CaseClassAndGen[Any]]
+      case s @ Schema.CaseClass2(_, _, _, _, _)    => (s -> anyArity2).asInstanceOf[CaseClassAndGen[Any]]
+      case s @ Schema.CaseClass3(_, _, _, _, _, _) => (s -> anyArity3).asInstanceOf[CaseClassAndGen[Any]]
+      case s                                       => (s -> anyArity24).asInstanceOf[CaseClassAndGen[Any]]
     }
 
   val anyCaseClassAndValue: Gen[Sized, CaseClassAndValue[_]] =

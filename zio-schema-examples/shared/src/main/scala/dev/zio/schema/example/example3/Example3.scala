@@ -15,35 +15,30 @@ private[example3] object Domain {
   final case class Person(name: String, age: Int)
 
   object Person {
-    val name: Field[Person, String] = Field[Person, String]("name", primitive[String])
-    val age: Field[Person, Int]     = Field[Person, Int]("age", primitive[Int])
+    val name: Field[Person, String] = Field[Person, String]("name", primitive[String], get = _.name)
+    val age: Field[Person, Int]     = Field[Person, Int]("age", primitive[Int], get = _.age)
 
     val schema: Schema[Person] = CaseClass2[String, Int, Person](
       TypeId.parse("dev.zio.example.example3.Domain.Person"),
       field1 = name,
       field2 = age,
-      construct = (name, age) => Person(name, age),
-      extractField1 = p => p.name,
-      extractField2 = p => p.age
+      construct = (name, age) => Person(name, age)
     )
   }
 
   final case class PersonDTO(firstname: String, lastname: String, years: Int)
 
   object PersonDTO {
-    val firstname: Field[PersonDTO, String] = Field("firstname", primitive[String])
-    val lastname: Field[PersonDTO, String]  = Field("lastname", primitive[String])
-    val years: Field[PersonDTO, Int]        = Field("years", primitive[Int])
+    val firstname: Field[PersonDTO, String] = Field("firstname", primitive[String], get = _.firstname)
+    val lastname: Field[PersonDTO, String]  = Field("lastname", primitive[String], get = _.lastname)
+    val years: Field[PersonDTO, Int]        = Field("years", primitive[Int], get = _.years)
 
     val schema: Schema[PersonDTO] = CaseClass3[String, String, Int, PersonDTO](
       TypeId.parse("dev.zio.example.example3.Domain.PersonDTO"),
       field1 = firstname,
       field2 = lastname,
       field3 = years,
-      construct = (fn, ln, y) => PersonDTO(fn, ln, y),
-      extractField1 = _.firstname,
-      extractField2 = _.lastname,
-      extractField3 = _.years
+      construct = (fn, ln, y) => PersonDTO(fn, ln, y)
     )
   }
 

@@ -52,7 +52,7 @@ object FieldSet {
 
     override def toChunk: Chunk[Field[Any, _]] = head +: tail.toChunk
 
-    override def makeAccessors[Whole](
+    override def makeAccessors[Whole <: Any](
       whole: Record[Whole],
       b: AccessorBuilder
     ): Accessors[Whole, b.Lens, b.Prism, b.Traversal] =
@@ -64,6 +64,6 @@ object FieldSet {
   def apply(fields: Field[Any, _]*): FieldSet =
     fields.foldRight[FieldSet](FieldSet.Empty)((field, acc) => field :*: acc)
 
-  def field[A: Schema](name: String): A :*: Empty = Field(name, Schema[A]) :*: Empty
+  def field[A: Schema](name: String): A :*: Empty = Field(name, Schema[A], get = ???) :*: Empty
 
 }

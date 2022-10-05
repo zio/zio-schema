@@ -40,16 +40,12 @@ object MetaSchema {
     implicit val schema: Schema[Product] = {
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Product"),
-        field1 = Schema.Field("id", Schema[TypeId]),
-        field2 = Schema.Field("path", Schema[String].repeated),
-        field3 = Schema.Field("fields", Schema[Labelled].repeated),
-        field4 = Schema.Field("optional", Schema[Boolean]),
+        field1 = Schema.Field("id", Schema[TypeId], get = _.id),
+        field2 = Schema.Field("path", Schema[String].repeated, get = _.path),
+        field3 = Schema.Field("fields", Schema[Labelled].repeated, get = _.fields),
+        field4 = Schema.Field("optional", Schema[Boolean], get = _.optional),
         (id: TypeId, path: Chunk[String], fields: Chunk[Labelled], optional: Boolean) =>
-          Product(id, NodePath(path), fields, optional),
-        _.id,
-        _.path,
-        _.fields,
-        _.optional
+          Product(id, NodePath(path), fields, optional)
       )
     }
   }
@@ -64,16 +60,12 @@ object MetaSchema {
     implicit val schema: Schema[Tuple] = {
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Tuple"),
-        field1 = Schema.Field("path", Schema[String].repeated),
-        field2 = Schema.Field("left", Schema[MetaSchema]),
-        field3 = Schema.Field("right", Schema[MetaSchema]),
-        field4 = Schema.Field("optional", Schema[Boolean]),
+        field1 = Schema.Field("path", Schema[String].repeated, get = _.path),
+        field2 = Schema.Field("left", Schema[MetaSchema], get = _.left),
+        field3 = Schema.Field("right", Schema[MetaSchema], get = _.right),
+        field4 = Schema.Field("optional", Schema[Boolean], get = _.optional),
         (path: Chunk[String], left: MetaSchema, right: MetaSchema, optional: Boolean) =>
-          Tuple(NodePath(path), left, right, optional),
-        _.path,
-        _.left,
-        _.right,
-        _.optional
+          Tuple(NodePath(path), left, right, optional)
       )
     }
   }
@@ -89,16 +81,12 @@ object MetaSchema {
     implicit lazy val schema: Schema[Sum] =
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Sum"),
-        field1 = Schema.Field("id", Schema[TypeId]),
-        field2 = Schema.Field("path", Schema[String].repeated),
-        field3 = Schema.Field("cases", Schema[Labelled].repeated),
-        field4 = Schema.Field("optional", Schema[Boolean]),
+        field1 = Schema.Field("id", Schema[TypeId], get = _.id),
+        field2 = Schema.Field("path", Schema[String].repeated, get = _.path),
+        field3 = Schema.Field("cases", Schema[Labelled].repeated, get = _.cases),
+        field4 = Schema.Field("optional", Schema[Boolean], get = _.optional),
         (id: TypeId, path: Chunk[String], fields: Chunk[Labelled], optional: Boolean) =>
-          Sum(id, NodePath(path), fields, optional),
-        _.id,
-        _.path,
-        _.cases,
-        _.optional
+          Sum(id, NodePath(path), fields, optional)
       )
   }
 
@@ -113,16 +101,12 @@ object MetaSchema {
     implicit val schema: Schema[Either] = {
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Either"),
-        field1 = Schema.Field("path", Schema[String].repeated),
-        field2 = Schema.Field("left", Schema[MetaSchema]),
-        field3 = Schema.Field("right", Schema[MetaSchema]),
-        field4 = Schema.Field("optional", Schema[Boolean]),
+        field1 = Schema.Field("path", Schema[String].repeated, get = _.path),
+        field2 = Schema.Field("left", Schema[MetaSchema], get = _.left),
+        field3 = Schema.Field("right", Schema[MetaSchema], get = _.right),
+        field4 = Schema.Field("optional", Schema[Boolean], get = _.optional),
         (path: Chunk[String], left: MetaSchema, right: MetaSchema, optional: Boolean) =>
-          Either(NodePath(path), left, right, optional),
-        _.path,
-        _.left,
-        _.right,
-        _.optional
+          Either(NodePath(path), left, right, optional)
       )
     }
   }
@@ -136,13 +120,10 @@ object MetaSchema {
   object FailNode {
     implicit val schema: Schema[FailNode] = Schema.CaseClass3(
       TypeId.parse("zio.schema.meta.MetaSchema.FailNode"),
-      field1 = Schema.Field("message", Schema[String]),
-      field2 = Schema.Field("path", Schema[String].repeated),
-      field3 = Schema.Field("optional", Schema[Boolean]),
-      (m: String, path: Chunk[String], optional: Boolean) => FailNode(m, NodePath(path), optional),
-      _.message,
-      _.path,
-      _.optional
+      field1 = Schema.Field("message", Schema[String], get = _.message),
+      field2 = Schema.Field("path", Schema[String].repeated, get = _.path),
+      field3 = Schema.Field("optional", Schema[Boolean], get = _.optional),
+      (m: String, path: Chunk[String], optional: Boolean) => FailNode(m, NodePath(path), optional)
     )
   }
 
@@ -155,13 +136,10 @@ object MetaSchema {
   object ListNode {
     implicit val schema: Schema[ListNode] = Schema.CaseClass3(
       TypeId.parse("zio.schema.meta.MetaSchema.ListNode"),
-      field1 = Schema.Field("item", Schema[MetaSchema]),
-      field2 = Schema.Field("path", Schema[String].repeated),
-      field3 = Schema.Field("optional", Schema[Boolean]),
-      (item: MetaSchema, path: Chunk[String], optional: Boolean) => ListNode(item, NodePath(path), optional),
-      _.item,
-      _.path,
-      _.optional
+      field1 = Schema.Field("item", Schema[MetaSchema], get = _.item),
+      field2 = Schema.Field("path", Schema[String].repeated, get = _.path),
+      field3 = Schema.Field("optional", Schema[Boolean], get = _.optional),
+      (item: MetaSchema, path: Chunk[String], optional: Boolean) => ListNode(item, NodePath(path), optional)
     )
   }
 
@@ -175,16 +153,12 @@ object MetaSchema {
   object Dictionary {
     implicit val schema: Schema[Dictionary] = Schema.CaseClass4(
       TypeId.parse("zio.schema.meta.MetaSchema.Dictionary"),
-      field1 = Schema.Field("keys", Schema[MetaSchema]),
-      field2 = Schema.Field("values", Schema[MetaSchema]),
-      field3 = Schema.Field("path", Schema[String].repeated),
-      field4 = Schema.Field("optional", Schema[Boolean]),
+      field1 = Schema.Field("keys", Schema[MetaSchema], get = _.keys),
+      field2 = Schema.Field("values", Schema[MetaSchema], get = _.values),
+      field3 = Schema.Field("path", Schema[String].repeated, get = _.path),
+      field4 = Schema.Field("optional", Schema[Boolean], get = _.optional),
       (keys: MetaSchema, values: MetaSchema, path: Chunk[String], optional: Boolean) =>
-        Dictionary(keys, values, NodePath(path), optional),
-      _.keys,
-      _.values,
-      _.path,
-      _.optional
+        Dictionary(keys, values, NodePath(path), optional)
     )
   }
 
@@ -199,13 +173,10 @@ object MetaSchema {
       Schema
         .CaseClass3[String, Chunk[String], Boolean, (String, Chunk[String], Boolean)](
           TypeId.parse("zio.schema.meta.MetaSchema.Value"),
-          field1 = Schema.Field("valueType", Schema[String]),
-          field2 = Schema.Field("path", Schema[String].repeated),
-          field3 = Schema.Field("optional", Schema[Boolean]),
-          construct = (v, p, o) => (v, p, o),
-          extractField1 = _._1,
-          extractField2 = _._2,
-          extractField3 = _._3
+          field1 = Schema.Field("valueType", Schema[String], get = _._1),
+          field2 = Schema.Field("path", Schema[String].repeated, get = _._2),
+          field3 = Schema.Field("optional", Schema[Boolean], get = _._3),
+          construct = (v, p, o) => (v, p, o)
         )
         .transformOrFail(fromTuple, tupled)
 
@@ -230,14 +201,11 @@ object MetaSchema {
     implicit val schema: Schema[Ref] =
       Schema.CaseClass3(
         TypeId.parse("zio.schema.meta.MetaSchema.Ref"),
-        field1 = Schema.Field("refPath", Schema[String].repeated),
-        field2 = Schema.Field("path", Schema[String].repeated),
-        field3 = Schema.Field("optional", Schema[Boolean]),
+        field1 = Schema.Field("refPath", Schema[String].repeated, get = _.refPath),
+        field2 = Schema.Field("path", Schema[String].repeated, get = _.path),
+        field3 = Schema.Field("optional", Schema[Boolean], get = _.optional),
         (refPath: Chunk[String], path: Chunk[String], optional: Boolean) =>
-          Ref(NodePath(refPath), NodePath(path), optional),
-        _.refPath,
-        _.path,
-        _.optional
+          Ref(NodePath(refPath), NodePath(path), optional)
       )
   }
 
@@ -251,13 +219,10 @@ object MetaSchema {
     implicit val schema: Schema[Dynamic] =
       Schema.CaseClass3(
         TypeId.parse("zio.schema.meta.MetaSchema.Dynamic"),
-        field1 = Schema.Field("withSchema", Schema[Boolean]),
-        field2 = Schema.Field("path", Schema[String].repeated),
-        field3 = Schema.Field("optional", Schema[Boolean]),
-        (withSchema: Boolean, path: Chunk[String], optional: Boolean) => Dynamic(withSchema, NodePath(path), optional),
-        _.withSchema,
-        _.path,
-        _.optional
+        field1 = Schema.Field("withSchema", Schema[Boolean], get = _.withSchema),
+        field2 = Schema.Field("path", Schema[String].repeated, get = _.path),
+        field3 = Schema.Field("optional", Schema[Boolean], get = _.optional),
+        (withSchema: Boolean, path: Chunk[String], optional: Boolean) => Dynamic(withSchema, NodePath(path), optional)
       )
   }
 
@@ -398,7 +363,7 @@ object MetaSchema {
           id,
           elems.map {
             case (label, ast) =>
-              Schema.Field(label, materialize(ast, refs))
+              Schema.Field(label, materialize(ast, refs), get = ???)
           }: _*
         )
       case MetaSchema.Tuple(_, left, right, _) =>

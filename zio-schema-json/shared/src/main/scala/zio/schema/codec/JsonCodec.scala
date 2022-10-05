@@ -119,56 +119,56 @@ object JsonCodec extends Codec {
         JsonEncoder.chunk(schemaEncoder(ks).zip(schemaEncoder(vs))).contramap(m => Chunk.fromIterable(m))
       case Schema.Set(s, _) =>
         JsonEncoder.chunk(schemaEncoder(s)).contramap(m => Chunk.fromIterable(m))
-      case Schema.Transform(c, _, g, _, _)                          => transformEncoder(c, g)
-      case Schema.Tuple2(l, r, _)                                   => JsonEncoder.tuple2(schemaEncoder(l), schemaEncoder(r))
-      case Schema.Optional(schema, _)                               => JsonEncoder.option(schemaEncoder(schema))
-      case Schema.Fail(_, _)                                        => unitEncoder.contramap(_ => ())
-      case Schema.GenericRecord(_, structure, _)                    => recordEncoder(structure.toChunk)
-      case Schema.Either(left, right, _)                            => JsonEncoder.either(schemaEncoder(left), schemaEncoder(right))
-      case l @ Schema.Lazy(_)                                       => schemaEncoder(l.schema)
-      case Schema.CaseClass0(_, _, _)                               => caseClassEncoder()
-      case Schema.CaseClass1(_, f, _, ext, _)                       => caseClassEncoder(f -> ext)
-      case Schema.CaseClass2(_, f1, f2, _, ext1, ext2, _)           => caseClassEncoder(f1 -> ext1, f2 -> ext2)
-      case Schema.CaseClass3(_, f1, f2, f3, _, ext1, ext2, ext3, _) => caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3)
-      case Schema.CaseClass4(_, f1, f2, f3, f4, _, ext1, ext2, ext3, ext4, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4)
-      case Schema.CaseClass5(_, f1, f2, f3, f4, f5, _, ext1, ext2, ext3, ext4, ext5, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5)
-      case Schema.CaseClass6(_, f1, f2, f3, f4, f5, f6, _, ext1, ext2, ext3, ext4, ext5, ext6, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6)
-      case Schema.CaseClass7(_, f1, f2, f3, f4, f5, f6, f7, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7)
-      case Schema.CaseClass8(_, f1, f2, f3, f4, f5, f6, f7, f8, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8)
+      case Schema.Transform(c, _, g, _, _)        => transformEncoder(c, g)
+      case Schema.Tuple2(l, r, _)                 => JsonEncoder.tuple2(schemaEncoder(l), schemaEncoder(r))
+      case Schema.Optional(schema, _)             => JsonEncoder.option(schemaEncoder(schema))
+      case Schema.Fail(_, _)                      => unitEncoder.contramap(_ => ())
+      case Schema.GenericRecord(_, structure, _)  => recordEncoder(structure.toChunk)
+      case Schema.Either(left, right, _)          => JsonEncoder.either(schemaEncoder(left), schemaEncoder(right))
+      case l @ Schema.Lazy(_)                     => schemaEncoder(l.schema)
+      case Schema.CaseClass0(_, _, _)             => caseClassEncoder()
+      case Schema.CaseClass1(_, f, _, _)          => caseClassEncoder(f)
+      case Schema.CaseClass2(_, f1, f2, _, _)     => caseClassEncoder(f1, f2)
+      case Schema.CaseClass3(_, f1, f2, f3, _, _) => caseClassEncoder(f1, f2, f3)
+      case Schema.CaseClass4(_, f1, f2, f3, f4, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4)
+      case Schema.CaseClass5(_, f1, f2, f3, f4, f5, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5)
+      case Schema.CaseClass6(_, f1, f2, f3, f4, f5, f6, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6)
+      case Schema.CaseClass7(_, f1, f2, f3, f4, f5, f6, f7, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7)
+      case Schema.CaseClass8(_, f1, f2, f3, f4, f5, f6, f7, f8, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8)
       case Schema
-            .CaseClass9(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9)
-      case Schema.CaseClass10(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10)
-      case Schema.CaseClass11(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11)
-      case Schema.CaseClass12(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12)
-      case Schema.CaseClass13(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13)
-      case Schema.CaseClass14(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14)
-      case Schema.CaseClass15(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15)
-      case Schema.CaseClass16(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16)
-      case Schema.CaseClass17(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17)
-      case Schema.CaseClass18(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18)
-      case Schema.CaseClass19(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19)
-      case Schema.CaseClass20(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, ext20, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19, f20 -> ext20)
-      case Schema.CaseClass21(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, ext20, ext21, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19, f20 -> ext20, f21 -> ext21)
-      case Schema.CaseClass22(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, _, ext1, ext2, ext3, ext4, ext5, ext6, ext7, ext8, ext9, ext10, ext11, ext12, ext13, ext14, ext15, ext16, ext17, ext18, ext19, ext20, ext21, ext22, _) =>
-        caseClassEncoder(f1 -> ext1, f2 -> ext2, f3 -> ext3, f4 -> ext4, f5 -> ext5, f6 -> ext6, f7 -> ext7, f8 -> ext8, f9 -> ext9, f10 -> ext10, f11 -> ext11, f12 -> ext12, f13 -> ext13, f14 -> ext14, f15 -> ext15, f16 -> ext16, f17 -> ext17, f18 -> ext18, f19 -> ext19, f20 -> ext20, f21 -> ext21, f22 -> ext22)
+            .CaseClass9(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9)
+      case Schema.CaseClass10(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10)
+      case Schema.CaseClass11(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11)
+      case Schema.CaseClass12(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12)
+      case Schema.CaseClass13(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13)
+      case Schema.CaseClass14(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14)
+      case Schema.CaseClass15(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15)
+      case Schema.CaseClass16(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16)
+      case Schema.CaseClass17(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17)
+      case Schema.CaseClass18(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18)
+      case Schema.CaseClass19(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19)
+      case Schema.CaseClass20(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20)
+      case Schema.CaseClass21(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21)
+      case Schema.CaseClass22(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, _, _) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22)
       case Schema.Enum1(_, c, _)                                  => enumEncoder(c)
       case Schema.Enum2(_, c1, c2, _)                             => enumEncoder(c1, c2)
       case Schema.Enum3(_, c1, c2, c3, _)                         => enumEncoder(c1, c2, c3)
@@ -253,7 +253,7 @@ object JsonCodec extends Codec {
             pad(indent_, out)
             var first = true
             structure.foreach {
-              case Schema.Field(k, a, _, _) =>
+              case Schema.Field(k, a, _, _, _) =>
                 val enc = schemaEncoder(a.asInstanceOf[Schema[Any]])
                 if (first)
                   first = false
@@ -297,42 +297,42 @@ object JsonCodec extends Codec {
       case Schema.Either(left, right, _)         => JsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
       case l @ Schema.Lazy(_)                    => schemaDecoder(l.schema)
       //case Schema.Meta(_, _)                                                                           => astDecoder
-      case s @ Schema.CaseClass0(_, _, _)                                                              => caseClass0Decoder(s)
-      case s @ Schema.CaseClass1(_, _, _, _, _)                                                        => caseClass1Decoder(s)
-      case s @ Schema.CaseClass2(_, _, _, _, _, _, _)                                                  => caseClass2Decoder(s)
-      case s @ Schema.CaseClass3(_, _, _, _, _, _, _, _, _)                                            => caseClass3Decoder(s)
-      case s @ Schema.CaseClass4(_, _, _, _, _, _, _, _, _, _, _)                                      => caseClass4Decoder(s)
-      case s @ Schema.CaseClass5(_, _, _, _, _, _, _, _, _, _, _, _, _)                                => caseClass5Decoder(s)
-      case s @ Schema.CaseClass6(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                          => caseClass6Decoder(s)
-      case s @ Schema.CaseClass7(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)                    => caseClass7Decoder(s)
-      case s @ Schema.CaseClass8(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)              => caseClass8Decoder(s)
-      case s @ Schema.CaseClass9(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)        => caseClass9Decoder(s)
-      case s @ Schema.CaseClass10(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) => caseClass10Decoder(s)
-      case s @ Schema.CaseClass11(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case s @ Schema.CaseClass0(_, _, _)                                => caseClass0Decoder(s)
+      case s @ Schema.CaseClass1(_, _, _, _)                             => caseClass1Decoder(s)
+      case s @ Schema.CaseClass2(_, _, _, _, _)                          => caseClass2Decoder(s)
+      case s @ Schema.CaseClass3(_, _, _, _, _, _)                       => caseClass3Decoder(s)
+      case s @ Schema.CaseClass4(_, _, _, _, _, _, _)                    => caseClass4Decoder(s)
+      case s @ Schema.CaseClass5(_, _, _, _, _, _, _, _)                 => caseClass5Decoder(s)
+      case s @ Schema.CaseClass6(_, _, _, _, _, _, _, _, _)              => caseClass6Decoder(s)
+      case s @ Schema.CaseClass7(_, _, _, _, _, _, _, _, _, _)           => caseClass7Decoder(s)
+      case s @ Schema.CaseClass8(_, _, _, _, _, _, _, _, _, _, _)        => caseClass8Decoder(s)
+      case s @ Schema.CaseClass9(_, _, _, _, _, _, _, _, _, _, _, _)     => caseClass9Decoder(s)
+      case s @ Schema.CaseClass10(_, _, _, _, _, _, _, _, _, _, _, _, _) => caseClass10Decoder(s)
+      case s @ Schema.CaseClass11(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass11Decoder(s)
-      case s @ Schema.CaseClass12(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case s @ Schema.CaseClass12(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass12Decoder(s)
-      case s @ Schema.CaseClass13(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case s @ Schema.CaseClass13(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass13Decoder(s)
       case s @ Schema
-            .CaseClass14(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+            .CaseClass14(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass14Decoder(s)
       case s @ Schema
-            .CaseClass15(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+            .CaseClass15(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass15Decoder(s)
-      case s @ Schema.CaseClass16(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case s @ Schema.CaseClass16(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass16Decoder(s)
-      case s @ Schema.CaseClass17(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case s @ Schema.CaseClass17(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass17Decoder(s)
-      case s @ Schema.CaseClass18(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case s @ Schema.CaseClass18(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass18Decoder(s)
-      case s @ Schema.CaseClass19(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case s @ Schema.CaseClass19(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass19Decoder(s)
-      case s @ Schema.CaseClass20(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case s @ Schema.CaseClass20(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass20Decoder(s)
-      case s @ Schema.CaseClass21(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case s @ Schema.CaseClass21(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass21Decoder(s)
-      case s @ Schema.CaseClass22(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case s @ Schema.CaseClass22(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass22Decoder(s)
       case Schema.Enum1(_, c, _)                                  => enumDecoder(c)
       case Schema.Enum2(_, c1, c2, _)                             => enumDecoder(c1, c2)
@@ -409,7 +409,7 @@ object JsonCodec extends Codec {
             while ({
               val field = Lexer.string(trace, in).toString
               structure.find(_.name == field) match {
-                case Some(Schema.Field(label, schema, _, _)) =>
+                case Some(Schema.Field(label, schema, _, _, _)) =>
                   val trace_ = JsonError.ObjectAccess(label) :: trace
                   Lexer.char(trace_, in, ':')
                   val value = schemaDecoder(schema).unsafeDecode(trace_, in)
@@ -434,16 +434,16 @@ object JsonCodec extends Codec {
     import JsonEncoder.bump
     import JsonEncoder.pad
 
-    private[codec] def caseClassEncoder[Z](fields: (Schema.Field[Z, _], Z => Any)*): JsonEncoder[Z] = { (a: Z, indent: Option[Int], out: Write) =>
+    private[codec] def caseClassEncoder[Z](fields: (Schema.Field[Z, _])*): JsonEncoder[Z] = { (a: Z, indent: Option[Int], out: Write) =>
       {
         out.write('{')
         val indent_ = bump(indent)
         pad(indent_, out)
         var first = true
         fields.foreach {
-          case (Schema.Field(key, schema, _, _), ext) =>
+          case Schema.Field(key, schema, _, _, get) =>
             val enc = Encoder.schemaEncoder(schema.asInstanceOf[Schema[Any]])
-            if (!enc.isNothing(ext(a))) {
+            if (!enc.isNothing(get(a))) {
               if (first)
                 first = false
               else {
@@ -455,7 +455,7 @@ object JsonCodec extends Codec {
               string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(key), indent_, out)
               if (indent.isEmpty) out.write(':')
               else out.write(" : ")
-              enc.unsafeEncode(ext(a), indent_, out)
+              enc.unsafeEncode(get(a), indent_, out)
             }
         }
         pad(indent, out)

@@ -150,9 +150,8 @@ object DefaultValueSpec extends ZIOSpecDefault {
         val schema: Schema[UserId] =
           Schema.CaseClass1(
             TypeId.parse("zio.schema.DefaultValueSpec.UserId"),
-            field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
-            UserId.apply,
-            (uid: UserId) => uid.id
+            field = Schema.Field("id", Schema.Primitive(StandardType.StringType), get = (uid: UserId) => uid.id),
+            UserId.apply
           )
         assert(schema.defaultValue)(isRight(equalTo(UserId(""))))
       },
@@ -164,17 +163,14 @@ object DefaultValueSpec extends ZIOSpecDefault {
               "id",
               Schema.CaseClass1(
                 TypeId.parse("zio.schema.DefaultValueSpec.UserId"),
-                field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
-                UserId.apply,
-                (uid: UserId) => uid.id
-              )
+                field = Schema.Field("id", Schema.Primitive(StandardType.StringType), get = (uid: UserId) => uid.id),
+                UserId.apply
+              ),
+              get = (u: User) => u.id
             ),
-            field2 = Schema.Field("name", Schema.Primitive(StandardType.StringType)),
-            field3 = Schema.Field("age", Schema.Primitive(StandardType.IntType)),
-            User.apply,
-            (u: User) => u.id,
-            (u: User) => u.name,
-            (u: User) => u.age
+            field2 = Schema.Field("name", Schema.Primitive(StandardType.StringType), get = (u: User) => u.name),
+            field3 = Schema.Field("age", Schema.Primitive(StandardType.IntType), get = (u: User) => u.age),
+            User.apply
           )
         assert(expected.defaultValue)(isRight(equalTo(User(UserId(""), "", 0))))
       }

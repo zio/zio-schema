@@ -14,35 +14,36 @@ private[example4] object Domain {
   final case class WebPerson(name: String, age: Int)
 
   object WebPerson {
-    val name: Schema.Field[WebPerson, String] = Schema.Field[WebPerson, String]("name", Schema.primitive[String])
-    val age: Schema.Field[WebPerson, Int]     = Schema.Field[WebPerson, Int]("age", Schema.primitive[Int])
+
+    val name: Schema.Field[WebPerson, String] =
+      Schema.Field[WebPerson, String]("name", Schema.primitive[String], get = _.name)
+    val age: Schema.Field[WebPerson, Int] = Schema.Field[WebPerson, Int]("age", Schema.primitive[Int], get = _.age)
 
     val schema: Schema[WebPerson] = Schema.CaseClass2[String, Int, WebPerson](
       TypeId.parse("dev.zio.schema.example.example4.Domain.WebPerson"),
       field1 = name,
       field2 = age,
-      construct = (name, age) => WebPerson(name, age),
-      extractField1 = p => p.name,
-      extractField2 = p => p.age
+      construct = (name, age) => WebPerson(name, age)
     )
   }
 
   final case class DomainPerson(firstname: String, lastname: String, years: Int)
 
   object DomainPerson {
-    val firstname: Schema.Field[DomainPerson, String] = Schema.Field("firstname", Schema.primitive[String])
-    val lastname: Schema.Field[DomainPerson, String]  = Schema.Field("lastname", Schema.primitive[String])
-    val years: Schema.Field[DomainPerson, Int]        = Schema.Field("years", Schema.primitive[Int])
+
+    val firstname: Schema.Field[DomainPerson, String] =
+      Schema.Field("firstname", Schema.primitive[String], get = _.firstname)
+
+    val lastname: Schema.Field[DomainPerson, String] =
+      Schema.Field("lastname", Schema.primitive[String], get = _.lastname)
+    val years: Schema.Field[DomainPerson, Int] = Schema.Field("years", Schema.primitive[Int], get = _.years)
 
     val schema: Schema[DomainPerson] = Schema.CaseClass3[String, String, Int, DomainPerson](
       TypeId.parse("dev.zio.schema.example.example4.Domain.DomainPerson"),
       field1 = firstname,
       field2 = lastname,
       field3 = years,
-      construct = (fn, ln, y) => DomainPerson(fn, ln, y),
-      extractField1 = _.firstname,
-      extractField2 = _.lastname,
-      extractField3 = _.years
+      construct = (fn, ln, y) => DomainPerson(fn, ln, y)
     )
   }
 

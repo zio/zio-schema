@@ -258,7 +258,14 @@ object DeriveSchema {
                 currentFrame +: stack
               )
               val fieldLabel = termSymbol.name.toString.trim
-              q"zio.schema.Schema.Field.apply($fieldLabel,$fieldSchema,zio.Chunk.apply[Any](..$annotations))"
+
+              val getArg  = TermName(fieldLabel)
+              val getFunc = q" (z: $tpe) => z.$getArg"
+
+              if (annotations.nonEmpty)
+                q"zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), get = $getFunc)"
+              else
+                q"zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, get = $getFunc)"
           }
           val fromMap = {
             val casts = fieldTypes.map { termSymbol =>
@@ -320,11 +327,14 @@ object DeriveSchema {
               )
               val fieldArg   = if (fieldTypes.size > 1) TermName(s"field${idx + 1}") else TermName("field")
               val fieldLabel = termSymbol.name.toString.trim
+              val getArg     = TermName(fieldLabel)
+
+              val getFunc = q" (z: $tpe) => z.$getArg"
 
               if (annotations.nonEmpty)
-                q"""$fieldArg = zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), validation = $validation)"""
+                q"""$fieldArg = zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), validation = $validation, get = $getFunc)"""
               else
-                q"""$fieldArg = zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, validation = $validation)"""
+                q"""$fieldArg = zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, validation = $validation, get = $getFunc)"""
           }
 
           val constructArgs = fieldTypes.zipWithIndex.map {
@@ -340,21 +350,15 @@ object DeriveSchema {
 
           val constructExpr = q"construct = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
 
-          val extractors = fieldAccessors.map(_.toString).zipWithIndex.foldLeft(Seq.empty[c.universe.Tree]) {
-            case (acc, (fieldLabel, idx)) =>
-              val argName = if (fieldTypes.size > 1) TermName(s"extractField${idx + 1}") else TermName("extractField")
-              acc :+ q"$argName = (t: $tpe) => t.${TermName(fieldLabel)}"
-          }
-
           val applyArgs =
             if (typeAnnotations.isEmpty)
               Iterable(q"annotations = zio.Chunk.empty") ++ Iterable(q"id = ${typeId}") ++ fieldDefs ++ Iterable(
                 constructExpr
-              ) ++ extractors
+              )
             else
               Iterable(q"annotations = zio.Chunk.apply(..$typeAnnotations)") ++ Iterable(q"id = ${typeId}") ++ fieldDefs ++ Iterable(
                 constructExpr
-              ) ++ extractors
+              )
 
           fieldTypes.size match {
             case 0 =>

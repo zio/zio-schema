@@ -2,13 +2,10 @@ package zio.schema.codec
 
 import java.nio.charset.StandardCharsets
 import java.time.format.DateTimeFormatter
-
 import scala.annotation.StaticAnnotation
 import scala.jdk.CollectionConverters._
 import scala.util.{ Right, Try }
-
 import org.apache.avro.{ LogicalTypes, Schema => SchemaAvro }
-
 import zio.Chunk
 import zio.schema.CaseSet.Aux
 import zio.schema.Schema.{ Record, _ }
@@ -16,6 +13,8 @@ import zio.schema._
 import zio.schema.codec.AvroAnnotations._
 import zio.schema.codec.AvroPropMarker._
 import zio.schema.meta.MetaSchema
+
+import java.time.{ Duration, MonthDay, Period, YearMonth }
 
 trait AvroCodec {
   def encode(schema: Schema[_]): scala.util.Either[String, String]
@@ -215,25 +214,25 @@ object AvroCodec extends AvroCodec {
         SchemaAvro.createFixed(name, doc, space, size)
     }.getOrElse(SchemaAvro.create(SchemaAvro.Type.BYTES))
 
-  private[codec] lazy val monthDayStructure: Seq[Schema.Field[Any, Int]] = Seq(
-    Schema.Field("month", Schema.Primitive(StandardType.IntType)),
-    Schema.Field("day", Schema.Primitive(StandardType.IntType))
+  private[codec] lazy val monthDayStructure: Seq[Schema.Field[MonthDay, Int]] = Seq(
+    Schema.Field("month", Schema.Primitive(StandardType.IntType), get = _.getMonthValue),
+    Schema.Field("day", Schema.Primitive(StandardType.IntType), get = _.getDayOfMonth)
   )
 
-  private[codec] lazy val periodStructure: Seq[Schema.Field[Any, Int]] = Seq(
-    Schema.Field("years", Schema.Primitive(StandardType.IntType)),
-    Schema.Field("months", Schema.Primitive(StandardType.IntType)),
-    Schema.Field("days", Schema.Primitive(StandardType.IntType))
+  private[codec] lazy val periodStructure: Seq[Schema.Field[Period, Int]] = Seq(
+    Schema.Field("years", Schema.Primitive(StandardType.IntType), get = _.getYears),
+    Schema.Field("months", Schema.Primitive(StandardType.IntType), get = _.getMonths),
+    Schema.Field("days", Schema.Primitive(StandardType.IntType), get = _.getDays)
   )
 
-  private[codec] lazy val yearMonthStructure: Seq[Schema.Field[Any, Int]] = Seq(
-    Schema.Field("year", Schema.Primitive(StandardType.IntType)),
-    Schema.Field("month", Schema.Primitive(StandardType.IntType))
+  private[codec] lazy val yearMonthStructure: Seq[Schema.Field[YearMonth, Int]] = Seq(
+    Schema.Field("year", Schema.Primitive(StandardType.IntType), get = _.getYear),
+    Schema.Field("month", Schema.Primitive(StandardType.IntType), get = _.getMonthValue)
   )
 
-  private[codec] lazy val durationStructure: Seq[Schema.Field[Any, _]] = Seq(
-    Schema.Field("seconds", Schema.Primitive(StandardType.LongType)),
-    Schema.Field("nanos", Schema.Primitive(StandardType.IntType))
+  private[codec] lazy val durationStructure: Seq[Schema.Field[Duration, _]] = Seq(
+    Schema.Field("seconds", Schema.Primitive(StandardType.LongType), get = _.getSeconds),
+    Schema.Field("nanos", Schema.Primitive(StandardType.IntType), get = _.getNano)
   )
 
   private def toAvroSchema(schema: Schema[_]): scala.util.Either[String, SchemaAvro] = {
@@ -769,7 +768,8 @@ object AvroCodec extends AvroCodec {
     }
 
   private[codec] def toZioField[Z](field: SchemaAvro.Field): scala.util.Either[String, Field[Z, _]] =
-    toZioSchema(field.schema()).map((s: Schema[_]) => Field(field.name(), s, buildZioAnnotations(field)))
+    toZioSchema(field.schema())
+      .map((s: Schema[_]) => Field(field.name(), s, buildZioAnnotations(field), get = ???))
 
   private[codec] def toZioTuple(schema: SchemaAvro): scala.util.Either[String, Schema[_]] =
     for {
