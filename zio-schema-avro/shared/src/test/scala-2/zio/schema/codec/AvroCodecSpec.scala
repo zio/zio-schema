@@ -935,8 +935,16 @@ object AvroCodecSpec extends ZIOSpecDefault {
                   Schema
                     .record(
                       TypeId.fromTypeName("TestRecord"),
-                      Schema.Field("s", Schema.primitive(StandardType.StringType)),
-                      Schema.Field("b", Schema.primitive(StandardType.BoolType))
+                      Schema.Field(
+                        "s",
+                        Schema.primitive(StandardType.StringType),
+                        get = (p: ListMap[String, _]) => p("s").asInstanceOf[String]
+                      ),
+                      Schema.Field(
+                        "b",
+                        Schema.primitive(StandardType.BoolType),
+                        get = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean]
+                      )
                     )
                     .ast
                 )
@@ -953,10 +961,19 @@ object AvroCodecSpec extends ZIOSpecDefault {
                 "nested",
                 Schema.record(
                   TypeId.fromTypeName("Inner"),
-                  Schema.Field("innerS", Schema.primitive(StandardType.StringType))
-                )
+                  Schema.Field(
+                    "innerS",
+                    Schema.primitive(StandardType.StringType),
+                    get = (p: ListMap[String, _]) => p("innerS").asInstanceOf[String]
+                  )
+                ),
+                get = (p: ListMap[String, _]) => p("nested").asInstanceOf[ListMap[String, _]]
               ),
-              Schema.Field("b", Schema.primitive(StandardType.BoolType))
+              Schema.Field(
+                "b",
+                Schema.primitive(StandardType.BoolType),
+                get = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean]
+              )
             )
 
             assert(schema.map(_.ast))(isRight(equalTo(expectedSchema.ast)))
@@ -972,8 +989,16 @@ object AvroCodecSpec extends ZIOSpecDefault {
                   Schema
                     .record(
                       TypeId.fromTypeName("TestRecord"),
-                      Schema.Field("s", Schema.primitive(StandardType.StringType)),
-                      Schema.Field("b", Schema.primitive(StandardType.BoolType))
+                      Schema.Field(
+                        "s",
+                        Schema.primitive(StandardType.StringType),
+                        get = (p: ListMap[String, _]) => p("s").asInstanceOf[String]
+                      ),
+                      Schema.Field(
+                        "b",
+                        Schema.primitive(StandardType.BoolType),
+                        get = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean]
+                      )
                     )
                     .ast
                 )

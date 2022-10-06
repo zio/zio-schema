@@ -169,6 +169,9 @@ object Schema extends SchemaEquality {
   def record(id: TypeId, fields: Field[ListMap[String, _], _]*): Schema[ListMap[String, _]] =
     GenericRecord(id, FieldSet(fields: _*))
 
+  def record(id: TypeId, fieldSet: FieldSet): Schema[ListMap[String, _]] =
+    GenericRecord(id, fieldSet)
+
   def second[A](schema: Schema[(Unit, A)]): Schema[A] =
     schema.transform[A](_._2, a => ((), a))
 

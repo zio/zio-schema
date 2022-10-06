@@ -15,6 +15,7 @@ import zio.schema.codec.AvroPropMarker._
 import zio.schema.meta.MetaSchema
 
 import java.time.{ Duration, MonthDay, Period, YearMonth }
+import scala.collection.immutable.ListMap
 
 trait AvroCodec {
   def encode(schema: Schema[_]): scala.util.Either[String, String]
@@ -767,9 +768,17 @@ object AvroCodec extends AvroCodec {
       case (left, _)                                  => Left(left.mkString("\n"))
     }
 
-  private[codec] def toZioField[Z](field: SchemaAvro.Field): scala.util.Either[String, Field[Z, _]] =
+  private[codec] def toZioField(field: SchemaAvro.Field): scala.util.Either[String, Field[ListMap[String, _], _]] =
     toZioSchema(field.schema())
-      .map((s: Schema[_]) => Field(field.name(), s, buildZioAnnotations(field), get = ???))
+      .map(
+        (s: Schema[_]) =>
+          Field(
+            field.name(),
+            s.asInstanceOf[Schema[Any]],
+            buildZioAnnotations(field),
+            get = (p: ListMap[String, _]) => p(field.name())
+          )
+      )
 
   private[codec] def toZioTuple(schema: SchemaAvro): scala.util.Either[String, Schema[_]] =
     for {

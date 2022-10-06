@@ -2,10 +2,11 @@ package zio.schema.meta
 
 import scala.annotation.tailrec
 import scala.collection.mutable
-
 import zio.prelude.Equal
 import zio.schema._
 import zio.{ Chunk, ChunkBuilder }
+
+import scala.collection.immutable.ListMap
 
 sealed trait MetaSchema { self =>
   def path: NodePath
@@ -363,7 +364,11 @@ object MetaSchema {
           id,
           elems.map {
             case (label, ast) =>
-              Schema.Field(label, materialize(ast, refs), get = ???)
+              Schema.Field(
+                label,
+                materialize(ast, refs).asInstanceOf[Schema[Any]],
+                get = (p: ListMap[String, _]) => p(label)
+              )
           }: _*
         )
       case MetaSchema.Tuple(_, left, right, _) =>

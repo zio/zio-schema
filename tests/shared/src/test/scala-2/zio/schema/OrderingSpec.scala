@@ -192,8 +192,7 @@ object OrderingSpec extends ZIOSpecDefault {
   def genAnyOrderedPairRecord: Gen[Sized, SchemaAndPair[_]] =
     for {
       name <- Gen.string(Gen.alphaChar).map(TypeId.parse)
-      schema <- anyStructure(anyTree(1)).map(fields => {
-                 val fieldSet = fields.foldRight[FieldSet](FieldSet.Empty)((field, acc) => field :*: acc)
+      schema <- anyStructure(anyTree(1)).map(fieldSet => {
                  Schema.GenericRecord(name, fieldSet)
                })
       pair <- genOrderedPairRecord(schema)

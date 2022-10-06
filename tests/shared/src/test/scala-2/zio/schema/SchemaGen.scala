@@ -5,24 +5,28 @@ import java.time.format.DateTimeFormatter
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
-import zio.schema.TypeId
 import zio.test.{ Gen, Sized }
 
 object SchemaGen {
 
   val anyLabel: Gen[Sized, String] = Gen.alphaNumericStringBounded(1, 15)
 
-  def anyStructure(
+  def anyStructure[A](
     schemaGen: Gen[Sized, Schema[_]]
-  ): Gen[Sized, Seq[Schema.Field[Any, _]]] =
+  ): Gen[Sized, FieldSet] =
     Gen.setOfBounded(1, 3)(anyLabel).flatMap { keySet =>
       Gen.setOfN(keySet.size)(schemaGen).map { schemas =>
-        keySet
-          .zip(schemas)
-          .map {
-            case (label, schema) => Schema.Field(label, schema, get = ())
-          }
-          .toSeq
+        FieldSet(
+          keySet
+            .zip(schemas)
+            .map {
+              case (label, schema) =>
+                Schema
+                  .Field[ListMap[String, A], A](label, schema.asInstanceOf[Schema[A]], get = _(label))
+                  .asInstanceOf[Schema.Field[ListMap[String, _], _]]
+            }
+            .toSeq: _*
+        )
       }
     }
 
@@ -219,9 +223,9 @@ object SchemaGen {
 
   val anyRecord: Gen[Sized, Schema[ListMap[String, _]]] =
     for {
-      name   <- Gen.string(Gen.alphaChar).map(TypeId.parse)
-      fields <- anyStructure(anySchema)
-    } yield Schema.record(name, fields: _*)
+      name     <- Gen.string(Gen.alphaChar).map(TypeId.parse)
+      fieldSet <- anyStructure(anySchema)
+    } yield Schema.record(name, fieldSet)
 
   type GenericRecordAndGen = (Schema[ListMap[String, _]], Gen[Sized, ListMap[String, _]])
 
@@ -263,9 +267,11 @@ object SchemaGen {
       (key3, value3)  <- Gen.const(keys(2)).zip(gen3)
     } yield Schema.record(
       name,
-      Schema.Field(key1, schema1, get = (a: ListMap[String, _]) => a(key1)),
-      Schema.Field(key2, schema2, get = (a: ListMap[String, _]) => a(key2)),
-      Schema.Field(key3, schema3, get = (a: ListMap[String, _]) => a(key3))
+      FieldSet(
+        Schema.Field(key1, schema1.asInstanceOf[Schema[Any]], get = _(key1)),
+        Schema.Field(key2, schema2.asInstanceOf[Schema[Any]], get = _(key2)),
+        Schema.Field(key3, schema3.asInstanceOf[Schema[Any]], get = _(key3))
+      )
     ) -> ListMap(
       (key1, value1),
       (key2, value2),
@@ -541,7 +547,7 @@ object SchemaGen {
       anyPrimitive.zip(anyPrimitive).map { case (l, r) => Schema.tuple2(l, r) },
       anyStructure(anyPrimitive)
         .zip(Gen.string(Gen.alphaChar).map(TypeId.parse))
-        .map(z => Schema.record(z._2, z._1: _*)),
+        .map(z => Schema.record(z._2, z._1)),
       Gen.const(Schema[Json]),
 //      anyEnumeration(anyPrimitive).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_)),
       anyCaseClassSchema,
@@ -563,7 +569,7 @@ object SchemaGen {
         anyTree(depth - 1).zip(anyTree(depth - 1)).map { case (l, r) => Schema.tuple2(l, r) },
         anyStructure(anyTree(depth - 1))
           .zip(Gen.string(Gen.alphaChar).map(TypeId.parse))
-          .map(z => Schema.record(z._2, z._1: _*)),
+          .map(z => Schema.record(z._2, z._1)),
         Gen.const(Schema[Json])
 //        anyEnumeration(anyTree(depth - 1)).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_))
       )

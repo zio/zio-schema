@@ -781,16 +781,22 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
     val genericRecord: Schema[ListMap[String, _]] = Schema.record(
       TypeId.Structural,
-      Schema.Field("c", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("b", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("a", Schema.Primitive(StandardType.IntType))
+      Schema
+        .Field("c", Schema.Primitive(StandardType.IntType), get = (p: ListMap[String, _]) => p("c").asInstanceOf[Int]),
+      Schema
+        .Field("b", Schema.Primitive(StandardType.IntType), get = (p: ListMap[String, _]) => p("b").asInstanceOf[Int]),
+      Schema
+        .Field("a", Schema.Primitive(StandardType.IntType), get = (p: ListMap[String, _]) => p("a").asInstanceOf[Int])
     )
 
     val genericRecordSorted: Schema[ListMap[String, _]] = Schema.record(
       TypeId.Structural,
-      Schema.Field("a", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("b", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("c", Schema.Primitive(StandardType.IntType))
+      Schema
+        .Field("a", Schema.Primitive(StandardType.IntType), get = (p: ListMap[String, _]) => p("a").asInstanceOf[Int]),
+      Schema
+        .Field("b", Schema.Primitive(StandardType.IntType), get = (p: ListMap[String, _]) => p("b").asInstanceOf[Int]),
+      Schema
+        .Field("c", Schema.Primitive(StandardType.IntType), get = (p: ListMap[String, _]) => p("c").asInstanceOf[Int])
     )
   }
 
