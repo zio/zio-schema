@@ -259,8 +259,8 @@ object DeriveSchema {
               )
               val fieldLabel = termSymbol.name.toString.trim
 
-              val getArg  = TermName(fieldLabel)
-              val getFunc = q" (z: $tpe) => z.$getArg"
+              val getFunc =
+                q" (z: scala.collection.immutable.ListMap[String, _]) => z.apply($fieldLabel).asInstanceOf[${termSymbol.typeSignature}]"
 
               if (annotations.nonEmpty)
                 q"zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), get = $getFunc)"

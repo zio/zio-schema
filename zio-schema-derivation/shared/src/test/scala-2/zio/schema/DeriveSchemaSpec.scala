@@ -91,37 +91,37 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
   case class CyclicChild1(field1: Int, child: CyclicChild2)
   case class CyclicChild2(field1: String, recursive: Option[Cyclic])
 
-//  @annotation1("Arity24")
-//  final case class Arity24(
-//    a1: String,
-//    a2: Long,
-//    a3: Boolean,
-//    f4: Int = 4,
-//    f5: Int = 5,
-//    f6: Int = 6,
-//    f7: Int = 7,
-//    f8: Int = 8,
-//    f9: Int = 9,
-//    f10: Int = 10,
-//    f11: Int = 11,
-//    f12: Int = 12,
-//    f13: Int = 13,
-//    f14: Int = 14,
-//    f15: Int = 15,
-//    f16: Int = 16,
-//    f17: Int = 17,
-//    f18: Int = 18,
-//    f19: Int = 19,
-//    f20: Int = 20,
-//    f21: Int = 21,
-//    f22: Int = 22,
-//    f23: Int = 23,
-//    f24: Int = 24
-//  )
-//
-//  object Arity24 {
-//    implicit lazy val schema: Schema[Arity24] = DeriveSchema.gen[Arity24]
-//  }
+  @annotation1("Arity24")
+  final case class Arity24(
+    a1: String,
+    a2: Long,
+    a3: Boolean,
+    f4: Int = 4,
+    f5: Int = 5,
+    f6: Int = 6,
+    f7: Int = 7,
+    f8: Int = 8,
+    f9: Int = 9,
+    f10: Int = 10,
+    f11: Int = 11,
+    f12: Int = 12,
+    f13: Int = 13,
+    f14: Int = 14,
+    f15: Int = 15,
+    f16: Int = 16,
+    f17: Int = 17,
+    f18: Int = 18,
+    f19: Int = 19,
+    f20: Int = 20,
+    f21: Int = 21,
+    f22: Int = 22,
+    f23: Int = 23,
+    f24: Int = 24
+  )
+
+  object Arity24 {
+    implicit lazy val schema: Schema[Arity24] = DeriveSchema.gen[Arity24]
+  }
 
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   case class TupleArities(
@@ -245,9 +245,9 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
       test("correctly derives case class") {
         assert(Schema[User].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
-//      test("correctly derives case class with arity > 22") {
-//        assert(Schema[Arity24].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
-//      },
+      test("correctly derives case class with arity > 22") {
+        assert(Schema[Arity24].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+      },
       test("correctly derives recursive data structure") {
         assert(Schema[Recursive].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
@@ -298,9 +298,9 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         }
         assert(derived)(hasSameSchema(expected))
       },
-//      test("correctly captures annotations on case class with arity greater than 22") {
-//        assertTrue(Schema[Arity24].annotations == Chunk(annotation1("Arity24")))
-//      },
+      test("correctly captures annotations on case class with arity greater than 22") {
+        assertTrue(Schema[Arity24].annotations == Chunk(annotation1("Arity24")))
+      },
       test("correctly derives Enum") {
         val derived: Schema[Status] = Schema[Status]
         val expected: Schema[Status] =

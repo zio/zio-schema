@@ -20,7 +20,7 @@ object SchemaGen {
         keySet
           .zip(schemas)
           .map {
-            case (label, schema) => Schema.Field(label, schema, get = (a: Any) => a)
+            case (label, schema) => Schema.Field(label, schema, get = ())
           }
           .toSeq
       }
@@ -263,9 +263,9 @@ object SchemaGen {
       (key3, value3)  <- Gen.const(keys(2)).zip(gen3)
     } yield Schema.record(
       name,
-      Schema.Field(key1, schema1, get = (a: ListMap[String, _]) => a.get(key1)),
-      Schema.Field(key2, schema2, get = (a: ListMap[String, _]) => a.get(key2)),
-      Schema.Field(key3, schema3, get = (a: ListMap[String, _]) => a.get(key3))
+      Schema.Field(key1, schema1, get = (a: ListMap[String, _]) => a(key1)),
+      Schema.Field(key2, schema2, get = (a: ListMap[String, _]) => a(key2)),
+      Schema.Field(key3, schema3, get = (a: ListMap[String, _]) => a(key3))
     ) -> ListMap(
       (key1, value1),
       (key2, value2),
