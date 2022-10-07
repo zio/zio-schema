@@ -112,14 +112,13 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
     val typesAndLabels = types.zip(labels)
 
     val paramAnns = fromConstructor(TypeRepr.of[T].typeSymbol)
-    val fields = typesAndLabels.map { case (tpe, label) => deriveField(tpe, label, paramAnns.getOrElse(label, List.empty), newStack) }
-    val selects = typesAndLabels.map { case (tpe, label) => deriveSelect[T](tpe, label) }
+    val fields = typesAndLabels.map { case (tpe, label) => deriveField[T](tpe, label, paramAnns.getOrElse(label, List.empty), newStack) }
     val constructor = caseClassConstructor[T](mirror).asExpr
 
     val annotationExprs = TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
     val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) }
     val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
-    val args = List(typeInfo) ++ fields ++ Seq(constructor) ++ selects ++ Seq(annotations)
+    val args = List(typeInfo) ++ fields ++ Seq(constructor) ++  Seq(annotations)
     val terms = Expr.ofTupleFromSeq(args)
 
     val typeArgs = 
@@ -218,7 +217,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
   }
 
   // Derive Field for a CaseClass
-  def deriveField(repr: TypeRepr, name: String, anns: List[Expr[Any]], stack: Stack) = {
+  def deriveField[T: Type](repr: TypeRepr, name: String, anns: List[Expr[Any]], stack: Stack) = {
     import zio.schema.validation.Validation
     repr.asType match { case '[t] => 
       val schema = deriveSchema[t](stack)
@@ -230,8 +229,10 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
           $acc && $expr
         }
       }
+
+      val get = '{ (t: T) => ${Select.unique('t.asTerm, name).asExprOf[t]} }
       val chunk = '{ zio.Chunk.fromIterable(${ Expr.ofSeq(anns.reverse) }) }
-      '{ Field(${Expr(name)}, $schema, $chunk, $validator) }
+      '{ Field(${Expr(name)}, $schema, $chunk, $validator, $get) }
     }
   }
 
@@ -263,13 +264,6 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
       val tupled = Expr.ofTupleFromSeq(reprs.map(_.asExpr))
       Select.overloaded(product.asTerm, "fromProduct", List.empty, List(tupled.asTerm))
     })
-  }
-
-  def deriveSelect[T: Type](typeRepr: TypeRepr, label: String) = {
-    typeRepr.asType match {
-      case '[t] =>
-        '{ (t: T) => ${Select.unique('t.asTerm, label).asExprOf[t]} }
-    }
   }
 
   private def filterAnnotation(a: Term): Boolean =

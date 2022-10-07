@@ -266,9 +266,8 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         val expected: Schema[UserId] =
           Schema.CaseClass1(
             id = TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
-            field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
-            UserId.apply,
-            (uid: UserId) => uid.id
+            field = Schema.Field("id", Schema.Primitive(StandardType.StringType), get = (uid: UserId) => uid.id),
+            UserId.apply
           )
 
         assert(derived)(hasSameSchema(expected))
@@ -283,7 +282,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
       test("correctly captures annotations on case class") {
         val derived: Schema[User] = Schema[User]
         derived match {
-          case Schema.CaseClass2(id, field1, field2, _, _, _, anns) =>
+          case Schema.CaseClass2(id, field1, field2, _, anns) =>
             assertTrue(
               anns.contains(new annotation3),
               field1.annotations.isEmpty,
