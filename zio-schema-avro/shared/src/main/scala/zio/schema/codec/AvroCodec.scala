@@ -2,10 +2,15 @@ package zio.schema.codec
 
 import java.nio.charset.StandardCharsets
 import java.time.format.DateTimeFormatter
+import java.time.{ Duration, MonthDay, Period, YearMonth }
+
 import scala.annotation.StaticAnnotation
+import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters._
 import scala.util.{ Right, Try }
+
 import org.apache.avro.{ LogicalTypes, Schema => SchemaAvro }
+
 import zio.Chunk
 import zio.schema.CaseSet.Aux
 import zio.schema.Schema.{ Record, _ }
@@ -13,9 +18,6 @@ import zio.schema._
 import zio.schema.codec.AvroAnnotations._
 import zio.schema.codec.AvroPropMarker._
 import zio.schema.meta.MetaSchema
-
-import java.time.{ Duration, MonthDay, Period, YearMonth }
-import scala.collection.immutable.ListMap
 
 trait AvroCodec {
   def encode(schema: Schema[_]): scala.util.Either[String, String]
