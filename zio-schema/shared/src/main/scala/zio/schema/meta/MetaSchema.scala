@@ -1,12 +1,12 @@
 package zio.schema.meta
 
 import scala.annotation.tailrec
+import scala.collection.immutable.ListMap
 import scala.collection.mutable
+
 import zio.prelude.Equal
 import zio.schema._
 import zio.{ Chunk, ChunkBuilder }
-
-import scala.collection.immutable.ListMap
 
 sealed trait MetaSchema { self =>
   def path: NodePath

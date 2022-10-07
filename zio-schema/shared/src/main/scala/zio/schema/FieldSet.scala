@@ -1,9 +1,9 @@
 package zio.schema
 
+import scala.collection.immutable.ListMap
+
 import zio.Chunk
 import zio.schema.Schema._
-
-import scala.collection.immutable.ListMap
 
 sealed trait FieldSet {
   type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]]
