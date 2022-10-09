@@ -755,7 +755,7 @@ object AvroCodec extends AvroCodec {
       }
     } else {
       val annotations = buildZioAnnotations(avroSchema)
-      extractZioFields(avroSchema).map { (fs: List[Field[Any, _]]) =>
+      extractZioFields(avroSchema).map { (fs: List[Field[ListMap[String, _], _]]) =>
         if (fs.isEmpty) Schema.Primitive(StandardType.UnitType).addAllAnnotations(annotations)
         else Schema.record(TypeId.parse(avroSchema.getName), fs: _*).addAllAnnotations(annotations)
       }

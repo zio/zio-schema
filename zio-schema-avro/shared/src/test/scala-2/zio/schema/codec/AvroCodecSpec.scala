@@ -1906,7 +1906,7 @@ object AssertionHelper {
   def hasDocAnnotation(assertion: Assertion[String]): Assertion[Any] =
     annotations(Assertion.exists(Assertion.isSubtype[AvroAnnotations.doc](hasField("doc", _.doc, assertion))))
 
-  def hasFieldOrderAnnotation[Z](assertion: Assertion[FieldOrderType]): Assertion[Field[Z, _]] =
+  def hasFieldOrderAnnotation(assertion: Assertion[FieldOrderType]): Assertion[Field[_, _]] =
     annotations(
       Assertion.exists(
         Assertion.isSubtype[AvroAnnotations.fieldOrder](hasField("fieldOrderType", _.fieldOrderType, assertion))
@@ -1918,7 +1918,7 @@ object AssertionHelper {
       Assertion.exists(Assertion.isSubtype[AvroAnnotations.aliases](hasField("aliases", _.aliases, assertion)))
     )
 
-  def hasFieldDefaultAnnotation[Z](assertion: Assertion[Object]): Assertion[Field[Z, _]] =
+  def hasFieldDefaultAnnotation(assertion: Assertion[Object]): Assertion[Field[_, _]] =
     annotations(
       Assertion.exists(
         Assertion.isSubtype[AvroAnnotations.default](hasField("javaDefaultObject", _.javaDefaultObject, assertion))

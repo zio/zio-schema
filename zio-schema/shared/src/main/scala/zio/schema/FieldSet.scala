@@ -15,10 +15,10 @@ sealed trait FieldSet {
 
   def toChunk: Chunk[Field[ListMap[String, _], _]]
 
-  def makeAccessors[Whole <: ListMap[String, _]](
-    whole: Record[Whole],
+  def makeAccessors(
+    whole: Record[ListMap[String, _]],
     b: AccessorBuilder
-  ): Accessors[Whole, b.Lens, b.Prism, b.Traversal]
+  ): Accessors[ListMap[String, _], b.Lens, b.Prism, b.Traversal]
 
 }
 
@@ -38,10 +38,10 @@ object FieldSet {
 
     override def toChunk: Chunk[Field[ListMap[String, _], _]] = Chunk.empty
 
-    override def makeAccessors[Whole <: ListMap[String, _]](
-      whole: Record[Whole],
+    override def makeAccessors(
+      whole: Record[ListMap[String, _]],
       b: AccessorBuilder
-    ): Accessors[Whole, b.Lens, b.Prism, b.Traversal] = ()
+    ): Accessors[ListMap[String, _], b.Lens, b.Prism, b.Traversal] = ()
 
     override def toString: String = "Empty"
   }
@@ -57,10 +57,10 @@ object FieldSet {
 
     override def toChunk: Chunk[Field[ListMap[String, _], _]] = head +: tail.toChunk
 
-    override def makeAccessors[Whole <: ListMap[String, _]](
-      whole: Record[Whole],
+    override def makeAccessors(
+      whole: Record[ListMap[String, _]],
       b: AccessorBuilder
-    ): Accessors[Whole, b.Lens, b.Prism, b.Traversal] =
+    ): Accessors[ListMap[String, _], b.Lens, b.Prism, b.Traversal] =
       (b.makeLens(whole, head), tail.makeAccessors(whole, b))
 
     override def toString: String = s"$head :*: $tail"

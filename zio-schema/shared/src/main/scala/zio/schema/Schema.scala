@@ -273,12 +273,13 @@ object Schema extends SchemaEquality {
     def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])]
   }
 
-  final case class Field[-R, A](
+  final case class Field[R, A](
     name: String,
     schema: Schema[A],
     annotations: Chunk[Any] = Chunk.empty,
     validation: Validation[A] = Validation.succeed[A],
     get: R => A
+    // set: (R, A) => R
   ) {
 
     override def toString: String = s"Field($name,$schema)"

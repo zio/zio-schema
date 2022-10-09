@@ -30,10 +30,10 @@ object SchemaGen {
       }
     }
 
-  def anyStructure[A](schema: Schema[A], max: Int = 3): Gen[Sized, Seq[Schema.Field[Any, A]]] =
+  def anyStructure[A](schema: Schema[A], max: Int = 3): Gen[Sized, Seq[Schema.Field[ListMap[String, _], A]]] =
     Gen
       .setOfBounded(1, max)(
-        anyLabel.map(Schema.Field(_, schema, get = (a: Any) => a.asInstanceOf[A]))
+        anyLabel.map(label => Schema.Field[ListMap[String, _], A](label, schema, get = _(label).asInstanceOf[A]))
       )
       .map(_.toSeq)
 

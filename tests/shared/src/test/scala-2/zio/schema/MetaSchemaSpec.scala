@@ -6,6 +6,8 @@ import zio.schema.SchemaAssertions._
 import zio.schema.meta.{ MetaSchema, NodePath }
 import zio.test._
 
+import scala.collection.immutable.ListMap
+
 object MetaSchemaSpec extends ZIOSpecDefault {
 
   def spec: Spec[Environment, Any] = suite("MetaSchema")(
@@ -41,10 +43,12 @@ object MetaSchemaSpec extends ZIOSpecDefault {
         val schema =
           Schema.record(
             TypeId.parse("zio.schema.MetaSchema.Product"),
-            Chunk(
-              Schema.Field("a", Schema[String], get = (a: Any) => a.asInstanceOf[String]),
-              Schema.Field("b", Schema[Int], get = (a: Any) => a.asInstanceOf[Int])
-            ): _*
+            FieldSet(
+              Seq(
+                Schema.Field[ListMap[String, _], String]("a", Schema[String], get = _("a").asInstanceOf[String]),
+                Schema.Field[ListMap[String, _], Int]("b", Schema[Int], get = _("b").asInstanceOf[Int])
+              ): _*
+            )
           )
         val expectedAst =
           MetaSchema.Product(
