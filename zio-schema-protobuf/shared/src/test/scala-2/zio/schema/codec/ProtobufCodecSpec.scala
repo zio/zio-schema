@@ -782,21 +782,51 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
     val genericRecord: Schema[ListMap[String, _]] = Schema.record(
       TypeId.Structural,
       Schema
-        .Field("c", Schema.Primitive(StandardType.IntType), get = (p: ListMap[String, _]) => p("c").asInstanceOf[Int]),
+        .Field(
+          "c",
+          Schema.Primitive(StandardType.IntType),
+          get = (p: ListMap[String, _]) => p("c").asInstanceOf[Int],
+          set = (p, v: Int) => p.updated("c", v)
+        ),
       Schema
-        .Field("b", Schema.Primitive(StandardType.IntType), get = (p: ListMap[String, _]) => p("b").asInstanceOf[Int]),
+        .Field(
+          "b",
+          Schema.Primitive(StandardType.IntType),
+          get = (p: ListMap[String, _]) => p("b").asInstanceOf[Int],
+          set = (p, v: Int) => p.updated("b", v)
+        ),
       Schema
-        .Field("a", Schema.Primitive(StandardType.IntType), get = (p: ListMap[String, _]) => p("a").asInstanceOf[Int])
+        .Field(
+          "a",
+          Schema.Primitive(StandardType.IntType),
+          get = (p: ListMap[String, _]) => p("a").asInstanceOf[Int],
+          set = (p, v: Int) => p.updated("a", v)
+        )
     )
 
     val genericRecordSorted: Schema[ListMap[String, _]] = Schema.record(
       TypeId.Structural,
       Schema
-        .Field("a", Schema.Primitive(StandardType.IntType), get = (p: ListMap[String, _]) => p("a").asInstanceOf[Int]),
+        .Field(
+          "a",
+          Schema.Primitive(StandardType.IntType),
+          get = (p: ListMap[String, _]) => p("a").asInstanceOf[Int],
+          set = (p, v: Int) => p.updated("a", v)
+        ),
       Schema
-        .Field("b", Schema.Primitive(StandardType.IntType), get = (p: ListMap[String, _]) => p("b").asInstanceOf[Int]),
+        .Field(
+          "b",
+          Schema.Primitive(StandardType.IntType),
+          get = (p: ListMap[String, _]) => p("b").asInstanceOf[Int],
+          set = (p, v: Int) => p.updated("b", v)
+        ),
       Schema
-        .Field("c", Schema.Primitive(StandardType.IntType), get = (p: ListMap[String, _]) => p("c").asInstanceOf[Int])
+        .Field(
+          "c",
+          Schema.Primitive(StandardType.IntType),
+          get = (p: ListMap[String, _]) => p("c").asInstanceOf[Int],
+          set = (p, v: Int) => p.updated("c", v)
+        )
     )
   }
 

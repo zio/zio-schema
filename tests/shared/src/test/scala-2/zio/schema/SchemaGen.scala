@@ -22,7 +22,12 @@ object SchemaGen {
             .map {
               case (label, schema) =>
                 Schema
-                  .Field[ListMap[String, A], A](label, schema.asInstanceOf[Schema[A]], get = _(label))
+                  .Field[ListMap[String, A], A](
+                    label,
+                    schema.asInstanceOf[Schema[A]],
+                    get = _(label),
+                    set = (a, b) => a + (label -> b)
+                  )
                   .asInstanceOf[Schema.Field[ListMap[String, _], _]]
             }
             .toSeq: _*
@@ -33,7 +38,15 @@ object SchemaGen {
   def anyStructure[A](schema: Schema[A], max: Int = 3): Gen[Sized, Seq[Schema.Field[ListMap[String, _], A]]] =
     Gen
       .setOfBounded(1, max)(
-        anyLabel.map(label => Schema.Field[ListMap[String, _], A](label, schema, get = _(label).asInstanceOf[A]))
+        anyLabel.map(
+          label =>
+            Schema.Field[ListMap[String, _], A](
+              label,
+              schema,
+              get = _(label).asInstanceOf[A],
+              set = (a, b) => a + (label -> b)
+            )
+        )
       )
       .map(_.toSeq)
 
@@ -268,9 +281,9 @@ object SchemaGen {
     } yield Schema.record(
       name,
       FieldSet(
-        Schema.Field(key1, schema1.asInstanceOf[Schema[Any]], get = _(key1)),
-        Schema.Field(key2, schema2.asInstanceOf[Schema[Any]], get = _(key2)),
-        Schema.Field(key3, schema3.asInstanceOf[Schema[Any]], get = _(key3))
+        Schema.Field(key1, schema1.asInstanceOf[Schema[Any]], get = _(key1), set = (r, v: Any) => r.updated(key1, v)),
+        Schema.Field(key2, schema2.asInstanceOf[Schema[Any]], get = _(key2), set = (r, v: Any) => r.updated(key2, v)),
+        Schema.Field(key3, schema3.asInstanceOf[Schema[Any]], get = _(key3), set = (r, v: Any) => r.updated(key3, v))
       )
     ) -> ListMap(
       (key1, value1),

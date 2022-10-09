@@ -56,7 +56,12 @@ object SchemaSpec extends ZIOSpecDefault {
   def schemaRecord(key: String): Schema[ListMap[String, _]] =
     Schema.record(
       TypeId.Structural,
-      Schema.Field(key, schemaUnit.asInstanceOf[Schema[Any]], get = (p: ListMap[String, _]) => p(key))
+      Schema.Field(
+        key,
+        schemaUnit.asInstanceOf[Schema[Any]],
+        get = (p: ListMap[String, _]) => p(key),
+        set = (p: ListMap[String, _], v: Any) => p.updated(key, v)
+      )
     )
 
   def schemaEnum(key: String): Schema[Any] =

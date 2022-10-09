@@ -35,23 +35,49 @@ object ManualConstruction {
 
   val schemaPerson: Schema[Person] = Schema.CaseClass2[String, Int, Person](
     TypeId.parse("dev.zio.schema.example.example1.Domain.Person"),
-    field1 = Schema.Field[Person, String]("name", Schema.primitive[String], get = _.name),
-    field2 = Schema.Field[Person, Int]("age", Schema.primitive[Int], get = _.age),
+    field1 =
+      Schema.Field[Person, String]("name", Schema.primitive[String], get = _.name, set = (p, v) => p.copy(name = v)),
+    field2 = Schema.Field[Person, Int]("age", Schema.primitive[Int], get = _.age, set = (p, v) => p.copy(age = v)),
     construct = (name, age) => Person(name, age)
   )
 
   val schemaPaymentMethodWireTransfer: Schema[WireTransfer] = Schema.CaseClass2[String, String, WireTransfer](
     TypeId.parse("dev.zio.schema.example.example1.Domain.PaymentMethod.WireTransfer"),
-    field1 = Schema.Field[WireTransfer, String]("accountNumber", Schema.primitive[String], get = _.accountNumber),
-    field2 = Schema.Field[WireTransfer, String]("bankCode", Schema.primitive[String], get = _.bankCode),
+    field1 = Schema.Field[WireTransfer, String](
+      "accountNumber",
+      Schema.primitive[String],
+      get = _.accountNumber,
+      set = (p, v) => p.copy(accountNumber = v)
+    ),
+    field2 = Schema.Field[WireTransfer, String](
+      "bankCode",
+      Schema.primitive[String],
+      get = _.bankCode,
+      set = (p, v) => p.copy(bankCode = v)
+    ),
     construct = (number, bankCode) => PaymentMethod.WireTransfer(number, bankCode)
   )
 
   val schemaPaymentMethodCreditCard: Schema[CreditCard] = Schema.CaseClass3[String, Int, Int, CreditCard](
     TypeId.parse("dev.zio.schema.example.example1.Domain.PaymentMethod.CreditCard"),
-    field1 = Schema.Field[CreditCard, String]("number", Schema.primitive[String], get = _.number),
-    field2 = Schema.Field[CreditCard, Int]("expirationMonth", Schema.primitive[Int], get = _.expirationMonth),
-    field3 = Schema.Field[CreditCard, Int]("expirationYear", Schema.primitive[Int], get = _.expirationYear),
+    field1 = Schema.Field[CreditCard, String](
+      "number",
+      Schema.primitive[String],
+      get = _.number,
+      set = (p, v) => p.copy(number = v)
+    ),
+    field2 = Schema.Field[CreditCard, Int](
+      "expirationMonth",
+      Schema.primitive[Int],
+      get = _.expirationMonth,
+      set = (p, v) => p.copy(expirationMonth = v)
+    ),
+    field3 = Schema.Field[CreditCard, Int](
+      "expirationYear",
+      Schema.primitive[Int],
+      get = _.expirationYear,
+      set = (p, v) => p.copy(expirationYear = v)
+    ),
     construct =
       (number, expirationMonth, expirationYear) => PaymentMethod.CreditCard(number, expirationMonth, expirationYear)
   )
@@ -76,8 +102,13 @@ object ManualConstruction {
 
   val schemaCustomer: Schema[Customer] = Schema.CaseClass2[Person, PaymentMethod, Customer](
     TypeId.parse("dev.zio.schema.example.example1.Domain.Customer"),
-    field1 = Schema.Field[Customer, Person]("person", schemaPerson, get = _.person),
-    field2 = Schema.Field[Customer, PaymentMethod]("paymentMethod", schemaPaymentMethod, get = _.paymentMethod),
+    field1 = Schema.Field[Customer, Person]("person", schemaPerson, get = _.person, set = (p, v) => p.copy(person = v)),
+    field2 = Schema.Field[Customer, PaymentMethod](
+      "paymentMethod",
+      schemaPaymentMethod,
+      get = _.paymentMethod,
+      set = (p, v) => p.copy(paymentMethod = v)
+    ),
     construct = (person, paymentMethod) => Customer(person, paymentMethod)
   )
 

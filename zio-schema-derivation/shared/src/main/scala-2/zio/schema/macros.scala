@@ -262,10 +262,13 @@ object DeriveSchema {
               val getFunc =
                 q" (z: scala.collection.immutable.ListMap[String, _]) => z.apply($fieldLabel).asInstanceOf[${termSymbol.typeSignature}]"
 
+              val setFunc =
+                q" (z: scala.collection.immutable.ListMap[String, _], v: ${termSymbol.typeSignature}) => z.updated($fieldLabel, v)"
+
               if (annotations.nonEmpty)
-                q"zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), get = $getFunc)"
+                q"zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), get = $getFunc, set = $setFunc)"
               else
-                q"zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, get = $getFunc)"
+                q"zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, get = $getFunc, set = $setFunc)"
           }
           val fromMap = {
             val casts = fieldTypes.map { termSymbol =>
@@ -320,9 +323,10 @@ object DeriveSchema {
 
           val fieldDefs = fieldTypes.zip(fieldAnnotations).zip(fieldValidations).zipWithIndex.map {
             case (((termSymbol, annotations), validation), idx) =>
+              val fieldType = concreteType(tpe, termSymbol.typeSignature)
               val fieldSchema = directInferSchema(
                 tpe,
-                concreteType(tpe, termSymbol.typeSignature),
+                fieldType,
                 currentFrame +: stack
               )
               val fieldArg   = if (fieldTypes.size > 1) TermName(s"field${idx + 1}") else TermName("field")
@@ -330,11 +334,12 @@ object DeriveSchema {
               val getArg     = TermName(fieldLabel)
 
               val getFunc = q" (z: $tpe) => z.$getArg"
+              val setFunc = q" (z: $tpe, v: ${fieldType}) => z.copy($getArg = v)"
 
               if (annotations.nonEmpty)
-                q"""$fieldArg = zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), validation = $validation, get = $getFunc)"""
+                q"""$fieldArg = zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), validation = $validation, get = $getFunc, set = $setFunc)"""
               else
-                q"""$fieldArg = zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, validation = $validation, get = $getFunc)"""
+                q"""$fieldArg = zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, validation = $validation, get = $getFunc, set = $setFunc)"""
           }
 
           val constructArgs = fieldTypes.zipWithIndex.map {

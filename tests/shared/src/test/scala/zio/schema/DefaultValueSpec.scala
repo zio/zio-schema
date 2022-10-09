@@ -150,7 +150,12 @@ object DefaultValueSpec extends ZIOSpecDefault {
         val schema: Schema[UserId] =
           Schema.CaseClass1(
             TypeId.parse("zio.schema.DefaultValueSpec.UserId"),
-            field = Schema.Field("id", Schema.Primitive(StandardType.StringType), get = (uid: UserId) => uid.id),
+            field = Schema.Field(
+              "id",
+              Schema.Primitive(StandardType.StringType),
+              get = (uid: UserId) => uid.id,
+              set = (uid: UserId, id: String) => uid.copy(id = id)
+            ),
             UserId.apply
           )
         assert(schema.defaultValue)(isRight(equalTo(UserId(""))))
@@ -163,13 +168,29 @@ object DefaultValueSpec extends ZIOSpecDefault {
               "id",
               Schema.CaseClass1(
                 TypeId.parse("zio.schema.DefaultValueSpec.UserId"),
-                field = Schema.Field("id", Schema.Primitive(StandardType.StringType), get = (uid: UserId) => uid.id),
+                field = Schema.Field(
+                  "id",
+                  Schema.Primitive(StandardType.StringType),
+                  get = (uid: UserId) => uid.id,
+                  set = (uid: UserId, id: String) => uid.copy(id = id)
+                ),
                 UserId.apply
               ),
-              get = (u: User) => u.id
+              get = (u: User) => u.id,
+              set = (u: User, id: UserId) => u.copy(id = id)
             ),
-            field2 = Schema.Field("name", Schema.Primitive(StandardType.StringType), get = (u: User) => u.name),
-            field3 = Schema.Field("age", Schema.Primitive(StandardType.IntType), get = (u: User) => u.age),
+            field2 = Schema.Field(
+              "name",
+              Schema.Primitive(StandardType.StringType),
+              get = (u: User) => u.name,
+              set = (u: User, name: String) => u.copy(name = name)
+            ),
+            field3 = Schema.Field(
+              "age",
+              Schema.Primitive(StandardType.IntType),
+              get = (u: User) => u.age,
+              set = (u: User, age: Int) => u.copy(age = age)
+            ),
             User.apply
           )
         assert(expected.defaultValue)(isRight(equalTo(User(UserId(""), "", 0))))

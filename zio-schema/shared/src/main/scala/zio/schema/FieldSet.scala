@@ -70,6 +70,11 @@ object FieldSet {
     fields.foldRight[FieldSet](FieldSet.Empty)((field, acc) => field :*: acc)
 
   def field[A: Schema](name: String): A :*: Empty =
-    Field(name, Schema[A], get = (p: ListMap[String, _]) => p(name).asInstanceOf[A]) :*: Empty
+    Field(
+      name,
+      Schema[A],
+      get = (p: ListMap[String, _]) => p(name).asInstanceOf[A],
+      set = (p: ListMap[String, _], value: A) => p.updated(name, value)
+    ) :*: Empty
 
 }

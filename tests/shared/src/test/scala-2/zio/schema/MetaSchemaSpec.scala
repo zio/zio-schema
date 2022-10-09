@@ -45,8 +45,18 @@ object MetaSchemaSpec extends ZIOSpecDefault {
             TypeId.parse("zio.schema.MetaSchema.Product"),
             FieldSet(
               Seq(
-                Schema.Field[ListMap[String, _], String]("a", Schema[String], get = _("a").asInstanceOf[String]),
-                Schema.Field[ListMap[String, _], Int]("b", Schema[Int], get = _("b").asInstanceOf[Int])
+                Schema.Field[ListMap[String, _], String](
+                  "a",
+                  Schema[String],
+                  get = _("a").asInstanceOf[String],
+                  set = (r, v) => r.updated("a", v)
+                ),
+                Schema.Field[ListMap[String, _], Int](
+                  "b",
+                  Schema[Int],
+                  get = _("b").asInstanceOf[Int],
+                  set = (r, v) => r.updated("b", v)
+                )
               ): _*
             )
           )

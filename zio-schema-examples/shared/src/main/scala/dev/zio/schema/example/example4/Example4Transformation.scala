@@ -16,8 +16,10 @@ private[example4] object Domain {
   object WebPerson {
 
     val name: Schema.Field[WebPerson, String] =
-      Schema.Field[WebPerson, String]("name", Schema.primitive[String], get = _.name)
-    val age: Schema.Field[WebPerson, Int] = Schema.Field[WebPerson, Int]("age", Schema.primitive[Int], get = _.age)
+      Schema.Field[WebPerson, String]("name", Schema.primitive[String], get = _.name, set = (p, v) => p.copy(name = v))
+
+    val age: Schema.Field[WebPerson, Int] =
+      Schema.Field[WebPerson, Int]("age", Schema.primitive[Int], get = _.age, set = (p, v) => p.copy(age = v))
 
     val schema: Schema[WebPerson] = Schema.CaseClass2[String, Int, WebPerson](
       TypeId.parse("dev.zio.schema.example.example4.Domain.WebPerson"),
@@ -32,11 +34,13 @@ private[example4] object Domain {
   object DomainPerson {
 
     val firstname: Schema.Field[DomainPerson, String] =
-      Schema.Field("firstname", Schema.primitive[String], get = _.firstname)
+      Schema.Field("firstname", Schema.primitive[String], get = _.firstname, set = (p, v) => p.copy(firstname = v))
 
     val lastname: Schema.Field[DomainPerson, String] =
-      Schema.Field("lastname", Schema.primitive[String], get = _.lastname)
-    val years: Schema.Field[DomainPerson, Int] = Schema.Field("years", Schema.primitive[Int], get = _.years)
+      Schema.Field("lastname", Schema.primitive[String], get = _.lastname, set = (p, v) => p.copy(lastname = v))
+
+    val years: Schema.Field[DomainPerson, Int] =
+      Schema.Field("years", Schema.primitive[Int], get = _.years, set = (p, v) => p.copy(years = v))
 
     val schema: Schema[DomainPerson] = Schema.CaseClass3[String, String, Int, DomainPerson](
       TypeId.parse("dev.zio.schema.example.example4.Domain.DomainPerson"),

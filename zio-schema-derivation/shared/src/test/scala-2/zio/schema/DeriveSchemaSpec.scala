@@ -264,7 +264,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         val expected: Schema[UserId] =
           Schema.CaseClass1(
             TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
-            field = Schema.Field("id", Schema.Primitive(StandardType.StringType), get = _.id),
+            field = Schema.Field(
+              "id",
+              Schema.Primitive(StandardType.StringType),
+              get = _.id,
+              set = (a, b: String) => a.copy(id = b)
+            ),
             UserId.apply
           )
 
@@ -281,16 +286,27 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         val expected: Schema[User] = {
           Schema.CaseClass2(
             TypeId.parse("zio.schema.DeriveSchemaSpec.User"),
-            field1 = Schema.Field("name", Schema.Primitive(StandardType.StringType), get = _.name),
+            field1 = Schema.Field(
+              "name",
+              Schema.Primitive(StandardType.StringType),
+              get = _.name,
+              set = (a, b: String) => a.copy(name = b)
+            ),
             field2 = Schema.Field(
               "id",
               Schema.CaseClass1(
                 TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
-                field = Schema.Field("id", Schema.Primitive(StandardType.StringType), get = (uid: UserId) => uid.id),
+                field = Schema.Field(
+                  "id",
+                  Schema.Primitive(StandardType.StringType),
+                  get = (uid: UserId) => uid.id,
+                  set = (uid: UserId, id: String) => uid.copy(id = id)
+                ),
                 UserId.apply
               ),
               Chunk(annotation1("foo"), annotation2("bar"), new annotation3, new annotation4(0)),
-              get = _.id
+              get = _.id,
+              set = (a, b: UserId) => a.copy(id = b)
             ),
             User.apply,
             annotations = Chunk(new annotation3)

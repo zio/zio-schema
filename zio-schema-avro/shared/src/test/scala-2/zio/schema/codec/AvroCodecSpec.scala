@@ -938,12 +938,14 @@ object AvroCodecSpec extends ZIOSpecDefault {
                       Schema.Field(
                         "s",
                         Schema.primitive(StandardType.StringType),
-                        get = (p: ListMap[String, _]) => p("s").asInstanceOf[String]
+                        get = (p: ListMap[String, _]) => p("s").asInstanceOf[String],
+                        set = (p: ListMap[String, _], v: String) => p.updated("s", v)
                       ),
                       Schema.Field(
                         "b",
                         Schema.primitive(StandardType.BoolType),
-                        get = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean]
+                        get = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean],
+                        set = (p: ListMap[String, _], v: Boolean) => p.updated("b", v)
                       )
                     )
                     .ast
@@ -964,15 +966,18 @@ object AvroCodecSpec extends ZIOSpecDefault {
                   Schema.Field(
                     "innerS",
                     Schema.primitive(StandardType.StringType),
-                    get = (p: ListMap[String, _]) => p("innerS").asInstanceOf[String]
+                    get = (p: ListMap[String, _]) => p("innerS").asInstanceOf[String],
+                    set = (p: ListMap[String, _], v: String) => p.updated("innerS", v)
                   )
                 ),
-                get = (p: ListMap[String, _]) => p("nested").asInstanceOf[ListMap[String, _]]
+                get = (p: ListMap[String, _]) => p("nested").asInstanceOf[ListMap[String, _]],
+                set = (p: ListMap[String, _], v: ListMap[String, _]) => p.updated("nested", v)
               ),
               Schema.Field(
                 "b",
                 Schema.primitive(StandardType.BoolType),
-                get = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean]
+                get = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean],
+                set = (p: ListMap[String, _], v: Boolean) => p.updated("b", v)
               )
             )
 
@@ -992,12 +997,14 @@ object AvroCodecSpec extends ZIOSpecDefault {
                       Schema.Field(
                         "s",
                         Schema.primitive(StandardType.StringType),
-                        get = (p: ListMap[String, _]) => p("s").asInstanceOf[String]
+                        get = (p: ListMap[String, _]) => p("s").asInstanceOf[String],
+                        set = (p: ListMap[String, _], v: String) => p.updated("s", v)
                       ),
                       Schema.Field(
                         "b",
                         Schema.primitive(StandardType.BoolType),
-                        get = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean]
+                        get = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean],
+                        set = (p: ListMap[String, _], v: Boolean) => p.updated("b", v)
                       )
                     )
                     .ast

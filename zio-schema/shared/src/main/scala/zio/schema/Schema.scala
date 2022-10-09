@@ -278,8 +278,8 @@ object Schema extends SchemaEquality {
     schema: Schema[A],
     annotations: Chunk[Any] = Chunk.empty,
     validation: Validation[A] = Validation.succeed[A],
-    get: R => A
-    // set: (R, A) => R
+    get: R => A,
+    set: (R, A) => R
   ) {
 
     override def toString: String = s"Field($name,$schema)"
@@ -419,8 +419,8 @@ object Schema extends SchemaEquality {
 
     val toRecord: CaseClass2[A, B, (A, B)] = CaseClass2[A, B, (A, B)](
       id = TypeId.parse("zio.schema.Schema.CaseClass2"),
-      field1 = Field[(A, B), A]("_1", left, get = _._1),
-      field2 = Field[(A, B), B]("_2", right, get = _._2),
+      field1 = Field[(A, B), A]("_1", left, get = _._1, set = (ab, a) => (a, ab._2)),
+      field2 = Field[(A, B), B]("_2", right, get = _._2, set = (a, b) => (a._1, b)),
       construct = (a, b) => (a, b),
       annotations
     )
