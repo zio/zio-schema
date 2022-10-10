@@ -2,10 +2,10 @@ package zio.schema.meta
 
 import scala.annotation.tailrec
 import scala.collection.mutable
-
 import zio.prelude.Equal
 import zio.schema._
-import zio.{ Chunk, ChunkBuilder }
+import zio.schema.internal.SourceLocation
+import zio.{Chunk, ChunkBuilder}
 
 sealed trait MetaSchema { self =>
   def path: NodePath
@@ -30,11 +30,11 @@ object MetaSchema {
       .transform(NodePath(_), NodePath.unwrap)
 
   final case class Product(
-    id: TypeId,
-    override val path: NodePath,
-    fields: Chunk[Labelled] = Chunk.empty,
-    override val optional: Boolean = false
-  ) extends MetaSchema
+                            id: TypeId,
+                            override val path: NodePath,
+                            fields: Chunk[Labelled] = Chunk.empty,
+                            override val optional: Boolean = false
+                          ) extends MetaSchema
 
   object Product {
     implicit val schema: Schema[Product] = {
@@ -54,11 +54,11 @@ object MetaSchema {
     }
   }
   final case class Tuple(
-    override val path: NodePath,
-    left: MetaSchema,
-    right: MetaSchema,
-    override val optional: Boolean = false
-  ) extends MetaSchema
+                          override val path: NodePath,
+                          left: MetaSchema,
+                          right: MetaSchema,
+                          override val optional: Boolean = false
+                        ) extends MetaSchema
 
   object Tuple {
     implicit val schema: Schema[Tuple] = {
@@ -78,12 +78,80 @@ object MetaSchema {
     }
   }
 
+  final case class Tuple3(
+                           override val path: NodePath,
+                           t1: MetaSchema,
+                           t2: MetaSchema,
+                           t3: MetaSchema,
+                           override val optional: Boolean = false
+                         ) extends MetaSchema
+
+  object Tuple3 {
+    def apply(schema: Schema[_]): Tuple3 = subtree(NodePath.root, Chunk.empty, schema) match {
+      case Tuple(path, Tuple(_, t1, t2, _), t3, optional) => Tuple3(path, t1, t2, t3, optional)
+    }
+
+    implicit val schema: Schema[Tuple3] = {
+      Schema.CaseClass5(
+        TypeId.parse("zio.schema.meta.MetaSchema.Tuple"),
+        field1 = Schema.Field("path", Schema[String].repeated),
+        field2 = Schema.Field("item1", Schema[MetaSchema]),
+        field3 = Schema.Field("item2", Schema[MetaSchema]),
+        field4 = Schema.Field("item3", Schema[MetaSchema]),
+        field5 = Schema.Field("item4", Schema[Boolean]),
+        (path: Chunk[String], t1: MetaSchema, t2: MetaSchema, t3: MetaSchema, optional: Boolean) =>
+          Tuple3(NodePath(path), t1, t2, t3, optional),
+        _.path,
+        _.t1,
+        _.t2,
+        _.t3,
+        _.optional
+      )
+    }
+  }
+
+  final case class Tuple4(
+                           override val path: NodePath,
+                           t1: MetaSchema,
+                           t2: MetaSchema,
+                           t3: MetaSchema,
+                           t4: MetaSchema,
+                           override val optional: Boolean = false
+                         ) extends MetaSchema
+
+  object Tuple4 {
+    def apply(schema: Schema[_]): Tuple4 = subtree(NodePath.root, Chunk.empty, schema) match {
+      case Tuple(path, Tuple(_,Tuple(_, t1, t2, _), t3, _), t4, optional) =>
+        Tuple4(path, t1, t2, t3, t4, optional)
+    }
+
+    implicit val schema: Schema[Tuple4] = {
+      Schema.CaseClass6(
+        TypeId.parse("zio.schema.meta.MetaSchema.Tuple"),
+        field1 = Schema.Field("path", Schema[String].repeated),
+        field2 = Schema.Field("item1", Schema[MetaSchema]),
+        field3 = Schema.Field("item2", Schema[MetaSchema]),
+        field4 = Schema.Field("item3", Schema[MetaSchema]),
+        field5 = Schema.Field("item4", Schema[MetaSchema]),
+        field6 = Schema.Field("optional", Schema[Boolean]),
+        (path: Chunk[String], t1: MetaSchema, t2: MetaSchema, t3: MetaSchema, t4: MetaSchema, optional: Boolean) =>
+          Tuple4(NodePath(path), t1, t2, t3, t4, optional),
+        _.path,
+        _.t1,
+        _.t2,
+        _.t3,
+        _.t4,
+        _.optional
+      )
+    }
+  }
+
   final case class Sum(
-    id: TypeId,
-    override val path: NodePath,
-    cases: Chunk[Labelled] = Chunk.empty,
-    override val optional: Boolean = false
-  ) extends MetaSchema
+                        id: TypeId,
+                        override val path: NodePath,
+                        cases: Chunk[Labelled] = Chunk.empty,
+                        override val optional: Boolean = false
+                      ) extends MetaSchema
 
   object Sum {
     implicit lazy val schema: Schema[Sum] =
@@ -103,11 +171,11 @@ object MetaSchema {
   }
 
   final case class Either(
-    override val path: NodePath,
-    left: MetaSchema,
-    right: MetaSchema,
-    override val optional: Boolean = false
-  ) extends MetaSchema
+                           override val path: NodePath,
+                           left: MetaSchema,
+                           right: MetaSchema,
+                           override val optional: Boolean = false
+                         ) extends MetaSchema
 
   object Either {
     implicit val schema: Schema[Either] = {
@@ -128,10 +196,10 @@ object MetaSchema {
   }
 
   final case class FailNode(
-    message: String,
-    override val path: NodePath,
-    override val optional: Boolean = false
-  ) extends MetaSchema
+                             message: String,
+                             override val path: NodePath,
+                             override val optional: Boolean = false
+                           ) extends MetaSchema
 
   object FailNode {
     implicit val schema: Schema[FailNode] = Schema.CaseClass3(
@@ -147,10 +215,10 @@ object MetaSchema {
   }
 
   final case class ListNode(
-    item: MetaSchema,
-    override val path: NodePath,
-    override val optional: Boolean = false
-  ) extends MetaSchema
+                             item: MetaSchema,
+                             override val path: NodePath,
+                             override val optional: Boolean = false
+                           ) extends MetaSchema
 
   object ListNode {
     implicit val schema: Schema[ListNode] = Schema.CaseClass3(
@@ -166,11 +234,11 @@ object MetaSchema {
   }
 
   final case class Dictionary(
-    keys: MetaSchema,
-    values: MetaSchema,
-    override val path: NodePath,
-    override val optional: Boolean = false
-  ) extends MetaSchema
+                               keys: MetaSchema,
+                               values: MetaSchema,
+                               override val path: NodePath,
+                               override val optional: Boolean = false
+                             ) extends MetaSchema
 
   object Dictionary {
     implicit val schema: Schema[Dictionary] = Schema.CaseClass4(
@@ -189,10 +257,10 @@ object MetaSchema {
   }
 
   final case class Value(
-    valueType: StandardType[_],
-    override val path: NodePath = NodePath.root,
-    override val optional: Boolean = false
-  ) extends MetaSchema
+                          valueType: StandardType[_],
+                          override val path: NodePath = NodePath.root,
+                          override val optional: Boolean = false
+                        ) extends MetaSchema
 
   object Value {
     implicit val schema: Schema[Value] =
@@ -221,10 +289,10 @@ object MetaSchema {
     }
   }
   final case class Ref(
-    refPath: NodePath,
-    override val path: NodePath,
-    optional: Boolean = false
-  ) extends MetaSchema
+                        refPath: NodePath,
+                        override val path: NodePath,
+                        optional: Boolean = false
+                      ) extends MetaSchema
 
   object Ref {
     implicit val schema: Schema[Ref] =
@@ -242,10 +310,10 @@ object MetaSchema {
   }
 
   final case class Dynamic(
-    withSchema: Boolean,
-    override val path: NodePath,
-    optional: Boolean = false
-  ) extends MetaSchema
+                            withSchema: Boolean,
+                            override val path: NodePath,
+                            optional: Boolean = false
+                          ) extends MetaSchema
 
   object Dynamic {
     implicit val schema: Schema[Dynamic] =
@@ -262,10 +330,10 @@ object MetaSchema {
   }
 
   final private[schema] case class NodeBuilder(
-    path: NodePath,
-    lineage: Lineage,
-    optional: Boolean = false
-  ) { self =>
+                                                path: NodePath,
+                                                lineage: Lineage,
+                                                optional: Boolean = false
+                                              ) { self =>
     private val children: ChunkBuilder[Labelled] = ChunkBuilder.make[Labelled]()
 
     def addLabelledSubtree(label: String, schema: Schema[_]): NodeBuilder = {
@@ -305,7 +373,11 @@ object MetaSchema {
       )
     case Schema.Set(schema, _) =>
       ListNode(item = subtree(NodePath.root / "item", Chunk.empty, schema), NodePath.root)
-    case Schema.Transform(schema, _, _, _, _) => subtree(NodePath.root, Chunk.empty, schema)
+    case Schema.Transform(schema, _, _, _, SourceLocation(_, _, _, method)) => method match {
+      case "zio.schema.Schema.tuple3" => MetaSchema.Tuple3(schema)
+      case "zio.schema.Schema.tuple4" => MetaSchema.Tuple4(schema)
+      case _ => subtree(NodePath.root, Chunk.empty, schema)
+    }
     case lzy @ Schema.Lazy(_)                 => fromSchema(lzy.schema)
     case s: Schema.Record[A] =>
       s.structure
@@ -324,11 +396,11 @@ object MetaSchema {
   }
 
   private[schema] def subtree(
-    path: NodePath,
-    lineage: Lineage,
-    schema: Schema[_],
-    optional: Boolean = false
-  ): MetaSchema =
+                               path: NodePath,
+                               lineage: Lineage,
+                               schema: Schema[_],
+                               optional: Boolean = false
+                             ): MetaSchema =
     lineage
       .find(_._1 == schema.hashCode())
       .map {
@@ -406,6 +478,19 @@ object MetaSchema {
           materialize(left, refs),
           materialize(right, refs)
         )
+      case MetaSchema.Tuple3(_, t1, t2, t3, _) =>
+        Schema.tuple3(
+          materialize(t1, refs),
+          materialize(t2, refs),
+          materialize(t3, refs)
+        )
+      case MetaSchema.Tuple4(_, t1, t2, t3, t4, _) =>
+        Schema.tuple4(
+          materialize(t1, refs),
+          materialize(t2, refs),
+          materialize(t3, refs),
+          materialize(t4, refs)
+        )
       case MetaSchema.Sum(id, _, elems, _) =>
         Schema.enumeration[Any, CaseSet.Aux[Any]](
           id,
@@ -478,6 +563,22 @@ private[schema] object AstRenderer {
         .append("\n")
         .append(Chunk("left" -> left, "right" -> right).map(renderField(_, INDENT_STEP)).mkString("\n"))
         .toString
+    case MetaSchema.Tuple3(_, t1, t2, t3, optional) =>
+      val buffer = new StringBuffer()
+      buffer.append(s"tuple3")
+      if (optional) buffer.append("?")
+      buffer
+        .append("\n")
+        .append(Chunk("item1" -> t1, "item2" -> t2, "item3" -> t3).map(renderField(_, INDENT_STEP)).mkString("\n"))
+        .toString
+    case MetaSchema.Tuple4(_, t1, t2, t3, t4, optional) =>
+      val buffer = new StringBuffer()
+      buffer.append(s"tuple4")
+      if (optional) buffer.append("?")
+      buffer
+        .append("\n")
+        .append(Chunk("item1" -> t1, "item2" -> t2, "item3" -> t3, "item4" -> t4).map(renderField(_, INDENT_STEP)).mkString("\n"))
+        .toString
     case MetaSchema.Sum(_, _, cases, optional) =>
       val buffer = new StringBuffer()
       buffer.append(s"enum")
@@ -539,6 +640,22 @@ private[schema] object AstRenderer {
         buffer
           .append("\n")
           .append(Chunk("left" -> left, "right" -> right).map(renderField(_, indent + INDENT_STEP)).mkString("\n"))
+          .toString
+      case (label, MetaSchema.Tuple3(_, t1, t2, t3, optional)) =>
+        pad(buffer, indent)
+        buffer.append(s"$label: tuple3")
+        if (optional) buffer.append("?")
+        buffer
+          .append("\n")
+          .append(Chunk("item1" -> t1, "item2" -> t2, "item3" -> t3).map(renderField(_, indent + INDENT_STEP)).mkString("\n"))
+          .toString
+      case (label, MetaSchema.Tuple4(_, t1, t2, t3, t4, optional)) =>
+        pad(buffer, indent)
+        buffer.append(s"$label: tuple4")
+        if (optional) buffer.append("?")
+        buffer
+          .append("\n")
+          .append(Chunk("item1" -> t1, "item2" -> t2, "item3" -> t3, "item4" -> t4 ).map(renderField(_, indent + INDENT_STEP)).mkString("\n"))
           .toString
       case (label, MetaSchema.Sum(_, _, cases, optional)) =>
         pad(buffer, indent)
