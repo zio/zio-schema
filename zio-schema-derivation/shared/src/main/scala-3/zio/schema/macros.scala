@@ -230,11 +230,17 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
         }
       }
 
+
       val get = '{ (t: T) => ${Select.unique('t.asTerm, name).asExprOf[t]} }
+
+      val set = '{ (te: T, v: t) => ${Apply(Select.unique('te.asTerm, "copy"), List(NamedArg(name, 'v.asTerm))).asExprOf[T]} }
+      println(set.show)
       val chunk = '{ zio.Chunk.fromIterable(${ Expr.ofSeq(anns.reverse) }) }
-      '{ Field(${Expr(name)}, $schema, $chunk, $validator, $get) }
+      '{ Field(${Expr(name)}, $schema, $chunk, $validator, $get, $set) }
     }
   }
+
+
 
 
   // sealed case class Case[A, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A, annotations: Chunk[Any] = Chunk.empty) {
