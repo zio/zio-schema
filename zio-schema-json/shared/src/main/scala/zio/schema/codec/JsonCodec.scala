@@ -442,7 +442,7 @@ object JsonCodec extends Codec {
         var first = true
         fields.foreach {
           case Schema.Field(key, schema, _, _, get, _) =>
-            val enc = Encoder.schemaEncoder(schema.asInstanceOf[Schema[Any]])
+            val enc = Encoder.schemaEncoder(schema)
             if (!enc.isNothing(get(a))) {
               if (first)
                 first = false
