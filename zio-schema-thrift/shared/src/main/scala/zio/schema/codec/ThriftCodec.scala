@@ -1,12 +1,17 @@
 package zio.schema.codec
+
+import java.math.{ BigInteger, MathContext }
 import java.nio.ByteBuffer
 import java.time._
 import java.util.UUID
+
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 import scala.util.{ Failure, Success, Try }
+
 import org.apache.thrift.protocol._
+
 import zio.schema._
 import zio.schema.codec.ThriftCodec.Thrift.{
   bigDecimalStructure,
@@ -17,8 +22,6 @@ import zio.schema.codec.ThriftCodec.Thrift.{
 }
 import zio.stream.ZPipeline
 import zio.{ Chunk, ChunkBuilder, ZIO }
-
-import java.math.{ BigInteger, MathContext }
 
 object ThriftCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] = {

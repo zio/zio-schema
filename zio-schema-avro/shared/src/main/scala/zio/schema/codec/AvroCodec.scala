@@ -3,11 +3,14 @@ package zio.schema.codec
 import java.nio.charset.StandardCharsets
 import java.time.format.DateTimeFormatter
 import java.time.{ Duration, Month, MonthDay, Period, Year, YearMonth }
+
 import scala.annotation.StaticAnnotation
 import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters._
 import scala.util.{ Right, Try }
+
 import org.apache.avro.{ LogicalTypes, Schema => SchemaAvro }
+
 import zio.Chunk
 import zio.schema.CaseSet.Aux
 import zio.schema.Schema.{ Record, _ }

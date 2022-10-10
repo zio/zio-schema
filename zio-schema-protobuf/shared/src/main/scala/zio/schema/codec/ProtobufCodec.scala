@@ -1,18 +1,19 @@
 package zio.schema.codec
 
+import java.math.{ BigInteger, MathContext }
 import java.nio.charset.StandardCharsets
 import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
 import java.util.UUID
+
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
+
 import zio.schema._
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZPipeline
 import zio.{ Chunk, ZIO }
-
-import java.math.{ BigInteger, MathContext }
 
 object ProtobufCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] =

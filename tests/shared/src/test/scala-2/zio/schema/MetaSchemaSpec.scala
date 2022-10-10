@@ -1,12 +1,12 @@
 package zio.schema
 
+import scala.collection.immutable.ListMap
+
 import zio._
 import zio.schema.CaseSet._
 import zio.schema.SchemaAssertions._
 import zio.schema.meta.{ MetaSchema, NodePath }
 import zio.test._
-
-import scala.collection.immutable.ListMap
 
 object MetaSchemaSpec extends ZIOSpecDefault {
 
