@@ -259,7 +259,12 @@ object AvroCodec extends AvroCodec {
       get = _.getSeconds,
       set = (a, b: Long) => a.plusSeconds(b)
     ),
-    Schema.Field("nanos", Schema.Primitive(StandardType.IntType), get = _.getNano, set = (a, b: Int) => a.plusNanos(b))
+    Schema.Field(
+      "nanos",
+      Schema.Primitive(StandardType.IntType),
+      get = _.getNano,
+      set = (a, b: Int) => a.plusNanos(b.toLong)
+    )
   )
 
   private def toAvroSchema(schema: Schema[_]): scala.util.Either[String, SchemaAvro] = {

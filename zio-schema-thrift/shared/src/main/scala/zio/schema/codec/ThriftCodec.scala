@@ -127,7 +127,12 @@ object ThriftCodec extends Codec {
           set = (a, b: Long) => a.plusSeconds(b)
         ),
         Schema
-          .Field("nanos", Schema.Primitive(StandardType.IntType), get = _.getNano, set = (a, b: Int) => a.plusNanos(b))
+          .Field(
+            "nanos",
+            Schema.Primitive(StandardType.IntType),
+            get = _.getNano,
+            set = (a, b: Int) => a.plusNanos(b.toLong)
+          )
       )
   }
 
@@ -414,9 +419,9 @@ object ThriftCodec extends Codec {
     private def encodeTuple[A, B](fieldNumber: Option[Short], left: Schema[A], right: Schema[B], tuple: (A, B)): Unit =
       encodeRecord(fieldNumber, tupleSchema(left, right), ListMap[String, Any]("first" -> tuple._1, "second" -> tuple._2))
 
-    private def writeStructure[Z](fields: Seq[(Schema.Field[_, _], Any)]): Unit = {
+    private def writeStructure(fields: Seq[(Schema.Field[_, _], Any)]): Unit = {
       fields.zipWithIndex.foreach {
-        case ((fieldSchema: Schema.Field[Z, Any], value), fieldNumber) =>
+        case ((fieldSchema: Schema.Field[_, Any], value), fieldNumber) =>
           encodeValue(Some((fieldNumber + 1).shortValue), fieldSchema.schema, value)
       }
       p.writeFieldStop()

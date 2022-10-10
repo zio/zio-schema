@@ -112,7 +112,12 @@ object ProtobufCodec extends Codec {
           set = (a, b: Long) => a.plusSeconds(b)
         ),
         Schema
-          .Field("nanos", Schema.Primitive(StandardType.IntType), get = _.getNano, set = (a, b: Int) => a.plusNanos(b))
+          .Field(
+            "nanos",
+            Schema.Primitive(StandardType.IntType),
+            get = _.getNano,
+            set = (a, b: Int) => a.plusNanos(b.toLong)
+          )
       )
 
     /**
@@ -923,7 +928,7 @@ object ProtobufCodec extends Codec {
       {
         val encoded = Chunk
           .fromIterable(fields.zipWithIndex.map {
-            case ((Schema.Field(_, schema, _, _, get, set)), fieldNumber) =>
+            case ((Schema.Field(_, schema, _, _, get, _)), fieldNumber) =>
               Encoder.encode(Some(fieldNumber + 1), schema.asInstanceOf[Schema[Any]], get(value))
           })
           .flatten
