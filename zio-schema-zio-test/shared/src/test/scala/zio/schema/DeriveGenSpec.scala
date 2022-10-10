@@ -11,7 +11,7 @@ object DeriveGenSpec extends ZIOSpecDefault {
       for {
         unit           <- generateValue(DeriveGen.gen(unitSchema))
         string         <- generateValue(DeriveGen.gen(stringSchema))
-        boolean        <- generateValue((DeriveGen.gen(booleanSchema)))
+        boolean        <- generateValue(DeriveGen.gen(booleanSchema))
         short          <- generateValue(DeriveGen.gen(shortSchema))
         int            <- generateValue(DeriveGen.gen(intSchema))
         long           <- generateValue(DeriveGen.gen(longSchema))
