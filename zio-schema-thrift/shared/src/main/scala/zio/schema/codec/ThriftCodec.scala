@@ -391,7 +391,7 @@ object ThriftCodec extends Codec {
         case (Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) =>
           encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case (Schema.EnumN(_, cs, _), v) => encodeEnum(fieldNumber, v, cs.toSeq: _*)
-        case (Schema.Dynamic(_), v)      => encodeDynamic(fieldNumber, v.asInstanceOf[DynamicValue])
+        case (Schema.Dynamic(_), v)      => encodeDynamic(fieldNumber, v)
         case (_, _)                      => ()
       }
 

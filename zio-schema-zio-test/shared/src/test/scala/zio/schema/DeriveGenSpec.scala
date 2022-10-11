@@ -1,6 +1,6 @@
 package zio.schema
 
-import zio.ZIO
+import zio.{ Trace, ZIO }
 import zio.schema.TestData._
 import zio.test.Assertion._
 import zio.test._
@@ -19,7 +19,7 @@ object DeriveGenSpec extends ZIOSpecDefault {
         double         <- generateValue(DeriveGen.gen(doubleSchema))
         binary         <- generateValue(DeriveGen.gen(binarySchema))
         char           <- generateValue(DeriveGen.gen(charSchema))
-        bigDecemal     <- generateValue(DeriveGen.gen(bigDecimalSchema))
+        bigDecimal     <- generateValue(DeriveGen.gen(bigDecimalSchema))
         bigInteger     <- generateValue(DeriveGen.gen(bigIntegerSchema))
         month          <- generateValue(DeriveGen.gen(monthSchema))
         monthDay       <- generateValue(DeriveGen.gen(monthDaySchema))
@@ -38,7 +38,7 @@ object DeriveGenSpec extends ZIOSpecDefault {
         zonedDateTime  <- generateValue(DeriveGen.gen(zonedDateTimeSchema))
         uuid           <- generateValue(DeriveGen.gen(uuidSchema))
       } yield unit && string && boolean && short && int && long && float && double &&
-        binary && char && bigDecemal && bigInteger && month && monthDay && period && dayOfWeek &&
+        binary && char && bigDecimal && bigInteger && month && monthDay && period && dayOfWeek &&
         year && yearMonth && zoneId && zoneOffset && instant && localDate && localTime && localDateTime &&
         offsetTime && offsetDateTime && zonedDateTime && uuid
     },
