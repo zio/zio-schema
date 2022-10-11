@@ -146,6 +146,8 @@ sealed trait Schema[A] {
   ): Schema[B] =
     Schema.Transform[A, B, SourceLocation](self, f, g, annotations, loc)
 
+  def validate(value: A)(implicit schema: Schema[A]): Chunk[ValidationError] = Schema.validate[A](value)
+
   /**
    * Returns a new schema that combines this schema and the specified schema together, modeling
    * their tuple composition.
@@ -176,6 +178,64 @@ object Schema extends SchemaEquality {
     schema.transform[A](_._2, a => ((), a))
 
   def singleton[A](instance: A): Schema[A] = Schema[Unit].transform(_ => instance, _ => ())
+
+  def validate[A](value: A)(implicit schema: Schema[A]): Chunk[ValidationError] = {
+    def loop[A](value: A, schema: Schema[A]): Chunk[ValidationError] =
+      schema match {
+        case Sequence(schema, _, toChunk, _, _) =>
+          toChunk(value).flatMap(value => loop(value, schema))
+        case Transform(schema, _, g, _, _) =>
+          g(value) match {
+            case Right(value) => loop(value, schema)
+            case Left(error)  => Chunk(ValidationError.Generic(error))
+          }
+        case Primitive(_, _) => Chunk.empty
+        case optional @ Optional(schema, _) =>
+          value.asInstanceOf[Option[optional.OptionalType]] match {
+            case Some(value) => loop(value, schema)
+            case None        => Chunk.empty
+          }
+        case tuple @ Tuple(left, right, _) =>
+          loop(tuple.extract1(value), left) ++ loop(tuple.extract2(value), right)
+        case l @ Lazy(_) =>
+          loop(value, l.schema)
+        case Meta(ast, _) =>
+          loop(value, ast.toSchema.asInstanceOf[Schema[Any]])
+        case MapSchema(ks, vs, _) =>
+          Chunk.fromIterable(value.keys).flatMap(loop(_, ks)) ++ Chunk.fromIterable(value.values).flatMap(loop(_, vs))
+        case set @ SetSchema(as, _) =>
+          Chunk.fromIterable(value.asInstanceOf[Set[set.ElementType]]).flatMap(loop(_, as))
+        case enumeration: Enum[_]       =>
+          enumeration.caseOf(value) match {
+            case Some(c) =>
+              loop(c.unsafeDeconstruct(value), c.codec.asInstanceOf[Schema[Any]])
+            case None =>
+              Chunk.empty // TODO could consider this a fatal error
+          }
+        case record: Record[_] =>
+          val fieldValues = record.rawDeconstruct(value)
+          record.structure
+            .zip(fieldValues)
+            .foldLeft[Chunk[ValidationError]](Chunk.empty) {
+              case (acc, (field, fieldValue)) =>
+                val validation = field.validation.asInstanceOf[Validation[Any]]
+                validation.validate(fieldValue).swap.getOrElse(Chunk.empty) ++ acc ++ loop(
+                  fieldValue,
+                  field.schema.asInstanceOf[Schema[Any]]
+                )
+            }
+            .reverse
+        case either @ EitherSchema(left, right, _) =>
+          value.asInstanceOf[Either[either.LeftType, either.RightType]] match {
+            case Left(value)  => loop(value, left)
+            case Right(value) => loop(value, right)
+          }
+        case Dynamic(_) => Chunk.empty[ValidationError]
+        case Fail(_, _) => Chunk.empty[ValidationError]
+        case SemiDynamic(_, _) => Chunk.empty[ValidationError]
+      }
+    loop(value, schema)
+  }
 
   implicit val bigDecimal: Schema[BigDecimal] = primitive[java.math.BigDecimal].transform(BigDecimal(_), _.bigDecimal)
 
@@ -279,7 +339,6 @@ object Schema extends SchemaEquality {
       casesMap.get(id)
 
     def caseOf(z: Z): Option[Case[Z, _]] = cases.find(_.isCase(z))
-
   }
 
   final case class Field[R, A](
@@ -382,6 +441,7 @@ object Schema extends SchemaEquality {
 
   final case class Optional[A](schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) extends Schema[Option[A]] {
     self =>
+    type OptionalType = A
 
     val some = "Some"
     val none = "None"
@@ -459,11 +519,15 @@ object Schema extends SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): (b.Lens[first.type, (A, B), A], b.Lens[second.type, (A, B), B]) =
       b.makeLens(toRecord, toRecord.field1) -> b.makeLens(toRecord, toRecord.field2)
 
+    def extract1(value: (A, B)): A = value._1
+    def extract2(value: (A, B)): B = value._2
   }
 
   final case class Either[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
       extends Schema[scala.util.Either[A, B]] {
     self =>
+    type LeftType = A
+    type RightType = B
 
     val leftSingleton  = "Left"
     val rightSingleton = "Right"
@@ -560,6 +624,8 @@ object Schema extends SchemaEquality {
   final case class Set[A](elementSchema: Schema[A], override val annotations: Chunk[Any] = Chunk.empty)
       extends Collection[scala.collection.immutable.Set[A], A] {
     self =>
+    type ElementType = A
+
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       Traversal[scala.collection.immutable.Set[A], A]
 
@@ -2515,6 +2581,9 @@ object Schema extends SchemaEquality {
 
     override def makeAccessors(b: AccessorBuilder): caseSet.Accessors[Z, b.Lens, b.Prism, b.Traversal] =
       caseSet.makeAccessors(self, b)
+  
+    override def caseOf(z: Z): Option[Case[_, Z]] = // TODO CHECK
+      caseSet.toSeq.find(c => c.deconstruct(z).nonEmpty)
   }
 
   implicit def tuple2[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
@@ -3195,6 +3264,9 @@ object Schema extends SchemaEquality {
     override def deconstruct(values: ListMap[String, _])(implicit unsafe: Unsafe): Chunk[Any] =
       Chunk.fromIterable(fields.map(f => values(f.name)))
 
+    override def rawDeconstruct(r: ListMap[String, _]): Chunk[Any] =
+      Chunk.fromIterable(r.values)
+
     /**
      * Returns a new schema that with `annotation`
      */
@@ -3256,7 +3328,6 @@ object Schema extends SchemaEquality {
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(field.get(value))
     override def toString: String                                           = s"CaseClass1(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass2[A1, A2, Z](
@@ -3291,7 +3362,6 @@ object Schema extends SchemaEquality {
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
       Chunk(field1.get(value), field2.get(value))
     override def toString: String = s"CaseClass2(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass3[A1, A2, A3, Z](
@@ -3327,7 +3397,6 @@ object Schema extends SchemaEquality {
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
       Chunk(field1.get(value), field2.get(value), field3.get(value))
     override def toString: String = s"CaseClass3(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass4[A1, A2, A3, A4, Z](
@@ -3379,7 +3448,6 @@ object Schema extends SchemaEquality {
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
       Chunk(field1.get(value), field2.get(value), field3.get(value), field4.get(value))
     override def toString: String = s"CaseClass4(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass5[A1, A2, A3, A4, A5, Z](
@@ -3446,7 +3514,6 @@ object Schema extends SchemaEquality {
       field5.get(value)
     )
     override def toString: String = s"CaseClass5(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass6[A1, A2, A3, A4, A5, A6, Z](
@@ -3520,7 +3587,6 @@ object Schema extends SchemaEquality {
     )
 
     override def toString: String = s"CaseClass6(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z](
@@ -3685,7 +3751,6 @@ object Schema extends SchemaEquality {
     )
 
     override def toString: String = s"CaseClass8(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
@@ -3776,7 +3841,6 @@ object Schema extends SchemaEquality {
       field9.get(value)
     )
     override def toString: String = s"CaseClass9(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
@@ -3874,7 +3938,6 @@ object Schema extends SchemaEquality {
       field10.get(value)
     )
     override def toString: String = s"CaseClass10(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
@@ -3982,7 +4045,6 @@ object Schema extends SchemaEquality {
     )
 
     override def toString: String = s"CaseClass11(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
@@ -4093,7 +4155,6 @@ object Schema extends SchemaEquality {
       field12.get(value)
     )
     override def toString: String = s"CaseClass12(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
@@ -4210,7 +4271,6 @@ object Schema extends SchemaEquality {
     )
 
     override def toString: String = s"CaseClass13(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
@@ -4349,7 +4409,6 @@ object Schema extends SchemaEquality {
       field14.get(value)
     )
     override def toString: String = s"CaseClass14(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
@@ -4495,7 +4554,6 @@ object Schema extends SchemaEquality {
       field15.get(value)
     )
     override def toString: String = s"CaseClass15(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
@@ -4648,7 +4706,6 @@ object Schema extends SchemaEquality {
       field16.get(value)
     )
     override def toString: String = s"CaseClass16(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
@@ -4808,7 +4865,6 @@ object Schema extends SchemaEquality {
       field17.get(value)
     )
     override def toString: String = s"CaseClass17(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
@@ -4975,7 +5031,6 @@ object Schema extends SchemaEquality {
       field18.get(value)
     )
     override def toString: String = s"CaseClass18(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
@@ -5149,7 +5204,6 @@ object Schema extends SchemaEquality {
       field19.get(value)
     )
     override def toString: String = s"CaseClass19(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass20[
@@ -5353,7 +5407,6 @@ object Schema extends SchemaEquality {
     )
 
     override def toString: String = s"CaseClass20(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass21[
@@ -5565,7 +5618,6 @@ object Schema extends SchemaEquality {
     )
 
     override def toString: String = s"CaseClass21(${fields.mkString(",")})"
-
   }
 
   sealed case class CaseClass22[
@@ -5829,6 +5881,5 @@ object Schema extends SchemaEquality {
     )
 
     override def toString: String = s"CaseClass22(${fields.mkString(",")})"
-
   }
 }

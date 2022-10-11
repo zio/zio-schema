@@ -1,12 +1,14 @@
 package zio.schema.validation
 
+import zio.Chunk
+
 final case class Validation[A](bool: Bool[Predicate[A]]) { self =>
   def &&(that: Validation[A]): Validation[A] = Validation(self.bool && that.bool)
   def ||(that: Validation[A]): Validation[A] = Validation(self.bool || that.bool)
   def unary_! : Validation[A]                = Validation(!self.bool)
 
-  def validate(value: A): Either[List[ValidationError], Unit] = {
-    type Errors = List[ValidationError]
+  def validate(value: A): Either[Chunk[ValidationError], Unit] = {
+    type Errors = Chunk[ValidationError]
     type Result = Either[Errors, Errors]
     def combineAnd(left: Result, right: Result): Result =
       (left, right) match {
