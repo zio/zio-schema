@@ -146,6 +146,8 @@ sealed trait Schema[A] {
   ): Schema[B] =
     Schema.Transform[A, B, SourceLocation](self, f, g, annotations, loc)
 
+  def validate(value: A)(implicit schema: Schema[A]): Chunk[ValidationError] = Schema.validate[A](value)
+
   /**
    * Returns a new schema that combines this schema and the specified schema together, modeling
    * their tuple composition.
@@ -173,6 +175,64 @@ object Schema extends SchemaEquality {
     schema.transform[A](_._2, a => ((), a))
 
   def singleton[A](instance: A): Schema[A] = Schema[Unit].transform(_ => instance, _ => ())
+
+  def validate[A](value: A)(implicit schema: Schema[A]): Chunk[ValidationError] = {
+    def loop[A](value: A, schema: Schema[A]): Chunk[ValidationError] =
+      schema match {
+        case Sequence(schema, _, toChunk, _, _) =>
+          toChunk(value).flatMap(value => loop(value, schema))
+        case Transform(schema, _, g, _, _) =>
+          g(value) match {
+            case Right(value) => loop(value, schema)
+            case Left(error)  => Chunk(ValidationError.Generic(error))
+          }
+        case Primitive(_, _) => Chunk.empty
+        case optional @ Optional(schema, _) =>
+          value.asInstanceOf[Option[optional.OptionalType]] match {
+            case Some(value) => loop(value, schema)
+            case None        => Chunk.empty
+          }
+        case tuple @ Tuple(left, right, _) =>
+          loop(tuple.extract1(value), left) ++ loop(tuple.extract2(value), right)
+        case l @ Lazy(_) =>
+          loop(value, l.schema)
+        case Meta(ast, _) =>
+          loop(value, ast.toSchema.asInstanceOf[Schema[Any]])
+        case MapSchema(ks, vs, _) =>
+          Chunk.fromIterable(value.keys).flatMap(loop(_, ks)) ++ Chunk.fromIterable(value.values).flatMap(loop(_, vs))
+        case set @ SetSchema(as, _) =>
+          Chunk.fromIterable(value.asInstanceOf[Set[set.ElementType]]).flatMap(loop(_, as))
+        case enumeration: Enum[_]       =>
+          enumeration.caseOf(value) match {
+            case Some(c) =>
+              loop(c.unsafeDeconstruct(value), c.codec.asInstanceOf[Schema[Any]])
+            case None =>
+              Chunk.empty // TODO could consider this a fatal error
+          }
+        case record: Record[_] =>
+          val fieldValues = record.rawDeconstruct(value)
+          record.structure
+            .zip(fieldValues)
+            .foldLeft[Chunk[ValidationError]](Chunk.empty) {
+              case (acc, (field, fieldValue)) =>
+                val validation = field.validation.asInstanceOf[Validation[Any]]
+                validation.validate(fieldValue).swap.getOrElse(Chunk.empty) ++ acc ++ loop(
+                  fieldValue,
+                  field.schema.asInstanceOf[Schema[Any]]
+                )
+            }
+            .reverse
+        case either @ EitherSchema(left, right, _) =>
+          value.asInstanceOf[Either[either.LeftType, either.RightType]] match {
+            case Left(value)  => loop(value, left)
+            case Right(value) => loop(value, right)
+          }
+        case Dynamic(_) => Chunk.empty[ValidationError]
+        case Fail(_, _) => Chunk.empty[ValidationError]
+        case SemiDynamic(_, _) => Chunk.empty[ValidationError]
+      }
+    loop(value, schema)
+  }
 
   implicit val bigDecimal: Schema[BigDecimal] = primitive[java.math.BigDecimal].transform(BigDecimal(_), _.bigDecimal)
 
@@ -268,6 +328,8 @@ object Schema extends SchemaEquality {
       ListMap(structureWithAnnotations.map(kv => (kv._1, kv._2._1)).toList: _*)
 
     def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])]
+
+    def caseOf(a: A): Option[Case[_, A]]
   }
 
   final case class Field[A](
@@ -283,7 +345,12 @@ object Schema extends SchemaEquality {
     self =>
     def structure: Chunk[Field[_]]
 
+<<<<<<< Updated upstream
     def rawConstruct(values: Chunk[Any]): scala.util.Either[String, R]
+=======
+    def rawConstruct(values: Chunk[Any]): Either[String, R]
+    def rawDeconstruct(r: R): Chunk[Any]
+>>>>>>> Stashed changes
 
     def id: TypeId
 
@@ -362,6 +429,7 @@ object Schema extends SchemaEquality {
 
   final case class Optional[A](schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) extends Schema[Option[A]] {
     self =>
+    type OptionalType = A
 
     val some = "Some"
     val none = "None"
@@ -427,11 +495,15 @@ object Schema extends SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): (b.Lens[first.type, (A, B), A], b.Lens[second.type, (A, B), B]) =
       b.makeLens(toRecord, toRecord.field1) -> b.makeLens(toRecord, toRecord.field2)
 
+    def extract1(value: (A, B)): A = value._1
+    def extract2(value: (A, B)): B = value._2
   }
 
   final case class Either[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
       extends Schema[scala.util.Either[A, B]] {
     self =>
+    type LeftType = A
+    type RightType = B
 
     val leftSingleton  = "Left"
     val rightSingleton = "Right"
@@ -514,8 +586,13 @@ object Schema extends SchemaEquality {
   final case class Set[A](elementSchema: Schema[A], override val annotations: Chunk[Any] = Chunk.empty)
       extends Collection[scala.collection.immutable.Set[A], A] {
     self =>
+<<<<<<< Updated upstream
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       Traversal[scala.collection.immutable.Set[A], A]
+=======
+    type ElementType = A
+    override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Traversal[Set[A], A]
+>>>>>>> Stashed changes
 
     override def annotate(annotation: Any): Set[A] =
       copy(annotations = annotations :+ annotation)
@@ -576,7 +653,14 @@ object Schema extends SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): b.Prism[case1.id.type, Z, A] = b.makePrism(self, case1)
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+<<<<<<< Updated upstream
       ListMap(case1.id -> (case1.schema -> case1.annotations))
+=======
+      ListMap(case1.id -> (case1.codec -> case1.annotations))
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+>>>>>>> Stashed changes
   }
 
   sealed case class Enum2[A1 <: Z, A2 <: Z, Z](
@@ -597,7 +681,15 @@ object Schema extends SchemaEquality {
       (b.makePrism(self, case1), b.makePrism(self, case2))
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
+<<<<<<< Updated upstream
       ListMap(case1.id -> (case1.schema -> case1.annotations), case2.id -> (case2.schema -> case2.annotations))
+=======
+      ListMap(case1.id -> (case1.codec -> case1.annotations), case2.id -> (case2.codec -> case2.annotations))
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+>>>>>>> Stashed changes
   }
 
   sealed case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](
@@ -626,6 +718,11 @@ object Schema extends SchemaEquality {
         case2.id -> (case2.schema -> case2.annotations),
         case3.id -> (case3.schema -> case3.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
   }
 
   sealed case class Enum4[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, Z](
@@ -664,6 +761,12 @@ object Schema extends SchemaEquality {
         case3.id -> (case3.schema -> case3.annotations),
         case4.id -> (case4.schema -> case4.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
   }
 
   sealed case class Enum5[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, Z](
@@ -714,6 +817,13 @@ object Schema extends SchemaEquality {
         case4.id -> (case4.schema -> case4.annotations),
         case5.id -> (case5.schema -> case5.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
   }
 
   sealed case class Enum6[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, Z](
@@ -770,6 +880,14 @@ object Schema extends SchemaEquality {
         case5.id -> (case5.schema -> case5.annotations),
         case6.id -> (case6.schema -> case6.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
   }
 
   sealed case class Enum7[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, Z](
@@ -829,6 +947,15 @@ object Schema extends SchemaEquality {
         case6.id -> (case6.schema -> case6.annotations),
         case7.id -> (case7.schema -> case7.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
+        .orElse(case7.deconstruct(z).map(_ => case7))
   }
 
   sealed case class Enum8[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, Z](
@@ -893,6 +1020,16 @@ object Schema extends SchemaEquality {
         case7.id -> (case7.schema -> case7.annotations),
         case8.id -> (case8.schema -> case8.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
+        .orElse(case7.deconstruct(z).map(_ => case7))
+        .orElse(case8.deconstruct(z).map(_ => case8))
   }
 
   sealed case class Enum9[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, Z](
@@ -961,6 +1098,17 @@ object Schema extends SchemaEquality {
         case8.id -> (case8.schema -> case8.annotations),
         case9.id -> (case9.schema -> case9.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
+        .orElse(case7.deconstruct(z).map(_ => case7))
+        .orElse(case8.deconstruct(z).map(_ => case8))
+        .orElse(case9.deconstruct(z).map(_ => case9))
   }
 
   sealed case class Enum10[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, Z](
@@ -1034,6 +1182,18 @@ object Schema extends SchemaEquality {
         case9.id  -> (case9.schema  -> case9.annotations),
         case10.id -> (case10.schema -> case10.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
+        .orElse(case7.deconstruct(z).map(_ => case7))
+        .orElse(case8.deconstruct(z).map(_ => case8))
+        .orElse(case9.deconstruct(z).map(_ => case9))
+        .orElse(case10.deconstruct(z).map(_ => case10))
   }
 
   sealed case class Enum11[
@@ -1125,6 +1285,19 @@ object Schema extends SchemaEquality {
         case10.id -> (case10.schema -> case10.annotations),
         case11.id -> (case11.schema -> case11.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
+        .orElse(case7.deconstruct(z).map(_ => case7))
+        .orElse(case8.deconstruct(z).map(_ => case8))
+        .orElse(case9.deconstruct(z).map(_ => case9))
+        .orElse(case10.deconstruct(z).map(_ => case10))
+        .orElse(case11.deconstruct(z).map(_ => case11))
   }
 
   sealed case class Enum12[
@@ -1222,6 +1395,20 @@ object Schema extends SchemaEquality {
         case11.id -> (case11.schema -> case11.annotations),
         case12.id -> (case12.schema -> case12.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
+        .orElse(case7.deconstruct(z).map(_ => case7))
+        .orElse(case8.deconstruct(z).map(_ => case8))
+        .orElse(case9.deconstruct(z).map(_ => case9))
+        .orElse(case10.deconstruct(z).map(_ => case10))
+        .orElse(case11.deconstruct(z).map(_ => case11))
+        .orElse(case12.deconstruct(z).map(_ => case12))
   }
 
   sealed case class Enum13[
@@ -1325,6 +1512,21 @@ object Schema extends SchemaEquality {
         case12.id -> (case12.schema -> case12.annotations),
         case13.id -> (case13.schema -> case13.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
+        .orElse(case7.deconstruct(z).map(_ => case7))
+        .orElse(case8.deconstruct(z).map(_ => case8))
+        .orElse(case9.deconstruct(z).map(_ => case9))
+        .orElse(case10.deconstruct(z).map(_ => case10))
+        .orElse(case11.deconstruct(z).map(_ => case11))
+        .orElse(case12.deconstruct(z).map(_ => case12))
+        .orElse(case13.deconstruct(z).map(_ => case13))
   }
 
   sealed case class Enum14[
@@ -1434,6 +1636,22 @@ object Schema extends SchemaEquality {
         case13.id -> (case13.schema -> case13.annotations),
         case14.id -> (case14.schema -> case14.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
+        .orElse(case7.deconstruct(z).map(_ => case7))
+        .orElse(case8.deconstruct(z).map(_ => case8))
+        .orElse(case9.deconstruct(z).map(_ => case9))
+        .orElse(case10.deconstruct(z).map(_ => case10))
+        .orElse(case11.deconstruct(z).map(_ => case11))
+        .orElse(case12.deconstruct(z).map(_ => case12))
+        .orElse(case13.deconstruct(z).map(_ => case13))
+        .orElse(case14.deconstruct(z).map(_ => case14))
   }
 
   sealed case class Enum15[
@@ -1551,6 +1769,23 @@ object Schema extends SchemaEquality {
         case14.id -> (case14.schema -> case14.annotations),
         case15.id -> (case15.schema -> case15.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
+        .orElse(case7.deconstruct(z).map(_ => case7))
+        .orElse(case8.deconstruct(z).map(_ => case8))
+        .orElse(case9.deconstruct(z).map(_ => case9))
+        .orElse(case10.deconstruct(z).map(_ => case10))
+        .orElse(case11.deconstruct(z).map(_ => case11))
+        .orElse(case12.deconstruct(z).map(_ => case12))
+        .orElse(case13.deconstruct(z).map(_ => case13))
+        .orElse(case14.deconstruct(z).map(_ => case14))
+        .orElse(case15.deconstruct(z).map(_ => case15))
   }
 
   sealed case class Enum16[
@@ -1674,6 +1909,24 @@ object Schema extends SchemaEquality {
         case15.id -> (case15.schema -> case15.annotations),
         case16.id -> (case16.schema -> case16.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
+        .orElse(case7.deconstruct(z).map(_ => case7))
+        .orElse(case8.deconstruct(z).map(_ => case8))
+        .orElse(case9.deconstruct(z).map(_ => case9))
+        .orElse(case10.deconstruct(z).map(_ => case10))
+        .orElse(case11.deconstruct(z).map(_ => case11))
+        .orElse(case12.deconstruct(z).map(_ => case12))
+        .orElse(case13.deconstruct(z).map(_ => case13))
+        .orElse(case14.deconstruct(z).map(_ => case14))
+        .orElse(case15.deconstruct(z).map(_ => case15))
+        .orElse(case16.deconstruct(z).map(_ => case16))
   }
 
   sealed case class Enum17[
@@ -1803,6 +2056,25 @@ object Schema extends SchemaEquality {
         case16.id -> (case16.schema -> case16.annotations),
         case17.id -> (case17.schema -> case17.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
+        .orElse(case7.deconstruct(z).map(_ => case7))
+        .orElse(case8.deconstruct(z).map(_ => case8))
+        .orElse(case9.deconstruct(z).map(_ => case9))
+        .orElse(case10.deconstruct(z).map(_ => case10))
+        .orElse(case11.deconstruct(z).map(_ => case11))
+        .orElse(case12.deconstruct(z).map(_ => case12))
+        .orElse(case13.deconstruct(z).map(_ => case13))
+        .orElse(case14.deconstruct(z).map(_ => case14))
+        .orElse(case15.deconstruct(z).map(_ => case15))
+        .orElse(case16.deconstruct(z).map(_ => case16))
+        .orElse(case17.deconstruct(z).map(_ => case17))
   }
 
   sealed case class Enum18[
@@ -1938,6 +2210,26 @@ object Schema extends SchemaEquality {
         case17.id -> (case17.schema -> case17.annotations),
         case18.id -> (case18.schema -> case18.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
+        .orElse(case7.deconstruct(z).map(_ => case7))
+        .orElse(case8.deconstruct(z).map(_ => case8))
+        .orElse(case9.deconstruct(z).map(_ => case9))
+        .orElse(case10.deconstruct(z).map(_ => case10))
+        .orElse(case11.deconstruct(z).map(_ => case11))
+        .orElse(case12.deconstruct(z).map(_ => case12))
+        .orElse(case13.deconstruct(z).map(_ => case13))
+        .orElse(case14.deconstruct(z).map(_ => case14))
+        .orElse(case15.deconstruct(z).map(_ => case15))
+        .orElse(case16.deconstruct(z).map(_ => case16))
+        .orElse(case17.deconstruct(z).map(_ => case17))
+        .orElse(case18.deconstruct(z).map(_ => case18))
   }
 
   sealed case class Enum19[
@@ -2079,6 +2371,27 @@ object Schema extends SchemaEquality {
         case18.id -> (case18.schema -> case18.annotations),
         case19.id -> (case19.schema -> case19.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
+        .orElse(case7.deconstruct(z).map(_ => case7))
+        .orElse(case8.deconstruct(z).map(_ => case8))
+        .orElse(case9.deconstruct(z).map(_ => case9))
+        .orElse(case10.deconstruct(z).map(_ => case10))
+        .orElse(case11.deconstruct(z).map(_ => case11))
+        .orElse(case12.deconstruct(z).map(_ => case12))
+        .orElse(case13.deconstruct(z).map(_ => case13))
+        .orElse(case14.deconstruct(z).map(_ => case14))
+        .orElse(case15.deconstruct(z).map(_ => case15))
+        .orElse(case16.deconstruct(z).map(_ => case16))
+        .orElse(case17.deconstruct(z).map(_ => case17))
+        .orElse(case18.deconstruct(z).map(_ => case18))
+        .orElse(case19.deconstruct(z).map(_ => case19))
   }
 
   sealed case class Enum20[
@@ -2226,6 +2539,28 @@ object Schema extends SchemaEquality {
         case19.id -> (case19.schema -> case19.annotations),
         case20.id -> (case20.schema -> case20.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
+        .orElse(case7.deconstruct(z).map(_ => case7))
+        .orElse(case8.deconstruct(z).map(_ => case8))
+        .orElse(case9.deconstruct(z).map(_ => case9))
+        .orElse(case10.deconstruct(z).map(_ => case10))
+        .orElse(case11.deconstruct(z).map(_ => case11))
+        .orElse(case12.deconstruct(z).map(_ => case12))
+        .orElse(case13.deconstruct(z).map(_ => case13))
+        .orElse(case14.deconstruct(z).map(_ => case14))
+        .orElse(case15.deconstruct(z).map(_ => case15))
+        .orElse(case16.deconstruct(z).map(_ => case16))
+        .orElse(case17.deconstruct(z).map(_ => case17))
+        .orElse(case18.deconstruct(z).map(_ => case18))
+        .orElse(case19.deconstruct(z).map(_ => case19))
+        .orElse(case20.deconstruct(z).map(_ => case20))
   }
 
   sealed case class Enum21[
@@ -2381,6 +2716,29 @@ object Schema extends SchemaEquality {
         case20.id -> (case20.schema -> case20.annotations),
         case21.id -> (case21.schema -> case21.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
+        .orElse(case7.deconstruct(z).map(_ => case7))
+        .orElse(case8.deconstruct(z).map(_ => case8))
+        .orElse(case9.deconstruct(z).map(_ => case9))
+        .orElse(case10.deconstruct(z).map(_ => case10))
+        .orElse(case11.deconstruct(z).map(_ => case11))
+        .orElse(case12.deconstruct(z).map(_ => case12))
+        .orElse(case13.deconstruct(z).map(_ => case13))
+        .orElse(case14.deconstruct(z).map(_ => case14))
+        .orElse(case15.deconstruct(z).map(_ => case15))
+        .orElse(case16.deconstruct(z).map(_ => case16))
+        .orElse(case17.deconstruct(z).map(_ => case17))
+        .orElse(case18.deconstruct(z).map(_ => case18))
+        .orElse(case19.deconstruct(z).map(_ => case19))
+        .orElse(case20.deconstruct(z).map(_ => case20))
+        .orElse(case21.deconstruct(z).map(_ => case21))
   }
 
   sealed case class Enum22[
@@ -2542,6 +2900,30 @@ object Schema extends SchemaEquality {
         case21.id -> (case21.schema -> case21.annotations),
         case22.id -> (case22.schema -> case22.annotations)
       )
+
+    override def caseOf(z: Z): Option[Case[_, Z]] =
+      case1.deconstruct(z).map(_ => case1)
+        .orElse(case2.deconstruct(z).map(_ => case2))
+        .orElse(case3.deconstruct(z).map(_ => case3))
+        .orElse(case4.deconstruct(z).map(_ => case4))
+        .orElse(case5.deconstruct(z).map(_ => case5))
+        .orElse(case6.deconstruct(z).map(_ => case6))
+        .orElse(case7.deconstruct(z).map(_ => case7))
+        .orElse(case8.deconstruct(z).map(_ => case8))
+        .orElse(case9.deconstruct(z).map(_ => case9))
+        .orElse(case10.deconstruct(z).map(_ => case10))
+        .orElse(case11.deconstruct(z).map(_ => case11))
+        .orElse(case12.deconstruct(z).map(_ => case12))
+        .orElse(case13.deconstruct(z).map(_ => case13))
+        .orElse(case14.deconstruct(z).map(_ => case14))
+        .orElse(case15.deconstruct(z).map(_ => case15))
+        .orElse(case16.deconstruct(z).map(_ => case16))
+        .orElse(case17.deconstruct(z).map(_ => case17))
+        .orElse(case18.deconstruct(z).map(_ => case18))
+        .orElse(case19.deconstruct(z).map(_ => case19))
+        .orElse(case20.deconstruct(z).map(_ => case20))
+        .orElse(case21.deconstruct(z).map(_ => case21))
+        .orElse(case22.deconstruct(z).map(_ => case22))
   }
 
   sealed case class EnumN[Z, C <: CaseSet.Aux[Z]](id: TypeId, caseSet: C, annotations: Chunk[Any] = Chunk.empty)
@@ -2563,6 +2945,9 @@ object Schema extends SchemaEquality {
 
     override def makeAccessors(b: AccessorBuilder): caseSet.Accessors[Z, b.Lens, b.Prism, b.Traversal] =
       caseSet.makeAccessors(self, b)
+  
+    override def caseOf(z: Z): Option[Case[_, Z]] = // TODO CHECK
+      caseSet.toSeq.find(c => c.deconstruct(z).nonEmpty)
   }
 
   implicit def tuple2[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
@@ -3237,6 +3622,9 @@ object Schema extends SchemaEquality {
       else
         Left(s"wrong number of values for $structure")
 
+    override def rawDeconstruct(r: ListMap[String, _]): Chunk[Any] =
+      Chunk.fromIterable(r.values)
+
     /**
      * Returns a new schema that with `annotation`
      */
@@ -3263,6 +3651,9 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk.empty
 
     override def toString: String = s"CaseClass1(${structure.mkString(",")})"
   }
@@ -3291,6 +3682,9 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(extractField(r))
 
     override def toString: String = s"CaseClass1(${structure.mkString(",")})"
   }
@@ -3325,6 +3719,10 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(extractField1(r), extractField2(r))
+
     override def toString: String = s"CaseClass2(${structure.mkString(",")})"
 
   }
@@ -3361,6 +3759,9 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(extractField1(r), extractField2(r), extractField3(r))
 
     override def toString: String = s"CaseClass3(${structure.mkString(",")})"
 
@@ -3415,6 +3816,9 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(extractField1(r), extractField2(r), extractField3(r), extractField4(r))
 
     override def toString: String = s"CaseClass4(${structure.mkString(",")})"
 
@@ -3480,6 +3884,9 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(extractField1(r), extractField2(r), extractField3(r), extractField4(r), extractField5(r))
 
     override def toString: String = s"CaseClass5(${structure.mkString(",")})"
   }
@@ -3550,6 +3957,9 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(extractField1(r), extractField2(r), extractField3(r), extractField4(r), extractField5(r), extractField6(r))
 
     override def toString: String = s"CaseClass6(${structure.mkString(",")})"
 
@@ -3627,6 +4037,17 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(
+        extractField1(r),
+        extractField2(r),
+        extractField3(r),
+        extractField4(r),
+        extractField5(r),
+        extractField6(r),
+        extractField7(r)
+      )
 
     override def toString: String = s"CaseClass7(${structure.mkString(",")})"
 
@@ -3710,6 +4131,18 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(
+        extractField1(r),
+        extractField2(r),
+        extractField3(r),
+        extractField4(r),
+        extractField5(r),
+        extractField6(r),
+        extractField7(r),
+        extractField8(r)
+      )
 
     override def toString: String = s"CaseClass8(${structure.mkString(",")})"
 
@@ -3799,6 +4232,19 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(
+        extractField1(r),
+        extractField2(r),
+        extractField3(r),
+        extractField4(r),
+        extractField5(r),
+        extractField6(r),
+        extractField7(r),
+        extractField8(r),
+        extractField9(r)
+      )
 
     override def toString: String = s"CaseClass9(${structure.mkString(",")})"
 
@@ -3895,6 +4341,21 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(
+        extractField1(r),
+        extractField2(r),
+        extractField3(r),
+        extractField4(r),
+        extractField5(r),
+        extractField6(r),
+        extractField7(r),
+        extractField8(r),
+        extractField9(r),
+        extractField10(r)
+      )
+
     override def toString: String = s"CaseClass10(${structure.mkString(",")})"
 
   }
@@ -3999,6 +4460,22 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(
+        extractField1(r),
+        extractField2(r),
+        extractField3(r),
+        extractField4(r),
+        extractField5(r),
+        extractField6(r),
+        extractField7(r),
+        extractField8(r),
+        extractField9(r),
+        extractField10(r),
+        extractField11(r)
+      )
+
     override def toString: String = s"CaseClass11(${structure.mkString(",")})"
 
   }
@@ -4107,6 +4584,23 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(
+        extractField1(r),
+        extractField2(r),
+        extractField3(r),
+        extractField4(r),
+        extractField5(r),
+        extractField6(r),
+        extractField7(r),
+        extractField8(r),
+        extractField9(r),
+        extractField10(r),
+        extractField11(r),
+        extractField12(r)
+      )
+
     override def toString: String = s"CaseClass12(${structure.mkString(",")})"
 
   }
@@ -4220,6 +4714,24 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(
+        extractField1(r),
+        extractField2(r),
+        extractField3(r),
+        extractField4(r),
+        extractField5(r),
+        extractField6(r),
+        extractField7(r),
+        extractField8(r),
+        extractField9(r),
+        extractField10(r),
+        extractField11(r),
+        extractField12(r),
+        extractField13(r)
+      )
+
     override def toString: String = s"CaseClass13(${structure.mkString(",")})"
 
   }
@@ -4356,6 +4868,24 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(
+        extractField1(r),
+        extractField2(r),
+        extractField3(r),
+        extractField4(r),
+        extractField5(r),
+        extractField6(r),
+        extractField7(r),
+        extractField8(r),
+        extractField9(r),
+        extractField10(r),
+        extractField11(r),
+        extractField12(r),
+        extractField13(r),
+        extractField14(r)
+      )
 
     override def toString: String = s"CaseClass14(${structure.mkString(",")})"
 
@@ -4500,6 +5030,25 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(
+        extractField1(r),
+        extractField2(r),
+        extractField3(r),
+        extractField4(r),
+        extractField5(r),
+        extractField6(r),
+        extractField7(r),
+        extractField8(r),
+        extractField9(r),
+        extractField10(r),
+        extractField11(r),
+        extractField12(r),
+        extractField13(r),
+        extractField14(r),
+        extractField15(r)
+      )
 
     override def toString: String = s"CaseClass15(${structure.mkString(",")})"
 
@@ -4651,6 +5200,26 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(
+        extractField1(r),
+        extractField2(r),
+        extractField3(r),
+        extractField4(r),
+        extractField5(r),
+        extractField6(r),
+        extractField7(r),
+        extractField8(r),
+        extractField9(r),
+        extractField10(r),
+        extractField11(r),
+        extractField12(r),
+        extractField13(r),
+        extractField14(r),
+        extractField15(r),
+        extractField16(r)
+      )
 
     override def toString: String = s"CaseClass16(${structure.mkString(",")})"
 
@@ -4809,6 +5378,27 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(
+        extractField1(r),
+        extractField2(r),
+        extractField3(r),
+        extractField4(r),
+        extractField5(r),
+        extractField6(r),
+        extractField7(r),
+        extractField8(r),
+        extractField9(r),
+        extractField10(r),
+        extractField11(r),
+        extractField12(r),
+        extractField13(r),
+        extractField14(r),
+        extractField15(r),
+        extractField16(r),
+        extractField17(r)
+      )
 
     override def toString: String = s"CaseClass17(${structure.mkString(",")})"
 
@@ -4974,6 +5564,28 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(
+        extractField1(r),
+        extractField2(r),
+        extractField3(r),
+        extractField4(r),
+        extractField5(r),
+        extractField6(r),
+        extractField7(r),
+        extractField8(r),
+        extractField9(r),
+        extractField10(r),
+        extractField11(r),
+        extractField12(r),
+        extractField13(r),
+        extractField14(r),
+        extractField15(r),
+        extractField16(r),
+        extractField17(r),
+        extractField18(r)
+      )
 
     override def toString: String = s"CaseClass18(${structure.mkString(",")})"
 
@@ -5146,6 +5758,29 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(
+        extractField1(r),
+        extractField2(r),
+        extractField3(r),
+        extractField4(r),
+        extractField5(r),
+        extractField6(r),
+        extractField7(r),
+        extractField8(r),
+        extractField9(r),
+        extractField10(r),
+        extractField11(r),
+        extractField12(r),
+        extractField13(r),
+        extractField14(r),
+        extractField15(r),
+        extractField16(r),
+        extractField17(r),
+        extractField18(r),
+        extractField19(r)
+      )
 
     override def toString: String = s"CaseClass19(${structure.mkString(",")})"
 
@@ -5347,6 +5982,30 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(
+        extractField1(r),
+        extractField2(r),
+        extractField3(r),
+        extractField4(r),
+        extractField5(r),
+        extractField6(r),
+        extractField7(r),
+        extractField8(r),
+        extractField9(r),
+        extractField10(r),
+        extractField11(r),
+        extractField12(r),
+        extractField13(r),
+        extractField14(r),
+        extractField15(r),
+        extractField16(r),
+        extractField17(r),
+        extractField18(r),
+        extractField19(r),
+        extractField20(r)
+      )
 
     override def toString: String = s"CaseClass20(${structure.mkString(",")})"
 
@@ -5556,6 +6215,31 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(
+        extractField1(r),
+        extractField2(r),
+        extractField3(r),
+        extractField4(r),
+        extractField5(r),
+        extractField6(r),
+        extractField7(r),
+        extractField8(r),
+        extractField9(r),
+        extractField10(r),
+        extractField11(r),
+        extractField12(r),
+        extractField13(r),
+        extractField14(r),
+        extractField15(r),
+        extractField16(r),
+        extractField17(r),
+        extractField18(r),
+        extractField19(r),
+        extractField20(r),
+        extractField21(r)
+      )
 
     override def toString: String = s"CaseClass21(${structure.mkString(",")})"
 
@@ -5817,6 +6501,32 @@ object Schema extends SchemaEquality {
           case _: Throwable => Left("invalid type in values")
         } else
         Left(s"wrong number of values for $structure")
+
+    override def rawDeconstruct(r: Z): Chunk[Any] =
+      Chunk(
+        extractField1(r),
+        extractField2(r),
+        extractField3(r),
+        extractField4(r),
+        extractField5(r),
+        extractField6(r),
+        extractField7(r),
+        extractField8(r),
+        extractField9(r),
+        extractField10(r),
+        extractField11(r),
+        extractField12(r),
+        extractField13(r),
+        extractField14(r),
+        extractField15(r),
+        extractField16(r),
+        extractField17(r),
+        extractField18(r),
+        extractField19(r),
+        extractField20(r),
+        extractField21(r),
+        extractField22(r)
+      )
 
     override def toString: String = s"CaseClass22(${structure.mkString(",")})"
 
