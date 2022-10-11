@@ -195,20 +195,18 @@ object Schema extends SchemaEquality {
             case Some(value) => loop(value, schema)
             case None        => Chunk.empty
           }
-        case tuple @ Tuple(left, right, _) =>
+        case tuple @ Schema.Tuple2(left, right, _) =>
           loop(tuple.extract1(value), left) ++ loop(tuple.extract2(value), right)
         case l @ Lazy(_) =>
           loop(value, l.schema)
-        case Meta(ast, _) =>
-          loop(value, ast.toSchema.asInstanceOf[Schema[Any]])
-        case MapSchema(ks, vs, _) =>
+        case Schema.Map(ks, vs, _) =>
           Chunk.fromIterable(value.keys).flatMap(loop(_, ks)) ++ Chunk.fromIterable(value.values).flatMap(loop(_, vs))
-        case set @ SetSchema(as, _) =>
-          Chunk.fromIterable(value.asInstanceOf[Set[set.ElementType]]).flatMap(loop(_, as))
+        case set @ Schema.Set(as, _) =>
+          Chunk.fromIterable(value.asInstanceOf[scala.collection.Set[set.ElementType]]).flatMap(loop(_, as))
         case enumeration: Enum[_]       =>
           enumeration.caseOf(value) match {
             case Some(c) =>
-              loop(c.unsafeDeconstruct(value), c.codec.asInstanceOf[Schema[Any]])
+              loop(c.unsafeDeconstruct(value), c.schema.asInstanceOf[Schema[Any]])
             case None =>
               Chunk.empty // TODO could consider this a fatal error
           }
@@ -225,14 +223,13 @@ object Schema extends SchemaEquality {
                 )
             }
             .reverse
-        case either @ EitherSchema(left, right, _) =>
-          value.asInstanceOf[Either[either.LeftType, either.RightType]] match {
+        case either @ Schema.Either(left, right, _) =>
+          value.asInstanceOf[scala.util.Either[either.LeftType, either.RightType]] match {
             case Left(value)  => loop(value, left)
             case Right(value) => loop(value, right)
           }
-        case Dynamic(_) => Chunk.empty[ValidationError]
-        case Fail(_, _) => Chunk.empty[ValidationError]
-        case SemiDynamic(_, _) => Chunk.empty[ValidationError]
+        case Dynamic(_) => Chunk.empty
+        case Fail(_, _) => Chunk.empty
       }
     loop(value, schema)
   }

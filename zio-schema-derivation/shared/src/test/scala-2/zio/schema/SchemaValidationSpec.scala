@@ -11,10 +11,10 @@ object SchemaValidationSpec extends ZIOSpecDefault {
   import Assertion._
 
   final case class ExampleData(
-    either: Either[Person, Person] = Right(goodData),
+    either: scala.util.Either[Person, Person] = Right(goodData),
     option: Option[Person] = None,
     list: List[Person] = goodData :: Nil,
-    tuple: Tuple2[Person, Person] = (goodData, goodData),
+    tuple: scala.Tuple2[Person, Person] = (goodData, goodData),
     // map: Map[String, Person] = Map("foo" -> goodData), // TODO - figure out what todo about Map
     wrapper: Wrapper = Wrapper(goodData),
     enumData: EnumData = EnumData.Case1(goodData)
@@ -219,25 +219,23 @@ object SchemaValidationSpec extends ZIOSpecDefault {
 
       assert(validated)(Assertion.hasSameElements(expected))
     },
-    test("Example Data, Map with ValidationError") {
+    // test("Example Data, Map with ValidationError") {
 
-      val exampleData: Map[String, Person] = Map("foo" -> badData)
+    //   val exampleData: scala.collection.Map[String, Person] = scala.collection.Map("foo" -> badData)
 
-      val keySchema                                       = Schema.primitive(StandardType.StringType)
-      val valueSchema                                     = schemaPerson
-      val exampleSchema: Schema.MapSchema[String, Person] = Schema.MapSchema(keySchema, valueSchema)
+    //   val keySchema       = zio.schema.Schema.primitive(StandardType.StringType)
+    //   val valueSchema     = schemaPerson
+    //   implicit val schema = zio.schema.Schema.Map[String, Person](keySchema, valueSchema)
 
-      implicit val schema: MapSchema[String, Person] = exampleSchema
+    //   val validated: Chunk[ValidationError] = Schema.validate(exampleData)
 
-      val validated: Chunk[ValidationError] = Schema.validate(exampleData)
+    //   val expected: Chunk[ValidationError] = Chunk(
+    //     ValidationError.LessThan(123123123, 120),
+    //     ValidationError.EqualTo(123123123, 120)
+    //   )
 
-      val expected: Chunk[ValidationError] = Chunk(
-        ValidationError.LessThan(123123123, 120),
-        ValidationError.EqualTo(123123123, 120)
-      )
-
-      assert(validated)(Assertion.hasSameElements(expected))
-    },
+    //   assert(validated)(Assertion.hasSameElements(expected))
+    // },
     test("Validator successfully extracts from validation annotation") {
       val validation = schemaPerson.field2.validation
 
