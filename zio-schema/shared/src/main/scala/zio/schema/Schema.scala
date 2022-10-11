@@ -192,20 +192,18 @@ object Schema extends SchemaEquality {
             case Some(value) => loop(value, schema)
             case None        => Chunk.empty
           }
-        case tuple @ Tuple(left, right, _) =>
+        case tuple @ Schema.Tuple2(left, right, _) =>
           loop(tuple.extract1(value), left) ++ loop(tuple.extract2(value), right)
         case l @ Lazy(_) =>
           loop(value, l.schema)
-        case Meta(ast, _) =>
-          loop(value, ast.toSchema.asInstanceOf[Schema[Any]])
-        case MapSchema(ks, vs, _) =>
+        case Schema.Map(ks, vs, _) =>
           Chunk.fromIterable(value.keys).flatMap(loop(_, ks)) ++ Chunk.fromIterable(value.values).flatMap(loop(_, vs))
-        case set @ SetSchema(as, _) =>
-          Chunk.fromIterable(value.asInstanceOf[Set[set.ElementType]]).flatMap(loop(_, as))
+        case set @ Schema.Set(as, _) =>
+          Chunk.fromIterable(value.asInstanceOf[scala.collection.Set[set.ElementType]]).flatMap(loop(_, as))
         case enumeration: Enum[_]       =>
           enumeration.caseOf(value) match {
             case Some(c) =>
-              loop(c.unsafeDeconstruct(value), c.codec.asInstanceOf[Schema[Any]])
+              loop(c.unsafeDeconstruct(value), c.schema.asInstanceOf[Schema[Any]])
             case None =>
               Chunk.empty // TODO could consider this a fatal error
           }
@@ -222,14 +220,13 @@ object Schema extends SchemaEquality {
                 )
             }
             .reverse
-        case either @ EitherSchema(left, right, _) =>
-          value.asInstanceOf[Either[either.LeftType, either.RightType]] match {
+        case either @ Schema.Either(left, right, _) =>
+          value.asInstanceOf[scala.util.Either[either.LeftType, either.RightType]] match {
             case Left(value)  => loop(value, left)
             case Right(value) => loop(value, right)
           }
-        case Dynamic(_) => Chunk.empty[ValidationError]
-        case Fail(_, _) => Chunk.empty[ValidationError]
-        case SemiDynamic(_, _) => Chunk.empty[ValidationError]
+        case Dynamic(_) => Chunk.empty
+        case Fail(_, _) => Chunk.empty
       }
     loop(value, schema)
   }
@@ -345,12 +342,8 @@ object Schema extends SchemaEquality {
     self =>
     def structure: Chunk[Field[_]]
 
-<<<<<<< Updated upstream
     def rawConstruct(values: Chunk[Any]): scala.util.Either[String, R]
-=======
-    def rawConstruct(values: Chunk[Any]): Either[String, R]
     def rawDeconstruct(r: R): Chunk[Any]
->>>>>>> Stashed changes
 
     def id: TypeId
 
@@ -586,13 +579,9 @@ object Schema extends SchemaEquality {
   final case class Set[A](elementSchema: Schema[A], override val annotations: Chunk[Any] = Chunk.empty)
       extends Collection[scala.collection.immutable.Set[A], A] {
     self =>
-<<<<<<< Updated upstream
+    type ElementType = A
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       Traversal[scala.collection.immutable.Set[A], A]
-=======
-    type ElementType = A
-    override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Traversal[Set[A], A]
->>>>>>> Stashed changes
 
     override def annotate(annotation: Any): Set[A] =
       copy(annotations = annotations :+ annotation)
@@ -653,14 +642,10 @@ object Schema extends SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): b.Prism[case1.id.type, Z, A] = b.makePrism(self, case1)
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-<<<<<<< Updated upstream
       ListMap(case1.id -> (case1.schema -> case1.annotations))
-=======
-      ListMap(case1.id -> (case1.codec -> case1.annotations))
 
     override def caseOf(z: Z): Option[Case[_, Z]] =
       case1.deconstruct(z).map(_ => case1)
->>>>>>> Stashed changes
   }
 
   sealed case class Enum2[A1 <: Z, A2 <: Z, Z](
@@ -681,15 +666,11 @@ object Schema extends SchemaEquality {
       (b.makePrism(self, case1), b.makePrism(self, case2))
 
     override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-<<<<<<< Updated upstream
       ListMap(case1.id -> (case1.schema -> case1.annotations), case2.id -> (case2.schema -> case2.annotations))
-=======
-      ListMap(case1.id -> (case1.codec -> case1.annotations), case2.id -> (case2.codec -> case2.annotations))
 
     override def caseOf(z: Z): Option[Case[_, Z]] =
       case1.deconstruct(z).map(_ => case1)
         .orElse(case2.deconstruct(z).map(_ => case2))
->>>>>>> Stashed changes
   }
 
   sealed case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](
