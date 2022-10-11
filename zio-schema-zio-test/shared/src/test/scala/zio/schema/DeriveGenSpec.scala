@@ -1,6 +1,6 @@
 package zio.schema
 
-import zio.{ Trace, ZIO }
+import zio.ZIO
 import zio.schema.TestData._
 import zio.test.Assertion._
 import zio.test._
