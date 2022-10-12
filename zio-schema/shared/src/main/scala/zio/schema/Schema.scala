@@ -203,7 +203,7 @@ object Schema extends SchemaEquality {
           Chunk.fromIterable(value.keys).flatMap(loop(_, ks)) ++ Chunk.fromIterable(value.values).flatMap(loop(_, vs))
         case set @ Schema.Set(as, _) =>
           Chunk.fromIterable(value.asInstanceOf[scala.collection.Set[set.ElementType]]).flatMap(loop(_, as))
-        case enumeration: Enum[_]       =>
+        case enumeration: Enum[_] =>
           enumeration.caseOf(value) match {
             case Some(c) =>
               loop(c.unsafeDeconstruct(value), c.schema.asInstanceOf[Schema[Any]])
@@ -523,7 +523,7 @@ object Schema extends SchemaEquality {
   final case class Either[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
       extends Schema[scala.util.Either[A, B]] {
     self =>
-    type LeftType = A
+    type LeftType  = A
     type RightType = B
 
     val leftSingleton  = "Left"
@@ -2578,7 +2578,7 @@ object Schema extends SchemaEquality {
 
     override def makeAccessors(b: AccessorBuilder): caseSet.Accessors[Z, b.Lens, b.Prism, b.Traversal] =
       caseSet.makeAccessors(self, b)
-  
+
     override def caseOf(z: Z): Option[Case[_, Z]] = // TODO CHECK
       caseSet.toSeq.find(c => c.deconstruct(z).nonEmpty)
   }
