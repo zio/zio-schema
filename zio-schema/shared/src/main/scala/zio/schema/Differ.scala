@@ -542,12 +542,12 @@ object Differ {
 
   def record(schema: Schema.Record[ListMap[String, _]]): Differ[ListMap[String, _]] =
     (thisValue: ListMap[String, _], thatValue: ListMap[String, _]) =>
-      if (!(conformsToStructure(thisValue, schema.structure) && conformsToStructure(thatValue, schema.structure)))
+      if (!(conformsToStructure(thisValue, schema.fields) && conformsToStructure(thatValue, schema.fields)))
         Patch.notComparable
       else
         thisValue.toList.zip(thatValue.toList).zipWithIndex.map {
           case (((thisKey, thisValue), (_, thatValue)), fieldIndex) =>
-            thisKey -> fromSchema(schema.structure(fieldIndex).schema)
+            thisKey -> fromSchema(schema.fields(fieldIndex).schema)
               .asInstanceOf[Differ[Any]]
               .apply(thisValue, thatValue)
         } match {

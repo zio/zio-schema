@@ -63,12 +63,12 @@ object SchemaOrdering {
     lVals: Map[String, DynamicValue],
     rVals: Map[String, DynamicValue]
   ): Int = {
-    val j = r.structure.length
+    val j = r.fields.length
     @tailrec
     def loop(i: Int): Int =
       if (i == j) 0
       else {
-        val field           = r.structure(i)
+        val field           = r.fields(i)
         val fieldComparison = compareBySchema(field.schema)(lVals(field.name), rVals(field.name))
         if (fieldComparison == 0) loop(i + 1) else fieldComparison
       }

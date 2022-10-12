@@ -2,10 +2,8 @@ package zio.schema
 
 import java.net.{ URI, URL }
 import java.time.temporal.ChronoUnit
-
 import scala.collection.immutable.ListMap
-
-import zio.Chunk
+import zio.{ Chunk, Unsafe }
 import zio.schema.internal.SourceLocation
 import zio.schema.meta._
 import zio.schema.validation._
@@ -287,21 +285,25 @@ object Schema extends SchemaEquality {
 
   sealed trait Record[R] extends Schema[R] {
     self =>
-    def structure: Chunk[Field[R, _]]
+    def fields: Chunk[Field[R, _]]
 
-    def rawConstruct(values: Chunk[Any]): scala.util.Either[String, R]
+    def construct(fieldValues: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, R]
+
+    def deconstruct(value: R)(implicit unsafe: Unsafe): Chunk[Any]
 
     def id: TypeId
 
     def defaultValue: scala.util.Either[String, R] =
-      self.structure
-        .map(_.schema.defaultValue)
-        .foldLeft[scala.util.Either[String, Chunk[R]]](Right(Chunk.empty)) {
-          case (e @ Left(_), _)              => e
-          case (_, Left(e))                  => Left[String, Chunk[R]](e)
-          case (Right(values), Right(value)) => Right[String, Chunk[R]](values :+ value.asInstanceOf[R])
-        }
-        .flatMap(self.rawConstruct)
+      Unsafe.unsafe { implicit unsafe =>
+        self.fields
+          .map(_.schema.defaultValue)
+          .foldLeft[scala.util.Either[String, Chunk[R]]](Right(Chunk.empty)) {
+            case (e @ Left(_), _)              => e
+            case (_, Left(e))                  => Left[String, Chunk[R]](e)
+            case (Right(values), Right(value)) => Right[String, Chunk[R]](values :+ value.asInstanceOf[R])
+          }
+          .flatMap(self.construct)
+      }
   }
 
   sealed trait Collection[Col, Elem] extends Schema[Col]
@@ -3236,13 +3238,16 @@ object Schema extends SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal] =
       fieldSet.makeAccessors(self, b)
 
-    override def structure: Chunk[Schema.Field[ListMap[String, _], _]] = fieldSet.toChunk
+    override def fields: Chunk[Schema.Field[ListMap[String, _], _]] = fieldSet.toChunk
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, ListMap[String, _]] =
-      if (values.size == structure.size)
-        Right(ListMap(structure.map(_.name).zip(values): _*))
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, ListMap[String, _]] =
+      if (values.size == fields.size)
+        Right(ListMap(fields.map(_.name).zip(values): _*))
       else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
+
+    override def deconstruct(values: ListMap[String, _])(implicit unsafe: Unsafe): Chunk[Any] =
+      Chunk.fromIterable(fields.map(f => values(f.name)))
 
     /**
      * Returns a new schema that with `annotation`
@@ -3260,18 +3265,20 @@ object Schema extends SchemaEquality {
 
     override def makeAccessors(b: AccessorBuilder): Nothing = ???
 
-    override def structure: Chunk[Field[Z, _]] = Chunk.empty
+    override def fields: Chunk[Field[Z, _]] = Chunk.empty
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.isEmpty)
         try {
           Right(construct())
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass1(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(value)
+
+    override def toString: String = s"CaseClass1(${fields.mkString(",")})"
   }
 
   sealed case class CaseClass1[A, Z](
@@ -3287,18 +3294,20 @@ object Schema extends SchemaEquality {
 
     override def makeAccessors(b: AccessorBuilder): b.Lens[field.name.type, Z, A] = b.makeLens(self, field)
 
-    override def structure: Chunk[Field[Z, _]] = Chunk(field)
+    override def fields: Chunk[Field[Z, _]] = Chunk(field)
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 1)
         try {
           Right(construct(values(0).asInstanceOf[A]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass1(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(field.get(value))
+    override def toString: String                                           = s"CaseClass1(${fields.mkString(",")})"
+
   }
 
   sealed case class CaseClass2[A1, A2, Z](
@@ -3319,17 +3328,20 @@ object Schema extends SchemaEquality {
     ): (b.Lens[field1.name.type, Z, A1], b.Lens[field2.name.type, Z, A2]) =
       (b.makeLens(self, field1), b.makeLens(self, field2))
 
-    override def structure: Chunk[Field[Z, _]] = Chunk(field1, field2)
+    override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2)
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 2)
         try {
           Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
-    override def toString: String = s"CaseClass2(${structure.mkString(",")})"
+        Left(s"wrong number of values for $fields")
+
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
+      Chunk(field1.get(value), field2.get(value))
+    override def toString: String = s"CaseClass2(${fields.mkString(",")})"
 
   }
 
@@ -3352,18 +3364,20 @@ object Schema extends SchemaEquality {
     ): (b.Lens[field1.name.type, Z, A1], b.Lens[field2.name.type, Z, A2], b.Lens[field3.name.type, Z, A3]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3))
 
-    override def structure: Chunk[Field[Z, _]] = Chunk(field1, field2, field3)
+    override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3)
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 3)
         try {
           Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass3(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
+      Chunk(field1.get(value), field2.get(value), field3.get(value))
+    override def toString: String = s"CaseClass3(${fields.mkString(",")})"
 
   }
 
@@ -3395,9 +3409,9 @@ object Schema extends SchemaEquality {
     ) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4))
 
-    override def structure: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4)
+    override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4)
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 4)
         try {
           Right(
@@ -3411,9 +3425,11 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass4(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
+      Chunk(field1.get(value), field2.get(value), field3.get(value), field4.get(value))
+    override def toString: String = s"CaseClass4(${fields.mkString(",")})"
 
   }
 
@@ -3454,9 +3470,9 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field5)
       )
 
-    override def structure: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5)
+    override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5)
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 5)
         try {
           Right(
@@ -3471,9 +3487,17 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass5(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value)
+    )
+    override def toString: String = s"CaseClass5(${fields.mkString(",")})"
+
   }
 
   sealed case class CaseClass6[A1, A2, A3, A4, A5, A6, Z](
@@ -3517,9 +3541,9 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field6)
       )
 
-    override def structure: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6)
+    override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6)
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 6)
         try {
           Right(
@@ -3535,9 +3559,18 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass6(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value)
+    )
+
+    override def toString: String = s"CaseClass6(${fields.mkString(",")})"
 
   }
 
@@ -3586,9 +3619,9 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field7)
       )
 
-    override def structure: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6, field7)
+    override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6, field7)
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 7)
         try {
           Right(
@@ -3605,10 +3638,19 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass7(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value),
+      field7.get(value)
+    )
 
+    override def toString: String = s"CaseClass7(${fields.mkString(",")})"
   }
 
   sealed case class CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
@@ -3660,9 +3702,9 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field8)
       )
 
-    override def structure: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6, field7, field8)
+    override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6, field7, field8)
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 8)
         try {
           Right(
@@ -3680,9 +3722,20 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass8(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value),
+      field7.get(value),
+      field8.get(value)
+    )
+
+    override def toString: String = s"CaseClass8(${fields.mkString(",")})"
 
   }
 
@@ -3738,10 +3791,10 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field8),
         b.makeLens(self, field9)
       )
-    override def structure: Chunk[Field[Z, _]] =
+    override def fields: Chunk[Field[Z, _]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9)
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 9)
         try {
           Right(
@@ -3760,9 +3813,20 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass9(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value),
+      field7.get(value),
+      field8.get(value),
+      field9.get(value)
+    )
+    override def toString: String = s"CaseClass9(${fields.mkString(",")})"
 
   }
 
@@ -3823,10 +3887,10 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field10)
       )
 
-    override def structure: Chunk[Field[Z, _]] =
+    override def fields: Chunk[Field[Z, _]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10)
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 10)
         try {
           Right(
@@ -3846,8 +3910,21 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
-    override def toString: String = s"CaseClass10(${structure.mkString(",")})"
+        Left(s"wrong number of values for $fields")
+
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value),
+      field7.get(value),
+      field8.get(value),
+      field9.get(value),
+      field10.get(value)
+    )
+    override def toString: String = s"CaseClass10(${fields.mkString(",")})"
 
   }
 
@@ -3915,10 +3992,10 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field11)
       )
 
-    override def structure: Chunk[Field[Z, _]] =
+    override def fields: Chunk[Field[Z, _]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11)
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 11)
         try {
           Right(
@@ -3939,8 +4016,23 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
-    override def toString: String = s"CaseClass11(${structure.mkString(",")})"
+        Left(s"wrong number of values for $fields")
+
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value),
+      field7.get(value),
+      field8.get(value),
+      field9.get(value),
+      field10.get(value),
+      field11.get(value)
+    )
+
+    override def toString: String = s"CaseClass11(${fields.mkString(",")})"
 
   }
 
@@ -4010,10 +4102,10 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field12)
       )
 
-    override def structure: Chunk[Field[Z, _]] =
+    override def fields: Chunk[Field[Z, _]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12)
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 12)
         try {
           Right(
@@ -4035,8 +4127,23 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
-    override def toString: String = s"CaseClass12(${structure.mkString(",")})"
+        Left(s"wrong number of values for $fields")
+
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value),
+      field7.get(value),
+      field8.get(value),
+      field9.get(value),
+      field10.get(value),
+      field11.get(value),
+      field12.get(value)
+    )
+    override def toString: String = s"CaseClass12(${fields.mkString(",")})"
 
   }
 
@@ -4109,10 +4216,10 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field13)
       )
 
-    override def structure: Chunk[Field[Z, _]] =
+    override def fields: Chunk[Field[Z, _]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13)
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 13)
         try {
           Right(
@@ -4135,8 +4242,25 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
-    override def toString: String = s"CaseClass13(${structure.mkString(",")})"
+        Left(s"wrong number of values for $fields")
+
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value),
+      field7.get(value),
+      field8.get(value),
+      field9.get(value),
+      field10.get(value),
+      field11.get(value),
+      field12.get(value),
+      field13.get(value)
+    )
+
+    override def toString: String = s"CaseClass13(${fields.mkString(",")})"
 
   }
 
@@ -4215,7 +4339,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field14)
       )
 
-    override def structure: Chunk[Field[Z, _]] =
+    override def fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -4233,7 +4357,7 @@ object Schema extends SchemaEquality {
         field14
       )
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 14)
         try {
           Right(
@@ -4257,9 +4381,25 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass14(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value),
+      field7.get(value),
+      field8.get(value),
+      field9.get(value),
+      field10.get(value),
+      field11.get(value),
+      field12.get(value),
+      field13.get(value),
+      field14.get(value)
+    )
+    override def toString: String = s"CaseClass14(${fields.mkString(",")})"
 
   }
 
@@ -4342,7 +4482,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field15)
       )
 
-    override def structure: Chunk[Field[Z, _]] =
+    override def fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -4361,7 +4501,7 @@ object Schema extends SchemaEquality {
         field15
       )
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 15)
         try {
           Right(
@@ -4386,9 +4526,26 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass15(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value),
+      field7.get(value),
+      field8.get(value),
+      field9.get(value),
+      field10.get(value),
+      field11.get(value),
+      field12.get(value),
+      field13.get(value),
+      field14.get(value),
+      field15.get(value)
+    )
+    override def toString: String = s"CaseClass15(${fields.mkString(",")})"
 
   }
 
@@ -4475,7 +4632,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field16)
       )
 
-    override def structure: Chunk[Field[Z, _]] =
+    override def fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -4495,7 +4652,7 @@ object Schema extends SchemaEquality {
         field16
       )
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 16)
         try {
           Right(
@@ -4521,9 +4678,27 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass16(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value),
+      field7.get(value),
+      field8.get(value),
+      field9.get(value),
+      field10.get(value),
+      field11.get(value),
+      field12.get(value),
+      field13.get(value),
+      field14.get(value),
+      field15.get(value),
+      field16.get(value)
+    )
+    override def toString: String = s"CaseClass16(${fields.mkString(",")})"
 
   }
 
@@ -4614,7 +4789,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field17)
       )
 
-    override def structure: Chunk[Field[Z, _]] =
+    override def fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -4635,7 +4810,7 @@ object Schema extends SchemaEquality {
         field17
       )
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 17)
         try {
           Right(
@@ -4662,9 +4837,28 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass17(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value),
+      field7.get(value),
+      field8.get(value),
+      field9.get(value),
+      field10.get(value),
+      field11.get(value),
+      field12.get(value),
+      field13.get(value),
+      field14.get(value),
+      field15.get(value),
+      field16.get(value),
+      field17.get(value)
+    )
+    override def toString: String = s"CaseClass17(${fields.mkString(",")})"
 
   }
 
@@ -4759,7 +4953,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field18)
       )
 
-    override def structure: Chunk[Field[Z, _]] =
+    override def fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -4781,7 +4975,7 @@ object Schema extends SchemaEquality {
         field18
       )
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 18)
         try {
           Right(
@@ -4809,9 +5003,29 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass18(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value),
+      field7.get(value),
+      field8.get(value),
+      field9.get(value),
+      field10.get(value),
+      field11.get(value),
+      field12.get(value),
+      field13.get(value),
+      field14.get(value),
+      field15.get(value),
+      field16.get(value),
+      field17.get(value),
+      field18.get(value)
+    )
+    override def toString: String = s"CaseClass18(${fields.mkString(",")})"
 
   }
 
@@ -4910,7 +5124,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field19)
       )
 
-    override def structure: Chunk[Field[Z, _]] =
+    override def fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -4933,7 +5147,7 @@ object Schema extends SchemaEquality {
         field19
       )
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 19)
         try {
           Right(
@@ -4962,9 +5176,30 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass19(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value),
+      field7.get(value),
+      field8.get(value),
+      field9.get(value),
+      field10.get(value),
+      field11.get(value),
+      field12.get(value),
+      field13.get(value),
+      field14.get(value),
+      field15.get(value),
+      field16.get(value),
+      field17.get(value),
+      field18.get(value),
+      field19.get(value)
+    )
+    override def toString: String = s"CaseClass19(${fields.mkString(",")})"
 
   }
 
@@ -5089,7 +5324,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field20)
       )
 
-    override def structure: Chunk[Field[Z, _]] =
+    override def fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -5113,7 +5348,7 @@ object Schema extends SchemaEquality {
         field20
       )
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 20)
         try {
           Right(
@@ -5143,9 +5378,32 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass20(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value),
+      field7.get(value),
+      field8.get(value),
+      field9.get(value),
+      field10.get(value),
+      field11.get(value),
+      field12.get(value),
+      field13.get(value),
+      field14.get(value),
+      field15.get(value),
+      field16.get(value),
+      field17.get(value),
+      field18.get(value),
+      field19.get(value),
+      field20.get(value)
+    )
+
+    override def toString: String = s"CaseClass20(${fields.mkString(",")})"
 
   }
 
@@ -5275,7 +5533,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field21)
       )
 
-    override def structure: Chunk[Field[Z, _]] =
+    override def fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -5300,7 +5558,7 @@ object Schema extends SchemaEquality {
         field21
       )
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 21)
         try {
           Right(
@@ -5331,9 +5589,33 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass21(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value),
+      field7.get(value),
+      field8.get(value),
+      field9.get(value),
+      field10.get(value),
+      field11.get(value),
+      field12.get(value),
+      field13.get(value),
+      field14.get(value),
+      field15.get(value),
+      field16.get(value),
+      field17.get(value),
+      field18.get(value),
+      field19.get(value),
+      field20.get(value),
+      field21.get(value)
+    )
+
+    override def toString: String = s"CaseClass21(${fields.mkString(",")})"
 
   }
 
@@ -5512,7 +5794,7 @@ object Schema extends SchemaEquality {
         b.makeLens(self, field22)
       )
 
-    override def structure: Chunk[Field[Z, _]] =
+    override def fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -5538,7 +5820,7 @@ object Schema extends SchemaEquality {
         field22
       )
 
-    override def rawConstruct(values: Chunk[Any]): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 22)
         try {
           Right(
@@ -5570,9 +5852,34 @@ object Schema extends SchemaEquality {
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
-        Left(s"wrong number of values for $structure")
+        Left(s"wrong number of values for $fields")
 
-    override def toString: String = s"CaseClass22(${structure.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
+      field1.get(value),
+      field2.get(value),
+      field3.get(value),
+      field4.get(value),
+      field5.get(value),
+      field6.get(value),
+      field7.get(value),
+      field8.get(value),
+      field9.get(value),
+      field10.get(value),
+      field11.get(value),
+      field12.get(value),
+      field13.get(value),
+      field14.get(value),
+      field15.get(value),
+      field16.get(value),
+      field17.get(value),
+      field18.get(value),
+      field19.get(value),
+      field20.get(value),
+      field21.get(value),
+      field22.get(value)
+    )
+
+    override def toString: String = s"CaseClass22(${fields.mkString(",")})"
 
   }
 }

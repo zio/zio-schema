@@ -199,7 +199,7 @@ object OrderingSpec extends ZIOSpecDefault {
     } yield pair
 
   def genOrderedPairRecord[A](schema: Schema.Record[A]): Gen[Sized, SchemaAndPair[A]] = {
-    val fields: Chunk[Schema.Field[A, _]] = schema.structure
+    val fields: Chunk[Schema.Field[A, _]] = schema.fields
     for {
       diffInd       <- Gen.int(0, fields.size - 1)
       equalFields   <- genEqualFields(fields, 0, diffInd)

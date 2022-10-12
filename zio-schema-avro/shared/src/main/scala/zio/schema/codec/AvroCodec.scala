@@ -552,7 +552,7 @@ object AvroCodec extends AvroCodec {
   }
 
   private def extractAvroFields(record: Record[_]): List[org.apache.avro.Schema.Field] =
-    record.structure.map(toAvroRecordField).toList.map(_.merge).partition {
+    record.fields.map(toAvroRecordField).toList.map(_.merge).partition {
       case _: String => true
       case _         => false
     } match {

@@ -4,10 +4,8 @@ import java.math.{ BigDecimal, BigInteger }
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
-
-import zio.Chunk
+import zio.{ Chunk, Unsafe }
 import zio.schema.meta.{ MetaSchema, Migration }
 
 sealed trait DynamicValue {
@@ -35,9 +33,9 @@ sealed trait DynamicValue {
 
       case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
         DynamicValue
-          .decodeStructure(values, s.structure)
+          .decodeStructure(values, s.fields)
           .map(m => Chunk.fromIterable(m.values))
-          .flatMap(values => s.rawConstruct(values).left.map(err => () => err))
+          .flatMap(values => s.construct(values)(Unsafe.unsafe).left.map(err => () => err))
 
       case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
         s.structure.get(key) match {

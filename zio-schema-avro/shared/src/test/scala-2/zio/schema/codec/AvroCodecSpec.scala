@@ -1949,7 +1949,7 @@ object AssertionHelper {
     Assertion.assertionRec[Schema.Record[_], Chunk[Field[_, _]]]("hasRecordField")(
       assertion
     ) {
-      case r: Schema.Record[_] => Some(r.structure)
+      case r: Schema.Record[_] => Some(r.fields)
       case _                   => None
     }
 

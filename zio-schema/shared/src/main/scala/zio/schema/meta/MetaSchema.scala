@@ -366,7 +366,7 @@ object MetaSchema {
     case Schema.Transform(schema, _, _, _, _) => subtree(NodePath.root, Chunk.empty, schema)
     case lzy @ Schema.Lazy(_)                 => fromSchema(lzy.schema)
     case s: Schema.Record[A] =>
-      s.structure
+      s.fields
         .foldLeft(NodeBuilder(NodePath.root, Chunk(s.hashCode() -> NodePath.root))) { (node, field) =>
           node.addLabelledSubtree(field.name, field.schema)
         }
@@ -425,7 +425,7 @@ object MetaSchema {
           case Schema.Transform(schema, _, _, _, _) => subtree(path, lineage, schema, optional)
           case lzy @ Schema.Lazy(_)                 => subtree(path, lineage, lzy.schema, optional)
           case s: Schema.Record[_] =>
-            s.structure
+            s.fields
               .foldLeft(NodeBuilder(path, lineage :+ (s.hashCode() -> path), optional)) { (node, field) =>
                 node.addLabelledSubtree(field.name, field.schema)
               }

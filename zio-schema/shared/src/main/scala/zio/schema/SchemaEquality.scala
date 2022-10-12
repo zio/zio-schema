@@ -35,7 +35,7 @@ trait SchemaEquality {
           case (lEnum: Schema.Enum[_], rEnum: Schema.Enum[_]) =>
             l.annotations == r.annotations && lEnum.structure === rEnum.structure
           case (lRecord: Schema.Record[_], rRecord: Schema.Record[_]) =>
-            l.annotations == r.annotations && lRecord.structure === rRecord.structure
+            l.annotations == r.annotations && lRecord.fields === rRecord.fields
           case (lMap: Schema.Map[_, _], rMap: Schema.Map[_, _]) =>
             lMap.annotations == rMap.annotations && lMap.keySchema === rMap.keySchema && lMap.valueSchema === rMap.valueSchema
           case (lSet: Schema.Set[_], rSet: Schema.Set[_]) =>

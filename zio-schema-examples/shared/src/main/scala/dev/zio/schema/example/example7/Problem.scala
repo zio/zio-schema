@@ -2,8 +2,7 @@ package dev.zio.schema.example.example7
 
 import scala.collection.immutable.ListMap
 import scala.util.Try
-
-import zio.Chunk
+import zio.{ Chunk, Unsafe }
 import zio.schema._
 
 /** This exercise is based on John DeGoes' Spartan training on ZIO-Schema from 2021-11-04
@@ -165,16 +164,18 @@ private[example7] object Problem {
             // And so on to arity 23..
 
           case record: Record[B] =>
-            (qp: QueryParams) => {
-              record.structure.map {
-                case Schema.Field(label, schema, _, _, _, _) =>
-                  compile(Some(label), schema)(qp)
-              }.foldRight[scala.util.Either[String, Chunk[Any]]](Right(Chunk.empty)) {
-                  case (Right(nextValue), Right(values)) => Right(values :+ nextValue)
-                  case (Left(err), _)                    => Left(err)
-                  case (_, Left(err))                    => Left(err)
-                }
-                .flatMap(record.rawConstruct)
+            Unsafe.unsafe { implicit unsafe => (qp: QueryParams) =>
+              {
+                record.fields.map {
+                  case Schema.Field(label, schema, _, _, _, _) =>
+                    compile(Some(label), schema)(qp)
+                }.foldRight[scala.util.Either[String, Chunk[Any]]](Right(Chunk.empty)) {
+                    case (Right(nextValue), Right(values)) => Right(values :+ nextValue)
+                    case (Left(err), _)                    => Left(err)
+                    case (_, Left(err))                    => Left(err)
+                  }
+                  .flatMap(record.construct)
+              }
             }
 
           case Fail(message, _) => Function.const(Left(message))

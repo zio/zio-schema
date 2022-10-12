@@ -459,7 +459,7 @@ object DeriveGen {
   // scalafmt: { maxColumn = 120 }
 
   private def genGenericRecord(record: Schema.GenericRecord): Gen[Sized, ListMap[String, _]] =
-    record.structure
+    record.fields
       .foldLeft[Gen[Sized, ListMap[String, _]]](Gen.const(ListMap.empty)) {
         case (genListMap, field) =>
           for {
