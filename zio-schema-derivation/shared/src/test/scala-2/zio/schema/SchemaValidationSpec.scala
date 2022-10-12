@@ -29,7 +29,9 @@ object SchemaValidationSpec extends ZIOSpecDefault {
 
   final case class Wrapper(person: Person)
 
-  implicit val schema: CaseClass6[scala.util.Either[Person,Person],Option[Person],List[Person],(Person, Person),Wrapper,EnumData,ExampleData] = DeriveSchema.gen[ExampleData]
+  implicit val schema
+    : CaseClass6[scala.util.Either[Person, Person], Option[Person], List[Person], (Person, Person), Wrapper, EnumData, ExampleData] =
+    DeriveSchema.gen[ExampleData]
 
   val badData: Person  = Person("foo", 123123123)
   val goodData: Person = Person("foo", 100)
