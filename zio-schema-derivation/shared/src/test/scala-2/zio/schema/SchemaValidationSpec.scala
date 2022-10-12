@@ -29,18 +29,18 @@ object SchemaValidationSpec extends ZIOSpecDefault {
 
   final case class Wrapper(person: Person)
 
-  implicit val schema = DeriveSchema.gen[ExampleData]
+  implicit val schema: CaseClass6[scala.util.Either[Person,Person],Option[Person],List[Person],(Person, Person),Wrapper,EnumData,ExampleData] = DeriveSchema.gen[ExampleData]
 
-  val badData  = Person("foo", 123123123)
-  val goodData = Person("foo", 100)
+  val badData: Person  = Person("foo", 123123123)
+  val goodData: Person = Person("foo", 100)
 
   final case class Person(name: String, @validate(Validation.between(0, 120)) age: Int)
   // val schemaCaseClass2: Schema.CaseClass2[String, Int, Person] = DeriveSchema.gen[Person]
-  val schemaPerson = DeriveSchema.gen[Person]
+  val schemaPerson: CaseClass2[String, Int, Person] = DeriveSchema.gen[Person]
 
   final case class Grade(@validate(Validation.greaterThan(0)) value: Int)
   // val schemaCaseClass1: Schema.CaseClass1[Int, Grade] = DeriveSchema.gen[Grade]
-  val schemaGrade = DeriveSchema.gen[Grade]
+  val schemaGrade: CaseClass1[Int, Grade] = DeriveSchema.gen[Grade]
 
   override def spec: Spec[Environment, Any] = suite("Schema Validation Spec")(
     test("Invalid CaseClass1 creation") {
