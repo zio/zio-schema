@@ -1,11 +1,10 @@
 package zio.schema
 
 import zio._
-import zio.schema.annotation.validate
-import zio.test._
 import zio.schema.Schema._
-import zio.schema.validation.Validation
-import zio.schema.validation.ValidationError
+import zio.schema.annotation.validate
+import zio.schema.validation.{ Validation, ValidationError }
+import zio.test._
 
 object SchemaValidationSpec extends ZIOSpecDefault {
   import Assertion._
