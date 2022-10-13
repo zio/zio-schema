@@ -323,12 +323,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         assert(Schema[DependsOnB])(anything)
         assert(b0)(isRight(equalTo(b)))
       },
-//      test("correctly derives recursive Enum with type parameters") {
-//        assert(DeriveSchema.gen[Tree[Recursive]])(anything)
-//      },
-//      test("correctly derives recursive Enum with multiple type parameters") {
-//        assert(DeriveSchema.gen[RBTree[String, Int]])(anything)
-//      },
+      test("correctly derives recursive Enum with type parameters") {
+        assert(DeriveSchema.gen[Tree[Recursive]])(anything)
+      },
+      test("correctly derives recursive Enum with multiple type parameters") {
+        assert(DeriveSchema.gen[RBTree[String, Int]])(anything)
+      },
       test("correctly derives recursive Enum") {
         assert(Schema[RecursiveEnum].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       }
