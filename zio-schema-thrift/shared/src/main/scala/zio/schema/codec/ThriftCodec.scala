@@ -882,7 +882,7 @@ object ThriftCodec extends Codec {
           if (buffer(0) == null)
             fail(path, "Missing field 1.")
           else
-            succeed(schema.construct(buffer(0).asInstanceOf[A]))
+            succeed(schema.constructor(buffer(0).asInstanceOf[A]))
         }
 
       private def caseClass2Decoder[A1, A2, Z](schema: Schema.CaseClass2[A1, A2, Z])(path: Path): Result[Z] =

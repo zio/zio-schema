@@ -993,7 +993,7 @@ object ProtobufCodec extends Codec {
         if (buffer(0) == null)
           fail("Failed to decode record. Missing field 1.")
         else
-          succeed(schema.construct(buffer(0).asInstanceOf[A]))
+          succeed(schema.constructor(buffer(0).asInstanceOf[A]))
       }
 
     private[codec] def caseClass2Decoder[A1, A2, Z](schema: Schema.CaseClass2[A1, A2, Z]): Decoder[Z] =

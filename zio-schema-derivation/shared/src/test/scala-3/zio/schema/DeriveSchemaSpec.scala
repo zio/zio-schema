@@ -266,7 +266,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         val expected: Schema[UserId] =
           Schema.CaseClass1(
             id = TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
-            field = Schema.Field("id", Schema.Primitive(StandardType.StringType), get = (uid: UserId) => uid.id, set = (uid: UserId, v: String) => uid.copy(id = v)),
+            field = Schema.Field(
+              "id",
+              Schema.Primitive(StandardType.StringType),
+              get = (uid: UserId) => uid.id,
+              set = (uid: UserId, v: String) => uid.copy(id = v)
+            ),
             UserId.apply
           )
 

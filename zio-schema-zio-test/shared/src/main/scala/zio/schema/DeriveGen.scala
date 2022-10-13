@@ -80,7 +80,7 @@ object DeriveGen {
     Gen.elements(caseClass0.construct())
 
   private def genCaseClass1[A, Z](caseClass1: Schema.CaseClass1[A, Z]): Gen[Sized, Z] =
-    gen(caseClass1.field.schema).map(caseClass1.construct)
+    gen(caseClass1.field.schema).map(caseClass1.constructor)
 
   private def genCaseClass2[A1, A2, Z](caseClass2: Schema.CaseClass2[A1, A2, Z]): Gen[Sized, Z] =
     for {
