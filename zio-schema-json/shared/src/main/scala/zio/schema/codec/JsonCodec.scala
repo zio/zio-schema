@@ -475,7 +475,7 @@ object JsonCodec extends Codec {
     private[codec] def caseClass1Decoder[A, Z](schema: Schema.CaseClass1[A, Z]): JsonDecoder[Z] = { (trace: List[JsonError], in: RetractReader) =>
       {
         val buffer: Array[Any] = unsafeDecodeFields(trace, in, schema.field)
-        schema.constructor(buffer(0).asInstanceOf[A])
+        schema.construct(buffer(0).asInstanceOf[A])
       }
     }
 

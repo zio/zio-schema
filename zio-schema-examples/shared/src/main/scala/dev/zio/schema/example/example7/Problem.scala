@@ -137,7 +137,7 @@ private[example7] object Problem {
 
           case cc: CaseClass1[a, B] =>
             val f = compile[a](Some(cc.field.name), cc.field.schema)
-            (qp: QueryParams) => f(qp).map(v => cc.constructor(v))
+            (qp: QueryParams) => f(qp).map(v => cc.construct(v))
 
           case cc: CaseClass2[a, b, B] =>
             val f1 = compile[a](Some(cc.field1.name), cc.field1.schema)
