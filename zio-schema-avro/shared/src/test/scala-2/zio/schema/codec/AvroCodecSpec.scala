@@ -1954,7 +1954,7 @@ object AssertionHelper {
     }
 
   def hasSequenceElementSchema[A](assertion: Assertion[Schema[A]]): Assertion[Schema.Sequence[_, A, _]] =
-    Assertion.hasField("schemaA", _.schemaA, assertion)
+    Assertion.hasField("schemaA", _.elementSchema, assertion)
 
   def hasOptionElementSchema[A](assertion: Assertion[Schema[A]]): Assertion[Schema.Optional[A]] =
     Assertion.hasField("schema", _.schema, assertion)

@@ -65,7 +65,7 @@ sealed trait DynamicValue {
           .foldLeft[Either[() => String, Chunk[t]]](Right[() => String, Chunk[t]](Chunk.empty)) {
             case (err @ Left(_), _) => err
             case (Right(values), value) =>
-              value.toTypedValueLazyError(schema.schemaA).map(values :+ _)
+              value.toTypedValueLazyError(schema.elementSchema).map(values :+ _)
           }
           .map(schema.fromChunk)
 

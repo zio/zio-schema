@@ -275,7 +275,7 @@ object AvroCodec extends AvroCodec {
       case e: Enum[_]                    => toAvroEnum(e)
       case record: Record[_]             => toAvroRecord(record)
       case map: Schema.Map[_, _]         => toAvroMap(map)
-      case seq: Schema.Sequence[_, _, _] => toAvroSchema(seq.schemaA).map(SchemaAvro.createArray)
+      case seq: Schema.Sequence[_, _, _] => toAvroSchema(seq.elementSchema).map(SchemaAvro.createArray)
       case set: Schema.Set[_]            => toAvroSchema(set.elementSchema).map(SchemaAvro.createArray)
       case Transform(codec, _, _, _, _)  => toAvroSchema(codec)
       case Primitive(standardType, _) =>

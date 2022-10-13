@@ -469,7 +469,7 @@ object DeriveGen {
       }
 
   private def genSequence[Z, A](seq: Schema.Sequence[Z, A, _]): Gen[Sized, Z] =
-    Gen.oneOf(Gen.chunkOfN(2)(gen(seq.schemaA)), Gen.const(Chunk.empty)).map(seq.fromChunk(_))
+    Gen.oneOf(Gen.chunkOfN(2)(gen(seq.elementSchema)), Gen.const(Chunk.empty)).map(seq.fromChunk(_))
 
   private def genMap[K, V](map: Schema.Map[K, V]): Gen[Sized, Map[K, V]] =
     Gen.oneOf(Gen.mapOfN(2)(gen(map.keySchema), gen(map.valueSchema)), Gen.const(Map.empty[K, V]))

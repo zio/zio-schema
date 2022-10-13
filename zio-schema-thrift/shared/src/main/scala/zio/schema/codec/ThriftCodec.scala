@@ -771,7 +771,7 @@ object ThriftCodec extends Codec {
       @tailrec
       def decodeElements(n: Int, cb: ChunkBuilder[Elem]): Result[Chunk[Elem]] =
         if (n > 0)
-          decode(path, schema.schemaA) match {
+          decode(path, schema.elementSchema) match {
             case Right(elem)   => decodeElements(n - 1, cb += (elem))
             case Left(failure) => fail(path, s"Error decoding Sequence element: $failure")
           } else

@@ -309,7 +309,7 @@ object Schema extends SchemaEquality {
   sealed trait Collection[Col, Elem] extends Schema[Col]
 
   final case class Sequence[Col, Elem, I](
-    schemaA: Schema[Elem],
+    elementSchema: Schema[Elem],
     fromChunk: Chunk[Elem] => Col,
     toChunk: Col => Chunk[Elem],
     override val annotations: Chunk[Any] = Chunk.empty,
@@ -320,11 +320,12 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Sequence[Col, Elem, I] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Col] = schemaA.defaultValue.map(fromChunk.compose(Chunk(_)))
+    override def defaultValue: scala.util.Either[String, Col] =
+      elementSchema.defaultValue.map(fromChunk.compose(Chunk(_)))
 
-    override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, schemaA)
+    override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, elementSchema)
 
-    override def toString: String = s"Sequence($schemaA, $identity)"
+    override def toString: String = s"Sequence($elementSchema, $identity)"
 
   }
 

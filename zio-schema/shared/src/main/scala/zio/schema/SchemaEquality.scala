@@ -43,7 +43,7 @@ trait SchemaEquality {
           case (lSeq: Schema.Sequence[_, _, _], rSeq: Schema.Sequence[_, _, _]) =>
             (ignoreTransformations || (lSeq.identity == rSeq.identity)) &&
               lSeq.annotations == rSeq.annotations &&
-              lSeq.schemaA === rSeq.schemaA
+              lSeq.elementSchema === rSeq.elementSchema
           case (lTransform: Schema.Transform[_, _, _], rTransform: Schema.Transform[_, _, _]) =>
             (ignoreTransformations || (lTransform.identity == rTransform.identity)) &&
               lTransform.annotations == rTransform.annotations &&
