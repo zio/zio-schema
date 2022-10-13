@@ -36,9 +36,10 @@ import zio.schema.codec.ThriftCodec.Thrift.{
   periodStructure,
   yearMonthStructure
 }
-import zio.schema.{ DynamicValue, DynamicValueSchema, Schema, StandardType }
+import zio.schema.{ DynamicValue, DynamicValueSchema, Schema, StandardType, Singleton }
 import zio.stream.ZTransducer
 import zio.{ Chunk, ChunkBuilder, ZIO }
+import java.math.BigInteger
 
 object ThriftCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
@@ -80,35 +81,35 @@ object ThriftCodec extends Codec {
 
   object Thrift {
 
-    val bigDecimalStructure: Seq[Schema.Field[_, _]] =
+    val bigDecimalStructure: Seq[Schema.Field[_ <: Singleton with String, _]] =
       Seq(
-        Schema.Field("unscaled", Schema.Primitive(StandardType.BigIntegerType)),
-        Schema.Field("precision", Schema.Primitive(StandardType.IntType)),
-        Schema.Field("scale", Schema.Primitive(StandardType.IntType))
+        Schema.Field[Singleton with String, BigInteger]("unscaled", Schema.Primitive(StandardType.BigIntegerType)),
+        Schema.Field[Singleton with String, Int]("precision", Schema.Primitive(StandardType.IntType)),
+        Schema.Field[Singleton with String, Int]("scale", Schema.Primitive(StandardType.IntType))
       )
 
-    val monthDayStructure: Seq[Schema.Field[_, Int]] =
+    val monthDayStructure: Seq[Schema.Field[_ <: Singleton with String, Int]] =
       Seq(
-        Schema.Field("month", Schema.Primitive(StandardType.IntType)),
-        Schema.Field("day", Schema.Primitive(StandardType.IntType))
+        Schema.Field[Singleton with String, Int]("month", Schema.Primitive(StandardType.IntType)),
+        Schema.Field[Singleton with String, Int]("day", Schema.Primitive(StandardType.IntType))
       )
 
-    val periodStructure: Seq[Schema.Field[_, Int]] = Seq(
-      Schema.Field("years", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("months", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("days", Schema.Primitive(StandardType.IntType))
+    val periodStructure: Seq[Schema.Field[_ <: Singleton with String, Int]] = Seq(
+      Schema.Field[Singleton with String, Int]("years", Schema.Primitive(StandardType.IntType)),
+      Schema.Field[Singleton with String, Int]("months", Schema.Primitive(StandardType.IntType)),
+      Schema.Field[Singleton with String, Int]("days", Schema.Primitive(StandardType.IntType))
     )
 
-    val yearMonthStructure: Seq[Schema.Field[_, Int]] =
+    val yearMonthStructure: Seq[Schema.Field[_ <: Singleton with String, Int]] =
       Seq(
-        Schema.Field("year", Schema.Primitive(StandardType.IntType)),
-        Schema.Field("month", Schema.Primitive(StandardType.IntType))
+        Schema.Field[Singleton with String, Int]("year", Schema.Primitive(StandardType.IntType)),
+        Schema.Field[Singleton with String, Int]("month", Schema.Primitive(StandardType.IntType))
       )
 
-    val durationStructure: Seq[Schema.Field[_, _]] =
+    val durationStructure: Seq[Schema.Field[_ <: Singleton with String, _]] =
       Seq(
-        Schema.Field("seconds", Schema.Primitive(StandardType.LongType)),
-        Schema.Field("nanos", Schema.Primitive(StandardType.IntType))
+        Schema.Field[Singleton with String, Long]("seconds", Schema.Primitive(StandardType.LongType)),
+        Schema.Field[Singleton with String, Int]("nanos", Schema.Primitive(StandardType.IntType))
       )
   }
 
@@ -397,8 +398,8 @@ object ThriftCodec extends Codec {
       }
     }
 
-    def tupleSchema[A, B](first: Schema[A], second: Schema[B]): Seq[Schema.Field[_, _]] =
-      Seq(Schema.Field("first", first), Schema.Field("second", second))
+    def tupleSchema[A, B](first: Schema[A], second: Schema[B]): Seq[Schema.Field[_ <: Singleton with String, _]] =
+      Seq(Schema.Field[Singleton with String, A]("first", first), Schema.Field[Singleton with String, B]("second", second))
 
     private def encodeTuple[A, B](fieldNumber: Option[Short], left: Schema[A], right: Schema[B], tuple: (A, B)): Unit =
       encodeRecord(fieldNumber, tupleSchema(left, right), ListMap[String, Any]("first" -> tuple._1, "second" -> tuple._2))
@@ -708,7 +709,7 @@ object ThriftCodec extends Codec {
 
     }
 
-    def encodeRecord(fieldNumber: Option[Short], structure: Seq[Schema.Field[_, _]], data: ListMap[String, _]): Unit = {
+    def encodeRecord(fieldNumber: Option[Short], structure: Seq[Schema.Field[_ <: Singleton with String, _]], data: ListMap[String, _]): Unit = {
       writeFieldBegin(fieldNumber, TType.STRUCT)
       writeStructure(structure.map(schema => (schema, data(schema.label.toString()))))
     }
@@ -769,7 +770,7 @@ object ThriftCodec extends Codec {
       schema match {
         case Schema.GenericRecord(_, structure, _) => {
           val fields = structure.toChunk
-          decodeRecord(path, fields).map(_.map { case (index, value) => (fields(index - 1).label, value) })
+          decodeRecord(path, fields).map(_.map { case (index, value) => (fields(index - 1).label.toString(), value) })
         }
         case seqSchema @ Schema.Sequence(_, _, _, _, _)                                                                               => decodeSequence(path, seqSchema)
         case mapSchema @ Schema.MapSchema(_, _, _)                                                                                    => decodeMap(path, mapSchema)

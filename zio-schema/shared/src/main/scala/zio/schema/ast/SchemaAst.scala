@@ -192,13 +192,18 @@ object SchemaAst {
   ) extends SchemaAst
 
   object Value {
+
+    val valuePath = "valuePath"
+    val path = "path"
+    val optimal = "optimal"
+
     implicit val schema: Schema[Value] =
       Schema
-        .CaseClass3["valueType", "path", "optional", String, Chunk[String], Boolean, (String, Chunk[String], Boolean)](
+        .CaseClass3[valuePath.type, path.type, optimal.type, String, Chunk[String], Boolean, (String, Chunk[String], Boolean)](
           TypeId.parse("zio.scheema.ast.SchemaAst.Value"),
-          field1 = Schema.Field("valueType", Schema[String]),
-          field2 = Schema.Field("path", Schema[String].repeated),
-          field3 = Schema.Field("optional", Schema[Boolean]),
+          field1 = Schema.Field(valuePath, Schema[String]),
+          field2 = Schema.Field(path, Schema[String].repeated),
+          field3 = Schema.Field(optimal, Schema[Boolean]),
           construct = (v, p, o) => (v, p, o),
           extractField1 = _._1,
           extractField2 = _._2,

@@ -9,6 +9,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   import Assertion._
   import SchemaAssertions._
 
+  final case class SimpleZero()
   final case class annotation1(value: String) extends Annotation
   final case class annotation2(value: String) extends Annotation
   final class annotation3 extends Annotation {
@@ -32,23 +33,16 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   final case class ContainerFields(field1: Option[String], field2: List[String])
 
   object ContainerFields {
-    // implicit lazy val schema: Schema[ContainerFields] = DeriveSchema.gen[ContainerFields]
+    implicit lazy val schema: Schema[ContainerFields] = DeriveSchema.gen[ContainerFields]
   }
 
   sealed case class UserId(id: String)
 
   @annotation3
-  case class User(
-    name: String,
-    @annotation1("foo")
-    @annotation2("bar")
-    @annotation3
-    @annotation4(0)
-    id: UserId
-  )
+  sealed case class User(name: String, @annotation1("foo") @annotation2("bar") @annotation3 @annotation4(0) id: UserId)
 
   object User {
-    implicit lazy val schema: Schema.CaseClass2["name", "id", String, UserId, User] = DeriveSchema.gen[User]
+    implicit lazy val schema: Schema.CaseClass2[String, String, String, UserId, User] = DeriveSchema.gen[User]
   }
 
   sealed trait Status
@@ -59,7 +53,8 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         extends Status
     case object Pending extends Status
 
-    implicit lazy val schema: Schema.Enum3[Ok, Failed, Pending.type, Status] = DeriveSchema.gen[Status]
+    implicit lazy val schema: Schema.Enum3[Ok, Failed, zio.schema.DeriveSchemaSpec.Status.Pending.type, Status] =
+      DeriveSchema.gen[Status]
   }
 
   sealed trait OneOf
@@ -76,29 +71,28 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
 
   case class Recursive(
     field1: Int,
-    field2: Option[Recursive],
-    field3: List[Recursive],
+    field2: Option[Recursive] = None,
+    field3: List[Recursive] = Nil,
     field4: Set[Recursive] = Set.empty,
     field5: Vector[Recursive] = Vector.empty,
     field6: Chunk[Recursive] = Chunk.empty
   )
 
   object Recursive {
-    implicit lazy val schema: Schema.CaseClass6["field1", "field2", "field3", "field4", "field5", "field6", Int, Option[Recursive], List[Recursive], Set[Recursive], Vector[
-      Recursive
-    ], Chunk[Recursive], Recursive] =
-      DeriveSchema.gen[Recursive]
+    implicit lazy val schema: Schema[Recursive] = DeriveSchema.gen[Recursive]
   }
 
   case class Cyclic(field1: Long, child: CyclicChild1)
 
   object Cyclic {
-    implicit lazy val schema: Schema.CaseClass2["field1", "child", Long, CyclicChild1, Cyclic] = DeriveSchema.gen[Cyclic]
+    implicit lazy val schema: Schema.CaseClass2[String, String, Long, CyclicChild1, Cyclic] =
+      DeriveSchema.gen[Cyclic]
   }
 
   case class CyclicChild1(field1: Int, child: CyclicChild2)
   case class CyclicChild2(field1: String, recursive: Option[Cyclic])
 
+  @annotation1("Arity24")
   final case class Arity24(
     a1: String,
     a2: Long,
@@ -127,7 +121,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   )
 
   object Arity24 {
-    // implicit lazy val schema: Schema[Arity24] = DeriveSchema.gen[Arity24]
+    implicit lazy val schema: Schema[Arity24] = DeriveSchema.gen[Arity24]
   }
 
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
@@ -190,12 +184,10 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
   @annotation1("enum") sealed trait AnnotatedEnum
 
   object AnnotatedEnum {
-
-    @annotation2("case")
-    case class AnnotatedCase(field: String) extends AnnotatedEnum
+    @annotation2("case") case class AnnotatedCase(field: String) extends AnnotatedEnum
 
     object AnnotatedCase {
-      implicit val schema: Schema.CaseClass1["field", String, AnnotatedCase] = DeriveSchema.gen[AnnotatedCase]
+      implicit val schema: Schema.CaseClass1[String, String, AnnotatedCase] = DeriveSchema.gen[AnnotatedCase]
     }
 
     implicit val schema: Schema.Enum1[AnnotatedCase, AnnotatedEnum] = DeriveSchema.gen[AnnotatedEnum]
@@ -236,21 +228,28 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
     case object C22                     extends Enum23
     case class C23(recursive: Enum23)   extends Enum23
 
-    // implicit lazy val schema: Schema.EnumN[Enum23, CaseSet.Aux[Enum23]] = DeriveSchema.gen[Enum23]
+    implicit lazy val schema: Schema.EnumN[Enum23, CaseSet.Aux[Enum23]] = DeriveSchema.gen[Enum23]
 
   }
 
   override def spec: ZSpec[Environment, Failure] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
+      test("correctly derives case class 0") {
+        val derived: Schema[SimpleZero] = DeriveSchema.gen[SimpleZero]
+        val expected: Schema[SimpleZero] =
+          Schema.CaseClass0(
+            TypeId.parse("zio.schema.DeriveSchemaSpec.SimpleZero"),
+            () => SimpleZero()
+          )
+        assert(derived)(hasSameSchema(expected))
+      },
       test("correctly derives case class") {
         assert(Schema[User].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
-      // test("correctly derives case class with arity > 22") {
-      //   assert(Schema[Arity24].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
-      // },
+      test("correctly derives case class with arity > 22") {
+        assert(Schema[Arity24].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+      },
       test("correctly derives recursive data structure") {
-        println(Recursive.schema.field2.schema.asInstanceOf[Schema.Optional[_]].toEnum)
-        println(Recursive.schema.field2.schema.asInstanceOf[Schema.Optional[_]].toEnum)
         assert(Schema[Recursive].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
       test("correctly derives tuple arities from 2 to 22") {
@@ -265,7 +264,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         val derived: Schema[UserId] = DeriveSchema.gen[UserId]
         val expected: Schema[UserId] =
           Schema.CaseClass1(
-            id = TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
+            TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
             field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
             UserId.apply,
             (uid: UserId) => uid.id
@@ -275,20 +274,36 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       },
       test("correctly derives for case object") {
         val derived: Schema[Singleton.type]  = DeriveSchema.gen[Singleton.type]
-        val expected: Schema[Singleton.type] = Schema.CaseClass0(TypeId.parse("zio.schema.DeriveSchemaSpec.Singleton"), () => Singleton)
+        val expected: Schema[Singleton.type] = Schema.singleton(Singleton)
 
         assert(derived)(hasSameSchema(expected))
       },
       test("correctly captures annotations on case class") {
         val derived: Schema[User] = Schema[User]
-        derived match {
-          case Schema.CaseClass2(id, field1, field2, _, _, _, anns) =>
-            assertTrue(
-              anns.contains(new annotation3),
-              field1.annotations.isEmpty,
-              field2.annotations == Chunk(annotation1("foo"), annotation2("bar"), new annotation3, new annotation4(0))
-            )
+        val expected: Schema[User] = {
+          Schema.CaseClass2(
+            TypeId.parse("zio.schema.DeriveSchemaSpec.User"),
+            field1 = Schema.Field("name", Schema.Primitive(StandardType.StringType)),
+            field2 = Schema.Field(
+              "id",
+              Schema.CaseClass1(
+                TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
+                field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
+                UserId.apply,
+                (uid: UserId) => uid.id
+              ),
+              Chunk(annotation1("foo"), annotation2("bar"), new annotation3, new annotation4(0))
+            ),
+            User.apply,
+            (u: User) => u.name,
+            (u: User) => u.id,
+            annotations = Chunk(new annotation3)
+          )
         }
+        assert(derived)(hasSameSchema(expected))
+      },
+      test("correctly captures annotations on case class with arity greater than 22") {
+        assertTrue(Schema[Arity24].annotations == Chunk(annotation1("Arity24")))
       },
       test("correctly derives Enum") {
         val derived: Schema[Status] = Schema[Status]
@@ -331,10 +346,10 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
       },
       test("correctly derives recursive Enum") {
         assert(Schema[RecursiveEnum].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+      },
+      test("correctly derives Enum with > 22 cases") {
+        assert(Schema[Enum23].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       }
-      // test("correctly derives Enum with > 22 cases") {
-      //   assert(Schema[Enum23].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
-      // }
     )
   )
 }

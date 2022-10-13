@@ -16,6 +16,7 @@ import zio.schema._
 import zio.schema.ast.SchemaAst
 import zio.schema.codec.AvroAnnotations._
 import zio.schema.codec.AvroPropMarker._
+import zio.schema.Singleton
 
 trait AvroCodec {
   def encode: Schema[_] => Either[String, String]
@@ -602,7 +603,7 @@ object AvroCodec extends AvroCodec {
     val validNameRegex = raw"[A-Za-z_][A-Za-z0-9_]*".r
 
     schema.annotations.collectFirst { case AvroAnnotations.name(name) => name } match {
-      case Some(s) if validNameRegex.matches(s) => Right(s)
+      case Some(s) if validNameRegex.findFirstIn(s).isDefined => Right(s)
       case Some(s)                              => Left(s"Invalid Avro name: $s")
       case None =>
         schema match {
@@ -627,7 +628,7 @@ object AvroCodec extends AvroCodec {
     val validNamespaceRegex = raw"[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*".r
 
     annotations.collectFirst { case AvroAnnotations.namespace(ns) => ns } match {
-      case Some(s) if validNamespaceRegex.matches(s) => Right(Some(s))
+      case Some(s) if validNamespaceRegex.findFirstIn(s).isDefined => Right(Some(s))
       case Some(s)                                   => Left(s"Invalid Avro namespace: $s")
       case None                                      => Right(None)
     }

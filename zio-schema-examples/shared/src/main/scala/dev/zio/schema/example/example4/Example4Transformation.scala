@@ -11,13 +11,20 @@ import zio.{ Chunk, ExitCode, URIO, ZIO }
  * transforming a Request-DTO to a Domain-DTO to a Database-DTO.
  **/
 private[example4] object Domain {
+
+  val nameType = "name"
+  val ageType = "age"
+  val firstnameType = "firstname"
+  val lastnameType = "lastname"
+  val yearsType = "years"
+
   final case class WebPerson(name: String, age: Int)
 
   object WebPerson {
-    val name: Schema.Field["name", String] = Schema.Field["name", String]("name", Schema.primitive[String])
-    val age: Schema.Field["age", Int]      = Schema.Field["age", Int]("age", Schema.primitive[Int])
+    val name: Schema.Field[nameType.type, String] = Schema.Field[nameType.type, String](nameType, Schema.primitive[String])
+    val age: Schema.Field[ageType.type, Int]      = Schema.Field[ageType.type, Int](ageType, Schema.primitive[Int])
 
-    val schema: Schema[WebPerson] = Schema.CaseClass2["name", "age", String, Int, WebPerson](
+    val schema: Schema[WebPerson] = Schema.CaseClass2[nameType.type, ageType.type, String, Int, WebPerson](
       TypeId.parse("dev.zio.schema.example.example4.Domain.WebPerson"),
       field1 = name,
       field2 = age,
@@ -30,12 +37,12 @@ private[example4] object Domain {
   final case class DomainPerson(firstname: String, lastname: String, years: Int)
 
   object DomainPerson {
-    val firstname: Schema.Field["firstname", String] = Schema.Field("firstname", Schema.primitive[String])
-    val lastname: Schema.Field["lastname", String]   = Schema.Field("lastname", Schema.primitive[String])
-    val years: Schema.Field["years", Int]            = Schema.Field("years", Schema.primitive[Int])
+    val firstname: Schema.Field[firstnameType.type, String] = Schema.Field(firstnameType, Schema.primitive[String])
+    val lastname: Schema.Field[lastnameType.type, String]   = Schema.Field(lastnameType, Schema.primitive[String])
+    val years: Schema.Field[yearsType.type, Int]            = Schema.Field(yearsType, Schema.primitive[Int])
 
     val schema: Schema[DomainPerson] =
-      Schema.CaseClass3["firstname", "lastname", "years", String, String, Int, DomainPerson](
+      Schema.CaseClass3[firstnameType.type, lastnameType.type, yearsType.type, String, String, Int, DomainPerson](
         TypeId.parse("dev.zio.schema.example.example4.Domain.DomainPerson"),
         field1 = firstname,
         field2 = lastname,

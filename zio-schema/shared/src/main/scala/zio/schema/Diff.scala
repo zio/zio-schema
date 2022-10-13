@@ -30,6 +30,7 @@ import zio.schema.StandardType.DurationType
 import zio.schema.ast.Migration
 import zio.schema.diff.Edit
 import zio.{ Chunk, ChunkBuilder }
+import zio.schema.Singleton
 
 trait Differ[A] { self =>
 

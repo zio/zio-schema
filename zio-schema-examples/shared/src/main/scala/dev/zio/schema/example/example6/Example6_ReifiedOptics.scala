@@ -11,43 +11,53 @@ private[example6] object Domain {
   final case class UserAddress(user: User, address: Address)
   final case class Company(boss: User, employees: List[UserAddress])
 
-  implicit val userSchema: Schema.CaseClass2["name", "age", String, Int, User] =
-    Schema.CaseClass2["name", "age", String, Int, User](
+  val name = "name"
+  val age = "age"
+  val street = "street"
+  val city = "city"
+  val state = "state"
+  val user = "user"
+  val address = "address"
+  val boss = "boss"
+  val employees = "employee"
+
+  implicit val userSchema: Schema.CaseClass2[name.type, age.type, String, Int, User] =
+    Schema.CaseClass2[name.type, age.type, String, Int, User](
       TypeId.parse("dev.zio.schema.example.example6.Domain.User"),
-      field1 = Field("name", Schema.primitive[String]),
-      field2 = Field("age", Schema.primitive[Int]),
+      field1 = Field(name, Schema.primitive[String]),
+      field2 = Field(age, Schema.primitive[Int]),
       construct = (name, years) => User(name, years),
       extractField1 = _.name,
       extractField2 = _.age
     )
 
-  implicit val addressSchema: CaseClass3["street", "city", "state", String, String, String, Address] =
-    Schema.CaseClass3["street", "city", "state", String, String, String, Address](
+  implicit val addressSchema: CaseClass3[street.type, city.type, state.type, String, String, String, Address] =
+    Schema.CaseClass3[street.type, city.type, state.type, String, String, String, Address](
       TypeId.parse("dev.zio.schema.example.example6.Domain.Address"),
-      field1 = Field("street", Schema.primitive[String]),
-      field2 = Field("city", Schema.primitive[String]),
-      field3 = Field("state", Schema.primitive[String]),
+      field1 = Field(street, Schema.primitive[String]),
+      field2 = Field(city, Schema.primitive[String]),
+      field3 = Field(state, Schema.primitive[String]),
       construct = (street, city, state) => Address(street, city, state),
       extractField1 = _.street,
       extractField2 = _.city,
       extractField3 = _.state
     )
 
-  implicit val userAddressSchema: CaseClass2["user", "address", User, Address, UserAddress] =
-    Schema.CaseClass2["user", "address", User, Address, UserAddress](
+  implicit val userAddressSchema: CaseClass2[user.type, address.type, User, Address, UserAddress] =
+    Schema.CaseClass2[user.type, address.type, User, Address, UserAddress](
       TypeId.parse("dev.zio.schema.example.example6.Domain.UserAddress"),
-      field1 = Field("user", userSchema),
-      field2 = Field("address", addressSchema),
+      field1 = Field(user, userSchema),
+      field2 = Field(address, addressSchema),
       construct = (user, address) => UserAddress(user, address),
       extractField1 = _.user,
       extractField2 = _.address
     )
 
-  implicit val companySchema: CaseClass2["boss", "employees", User, List[UserAddress], Company] =
-    Schema.CaseClass2["boss", "employees", User, List[UserAddress], Company](
+  implicit val companySchema: CaseClass2[boss.type, employees.type, User, List[UserAddress], Company] =
+    Schema.CaseClass2[boss.type, employees.type, User, List[UserAddress], Company](
       TypeId.parse("dev.zio.schema.example.example6.Domain.Company"),
-      field1 = Field("boss", userSchema),
-      field2 = Field("employees", Schema.list(userAddressSchema)),
+      field1 = Field(boss, userSchema),
+      field2 = Field(employees, Schema.list(userAddressSchema)),
       construct = (boss, employees) => Company(boss, employees),
       extractField1 = _.boss,
       extractField2 = _.employees

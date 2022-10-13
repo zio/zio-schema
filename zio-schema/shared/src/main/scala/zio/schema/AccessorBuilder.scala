@@ -1,5 +1,7 @@
 package zio.schema
 
+import zio.schema.Singleton
+
 trait AccessorBuilder {
   type Lens[F <: Singleton with String, S, A]
   type Prism[F, S, A]

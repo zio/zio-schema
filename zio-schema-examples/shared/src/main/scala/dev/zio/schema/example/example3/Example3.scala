@@ -12,13 +12,20 @@ import zio.{ Chunk, ExitCode, URIO, ZIO }
  * To do this, we'll transform the Schema of the PersonDTO into a Schema of the Person.
  **/
 private[example3] object Domain {
+
+  val nameType = "name"
+  val ageType = "age"
+  val firstnameType = "firstname"
+  val lastnameType = "lastname"
+  val yearsType = "years"
+
   final case class Person(name: String, age: Int)
 
   object Person {
-    val name: Field["name", String] = Field["name", String]("name", primitive[String])
-    val age: Field["age", Int]      = Field["age", Int]("age", primitive[Int])
+    val name: Field[nameType.type, String] = Field[nameType.type, String](nameType, primitive[String])
+    val age: Field[ageType.type, Int]      = Field[ageType.type, Int](ageType, primitive[Int])
 
-    val schema: Schema[Person] = CaseClass2["name", "age", String, Int, Person](
+    val schema: Schema[Person] = CaseClass2[nameType.type, ageType.type, String, Int, Person](
       TypeId.parse("dev.zio.example.example3.Domain.Person"),
       field1 = name,
       field2 = age,
@@ -31,11 +38,11 @@ private[example3] object Domain {
   final case class PersonDTO(firstname: String, lastname: String, years: Int)
 
   object PersonDTO {
-    val firstname: Field["firstname", String] = Field("firstname", primitive[String])
-    val lastname: Field["lastname", String]   = Field("lastname", primitive[String])
-    val years: Field["years", Int]            = Field("years", primitive[Int])
+    val firstname: Field[firstnameType.type, String] = Field(firstnameType, primitive[String])
+    val lastname: Field[lastnameType.type, String]   = Field(lastnameType, primitive[String])
+    val years: Field[yearsType.type, Int]            = Field(yearsType, primitive[Int])
 
-    val schema: Schema[PersonDTO] = CaseClass3["firstname", "lastname", "years", String, String, Int, PersonDTO](
+    val schema: Schema[PersonDTO] = CaseClass3[firstnameType.type, lastnameType.type, yearsType.type, String, String, Int, PersonDTO](
       TypeId.parse("dev.zio.example.example3.Domain.PersonDTO"),
       field1 = firstname,
       field2 = lastname,

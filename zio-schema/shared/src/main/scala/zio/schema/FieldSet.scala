@@ -2,12 +2,15 @@ package zio.schema
 
 import zio.Chunk
 import zio.schema.Schema._
+import zio.schema.Singleton
 
 sealed trait FieldSet {
   type Accessors[Whole, Lens[_ <: Singleton with String, _, _], Prism[_, _, _], Traversal[_, _]]
   type Append[That <: FieldSet] <: FieldSet
 
   type Terms
+
+  type FieldNames
 
   def :*:[F <: Singleton with String, A](head: Field[F, A]): FieldSet.Cons[F, A, FieldSet]
 
@@ -30,6 +33,8 @@ object FieldSet {
     override type Append[That <: FieldSet]                                                                  = That
 
     override type Terms = Any
+
+    override type FieldNames = Any
     override def :*:[F <: Singleton with String, A](head: Field[F, A]): FieldSet.Cons[F, A, Empty] = Cons(head, Empty)
 
     override def ++[That <: FieldSet](that: That): Append[That] = that
@@ -51,6 +56,8 @@ object FieldSet {
     override type Append[That <: FieldSet] = Cons[F, A, tail.Append[That]]
 
     override type Terms = (F, A) with tail.Terms
+
+    override type FieldNames = F with tail.FieldNames
 
     override def :*:[F2 <: Singleton with String, B](head2: Field[F2, B]): FieldSet.Cons[F2, B, Cons[F, A, T]] =
       Cons(head2, self)

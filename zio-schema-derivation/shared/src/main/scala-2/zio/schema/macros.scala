@@ -178,7 +178,6 @@ object DeriveSchema {
         }
         val arity = fieldTypes.size
 
-        // derive all
         val typeArgs =
           fieldTypes.map { ft =>
             tq"${ft.name.toString().trim()}.type"
@@ -257,13 +256,15 @@ object DeriveSchema {
         if (arity > 22) {
           val fields = fieldTypes.zip(fieldAnnotations).map {
             case (termSymbol, annotations) =>
+              val singletonType = tq"${termSymbol.name.toString().trim()}.type"
+              val fieldTpe = concreteType(tpe, tpe.decl(termSymbol.name).typeSignature)
               val fieldSchema = directInferSchema(
                 tpe,
                 concreteType(tpe, termSymbol.typeSignature),
                 currentFrame +: stack
               )
               val fieldLabel = termSymbol.name.toString.trim
-              q"zio.schema.Schema.Field.apply($fieldLabel,$fieldSchema,zio.Chunk.apply[Any](..$annotations))"
+              q"zio.schema.Schema.Field[$singletonType, $fieldTpe]($fieldLabel,$fieldSchema,zio.Chunk.apply[Any](..$annotations))"
           }
           val fromMap = {
             val casts = fieldTypes.map { termSymbol =>
@@ -318,6 +319,8 @@ object DeriveSchema {
 
           val fieldDefs = fieldTypes.zip(fieldAnnotations).zip(fieldValidations).zipWithIndex.map {
             case (((termSymbol, annotations), validation), idx) =>
+              val singletonType = tq"${termSymbol.name.toString().trim()}.type"
+              val fieldTpe = concreteType(tpe, tpe.decl(termSymbol.name).typeSignature)
               val fieldSchema = directInferSchema(
                 tpe,
                 concreteType(tpe, termSymbol.typeSignature),
@@ -327,9 +330,9 @@ object DeriveSchema {
               val fieldLabel = termSymbol.name.toString.trim
 
               if (annotations.nonEmpty)
-                q"""$fieldArg = zio.schema.Schema.Field.apply(label = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), validation = $validation)"""
+                q"""$fieldArg = zio.schema.Schema.Field[$singletonType,$fieldTpe](label = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), validation = $validation)"""
               else
-                q"""$fieldArg = zio.schema.Schema.Field.apply(label = $fieldLabel, schema = $fieldSchema, validation = $validation)"""
+                q"""$fieldArg = zio.schema.Schema.Field[$singletonType,$fieldTpe](label = $fieldLabel, schema = $fieldSchema, validation = $validation)"""
           }
 
           val constructArgs = fieldTypes.zipWithIndex.map {

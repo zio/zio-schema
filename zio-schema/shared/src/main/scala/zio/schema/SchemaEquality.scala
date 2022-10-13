@@ -1,7 +1,7 @@
 package zio.schema
 
 import scala.collection.mutable
-
+import zio.schema.Singleton
 import zio.prelude._
 
 trait SchemaEquality {

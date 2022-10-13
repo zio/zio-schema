@@ -8,6 +8,7 @@ import zio.Chunk
 import zio.schema.ast._
 import zio.schema.internal.SourceLocation
 import zio.schema.validation._
+import zio.schema.Singleton
 
 /**
  * A `Schema[A]` describes the structure of some data type `A`, in terms of case classes,
@@ -138,7 +139,6 @@ sealed trait Schema[A] {
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
    * between `A` and `B`, without possibility of failure.
    */
-  // TODO add implicit Tag and store in Transform
   def transform[B](f: A => B, g: B => A)(implicit loc: SourceLocation): Schema[B] =
     Schema.Transform[A, B, SourceLocation](self, a => Right(f(a)), b => Right(g(b)), annotations, loc)
 
@@ -160,6 +160,7 @@ sealed trait Schema[A] {
 }
 
 object Schema extends SchemaEquality {
+
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
   def defer[A](schema: => Schema[A]): Schema[A] = Lazy(() => schema)
@@ -290,6 +291,7 @@ object Schema extends SchemaEquality {
 
   sealed trait Record[R] extends Schema[R] { self =>
     type Terms
+    type FieldNames
     def structure: Chunk[Field[_ <: Singleton with String, _]]
     def rawConstruct(values: Chunk[Any]): Either[String, R]
 
@@ -570,7 +572,6 @@ object Schema extends SchemaEquality {
 
   // # ENUM SCHEMAS
 
-  //sealed case class Case[F <: Singleton with String, A, Z](
   sealed case class Case[A, Z](
     id: String,
     codec: Schema[A],
@@ -3219,6 +3220,8 @@ object Schema extends SchemaEquality {
 
     override type Terms = fieldSet.Terms
 
+    override type FieldNames = fieldSet.FieldNames
+
     override def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal] =
       fieldSet.makeAccessors(self, b)
 
@@ -3243,6 +3246,8 @@ object Schema extends SchemaEquality {
     type Accessors[Lens[_ <: Singleton with String, _, _], Prism[_, _, _], Traversal[_, _]] = Nothing
 
     override type Terms = Any
+
+    override type FieldNames = Any
 
     override def annotate(annotation: Any): CaseClass0[Z] = copy(annotations = annotations :+ annotation)
 
@@ -3273,6 +3278,8 @@ object Schema extends SchemaEquality {
     type Accessors[Lens[_ <: Singleton with String, _, _], Prism[_, _, _], Traversal[_, _]] = Lens[F, Z, A]
 
     override type Terms = (F, A)
+
+    override type FieldNames = F
 
     override def annotate(annotation: Any): CaseClass1[F, A, Z] = copy(annotations = annotations :+ annotation)
 
@@ -3307,6 +3314,8 @@ object Schema extends SchemaEquality {
 
     override type Terms = (F1, A1) with (F2, A2)
 
+    override type FieldNames = F1 with F2
+
     override def annotate(annotation: Any): CaseClass2[F1, F2, A1, A2, Z] =
       copy(annotations = annotations :+ annotation)
 
@@ -3336,7 +3345,7 @@ object Schema extends SchemaEquality {
     A1,
     A2,
     A3,
-    Z: zio.Tag
+    Z
   ](
     id: TypeId,
     field1: Field[F1, A1],
@@ -3353,6 +3362,8 @@ object Schema extends SchemaEquality {
       (Lens[F1, Z, A1], Lens[F2, Z, A2], Lens[F3, Z, A3])
 
     override type Terms = (F1, A1) with (F2, A2) with (F3, A3)
+
+    override type FieldNames = F1 with F2 with F3
 
     override def annotate(annotation: Any): CaseClass3[F1, F2, F3, A1, A2, A3, Z] =
       copy(annotations = annotations :+ annotation)
@@ -3409,6 +3420,8 @@ object Schema extends SchemaEquality {
     )
 
     override type Terms = (F1, A1) with (F2, A2) with (F3, A3) with (F4, A4)
+
+    override type FieldNames = F1 with F2 with F3 with F4
 
     override def annotate(annotation: Any): CaseClass4[F1, F2, F3, F4, A1, A2, A3, A4, Z] =
       copy(annotations = annotations :+ annotation)
@@ -3480,6 +3493,8 @@ object Schema extends SchemaEquality {
     )
 
     override type Terms = (F1, A1) with (F2, A2) with (F3, A3) with (F4, A4) with (F5, A5)
+
+    override type FieldNames = F1 with F2 with F3 with F4 with F5
 
     override def annotate(annotation: Any): CaseClass5[F1, F2, F3, F4, F5, A1, A2, A3, A4, A5, Z] =
       copy(annotations = annotations :+ annotation)
@@ -3563,6 +3578,8 @@ object Schema extends SchemaEquality {
     )
 
     override type Terms = (F1, A1) with (F2, A2) with (F3, A3) with (F4, A4) with (F5, A5) with (F6, A6)
+
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6
 
     override def annotate(annotation: Any): CaseClass6[F1, F2, F3, F4, F5, F6, A1, A2, A3, A4, A5, A6, Z] =
       copy(annotations = annotations :+ annotation)
@@ -3656,6 +3673,8 @@ object Schema extends SchemaEquality {
     )
 
     override type Terms = (F1, A1) with (F2, A2) with (F3, A3) with (F4, A4) with (F5, A5) with (F6, A6) with (F7, A7)
+
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6 with F7
 
     override def annotate(annotation: Any): CaseClass7[F1, F2, F3, F4, F5, F6, F7, A1, A2, A3, A4, A5, A6, A7, Z] =
       copy(annotations = annotations :+ annotation)
@@ -3758,6 +3777,8 @@ object Schema extends SchemaEquality {
 
     override type Terms =
       (F1, A1) with (F2, A2) with (F3, A3) with (F4, A4) with (F5, A5) with (F6, A6) with (F7, A7) with (F8, A8)
+
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6 with F7 with F8
 
     override def annotate(
       annotation: Any
@@ -3877,6 +3898,8 @@ object Schema extends SchemaEquality {
       with (F7, A7)
       with (F8, A8)
       with (F9, A9)
+
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6 with F7 with F8 with F9
 
     override def annotate(
       annotation: Any
@@ -4003,6 +4026,8 @@ object Schema extends SchemaEquality {
       with (F7, A7)
       with (F8, A8)
       with (F10, A10)
+
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6 with F7 with F8 with F9 with F10
 
     override def annotate(
       annotation: Any
@@ -4139,6 +4164,9 @@ object Schema extends SchemaEquality {
       with (F8, A8)
       with (F10, A10)
       with (F11, A11)
+
+    
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6 with F7 with F8 with F9 with F10 with F11
 
     override def annotate(
       annotation: Any
@@ -4286,6 +4314,8 @@ object Schema extends SchemaEquality {
       with (F10, A10)
       with (F11, A11)
       with (F12, A12)
+
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6 with F7 with F8 with F9 with F10 with F11 with F12
 
     override def annotate(annotation: Any): CaseClass12[
       F1,
@@ -4463,6 +4493,8 @@ object Schema extends SchemaEquality {
       with (F11, A11)
       with (F12, A12)
       with (F13, A13)
+
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6 with F7 with F8 with F9 with F10 with F11 with F12 with F13
 
     override def annotate(annotation: Any): CaseClass13[
       F1,
@@ -4651,6 +4683,8 @@ object Schema extends SchemaEquality {
       with (F12, A12)
       with (F13, A13)
       with (F14, A14)
+
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6 with F7 with F8 with F9 with F10 with F11 with F12 with F13 with F14
 
     override def annotate(
       annotation: Any
@@ -4869,6 +4903,8 @@ object Schema extends SchemaEquality {
       with (F14, A14)
       with (F15, A15)
 
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6 with F7 with F8 with F9 with F10 with F11 with F12 with F13 with F14 with F15
+
     override def annotate(
       annotation: Any
     ): CaseClass15[
@@ -5081,6 +5117,8 @@ object Schema extends SchemaEquality {
       Lens[F15, Z, A15],
       Lens[F16, Z, A16]
     )
+  
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6 with F7 with F8 with F9 with F10 with F11 with F12 with F13 with F14 with F15 with F16
 
     override type Terms = (F1, A1)
       with (F2, A2)
@@ -5321,6 +5359,8 @@ object Schema extends SchemaEquality {
       Lens[F16, Z, A16],
       Lens[F17, Z, A17]
     )
+  
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6 with F7 with F8 with F9 with F10 with F11 with F12 with F13 with F14 with F15 with F16 with F17
 
     override type Terms = (F1, A1)
       with (F2, A2)
@@ -5573,6 +5613,8 @@ object Schema extends SchemaEquality {
       Lens[F17, Z, A17],
       Lens[F18, Z, A18]
     )
+
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6 with F7 with F8 with F9 with F10 with F11 with F12 with F13 with F14 with F15 with F16 with F17 with F18 
 
     override type Terms = (F1, A1)
       with (F2, A2)
@@ -5857,6 +5899,8 @@ object Schema extends SchemaEquality {
       with (F18, A18)
       with (F19, A19)
 
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6 with F7 with F8 with F9 with F10 with F11 with F12 with F13 with F14 with F15 with F16 with F17 with F18 with F19
+
     override def annotate(
       annotation: Any
     ): CaseClass19[
@@ -6134,6 +6178,8 @@ object Schema extends SchemaEquality {
       with (F19, A19)
       with (F20, A20)
 
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6 with F7 with F8 with F9 with F10 with F11 with F12 with F13 with F14 with F15 with F16 with F17 with F18 with F19 with F20
+    
     override def annotate(
       annotation: Any
     ): CaseClass20[
@@ -6422,6 +6468,8 @@ object Schema extends SchemaEquality {
       with (F19, A19)
       with (F20, A20)
       with (F21, A21)
+
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6 with F7 with F8 with F9 with F10 with F11 with F12 with F13 with F14 with F15 with F16 with F17 with F18 with F19 with F20 with F21
 
     override def annotate(
       annotation: Any
@@ -6746,6 +6794,8 @@ object Schema extends SchemaEquality {
       with (F20, A20)
       with (F21, A21)
       with (F22, A22)
+
+    override type FieldNames = F1 with F2 with F3 with F4 with F5 with F6 with F7 with F8 with F9 with F10 with F11 with F12 with F13 with F14 with F15 with F16 with F17 with F18 with F19 with F20 with F21 with F22
 
     override def annotate(annotation: Any): CaseClass22[
       F1,

@@ -122,14 +122,16 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
     val args = List(typeInfo) ++ fields ++ Seq(constructor) ++ selects ++ Seq(annotations)
     val terms = Expr.ofTupleFromSeq(args)
 
+    val singletonArgs = labels.map(l => ConstantType(StringConstant(l)))
+
     val typeArgs = 
-      (types.appended(TypeRepr.of[T])).map { tpe =>
+      (singletonArgs ++ types.appended(TypeRepr.of[T])).map { tpe =>
         tpe.asType match
           case '[tt] => TypeTree.of[tt]
       }
 
     // This seems to work even hard-coded to CaseClass2 🤷‍♂️
-    val ctor = TypeRepr.of[CaseClass2[_, _, _]].typeSymbol.primaryConstructor
+    val ctor = TypeRepr.of[CaseClass2[_, _, _, _, _]].typeSymbol.primaryConstructor
     val typeTree = caseClassTypeTree[T](labels.length)
 
     val applied = Apply(
@@ -231,7 +233,25 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
         }
       }
       val chunk = '{ zio.Chunk.fromIterable(${ Expr.ofSeq(anns.reverse) }) }
-      '{ Field(${Expr(label)}, $schema, $chunk, $validator) }
+    
+      val ctor = TypeRepr.of[Field[_, _]].typeSymbol.primaryConstructor
+      val typeArgs = (ConstantType(StringConstant(label)) :: repr :: Nil).map { tpe =>
+        tpe.asType match
+          case '[tt] => TypeTree.of[tt]
+      }
+
+      val args = Expr(label) :: schema :: chunk :: validator :: Nil
+      val typeTree = TypeTree.of[Field[scala.Singleton with String, t]]
+
+      val applied = Apply(
+        TypeApply(
+          Select(New(typeTree), ctor),
+          typeArgs
+        ),
+        args.map(_.asTerm)
+      )
+      
+      applied.asExpr
     }
   }
 
@@ -279,28 +299,28 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
   def caseClassTypeTree[T: Type](arity: Int): TypeTree = 
     arity match {
       case 0 => TypeTree.of[CaseClass0[T]]
-      case 1 => TypeTree.of[CaseClass1[_, T]]
-      case 2 => TypeTree.of[CaseClass2[_, _, T]]
-      case 3 => TypeTree.of[CaseClass3[_, _, _, T]]
-      case 4 => TypeTree.of[CaseClass4[_, _, _, _, T]]
-      case 5 => TypeTree.of[CaseClass5[_, _, _, _, _, T]]
-      case 6 => TypeTree.of[CaseClass6[_, _, _, _, _, _, T]]
-      case 7 => TypeTree.of[CaseClass7[_, _, _, _, _, _, _, T]]
-      case 8 => TypeTree.of[CaseClass8[_, _, _, _, _, _, _, _, T]]
-      case 9 => TypeTree.of[CaseClass9[_, _, _, _, _, _, _, _, _, T]]
-      case 10 => TypeTree.of[CaseClass10[_, _, _, _, _, _, _, _, _, _, T]]
-      case 11 => TypeTree.of[CaseClass11[_, _, _, _, _, _, _, _, _, _, _, T]]
-      case 12 => TypeTree.of[CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, T]]
-      case 13 => TypeTree.of[CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, T]]
-      case 14 => TypeTree.of[CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
-      case 15 => TypeTree.of[CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
-      case 16 => TypeTree.of[CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
-      case 17 => TypeTree.of[CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
-      case 18 => TypeTree.of[CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
-      case 19 => TypeTree.of[CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
-      case 20 => TypeTree.of[CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
-      case 21 => TypeTree.of[CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
-      case 22 => TypeTree.of[CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 1 => TypeTree.of[CaseClass1[_, _, T]]
+      case 2 => TypeTree.of[CaseClass2[_, _, _, _, T]]
+      case 3 => TypeTree.of[CaseClass3[_, _, _, _, _, _,T]]
+      case 4 => TypeTree.of[CaseClass4[_, _, _, _, _, _, _, _, T]]
+      case 5 => TypeTree.of[CaseClass5[_, _, _, _, _, _, _, _, _, _, T]]
+      case 6 => TypeTree.of[CaseClass6[_, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 7 => TypeTree.of[CaseClass7[_, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 8 => TypeTree.of[CaseClass8[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 9 => TypeTree.of[CaseClass9[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 10 => TypeTree.of[CaseClass10[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 11 => TypeTree.of[CaseClass11[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 12 => TypeTree.of[CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 13 => TypeTree.of[CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 14 => TypeTree.of[CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 15 => TypeTree.of[CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 16 => TypeTree.of[CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 17 => TypeTree.of[CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 18 => TypeTree.of[CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 19 => TypeTree.of[CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 20 => TypeTree.of[CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 21 => TypeTree.of[CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 22 => TypeTree.of[CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
     }
     
 
