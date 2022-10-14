@@ -3,27 +3,26 @@ package zio.schema
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
-import zio.random.Random
 import zio.test._
 
 object DynamicValueGen {
 
-  def anyPrimitiveDynamicValue[A](standardType: StandardType[A]): Gen[Random with Sized, DynamicValue.Primitive[A]] = {
-    def gen[A1](typ: StandardType[A1], gen: Gen[Random with Sized, A1]) = gen.map(DynamicValue.Primitive(_, typ))
+  def anyPrimitiveDynamicValue[A](standardType: StandardType[A]): Gen[Sized, DynamicValue.Primitive[A]] = {
+    def gen[A1](typ: StandardType[A1], gen: Gen[Sized, A1]) = gen.map(DynamicValue.Primitive(_, typ))
 
     standardType match {
-      case typ: StandardType.BinaryType.type     => gen(typ, Gen.chunkOf(Gen.anyByte))
+      case typ: StandardType.BinaryType.type     => gen(typ, Gen.chunkOf(Gen.byte))
       case typ: StandardType.BoolType.type       => gen(typ, Gen.oneOf(Gen.const(true), Gen.const(false)))
-      case typ: StandardType.CharType.type       => gen(typ, Gen.anyASCIIChar)
-      case typ: StandardType.DoubleType.type     => gen(typ, Gen.anyDouble)
-      case typ: StandardType.StringType.type     => gen(typ, Gen.anyString)
-      case typ: StandardType.ShortType.type      => gen(typ, Gen.anyShort)
-      case typ: StandardType.ByteType.type       => gen(typ, Gen.anyByte)
-      case typ: StandardType.IntType.type        => gen(typ, Gen.anyInt)
-      case typ: StandardType.LongType.type       => gen(typ, Gen.anyLong)
-      case typ: StandardType.FloatType.type      => gen(typ, Gen.anyFloat)
-      case typ: StandardType.BigDecimalType.type => gen(typ, Gen.anyDouble.map(d => java.math.BigDecimal.valueOf(d)))
-      case typ: StandardType.BigIntegerType.type => gen(typ, Gen.anyLong.map(n => java.math.BigInteger.valueOf(n)))
+      case typ: StandardType.CharType.type       => gen(typ, Gen.asciiChar)
+      case typ: StandardType.DoubleType.type     => gen(typ, Gen.double)
+      case typ: StandardType.StringType.type     => gen(typ, Gen.string)
+      case typ: StandardType.ShortType.type      => gen(typ, Gen.short)
+      case typ: StandardType.ByteType.type       => gen(typ, Gen.byte)
+      case typ: StandardType.IntType.type        => gen(typ, Gen.int)
+      case typ: StandardType.LongType.type       => gen(typ, Gen.long)
+      case typ: StandardType.FloatType.type      => gen(typ, Gen.float)
+      case typ: StandardType.BigDecimalType.type => gen(typ, Gen.double.map(d => java.math.BigDecimal.valueOf(d)))
+      case typ: StandardType.BigIntegerType.type => gen(typ, Gen.long.map(n => java.math.BigInteger.valueOf(n)))
       case typ: StandardType.DayOfWeekType.type  => gen(typ, JavaTimeGen.anyDayOfWeek)
       case typ: StandardType.DurationType.type   => gen(typ, JavaTimeGen.anyDuration)
       case typ: StandardType.InstantType         => gen(typ, JavaTimeGen.anyInstant)
@@ -41,12 +40,12 @@ object DynamicValueGen {
       case typ: StandardType.ZoneIdType.type     => gen(typ, JavaTimeGen.anyZoneId)
       case typ: StandardType.ZoneOffsetType.type => gen(typ, JavaTimeGen.anyZoneOffset)
       case typ: StandardType.UnitType.type       => Gen.const(DynamicValue.Primitive((), typ))
-      case typ: StandardType.UUIDType.type       => gen(typ, Gen.anyUUID)
+      case typ: StandardType.UUIDType.type       => gen(typ, Gen.uuid)
     }
   }
 
   //scalafmt: { maxColumn = 400 }
-  def anyDynamicValueOfSchema[A](schema: Schema[A]): Gen[Random with Sized, DynamicValue] =
+  def anyDynamicValueOfSchema[A](schema: Schema[A]): Gen[Sized, DynamicValue] =
     schema match {
       case Schema.Primitive(standardType, _)                                                                                                                                                          => anyPrimitiveDynamicValue(standardType)
       case s: Schema.Record[A]                                                                                                                                                                        => anyDynamicValueWithStructure(s.structure)
@@ -74,44 +73,42 @@ object DynamicValueGen {
       case Schema.Enum22(_, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, case22, _) => anyDynamicValueOfEnum(Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, case22))
       case Schema.EnumN(_, cases, _)                                                                                                                                                                  => anyDynamicValueOfEnum(Chunk.fromIterable(cases.toSeq))
       case Schema.Sequence(schema, _, _, _, _)                                                                                                                                                        => Gen.chunkOfBounded(0, 2)(anyDynamicValueOfSchema(schema)).map(DynamicValue.Sequence(_))
-      case Schema.MapSchema(ks, vs, _)                                                                                                                                                                => Gen.chunkOfBounded(0, 2)(anyDynamicValueOfSchema(ks).zip(anyDynamicValueOfSchema(vs))).map(DynamicValue.Dictionary(_))
-      case Schema.SetSchema(schema, _)                                                                                                                                                                => Gen.setOfBounded(0, 2)(anyDynamicValueOfSchema(schema)).map(DynamicValue.SetValue(_))
+      case Schema.Map(ks, vs, _)                                                                                                                                                                      => Gen.chunkOfBounded(0, 2)(anyDynamicValueOfSchema(ks).zip(anyDynamicValueOfSchema(vs))).map(DynamicValue.Dictionary(_))
+      case Schema.Set(schema, _)                                                                                                                                                                      => Gen.setOfBounded(0, 2)(anyDynamicValueOfSchema(schema)).map(DynamicValue.SetValue(_))
       case Schema.Optional(schema, _)                                                                                                                                                                 => Gen.oneOf(anyDynamicSomeValueOfSchema(schema), Gen.const(DynamicValue.NoneValue))
-      case Schema.Tuple(left, right, _)                                                                                                                                                               => anyDynamicTupleValue(left, right)
-      case Schema.EitherSchema(left, right, _) =>
+      case Schema.Tuple2(left, right, _)                                                                                                                                                              => anyDynamicTupleValue(left, right)
+      case Schema.Either(left, right, _) =>
         Gen.oneOf(anyDynamicLeftValueOfSchema(left), anyDynamicRightValueOfSchema(right))
       case Schema.Transform(schema, _, _, _, _) => anyDynamicValueOfSchema(schema)
       case Schema.Fail(message, _)              => Gen.const(DynamicValue.Error(message))
       case l @ Schema.Lazy(_)                   => anyDynamicValueOfSchema(l.schema)
-      case Schema.Meta(meta, _)                 => anyDynamicValueOfSchema(meta.toSchema)
       case Schema.Dynamic(_)                    => SchemaGen.anySchema.flatMap(anyDynamicValueOfSchema(_))
-      case Schema.SemiDynamic(_, _)             => ??? // cannot generate dynamic value that corresponds to A
     }
   //scalafmt: { maxColumn = 120 }
 
-  def anyDynamicLeftValueOfSchema[A](schema: Schema[A]): Gen[Random with Sized, DynamicValue.LeftValue] =
+  def anyDynamicLeftValueOfSchema[A](schema: Schema[A]): Gen[Sized, DynamicValue.LeftValue] =
     anyDynamicValueOfSchema(schema).map(DynamicValue.LeftValue(_))
 
-  def anyDynamicRightValueOfSchema[A](schema: Schema[A]): Gen[Random with Sized, DynamicValue.RightValue] =
+  def anyDynamicRightValueOfSchema[A](schema: Schema[A]): Gen[Sized, DynamicValue.RightValue] =
     anyDynamicValueOfSchema(schema).map(DynamicValue.RightValue(_))
 
-  def anyDynamicSomeValueOfSchema[A](schema: Schema[A]): Gen[Random with Sized, DynamicValue.SomeValue] =
+  def anyDynamicSomeValueOfSchema[A](schema: Schema[A]): Gen[Sized, DynamicValue.SomeValue] =
     anyDynamicValueOfSchema(schema).map(DynamicValue.SomeValue(_))
 
-  def anyDynamicTupleValue[A, B](left: Schema[A], right: Schema[B]): Gen[Random with Sized, DynamicValue.Tuple] =
+  def anyDynamicTupleValue[A, B](left: Schema[A], right: Schema[B]): Gen[Sized, DynamicValue.Tuple] =
     anyDynamicValueOfSchema(left).zip(anyDynamicValueOfSchema(right)).map {
       case (l, r) => DynamicValue.Tuple(l, r)
     }
 
-  def anyDynamicValueOfEnum[A](cases: Chunk[Schema.Case[_, A]]): Gen[Random with Sized, DynamicValue.Enumeration] =
+  def anyDynamicValueOfEnum[A](cases: Chunk[Schema.Case[_, A]]): Gen[Sized, DynamicValue.Enumeration] =
     for {
       index <- Gen.int(0, cases.size - 1)
-      value <- anyDynamicValueOfSchema(cases(index).codec)
+      value <- anyDynamicValueOfSchema(cases(index).schema)
     } yield DynamicValue.Enumeration(TypeId.Structural, cases(index).id -> value)
 
-  def anyDynamicValueWithStructure(structure: Chunk[Schema.Field[_, _]]): Gen[Random with Sized, DynamicValue.Record] =
+  def anyDynamicValueWithStructure(structure: Chunk[Schema.Field[_, _]]): Gen[Sized, DynamicValue.Record] =
     Gen
-      .crossAll(
+      .collectAll(
         structure
           .map(field => Gen.const(field.label.toString()).zip(anyDynamicValueOfSchema(field.schema)))
       )
@@ -119,4 +116,13 @@ object DynamicValueGen {
         DynamicValue.Record(TypeId.Structural, ListMap.empty ++ values)
       }
 
+  def anyDynamicSequence[A](itemSchema: Schema[A]): Gen[Sized, DynamicValue.Sequence] =
+    Gen.chunkOf(anyDynamicValueOfSchema(itemSchema)).map { items =>
+      DynamicValue.Sequence(items)
+    }
+
+  def anyDynamicSet[A](itemSchema: Schema[A]): Gen[Sized, DynamicValue.SetValue] =
+    Gen.setOf(anyDynamicValueOfSchema(itemSchema)).map { items =>
+      DynamicValue.SetValue(items)
+    }
 }

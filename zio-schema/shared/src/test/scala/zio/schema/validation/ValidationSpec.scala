@@ -4,16 +4,17 @@ import java.time.format.DateTimeFormatter
 
 import scala.util.Try
 
+import zio.Scope
 import zio.test._
 
-object ValidationSpec extends DefaultRunnableSpec {
+object ValidationSpec extends ZIOSpecDefault {
   import zio.schema.validation.ValidationSpec.Hour._
   import zio.schema.validation.ValidationSpec.Minute._
   import zio.schema.validation.ValidationSpec.Second._
   import zio.schema.validation.ValidationSpec.Fraction._
   import zio.schema.validation.ValidationSpec.AmPm._
 
-  def spec: ZSpec[Environment, Failure] = suite("ValidationSpec")(
+  def spec: Spec[Environment with TestEnvironment with Scope, Any] = suite("ValidationSpec")(
     test("Greater than") {
       val validation = Validation.greaterThan(4)
 
@@ -74,7 +75,7 @@ object ValidationSpec extends DefaultRunnableSpec {
       assertTrue(validation.validate("*").isLeft)
     },
     suite("Regex email Validation")(
-      testM("should reject an invalid email") {
+      test("should reject an invalid email") {
         val examples = Gen.fromIterable {
           Seq(
             "bob101*@gmail.com",
@@ -105,7 +106,7 @@ object ValidationSpec extends DefaultRunnableSpec {
           assertTrue(validationResult(email).isLeft)
         }
       },
-      testM("should accept a correct email") {
+      test("should accept a correct email") {
         val examples = Gen.fromIterable {
           Seq(
             "bob101@gmail.com",
@@ -130,7 +131,7 @@ object ValidationSpec extends DefaultRunnableSpec {
       }
     ),
     suite("Regex IPv4 Validation")(
-      testM("should accept a valid IPv4 address") {
+      test("should accept a valid IPv4 address") {
         val examples = Gen.fromIterable {
           Seq(
             "255.255.255.255",
@@ -153,7 +154,7 @@ object ValidationSpec extends DefaultRunnableSpec {
           assertTrue(validationResult(ip).isRight)
         }
       },
-      testM("should reject an invalid IPv4 address") {
+      test("should reject an invalid IPv4 address") {
         val examples = Gen.fromIterable {
           Seq(
             "10.0.0.256",
@@ -172,12 +173,23 @@ object ValidationSpec extends DefaultRunnableSpec {
       }
     ),
     suite("Regex IPv6 Validation")(
-      testM("should accept a valid IPv6 address") {
+      test("should accept a valid IPv6 address") {
         val examples = Gen.fromIterable {
           Seq(
             "2001:470:9b36:1::2",
             "2001:cdba:0:0:0:0:3257:9652",
-            "2001:cdba::3257:9652"
+            "2001:cdba::3257:9652",
+            "0000:0000:0000:0000:0000:0000:0000:0001",
+            "0:0:0:0:0:0:0:1",
+            "0000:0000:0000:0000:0000:0000:0000:0000",
+            "2001:0000:0000:0000:0000:0001:0000:0000",
+            "0:0:0:0:0:0:0:0",
+            "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+            "2001:0db8:3c4d:0015:0000:0000:1a2f:1a2b",
+            "12AB:0000:0000:CD30:0000:0000:0000:0000",
+            "12AB::CD30:0:0:0:0",
+            "12AB:0:0:CD30::",
+            "2001:cdba:0000:0000:0000:0000:3257:9652"
           )
         }
 
@@ -187,12 +199,11 @@ object ValidationSpec extends DefaultRunnableSpec {
           assertTrue(validationResult(ip).isRight)
         }
       },
-      testM("should reject an invalid IPv6 address") {
+      test("should reject an invalid IPv6 address") {
         val examples = Gen.fromIterable {
           Seq(
-            "2001:db8:122:344::192.0.2.33",
+            " 001:db8:122:344::192.0.2.33",
             "1200::AB00:1234::2552:7777:1313",
-            "2001:cdba:0000:0000:0000:0000:3257:9652",
             "1200:0000:AB00:1234:O000:2552:7777:1313"
           )
         }
@@ -205,9 +216,9 @@ object ValidationSpec extends DefaultRunnableSpec {
       }
     ),
     suite("Regex uuid Validations")(
-      testM("valid UUID") {
+      test("valid UUID") {
         val validation = Validation.uuidV4
-        check(Gen.anyUUID) { uuid =>
+        check(Gen.uuid) { uuid =>
           assertTrue(validation.validate(uuid.toString).isRight)
         }
       },
@@ -313,6 +324,11 @@ object ValidationSpec extends DefaultRunnableSpec {
         "HH:mm:ss SSSSSSSSS a"
       )
       assertParsedTimes(parsedTimes)
+    },
+    test("Regex duration Validation") {
+      check(Gen.finiteDuration) { duration =>
+        assertTrue(Validation.duration.validate(duration.toString).isRight)
+      }
     }
   )
 
@@ -321,12 +337,14 @@ object ValidationSpec extends DefaultRunnableSpec {
 
   private case class ParsedTimes(properTimeResults: Seq[ParsedTime], wrongTimeResults: Seq[ParsedTime]) {
 
-    def enoughParsed: Assert =
+    def enoughParsed: TestResult =
       assertTrue(properTimeResults.count(result => result.parsed) >= properTimeResults.size / 4)
-    def allParseResultsCorrect: Assert = assertTrue(properTimeResults.forall(result => result.valid == result.parsed))
-    def allWrongNotParsed: Assert      = assertTrue(wrongTimeResults.forall(result => !result.valid))
 
-    def allWrongParseResultsCorrect: Assert =
+    def allParseResultsCorrect: TestResult =
+      assertTrue(properTimeResults.forall(result => result.valid == result.parsed))
+    def allWrongNotParsed: TestResult = assertTrue(wrongTimeResults.forall(result => !result.valid))
+
+    def allWrongParseResultsCorrect: TestResult =
       assertTrue(wrongTimeResults.forall(result => result.valid == result.parsed))
   }
 

@@ -3,19 +3,18 @@ package zio.schema
 import scala.collection.immutable.ListMap
 
 import zio._
-import zio.schema.ast._
+import zio.schema.meta.{ MetaSchema, Migration, NodePath }
 import zio.schema.syntax._
-import zio.test.AssertionM.Render.param
 import zio.test._
 
-object MigrationSpec extends DefaultRunnableSpec {
+object MigrationSpec extends ZIOSpecDefault {
 
-  override def spec: ZSpec[Environment, Failure] = suite("Migration Spec")(
+  override def spec: Spec[Environment, Any] = suite("Migration Spec")(
     suite("Derivation")(
       suite("Value")(
         test("change type") {
-          val from = SchemaAst.Value(StandardType.IntType, NodePath.root)
-          val to   = SchemaAst.Value(StandardType.StringType, NodePath.root)
+          val from = MetaSchema.Value(StandardType.IntType, NodePath.root)
+          val to   = MetaSchema.Value(StandardType.StringType, NodePath.root)
 
           assertTrue(
             Migration
@@ -23,8 +22,8 @@ object MigrationSpec extends DefaultRunnableSpec {
           )
         },
         test("optional") {
-          val from = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = false)
-          val to   = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true)
+          val from = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = false)
+          val to   = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true)
 
           assertTrue(
             Migration
@@ -32,8 +31,8 @@ object MigrationSpec extends DefaultRunnableSpec {
           )
         },
         test("require") {
-          val from = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true)
-          val to   = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = false)
+          val from = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true)
+          val to   = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = false)
 
           assertTrue(
             Migration
@@ -41,9 +40,9 @@ object MigrationSpec extends DefaultRunnableSpec {
           )
         },
         test("increment dimensions") {
-          val from = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true)
+          val from = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true)
           val to =
-            SchemaAst.ListNode(SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true), NodePath.root)
+            MetaSchema.ListNode(MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true), NodePath.root)
 
           assertTrue(
             Migration
@@ -52,8 +51,8 @@ object MigrationSpec extends DefaultRunnableSpec {
         },
         test("decrement dimensions") {
           val from =
-            SchemaAst.ListNode(SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true), NodePath.root)
-          val to = SchemaAst.Value(StandardType.IntType, NodePath.root, optional = true)
+            MetaSchema.ListNode(MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true), NodePath.root)
+          val to = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true)
 
           assertTrue(
             Migration
@@ -206,7 +205,7 @@ object MigrationSpec extends DefaultRunnableSpec {
       test("ignore add case") {
         val value: Pet1  = Pet1.Dog("name")
         val dynamicValue = value.dynamic
-        assert(Migration.AddCase(NodePath.root, SchemaAst.Value(StandardType.UnitType, NodePath.root)))(
+        assert(Migration.AddCase(NodePath.root, MetaSchema.Value(StandardType.UnitType, NodePath.root)))(
           transformsValueTo(value, dynamicValue)
         )
       },
@@ -221,13 +220,13 @@ object MigrationSpec extends DefaultRunnableSpec {
 
   def containsTransformation[From: Schema, To: Schema](expectedTransform: Migration): Boolean =
     Migration
-      .derive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
+      .derive(MetaSchema.fromSchema(Schema[From]), MetaSchema.fromSchema(Schema[To]))
       .map(_.contains(expectedTransform))
       .getOrElse(false)
 
   def addsNode[From: Schema, To: Schema](expectedPath: Chunk[String]): Boolean =
     Migration
-      .derive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
+      .derive(MetaSchema.fromSchema(Schema[From]), MetaSchema.fromSchema(Schema[To]))
       .map(
         _.exists {
           case Migration.AddNode(path, _) => path == expectedPath
@@ -238,7 +237,7 @@ object MigrationSpec extends DefaultRunnableSpec {
 
   def addsCase[From: Schema, To: Schema](expectedPath: Chunk[String]): Boolean =
     Migration
-      .derive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
+      .derive(MetaSchema.fromSchema(Schema[From]), MetaSchema.fromSchema(Schema[To]))
       .map(
         _.exists {
           case Migration.AddCase(path, _) => path == expectedPath
@@ -249,7 +248,7 @@ object MigrationSpec extends DefaultRunnableSpec {
 
   def deletesNode[From: Schema, To: Schema](expectedPath: Chunk[String]): Boolean =
     Migration
-      .derive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
+      .derive(MetaSchema.fromSchema(Schema[From]), MetaSchema.fromSchema(Schema[To]))
       .map(
         _.exists {
           case Migration.DeleteNode(path) => path == expectedPath
@@ -260,20 +259,20 @@ object MigrationSpec extends DefaultRunnableSpec {
 
   def includesMigration[From: Schema, To: Schema](m: Migration): Boolean =
     Migration
-      .derive(SchemaAst.fromSchema(Schema[From]), SchemaAst.fromSchema(Schema[To]))
+      .derive(MetaSchema.fromSchema(Schema[From]), MetaSchema.fromSchema(Schema[To]))
       .map(
         _.contains(m)
       )
       .getOrElse(false)
 
   def transformsValueTo[A: Schema](value: A, expected: DynamicValue): Assertion[Migration] =
-    Assertion.assertion("transformsValueTo")(param(value), param(expected)) { transform =>
+    Assertion.assertion("transformsValueTo") { transform =>
       val transformed = transform.migrate(value.dynamic)
       transformed == Right(expected)
     }
 
   def failsToTransform[A: Schema](value: A): Assertion[Migration] =
-    Assertion.assertion("failsToTransform")(param(value)) { transform =>
+    Assertion.assertion("failsToTransform") { transform =>
       transform.migrate(value.dynamic).isLeft
     }
 

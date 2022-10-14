@@ -6,9 +6,9 @@ import zio.Chunk
 import zio.schema.CaseSet.caseOf
 import zio.schema.Schema.{ Lazy, Primitive }
 import zio.test.Assertion._
-import zio.test.{ DefaultRunnableSpec, ZSpec, assert }
+import zio.test.{ Spec, ZIOSpecDefault, assert }
 
-object DefaultValueSpec extends DefaultRunnableSpec {
+object DefaultValueSpec extends ZIOSpecDefault {
   // Record Tests
   sealed case class UserId(id: String)
   sealed case class User(id: UserId, name: String, age: Int)
@@ -36,7 +36,7 @@ object DefaultValueSpec extends DefaultRunnableSpec {
     implicit lazy val schema: Schema[Status] = DeriveSchema.gen[Status]
   }
 
-  def spec: ZSpec[Environment, Failure] = suite("Default Value Spec")(
+  def spec: Spec[Environment, Any] = suite("Default Value Spec")(
     suite("Primitive")(
       test("UnitType default value") {
         assert(Primitive(StandardType.UnitType).defaultValue)(isRight(equalTo(())))
@@ -254,11 +254,11 @@ object DefaultValueSpec extends DefaultRunnableSpec {
         assert(eitherSchema.defaultValue)(isRight(isLeft(equalTo(0))))
       },
       test("left") {
-        val leftSchema: Schema[Left[Int, Nothing]] = Schema.left(Schema.primitive(StandardType.IntType))
+        val leftSchema = Schema.either(Schema.primitive(StandardType.IntType), Schema.fail("Nothing"))
         assert(leftSchema.defaultValue)(isRight(isLeft(equalTo(0))))
       },
       test("right") {
-        val rightSchema: Schema[Right[Nothing, String]] = Schema.right(Schema.primitive(StandardType.StringType))
+        val rightSchema = Schema.either(Schema.fail("Nothing"), Schema.primitive(StandardType.StringType))
         assert(rightSchema.defaultValue)(isRight(isRight(equalTo(""))))
       }
     )

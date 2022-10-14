@@ -5,7 +5,7 @@ import scala.annotation.Annotation
 import zio.Chunk
 import zio.test._
 
-object DeriveSchemaSpec extends DefaultRunnableSpec {
+object DeriveSchemaSpec extends ZIOSpecDefault {
   import Assertion._
   import SchemaAssertions._
 
@@ -232,7 +232,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
 
   }
 
-  override def spec: ZSpec[Environment, Failure] = suite("DeriveSchemaSpec")(
+  override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("correctly derives case class 0") {
         val derived: Schema[SimpleZero] = DeriveSchema.gen[SimpleZero]
@@ -339,10 +339,12 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
         assert(b0)(isRight(equalTo(b)))
       },
       test("correctly derives recursive Enum with type parameters") {
-        assert(DeriveSchema.gen[Tree[Recursive]])(anything)
+        val derived: Schema[Tree[Recursive]] = DeriveSchema.gen[Tree[Recursive]]
+        assert(derived)(anything)
       },
       test("correctly derives recursive Enum with multiple type parameters") {
-        assert(DeriveSchema.gen[RBTree[String, Int]])(anything)
+        val derived: Schema[RBTree[String, Int]] = DeriveSchema.gen[RBTree[String, Int]]
+        assert(derived)(anything)
       },
       test("correctly derives recursive Enum") {
         assert(Schema[RecursiveEnum].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))

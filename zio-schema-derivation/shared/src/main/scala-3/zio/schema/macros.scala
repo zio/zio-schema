@@ -3,7 +3,7 @@ package zio.schema
 import scala.quoted._
 import scala.deriving.Mirror
 import scala.compiletime.{erasedValue, summonInline, constValueTuple}
-import Schema.{Tuple => SchemaTuple, _}
+import Schema._
 
 object DeriveSchema {
 
@@ -51,7 +51,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
           case '[List[a]] =>
             val schema = deriveSchema[a](stack)
             '{ Schema.list(Schema.defer(${schema})) }.asExprOf[Schema[T]]
-          case '[Either[a, b]] =>
+          case '[scala.util.Either[a, b]] =>
             val schemaA = deriveSchema[a](stack)
             val schemaB = deriveSchema[b](stack)
             '{ Schema.either(Schema.defer(${schemaA}), Schema.defer(${schemaB})) }.asExprOf[Schema[T]]
@@ -59,13 +59,13 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
             val schema = deriveSchema[a](stack)
             // throw new Error(s"OPITOS ${schema.show}")
             '{ Schema.option(Schema.defer($schema)) }.asExprOf[Schema[T]]
-          case '[Set[a]] =>
+          case '[scala.collection.Set[a]] =>
             val schema = deriveSchema[a](stack)
             '{ Schema.set(Schema.defer(${schema})) }.asExprOf[Schema[T]]
           case '[Vector[a]] =>
             val schema = deriveSchema[a](stack)
             '{ Schema.vector(Schema.defer(${schema})) }.asExprOf[Schema[T]]
-          case '[Map[a, b]] =>
+          case '[scala.collection.Map[a, b]] =>
             val schemaA = deriveSchema[a](stack)
             val schemaB = deriveSchema[b](stack)
             '{ Schema.map(Schema.defer(${schemaA}), Schema.defer(${schemaB})) }.asExprOf[Schema[T]]
@@ -162,7 +162,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
         field.name -> field.annotations.filter(filterAnnotation).map(_.asExpr)
     }
 
-  private def fromConstructor(from: Symbol): Map[String, List[Expr[Any]]] =
+  private def fromConstructor(from: Symbol): scala.collection.Map[String, List[Expr[Any]]] =
       from.primaryConstructor.paramSymss.flatten.map { field =>
         field.name -> field.annotations
           .filter(filterAnnotation)

@@ -5,11 +5,11 @@ import scala.collection.immutable.ListMap
 import zio.Chunk
 import zio.schema.CaseSet._
 import zio.test.Assertion._
-import zio.test.{ ZSpec, _ }
+import zio.test._
 
-object SchemaSpec extends DefaultRunnableSpec {
+object SchemaSpec extends ZIOSpecDefault {
 
-  def spec: ZSpec[Environment, Failure] = suite("Schema Spec")(
+  def spec: Spec[Environment, Any] = suite("Schema Spec")(
     suite("Should have valid equals")(
       test("primitive") {
         assert(schemaUnit)(equalTo(schemaUnit))
@@ -18,8 +18,10 @@ object SchemaSpec extends DefaultRunnableSpec {
         assert(Schema.chunk(schemaUnit))(equalTo(Schema.chunk(schemaUnit)))
       } @@ TestAspect.scala2Only,
       test("tuple") {
-        assert(Schema.Tuple(schemaUnit, schemaUnit))(equalTo(Schema.Tuple(schemaUnit, schemaUnit))) &&
-        assert(Schema.Tuple(schemaTransform, schemaTransform))(equalTo(Schema.Tuple(schemaTransform, schemaTransform)))
+        assert(Schema.Tuple2(schemaUnit, schemaUnit))(equalTo(Schema.Tuple2(schemaUnit, schemaUnit))) &&
+        assert(Schema.Tuple2(schemaTransform, schemaTransform))(
+          equalTo(Schema.Tuple2(schemaTransform, schemaTransform))
+        )
       },
       test("record") {
         assert(schemaRecord("key"))(equalTo(schemaRecord("key"))) &&
@@ -35,12 +37,13 @@ object SchemaSpec extends DefaultRunnableSpec {
       test("enumeration") {
         assert(schemaEnum("key"))(equalTo(schemaEnum("key"))) &&
         assert(schemaEnum("key1"))(not(equalTo(schemaEnum("key2"))))
+
       } @@ TestAspect.scala2Only
     ),
     test("Tuple.toRecord should preserve annotations") {
       val left        = Schema.primitive(StandardType.StringType)
       val right       = Schema.primitive(StandardType.StringType)
-      val tupleSchema = Schema.Tuple(left, right, Chunk("some Annotation"))
+      val tupleSchema = Schema.Tuple2(left, right, Chunk("some Annotation"))
       val record      = tupleSchema.toRecord
       assert(record.annotations)(hasFirst(equalTo("some Annotation")))
     }

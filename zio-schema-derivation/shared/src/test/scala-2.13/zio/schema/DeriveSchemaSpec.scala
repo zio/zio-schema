@@ -5,7 +5,7 @@ import scala.annotation.Annotation
 import zio.Chunk
 import zio.test._
 
-object DeriveSchemaSpec extends DefaultRunnableSpec {
+object DeriveSchemaSpec extends ZIOSpecDefault {
   import Assertion._
   import SchemaAssertions._
 
@@ -232,7 +232,7 @@ object DeriveSchemaSpec extends DefaultRunnableSpec {
 
   }
 
-  override def spec: ZSpec[Environment, Failure] = suite("DeriveSchemaSpec")(
+  override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("correctly derives case class 0") {
         val derived: Schema[SimpleZero] = DeriveSchema.gen[SimpleZero]

@@ -3,35 +3,35 @@ package zio.schema
 import zio._
 import zio.schema.CaseSet._
 import zio.schema.SchemaAssertions._
-import zio.schema.ast._
+import zio.schema.meta.{MetaSchema, NodePath}
 import zio.test._
 
-object SchemaAstSpec extends DefaultRunnableSpec {
+object MetaSchemaSpec extends ZIOSpecDefault {
 
-  def spec: ZSpec[Environment, Failure] = suite("SchemaAst")(
+  def spec: Spec[Environment, Any] = suite("MetaSchema")(
     suite("from schema")(
-      testM("primitive") {
+      test("primitive") {
         check(SchemaGen.anyPrimitive) {
           case s @ Schema.Primitive(typ, _) =>
-            assertTrue(SchemaAst.fromSchema(s) == SchemaAst.Value(typ))
+            assertTrue(MetaSchema.fromSchema(s) == MetaSchema.Value(typ))
         }
       }
     ),
     suite("optional")(
-      testM("primitive") {
+      test("primitive") {
         check(SchemaGen.anyPrimitive) {
           case s @ Schema.Primitive(typ, _) =>
-            assertTrue(SchemaAst.fromSchema(s.optional) == SchemaAst.Value(typ, optional = true))
+            assertTrue(MetaSchema.fromSchema(s.optional) == MetaSchema.Value(typ, optional = true))
         }
       }
     ),
     suite("sequence")(
-      testM("primitive") {
+      test("primitive") {
         check(SchemaGen.anyPrimitive) {
           case s @ Schema.Primitive(typ, _) =>
             assertTrue(
-              SchemaAst.fromSchema(Schema.chunk(s)) == SchemaAst
-                .ListNode(SchemaAst.Value(typ, path = NodePath.root / "item"), NodePath.root)
+              MetaSchema.fromSchema(Schema.chunk(s)) == MetaSchema
+                .ListNode(MetaSchema.Value(typ, path = NodePath.root / "item"), NodePath.root)
             )
         }
       }
@@ -40,49 +40,49 @@ object SchemaAstSpec extends DefaultRunnableSpec {
       test("generic") {
         val schema =
           Schema.record(
-            TypeId.parse("zio.schema.SchemaAst.Product"),
-            Chunk[zio.schema.Schema.Field[_ <: Singleton with String, _]](
-              Schema.Field[Singleton with String, String]("a", Schema[String]),
-              Schema.Field[Singleton with String, Int]("b", Schema[Int])
+            TypeId.parse("zio.schema.MetaSchema.Product"),
+            Chunk(
+              Schema.Field[_ <: Singleton with String]("a", Schema[String]),
+              Schema.Field[_ <: Singleton with Int]("b", Schema[Int])
             ): _*
           )
         val expectedAst =
-          SchemaAst.Product(
-            id = TypeId.parse("zio.schema.SchemaAst.Product"),
+          MetaSchema.Product(
+            id = TypeId.parse("zio.schema.MetaSchema.Product"),
             path = NodePath.root,
             fields = Chunk(
-              ("a", SchemaAst.Value(StandardType.StringType, NodePath.root / "a")),
-              ("b", SchemaAst.Value(StandardType.IntType, NodePath.root / "b"))
+              ("a", MetaSchema.Value(StandardType.StringType, NodePath.root / "a")),
+              ("b", MetaSchema.Value(StandardType.IntType, NodePath.root / "b"))
             )
           )
-        assertTrue(SchemaAst.fromSchema(schema) == expectedAst)
+        assertTrue(MetaSchema.fromSchema(schema) == expectedAst)
       },
       test("case class") {
         val schema = Schema[SchemaGen.Arity2]
         val expectedAst =
-          SchemaAst.Product(
+          MetaSchema.Product(
             id = TypeId.parse("zio.schema.SchemaGen.Arity2"),
             path = NodePath.root,
             fields = Chunk(
-              "value1" -> SchemaAst.Value(StandardType.StringType, NodePath.root / "value1"),
-              "value2" -> SchemaAst.Product(
+              "value1" -> MetaSchema.Value(StandardType.StringType, NodePath.root / "value1"),
+              "value2" -> MetaSchema.Product(
                 id = TypeId.parse("zio.schema.SchemaGen.Arity1"),
                 path = NodePath.root / "value2",
                 fields = Chunk(
-                  "value" -> SchemaAst.Value(StandardType.IntType, NodePath.root / "value2" / "value")
+                  "value" -> MetaSchema.Value(StandardType.IntType, NodePath.root / "value2" / "value")
                 )
               )
             )
           )
 
-        assertTrue(SchemaAst.fromSchema(schema) == expectedAst)
+        assertTrue(MetaSchema.fromSchema(schema) == expectedAst)
       },
       test("recursive case class") {
         val schema = Schema[Recursive]
-        val ast    = SchemaAst.fromSchema(schema)
+        val ast    = MetaSchema.fromSchema(schema)
 
-        val recursiveRef: Option[SchemaAst] = ast match {
-          case SchemaAst.Product(_, _, elements, _) =>
+        val recursiveRef: Option[MetaSchema] = ast match {
+          case MetaSchema.Product(_, _, elements, _) =>
             elements.find {
               case ("r", _) => true
               case _        => false
@@ -91,8 +91,8 @@ object SchemaAstSpec extends DefaultRunnableSpec {
         }
         assertTrue(
           recursiveRef.exists {
-            case SchemaAst.Ref(pathRef, _, _) => pathRef == Chunk.empty
-            case _                            => false
+            case MetaSchema.Ref(pathRef, _, _) => pathRef == Chunk.empty
+            case _                             => false
           }
         )
       }
@@ -107,27 +107,27 @@ object SchemaAstSpec extends DefaultRunnableSpec {
             )(_.asInstanceOf[SchemaGen.Arity2])
           )
         val expectedAst =
-          SchemaAst.Sum(
+          MetaSchema.Sum(
             TypeId.Structural,
             path = NodePath.root,
             cases = Chunk(
-              "type1" -> SchemaAst.Product(
+              "type1" -> MetaSchema.Product(
                 id = TypeId.parse("zio.schema.SchemaGen.Arity1"),
                 path = NodePath.root / "type1",
                 fields = Chunk(
-                  "value" -> SchemaAst.Value(StandardType.IntType, NodePath.root / "type1" / "value")
+                  "value" -> MetaSchema.Value(StandardType.IntType, NodePath.root / "type1" / "value")
                 )
               ),
-              "type2" -> SchemaAst.Product(
+              "type2" -> MetaSchema.Product(
                 id = TypeId.parse("zio.schema.SchemaGen.Arity2"),
                 path = NodePath.root / "type2",
                 fields = Chunk(
-                  "value1" -> SchemaAst.Value(StandardType.StringType, NodePath.root / "type2" / "value1"),
-                  "value2" -> SchemaAst.Product(
+                  "value1" -> MetaSchema.Value(StandardType.StringType, NodePath.root / "type2" / "value1"),
+                  "value2" -> MetaSchema.Product(
                     id = TypeId.parse("zio.schema.SchemaGen.Arity1"),
                     path = NodePath.root / "type2" / "value2",
                     fields = Chunk(
-                      "value" -> SchemaAst
+                      "value" -> MetaSchema
                         .Value(StandardType.IntType, NodePath.root / "type2" / "value2" / "value")
                     )
                   )
@@ -135,97 +135,97 @@ object SchemaAstSpec extends DefaultRunnableSpec {
               )
             )
           )
-        assertTrue(SchemaAst.fromSchema(schema) == expectedAst)
+        assertTrue(MetaSchema.fromSchema(schema) == expectedAst)
       },
       test("sealed trait") {
         val schema = Schema[Pet]
-        val expectedAst = SchemaAst.Sum(
-          TypeId.parse("zio.schema.SchemaAstSpec.Pet"),
+        val expectedAst = MetaSchema.Sum(
+          TypeId.parse("zio.schema.MetaSchemaSpec.Pet"),
           path = NodePath.root,
           cases = Chunk(
-            "Rock" -> SchemaAst.Value(StandardType.UnitType, NodePath.root / "Rock"),
-            "Dog" -> SchemaAst.Product(
-              id = TypeId.parse("zio.schema.SchemaAstSpec.Dog"),
+            "Rock" -> MetaSchema.Value(StandardType.UnitType, NodePath.root / "Rock"),
+            "Dog" -> MetaSchema.Product(
+              id = TypeId.parse("zio.schema.MetaSchemaSpec.Dog"),
               path = NodePath.root / "Dog",
-              fields = Chunk("name" -> SchemaAst.Value(StandardType.StringType, NodePath.root / "Dog" / "name"))
+              fields = Chunk("name" -> MetaSchema.Value(StandardType.StringType, NodePath.root / "Dog" / "name"))
             ),
-            "Cat" -> SchemaAst.Product(
-              id = TypeId.parse("zio.schema.SchemaAstSpec.Cat"),
+            "Cat" -> MetaSchema.Product(
+              id = TypeId.parse("zio.schema.MetaSchemaSpec.Cat"),
               path = NodePath.root / "Cat",
               fields = Chunk(
-                "name"    -> SchemaAst.Value(StandardType.StringType, NodePath.root / "Cat" / "name"),
-                "hasHair" -> SchemaAst.Value(StandardType.BoolType, NodePath.root / "Cat" / "hasHair")
+                "name"    -> MetaSchema.Value(StandardType.StringType, NodePath.root / "Cat" / "name"),
+                "hasHair" -> MetaSchema.Value(StandardType.BoolType, NodePath.root / "Cat" / "hasHair")
               )
             )
           )
         )
-        assertTrue(SchemaAst.fromSchema(schema) == expectedAst)
+        assertTrue(MetaSchema.fromSchema(schema) == expectedAst)
       }
     ),
     suite("materialization")(
       test("simple recursive product") {
         val schema = Recursive.schema
-        assert(SchemaAst.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema.asInstanceOf[Schema[_]]))
+        assert(MetaSchema.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema.asInstanceOf[Schema[_]]))
       },
       test("simple recursive sum") {
         val schema = RecursiveSum.schema
-        assert(SchemaAst.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema.asInstanceOf[Schema[_]]))
+        assert(MetaSchema.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema.asInstanceOf[Schema[_]]))
       },
-      testM("primitive") {
+      test("primitive") {
         check(SchemaGen.anyPrimitive) { schema =>
-          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema.asInstanceOf[Schema[_]]))
+          assert(MetaSchema.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema.asInstanceOf[Schema[_]]))
         }
       },
-      testM("optional") {
+      test("optional") {
         check(SchemaGen.anyPrimitive) { schema =>
-          assert(SchemaAst.fromSchema(schema.optional).toSchema)(hasSameSchemaStructure(schema.optional))
+          assert(MetaSchema.fromSchema(schema.optional).toSchema)(hasSameSchemaStructure(schema.optional))
         }
       },
-      testM("sequence") {
+      test("sequence") {
         check(SchemaGen.anyPrimitive) { schema =>
-          assert(SchemaAst.fromSchema(schema.repeated).toSchema)(hasSameSchemaStructure(schema.repeated))
+          assert(MetaSchema.fromSchema(schema.repeated).toSchema)(hasSameSchemaStructure(schema.repeated))
         }
       },
-      testM("tuple") {
+      test("tuple") {
         check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
           case (left, right) =>
-            assert(SchemaAst.fromSchema(left <*> right).toSchema)(hasSameSchemaStructure(left <*> right))
+            assert(MetaSchema.fromSchema(left <*> right).toSchema)(hasSameSchemaStructure(left <*> right))
         }
       },
-      testM("either") {
+      test("either") {
         check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
           case (left, right) =>
-            assert(SchemaAst.fromSchema(left <+> right).toSchema)(hasSameSchemaStructure(left <+> right))
+            assert(MetaSchema.fromSchema(left <+> right).toSchema)(hasSameSchemaStructure(left <+> right))
         }
       },
-      testM("case class") {
+      test("case class") {
         check(SchemaGen.anyCaseClassSchema) { schema =>
-          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
+          assert(MetaSchema.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
         }
       },
-      testM("sealed trait") {
+      test("sealed trait") {
         check(SchemaGen.anyEnumSchema) { schema =>
-          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
+          assert(MetaSchema.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
         }
       },
-      testM("recursive type") {
+      test("recursive type") {
         check(SchemaGen.anyRecursiveType) { schema =>
-          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
+          assert(MetaSchema.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
         }
       },
-      testM("any schema") {
+      test("any schema") {
         check(SchemaGen.anySchema) { schema =>
-          assert(SchemaAst.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
+          assert(MetaSchema.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
         }
       } @@ TestAspect.shrinks(0),
       test("sequence of optional primitives") {
         val schema       = Schema[List[Option[Int]]]
-        val materialized = SchemaAst.fromSchema(schema).toSchema
+        val materialized = MetaSchema.fromSchema(schema).toSchema
         assert(materialized)(hasSameSchemaStructure(schema))
       },
       test("optional sequence of primitives") {
         val schema       = Schema[Option[List[String]]]
-        val materialized = SchemaAst.fromSchema(schema).toSchema
+        val materialized = MetaSchema.fromSchema(schema).toSchema
         assert(materialized)(hasSameSchemaStructure(schema))
       }
     )

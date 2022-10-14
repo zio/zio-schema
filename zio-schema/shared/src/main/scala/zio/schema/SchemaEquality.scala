@@ -36,10 +36,10 @@ trait SchemaEquality {
             l.annotations == r.annotations && lEnum.structure === rEnum.structure
           case (lRecord: Schema.Record[_], rRecord: Schema.Record[_]) =>
             l.annotations == r.annotations && lRecord.structure === rRecord.structure
-          case (lMap: Schema.MapSchema[_, _], rMap: Schema.MapSchema[_, _]) =>
-            lMap.annotations == rMap.annotations && lMap.ks === rMap.ks && lMap.vs === rMap.vs
-          case (lSet: Schema.SetSchema[_], rSet: Schema.SetSchema[_]) =>
-            lSet.annotations == rSet.annotations && lSet.as === rSet.as
+          case (lMap: Schema.Map[_, _], rMap: Schema.Map[_, _]) =>
+            lMap.annotations == rMap.annotations && lMap.keySchema === rMap.keySchema && lMap.valueSchema === rMap.valueSchema
+          case (lSet: Schema.Set[_], rSet: Schema.Set[_]) =>
+            lSet.annotations == rSet.annotations && lSet.elementSchema === rSet.elementSchema
           case (lSeq: Schema.Sequence[_, _, _], rSeq: Schema.Sequence[_, _, _]) =>
             (ignoreTransformations || (lSeq.identity == rSeq.identity)) &&
               lSeq.annotations == rSeq.annotations &&
@@ -47,26 +47,23 @@ trait SchemaEquality {
           case (lTransform: Schema.Transform[_, _, _], rTransform: Schema.Transform[_, _, _]) =>
             (ignoreTransformations || (lTransform.identity == rTransform.identity)) &&
               lTransform.annotations == rTransform.annotations &&
-              lTransform.codec === rTransform.codec
+              lTransform.schema === rTransform.schema
           case (lPrimitive: Schema.Primitive[_], rPrimitive: Schema.Primitive[_]) =>
             lPrimitive.annotations == rPrimitive.annotations &&
               lPrimitive.standardType == rPrimitive.standardType
           case (lOptional: Schema.Optional[_], rOptional: Schema.Optional[_]) =>
             lOptional.annotations == rOptional.annotations &&
-              lOptional.codec === rOptional.codec
+              lOptional.schema === rOptional.schema
           case (lFail: Schema.Fail[_], rFail: Schema.Fail[_]) =>
             lFail.annotations == rFail.annotations && lFail.message == rFail.message
-          case (lTuple: Schema.Tuple[_, _], rTuple: Schema.Tuple[_, _]) =>
+          case (lTuple: Schema.Tuple2[_, _], rTuple: Schema.Tuple2[_, _]) =>
             lTuple.annotations == rTuple.annotations &&
               lTuple.left === rTuple.left &&
               rTuple.right === rTuple.right
-          case (lEither: Schema.EitherSchema[_, _], rEither: Schema.EitherSchema[_, _]) =>
+          case (lEither: Schema.Either[_, _], rEither: Schema.Either[_, _]) =>
             lEither.annotations == rEither.annotations &&
               lEither.left === rEither.left &&
               lEither.right === rEither.right
-          case (lMeta: Schema.Meta, rMeta: Schema.Meta) =>
-            lMeta.annotations == rMeta.annotations &&
-              lMeta.ast === rMeta.ast
           case (lLazy: Schema.Lazy[_], rLazy: Schema.Lazy[_]) =>
             if (lLazy.schema eq rLazy.schema)
               true
@@ -77,9 +74,9 @@ trait SchemaEquality {
           case (l: Schema[_], rLazy: Schema.Lazy[_]) =>
             recursiveEqual(l, rLazy.schema, visitedPairs)
           case (lTransform: Schema.Transform[_, _, _], r: Schema[_]) if ignoreTransformations =>
-            recursiveEqual(lTransform.codec, r, visitedPairs)
+            recursiveEqual(lTransform.schema, r, visitedPairs)
           case (l: Schema[_], rTransform: Schema.Transform[_, _, _]) if ignoreTransformations =>
-            recursiveEqual(l, rTransform.codec, visitedPairs)
+            recursiveEqual(l, rTransform.schema, visitedPairs)
           case (_, _) => false
         }
         result

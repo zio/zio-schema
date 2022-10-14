@@ -28,14 +28,13 @@ import scala.util.Try
 import org.apache.thrift.TSerializable
 import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
 
-import zio.console.putStrLn
 import zio.schema.CaseSet.caseOf
 import zio.schema.codec.{ generated => g }
 import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, Task, ZIO }
+import zio.{ Chunk, Console, Task, ZIO }
 
 // TODO: use generators instead of manual encode/decode
 
@@ -45,27 +44,27 @@ import zio.{ Chunk, Task, ZIO }
  * cd zio-schema-thrift/shared/src/test                                                                                                                                                           ±[●●●][thrift]
  * thrift -r --gen java:generated_annotations=undated -out scala resources/testing-data.thrift
  */
-object ThriftCodecSpec extends DefaultRunnableSpec {
+object ThriftCodecSpec extends ZIOSpecDefault {
 
   import Schema._
 
   def spec = suite("ThriftCodec Spec")(
     suite("Should correctly encode")(
-      testM("integers") {
+      test("integers") {
         for {
           e   <- encode(schemaBasicInt, BasicInt(150)).map(toHex)
           e2  <- encodeNS(schemaBasicInt, BasicInt(150)).map(toHex)
           res <- write(new g.BasicInt(150))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
-      testM("strings") {
+      test("strings") {
         for {
           e   <- encode(schemaBasicString, BasicString("testing")).map(toHex)
           e2  <- encodeNS(schemaBasicString, BasicString("testing")).map(toHex)
           res <- write(new g.BasicString("testing"))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
-      testM("floats") {
+      test("floats") {
         for {
           e  <- encode(schemaBasicFloat, BasicFloat(0.001f)).map(toHex)
           e2 <- encodeNS(schemaBasicFloat, BasicFloat(0.001f)).map(toHex)
@@ -73,42 +72,42 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           res <- write(new g.BasicDouble(0.001f))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
-      testM("doubles") {
+      test("doubles") {
         for {
           e   <- encode(schemaBasicDouble, BasicDouble(0.001)).map(toHex)
           e2  <- encodeNS(schemaBasicDouble, BasicDouble(0.001)).map(toHex)
           res <- write(new g.BasicDouble(0.001))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
-      testM("embedded messages") {
+      test("embedded messages") {
         for {
           e   <- encode(schemaEmbedded, Embedded(BasicInt(150))).map(toHex)
           e2  <- encodeNS(schemaEmbedded, Embedded(BasicInt(150))).map(toHex)
           res <- write(new g.Embedded(new g.BasicInt(150)))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
-      testM("int lists") {
+      test("int lists") {
         for {
           e   <- encode(schemaIntList, IntList(List(3, 270, 86942))).map(toHex)
           e2  <- encodeNS(schemaIntList, IntList(List(3, 270, 86942))).map(toHex)
           res <- write(new g.IntList(util.Arrays.asList[java.lang.Integer](3, 270, 86942)))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
-      testM("string lists") {
+      test("string lists") {
         for {
           e   <- encode(schemaStringList, StringList(List("foo", "bar", "baz"))).map(toHex)
           e2  <- encodeNS(schemaStringList, StringList(List("foo", "bar", "baz"))).map(toHex)
           res <- write(new g.StringList(util.Arrays.asList[String]("foo", "bar", "baz")))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
-      testM("records") {
+      test("records") {
         for {
           e   <- encode(Record.schemaRecord, Record("Foo", 123)).map(toHex)
           e2  <- encodeNS(Record.schemaRecord, Record("Foo", 123)).map(toHex)
           res <- write(new g.Record("Foo", 123))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
-      testM("enumerations") {
+      test("enumerations") {
         for {
 
           e   <- encode(schemaEnumeration, Enumeration(IntValue(482))).map(toHex)
@@ -116,15 +115,15 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           res <- write(new g.Enumeration(g.OneOf.intValue(new generated.IntValue(482))))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
-      testM("enums unwrapped") {
+      test("enums unwrapped") {
         for {
           e   <- encode(schemaOneOf, IntValue(482)).map(toHex)
           e2  <- encodeNS(schemaOneOf, IntValue(482)).map(toHex)
           res <- write(g.OneOf.intValue(new generated.IntValue(482)))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
-      testM("map") {
-        val m       = MapValue(Map("a" -> Record("Foo", 123), "b" -> Record("Bar", 456)))
+      test("map") {
+        val m       = MapValue(scala.collection.immutable.Map("a" -> Record("Foo", 123), "b" -> Record("Bar", 456)))
         val javaMap = new util.HashMap[String, g.Record]()
         javaMap.put("a", new g.Record("Foo", 123))
         javaMap.put("b", new g.Record("Bar", 456))
@@ -134,8 +133,8 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           res <- write(m2)
         } yield assert(e)(equalTo(res))
       },
-      testM("set") {
-        val m       = SetValue(Set(Record("Foo", 123), Record("Bar", 456)))
+      test("set") {
+        val m       = SetValue(scala.collection.immutable.Set(Record("Foo", 123), Record("Bar", 456)))
         val javaSet = new util.HashSet[g.Record]()
         javaSet.add(new g.Record("Foo", 123))
         javaSet.add(new g.Record("Bar", 456))
@@ -145,7 +144,7 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           res <- write(m2)
         } yield assert(e)(equalTo(res))
       },
-      testM("failure") {
+      test("failure") {
         for {
           e  <- encode(schemaFail, StringValue("foo")).map(_.size)
           e2 <- encodeNS(schemaFail, StringValue("foo")).map(_.size)
@@ -153,17 +152,17 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
       }
     ),
     suite("Should successfully encode and decode")(
-      testM("empty list") {
+      test("empty list") {
         for {
           ed <- encodeAndDecodeNS(Schema.list[Int], List.empty)
         } yield assert(ed)(equalTo(List.empty))
       },
-      testM("list of an empty list") {
+      test("list of an empty list") {
         for {
           ed <- encodeAndDecodeNS(Schema[List[List[Int]]], List(List.empty))
         } yield assert(ed)(equalTo(List(List.empty)))
       },
-      testM("tuple containing empty list & tuple containing list of an empty list") {
+      test("tuple containing empty list & tuple containing list of an empty list") {
         val value: (String, List[List[Int]], String) = ("first string", List(List.empty), "second string")
         val value2: (String, List[Int], String)      = ("first string", List.empty, "second string")
         for {
@@ -171,12 +170,12 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(DeriveSchema.gen[(String, List[Int], String)], value2)
         } yield assert(ed)(equalTo(value)) && assert(ed2)(equalTo(value2))
       },
-      testM("records") {
+      test("records") {
         for {
           ed2 <- encodeAndDecodeNS(Record.schemaRecord, Record("hello", 150))
         } yield assert(ed2)(equalTo(Record("hello", 150)))
       },
-      testM("records with arity greater than 22") {
+      test("records with arity greater than 22") {
         for {
           e <- encode(schemaHighArityRecord, HighArity()).map(toHex)
           res <- write(
@@ -186,177 +185,177 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           ed <- encodeAndDecodeNS(schemaHighArityRecord, HighArity())
         } yield assert(ed)(equalTo(HighArity())) && assert(e)(equalTo(res))
       },
-      testM("integer") {
+      test("integer") {
         for {
           ed2 <- encodeAndDecodeNS(schemaBasicInt, BasicInt(150))
         } yield assert(ed2)(equalTo(BasicInt(150)))
       },
-      testM("integer inside wrapper class") {
+      test("integer inside wrapper class") {
         for {
           ed2 <- encodeAndDecodeNS(basicIntWrapperSchema, BasicIntWrapper(BasicInt(150)))
         } yield assert(ed2)(equalTo(BasicIntWrapper(BasicInt(150))))
       },
-      testM("two integers") {
+      test("two integers") {
         for {
           ed2 <- encodeAndDecodeNS(schemaBasicTwoInts, BasicTwoInts(150, 151))
         } yield assert(ed2)(equalTo(BasicTwoInts(150, 151)))
       },
-      testM("two integers inside wrapper class") {
+      test("two integers inside wrapper class") {
         for {
           ed2 <- encodeAndDecodeNS(basicTwoIntWrapperSchema, BasicTwoIntWrapper(BasicTwoInts(150, 151)))
         } yield assert(ed2)(equalTo(BasicTwoIntWrapper(BasicTwoInts(150, 151))))
       },
-      testM("two wrapped integers inside wrapper class") {
+      test("two wrapped integers inside wrapper class") {
         for {
           e2 <- encodeAndDecodeNS(separateWrapper, SeparateWrapper(BasicInt(150), BasicInt(151)))
         } yield assert(e2)(equalTo(SeparateWrapper(BasicInt(150), BasicInt(151))))
       },
-      testM("complex product and string and integer") {
+      test("complex product and string and integer") {
         for {
           ed2 <- encodeAndDecodeNS(SearchRequest.schema, message)
         } yield assert(ed2)(equalTo(message))
       },
-      testM("booleans") {
+      test("booleans") {
         val value = true
         for {
           ed  <- encodeAndDecode(Schema[Boolean], value)
           ed2 <- encodeAndDecodeNS(Schema[Boolean], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("shorts") {
+      test("shorts") {
         val value = 5.toShort
         for {
           ed  <- encodeAndDecode(Schema[Short], value)
           ed2 <- encodeAndDecodeNS(Schema[Short], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("longs") {
+      test("longs") {
         val value = 1000L
         for {
           ed  <- encodeAndDecode(Schema[Long], value)
           ed2 <- encodeAndDecodeNS(Schema[Long], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("floats") {
+      test("floats") {
         val value = 0.001f
         for {
           ed  <- encodeAndDecode(Schema[Float], value)
           ed2 <- encodeAndDecodeNS(Schema[Float], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("doubles") {
+      test("doubles") {
         val value = 0.001
         for {
           ed  <- encodeAndDecode(Schema[Double], value)
           ed2 <- encodeAndDecodeNS(Schema[Double], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("bytes") {
+      test("bytes") {
         val value = Chunk.fromArray("some bytes".getBytes)
         for {
           ed  <- encodeAndDecode(Schema[Chunk[Byte]], value)
           ed2 <- encodeAndDecodeNS(Schema[Chunk[Byte]], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("chars") {
+      test("chars") {
         val value = 'c'
         for {
           ed  <- encodeAndDecode(Schema[Char], value)
           ed2 <- encodeAndDecodeNS(Schema[Char], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("uuids") {
+      test("uuids") {
         val value = UUID.randomUUID
         for {
           ed  <- encodeAndDecode(Schema[UUID], value)
           ed2 <- encodeAndDecodeNS(Schema[UUID], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("day of weeks") {
+      test("day of weeks") {
         val value = DayOfWeek.of(3)
         for {
           ed  <- encodeAndDecode(Schema[DayOfWeek], value)
           ed2 <- encodeAndDecodeNS(Schema[DayOfWeek], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("months") {
+      test("months") {
         val value = Month.of(3)
         for {
           ed  <- encodeAndDecode(Schema[Month], value)
           ed2 <- encodeAndDecodeNS(Schema[Month], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("month days") {
+      test("month days") {
         val value = MonthDay.of(1, 31)
         for {
           ed  <- encodeAndDecode(Schema[MonthDay], value)
           ed2 <- encodeAndDecodeNS(Schema[MonthDay], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("periods") {
+      test("periods") {
         val value = Period.of(5, 3, 1)
         for {
           ed  <- encodeAndDecode(Schema[Period], value)
           ed2 <- encodeAndDecodeNS(Schema[Period], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("years") {
+      test("years") {
         val value = Year.of(2020)
         for {
           ed  <- encodeAndDecode(Schema[Year], value)
           ed2 <- encodeAndDecodeNS(Schema[Year], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("year months") {
+      test("year months") {
         val value = YearMonth.of(2020, 5)
         for {
           ed  <- encodeAndDecode(Schema[YearMonth], value)
           ed2 <- encodeAndDecodeNS(Schema[YearMonth], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("zone ids") {
+      test("zone ids") {
         val value = ZoneId.systemDefault()
         for {
           ed  <- encodeAndDecode(Schema[ZoneId], value)
           ed2 <- encodeAndDecodeNS(Schema[ZoneId], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("zone offsets") {
+      test("zone offsets") {
         val value = ZoneOffset.ofHours(6)
         for {
           ed  <- encodeAndDecode(Schema[ZoneOffset], value)
           ed2 <- encodeAndDecodeNS(Schema[ZoneOffset], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("durations") {
+      test("durations") {
         val value = Duration.ofDays(12)
         for {
           ed  <- encodeAndDecode(Primitive(StandardType.DurationType), value)
           ed2 <- encodeAndDecodeNS(Primitive(StandardType.DurationType), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("instants") {
+      test("instants") {
         val value = Instant.now()
         for {
           ed  <- encodeAndDecode(Primitive(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT)), value)
           ed2 <- encodeAndDecodeNS(Primitive(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT)), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("local dates") {
+      test("local dates") {
         val value = LocalDate.now()
         for {
           ed  <- encodeAndDecode(Primitive(StandardType.LocalDateType(DateTimeFormatter.ISO_LOCAL_DATE)), value)
           ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalDateType(DateTimeFormatter.ISO_LOCAL_DATE)), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("local times") {
+      test("local times") {
         val value = LocalTime.now()
         for {
           ed  <- encodeAndDecode(Primitive(StandardType.LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME)), value)
           ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME)), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("local date times") {
+      test("local date times") {
         val value = LocalDateTime.now()
         for {
           ed <- encodeAndDecode(Primitive(StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME)), value)
@@ -366,14 +365,14 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
                 )
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("offset times") {
+      test("offset times") {
         val value = OffsetTime.now()
         for {
           ed  <- encodeAndDecode(Primitive(StandardType.OffsetTimeType(DateTimeFormatter.ISO_OFFSET_TIME)), value)
           ed2 <- encodeAndDecodeNS(Primitive(StandardType.OffsetTimeType(DateTimeFormatter.ISO_OFFSET_TIME)), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("offset date times") {
+      test("offset date times") {
         val value            = OffsetDateTime.now()
         val offsetDateSchema = Primitive(StandardType.OffsetDateTimeType(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
         for {
@@ -381,7 +380,7 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(offsetDateSchema, value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("zoned date times") {
+      test("zoned date times") {
         val zoneSchema = Primitive(StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME))
         val now        = ZonedDateTime.now()
         for {
@@ -389,35 +388,35 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(zoneSchema, now)
         } yield assert(ed)(equalTo(Chunk(now))) && assert(ed2)(equalTo(now))
       },
-      testM("primitive sequences") {
+      test("primitive sequences") {
         val list = IntList(List(3, 270, 86942))
         for {
           ed  <- encodeAndDecode(schemaIntList, list)
           ed2 <- encodeAndDecodeNS(schemaIntList, list)
         } yield assert(ed)(equalTo(Chunk(list))) && assert(ed2)(equalTo(list))
       },
-      testM("empty primitive sequence") {
+      test("empty primitive sequence") {
         val list = IntList(List.empty)
         for {
           ed  <- encodeAndDecode(schemaIntList, list)
           ed2 <- encodeAndDecodeNS(schemaIntList, list)
         } yield assert(ed)(equalTo(Chunk(list))) && assert(ed2)(equalTo(list))
       },
-      testM("string sequences") {
+      test("string sequences") {
         val list = StringList(List("foo", "bar", "baz"))
         for {
           ed  <- encodeAndDecode(schemaStringList, list)
           ed2 <- encodeAndDecodeNS(schemaStringList, list)
         } yield assert(ed)(equalTo(Chunk(list))) && assert(ed2)(equalTo(list))
       },
-      testM("empty string sequence") {
+      test("empty string sequence") {
         val list = StringList(List.empty)
         for {
           ed  <- encodeAndDecode(schemaStringList, list)
           ed2 <- encodeAndDecodeNS(schemaStringList, list)
         } yield assert(ed)(equalTo(Chunk(list))) && assert(ed2)(equalTo(list))
       },
-      testM("enumerations") {
+      test("enumerations") {
         for {
           ed  <- encodeAndDecode(schemaEnumeration, Enumeration(BooleanValue(true)))
           ed2 <- encodeAndDecodeNS(schemaEnumeration, Enumeration(IntValue(482)))
@@ -425,7 +424,7 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           equalTo(Enumeration(IntValue(482)))
         )
       },
-      testM("enumerations preserving type order") {
+      test("enumerations preserving type order") {
         for {
           s1 <- encodeAndDecode(schemaGenericEnumeration, "s")
           i1 <- encodeAndDecode(schemaGenericEnumeration, 1)
@@ -433,7 +432,7 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           i2 <- encodeAndDecode(schemaGenericEnumerationSorted, 1)
         } yield assert(s1)(equalTo(s2)) && assert(i1)(equalTo(i2))
       },
-      testM("enums unwrapped") {
+      test("enums unwrapped") {
         for {
           ed  <- encodeAndDecode(schemaOneOf, BooleanValue(true))
           ed2 <- encodeAndDecodeNS(schemaOneOf, BooleanValue(true))
@@ -441,7 +440,7 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           equalTo(BooleanValue(true))
         )
       },
-      testM("enum within enum") {
+      test("enum within enum") {
         val oneOf   = RichSum.AnotherSum(BooleanValue(false))
         val wrapper = RichSum.LongWrapper(150L)
         for {
@@ -449,35 +448,35 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(RichSum.richSumSchema, oneOf)
         } yield assert(ed)(equalTo(Chunk(wrapper))) && assert(ed2)(equalTo(oneOf))
       },
-      testM("tuples") {
+      test("tuples") {
         val value = (123, "foo")
         for {
           ed  <- encodeAndDecode(schemaTuple, value)
           ed2 <- encodeAndDecodeNS(schemaTuple, value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("either left") {
+      test("either left") {
         val either = Left(9)
         for {
           ed  <- encodeAndDecode(eitherSchema, either)
           ed2 <- encodeAndDecodeNS(eitherSchema, either)
         } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
       },
-      testM("either right") {
+      test("either right") {
         val either = Right("hello")
         for {
           ed  <- encodeAndDecode(eitherSchema, either)
           ed2 <- encodeAndDecodeNS(eitherSchema, either)
         } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
       },
-      testM("either with product type") {
+      test("either with product type") {
         val eitherLeft = Left(MyRecord(150))
         for {
           ed  <- encodeAndDecode(complexEitherSchema2, eitherLeft)
           ed2 <- encodeAndDecodeNS(complexEitherSchema2, eitherLeft)
         } yield assert(ed)(equalTo(Chunk(eitherLeft))) && assert(ed2)(equalTo(eitherLeft))
       },
-      testM("either with sum type") {
+      test("either with sum type") {
         val eitherRight  = Right(BooleanValue(true))
         val eitherRight2 = Right(StringValue("hello"))
         for {
@@ -485,21 +484,21 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(complexEitherSchema, eitherRight)
         } yield assert(ed)(equalTo(Chunk(eitherRight2))) && assert(ed2)(equalTo(eitherRight))
       },
-      testM("optionals") {
+      test("optionals") {
         val value = Some(123)
         for {
           ed  <- encodeAndDecode(Schema.Optional(Schema[Int]), value)
           ed2 <- encodeAndDecodeNS(Schema.Optional(Schema[Int]), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("complex optionals with sum type") {
+      test("complex optionals with sum type") {
         val value = Some(BooleanValue(true))
         for {
           ed  <- encodeAndDecode(Schema.Optional(schemaOneOf), value)
           ed2 <- encodeAndDecodeNS(Schema.Optional(schemaOneOf), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("option within option") {
+      test("option within option") {
         val value         = Some(Some(true))
         val valueSomeNone = Some(None)
         val valueNone     = None
@@ -514,7 +513,7 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           assert(edSomeNone)(equalTo(Chunk(valueSomeNone))) && assert(edSomeNone2)(equalTo(valueSomeNone)) &&
           assert(edNone)(equalTo(Chunk(valueNone))) && assert(edNone2)(equalTo(valueNone))
       },
-      testM("option with omitted field") {
+      test("option with omitted field") {
         // this behavior is useful for decoding classes which were generated by thrift compiler
         val value = ClassWithOption(123, None)
         for {
@@ -535,7 +534,7 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           d2 <- decodeNS(classWithOptionSchema, bytesFieldPresent)
         } yield assert(d)(equalTo(value)) && assert(d2)(equalTo(value))
       },
-      testM("product type with inner product type") {
+      test("product type with inner product type") {
         val richProduct = RichProduct(StringValue("sum_type"), BasicString("string"), Record("value", 47))
         for {
           ed  <- encodeAndDecode(richProductSchema, richProduct)
@@ -543,56 +542,56 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
         } yield assert(ed)(equalTo(Chunk(richProduct))) &&
           assert(ed2)(equalTo(richProduct))
       },
-      testM("complex sum type with nested product") {
+      test("complex sum type with nested product") {
         val richSum = RichSum.Person("hello", 10)
         for {
           ed  <- encodeAndDecode(RichSum.richSumSchema, richSum)
           ed2 <- encodeAndDecodeNS(RichSum.richSumSchema, richSum)
         } yield assert(ed)(equalTo(Chunk(richSum))) && assert(ed2)(equalTo(richSum))
       },
-      testM("complex sum type with nested long primitive") {
+      test("complex sum type with nested long primitive") {
         val long = RichSum.LongWrapper(100L)
         for {
           ed  <- encodeAndDecode(RichSum.richSumSchema, long)
           ed2 <- encodeAndDecodeNS(RichSum.richSumSchema, long)
         } yield assert(ed)(equalTo(Chunk(long))) && assert(ed2)(equalTo(long))
       },
-      testM("complex either with product type") {
+      test("complex either with product type") {
         val either = Left(Record("hello world", 100))
         for {
           ed  <- encodeAndDecode(complexEitherSchema, either)
           ed2 <- encodeAndDecodeNS(complexEitherSchema, either)
         } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
       },
-      testM("complex tuples") {
+      test("complex tuples") {
         val value = (Record("hello world", 100), BooleanValue(true))
         for {
           ed  <- encodeAndDecode(complexTupleSchema, value)
           ed2 <- encodeAndDecodeNS(complexTupleSchema, value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("complex optionals with product type") {
+      test("complex optionals with product type") {
         val value = Some(Record("hello earth", 21))
         for {
           ed  <- encodeAndDecode(Schema.Optional(Record.schemaRecord), value)
           ed2 <- encodeAndDecodeNS(Schema.Optional(Record.schemaRecord), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("optional of product type within optional") {
+      test("optional of product type within optional") {
         val value = Some(Some(Record("hello", 10)))
         for {
           ed  <- encodeAndDecode(Schema.Optional(Schema.Optional(Record.schemaRecord)), value)
           ed2 <- encodeAndDecodeNS(Schema.Optional(Schema.Optional(Record.schemaRecord)), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("optional of sum type within optional") {
+      test("optional of sum type within optional") {
         val value = Some(Some(BooleanValue(true)))
         for {
           ed  <- encodeAndDecode(Schema.Optional(Schema.Optional(schemaOneOf)), value)
           ed2 <- encodeAndDecodeNS(Schema.Optional(Schema.Optional(schemaOneOf)), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
-      testM("either within either") {
+      test("either within either") {
         val either = Right(Left(BooleanValue(true)))
         val schema = Schema.either(Schema[Int], Schema.either(schemaOneOf, Schema[String]))
         for {
@@ -600,7 +599,7 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(schema, either)
         } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
       },
-      testM("sequence of products") {
+      test("sequence of products") {
         val richSequence = SequenceOfProduct(
           "hello",
           List(Record("Jan", 30), Record("xxx", 40), Record("Peter", 22)),
@@ -611,15 +610,15 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(sequenceOfProductSchema, richSequence)
         } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
       },
-      testM("sequence of sums") {
+      test("sequence of sums") {
         val richSequence = SequenceOfSum("hello", List(RichSum.LongWrapper(150L), RichSum.LongWrapper(150L)))
         for {
           ed  <- encodeAndDecode(sequenceOfSumSchema, richSequence)
           ed2 <- encodeAndDecodeNS(sequenceOfSumSchema, richSequence)
         } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
       },
-      testM("map of products") {
-        val m: Map[Record, MyRecord] = Map(
+      test("map of products") {
+        val m: scala.collection.immutable.Map[Record, MyRecord] = scala.collection.immutable.Map(
           Record("AAA", 1) -> MyRecord(1),
           Record("BBB", 2) -> MyRecord(2)
         )
@@ -629,31 +628,32 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
           ed2 <- encodeAndDecodeNS(mSchema, m)
         } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
       },
-      testM("map in record") {
-        val m = MapRecord(1, Map(1 -> "aaa", 3 -> "ccc"))
+      test("map in record") {
+        val m = MapRecord(1, scala.collection.immutable.Map(1 -> "aaa", 3 -> "ccc"))
         for {
           ed  <- encodeAndDecode(schemaMapRecord, m)
           ed2 <- encodeAndDecodeNS(schemaMapRecord, m)
         } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
       },
-      testM("set of products") {
-        val set: Set[Record] = Set(Record("AAA", 1), Record("BBB", 2))
-        val setSchema        = Schema.set(Record.schemaRecord)
+      test("set of products") {
+        val set: scala.collection.immutable.Set[Record] =
+          scala.collection.immutable.Set(Record("AAA", 1), Record("BBB", 2))
+        val setSchema = Schema.set(Record.schemaRecord)
 
         for {
           ed  <- encodeAndDecode(setSchema, set)
           ed2 <- encodeAndDecodeNS(setSchema, set)
         } yield assert(ed)(equalTo(Chunk.succeed(set))) && assert(ed2)(equalTo(set))
       },
-      testM("set in record") {
-        val m = SetRecord(1, Set("aaa", "ccc"))
+      test("set in record") {
+        val m = SetRecord(1, scala.collection.immutable.Set("aaa", "ccc"))
         for {
           ed  <- encodeAndDecode(schemaSetRecord, m)
           ed2 <- encodeAndDecodeNS(schemaSetRecord, m)
         } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
       },
-      testM("recursive data types") {
-        checkM(SchemaGen.anyRecursiveTypeAndValue) {
+      test("recursive data types") {
+        check(SchemaGen.anyRecursiveTypeAndValue) {
           case (schema, value) =>
             for {
               ed  <- encodeAndDecode(schema, value)
@@ -662,72 +662,72 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
         }
       },
       suite("dynamic")(
-        testM("dynamic int") {
-          checkM(
+        test("dynamic int") {
+          check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.IntType)
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
-        testM("dynamic instant") {
-          checkM(
+        test("dynamic instant") {
+          check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
-        testM("dynamic zoned date time") {
-          checkM(
+        test("dynamic zoned date time") {
+          check(
             DynamicValueGen.anyPrimitiveDynamicValue(
               StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)
             )
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
-        testM("dynamic duration") {
-          checkM(
+        test("dynamic duration") {
+          check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.DurationType)
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
-        testM("dynamic string") {
-          checkM(
+        test("dynamic string") {
+          check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.StringType)
           ) { dynamicValue =>
-            assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
+            assertZIO(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
           }
         },
-        testM("dynamic unit") {
-          checkM(
+        test("dynamic unit") {
+          check(
             DynamicValueGen.anyPrimitiveDynamicValue(StandardType.UnitType)
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
-        testM("dynamic json") {
-          checkM(
+        test("dynamic json") {
+          check(
             DynamicValueGen.anyDynamicValueOfSchema(SchemaGen.Json.schema)
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
-        testM("dynamic tuple") {
-          checkM(
+        test("dynamic tuple") {
+          check(
             DynamicValueGen.anyDynamicTupleValue(Schema[String], Schema[Int])
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         },
-        testM("dynamic record") {
-          checkM(
+        test("dynamic record") {
+          check(
             SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicValueOfSchema)
           ) { dynamicValue =>
-            assertM(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
+            assertZIO(encodeAndDecodeNS(Schema.dynamicValue, dynamicValue))(equalTo(dynamicValue))
           }
         },
-        testM("dynamic record example") {
+        test("dynamic record example") {
           val dynamicValue: DynamicValue = DynamicValue.Record(
             TypeId.Structural,
             ListMap("0" -> DynamicValue.Primitive(new java.math.BigDecimal(0.0), StandardType[java.math.BigDecimal]))
@@ -736,46 +736,37 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
             dynamicValue2 <- encodeAndDecodeNS(Schema.dynamicValue, dynamicValue)
           } yield assertTrue(dynamicValue == dynamicValue2)
         },
-        testM("dynamic (string, record)") {
-          checkM(
+        test("dynamic (string, record)") {
+          check(
             SchemaGen.anyRecord.flatMap(record => DynamicValueGen.anyDynamicTupleValue(Schema[String], record))
           ) { dynamicValue =>
-            assertM(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+          }
+        },
+        test("dynamic sequence") {
+          check(SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicSequence)) { dynamicValue =>
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+          }
+        },
+        test("dynamic set") {
+          check(SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicSet)) { dynamicValue =>
+            assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         }
-      ),
-      testM("semi dynamic record") {
-        checkM(
-          SchemaGen.anyRecord.flatMap(
-            record =>
-              DynamicValueGen
-                .anyDynamicValueOfSchema(record)
-                .map(dyn => (dyn.toTypedValue(record).toOption.get, record))
-          )
-        ) { value =>
-          val schema = Schema.semiDynamic[ListMap[String, _]]()
-          for {
-            result                      <- encodeAndDecode(schema, value)
-            (resultValue, resultSchema) = result.head
-          } yield assertTrue(
-            Schema.structureEquality.equal(value._2, resultSchema),
-            resultValue.keySet == value._1.keySet
-          )
-        }
-      }
+      )
     ),
     suite("Should successfully decode")(
-      testM("empty input") {
-        assertM(decode(Schema[Int], ""))(
+      test("empty input") {
+        assertZIO(decode(Schema[Int], ""))(
           equalTo(Chunk.empty)
         )
       },
-      testM("empty input by non streaming variant") {
-        assertM(decodeNS(Schema[Int], "").run)(
+      test("empty input by non streaming variant") {
+        assertZIO(decodeNS(Schema[Int], "").exit)(
           fails(equalTo("No bytes to decode"))
         )
       },
-      testM("thrift enum value as an integer") {
+      test("thrift enum value as an integer") {
         for {
           encoded <- write(new g.EnumValue(g.Color.BLUE))
           ed      <- decodeNS(schemaEnumValue, encoded)
@@ -783,31 +774,31 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
       }
     ),
     suite("Should fail to decode")(
-      testM("field begin") {
+      test("field begin") {
         for {
-          d  <- decode(Record.schemaRecord, "0F").run
-          d2 <- decodeNS(Record.schemaRecord, "0F").run
+          d  <- decode(Record.schemaRecord, "0F").exit
+          d2 <- decodeNS(Record.schemaRecord, "0F").exit
         } yield assert(d)(fails(equalTo("Error at path /: Error reading field begin: MaxMessageSize reached"))) &&
           assert(d2)(fails(equalTo("Error at path /: Error reading field begin: MaxMessageSize reached")))
       },
-      testM("missing value") {
+      test("missing value") {
         for {
           bytes <- writeManually { p =>
                     p.writeFieldBegin(new TField("name", TType.STRING, 1))
                     p.writeString("Dan")
                     p.writeFieldStop()
                   }
-          d <- decode(Record.schemaRecord, bytes).run
+          d <- decode(Record.schemaRecord, bytes).exit
           bytes2 <- writeManually { p =>
                      p.writeFieldBegin(new TField("value", TType.I32, 2))
                      p.writeI32(123)
                      p.writeFieldStop()
                    }
-          d2 <- decode(Record.schemaRecord, bytes2).run
+          d2 <- decode(Record.schemaRecord, bytes2).exit
         } yield assert(d)(fails(equalTo("Error at path /value: Missing value"))) &&
           assert(d2)(fails(equalTo("Error at path /name: Missing value")))
       },
-      testM("unable to decode") {
+      test("unable to decode") {
         for {
           bytes <- writeManually { p =>
                     p.writeFieldBegin(new TField("name", TType.STRING, 1))
@@ -815,23 +806,23 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
                     p.writeFieldBegin(new TField("value", TType.I32, 2))
                     p.writeFieldStop()
                   }
-          d <- decode(Record.schemaRecord, bytes).run
+          d <- decode(Record.schemaRecord, bytes).exit
         } yield assert(d)(fails(equalTo("Error at path /fieldId:2: Unable to decode Int")))
       },
-      testM("unknown type") {
+      test("unknown type") {
         for {
           bytes <- writeManually { p =>
                     p.writeFieldBegin(new TField("value", TType.I32, 2))
                     p.writeString("This is number one bullshit")
                     p.writeFieldStop()
                   }
-          d <- decode(Record.schemaRecord, bytes).run
+          d <- decode(Record.schemaRecord, bytes).exit
         } yield assert(d)(fails(startsWithString("Error at path /fieldId:26729")))
       }
     )
   )
 
-  def writeManually(f: TBinaryProtocol => Unit): Task[String] = Task {
+  def writeManually(f: TBinaryProtocol => Unit): Task[String] = ZIO.attempt {
     val writeRecord = new ChunkTransport.Write()
     f(new TBinaryProtocol(writeRecord))
     toHex(writeRecord.chunk)
@@ -895,13 +886,13 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
     implicit val schemaRecord: Schema[Record] = DeriveSchema.gen[Record]
   }
 
-  val schemaTuple: Schema.Tuple[Int, String] = Schema.Tuple(Schema[Int], Schema[String])
+  val schemaTuple: Schema.Tuple2[Int, String] = Schema.Tuple2(Schema[Int], Schema[String])
 
-  case class MapValue(value: Map[String, Record])
+  case class MapValue(value: scala.collection.immutable.Map[String, Record])
 
   val schemaMapValue: Schema[MapValue] = DeriveSchema.gen[MapValue]
 
-  case class SetValue(value: Set[Record])
+  case class SetValue(value: scala.collection.immutable.Set[Record])
 
   val schemaSetValue: Schema[SetValue] = DeriveSchema.gen[SetValue]
 
@@ -948,23 +939,23 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
 
   lazy val myRecord: Schema[MyRecord] = DeriveSchema.gen[MyRecord]
 
-  case class MapRecord(age: Int, map: Map[Int, String])
+  case class MapRecord(age: Int, map: scala.collection.immutable.Map[Int, String])
 
   lazy val schemaMapRecord: Schema[MapRecord] = DeriveSchema.gen[MapRecord]
 
-  case class SetRecord(age: Int, set: Set[String])
+  case class SetRecord(age: Int, set: scala.collection.immutable.Set[String])
 
   lazy val schemaSetRecord: Schema[SetRecord] = DeriveSchema.gen[SetRecord]
 
-  val complexTupleSchema: Schema.Tuple[Record, OneOf] = Schema.Tuple(Record.schemaRecord, schemaOneOf)
+  val complexTupleSchema: Schema.Tuple2[Record, OneOf] = Schema.Tuple2(Record.schemaRecord, schemaOneOf)
 
-  val eitherSchema: Schema.EitherSchema[Int, String] = Schema.EitherSchema(Schema[Int], Schema[String])
+  val eitherSchema: Schema.Either[Int, String] = Schema.Either(Schema[Int], Schema[String])
 
-  val complexEitherSchema: Schema.EitherSchema[Record, OneOf] =
-    Schema.EitherSchema(Record.schemaRecord, schemaOneOf)
+  val complexEitherSchema: Schema.Either[Record, OneOf] =
+    Schema.Either(Record.schemaRecord, schemaOneOf)
 
-  val complexEitherSchema2: Schema.EitherSchema[MyRecord, MyRecord] =
-    Schema.EitherSchema(myRecord, myRecord)
+  val complexEitherSchema2: Schema.Either[MyRecord, MyRecord] =
+    Schema.Either(myRecord, myRecord)
 
   case class RichProduct(stringOneOf: OneOf, basicString: BasicString, record: Record)
 
@@ -1033,7 +1024,7 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
   def encode[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
     ZStream
       .succeed(input)
-      .transduce(ThriftCodec.encoder(schema))
+      .via(ThriftCodec.encoder(schema))
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encode
@@ -1043,7 +1034,7 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
   def decode[A](schema: Schema[A], hex: String): ZIO[Any, String, Chunk[A]] =
     ZStream
       .fromChunk(fromHex(hex))
-      .transduce(ThriftCodec.decoder(schema))
+      .via(ThriftCodec.decoder(schema))
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of decode
@@ -1053,24 +1044,24 @@ object ThriftCodecSpec extends DefaultRunnableSpec {
   def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
     ZStream
       .succeed(input)
-      .transduce(ThriftCodec.encoder(schema))
-      .transduce(ThriftCodec.decoder(schema))
+      .via(ThriftCodec.encoder(schema))
+      .via(ThriftCodec.decoder(schema))
       .run(ZSink.collectAll)
 
   def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
     ZStream
       .succeed(input)
-      .transduce(ThriftCodec.encoder(encodeSchema))
-      .transduce(ThriftCodec.decoder(decodeSchema))
+      .via(ThriftCodec.encoder(encodeSchema))
+      .via(ThriftCodec.decoder(decodeSchema))
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[zio.console.Console, String, A] =
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, String, A] =
     ZIO
       .succeed(input)
-      .tap(value => putStrLn(s"Input Value: $value").when(print).ignore)
+      .tap(value => Console.printLine(s"Input Value: $value").when(print).ignore)
       .map(a => ThriftCodec.encode(schema)(a))
-      .tap(encoded => putStrLn(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
+      .tap(encoded => Console.printLine(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
       .map(ch => ThriftCodec.decode(schema)(ch))
       .absolve
 

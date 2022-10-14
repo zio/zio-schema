@@ -1,12 +1,12 @@
 package zio.schema
 
-import zio.Chunk
 import zio.test.Assertion._
-import zio.test.{ DefaultRunnableSpec, ZSpec, _ }
+import zio.test._
+import zio.{ Chunk, Scope }
 
-object TypeIdSpec extends DefaultRunnableSpec {
+object TypeIdSpec extends ZIOSpecDefault {
 
-  def spec: ZSpec[Environment, Failure] =
+  def spec: Spec[Environment with TestEnvironment with Scope, Any] =
     suite("TypeId")(
       test("parse class name in package") {
         val expected = TypeId.Nominal(Chunk.fromIterable("foo" :: "bar" :: Nil), Chunk.empty, "Baz")

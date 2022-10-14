@@ -10,27 +10,20 @@ import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 
 import zio.schema._
-import zio.schema.ast.SchemaAst
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
-import zio.stream.ZTransducer
+import zio.stream.ZPipeline
 import zio.{ Chunk, ZIO }
 
 object ProtobufCodec extends Codec {
-  override def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte] =
-    ZTransducer.fromPush(
-      (opt: Option[Chunk[A]]) =>
-        ZIO.succeed(opt.map(values => values.flatMap(Encoder.encode(None, schema, _))).getOrElse(Chunk.empty))
-    )
+  override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] =
+    ZPipeline.mapChunks(values => values.flatMap(Encoder.encode(None, schema, _)))
 
   override def encode[A](schema: Schema[A]): A => Chunk[Byte] = a => Encoder.encode(None, schema, a)
 
-  override def decoder[A](schema: Schema[A]): ZTransducer[Any, String, Byte, A] =
-    ZTransducer.fromPush(
-      (opt: Option[Chunk[Byte]]) =>
-        ZIO.fromEither(opt.map(chunk => Decoder.decode(schema, chunk).map(Chunk(_))).getOrElse(Right(Chunk.empty)))
-    )
+  override def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Byte, A] =
+    ZPipeline.mapChunksZIO(chunk => ZIO.fromEither(Decoder.decode(schema, chunk).map(Chunk(_))))
 
-  override def decode[A](schema: Schema[A]): Chunk[Byte] => Either[String, A] =
+  override def decode[A](schema: Schema[A]): Chunk[Byte] => scala.util.Either[String, A] =
     ch => Decoder.decode(schema, ch)
 
   object Protobuf {
@@ -85,10 +78,10 @@ object ProtobufCodec extends Codec {
       case Schema.Sequence(element, _, _, _, _) => canBePacked(element)
       case Schema.Transform(codec, _, _, _, _)  => canBePacked(codec)
       case Schema.Primitive(standardType, _)    => canBePacked(standardType)
-      case _: Schema.Tuple[_, _]                => false
+      case _: Schema.Tuple2[_, _]               => false
       case _: Schema.Optional[_]                => false
       case _: Schema.Fail[_]                    => false
-      case _: Schema.EitherSchema[_, _]         => false
+      case _: Schema.Either[_, _]               => false
       case lzy @ Schema.Lazy(_)                 => canBePacked(lzy.schema)
       case _                                    => false
     }
@@ -97,8 +90,8 @@ object ProtobufCodec extends Codec {
       case StandardType.UnitType              => false
       case StandardType.StringType            => false
       case StandardType.BoolType              => true
-      case StandardType.ShortType             => true
       case StandardType.ByteType              => true
+      case StandardType.ShortType             => true
       case StandardType.IntType               => true
       case StandardType.LongType              => true
       case StandardType.FloatType             => true
@@ -129,24 +122,23 @@ object ProtobufCodec extends Codec {
 
   object Encoder {
 
-    import Protobuf._
     import ProductEncoder._
+    import Protobuf._
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
       (schema, value) match {
         case (Schema.GenericRecord(_, structure, _), v: Map[String, _]) =>
           encodeRecord(fieldNumber, structure.toChunk, v)
-        case (Schema.Sequence(element, _, g, _, _), v)                                    => encodeSequence(fieldNumber, element, g(v))
-        case (Schema.MapSchema(ks, vs, _), map)                                           => encodeSequence(fieldNumber, ks <*> vs, Chunk.fromIterable(map))
-        case (Schema.SetSchema(s, _), set)                                                => encodeSequence(fieldNumber, s, Chunk.fromIterable(set))
-        case (Schema.Transform(codec, _, g, _, _), _)                                     => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
-        case (Schema.Primitive(standardType, _), v)                                       => encodePrimitive(fieldNumber, standardType, v)
-        case (Schema.Tuple(left, right, _), v @ (_, _))                                   => encodeTuple(fieldNumber, left, right, v)
-        case (Schema.Optional(codec: Schema[a], _), v: Option[_])                         => encodeOptional(fieldNumber, codec, v.asInstanceOf[Option[a]])
-        case (Schema.EitherSchema(left: Schema[a], right: Schema[b], _), v: Either[_, _]) => encodeEither(fieldNumber, left, right, v.asInstanceOf[Either[a, b]])
-        case (lzy @ Schema.Lazy(_), v)                                                    => encode(fieldNumber, lzy.schema, v)
-        case (Schema.Meta(ast, _), _)                                                     => encode(fieldNumber, Schema[SchemaAst], ast)
+        case (Schema.Sequence(element, _, g, _, _), v)                                         => encodeSequence(fieldNumber, element, g(v))
+        case (Schema.Map(ks, vs, _), map)                                                      => encodeSequence(fieldNumber, ks <*> vs, Chunk.fromIterable(map))
+        case (Schema.Set(s, _), set)                                                           => encodeSequence(fieldNumber, s, Chunk.fromIterable(set))
+        case (Schema.Transform(codec, _, g, _, _), _)                                          => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
+        case (Schema.Primitive(standardType, _), v)                                            => encodePrimitive(fieldNumber, standardType, v)
+        case (Schema.Tuple2(left, right, _), v @ (_, _))                                       => encodeTuple(fieldNumber, left, right, v)
+        case (Schema.Optional(codec: Schema[a], _), v: Option[_])                              => encodeOptional(fieldNumber, codec, v.asInstanceOf[Option[a]])
+        case (Schema.Either(left: Schema[a], right: Schema[b], _), v: scala.util.Either[_, _]) => encodeEither(fieldNumber, left, right, v.asInstanceOf[scala.util.Either[a, b]])
+        case (lzy @ Schema.Lazy(_), v)                                                         => encode(fieldNumber, lzy.schema, v)
         case (_: Schema.CaseClass0[_], v) =>
           encodeCaseClass(v)(fieldNumber)
         case (cc: Schema.CaseClass1[_, _, _], v) =>
@@ -426,13 +418,9 @@ object ProtobufCodec extends Codec {
         case (Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case (Schema.EnumN(_, cs, _), v)                                                                                                   => encodeEnum(fieldNumber, v, cs.toSeq: _*)
         case (Schema.Dynamic(_), v)                                                                                                        => encode(fieldNumber, DynamicValueSchema.schema, v)
-        case (Schema.SemiDynamic(_, _), v)                                                                                                 => encodeSemiDynamic[Any](fieldNumber, v.asInstanceOf[(Any, Schema[Any])])
         case (_, _)                                                                                                                        => Chunk.empty
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
-
-    private def encodeSemiDynamic[A](fieldNumber: Option[Int], valueAndSchema: (A, Schema[A])): Chunk[Byte] =
-      encodeTuple(fieldNumber, Schema[SchemaAst], valueAndSchema._2, (valueAndSchema._2.ast, valueAndSchema._1))
 
     private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[_, Z]*): Chunk[Byte] = {
       val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
@@ -443,7 +431,7 @@ object ProtobufCodec extends Codec {
           val subtypeCase = cases(fieldIndex)
           encode(
             Some(fieldIndex + 1),
-            subtypeCase.codec.asInstanceOf[Schema[Any]],
+            subtypeCase.schema.asInstanceOf[Schema[Any]],
             subtypeCase.unsafeDeconstruct(value)
           )
         }
@@ -605,7 +593,7 @@ object ProtobufCodec extends Codec {
       fieldNumber: Option[Int],
       left: Schema[A],
       right: Schema[B],
-      either: Either[A, B]
+      either: scala.util.Either[A, B]
     ): Chunk[Byte] = {
       val encodedEither = either match {
         case Left(value)  => encode(Some(1), left, value)
@@ -659,7 +647,7 @@ object ProtobufCodec extends Codec {
       }.getOrElse(Chunk.empty)
   }
 
-  final case class Decoder[+A](run: Chunk[Byte] => Either[String, (Chunk[Byte], A)]) {
+  final case class Decoder[+A](run: Chunk[Byte] => scala.util.Either[String, (Chunk[Byte], A)]) {
     self =>
 
     def map[B](f: A => B): Decoder[B] =
@@ -705,8 +693,8 @@ object ProtobufCodec extends Codec {
 
   object Decoder {
 
-    import Protobuf._
     import ProductDecoder._
+    import Protobuf._
 
     def fail(failure: String): Decoder[Nothing] = Decoder(_ => Left(failure))
 
@@ -724,7 +712,7 @@ object ProtobufCodec extends Codec {
     private[codec] val stringDecoder: Decoder[String] =
       Decoder(bytes => Right((Chunk.empty, new String(bytes.toArray, StandardCharsets.UTF_8))))
 
-    def decode[A](schema: Schema[A], chunk: Chunk[Byte]): Either[String, A] =
+    def decode[A](schema: Schema[A], chunk: Chunk[Byte]): scala.util.Either[String, A] =
       decoder(schema)
         .run(chunk)
         .map(_._2)
@@ -736,16 +724,15 @@ object ProtobufCodec extends Codec {
         case Schema.Sequence(elementSchema, fromChunk, _, _, _) =>
           if (canBePacked(elementSchema)) packedSequenceDecoder(elementSchema).map(fromChunk)
           else nonPackedSequenceDecoder(elementSchema).map(fromChunk)
-        case Schema.MapSchema(ks: Schema[k], vs: Schema[v], _)                                                                                          => decoder(Schema.Sequence(ks <*> vs, (c: Chunk[(k, v)]) => Map(c: _*), (m: Map[k, v]) => Chunk.fromIterable(m), identity = "Map"))
-        case Schema.SetSchema(schema: Schema[s], _)                                                                                                     => decoder(Schema.Sequence(schema, (c: Chunk[s]) => Set(c: _*), (m: Set[s]) => Chunk.fromIterable(m), identity = "Set"))
+        case Schema.Map(ks: Schema[k], vs: Schema[v], _)                                                                                          => decoder(Schema.Sequence(ks <*> vs, (c: Chunk[(k, v)]) => Map(c: _*), (m: Map[k, v]) => Chunk.fromIterable(m), identity = "Map"))
+        case Schema.Set(schema: Schema[s], _)                                                                                                     => decoder(Schema.Sequence(schema, (c: Chunk[s]) => Set(c: _*), (m: Set[s]) => Chunk.fromIterable(m), identity = "Set"))
         case Schema.Transform(codec, f, _, _, _)                                                                                                        => transformDecoder(codec, f)
         case Schema.Primitive(standardType, _)                                                                                                          => primitiveDecoder(standardType)
-        case Schema.Tuple(left, right, _)                                                                                                               => tupleDecoder(left, right)
+        case Schema.Tuple2(left, right, _)                                                                                                               => tupleDecoder(left, right)
         case Schema.Optional(codec, _)                                                                                                                  => optionalDecoder(codec)
         case Schema.Fail(message, _)                                                                                                                    => fail(message)
-        case Schema.EitherSchema(left, right, _)                                                                                                        => eitherDecoder(left, right)
+        case Schema.Either(left, right, _)                                                                                                        => eitherDecoder(left, right)
         case lzy @ Schema.Lazy(_)                                                                                                                       => decoder(lzy.schema)
-        case Schema.Meta(_, _)                                                                                                                          => astDecoder
         case s: Schema.CaseClass0[A]                                                                                                                    => caseClass0Decoder(s)
         case s: Schema.CaseClass1[_, _, A]                                                                                                              => caseClass1Decoder(s)
         case s: Schema.CaseClass2[_, _, _, _, A]                                                                                                        => caseClass2Decoder(s)
@@ -796,34 +783,11 @@ object ProtobufCodec extends Codec {
         case Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case Schema.EnumN(_, cs, _)                                                                                                   => enumDecoder(cs.toSeq: _*)
         case Schema.Dynamic(_)                                                                                                        => dynamicDecoder
-        case Schema.SemiDynamic(_, _)                                                                                                 => semiDynamicDecoder.asInstanceOf[Decoder[A]]
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
-    private val astDecoder: Decoder[Schema[_]] =
-      decoder(Schema[SchemaAst]).map(_.toSchema)
-
     private val dynamicDecoder: Decoder[DynamicValue] =
       decoder(DynamicValueSchema.schema)
-
-    private def decoder[T](wt: WireType, decoder: Decoder[T]): Decoder[T] =
-      wt match {
-        case LengthDelimited(width) =>
-          decoder.take(width)
-        case _ =>
-          decoder
-      }
-
-    private def semiDynamicDecoder[A]: Decoder[(A, Schema[A])] =
-      for {
-        key1                <- keyDecoder
-        (wt1, fieldNumber1) = key1
-        _                   <- Decoder.failWhen(fieldNumber1 != 1, "serialized AST should come first for SemiDynamic types")
-        schema              <- decoder(wt1, astDecoder)
-        key2                <- keyDecoder
-        (wt2, _)            = key2
-        value               <- decoder(wt2, decoder(schema))
-      } yield (value.asInstanceOf[A], schema.asInstanceOf[Schema[A]])
 
     private def enumDecoder[Z](cases: Schema.Case[_, Z]*): Decoder[Z] =
       keyDecoder.flatMap {
@@ -831,11 +795,11 @@ object ProtobufCodec extends Codec {
           val subtypeCase = cases(fieldNumber - 1)
           wt match {
             case LengthDelimited(width) =>
-              decoder(subtypeCase.codec)
+              decoder(subtypeCase.schema)
                 .take(width)
                 .asInstanceOf[Decoder[Z]]
             case _ =>
-              decoder(subtypeCase.codec)
+              decoder(subtypeCase.schema)
                 .asInstanceOf[Decoder[Z]]
           }
         case (_, fieldNumber) =>
@@ -922,7 +886,7 @@ object ProtobufCodec extends Codec {
       }
     }
 
-    private def eitherDecoder[A, B](left: Schema[A], right: Schema[B]): Decoder[Either[A, B]] =
+    private def eitherDecoder[A, B](left: Schema[A], right: Schema[B]): Decoder[scala.util.Either[A, B]] =
       keyDecoder.flatMap {
         case (_, fieldNumber) if fieldNumber == 1 => decoder(left).map(Left(_))
         case (_, fieldNumber) if fieldNumber == 2 => decoder(right).map(Right(_))
@@ -955,7 +919,7 @@ object ProtobufCodec extends Codec {
         }
       }).take(8)
 
-    private def transformDecoder[A, B](schema: Schema[B], f: B => Either[String, A]): Decoder[A] =
+    private def transformDecoder[A, B](schema: Schema[B], f: B => scala.util.Either[String, A]): Decoder[A] =
       schema match {
         case Schema.Primitive(typ, _) if typ == StandardType.UnitType =>
           Decoder { (chunk: Chunk[Byte]) =>
