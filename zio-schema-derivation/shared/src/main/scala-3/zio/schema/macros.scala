@@ -220,7 +220,13 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
   // Derive Field for a CaseClass
   def deriveField[T: Type](repr: TypeRepr, name: String, anns: List[Expr[Any]], stack: Stack) = {
     import zio.schema.validation.Validation
-    repr.asType match { case '[t] => 
+
+    val tpe = TypeRepr.of[T]
+    val s = tpe.typeSymbol.declaredFields
+    val interestingField = s.find (_.name == name).get
+    val ct = tpe.memberType (interestingField)
+
+    ct.asType match { case '[t] =>
       val schema = deriveSchema[t](stack)
       val validators = anns.collect {
         case ann if ann.isExprOf[Validation[t]] => ann.asExprOf[Validation[t]]
@@ -231,8 +237,12 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
         }
       }
 
+      val typeParams = TypeRepr.of[T].dealias match
+           case AppliedType (t, params) => params
+           case _ => Nil
+
       val get = '{ (t: T) => ${Select.unique('t.asTerm, name).asExprOf[t]} }
-      val set = '{ (ts: T, v: t) => ${Select.overloaded('ts.asTerm, "copy", List.empty, List(NamedArg(name, 'v.asTerm))).asExprOf[T]} }
+      val set = '{ (ts: T, v: t) => ${Select.overloaded('ts.asTerm, "copy", typeParams, List(NamedArg(name, 'v.asTerm))).asExprOf[T]} }
       val chunk = '{ zio.Chunk.fromIterable(${ Expr.ofSeq(anns.reverse) }) }
       '{ Field(${Expr(name)}, $schema, $chunk, $validator, $get, $set) }
     }
