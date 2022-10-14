@@ -1,13 +1,13 @@
 ---
-id: first_schema
-title: "Your first ZIO Schema"
+id: our-first-schema
+title: "Our First Schema"
 ---
-## Your First ZIO Schema
 
 ZIO Schema provides macros to help you create `Schema`s out of your data types. But before using the macros,
 we should take a look at how to do this the manual way.
 
 ### The Domain
+
 Like in [Overview](index.md), we define our example domain like this:
 
 ```scala
@@ -89,10 +89,10 @@ object ManualConstruction {
 ```
 
 ### Macro derivation
+
 Using macros, the above code gets reduced to this:
 
 ```scala
-
 object MacroConstruction  {
   import Domain._
 
@@ -107,7 +107,9 @@ object MacroConstruction  {
 ## Applying it to our domain
 
 ### Json example
+
 Lets put this all together in a small sample:
+
 ```scala
 object JsonSample extends zio.App {
   import zio.schema.codec.JsonCodec
@@ -162,6 +164,7 @@ object ProtobufExample extends zio.App {
 
 
 ### Combining different encoders
+
 Let's take a look at a roundtrip converting an object to JSON and back, then converting it to a protobuf and back.
 This is a simple example, but it shows how to combine different encoders to achieve a roundtrip.
 
@@ -200,4 +203,3 @@ object CombiningExample extends zio.App {
   } yield ExitCode.success
 }
 ```
-

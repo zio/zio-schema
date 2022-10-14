@@ -1,6 +1,7 @@
 ---
-id: overview_index
-title: "Contents"
+id: index
+title: "Introduction to ZIO Schema"
+sidebar_label: "Introduction"
 ---
 
 ## Installation
@@ -14,6 +15,7 @@ libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "@RELEASE_VERSION@"
 ```
 
 ## Purpose of ZIO Schema
+
 ZIO Schema allows you to create representations of your data types as values. 
 
 Once you have a representation of your data types, you can use it to 
@@ -52,6 +54,3 @@ Example use cases that are possible:
    3. validate
    4. transform to JSON `JsonObject`
    5. serialize to `String`
-
-
-
