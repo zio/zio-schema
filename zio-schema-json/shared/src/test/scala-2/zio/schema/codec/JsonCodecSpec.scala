@@ -511,7 +511,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         ) &> assertEncodesThenDecodes(Schema[Enumeration], Enumeration(IntValue(-1))) &> assertEncodesThenDecodes(
           Schema[Enumeration],
           Enumeration(BooleanValue(false))
-        )
+        ) &> assertEncodesThenDecodes(Schema[Enumeration], Enumeration(EmptyValue()))
       }
     ),
     suite("transform")(
@@ -778,6 +778,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
   case class StringValue(value: String)   extends OneOf
   case class IntValue(value: Int)         extends OneOf
   case class BooleanValue(value: Boolean) extends OneOf
+  case class EmptyValue() extends OneOf
 
   object OneOf {
     implicit val schema: Schema[OneOf] = DeriveSchema.gen[OneOf]
