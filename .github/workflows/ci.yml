@@ -13,55 +13,55 @@ on:
     types:
       - published
 
-#jobs:
-#  lint:
-#    runs-on: ubuntu-20.04
-#    timeout-minutes: 30
-#    strategy:
-#      fail-fast: false
-#    steps:
-#      - name: Checkout current branch
-#        uses: actions/checkout@v3.0.0
-#        with:
-#          fetch-depth: 0
-#      - name: Setup Scala and Java
-#        uses: olafurpg/setup-scala@v13
-#      - name: Cache scala dependencies
-#        uses: coursier/cache-action@v6
-#      - name: Lint code
-#        run: sbt fmtCheck fixCheck
-#
-#  build:
-#    runs-on: ubuntu-20.04
-#    timeout-minutes: 30
-#    strategy:
-#      fail-fast: false
-#      matrix:
-#        java: ['adopt@1.8', 'adopt@1.11']
-#        scala: ['2.12.15', '2.13.8', '3.1.1']
-#    steps:
-#    - uses: actions/checkout@v3.0.0
-#    - uses: olafurpg/setup-scala@v13
-#      with:
-#        java-version: ${{ matrix.java }}
-#    - name: Cache scala dependencies
-#      uses: coursier/cache-action@v6
-#    - name: Run tests
-#      run: sbt ++${{ matrix.scala }}! test
-#
-#  publish:
-#    runs-on: ubuntu-20.04
-#    timeout-minutes: 30
-#    needs: [build,lint]
-#    if: github.event_name != 'pull_request'
-#    steps:
-#      - uses: actions/checkout@v3.0.0
-#        with:
-#          fetch-depth: 0
-#      - uses: olafurpg/setup-scala@v13
-#      - run: sbt ci-release
-#        env:
-#          PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
-#          PGP_SECRET: ${{ secrets.PGP_SECRET }}
-#          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-#          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+jobs:
+  lint:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout current branch
+        uses: actions/checkout@v3.0.0
+        with:
+          fetch-depth: 0
+      - name: Setup Scala and Java
+        uses: olafurpg/setup-scala@v13
+      - name: Cache scala dependencies
+        uses: coursier/cache-action@v6
+      - name: Lint code
+        run: sbt fmtCheck fixCheck
+
+  build:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ['adopt@1.8', 'adopt@1.11']
+        scala: ['2.12.15', '2.13.8', '3.1.1']
+    steps:
+    - uses: actions/checkout@v3.0.0
+    - uses: olafurpg/setup-scala@v13
+      with:
+        java-version: ${{ matrix.java }}
+    - name: Cache scala dependencies
+      uses: coursier/cache-action@v6
+    - name: Run tests
+      run: sbt ++${{ matrix.scala }}! test
+
+  publish:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    needs: [build,lint]
+    if: github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v3.0.0
+        with:
+          fetch-depth: 0
+      - uses: olafurpg/setup-scala@v13
+      - run: sbt ci-release
+        env:
+          PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
+          PGP_SECRET: ${{ secrets.PGP_SECRET }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
