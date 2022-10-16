@@ -16,10 +16,11 @@ jobs:
       - uses: olafurpg/setup-scala@v13
       - uses: olafurpg/setup-gpg@v3
       - run: sbt docs/mdoc
-      - run: cd zio-schema-docs/target/mdoc
-      - run: npm version patch
-      - run: git push
-      - run: npm publish
+      - run: |
+        cd zio-schema-docs/target/mdoc
+        npm version patch
+        git push
+        npm publish
         env:
           GIT_DEPLOY_KEY: ${{ secrets.GIT_DEPLOY_KEY }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
