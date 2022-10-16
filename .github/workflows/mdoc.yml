@@ -1,6 +1,7 @@
 name: Website
 
 on:
+  pull_request_target:
   push:
     branches: [main]
     tags: ["*"]
@@ -17,15 +18,8 @@ jobs:
       - uses: olafurpg/setup-scala@v13
       - uses: olafurpg/setup-gpg@v3
       - run: sbt docs/mdoc
-      - name: setup git config
-      - run: git config user.name "GitHub Actions Bot"
-      - run: git config user.email "<>"
-      - run: | 
-          cd docs
-          npm version patch
-          git push
       - run: |    
-          cd ../zio-schema-docs/target/mdoc
+          cd zio-schema-docs/target/mdoc
           npm publish
         env:
           GIT_DEPLOY_KEY: ${{ secrets.GIT_DEPLOY_KEY }}
