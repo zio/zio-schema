@@ -15,3 +15,12 @@ jobs:
       - uses: olafurpg/setup-scala@v13
       - uses: olafurpg/setup-gpg@v3
       - run: sbt docs/mdoc
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '16.x'
+          registry-url: 'https://registry.npmjs.org'
+      - run: |
+          cd zio-schema-docs/target/mdoc
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
