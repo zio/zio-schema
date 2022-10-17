@@ -23,6 +23,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - run: |
           cd zio-schema-docs/target/mdoc
+          git tag --list
           git fetch --prune --unshallow
           npm version $(git describe --abbrev=0 --tags)
           npm config set access public
