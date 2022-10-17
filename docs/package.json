@@ -1,6 +1,6 @@
 {
-  "name": "zio-schema-docs",
-  "version": "0.0.2",
+  "name": "@zio.dev/zio-schema-docs",
+  "version": "0.0.1",
   "description": "ZIO Schema Documentation",
   "license": "Apache-2.0"
 }
