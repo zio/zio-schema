@@ -21,12 +21,9 @@ jobs:
         with:
           node-version: '16.x'
           registry-url: 'https://registry.npmjs.org'
-      - name: Get tags
-        run: git fetch --tags origin
-      - run: git tag --list
       - run: |
           cd zio-schema-docs/target/mdoc
-          npm version $(git describe --abbrev=0 --tags)
+          npm version from-git
           npm config set access public
           npm publish
         env:
