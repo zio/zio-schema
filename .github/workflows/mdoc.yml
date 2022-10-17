@@ -12,6 +12,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
       - uses: olafurpg/setup-scala@v13
       - uses: olafurpg/setup-gpg@v3
       - run: sbt docs/mdoc
@@ -21,7 +23,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - run: |
           cd zio-schema-docs/target/mdoc
-          npm version $(git describe --tags --always)
+          npm version from-git
           npm config set access public
           npm publish
         env:
