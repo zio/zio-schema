@@ -372,10 +372,10 @@ object MetaSchema {
         }
         .buildProduct(s.id)
     case s: Schema.Enum[A] =>
-      s.structure
+      s.cases
         .foldLeft(NodeBuilder(NodePath.root, Chunk(s.hashCode() -> NodePath.root))) {
-          case (node, (id, schema)) =>
-            node.addLabelledSubtree(id, schema)
+          case (node, caseValue) =>
+            node.addLabelledSubtree(caseValue.id, caseValue.schema)
         }
         .buildSum(s.id)
     case Schema.Dynamic(_) => Dynamic(withSchema = false, NodePath.root)
@@ -431,10 +431,10 @@ object MetaSchema {
               }
               .buildProduct(s.id)
           case s: Schema.Enum[_] =>
-            s.structure
+            s.cases
               .foldLeft(NodeBuilder(path, lineage :+ (s.hashCode() -> path), optional)) {
-                case (node, (id, schema)) =>
-                  node.addLabelledSubtree(id, schema)
+                case (node, caseValue) =>
+                  node.addLabelledSubtree(caseValue.id, caseValue.schema)
               }
               .buildSum(s.id)
           case Schema.Fail(message, _) => FailNode(message, path)

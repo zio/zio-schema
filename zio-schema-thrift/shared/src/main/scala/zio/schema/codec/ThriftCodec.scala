@@ -398,7 +398,7 @@ object ThriftCodec extends Codec {
     private def encodeDynamic(fieldNumber: Option[Short], v: DynamicValue): Unit =
       encodeValue(fieldNumber, DynamicValueSchema.schema, v)
 
-    private def encodeEnum[Z, A](fieldNumber: Option[Short], value: Z, cases: Schema.Case[_, Z]*): Unit = {
+    private def encodeEnum[Z, A](fieldNumber: Option[Short], value: Z, cases: Schema.Case[Z, _]*): Unit = {
       writeFieldBegin(fieldNumber, TType.STRUCT)
       val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
       if (fieldIndex >= 0) {
@@ -608,7 +608,7 @@ object ThriftCodec extends Codec {
         res.asInstanceOf[Result[Option[A]]]
       }.fold(err => fail(path, s"Error decoding optional ${err.getMessage}"), identity)
 
-    private def enumDecoder[Z, A](path: Path, cases: Schema.Case[_, Z]*): Result[Z] =
+    private def enumDecoder[Z, A](path: Path, cases: Schema.Case[Z, _]*): Result[Z] =
       Try {
         val readField = p.readFieldBegin()
         if (readField.id > cases.length)

@@ -103,13 +103,13 @@ object Domain {
 
     val schemaPaymentMethod: Schema[PaymentMethod] = Schema.Enum2[CreditCard, WireTransfer, PaymentMethod](
       id = TypeId.parse("dev.zio.schema.example.example2.Domain.PaymentMethod"),
-      case1 = Case[CreditCard, PaymentMethod](
+      case1 = Case[PaymentMethod, CreditCard](
         id = "CreditCard",
         schema = CreditCard.schema,
         unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.CreditCard],
         annotations = Chunk.empty
       ),
-      case2 = Case[WireTransfer, PaymentMethod](
+      case2 = Case[PaymentMethod, WireTransfer](
         id = "WireTransfer",
         schema = WireTransfer.schema,
         unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.WireTransfer],

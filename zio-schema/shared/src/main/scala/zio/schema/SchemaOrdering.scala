@@ -45,9 +45,9 @@ object SchemaOrdering {
     case (Schema.Transform(schemaA, _, _, _, _), lVal, rVal) =>
       compareBySchema(schemaA)(lVal, rVal)
     case (e: Schema.Enum[_], Enumeration(_, (lField, lVal)), Enumeration(_, (rField, rVal))) if lField == rField =>
-      compareBySchema(e.structure(lField))(lVal, rVal)
+      compareBySchema(e.caseOf(lField).map(_.schema).get)(lVal, rVal) // FIXME: .get
     case (e: Schema.Enum[_], Enumeration(_, (lField, _)), Enumeration(_, (rField, _))) => {
-      val fields = e.structure.keys.toList
+      val fields = e.cases.map(_.id).toList
       fields.indexOf(lField).compareTo(fields.indexOf(rField))
     }
     //are two record with the different name equal?

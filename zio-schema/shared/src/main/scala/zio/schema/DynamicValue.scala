@@ -38,9 +38,9 @@ sealed trait DynamicValue {
           .flatMap(values => s.construct(values)(Unsafe.unsafe).left.map(err => () => err))
 
       case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
-        s.structure.get(key) match {
-          case Some(schema) => value.toTypedValueLazyError(schema).asInstanceOf[Either[() => String, A]]
-          case None         => Left(() => s"Failed to find case $key in enumN $s")
+        s.caseOf(key) match {
+          case Some(caseValue) => value.toTypedValueLazyError(caseValue.schema).asInstanceOf[Either[() => String, A]]
+          case None            => Left(() => s"Failed to find case $key in enumN $s")
         }
 
       case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
@@ -1813,7 +1813,7 @@ private[schema] object DynamicValueSchema {
   implicit val zonedDateTimeStandardType: StandardType[ZonedDateTime] =
     StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)
 
-  private val errorCase: Schema.Case[DynamicValue.Error, DynamicValue] =
+  private val errorCase: Schema.Case[DynamicValue, DynamicValue.Error] =
     Schema.Case(
       "Error",
       Schema.CaseClass1[String, DynamicValue.Error](
@@ -1829,7 +1829,7 @@ private[schema] object DynamicValueSchema {
       _.asInstanceOf[DynamicValue.Error]
     )
 
-  private val noneValueCase: Schema.Case[DynamicValue.NoneValue.type, DynamicValue] =
+  private val noneValueCase: Schema.Case[DynamicValue, DynamicValue.NoneValue.type] =
     Schema.Case(
       "NoneValue",
       Schema.singleton(None).transform(_ => DynamicValue.NoneValue, _ => None),
@@ -1837,7 +1837,7 @@ private[schema] object DynamicValueSchema {
       Chunk("case")
     )
 
-  private val rightValueCase: Schema.Case[DynamicValue.RightValue, DynamicValue] =
+  private val rightValueCase: Schema.Case[DynamicValue, DynamicValue.RightValue] =
     Schema.Case(
       "RightValue",
       Schema.CaseClass1[DynamicValue, DynamicValue.RightValue](
@@ -1853,7 +1853,7 @@ private[schema] object DynamicValueSchema {
       _.asInstanceOf[DynamicValue.RightValue]
     )
 
-  private val leftValueCase: Schema.Case[DynamicValue.LeftValue, DynamicValue] =
+  private val leftValueCase: Schema.Case[DynamicValue, DynamicValue.LeftValue] =
     Schema.Case(
       "LeftValue",
       Schema.CaseClass1[DynamicValue, DynamicValue.LeftValue](
@@ -1869,7 +1869,7 @@ private[schema] object DynamicValueSchema {
       _.asInstanceOf[DynamicValue.LeftValue]
     )
 
-  private val tupleCase: Schema.Case[DynamicValue.Tuple, DynamicValue] =
+  private val tupleCase: Schema.Case[DynamicValue, DynamicValue.Tuple] =
     Schema.Case(
       "Tuple",
       Schema.CaseClass2[DynamicValue, DynamicValue, DynamicValue.Tuple](
@@ -1891,7 +1891,7 @@ private[schema] object DynamicValueSchema {
       _.asInstanceOf[DynamicValue.Tuple]
     )
 
-  private val someValueCase: Schema.Case[DynamicValue.SomeValue, DynamicValue] =
+  private val someValueCase: Schema.Case[DynamicValue, DynamicValue.SomeValue] =
     Schema.Case(
       "SomeValue",
       Schema.CaseClass1[DynamicValue, DynamicValue.SomeValue](
@@ -1908,7 +1908,7 @@ private[schema] object DynamicValueSchema {
       _.asInstanceOf[DynamicValue.SomeValue]
     )
 
-  private val dictionaryCase: Schema.Case[DynamicValue.Dictionary, DynamicValue] =
+  private val dictionaryCase: Schema.Case[DynamicValue, DynamicValue.Dictionary] =
     Schema.Case(
       "Dictionary",
       Schema.CaseClass1[Chunk[(DynamicValue, DynamicValue)], DynamicValue.Dictionary](
@@ -1924,7 +1924,7 @@ private[schema] object DynamicValueSchema {
       _.asInstanceOf[DynamicValue.Dictionary]
     )
 
-  private val sequenceCase: Schema.Case[DynamicValue.Sequence, DynamicValue] =
+  private val sequenceCase: Schema.Case[DynamicValue, DynamicValue.Sequence] =
     Schema.Case(
       "Sequence",
       Schema.CaseClass1[Chunk[DynamicValue], DynamicValue.Sequence](
@@ -1940,7 +1940,7 @@ private[schema] object DynamicValueSchema {
       _.asInstanceOf[DynamicValue.Sequence]
     )
 
-  private val setCase: Schema.Case[DynamicValue.SetValue, DynamicValue] =
+  private val setCase: Schema.Case[DynamicValue, DynamicValue.SetValue] =
     Schema.Case(
       "SetValue",
       Schema.CaseClass1[Set[DynamicValue], DynamicValue.SetValue](
@@ -1956,7 +1956,7 @@ private[schema] object DynamicValueSchema {
       _.asInstanceOf[DynamicValue.SetValue]
     )
 
-  private val enumerationCase: Schema.Case[DynamicValue.Enumeration, DynamicValue] =
+  private val enumerationCase: Schema.Case[DynamicValue, DynamicValue.Enumeration] =
     Schema.Case(
       "Enumeration",
       Schema.CaseClass2[TypeId, (String, DynamicValue), DynamicValue.Enumeration](
@@ -1978,7 +1978,7 @@ private[schema] object DynamicValueSchema {
       _.asInstanceOf[DynamicValue.Enumeration]
     )
 
-  private val recordCase: Schema.Case[DynamicValue.Record, DynamicValue] =
+  private val recordCase: Schema.Case[DynamicValue, DynamicValue.Record] =
     Schema.Case(
       "Record",
       Schema.CaseClass2[TypeId, Chunk[(String, DynamicValue)], DynamicValue.Record](
@@ -1996,7 +1996,7 @@ private[schema] object DynamicValueSchema {
       _.asInstanceOf[DynamicValue.Record]
     )
 
-  private val dynamicAstCase: Schema.Case[DynamicValue.DynamicAst, DynamicValue] =
+  private val dynamicAstCase: Schema.Case[DynamicValue, DynamicValue.DynamicAst] =
     Schema.Case(
       "DynamicAst",
       Schema.CaseClass1[MetaSchema, DynamicValue.DynamicAst](
@@ -2012,14 +2012,14 @@ private[schema] object DynamicValueSchema {
       _.asInstanceOf[DynamicValue.DynamicAst]
     )
 
-  private val singletonCase: Schema.Case[DynamicValue.Singleton[Any], DynamicValue] =
+  private val singletonCase: Schema.Case[DynamicValue, DynamicValue.Singleton[Any]] =
     Schema.Case(
       "Singleton",
       Schema[Unit].transform(_ => DynamicValue.Singleton(()), _ => ()),
       _.asInstanceOf[DynamicValue.Singleton[Any]]
     )
 
-  private val primitiveUnitCase: Schema.Case[DynamicValue.Primitive[Unit], DynamicValue] =
+  private val primitiveUnitCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Unit]] =
     Schema.Case(
       "Unit",
       Schema.primitive[Unit].transform(unit => DynamicValue.Primitive(unit, StandardType[Unit]), _.value), {
@@ -2028,7 +2028,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveStringCase: Schema.Case[DynamicValue.Primitive[String], DynamicValue] =
+  private val primitiveStringCase: Schema.Case[DynamicValue, DynamicValue.Primitive[String]] =
     Schema.Case(
       "String",
       Schema.primitive[String].transform(s => DynamicValue.Primitive(s, StandardType[String]), _.value), {
@@ -2037,7 +2037,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveBooleanCase: Schema.Case[DynamicValue.Primitive[Boolean], DynamicValue] =
+  private val primitiveBooleanCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Boolean]] =
     Schema.Case(
       "Boolean",
       Schema.primitive[Boolean].transform(b => DynamicValue.Primitive(b, StandardType[Boolean]), _.value), {
@@ -2046,7 +2046,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveShortCase: Schema.Case[DynamicValue.Primitive[Short], DynamicValue] =
+  private val primitiveShortCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Short]] =
     Schema.Case(
       "Short",
       Schema.primitive[Short].transform(sh => DynamicValue.Primitive(sh, StandardType[Short]), _.value), {
@@ -2055,7 +2055,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveIntCase: Schema.Case[DynamicValue.Primitive[Int], DynamicValue] =
+  private val primitiveIntCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Int]] =
     Schema.Case(
       "Int",
       Schema.primitive[Int].transform(i => DynamicValue.Primitive(i, StandardType[Int]), _.value), {
@@ -2064,7 +2064,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveLongCase: Schema.Case[DynamicValue.Primitive[Long], DynamicValue] =
+  private val primitiveLongCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Long]] =
     Schema.Case(
       "Long",
       Schema.primitive[Long].transform(l => DynamicValue.Primitive(l, StandardType[Long]), _.value), {
@@ -2073,7 +2073,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveFloatCase: Schema.Case[DynamicValue.Primitive[Float], DynamicValue] =
+  private val primitiveFloatCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Float]] =
     Schema.Case(
       "Float",
       Schema.primitive[Float].transform(f => DynamicValue.Primitive(f, StandardType[Float]), _.value), {
@@ -2082,7 +2082,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveDoubleCase: Schema.Case[DynamicValue.Primitive[Double], DynamicValue] =
+  private val primitiveDoubleCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Double]] =
     Schema.Case(
       "Double",
       Schema.primitive[Double].transform(d => DynamicValue.Primitive(d, StandardType[Double]), _.value), {
@@ -2091,7 +2091,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveBinaryCase: Schema.Case[DynamicValue.Primitive[Chunk[Byte]], DynamicValue] =
+  private val primitiveBinaryCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Chunk[Byte]]] =
     Schema.Case(
       "Binary",
       Schema.primitive[Chunk[Byte]].transform(ch => DynamicValue.Primitive(ch, StandardType[Chunk[Byte]]), _.value), {
@@ -2100,7 +2100,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveCharCase: Schema.Case[DynamicValue.Primitive[Char], DynamicValue] =
+  private val primitiveCharCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Char]] =
     Schema.Case(
       "Char",
       Schema.primitive[Char].transform(ch => DynamicValue.Primitive(ch, StandardType[Char]), _.value), {
@@ -2109,7 +2109,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveBigDecimalCase: Schema.Case[DynamicValue.Primitive[BigDecimal], DynamicValue] =
+  private val primitiveBigDecimalCase: Schema.Case[DynamicValue, DynamicValue.Primitive[BigDecimal]] =
     Schema.Case(
       "BigDecimal",
       Schema.primitive[BigDecimal].transform(bd => DynamicValue.Primitive(bd, StandardType[BigDecimal]), _.value), {
@@ -2118,7 +2118,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveBigIntegerCase: Schema.Case[DynamicValue.Primitive[BigInteger], DynamicValue] =
+  private val primitiveBigIntegerCase: Schema.Case[DynamicValue, DynamicValue.Primitive[BigInteger]] =
     Schema.Case(
       "BigInteger",
       Schema.primitive[BigInteger].transform(bi => DynamicValue.Primitive(bi, StandardType[BigInteger]), _.value), {
@@ -2127,7 +2127,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveDayOfWeekCase: Schema.Case[DynamicValue.Primitive[DayOfWeek], DynamicValue] =
+  private val primitiveDayOfWeekCase: Schema.Case[DynamicValue, DynamicValue.Primitive[DayOfWeek]] =
     Schema.Case(
       "DayOfWeek",
       Schema.primitive[DayOfWeek].transform(dw => DynamicValue.Primitive(dw, StandardType[DayOfWeek]), _.value), {
@@ -2136,7 +2136,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveMonthCase: Schema.Case[DynamicValue.Primitive[Month], DynamicValue] =
+  private val primitiveMonthCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Month]] =
     Schema.Case(
       "Month",
       Schema.primitive[Month].transform(m => DynamicValue.Primitive(m, StandardType[Month]), _.value), {
@@ -2145,7 +2145,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveMonthDayCase: Schema.Case[DynamicValue.Primitive[MonthDay], DynamicValue] =
+  private val primitiveMonthDayCase: Schema.Case[DynamicValue, DynamicValue.Primitive[MonthDay]] =
     Schema.Case(
       "MonthDay",
       Schema.primitive[MonthDay].transform(md => DynamicValue.Primitive(md, StandardType[MonthDay]), _.value), {
@@ -2154,7 +2154,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitivePeriodCase: Schema.Case[DynamicValue.Primitive[Period], DynamicValue] =
+  private val primitivePeriodCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Period]] =
     Schema.Case(
       "Period",
       Schema.primitive[Period].transform(p => DynamicValue.Primitive(p, StandardType[Period]), _.value), {
@@ -2163,7 +2163,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveYearCase: Schema.Case[DynamicValue.Primitive[Year], DynamicValue] =
+  private val primitiveYearCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Year]] =
     Schema.Case(
       "Year",
       Schema.primitive[Year].transform(y => DynamicValue.Primitive(y, StandardType[Year]), _.value), {
@@ -2172,7 +2172,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveYearMonthCase: Schema.Case[DynamicValue.Primitive[YearMonth], DynamicValue] =
+  private val primitiveYearMonthCase: Schema.Case[DynamicValue, DynamicValue.Primitive[YearMonth]] =
     Schema.Case(
       "YearMonth",
       Schema.primitive[YearMonth].transform(ym => DynamicValue.Primitive(ym, StandardType[YearMonth]), _.value), {
@@ -2181,7 +2181,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveZoneIdCase: Schema.Case[DynamicValue.Primitive[ZoneId], DynamicValue] =
+  private val primitiveZoneIdCase: Schema.Case[DynamicValue, DynamicValue.Primitive[ZoneId]] =
     Schema.Case(
       "ZoneId",
       Schema.primitive[ZoneId].transform(zid => DynamicValue.Primitive(zid, StandardType[ZoneId]), _.value), {
@@ -2190,7 +2190,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveZoneOffsetCase: Schema.Case[DynamicValue.Primitive[ZoneOffset], DynamicValue] =
+  private val primitiveZoneOffsetCase: Schema.Case[DynamicValue, DynamicValue.Primitive[ZoneOffset]] =
     Schema.Case(
       "ZoneOffset",
       Schema.primitive[ZoneOffset].transform(zo => DynamicValue.Primitive(zo, StandardType[ZoneOffset]), _.value), {
@@ -2199,7 +2199,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveInstantCase: Schema.Case[DynamicValue.Primitive[Instant], DynamicValue] =
+  private val primitiveInstantCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Instant]] =
     Schema.Case(
       "Instant",
       Schema.primitive[Instant].transform(i => DynamicValue.Primitive(i, StandardType[Instant]), _.value), {
@@ -2208,7 +2208,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveDurationCase: Schema.Case[DynamicValue.Primitive[Duration], DynamicValue] =
+  private val primitiveDurationCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Duration]] =
     Schema.Case(
       "Duration",
       Schema.primitive[Duration].transform(i => DynamicValue.Primitive(i, StandardType[Duration]), _.value), {
@@ -2217,7 +2217,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveLocalDateCase: Schema.Case[DynamicValue.Primitive[LocalDate], DynamicValue] =
+  private val primitiveLocalDateCase: Schema.Case[DynamicValue, DynamicValue.Primitive[LocalDate]] =
     Schema.Case(
       "LocalDate",
       Schema.primitive[LocalDate].transform(ld => DynamicValue.Primitive(ld, StandardType[LocalDate]), _.value), {
@@ -2226,7 +2226,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveLocalTimeCase: Schema.Case[DynamicValue.Primitive[LocalTime], DynamicValue] =
+  private val primitiveLocalTimeCase: Schema.Case[DynamicValue, DynamicValue.Primitive[LocalTime]] =
     Schema.Case(
       "LocalTime",
       Schema.primitive[LocalTime].transform(lt => DynamicValue.Primitive(lt, StandardType[LocalTime]), _.value), {
@@ -2235,7 +2235,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveLocalDateTimeCase: Schema.Case[DynamicValue.Primitive[LocalDateTime], DynamicValue] =
+  private val primitiveLocalDateTimeCase: Schema.Case[DynamicValue, DynamicValue.Primitive[LocalDateTime]] =
     Schema.Case(
       "LocalDateTime",
       Schema
@@ -2246,7 +2246,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveOffsetTimeCase: Schema.Case[DynamicValue.Primitive[OffsetTime], DynamicValue] =
+  private val primitiveOffsetTimeCase: Schema.Case[DynamicValue, DynamicValue.Primitive[OffsetTime]] =
     Schema.Case(
       "OffsetTime",
       Schema.primitive[OffsetTime].transform(ot => DynamicValue.Primitive(ot, StandardType[OffsetTime]), _.value), {
@@ -2255,7 +2255,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveOffsetDateTimeCase: Schema.Case[DynamicValue.Primitive[OffsetDateTime], DynamicValue] =
+  private val primitiveOffsetDateTimeCase: Schema.Case[DynamicValue, DynamicValue.Primitive[OffsetDateTime]] =
     Schema.Case(
       "OffsetDateTime",
       Schema
@@ -2267,7 +2267,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveZonedDateTimeCase: Schema.Case[DynamicValue.Primitive[ZonedDateTime], DynamicValue] =
+  private val primitiveZonedDateTimeCase: Schema.Case[DynamicValue, DynamicValue.Primitive[ZonedDateTime]] =
     Schema.Case(
       "ZonedDateTime",
       Schema
@@ -2278,7 +2278,7 @@ private[schema] object DynamicValueSchema {
       }
     )
 
-  private val primitiveUUIDCase: Schema.Case[DynamicValue.Primitive[UUID], DynamicValue] =
+  private val primitiveUUIDCase: Schema.Case[DynamicValue, DynamicValue.Primitive[UUID]] =
     Schema.Case(
       "UUID",
       Schema.primitive[UUID].transform(uuid => DynamicValue.Primitive(uuid, StandardType[UUID]), _.value), {

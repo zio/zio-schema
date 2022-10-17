@@ -100,7 +100,7 @@ object DynamicValueGen {
       case (l, r) => DynamicValue.Tuple(l, r)
     }
 
-  def anyDynamicValueOfEnum[A](cases: Chunk[Schema.Case[_, A]]): Gen[Sized, DynamicValue.Enumeration] =
+  def anyDynamicValueOfEnum[A](cases: Chunk[Schema.Case[A, _]]): Gen[Sized, DynamicValue.Enumeration] =
     for {
       index <- Gen.int(0, cases.size - 1)
       value <- anyDynamicValueOfSchema(cases(index).schema)

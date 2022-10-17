@@ -563,7 +563,7 @@ object Differ {
       case (field: Schema.Field[Z, a], _) => map.get(field.name).exists(_.isInstanceOf[a])
     }
 
-  def enumN[Z](cases: Schema.Case[_, Z]*): Differ[Z] =
+  def enumN[Z](cases: Schema.Case[Z, _]*): Differ[Z] =
     (thisZ: Z, thatZ: Z) =>
       cases
         .foldRight[Option[Patch[Z]]](None) {

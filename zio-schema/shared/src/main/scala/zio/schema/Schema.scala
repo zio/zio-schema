@@ -262,13 +262,17 @@ object Schema extends SchemaEquality {
       uri => Right(uri.toString)
     )
 
-  sealed trait Enum[A] extends Schema[A] {
+  sealed trait Enum[Z] extends Schema[Z] {
+    private lazy val casesMap: scala.collection.immutable.Map[String, Case[Z, _]] = cases.map(c => c.id -> c).toMap
     def id: TypeId
 
-    def structure: ListMap[String, Schema[_]] =
-      ListMap(structureWithAnnotations.map(kv => (kv._1, kv._2._1)).toList: _*)
+    def cases: Chunk[Case[Z, _]]
 
-    def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])]
+    def caseOf(id: String): Option[Case[Z, _]] =
+      casesMap.get(id)
+
+    def caseOf(z: Z): Option[Case[Z, _]] = ???
+
   }
 
   final case class Field[R, A](
@@ -385,8 +389,8 @@ object Schema extends SchemaEquality {
 
     lazy val toEnum: Enum2[Some[A], None.type, Option[A]] = Enum2(
       TypeId.parse("zio.schema.Schema.Optional"),
-      Case[Some[A], Option[A]]("Some", someCodec, _.asInstanceOf[Some[A]], Chunk.empty),
-      Case[None.type, Option[A]]("None", singleton(None), _.asInstanceOf[None.type], Chunk.empty),
+      Case[Option[A], Some[A]]("Some", someCodec, _.asInstanceOf[Some[A]], Chunk.empty),
+      Case[Option[A], None.type]("None", singleton(None), _.asInstanceOf[None.type], Chunk.empty),
       Chunk.empty
     )
 
@@ -554,16 +558,16 @@ object Schema extends SchemaEquality {
 
 // # ENUM SCHEMAS
 
-  sealed case class Case[A, Z](
+  sealed case class Case[R, A](
     id: String,
     schema: Schema[A],
-    unsafeDeconstruct: Z => A,
+    unsafeDeconstruct: R => A,
     annotations: Chunk[Any] = Chunk.empty
   ) {
 
-    def deconstruct(z: Z): Option[A] =
+    def deconstruct(r: R): Option[A] =
       try {
-        Some(unsafeDeconstruct(z))
+        Some(unsafeDeconstruct(r))
       } catch {
         case _: Throwable => None
       }
@@ -571,7 +575,7 @@ object Schema extends SchemaEquality {
     override def toString: String = s"Case($id,$schema,$annotations)"
   }
 
-  sealed case class Enum1[A <: Z, Z](id: TypeId, case1: Case[A, Z], annotations: Chunk[Any] = Chunk.empty)
+  sealed case class Enum1[A <: Z, Z](id: TypeId, case1: Case[Z, A], annotations: Chunk[Any] = Chunk.empty)
       extends Enum[Z] {
     self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Prism[case1.id.type, Z, A]
@@ -582,14 +586,14 @@ object Schema extends SchemaEquality {
 
     override def makeAccessors(b: AccessorBuilder): b.Prism[case1.id.type, Z, A] = b.makePrism(self, case1)
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(case1.id -> (case1.schema -> case1.annotations))
+    override def cases: Chunk[Case[Z, A]] =
+      Chunk(case1)
   }
 
   sealed case class Enum2[A1 <: Z, A2 <: Z, Z](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -603,15 +607,14 @@ object Schema extends SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): (b.Prism[case1.id.type, Z, A1], b.Prism[case2.id.type, Z, A2]) =
       (b.makePrism(self, case1), b.makePrism(self, case2))
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(case1.id -> (case1.schema -> case1.annotations), case2.id -> (case2.schema -> case2.annotations))
+    override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2)
   }
 
   sealed case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -627,20 +630,15 @@ object Schema extends SchemaEquality {
     ): (b.Prism[case1.id.type, Z, A1], b.Prism[case2.id.type, Z, A2], b.Prism[case3.id.type, Z, A3]) =
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3))
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id -> (case1.schema -> case1.annotations),
-        case2.id -> (case2.schema -> case2.annotations),
-        case3.id -> (case3.schema -> case3.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3)
   }
 
   sealed case class Enum4[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, Z](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -664,22 +662,16 @@ object Schema extends SchemaEquality {
     ) =
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4))
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id -> (case1.schema -> case1.annotations),
-        case2.id -> (case2.schema -> case2.annotations),
-        case3.id -> (case3.schema -> case3.annotations),
-        case4.id -> (case4.schema -> case4.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4)
   }
 
   sealed case class Enum5[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, Z](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -713,24 +705,17 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case5)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id -> (case1.schema -> case1.annotations),
-        case2.id -> (case2.schema -> case2.annotations),
-        case3.id -> (case3.schema -> case3.annotations),
-        case4.id -> (case4.schema -> case4.annotations),
-        case5.id -> (case5.schema -> case5.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5)
   }
 
   sealed case class Enum6[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, Z](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -768,26 +753,18 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case6)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id -> (case1.schema -> case1.annotations),
-        case2.id -> (case2.schema -> case2.annotations),
-        case3.id -> (case3.schema -> case3.annotations),
-        case4.id -> (case4.schema -> case4.annotations),
-        case5.id -> (case5.schema -> case5.annotations),
-        case6.id -> (case6.schema -> case6.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5, case6)
   }
 
   sealed case class Enum7[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, Z](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
-    case7: Case[A7, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
+    case7: Case[Z, A7],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -826,28 +803,19 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case7)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id -> (case1.schema -> case1.annotations),
-        case2.id -> (case2.schema -> case2.annotations),
-        case3.id -> (case3.schema -> case3.annotations),
-        case4.id -> (case4.schema -> case4.annotations),
-        case5.id -> (case5.schema -> case5.annotations),
-        case6.id -> (case6.schema -> case6.annotations),
-        case7.id -> (case7.schema -> case7.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5, case6, case7)
   }
 
   sealed case class Enum8[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, Z](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
-    case7: Case[A7, Z],
-    case8: Case[A8, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
+    case7: Case[Z, A7],
+    case8: Case[Z, A8],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -889,30 +857,20 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case8)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id -> (case1.schema -> case1.annotations),
-        case2.id -> (case2.schema -> case2.annotations),
-        case3.id -> (case3.schema -> case3.annotations),
-        case4.id -> (case4.schema -> case4.annotations),
-        case5.id -> (case5.schema -> case5.annotations),
-        case6.id -> (case6.schema -> case6.annotations),
-        case7.id -> (case7.schema -> case7.annotations),
-        case8.id -> (case8.schema -> case8.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5, case6, case7, case8)
   }
 
   sealed case class Enum9[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, Z](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
-    case7: Case[A7, Z],
-    case8: Case[A8, Z],
-    case9: Case[A9, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
+    case7: Case[Z, A7],
+    case8: Case[Z, A8],
+    case9: Case[Z, A9],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -956,32 +914,21 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case9)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id -> (case1.schema -> case1.annotations),
-        case2.id -> (case2.schema -> case2.annotations),
-        case3.id -> (case3.schema -> case3.annotations),
-        case4.id -> (case4.schema -> case4.annotations),
-        case5.id -> (case5.schema -> case5.annotations),
-        case6.id -> (case6.schema -> case6.annotations),
-        case7.id -> (case7.schema -> case7.annotations),
-        case8.id -> (case8.schema -> case8.annotations),
-        case9.id -> (case9.schema -> case9.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9)
   }
 
   sealed case class Enum10[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, Z](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
-    case7: Case[A7, Z],
-    case8: Case[A8, Z],
-    case9: Case[A9, Z],
-    case10: Case[A10, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
+    case7: Case[Z, A7],
+    case8: Case[Z, A8],
+    case9: Case[Z, A9],
+    case10: Case[Z, A10],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -1028,19 +975,7 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case10)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id  -> (case1.schema  -> case1.annotations),
-        case2.id  -> (case2.schema  -> case2.annotations),
-        case3.id  -> (case3.schema  -> case3.annotations),
-        case4.id  -> (case4.schema  -> case4.annotations),
-        case5.id  -> (case5.schema  -> case5.annotations),
-        case6.id  -> (case6.schema  -> case6.annotations),
-        case7.id  -> (case7.schema  -> case7.annotations),
-        case8.id  -> (case8.schema  -> case8.annotations),
-        case9.id  -> (case9.schema  -> case9.annotations),
-        case10.id -> (case10.schema -> case10.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10)
   }
 
   sealed case class Enum11[
@@ -1058,17 +993,17 @@ object Schema extends SchemaEquality {
     Z
   ](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
-    case7: Case[A7, Z],
-    case8: Case[A8, Z],
-    case9: Case[A9, Z],
-    case10: Case[A10, Z],
-    case11: Case[A11, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
+    case7: Case[Z, A7],
+    case8: Case[Z, A8],
+    case9: Case[Z, A9],
+    case10: Case[Z, A10],
+    case11: Case[Z, A11],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -1118,20 +1053,8 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case11)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id  -> (case1.schema  -> case1.annotations),
-        case2.id  -> (case2.schema  -> case2.annotations),
-        case3.id  -> (case3.schema  -> case3.annotations),
-        case4.id  -> (case4.schema  -> case4.annotations),
-        case5.id  -> (case5.schema  -> case5.annotations),
-        case6.id  -> (case6.schema  -> case6.annotations),
-        case7.id  -> (case7.schema  -> case7.annotations),
-        case8.id  -> (case8.schema  -> case8.annotations),
-        case9.id  -> (case9.schema  -> case9.annotations),
-        case10.id -> (case10.schema -> case10.annotations),
-        case11.id -> (case11.schema -> case11.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] =
+      Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11)
   }
 
   sealed case class Enum12[
@@ -1150,18 +1073,18 @@ object Schema extends SchemaEquality {
     Z
   ](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
-    case7: Case[A7, Z],
-    case8: Case[A8, Z],
-    case9: Case[A9, Z],
-    case10: Case[A10, Z],
-    case11: Case[A11, Z],
-    case12: Case[A12, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
+    case7: Case[Z, A7],
+    case8: Case[Z, A8],
+    case9: Case[Z, A9],
+    case10: Case[Z, A10],
+    case11: Case[Z, A11],
+    case12: Case[Z, A12],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -1214,21 +1137,20 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case12)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id  -> (case1.schema  -> case1.annotations),
-        case2.id  -> (case2.schema  -> case2.annotations),
-        case3.id  -> (case3.schema  -> case3.annotations),
-        case4.id  -> (case4.schema  -> case4.annotations),
-        case5.id  -> (case5.schema  -> case5.annotations),
-        case6.id  -> (case6.schema  -> case6.annotations),
-        case7.id  -> (case7.schema  -> case7.annotations),
-        case8.id  -> (case8.schema  -> case8.annotations),
-        case9.id  -> (case9.schema  -> case9.annotations),
-        case10.id -> (case10.schema -> case10.annotations),
-        case11.id -> (case11.schema -> case11.annotations),
-        case12.id -> (case12.schema -> case12.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(
+      case1,
+      case2,
+      case3,
+      case4,
+      case5,
+      case6,
+      case7,
+      case8,
+      case9,
+      case10,
+      case11,
+      case12
+    )
   }
 
   sealed case class Enum13[
@@ -1248,19 +1170,19 @@ object Schema extends SchemaEquality {
     Z
   ](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
-    case7: Case[A7, Z],
-    case8: Case[A8, Z],
-    case9: Case[A9, Z],
-    case10: Case[A10, Z],
-    case11: Case[A11, Z],
-    case12: Case[A12, Z],
-    case13: Case[A13, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
+    case7: Case[Z, A7],
+    case8: Case[Z, A8],
+    case9: Case[Z, A9],
+    case10: Case[Z, A10],
+    case11: Case[Z, A11],
+    case12: Case[Z, A12],
+    case13: Case[Z, A13],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -1316,22 +1238,21 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case13)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id  -> (case1.schema  -> case1.annotations),
-        case2.id  -> (case2.schema  -> case2.annotations),
-        case3.id  -> (case3.schema  -> case3.annotations),
-        case4.id  -> (case4.schema  -> case4.annotations),
-        case5.id  -> (case5.schema  -> case5.annotations),
-        case6.id  -> (case6.schema  -> case6.annotations),
-        case7.id  -> (case7.schema  -> case7.annotations),
-        case8.id  -> (case8.schema  -> case8.annotations),
-        case9.id  -> (case9.schema  -> case9.annotations),
-        case10.id -> (case10.schema -> case10.annotations),
-        case11.id -> (case11.schema -> case11.annotations),
-        case12.id -> (case12.schema -> case12.annotations),
-        case13.id -> (case13.schema -> case13.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(
+      case1,
+      case2,
+      case3,
+      case4,
+      case5,
+      case6,
+      case7,
+      case8,
+      case9,
+      case10,
+      case11,
+      case12,
+      case13
+    )
   }
 
   sealed case class Enum14[
@@ -1352,20 +1273,20 @@ object Schema extends SchemaEquality {
     Z
   ](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
-    case7: Case[A7, Z],
-    case8: Case[A8, Z],
-    case9: Case[A9, Z],
-    case10: Case[A10, Z],
-    case11: Case[A11, Z],
-    case12: Case[A12, Z],
-    case13: Case[A13, Z],
-    case14: Case[A14, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
+    case7: Case[Z, A7],
+    case8: Case[Z, A8],
+    case9: Case[Z, A9],
+    case10: Case[Z, A10],
+    case11: Case[Z, A11],
+    case12: Case[Z, A12],
+    case13: Case[Z, A13],
+    case14: Case[Z, A14],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -1424,23 +1345,22 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case14)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id  -> (case1.schema  -> case1.annotations),
-        case2.id  -> (case2.schema  -> case2.annotations),
-        case3.id  -> (case3.schema  -> case3.annotations),
-        case4.id  -> (case4.schema  -> case4.annotations),
-        case5.id  -> (case5.schema  -> case5.annotations),
-        case6.id  -> (case6.schema  -> case6.annotations),
-        case7.id  -> (case7.schema  -> case7.annotations),
-        case8.id  -> (case8.schema  -> case8.annotations),
-        case9.id  -> (case9.schema  -> case9.annotations),
-        case10.id -> (case10.schema -> case10.annotations),
-        case11.id -> (case11.schema -> case11.annotations),
-        case12.id -> (case12.schema -> case12.annotations),
-        case13.id -> (case13.schema -> case13.annotations),
-        case14.id -> (case14.schema -> case14.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(
+      case1,
+      case2,
+      case3,
+      case4,
+      case5,
+      case6,
+      case7,
+      case8,
+      case9,
+      case10,
+      case11,
+      case12,
+      case13,
+      case14
+    )
   }
 
   sealed case class Enum15[
@@ -1462,21 +1382,21 @@ object Schema extends SchemaEquality {
     Z
   ](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
-    case7: Case[A7, Z],
-    case8: Case[A8, Z],
-    case9: Case[A9, Z],
-    case10: Case[A10, Z],
-    case11: Case[A11, Z],
-    case12: Case[A12, Z],
-    case13: Case[A13, Z],
-    case14: Case[A14, Z],
-    case15: Case[A15, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
+    case7: Case[Z, A7],
+    case8: Case[Z, A8],
+    case9: Case[Z, A9],
+    case10: Case[Z, A10],
+    case11: Case[Z, A11],
+    case12: Case[Z, A12],
+    case13: Case[Z, A13],
+    case14: Case[Z, A14],
+    case15: Case[Z, A15],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -1540,24 +1460,23 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case15)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id  -> (case1.schema  -> case1.annotations),
-        case2.id  -> (case2.schema  -> case2.annotations),
-        case3.id  -> (case3.schema  -> case3.annotations),
-        case4.id  -> (case4.schema  -> case4.annotations),
-        case5.id  -> (case5.schema  -> case5.annotations),
-        case6.id  -> (case6.schema  -> case6.annotations),
-        case7.id  -> (case7.schema  -> case7.annotations),
-        case8.id  -> (case8.schema  -> case8.annotations),
-        case9.id  -> (case9.schema  -> case9.annotations),
-        case10.id -> (case10.schema -> case10.annotations),
-        case11.id -> (case11.schema -> case11.annotations),
-        case12.id -> (case12.schema -> case12.annotations),
-        case13.id -> (case13.schema -> case13.annotations),
-        case14.id -> (case14.schema -> case14.annotations),
-        case15.id -> (case15.schema -> case15.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(
+      case1,
+      case2,
+      case3,
+      case4,
+      case5,
+      case6,
+      case7,
+      case8,
+      case9,
+      case10,
+      case11,
+      case12,
+      case13,
+      case14,
+      case15
+    )
   }
 
   sealed case class Enum16[
@@ -1580,22 +1499,22 @@ object Schema extends SchemaEquality {
     Z
   ](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
-    case7: Case[A7, Z],
-    case8: Case[A8, Z],
-    case9: Case[A9, Z],
-    case10: Case[A10, Z],
-    case11: Case[A11, Z],
-    case12: Case[A12, Z],
-    case13: Case[A13, Z],
-    case14: Case[A14, Z],
-    case15: Case[A15, Z],
-    case16: Case[A16, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
+    case7: Case[Z, A7],
+    case8: Case[Z, A8],
+    case9: Case[Z, A9],
+    case10: Case[Z, A10],
+    case11: Case[Z, A11],
+    case12: Case[Z, A12],
+    case13: Case[Z, A13],
+    case14: Case[Z, A14],
+    case15: Case[Z, A15],
+    case16: Case[Z, A16],
     override val annotations: Chunk[Any]
   ) extends Enum[Z] {
     self =>
@@ -1662,25 +1581,24 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case16)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id  -> (case1.schema  -> case1.annotations),
-        case2.id  -> (case2.schema  -> case2.annotations),
-        case3.id  -> (case3.schema  -> case3.annotations),
-        case4.id  -> (case4.schema  -> case4.annotations),
-        case5.id  -> (case5.schema  -> case5.annotations),
-        case6.id  -> (case6.schema  -> case6.annotations),
-        case7.id  -> (case7.schema  -> case7.annotations),
-        case8.id  -> (case8.schema  -> case8.annotations),
-        case9.id  -> (case9.schema  -> case9.annotations),
-        case10.id -> (case10.schema -> case10.annotations),
-        case11.id -> (case11.schema -> case11.annotations),
-        case12.id -> (case12.schema -> case12.annotations),
-        case13.id -> (case13.schema -> case13.annotations),
-        case14.id -> (case14.schema -> case14.annotations),
-        case15.id -> (case15.schema -> case15.annotations),
-        case16.id -> (case16.schema -> case16.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(
+      case1,
+      case2,
+      case3,
+      case4,
+      case5,
+      case6,
+      case7,
+      case8,
+      case9,
+      case10,
+      case11,
+      case12,
+      case13,
+      case14,
+      case15,
+      case16
+    )
   }
 
   sealed case class Enum17[
@@ -1704,23 +1622,23 @@ object Schema extends SchemaEquality {
     Z
   ](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
-    case7: Case[A7, Z],
-    case8: Case[A8, Z],
-    case9: Case[A9, Z],
-    case10: Case[A10, Z],
-    case11: Case[A11, Z],
-    case12: Case[A12, Z],
-    case13: Case[A13, Z],
-    case14: Case[A14, Z],
-    case15: Case[A15, Z],
-    case16: Case[A16, Z],
-    case17: Case[A17, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
+    case7: Case[Z, A7],
+    case8: Case[Z, A8],
+    case9: Case[Z, A9],
+    case10: Case[Z, A10],
+    case11: Case[Z, A11],
+    case12: Case[Z, A12],
+    case13: Case[Z, A13],
+    case14: Case[Z, A14],
+    case15: Case[Z, A15],
+    case16: Case[Z, A16],
+    case17: Case[Z, A17],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -1790,26 +1708,25 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case17)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id  -> (case1.schema  -> case1.annotations),
-        case2.id  -> (case2.schema  -> case2.annotations),
-        case3.id  -> (case3.schema  -> case3.annotations),
-        case4.id  -> (case4.schema  -> case4.annotations),
-        case5.id  -> (case5.schema  -> case5.annotations),
-        case6.id  -> (case6.schema  -> case6.annotations),
-        case7.id  -> (case7.schema  -> case7.annotations),
-        case8.id  -> (case8.schema  -> case8.annotations),
-        case9.id  -> (case9.schema  -> case9.annotations),
-        case10.id -> (case10.schema -> case10.annotations),
-        case11.id -> (case11.schema -> case11.annotations),
-        case12.id -> (case12.schema -> case12.annotations),
-        case13.id -> (case13.schema -> case13.annotations),
-        case14.id -> (case14.schema -> case14.annotations),
-        case15.id -> (case15.schema -> case15.annotations),
-        case16.id -> (case16.schema -> case16.annotations),
-        case17.id -> (case17.schema -> case17.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(
+      case1,
+      case2,
+      case3,
+      case4,
+      case5,
+      case6,
+      case7,
+      case8,
+      case9,
+      case10,
+      case11,
+      case12,
+      case13,
+      case14,
+      case15,
+      case16,
+      case17
+    )
   }
 
   sealed case class Enum18[
@@ -1834,24 +1751,24 @@ object Schema extends SchemaEquality {
     Z
   ](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
-    case7: Case[A7, Z],
-    case8: Case[A8, Z],
-    case9: Case[A9, Z],
-    case10: Case[A10, Z],
-    case11: Case[A11, Z],
-    case12: Case[A12, Z],
-    case13: Case[A13, Z],
-    case14: Case[A14, Z],
-    case15: Case[A15, Z],
-    case16: Case[A16, Z],
-    case17: Case[A17, Z],
-    case18: Case[A18, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
+    case7: Case[Z, A7],
+    case8: Case[Z, A8],
+    case9: Case[Z, A9],
+    case10: Case[Z, A10],
+    case11: Case[Z, A11],
+    case12: Case[Z, A12],
+    case13: Case[Z, A13],
+    case14: Case[Z, A14],
+    case15: Case[Z, A15],
+    case16: Case[Z, A16],
+    case17: Case[Z, A17],
+    case18: Case[Z, A18],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -1924,27 +1841,26 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case18)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id  -> (case1.schema  -> case1.annotations),
-        case2.id  -> (case2.schema  -> case2.annotations),
-        case3.id  -> (case3.schema  -> case3.annotations),
-        case4.id  -> (case4.schema  -> case4.annotations),
-        case5.id  -> (case5.schema  -> case5.annotations),
-        case6.id  -> (case6.schema  -> case6.annotations),
-        case7.id  -> (case7.schema  -> case7.annotations),
-        case8.id  -> (case8.schema  -> case8.annotations),
-        case9.id  -> (case9.schema  -> case9.annotations),
-        case10.id -> (case10.schema -> case10.annotations),
-        case11.id -> (case11.schema -> case11.annotations),
-        case12.id -> (case12.schema -> case12.annotations),
-        case13.id -> (case13.schema -> case13.annotations),
-        case14.id -> (case14.schema -> case14.annotations),
-        case15.id -> (case15.schema -> case15.annotations),
-        case16.id -> (case16.schema -> case16.annotations),
-        case17.id -> (case17.schema -> case17.annotations),
-        case18.id -> (case18.schema -> case18.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(
+      case1,
+      case2,
+      case3,
+      case4,
+      case5,
+      case6,
+      case7,
+      case8,
+      case9,
+      case10,
+      case11,
+      case12,
+      case13,
+      case14,
+      case15,
+      case16,
+      case17,
+      case18
+    )
   }
 
   sealed case class Enum19[
@@ -1970,25 +1886,25 @@ object Schema extends SchemaEquality {
     Z
   ](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
-    case7: Case[A7, Z],
-    case8: Case[A8, Z],
-    case9: Case[A9, Z],
-    case10: Case[A10, Z],
-    case11: Case[A11, Z],
-    case12: Case[A12, Z],
-    case13: Case[A13, Z],
-    case14: Case[A14, Z],
-    case15: Case[A15, Z],
-    case16: Case[A16, Z],
-    case17: Case[A17, Z],
-    case18: Case[A18, Z],
-    case19: Case[A19, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
+    case7: Case[Z, A7],
+    case8: Case[Z, A8],
+    case9: Case[Z, A9],
+    case10: Case[Z, A10],
+    case11: Case[Z, A11],
+    case12: Case[Z, A12],
+    case13: Case[Z, A13],
+    case14: Case[Z, A14],
+    case15: Case[Z, A15],
+    case16: Case[Z, A16],
+    case17: Case[Z, A17],
+    case18: Case[Z, A18],
+    case19: Case[Z, A19],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -2064,28 +1980,27 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case19)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id  -> (case1.schema  -> case1.annotations),
-        case2.id  -> (case2.schema  -> case2.annotations),
-        case3.id  -> (case3.schema  -> case3.annotations),
-        case4.id  -> (case4.schema  -> case4.annotations),
-        case5.id  -> (case5.schema  -> case5.annotations),
-        case6.id  -> (case6.schema  -> case6.annotations),
-        case7.id  -> (case7.schema  -> case7.annotations),
-        case8.id  -> (case8.schema  -> case8.annotations),
-        case9.id  -> (case9.schema  -> case9.annotations),
-        case10.id -> (case10.schema -> case10.annotations),
-        case11.id -> (case11.schema -> case11.annotations),
-        case12.id -> (case12.schema -> case12.annotations),
-        case13.id -> (case13.schema -> case13.annotations),
-        case14.id -> (case14.schema -> case14.annotations),
-        case15.id -> (case15.schema -> case15.annotations),
-        case16.id -> (case16.schema -> case16.annotations),
-        case17.id -> (case17.schema -> case17.annotations),
-        case18.id -> (case18.schema -> case18.annotations),
-        case19.id -> (case19.schema -> case19.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(
+      case1,
+      case2,
+      case3,
+      case4,
+      case5,
+      case6,
+      case7,
+      case8,
+      case9,
+      case10,
+      case11,
+      case12,
+      case13,
+      case14,
+      case15,
+      case16,
+      case17,
+      case18,
+      case19
+    )
   }
 
   sealed case class Enum20[
@@ -2112,26 +2027,26 @@ object Schema extends SchemaEquality {
     Z
   ](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
-    case7: Case[A7, Z],
-    case8: Case[A8, Z],
-    case9: Case[A9, Z],
-    case10: Case[A10, Z],
-    case11: Case[A11, Z],
-    case12: Case[A12, Z],
-    case13: Case[A13, Z],
-    case14: Case[A14, Z],
-    case15: Case[A15, Z],
-    case16: Case[A16, Z],
-    case17: Case[A17, Z],
-    case18: Case[A18, Z],
-    case19: Case[A19, Z],
-    case20: Case[A20, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
+    case7: Case[Z, A7],
+    case8: Case[Z, A8],
+    case9: Case[Z, A9],
+    case10: Case[Z, A10],
+    case11: Case[Z, A11],
+    case12: Case[Z, A12],
+    case13: Case[Z, A13],
+    case14: Case[Z, A14],
+    case15: Case[Z, A15],
+    case16: Case[Z, A16],
+    case17: Case[Z, A17],
+    case18: Case[Z, A18],
+    case19: Case[Z, A19],
+    case20: Case[Z, A20],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -2210,29 +2125,28 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case20)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id  -> (case1.schema  -> case1.annotations),
-        case2.id  -> (case2.schema  -> case2.annotations),
-        case3.id  -> (case3.schema  -> case3.annotations),
-        case4.id  -> (case4.schema  -> case4.annotations),
-        case5.id  -> (case5.schema  -> case5.annotations),
-        case6.id  -> (case6.schema  -> case6.annotations),
-        case7.id  -> (case7.schema  -> case7.annotations),
-        case8.id  -> (case8.schema  -> case8.annotations),
-        case9.id  -> (case9.schema  -> case9.annotations),
-        case10.id -> (case10.schema -> case10.annotations),
-        case11.id -> (case11.schema -> case11.annotations),
-        case12.id -> (case12.schema -> case12.annotations),
-        case13.id -> (case13.schema -> case13.annotations),
-        case14.id -> (case14.schema -> case14.annotations),
-        case15.id -> (case15.schema -> case15.annotations),
-        case16.id -> (case16.schema -> case16.annotations),
-        case17.id -> (case17.schema -> case17.annotations),
-        case18.id -> (case18.schema -> case18.annotations),
-        case19.id -> (case19.schema -> case19.annotations),
-        case20.id -> (case20.schema -> case20.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(
+      case1,
+      case2,
+      case3,
+      case4,
+      case5,
+      case6,
+      case7,
+      case8,
+      case9,
+      case10,
+      case11,
+      case12,
+      case13,
+      case14,
+      case15,
+      case16,
+      case17,
+      case18,
+      case19,
+      case20
+    )
   }
 
   sealed case class Enum21[
@@ -2260,27 +2174,27 @@ object Schema extends SchemaEquality {
     Z
   ](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
-    case7: Case[A7, Z],
-    case8: Case[A8, Z],
-    case9: Case[A9, Z],
-    case10: Case[A10, Z],
-    case11: Case[A11, Z],
-    case12: Case[A12, Z],
-    case13: Case[A13, Z],
-    case14: Case[A14, Z],
-    case15: Case[A15, Z],
-    case16: Case[A16, Z],
-    case17: Case[A17, Z],
-    case18: Case[A18, Z],
-    case19: Case[A19, Z],
-    case20: Case[A20, Z],
-    case21: Case[A21, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
+    case7: Case[Z, A7],
+    case8: Case[Z, A8],
+    case9: Case[Z, A9],
+    case10: Case[Z, A10],
+    case11: Case[Z, A11],
+    case12: Case[Z, A12],
+    case13: Case[Z, A13],
+    case14: Case[Z, A14],
+    case15: Case[Z, A15],
+    case16: Case[Z, A16],
+    case17: Case[Z, A17],
+    case18: Case[Z, A18],
+    case19: Case[Z, A19],
+    case20: Case[Z, A20],
+    case21: Case[Z, A21],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -2364,30 +2278,29 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case21)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id  -> (case1.schema  -> case1.annotations),
-        case2.id  -> (case2.schema  -> case2.annotations),
-        case3.id  -> (case3.schema  -> case3.annotations),
-        case4.id  -> (case4.schema  -> case4.annotations),
-        case5.id  -> (case5.schema  -> case5.annotations),
-        case6.id  -> (case6.schema  -> case6.annotations),
-        case7.id  -> (case7.schema  -> case7.annotations),
-        case8.id  -> (case8.schema  -> case8.annotations),
-        case9.id  -> (case9.schema  -> case9.annotations),
-        case10.id -> (case10.schema -> case10.annotations),
-        case11.id -> (case11.schema -> case11.annotations),
-        case12.id -> (case12.schema -> case12.annotations),
-        case13.id -> (case13.schema -> case13.annotations),
-        case14.id -> (case14.schema -> case14.annotations),
-        case15.id -> (case15.schema -> case15.annotations),
-        case16.id -> (case16.schema -> case16.annotations),
-        case17.id -> (case17.schema -> case17.annotations),
-        case18.id -> (case18.schema -> case18.annotations),
-        case19.id -> (case19.schema -> case19.annotations),
-        case20.id -> (case20.schema -> case20.annotations),
-        case21.id -> (case21.schema -> case21.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(
+      case1,
+      case2,
+      case3,
+      case4,
+      case5,
+      case6,
+      case7,
+      case8,
+      case9,
+      case10,
+      case11,
+      case12,
+      case13,
+      case14,
+      case15,
+      case16,
+      case17,
+      case18,
+      case19,
+      case20,
+      case21
+    )
   }
 
   sealed case class Enum22[
@@ -2416,28 +2329,28 @@ object Schema extends SchemaEquality {
     Z
   ](
     id: TypeId,
-    case1: Case[A1, Z],
-    case2: Case[A2, Z],
-    case3: Case[A3, Z],
-    case4: Case[A4, Z],
-    case5: Case[A5, Z],
-    case6: Case[A6, Z],
-    case7: Case[A7, Z],
-    case8: Case[A8, Z],
-    case9: Case[A9, Z],
-    case10: Case[A10, Z],
-    case11: Case[A11, Z],
-    case12: Case[A12, Z],
-    case13: Case[A13, Z],
-    case14: Case[A14, Z],
-    case15: Case[A15, Z],
-    case16: Case[A16, Z],
-    case17: Case[A17, Z],
-    case18: Case[A18, Z],
-    case19: Case[A19, Z],
-    case20: Case[A20, Z],
-    case21: Case[A21, Z],
-    case22: Case[A22, Z],
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    case3: Case[Z, A3],
+    case4: Case[Z, A4],
+    case5: Case[Z, A5],
+    case6: Case[Z, A6],
+    case7: Case[Z, A7],
+    case8: Case[Z, A8],
+    case9: Case[Z, A9],
+    case10: Case[Z, A10],
+    case11: Case[Z, A11],
+    case12: Case[Z, A12],
+    case13: Case[Z, A13],
+    case14: Case[Z, A14],
+    case15: Case[Z, A15],
+    case16: Case[Z, A16],
+    case17: Case[Z, A17],
+    case18: Case[Z, A18],
+    case19: Case[Z, A19],
+    case20: Case[Z, A20],
+    case21: Case[Z, A21],
+    case22: Case[Z, A22],
     annotations: Chunk[Any] = Chunk.empty
   ) extends Enum[Z] {
     self =>
@@ -2524,31 +2437,30 @@ object Schema extends SchemaEquality {
         b.makePrism(self, case22)
       )
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(
-        case1.id  -> (case1.schema  -> case1.annotations),
-        case2.id  -> (case2.schema  -> case2.annotations),
-        case3.id  -> (case3.schema  -> case3.annotations),
-        case4.id  -> (case4.schema  -> case4.annotations),
-        case5.id  -> (case5.schema  -> case5.annotations),
-        case6.id  -> (case6.schema  -> case6.annotations),
-        case7.id  -> (case7.schema  -> case7.annotations),
-        case8.id  -> (case8.schema  -> case8.annotations),
-        case9.id  -> (case9.schema  -> case9.annotations),
-        case10.id -> (case10.schema -> case10.annotations),
-        case11.id -> (case11.schema -> case11.annotations),
-        case12.id -> (case12.schema -> case12.annotations),
-        case13.id -> (case13.schema -> case13.annotations),
-        case14.id -> (case14.schema -> case14.annotations),
-        case15.id -> (case15.schema -> case15.annotations),
-        case16.id -> (case16.schema -> case16.annotations),
-        case17.id -> (case17.schema -> case17.annotations),
-        case18.id -> (case18.schema -> case18.annotations),
-        case19.id -> (case19.schema -> case19.annotations),
-        case20.id -> (case20.schema -> case20.annotations),
-        case21.id -> (case21.schema -> case21.annotations),
-        case22.id -> (case22.schema -> case22.annotations)
-      )
+    override def cases: Chunk[Case[Z, _]] = Chunk(
+      case1,
+      case2,
+      case3,
+      case4,
+      case5,
+      case6,
+      case7,
+      case8,
+      case9,
+      case10,
+      case11,
+      case12,
+      case13,
+      case14,
+      case15,
+      case16,
+      case17,
+      case18,
+      case19,
+      case20,
+      case21,
+      case22
+    )
   }
 
   sealed case class EnumN[Z, C <: CaseSet.Aux[Z]](id: TypeId, caseSet: C, annotations: Chunk[Any] = Chunk.empty)
@@ -2559,8 +2471,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): EnumN[Z, C] = copy(annotations = annotations :+ annotation)
 
-    override def structureWithAnnotations: ListMap[String, (Schema[_], Chunk[Any])] =
-      ListMap(caseSet.toSeq.map(c => c.id -> (c.schema -> c.annotations)): _*)
+    override def cases: Chunk[Case[Z, _]] = Chunk(caseSet.toSeq: _*)
 
     def defaultValue: scala.util.Either[String, Z] =
       if (caseSet.toSeq.isEmpty)

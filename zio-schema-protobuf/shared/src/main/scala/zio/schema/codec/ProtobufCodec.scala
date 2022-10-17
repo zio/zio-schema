@@ -264,7 +264,7 @@ object ProtobufCodec extends Codec {
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
-    private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[_, Z]*): Chunk[Byte] = {
+    private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[Z, _]*): Chunk[Byte] = {
       val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
       val encoded = Chunk.fromIterable(
         if (fieldIndex == -1) {
@@ -632,7 +632,7 @@ object ProtobufCodec extends Codec {
     private val dynamicDecoder: Decoder[DynamicValue] =
       decoder(DynamicValueSchema.schema)
 
-    private def enumDecoder[Z](cases: Schema.Case[_, Z]*): Decoder[Z] =
+    private def enumDecoder[Z](cases: Schema.Case[Z, _]*): Decoder[Z] =
       keyDecoder.flatMap {
         case (wt, fieldNumber) if fieldNumber <= cases.length =>
           val subtypeCase = cases(fieldNumber - 1)

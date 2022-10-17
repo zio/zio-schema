@@ -267,22 +267,22 @@ object OrderingSpec extends ZIOSpecDefault {
 
   def genOrderedPairEnumSameCase[A](schema: Schema.Enum[A]): Gen[Sized, SchemaAndPair[A]] =
     for {
-      (label, caseSchema)    <- Gen.elements(schema.structure.toList: _*)
-      (smallCase, largeCase) <- genOrderedDynamicPair(caseSchema)
+      caseValue              <- Gen.elements(schema.cases.toList: _*)
+      (smallCase, largeCase) <- genOrderedDynamicPair(caseValue.schema)
       id                     <- Gen.string(Gen.alphaChar).map(TypeId.parse)
-      small                  = DynamicValue.Enumeration(id, (label, smallCase)).toTypedValue(schema).toOption.get
-      large                  = DynamicValue.Enumeration(id, (label, largeCase)).toTypedValue(schema).toOption.get
+      small                  = DynamicValue.Enumeration(id, (caseValue.id, smallCase)).toTypedValue(schema).toOption.get
+      large                  = DynamicValue.Enumeration(id, (caseValue.id, largeCase)).toTypedValue(schema).toOption.get
     } yield (schema, small, large)
 
   def genOrderedPairEnumDiffCase[A](schema: Schema.Enum[A]): Gen[Sized, SchemaAndPair[A]] = {
-    val cases: List[(String, Schema[_])] = schema.structure.toList
+    val cases = schema.cases
     for {
-      smallInd                      <- Gen.int(0, cases.size - 2)
-      largeInd                      <- Gen.int(smallInd + 1, cases.size - 1)
-      (smallLabel, smallCaseSchema) = cases(smallInd)
-      (largeLabel, largeCaseSchema) = cases(largeInd)
-      small                         <- genElemOfCase(schema, smallLabel, smallCaseSchema)
-      large                         <- genElemOfCase(schema, largeLabel, largeCaseSchema)
+      smallInd  <- Gen.int(0, cases.size - 2)
+      largeInd  <- Gen.int(smallInd + 1, cases.size - 1)
+      smallCase = cases(smallInd)
+      largeCase = cases(largeInd)
+      small     <- genElemOfCase(schema, smallCase.id, smallCase.schema)
+      large     <- genElemOfCase(schema, largeCase.id, largeCase.schema)
     } yield (schema, small, large)
   }
 

@@ -223,7 +223,7 @@ object JsonCodec extends Codec {
         }
     }
 
-    private def enumEncoder[Z](cases: Schema.Case[_, Z]*): JsonEncoder[Z] =
+    private def enumEncoder[Z](cases: Schema.Case[Z, _]*): JsonEncoder[Z] =
       (value: Z, indent: Option[Int], out: Write) => {
         val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
         if (fieldIndex > -1) {
@@ -378,7 +378,7 @@ object JsonCodec extends Codec {
     private def dynamicDecoder[A]: JsonDecoder[A] =
       schemaDecoder(DynamicValueSchema()).asInstanceOf[JsonDecoder[A]]
 
-    private def enumDecoder[Z](cases: Schema.Case[_, Z]*): JsonDecoder[Z] = {
+    private def enumDecoder[Z](cases: Schema.Case[Z, _]*): JsonDecoder[Z] = {
       (trace: List[JsonError], in: RetractReader) =>
         {
           Lexer.char(trace, in, '{')

@@ -322,8 +322,8 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         val expected: Schema[Status] =
           Schema.Enum3(
             TypeId.parse("zio.schema.DeriveSchemaSpec.Status"),
-            Schema.Case("Failed", DeriveSchema.gen[Status.Failed], (s: Status) => s.asInstanceOf[Status.Failed]),
             Schema.Case("Ok", DeriveSchema.gen[Status.Ok], (s: Status) => s.asInstanceOf[Status.Ok]),
+            Schema.Case("Failed", DeriveSchema.gen[Status.Failed], (s: Status) => s.asInstanceOf[Status.Failed]),
             Schema.Case(
               "Pending",
               DeriveSchema.gen[Status.Pending.type],

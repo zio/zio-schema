@@ -30,7 +30,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
 
   override def makePrism[F, S, A](
     sum: Schema.Enum[S],
-    term: Schema.Case[A, S]
+    term: Schema.Case[S, A]
   ): ZPrism[S, S, A, A] =
     ZPrism(
       get = ZioOpticsBuilder.makePrismGet(term),
@@ -94,7 +94,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
   }
 
   private[optics] def makePrismGet[S, A](
-    term: Schema.Case[A, S]
+    term: Schema.Case[S, A]
   ): S => Either[(OpticFailure, S), A] = { (whole: S) =>
     term.deconstruct(whole) match {
       case Some(a) => Right(a)

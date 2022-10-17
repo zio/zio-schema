@@ -24,6 +24,12 @@ trait SchemaEquality {
             l.schema === r.schema &&
             l.annotations == r.annotations
         }
+      implicit lazy val caseEqual: Equal[Schema.Case[_, _]] =
+        (l: Schema.Case[_, _], r: Schema.Case[_, _]) => {
+          l.id == r.id &&
+            l.schema === r.schema &&
+            l.annotations == r.annotations
+        }
 
       val pair: (Schema[_], Schema[_]) = (l, r)
       if (visitedPairs.contains(pair)) {
@@ -33,7 +39,7 @@ trait SchemaEquality {
 
         val result = (l, r) match {
           case (lEnum: Schema.Enum[_], rEnum: Schema.Enum[_]) =>
-            l.annotations == r.annotations && lEnum.structure === rEnum.structure
+            l.annotations == r.annotations && lEnum.cases === rEnum.cases
           case (lRecord: Schema.Record[_], rRecord: Schema.Record[_]) =>
             l.annotations == r.annotations && lRecord.fields === rRecord.fields
           case (lMap: Schema.Map[_, _], rMap: Schema.Map[_, _]) =>

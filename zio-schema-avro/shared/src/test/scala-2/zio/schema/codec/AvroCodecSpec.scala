@@ -74,12 +74,12 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val nested: Enum2[UnionWithNesting.Nested.A.type, UnionWithNesting.Nested.B.type, UnionWithNesting.Nested] =
               Schema.Enum2(
                 TypeId.Structural,
-                Schema.Case[UnionWithNesting.Nested.A.type, UnionWithNesting.Nested](
+                Schema.Case[UnionWithNesting.Nested, UnionWithNesting.Nested.A.type](
                   "A",
                   schemaA,
                   _.asInstanceOf[UnionWithNesting.Nested.A.type]
                 ),
-                Schema.Case[UnionWithNesting.Nested.B.type, UnionWithNesting.Nested](
+                Schema.Case[UnionWithNesting.Nested, UnionWithNesting.Nested.B.type](
                   "B",
                   schemaB,
                   _.asInstanceOf[UnionWithNesting.Nested.B.type]
@@ -87,14 +87,14 @@ object AvroCodecSpec extends ZIOSpecDefault {
               )
             val unionWithNesting = Schema.Enum3(
               TypeId.Structural,
-              Schema.Case[UnionWithNesting.Nested, UnionWithNesting](
+              Schema.Case[UnionWithNesting, UnionWithNesting.Nested](
                 "Nested",
                 nested,
                 _.asInstanceOf[UnionWithNesting.Nested]
               ),
               Schema
-                .Case[UnionWithNesting.C.type, UnionWithNesting]("C", schemaC, _.asInstanceOf[UnionWithNesting.C.type]),
-              Schema.Case[UnionWithNesting.D, UnionWithNesting]("D", schemaD, _.asInstanceOf[UnionWithNesting.D])
+                .Case[UnionWithNesting, UnionWithNesting.C.type]("C", schemaC, _.asInstanceOf[UnionWithNesting.C.type]),
+              Schema.Case[UnionWithNesting, UnionWithNesting.D]("D", schemaD, _.asInstanceOf[UnionWithNesting.D])
             )
 
             val schema = unionWithNesting
@@ -1892,7 +1892,10 @@ object AssertionHelper {
 
   def enumStructure(assertion: Assertion[ListMap[String, (Schema[_], Chunk[Any])]]): Assertion[Schema.Enum[_]] =
     Assertion.assertionRec("enumStructure")(assertion)(
-      enum => Some(`enum`.structureWithAnnotations)
+      enum =>
+        Some(ListMap.from(`enum`.cases.map { caseValue =>
+          caseValue.id -> (caseValue.schema, caseValue.annotations)
+        }.toMap))
     )
 
   def annotations(assertion: Assertion[Chunk[Any]]): Assertion[Any] =

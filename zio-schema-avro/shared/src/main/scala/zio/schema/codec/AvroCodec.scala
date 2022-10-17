@@ -509,25 +509,25 @@ object AvroCodec extends AvroCodec {
 
   private[codec] def toAvroEnum(enu: Enum[_]): scala.util.Either[String, SchemaAvro] = {
     val avroEnumAnnotationExists = hasAvroEnumAnnotation(enu.annotations)
-    val isAvroEnumEquivalent = enu.structure.forall {
-      case (_, Transform(Primitive(standardType, _), _, _, _, _))
+    val isAvroEnumEquivalent = enu.cases.map(_.schema).forall {
+      case (Transform(Primitive(standardType, _), _, _, _, _))
           if standardType == StandardType.UnitType && avroEnumAnnotationExists =>
         true
-      case (_, Primitive(standardType, _)) if standardType == StandardType.StringType => true
-      case _                                                                          => false
+      case (Primitive(standardType, _)) if standardType == StandardType.StringType => true
+      case _                                                                       => false
     }
     if (isAvroEnumEquivalent) {
       for {
         name            <- getName(enu)
         doc             = getDoc(enu.annotations).orNull
         namespaceOption <- getNamespace(enu.annotations)
-        symbols = enu.structureWithAnnotations.map {
-          case (symbol, (_, annotations)) => getNameOption(annotations).getOrElse(symbol)
+        symbols = enu.cases.map {
+          case caseValue => getNameOption(caseValue.annotations).getOrElse(caseValue.id)
         }.toList
         result = SchemaAvro.createEnum(name, doc, namespaceOption.orNull, symbols.asJava)
       } yield result
     } else {
-      val cases = enu.structureWithAnnotations.map {
+      val cases = enu.cases.map(c => (c.id, (c.schema, c.annotations))).map {
         case (symbol, (Transform(Primitive(standardType, _), _, _, _, _), annotations))
             if standardType == StandardType.UnitType =>
           val name = getNameOption(annotations).getOrElse(symbol)
@@ -716,7 +716,7 @@ object AvroCodec extends AvroCodec {
                 .getObjectProp(UnionWrapper.propName) == true) {
             t.getFields.asScala.head.schema() // unwrap nested union
           } else t
-        toZioSchema(inner).map(s => Schema.Case[A, Z](t.getFullName, s.asInstanceOf[Schema[A]], _.asInstanceOf[A]))
+        toZioSchema(inner).map(s => Schema.Case[Z, A](t.getFullName, s.asInstanceOf[Schema[A]], _.asInstanceOf[A]))
       })
     val caseSet = cases.toList.map(_.merge).partition {
       case _: String => true
@@ -742,8 +742,8 @@ object AvroCodec extends AvroCodec {
         case Some(value) =>
           toZioSchema(value.schema()).flatMap {
             case enu: Enum[_] =>
-              enu.structure.toList match {
-                case first :: second :: Nil => Right(Schema.either(first._2, second._2))
+              enu.cases.toList match {
+                case first :: second :: Nil => Right(Schema.either(first.schema, second.schema))
                 case _                      => Left("ZIO schema wrapped either must have exactly two cases")
               }
             case e: Schema.Either[_, _]                                                              => Right(e)

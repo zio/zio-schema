@@ -85,13 +85,13 @@ object ManualConstruction {
   val schemaPaymentMethod: Schema[PaymentMethod] =
     Schema.Enum2[PaymentMethod.CreditCard, PaymentMethod.WireTransfer, PaymentMethod](
       id = TypeId.parse("dev.zio.schema.example.example1.Domain.PaymentMethod"),
-      case1 = Case[PaymentMethod.CreditCard, PaymentMethod](
+      case1 = Case[PaymentMethod, PaymentMethod.CreditCard](
         id = "CreditCard",
         schema = schemaPaymentMethodCreditCard,
         unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.CreditCard],
         annotations = Chunk.empty
       ),
-      case2 = Case[PaymentMethod.WireTransfer, PaymentMethod](
+      case2 = Case[PaymentMethod, PaymentMethod.WireTransfer](
         id = "WireTransfer",
         schema = schemaPaymentMethodWireTransfer,
         unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.WireTransfer],
