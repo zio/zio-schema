@@ -21,6 +21,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - run: |
           cd zio-schema-docs/target/mdoc
+          npm config set access public
           npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
