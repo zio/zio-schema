@@ -1,6 +1,7 @@
 name: Website
 
 on:
+  pull_request:
   push:
     branches: [main]
     tags: ["*"]
@@ -16,3 +17,4 @@ jobs:
       - run: sbt docs/docusaurusPublishGhpages
         env:
           GIT_DEPLOY_KEY: ${{ secrets.GIT_DEPLOY_KEY }}
+      - run: sbt docs/mdoc
