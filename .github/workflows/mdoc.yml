@@ -16,9 +16,11 @@ jobs:
           token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
       - uses: actions/setup-node@v3
       - uses: olafurpg/setup-scala@v13
+      - uses: olafurpg/setup-gpg@v3
       - run: sbt docs/mdoc
       - run: |    
           cd zio-schema-docs/target/mdoc
           npm publish
         env:
+          GIT_DEPLOY_KEY: ${{ secrets.GIT_DEPLOY_KEY }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
