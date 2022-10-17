@@ -3,7 +3,7 @@ name: Website
 on:
   push:
     branches: [main]
-    tags: ["*", "docs-*"]
+    tags: ["*"]
 
 jobs:
   publish:
@@ -20,9 +20,10 @@ jobs:
         with:
           node-version: '16.x'
           registry-url: 'https://registry.npmjs.org'
-      - run: |
+      - name: npm publish  
+        run: |
           cd zio-schema-docs/target/mdoc
-          npm version $(echo $(git describe --abbrev=0 --tags) | cut -d "-" -f 2)
+          npm version $(python -c 'print("'$(git describe --abbrev=0 --tags)'".replace("docs-", ""))')
           npm config set access public
           npm publish
         env:
