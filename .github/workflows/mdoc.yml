@@ -14,9 +14,6 @@ jobs:
       - uses: actions/checkout@v3.1.0
         with:
           fetch-depth: 0
-      - name: Get tags
-        run: git fetch --tags origin
-      - run: git tag --list
       - uses: olafurpg/setup-scala@v13
       - uses: olafurpg/setup-gpg@v3
       - run: sbt docs/mdoc
@@ -24,6 +21,9 @@ jobs:
         with:
           node-version: '16.x'
           registry-url: 'https://registry.npmjs.org'
+      - name: Get tags
+        run: git fetch --tags origin
+      - run: git tag --list
       - run: |
           cd zio-schema-docs/target/mdoc
           npm version $(git describe --abbrev=0 --tags)
