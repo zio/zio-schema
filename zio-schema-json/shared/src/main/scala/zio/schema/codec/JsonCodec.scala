@@ -469,13 +469,13 @@ object JsonCodec extends Codec {
     import Decoder.schemaDecoder
 
     private[codec] def caseClass0Decoder[Z](schema: Schema.CaseClass0[Z]): JsonDecoder[Z] = { (_: List[JsonError], _: RetractReader) =>
-      schema.construct()
+      schema.defaultConstruct()
     }
 
     private[codec] def caseClass1Decoder[A, Z](schema: Schema.CaseClass1[A, Z]): JsonDecoder[Z] = { (trace: List[JsonError], in: RetractReader) =>
       {
         val buffer: Array[Any] = unsafeDecodeFields(trace, in, schema.field)
-        schema.construct(buffer(0).asInstanceOf[A])
+        schema.defaultConstruct(buffer(0).asInstanceOf[A])
       }
     }
 

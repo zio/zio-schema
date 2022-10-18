@@ -3168,8 +3168,11 @@ object Schema extends SchemaEquality {
 
   }
 
-  sealed case class CaseClass0[Z](id: TypeId, construct: () => Z, override val annotations: Chunk[Any] = Chunk.empty)
-      extends Record[Z] { self =>
+  sealed case class CaseClass0[Z](
+    id: TypeId,
+    defaultConstruct: () => Z,
+    override val annotations: Chunk[Any] = Chunk.empty
+  ) extends Record[Z] { self =>
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Nothing
 
@@ -3182,7 +3185,7 @@ object Schema extends SchemaEquality {
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.isEmpty)
         try {
-          Right(construct())
+          Right(defaultConstruct())
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
@@ -3196,7 +3199,7 @@ object Schema extends SchemaEquality {
   sealed case class CaseClass1[A, Z](
     id: TypeId,
     field: Field[Z, A],
-    construct: A => Z,
+    defaultConstruct: A => Z,
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[Z] { self =>
 
@@ -3211,7 +3214,7 @@ object Schema extends SchemaEquality {
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 1)
         try {
-          Right(construct(values(0).asInstanceOf[A]))
+          Right(defaultConstruct(values(0).asInstanceOf[A]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else

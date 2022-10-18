@@ -986,14 +986,14 @@ object ProtobufCodec extends Codec {
         validateBuffer(index + 1, buffer)
 
     private[codec] def caseClass0Decoder[Z](schema: Schema.CaseClass0[Z]): Decoder[Z] =
-      succeed(schema.construct())
+      succeed(schema.defaultConstruct())
 
     private[codec] def caseClass1Decoder[A, Z](schema: Schema.CaseClass1[A, Z]): Decoder[Z] =
       unsafeDecodeFields(Array.ofDim[Any](1), schema.field).flatMap { buffer =>
         if (buffer(0) == null)
           fail("Failed to decode record. Missing field 1.")
         else
-          succeed(schema.construct(buffer(0).asInstanceOf[A]))
+          succeed(schema.defaultConstruct(buffer(0).asInstanceOf[A]))
       }
 
     private[codec] def caseClass2Decoder[A1, A2, Z](schema: Schema.CaseClass2[A1, A2, Z]): Decoder[Z] =

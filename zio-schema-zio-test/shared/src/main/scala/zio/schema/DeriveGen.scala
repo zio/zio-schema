@@ -35,7 +35,7 @@ object DeriveGen {
       case Schema.Enum20(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _)           => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
       case Schema.Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)      => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
       case Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-      case Schema.EnumN(_, caseSet, _)                                                                                              => genEnum(caseSet.toSeq.asInstanceOf[Seq[Schema.Case[_, A]]]: _*)
+      case Schema.EnumN(_, caseSet, _)                                                                                              => genEnum(caseSet.toSeq.asInstanceOf[Seq[Schema.Case[A, _]]]: _*)
       case c @ Schema.CaseClass0(_, _, _)                                                                                           => genCaseClass0(c)
       case c @ Schema.CaseClass1(_, _, _, _)                                                                                        => genCaseClass1(c)
       case c @ Schema.CaseClass2(_, _, _, _, _)                                                                                     => genCaseClass2(c)
@@ -73,14 +73,14 @@ object DeriveGen {
       case Schema.Dynamic(_)                                                                                                        => gen(DynamicValueSchema())
     } // scalafmt: { maxColumn = 120 }
 
-  private def genEnum[Z](cases: Schema.Case[_, Z]*) =
+  private def genEnum[Z](cases: Schema.Case[Z, _]*) =
     Gen.elements(cases: _*).flatMap(c => gen(c.schema).map(_.asInstanceOf[Z]))
 
   private def genCaseClass0[Z](caseClass0: Schema.CaseClass0[Z]): Gen[Sized, Z] =
-    Gen.elements(caseClass0.construct())
+    Gen.elements(caseClass0.defaultConstruct())
 
   private def genCaseClass1[A, Z](caseClass1: Schema.CaseClass1[A, Z]): Gen[Sized, Z] =
-    gen(caseClass1.field.schema).map(caseClass1.construct)
+    gen(caseClass1.field.schema).map(caseClass1.defaultConstruct)
 
   private def genCaseClass2[A1, A2, Z](caseClass2: Schema.CaseClass2[A1, A2, Z]): Gen[Sized, Z] =
     for {

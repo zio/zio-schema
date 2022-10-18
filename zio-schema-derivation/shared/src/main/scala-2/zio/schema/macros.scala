@@ -353,7 +353,11 @@ object DeriveSchema {
               q"$arg"
           }
 
-          val constructExpr = q"construct = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
+          val constructExpr =
+            if (arity < 2)
+              q"defaultConstruct = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
+            else
+              q"construct = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
 
           val applyArgs =
             if (typeAnnotations.isEmpty)
