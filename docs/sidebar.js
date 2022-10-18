@@ -1,7 +1,7 @@
 const sidebars = {
   sidebar: [
     'index',
-    'your-first-zio-schema',
+    'our-first-zio-schema',
     'understanding-zio-schema',
   ]
 };

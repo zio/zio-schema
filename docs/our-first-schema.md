@@ -1,5 +1,5 @@
 ---
-id: our-first-schema
+id: our-zio-first-schema
 title: "Our First Schema"
 ---
 
