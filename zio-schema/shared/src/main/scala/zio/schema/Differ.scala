@@ -26,9 +26,9 @@ import java.util.UUID
 import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
 
+import zio.schema.Singleton
 import zio.schema.diff.Edit
 import zio.{ Chunk, ChunkBuilder }
-import zio.schema.Singleton
 
 trait Differ[A] { self =>
 
@@ -261,9 +261,9 @@ object Differ {
     case Schema.Optional(schema, _)                                    => fromSchema(schema).optional
     case Schema.Sequence(schema, g, f, _, _) =>
       fromSchema(schema).chunk.transform(f, g)
-    case Schema.Set(s, _)                                                                                                                                 => set(s)
-    case Schema.Map(k, v, _)                                                                                                                              => map(k, v)
-    case Schema.Either(leftSchema, rightSchema, _)                                                                                                        => either(fromSchema(leftSchema), fromSchema(rightSchema))
+    case Schema.Set(s, _)                                                                                                                                       => set(s)
+    case Schema.Map(k, v, _)                                                                                                                                    => map(k, v)
+    case Schema.Either(leftSchema, rightSchema, _)                                                                                                              => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                                                                                                                                     => fromSchema(s.schema)
     case Schema.Transform(schema, g, f, _, _)                                                                                                                   => fromSchema(schema).transformOrFail(f, g)
     case Schema.Fail(_, _)                                                                                                                                      => fail

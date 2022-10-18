@@ -33,15 +33,15 @@ object ManualConstruction {
   import Domain.PaymentMethod._
   import zio.schema.Schema._
 
-  val name = "name"
-  val age = "age"
-  val accountNumber = "accountNumber"
-  val bankCode = "bankCode"
-  val number = "number"
+  val name            = "name"
+  val age             = "age"
+  val accountNumber   = "accountNumber"
+  val bankCode        = "bankCode"
+  val number          = "number"
   val expirationMonth = "expirationMonth"
-  val expirationYear = "expirationYear"
-  val person = "person"
-  val paymentMethod = "paymentMethod"
+  val expirationYear  = "expirationYear"
+  val person          = "person"
+  val paymentMethod   = "paymentMethod"
 
   val schemaPerson: Schema[Person] = Schema.CaseClass2[name.type, age.type, String, Int, Person](
     TypeId.parse("dev.zio.schema.example.example1.Domain.Person"),
@@ -93,14 +93,15 @@ object ManualConstruction {
       annotations = Chunk.empty
     )
 
-  val schemaCustomer: Schema[Customer] = Schema.CaseClass2[person.type, paymentMethod.type, Person, PaymentMethod, Customer](
-    TypeId.parse("dev.zio.schema.example.example1.Domain.Customer"),
-    field1 = Schema.Field[person.type, Person](person, schemaPerson),
-    field2 = Schema.Field[paymentMethod.type, PaymentMethod](paymentMethod, schemaPaymentMethod),
-    construct = (person, paymentMethod) => Customer(person, paymentMethod),
-    extractField1 = c => c.person,
-    extractField2 = c => c.paymentMethod
-  )
+  val schemaCustomer: Schema[Customer] =
+    Schema.CaseClass2[person.type, paymentMethod.type, Person, PaymentMethod, Customer](
+      TypeId.parse("dev.zio.schema.example.example1.Domain.Customer"),
+      field1 = Schema.Field[person.type, Person](person, schemaPerson),
+      field2 = Schema.Field[paymentMethod.type, PaymentMethod](paymentMethod, schemaPaymentMethod),
+      construct = (person, paymentMethod) => Customer(person, paymentMethod),
+      extractField1 = c => c.person,
+      extractField2 = c => c.paymentMethod
+    )
 
 }
 

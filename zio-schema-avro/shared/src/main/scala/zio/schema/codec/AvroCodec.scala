@@ -12,11 +12,10 @@ import org.apache.avro.{ LogicalTypes, Schema => SchemaAvro }
 import zio.Chunk
 import zio.schema.CaseSet.Aux
 import zio.schema.Schema.{ Record, _ }
-import zio.schema._
 import zio.schema.codec.AvroAnnotations._
 import zio.schema.codec.AvroPropMarker._
-import zio.schema.Singleton
 import zio.schema.meta.MetaSchema
+import zio.schema.{ Singleton, _ }
 
 trait AvroCodec {
   def encode(schema: Schema[_]): scala.util.Either[String, String]
@@ -713,7 +712,7 @@ object AvroCodec extends AvroCodec {
                 case first :: second :: Nil => Right(Schema.either(first._2, second._2))
                 case _                      => Left("ZIO schema wrapped either must have exactly two cases")
               }
-            case e: Schema.Either[_, _]                                                                     => Right(e)
+            case e: Schema.Either[_, _]                                                                    => Right(e)
             case c: CaseClass0[_]                                                                          => Right(c)
             case c: CaseClass1[_, _, _]                                                                    => Right(c)
             case c: CaseClass2[_, _, _, _, _]                                                              => Right(c)
@@ -1089,19 +1088,19 @@ object AvroCodec extends AvroCodec {
                   _
                 ] =>
               Right(c)
-            case c: Dynamic            => Right(c)
-            case c: GenericRecord      => Right(c)
-            case c: Map[_, _]    => Right(c)
-            case c: Sequence[_, _, _]  => Right(c)
-            case c: Set[_]       => Right(c)
-            case c: Fail[_]            => Right(c)
-            case c: Lazy[_]            => Right(c)
+            case c: Dynamic           => Right(c)
+            case c: GenericRecord     => Right(c)
+            case c: Map[_, _]         => Right(c)
+            case c: Sequence[_, _, _] => Right(c)
+            case c: Set[_]            => Right(c)
+            case c: Fail[_]           => Right(c)
+            case c: Lazy[_]           => Right(c)
             //case c: Meta               => Right(c)
-            case c: Optional[_]        => Right(c)
-            case c: Primitive[_]       => Right(c)
+            case c: Optional[_]  => Right(c)
+            case c: Primitive[_] => Right(c)
             //case c: SemiDynamic[_]     => Right(c)
             case c: Transform[_, _, _] => Right(c)
-            case c: Tuple2[_, _]        => Right(c)
+            case c: Tuple2[_, _]       => Right(c)
 
           }
         case None => Left("ZIO schema wrapped record must have a single field")
@@ -1114,7 +1113,9 @@ object AvroCodec extends AvroCodec {
       }
     }
 
-  private def extractZioFields(avroSchema: SchemaAvro): scala.util.Either[String, List[Field[_ <: Singleton with String, _]]] =
+  private def extractZioFields(
+    avroSchema: SchemaAvro
+  ): scala.util.Either[String, List[Field[_ <: Singleton with String, _]]] =
     avroSchema.getFields.asScala.map(toZioField).toList.map(_.merge).partition {
       case _: String => true
       case _         => false
@@ -1123,13 +1124,16 @@ object AvroCodec extends AvroCodec {
       case (left, _)                                  => Left(left.mkString("\n"))
     }
 
-  private[codec] def toZioField(field: SchemaAvro.Field): scala.util.Either[String, Field[_ <: Singleton with String, _]] =
+  private[codec] def toZioField(
+    field: SchemaAvro.Field
+  ): scala.util.Either[String, Field[_ <: Singleton with String, _]] =
     toZioSchema(field.schema())
       .map((s: Schema[_]) => Field(field.name().asInstanceOf[String with Singleton], s, buildZioAnnotations(field)))
 
   private[codec] def toZioTuple(schema: SchemaAvro): scala.util.Either[String, Schema[_]] =
     for {
-      _  <- scala.util.Either.cond(schema.getFields.size() == 2, (), "Tuple must have exactly 2 fields:" + schema.toString(false))
+      _ <- scala.util.Either
+            .cond(schema.getFields.size() == 2, (), "Tuple must have exactly 2 fields:" + schema.toString(false))
       _1 <- toZioSchema(schema.getFields.get(0).schema())
       _2 <- toZioSchema(schema.getFields.get(1).schema())
     } yield Schema.Tuple2(_1, _2, buildZioAnnotations(schema))

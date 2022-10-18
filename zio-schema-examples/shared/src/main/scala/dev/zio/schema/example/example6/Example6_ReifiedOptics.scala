@@ -11,14 +11,14 @@ private[example6] object Domain {
   final case class UserAddress(user: User, address: Address)
   final case class Company(boss: User, employees: List[UserAddress])
 
-  val name = "name"
-  val age = "age"
-  val street = "street"
-  val city = "city"
-  val state = "state"
-  val user = "user"
-  val address = "address"
-  val boss = "boss"
+  val name      = "name"
+  val age       = "age"
+  val street    = "street"
+  val city      = "city"
+  val state     = "state"
+  val user      = "user"
+  val address   = "address"
+  val boss      = "boss"
   val employees = "employee"
 
   implicit val userSchema: Schema.CaseClass2[name.type, age.type, String, Int, User] =

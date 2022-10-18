@@ -11,11 +11,11 @@ import zio.schema._
 private[example5] object Domain {
   final case class Person(name: String, age: Int)
 
-  val nameType = "name"
-  val ageType = "age"
+  val nameType      = "name"
+  val ageType       = "age"
   val firstnameType = "firstname"
-  val lastnameType = "lastname"
-  val yearsType = "years"
+  val lastnameType  = "lastname"
+  val yearsType     = "years"
 
   object Person {
     val name: Field[nameType.type, String] = Field[nameType.type, String](nameType, primitive[String])
@@ -38,16 +38,17 @@ private[example5] object Domain {
     val lastname: Schema.Field[lastnameType.type, String]   = Schema.Field(lastnameType, Schema.primitive[String])
     val years: Schema.Field[yearsType.type, Int]            = Schema.Field(yearsType, Schema.primitive[Int])
 
-    val schema: Schema[PersonDTO] = Schema.CaseClass3[firstnameType.type, lastnameType.type, yearsType.type, String, String, Int, PersonDTO](
-      TypeId.parse("dev.zio.schema.example.example5.Domain.PersonDTO"),
-      field1 = firstname,
-      field2 = lastname,
-      field3 = years,
-      construct = (fn, ln, y) => PersonDTO(fn, ln, y),
-      extractField1 = _.firstname,
-      extractField2 = _.lastname,
-      extractField3 = _.years
-    )
+    val schema: Schema[PersonDTO] =
+      Schema.CaseClass3[firstnameType.type, lastnameType.type, yearsType.type, String, String, Int, PersonDTO](
+        TypeId.parse("dev.zio.schema.example.example5.Domain.PersonDTO"),
+        field1 = firstname,
+        field2 = lastname,
+        field3 = years,
+        construct = (fn, ln, y) => PersonDTO(fn, ln, y),
+        extractField1 = _.firstname,
+        extractField2 = _.lastname,
+        extractField3 = _.years
+      )
   }
 
 }

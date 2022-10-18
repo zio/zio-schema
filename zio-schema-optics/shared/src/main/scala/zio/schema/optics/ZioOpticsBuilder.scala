@@ -3,9 +3,8 @@ package zio.schema.optics
 import scala.collection.immutable.ListMap
 
 import zio.optics._
-import zio.schema._
+import zio.schema.{ Singleton, _ }
 import zio.{ Chunk, ChunkBuilder }
-import zio.schema.Singleton
 
 /**
  * This is an example implementation demonstrating how to derive zio-optics using

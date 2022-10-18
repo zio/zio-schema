@@ -55,7 +55,9 @@ object LensSpec extends ZIOSpecDefault {
   case class TestClass(field1: Int, field2: String, field3: Long)
 
   object TestClass {
-    implicit val schema = DeriveSchema.gen[TestClass]
+
+    implicit val schema: Schema.CaseClass3["field1", "field2", "field3", Int, String, Long, TestClass] =
+      DeriveSchema.gen[TestClass]
 
     val gen: Gen[Sized, TestClass] = for {
       f1 <- Gen.int

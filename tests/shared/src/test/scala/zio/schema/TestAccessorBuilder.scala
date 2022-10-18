@@ -1,5 +1,7 @@
 package zio.schema
+
 import zio.schema
+import zio.schema.Singleton
 
 class TestAccessorBuilder extends AccessorBuilder {
   override type Lens[F <: Singleton with String, S, A] = TestAccessorBuilder.Lens[F, S, A]

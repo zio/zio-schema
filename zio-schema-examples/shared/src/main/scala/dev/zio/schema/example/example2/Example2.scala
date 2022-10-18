@@ -19,16 +19,16 @@ object Domain {
 
   final case class Person(name: String, age: Int)
 
-  val nameType = "name"
-  val ageType = "age"
-  val numberType = "number"
+  val nameType            = "name"
+  val ageType             = "age"
+  val numberType          = "number"
   val expirationMonthType = "expirationMonth"
-  val expirationYearType = "expirationYear"
-  val accountNumberType = "accountNumber"
-  val bankCodeType = "bankCode"
-  val personType = "person"
-  val paymentMethodType = "paymentMethod"
- 
+  val expirationYearType  = "expirationYear"
+  val accountNumberType   = "accountNumber"
+  val bankCodeType        = "bankCode"
+  val personType          = "person"
+  val paymentMethodType   = "paymentMethod"
+
   object Person {
     val name: Field[nameType.type, String] = Schema.Field[nameType.type, String](nameType, Schema.primitive[String])
     val age: Field[ageType.type, Int]      = Schema.Field[ageType.type, Int](ageType, Schema.primitive[Int])
@@ -47,7 +47,9 @@ object Domain {
     final case class CreditCard(number: String, expirationMonth: Int, expirationYear: Int) extends PaymentMethod
 
     object CreditCard {
-      val number: Field[numberType.type, String] = Schema.Field[numberType.type, String](numberType, Schema.primitive[String])
+
+      val number: Field[numberType.type, String] =
+        Schema.Field[numberType.type, String](numberType, Schema.primitive[String])
 
       val expirationMonth: Field[expirationMonthType.type, Int] =
         Schema.Field[expirationMonthType.type, Int](expirationMonthType, Schema.primitive[Int])
@@ -55,17 +57,18 @@ object Domain {
       val expirationYear: Field[expirationYearType.type, Int] =
         Schema.Field[expirationYearType.type, Int](expirationYearType, Schema.primitive[Int])
       implicit val schema: Schema[CreditCard] =
-        Schema.CaseClass3[numberType.type, expirationMonthType.type, expirationYearType.type, String, Int, Int, CreditCard](
-          TypeId.parse("dev.zio.schema.example.example2.Domain.PaymentMethod.CreditCard"),
-          field1 = number,
-          field2 = expirationMonth,
-          field3 = expirationYear,
-          construct = (number, expirationMonth, expirationYear) =>
-            PaymentMethod.CreditCard(number, expirationMonth, expirationYear),
-          extractField1 = p => p.number,
-          extractField2 = p => p.expirationMonth,
-          extractField3 = p => p.expirationYear
-        )
+        Schema
+          .CaseClass3[numberType.type, expirationMonthType.type, expirationYearType.type, String, Int, Int, CreditCard](
+            TypeId.parse("dev.zio.schema.example.example2.Domain.PaymentMethod.CreditCard"),
+            field1 = number,
+            field2 = expirationMonth,
+            field3 = expirationYear,
+            construct = (number, expirationMonth, expirationYear) =>
+              PaymentMethod.CreditCard(number, expirationMonth, expirationYear),
+            extractField1 = p => p.number,
+            extractField2 = p => p.expirationMonth,
+            extractField3 = p => p.expirationYear
+          )
     }
 
     final case class WireTransfer(accountNumber: String, bankCode: String) extends PaymentMethod
@@ -74,7 +77,9 @@ object Domain {
 
       val accountNumber: Field[accountNumberType.type, String] =
         Schema.Field[accountNumberType.type, String](accountNumberType, Schema.primitive[String])
-      val bankCode: Field[bankCodeType.type, String] = Schema.Field[bankCodeType.type, String](bankCodeType, Schema.primitive[String])
+
+      val bankCode: Field[bankCodeType.type, String] =
+        Schema.Field[bankCodeType.type, String](bankCodeType, Schema.primitive[String])
 
       implicit val schema: Schema[WireTransfer] =
         Schema.CaseClass2[accountNumberType.type, bankCodeType.type, String, String, WireTransfer](

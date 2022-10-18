@@ -1921,7 +1921,7 @@ object DynamicValue {
 
   def decodeStructure(
     values: ListMap[String, DynamicValue],
-    structure: Chunk[Schema.Field[_ <: zio.schema.Singleton with String,_]]
+    structure: Chunk[Schema.Field[_ <: zio.schema.Singleton with String, _]]
   ): Either[() => String, ListMap[String, _]] = {
     val keys = values.keySet
     keys.foldLeft[Either[() => String, ListMap[String, Any]]](Right(ListMap.empty)) {
@@ -2041,13 +2041,13 @@ private[schema] object DynamicValueSchema {
     StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)
 
   val messageSingleton = "message"
-  val valueSingleton = "value"
-  val valuesSingleton = "values"
-  val leftSingleton = "left"
-  val rightSingleton = "right"
+  val valueSingleton   = "value"
+  val valuesSingleton  = "values"
+  val leftSingleton    = "left"
+  val rightSingleton   = "right"
   val entriesSingleton = "entries"
-  val astSingleton = "ast"
-  val idSingleton = "id"
+  val astSingleton     = "ast"
+  val idSingleton      = "id"
 
   private val errorCase: Schema.Case[DynamicValue.Error, DynamicValue] =
     Schema.Case(
@@ -2161,29 +2161,34 @@ private[schema] object DynamicValueSchema {
   private val enumerationCase: Schema.Case[DynamicValue.Enumeration, DynamicValue] =
     Schema.Case(
       "Enumeration",
-      Schema.CaseClass2[idSingleton.type, valuesSingleton.type, TypeId, (String, DynamicValue), DynamicValue.Enumeration](
-        TypeId.parse("zio.schema.DynamicValue.Enumeration"),
-        Schema.Field(idSingleton, Schema[TypeId]),
-        Schema.Field(valuesSingleton, Schema.defer(Schema.tuple2(Schema.primitive[String], DynamicValueSchema()))),
-        (id, value) => DynamicValue.Enumeration(id, value),
-        enumeration => enumeration.id,
-        enumeration => enumeration.value
-      ),
+      Schema
+        .CaseClass2[idSingleton.type, valuesSingleton.type, TypeId, (String, DynamicValue), DynamicValue.Enumeration](
+          TypeId.parse("zio.schema.DynamicValue.Enumeration"),
+          Schema.Field(idSingleton, Schema[TypeId]),
+          Schema.Field(valuesSingleton, Schema.defer(Schema.tuple2(Schema.primitive[String], DynamicValueSchema()))),
+          (id, value) => DynamicValue.Enumeration(id, value),
+          enumeration => enumeration.id,
+          enumeration => enumeration.value
+        ),
       _.asInstanceOf[DynamicValue.Enumeration]
     )
 
   private val recordCase: Schema.Case[DynamicValue.Record, DynamicValue] =
     Schema.Case(
       "Record",
-      Schema.CaseClass2[idSingleton.type, valuesSingleton.type, TypeId, Chunk[(String, DynamicValue)], DynamicValue.Record](
-        TypeId.parse("zio.schema.DynamicValue.Record"),
-        Schema.Field(idSingleton, Schema[TypeId]),
-        Schema
-          .Field(valuesSingleton, Schema.defer(Schema.chunk(Schema.tuple2(Schema.primitive[String], DynamicValueSchema())))),
-        (id, chunk) => DynamicValue.Record(id, ListMap(chunk.toSeq: _*)),
-        record => record.id,
-        record => Chunk.fromIterable(record.values)
-      ),
+      Schema
+        .CaseClass2[idSingleton.type, valuesSingleton.type, TypeId, Chunk[(String, DynamicValue)], DynamicValue.Record](
+          TypeId.parse("zio.schema.DynamicValue.Record"),
+          Schema.Field(idSingleton, Schema[TypeId]),
+          Schema
+            .Field(
+              valuesSingleton,
+              Schema.defer(Schema.chunk(Schema.tuple2(Schema.primitive[String], DynamicValueSchema())))
+            ),
+          (id, chunk) => DynamicValue.Record(id, ListMap(chunk.toSeq: _*)),
+          record => record.id,
+          record => Chunk.fromIterable(record.values)
+        ),
       _.asInstanceOf[DynamicValue.Record]
     )
 

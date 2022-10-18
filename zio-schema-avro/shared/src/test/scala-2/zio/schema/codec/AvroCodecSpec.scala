@@ -1865,9 +1865,9 @@ object AssertionHelper {
 
   def annotations(assertion: Assertion[Chunk[Any]]): Assertion[Any] =
     Assertion.assertionRec("hasAnnotations")(assertion) {
-      case s: Schema[_]       => Some(s.annotations)
+      case s: Schema[_]          => Some(s.annotations)
       case f: Schema.Field[_, _] => Some(f.annotations)
-      case _                  => None
+      case _                     => None
     }
 
   def hasNameAnnotation(assertion: Assertion[String]): Assertion[Any] =

@@ -197,8 +197,8 @@ object MetaSchema {
   object Value {
 
     val valuePath = "valuePath"
-    val path = "path"
-    val optimal = "optimal"
+    val path      = "path"
+    val optimal   = "optimal"
 
     implicit val schema: Schema[Value] =
       Schema

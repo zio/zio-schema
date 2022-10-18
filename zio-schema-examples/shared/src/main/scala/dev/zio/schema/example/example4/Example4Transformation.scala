@@ -12,17 +12,19 @@ import zio.schema.meta._
  **/
 private[example4] object Domain {
 
-  val nameType = "name"
-  val ageType = "age"
+  val nameType      = "name"
+  val ageType       = "age"
   val firstnameType = "firstname"
-  val lastnameType = "lastname"
-  val yearsType = "years"
+  val lastnameType  = "lastname"
+  val yearsType     = "years"
 
   final case class WebPerson(name: String, age: Int)
 
   object WebPerson {
-    val name: Schema.Field[nameType.type, String] = Schema.Field[nameType.type, String](nameType, Schema.primitive[String])
-    val age: Schema.Field[ageType.type, Int]      = Schema.Field[ageType.type, Int](ageType, Schema.primitive[Int])
+
+    val name: Schema.Field[nameType.type, String] =
+      Schema.Field[nameType.type, String](nameType, Schema.primitive[String])
+    val age: Schema.Field[ageType.type, Int] = Schema.Field[ageType.type, Int](ageType, Schema.primitive[Int])
 
     val schema: Schema[WebPerson] = Schema.CaseClass2[nameType.type, ageType.type, String, Int, WebPerson](
       TypeId.parse("dev.zio.schema.example.example4.Domain.WebPerson"),

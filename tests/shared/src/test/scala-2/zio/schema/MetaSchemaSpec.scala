@@ -3,7 +3,8 @@ package zio.schema
 import zio._
 import zio.schema.CaseSet._
 import zio.schema.SchemaAssertions._
-import zio.schema.meta.{MetaSchema, NodePath}
+import zio.schema.Singleton
+import zio.schema.meta.{ MetaSchema, NodePath }
 import zio.test._
 
 object MetaSchemaSpec extends ZIOSpecDefault {
@@ -41,9 +42,9 @@ object MetaSchemaSpec extends ZIOSpecDefault {
         val schema =
           Schema.record(
             TypeId.parse("zio.schema.MetaSchema.Product"),
-            Chunk(
-              Schema.Field[_ <: Singleton with String]("a", Schema[String]),
-              Schema.Field[_ <: Singleton with Int]("b", Schema[Int])
+            Chunk[Schema.Field[_ <: Singleton with String, _]](
+              Schema.Field("a", Schema[String]),
+              Schema.Field("b", Schema[Int])
             ): _*
           )
         val expectedAst =

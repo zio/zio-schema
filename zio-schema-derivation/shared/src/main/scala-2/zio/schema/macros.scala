@@ -257,7 +257,7 @@ object DeriveSchema {
           val fields = fieldTypes.zip(fieldAnnotations).map {
             case (termSymbol, annotations) =>
               val singletonType = tq"${termSymbol.name.toString().trim()}.type"
-              val fieldTpe = concreteType(tpe, tpe.decl(termSymbol.name).typeSignature)
+              val fieldTpe      = concreteType(tpe, tpe.decl(termSymbol.name).typeSignature)
               val fieldSchema = directInferSchema(
                 tpe,
                 concreteType(tpe, termSymbol.typeSignature),
@@ -320,7 +320,7 @@ object DeriveSchema {
           val fieldDefs = fieldTypes.zip(fieldAnnotations).zip(fieldValidations).zipWithIndex.map {
             case (((termSymbol, annotations), validation), idx) =>
               val singletonType = tq"${termSymbol.name.toString().trim()}.type"
-              val fieldTpe = concreteType(tpe, tpe.decl(termSymbol.name).typeSignature)
+              val fieldTpe      = concreteType(tpe, tpe.decl(termSymbol.name).typeSignature)
               val fieldSchema = directInferSchema(
                 tpe,
                 concreteType(tpe, termSymbol.typeSignature),
