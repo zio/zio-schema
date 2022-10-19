@@ -18,7 +18,6 @@ jobs:
       - uses: olafurpg/setup-gpg@v3
       - run: sbt docs/mdoc
       - name: Build website
-        description: building the website solely for testing everything is working as it should
         run: | 
           cd website
           npm install
