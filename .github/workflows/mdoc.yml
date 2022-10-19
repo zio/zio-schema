@@ -15,7 +15,6 @@ jobs:
           fetch-depth: 0
       - run: git tag --sort=committerdate | tail -1
       - uses: olafurpg/setup-scala@v13
-      - uses: olafurpg/setup-gpg@v3
       - run: sbt docs/mdoc
       - name: Build website
         run: | 
