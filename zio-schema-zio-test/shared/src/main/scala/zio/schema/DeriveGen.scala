@@ -35,7 +35,7 @@ object DeriveGen {
       case Schema.Enum20(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _)           => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
       case Schema.Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)      => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
       case Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => genEnum(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-      case Schema.EnumN(_, caseSet, _)                                                                                              => genEnum(caseSet.toSeq.asInstanceOf[Seq[Schema.Case[A, _]]]: _*)
+      case Schema.EnumN(_, caseSet, _)                                                                                              => genEnum(caseSet.toSeq: _*)
       case c @ Schema.CaseClass0(_, _, _)                                                                                           => genCaseClass0(c)
       case c @ Schema.CaseClass1(_, _, _, _)                                                                                        => genCaseClass1(c)
       case c @ Schema.CaseClass2(_, _, _, _, _)                                                                                     => genCaseClass2(c)

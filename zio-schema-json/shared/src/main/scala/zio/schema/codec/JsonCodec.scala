@@ -207,12 +207,12 @@ object JsonCodec extends Codec {
       case Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
         enumEncoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case Schema.EnumN(_, cs, _) => enumEncoder(cs.toSeq: _*)
-      case Schema.Dynamic(_)      => dynamicEncoder
+      case Schema.Dynamic(_)      => dynamicEncoder(DynamicValueSchema.schema)
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
-    private def dynamicEncoder[A]: JsonEncoder[A] =
-      schemaEncoder(DynamicValueSchema.schema).asInstanceOf[JsonEncoder[A]]
+    private def dynamicEncoder(schema: Schema[DynamicValue]): JsonEncoder[DynamicValue] =
+      schemaEncoder(schema)
 
     private def transformEncoder[A, B](schema: Schema[A], g: B => Either[String, A]): JsonEncoder[B] = {
       (b: B, indent: Option[Int], out: Write) =>
@@ -370,12 +370,12 @@ object JsonCodec extends Codec {
       case Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
         enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case Schema.EnumN(_, cs, _) => enumDecoder(cs.toSeq: _*)
-      case Schema.Dynamic(_)      => dynamicDecoder
+      case Schema.Dynamic(_)      => dynamicDecoder(DynamicValueSchema.schema)
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
-    private def dynamicDecoder[A]: JsonDecoder[A] =
-      schemaDecoder(DynamicValueSchema()).asInstanceOf[JsonDecoder[A]]
+    private def dynamicDecoder(schema: Schema[DynamicValue]): JsonDecoder[DynamicValue] =
+      schemaDecoder(schema)
 
     private def enumDecoder[Z](cases: Schema.Case[Z, _]*): JsonDecoder[Z] = {
       (trace: List[JsonError], in: RetractReader) =>
@@ -433,7 +433,7 @@ object JsonCodec extends Codec {
     import JsonEncoder.bump
     import JsonEncoder.pad
 
-    private[codec] def caseClassEncoder[Z](fields: (Schema.Field[Z, _])*): JsonEncoder[Z] = { (a: Z, indent: Option[Int], out: Write) =>
+    private[codec] def caseClassEncoder[Z](fields: (Schema.Field[Z, Any])*): JsonEncoder[Z] = { (a: Z, indent: Option[Int], out: Write) =>
       {
         out.write('{')
         val indent_ = bump(indent)
@@ -465,7 +465,7 @@ object JsonCodec extends Codec {
 
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   private[codec] object ProductDecoder {
-    import Decoder.schemaDecoder
+    import zio.schema.codec.JsonCodec.Decoder.schemaDecoder
 
     private[codec] def caseClass0Decoder[Z](schema: Schema.CaseClass0[Z]): JsonDecoder[Z] = { (_: List[JsonError], _: RetractReader) =>
       schema.defaultConstruct()
