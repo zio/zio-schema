@@ -5,11 +5,11 @@ import zio.schema.types.Arities._
 import zio.schema.types.{ Arities, Recursive }
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, URIO }
+import zio.{ Chunk, Scope, URIO }
 
 object PatchSpec extends ZIOSpecDefault with DefaultJavaTimeSchemas {
 
-  def spec = suite("PatchSpec")(
+  def spec: Spec[TestEnvironment with Scope, Any] = suite("PatchSpec")(
     suite("identity law")(
       suite("standard types")(
         test("Int")(patchIdentityLaw[Int]),
