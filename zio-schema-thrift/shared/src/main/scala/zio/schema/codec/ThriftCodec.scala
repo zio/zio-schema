@@ -391,14 +391,14 @@ object ThriftCodec extends Codec {
         case (Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) =>
           encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case (Schema.EnumN(_, cs, _), v) => encodeEnum(fieldNumber, v, cs.toSeq: _*)
-        case (Schema.Dynamic(_), v)      => encodeDynamic(fieldNumber, v)
+        case (Schema.Dynamic(_), v)      => encodeDynamic(fieldNumber, DynamicValueSchema.schema, v)
         case (_, _)                      => ()
       }
 
-    private def encodeDynamic(fieldNumber: Option[Short], v: DynamicValue): Unit =
-      encodeValue(fieldNumber, DynamicValueSchema.schema, v)
+    private def encodeDynamic(fieldNumber: Option[Short], schema: Schema[DynamicValue], v: DynamicValue): Unit =
+      encodeValue(fieldNumber, schema, v)
 
-    private def encodeEnum[Z, A](fieldNumber: Option[Short], value: Z, cases: Schema.Case[Z, _]*): Unit = {
+    private def encodeEnum[Z](fieldNumber: Option[Short], value: Z, cases: Schema.Case[Z, _]*): Unit = {
       writeFieldBegin(fieldNumber, TType.STRUCT)
       val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
       if (fieldIndex >= 0) {
@@ -588,12 +588,12 @@ object ThriftCodec extends Codec {
         case Schema.Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _)      => enumDecoder(path, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
         case Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) => enumDecoder(path, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case Schema.EnumN(_, cs, _)                                                                                                   => enumDecoder(path, cs.toSeq: _*)
-        case Schema.Dynamic(_)                                                                                                        => dynamicDecoder(path)
+        case Schema.Dynamic(_)                                                                                                        => dynamicDecoder(path, DynamicValueSchema.schema)
         case _                                                                                                                        => fail(path, s"Unknown schema ${schema.getClass.getName}")
       }
 
-    private def dynamicDecoder(path: Path): Result[DynamicValue] =
-      decode(path, DynamicValueSchema.schema)
+    private def dynamicDecoder(path: Path, schema: Schema[DynamicValue]): Result[DynamicValue] =
+      decode(path, schema)
 
     private def optionalDecoder[A](path: Path, schema: Schema.Optional[A]): Result[Option[A]] =
       Try {

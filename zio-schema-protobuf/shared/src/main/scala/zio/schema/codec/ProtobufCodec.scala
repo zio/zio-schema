@@ -259,10 +259,17 @@ object ProtobufCodec extends Codec {
         case (Schema.Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _), v)      => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
         case (Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case (Schema.EnumN(_, cs, _), v)                                                                                                   => encodeEnum(fieldNumber, v, cs.toSeq: _*)
-        case (Schema.Dynamic(_), v)                                                                                                        => encode(fieldNumber, DynamicValueSchema.schema, v)
+        case (Schema.Dynamic(_), v)                                                                                                        => dynamicEncode(fieldNumber, DynamicValueSchema.schema, v)
         case (_, _)                                                                                                                        => Chunk.empty
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
+
+    private def dynamicEncode(
+      fieldNumber: Option[Int],
+      schema: Schema[DynamicValue],
+      value: DynamicValue
+    ): Chunk[Byte] =
+      encode(fieldNumber, schema, value)
 
     private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[Z, _]*): Chunk[Byte] = {
       val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
