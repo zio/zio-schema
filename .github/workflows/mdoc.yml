@@ -17,6 +17,12 @@ jobs:
       - uses: olafurpg/setup-scala@v13
       - uses: olafurpg/setup-gpg@v3
       - run: sbt docs/mdoc
+      - name: Build website
+        description: building the website solely for testing everything is working as it should
+        run: | 
+          cd website
+          npm install
+          npm run build
       - uses: actions/setup-node@v3
         with:
           node-version: '16.x'
