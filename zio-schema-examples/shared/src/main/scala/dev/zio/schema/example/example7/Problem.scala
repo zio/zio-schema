@@ -2,8 +2,9 @@ package dev.zio.schema.example.example7
 
 import scala.collection.immutable.ListMap
 import scala.util.Try
-import zio.{ Chunk, Unsafe }
+
 import zio.schema._
+import zio.{ Chunk, Unsafe }
 
 /** This exercise is based on John DeGoes' Spartan training on ZIO-Schema from 2021-11-04
  */
