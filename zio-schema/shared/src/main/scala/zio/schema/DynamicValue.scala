@@ -4,9 +4,11 @@ import java.math.{ BigDecimal, BigInteger }
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.util.UUID
+
 import scala.collection.immutable.ListMap
-import zio.{ Chunk, Unsafe }
+
 import zio.schema.meta.{ MetaSchema, Migration }
+import zio.{ Chunk, Unsafe }
 
 sealed trait DynamicValue {
   self =>
