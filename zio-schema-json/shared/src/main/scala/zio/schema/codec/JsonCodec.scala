@@ -433,7 +433,7 @@ object JsonCodec extends Codec {
     import JsonEncoder.bump
     import JsonEncoder.pad
 
-    private[codec] def caseClassEncoder[Z](fields: (Schema.Field[Z, Any])*): JsonEncoder[Z] = { (a: Z, indent: Option[Int], out: Write) =>
+    private[codec] def caseClassEncoder[Z](fields: (Schema.Field[Z, _])*): JsonEncoder[Z] = { (a: Z, indent: Option[Int], out: Write) =>
       {
         out.write('{')
         val indent_ = bump(indent)
