@@ -3,12 +3,10 @@ id: understanding-zio-schema
 title: "Understanding ZIO Schema"
 ---
 
-## Understanding ZIO Schema
-
 ZIO Schema is a library used in many ZIO projects such as _ZIO Flow_, _ZIO Redis_, _ZIO Web_, _ZIO SQL_ and _ZIO DynamoDB_.
 ZIO is all about reification of your types. Reification means transforming something abstract (e.g. side effects, accessing fields, structure)  into something "real" (values).
 
-### Reification: Functional Effects
+## Reification: Functional Effects
 
 In functional effects, we reify by turning side-effects into values.
 
@@ -29,7 +27,7 @@ and then are able to do awesome things like:
 (Task(println("Hello")) zipPar Task(println("World"))).retryN(100)
 ```
 
-### Reification: Optics
+## Reification: Optics
 
 In scala we have product types like this case class of a Person:
 ```scala
@@ -70,7 +68,7 @@ Once we have a value, we can compose these things together to solve hard problem
 For more information on optics, refer to the [ZIO Optics](https://zio.github.io/zio-optics/docs/overview/overview_index) documentation.
 
 
-### Reification: Schema
+## Reification: Schema
 
 So far we've looked at how to
 - reify side-effects into values (ZIO)
@@ -94,7 +92,6 @@ Has the following information:
 ZIO Schema tries to reify the concept of structure for datatypes by turning the above information into values.
 
 Not only for case classes, but also for other types like collections, tuples, enumerations etc.
-
 
 ## Getting started
 
@@ -217,10 +214,12 @@ object Schema ... {
   }
   ...
 }
-
 ```
+
 #### Optionals
+
 A special variant of a collection type is the `Optional[A]` type:
+
 ```scala
 object Schema ... {
 
@@ -248,6 +247,7 @@ object Schema ... {
 #### Primitives
 
 Last but not least, we have primitive values.
+
 ```scala
 object Schema ... {
   ...
@@ -259,6 +259,7 @@ object Schema ... {
   ...
 }
 ```
+
 Primitive values are represented using the `Primitive[A]` type class and represent the elements,
 that we cannot further define through other means. If you visualize your data structure as a tree,
 primitives are the leaves.
@@ -322,12 +323,13 @@ It basically says:
 
 
 Example of possible codecs are:
-- CSV Codec
-- JSON Codec (already available)
-- Apache Avro Codec (in progress)
-- Apache Thrift Codec (in progress)
-- XML Codec
-- YAML Codec
-- Protobuf Codec (already available)
-- QueryString Codec
-- etc.
+
+  - CSV Codec
+  - JSON Codec (already available)
+  - Apache Avro Codec (in progress)
+  - Apache Thrift Codec (in progress)
+  - XML Codec
+  - YAML Codec
+  - Protobuf Codec (already available)
+  - QueryString Codec
+  - etc.

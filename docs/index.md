@@ -4,9 +4,26 @@ title: "Introduction to ZIO Schema"
 sidebar_label: "Introduction"
 ---
 
+[ZIO Schema](https://github.com/zio/zio-schema) is a [ZIO](https://zio.dev)-based library for modeling the schema of data structures as first-class values.
+
+## Introduction
+
+Schema is a structure of a data type. ZIO Schema reifies the concept of structure for data types. It makes a high-level description of any data type and makes them as first-class values.
+
+Creating a schema for a data type helps us to write codecs for that data type. So this library can be a host of functionalities useful for writing codecs and protocols like JSON, Protobuf, CSV, and so forth.
+
+With schema descriptions that can be automatically derived for case classes and sealed traits, _ZIO Schema_ will be going to provide powerful features for free (Note that the project is in the development stage and all these features are not supported yet):
+
+- Codecs for any supported protocol (JSON, protobuf, etc.), so data structures can be serialized and deserialized in a principled way
+- Diffing, patching, merging, and other generic-data-based operations
+- Migration of data structures from one schema to another compatible schema
+- Derivation of arbitrary type classes (`Eq`, `Show`, `Ord`, etc.) from the structure of the data
+
+When our data structures need to be serialized, deserialized, persisted, or transported across the wire, then _ZIO Schema_ lets us focus on data modeling and automatically tackle all the low-level, messy details for us.
+
 ## Installation
 
-Add in your `build.sbt`:
+In order to use this library, we need to add the following lines in our `build.sbt` file:
 
 ```scala
 libraryDependencies += "dev.zio" %% "zio-schema" % "@RELEASE_VERSION@"
@@ -14,43 +31,43 @@ libraryDependencies += "dev.zio" %% "zio-schema-json" % "@RELEASE_VERSION@"
 libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "@RELEASE_VERSION@"
 ```
 
-## Purpose of ZIO Schema
+## Example
 
-ZIO Schema allows you to create representations of your data types as values.
+In this simple example first, we create a schema for `Person` and then run the _diff_ operation on two instances of the `Person` data type, and finally we encode a Person instance using _Protobuf_ protocol:
 
-Once you have a representation of your data types, you can use it to
-- serialize and deserialize your types
-- validate your types
-- transform your types
-- create instances of your types
+```scala
+import zio.console.putStrLn
+import zio.schema.codec.ProtobufCodec._
+import zio.schema.{DeriveSchema, Schema}
+import zio.stream.ZStream
+import zio.{Chunk, ExitCode, URIO}
 
-You can then use one of the various codecs (or create your own) to serialize and deserialize your types.
+final case class Person(name: String, age: Int, id: String)
+object Person {
+  implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+}
 
-Example of possible codecs are:
-- CSV Codec
-- JSON Codec (already available)
-- Apache Avro Codec (in progress)
-- Apache Thrift Codec (in progress)
-- XML Codec
-- YAML Codec
-- Protobuf Codec (already available)
-- QueryString Codec
-- etc.
+Person.schema
 
-Example use cases that are possible:
-- Serializing and deserializing JSON
-- Serializing and deserializing XML
-- Validating JSON
-- Validating XML
-- Transforming JSON
-- Transforming XML
-- Transforming JSON to XML
-- Transforming XML to JSON
-- Creating diffs from arbitrary data structures
-- Creating migrations / evolutions e.g. of Events used in Event-Sourcing
-- Transformation pipelines, e.g.
-    1. convert from protobuf to object, e.g. `PersonDTO`,
-    2. transform to another representation, e.g. `Person`,
-    3. validate
-    4. transform to JSON `JsonObject`
-    5. serialize to `String`
+import zio.schema.syntax._
+
+Person("Alex", 31, "0123").diff(Person("Alex", 31, "124"))
+
+def toHex(chunk: Chunk[Byte]): String =
+  chunk.toArray.map("%02X".format(_)).mkString
+
+zio.Runtime.default.unsafe.run(
+  ZStream
+    .succeed(Person("Thomas", 23, "2354"))
+    .transduce(
+      encoder(Person.schema)
+    )
+    .runCollect
+    .flatMap(x => putStrLn(s"Encoded data with protobuf codec: ${toHex(x)}"))
+).getOrThrowFiberFailure()
+```
+
+
+## Resources
+
+- [Zymposium - ZIO Schema](https://www.youtube.com/watch?v=GfNiDaL5aIM) by John A. De Goes, Adam Fraser and Kit Langton (May 2021)
