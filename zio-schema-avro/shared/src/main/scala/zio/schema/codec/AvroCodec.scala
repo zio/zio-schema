@@ -723,7 +723,7 @@ object AvroCodec extends AvroCodec {
               s.asInstanceOf[Schema[A]],
               _.asInstanceOf[A],
               _.asInstanceOf[Z],
-              _.isInstanceOf[A]
+              (z: Z) => z.isInstanceOf[A @unchecked]
             )
         )
       })
