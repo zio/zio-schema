@@ -2073,7 +2073,7 @@ private[schema] object DynamicValueSchema {
       Schema[Unit].transform(_ => DynamicValue.Singleton(()), _ => ()),
       _.asInstanceOf[DynamicValue.Singleton[Any]],
       _.asInstanceOf[DynamicValue],
-      _.isInstanceOf[DynamicValue.Singleton[Any]]
+      (d: DynamicValue) => d.isInstanceOf[DynamicValue.Singleton[_]]
     )
 
   private val primitiveUnitCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Unit]] =

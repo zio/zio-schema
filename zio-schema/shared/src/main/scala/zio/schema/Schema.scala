@@ -480,7 +480,7 @@ object Schema extends SchemaEquality {
         rightSchema,
         _.asInstanceOf[Right[Nothing, B]],
         _.asInstanceOf[scala.util.Either[A, B]],
-        _.isInstanceOf[Right[Nothing, B]],
+        (e: scala.util.Either[A, B]) => e.isRight,
         Chunk.empty
       ),
       Case(
@@ -488,7 +488,7 @@ object Schema extends SchemaEquality {
         leftSchema,
         _.asInstanceOf[Left[A, Nothing]],
         _.asInstanceOf[scala.util.Either[A, B]],
-        _.isInstanceOf[Left[A, Nothing]],
+        (e: scala.util.Either[A, B]) => e.isLeft,
         Chunk.empty
       ),
       Chunk.empty

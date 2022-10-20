@@ -1,7 +1,5 @@
 package zio.schema
 
-import zio.Unsafe
-
 object syntax extends SchemaSyntax
 
 trait SchemaSyntax {
@@ -13,9 +11,8 @@ trait SchemaSyntax {
      */
     def diffEach(that: A): Patch[A] = Schema[A].diff(a, that)
 
-    def runPatch(diff: Patch[A]): Either[String, A] = Unsafe.unsafe { implicit u =>
+    def runPatch(diff: Patch[A]): Either[String, A] =
       Schema[A].patch(a, diff)
-    }
   }
 
   implicit class DynamicValueOps[A: Schema](a: A) {
