@@ -165,7 +165,14 @@ object SchemaGen {
   def toCaseSet(cases: ListMap[String, Schema[_]]): CaseSet.Aux[Any] =
     cases.foldRight[CaseSet.Aux[Any]](CaseSet.Empty[Any]()) {
       case ((id, codec), acc) =>
-        val _case = Schema.Case[Any, Any](id, codec.asInstanceOf[Schema[Any]], _.asInstanceOf[Any], Chunk.empty)
+        val _case = Schema.Case[Any, Any](
+          id,
+          codec.asInstanceOf[Schema[Any]],
+          _.asInstanceOf[Any],
+          _.asInstanceOf[Any],
+          _.isInstanceOf[Any],
+          Chunk.empty
+        )
         CaseSet.Cons(_case, acc)
     }
 

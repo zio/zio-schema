@@ -391,8 +391,22 @@ object Schema extends SchemaEquality {
 
     lazy val toEnum: Enum2[Some[A], None.type, Option[A]] = Enum2(
       TypeId.parse("zio.schema.Schema.Optional"),
-      Case[Option[A], Some[A]]("Some", someCodec, _.asInstanceOf[Some[A]], Chunk.empty),
-      Case[Option[A], None.type]("None", singleton(None), _.asInstanceOf[None.type], Chunk.empty),
+      Case[Option[A], Some[A]](
+        "Some",
+        someCodec,
+        _.asInstanceOf[Some[A]],
+        _.asInstanceOf[Option[A]],
+        _.isInstanceOf[Some[A]],
+        Chunk.empty
+      ),
+      Case[Option[A], None.type](
+        "None",
+        singleton(None),
+        _.asInstanceOf[None.type],
+        _.asInstanceOf[Option[A]],
+        _.isInstanceOf[None.type],
+        Chunk.empty
+      ),
       Chunk.empty
     )
 
@@ -461,8 +475,22 @@ object Schema extends SchemaEquality {
 
     val toEnum: Enum2[Right[Nothing, B], Left[A, Nothing], scala.util.Either[A, B]] = Enum2(
       TypeId.parse("zio.schema.Schema.Either"),
-      Case("Right", rightSchema, _.asInstanceOf[Right[Nothing, B]], Chunk.empty),
-      Case("Left", leftSchema, _.asInstanceOf[Left[A, Nothing]], Chunk.empty),
+      Case(
+        "Right",
+        rightSchema,
+        _.asInstanceOf[Right[Nothing, B]],
+        _.asInstanceOf[scala.util.Either[A, B]],
+        _.isInstanceOf[Right[Nothing, B]],
+        Chunk.empty
+      ),
+      Case(
+        "Left",
+        leftSchema,
+        _.asInstanceOf[Left[A, Nothing]],
+        _.asInstanceOf[scala.util.Either[A, B]],
+        _.isInstanceOf[Left[A, Nothing]],
+        Chunk.empty
+      ),
       Chunk.empty
     )
 
@@ -563,16 +591,16 @@ object Schema extends SchemaEquality {
   sealed case class Case[R, A](
     id: String,
     schema: Schema[A],
-    unsafeDeconstruct: R => A,
+    private val unsafeDeconstruct: R => A,
+    construct: A => R,
+    isCase: R => Boolean,
     annotations: Chunk[Any] = Chunk.empty
-  ) {
+  ) { self =>
 
-    def deconstruct(r: R): Option[A] =
-      try {
-        Some(unsafeDeconstruct(r))
-      } catch {
-        case _: Throwable => None
-      }
+    def deconstruct(r: R): A = unsafeDeconstruct(r)
+
+    def deconstructOption(r: R): Option[A] =
+      if (isCase(r)) Some(unsafeDeconstruct(r)) else None
 
     override def toString: String = s"Case($id,$schema,$annotations)"
   }

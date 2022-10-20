@@ -89,12 +89,16 @@ object ManualConstruction {
         id = "CreditCard",
         schema = schemaPaymentMethodCreditCard,
         unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.CreditCard],
+        construct = pc => pc.asInstanceOf[PaymentMethod],
+        isCase = _.isInstanceOf[PaymentMethod.CreditCard],
         annotations = Chunk.empty
       ),
       case2 = Case[PaymentMethod, PaymentMethod.WireTransfer](
         id = "WireTransfer",
         schema = schemaPaymentMethodWireTransfer,
         unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.WireTransfer],
+        construct = pc => pc.asInstanceOf[PaymentMethod],
+        isCase = _.isInstanceOf[PaymentMethod.WireTransfer],
         annotations = Chunk.empty
       ),
       annotations = Chunk.empty

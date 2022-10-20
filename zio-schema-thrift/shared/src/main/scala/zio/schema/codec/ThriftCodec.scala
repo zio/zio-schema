@@ -400,10 +400,10 @@ object ThriftCodec extends Codec {
 
     private def encodeEnum[Z](fieldNumber: Option[Short], value: Z, cases: Schema.Case[Z, _]*): Unit = {
       writeFieldBegin(fieldNumber, TType.STRUCT)
-      val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
+      val fieldIndex = cases.indexWhere(c => c.deconstructOption(value).isDefined)
       if (fieldIndex >= 0) {
         val subtypeCase = cases(fieldIndex)
-        encodeValue(Some((fieldIndex + 1).shortValue), subtypeCase.schema.asInstanceOf[Schema[Any]], subtypeCase.unsafeDeconstruct(value))
+        encodeValue(Some((fieldIndex + 1).shortValue), subtypeCase.schema.asInstanceOf[Schema[Any]], subtypeCase.deconstruct(value))
       }
       p.writeFieldStop()
     }

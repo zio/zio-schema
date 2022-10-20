@@ -569,11 +569,11 @@ object Differ {
         .foldRight[Option[Patch[Z]]](None) {
           case (_, diff @ Some(_)) => diff
           case (subtype: Schema.Case[Z, a], _) =>
-            subtype.deconstruct(thisZ) -> (subtype.deconstruct(thatZ)) match {
+            subtype.deconstructOption(thisZ) -> (subtype.deconstructOption(thatZ)) match {
               case (Some(thisA), Some(thatA)) =>
                 val subtypeDiffer: Differ[Z] =
                   fromSchema(subtype.schema).transform(
-                    (z: Z) => subtype.unsafeDeconstruct(z),
+                    (z: Z) => subtype.deconstruct(z),
                     (a: a) => a.asInstanceOf[Z]
                   )
                 Some(subtypeDiffer(thisA.asInstanceOf[Z], thatA.asInstanceOf[Z]))

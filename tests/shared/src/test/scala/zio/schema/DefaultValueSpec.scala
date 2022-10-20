@@ -208,7 +208,10 @@ object DefaultValueSpec extends ZIOSpecDefault {
       test("defaults to first case") {
         val schema = Schema.enumeration[Any, CaseSet.Aux[Any]](
           TypeId.Structural,
-          caseOf[Int, Any]("myInt")(_.asInstanceOf[Int]) ++ caseOf[String, Any]("myString")(_.asInstanceOf[String])
+          caseOf[Int, Any]("myInt")(_.asInstanceOf[Int])(_.asInstanceOf[Any])(_.isInstanceOf[Int]) ++ caseOf[
+            String,
+            Any
+          ]("myString")(_.asInstanceOf[String])(_.asInstanceOf[Any])(_.isInstanceOf[String])
         )
         assert(schema.defaultValue)(isRight(equalTo(0)))
       }
@@ -251,12 +254,26 @@ object DefaultValueSpec extends ZIOSpecDefault {
         val schema: Schema[Status] =
           Schema.Enum3(
             TypeId.parse("zio.schema.DefaultValueSpec.Status"),
-            Schema.Case("Failed", Schema[Failed], (s: Status) => s.asInstanceOf[Failed]),
-            Schema.Case("Ok", Schema[Ok], (s: Status) => s.asInstanceOf[Ok]),
+            Schema.Case(
+              "Failed",
+              Schema[Failed],
+              (s: Status) => s.asInstanceOf[Failed],
+              (f: Failed) => f.asInstanceOf[Status],
+              (s: Status) => s.isInstanceOf[Failed]
+            ),
+            Schema.Case(
+              "Ok",
+              Schema[Ok],
+              (s: Status) => s.asInstanceOf[Ok],
+              (o: Ok) => o.asInstanceOf[Status],
+              (s: Status) => s.isInstanceOf[Ok]
+            ),
             Schema.Case(
               "Pending",
               Schema[Pending.type],
-              (s: Status) => s.asInstanceOf[Pending.type]
+              (s: Status) => s.asInstanceOf[Pending.type],
+              (p: Pending.type) => p.asInstanceOf[Status],
+              (s: Status) => s.isInstanceOf[Pending.type]
             )
           )
         assert(schema.defaultValue)(isRight(equalTo(Failed(0, "", None, ""))))

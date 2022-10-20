@@ -521,11 +521,13 @@ object DeriveSchema {
         val caseLabel     = subtype.typeSymbol.name.toString.trim
         val caseSchema    = directInferSchema(tpe, concreteType(tpe, subtype), currentFrame +: stack)
         val deconstructFn = q"(z: $tpe) => z.asInstanceOf[$subtype]"
+        val constructFn   = q"(z: $subtype) => z.asInstanceOf[$tpe]"
+        val isCaseFn      = q"(z: $tpe) => z.isInstanceOf[$subtype]"
         if (typeAnnotations.isEmpty)
-          q"zio.schema.Schema.Case.apply[$tpe, $subtype]($caseLabel,$caseSchema,$deconstructFn)"
+          q"zio.schema.Schema.Case.apply[$tpe, $subtype]($caseLabel,$caseSchema,$deconstructFn, $constructFn, $isCaseFn)"
         else {
           val annotationArgs = q"zio.Chunk.apply(..$typeAnnotations)"
-          q"zio.schema.Schema.Case.apply[$tpe, $subtype]($caseLabel,$caseSchema,$deconstructFn,$annotationArgs)"
+          q"zio.schema.Schema.Case.apply[$tpe, $subtype]($caseLabel,$caseSchema,$deconstructFn, $constructFn, $isCaseFn, $annotationArgs)"
         }
       }
 

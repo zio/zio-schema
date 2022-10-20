@@ -65,7 +65,12 @@ object SchemaSpec extends ZIOSpecDefault {
     )
 
   def schemaEnum(key: String): Schema[Any] =
-    Schema.enumeration[Any, CaseSet.Aux[Any]](TypeId.Structural, caseOf[Unit, Any](key)(_ => ()))
+    Schema.enumeration[Any, CaseSet.Aux[Any]](
+      TypeId.Structural,
+      caseOf[Unit, Any](key)(_ => ())(_.asInstanceOf[CaseSet.Aux[Any]])(
+        _.isInstanceOf[Unit]
+      )
+    )
 
   val f: Unit => Either[String, Int] = _ => Right(0)
   val g: Int => Either[String, Unit] = _ => Right(())

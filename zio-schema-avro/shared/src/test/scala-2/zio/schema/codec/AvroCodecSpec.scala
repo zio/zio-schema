@@ -22,9 +22,27 @@ object AvroCodecSpec extends ZIOSpecDefault {
       suite("encode")(
         suite("enum")(
           test("encodes string only enum as avro enum") {
-            val caseA  = Schema.Case[String, String]("A", Schema.primitive(StandardType.StringType), identity)
-            val caseB  = Schema.Case[String, String]("B", Schema.primitive(StandardType.StringType), identity)
-            val caseC  = Schema.Case[String, String]("C", Schema.primitive(StandardType.StringType), identity)
+            val caseA = Schema.Case[String, String](
+              "A",
+              Schema.primitive(StandardType.StringType),
+              identity,
+              identity,
+              _.isInstanceOf[String]
+            )
+            val caseB = Schema.Case[String, String](
+              "B",
+              Schema.primitive(StandardType.StringType),
+              identity,
+              identity,
+              _.isInstanceOf[String]
+            )
+            val caseC = Schema.Case[String, String](
+              "C",
+              Schema.primitive(StandardType.StringType),
+              identity,
+              identity,
+              _.isInstanceOf[String]
+            )
             val schema = Schema.Enum3(TypeId.Structural, caseA, caseB, caseC, Chunk(AvroAnnotations.name("MyEnum")))
 
             val result = AvroCodec.encode(schema)
@@ -77,12 +95,16 @@ object AvroCodecSpec extends ZIOSpecDefault {
                 Schema.Case[UnionWithNesting.Nested, UnionWithNesting.Nested.A.type](
                   "A",
                   schemaA,
-                  _.asInstanceOf[UnionWithNesting.Nested.A.type]
+                  _.asInstanceOf[UnionWithNesting.Nested.A.type],
+                  _.asInstanceOf[UnionWithNesting.Nested],
+                  _.isInstanceOf[UnionWithNesting.Nested.A.type]
                 ),
                 Schema.Case[UnionWithNesting.Nested, UnionWithNesting.Nested.B.type](
                   "B",
                   schemaB,
-                  _.asInstanceOf[UnionWithNesting.Nested.B.type]
+                  _.asInstanceOf[UnionWithNesting.Nested.B.type],
+                  _.asInstanceOf[UnionWithNesting.Nested],
+                  _.isInstanceOf[UnionWithNesting.Nested.B.type]
                 )
               )
             val unionWithNesting = Schema.Enum3(
@@ -90,11 +112,25 @@ object AvroCodecSpec extends ZIOSpecDefault {
               Schema.Case[UnionWithNesting, UnionWithNesting.Nested](
                 "Nested",
                 nested,
-                _.asInstanceOf[UnionWithNesting.Nested]
+                _.asInstanceOf[UnionWithNesting.Nested],
+                _.asInstanceOf[UnionWithNesting],
+                _.isInstanceOf[UnionWithNesting.Nested]
               ),
               Schema
-                .Case[UnionWithNesting, UnionWithNesting.C.type]("C", schemaC, _.asInstanceOf[UnionWithNesting.C.type]),
-              Schema.Case[UnionWithNesting, UnionWithNesting.D]("D", schemaD, _.asInstanceOf[UnionWithNesting.D])
+                .Case[UnionWithNesting, UnionWithNesting.C.type](
+                  "C",
+                  schemaC,
+                  _.asInstanceOf[UnionWithNesting.C.type],
+                  _.asInstanceOf[UnionWithNesting],
+                  _.isInstanceOf[UnionWithNesting.C.type]
+                ),
+              Schema.Case[UnionWithNesting, UnionWithNesting.D](
+                "D",
+                schemaD,
+                _.asInstanceOf[UnionWithNesting.D],
+                _.asInstanceOf[UnionWithNesting],
+                _.isInstanceOf[UnionWithNesting.D]
+              )
             )
 
             val schema = unionWithNesting

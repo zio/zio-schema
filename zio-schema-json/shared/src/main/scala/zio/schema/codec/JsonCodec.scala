@@ -224,7 +224,7 @@ object JsonCodec extends Codec {
 
     private def enumEncoder[Z](cases: Schema.Case[Z, _]*): JsonEncoder[Z] =
       (value: Z, indent: Option[Int], out: Write) => {
-        val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
+        val fieldIndex = cases.indexWhere(c => c.deconstructOption(value).isDefined)
         if (fieldIndex > -1) {
           val case_ = cases(fieldIndex)
           out.write('{')
@@ -234,7 +234,7 @@ object JsonCodec extends Codec {
           if (indent.isEmpty) out.write(':')
           else out.write(" : ")
           schemaEncoder(case_.schema.asInstanceOf[Schema[Any]])
-            .unsafeEncode(case_.unsafeDeconstruct(value), indent, out)
+            .unsafeEncode(case_.deconstruct(value), indent, out)
           out.write('}')
         } else {
           out.write("{}")

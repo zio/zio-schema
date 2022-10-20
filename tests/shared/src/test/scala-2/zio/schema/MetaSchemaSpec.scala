@@ -116,9 +116,11 @@ object MetaSchemaSpec extends ZIOSpecDefault {
         val schema =
           Schema.enumeration[Any, CaseSet.Aux[Any]](
             TypeId.Structural,
-            caseOf[SchemaGen.Arity1, Any]("type1")(_.asInstanceOf[SchemaGen.Arity1]) ++ caseOf[SchemaGen.Arity2, Any](
+            caseOf[SchemaGen.Arity1, Any]("type1")(_.asInstanceOf[SchemaGen.Arity1])(_.asInstanceOf[Any])(
+              _.isInstanceOf[Any]
+            ) ++ caseOf[SchemaGen.Arity2, Any](
               "type2"
-            )(_.asInstanceOf[SchemaGen.Arity2])
+            )(_.asInstanceOf[SchemaGen.Arity2])(_.asInstanceOf[Any])(_.isInstanceOf[Any])
           )
         val expectedAst =
           MetaSchema.Sum(

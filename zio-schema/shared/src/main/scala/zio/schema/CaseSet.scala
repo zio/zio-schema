@@ -88,8 +88,10 @@ object CaseSet {
     case (c, cs) => Cons(c, cs)
   }
 
-  def caseOf[A: Schema, Z >: A](id: String)(unsafeDeconstruct: Z => A): Cons[A, Empty[Z], Z] =
-    Cons(Case(id, Schema[A], unsafeDeconstruct, Chunk.empty), Empty[Z]())
+  def caseOf[A: Schema, Z >: A](
+    id: String
+  )(unsafeDeconstruct: Z => A)(construct: A => Z)(isCase: Z => Boolean): Cons[A, Empty[Z], Z] =
+    Cons(Case(id, Schema[A], unsafeDeconstruct, construct, isCase, Chunk.empty), Empty[Z]())
 
 }
 

@@ -137,10 +137,10 @@ object DynamicValue {
         )
 
       case Schema.Enum1(id, case1, _) =>
-        DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, case1.unsafeDeconstruct(value)))
+        DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, case1.deconstruct(value)))
 
       case Schema.Enum2(id, case1, case2, _) =>
-        (case1.deconstruct(value), case2.deconstruct(value)) match {
+        (case1.deconstructOption(value), case2.deconstructOption(value)) match {
           case (Some(v1), _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2)) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           //This should never happen unless someone manually builds an Enum and doesn't include all cases
@@ -148,7 +148,7 @@ object DynamicValue {
         }
 
       case Schema.Enum3(id, case1, case2, case3, _) =>
-        (case1.deconstruct(value), case2.deconstruct(value), case3.deconstruct(value)) match {
+        (case1.deconstructOption(value), case2.deconstructOption(value), case3.deconstructOption(value)) match {
           case (Some(v1), _, _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3)) => DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
@@ -157,7 +157,7 @@ object DynamicValue {
         }
 
       case Schema.Enum4(id, case1, case2, case3, case4, _) =>
-        (case1.deconstruct(value), case2.deconstruct(value), case3.deconstruct(value), case4.deconstruct(value)) match {
+        (case1.deconstructOption(value), case2.deconstructOption(value), case3.deconstructOption(value), case4.deconstructOption(value)) match {
           case (Some(v1), _, _, _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
           case (_, _, Some(v3), _) => DynamicValue.Enumeration(id, case3.id -> fromSchemaAndValue(case3.schema, v3))
@@ -168,11 +168,11 @@ object DynamicValue {
 
       case Schema.Enum5(id, case1, case2, case3, case4, case5, _) =>
         (
-          case1.deconstruct(value),
-          case2.deconstruct(value),
-          case3.deconstruct(value),
-          case4.deconstruct(value),
-          case5.deconstruct(value)
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value)
         ) match {
           case (Some(v1), _, _, _, _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
@@ -185,12 +185,12 @@ object DynamicValue {
 
       case Schema.Enum6(id, case1, case2, case3, case4, case5, case6, _) =>
         (
-          case1.deconstruct(value),
-          case2.deconstruct(value),
-          case3.deconstruct(value),
-          case4.deconstruct(value),
-          case5.deconstruct(value),
-          case6.deconstruct(value)
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value)
         ) match {
           case (Some(v1), _, _, _, _, _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
@@ -204,13 +204,13 @@ object DynamicValue {
 
       case Schema.Enum7(id, case1, case2, case3, case4, case5, case6, case7, _) =>
         (
-          case1.deconstruct(value),
-          case2.deconstruct(value),
-          case3.deconstruct(value),
-          case4.deconstruct(value),
-          case5.deconstruct(value),
-          case6.deconstruct(value),
-          case7.deconstruct(value)
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value),
+          case7.deconstructOption(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _) => DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _) => DynamicValue.Enumeration(id, case2.id -> fromSchemaAndValue(case2.schema, v2))
@@ -225,14 +225,14 @@ object DynamicValue {
 
       case Schema.Enum8(id, case1, case2, case3, case4, case5, case6, case7, case8, _) =>
         (
-          case1.deconstruct(value),
-          case2.deconstruct(value),
-          case3.deconstruct(value),
-          case4.deconstruct(value),
-          case5.deconstruct(value),
-          case6.deconstruct(value),
-          case7.deconstruct(value),
-          case8.deconstruct(value)
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value),
+          case7.deconstructOption(value),
+          case8.deconstructOption(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _) =>
             DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
@@ -256,15 +256,15 @@ object DynamicValue {
 
       case Schema.Enum9(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, _) =>
         (
-          case1.deconstruct(value),
-          case2.deconstruct(value),
-          case3.deconstruct(value),
-          case4.deconstruct(value),
-          case5.deconstruct(value),
-          case6.deconstruct(value),
-          case7.deconstruct(value),
-          case8.deconstruct(value),
-          case9.deconstruct(value)
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value),
+          case7.deconstructOption(value),
+          case8.deconstructOption(value),
+          case9.deconstructOption(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _) =>
             DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
@@ -290,16 +290,16 @@ object DynamicValue {
 
       case Schema.Enum10(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, _) =>
         (
-          case1.deconstruct(value),
-          case2.deconstruct(value),
-          case3.deconstruct(value),
-          case4.deconstruct(value),
-          case5.deconstruct(value),
-          case6.deconstruct(value),
-          case7.deconstruct(value),
-          case8.deconstruct(value),
-          case9.deconstruct(value),
-          case10.deconstruct(value)
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value),
+          case7.deconstructOption(value),
+          case8.deconstructOption(value),
+          case9.deconstructOption(value),
+          case10.deconstructOption(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _) =>
             DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
@@ -327,17 +327,17 @@ object DynamicValue {
 
       case Schema.Enum11(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, _) =>
         (
-          case1.deconstruct(value),
-          case2.deconstruct(value),
-          case3.deconstruct(value),
-          case4.deconstruct(value),
-          case5.deconstruct(value),
-          case6.deconstruct(value),
-          case7.deconstruct(value),
-          case8.deconstruct(value),
-          case9.deconstruct(value),
-          case10.deconstruct(value),
-          case11.deconstruct(value)
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value),
+          case7.deconstructOption(value),
+          case8.deconstructOption(value),
+          case9.deconstructOption(value),
+          case10.deconstructOption(value),
+          case11.deconstructOption(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _) =>
             DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
@@ -367,18 +367,18 @@ object DynamicValue {
 
       case Schema.Enum12(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, _) =>
         (
-          case1.deconstruct(value),
-          case2.deconstruct(value),
-          case3.deconstruct(value),
-          case4.deconstruct(value),
-          case5.deconstruct(value),
-          case6.deconstruct(value),
-          case7.deconstruct(value),
-          case8.deconstruct(value),
-          case9.deconstruct(value),
-          case10.deconstruct(value),
-          case11.deconstruct(value),
-          case12.deconstruct(value)
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value),
+          case7.deconstructOption(value),
+          case8.deconstructOption(value),
+          case9.deconstructOption(value),
+          case10.deconstructOption(value),
+          case11.deconstructOption(value),
+          case12.deconstructOption(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _) =>
             DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
@@ -409,7 +409,21 @@ object DynamicValue {
         }
 
       case Schema.Enum13(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, _) =>
-        (case1.deconstruct(value), case2.deconstruct(value), case3.deconstruct(value), case4.deconstruct(value), case5.deconstruct(value), case6.deconstruct(value), case7.deconstruct(value), case8.deconstruct(value), case9.deconstruct(value), case10.deconstruct(value), case11.deconstruct(value), case12.deconstruct(value), case13.deconstruct(value)) match {
+        (
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value),
+          case7.deconstructOption(value),
+          case8.deconstructOption(value),
+          case9.deconstructOption(value),
+          case10.deconstructOption(value),
+          case11.deconstructOption(value),
+          case12.deconstructOption(value),
+          case13.deconstructOption(value)
+        ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _) =>
             DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _, _, _, _, _, _) =>
@@ -441,7 +455,22 @@ object DynamicValue {
         }
 
       case Schema.Enum14(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, _) =>
-        (case1.deconstruct(value), case2.deconstruct(value), case3.deconstruct(value), case4.deconstruct(value), case5.deconstruct(value), case6.deconstruct(value), case7.deconstruct(value), case8.deconstruct(value), case9.deconstruct(value), case10.deconstruct(value), case11.deconstruct(value), case12.deconstruct(value), case13.deconstruct(value), case14.deconstruct(value)) match {
+        (
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value),
+          case7.deconstructOption(value),
+          case8.deconstructOption(value),
+          case9.deconstructOption(value),
+          case10.deconstructOption(value),
+          case11.deconstructOption(value),
+          case12.deconstructOption(value),
+          case13.deconstructOption(value),
+          case14.deconstructOption(value)
+        ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _) =>
             DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
           case (_, Some(v2), _, _, _, _, _, _, _, _, _, _, _, _) =>
@@ -476,21 +505,21 @@ object DynamicValue {
 
       case Schema.Enum15(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, _) =>
         (
-          case1.deconstruct(value),
-          case2.deconstruct(value),
-          case3.deconstruct(value),
-          case4.deconstruct(value),
-          case5.deconstruct(value),
-          case6.deconstruct(value),
-          case7.deconstruct(value),
-          case8.deconstruct(value),
-          case9.deconstruct(value),
-          case10.deconstruct(value),
-          case11.deconstruct(value),
-          case12.deconstruct(value),
-          case13.deconstruct(value),
-          case14.deconstruct(value),
-          case15.deconstruct(value)
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value),
+          case7.deconstructOption(value),
+          case8.deconstructOption(value),
+          case9.deconstructOption(value),
+          case10.deconstructOption(value),
+          case11.deconstructOption(value),
+          case12.deconstructOption(value),
+          case13.deconstructOption(value),
+          case14.deconstructOption(value),
+          case15.deconstructOption(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
             DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
@@ -528,22 +557,22 @@ object DynamicValue {
 
       case Schema.Enum16(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, _) =>
         (
-          case1.deconstruct(value),
-          case2.deconstruct(value),
-          case3.deconstruct(value),
-          case4.deconstruct(value),
-          case5.deconstruct(value),
-          case6.deconstruct(value),
-          case7.deconstruct(value),
-          case8.deconstruct(value),
-          case9.deconstruct(value),
-          case10.deconstruct(value),
-          case11.deconstruct(value),
-          case12.deconstruct(value),
-          case13.deconstruct(value),
-          case14.deconstruct(value),
-          case15.deconstruct(value),
-          case16.deconstruct(value)
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value),
+          case7.deconstructOption(value),
+          case8.deconstructOption(value),
+          case9.deconstructOption(value),
+          case10.deconstructOption(value),
+          case11.deconstructOption(value),
+          case12.deconstructOption(value),
+          case13.deconstructOption(value),
+          case14.deconstructOption(value),
+          case15.deconstructOption(value),
+          case16.deconstructOption(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
             DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
@@ -583,23 +612,23 @@ object DynamicValue {
 
       case Schema.Enum17(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, _) =>
         (
-          case1.deconstruct(value),
-          case2.deconstruct(value),
-          case3.deconstruct(value),
-          case4.deconstruct(value),
-          case5.deconstruct(value),
-          case6.deconstruct(value),
-          case7.deconstruct(value),
-          case8.deconstruct(value),
-          case9.deconstruct(value),
-          case10.deconstruct(value),
-          case11.deconstruct(value),
-          case12.deconstruct(value),
-          case13.deconstruct(value),
-          case14.deconstruct(value),
-          case15.deconstruct(value),
-          case16.deconstruct(value),
-          case17.deconstruct(value)
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value),
+          case7.deconstructOption(value),
+          case8.deconstructOption(value),
+          case9.deconstructOption(value),
+          case10.deconstructOption(value),
+          case11.deconstructOption(value),
+          case12.deconstructOption(value),
+          case13.deconstructOption(value),
+          case14.deconstructOption(value),
+          case15.deconstructOption(value),
+          case16.deconstructOption(value),
+          case17.deconstructOption(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
             DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
@@ -641,24 +670,24 @@ object DynamicValue {
 
       case Schema.Enum18(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, _) =>
         (
-          case1.deconstruct(value),
-          case2.deconstruct(value),
-          case3.deconstruct(value),
-          case4.deconstruct(value),
-          case5.deconstruct(value),
-          case6.deconstruct(value),
-          case7.deconstruct(value),
-          case8.deconstruct(value),
-          case9.deconstruct(value),
-          case10.deconstruct(value),
-          case11.deconstruct(value),
-          case12.deconstruct(value),
-          case13.deconstruct(value),
-          case14.deconstruct(value),
-          case15.deconstruct(value),
-          case16.deconstruct(value),
-          case17.deconstruct(value),
-          case18.deconstruct(value)
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value),
+          case7.deconstructOption(value),
+          case8.deconstructOption(value),
+          case9.deconstructOption(value),
+          case10.deconstructOption(value),
+          case11.deconstructOption(value),
+          case12.deconstructOption(value),
+          case13.deconstructOption(value),
+          case14.deconstructOption(value),
+          case15.deconstructOption(value),
+          case16.deconstructOption(value),
+          case17.deconstructOption(value),
+          case18.deconstructOption(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
             DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
@@ -702,25 +731,25 @@ object DynamicValue {
 
       case Schema.Enum19(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, _) =>
         (
-          case1.deconstruct(value),
-          case2.deconstruct(value),
-          case3.deconstruct(value),
-          case4.deconstruct(value),
-          case5.deconstruct(value),
-          case6.deconstruct(value),
-          case7.deconstruct(value),
-          case8.deconstruct(value),
-          case9.deconstruct(value),
-          case10.deconstruct(value),
-          case11.deconstruct(value),
-          case12.deconstruct(value),
-          case13.deconstruct(value),
-          case14.deconstruct(value),
-          case15.deconstruct(value),
-          case16.deconstruct(value),
-          case17.deconstruct(value),
-          case18.deconstruct(value),
-          case19.deconstruct(value)
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value),
+          case7.deconstructOption(value),
+          case8.deconstructOption(value),
+          case9.deconstructOption(value),
+          case10.deconstructOption(value),
+          case11.deconstructOption(value),
+          case12.deconstructOption(value),
+          case13.deconstructOption(value),
+          case14.deconstructOption(value),
+          case15.deconstructOption(value),
+          case16.deconstructOption(value),
+          case17.deconstructOption(value),
+          case18.deconstructOption(value),
+          case19.deconstructOption(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
             DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
@@ -766,26 +795,26 @@ object DynamicValue {
 
       case Schema.Enum20(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, _) =>
         (
-          case1.deconstruct(value),
-          case2.deconstruct(value),
-          case3.deconstruct(value),
-          case4.deconstruct(value),
-          case5.deconstruct(value),
-          case6.deconstruct(value),
-          case7.deconstruct(value),
-          case8.deconstruct(value),
-          case9.deconstruct(value),
-          case10.deconstruct(value),
-          case11.deconstruct(value),
-          case12.deconstruct(value),
-          case13.deconstruct(value),
-          case14.deconstruct(value),
-          case15.deconstruct(value),
-          case16.deconstruct(value),
-          case17.deconstruct(value),
-          case18.deconstruct(value),
-          case19.deconstruct(value),
-          case20.deconstruct(value)
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value),
+          case7.deconstructOption(value),
+          case8.deconstructOption(value),
+          case9.deconstructOption(value),
+          case10.deconstructOption(value),
+          case11.deconstructOption(value),
+          case12.deconstructOption(value),
+          case13.deconstructOption(value),
+          case14.deconstructOption(value),
+          case15.deconstructOption(value),
+          case16.deconstructOption(value),
+          case17.deconstructOption(value),
+          case18.deconstructOption(value),
+          case19.deconstructOption(value),
+          case20.deconstructOption(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
             DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
@@ -833,27 +862,27 @@ object DynamicValue {
 
       case Schema.Enum21(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, _) =>
         (
-          case1.deconstruct(value),
-          case2.deconstruct(value),
-          case3.deconstruct(value),
-          case4.deconstruct(value),
-          case5.deconstruct(value),
-          case6.deconstruct(value),
-          case7.deconstruct(value),
-          case8.deconstruct(value),
-          case9.deconstruct(value),
-          case10.deconstruct(value),
-          case11.deconstruct(value),
-          case12.deconstruct(value),
-          case13.deconstruct(value),
-          case14.deconstruct(value),
-          case15.deconstruct(value),
-          case16.deconstruct(value),
-          case17.deconstruct(value),
-          case18.deconstruct(value),
-          case19.deconstruct(value),
-          case20.deconstruct(value),
-          case21.deconstruct(value)
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value),
+          case7.deconstructOption(value),
+          case8.deconstructOption(value),
+          case9.deconstructOption(value),
+          case10.deconstructOption(value),
+          case11.deconstructOption(value),
+          case12.deconstructOption(value),
+          case13.deconstructOption(value),
+          case14.deconstructOption(value),
+          case15.deconstructOption(value),
+          case16.deconstructOption(value),
+          case17.deconstructOption(value),
+          case18.deconstructOption(value),
+          case19.deconstructOption(value),
+          case20.deconstructOption(value),
+          case21.deconstructOption(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
             DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
@@ -903,28 +932,28 @@ object DynamicValue {
 
       case Schema.Enum22(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, case22, _) =>
         (
-          case1.deconstruct(value),
-          case2.deconstruct(value),
-          case3.deconstruct(value),
-          case4.deconstruct(value),
-          case5.deconstruct(value),
-          case6.deconstruct(value),
-          case7.deconstruct(value),
-          case8.deconstruct(value),
-          case9.deconstruct(value),
-          case10.deconstruct(value),
-          case11.deconstruct(value),
-          case12.deconstruct(value),
-          case13.deconstruct(value),
-          case14.deconstruct(value),
-          case15.deconstruct(value),
-          case16.deconstruct(value),
-          case17.deconstruct(value),
-          case18.deconstruct(value),
-          case19.deconstruct(value),
-          case20.deconstruct(value),
-          case21.deconstruct(value),
-          case22.deconstruct(value)
+          case1.deconstructOption(value),
+          case2.deconstructOption(value),
+          case3.deconstructOption(value),
+          case4.deconstructOption(value),
+          case5.deconstructOption(value),
+          case6.deconstructOption(value),
+          case7.deconstructOption(value),
+          case8.deconstructOption(value),
+          case9.deconstructOption(value),
+          case10.deconstructOption(value),
+          case11.deconstructOption(value),
+          case12.deconstructOption(value),
+          case13.deconstructOption(value),
+          case14.deconstructOption(value),
+          case15.deconstructOption(value),
+          case16.deconstructOption(value),
+          case17.deconstructOption(value),
+          case18.deconstructOption(value),
+          case19.deconstructOption(value),
+          case20.deconstructOption(value),
+          case21.deconstructOption(value),
+          case22.deconstructOption(value)
         ) match {
           case (Some(v1), _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
             DynamicValue.Enumeration(id, case1.id -> fromSchemaAndValue(case1.schema, v1))
@@ -977,11 +1006,11 @@ object DynamicValue {
 
       case Schema.EnumN(id, cases, _) =>
         cases.toSeq
-          .find(_.deconstruct(value).isDefined) match {
+          .find(_.deconstructOption(value).isDefined) match {
           case Some(c) =>
             DynamicValue.Enumeration(
               id,
-              c.id -> fromSchemaAndValue(c.schema.asInstanceOf[Schema[Any]], c.unsafeDeconstruct(value))
+              c.id -> fromSchemaAndValue(c.schema.asInstanceOf[Schema[Any]], c.deconstruct(value))
             )
           case None => DynamicValue.NoneValue
         }
@@ -1828,7 +1857,9 @@ private[schema] object DynamicValueSchema {
         ),
         message => DynamicValue.Error(message)
       ),
-      _.asInstanceOf[DynamicValue.Error]
+      _.asInstanceOf[DynamicValue.Error],
+      _.asInstanceOf[DynamicValue],
+      _.isInstanceOf[DynamicValue.Error]
     )
 
   private val noneValueCase: Schema.Case[DynamicValue, DynamicValue.NoneValue.type] =
@@ -1836,6 +1867,8 @@ private[schema] object DynamicValueSchema {
       "NoneValue",
       Schema.singleton(None).transform(_ => DynamicValue.NoneValue, _ => None),
       _.asInstanceOf[DynamicValue.NoneValue.type],
+      _.asInstanceOf[DynamicValue],
+      _.isInstanceOf[DynamicValue.NoneValue.type],
       Chunk("case")
     )
 
@@ -1852,7 +1885,9 @@ private[schema] object DynamicValueSchema {
         ),
         dynamicValue => DynamicValue.RightValue(dynamicValue)
       ),
-      _.asInstanceOf[DynamicValue.RightValue]
+      _.asInstanceOf[DynamicValue.RightValue],
+      _.asInstanceOf[DynamicValue],
+      _.isInstanceOf[DynamicValue.RightValue]
     )
 
   private val leftValueCase: Schema.Case[DynamicValue, DynamicValue.LeftValue] =
@@ -1868,7 +1903,9 @@ private[schema] object DynamicValueSchema {
         ),
         dynamicValue => DynamicValue.LeftValue(dynamicValue)
       ),
-      _.asInstanceOf[DynamicValue.LeftValue]
+      _.asInstanceOf[DynamicValue.LeftValue],
+      _.asInstanceOf[DynamicValue],
+      _.isInstanceOf[DynamicValue.LeftValue]
     )
 
   private val tupleCase: Schema.Case[DynamicValue, DynamicValue.Tuple] =
@@ -1890,7 +1927,9 @@ private[schema] object DynamicValueSchema {
         ),
         (left, right) => DynamicValue.Tuple(left, right)
       ),
-      _.asInstanceOf[DynamicValue.Tuple]
+      _.asInstanceOf[DynamicValue.Tuple],
+      _.asInstanceOf[DynamicValue],
+      _.isInstanceOf[DynamicValue.Tuple]
     )
 
   private val someValueCase: Schema.Case[DynamicValue, DynamicValue.SomeValue] =
@@ -1907,7 +1946,9 @@ private[schema] object DynamicValueSchema {
           ),
         dv => DynamicValue.SomeValue(dv)
       ),
-      _.asInstanceOf[DynamicValue.SomeValue]
+      _.asInstanceOf[DynamicValue.SomeValue],
+      _.asInstanceOf[DynamicValue],
+      _.isInstanceOf[DynamicValue.SomeValue]
     )
 
   private val dictionaryCase: Schema.Case[DynamicValue, DynamicValue.Dictionary] =
@@ -1923,7 +1964,9 @@ private[schema] object DynamicValueSchema {
         ),
         chunk => DynamicValue.Dictionary(chunk)
       ),
-      _.asInstanceOf[DynamicValue.Dictionary]
+      _.asInstanceOf[DynamicValue.Dictionary],
+      _.asInstanceOf[DynamicValue],
+      _.isInstanceOf[DynamicValue.Dictionary]
     )
 
   private val sequenceCase: Schema.Case[DynamicValue, DynamicValue.Sequence] =
@@ -1939,7 +1982,9 @@ private[schema] object DynamicValueSchema {
         ),
         chunk => DynamicValue.Sequence(chunk)
       ),
-      _.asInstanceOf[DynamicValue.Sequence]
+      _.asInstanceOf[DynamicValue.Sequence],
+      _.asInstanceOf[DynamicValue],
+      _.isInstanceOf[DynamicValue.Sequence]
     )
 
   private val setCase: Schema.Case[DynamicValue, DynamicValue.SetValue] =
@@ -1955,7 +2000,9 @@ private[schema] object DynamicValueSchema {
         ),
         set => DynamicValue.SetValue(set)
       ),
-      _.asInstanceOf[DynamicValue.SetValue]
+      _.asInstanceOf[DynamicValue.SetValue],
+      _.asInstanceOf[DynamicValue],
+      _.isInstanceOf[DynamicValue.SetValue]
     )
 
   private val enumerationCase: Schema.Case[DynamicValue, DynamicValue.Enumeration] =
@@ -1977,7 +2024,9 @@ private[schema] object DynamicValueSchema {
         ),
         (id, value) => DynamicValue.Enumeration(id, value)
       ),
-      _.asInstanceOf[DynamicValue.Enumeration]
+      _.asInstanceOf[DynamicValue.Enumeration],
+      _.asInstanceOf[DynamicValue],
+      _.isInstanceOf[DynamicValue.Enumeration]
     )
 
   private val recordCase: Schema.Case[DynamicValue, DynamicValue.Record] =
@@ -1995,7 +2044,9 @@ private[schema] object DynamicValueSchema {
           ),
         (id, chunk) => DynamicValue.Record(id, ListMap(chunk.toSeq: _*))
       ),
-      _.asInstanceOf[DynamicValue.Record]
+      _.asInstanceOf[DynamicValue.Record],
+      _.asInstanceOf[DynamicValue],
+      _.isInstanceOf[DynamicValue.Record]
     )
 
   private val dynamicAstCase: Schema.Case[DynamicValue, DynamicValue.DynamicAst] =
@@ -2011,14 +2062,18 @@ private[schema] object DynamicValueSchema {
         ),
         schemaAst => DynamicValue.DynamicAst(schemaAst)
       ),
-      _.asInstanceOf[DynamicValue.DynamicAst]
+      _.asInstanceOf[DynamicValue.DynamicAst],
+      _.asInstanceOf[DynamicValue],
+      _.isInstanceOf[DynamicValue.DynamicAst]
     )
 
   private val singletonCase: Schema.Case[DynamicValue, DynamicValue.Singleton[Any]] =
     Schema.Case(
       "Singleton",
       Schema[Unit].transform(_ => DynamicValue.Singleton(()), _ => ()),
-      _.asInstanceOf[DynamicValue.Singleton[Any]]
+      _.asInstanceOf[DynamicValue.Singleton[Any]],
+      _.asInstanceOf[DynamicValue],
+      _.isInstanceOf[DynamicValue.Singleton[Any]]
     )
 
   private val primitiveUnitCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Unit]] =
@@ -2027,6 +2082,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Unit].transform(unit => DynamicValue.Primitive(unit, StandardType[Unit]), _.value), {
         case dv @ DynamicValue.Primitive((), _) => dv.asInstanceOf[DynamicValue.Primitive[Unit]]
         case _                                  => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive((), _) => dv.asInstanceOf[DynamicValue]
+        case _                                  => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive((), _) => true
+        case _                             => false
       }
     )
 
@@ -2036,6 +2097,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[String].transform(s => DynamicValue.Primitive(s, StandardType[String]), _.value), {
         case dv @ DynamicValue.Primitive(_: String, _) => dv.asInstanceOf[DynamicValue.Primitive[String]]
         case _                                         => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: String, _) => dv.asInstanceOf[DynamicValue]
+        case _                                         => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: String, _) => true
+        case _                                    => false
       }
     )
 
@@ -2045,6 +2112,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Boolean].transform(b => DynamicValue.Primitive(b, StandardType[Boolean]), _.value), {
         case dv @ DynamicValue.Primitive(_: Boolean, _) => dv.asInstanceOf[DynamicValue.Primitive[Boolean]]
         case _                                          => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: Boolean, _) => dv.asInstanceOf[DynamicValue]
+        case _                                          => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: Boolean, _) => true
+        case _                                     => false
       }
     )
 
@@ -2054,6 +2127,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Short].transform(sh => DynamicValue.Primitive(sh, StandardType[Short]), _.value), {
         case dv @ DynamicValue.Primitive(_: Short, _) => dv.asInstanceOf[DynamicValue.Primitive[Short]]
         case _                                        => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: Short, _) => dv.asInstanceOf[DynamicValue]
+        case _                                        => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: Short, _) => true
+        case _                                   => false
       }
     )
 
@@ -2063,6 +2142,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Int].transform(i => DynamicValue.Primitive(i, StandardType[Int]), _.value), {
         case dv @ DynamicValue.Primitive(_: Int, _) => dv.asInstanceOf[DynamicValue.Primitive[Int]]
         case _                                      => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: Int, _) => dv.asInstanceOf[DynamicValue]
+        case _                                      => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: Int, _) => true
+        case _                                 => false
       }
     )
 
@@ -2072,6 +2157,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Long].transform(l => DynamicValue.Primitive(l, StandardType[Long]), _.value), {
         case dv @ DynamicValue.Primitive(_: Long, _) => dv.asInstanceOf[DynamicValue.Primitive[Long]]
         case _                                       => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: Long, _) => dv.asInstanceOf[DynamicValue]
+        case _                                       => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: Long, _) => true
+        case _                                  => false
       }
     )
 
@@ -2081,6 +2172,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Float].transform(f => DynamicValue.Primitive(f, StandardType[Float]), _.value), {
         case dv @ DynamicValue.Primitive(_: Float, _) => dv.asInstanceOf[DynamicValue.Primitive[Float]]
         case _                                        => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: Float, _) => dv.asInstanceOf[DynamicValue]
+        case _                                        => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: Float, _) => true
+        case _                                   => false
       }
     )
 
@@ -2090,6 +2187,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Double].transform(d => DynamicValue.Primitive(d, StandardType[Double]), _.value), {
         case dv @ DynamicValue.Primitive(_: Double, _) => dv.asInstanceOf[DynamicValue.Primitive[Double]]
         case _                                         => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: Double, _) => dv.asInstanceOf[DynamicValue]
+        case _                                         => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: Double, _) => true
+        case _                                    => false
       }
     )
 
@@ -2099,6 +2202,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Chunk[Byte]].transform(ch => DynamicValue.Primitive(ch, StandardType[Chunk[Byte]]), _.value), {
         case dv @ DynamicValue.Primitive(_: Chunk[_], _) => dv.asInstanceOf[DynamicValue.Primitive[Chunk[Byte]]]
         case _                                           => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: Chunk[_], _) => dv.asInstanceOf[DynamicValue]
+        case _                                           => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: Chunk[_], _) => true
+        case _                                      => false
       }
     )
 
@@ -2108,6 +2217,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Char].transform(ch => DynamicValue.Primitive(ch, StandardType[Char]), _.value), {
         case dv @ DynamicValue.Primitive(_: Char, _) => dv.asInstanceOf[DynamicValue.Primitive[Char]]
         case _                                       => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: Char, _) => dv.asInstanceOf[DynamicValue]
+        case _                                       => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: Char, _) => true
+        case _                                  => false
       }
     )
 
@@ -2117,6 +2232,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[BigDecimal].transform(bd => DynamicValue.Primitive(bd, StandardType[BigDecimal]), _.value), {
         case dv @ DynamicValue.Primitive(_: BigDecimal, _) => dv.asInstanceOf[DynamicValue.Primitive[BigDecimal]]
         case _                                             => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: BigDecimal, _) => dv.asInstanceOf[DynamicValue]
+        case _                                             => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: BigDecimal, _) => true
+        case _                                        => false
       }
     )
 
@@ -2126,6 +2247,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[BigInteger].transform(bi => DynamicValue.Primitive(bi, StandardType[BigInteger]), _.value), {
         case dv @ DynamicValue.Primitive(_: BigInteger, _) => dv.asInstanceOf[DynamicValue.Primitive[BigInteger]]
         case _                                             => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: BigInteger, _) => dv.asInstanceOf[DynamicValue]
+        case _                                             => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: BigInteger, _) => true
+        case _                                        => false
       }
     )
 
@@ -2135,6 +2262,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[DayOfWeek].transform(dw => DynamicValue.Primitive(dw, StandardType[DayOfWeek]), _.value), {
         case dv @ DynamicValue.Primitive(_: DayOfWeek, _) => dv.asInstanceOf[DynamicValue.Primitive[DayOfWeek]]
         case _                                            => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: DayOfWeek, _) => dv.asInstanceOf[DynamicValue]
+        case _                                            => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: DayOfWeek, _) => true
+        case _                                       => false
       }
     )
 
@@ -2144,6 +2277,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Month].transform(m => DynamicValue.Primitive(m, StandardType[Month]), _.value), {
         case dv @ DynamicValue.Primitive(_: Month, _) => dv.asInstanceOf[DynamicValue.Primitive[Month]]
         case _                                        => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: Month, _) => dv.asInstanceOf[DynamicValue]
+        case _                                        => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: Month, _) => true
+        case _                                   => false
       }
     )
 
@@ -2153,6 +2292,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[MonthDay].transform(md => DynamicValue.Primitive(md, StandardType[MonthDay]), _.value), {
         case dv @ DynamicValue.Primitive(_: MonthDay, _) => dv.asInstanceOf[DynamicValue.Primitive[MonthDay]]
         case _                                           => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: MonthDay, _) => dv.asInstanceOf[DynamicValue]
+        case _                                           => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: MonthDay, _) => true
+        case _                                      => false
       }
     )
 
@@ -2162,6 +2307,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Period].transform(p => DynamicValue.Primitive(p, StandardType[Period]), _.value), {
         case dv @ DynamicValue.Primitive(_: Period, _) => dv.asInstanceOf[DynamicValue.Primitive[Period]]
         case _                                         => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: Period, _) => dv.asInstanceOf[DynamicValue]
+        case _                                         => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: Period, _) => true
+        case _                                    => false
       }
     )
 
@@ -2171,6 +2322,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Year].transform(y => DynamicValue.Primitive(y, StandardType[Year]), _.value), {
         case dv @ DynamicValue.Primitive(_: Year, _) => dv.asInstanceOf[DynamicValue.Primitive[Year]]
         case _                                       => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: Year, _) => dv.asInstanceOf[DynamicValue]
+        case _                                       => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: Year, _) => true
+        case _                                  => false
       }
     )
 
@@ -2180,6 +2337,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[YearMonth].transform(ym => DynamicValue.Primitive(ym, StandardType[YearMonth]), _.value), {
         case dv @ DynamicValue.Primitive(_: YearMonth, _) => dv.asInstanceOf[DynamicValue.Primitive[YearMonth]]
         case _                                            => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: YearMonth, _) => dv.asInstanceOf[DynamicValue]
+        case _                                            => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: YearMonth, _) => true
+        case _                                       => false
       }
     )
 
@@ -2189,6 +2352,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[ZoneId].transform(zid => DynamicValue.Primitive(zid, StandardType[ZoneId]), _.value), {
         case dv @ DynamicValue.Primitive(_: ZoneId, _) => dv.asInstanceOf[DynamicValue.Primitive[ZoneId]]
         case _                                         => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: ZoneId, _) => dv.asInstanceOf[DynamicValue]
+        case _                                         => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: ZoneId, _) => true
+        case _                                    => false
       }
     )
 
@@ -2198,6 +2367,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[ZoneOffset].transform(zo => DynamicValue.Primitive(zo, StandardType[ZoneOffset]), _.value), {
         case dv @ DynamicValue.Primitive(_: ZoneOffset, _) => dv.asInstanceOf[DynamicValue.Primitive[ZoneOffset]]
         case _                                             => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: ZoneOffset, _) => dv.asInstanceOf[DynamicValue]
+        case _                                             => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: ZoneOffset, _) => true
+        case _                                        => false
       }
     )
 
@@ -2207,6 +2382,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Instant].transform(i => DynamicValue.Primitive(i, StandardType[Instant]), _.value), {
         case dv @ DynamicValue.Primitive(_: Instant, _) => dv.asInstanceOf[DynamicValue.Primitive[Instant]]
         case _                                          => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: Instant, _) => dv.asInstanceOf[DynamicValue]
+        case _                                          => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: Instant, _) => true
+        case _                                     => false
       }
     )
 
@@ -2216,6 +2397,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Duration].transform(i => DynamicValue.Primitive(i, StandardType[Duration]), _.value), {
         case dv @ DynamicValue.Primitive(_: Duration, _) => dv.asInstanceOf[DynamicValue.Primitive[Duration]]
         case _                                           => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: Duration, _) => dv.asInstanceOf[DynamicValue]
+        case _                                           => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: Duration, _) => true
+        case _                                      => false
       }
     )
 
@@ -2225,6 +2412,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[LocalDate].transform(ld => DynamicValue.Primitive(ld, StandardType[LocalDate]), _.value), {
         case dv @ DynamicValue.Primitive(_: LocalDate, _) => dv.asInstanceOf[DynamicValue.Primitive[LocalDate]]
         case _                                            => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: LocalDate, _) => dv.asInstanceOf[DynamicValue]
+        case _                                            => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: LocalDate, _) => true
+        case _                                       => false
       }
     )
 
@@ -2234,6 +2427,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[LocalTime].transform(lt => DynamicValue.Primitive(lt, StandardType[LocalTime]), _.value), {
         case dv @ DynamicValue.Primitive(_: LocalTime, _) => dv.asInstanceOf[DynamicValue.Primitive[LocalTime]]
         case _                                            => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: LocalTime, _) => dv.asInstanceOf[DynamicValue]
+        case _                                            => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: LocalTime, _) => true
+        case _                                       => false
       }
     )
 
@@ -2245,6 +2444,12 @@ private[schema] object DynamicValueSchema {
         .transform(ldt => DynamicValue.Primitive(ldt, StandardType[LocalDateTime]), _.value), {
         case dv @ DynamicValue.Primitive(_: LocalDateTime, _) => dv.asInstanceOf[DynamicValue.Primitive[LocalDateTime]]
         case _                                                => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: LocalDateTime, _) => dv.asInstanceOf[DynamicValue]
+        case _                                                => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: LocalDateTime, _) => true
+        case _                                           => false
       }
     )
 
@@ -2254,6 +2459,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[OffsetTime].transform(ot => DynamicValue.Primitive(ot, StandardType[OffsetTime]), _.value), {
         case dv @ DynamicValue.Primitive(_: OffsetTime, _) => dv.asInstanceOf[DynamicValue.Primitive[OffsetTime]]
         case _                                             => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: OffsetTime, _) => dv.asInstanceOf[DynamicValue]
+        case _                                             => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: OffsetTime, _) => true
+        case _                                        => false
       }
     )
 
@@ -2266,6 +2477,13 @@ private[schema] object DynamicValueSchema {
         case dv @ DynamicValue.Primitive(_: OffsetDateTime, _) =>
           dv.asInstanceOf[DynamicValue.Primitive[OffsetDateTime]]
         case _ => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: OffsetDateTime, _) =>
+          dv.asInstanceOf[DynamicValue]
+        case _ => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: OffsetDateTime, _) => true
+        case _                                            => false
       }
     )
 
@@ -2277,6 +2495,12 @@ private[schema] object DynamicValueSchema {
         .transform(zdt => DynamicValue.Primitive(zdt, StandardType[ZonedDateTime]), _.value), {
         case dv @ DynamicValue.Primitive(_: ZonedDateTime, _) => dv.asInstanceOf[DynamicValue.Primitive[ZonedDateTime]]
         case _                                                => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: ZonedDateTime, _) => dv.asInstanceOf[DynamicValue]
+        case _                                                => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: ZonedDateTime, _) => true
+        case _                                           => false
       }
     )
 
@@ -2286,6 +2510,12 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[UUID].transform(uuid => DynamicValue.Primitive(uuid, StandardType[UUID]), _.value), {
         case dv @ DynamicValue.Primitive(_: UUID, _) => dv.asInstanceOf[DynamicValue.Primitive[UUID]]
         case _                                       => throw new IllegalArgumentException
+      }, {
+        case dv @ DynamicValue.Primitive(_: UUID, _) => dv.asInstanceOf[DynamicValue]
+        case _                                       => throw new IllegalArgumentException
+      }, {
+        case DynamicValue.Primitive(_: UUID, _) => true
+        case _                                  => false
       }
     )
 

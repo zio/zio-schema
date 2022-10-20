@@ -96,7 +96,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
   private[optics] def makePrismGet[S, A](
     term: Schema.Case[S, A]
   ): S => Either[(OpticFailure, S), A] = { (whole: S) =>
-    term.deconstruct(whole) match {
+    term.deconstructOption(whole) match {
       case Some(a) => Right(a)
       case None    => Left(OpticFailure(s"Cannot deconstruct to term ${term.id}") -> whole)
     }

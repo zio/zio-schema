@@ -272,7 +272,7 @@ object ProtobufCodec extends Codec {
       encode(fieldNumber, schema, value)
 
     private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[Z, _]*): Chunk[Byte] = {
-      val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
+      val fieldIndex = cases.indexWhere(c => c.deconstructOption(value).isDefined)
       val encoded = Chunk.fromIterable(
         if (fieldIndex == -1) {
           Chunk.empty
@@ -281,7 +281,7 @@ object ProtobufCodec extends Codec {
           encode(
             Some(fieldIndex + 1),
             subtypeCase.schema.asInstanceOf[Schema[Any]],
-            subtypeCase.unsafeDeconstruct(value)
+            subtypeCase.deconstruct(value)
           )
         }
       )

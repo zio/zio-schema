@@ -716,7 +716,16 @@ object AvroCodec extends AvroCodec {
                 .getObjectProp(UnionWrapper.propName) == true) {
             t.getFields.asScala.head.schema() // unwrap nested union
           } else t
-        toZioSchema(inner).map(s => Schema.Case[Z, A](t.getFullName, s.asInstanceOf[Schema[A]], _.asInstanceOf[A]))
+        toZioSchema(inner).map(
+          s =>
+            Schema.Case[Z, A](
+              t.getFullName,
+              s.asInstanceOf[Schema[A]],
+              _.asInstanceOf[A],
+              _.asInstanceOf[Z],
+              _.isInstanceOf[A]
+            )
+        )
       })
     val caseSet = cases.toList.map(_.merge).partition {
       case _: String => true
@@ -859,7 +868,9 @@ object AvroCodec extends AvroCodec {
 
   private[codec] def toZioStringEnum(avroSchema: SchemaAvro): scala.util.Either[String, Schema[_]] = {
     val cases =
-      avroSchema.getEnumSymbols.asScala.map(s => Schema.Case[String, String](s, Schema[String], identity)).toSeq
+      avroSchema.getEnumSymbols.asScala
+        .map(s => Schema.Case[String, String](s, Schema[String], identity, identity, _.isInstanceOf[String]))
+        .toSeq
     val caseSet                     = CaseSet[String](cases: _*).asInstanceOf[Aux[String]]
     val enumeration: Schema[String] = Schema.enumeration(TypeId.parse("org.apache.avro.Schema"), caseSet)
     Right(enumeration.addAllAnnotations(buildZioAnnotations(avroSchema)))

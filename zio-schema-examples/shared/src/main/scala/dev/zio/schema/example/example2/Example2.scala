@@ -107,12 +107,16 @@ object Domain {
         id = "CreditCard",
         schema = CreditCard.schema,
         unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.CreditCard],
+        construct = pc => pc.asInstanceOf[PaymentMethod],
+        isCase = _.isInstanceOf[PaymentMethod.CreditCard],
         annotations = Chunk.empty
       ),
       case2 = Case[PaymentMethod, WireTransfer](
         id = "WireTransfer",
         schema = WireTransfer.schema,
         unsafeDeconstruct = pm => pm.asInstanceOf[PaymentMethod.WireTransfer],
+        construct = pc => pc.asInstanceOf[PaymentMethod],
+        isCase = _.isInstanceOf[PaymentMethod.WireTransfer],
         annotations = Chunk.empty
       ),
       annotations = Chunk.empty

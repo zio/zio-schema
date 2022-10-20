@@ -479,6 +479,8 @@ object MetaSchema {
                   label,
                   materialize(ast, refs).asInstanceOf[Schema[Any]],
                   identity[Any],
+                  identity[Any],
+                  _.isInstanceOf[Any],
                   Chunk.empty
                 )
               CaseSet.Cons(_case, acc)
@@ -507,14 +509,22 @@ object MetaSchema {
     Schema.Lazy { () =>
       Schema.EnumN[MetaSchema, CaseSet.Aux[MetaSchema]](
         TypeId.parse("zio.schema.meta.MetaSchema"),
-        caseOf[Value, MetaSchema]("Value")(_.asInstanceOf[Value]) ++
-          caseOf[Sum, MetaSchema]("Sum")(_.asInstanceOf[Sum]) ++
-          caseOf[Either, MetaSchema]("Either")(_.asInstanceOf[Either]) ++
-          caseOf[Product, MetaSchema]("Product")(_.asInstanceOf[Product]) ++
-          caseOf[Tuple, MetaSchema]("Tuple")(_.asInstanceOf[Tuple]) ++
-          caseOf[Ref, MetaSchema]("Ref")(_.asInstanceOf[Ref]) ++
-          caseOf[ListNode, MetaSchema]("ListNode")(_.asInstanceOf[ListNode]) ++
-          caseOf[Dictionary, MetaSchema]("Dictionary")(_.asInstanceOf[Dictionary]),
+        caseOf[Value, MetaSchema]("Value")(_.asInstanceOf[Value])(_.asInstanceOf[MetaSchema])(_.isInstanceOf[Value]) ++
+          caseOf[Sum, MetaSchema]("Sum")(_.asInstanceOf[Sum])(_.asInstanceOf[MetaSchema])(_.isInstanceOf[Sum]) ++
+          caseOf[Either, MetaSchema]("Either")(_.asInstanceOf[Either])(_.asInstanceOf[MetaSchema])(
+            _.isInstanceOf[Either]
+          ) ++
+          caseOf[Product, MetaSchema]("Product")(_.asInstanceOf[Product])(_.asInstanceOf[MetaSchema])(
+            _.isInstanceOf[Product]
+          ) ++
+          caseOf[Tuple, MetaSchema]("Tuple")(_.asInstanceOf[Tuple])(_.asInstanceOf[MetaSchema])(_.isInstanceOf[Tuple]) ++
+          caseOf[Ref, MetaSchema]("Ref")(_.asInstanceOf[Ref])(_.asInstanceOf[MetaSchema])(_.isInstanceOf[Ref]) ++
+          caseOf[ListNode, MetaSchema]("ListNode")(_.asInstanceOf[ListNode])(_.asInstanceOf[MetaSchema])(
+            _.isInstanceOf[ListNode]
+          ) ++
+          caseOf[Dictionary, MetaSchema]("Dictionary")(_.asInstanceOf[Dictionary])(_.asInstanceOf[MetaSchema])(
+            _.isInstanceOf[Dictionary]
+          ),
         Chunk.empty
       )
     }
