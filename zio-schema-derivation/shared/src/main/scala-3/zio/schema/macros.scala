@@ -263,7 +263,13 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
           case other => throw new MatchError(other)
         }
        }
-      '{ Case(${Expr(label)}, $schema, $unsafeDeconstruct, $annotations) }
+       val construct = '{
+        (a: t) => a.asInstanceOf[T]
+       }
+
+       val isCase = '{ (z: T) => z.isInstanceOf[t] }
+
+      '{ Case(${Expr(label)}, $schema, $unsafeDeconstruct, $construct, $isCase, $annotations) }
     }
   }
 

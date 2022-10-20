@@ -273,7 +273,7 @@ object Schema extends SchemaEquality {
     def caseOf(id: String): Option[Case[Z, _]] =
       casesMap.get(id)
 
-    def caseOf(z: Z): Option[Case[Z, _]] = ???
+    def caseOf(z: Z): Option[Case[Z, _]] = cases.find(_.isCase(z))
 
   }
 
