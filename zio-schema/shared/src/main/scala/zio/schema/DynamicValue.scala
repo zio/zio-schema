@@ -2082,10 +2082,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Unit].transform(unit => DynamicValue.Primitive(unit, StandardType[Unit]), _.value), {
         case dv @ DynamicValue.Primitive((), _) => dv.asInstanceOf[DynamicValue.Primitive[Unit]]
         case _                                  => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive((), _) => dv.asInstanceOf[DynamicValue]
-        case _                                  => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[Unit]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive((), _) => true
         case _                             => false
       }
@@ -2097,10 +2095,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[String].transform(s => DynamicValue.Primitive(s, StandardType[String]), _.value), {
         case dv @ DynamicValue.Primitive(_: String, _) => dv.asInstanceOf[DynamicValue.Primitive[String]]
         case _                                         => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: String, _) => dv.asInstanceOf[DynamicValue]
-        case _                                         => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[String]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: String, _) => true
         case _                                    => false
       }
@@ -2112,10 +2108,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Boolean].transform(b => DynamicValue.Primitive(b, StandardType[Boolean]), _.value), {
         case dv @ DynamicValue.Primitive(_: Boolean, _) => dv.asInstanceOf[DynamicValue.Primitive[Boolean]]
         case _                                          => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: Boolean, _) => dv.asInstanceOf[DynamicValue]
-        case _                                          => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[Boolean]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: Boolean, _) => true
         case _                                     => false
       }
@@ -2127,10 +2121,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Short].transform(sh => DynamicValue.Primitive(sh, StandardType[Short]), _.value), {
         case dv @ DynamicValue.Primitive(_: Short, _) => dv.asInstanceOf[DynamicValue.Primitive[Short]]
         case _                                        => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: Short, _) => dv.asInstanceOf[DynamicValue]
-        case _                                        => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[Short]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: Short, _) => true
         case _                                   => false
       }
@@ -2142,10 +2134,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Int].transform(i => DynamicValue.Primitive(i, StandardType[Int]), _.value), {
         case dv @ DynamicValue.Primitive(_: Int, _) => dv.asInstanceOf[DynamicValue.Primitive[Int]]
         case _                                      => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: Int, _) => dv.asInstanceOf[DynamicValue]
-        case _                                      => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[Int]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: Int, _) => true
         case _                                 => false
       }
@@ -2157,10 +2147,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Long].transform(l => DynamicValue.Primitive(l, StandardType[Long]), _.value), {
         case dv @ DynamicValue.Primitive(_: Long, _) => dv.asInstanceOf[DynamicValue.Primitive[Long]]
         case _                                       => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: Long, _) => dv.asInstanceOf[DynamicValue]
-        case _                                       => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[Long]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: Long, _) => true
         case _                                  => false
       }
@@ -2172,10 +2160,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Float].transform(f => DynamicValue.Primitive(f, StandardType[Float]), _.value), {
         case dv @ DynamicValue.Primitive(_: Float, _) => dv.asInstanceOf[DynamicValue.Primitive[Float]]
         case _                                        => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: Float, _) => dv.asInstanceOf[DynamicValue]
-        case _                                        => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[Float]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: Float, _) => true
         case _                                   => false
       }
@@ -2187,10 +2173,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Double].transform(d => DynamicValue.Primitive(d, StandardType[Double]), _.value), {
         case dv @ DynamicValue.Primitive(_: Double, _) => dv.asInstanceOf[DynamicValue.Primitive[Double]]
         case _                                         => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: Double, _) => dv.asInstanceOf[DynamicValue]
-        case _                                         => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[Double]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: Double, _) => true
         case _                                    => false
       }
@@ -2202,10 +2186,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Chunk[Byte]].transform(ch => DynamicValue.Primitive(ch, StandardType[Chunk[Byte]]), _.value), {
         case dv @ DynamicValue.Primitive(_: Chunk[_], _) => dv.asInstanceOf[DynamicValue.Primitive[Chunk[Byte]]]
         case _                                           => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: Chunk[_], _) => dv.asInstanceOf[DynamicValue]
-        case _                                           => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[Chunk[Byte]]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: Chunk[_], _) => true
         case _                                      => false
       }
@@ -2217,10 +2199,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Char].transform(ch => DynamicValue.Primitive(ch, StandardType[Char]), _.value), {
         case dv @ DynamicValue.Primitive(_: Char, _) => dv.asInstanceOf[DynamicValue.Primitive[Char]]
         case _                                       => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: Char, _) => dv.asInstanceOf[DynamicValue]
-        case _                                       => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[Char]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: Char, _) => true
         case _                                  => false
       }
@@ -2232,10 +2212,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[BigDecimal].transform(bd => DynamicValue.Primitive(bd, StandardType[BigDecimal]), _.value), {
         case dv @ DynamicValue.Primitive(_: BigDecimal, _) => dv.asInstanceOf[DynamicValue.Primitive[BigDecimal]]
         case _                                             => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: BigDecimal, _) => dv.asInstanceOf[DynamicValue]
-        case _                                             => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[BigDecimal]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: BigDecimal, _) => true
         case _                                        => false
       }
@@ -2247,10 +2225,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[BigInteger].transform(bi => DynamicValue.Primitive(bi, StandardType[BigInteger]), _.value), {
         case dv @ DynamicValue.Primitive(_: BigInteger, _) => dv.asInstanceOf[DynamicValue.Primitive[BigInteger]]
         case _                                             => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: BigInteger, _) => dv.asInstanceOf[DynamicValue]
-        case _                                             => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[BigInteger]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: BigInteger, _) => true
         case _                                        => false
       }
@@ -2262,10 +2238,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[DayOfWeek].transform(dw => DynamicValue.Primitive(dw, StandardType[DayOfWeek]), _.value), {
         case dv @ DynamicValue.Primitive(_: DayOfWeek, _) => dv.asInstanceOf[DynamicValue.Primitive[DayOfWeek]]
         case _                                            => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: DayOfWeek, _) => dv.asInstanceOf[DynamicValue]
-        case _                                            => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[DayOfWeek]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: DayOfWeek, _) => true
         case _                                       => false
       }
@@ -2277,10 +2251,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Month].transform(m => DynamicValue.Primitive(m, StandardType[Month]), _.value), {
         case dv @ DynamicValue.Primitive(_: Month, _) => dv.asInstanceOf[DynamicValue.Primitive[Month]]
         case _                                        => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: Month, _) => dv.asInstanceOf[DynamicValue]
-        case _                                        => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[Month]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: Month, _) => true
         case _                                   => false
       }
@@ -2292,10 +2264,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[MonthDay].transform(md => DynamicValue.Primitive(md, StandardType[MonthDay]), _.value), {
         case dv @ DynamicValue.Primitive(_: MonthDay, _) => dv.asInstanceOf[DynamicValue.Primitive[MonthDay]]
         case _                                           => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: MonthDay, _) => dv.asInstanceOf[DynamicValue]
-        case _                                           => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[MonthDay]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: MonthDay, _) => true
         case _                                      => false
       }
@@ -2307,10 +2277,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Period].transform(p => DynamicValue.Primitive(p, StandardType[Period]), _.value), {
         case dv @ DynamicValue.Primitive(_: Period, _) => dv.asInstanceOf[DynamicValue.Primitive[Period]]
         case _                                         => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: Period, _) => dv.asInstanceOf[DynamicValue]
-        case _                                         => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[Period]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: Period, _) => true
         case _                                    => false
       }
@@ -2322,10 +2290,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Year].transform(y => DynamicValue.Primitive(y, StandardType[Year]), _.value), {
         case dv @ DynamicValue.Primitive(_: Year, _) => dv.asInstanceOf[DynamicValue.Primitive[Year]]
         case _                                       => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: Year, _) => dv.asInstanceOf[DynamicValue]
-        case _                                       => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[Year]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: Year, _) => true
         case _                                  => false
       }
@@ -2337,10 +2303,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[YearMonth].transform(ym => DynamicValue.Primitive(ym, StandardType[YearMonth]), _.value), {
         case dv @ DynamicValue.Primitive(_: YearMonth, _) => dv.asInstanceOf[DynamicValue.Primitive[YearMonth]]
         case _                                            => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: YearMonth, _) => dv.asInstanceOf[DynamicValue]
-        case _                                            => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[YearMonth]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: YearMonth, _) => true
         case _                                       => false
       }
@@ -2352,10 +2316,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[ZoneId].transform(zid => DynamicValue.Primitive(zid, StandardType[ZoneId]), _.value), {
         case dv @ DynamicValue.Primitive(_: ZoneId, _) => dv.asInstanceOf[DynamicValue.Primitive[ZoneId]]
         case _                                         => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: ZoneId, _) => dv.asInstanceOf[DynamicValue]
-        case _                                         => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[ZoneId]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: ZoneId, _) => true
         case _                                    => false
       }
@@ -2367,10 +2329,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[ZoneOffset].transform(zo => DynamicValue.Primitive(zo, StandardType[ZoneOffset]), _.value), {
         case dv @ DynamicValue.Primitive(_: ZoneOffset, _) => dv.asInstanceOf[DynamicValue.Primitive[ZoneOffset]]
         case _                                             => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: ZoneOffset, _) => dv.asInstanceOf[DynamicValue]
-        case _                                             => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[ZoneOffset]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: ZoneOffset, _) => true
         case _                                        => false
       }
@@ -2382,10 +2342,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Instant].transform(i => DynamicValue.Primitive(i, StandardType[Instant]), _.value), {
         case dv @ DynamicValue.Primitive(_: Instant, _) => dv.asInstanceOf[DynamicValue.Primitive[Instant]]
         case _                                          => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: Instant, _) => dv.asInstanceOf[DynamicValue]
-        case _                                          => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[Instant]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: Instant, _) => true
         case _                                     => false
       }
@@ -2397,10 +2355,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[Duration].transform(i => DynamicValue.Primitive(i, StandardType[Duration]), _.value), {
         case dv @ DynamicValue.Primitive(_: Duration, _) => dv.asInstanceOf[DynamicValue.Primitive[Duration]]
         case _                                           => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: Duration, _) => dv.asInstanceOf[DynamicValue]
-        case _                                           => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[Duration]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: Duration, _) => true
         case _                                      => false
       }
@@ -2412,10 +2368,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[LocalDate].transform(ld => DynamicValue.Primitive(ld, StandardType[LocalDate]), _.value), {
         case dv @ DynamicValue.Primitive(_: LocalDate, _) => dv.asInstanceOf[DynamicValue.Primitive[LocalDate]]
         case _                                            => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: LocalDate, _) => dv.asInstanceOf[DynamicValue]
-        case _                                            => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[LocalDate]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: LocalDate, _) => true
         case _                                       => false
       }
@@ -2427,10 +2381,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[LocalTime].transform(lt => DynamicValue.Primitive(lt, StandardType[LocalTime]), _.value), {
         case dv @ DynamicValue.Primitive(_: LocalTime, _) => dv.asInstanceOf[DynamicValue.Primitive[LocalTime]]
         case _                                            => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: LocalTime, _) => dv.asInstanceOf[DynamicValue]
-        case _                                            => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[LocalTime]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: LocalTime, _) => true
         case _                                       => false
       }
@@ -2444,10 +2396,8 @@ private[schema] object DynamicValueSchema {
         .transform(ldt => DynamicValue.Primitive(ldt, StandardType[LocalDateTime]), _.value), {
         case dv @ DynamicValue.Primitive(_: LocalDateTime, _) => dv.asInstanceOf[DynamicValue.Primitive[LocalDateTime]]
         case _                                                => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: LocalDateTime, _) => dv.asInstanceOf[DynamicValue]
-        case _                                                => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[LocalDateTime]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: LocalDateTime, _) => true
         case _                                           => false
       }
@@ -2459,10 +2409,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[OffsetTime].transform(ot => DynamicValue.Primitive(ot, StandardType[OffsetTime]), _.value), {
         case dv @ DynamicValue.Primitive(_: OffsetTime, _) => dv.asInstanceOf[DynamicValue.Primitive[OffsetTime]]
         case _                                             => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: OffsetTime, _) => dv.asInstanceOf[DynamicValue]
-        case _                                             => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[OffsetTime]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: OffsetTime, _) => true
         case _                                        => false
       }
@@ -2477,11 +2425,8 @@ private[schema] object DynamicValueSchema {
         case dv @ DynamicValue.Primitive(_: OffsetDateTime, _) =>
           dv.asInstanceOf[DynamicValue.Primitive[OffsetDateTime]]
         case _ => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: OffsetDateTime, _) =>
-          dv.asInstanceOf[DynamicValue]
-        case _ => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[OffsetDateTime]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: OffsetDateTime, _) => true
         case _                                            => false
       }
@@ -2495,10 +2440,8 @@ private[schema] object DynamicValueSchema {
         .transform(zdt => DynamicValue.Primitive(zdt, StandardType[ZonedDateTime]), _.value), {
         case dv @ DynamicValue.Primitive(_: ZonedDateTime, _) => dv.asInstanceOf[DynamicValue.Primitive[ZonedDateTime]]
         case _                                                => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: ZonedDateTime, _) => dv.asInstanceOf[DynamicValue]
-        case _                                                => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[ZonedDateTime]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: ZonedDateTime, _) => true
         case _                                           => false
       }
@@ -2510,10 +2453,8 @@ private[schema] object DynamicValueSchema {
       Schema.primitive[UUID].transform(uuid => DynamicValue.Primitive(uuid, StandardType[UUID]), _.value), {
         case dv @ DynamicValue.Primitive(_: UUID, _) => dv.asInstanceOf[DynamicValue.Primitive[UUID]]
         case _                                       => throw new IllegalArgumentException
-      }, {
-        case dv @ DynamicValue.Primitive(_: UUID, _) => dv.asInstanceOf[DynamicValue]
-        case _                                       => throw new IllegalArgumentException
-      }, {
+      },
+      (dv: DynamicValue.Primitive[UUID]) => dv.asInstanceOf[DynamicValue], {
         case DynamicValue.Primitive(_: UUID, _) => true
         case _                                  => false
       }
