@@ -118,7 +118,7 @@ lazy val zioSchemaJVM = zioSchema.jvm
 
 lazy val zioSchemaDerivation = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-derivation"))
-  .dependsOn(zioSchema, zioSchema, zioSchema % "test->test")
+  .dependsOn(zioSchema, zioSchema % "test->test")
   .settings(stdSettings("zio-schema-derivation"))
   .settings(dottySettings)
   .settings(crossProjectSettings)
