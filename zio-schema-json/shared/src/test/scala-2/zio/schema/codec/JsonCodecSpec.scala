@@ -778,7 +778,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
   case class StringValue(value: String)   extends OneOf
   case class IntValue(value: Int)         extends OneOf
   case class BooleanValue(value: Boolean) extends OneOf
-  case class EmptyValue() extends OneOf
+  case class EmptyValue()                 extends OneOf
 
   object OneOf {
     implicit val schema: Schema[OneOf] = DeriveSchema.gen[OneOf]
