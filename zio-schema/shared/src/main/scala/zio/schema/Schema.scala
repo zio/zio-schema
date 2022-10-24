@@ -605,14 +605,13 @@ object Schema extends SchemaEquality {
     override def toString: String = s"Case($id,$schema,$annotations)"
   }
 
-  sealed case class Enum1[A <: Z, Z](id: TypeId, case1: Case[Z, A], annotations: Chunk[Any] = Chunk.empty)
-      extends Enum[Z] {
+  sealed case class Enum1[A, Z](id: TypeId, case1: Case[Z, A], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] {
     self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Prism[case1.id.type, Z, A]
 
     override def annotate(annotation: Any): Enum1[A, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): b.Prism[case1.id.type, Z, A] = b.makePrism(self, case1)
 
@@ -620,7 +619,7 @@ object Schema extends SchemaEquality {
       Chunk(case1)
   }
 
-  sealed case class Enum2[A1 <: Z, A2 <: Z, Z](
+  sealed case class Enum2[A1, A2, Z](
     id: TypeId,
     case1: Case[Z, A1],
     case2: Case[Z, A2],
@@ -632,7 +631,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum2[A1, A2, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[case1.id.type, Z, A1], b.Prism[case2.id.type, Z, A2]) =
       (b.makePrism(self, case1), b.makePrism(self, case2))
@@ -640,7 +639,7 @@ object Schema extends SchemaEquality {
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2)
   }
 
-  sealed case class Enum3[A1 <: Z, A2 <: Z, A3 <: Z, Z](
+  sealed case class Enum3[A1, A2, A3, Z](
     id: TypeId,
     case1: Case[Z, A1],
     case2: Case[Z, A2],
@@ -653,7 +652,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum3[A1, A2, A3, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -663,7 +662,7 @@ object Schema extends SchemaEquality {
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3)
   }
 
-  sealed case class Enum4[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, Z](
+  sealed case class Enum4[A1, A2, A3, A4, Z](
     id: TypeId,
     case1: Case[Z, A1],
     case2: Case[Z, A2],
@@ -682,7 +681,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum4[A1, A2, A3, A4, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -695,7 +694,7 @@ object Schema extends SchemaEquality {
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4)
   }
 
-  sealed case class Enum5[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, Z](
+  sealed case class Enum5[A1, A2, A3, A4, A5, Z](
     id: TypeId,
     case1: Case[Z, A1],
     case2: Case[Z, A2],
@@ -716,7 +715,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum5[A1, A2, A3, A4, A5, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -738,7 +737,7 @@ object Schema extends SchemaEquality {
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5)
   }
 
-  sealed case class Enum6[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, Z](
+  sealed case class Enum6[A1, A2, A3, A4, A5, A6, Z](
     id: TypeId,
     case1: Case[Z, A1],
     case2: Case[Z, A2],
@@ -762,7 +761,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum6[A1, A2, A3, A4, A5, A6, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -786,7 +785,7 @@ object Schema extends SchemaEquality {
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5, case6)
   }
 
-  sealed case class Enum7[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, Z](
+  sealed case class Enum7[A1, A2, A3, A4, A5, A6, A7, Z](
     id: TypeId,
     case1: Case[Z, A1],
     case2: Case[Z, A2],
@@ -812,7 +811,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum7[A1, A2, A3, A4, A5, A6, A7, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -836,7 +835,7 @@ object Schema extends SchemaEquality {
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5, case6, case7)
   }
 
-  sealed case class Enum8[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, Z](
+  sealed case class Enum8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
     id: TypeId,
     case1: Case[Z, A1],
     case2: Case[Z, A2],
@@ -864,7 +863,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum8[A1, A2, A3, A4, A5, A6, A7, A8, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -890,7 +889,7 @@ object Schema extends SchemaEquality {
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5, case6, case7, case8)
   }
 
-  sealed case class Enum9[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, Z](
+  sealed case class Enum9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
     id: TypeId,
     case1: Case[Z, A1],
     case2: Case[Z, A2],
@@ -919,7 +918,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -947,7 +946,7 @@ object Schema extends SchemaEquality {
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9)
   }
 
-  sealed case class Enum10[A1 <: Z, A2 <: Z, A3 <: Z, A4 <: Z, A5 <: Z, A6 <: Z, A7 <: Z, A8 <: Z, A9 <: Z, A10 <: Z, Z](
+  sealed case class Enum10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
     id: TypeId,
     case1: Case[Z, A1],
     case2: Case[Z, A2],
@@ -978,7 +977,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1009,17 +1008,17 @@ object Schema extends SchemaEquality {
   }
 
   sealed case class Enum11[
-    A1 <: Z,
-    A2 <: Z,
-    A3 <: Z,
-    A4 <: Z,
-    A5 <: Z,
-    A6 <: Z,
-    A7 <: Z,
-    A8 <: Z,
-    A9 <: Z,
-    A10 <: Z,
-    A11 <: Z,
+    A1,
+    A2,
+    A3,
+    A4,
+    A5,
+    A6,
+    A7,
+    A8,
+    A9,
+    A10,
+    A11,
     Z
   ](
     id: TypeId,
@@ -1054,7 +1053,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1088,18 +1087,18 @@ object Schema extends SchemaEquality {
   }
 
   sealed case class Enum12[
-    A1 <: Z,
-    A2 <: Z,
-    A3 <: Z,
-    A4 <: Z,
-    A5 <: Z,
-    A6 <: Z,
-    A7 <: Z,
-    A8 <: Z,
-    A9 <: Z,
-    A10 <: Z,
-    A11 <: Z,
-    A12 <: Z,
+    A1,
+    A2,
+    A3,
+    A4,
+    A5,
+    A6,
+    A7,
+    A8,
+    A9,
+    A10,
+    A11,
+    A12,
     Z
   ](
     id: TypeId,
@@ -1136,7 +1135,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1184,19 +1183,19 @@ object Schema extends SchemaEquality {
   }
 
   sealed case class Enum13[
-    A1 <: Z,
-    A2 <: Z,
-    A3 <: Z,
-    A4 <: Z,
-    A5 <: Z,
-    A6 <: Z,
-    A7 <: Z,
-    A8 <: Z,
-    A9 <: Z,
-    A10 <: Z,
-    A11 <: Z,
-    A12 <: Z,
-    A13 <: Z,
+    A1,
+    A2,
+    A3,
+    A4,
+    A5,
+    A6,
+    A7,
+    A8,
+    A9,
+    A10,
+    A11,
+    A12,
+    A13,
     Z
   ](
     id: TypeId,
@@ -1235,7 +1234,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1286,20 +1285,20 @@ object Schema extends SchemaEquality {
   }
 
   sealed case class Enum14[
-    A1 <: Z,
-    A2 <: Z,
-    A3 <: Z,
-    A4 <: Z,
-    A5 <: Z,
-    A6 <: Z,
-    A7 <: Z,
-    A8 <: Z,
-    A9 <: Z,
-    A10 <: Z,
-    A11 <: Z,
-    A12 <: Z,
-    A13 <: Z,
-    A14 <: Z,
+    A1,
+    A2,
+    A3,
+    A4,
+    A5,
+    A6,
+    A7,
+    A8,
+    A9,
+    A10,
+    A11,
+    A12,
+    A13,
+    A14,
     Z
   ](
     id: TypeId,
@@ -1340,7 +1339,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1394,21 +1393,21 @@ object Schema extends SchemaEquality {
   }
 
   sealed case class Enum15[
-    A1 <: Z,
-    A2 <: Z,
-    A3 <: Z,
-    A4 <: Z,
-    A5 <: Z,
-    A6 <: Z,
-    A7 <: Z,
-    A8 <: Z,
-    A9 <: Z,
-    A10 <: Z,
-    A11 <: Z,
-    A12 <: Z,
-    A13 <: Z,
-    A14 <: Z,
-    A15 <: Z,
+    A1,
+    A2,
+    A3,
+    A4,
+    A5,
+    A6,
+    A7,
+    A8,
+    A9,
+    A10,
+    A11,
+    A12,
+    A13,
+    A14,
+    A15,
     Z
   ](
     id: TypeId,
@@ -1453,7 +1452,7 @@ object Schema extends SchemaEquality {
     ): Enum15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1510,22 +1509,22 @@ object Schema extends SchemaEquality {
   }
 
   sealed case class Enum16[
-    A1 <: Z,
-    A2 <: Z,
-    A3 <: Z,
-    A4 <: Z,
-    A5 <: Z,
-    A6 <: Z,
-    A7 <: Z,
-    A8 <: Z,
-    A9 <: Z,
-    A10 <: Z,
-    A11 <: Z,
-    A12 <: Z,
-    A13 <: Z,
-    A14 <: Z,
-    A15 <: Z,
-    A16 <: Z,
+    A1,
+    A2,
+    A3,
+    A4,
+    A5,
+    A6,
+    A7,
+    A8,
+    A9,
+    A10,
+    A11,
+    A12,
+    A13,
+    A14,
+    A15,
+    A16,
     Z
   ](
     id: TypeId,
@@ -1572,7 +1571,7 @@ object Schema extends SchemaEquality {
     ): Enum16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1632,23 +1631,23 @@ object Schema extends SchemaEquality {
   }
 
   sealed case class Enum17[
-    A1 <: Z,
-    A2 <: Z,
-    A3 <: Z,
-    A4 <: Z,
-    A5 <: Z,
-    A6 <: Z,
-    A7 <: Z,
-    A8 <: Z,
-    A9 <: Z,
-    A10 <: Z,
-    A11 <: Z,
-    A12 <: Z,
-    A13 <: Z,
-    A14 <: Z,
-    A15 <: Z,
-    A16 <: Z,
-    A17 <: Z,
+    A1,
+    A2,
+    A3,
+    A4,
+    A5,
+    A6,
+    A7,
+    A8,
+    A9,
+    A10,
+    A11,
+    A12,
+    A13,
+    A14,
+    A15,
+    A16,
+    A17,
     Z
   ](
     id: TypeId,
@@ -1697,7 +1696,7 @@ object Schema extends SchemaEquality {
     ): Enum17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1760,24 +1759,24 @@ object Schema extends SchemaEquality {
   }
 
   sealed case class Enum18[
-    A1 <: Z,
-    A2 <: Z,
-    A3 <: Z,
-    A4 <: Z,
-    A5 <: Z,
-    A6 <: Z,
-    A7 <: Z,
-    A8 <: Z,
-    A9 <: Z,
-    A10 <: Z,
-    A11 <: Z,
-    A12 <: Z,
-    A13 <: Z,
-    A14 <: Z,
-    A15 <: Z,
-    A16 <: Z,
-    A17 <: Z,
-    A18 <: Z,
+    A1,
+    A2,
+    A3,
+    A4,
+    A5,
+    A6,
+    A7,
+    A8,
+    A9,
+    A10,
+    A11,
+    A12,
+    A13,
+    A14,
+    A15,
+    A16,
+    A17,
+    A18,
     Z
   ](
     id: TypeId,
@@ -1828,7 +1827,7 @@ object Schema extends SchemaEquality {
     ): Enum18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1894,25 +1893,25 @@ object Schema extends SchemaEquality {
   }
 
   sealed case class Enum19[
-    A1 <: Z,
-    A2 <: Z,
-    A3 <: Z,
-    A4 <: Z,
-    A5 <: Z,
-    A6 <: Z,
-    A7 <: Z,
-    A8 <: Z,
-    A9 <: Z,
-    A10 <: Z,
-    A11 <: Z,
-    A12 <: Z,
-    A13 <: Z,
-    A14 <: Z,
-    A15 <: Z,
-    A16 <: Z,
-    A17 <: Z,
-    A18 <: Z,
-    A19 <: Z,
+    A1,
+    A2,
+    A3,
+    A4,
+    A5,
+    A6,
+    A7,
+    A8,
+    A9,
+    A10,
+    A11,
+    A12,
+    A13,
+    A14,
+    A15,
+    A16,
+    A17,
+    A18,
+    A19,
     Z
   ](
     id: TypeId,
@@ -1965,7 +1964,7 @@ object Schema extends SchemaEquality {
     ): Enum19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -2034,26 +2033,26 @@ object Schema extends SchemaEquality {
   }
 
   sealed case class Enum20[
-    A1 <: Z,
-    A2 <: Z,
-    A3 <: Z,
-    A4 <: Z,
-    A5 <: Z,
-    A6 <: Z,
-    A7 <: Z,
-    A8 <: Z,
-    A9 <: Z,
-    A10 <: Z,
-    A11 <: Z,
-    A12 <: Z,
-    A13 <: Z,
-    A14 <: Z,
-    A15 <: Z,
-    A16 <: Z,
-    A17 <: Z,
-    A18 <: Z,
-    A19 <: Z,
-    A20 <: Z,
+    A1,
+    A2,
+    A3,
+    A4,
+    A5,
+    A6,
+    A7,
+    A8,
+    A9,
+    A10,
+    A11,
+    A12,
+    A13,
+    A14,
+    A15,
+    A16,
+    A17,
+    A18,
+    A19,
+    A20,
     Z
   ](
     id: TypeId,
@@ -2108,7 +2107,7 @@ object Schema extends SchemaEquality {
     ): Enum20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -2180,27 +2179,27 @@ object Schema extends SchemaEquality {
   }
 
   sealed case class Enum21[
-    A1 <: Z,
-    A2 <: Z,
-    A3 <: Z,
-    A4 <: Z,
-    A5 <: Z,
-    A6 <: Z,
-    A7 <: Z,
-    A8 <: Z,
-    A9 <: Z,
-    A10 <: Z,
-    A11 <: Z,
-    A12 <: Z,
-    A13 <: Z,
-    A14 <: Z,
-    A15 <: Z,
-    A16 <: Z,
-    A17 <: Z,
-    A18 <: Z,
-    A19 <: Z,
-    A20 <: Z,
-    A21 <: Z,
+    A1,
+    A2,
+    A3,
+    A4,
+    A5,
+    A6,
+    A7,
+    A8,
+    A9,
+    A10,
+    A11,
+    A12,
+    A13,
+    A14,
+    A15,
+    A16,
+    A17,
+    A18,
+    A19,
+    A20,
+    A21,
     Z
   ](
     id: TypeId,
@@ -2257,7 +2256,7 @@ object Schema extends SchemaEquality {
     ): Enum21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -2334,28 +2333,28 @@ object Schema extends SchemaEquality {
   }
 
   sealed case class Enum22[
-    A1 <: Z,
-    A2 <: Z,
-    A3 <: Z,
-    A4 <: Z,
-    A5 <: Z,
-    A6 <: Z,
-    A7 <: Z,
-    A8 <: Z,
-    A9 <: Z,
-    A10 <: Z,
-    A11 <: Z,
-    A12 <: Z,
-    A13 <: Z,
-    A14 <: Z,
-    A15 <: Z,
-    A16 <: Z,
-    A17 <: Z,
-    A18 <: Z,
-    A19 <: Z,
-    A20 <: Z,
-    A21 <: Z,
-    A22 <: Z,
+    A1,
+    A2,
+    A3,
+    A4,
+    A5,
+    A6,
+    A7,
+    A8,
+    A9,
+    A10,
+    A11,
+    A12,
+    A13,
+    A14,
+    A15,
+    A16,
+    A17,
+    A18,
+    A19,
+    A20,
+    A21,
+    A22,
     Z
   ](
     id: TypeId,
@@ -2414,7 +2413,7 @@ object Schema extends SchemaEquality {
     ): Enum22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue
+    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(
       b: AccessorBuilder
