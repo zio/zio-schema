@@ -2040,7 +2040,8 @@ private[schema] object DynamicValueSchema {
             "values",
             Schema.defer(Schema.chunk(Schema.tuple2(Schema.primitive[String], DynamicValueSchema()))),
             get = record => Chunk.fromIterable(record.values),
-            set = (record, values) => record.copy(values = ListMap.from(values.toMap))
+            set = (record, values) =>
+              record.copy(values = values.foldRight(ListMap.empty[String, DynamicValue])((a, b) => b + a))
           ),
         (id, chunk) => DynamicValue.Record(id, ListMap(chunk.toSeq: _*))
       ),

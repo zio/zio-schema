@@ -1929,8 +1929,8 @@ object AssertionHelper {
   def enumStructure(assertion: Assertion[ListMap[String, (Schema[_], Chunk[Any])]]): Assertion[Schema.Enum[_]] =
     Assertion.assertionRec("enumStructure")(assertion)(
       enum =>
-        Some(`enum`.cases.foldRight(ListMap.empty[String, (Schema[_], Chunk[Any])]) {
-          case (caseValue, acc) => acc + (caseValue.id -> (caseValue.schema, caseValue.annotations))
+        Some(`enum`.cases.foldRight(ListMap.empty[String, (Schema[_], Chunk[Any])]) { (caseValue, acc) =>
+          (acc + (caseValue.id -> scala.Tuple2(caseValue.schema, caseValue.annotations)))
         })
     )
 
