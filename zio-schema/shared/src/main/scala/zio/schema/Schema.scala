@@ -215,8 +215,6 @@ object Schema extends SchemaEquality {
     }
   )
 
-  implicit val dynamicValue: Schema[DynamicValue] = DynamicValueSchema()
-
   implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
     Schema.Sequence[Chunk[A], A, String](schemaA, identity, identity, Chunk.empty, "Chunk")
 
