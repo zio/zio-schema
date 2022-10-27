@@ -124,7 +124,7 @@ object DynamicValue {
     var currentSchema: Schema[_]                   = schema
     var currentValue: Any                          = value
     var result: DynamicValue                       = null
-    val stack: mutable.Stack[DynamicValue => Unit] = mutable.Stack.empty
+    val stack: mutable.Stack[DynamicValue => Unit] = mutable.Stack.empty[DynamicValue => Unit]
 
     def finishWith(resultValue: DynamicValue): Unit =
       if (stack.nonEmpty) {
@@ -146,7 +146,10 @@ object DynamicValue {
             finishWith(
               DynamicValue.Record(
                 id,
-                ListMap.from(fs.map(_.name).zip(values.result()))
+                fs.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, DynamicValue]) {
+                  case (lm, pair) =>
+                    lm.updated(pair._1, pair._2)
+                }
               )
             )
         }
@@ -205,7 +208,10 @@ object DynamicValue {
                 finishWith(
                   DynamicValue.Record(
                     id,
-                    ListMap.from(structureChunk.map(_.name).zip(values.result()))
+                    structureChunk.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, DynamicValue]) {
+                      case (lm, pair) =>
+                        lm.updated(pair._1, pair._2)
+                    }
                   )
                 )
             }
