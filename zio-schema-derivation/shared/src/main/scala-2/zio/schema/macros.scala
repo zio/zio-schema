@@ -258,7 +258,17 @@ object DeriveSchema {
                 currentFrame +: stack
               )
               val fieldLabel = termSymbol.name.toString.trim
-              q"zio.schema.Schema.Field.apply($fieldLabel,$fieldSchema,zio.Chunk.apply[Any](..$annotations))"
+
+              val getFunc =
+                q" (z: scala.collection.immutable.ListMap[String, _]) => z.apply($fieldLabel).asInstanceOf[${termSymbol.typeSignature}]"
+
+              val setFunc =
+                q" (z: scala.collection.immutable.ListMap[String, _], v: ${termSymbol.typeSignature}) => z.updated($fieldLabel, v)"
+
+              if (annotations.nonEmpty)
+                q"zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), get = $getFunc, set = $setFunc)"
+              else
+                q"zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, get = $getFunc, set = $setFunc)"
           }
           val fromMap = {
             val casts = fieldTypes.map { termSymbol =>
@@ -313,18 +323,23 @@ object DeriveSchema {
 
           val fieldDefs = fieldTypes.zip(fieldAnnotations).zip(fieldValidations).zipWithIndex.map {
             case (((termSymbol, annotations), validation), idx) =>
+              val fieldType = concreteType(tpe, termSymbol.typeSignature)
               val fieldSchema = directInferSchema(
                 tpe,
-                concreteType(tpe, termSymbol.typeSignature),
+                fieldType,
                 currentFrame +: stack
               )
               val fieldArg   = if (fieldTypes.size > 1) TermName(s"field${idx + 1}") else TermName("field")
               val fieldLabel = termSymbol.name.toString.trim
+              val getArg     = TermName(fieldLabel)
+
+              val getFunc = q" (z: $tpe) => z.$getArg"
+              val setFunc = q" (z: $tpe, v: ${fieldType}) => z.copy($getArg = v)"
 
               if (annotations.nonEmpty)
-                q"""$fieldArg = zio.schema.Schema.Field.apply(label = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), validation = $validation)"""
+                q"""$fieldArg = zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), validation = $validation, get = $getFunc, set = $setFunc)"""
               else
-                q"""$fieldArg = zio.schema.Schema.Field.apply(label = $fieldLabel, schema = $fieldSchema, validation = $validation)"""
+                q"""$fieldArg = zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, validation = $validation, get = $getFunc, set = $setFunc)"""
           }
 
           val constructArgs = fieldTypes.zipWithIndex.map {
@@ -338,23 +353,21 @@ object DeriveSchema {
               q"$arg"
           }
 
-          val constructExpr = q"construct = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
-
-          val extractors = fieldAccessors.map(_.toString).zipWithIndex.foldLeft(Seq.empty[c.universe.Tree]) {
-            case (acc, (fieldLabel, idx)) =>
-              val argName = if (fieldTypes.size > 1) TermName(s"extractField${idx + 1}") else TermName("extractField")
-              acc :+ q"$argName = (t: $tpe) => t.${TermName(fieldLabel)}"
-          }
+          val constructExpr =
+            if (arity < 2)
+              q"defaultConstruct = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
+            else
+              q"construct = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
 
           val applyArgs =
             if (typeAnnotations.isEmpty)
               Iterable(q"annotations = zio.Chunk.empty") ++ Iterable(q"id = ${typeId}") ++ fieldDefs ++ Iterable(
                 constructExpr
-              ) ++ extractors
+              )
             else
               Iterable(q"annotations = zio.Chunk.apply(..$typeAnnotations)") ++ Iterable(q"id = ${typeId}") ++ fieldDefs ++ Iterable(
                 constructExpr
-              ) ++ extractors
+              )
 
           fieldTypes.size match {
             case 0 =>
@@ -508,11 +521,13 @@ object DeriveSchema {
         val caseLabel     = subtype.typeSymbol.name.toString.trim
         val caseSchema    = directInferSchema(tpe, concreteType(tpe, subtype), currentFrame +: stack)
         val deconstructFn = q"(z: $tpe) => z.asInstanceOf[$subtype]"
+        val constructFn   = q"(z: $subtype) => z.asInstanceOf[$tpe]"
+        val isCaseFn      = q"(z: $tpe) => z.isInstanceOf[$subtype]"
         if (typeAnnotations.isEmpty)
-          q"zio.schema.Schema.Case.apply[$subtype,$tpe]($caseLabel,$caseSchema,$deconstructFn)"
+          q"zio.schema.Schema.Case.apply[$tpe, $subtype]($caseLabel,$caseSchema,$deconstructFn, $constructFn, $isCaseFn)"
         else {
           val annotationArgs = q"zio.Chunk.apply(..$typeAnnotations)"
-          q"zio.schema.Schema.Case.apply[$subtype,$tpe]($caseLabel,$caseSchema,$deconstructFn,$annotationArgs)"
+          q"zio.schema.Schema.Case.apply[$tpe, $subtype]($caseLabel,$caseSchema,$deconstructFn, $constructFn, $isCaseFn, $annotationArgs)"
         }
       }
 

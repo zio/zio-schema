@@ -3,8 +3,8 @@ package dev.zio.schema.example.example7
 import scala.collection.immutable.ListMap
 import scala.util.Try
 
-import zio.Chunk
 import zio.schema._
+import zio.{ Chunk, Unsafe }
 
 /** This exercise is based on John DeGoes' Spartan training on ZIO-Schema from 2021-11-04
  */
@@ -137,12 +137,12 @@ private[example7] object Problem {
             }
 
           case cc: CaseClass1[a, B] =>
-            val f = compile[a](Some(cc.field.label), cc.field.schema)
-            (qp: QueryParams) => f(qp).map(v => cc.construct(v))
+            val f = compile[a](Some(cc.field.name), cc.field.schema)
+            (qp: QueryParams) => f(qp).map(v => cc.defaultConstruct(v))
 
           case cc: CaseClass2[a, b, B] =>
-            val f1 = compile[a](Some(cc.field1.label), cc.field1.schema)
-            val f2 = compile[b](Some(cc.field2.label), cc.field2.schema)
+            val f1 = compile[a](Some(cc.field1.name), cc.field1.schema)
+            val f2 = compile[b](Some(cc.field2.name), cc.field2.schema)
 
             (qp: QueryParams) =>
               for {
@@ -151,9 +151,9 @@ private[example7] object Problem {
               } yield cc.construct(v1, v2)
 
           case cc: CaseClass3[a, b, c, B] =>
-            val f1 = compile[a](Some(cc.field1.label), cc.field1.schema)
-            val f2 = compile[b](Some(cc.field2.label), cc.field2.schema)
-            val f3 = compile[c](Some(cc.field3.label), cc.field3.schema)
+            val f1 = compile[a](Some(cc.field1.name), cc.field1.schema)
+            val f2 = compile[b](Some(cc.field2.name), cc.field2.schema)
+            val f3 = compile[c](Some(cc.field3.name), cc.field3.schema)
 
             (qp: QueryParams) =>
               for {
@@ -165,16 +165,18 @@ private[example7] object Problem {
             // And so on to arity 23..
 
           case record: Record[B] =>
-            (qp: QueryParams) => {
-              record.structure.map {
-                case Schema.Field(label, schema, _, _) =>
-                  compile(Some(label), schema)(qp)
-              }.foldRight[scala.util.Either[String, Chunk[Any]]](Right(Chunk.empty)) {
-                  case (Right(nextValue), Right(values)) => Right(values :+ nextValue)
-                  case (Left(err), _)                    => Left(err)
-                  case (_, Left(err))                    => Left(err)
-                }
-                .flatMap(record.rawConstruct)
+            Unsafe.unsafe { implicit unsafe => (qp: QueryParams) =>
+              {
+                record.fields.map {
+                  case Schema.Field(label, schema, _, _, _, _) =>
+                    compile(Some(label), schema)(qp)
+                }.foldRight[scala.util.Either[String, Chunk[Any]]](Right(Chunk.empty)) {
+                    case (Right(nextValue), Right(values)) => Right(values :+ nextValue)
+                    case (Left(err), _)                    => Left(err)
+                    case (_, Left(err))                    => Left(err)
+                  }
+                  .flatMap(record.construct)
+              }
             }
 
           case Fail(message, _) => Function.const(Left(message))
