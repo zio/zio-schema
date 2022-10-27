@@ -661,6 +661,15 @@ object ThriftCodecSpec extends ZIOSpecDefault {
             } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         }
       },
+      test("deep recursive data types") {
+        check(SchemaGen.anyDeepRecursiveTypeAndValue) {
+          case (schema, value) =>
+            for {
+              ed  <- encodeAndDecode(schema, value)
+              ed2 <- encodeAndDecodeNS(schema, value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+        }
+      },
       suite("dynamic")(
         test("dynamic int") {
           check(

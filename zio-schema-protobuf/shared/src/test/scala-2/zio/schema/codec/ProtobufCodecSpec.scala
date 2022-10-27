@@ -582,6 +582,15 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 //              ed2 <- encodeAndDecodeNS(schema, value)
               } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
           }
+        },
+        test("deep recursive data types") {
+          check(SchemaGen.anyDeepRecursiveTypeAndValue) {
+            case (schema, value) =>
+              for {
+                ed <- encodeAndDecode2(schema, value)
+                //              ed2 <- encodeAndDecodeNS(schema, value)
+              } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
+          }
         }
       ),
       suite("Should successfully decode")(

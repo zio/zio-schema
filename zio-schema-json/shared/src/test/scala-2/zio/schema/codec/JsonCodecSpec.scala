@@ -555,6 +555,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
             assertEncodesThenDecodes(schema, value)
         }
       },
+      test("deep recursive data type") {
+        check(SchemaGen.anyDeepRecursiveTypeAndValue) {
+          case (schema, value) =>
+            assertEncodesThenDecodes(schema, value)
+        }
+      },
       suite("dynamic")(
         test("dynamic int") {
           check(
