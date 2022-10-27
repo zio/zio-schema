@@ -1,14 +1,13 @@
 package zio.schema
 
+import zio.schema.meta.{ MetaSchema, Migration }
+import zio.{ Chunk, Unsafe }
+
 import java.math.{ BigDecimal, BigInteger }
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
-
-import zio.schema.meta.{ MetaSchema, Migration }
-import zio.{ Chunk, ChunkBuilder, Unsafe }
 
 sealed trait DynamicValue {
   self =>
@@ -117,705 +116,60 @@ sealed trait DynamicValue {
 }
 
 object DynamicValue {
+  private object FromSchemaAndValue extends ProcessSchemaAndValueWithoutState[DynamicValue] {
+    override protected def processPrimitive(value: Any, typ: StandardType[Any]): DynamicValue =
+      DynamicValue.Primitive(value, typ)
+
+    override protected def processRecord(schema: Schema.Record[_], value: ListMap[String, DynamicValue]): DynamicValue =
+      DynamicValue.Record(schema.id, value)
+
+    override protected def processEnum(schema: Schema.Enum[_], tuple: (String, DynamicValue)): DynamicValue =
+      DynamicValue.Enumeration(schema.id, tuple)
+
+    override protected def processSequence(schema: Schema.Sequence[_, _, _], value: Chunk[DynamicValue]): DynamicValue =
+      DynamicValue.Sequence(value)
+
+    override protected def processDictionary(
+      schema: Schema.Map[_, _],
+      value: Chunk[(DynamicValue, DynamicValue)]
+    ): DynamicValue =
+      DynamicValue.Dictionary(value)
+
+    override protected def processSet(schema: Schema.Set[_], value: Set[DynamicValue]): DynamicValue =
+      DynamicValue.SetValue(value)
+
+    override protected def processEither(
+      schema: Schema.Either[_, _],
+      value: Either[DynamicValue, DynamicValue]
+    ): DynamicValue =
+      value match {
+        case Left(value)  => DynamicValue.LeftValue(value)
+        case Right(value) => DynamicValue.RightValue(value)
+      }
+
+    override protected def processOption(schema: Schema.Optional[_], value: Option[DynamicValue]): DynamicValue =
+      value match {
+        case Some(value) => DynamicValue.SomeValue(value)
+        case None        => DynamicValue.NoneValue
+      }
+
+    override protected def processTuple(
+      schema: Schema.Tuple2[_, _],
+      left: DynamicValue,
+      right: DynamicValue
+    ): DynamicValue =
+      DynamicValue.Tuple(left, right)
+
+    override protected def processDynamic(value: DynamicValue): Option[DynamicValue] =
+      Some(value)
+
+    override protected def fail(message: String): DynamicValue =
+      DynamicValue.Error(message)
+  }
 
   //scalafmt: { maxColumn = 400 }
-  def fromSchemaAndValue[A](schema: Schema[A], value: A): DynamicValue = {
-    var currentSchema: Schema[_]          = schema
-    var currentValue: Any                 = value
-    var result: DynamicValue              = null
-    var stack: List[DynamicValue => Unit] = List.empty[DynamicValue => Unit]
-
-    def push(f: DynamicValue => Unit): Unit =
-      stack = f :: stack
-
-    def finishWith(resultValue: DynamicValue): Unit =
-      if (stack.nonEmpty) {
-        val head = stack.head
-        stack = stack.tail
-        head(resultValue)
-      } else {
-        result = resultValue
-      }
-
-    def fields(id: TypeId, record: Any, fs: Schema.Field[_, _]*): Unit = {
-      val values = ChunkBuilder.make[DynamicValue](fs.size)
-
-      def processNext(remaining: List[Schema.Field[_, _]]): Unit =
-        remaining match {
-          case next :: _ =>
-            currentSchema = next.schema
-            currentValue = next.asInstanceOf[Schema.Field[Any, Any]].get(record)
-            push(processField(remaining, _))
-          case Nil =>
-            finishWith(
-              DynamicValue.Record(
-                id,
-                fs.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, DynamicValue]) {
-                  case (lm, pair) =>
-                    lm.updated(pair._1, pair._2)
-                }
-              )
-            )
-        }
-
-      def processField(currentStructure: List[Schema.Field[_, _]], fieldResult: DynamicValue): Unit = {
-        values += fieldResult
-        val remaining = currentStructure.tail
-        processNext(remaining)
-      }
-
-      processNext(fs.toList)
-    }
-
-    def enumCases(id: TypeId, cs: Schema.Case[_, _]*): Unit = {
-      var found = false
-      val it    = cs.iterator
-      while (!found && it.hasNext) {
-        val c = it.next().asInstanceOf[Schema.Case[Any, Any]]
-        c.deconstructOption(currentValue) match {
-          case Some(v) =>
-            currentValue = v
-            currentSchema = c.schema
-            push(dv => finishWith(DynamicValue.Enumeration(id, c.id -> dv)))
-            found = true
-          case None =>
-        }
-      }
-
-      if (!found) {
-        //This should never happen unless someone manually builds an Enum and doesn't include all cases
-        finishWith(DynamicValue.NoneValue)
-      }
-    }
-
-    while (result eq null) {
-      currentSchema match {
-
-        case l @ Schema.Lazy(_) =>
-          currentSchema = l.schema
-
-        case Schema.Primitive(p, _) =>
-          finishWith(DynamicValue.Primitive(currentValue, p.asInstanceOf[StandardType[Any]]))
-
-        case Schema.GenericRecord(id, structure, _) =>
-          val map            = currentValue.asInstanceOf[ListMap[String, _]]
-          val structureChunk = structure.toChunk
-          val values         = ChunkBuilder.make[DynamicValue](structureChunk.size)
-
-          def processNext(remaining: List[Schema.Field[ListMap[String, _], _]]): Unit =
-            remaining match {
-              case next :: _ =>
-                currentSchema = next.schema
-                currentValue = map(next.name)
-                push(processField(remaining, _))
-              case Nil =>
-                finishWith(
-                  DynamicValue.Record(
-                    id,
-                    structureChunk.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, DynamicValue]) {
-                      case (lm, pair) =>
-                        lm.updated(pair._1, pair._2)
-                    }
-                  )
-                )
-            }
-
-          def processField(currentStructure: List[Schema.Field[ListMap[String, _], _]], fieldResult: DynamicValue): Unit = {
-            values += fieldResult
-            val remaining = currentStructure.tail
-            processNext(remaining)
-          }
-
-          processNext(structureChunk.toList)
-
-        case Schema.Enum1(id, case1, _) =>
-          enumCases(id, case1)
-
-        case Schema.Enum2(id, case1, case2, _) =>
-          enumCases(id, case1, case2)
-
-        case Schema.Enum3(id, case1, case2, case3, _) =>
-          enumCases(id, case1, case2, case3)
-
-        case Schema.Enum4(id, case1, case2, case3, case4, _) =>
-          enumCases(id, case1, case2, case3, case4)
-
-        case Schema.Enum5(id, case1, case2, case3, case4, case5, _) =>
-          enumCases(id, case1, case2, case3, case4, case5)
-
-        case Schema.Enum6(id, case1, case2, case3, case4, case5, case6, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6)
-
-        case Schema.Enum7(id, case1, case2, case3, case4, case5, case6, case7, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6, case7)
-
-        case Schema.Enum8(id, case1, case2, case3, case4, case5, case6, case7, case8, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6, case7, case8)
-
-        case Schema.Enum9(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6, case7, case8, case9)
-
-        case Schema.Enum10(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10)
-
-        case Schema.Enum11(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11)
-
-        case Schema.Enum12(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12)
-
-        case Schema.Enum13(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13)
-
-        case Schema.Enum14(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14)
-
-        case Schema.Enum15(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15)
-
-        case Schema.Enum16(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16)
-
-        case Schema.Enum17(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17)
-
-        case Schema.Enum18(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18)
-
-        case Schema.Enum19(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19)
-
-        case Schema.Enum20(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20)
-
-        case Schema.Enum21(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21)
-
-        case Schema.Enum22(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, case22, _) =>
-          enumCases(id, case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11, case12, case13, case14, case15, case16, case17, case18, case19, case20, case21, case22)
-        //scalafmt: { maxColumn = 120 }
-
-        case Schema.EnumN(id, cases, _) =>
-          enumCases(id, cases.toSeq: _*)
-
-        case Schema.Fail(message, _) =>
-          finishWith(DynamicValue.Error(message))
-
-        case Schema.Sequence(schema, _, toChunk, _, _) =>
-          val inputChunk  = toChunk.asInstanceOf[Any => Chunk[Any]](currentValue)
-          val resultChunk = ChunkBuilder.make[DynamicValue](inputChunk.size)
-
-          def processNext(inputIdx: Int): Unit =
-            if (inputIdx == inputChunk.size)
-              finishWith(DynamicValue.Sequence(resultChunk.result()))
-            else {
-              currentSchema = schema
-              currentValue = inputChunk(inputIdx)
-              push { dv =>
-                resultChunk += dv
-                processNext(inputIdx + 1)
-              }
-            }
-
-          processNext(0)
-
-        case Schema.Map(ks: Schema[k], vs: Schema[v], _) =>
-          val inputChunk  = Chunk.fromIterable(currentValue.asInstanceOf[Map[k, v]])
-          val resultChunk = ChunkBuilder.make[(DynamicValue, DynamicValue)](inputChunk.size)
-          val kvSchema    = Schema.tuple2(ks, vs)
-
-          def processNext(inputIdx: Int): Unit =
-            if (inputIdx == inputChunk.size)
-              finishWith(DynamicValue.Dictionary(resultChunk.result()))
-            else {
-              currentSchema = kvSchema
-              currentValue = inputChunk(inputIdx)
-              push {
-                case DynamicValue.Tuple(a, b) =>
-                  val pair = (a, b)
-                  resultChunk += pair
-                  processNext(inputIdx + 1)
-                case _ =>
-                  finishWith(DynamicValue.Error("Unexpected dynamic value when converting a Map"))
-              }
-            }
-
-          processNext(0)
-
-        case Schema.Set(as: Schema[a], _) =>
-          val inputChunk  = Chunk.fromIterable(currentValue.asInstanceOf[Set[a]])
-          val resultChunk = ChunkBuilder.make[DynamicValue](inputChunk.size)
-
-          def processNext(inputIdx: Int): Unit =
-            if (inputIdx == inputChunk.size)
-              finishWith(DynamicValue.SetValue(resultChunk.result().toSet))
-            else {
-              currentSchema = as
-              currentValue = inputChunk(inputIdx)
-              push { dv =>
-                resultChunk += dv
-                processNext(inputIdx + 1)
-              }
-            }
-
-          processNext(0)
-
-        case schema: Schema.Either[l, r] =>
-          currentValue.asInstanceOf[Either[l, r]] match {
-            case Left(value: l) =>
-              currentValue = value
-              currentSchema = schema.left
-              push(dyn => finishWith(DynamicValue.LeftValue(dyn)))
-            case Right(value: r) =>
-              currentValue = value
-              currentSchema = schema.right
-              push(dyn => finishWith(DynamicValue.RightValue(dyn)))
-          }
-
-        case schema: Schema.Tuple2[a, b] =>
-          val (a: a, b: b) = currentValue.asInstanceOf[(a, b)]
-          currentValue = a
-          currentSchema = schema.left
-          push { dynA =>
-            currentValue = b
-            currentSchema = schema.right
-            push { dynB =>
-              finishWith(DynamicValue.Tuple(dynA, dynB))
-            }
-          }
-
-        case schema: Schema.Optional[a] =>
-          currentValue.asInstanceOf[Option[a]] match {
-            case Some(value: a) =>
-              currentValue = value
-              currentSchema = schema.schema
-              push { dyn =>
-                finishWith(DynamicValue.SomeValue(dyn))
-              }
-            case None =>
-              finishWith(DynamicValue.NoneValue)
-          }
-
-        case Schema.Transform(schema, _, g, _, _) =>
-          g.asInstanceOf[Any => Either[String, Any]](currentValue) match {
-            case Left(message) =>
-              finishWith(DynamicValue.Error(message))
-            case Right(a) =>
-              currentValue = a
-              currentSchema = schema
-          }
-
-        case Schema.CaseClass0(id, _, _) =>
-          finishWith(DynamicValue.Record(id, ListMap()))
-
-        case Schema.CaseClass1(id, f, _, _) =>
-          fields(id, currentValue, f)
-
-        case Schema.CaseClass2(id, f1, f2, _, _) =>
-          fields(id, currentValue, f1, f2)
-        case Schema.CaseClass3(id, f1, f2, f3, _, _) =>
-          fields(id, currentValue, f1, f2, f3)
-        case Schema.CaseClass4(id, f1, f2, f3, f4, _, _) =>
-          fields(id, currentValue, f1, f2, f3, f4)
-        case Schema.CaseClass5(id, f1, f2, f3, f4, f5, _, _) =>
-          fields(id, currentValue, f1, f2, f3, f4, f5)
-        case Schema.CaseClass6(id, f1, f2, f3, f4, f5, f6, _, _) =>
-          fields(id, currentValue, f1, f2, f3, f4, f5, f6)
-        case Schema.CaseClass7(id, f1, f2, f3, f4, f5, f6, f7, _, _) =>
-          fields(id, currentValue, f1, f2, f3, f4, f5, f6, f7)
-        case Schema.CaseClass8(
-            id,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            _,
-            _
-            ) =>
-          fields(id, currentValue, f1, f2, f3, f4, f5, f6, f7, f8)
-        case Schema.CaseClass9(
-            id,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            _,
-            _
-            ) =>
-          fields(id, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9)
-        case Schema.CaseClass10(
-            id,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            _,
-            _
-            ) =>
-          fields(id, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10)
-        case Schema.CaseClass11(
-            id,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            _,
-            _
-            ) =>
-          fields(id, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11)
-        case Schema.CaseClass12(
-            id,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            _,
-            _
-            ) =>
-          fields(id, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12)
-        case Schema.CaseClass13(
-            id,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            _,
-            _
-            ) =>
-          fields(id, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13)
-        case Schema.CaseClass14(
-            id,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            _,
-            _
-            ) =>
-          fields(id, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14)
-        case Schema.CaseClass15(
-            id,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            f15,
-            _,
-            _
-            ) =>
-          fields(id, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15)
-        case Schema.CaseClass16(
-            id,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            f15,
-            f16,
-            _,
-            _
-            ) =>
-          fields(id, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16)
-        case Schema.CaseClass17(
-            id,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            f15,
-            f16,
-            f17,
-            _,
-            _
-            ) =>
-          fields(id, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17)
-        case Schema.CaseClass18(
-            id,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            f15,
-            f16,
-            f17,
-            f18,
-            _,
-            _
-            ) =>
-          fields(id, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18)
-        case Schema.CaseClass19(
-            id,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            f15,
-            f16,
-            f17,
-            f18,
-            f19,
-            _,
-            _
-            ) =>
-          fields(id, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19)
-        case Schema.CaseClass20(
-            id,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            f15,
-            f16,
-            f17,
-            f18,
-            f19,
-            f20,
-            _,
-            _
-            ) =>
-          fields(
-            id,
-            currentValue,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            f15,
-            f16,
-            f17,
-            f18,
-            f19,
-            f20
-          )
-        case Schema.CaseClass21(
-            id,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            f15,
-            f16,
-            f17,
-            f18,
-            f19,
-            f20,
-            f21,
-            _,
-            _
-            ) =>
-          fields(
-            id,
-            currentValue,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            f15,
-            f16,
-            f17,
-            f18,
-            f19,
-            f20,
-            f21
-          )
-        case Schema.CaseClass22(
-            id,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            f15,
-            f16,
-            f17,
-            f18,
-            f19,
-            f20,
-            f21,
-            f22,
-            _,
-            _
-            ) =>
-          fields(
-            id,
-            currentValue,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            f15,
-            f16,
-            f17,
-            f18,
-            f19,
-            f20,
-            f21,
-            f22
-          )
-        case Schema.Dynamic(_) =>
-          finishWith(currentValue.asInstanceOf[DynamicValue])
-      }
-    }
-    result
-  }
+  def fromSchemaAndValue[A](schema: Schema[A], value: A): DynamicValue =
+    FromSchemaAndValue.process(schema, value)
 
   def decodeStructure(
     values: ListMap[String, DynamicValue],
@@ -1134,8 +488,7 @@ private[schema] object DynamicValueSchema {
             "values",
             Schema.defer(Schema.chunk(Schema.tuple2(Schema.primitive[String], DynamicValueSchema()))),
             get = record => Chunk.fromIterable(record.values),
-            set = (record, values) =>
-              record.copy(values = values.foldRight(ListMap.empty[String, DynamicValue])((a, b) => b + a))
+            set = (record, values) => record.copy(values = values.foldRight(ListMap.empty[String, DynamicValue])((a, b) => b + a))
           ),
         (id, chunk) => DynamicValue.Record(id, ListMap(chunk.toSeq: _*))
       ),
