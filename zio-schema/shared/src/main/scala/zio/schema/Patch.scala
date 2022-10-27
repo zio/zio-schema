@@ -311,14 +311,14 @@ object Patch {
     override def isComparable: Boolean = differences.forall(_._2.isComparable)
 
     override def patch(input: R): Either[String, R] = {
-      val structure = schema.structure
+      val structure = schema.fields
 
       val patchedDynamicValue = schema.toDynamic(input) match {
         case DynamicValue.Record(name, values) => {
           differences
             .foldLeft[Either[String, ListMap[String, DynamicValue]]](Right(values)) {
               case (Right(record), (key, diff)) =>
-                (structure.find(_.label == key).map(_.schema), values.get(key)) match {
+                (structure.find(_.name == key).map(_.schema), values.get(key)) match {
                   case (Some(schema: Schema[b]), Some(oldValue)) =>
                     val oldVal = oldValue.toTypedValue(schema)
                     oldVal

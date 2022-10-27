@@ -45,9 +45,9 @@ object SchemaOrdering {
     case (Schema.Transform(schemaA, _, _, _, _), lVal, rVal) =>
       compareBySchema(schemaA)(lVal, rVal)
     case (e: Schema.Enum[_], Enumeration(_, (lField, lVal)), Enumeration(_, (rField, rVal))) if lField == rField =>
-      compareBySchema(e.structure(lField))(lVal, rVal)
+      compareBySchema(e.caseOf(lField).map(_.schema).get)(lVal, rVal) // FIXME: .get
     case (e: Schema.Enum[_], Enumeration(_, (lField, _)), Enumeration(_, (rField, _))) => {
-      val fields = e.structure.keys.toList
+      val fields = e.cases.map(_.id).toList
       fields.indexOf(lField).compareTo(fields.indexOf(rField))
     }
     //are two record with the different name equal?
@@ -63,13 +63,13 @@ object SchemaOrdering {
     lVals: Map[String, DynamicValue],
     rVals: Map[String, DynamicValue]
   ): Int = {
-    val j = r.structure.length
+    val j = r.fields.length
     @tailrec
     def loop(i: Int): Int =
       if (i == j) 0
       else {
-        val field           = r.structure(i)
-        val fieldComparison = compareBySchema(field.schema)(lVals(field.label), rVals(field.label))
+        val field           = r.fields(i)
+        val fieldComparison = compareBySchema(field.schema)(lVals(field.name), rVals(field.name))
         if (fieldComparison == 0) loop(i + 1) else fieldComparison
       }
     loop(0)

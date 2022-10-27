@@ -48,7 +48,7 @@ object DynamicValueGen {
   def anyDynamicValueOfSchema[A](schema: Schema[A]): Gen[Sized, DynamicValue] =
     schema match {
       case Schema.Primitive(standardType, _)                                                                                                                                                          => anyPrimitiveDynamicValue(standardType)
-      case s: Schema.Record[A]                                                                                                                                                                        => anyDynamicValueWithStructure(s.structure)
+      case s: Schema.Record[A]                                                                                                                                                                        => anyDynamicValueWithStructure(s.fields)
       case Schema.Enum1(_, case1, _)                                                                                                                                                                  => anyDynamicValueOfEnum(Chunk(case1))
       case Schema.Enum2(_, case1, case2, _)                                                                                                                                                           => anyDynamicValueOfEnum(Chunk(case1, case2))
       case Schema.Enum3(_, case1, case2, case3, _)                                                                                                                                                    => anyDynamicValueOfEnum(Chunk(case1, case2, case3))
@@ -100,17 +100,17 @@ object DynamicValueGen {
       case (l, r) => DynamicValue.Tuple(l, r)
     }
 
-  def anyDynamicValueOfEnum[A](cases: Chunk[Schema.Case[_, A]]): Gen[Sized, DynamicValue.Enumeration] =
+  def anyDynamicValueOfEnum[A](cases: Chunk[Schema.Case[A, _]]): Gen[Sized, DynamicValue.Enumeration] =
     for {
       index <- Gen.int(0, cases.size - 1)
       value <- anyDynamicValueOfSchema(cases(index).schema)
     } yield DynamicValue.Enumeration(TypeId.Structural, cases(index).id -> value)
 
-  def anyDynamicValueWithStructure(structure: Chunk[Schema.Field[_]]): Gen[Sized, DynamicValue.Record] =
+  def anyDynamicValueWithStructure[A](structure: Chunk[Schema.Field[A, _]]): Gen[Sized, DynamicValue.Record] =
     Gen
       .collectAll(
         structure
-          .map(field => Gen.const(field.label).zip(anyDynamicValueOfSchema(field.schema)))
+          .map(field => Gen.const(field.name).zip(anyDynamicValueOfSchema(field.schema)))
       )
       .map { values =>
         DynamicValue.Record(TypeId.Structural, ListMap.empty ++ values)

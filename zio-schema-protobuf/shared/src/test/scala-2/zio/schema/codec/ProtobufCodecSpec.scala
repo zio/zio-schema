@@ -781,16 +781,52 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
     val genericRecord: Schema[ListMap[String, _]] = Schema.record(
       TypeId.Structural,
-      Schema.Field("c", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("b", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("a", Schema.Primitive(StandardType.IntType))
+      Schema
+        .Field(
+          "c",
+          Schema.Primitive(StandardType.IntType),
+          get = (p: ListMap[String, _]) => p("c").asInstanceOf[Int],
+          set = (p, v: Int) => p.updated("c", v)
+        ),
+      Schema
+        .Field(
+          "b",
+          Schema.Primitive(StandardType.IntType),
+          get = (p: ListMap[String, _]) => p("b").asInstanceOf[Int],
+          set = (p, v: Int) => p.updated("b", v)
+        ),
+      Schema
+        .Field(
+          "a",
+          Schema.Primitive(StandardType.IntType),
+          get = (p: ListMap[String, _]) => p("a").asInstanceOf[Int],
+          set = (p, v: Int) => p.updated("a", v)
+        )
     )
 
     val genericRecordSorted: Schema[ListMap[String, _]] = Schema.record(
       TypeId.Structural,
-      Schema.Field("a", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("b", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("c", Schema.Primitive(StandardType.IntType))
+      Schema
+        .Field(
+          "a",
+          Schema.Primitive(StandardType.IntType),
+          get = (p: ListMap[String, _]) => p("a").asInstanceOf[Int],
+          set = (p, v: Int) => p.updated("a", v)
+        ),
+      Schema
+        .Field(
+          "b",
+          Schema.Primitive(StandardType.IntType),
+          get = (p: ListMap[String, _]) => p("b").asInstanceOf[Int],
+          set = (p, v: Int) => p.updated("b", v)
+        ),
+      Schema
+        .Field(
+          "c",
+          Schema.Primitive(StandardType.IntType),
+          get = (p: ListMap[String, _]) => p("c").asInstanceOf[Int],
+          set = (p, v: Int) => p.updated("c", v)
+        )
     )
   }
 
@@ -866,12 +902,17 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
   lazy val schemaGenericEnumeration: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
     TypeId.Structural,
-    caseOf[String, Any]("string")(_.asInstanceOf[String]) ++ caseOf[Int, Any]("int")(_.asInstanceOf[Int])
+    caseOf[String, Any]("string")(_.asInstanceOf[String])(_.asInstanceOf[Any])(_.isInstanceOf[String]) ++ caseOf[
+      Int,
+      Any
+    ]("int")(_.asInstanceOf[Int])(_.asInstanceOf[Any])(_.isInstanceOf[Int])
   )
 
   lazy val schemaGenericEnumerationSorted: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
     TypeId.Structural,
-    caseOf[Int, Any]("int")(_.asInstanceOf[Int]) ++ caseOf[String, Any]("string")(_.asInstanceOf[String])
+    caseOf[Int, Any]("int")(_.asInstanceOf[Int])(_.asInstanceOf[Any])(_.isInstanceOf[Int]) ++ caseOf[String, Any](
+      "string"
+    )(_.asInstanceOf[String])(_.asInstanceOf[Any])(_.isInstanceOf[String])
   )
 
   val schemaFail: Schema[StringValue] = Schema.fail("failing schema")

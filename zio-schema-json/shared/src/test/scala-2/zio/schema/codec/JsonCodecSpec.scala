@@ -462,8 +462,17 @@ object JsonCodecSpec extends ZIOSpecDefault {
       test("minimal test case") {
         SchemaGen.anyRecordAndValue().runHead.flatMap {
           case Some((schema, value)) =>
-            val key      = new String(Array('\u0007', '\n'))
-            val embedded = Schema.record(TypeId.Structural, Schema.Field(key, schema))
+            val key = new String(Array('\u0007', '\n'))
+            val embedded = Schema.record(
+              TypeId.Structural,
+              Schema
+                .Field[ListMap[String, _], ListMap[String, _]](
+                  key,
+                  schema,
+                  get = (p: ListMap[String, _]) => p(key).asInstanceOf[ListMap[String, _]],
+                  set = (p: ListMap[String, _], v: ListMap[String, _]) => p.updated(key, v)
+                )
+            )
             assertEncodesThenDecodes(embedded, ListMap(key -> value))
           case None => ZIO.fail("Should never happen!")
         }
@@ -484,7 +493,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
           assertEncodesThenDecodes(
             Schema.record(
               TypeId.parse("java.time.ZoneOffset"),
-              Schema.Field("zoneOffset", Schema.Primitive(StandardType.ZoneOffsetType))
+              Schema.Field(
+                "zoneOffset",
+                Schema.Primitive(StandardType.ZoneOffsetType),
+                get = (p: ListMap[String, _]) => p("zoneOffset").asInstanceOf[ZoneOffset],
+                set = (p: ListMap[String, _], v: ZoneOffset) => p.updated("zoneOffset", v)
+              )
             ),
             ListMap[String, Any]("zoneOffset" -> zoneOffset)
           )
@@ -756,22 +770,46 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   val recordSchema: Schema[ListMap[String, _]] = Schema.record(
     TypeId.Structural,
-    Schema.Field("foo", Schema.Primitive(StandardType.StringType)),
-    Schema.Field("bar", Schema.Primitive(StandardType.IntType))
+    Schema.Field(
+      "foo",
+      Schema.Primitive(StandardType.StringType),
+      get = (p: ListMap[String, _]) => p("foo").asInstanceOf[String],
+      set = (p: ListMap[String, _], v: String) => p.updated("foo", v)
+    ),
+    Schema
+      .Field(
+        "bar",
+        Schema.Primitive(StandardType.IntType),
+        get = (p: ListMap[String, _]) => p("bar").asInstanceOf[Int],
+        set = (p: ListMap[String, _], v: Int) => p.updated("bar", v)
+      )
   )
 
   val nestedRecordSchema: Schema[ListMap[String, _]] = Schema.record(
     TypeId.Structural,
-    Schema.Field("l1", Schema.Primitive(StandardType.StringType)),
-    Schema.Field("l2", recordSchema)
+    Schema.Field(
+      "l1",
+      Schema.Primitive(StandardType.StringType),
+      get = (p: ListMap[String, _]) => p("l1").asInstanceOf[String],
+      set = (p: ListMap[String, _], v: String) => p.updated("l1", v)
+    ),
+    Schema.Field(
+      "l2",
+      recordSchema,
+      get = (p: ListMap[String, _]) => p("l2").asInstanceOf[ListMap[String, _]],
+      set = (p: ListMap[String, _], v: ListMap[String, _]) => p.updated("l2", v)
+    )
   )
 
   val enumSchema: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
     TypeId.Structural,
-    caseOf[String, Any]("string")(_.asInstanceOf[String]) ++ caseOf[Int, Any]("int")(_.asInstanceOf[Int]) ++ caseOf[
+    caseOf[String, Any]("string")(_.asInstanceOf[String])(_.asInstanceOf[Any])(_.isInstanceOf[String]) ++ caseOf[
+      Int,
+      Any
+    ]("int")(_.asInstanceOf[Int])(_.asInstanceOf[Any])(_.isInstanceOf[Int]) ++ caseOf[
       Boolean,
       Any
-    ]("boolean")(_.asInstanceOf[Boolean])
+    ]("boolean")(_.asInstanceOf[Boolean])(_.asInstanceOf[Any])(_.isInstanceOf[Boolean])
   )
 
   sealed trait OneOf
