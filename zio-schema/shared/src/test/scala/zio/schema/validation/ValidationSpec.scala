@@ -1,18 +1,20 @@
 package zio.schema.validation
 
-import java.time.format.DateTimeFormatter
-
-import scala.util.Try
-
 import zio.Scope
 import zio.test._
 
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import scala.util.Try
+
 object ValidationSpec extends ZIOSpecDefault {
+  import zio.schema.validation.ValidationSpec.AmPm._
+  import zio.schema.validation.ValidationSpec.Fraction._
   import zio.schema.validation.ValidationSpec.Hour._
   import zio.schema.validation.ValidationSpec.Minute._
   import zio.schema.validation.ValidationSpec.Second._
-  import zio.schema.validation.ValidationSpec.Fraction._
-  import zio.schema.validation.ValidationSpec.AmPm._
+
+  Locale.setDefault(Locale.US)
 
   def spec: Spec[Environment with TestEnvironment with Scope, Any] = suite("ValidationSpec")(
     test("Greater than") {
