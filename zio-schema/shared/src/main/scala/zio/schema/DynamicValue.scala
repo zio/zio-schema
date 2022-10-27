@@ -6,7 +6,6 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 import scala.collection.immutable.ListMap
-import scala.collection.mutable
 
 import zio.schema.meta.{ MetaSchema, Migration }
 import zio.{ Chunk, ChunkBuilder, Unsafe }
@@ -121,14 +120,19 @@ object DynamicValue {
 
   //scalafmt: { maxColumn = 400 }
   def fromSchemaAndValue[A](schema: Schema[A], value: A): DynamicValue = {
-    var currentSchema: Schema[_]                   = schema
-    var currentValue: Any                          = value
-    var result: DynamicValue                       = null
-    val stack: mutable.Stack[DynamicValue => Unit] = mutable.Stack.empty[DynamicValue => Unit]
+    var currentSchema: Schema[_]          = schema
+    var currentValue: Any                 = value
+    var result: DynamicValue              = null
+    var stack: List[DynamicValue => Unit] = List.empty[DynamicValue => Unit]
+
+    def push(f: DynamicValue => Unit): Unit =
+      stack = f :: stack
 
     def finishWith(resultValue: DynamicValue): Unit =
       if (stack.nonEmpty) {
-        stack.pop()(resultValue)
+        val head = stack.head
+        stack = stack.tail
+        head(resultValue)
       } else {
         result = resultValue
       }
@@ -141,7 +145,7 @@ object DynamicValue {
           case next :: _ =>
             currentSchema = next.schema
             currentValue = next.asInstanceOf[Schema.Field[Any, Any]].get(record)
-            stack.push(processField(remaining, _))
+            push(processField(remaining, _))
           case Nil =>
             finishWith(
               DynamicValue.Record(
@@ -172,7 +176,7 @@ object DynamicValue {
           case Some(v) =>
             currentValue = v
             currentSchema = c.schema
-            stack.push(dv => finishWith(DynamicValue.Enumeration(id, c.id -> dv)))
+            push(dv => finishWith(DynamicValue.Enumeration(id, c.id -> dv)))
             found = true
           case None =>
         }
@@ -203,7 +207,7 @@ object DynamicValue {
               case next :: _ =>
                 currentSchema = next.schema
                 currentValue = map(next.name)
-                stack.push(processField(remaining, _))
+                push(processField(remaining, _))
               case Nil =>
                 finishWith(
                   DynamicValue.Record(
@@ -307,7 +311,7 @@ object DynamicValue {
             else {
               currentSchema = schema
               currentValue = inputChunk(inputIdx)
-              stack.push { dv =>
+              push { dv =>
                 resultChunk += dv
                 processNext(inputIdx + 1)
               }
@@ -326,7 +330,7 @@ object DynamicValue {
             else {
               currentSchema = kvSchema
               currentValue = inputChunk(inputIdx)
-              stack.push {
+              push {
                 case DynamicValue.Tuple(a, b) =>
                   val pair = (a, b)
                   resultChunk += pair
@@ -348,7 +352,7 @@ object DynamicValue {
             else {
               currentSchema = as
               currentValue = inputChunk(inputIdx)
-              stack.push { dv =>
+              push { dv =>
                 resultChunk += dv
                 processNext(inputIdx + 1)
               }
@@ -361,21 +365,21 @@ object DynamicValue {
             case Left(value: l) =>
               currentValue = value
               currentSchema = schema.left
-              stack.push(dyn => finishWith(DynamicValue.LeftValue(dyn)))
+              push(dyn => finishWith(DynamicValue.LeftValue(dyn)))
             case Right(value: r) =>
               currentValue = value
               currentSchema = schema.right
-              stack.push(dyn => finishWith(DynamicValue.RightValue(dyn)))
+              push(dyn => finishWith(DynamicValue.RightValue(dyn)))
           }
 
         case schema: Schema.Tuple2[a, b] =>
           val (a: a, b: b) = currentValue.asInstanceOf[(a, b)]
           currentValue = a
           currentSchema = schema.left
-          stack.push { dynA =>
+          push { dynA =>
             currentValue = b
             currentSchema = schema.right
-            stack.push { dynB =>
+            push { dynB =>
               finishWith(DynamicValue.Tuple(dynA, dynB))
             }
           }
@@ -385,7 +389,7 @@ object DynamicValue {
             case Some(value: a) =>
               currentValue = value
               currentSchema = schema.schema
-              stack.push { dyn =>
+              push { dyn =>
                 finishWith(DynamicValue.SomeValue(dyn))
               }
             case None =>
