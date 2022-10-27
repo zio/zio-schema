@@ -70,7 +70,7 @@ object DeriveGen {
       case tuple @ Schema.Tuple2(_, _, _)                                                                                           => genTuple(tuple)
       case either @ Schema.Either(_, _, _)                                                                                          => genEither(either)
       case lazzy @ Schema.Lazy(_)                                                                                                   => genLazy(lazzy)
-      case Schema.Dynamic(_)                                                                                                        => gen(DynamicValueSchema())
+      case Schema.Dynamic(_)                                                                                                        => gen(DynamicValue.schema)
     } // scalafmt: { maxColumn = 120 }
 
   private def genEnum[Z](cases: Schema.Case[Z, _]*) =

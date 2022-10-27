@@ -207,7 +207,7 @@ object JsonCodec extends Codec {
       case Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
         enumEncoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case Schema.EnumN(_, cs, _) => enumEncoder(cs.toSeq: _*)
-      case Schema.Dynamic(_)      => dynamicEncoder(DynamicValueSchema.schema)
+      case Schema.Dynamic(_)      => dynamicEncoder(DynamicValue.schema)
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -370,7 +370,7 @@ object JsonCodec extends Codec {
       case Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
         enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case Schema.EnumN(_, cs, _) => enumDecoder(cs.toSeq: _*)
-      case Schema.Dynamic(_)      => dynamicDecoder(DynamicValueSchema.schema)
+      case Schema.Dynamic(_)      => dynamicDecoder(DynamicValue.schema)
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 

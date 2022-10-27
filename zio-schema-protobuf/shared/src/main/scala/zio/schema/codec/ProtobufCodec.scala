@@ -259,7 +259,7 @@ object ProtobufCodec extends Codec {
         case (Schema.Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _), v)      => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
         case (Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case (Schema.EnumN(_, cs, _), v)                                                                                                   => encodeEnum(fieldNumber, v, cs.toSeq: _*)
-        case (Schema.Dynamic(_), v)                                                                                                        => dynamicEncode(fieldNumber, DynamicValueSchema.schema, v)
+        case (Schema.Dynamic(_), v)                                                                                                        => dynamicEncode(fieldNumber, DynamicValue.schema, v)
         case (_, _)                                                                                                                        => Chunk.empty
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
@@ -637,7 +637,7 @@ object ProtobufCodec extends Codec {
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
     private val dynamicDecoder: Decoder[DynamicValue] =
-      decoder(DynamicValueSchema.schema)
+      decoder(DynamicValue.schema)
 
     private def enumDecoder[Z](cases: Schema.Case[Z, _]*): Decoder[Z] =
       keyDecoder.flatMap {
