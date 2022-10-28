@@ -249,11 +249,10 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
 
       if (anns.nonEmpty) {
         val newName = anns.collectFirst {
-          case ann if ann.isExprOf[fieldName] => ann.asExprOf[fieldName]
-        }
-        println(newName) // this is a fieldName(value), how to access the value here?
-        
-        '{ Field(${Expr(name)}, $schema, $chunk, $validator, $get, $set) }
+          case ann if ann.isExprOf[fieldName] => '{${ann.asExprOf[fieldName]}.name}
+        }.getOrElse(Expr(name))
+
+        '{ Field($newName, $schema, $chunk, $validator, $get, $set) }
       } else {
         '{ Field(${Expr(name)}, $schema, $chunk, $validator, $get, $set) }
       }
