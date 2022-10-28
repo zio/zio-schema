@@ -1,8 +1,8 @@
 package zio.schema
 
-import zio.{ Chunk, ChunkBuilder }
-
 import scala.collection.immutable.ListMap
+
+import zio.{ Chunk, ChunkBuilder }
 
 trait ProcessValueWithSchema[Target <: AnyRef, State] {
   protected def processPrimitive(state: State, value: Any, typ: StandardType[Any]): Target
