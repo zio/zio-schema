@@ -560,7 +560,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           case (schema, value) =>
             assertEncodesThenDecodes(schema, value)
         }
-      },
+      } @@ TestAspect.sized(200),
       suite("dynamic")(
         test("dynamic int") {
           check(

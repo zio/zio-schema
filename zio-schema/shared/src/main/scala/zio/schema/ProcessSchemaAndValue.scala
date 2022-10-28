@@ -34,7 +34,9 @@ trait ProcessValueWithSchema[Target <: AnyRef, State] {
   protected def stateForEnumConstructor(state: State, index: Int, c: Schema.Case[_, _]): State
   protected def stateForEither(state: State, e: Either[Unit, Unit]): State
   protected def stateForOption(state: State, o: Option[Unit]): State
-  protected def stateForSequence(state: State): State
+  protected def stateForSequence(state: State, schema: Schema.Sequence[_, _, _], index: Int): State
+  protected def stateForMap(state: State, schema: Schema.Map[_, _], index: Int): State
+  protected def stateForSet(state: State, schema: Schema.Set[_], index: Int): State
 
   def process[A](schema: Schema[A], value: A): Target = {
     var currentSchema: Schema[_]    = schema
@@ -659,20 +661,22 @@ trait ProcessValueWithSchema[Target <: AnyRef, State] {
           val inputChunk  = toChunk.asInstanceOf[Any => Chunk[Any]](currentValue)
           val resultChunk = ChunkBuilder.make[Target](inputChunk.size)
 
-          def processNext(inputIdx: Int): Unit =
+          def processNext(inputIdx: Int): Unit = {
+            stateStack = stateStack.tail
             if (inputIdx == inputChunk.size) {
-              stateStack = stateStack.tail
               finishWith(processSequence(state, s, resultChunk.result()))
             } else {
               currentSchema = schema
               currentValue = inputChunk(inputIdx)
+              pushState(stateForSequence(state, s, inputIdx))
               push { dv =>
                 resultChunk += dv
                 processNext(inputIdx + 1)
               }
             }
+          }
 
-          pushState(stateForSequence(state))
+          pushState(stateForSequence(state, s, 0))
           processNext(0)
 
         case s @ Schema.Map(ks: Schema[k], vs: Schema[v], _) =>
@@ -687,13 +691,13 @@ trait ProcessValueWithSchema[Target <: AnyRef, State] {
               val currentTuple = inputChunk(inputIdx)
               currentValue = currentTuple._1
 
-              pushState(stateForSequence(state))
+              pushState(stateForMap(state, s, inputIdx))
               push { (a: Target) =>
                 stateStack = stateStack.tail
 
                 currentSchema = vs
                 currentValue = currentTuple._2
-                pushState(stateForSequence(state))
+                pushState(stateForMap(state, s, inputIdx))
                 push { (b: Target) =>
                   stateStack = stateStack.tail
                   val pair = (a, b)
@@ -709,20 +713,22 @@ trait ProcessValueWithSchema[Target <: AnyRef, State] {
           val inputChunk  = Chunk.fromIterable(currentValue.asInstanceOf[Set[a]])
           val resultChunk = ChunkBuilder.make[Target](inputChunk.size)
 
-          def processNext(inputIdx: Int): Unit =
+          def processNext(inputIdx: Int): Unit = {
+            stateStack = stateStack.tail
             if (inputIdx == inputChunk.size) {
-              stateStack = stateStack.tail
               finishWith(processSet(state, s, resultChunk.result().toSet))
             } else {
               currentSchema = as
               currentValue = inputChunk(inputIdx)
+              pushState(stateForSet(state, s, inputIdx))
               push { dv =>
                 resultChunk += dv
                 processNext(inputIdx + 1)
               }
             }
+          }
 
-          pushState(stateForSequence(state))
+          pushState(stateForSet(state, s, 0))
           processNext(0)
 
         case s: Schema.Either[l, r] =>
@@ -1326,6 +1332,12 @@ trait ProcessSchemaAndValueWithoutState[Target <: AnyRef] extends ProcessValueWi
   override protected def stateForTuple(state: Unit, index: Int): Unit =
     ()
 
-  override protected def stateForSequence(state: Unit): Unit =
+  override protected def stateForSequence(state: Unit, schema: Schema.Sequence[_, _, _], index: Int): Unit =
+    ()
+
+  override protected def stateForMap(state: Unit, schema: Schema.Map[_, _], index: Int): Unit =
+    ()
+
+  override protected def stateForSet(state: Unit, schema: Schema.Set[_], index: Int): Unit =
     ()
 }

@@ -17,9 +17,9 @@ import zio.{ Chunk, ZIO }
 
 object ProtobufCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] =
-    ZPipeline.mapChunks(values => values.flatMap(Encoder.encode(None, schema, _)))
+    ZPipeline.mapChunks(values => values.flatMap(Encoder.process(schema, _)))
 
-  override def encode[A](schema: Schema[A]): A => Chunk[Byte] = a => Encoder.encode(None, schema, a)
+  override def encode[A](schema: Schema[A]): A => Chunk[Byte] = a => Encoder.process(schema, a)
 
   override def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Byte, A] =
     ZPipeline.mapChunksZIO(chunk => ZIO.fromEither(Decoder.decode(schema, chunk).map(Chunk(_))))
@@ -171,172 +171,196 @@ object ProtobufCodec extends Codec {
     }
   }
 
-  object Encoder {
+  final private[codec] case class EncoderState(fieldNumber: Option[Int])
 
-    import ProductEncoder._
+  object Encoder extends ProcessValueWithSchema[Chunk[Byte], EncoderState] {
     import Protobuf._
 
-    //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
-    def encode[A](fieldNumber: Option[Int], schema: Schema[A], value: A): Chunk[Byte] =
-      (schema, value) match {
-        case (Schema.GenericRecord(_, structure, _), v: Map[String, _]) =>
-          encodeRecord(fieldNumber, structure.toChunk, v)
-        case (Schema.Sequence(element, _, g, _, _), v)                                         => encodeSequence(fieldNumber, element, g(v))
-        case (Schema.Map(ks, vs, _), map)                                                      => encodeSequence(fieldNumber, ks <*> vs, Chunk.fromIterable(map))
-        case (Schema.Set(s, _), set)                                                           => encodeSequence(fieldNumber, s, Chunk.fromIterable(set))
-        case (Schema.Transform(codec, _, g, _, _), _)                                          => g(value).map(encode(fieldNumber, codec, _)).getOrElse(Chunk.empty)
-        case (Schema.Primitive(standardType, _), v)                                            => encodePrimitive(fieldNumber, standardType, v)
-        case (Schema.Tuple2(left, right, _), v @ (_, _))                                       => encodeTuple(fieldNumber, left, right, v)
-        case (Schema.Optional(codec: Schema[a], _), v: Option[_])                              => encodeOptional(fieldNumber, codec, v.asInstanceOf[Option[a]])
-        case (Schema.Either(left: Schema[a], right: Schema[b], _), v: scala.util.Either[_, _]) => encodeEither(fieldNumber, left, right, v.asInstanceOf[scala.util.Either[a, b]])
-        case (lzy @ Schema.Lazy(_), v)                                                         => encode(fieldNumber, lzy.schema, v)
-        case (_: Schema.CaseClass0[_], v) =>
-          encodeCaseClass(v)(fieldNumber)
-        case (cc: Schema.CaseClass1[_, _], v) =>
-          encodeCaseClass(v, cc.field)(fieldNumber)
-        case (cc: Schema.CaseClass2[_, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2)(fieldNumber)
-        case (cc: Schema.CaseClass3[_, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3)(fieldNumber)
-        case (cc: Schema.CaseClass4[_, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4)(fieldNumber)
-        case (cc: Schema.CaseClass5[_, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5)(fieldNumber)
-        case (cc: Schema.CaseClass6[_, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6)(fieldNumber)
-        case (cc: Schema.CaseClass7[_, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7)(fieldNumber)
-        case (cc: Schema.CaseClass8[_, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8)(fieldNumber)
-        case (cc: Schema.CaseClass9[_, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9)(fieldNumber)
-        case (cc: Schema.CaseClass10[_, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10)(fieldNumber)
-        case (cc: Schema.CaseClass11[_, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11)(fieldNumber)
-        case (cc: Schema.CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12)(fieldNumber)
-        case (cc: Schema.CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13)(fieldNumber)
-        case (cc: Schema.CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14)(fieldNumber)
-        case (cc: Schema.CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14, cc.field15)(fieldNumber)
-        case (cc: Schema.CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14, cc.field15, cc.field16)(fieldNumber)
-        case (cc: Schema.CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14, cc.field15, cc.field16, cc.field17)(fieldNumber)
-        case (cc: Schema.CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14, cc.field15, cc.field16, cc.field17, cc.field18)(fieldNumber)
-        case (cc: Schema.CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14, cc.field15, cc.field16, cc.field17, cc.field18, cc.field19)(fieldNumber)
-        case (cc: Schema.CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14, cc.field15, cc.field16, cc.field17, cc.field18, cc.field19, cc.field20)(fieldNumber)
-        case (cc: Schema.CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14, cc.field15, cc.field16, cc.field17, cc.field18, cc.field19, cc.field20, cc.field21)(fieldNumber)
-        case (cc: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14, cc.field15, cc.field16, cc.field17, cc.field18, cc.field19, cc.field20, cc.field21, cc.field22)(fieldNumber)
-        case (Schema.Enum1(_, c, _), v)                                                                                                    => encodeEnum(fieldNumber, v, c)
-        case (Schema.Enum2(_, c1, c2, _), v)                                                                                               => encodeEnum(fieldNumber, v, c1, c2)
-        case (Schema.Enum3(_, c1, c2, c3, _), v)                                                                                           => encodeEnum(fieldNumber, v, c1, c2, c3)
-        case (Schema.Enum4(_, c1, c2, c3, c4, _), v)                                                                                       => encodeEnum(fieldNumber, v, c1, c2, c3, c4)
-        case (Schema.Enum5(_, c1, c2, c3, c4, c5, _), v)                                                                                   => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5)
-        case (Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _), v)                                                                               => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6)
-        case (Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _), v)                                                                           => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7)
-        case (Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _), v)                                                                       => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8)
-        case (Schema.Enum9(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, _), v)                                                                   => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9)
-        case (Schema.Enum10(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _), v)                                                             => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
-        case (Schema.Enum11(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _), v)                                                        => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
-        case (Schema.Enum12(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _), v)                                                   => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
-        case (Schema.Enum13(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _), v)                                              => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
-        case (Schema.Enum14(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _), v)                                         => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
-        case (Schema.Enum15(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _), v)                                    => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
-        case (Schema.Enum16(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _), v)                               => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
-        case (Schema.Enum17(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _), v)                          => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
-        case (Schema.Enum18(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _), v)                     => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
-        case (Schema.Enum19(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _), v)                => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
-        case (Schema.Enum20(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _), v)           => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
-        case (Schema.Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _), v)      => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
-        case (Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-        case (Schema.EnumN(_, cs, _), v)                                                                                                   => encodeEnum(fieldNumber, v, cs.toSeq: _*)
-        case (Schema.Dynamic(_), v)                                                                                                        => dynamicEncode(fieldNumber, DynamicValueSchema.schema, v)
-        case (_, _)                                                                                                                        => Chunk.empty
-      }
-    //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
+    override protected def processPrimitive(state: EncoderState, value: Any, typ: StandardType[Any]): Chunk[Byte] =
+      encodePrimitive(state.fieldNumber, typ, value)
 
-    private def dynamicEncode(
-      fieldNumber: Option[Int],
-      schema: Schema[DynamicValue],
-      value: DynamicValue
-    ): Chunk[Byte] =
-      encode(fieldNumber, schema, value)
-
-    private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[Z, _]*): Chunk[Byte] = {
-      val fieldIndex = cases.indexWhere(c => c.deconstructOption(value).isDefined)
-      val encoded = Chunk.fromIterable(
-        if (fieldIndex == -1) {
-          Chunk.empty
-        } else {
-          val subtypeCase = cases(fieldIndex)
-          encode(
-            Some(fieldIndex + 1),
-            subtypeCase.schema.asInstanceOf[Schema[Any]],
-            subtypeCase.deconstruct(value)
-          )
-        }
-      )
-      encodeKey(WireType.LengthDelimited(encoded.size), fieldNumber) ++ encoded
-    }
-
-    private def encodeRecord(
-      fieldNumber: Option[Int],
-      structure: Seq[Schema.Field[_, _]],
-      data: ListMap[String, _]
+    override protected def processRecord(
+      state: EncoderState,
+      schema: Schema.Record[_],
+      value: ListMap[String, Chunk[Byte]]
     ): Chunk[Byte] = {
-      val encodedRecord = Chunk
-        .fromIterable(structure.zipWithIndex.map {
-          case (Schema.Field(label, schema, _, _, _, _), fieldNumber) =>
-            data
-              .get(label)
-              .map(value => encode(Some(fieldNumber + 1), schema.asInstanceOf[Schema[Any]], value))
-              .getOrElse(Chunk.empty)
-        })
-        .flatten
-
-      encodeKey(WireType.LengthDelimited(encodedRecord.size), fieldNumber) ++ encodedRecord
+      val encodedRecord = Chunk.fromIterable(value.values).flatten
+      encodeKey(WireType.LengthDelimited(encodedRecord.size), state.fieldNumber) ++ encodedRecord
     }
 
-    /**
-     * Lists of lists are not really a type that is "native" to protobuf so
-     * we have to encode lists as enums in order to distinguish between List.empty,
-     * List(List.empty) and so forth.
-     *
-     * This adds a few extra bytes to the encoding but it does not seem like there
-     * is any way around it.
-     */
-    private def encodeSequence[A](
-      fieldNumber: Option[Int],
-      element: Schema[A],
-      sequence: Chunk[A]
-    ): Chunk[Byte] =
-      if (sequence.isEmpty) {
-        val data = encodeKey(WireType.LengthDelimited(0), Some(1))
-        encodeKey(WireType.LengthDelimited(data.size), fieldNumber) ++ encodeKey(WireType.LengthDelimited(0), Some(1))
-      } else {
-        val data = if (canBePacked(element)) {
-          val chunk = sequence.flatMap(value => encode(None, element, value))
-          encodeKey(WireType.LengthDelimited(chunk.size), Some(2)) ++ chunk
-        } else {
-          val chunk = sequence.zipWithIndexFrom(1).flatMap {
-            case (a, i) => encode(Some(i), element, a)
-          }
-          encodeKey(WireType.LengthDelimited(chunk.size), Some(2)) ++ chunk
-        }
+    override protected def processEnum(
+      state: EncoderState,
+      schema: Schema.Enum[_],
+      tuple: (String, Chunk[Byte])
+    ): Chunk[Byte] = {
+      val encoded = tuple._2
+      encodeKey(WireType.LengthDelimited(encoded.size), state.fieldNumber) ++ encoded
+    }
 
-        encodeKey(WireType.LengthDelimited(data.size), fieldNumber) ++ data
+    override protected def processSequence(
+      state: EncoderState,
+      schema: Schema.Sequence[_, _, _],
+      value: Chunk[Chunk[Byte]]
+    ): Chunk[Byte] =
+      if (value.isEmpty) {
+        val data = encodeKey(WireType.LengthDelimited(0), Some(1))
+        encodeKey(WireType.LengthDelimited(data.size), state.fieldNumber) ++ encodeKey(
+          WireType.LengthDelimited(0),
+          Some(1)
+        )
+      } else {
+        val chunk = value.flatten
+        val data = encodeKey(
+          WireType.LengthDelimited(chunk.size),
+          Some(2)
+        ) ++ chunk
+
+        encodeKey(WireType.LengthDelimited(data.size), state.fieldNumber) ++ data
       }
 
-    @scala.annotation.tailrec
+    override protected def processDictionary(
+      state: EncoderState,
+      schema: Schema.Map[_, _],
+      value: Chunk[(Chunk[Byte], Chunk[Byte])]
+    ): Chunk[Byte] =
+      if (value.isEmpty) {
+        val data = encodeKey(WireType.LengthDelimited(0), Some(1))
+        encodeKey(WireType.LengthDelimited(data.size), state.fieldNumber) ++ encodeKey(
+          WireType.LengthDelimited(0),
+          Some(1)
+        )
+      } else {
+        val chunk = value.map {
+          case (left, right) =>
+            (Decoder.keyDecoder.run(left), Decoder.keyDecoder.run(right)) match {
+              case (
+                  Right((leftRemainder, (leftWireType, seqIndex))),
+                  Right((rightRemainder, (rightWireType, _)))
+                  ) =>
+                val data =
+                  encodeKey(leftWireType, Some(1)) ++
+                    leftRemainder ++
+                    encodeKey(rightWireType, Some(2)) ++
+                    rightRemainder
+                encodeKey(WireType.LengthDelimited(data.size), Some(seqIndex)) ++ data
+              case other =>
+                throw new IllegalStateException(s"Invalid state in processDictionary: $other")
+            }
+        }.flatten
+        val data = encodeKey(
+          WireType.LengthDelimited(chunk.size),
+          Some(2)
+        ) ++ chunk
+
+        encodeKey(WireType.LengthDelimited(data.size), state.fieldNumber) ++ data
+      }
+
+    override protected def processSet(
+      state: EncoderState,
+      schema: Schema.Set[_],
+      value: Set[Chunk[Byte]]
+    ): Chunk[Byte] =
+      if (value.isEmpty) {
+        val data = encodeKey(WireType.LengthDelimited(0), Some(1))
+        encodeKey(WireType.LengthDelimited(data.size), state.fieldNumber) ++ encodeKey(
+          WireType.LengthDelimited(0),
+          Some(1)
+        )
+      } else {
+        val chunk = Chunk.fromIterable(value).flatten
+        val data = encodeKey(
+          WireType.LengthDelimited(chunk.size),
+          Some(2)
+        ) ++ chunk
+
+        encodeKey(WireType.LengthDelimited(data.size), state.fieldNumber) ++ data
+      }
+
+    override protected def processEither(
+      state: EncoderState,
+      schema: Schema.Either[_, _],
+      value: Either[Chunk[Byte], Chunk[Byte]]
+    ): Chunk[Byte] = {
+      val encodedEither = value.merge
+      encodeKey(WireType.LengthDelimited(encodedEither.size), state.fieldNumber) ++ encodedEither
+    }
+
+    override protected def processOption(
+      state: EncoderState,
+      schema: Schema.Optional[_],
+      value: Option[Chunk[Byte]]
+    ): Chunk[Byte] = {
+      val data = value match {
+        case Some(bytes) => bytes
+        case None        => encodeKey(WireType.LengthDelimited(0), Some(1))
+      }
+
+      encodeKey(WireType.LengthDelimited(data.size), state.fieldNumber) ++ data
+    }
+
+    override protected def processTuple(
+      state: EncoderState,
+      schema: Schema.Tuple2[_, _],
+      left: Chunk[Byte],
+      right: Chunk[Byte]
+    ): Chunk[Byte] = {
+      val data = left ++ right
+      encodeKey(WireType.LengthDelimited(data.size), state.fieldNumber) ++ data
+    }
+
+    override protected def processDynamic(state: EncoderState, value: DynamicValue): Option[Chunk[Byte]] =
+      None
+
+    override protected def fail(state: EncoderState, message: String): Chunk[Byte] =
+      throw new RuntimeException(message)
+
+    override protected val initialState: EncoderState = EncoderState(None)
+
+    override protected def stateForRecordField(
+      state: EncoderState,
+      index: Int,
+      field: Schema.Field[_, _]
+    ): EncoderState =
+      state.copy(fieldNumber = Some(index + 1))
+
+    override protected def stateForTuple(state: EncoderState, index: Int): EncoderState =
+      state.copy(fieldNumber = Some(index))
+
+    override protected def stateForEnumConstructor(
+      state: EncoderState,
+      index: Int,
+      c: Schema.Case[_, _]
+    ): EncoderState =
+      state.copy(fieldNumber = Some(index + 1))
+
+    override protected def stateForEither(state: EncoderState, e: Either[Unit, Unit]): EncoderState =
+      e match {
+        case Left(_)  => state.copy(fieldNumber = Some(1))
+        case Right(_) => state.copy(fieldNumber = Some(2))
+      }
+
+    override protected def stateForOption(state: EncoderState, o: Option[Unit]): EncoderState =
+      o match {
+        case None    => state.copy(fieldNumber = Some(1))
+        case Some(_) => state.copy(fieldNumber = Some(2))
+      }
+
+    override protected def stateForSequence(
+      state: EncoderState,
+      s: Schema.Sequence[_, _, _],
+      index: Int
+    ): EncoderState =
+      if (canBePacked(s.elementSchema)) state.copy(fieldNumber = None)
+      else state.copy(fieldNumber = Some(index + 1))
+
+    override protected def stateForMap(state: EncoderState, s: Schema.Map[_, _], index: Int): EncoderState =
+      if (canBePacked(s.keySchema <*> s.valueSchema)) state.copy(fieldNumber = None)
+      else state.copy(fieldNumber = Some(index + 1))
+
+    override protected def stateForSet(state: EncoderState, s: Schema.Set[_], index: Int): EncoderState =
+      if (canBePacked(s.elementSchema)) state.copy(fieldNumber = None)
+      else state.copy(fieldNumber = Some(index + 1))
+
     private def encodePrimitive[A](
       fieldNumber: Option[Int],
       standardType: StandardType[A],
@@ -362,11 +386,14 @@ object ProtobufCodec extends Codec {
           val unscaled  = v.unscaledValue()
           val precision = v.precision()
           val scale     = v.scale()
-          encodeRecord(
-            fieldNumber,
-            bigDecimalStructure,
-            ListMap("unscaled" -> unscaled, "precision" -> precision, "scale" -> scale)
-          )
+
+          val encodedRecord =
+            encodePrimitive(Some(1), StandardType.BigIntegerType, unscaled) ++
+              encodePrimitive(Some(2), StandardType.IntType, precision) ++
+              encodePrimitive(Some(3), StandardType.IntType, scale)
+
+          encodeKey(WireType.LengthDelimited(encodedRecord.size), fieldNumber) ++ encodedRecord
+
         case (StandardType.BigIntegerType, v: java.math.BigInteger) =>
           val encoded = Chunk.fromArray(v.toByteArray)
           encodeKey(WireType.LengthDelimited(encoded.size), fieldNumber) ++ encoded
@@ -392,23 +419,36 @@ object ProtobufCodec extends Codec {
         case (StandardType.MonthType, v: Month) =>
           encodePrimitive(fieldNumber, StandardType.IntType, v.getValue)
         case (StandardType.MonthDayType, v: MonthDay) =>
-          encodeRecord(fieldNumber, monthDayStructure, ListMap("month" -> v.getMonthValue, "day" -> v.getDayOfMonth))
+          val encodedRecord =
+            encodePrimitive(Some(1), StandardType.IntType, v.getMonthValue) ++
+              encodePrimitive(Some(2), StandardType.IntType, v.getDayOfMonth)
+
+          encodeKey(WireType.LengthDelimited(encodedRecord.size), fieldNumber) ++ encodedRecord
         case (StandardType.PeriodType, v: Period) =>
-          encodeRecord(
-            fieldNumber,
-            periodStructure,
-            ListMap("years" -> v.getYears, "months" -> v.getMonths, "days" -> v.getDays)
-          )
+          val encodedRecord =
+            encodePrimitive(Some(1), StandardType.IntType, v.getYears) ++
+              encodePrimitive(Some(2), StandardType.IntType, v.getMonths) ++
+              encodePrimitive(Some(3), StandardType.IntType, v.getDays)
+
+          encodeKey(WireType.LengthDelimited(encodedRecord.size), fieldNumber) ++ encodedRecord
         case (StandardType.YearType, v: Year) =>
           encodePrimitive(fieldNumber, StandardType.IntType, v.getValue)
         case (StandardType.YearMonthType, v: YearMonth) =>
-          encodeRecord(fieldNumber, yearMonthStructure, ListMap("year" -> v.getYear, "month" -> v.getMonthValue))
+          val encodedRecord =
+            encodePrimitive(Some(1), StandardType.IntType, v.getYear) ++
+              encodePrimitive(Some(2), StandardType.IntType, v.getMonthValue)
+
+          encodeKey(WireType.LengthDelimited(encodedRecord.size), fieldNumber) ++ encodedRecord
         case (StandardType.ZoneIdType, v: ZoneId) =>
           encodePrimitive(fieldNumber, StandardType.StringType, v.getId)
         case (StandardType.ZoneOffsetType, v: ZoneOffset) =>
           encodePrimitive(fieldNumber, StandardType.IntType, v.getTotalSeconds)
         case (StandardType.DurationType, v: Duration) =>
-          encodeRecord(fieldNumber, durationStructure, ListMap("seconds" -> v.getSeconds, "nanos" -> v.getNano))
+          val encodedRecord =
+            encodePrimitive(Some(1), StandardType.LongType, v.getSeconds) ++
+              encodePrimitive(Some(2), StandardType.IntType, v.getNano)
+
+          encodeKey(WireType.LengthDelimited(encodedRecord.size), fieldNumber) ++ encodedRecord
         case (StandardType.InstantType(formatter), v: Instant) =>
           encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
         case (StandardType.LocalDateType(formatter), v: LocalDate) =>
@@ -426,40 +466,6 @@ object ProtobufCodec extends Codec {
         case (_, _) =>
           throw new NotImplementedError(s"No encoder for $standardType")
       }
-
-    private def encodeTuple[A, B](
-      fieldNumber: Option[Int],
-      left: Schema[A],
-      right: Schema[B],
-      tuple: (A, B)
-    ): Chunk[Byte] = {
-      val data = encode(Some(1), left, tuple._1) ++ encode(Some(2), right, tuple._2)
-
-      encodeKey(WireType.LengthDelimited(data.size), fieldNumber) ++ data
-    }
-
-    private def encodeEither[A, B](
-      fieldNumber: Option[Int],
-      left: Schema[A],
-      right: Schema[B],
-      either: scala.util.Either[A, B]
-    ): Chunk[Byte] = {
-      val encodedEither = either match {
-        case Left(value)  => encode(Some(1), left, value)
-        case Right(value) => encode(Some(2), right, value)
-      }
-
-      encodeKey(WireType.LengthDelimited(encodedEither.size), fieldNumber) ++ encodedEither
-    }
-
-    private def encodeOptional[A](fieldNumber: Option[Int], schema: Schema[A], value: Option[A]): Chunk[Byte] = {
-      val data = value match {
-        case Some(a) => encode(Some(2), schema, a)
-        case None    => encodeKey(WireType.LengthDelimited(0), Some(1))
-      }
-
-      encodeKey(WireType.LengthDelimited(data.size), fieldNumber) ++ data
-    }
 
     private def encodeVarInt(value: Int): Chunk[Byte] =
       encodeVarInt(value.toLong)
@@ -927,22 +933,6 @@ object ProtobufCodec extends Codec {
             }
           }
       )
-  }
-
-  //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
-  private[codec] object ProductEncoder {
-
-    private[codec] def encodeCaseClass[Z](value: Z, fields: (Schema.Field[Z, _])*): Option[Int] => Chunk[Byte] = { (fieldNumber: Option[Int]) =>
-      {
-        val encoded = Chunk
-          .fromIterable(fields.zipWithIndex.map {
-            case ((Schema.Field(_, schema, _, _, get, _)), fieldNumber) =>
-              Encoder.encode(Some(fieldNumber + 1), schema.asInstanceOf[Schema[Any]], get(value))
-          })
-          .flatten
-        Encoder.encodeKey(Protobuf.WireType.LengthDelimited(encoded.size), fieldNumber) ++ encoded
-      }
-    }
   }
 
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
