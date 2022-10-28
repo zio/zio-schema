@@ -513,7 +513,7 @@ object ThriftCodec extends BinaryCodec {
   final class ThriftDecoder(chunk: Chunk[Byte]) {
 
     type Path = Chunk[String]
-    final case class Error(path: Path, error: String)
+    case class Error(path: Path, error: String)
 
     type Result[A]          = scala.util.Either[Error, A]
     type PrimitiveResult[A] = Path => Result[A]
