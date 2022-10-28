@@ -10,6 +10,7 @@ import zio._
 import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
+import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.schema._
 import zio.stream.ZStream
 import zio.test.Assertion._
@@ -78,7 +79,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodes(
           Schema.map[Key, Value],
           Map(Key("a", 0) -> Value(0, true), Key("b", 1) -> Value(1, false)),
-          JsonCodec.Encoder.charSequenceToByteChunk(
+          charSequenceToByteChunk(
             """[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]"""
           )
         )
@@ -89,7 +90,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodes(
           Schema.set[Value],
           Set(Value(0, true), Value(1, false)),
-          JsonCodec.Encoder.charSequenceToByteChunk(
+          charSequenceToByteChunk(
             """[{"first":0,"second":true},{"first":1,"second":false}]"""
           )
         )
@@ -100,14 +101,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodes(
           recordSchema,
           ListMap[String, Any]("foo" -> "s", "bar" -> 1),
-          JsonCodec.Encoder.charSequenceToByteChunk("""{"foo":"s","bar":1}""")
+          charSequenceToByteChunk("""{"foo":"s","bar":1}""")
         )
       },
       test("of records") {
         assertEncodes(
           nestedRecordSchema,
           ListMap[String, Any]("l1" -> "s", "l2" -> ListMap("foo" -> "s", "bar" -> 1)),
-          JsonCodec.Encoder.charSequenceToByteChunk("""{"l1":"s","l2":{"foo":"s","bar":1}}""")
+          charSequenceToByteChunk("""{"l1":"s","l2":{"foo":"s","bar":1}}""")
         )
       },
       test("case class") {
@@ -131,14 +132,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodes(
           enumSchema,
           ("foo"),
-          JsonCodec.Encoder.charSequenceToByteChunk("""{"string":"foo"}""")
+          charSequenceToByteChunk("""{"string":"foo"}""")
         )
       },
       test("ADT") {
         assertEncodes(
           Schema[Enumeration],
           Enumeration(StringValue("foo")),
-          JsonCodec.Encoder.charSequenceToByteChunk("""{"oneOf":{"StringValue":{"value":"foo"}}}""")
+          charSequenceToByteChunk("""{"oneOf":{"StringValue":{"value":"foo"}}}""")
         )
       }
     )
@@ -177,7 +178,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     ),
     suite("case class")(
       test("case object") {
-        assertDecodes(schemaObject, Singleton, JsonCodec.Encoder.charSequenceToByteChunk("{}"))
+        assertDecodes(schemaObject, Singleton, charSequenceToByteChunk("{}"))
       }
     )
   )
@@ -271,7 +272,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodes(
           Schema.map[Key, Value],
           Map(Key("a", 0) -> Value(0, true), Key("b", 1) -> Value(1, false)),
-          JsonCodec.Encoder.charSequenceToByteChunk(
+          charSequenceToByteChunk(
             """[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]"""
           )
         )
@@ -280,7 +281,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodes(
           Schema.set[Value],
           Set(Value(0, true), Value(1, false)),
-          JsonCodec.Encoder.charSequenceToByteChunk(
+          charSequenceToByteChunk(
             """[{"first":0,"second":true},{"first":1,"second":false}]"""
           )
         )
@@ -687,7 +688,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   private def assertDecodesToError[A](schema: Schema[A], json: CharSequence, errors: List[JsonError]) = {
     val stream = ZStream
-      .fromChunk(JsonCodec.Encoder.charSequenceToByteChunk(json))
+      .fromChunk(charSequenceToByteChunk(json))
       .via(JsonCodec.decoder(schema))
       .catchAll(ZStream.succeed[String](_))
       .runHead
@@ -745,11 +746,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
     JsonEncoder.chunk(keyEncoder.zip(valueEncoder)).contramap[Map[K, V]](m => Chunk.fromIterable(m))
 
   private def jsonEncoded[A](value: A)(implicit enc: JsonEncoder[A]): Chunk[Byte] =
-    JsonCodec.Encoder.charSequenceToByteChunk(enc.encodeJson(value, None))
+    charSequenceToByteChunk(enc.encodeJson(value, None))
 
   private def stringify(s: String): Chunk[Byte] = {
     val encoded = JsonEncoder.string.encodeJson(s, None)
-    JsonCodec.Encoder.charSequenceToByteChunk(encoded)
+    charSequenceToByteChunk(encoded)
   }
 
   case class SearchRequest(query: String, pageNumber: Int, resultPerPage: Int, nextPage: Option[String])
