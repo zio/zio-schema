@@ -139,95 +139,100 @@ object ThriftCodec extends Codec {
       )
   }
 
-  // TODO: delete Encoder.Command and write directly in processXXX
-  class Encoder extends ProcessValueWithSchema[Encoder.Command, Encoder.State] {
+  class Encoder extends ProcessValueWithSchema[Unit, Encoder.State] {
     import Encoder._
 
-    override protected def processPrimitive(state: State, value: Any, typ: StandardType[Any]): Encoder.Command =
-      Command.Sequence(Command.WriteFieldBegin(state.fieldNumber, getPrimitiveType(typ))) ++
-        writePrimitiveType(typ, value)
+    override protected def processPrimitive(state: State, value: Any, typ: StandardType[Any]): Unit = {
+      writeFieldBegin(state.fieldNumber, getPrimitiveType(typ))
+      writePrimitiveType(typ, value)
+    }
+
+    override protected def startProcessingRecord(state: State, schema: Schema.Record[_]): Unit =
+      writeFieldBegin(state.fieldNumber, TType.STRUCT)
 
     override protected def processRecord(
       state: State,
       schema: Schema.Record[_],
-      value: ListMap[String, Command]
-    ): Command =
-      Command.Sequence(Command.WriteFieldBegin(state.fieldNumber, TType.STRUCT)) ++
-        Chunk.fromIterable(value.values) ++
-        Command.WriteFieldEnd
+      value: ListMap[String, Unit]
+    ): Unit =
+      writeFieldEnd()
 
-    override protected def processEnum(state: State, schema: Schema.Enum[_], tuple: (String, Command)): Command =
-      Command.Sequence(
-        Command.WriteFieldBegin(state.fieldNumber, TType.STRUCT),
-        tuple._2,
-        Command.WriteFieldEnd
-      )
+    override protected def startProcessingEnum(state: State, schema: Schema.Enum[_]): Unit =
+      writeFieldBegin(state.fieldNumber, TType.STRUCT)
+
+    override protected def processEnum(state: State, schema: Schema.Enum[_], tuple: (String, Unit)): Unit =
+      writeFieldEnd()
+
+    override protected def startProcessingSequence(state: State, schema: Schema.Sequence[_, _, _], size: Int): Unit = {
+      writeFieldBegin(state.fieldNumber, TType.LIST)
+      writeListBegin(getType(schema.elementSchema), size)
+    }
 
     override protected def processSequence(
       state: State,
       schema: Schema.Sequence[_, _, _],
-      value: Chunk[Command]
-    ): Command =
-      Command.Sequence(
-        Command.WriteFieldBegin(state.fieldNumber, TType.LIST),
-        Command.WriteListBegin(getType(schema.elementSchema), value.size)
-      ) ++ value
+      value: Chunk[Unit]
+    ): Unit = {}
+
+    override protected def startProcessingDictionary(state: State, schema: Schema.Map[_, _], size: Int): Unit = {
+      writeFieldBegin(state.fieldNumber, TType.MAP)
+      writeMapBegin(getType(schema.keySchema), getType(schema.valueSchema), size)
+    }
 
     override protected def processDictionary(
       state: State,
       schema: Schema.Map[_, _],
-      value: Chunk[(Command, Command)]
-    ): Command =
-      value
-        .foldLeft(
-          Command.Sequence(
-            Command.WriteFieldBegin(state.fieldNumber, TType.MAP),
-            Command.WriteMapBegin(getType(schema.keySchema), getType(schema.valueSchema), value.size)
-          )
-        ) { case (c, (c1, c2)) => c ++ c1 ++ c2 }
+      value: Chunk[(Unit, Unit)]
+    ): Unit = {}
 
-    override protected def processSet(state: State, schema: Schema.Set[_], value: Set[Command]): Command =
-      Command.Sequence(
-        Command.WriteFieldBegin(state.fieldNumber, TType.SET),
-        Command.WriteSetBegin(getType(schema.elementSchema), value.size)
-      ) ++ Chunk.fromIterable(value)
+    override protected def startProcessingSet(state: State, schema: Schema.Set[_], size: Int): Unit = {
+      writeFieldBegin(state.fieldNumber, TType.SET)
+      writeSetBegin(getType(schema.elementSchema), size)
+    }
+
+    override protected def processSet(state: State, schema: Schema.Set[_], value: Set[Unit]): Unit = {}
+
+    override protected def startProcessingEither(state: State, schema: Schema.Either[_, _]): Unit =
+      writeFieldBegin(state.fieldNumber, TType.STRUCT)
 
     override protected def processEither(
       state: State,
       schema: Schema.Either[_, _],
-      value: Either[Command, Command]
-    ): Command =
-      Command.Sequence(Command.WriteFieldBegin(state.fieldNumber, TType.STRUCT)) ++ value.merge
+      value: Either[Unit, Unit]
+    ): Unit =
+      writeFieldEnd()
 
-    override protected def processOption(state: State, schema: Schema.Optional[_], value: Option[Command]): Command =
-      Command.Sequence(Command.WriteFieldBegin(state.fieldNumber, TType.STRUCT)) ++
-        (value match {
-          case Some(value) => value
-          case None =>
-            processPrimitive(
-              state.copy(fieldNumber = Some(1)),
-              (),
-              StandardType.UnitType.asInstanceOf[StandardType[Any]]
-            )
-        }) ++ Command.WriteFieldEnd
+    override def startProcessingOption(state: State, schema: Schema.Optional[_]): Unit =
+      writeFieldBegin(state.fieldNumber, TType.STRUCT)
+
+    override protected def processOption(state: State, schema: Schema.Optional[_], value: Option[Unit]): Unit = {
+      value match {
+        case None =>
+          processPrimitive(
+            state.copy(fieldNumber = Some(1)),
+            (),
+            StandardType.UnitType.asInstanceOf[StandardType[Any]]
+          )
+        case _ =>
+      }
+      writeFieldEnd()
+    }
+
+    override protected def startProcessingTuple(state: State, schema: Schema.Tuple2[_, _]): Unit =
+      writeFieldBegin(state.fieldNumber, TType.STRUCT)
 
     override protected def processTuple(
       state: State,
       schema: Schema.Tuple2[_, _],
-      left: Command,
-      right: Command
-    ): Command =
-      Command.Sequence(
-        Command.WriteFieldBegin(state.fieldNumber, TType.STRUCT),
-        left,
-        right,
-        Command.WriteFieldEnd
-      )
+      left: Unit,
+      right: Unit
+    ): Unit =
+      writeFieldEnd()
 
-    override protected def fail(state: State, message: String): Command =
-      Command.Fail(message)
+    override protected def fail(state: State, message: String): Unit =
+      fail(message)
 
-    override protected def processDynamic(state: State, value: DynamicValue): Option[Command] =
+    override protected def processDynamic(state: State, value: DynamicValue): Option[Unit] =
       None
 
     override protected val initialState: State = State(None)
@@ -262,54 +267,160 @@ object ThriftCodec extends Codec {
     override protected def stateForSet(state: State, schema: Schema.Set[_], index: Int): State =
       state.copy(fieldNumber = None)
 
-    def encode[A](schema: Schema[A], value: A): Chunk[Byte] = {
-      val command = process(schema, value)
-      val write   = new ChunkTransport.Write()
-      val p       = new TBinaryProtocol(write)
-
-      execute(p, command)
-
+    private[codec] def encode[A](schema: Schema[A], value: A): Chunk[Byte] = {
+      process(schema, value)
       write.chunk
     }
+
+    private val write = new ChunkTransport.Write()
+    private val p     = new TBinaryProtocol(write)
+
+    private def writeFieldBegin(fieldNumber: Option[Short], ttype: Byte): Unit =
+      fieldNumber match {
+        case Some(num) =>
+          p.writeFieldBegin(
+            new TField("", ttype, num)
+          )
+        case None =>
+      }
+
+    private def writeFieldEnd(): Unit =
+      p.writeFieldStop()
+
+    private def writeString(value: String): Unit =
+      p.writeString(value)
+
+    private def writeBool(value: Boolean): Unit =
+      p.writeBool(value)
+
+    private def writeByte(value: Byte): Unit =
+      p.writeByte(value)
+
+    private def writeI16(value: Short): Unit =
+      p.writeI16(value)
+
+    private def writeI32(value: Int): Unit =
+      p.writeI32(value)
+
+    private def writeI64(value: Long): Unit =
+      p.writeI64(value)
+
+    private def writeDouble(value: Double): Unit =
+      p.writeDouble(value)
+
+    private def writeBinary(value: Chunk[Byte]): Unit =
+      p.writeBinary(ByteBuffer.wrap(value.toArray))
+
+    private def writeListBegin(ttype: Byte, count: Int): Unit =
+      p.writeListBegin(new TList(ttype, count))
+
+    private def writeSetBegin(ttype: Byte, count: Int): Unit =
+      p.writeSetBegin(new TSet(ttype, count))
+
+    private def writeMapBegin(keyType: Byte, valueType: Byte, count: Int): Unit =
+      p.writeMapBegin(new TMap(keyType, valueType, count))
+
+    private def fail(message: String): Unit = throw new RuntimeException(message)
+
+    private def writePrimitiveType[A](standardType: StandardType[A], value: A): Unit =
+      (standardType, value) match {
+        case (StandardType.UnitType, _) =>
+        case (StandardType.StringType, str: String) =>
+          writeString(str)
+        case (StandardType.BoolType, b: Boolean) =>
+          writeBool(b)
+        case (StandardType.ByteType, v: Byte) =>
+          writeByte(v)
+        case (StandardType.ShortType, v: Short) =>
+          writeI16(v)
+        case (StandardType.IntType, v: Int) =>
+          writeI32(v)
+        case (StandardType.LongType, v: Long) =>
+          writeI64(v)
+        case (StandardType.FloatType, v: Float) =>
+          writeDouble(v.toDouble)
+        case (StandardType.DoubleType, v: Double) =>
+          writeDouble(v.toDouble)
+        case (StandardType.BigIntegerType, v: java.math.BigInteger) =>
+          writeBinary(Chunk.fromArray(v.toByteArray))
+        case (StandardType.BigDecimalType, v: java.math.BigDecimal) =>
+          val unscaled  = v.unscaledValue()
+          val precision = v.precision()
+          val scale     = v.scale()
+          writeFieldBegin(Some(1), getPrimitiveType(StandardType.BigIntegerType))
+          writePrimitiveType(StandardType.BigIntegerType, unscaled)
+          writeFieldBegin(Some(2), getPrimitiveType(StandardType.IntType))
+          writePrimitiveType(StandardType.IntType, precision)
+          writeFieldBegin(Some(3), getPrimitiveType(StandardType.IntType))
+          writePrimitiveType(StandardType.IntType, scale)
+          writeFieldEnd()
+
+        case (StandardType.BinaryType, bytes: Chunk[Byte]) =>
+          writeBinary(Chunk.fromArray(bytes.toArray))
+        case (StandardType.CharType, c: Char) =>
+          writeString(c.toString)
+        case (StandardType.UUIDType, u: UUID) =>
+          writeString(u.toString)
+        case (StandardType.DayOfWeekType, v: DayOfWeek) =>
+          writeByte(v.getValue.toByte)
+        case (StandardType.MonthType, v: Month) =>
+          writeByte(v.getValue.toByte)
+        case (StandardType.MonthDayType, v: MonthDay) =>
+          writeFieldBegin(Some(1), getPrimitiveType(StandardType.IntType))
+          writePrimitiveType(StandardType.IntType, v.getMonthValue)
+          writeFieldBegin(Some(2), getPrimitiveType(StandardType.IntType))
+          writePrimitiveType(StandardType.IntType, v.getDayOfMonth)
+          writeFieldEnd()
+
+        case (StandardType.PeriodType, v: Period) =>
+          writeFieldBegin(Some(1), getPrimitiveType(StandardType.IntType))
+          writePrimitiveType(StandardType.IntType, v.getYears)
+          writeFieldBegin(Some(2), getPrimitiveType(StandardType.IntType))
+          writePrimitiveType(StandardType.IntType, v.getMonths)
+          writeFieldBegin(Some(3), getPrimitiveType(StandardType.IntType))
+          writePrimitiveType(StandardType.IntType, v.getDays)
+          writeFieldEnd()
+
+        case (StandardType.YearType, v: Year) =>
+          writeI32(v.getValue)
+        case (StandardType.YearMonthType, v: YearMonth) =>
+          writeFieldBegin(Some(1), getPrimitiveType(StandardType.IntType))
+          writePrimitiveType(StandardType.IntType, v.getYear)
+          writeFieldBegin(Some(2), getPrimitiveType(StandardType.IntType))
+          writePrimitiveType(StandardType.IntType, v.getMonthValue)
+          writeFieldEnd()
+        case (StandardType.ZoneIdType, v: ZoneId) =>
+          writeString(v.getId)
+        case (StandardType.ZoneOffsetType, v: ZoneOffset) =>
+          writeI32(v.getTotalSeconds)
+        case (StandardType.DurationType, v: Duration) =>
+          writeFieldBegin(Some(1), getPrimitiveType(StandardType.LongType))
+          writePrimitiveType(StandardType.LongType, v.getSeconds)
+          writeFieldBegin(Some(2), getPrimitiveType(StandardType.IntType))
+          writePrimitiveType(StandardType.IntType, v.getNano)
+          writeFieldEnd()
+
+        case (StandardType.InstantType(formatter), v: Instant) =>
+          writeString(formatter.format(v))
+        case (StandardType.LocalDateType(formatter), v: LocalDate) =>
+          writeString(formatter.format(v))
+        case (StandardType.LocalTimeType(formatter), v: LocalTime) =>
+          writeString(formatter.format(v))
+        case (StandardType.LocalDateTimeType(formatter), v: LocalDateTime) =>
+          writeString(formatter.format(v))
+        case (StandardType.OffsetTimeType(formatter), v: OffsetTime) =>
+          writeString(formatter.format(v))
+        case (StandardType.OffsetDateTimeType(formatter), v: OffsetDateTime) =>
+          writeString(formatter.format(v))
+        case (StandardType.ZonedDateTimeType(formatter), v: ZonedDateTime) =>
+          writeString(formatter.format(v))
+        case (_, _) =>
+          fail(s"No encoder for $standardType")
+      }
   }
 
   object Encoder {
     final case class State(fieldNumber: Option[Short])
-
-    sealed trait Command
-
-    object Command {
-      final case class Sequence(commands: Chunk[Command]) extends Command { self =>
-
-        def ++(other: Command): Sequence =
-          other match {
-            case Sequence(otherCommands) => Sequence(commands ++ otherCommands)
-            case _                       => Sequence(commands :+ other)
-          }
-
-        def ++(others: Chunk[Command]): Sequence =
-          others.foldLeft(self)(_ ++ _)
-      }
-
-      object Sequence {
-        def apply(commands: Command*): Sequence = Sequence(Chunk.fromIterable(commands))
-      }
-      final case class WriteFieldBegin(fieldNumber: Option[Short], ttype: Byte)  extends Command
-      case object WriteFieldEnd                                                  extends Command
-      case object Noop                                                           extends Command
-      final case class WriteString(value: String)                                extends Command
-      final case class WriteBool(value: Boolean)                                 extends Command
-      final case class WriteByte(value: Byte)                                    extends Command
-      final case class WriteI16(value: Short)                                    extends Command
-      final case class WriteI32(value: Int)                                      extends Command
-      final case class WriteI64(value: Long)                                     extends Command
-      final case class WriteDouble(value: Double)                                extends Command
-      final case class WriteBinary(value: Chunk[Byte])                           extends Command
-      final case class WriteListBegin(ttype: Byte, count: Int)                   extends Command
-      final case class WriteSetBegin(ttype: Byte, count: Int)                    extends Command
-      final case class WriteMapBegin(keyType: Byte, valueType: Byte, count: Int) extends Command
-      final case class Fail(message: String)                                     extends Command
-    }
 
     private def getPrimitiveType[A](standardType: StandardType[A]): Byte =
       standardType match {
@@ -374,145 +485,6 @@ object ThriftCodec extends Codec {
       case _: Schema.Enum[A]                    => TType.STRUCT
       case _                                    => TType.VOID
     }
-
-    private def writePrimitiveType[A](standardType: StandardType[A], value: A): Command =
-      (standardType, value) match {
-        case (StandardType.UnitType, _) =>
-          Command.Noop
-        case (StandardType.StringType, str: String) =>
-          Command.WriteString(str)
-        case (StandardType.BoolType, b: Boolean) =>
-          Command.WriteBool(b)
-        case (StandardType.ByteType, v: Byte) =>
-          Command.WriteByte(v)
-        case (StandardType.ShortType, v: Short) =>
-          Command.WriteI16(v)
-        case (StandardType.IntType, v: Int) =>
-          Command.WriteI32(v)
-        case (StandardType.LongType, v: Long) =>
-          Command.WriteI64(v)
-        case (StandardType.FloatType, v: Float) =>
-          Command.WriteDouble(v.toDouble)
-        case (StandardType.DoubleType, v: Double) =>
-          Command.WriteDouble(v.toDouble)
-        case (StandardType.BigIntegerType, v: java.math.BigInteger) =>
-          Command.WriteBinary(Chunk.fromArray(v.toByteArray))
-        case (StandardType.BigDecimalType, v: java.math.BigDecimal) =>
-          val unscaled  = v.unscaledValue()
-          val precision = v.precision()
-          val scale     = v.scale()
-          Command.Sequence(Command.WriteFieldBegin(Some(1), getPrimitiveType(StandardType.BigIntegerType))) ++
-            writePrimitiveType(StandardType.BigIntegerType, unscaled) ++
-            Command.WriteFieldBegin(Some(2), getPrimitiveType(StandardType.IntType)) ++
-            writePrimitiveType(StandardType.IntType, precision) ++
-            Command.WriteFieldBegin(Some(3), getPrimitiveType(StandardType.IntType)) ++
-            writePrimitiveType(StandardType.IntType, scale) ++
-            Command.WriteFieldEnd
-
-        case (StandardType.BinaryType, bytes: Chunk[Byte]) =>
-          Command.WriteBinary(Chunk.fromArray(bytes.toArray))
-        case (StandardType.CharType, c: Char) =>
-          Command.WriteString(c.toString)
-        case (StandardType.UUIDType, u: UUID) =>
-          Command.WriteString(u.toString)
-        case (StandardType.DayOfWeekType, v: DayOfWeek) =>
-          Command.WriteByte(v.getValue.toByte)
-        case (StandardType.MonthType, v: Month) =>
-          Command.WriteByte(v.getValue.toByte)
-        case (StandardType.MonthDayType, v: MonthDay) =>
-          Command.Sequence(Command.WriteFieldBegin(Some(1), getPrimitiveType(StandardType.IntType))) ++
-            writePrimitiveType(StandardType.IntType, v.getMonthValue) ++
-            Command.WriteFieldBegin(Some(2), getPrimitiveType(StandardType.IntType)) ++
-            writePrimitiveType(StandardType.IntType, v.getDayOfMonth) ++
-            Command.WriteFieldEnd
-
-        case (StandardType.PeriodType, v: Period) =>
-          Command.Sequence(Command.WriteFieldBegin(Some(1), getPrimitiveType(StandardType.IntType))) ++
-            writePrimitiveType(StandardType.IntType, v.getYears) ++
-            Command.WriteFieldBegin(Some(2), getPrimitiveType(StandardType.IntType)) ++
-            writePrimitiveType(StandardType.IntType, v.getMonths) ++
-            Command.WriteFieldBegin(Some(3), getPrimitiveType(StandardType.IntType)) ++
-            writePrimitiveType(StandardType.IntType, v.getDays) ++
-            Command.WriteFieldEnd
-
-        case (StandardType.YearType, v: Year) =>
-          Command.WriteI32(v.getValue)
-        case (StandardType.YearMonthType, v: YearMonth) =>
-          Command.Sequence(Command.WriteFieldBegin(Some(1), getPrimitiveType(StandardType.IntType))) ++
-            writePrimitiveType(StandardType.IntType, v.getYear) ++
-            Command.WriteFieldBegin(Some(2), getPrimitiveType(StandardType.IntType)) ++
-            writePrimitiveType(StandardType.IntType, v.getMonthValue) ++
-            Command.WriteFieldEnd
-        case (StandardType.ZoneIdType, v: ZoneId) =>
-          Command.WriteString(v.getId)
-        case (StandardType.ZoneOffsetType, v: ZoneOffset) =>
-          Command.WriteI32(v.getTotalSeconds)
-        case (StandardType.DurationType, v: Duration) =>
-          Command.Sequence(Command.WriteFieldBegin(Some(1), getPrimitiveType(StandardType.LongType))) ++
-            writePrimitiveType(StandardType.LongType, v.getSeconds) ++
-            Command.WriteFieldBegin(Some(2), getPrimitiveType(StandardType.IntType)) ++
-            writePrimitiveType(StandardType.IntType, v.getNano) ++
-            Command.WriteFieldEnd
-
-        case (StandardType.InstantType(formatter), v: Instant) =>
-          Command.WriteString(formatter.format(v))
-        case (StandardType.LocalDateType(formatter), v: LocalDate) =>
-          Command.WriteString(formatter.format(v))
-        case (StandardType.LocalTimeType(formatter), v: LocalTime) =>
-          Command.WriteString(formatter.format(v))
-        case (StandardType.LocalDateTimeType(formatter), v: LocalDateTime) =>
-          Command.WriteString(formatter.format(v))
-        case (StandardType.OffsetTimeType(formatter), v: OffsetTime) =>
-          Command.WriteString(formatter.format(v))
-        case (StandardType.OffsetDateTimeType(formatter), v: OffsetDateTime) =>
-          Command.WriteString(formatter.format(v))
-        case (StandardType.ZonedDateTimeType(formatter), v: ZonedDateTime) =>
-          Command.WriteString(formatter.format(v))
-        case (_, _) =>
-          Command.Fail(s"No encoder for $standardType")
-      }
-
-    private def execute(p: TBinaryProtocol, command: Command): Unit =
-      command match {
-        case Command.Sequence(commands) =>
-          for (command <- commands)
-            execute(p, command)
-        case Command.WriteFieldBegin(fieldNumber, ttype) =>
-          fieldNumber match {
-            case Some(num) =>
-              p.writeFieldBegin(
-                new TField("", ttype, num)
-              )
-            case None =>
-          }
-        case Command.WriteFieldEnd =>
-          p.writeFieldStop()
-        case Command.Noop =>
-        case Command.WriteString(value) =>
-          p.writeString(value)
-        case Command.WriteBool(value) =>
-          p.writeBool(value)
-        case Command.WriteByte(value) =>
-          p.writeByte(value)
-        case Command.WriteI16(value) =>
-          p.writeI16(value)
-        case Command.WriteI32(value) =>
-          p.writeI32(value)
-        case Command.WriteI64(value) =>
-          p.writeI64(value)
-        case Command.WriteDouble(value) =>
-          p.writeDouble(value)
-        case Command.WriteBinary(value) =>
-          p.writeBinary(ByteBuffer.wrap(value.toArray))
-        case Command.WriteListBegin(ttype, count) =>
-          p.writeListBegin(new TList(ttype, count))
-        case Command.WriteSetBegin(ttype, count) =>
-          p.writeSetBegin(new TSet(ttype, count))
-        case Command.WriteMapBegin(keyType, valueType, count) =>
-          p.writeMapBegin(new TMap(keyType, valueType, count))
-        case Command.Fail(message) =>
-          throw new RuntimeException(message)
-      }
   }
 
   class Decoder(chunk: Chunk[Byte]) {

@@ -1,25 +1,42 @@
 package zio.schema
 
 import scala.collection.immutable.ListMap
-
 import zio.{ Chunk, ChunkBuilder }
 
-trait ProcessValueWithSchema[Target <: AnyRef, State] {
+import scala.annotation.nowarn
+
+trait ProcessValueWithSchema[Target, State] {
   protected def processPrimitive(state: State, value: Any, typ: StandardType[Any]): Target
+
+  @nowarn protected def startProcessingRecord(state: State, schema: Schema.Record[_]): Unit = {}
 
   protected def processRecord(state: State, schema: Schema.Record[_], value: ListMap[String, Target]): Target
 
+  @nowarn protected def startProcessingEnum(state: State, schema: Schema.Enum[_]): Unit = {}
+
   protected def processEnum(state: State, schema: Schema.Enum[_], tuple: (String, Target)): Target
+
+  @nowarn protected def startProcessingSequence(state: State, schema: Schema.Sequence[_, _, _], size: Int): Unit = {}
 
   protected def processSequence(state: State, schema: Schema.Sequence[_, _, _], value: Chunk[Target]): Target
 
+  @nowarn protected def startProcessingDictionary(state: State, schema: Schema.Map[_, _], size: Int): Unit = {}
+
   protected def processDictionary(state: State, schema: Schema.Map[_, _], value: Chunk[(Target, Target)]): Target
+
+  @nowarn protected def startProcessingSet(state: State, schema: Schema.Set[_], size: Int): Unit = {}
 
   protected def processSet(state: State, schema: Schema.Set[_], value: Set[Target]): Target
 
+  @nowarn protected def startProcessingEither(state: State, schema: Schema.Either[_, _]): Unit = {}
+
   protected def processEither(state: State, schema: Schema.Either[_, _], value: Either[Target, Target]): Target
 
+  @nowarn protected def startProcessingOption(state: State, schema: Schema.Optional[_]): Unit = {}
+
   protected def processOption(state: State, schema: Schema.Optional[_], value: Option[Target]): Target
+
+  @nowarn protected def startProcessingTuple(state: State, schema: Schema.Tuple2[_, _]): Unit = {}
 
   protected def processTuple(state: State, schema: Schema.Tuple2[_, _], left: Target, right: Target): Target
 
@@ -41,7 +58,7 @@ trait ProcessValueWithSchema[Target <: AnyRef, State] {
   def process[A](schema: Schema[A], value: A): Target = {
     var currentSchema: Schema[_]    = schema
     var currentValue: Any           = value
-    var result: Target              = null.asInstanceOf[Target]
+    var result: Option[Target]      = None
     var stack: List[Target => Unit] = List.empty[Target => Unit]
     var stateStack: List[State]     = List(initialState)
 
@@ -57,7 +74,7 @@ trait ProcessValueWithSchema[Target <: AnyRef, State] {
         stack = stack.tail
         head(resultValue)
       } else {
-        result = resultValue
+        result = Some(resultValue)
       }
 
     def fields(s: Schema.Record[_], record: Any, fs: Schema.Field[_, _]*): Unit = {
@@ -90,10 +107,13 @@ trait ProcessValueWithSchema[Target <: AnyRef, State] {
         processNext(index + 1, remaining)
       }
 
+      startProcessingRecord(stateStack.head, s)
       processNext(0, fs.toList)
     }
 
     def enumCases(s: Schema.Enum[_], cs: Schema.Case[_, _]*): Unit = {
+      startProcessingEnum(stateStack.head, s)
+
       var found = false
       val it    = cs.iterator
       var index = 0
@@ -120,7 +140,7 @@ trait ProcessValueWithSchema[Target <: AnyRef, State] {
       }
     }
 
-    while (result eq null) {
+    while (result.isEmpty) {
       val state = stateStack.head
 
       currentSchema match {
@@ -167,6 +187,7 @@ trait ProcessValueWithSchema[Target <: AnyRef, State] {
             processNext(index + 1, remaining)
           }
 
+          startProcessingRecord(state, s)
           processNext(0, structureChunk.toList)
 
         case s @ Schema.Enum1(_, case1, _) =>
@@ -676,6 +697,7 @@ trait ProcessValueWithSchema[Target <: AnyRef, State] {
             }
           }
 
+          startProcessingSequence(state, s, inputChunk.size)
           pushState(stateForSequence(state, s, 0))
           processNext(0)
 
@@ -707,6 +729,7 @@ trait ProcessValueWithSchema[Target <: AnyRef, State] {
               }
             }
 
+          startProcessingDictionary(state, s, inputChunk.size)
           processNext(0)
 
         case s @ Schema.Set(as: Schema[a], _) =>
@@ -728,10 +751,12 @@ trait ProcessValueWithSchema[Target <: AnyRef, State] {
             }
           }
 
+          startProcessingSet(state, s, inputChunk.size)
           pushState(stateForSet(state, s, 0))
           processNext(0)
 
         case s: Schema.Either[l, r] =>
+          startProcessingEither(state, s)
           currentValue.asInstanceOf[Either[l, r]] match {
             case Left(value: l) =>
               currentValue = value
@@ -752,6 +777,7 @@ trait ProcessValueWithSchema[Target <: AnyRef, State] {
           }
 
         case s: Schema.Tuple2[a, b] =>
+          startProcessingTuple(state, s)
           val (a: a, b: b) = currentValue.asInstanceOf[(a, b)]
           currentValue = a
           currentSchema = s.left
@@ -768,6 +794,7 @@ trait ProcessValueWithSchema[Target <: AnyRef, State] {
           }
 
         case s: Schema.Optional[a] =>
+          startProcessingOption(state, s)
           currentValue.asInstanceOf[Option[a]] match {
             case Some(value: a) =>
               currentValue = value
@@ -1246,7 +1273,7 @@ trait ProcessValueWithSchema[Target <: AnyRef, State] {
           }
       }
     }
-    result
+    result.get
   }
 }
 
