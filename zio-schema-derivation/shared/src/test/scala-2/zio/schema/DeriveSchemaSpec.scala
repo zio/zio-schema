@@ -231,6 +231,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
 
   }
 
+  case class ContainsSchema(schema: Schema[User])
+
+  object ContainsSchema {
+    implicit val schema: Schema[ContainsSchema] = DeriveSchema.gen[ContainsSchema]
+  }
+
   override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("correctly derives case class 0") {
@@ -377,6 +383,9 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
       },
       test("correctly derives Enum with > 22 cases") {
         assert(Schema[Enum23].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+      },
+      test("correctly derives schema for case classes that use schema") {
+        assert(Schema[ContainsSchema].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       }
     )
   )

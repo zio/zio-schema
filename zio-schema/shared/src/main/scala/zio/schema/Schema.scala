@@ -255,6 +255,11 @@ object Schema extends SchemaEquality {
       url => Right(url.toString)
     )
 
+  implicit def schemaSchema[A]: Schema[Schema[A]] = Schema[MetaSchema].transform(
+    _.toSchema.asInstanceOf[Schema[A]],
+    _.ast
+  )
+
   implicit val uri: Schema[java.net.URI] =
     Schema[String].transformOrFail(
       string =>
