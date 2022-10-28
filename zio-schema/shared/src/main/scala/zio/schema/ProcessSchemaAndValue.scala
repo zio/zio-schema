@@ -1277,7 +1277,7 @@ trait ProcessValueWithSchema[Target, State] {
   }
 }
 
-trait ProcessSchemaAndValueWithoutState[Target <: AnyRef] extends ProcessValueWithSchema[Target, Unit] {
+trait ProcessSchemaAndValueWithoutState[Target] extends ProcessValueWithSchema[Target, Unit] {
 
   protected def processPrimitive(value: Any, typ: StandardType[Any]): Target
 
