@@ -16,6 +16,7 @@ import zio.json.{
   JsonFieldEncoder
 }
 import zio.schema._
+import zio.schema.codec.BinaryCodec._
 import zio.stream.ZPipeline
 import zio.{ Chunk, ChunkBuilder, NonEmptyChunk, ZIO }
 

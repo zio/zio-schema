@@ -13,6 +13,7 @@ import scala.util.{ Failure, Success, Try }
 import org.apache.thrift.protocol._
 
 import zio.schema._
+import zio.schema.codec.BinaryCodec._
 import zio.schema.codec.ThriftCodec.Thrift.{
   bigDecimalStructure,
   durationStructure,

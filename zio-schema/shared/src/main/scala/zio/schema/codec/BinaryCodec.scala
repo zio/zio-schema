@@ -3,7 +3,9 @@ package zio.schema.codec
 import zio.Chunk
 import zio.stream.ZPipeline
 
-trait BinaryCodec extends Codec[Chunk[Byte], Byte] {
+trait BinaryCodec extends Codec[Chunk[Byte], Byte]
+
+object BinaryCodec {
 
   type BinaryEncoder[A] = Encoder[Chunk[Byte], Byte, A]
 
