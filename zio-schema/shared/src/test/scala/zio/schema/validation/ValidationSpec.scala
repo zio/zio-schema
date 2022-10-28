@@ -1,11 +1,12 @@
 package zio.schema.validation
 
-import zio.Scope
-import zio.test._
-
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
 import scala.util.Try
+
+import zio.Scope
+import zio.test._
 
 object ValidationSpec extends ZIOSpecDefault {
   import zio.schema.validation.ValidationSpec.AmPm._
