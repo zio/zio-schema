@@ -188,7 +188,7 @@ object ThriftCodec extends Codec {
 
     override protected def processSet(state: State, schema: Schema.Set[_], value: Set[Command]): Command =
       Command.Sequence(
-        Command.WriteFieldBegin(state.fieldNumber, TType.LIST),
+        Command.WriteFieldBegin(state.fieldNumber, TType.SET),
         Command.WriteSetBegin(getType(schema.elementSchema), value.size)
       ) ++ Chunk.fromIterable(value)
 
@@ -253,7 +253,13 @@ object ThriftCodec extends Codec {
     override protected def stateForTuple(state: State, index: Int): State =
       state.copy(fieldNumber = Some(index.toShort))
 
-    override protected def stateForSequence(state: State): State =
+    override protected def stateForSequence(state: State, schema: Schema.Sequence[_, _, _], index: Int): State =
+      state.copy(fieldNumber = None)
+
+    override protected def stateForMap(state: State, schema: Schema.Map[_, _], index: Int): State =
+      state.copy(fieldNumber = None)
+
+    override protected def stateForSet(state: State, schema: Schema.Set[_], index: Int): State =
       state.copy(fieldNumber = None)
 
     def encode[A](schema: Schema[A], value: A): Chunk[Byte] = {

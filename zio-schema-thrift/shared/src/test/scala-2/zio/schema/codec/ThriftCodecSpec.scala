@@ -148,7 +148,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         for {
           e  <- encode(schemaFail, StringValue("foo")).map(_.size).exit
           e2 <- encodeNS(schemaFail, StringValue("foo")).map(_.size).exit
-        } yield assert(e)(fails(anything)) && assert(e2)(fails(anything))
+        } yield assert(e)(dies(anything)) && assert(e2)(dies(anything))
       }
     ),
     suite("Should successfully encode and decode")(
