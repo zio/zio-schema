@@ -202,13 +202,13 @@ object ThriftCodec extends Codec {
         case StandardType.ZoneIdType            => TType.STRING
         case StandardType.ZoneOffsetType        => TType.I32
         case StandardType.DurationType          => TType.STRUCT
-        case StandardType.InstantType(_)        => TType.STRING
-        case StandardType.LocalDateType(_)      => TType.STRING
-        case StandardType.LocalTimeType(_)      => TType.STRING
-        case StandardType.LocalDateTimeType(_)  => TType.STRING
-        case StandardType.OffsetTimeType(_)     => TType.STRING
-        case StandardType.OffsetDateTimeType(_) => TType.STRING
-        case StandardType.ZonedDateTimeType(_)  => TType.STRING
+        case StandardType.InstantType           => TType.STRING
+        case StandardType.LocalDateType         => TType.STRING
+        case StandardType.LocalTimeType         => TType.STRING
+        case StandardType.LocalDateTimeType     => TType.STRING
+        case StandardType.OffsetTimeType        => TType.STRING
+        case StandardType.OffsetDateTimeType    => TType.STRING
+        case StandardType.ZonedDateTimeType     => TType.STRING
         case _                                  => TType.VOID
       }
 
@@ -270,20 +270,20 @@ object ThriftCodec extends Codec {
           p.writeI32(v.getTotalSeconds)
         case (StandardType.DurationType, v: Duration) =>
           encodeRecord(None, durationStructure, ListMap("seconds" -> v.getSeconds, "nanos" -> v.getNano))
-        case (StandardType.InstantType(formatter), v: Instant) =>
-          p.writeString(formatter.format(v))
-        case (StandardType.LocalDateType(formatter), v: LocalDate) =>
-          p.writeString(formatter.format(v))
-        case (StandardType.LocalTimeType(formatter), v: LocalTime) =>
-          p.writeString(formatter.format(v))
-        case (StandardType.LocalDateTimeType(formatter), v: LocalDateTime) =>
-          p.writeString(formatter.format(v))
-        case (StandardType.OffsetTimeType(formatter), v: OffsetTime) =>
-          p.writeString(formatter.format(v))
-        case (StandardType.OffsetDateTimeType(formatter), v: OffsetDateTime) =>
-          p.writeString(formatter.format(v))
-        case (StandardType.ZonedDateTimeType(formatter), v: ZonedDateTime) =>
-          p.writeString(formatter.format(v))
+        case (StandardType.InstantType, v: Instant) =>
+          p.writeI32(v.getNano)
+        case (StandardType.LocalDateType, v: LocalDate) =>
+          p.writeString(v.toString)
+        case (StandardType.LocalTimeType, v: LocalTime) =>
+          p.writeString(v.toString)
+        case (StandardType.LocalDateTimeType, v: LocalDateTime) =>
+          p.writeString(v.toString)
+        case (StandardType.OffsetTimeType, v: OffsetTime) =>
+          p.writeString(v.toString)
+        case (StandardType.OffsetDateTimeType, v: OffsetDateTime) =>
+          p.writeString(v.toString)
+        case (StandardType.ZonedDateTimeType, v: ZonedDateTime) =>
+          p.writeString(v.toString)
         case (_, _) =>
           throw new NotImplementedError(s"No encoder for $standardType")
       }

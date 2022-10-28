@@ -161,13 +161,13 @@ object ProtobufCodec extends Codec {
       case StandardType.ZoneIdType            => false
       case StandardType.ZoneOffsetType        => true
       case StandardType.DurationType          => true
-      case StandardType.InstantType(_)        => false
-      case StandardType.LocalDateType(_)      => false
-      case StandardType.LocalTimeType(_)      => false
-      case StandardType.LocalDateTimeType(_)  => false
-      case StandardType.OffsetTimeType(_)     => false
-      case StandardType.OffsetDateTimeType(_) => false
-      case StandardType.ZonedDateTimeType(_)  => false
+      case StandardType.InstantType           => false
+      case StandardType.LocalDateType         => false
+      case StandardType.LocalTimeType         => false
+      case StandardType.LocalDateTimeType     => false
+      case StandardType.OffsetTimeType        => false
+      case StandardType.OffsetDateTimeType    => false
+      case StandardType.ZonedDateTimeType     => false
     }
   }
 
@@ -409,20 +409,20 @@ object ProtobufCodec extends Codec {
           encodePrimitive(fieldNumber, StandardType.IntType, v.getTotalSeconds)
         case (StandardType.DurationType, v: Duration) =>
           encodeRecord(fieldNumber, durationStructure, ListMap("seconds" -> v.getSeconds, "nanos" -> v.getNano))
-        case (StandardType.InstantType(formatter), v: Instant) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
-        case (StandardType.LocalDateType(formatter), v: LocalDate) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
-        case (StandardType.LocalTimeType(formatter), v: LocalTime) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
-        case (StandardType.LocalDateTimeType(formatter), v: LocalDateTime) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
-        case (StandardType.OffsetTimeType(formatter), v: OffsetTime) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
-        case (StandardType.OffsetDateTimeType(formatter), v: OffsetDateTime) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
-        case (StandardType.ZonedDateTimeType(formatter), v: ZonedDateTime) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
+        case (StandardType.InstantType, v: Instant) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, v.getNano)
+        case (StandardType.LocalDateType, v: LocalDate) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
+        case (StandardType.LocalTimeType, v: LocalTime) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
+        case (StandardType.LocalDateTimeType, v: LocalDateTime) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
+        case (StandardType.OffsetTimeType, v: OffsetTime) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
+        case (StandardType.OffsetDateTimeType, v: OffsetDateTime) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
+        case (StandardType.ZonedDateTimeType, v: ZonedDateTime) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
         case (_, _) =>
           throw new NotImplementedError(s"No encoder for $standardType")
       }
