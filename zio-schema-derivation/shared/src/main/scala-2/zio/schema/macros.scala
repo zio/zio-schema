@@ -160,6 +160,11 @@ object DeriveSchema {
           }
         }
 
+    def getFieldName(annotations: List[Tree]): Option[String] =
+      annotations.collectFirst {
+        case q"new fieldName($name)" => name.toString
+      }.map(s => s.substring(1, s.length() - 1))
+
     def deriveRecord(tpe: Type, stack: List[Frame[c.type]]): Tree = stack.find(_.tpe =:= tpe) match {
       case Some(Frame(_, ref, _)) =>
         val refIdent = Ident(TermName(ref))
@@ -265,9 +270,10 @@ object DeriveSchema {
               val setFunc =
                 q" (z: scala.collection.immutable.ListMap[String, _], v: ${termSymbol.typeSignature}) => z.updated($fieldLabel, v)"
 
-              if (annotations.nonEmpty)
-                q"zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), get = $getFunc, set = $setFunc)"
-              else
+              if (annotations.nonEmpty) {
+                val newName = getFieldName(annotations).getOrElse(fieldLabel)
+                q"zio.schema.Schema.Field.apply(name = $newName, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), get = $getFunc, set = $setFunc)"
+              } else
                 q"zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, get = $getFunc, set = $setFunc)"
           }
           val fromMap = {
@@ -336,9 +342,10 @@ object DeriveSchema {
               val getFunc = q" (z: $tpe) => z.$getArg"
               val setFunc = q" (z: $tpe, v: ${fieldType}) => z.copy($getArg = v)"
 
-              if (annotations.nonEmpty)
-                q"""$fieldArg = zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), validation = $validation, get = $getFunc, set = $setFunc)"""
-              else
+              if (annotations.nonEmpty) {
+                val newName = getFieldName(annotations).getOrElse(fieldLabel)
+                q"""$fieldArg = zio.schema.Schema.Field.apply(name = $newName, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), validation = $validation, get = $getFunc, set = $setFunc)"""
+              } else
                 q"""$fieldArg = zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, validation = $validation, get = $getFunc, set = $setFunc)"""
           }
 

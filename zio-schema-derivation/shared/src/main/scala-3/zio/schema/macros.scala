@@ -5,6 +5,8 @@ import scala.deriving.Mirror
 import scala.compiletime.{erasedValue, summonInline, constValueTuple}
 import Schema._
 
+import zio.schema.annotation.fieldName
+
 object DeriveSchema {
 
   transparent inline def gen[T]: Schema[T] = ${ deriveSchema[T] }
@@ -244,7 +246,17 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
       val get = '{ (t: T) => ${Select.unique('t.asTerm, name).asExprOf[t]} }
       val set = '{ (ts: T, v: t) => ${Select.overloaded('ts.asTerm, "copy", typeParams, List(NamedArg(name, 'v.asTerm))).asExprOf[T]} }
       val chunk = '{ zio.Chunk.fromIterable(${ Expr.ofSeq(anns.reverse) }) }
-      '{ Field(${Expr(name)}, $schema, $chunk, $validator, $get, $set) }
+
+      if (anns.nonEmpty) {
+        val newName = anns.collectFirst {
+          case ann if ann.isExprOf[fieldName] => ann.asExprOf[fieldName]
+        }
+        println(newName) // this is a fieldName(value), how to access the value here?
+        
+        '{ Field(${Expr(name)}, $schema, $chunk, $validator, $get, $set) }
+      } else {
+        '{ Field(${Expr(name)}, $schema, $chunk, $validator, $get, $set) }
+      }
     }
   }
 

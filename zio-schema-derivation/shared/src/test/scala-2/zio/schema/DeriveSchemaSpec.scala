@@ -1,8 +1,8 @@
 package zio.schema
 
 import scala.annotation.Annotation
-
 import zio.Chunk
+import zio.schema.annotation.fieldName
 import zio.test._
 
 object DeriveSchemaSpec extends ZIOSpecDefault {
@@ -228,7 +228,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
     case class C23(recursive: Enum23)   extends Enum23
 
     implicit lazy val schema: Schema.EnumN[Enum23, CaseSet.Aux[Enum23]] = DeriveSchema.gen[Enum23]
+  }
 
+  case class RenamedField(@fieldName("renamed") name: String, @fieldName("number") num: Int)
+
+  object RenamedField {
+    implicit lazy val schema: Schema[RenamedField] = DeriveSchema.gen[RenamedField]
   }
 
   case class ContainsSchema(schema: Schema[User])
@@ -386,6 +391,30 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
       },
       test("correctly derives schema for case classes that use schema") {
         assert(Schema[ContainsSchema].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+      },
+      test("correctly derives renaming field when fieldName annotation is present") {
+        val derived: Schema[RenamedField] = Schema[RenamedField]
+        val expected: Schema[RenamedField] = {
+          Schema.CaseClass2(
+            TypeId.parse("zio.schema.DeriveSchemaSpec.RenamedField"),
+            field1 = Schema.Field(
+              "renamed",
+              Schema.Primitive(StandardType.StringType),
+              Chunk(fieldName("renamed")),
+              get = _.name,
+              set = (a, b: String) => a.copy(name = b)
+            ),
+            field2 = Schema.Field(
+              "number",
+              Schema.Primitive(StandardType.IntType),
+              Chunk(fieldName("number")),
+              get = _.num,
+              set = (a, b: Int) => a.copy(num = b)
+            ),
+            RenamedField.apply
+          )
+        }
+        assert(derived)(hasSameSchema(expected))
       }
     )
   )
