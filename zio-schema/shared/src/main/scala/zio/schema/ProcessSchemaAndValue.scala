@@ -1,9 +1,9 @@
 package zio.schema
 
-import scala.collection.immutable.ListMap
-import zio.{ Chunk, ChunkBuilder }
-
 import scala.annotation.nowarn
+import scala.collection.immutable.ListMap
+
+import zio.{ Chunk, ChunkBuilder }
 
 trait ProcessValueWithSchema[Target, State] {
   protected def processPrimitive(state: State, value: Any, typ: StandardType[Any]): Target

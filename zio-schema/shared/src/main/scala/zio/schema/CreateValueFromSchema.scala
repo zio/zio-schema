@@ -108,7 +108,7 @@ trait CreateValueFromSchema[Target, State] {
         case Schema.Primitive(p, _) =>
           finishWith(createPrimitive(state, p.asInstanceOf[StandardType[Any]]))
 
-        case s @ Schema.GenericRecord(_, structure, _) =>
+        case s @ Schema.GenericRecord(_, _, _) =>
           record(s)
 
         case s @ Schema.Enum1(_, _, _) =>
