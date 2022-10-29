@@ -467,7 +467,9 @@ object JsonCodec extends Codec {
   private[codec] object ProductDecoder {
     import zio.schema.codec.JsonCodec.Decoder.schemaDecoder
 
-    private[codec] def caseClass0Decoder[Z](schema: Schema.CaseClass0[Z]): JsonDecoder[Z] = { (_: List[JsonError], _: RetractReader) =>
+    private[codec] def caseClass0Decoder[Z](schema: Schema.CaseClass0[Z]): JsonDecoder[Z] = { (trace: List[JsonError], in: RetractReader) =>
+      Lexer.char(trace, in, '{')
+      Lexer.char(trace, in, '}')
       schema.defaultConstruct()
     }
 
