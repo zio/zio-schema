@@ -34,7 +34,7 @@ import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, Console, Task, ZIO }
+import zio.{ Chunk, Console, Scope, Task, ZIO }
 
 // TODO: use generators instead of manual encode/decode
 
@@ -48,7 +48,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
 
   import Schema._
 
-  def spec = suite("ThriftCodec Spec")(
+  def spec: Spec[TestEnvironment with Scope, Any] = suite("ThriftCodec Spec")(
     suite("Should correctly encode")(
       test("integers") {
         for {
@@ -979,12 +979,17 @@ object ThriftCodecSpec extends ZIOSpecDefault {
 
   lazy val schemaGenericEnumeration: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
     TypeId.Structural,
-    caseOf[String, Any]("string")(_.asInstanceOf[String]) ++ caseOf[Int, Any]("int")(_.asInstanceOf[Int])
+    caseOf[String, Any]("string")(_.asInstanceOf[String])(_.asInstanceOf[Any])(_.isInstanceOf[String]) ++ caseOf[
+      Int,
+      Any
+    ]("int")(_.asInstanceOf[Int])(_.asInstanceOf[Any])(_.isInstanceOf[Int])
   )
 
   lazy val schemaGenericEnumerationSorted: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
     TypeId.Structural,
-    caseOf[Int, Any]("int")(_.asInstanceOf[Int]) ++ caseOf[String, Any]("string")(_.asInstanceOf[String])
+    caseOf[Int, Any]("int")(_.asInstanceOf[Int])(_.asInstanceOf[Any])(_.isInstanceOf[Int]) ++ caseOf[String, Any](
+      "string"
+    )(_.asInstanceOf[String])(_.asInstanceOf[Any])(_.isInstanceOf[String])
   )
 
   val schemaFail: Schema[StringValue] = Schema.fail("failing schema")

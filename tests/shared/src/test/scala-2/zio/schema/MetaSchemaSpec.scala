@@ -1,5 +1,7 @@
 package zio.schema
 
+import scala.collection.immutable.ListMap
+
 import zio._
 import zio.schema.CaseSet._
 import zio.schema.SchemaAssertions._
@@ -41,10 +43,22 @@ object MetaSchemaSpec extends ZIOSpecDefault {
         val schema =
           Schema.record(
             TypeId.parse("zio.schema.MetaSchema.Product"),
-            Chunk(
-              Schema.Field("a", Schema[String]),
-              Schema.Field("b", Schema[Int])
-            ): _*
+            FieldSet(
+              Seq(
+                Schema.Field[ListMap[String, _], String](
+                  "a",
+                  Schema[String],
+                  get = _("a").asInstanceOf[String],
+                  set = (r, v) => r.updated("a", v)
+                ),
+                Schema.Field[ListMap[String, _], Int](
+                  "b",
+                  Schema[Int],
+                  get = _("b").asInstanceOf[Int],
+                  set = (r, v) => r.updated("b", v)
+                )
+              ): _*
+            )
           )
         val expectedAst =
           MetaSchema.Product(
@@ -102,9 +116,11 @@ object MetaSchemaSpec extends ZIOSpecDefault {
         val schema =
           Schema.enumeration[Any, CaseSet.Aux[Any]](
             TypeId.Structural,
-            caseOf[SchemaGen.Arity1, Any]("type1")(_.asInstanceOf[SchemaGen.Arity1]) ++ caseOf[SchemaGen.Arity2, Any](
+            caseOf[SchemaGen.Arity1, Any]("type1")(_.asInstanceOf[SchemaGen.Arity1])(_.asInstanceOf[Any])(
+              _.isInstanceOf[Any]
+            ) ++ caseOf[SchemaGen.Arity2, Any](
               "type2"
-            )(_.asInstanceOf[SchemaGen.Arity2])
+            )(_.asInstanceOf[SchemaGen.Arity2])(_.asInstanceOf[Any])(_.isInstanceOf[Any])
           )
         val expectedAst =
           MetaSchema.Sum(

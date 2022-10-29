@@ -5,31 +5,48 @@ import java.time.format.DateTimeFormatter
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
-import zio.schema.TypeId
 import zio.test.{ Gen, Sized }
 
 object SchemaGen {
 
   val anyLabel: Gen[Sized, String] = Gen.alphaNumericStringBounded(1, 15)
 
-  def anyStructure(
+  def anyStructure[A](
     schemaGen: Gen[Sized, Schema[_]]
-  ): Gen[Sized, Seq[Schema.Field[_]]] =
+  ): Gen[Sized, FieldSet] =
     Gen.setOfBounded(1, 3)(anyLabel).flatMap { keySet =>
       Gen.setOfN(keySet.size)(schemaGen).map { schemas =>
-        keySet
-          .zip(schemas)
-          .map {
-            case (label, schema) => Schema.Field(label, schema)
-          }
-          .toSeq
+        FieldSet(
+          keySet
+            .zip(schemas)
+            .map {
+              case (label, schema) =>
+                Schema
+                  .Field[ListMap[String, A], A](
+                    label,
+                    schema.asInstanceOf[Schema[A]],
+                    get = _(label),
+                    set = (a, b) => a + (label -> b)
+                  )
+                  .asInstanceOf[Schema.Field[ListMap[String, _], _]]
+            }
+            .toSeq: _*
+        )
       }
     }
 
-  def anyStructure[A](schema: Schema[A], max: Int = 3): Gen[Sized, Seq[Schema.Field[A]]] =
+  def anyStructure[A](schema: Schema[A], max: Int = 3): Gen[Sized, Seq[Schema.Field[ListMap[String, _], A]]] =
     Gen
       .setOfBounded(1, max)(
-        anyLabel.map(Schema.Field(_, schema))
+        anyLabel.map(
+          label =>
+            Schema.Field[ListMap[String, _], A](
+              label,
+              schema,
+              get = _(label).asInstanceOf[A],
+              set = (a, b) => a + (label -> b)
+            )
+        )
       )
       .map(_.toSeq)
 
@@ -148,7 +165,14 @@ object SchemaGen {
   def toCaseSet(cases: ListMap[String, Schema[_]]): CaseSet.Aux[Any] =
     cases.foldRight[CaseSet.Aux[Any]](CaseSet.Empty[Any]()) {
       case ((id, codec), acc) =>
-        val _case = Schema.Case[Any, Any](id, codec.asInstanceOf[Schema[Any]], _.asInstanceOf[Any], Chunk.empty)
+        val _case = Schema.Case[Any, Any](
+          id,
+          codec.asInstanceOf[Schema[Any]],
+          _.asInstanceOf[Any],
+          _.asInstanceOf[Any],
+          _.isInstanceOf[Any],
+          Chunk.empty
+        )
         CaseSet.Cons(_case, acc)
     }
 
@@ -219,9 +243,9 @@ object SchemaGen {
 
   val anyRecord: Gen[Sized, Schema[ListMap[String, _]]] =
     for {
-      name   <- Gen.string(Gen.alphaChar).map(TypeId.parse)
-      fields <- anyStructure(anySchema)
-    } yield Schema.record(name, fields: _*)
+      name     <- Gen.string(Gen.alphaChar).map(TypeId.parse)
+      fieldSet <- anyStructure(anySchema)
+    } yield Schema.record(name, fieldSet)
 
   type GenericRecordAndGen = (Schema[ListMap[String, _]], Gen[Sized, ListMap[String, _]])
 
@@ -232,7 +256,7 @@ object SchemaGen {
       structure     <- anyStructure(schema, maxFieldCount)
     } yield {
       val valueGen = Gen
-        .const(structure.map(_.label))
+        .const(structure.map(_.name))
         .zip(Gen.listOfN(structure.size)(gen))
         .map {
           case (labels, values) =>
@@ -261,7 +285,14 @@ object SchemaGen {
       (key1, value1)  <- Gen.const(keys(0)).zip(gen1)
       (key2, value2)  <- Gen.const(keys(1)).zip(gen2)
       (key3, value3)  <- Gen.const(keys(2)).zip(gen3)
-    } yield Schema.record(name, Schema.Field(key1, schema1), Schema.Field(key2, schema2), Schema.Field(key3, schema3)) -> ListMap(
+    } yield Schema.record(
+      name,
+      FieldSet(
+        Schema.Field(key1, schema1.asInstanceOf[Schema[Any]], get = _(key1), set = (r, v: Any) => r.updated(key1, v)),
+        Schema.Field(key2, schema2.asInstanceOf[Schema[Any]], get = _(key2), set = (r, v: Any) => r.updated(key2, v)),
+        Schema.Field(key3, schema3.asInstanceOf[Schema[Any]], get = _(key3), set = (r, v: Any) => r.updated(key3, v))
+      )
+    ) -> ListMap(
       (key1, value1),
       (key2, value2),
       (key3, value3)
@@ -500,10 +531,10 @@ object SchemaGen {
 
   val anyCaseClassAndGen: Gen[Sized, CaseClassAndGen[_]] =
     anyCaseClassSchema.map {
-      case s @ Schema.CaseClass1(_, _, _, _, _)             => (s -> anyArity1).asInstanceOf[CaseClassAndGen[Any]]
-      case s @ Schema.CaseClass2(_, _, _, _, _, _, _)       => (s -> anyArity2).asInstanceOf[CaseClassAndGen[Any]]
-      case s @ Schema.CaseClass3(_, _, _, _, _, _, _, _, _) => (s -> anyArity3).asInstanceOf[CaseClassAndGen[Any]]
-      case s                                                => (s -> anyArity24).asInstanceOf[CaseClassAndGen[Any]]
+      case s @ Schema.CaseClass1(_, _, _, _)       => (s -> anyArity1).asInstanceOf[CaseClassAndGen[Any]]
+      case s @ Schema.CaseClass2(_, _, _, _, _)    => (s -> anyArity2).asInstanceOf[CaseClassAndGen[Any]]
+      case s @ Schema.CaseClass3(_, _, _, _, _, _) => (s -> anyArity3).asInstanceOf[CaseClassAndGen[Any]]
+      case s                                       => (s -> anyArity24).asInstanceOf[CaseClassAndGen[Any]]
     }
 
   val anyCaseClassAndValue: Gen[Sized, CaseClassAndValue[_]] =
@@ -536,7 +567,7 @@ object SchemaGen {
       anyPrimitive.zip(anyPrimitive).map { case (l, r) => Schema.tuple2(l, r) },
       anyStructure(anyPrimitive)
         .zip(Gen.string(Gen.alphaChar).map(TypeId.parse))
-        .map(z => Schema.record(z._2, z._1: _*)),
+        .map(z => Schema.record(z._2, z._1)),
       Gen.const(Schema[Json]),
 //      anyEnumeration(anyPrimitive).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_)),
       anyCaseClassSchema,
@@ -558,7 +589,7 @@ object SchemaGen {
         anyTree(depth - 1).zip(anyTree(depth - 1)).map { case (l, r) => Schema.tuple2(l, r) },
         anyStructure(anyTree(depth - 1))
           .zip(Gen.string(Gen.alphaChar).map(TypeId.parse))
-          .map(z => Schema.record(z._2, z._1: _*)),
+          .map(z => Schema.record(z._2, z._1)),
         Gen.const(Schema[Json])
 //        anyEnumeration(anyTree(depth - 1)).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_))
       )

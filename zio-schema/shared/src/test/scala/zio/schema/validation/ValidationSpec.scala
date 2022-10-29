@@ -1,6 +1,7 @@
 package zio.schema.validation
 
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 import scala.util.Try
 
@@ -354,7 +355,7 @@ object ValidationSpec extends ZIOSpecDefault {
     val times      = createTimes(exampleTimes, createTimesConfig)
     val wrongTimes = createTimes(wrongExampleTimes, createTimesConfig)
     val validation = Validation.time(format)
-    val formatter  = DateTimeFormatter.ofPattern(format)
+    val formatter  = DateTimeFormatter.ofPattern(format, Locale.US)
 
     def innerParse(times: Seq[String]) =
       times.map { time =>

@@ -18,9 +18,15 @@ trait SchemaEquality {
       visitedPairs: mutable.Set[(Schema[_], Schema[_])]
     ): Boolean = {
       implicit lazy val selfEqual: Equal[Schema[_]] = Equal.make(recursiveEqual(_, _, visitedPairs))
-      implicit lazy val fieldEqual: Equal[Schema.Field[_]] =
-        (l: Schema.Field[_], r: Schema.Field[_]) => {
-          l.label === r.label &&
+      implicit lazy val fieldEqual: Equal[Schema.Field[_, _]] =
+        (l: Schema.Field[_, _], r: Schema.Field[_, _]) => {
+          l.name === r.name &&
+            l.schema === r.schema &&
+            l.annotations == r.annotations
+        }
+      implicit lazy val caseEqual: Equal[Schema.Case[_, _]] =
+        (l: Schema.Case[_, _], r: Schema.Case[_, _]) => {
+          l.id == r.id &&
             l.schema === r.schema &&
             l.annotations == r.annotations
         }
@@ -33,9 +39,9 @@ trait SchemaEquality {
 
         val result = (l, r) match {
           case (lEnum: Schema.Enum[_], rEnum: Schema.Enum[_]) =>
-            l.annotations == r.annotations && lEnum.structure === rEnum.structure
+            l.annotations == r.annotations && lEnum.cases === rEnum.cases
           case (lRecord: Schema.Record[_], rRecord: Schema.Record[_]) =>
-            l.annotations == r.annotations && lRecord.structure === rRecord.structure
+            l.annotations == r.annotations && lRecord.fields === rRecord.fields
           case (lMap: Schema.Map[_, _], rMap: Schema.Map[_, _]) =>
             lMap.annotations == rMap.annotations && lMap.keySchema === rMap.keySchema && lMap.valueSchema === rMap.valueSchema
           case (lSet: Schema.Set[_], rSet: Schema.Set[_]) =>
@@ -43,7 +49,7 @@ trait SchemaEquality {
           case (lSeq: Schema.Sequence[_, _, _], rSeq: Schema.Sequence[_, _, _]) =>
             (ignoreTransformations || (lSeq.identity == rSeq.identity)) &&
               lSeq.annotations == rSeq.annotations &&
-              lSeq.schemaA === rSeq.schemaA
+              lSeq.elementSchema === rSeq.elementSchema
           case (lTransform: Schema.Transform[_, _, _], rTransform: Schema.Transform[_, _, _]) =>
             (ignoreTransformations || (lTransform.identity == rTransform.identity)) &&
               lTransform.annotations == rTransform.annotations &&

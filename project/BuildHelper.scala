@@ -29,7 +29,7 @@ object BuildHelper {
   val zioJsonVersion    = "0.3.0-RC9"
   val zioPreludeVersion = "1.0.0-RC15"
   val zioOpticsVersion  = "0.2.0"
-  val silencerVersion   = "1.7.8"
+  val silencerVersion   = "1.7.11"
   val avroVersion       = "1.11.0"
 
   private val testDeps = Seq(
@@ -49,26 +49,14 @@ object BuildHelper {
     }
   )
 
-  private def compileOnlyDeps(scalaVersion: String) = {
-    val stdCompileOnlyDeps = {
-      if (scalaVersion == Scala3)
-        Seq(
-          "com.github.ghik" % s"silencer-lib_$Scala213" % silencerVersion % Provided
-        )
-      else
-        Seq(
-          ("com.github.ghik" % "silencer-lib" % silencerVersion % Provided).cross(CrossVersion.full),
-          compilerPlugin(("com.github.ghik" % "silencer-plugin" % silencerVersion).cross(CrossVersion.full))
-        )
-    }
+  private def compileOnlyDeps(scalaVersion: String) =
     CrossVersion.partialVersion(scalaVersion) match {
       case Some((2, x)) if x <= 12 =>
-        stdCompileOnlyDeps ++ Seq(
+        Seq(
           compilerPlugin(("org.scalamacros" % "paradise" % "2.1.1").cross(CrossVersion.full))
         )
-      case _ => stdCompileOnlyDeps
+      case _ => Seq.empty
     }
-  }
 
   private def compilerOptions(scalaVersion: String, optimize: Boolean) = {
     val stdOptions = Seq(

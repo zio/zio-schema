@@ -192,15 +192,14 @@ object OrderingSpec extends ZIOSpecDefault {
   def genAnyOrderedPairRecord: Gen[Sized, SchemaAndPair[_]] =
     for {
       name <- Gen.string(Gen.alphaChar).map(TypeId.parse)
-      schema <- anyStructure(anyTree(1)).map(fields => {
-                 val fieldSet = fields.foldRight[FieldSet](FieldSet.Empty)((field, acc) => field :*: acc)
+      schema <- anyStructure(anyTree(1)).map(fieldSet => {
                  Schema.GenericRecord(name, fieldSet)
                })
       pair <- genOrderedPairRecord(schema)
     } yield pair
 
   def genOrderedPairRecord[A](schema: Schema.Record[A]): Gen[Sized, SchemaAndPair[A]] = {
-    val fields: Chunk[Schema.Field[_]] = schema.structure
+    val fields: Chunk[Schema.Field[A, _]] = schema.fields
     for {
       diffInd       <- Gen.int(0, fields.size - 1)
       equalFields   <- genEqualFields(fields, 0, diffInd)
@@ -217,8 +216,8 @@ object OrderingSpec extends ZIOSpecDefault {
     }
   }
 
-  def genEqualFields(
-    fields: Chunk[Schema.Field[_]],
+  def genEqualFields[A](
+    fields: Chunk[Schema.Field[A, _]],
     currentInd: Int,
     diffInd: Int
   ): Gen[Sized, Chunk[(String, DynamicValue, DynamicValue)]] =
@@ -229,21 +228,21 @@ object OrderingSpec extends ZIOSpecDefault {
         x   <- genFromSchema(field.schema)
         d   = DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], x)
         rem <- genEqualFields(fields, currentInd + 1, diffInd)
-      } yield (field.label, d, d) +: rem
+      } yield (field.name, d, d) +: rem
     }
 
-  def genOrderedField(field: Schema.Field[_]): Gen[Sized, (String, DynamicValue, DynamicValue)] =
+  def genOrderedField[A](field: Schema.Field[A, _]): Gen[Sized, (String, DynamicValue, DynamicValue)] =
     genOrderedPair(field.schema).map {
       case (a, b) =>
         (
-          field.label,
+          field.name,
           DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], a),
           DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], b)
         )
     }
 
-  def genRandomFields(
-    fields: Chunk[Schema.Field[_]],
+  def genRandomFields[A](
+    fields: Chunk[Schema.Field[A, _]],
     currentInd: Int
   ): Gen[Sized, Chunk[(String, DynamicValue, DynamicValue)]] =
     if (currentInd >= fields.size) Gen.unit.map(_ => Chunk())
@@ -255,7 +254,7 @@ object OrderingSpec extends ZIOSpecDefault {
         dx  = DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], x)
         dy  = DynamicValue.fromSchemaAndValue(field.schema.asInstanceOf[Schema[Any]], y)
         rem <- genRandomFields(fields, currentInd + 1)
-      } yield (field.label, dx, dy) +: rem
+      } yield (field.name, dx, dy) +: rem
     }
 
   def genAnyOrderedPairEnum: Gen[Sized, SchemaAndPair[_]] =
@@ -268,22 +267,22 @@ object OrderingSpec extends ZIOSpecDefault {
 
   def genOrderedPairEnumSameCase[A](schema: Schema.Enum[A]): Gen[Sized, SchemaAndPair[A]] =
     for {
-      (label, caseSchema)    <- Gen.elements(schema.structure.toList: _*)
-      (smallCase, largeCase) <- genOrderedDynamicPair(caseSchema)
+      caseValue              <- Gen.elements(schema.cases.toList: _*)
+      (smallCase, largeCase) <- genOrderedDynamicPair(caseValue.schema)
       id                     <- Gen.string(Gen.alphaChar).map(TypeId.parse)
-      small                  = DynamicValue.Enumeration(id, (label, smallCase)).toTypedValue(schema).toOption.get
-      large                  = DynamicValue.Enumeration(id, (label, largeCase)).toTypedValue(schema).toOption.get
+      small                  = DynamicValue.Enumeration(id, (caseValue.id, smallCase)).toTypedValue(schema).toOption.get
+      large                  = DynamicValue.Enumeration(id, (caseValue.id, largeCase)).toTypedValue(schema).toOption.get
     } yield (schema, small, large)
 
   def genOrderedPairEnumDiffCase[A](schema: Schema.Enum[A]): Gen[Sized, SchemaAndPair[A]] = {
-    val cases: List[(String, Schema[_])] = schema.structure.toList
+    val cases = schema.cases
     for {
-      smallInd                      <- Gen.int(0, cases.size - 2)
-      largeInd                      <- Gen.int(smallInd + 1, cases.size - 1)
-      (smallLabel, smallCaseSchema) = cases(smallInd)
-      (largeLabel, largeCaseSchema) = cases(largeInd)
-      small                         <- genElemOfCase(schema, smallLabel, smallCaseSchema)
-      large                         <- genElemOfCase(schema, largeLabel, largeCaseSchema)
+      smallInd  <- Gen.int(0, cases.size - 2)
+      largeInd  <- Gen.int(smallInd + 1, cases.size - 1)
+      smallCase = cases(smallInd)
+      largeCase = cases(largeInd)
+      small     <- genElemOfCase(schema, smallCase.id, smallCase.schema)
+      large     <- genElemOfCase(schema, largeCase.id, largeCase.schema)
     } yield (schema, small, large)
   }
 

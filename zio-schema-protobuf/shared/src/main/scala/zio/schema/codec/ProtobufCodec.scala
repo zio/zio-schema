@@ -1,5 +1,6 @@
 package zio.schema.codec
 
+import java.math.{ BigInteger, MathContext }
 import java.nio.charset.StandardCharsets
 import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
@@ -39,35 +40,85 @@ object ProtobufCodec extends Codec {
       case object Bit32                      extends WireType
     }
 
-    private[codec] val bigDecimalStructure: Seq[Schema.Field[_]] =
+    private[codec] val bigDecimalStructure: Seq[Schema.Field[java.math.BigDecimal, _]] =
       Seq(
-        Schema.Field("unscaled", Schema.Primitive(StandardType.BigIntegerType)),
-        Schema.Field("precision", Schema.Primitive(StandardType.IntType)),
-        Schema.Field("scale", Schema.Primitive(StandardType.IntType))
+        Schema.Field(
+          "unscaled",
+          Schema.Primitive(StandardType.BigIntegerType),
+          get = _.unscaledValue,
+          set = (a, b: BigInteger) => new java.math.BigDecimal(b, a.scale)
+        ),
+        Schema
+          .Field(
+            "precision",
+            Schema.Primitive(StandardType.IntType),
+            get = _.precision(),
+            set = (a, b: Int) => new java.math.BigDecimal(a.unscaledValue, new MathContext(b))
+          ),
+        Schema
+          .Field("scale", Schema.Primitive(StandardType.IntType), get = _.scale(), set = (a, b: Int) => a.setScale(b))
       )
 
-    private[codec] val monthDayStructure: Seq[Schema.Field[Int]] =
+    private[codec] val monthDayStructure: Seq[Schema.Field[MonthDay, Int]] =
       Seq(
-        Schema.Field("month", Schema.Primitive(StandardType.IntType)),
-        Schema.Field("day", Schema.Primitive(StandardType.IntType))
+        Schema.Field(
+          "month",
+          Schema.Primitive(StandardType.IntType),
+          get = _.getMonthValue,
+          set = (a, b: Int) => a.`with`(Month.of(b))
+        ),
+        Schema
+          .Field(
+            "day",
+            Schema.Primitive(StandardType.IntType),
+            get = _.getDayOfMonth,
+            set = (a, b: Int) => a.withDayOfMonth(b)
+          )
       )
 
-    private[codec] val periodStructure: Seq[Schema.Field[Int]] = Seq(
-      Schema.Field("years", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("months", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("days", Schema.Primitive(StandardType.IntType))
+    private[codec] val periodStructure: Seq[Schema.Field[Period, Int]] = Seq(
+      Schema
+        .Field("years", Schema.Primitive(StandardType.IntType), get = _.getYears, set = (a, b: Int) => a.withYears(b)),
+      Schema.Field(
+        "months",
+        Schema.Primitive(StandardType.IntType),
+        get = _.getMonths,
+        set = (a, b: Int) => a.withMonths(b)
+      ),
+      Schema.Field("days", Schema.Primitive(StandardType.IntType), get = _.getDays, set = (a, b: Int) => a.withDays(b))
     )
 
-    private[codec] val yearMonthStructure: Seq[Schema.Field[Int]] =
+    private[codec] val yearMonthStructure: Seq[Schema.Field[YearMonth, Int]] =
       Seq(
-        Schema.Field("year", Schema.Primitive(StandardType.IntType)),
-        Schema.Field("month", Schema.Primitive(StandardType.IntType))
+        Schema.Field(
+          "year",
+          Schema.Primitive(StandardType.IntType),
+          get = _.getYear,
+          set = (a, b: Int) => a.`with`(Year.of(b))
+        ),
+        Schema.Field(
+          "month",
+          Schema.Primitive(StandardType.IntType),
+          get = _.getMonthValue,
+          set = (a, b: Int) => a.`with`(Month.of(b))
+        )
       )
 
-    private[codec] val durationStructure: Seq[Schema.Field[_]] =
+    private[codec] val durationStructure: Seq[Schema.Field[Duration, _]] =
       Seq(
-        Schema.Field("seconds", Schema.Primitive(StandardType.LongType)),
-        Schema.Field("nanos", Schema.Primitive(StandardType.IntType))
+        Schema.Field(
+          "seconds",
+          Schema.Primitive(StandardType.LongType),
+          get = _.getSeconds,
+          set = (a, b: Long) => a.plusSeconds(b)
+        ),
+        Schema
+          .Field(
+            "nanos",
+            Schema.Primitive(StandardType.IntType),
+            get = _.getNano,
+            set = (a, b: Int) => a.plusNanos(b.toLong)
+          )
       )
 
     /**
@@ -142,258 +193,49 @@ object ProtobufCodec extends Codec {
         case (_: Schema.CaseClass0[_], v) =>
           encodeCaseClass(v)(fieldNumber)
         case (cc: Schema.CaseClass1[_, _], v) =>
-          encodeCaseClass(v, cc.field -> cc.extractField)(fieldNumber)
+          encodeCaseClass(v, cc.field)(fieldNumber)
         case (cc: Schema.CaseClass2[_, _, _], v) =>
-          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2)(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2)(fieldNumber)
         case (cc: Schema.CaseClass3[_, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3)(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3)(fieldNumber)
         case (cc: Schema.CaseClass4[_, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4)(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4)(fieldNumber)
         case (cc: Schema.CaseClass5[_, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5)(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5)(fieldNumber)
         case (cc: Schema.CaseClass6[_, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6)(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6)(fieldNumber)
         case (cc: Schema.CaseClass7[_, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7)(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7)(fieldNumber)
         case (cc: Schema.CaseClass8[_, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8)(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8)(fieldNumber)
         case (cc: Schema.CaseClass9[_, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9)(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9)(fieldNumber)
         case (cc: Schema.CaseClass10[_, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9, cc.field10 -> cc.extractField10)(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10)(fieldNumber)
         case (cc: Schema.CaseClass11[_, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(v, cc.field1 -> cc.extractField1, cc.field2 -> cc.extractField2, cc.field3 -> cc.extractField3, cc.field4 -> cc.extractField4, cc.field5 -> cc.extractField5, cc.field6 -> cc.extractField6, cc.field7 -> cc.extractField7, cc.field8 -> cc.extractField8, cc.field9 -> cc.extractField9, cc.field10 -> cc.extractField10, cc.field11 -> cc.extractField11)(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11)(fieldNumber)
         case (cc: Schema.CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(
-            v,
-            cc.field1  -> cc.extractField1,
-            cc.field2  -> cc.extractField2,
-            cc.field3  -> cc.extractField3,
-            cc.field4  -> cc.extractField4,
-            cc.field5  -> cc.extractField5,
-            cc.field6  -> cc.extractField6,
-            cc.field7  -> cc.extractField7,
-            cc.field8  -> cc.extractField8,
-            cc.field9  -> cc.extractField9,
-            cc.field10 -> cc.extractField10,
-            cc.field11 -> cc.extractField11,
-            cc.field12 -> cc.extractField12
-          )(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12)(fieldNumber)
         case (cc: Schema.CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(
-            v,
-            cc.field1  -> cc.extractField1,
-            cc.field2  -> cc.extractField2,
-            cc.field3  -> cc.extractField3,
-            cc.field4  -> cc.extractField4,
-            cc.field5  -> cc.extractField5,
-            cc.field6  -> cc.extractField6,
-            cc.field7  -> cc.extractField7,
-            cc.field8  -> cc.extractField8,
-            cc.field9  -> cc.extractField9,
-            cc.field10 -> cc.extractField10,
-            cc.field11 -> cc.extractField11,
-            cc.field12 -> cc.extractField12,
-            cc.field13 -> cc.extractField13
-          )(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13)(fieldNumber)
         case (cc: Schema.CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(
-            v,
-            cc.field1  -> cc.extractField1,
-            cc.field2  -> cc.extractField2,
-            cc.field3  -> cc.extractField3,
-            cc.field4  -> cc.extractField4,
-            cc.field5  -> cc.extractField5,
-            cc.field6  -> cc.extractField6,
-            cc.field7  -> cc.extractField7,
-            cc.field8  -> cc.extractField8,
-            cc.field9  -> cc.extractField9,
-            cc.field10 -> cc.extractField10,
-            cc.field11 -> cc.extractField11,
-            cc.field12 -> cc.extractField12,
-            cc.field13 -> cc.extractField13,
-            cc.field14 -> cc.extractField14
-          )(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14)(fieldNumber)
         case (cc: Schema.CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(
-            v,
-            cc.field1  -> cc.extractField1,
-            cc.field2  -> cc.extractField2,
-            cc.field3  -> cc.extractField3,
-            cc.field4  -> cc.extractField4,
-            cc.field5  -> cc.extractField5,
-            cc.field6  -> cc.extractField6,
-            cc.field7  -> cc.extractField7,
-            cc.field8  -> cc.extractField8,
-            cc.field9  -> cc.extractField9,
-            cc.field10 -> cc.extractField10,
-            cc.field11 -> cc.extractField11,
-            cc.field12 -> cc.extractField12,
-            cc.field13 -> cc.extractField13,
-            cc.field14 -> cc.extractField14,
-            cc.field15 -> cc.extractField15
-          )(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14, cc.field15)(fieldNumber)
         case (cc: Schema.CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(
-            v,
-            cc.field1  -> cc.extractField1,
-            cc.field2  -> cc.extractField2,
-            cc.field3  -> cc.extractField3,
-            cc.field4  -> cc.extractField4,
-            cc.field5  -> cc.extractField5,
-            cc.field6  -> cc.extractField6,
-            cc.field7  -> cc.extractField7,
-            cc.field8  -> cc.extractField8,
-            cc.field9  -> cc.extractField9,
-            cc.field10 -> cc.extractField10,
-            cc.field11 -> cc.extractField11,
-            cc.field12 -> cc.extractField12,
-            cc.field13 -> cc.extractField13,
-            cc.field14 -> cc.extractField14,
-            cc.field15 -> cc.extractField15,
-            cc.field16 -> cc.extractField16
-          )(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14, cc.field15, cc.field16)(fieldNumber)
         case (cc: Schema.CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(
-            v,
-            cc.field1  -> cc.extractField1,
-            cc.field2  -> cc.extractField2,
-            cc.field3  -> cc.extractField3,
-            cc.field4  -> cc.extractField4,
-            cc.field5  -> cc.extractField5,
-            cc.field6  -> cc.extractField6,
-            cc.field7  -> cc.extractField7,
-            cc.field8  -> cc.extractField8,
-            cc.field9  -> cc.extractField9,
-            cc.field10 -> cc.extractField10,
-            cc.field11 -> cc.extractField11,
-            cc.field12 -> cc.extractField12,
-            cc.field13 -> cc.extractField13,
-            cc.field14 -> cc.extractField14,
-            cc.field15 -> cc.extractField15,
-            cc.field16 -> cc.extractField16,
-            cc.field17 -> cc.extractField17
-          )(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14, cc.field15, cc.field16, cc.field17)(fieldNumber)
         case (cc: Schema.CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(
-            v,
-            cc.field1  -> cc.extractField1,
-            cc.field2  -> cc.extractField2,
-            cc.field3  -> cc.extractField3,
-            cc.field4  -> cc.extractField4,
-            cc.field5  -> cc.extractField5,
-            cc.field6  -> cc.extractField6,
-            cc.field7  -> cc.extractField7,
-            cc.field8  -> cc.extractField8,
-            cc.field9  -> cc.extractField9,
-            cc.field10 -> cc.extractField10,
-            cc.field11 -> cc.extractField11,
-            cc.field12 -> cc.extractField12,
-            cc.field13 -> cc.extractField13,
-            cc.field14 -> cc.extractField14,
-            cc.field15 -> cc.extractField15,
-            cc.field16 -> cc.extractField16,
-            cc.field17 -> cc.extractField17,
-            cc.field18 -> cc.extractField18
-          )(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14, cc.field15, cc.field16, cc.field17, cc.field18)(fieldNumber)
         case (cc: Schema.CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(
-            v,
-            cc.field1  -> cc.extractField1,
-            cc.field2  -> cc.extractField2,
-            cc.field3  -> cc.extractField3,
-            cc.field4  -> cc.extractField4,
-            cc.field5  -> cc.extractField5,
-            cc.field6  -> cc.extractField6,
-            cc.field7  -> cc.extractField7,
-            cc.field8  -> cc.extractField8,
-            cc.field9  -> cc.extractField9,
-            cc.field10 -> cc.extractField10,
-            cc.field11 -> cc.extractField11,
-            cc.field12 -> cc.extractField12,
-            cc.field13 -> cc.extractField13,
-            cc.field14 -> cc.extractField14,
-            cc.field15 -> cc.extractField15,
-            cc.field16 -> cc.extractField16,
-            cc.field17 -> cc.extractField17,
-            cc.field18 -> cc.extractField18,
-            cc.field19 -> cc.extractField19
-          )(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14, cc.field15, cc.field16, cc.field17, cc.field18, cc.field19)(fieldNumber)
         case (cc: Schema.CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(
-            v,
-            cc.field1  -> cc.extractField1,
-            cc.field2  -> cc.extractField2,
-            cc.field3  -> cc.extractField3,
-            cc.field4  -> cc.extractField4,
-            cc.field5  -> cc.extractField5,
-            cc.field6  -> cc.extractField6,
-            cc.field7  -> cc.extractField7,
-            cc.field8  -> cc.extractField8,
-            cc.field9  -> cc.extractField9,
-            cc.field10 -> cc.extractField10,
-            cc.field11 -> cc.extractField11,
-            cc.field12 -> cc.extractField12,
-            cc.field13 -> cc.extractField13,
-            cc.field14 -> cc.extractField14,
-            cc.field15 -> cc.extractField15,
-            cc.field16 -> cc.extractField16,
-            cc.field17 -> cc.extractField17,
-            cc.field18 -> cc.extractField18,
-            cc.field19 -> cc.extractField19,
-            cc.field20 -> cc.extractField20
-          )(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14, cc.field15, cc.field16, cc.field17, cc.field18, cc.field19, cc.field20)(fieldNumber)
         case (cc: Schema.CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(
-            v,
-            cc.field1  -> cc.extractField1,
-            cc.field2  -> cc.extractField2,
-            cc.field3  -> cc.extractField3,
-            cc.field4  -> cc.extractField4,
-            cc.field5  -> cc.extractField5,
-            cc.field6  -> cc.extractField6,
-            cc.field7  -> cc.extractField7,
-            cc.field8  -> cc.extractField8,
-            cc.field9  -> cc.extractField9,
-            cc.field10 -> cc.extractField10,
-            cc.field11 -> cc.extractField11,
-            cc.field12 -> cc.extractField12,
-            cc.field13 -> cc.extractField13,
-            cc.field14 -> cc.extractField14,
-            cc.field15 -> cc.extractField15,
-            cc.field16 -> cc.extractField16,
-            cc.field17 -> cc.extractField17,
-            cc.field18 -> cc.extractField18,
-            cc.field19 -> cc.extractField19,
-            cc.field20 -> cc.extractField20,
-            cc.field21 -> cc.extractField21
-          )(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14, cc.field15, cc.field16, cc.field17, cc.field18, cc.field19, cc.field20, cc.field21)(fieldNumber)
         case (cc: Schema.CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _], v) =>
-          encodeCaseClass(
-            v,
-            cc.field1  -> cc.extractField1,
-            cc.field2  -> cc.extractField2,
-            cc.field3  -> cc.extractField3,
-            cc.field4  -> cc.extractField4,
-            cc.field5  -> cc.extractField5,
-            cc.field6  -> cc.extractField6,
-            cc.field7  -> cc.extractField7,
-            cc.field8  -> cc.extractField8,
-            cc.field9  -> cc.extractField9,
-            cc.field10 -> cc.extractField10,
-            cc.field11 -> cc.extractField11,
-            cc.field12 -> cc.extractField12,
-            cc.field13 -> cc.extractField13,
-            cc.field14 -> cc.extractField14,
-            cc.field15 -> cc.extractField15,
-            cc.field16 -> cc.extractField16,
-            cc.field17 -> cc.extractField17,
-            cc.field18 -> cc.extractField18,
-            cc.field19 -> cc.extractField19,
-            cc.field20 -> cc.extractField20,
-            cc.field21 -> cc.extractField21,
-            cc.field22 -> cc.extractField22
-          )(fieldNumber)
+          encodeCaseClass(v, cc.field1, cc.field2, cc.field3, cc.field4, cc.field5, cc.field6, cc.field7, cc.field8, cc.field9, cc.field10, cc.field11, cc.field12, cc.field13, cc.field14, cc.field15, cc.field16, cc.field17, cc.field18, cc.field19, cc.field20, cc.field21, cc.field22)(fieldNumber)
         case (Schema.Enum1(_, c, _), v)                                                                                                    => encodeEnum(fieldNumber, v, c)
         case (Schema.Enum2(_, c1, c2, _), v)                                                                                               => encodeEnum(fieldNumber, v, c1, c2)
         case (Schema.Enum3(_, c1, c2, c3, _), v)                                                                                           => encodeEnum(fieldNumber, v, c1, c2, c3)
@@ -417,13 +259,20 @@ object ProtobufCodec extends Codec {
         case (Schema.Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _), v)      => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
         case (Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) => encodeEnum(fieldNumber, v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case (Schema.EnumN(_, cs, _), v)                                                                                                   => encodeEnum(fieldNumber, v, cs.toSeq: _*)
-        case (Schema.Dynamic(_), v)                                                                                                        => encode(fieldNumber, DynamicValueSchema.schema, v)
+        case (Schema.Dynamic(_), v)                                                                                                        => dynamicEncode(fieldNumber, DynamicValueSchema.schema, v)
         case (_, _)                                                                                                                        => Chunk.empty
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
-    private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[_, Z]*): Chunk[Byte] = {
-      val fieldIndex = cases.indexWhere(c => c.deconstruct(value).isDefined)
+    private def dynamicEncode(
+      fieldNumber: Option[Int],
+      schema: Schema[DynamicValue],
+      value: DynamicValue
+    ): Chunk[Byte] =
+      encode(fieldNumber, schema, value)
+
+    private def encodeEnum[Z](fieldNumber: Option[Int], value: Z, cases: Schema.Case[Z, _]*): Chunk[Byte] = {
+      val fieldIndex = cases.indexWhere(c => c.deconstructOption(value).isDefined)
       val encoded = Chunk.fromIterable(
         if (fieldIndex == -1) {
           Chunk.empty
@@ -432,7 +281,7 @@ object ProtobufCodec extends Codec {
           encode(
             Some(fieldIndex + 1),
             subtypeCase.schema.asInstanceOf[Schema[Any]],
-            subtypeCase.unsafeDeconstruct(value)
+            subtypeCase.deconstruct(value)
           )
         }
       )
@@ -441,12 +290,12 @@ object ProtobufCodec extends Codec {
 
     private def encodeRecord(
       fieldNumber: Option[Int],
-      structure: Seq[Schema.Field[_]],
+      structure: Seq[Schema.Field[_, _]],
       data: ListMap[String, _]
     ): Chunk[Byte] = {
       val encodedRecord = Chunk
         .fromIterable(structure.zipWithIndex.map {
-          case (Schema.Field(label, schema, _, _), fieldNumber) =>
+          case (Schema.Field(label, schema, _, _, _, _), fieldNumber) =>
             data
               .get(label)
               .map(value => encode(Some(fieldNumber + 1), schema.asInstanceOf[Schema[Any]], value))
@@ -790,7 +639,7 @@ object ProtobufCodec extends Codec {
     private val dynamicDecoder: Decoder[DynamicValue] =
       decoder(DynamicValueSchema.schema)
 
-    private def enumDecoder[Z](cases: Schema.Case[_, Z]*): Decoder[Z] =
+    private def enumDecoder[Z](cases: Schema.Case[Z, _]*): Decoder[Z] =
       keyDecoder.flatMap {
         case (wt, fieldNumber) if fieldNumber <= cases.length =>
           val subtypeCase = cases(fieldNumber - 1)
@@ -807,14 +656,14 @@ object ProtobufCodec extends Codec {
           fail(s"Failed to decode enumeration. Schema does not contain field number $fieldNumber.")
       }
 
-    private def recordDecoder(fields: Seq[Schema.Field[_]], decoded: Int = 0): Decoder[ListMap[String, _]] =
+    private def recordDecoder[Z](fields: Seq[Schema.Field[Z, _]], decoded: Int = 0): Decoder[ListMap[String, _]] =
       if (fields.isEmpty || (fields.size == decoded))
         Decoder.succeed(ListMap.empty)
       else
         keyDecoder.flatMap {
           case (wt, fieldNumber) =>
             if (fields.isDefinedAt(fieldNumber - 1)) {
-              val Schema.Field(fieldName, schema, _, _) = fields(fieldNumber - 1)
+              val Schema.Field(fieldName, schema, _, _, _, _) = fields(fieldNumber - 1)
 
               wt match {
                 case LengthDelimited(width) =>
@@ -1083,12 +932,12 @@ object ProtobufCodec extends Codec {
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   private[codec] object ProductEncoder {
 
-    private[codec] def encodeCaseClass[Z](value: Z, fields: (Schema.Field[_], Z => Any)*): Option[Int] => Chunk[Byte] = { (fieldNumber: Option[Int]) =>
+    private[codec] def encodeCaseClass[Z](value: Z, fields: (Schema.Field[Z, _])*): Option[Int] => Chunk[Byte] = { (fieldNumber: Option[Int]) =>
       {
         val encoded = Chunk
           .fromIterable(fields.zipWithIndex.map {
-            case ((Schema.Field(_, schema, _, _), ext), fieldNumber) =>
-              Encoder.encode(Some(fieldNumber + 1), schema.asInstanceOf[Schema[Any]], ext(value))
+            case ((Schema.Field(_, schema, _, _, get, _)), fieldNumber) =>
+              Encoder.encode(Some(fieldNumber + 1), schema.asInstanceOf[Schema[Any]], get(value))
           })
           .flatten
         Encoder.encodeKey(Protobuf.WireType.LengthDelimited(encoded.size), fieldNumber) ++ encoded
@@ -1101,7 +950,7 @@ object ProtobufCodec extends Codec {
     import Decoder.{ fail, keyDecoder, succeed }
     import Protobuf.WireType._
 
-    private def unsafeDecodeFields(buffer: Array[Any], fields: Schema.Field[_]*): Decoder[Array[Any]] =
+    private def unsafeDecodeFields[Z](buffer: Array[Any], fields: Schema.Field[Z, _]*): Decoder[Array[Any]] =
       keyDecoder.flatMap {
         case (wt, fieldNumber) if fieldNumber == fields.length =>
           wt match {
@@ -1144,14 +993,14 @@ object ProtobufCodec extends Codec {
         validateBuffer(index + 1, buffer)
 
     private[codec] def caseClass0Decoder[Z](schema: Schema.CaseClass0[Z]): Decoder[Z] =
-      succeed(schema.construct())
+      succeed(schema.defaultConstruct())
 
     private[codec] def caseClass1Decoder[A, Z](schema: Schema.CaseClass1[A, Z]): Decoder[Z] =
       unsafeDecodeFields(Array.ofDim[Any](1), schema.field).flatMap { buffer =>
         if (buffer(0) == null)
           fail("Failed to decode record. Missing field 1.")
         else
-          succeed(schema.construct(buffer(0).asInstanceOf[A]))
+          succeed(schema.defaultConstruct(buffer(0).asInstanceOf[A]))
       }
 
     private[codec] def caseClass2Decoder[A1, A2, Z](schema: Schema.CaseClass2[A1, A2, Z]): Decoder[Z] =

@@ -2,8 +2,10 @@ package zio.schema.codec
 
 import java.nio.charset.StandardCharsets
 import java.time.format.DateTimeFormatter
+import java.time.{ Duration, Month, MonthDay, Period, Year, YearMonth }
 
 import scala.annotation.StaticAnnotation
+import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters._
 import scala.util.{ Right, Try }
 
@@ -215,25 +217,57 @@ object AvroCodec extends AvroCodec {
         SchemaAvro.createFixed(name, doc, space, size)
     }.getOrElse(SchemaAvro.create(SchemaAvro.Type.BYTES))
 
-  private[codec] lazy val monthDayStructure: Seq[Schema.Field[Int]] = Seq(
-    Schema.Field("month", Schema.Primitive(StandardType.IntType)),
-    Schema.Field("day", Schema.Primitive(StandardType.IntType))
+  private[codec] lazy val monthDayStructure: Seq[Schema.Field[MonthDay, Int]] = Seq(
+    Schema.Field(
+      "month",
+      Schema.Primitive(StandardType.IntType),
+      get = _.getMonthValue,
+      set = (a, b: Int) => a.`with`(Month.of(b))
+    ),
+    Schema.Field(
+      "day",
+      Schema.Primitive(StandardType.IntType),
+      get = _.getDayOfMonth,
+      set = (a, b: Int) => a.withDayOfMonth(b)
+    )
   )
 
-  private[codec] lazy val periodStructure: Seq[Schema.Field[Int]] = Seq(
-    Schema.Field("years", Schema.Primitive(StandardType.IntType)),
-    Schema.Field("months", Schema.Primitive(StandardType.IntType)),
-    Schema.Field("days", Schema.Primitive(StandardType.IntType))
+  private[codec] lazy val periodStructure: Seq[Schema.Field[Period, Int]] = Seq(
+    Schema
+      .Field("years", Schema.Primitive(StandardType.IntType), get = _.getYears, set = (a, b: Int) => a.withYears(b)),
+    Schema
+      .Field("months", Schema.Primitive(StandardType.IntType), get = _.getMonths, set = (a, b: Int) => a.withMonths(b)),
+    Schema.Field("days", Schema.Primitive(StandardType.IntType), get = _.getDays, set = (a, b: Int) => a.withDays(b))
   )
 
-  private[codec] lazy val yearMonthStructure: Seq[Schema.Field[Int]] = Seq(
-    Schema.Field("year", Schema.Primitive(StandardType.IntType)),
-    Schema.Field("month", Schema.Primitive(StandardType.IntType))
+  private[codec] lazy val yearMonthStructure: Seq[Schema.Field[YearMonth, Int]] = Seq(
+    Schema.Field(
+      "year",
+      Schema.Primitive(StandardType.IntType),
+      get = _.getYear,
+      set = (a, b: Int) => a.`with`(Year.of(b))
+    ),
+    Schema.Field(
+      "month",
+      Schema.Primitive(StandardType.IntType),
+      get = _.getMonthValue,
+      set = (a, b: Int) => a.`with`(Month.of(b))
+    )
   )
 
-  private[codec] lazy val durationStructure: Seq[Schema.Field[_]] = Seq(
-    Schema.Field("seconds", Schema.Primitive(StandardType.LongType)),
-    Schema.Field("nanos", Schema.Primitive(StandardType.IntType))
+  private[codec] lazy val durationStructure: Seq[Schema.Field[Duration, _]] = Seq(
+    Schema.Field(
+      "seconds",
+      Schema.Primitive(StandardType.LongType),
+      get = _.getSeconds,
+      set = (a, b: Long) => a.plusSeconds(b)
+    ),
+    Schema.Field(
+      "nanos",
+      Schema.Primitive(StandardType.IntType),
+      get = _.getNano,
+      set = (a, b: Int) => a.plusNanos(b.toLong)
+    )
   )
 
   private def toAvroSchema(schema: Schema[_]): scala.util.Either[String, SchemaAvro] = {
@@ -241,7 +275,7 @@ object AvroCodec extends AvroCodec {
       case e: Enum[_]                    => toAvroEnum(e)
       case record: Record[_]             => toAvroRecord(record)
       case map: Schema.Map[_, _]         => toAvroMap(map)
-      case seq: Schema.Sequence[_, _, _] => toAvroSchema(seq.schemaA).map(SchemaAvro.createArray)
+      case seq: Schema.Sequence[_, _, _] => toAvroSchema(seq.elementSchema).map(SchemaAvro.createArray)
       case set: Schema.Set[_]            => toAvroSchema(set.elementSchema).map(SchemaAvro.createArray)
       case Transform(codec, _, _, _, _)  => toAvroSchema(codec)
       case Primitive(standardType, _) =>
@@ -475,25 +509,25 @@ object AvroCodec extends AvroCodec {
 
   private[codec] def toAvroEnum(enu: Enum[_]): scala.util.Either[String, SchemaAvro] = {
     val avroEnumAnnotationExists = hasAvroEnumAnnotation(enu.annotations)
-    val isAvroEnumEquivalent = enu.structure.forall {
-      case (_, Transform(Primitive(standardType, _), _, _, _, _))
+    val isAvroEnumEquivalent = enu.cases.map(_.schema).forall {
+      case (Transform(Primitive(standardType, _), _, _, _, _))
           if standardType == StandardType.UnitType && avroEnumAnnotationExists =>
         true
-      case (_, Primitive(standardType, _)) if standardType == StandardType.StringType => true
-      case _                                                                          => false
+      case (Primitive(standardType, _)) if standardType == StandardType.StringType => true
+      case _                                                                       => false
     }
     if (isAvroEnumEquivalent) {
       for {
         name            <- getName(enu)
         doc             = getDoc(enu.annotations).orNull
         namespaceOption <- getNamespace(enu.annotations)
-        symbols = enu.structureWithAnnotations.map {
-          case (symbol, (_, annotations)) => getNameOption(annotations).getOrElse(symbol)
+        symbols = enu.cases.map {
+          case caseValue => getNameOption(caseValue.annotations).getOrElse(caseValue.id)
         }.toList
         result = SchemaAvro.createEnum(name, doc, namespaceOption.orNull, symbols.asJava)
       } yield result
     } else {
-      val cases = enu.structureWithAnnotations.map {
+      val cases = enu.cases.map(c => (c.id, (c.schema, c.annotations))).map {
         case (symbol, (Transform(Primitive(standardType, _), _, _, _, _), annotations))
             if standardType == StandardType.UnitType =>
           val name = getNameOption(annotations).getOrElse(symbol)
@@ -518,7 +552,7 @@ object AvroCodec extends AvroCodec {
   }
 
   private def extractAvroFields(record: Record[_]): List[org.apache.avro.Schema.Field] =
-    record.structure.map(toAvroRecordField).toList.map(_.merge).partition {
+    record.fields.map(toAvroRecordField).toList.map(_.merge).partition {
       case _: String => true
       case _         => false
     } match {
@@ -584,11 +618,11 @@ object AvroCodec extends AvroCodec {
   private[codec] def toErrorMessage(err: Throwable, at: AnyRef) =
     s"Error mapping to Apache Avro schema: $err at ${at.toString}"
 
-  private[codec] def toAvroRecordField(value: Field[_]): scala.util.Either[String, SchemaAvro.Field] =
+  private[codec] def toAvroRecordField[Z](value: Field[Z, _]): scala.util.Either[String, SchemaAvro.Field] =
     toAvroSchema(value.schema).map(
       schema =>
         new SchemaAvro.Field(
-          getNameOption(value.annotations).getOrElse(value.label),
+          getNameOption(value.annotations).getOrElse(value.name),
           schema,
           getDoc(value.annotations).orNull,
           getDefault(value.annotations).orNull,
@@ -682,7 +716,16 @@ object AvroCodec extends AvroCodec {
                 .getObjectProp(UnionWrapper.propName) == true) {
             t.getFields.asScala.head.schema() // unwrap nested union
           } else t
-        toZioSchema(inner).map(s => Schema.Case[A, Z](t.getFullName, s.asInstanceOf[Schema[A]], _.asInstanceOf[A]))
+        toZioSchema(inner).map(
+          s =>
+            Schema.Case[Z, A](
+              t.getFullName,
+              s.asInstanceOf[Schema[A]],
+              _.asInstanceOf[A],
+              _.asInstanceOf[Z],
+              (z: Z) => z.isInstanceOf[A @unchecked]
+            )
+        )
       })
     val caseSet = cases.toList.map(_.merge).partition {
       case _: String => true
@@ -708,8 +751,8 @@ object AvroCodec extends AvroCodec {
         case Some(value) =>
           toZioSchema(value.schema()).flatMap {
             case enu: Enum[_] =>
-              enu.structure.toList match {
-                case first :: second :: Nil => Right(Schema.either(first._2, second._2))
+              enu.cases.toList match {
+                case first :: second :: Nil => Right(Schema.either(first.schema, second.schema))
                 case _                      => Left("ZIO schema wrapped either must have exactly two cases")
               }
             case e: Schema.Either[_, _]                                                              => Right(e)
@@ -743,34 +786,43 @@ object AvroCodec extends AvroCodec {
             case c: Set[_]                                                                           => Right(c)
             case c: Fail[_]                                                                          => Right(c)
             case c: Lazy[_]                                                                          => Right(c)
-            //case c: Meta                                                                             => Right(c)
-            case c: Optional[_]        => Right(c)
-            case c: Primitive[_]       => Right(c)
-            case c: Transform[_, _, _] => Right(c)
-            case c: Tuple2[_, _]       => Right(c)
+            case c: Optional[_]                                                                      => Right(c)
+            case c: Primitive[_]                                                                     => Right(c)
+            case c: Transform[_, _, _]                                                               => Right(c)
+            case c: Tuple2[_, _]                                                                     => Right(c)
 
           }
         case None => Left("ZIO schema wrapped record must have a single field")
       }
     } else {
       val annotations = buildZioAnnotations(avroSchema)
-      extractZioFields(avroSchema).map { fs =>
+      extractZioFields(avroSchema).map { (fs: List[Field[ListMap[String, _], _]]) =>
         if (fs.isEmpty) Schema.Primitive(StandardType.UnitType).addAllAnnotations(annotations)
         else Schema.record(TypeId.parse(avroSchema.getName), fs: _*).addAllAnnotations(annotations)
       }
     }
 
-  private def extractZioFields(avroSchema: SchemaAvro): scala.util.Either[String, List[Field[_]]] =
+  private def extractZioFields[Z](avroSchema: SchemaAvro): scala.util.Either[String, List[Field[Z, _]]] =
     avroSchema.getFields.asScala.map(toZioField).toList.map(_.merge).partition {
       case _: String => true
       case _         => false
     } match {
-      case (Nil, right: List[Field[_] @unchecked]) => Right(right)
-      case (left, _)                               => Left(left.mkString("\n"))
+      case (Nil, right: List[Field[Z, _] @unchecked]) => Right(right)
+      case (left, _)                                  => Left(left.mkString("\n"))
     }
 
-  private[codec] def toZioField(field: SchemaAvro.Field): scala.util.Either[String, Field[_]] =
-    toZioSchema(field.schema()).map((s: Schema[_]) => Field(field.name(), s, buildZioAnnotations(field)))
+  private[codec] def toZioField(field: SchemaAvro.Field): scala.util.Either[String, Field[ListMap[String, _], _]] =
+    toZioSchema(field.schema())
+      .map(
+        (s: Schema[_]) =>
+          Field(
+            field.name(),
+            s.asInstanceOf[Schema[Any]],
+            buildZioAnnotations(field),
+            get = (p: ListMap[String, _]) => p(field.name()),
+            set = (p: ListMap[String, _], v: Any) => p.updated(field.name(), v)
+          )
+      )
 
   private[codec] def toZioTuple(schema: SchemaAvro): scala.util.Either[String, Schema[_]] =
     for {
@@ -816,7 +868,9 @@ object AvroCodec extends AvroCodec {
 
   private[codec] def toZioStringEnum(avroSchema: SchemaAvro): scala.util.Either[String, Schema[_]] = {
     val cases =
-      avroSchema.getEnumSymbols.asScala.map(s => Schema.Case[String, String](s, Schema[String], identity)).toSeq
+      avroSchema.getEnumSymbols.asScala
+        .map(s => Schema.Case[String, String](s, Schema[String], identity, identity, _.isInstanceOf[String]))
+        .toSeq
     val caseSet                     = CaseSet[String](cases: _*).asInstanceOf[Aux[String]]
     val enumeration: Schema[String] = Schema.enumeration(TypeId.parse("org.apache.avro.Schema"), caseSet)
     Right(enumeration.addAllAnnotations(buildZioAnnotations(avroSchema)))
