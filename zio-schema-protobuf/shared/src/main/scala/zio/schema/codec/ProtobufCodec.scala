@@ -11,21 +11,41 @@ import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 
 import zio.schema._
+import zio.schema.codec.BinaryCodec._
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZPipeline
 import zio.{ Chunk, ZIO }
 
-object ProtobufCodec extends Codec {
-  override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] =
-    ZPipeline.mapChunks(values => values.flatMap(Encoder.encode(None, schema, _)))
+object ProtobufCodec extends BinaryCodec {
 
-  override def encode[A](schema: Schema[A]): A => Chunk[Byte] = a => Encoder.encode(None, schema, a)
+  override def encoderFor[A](schema: Schema[A]): BinaryEncoder[A] =
+    new BinaryEncoder[A] {
 
-  override def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Byte, A] =
-    ZPipeline.mapChunksZIO(chunk => ZIO.fromEither(Decoder.decode(schema, chunk).map(Chunk(_))))
+      override def encode(value: A): Chunk[Byte] =
+        ProtobufEncoder.encode(None, schema, value)
 
-  override def decode[A](schema: Schema[A]): Chunk[Byte] => scala.util.Either[String, A] =
-    ch => Decoder.decode(schema, ch)
+      override def streamEncoder: BinaryStreamEncoder[A] =
+        ZPipeline.mapChunks(
+          _.flatMap(encode)
+        )
+
+    }
+
+  override def decoderFor[A](schema: Schema[A]): BinaryDecoder[A] =
+    new BinaryDecoder[A] {
+
+      override def decode(chunk: Chunk[Byte]): Either[String, A] =
+        ProtobufDecoder.decode(schema, chunk)
+
+      override def streamDecoder: BinaryStreamDecoder[A] =
+        ZPipeline.mapChunksZIO(
+          chunk =>
+            ZIO.fromEither(
+              decode(chunk).map(Chunk(_))
+            )
+        )
+
+    }
 
   object Protobuf {
 
@@ -171,7 +191,7 @@ object ProtobufCodec extends Codec {
     }
   }
 
-  object Encoder {
+  object ProtobufEncoder {
 
     import ProductEncoder._
     import Protobuf._
@@ -496,29 +516,29 @@ object ProtobufCodec extends Codec {
       }.getOrElse(Chunk.empty)
   }
 
-  final case class Decoder[+A](run: Chunk[Byte] => scala.util.Either[String, (Chunk[Byte], A)]) {
+  final case class ProtobufDecoder[+A](run: Chunk[Byte] => scala.util.Either[String, (Chunk[Byte], A)]) {
     self =>
 
-    def map[B](f: A => B): Decoder[B] =
-      Decoder { bytes =>
+    def map[B](f: A => B): ProtobufDecoder[B] =
+      ProtobufDecoder { bytes =>
         self.run(bytes).map {
           case (remainder, a) =>
             (remainder, f(a))
         }
       }
 
-    def flatMap[B](f: A => Decoder[B]): Decoder[B] =
-      Decoder { bytes =>
+    def flatMap[B](f: A => ProtobufDecoder[B]): ProtobufDecoder[B] =
+      ProtobufDecoder { bytes =>
         self.run(bytes).flatMap {
           case (remainder, a) =>
             f(a).run(remainder)
         }
       }
 
-    def loop: Decoder[Chunk[A]] =
+    def loop: ProtobufDecoder[Chunk[A]] =
       self.flatMap(
         a0 =>
-          Decoder(bytes => {
+          ProtobufDecoder(bytes => {
             if (bytes.isEmpty) {
               Right((bytes, Chunk(a0)))
             } else {
@@ -530,8 +550,8 @@ object ProtobufCodec extends Codec {
           })
       )
 
-    def take(n: Int): Decoder[A] =
-      Decoder(bytes => {
+    def take(n: Int): ProtobufDecoder[A] =
+      ProtobufDecoder(bytes => {
         val (before, after) = bytes.splitAt(n)
         self.run(before) match {
           case Left(value)   => Left(value)
@@ -540,33 +560,33 @@ object ProtobufCodec extends Codec {
       })
   }
 
-  object Decoder {
+  object ProtobufDecoder {
 
     import ProductDecoder._
     import Protobuf._
 
-    def fail(failure: String): Decoder[Nothing] = Decoder(_ => Left(failure))
+    def fail(failure: String): ProtobufDecoder[Nothing] = ProtobufDecoder(_ => Left(failure))
 
-    def succeedNow[A](a: A): Decoder[A] = Decoder(bytes => Right((bytes, a)))
+    def succeedNow[A](a: A): ProtobufDecoder[A] = ProtobufDecoder(bytes => Right((bytes, a)))
 
-    def succeed[A](a: => A): Decoder[A] = Decoder(bytes => Right((bytes, a)))
+    def succeed[A](a: => A): ProtobufDecoder[A] = ProtobufDecoder(bytes => Right((bytes, a)))
 
-    def binaryDecoder: Decoder[Chunk[Byte]] = Decoder(bytes => Right((Chunk.empty, bytes)))
+    def binaryDecoder: ProtobufDecoder[Chunk[Byte]] = ProtobufDecoder(bytes => Right((Chunk.empty, bytes)))
 
-    def collectAll[A](chunk: Chunk[Decoder[A]]): Decoder[Chunk[A]] = ???
+    def collectAll[A](chunk: Chunk[ProtobufDecoder[A]]): ProtobufDecoder[Chunk[A]] = ???
 
-    def failWhen(cond: Boolean, message: String): Decoder[Unit] =
-      if (cond) Decoder.fail(message) else Decoder.succeed(())
+    def failWhen(cond: Boolean, message: String): ProtobufDecoder[Unit] =
+      if (cond) ProtobufDecoder.fail(message) else ProtobufDecoder.succeed(())
 
-    private[codec] val stringDecoder: Decoder[String] =
-      Decoder(bytes => Right((Chunk.empty, new String(bytes.toArray, StandardCharsets.UTF_8))))
+    private[codec] val stringDecoder: ProtobufDecoder[String] =
+      ProtobufDecoder(bytes => Right((Chunk.empty, new String(bytes.toArray, StandardCharsets.UTF_8))))
 
     def decode[A](schema: Schema[A], chunk: Chunk[Byte]): scala.util.Either[String, A] =
       decoder(schema)
         .run(chunk)
         .map(_._2)
 
-    private[codec] def decoder[A](schema: Schema[A]): Decoder[A] =
+    private[codec] def decoder[A](schema: Schema[A]): ProtobufDecoder[A] =
       //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
       schema match {
         case Schema.GenericRecord(_, structure, _) => recordDecoder(structure.toChunk)
@@ -636,10 +656,10 @@ object ProtobufCodec extends Codec {
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
-    private val dynamicDecoder: Decoder[DynamicValue] =
+    private val dynamicDecoder: ProtobufDecoder[DynamicValue] =
       decoder(DynamicValueSchema.schema)
 
-    private def enumDecoder[Z](cases: Schema.Case[Z, _]*): Decoder[Z] =
+    private def enumDecoder[Z](cases: Schema.Case[Z, _]*): ProtobufDecoder[Z] =
       keyDecoder.flatMap {
         case (wt, fieldNumber) if fieldNumber <= cases.length =>
           val subtypeCase = cases(fieldNumber - 1)
@@ -647,18 +667,21 @@ object ProtobufCodec extends Codec {
             case LengthDelimited(width) =>
               decoder(subtypeCase.schema)
                 .take(width)
-                .asInstanceOf[Decoder[Z]]
+                .asInstanceOf[ProtobufDecoder[Z]]
             case _ =>
               decoder(subtypeCase.schema)
-                .asInstanceOf[Decoder[Z]]
+                .asInstanceOf[ProtobufDecoder[Z]]
           }
         case (_, fieldNumber) =>
           fail(s"Failed to decode enumeration. Schema does not contain field number $fieldNumber.")
       }
 
-    private def recordDecoder[Z](fields: Seq[Schema.Field[Z, _]], decoded: Int = 0): Decoder[ListMap[String, _]] =
+    private def recordDecoder[Z](
+      fields: Seq[Schema.Field[Z, _]],
+      decoded: Int = 0
+    ): ProtobufDecoder[ListMap[String, _]] =
       if (fields.isEmpty || (fields.size == decoded))
-        Decoder.succeed(ListMap.empty)
+        ProtobufDecoder.succeed(ListMap.empty)
       else
         keyDecoder.flatMap {
           case (wt, fieldNumber) =>
@@ -683,7 +706,7 @@ object ProtobufCodec extends Codec {
             }
         }
 
-    private def packedSequenceDecoder[A](schema: Schema[A]): Decoder[Chunk[A]] =
+    private def packedSequenceDecoder[A](schema: Schema[A]): ProtobufDecoder[Chunk[A]] =
       keyDecoder.flatMap {
         case (LengthDelimited(0), 1) => succeed(Chunk.empty)
         case (LengthDelimited(width), 2) =>
@@ -694,7 +717,7 @@ object ProtobufCodec extends Codec {
         case (wt, fieldNumber) => fail(s"Invalid wire type ($wt) or field number ($fieldNumber) for packed sequence")
       }
 
-    private def nonPackedSequenceDecoder[A](schema: Schema[A]): Decoder[Chunk[A]] =
+    private def nonPackedSequenceDecoder[A](schema: Schema[A]): ProtobufDecoder[Chunk[A]] =
       keyDecoder.flatMap {
         case (LengthDelimited(0), 1) => succeed(Chunk.empty)
         case (LengthDelimited(width), 2) =>
@@ -709,8 +732,8 @@ object ProtobufCodec extends Codec {
           fail(s"Invalid wire type ($wt) or field number ($fieldNumber) for non-packed sequence")
       }
 
-    private def tupleDecoder[A, B](left: Schema[A], right: Schema[B]): Decoder[(A, B)] = {
-      def elementDecoder[A](schema: Schema[A], wt: WireType): Decoder[A] = wt match {
+    private def tupleDecoder[A, B](left: Schema[A], right: Schema[B]): ProtobufDecoder[(A, B)] = {
+      def elementDecoder[A](schema: Schema[A], wt: WireType): ProtobufDecoder[A] = wt match {
         case LengthDelimited(width) => decoder(schema).take(width)
         case _                      => decoder(schema)
       }
@@ -736,14 +759,14 @@ object ProtobufCodec extends Codec {
       }
     }
 
-    private def eitherDecoder[A, B](left: Schema[A], right: Schema[B]): Decoder[scala.util.Either[A, B]] =
+    private def eitherDecoder[A, B](left: Schema[A], right: Schema[B]): ProtobufDecoder[scala.util.Either[A, B]] =
       keyDecoder.flatMap {
         case (_, fieldNumber) if fieldNumber == 1 => decoder(left).map(Left(_))
         case (_, fieldNumber) if fieldNumber == 2 => decoder(right).map(Right(_))
         case (_, fieldNumber)                     => fail(s"Invalid field number ($fieldNumber) for either")
       }
 
-    private def optionalDecoder[A](schema: Schema[A]): Decoder[Option[A]] =
+    private def optionalDecoder[A](schema: Schema[A]): ProtobufDecoder[Option[A]] =
       keyDecoder.flatMap {
         case (LengthDelimited(0), 1)     => succeed(None)
         case (LengthDelimited(width), 2) => decoder(schema).take(width).map(Some(_))
@@ -751,8 +774,8 @@ object ProtobufCodec extends Codec {
         case (_, fieldNumber)            => fail(s"Invalid field number $fieldNumber for option")
       }
 
-    private def floatDecoder: Decoder[Float] =
-      Decoder(bytes => {
+    private def floatDecoder: ProtobufDecoder[Float] =
+      ProtobufDecoder(bytes => {
         if (bytes.size < 4) {
           Left(s"Invalid number of bytes for Float. Expected 4, got ${bytes.size}")
         } else {
@@ -760,8 +783,8 @@ object ProtobufCodec extends Codec {
         }
       }).take(4)
 
-    private def doubleDecoder: Decoder[Double] =
-      Decoder(bytes => {
+    private def doubleDecoder: ProtobufDecoder[Double] =
+      ProtobufDecoder(bytes => {
         if (bytes.size < 8) {
           Left(s"Invalid number of bytes for Double. Expected 8, got ${bytes.size}")
         } else {
@@ -769,21 +792,21 @@ object ProtobufCodec extends Codec {
         }
       }).take(8)
 
-    private def transformDecoder[A, B](schema: Schema[B], f: B => scala.util.Either[String, A]): Decoder[A] =
+    private def transformDecoder[A, B](schema: Schema[B], f: B => scala.util.Either[String, A]): ProtobufDecoder[A] =
       schema match {
         case Schema.Primitive(typ, _) if typ == StandardType.UnitType =>
-          Decoder { (chunk: Chunk[Byte]) =>
+          ProtobufDecoder { (chunk: Chunk[Byte]) =>
             f(().asInstanceOf[B]) match {
               case Left(err) => Left(err)
               case Right(b)  => Right(chunk -> b)
             }
           }
-        case _ => decoder(schema).flatMap(a => Decoder(chunk => f(a).map(b => (chunk, b))))
+        case _ => decoder(schema).flatMap(a => ProtobufDecoder(chunk => f(a).map(b => (chunk, b))))
       }
 
-    private def primitiveDecoder[A](standardType: StandardType[A]): Decoder[A] =
+    private def primitiveDecoder[A](standardType: StandardType[A]): ProtobufDecoder[A] =
       standardType match {
-        case StandardType.UnitType   => Decoder((chunk: Chunk[Byte]) => Right((chunk, ())))
+        case StandardType.UnitType   => ProtobufDecoder((chunk: Chunk[Byte]) => Right((chunk, ())))
         case StandardType.StringType => stringDecoder
         case StandardType.BoolType   => varIntDecoder.map(_ != 0)
         case StandardType.ShortType  => varIntDecoder.map(_.shortValue())
@@ -884,7 +907,7 @@ object ProtobufCodec extends Codec {
      * 8 >>> 3 => 1, 16 >>> 3 => 2, 24 >>> 3 => 3, 32 >>> 3 => 4
      * 0 & 0x07 => 0, 1 & 0x07 => 1, 2 & 0x07 => 2, 9 & 0x07 => 1, 15 & 0x07 => 7
      */
-    private[codec] def keyDecoder: Decoder[(WireType, Int)] =
+    private[codec] def keyDecoder: ProtobufDecoder[(WireType, Int)] =
       varIntDecoder.flatMap { key =>
         val fieldNumber = (key >>> 3).toInt
         if (fieldNumber < 1) {
@@ -912,8 +935,8 @@ object ProtobufCodec extends Codec {
      * (0 << 7 => 0, 1 << 7 => 128, 2 << 7 => 256, 3 << 7 => 384
      * 1 & 0X7F => 1, 127 & 0x7F => 127, 128 & 0x7F => 0, 129 & 0x7F => 1
      */
-    private def varIntDecoder: Decoder[Long] =
-      Decoder(
+    private def varIntDecoder: ProtobufDecoder[Long] =
+      ProtobufDecoder(
         (chunk) =>
           if (chunk.isEmpty) {
             Left("Failed to decode VarInt. Unexpected end of chunk")
@@ -937,30 +960,30 @@ object ProtobufCodec extends Codec {
         val encoded = Chunk
           .fromIterable(fields.zipWithIndex.map {
             case ((Schema.Field(_, schema, _, _, get, _)), fieldNumber) =>
-              Encoder.encode(Some(fieldNumber + 1), schema.asInstanceOf[Schema[Any]], get(value))
+              ProtobufEncoder.encode(Some(fieldNumber + 1), schema.asInstanceOf[Schema[Any]], get(value))
           })
           .flatten
-        Encoder.encodeKey(Protobuf.WireType.LengthDelimited(encoded.size), fieldNumber) ++ encoded
+        ProtobufEncoder.encodeKey(Protobuf.WireType.LengthDelimited(encoded.size), fieldNumber) ++ encoded
       }
     }
   }
 
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   private[codec] object ProductDecoder {
-    import Decoder.{ fail, keyDecoder, succeed }
+    import ProtobufDecoder.{ fail, keyDecoder, succeed }
     import Protobuf.WireType._
 
-    private def unsafeDecodeFields[Z](buffer: Array[Any], fields: Schema.Field[Z, _]*): Decoder[Array[Any]] =
+    private def unsafeDecodeFields[Z](buffer: Array[Any], fields: Schema.Field[Z, _]*): ProtobufDecoder[Array[Any]] =
       keyDecoder.flatMap {
         case (wt, fieldNumber) if fieldNumber == fields.length =>
           wt match {
             case LengthDelimited(width) =>
-              Decoder
+              ProtobufDecoder
                 .decoder(fields(fieldNumber - 1).schema)
                 .take(width)
                 .map(fieldValue => buffer.updated(fieldNumber - 1, fieldValue))
             case _ =>
-              Decoder
+              ProtobufDecoder
                 .decoder(fields(fieldNumber - 1).schema)
                 .map(fieldValue => buffer.updated(fieldNumber - 1, fieldValue))
           }
@@ -969,12 +992,12 @@ object ProtobufCodec extends Codec {
             wt match {
               case LengthDelimited(width) =>
                 for {
-                  fieldValue <- Decoder.decoder(fields(fieldNumber - 1).schema).take(width)
+                  fieldValue <- ProtobufDecoder.decoder(fields(fieldNumber - 1).schema).take(width)
                   remainder  <- unsafeDecodeFields(buffer, fields: _*)
                 } yield remainder.updated(fieldNumber - 1, fieldValue)
               case _ =>
                 for {
-                  fieldValue <- Decoder.decoder(fields(fieldNumber - 1).schema)
+                  fieldValue <- ProtobufDecoder.decoder(fields(fieldNumber - 1).schema)
                   remainder  <- unsafeDecodeFields(buffer, fields: _*)
                 } yield remainder.updated(fieldNumber - 1, fieldValue)
             }
@@ -984,7 +1007,7 @@ object ProtobufCodec extends Codec {
       }
 
     @tailrec
-    private def validateBuffer(index: Int, buffer: Array[Any]): Decoder[Array[Any]] =
+    private def validateBuffer(index: Int, buffer: Array[Any]): ProtobufDecoder[Array[Any]] =
       if (index == buffer.length - 1 && buffer(index) != null)
         succeed(buffer)
       else if (buffer(index) == null)
@@ -992,10 +1015,10 @@ object ProtobufCodec extends Codec {
       else
         validateBuffer(index + 1, buffer)
 
-    private[codec] def caseClass0Decoder[Z](schema: Schema.CaseClass0[Z]): Decoder[Z] =
+    private[codec] def caseClass0Decoder[Z](schema: Schema.CaseClass0[Z]): ProtobufDecoder[Z] =
       succeed(schema.defaultConstruct())
 
-    private[codec] def caseClass1Decoder[A, Z](schema: Schema.CaseClass1[A, Z]): Decoder[Z] =
+    private[codec] def caseClass1Decoder[A, Z](schema: Schema.CaseClass1[A, Z]): ProtobufDecoder[Z] =
       unsafeDecodeFields(Array.ofDim[Any](1), schema.field).flatMap { buffer =>
         if (buffer(0) == null)
           fail("Failed to decode record. Missing field 1.")
@@ -1003,73 +1026,73 @@ object ProtobufCodec extends Codec {
           succeed(schema.defaultConstruct(buffer(0).asInstanceOf[A]))
       }
 
-    private[codec] def caseClass2Decoder[A1, A2, Z](schema: Schema.CaseClass2[A1, A2, Z]): Decoder[Z] =
+    private[codec] def caseClass2Decoder[A1, A2, Z](schema: Schema.CaseClass2[A1, A2, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](2), schema.field1, schema.field2)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2])
 
-    private[codec] def caseClass3Decoder[A1, A2, A3, Z](schema: Schema.CaseClass3[A1, A2, A3, Z]): Decoder[Z] =
+    private[codec] def caseClass3Decoder[A1, A2, A3, Z](schema: Schema.CaseClass3[A1, A2, A3, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](3), schema.field1, schema.field2, schema.field3)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3])
 
-    private[codec] def caseClass4Decoder[A1, A2, A3, A4, Z](schema: Schema.CaseClass4[A1, A2, A3, A4, Z]): Decoder[Z] =
+    private[codec] def caseClass4Decoder[A1, A2, A3, A4, Z](schema: Schema.CaseClass4[A1, A2, A3, A4, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](4), schema.field1, schema.field2, schema.field3, schema.field4)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4])
 
-    private[codec] def caseClass5Decoder[A1, A2, A3, A4, A5, Z](schema: Schema.CaseClass5[A1, A2, A3, A4, A5, Z]): Decoder[Z] =
+    private[codec] def caseClass5Decoder[A1, A2, A3, A4, A5, Z](schema: Schema.CaseClass5[A1, A2, A3, A4, A5, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](5), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4], buffer(4).asInstanceOf[A5])
 
-    private[codec] def caseClass6Decoder[A1, A2, A3, A4, A5, A6, Z](schema: Schema.CaseClass6[A1, A2, A3, A4, A5, A6, Z]): Decoder[Z] =
+    private[codec] def caseClass6Decoder[A1, A2, A3, A4, A5, A6, Z](schema: Schema.CaseClass6[A1, A2, A3, A4, A5, A6, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](6), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4], buffer(4).asInstanceOf[A5], buffer(5).asInstanceOf[A6])
 
-    private[codec] def caseClass7Decoder[A1, A2, A3, A4, A5, A6, A7, Z](schema: Schema.CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z]): Decoder[Z] =
+    private[codec] def caseClass7Decoder[A1, A2, A3, A4, A5, A6, A7, Z](schema: Schema.CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](7), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4], buffer(4).asInstanceOf[A5], buffer(5).asInstanceOf[A6], buffer(6).asInstanceOf[A7])
 
-    private[codec] def caseClass8Decoder[A1, A2, A3, A4, A5, A6, A7, A8, Z](schema: Schema.CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z]): Decoder[Z] =
+    private[codec] def caseClass8Decoder[A1, A2, A3, A4, A5, A6, A7, A8, Z](schema: Schema.CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](8), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field8)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4], buffer(4).asInstanceOf[A5], buffer(5).asInstanceOf[A6], buffer(6).asInstanceOf[A7], buffer(7).asInstanceOf[A8])
 
-    private[codec] def caseClass9Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](schema: Schema.CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]): Decoder[Z] =
+    private[codec] def caseClass9Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](schema: Schema.CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](9), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4], buffer(4).asInstanceOf[A5], buffer(5).asInstanceOf[A6], buffer(6).asInstanceOf[A7], buffer(7).asInstanceOf[A8], buffer(8).asInstanceOf[A9])
 
-    private[codec] def caseClass10Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](schema: Schema.CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]): Decoder[Z] =
+    private[codec] def caseClass10Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](schema: Schema.CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](10), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4], buffer(4).asInstanceOf[A5], buffer(5).asInstanceOf[A6], buffer(6).asInstanceOf[A7], buffer(7).asInstanceOf[A8], buffer(8).asInstanceOf[A9], buffer(9).asInstanceOf[A10])
 
-    private[codec] def caseClass11Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](schema: Schema.CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]): Decoder[Z] =
+    private[codec] def caseClass11Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](schema: Schema.CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](11), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4], buffer(4).asInstanceOf[A5], buffer(5).asInstanceOf[A6], buffer(6).asInstanceOf[A7], buffer(7).asInstanceOf[A8], buffer(8).asInstanceOf[A9], buffer(9).asInstanceOf[A10], buffer(10).asInstanceOf[A11])
 
-    private[codec] def caseClass12Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](schema: Schema.CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]): Decoder[Z] =
+    private[codec] def caseClass12Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](schema: Schema.CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](12), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12)
         _      <- validateBuffer(0, buffer)
       } yield schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2], buffer(2).asInstanceOf[A3], buffer(3).asInstanceOf[A4], buffer(4).asInstanceOf[A5], buffer(5).asInstanceOf[A6], buffer(6).asInstanceOf[A7], buffer(7).asInstanceOf[A8], buffer(8).asInstanceOf[A9], buffer(9).asInstanceOf[A10], buffer(10).asInstanceOf[A11], buffer(11).asInstanceOf[A12])
 
-    private[codec] def caseClass13Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](schema: Schema.CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]): Decoder[Z] =
+    private[codec] def caseClass13Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](schema: Schema.CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](13), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13)
         _      <- validateBuffer(0, buffer)
@@ -1089,7 +1112,7 @@ object ProtobufCodec extends Codec {
         buffer(12).asInstanceOf[A13]
       )
 
-    private[codec] def caseClass14Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](schema: Schema.CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]): Decoder[Z] =
+    private[codec] def caseClass14Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](schema: Schema.CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](14), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14)
         _      <- validateBuffer(0, buffer)
@@ -1110,7 +1133,7 @@ object ProtobufCodec extends Codec {
         buffer(13).asInstanceOf[A14]
       )
 
-    private[codec] def caseClass15Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](schema: Schema.CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]): Decoder[Z] =
+    private[codec] def caseClass15Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](schema: Schema.CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](15), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15)
         _      <- validateBuffer(0, buffer)
@@ -1132,7 +1155,7 @@ object ProtobufCodec extends Codec {
         buffer(14).asInstanceOf[A15]
       )
 
-    private[codec] def caseClass16Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](schema: Schema.CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]): Decoder[Z] =
+    private[codec] def caseClass16Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](schema: Schema.CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](16), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16)
         _      <- validateBuffer(0, buffer)
@@ -1155,7 +1178,7 @@ object ProtobufCodec extends Codec {
         buffer(15).asInstanceOf[A16]
       )
 
-    private[codec] def caseClass17Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](schema: Schema.CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]): Decoder[Z] =
+    private[codec] def caseClass17Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](schema: Schema.CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](17), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17)
         _      <- validateBuffer(0, buffer)
@@ -1179,7 +1202,7 @@ object ProtobufCodec extends Codec {
         buffer(16).asInstanceOf[A17]
       )
 
-    private[codec] def caseClass18Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](schema: Schema.CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]): Decoder[Z] =
+    private[codec] def caseClass18Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](schema: Schema.CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](18), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18)
         _      <- validateBuffer(0, buffer)
@@ -1204,7 +1227,7 @@ object ProtobufCodec extends Codec {
         buffer(17).asInstanceOf[A18]
       )
 
-    private[codec] def caseClass19Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](schema: Schema.CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]): Decoder[Z] =
+    private[codec] def caseClass19Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](schema: Schema.CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](19), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19)
         _      <- validateBuffer(0, buffer)
@@ -1230,7 +1253,7 @@ object ProtobufCodec extends Codec {
         buffer(18).asInstanceOf[A19]
       )
 
-    private[codec] def caseClass20Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](schema: Schema.CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]): Decoder[Z] =
+    private[codec] def caseClass20Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](schema: Schema.CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](20), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19, schema.field20)
         _      <- validateBuffer(0, buffer)
@@ -1257,7 +1280,7 @@ object ProtobufCodec extends Codec {
         buffer(19).asInstanceOf[A20]
       )
 
-    private[codec] def caseClass21Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](schema: Schema.CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]): Decoder[Z] =
+    private[codec] def caseClass21Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](schema: Schema.CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(Array.ofDim[Any](21), schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field9, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19, schema.field20, schema.field21)
         _      <- validateBuffer(0, buffer)
@@ -1285,7 +1308,7 @@ object ProtobufCodec extends Codec {
         buffer(20).asInstanceOf[A21]
       )
 
-    private[codec] def caseClass22Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](schema: Schema.CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z]): Decoder[Z] =
+    private[codec] def caseClass22Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](schema: Schema.CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z]): ProtobufDecoder[Z] =
       for {
         buffer <- unsafeDecodeFields(
                    Array.ofDim[Any](22),
