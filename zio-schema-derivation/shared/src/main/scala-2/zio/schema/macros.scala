@@ -160,9 +160,10 @@ object DeriveSchema {
           }
         }
 
+    @nowarn
     def getFieldName(annotations: List[Tree]): Option[String] =
       annotations.collectFirst {
-        case q"new fieldName($name)" => name.toString
+        case q"new fieldName($name1)" => name1.toString
       }.map(s => s.substring(1, s.length() - 1))
 
     def deriveRecord(tpe: Type, stack: List[Frame[c.type]]): Tree = stack.find(_.tpe =:= tpe) match {
