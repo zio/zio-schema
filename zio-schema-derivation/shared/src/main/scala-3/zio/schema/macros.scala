@@ -40,8 +40,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
 
   def deriveSchema[T: Type](stack: Stack = Stack.empty, top: Boolean = false): Expr[Schema[T]] = {
     depth += 1
-    // println(s"STACK ${stack} ${TypeRepr.of[T].show}")
-    if (depth > 85)
+    if (depth > 1024)
       throw new Exception("Schema derivation exceeded")
 
     val typeRepr = TypeRepr.of[T]
