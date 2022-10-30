@@ -440,9 +440,9 @@ object JsonCodec extends Codec {
         pad(indent_, out)
         var first = true
         fields.foreach {
-          case Schema.Field(key, schema, _, _, get, _) =>
-            val enc = Encoder.schemaEncoder(schema)
-            if (!enc.isNothing(get(a))) {
+          case s: Schema.Field[_, _] =>
+            val enc = Encoder.schemaEncoder(s.schema)
+            if (!enc.isNothing(s.get(a))) {
               if (first)
                 first = false
               else {
@@ -451,10 +451,10 @@ object JsonCodec extends Codec {
                   JsonEncoder.pad(indent_, out)
               }
 
-              string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(key), indent_, out)
+              string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(s.name), indent_, out)
               if (indent.isEmpty) out.write(':')
               else out.write(" : ")
-              enc.unsafeEncode(get(a), indent_, out)
+              enc.unsafeEncode(s.get(a), indent_, out)
             }
         }
         pad(indent, out)
@@ -803,7 +803,7 @@ object JsonCodec extends Codec {
       val len: Int                  = fields.length
       val buffer                    = Array.ofDim[Any](len)
       val matrix                    = new StringMatrix(fields.map(_.name).toArray)
-      val spans: Array[JsonError]   = fields.map(_.name).toArray.map(JsonError.ObjectAccess(_))
+      val spans: Array[JsonError]   = fields.map(_.name.asInstanceOf[String]).toArray.map(JsonError.ObjectAccess(_))
       val schemas: Array[Schema[_]] = fields.map(_.schema).toArray
       Lexer.char(trace, in, '{')
       if (Lexer.firstField(trace, in)) {

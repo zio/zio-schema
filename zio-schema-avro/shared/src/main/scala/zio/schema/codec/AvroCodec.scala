@@ -221,37 +221,37 @@ object AvroCodec extends AvroCodec {
     Schema.Field(
       "month",
       Schema.Primitive(StandardType.IntType),
-      get = _.getMonthValue,
-      set = (a, b: Int) => a.`with`(Month.of(b))
+      get0 = _.getMonthValue,
+      set0 = (a, b: Int) => a.`with`(Month.of(b))
     ),
     Schema.Field(
       "day",
       Schema.Primitive(StandardType.IntType),
-      get = _.getDayOfMonth,
-      set = (a, b: Int) => a.withDayOfMonth(b)
+      get0 = _.getDayOfMonth,
+      set0 = (a, b: Int) => a.withDayOfMonth(b)
     )
   )
 
   private[codec] lazy val periodStructure: Seq[Schema.Field[Period, Int]] = Seq(
     Schema
-      .Field("years", Schema.Primitive(StandardType.IntType), get = _.getYears, set = (a, b: Int) => a.withYears(b)),
+      .Field("years", Schema.Primitive(StandardType.IntType), get0 = _.getYears, set0 = (a, b: Int) => a.withYears(b)),
     Schema
-      .Field("months", Schema.Primitive(StandardType.IntType), get = _.getMonths, set = (a, b: Int) => a.withMonths(b)),
-    Schema.Field("days", Schema.Primitive(StandardType.IntType), get = _.getDays, set = (a, b: Int) => a.withDays(b))
+      .Field("months", Schema.Primitive(StandardType.IntType), get0 = _.getMonths, set0 = (a, b: Int) => a.withMonths(b)),
+    Schema.Field("days", Schema.Primitive(StandardType.IntType), get0 = _.getDays, set0 = (a, b: Int) => a.withDays(b))
   )
 
   private[codec] lazy val yearMonthStructure: Seq[Schema.Field[YearMonth, Int]] = Seq(
     Schema.Field(
       "year",
       Schema.Primitive(StandardType.IntType),
-      get = _.getYear,
-      set = (a, b: Int) => a.`with`(Year.of(b))
+      get0 = _.getYear,
+      set0 = (a, b: Int) => a.`with`(Year.of(b))
     ),
     Schema.Field(
       "month",
       Schema.Primitive(StandardType.IntType),
-      get = _.getMonthValue,
-      set = (a, b: Int) => a.`with`(Month.of(b))
+      get0 = _.getMonthValue,
+      set0 = (a, b: Int) => a.`with`(Month.of(b))
     )
   )
 
@@ -259,14 +259,14 @@ object AvroCodec extends AvroCodec {
     Schema.Field(
       "seconds",
       Schema.Primitive(StandardType.LongType),
-      get = _.getSeconds,
-      set = (a, b: Long) => a.plusSeconds(b)
+      get0 = _.getSeconds,
+      set0 = (a, b: Long) => a.plusSeconds(b)
     ),
     Schema.Field(
       "nanos",
       Schema.Primitive(StandardType.IntType),
-      get = _.getNano,
-      set = (a, b: Int) => a.plusNanos(b.toLong)
+      get0 = _.getNano,
+      set0 = (a, b: Int) => a.plusNanos(b.toLong)
     )
   )
 
@@ -819,8 +819,8 @@ object AvroCodec extends AvroCodec {
             field.name(),
             s.asInstanceOf[Schema[Any]],
             buildZioAnnotations(field),
-            get = (p: ListMap[String, _]) => p(field.name()),
-            set = (p: ListMap[String, _], v: Any) => p.updated(field.name(), v)
+            get0 = (p: ListMap[String, _]) => p(field.name()),
+            set0 = (p: ListMap[String, _], v: Any) => p.updated(field.name(), v)
           )
       )
 

@@ -17,10 +17,10 @@ private[example3] object Domain {
   object Person {
 
     val name: Field[Person, String] =
-      Field[Person, String]("name", primitive[String], get = _.name, set = (p, v) => p.copy(name = v))
+      Field[Person, String]("name", primitive[String], get0 = _.name, set0 = (p, v) => p.copy(name = v))
 
     val age: Field[Person, Int] =
-      Field[Person, Int]("age", primitive[Int], get = _.age, set = (p, v) => p.copy(age = v))
+      Field[Person, Int]("age", primitive[Int], get0 = _.age, set0 = (p, v) => p.copy(age = v))
 
     val schema: Schema[Person] = CaseClass2[String, Int, Person](
       TypeId.parse("dev.zio.example.example3.Domain.Person"),
@@ -35,11 +35,11 @@ private[example3] object Domain {
   object PersonDTO {
 
     val firstname: Field[PersonDTO, String] =
-      Field("firstname", primitive[String], get = _.firstname, set = (p, v) => p.copy(firstname = v))
+      Field("firstname", primitive[String], get0 = _.firstname, set0 = (p, v) => p.copy(firstname = v))
 
     val lastname: Field[PersonDTO, String] =
-      Field("lastname", primitive[String], get = _.lastname, set = (p, v) => p.copy(lastname = v))
-    val years: Field[PersonDTO, Int] = Field("years", primitive[Int], get = _.years, set = (p, v) => p.copy(years = v))
+      Field("lastname", primitive[String], get0 = _.lastname, set0 = (p, v) => p.copy(lastname = v))
+    val years: Field[PersonDTO, Int] = Field("years", primitive[Int], get0 = _.years, set0 = (p, v) => p.copy(years = v))
 
     val schema: Schema[PersonDTO] = CaseClass3[String, String, Int, PersonDTO](
       TypeId.parse("dev.zio.example.example3.Domain.PersonDTO"),

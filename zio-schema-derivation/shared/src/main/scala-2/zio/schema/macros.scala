@@ -252,6 +252,8 @@ object DeriveSchema {
         if (arity > 22) {
           val fields = fieldTypes.zip(fieldAnnotations).map {
             case (termSymbol, annotations) =>
+              val singletonType = tq"${termSymbol.name.toString().trim()}.type"
+              val fieldType = concreteType(tpe, termSymbol.typeSignature)
               val fieldSchema = directInferSchema(
                 tpe,
                 concreteType(tpe, termSymbol.typeSignature),
@@ -266,9 +268,9 @@ object DeriveSchema {
                 q" (z: scala.collection.immutable.ListMap[String, _], v: ${termSymbol.typeSignature}) => z.updated($fieldLabel, v)"
 
               if (annotations.nonEmpty)
-                q"zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), get = $getFunc, set = $setFunc)"
+                q"zio.schema.Schema.Field.apply(name0 = $fieldLabel, schema0 = $fieldSchema, annotations0 = zio.Chunk.apply[Any](..$annotations), get0 = $getFunc, set0 = $setFunc).asInstanceOf[zio.schema.Schema.Field.WithFieldName[scala.collection.immutable.ListMap[String, _], $singletonType, ${fieldType}]]"
               else
-                q"zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, get = $getFunc, set = $setFunc)"
+                q"zio.schema.Schema.Field.apply(name0 = $fieldLabel, schema0 = $fieldSchema, get0 = $getFunc, set0 = $setFunc).asInstanceOf[zio.schema.Schema.Field.WithFieldName[scala.collection.immutable.ListMap[String, _], $singletonType, ${fieldType}]]"
           }
           val fromMap = {
             val casts = fieldTypes.map { termSymbol =>
@@ -293,7 +295,7 @@ object DeriveSchema {
             if (typeAnnotations.isEmpty) Iterable(q"annotations = zio.Chunk.empty")
             else Iterable(q"annotations = zio.Chunk.apply(..$typeAnnotations)")
 
-          q"""zio.schema.Schema.GenericRecord($typeId, zio.schema.FieldSet(..$fields), ..$applyArgs).transformOrFail[$tpe]($fromMap,$toMap)"""
+          q"""zio.schema.Schema.GenericRecord($typeId, zio.schema.FieldSet.fromFields(..$fields), ..$applyArgs).transformOrFail[$tpe]($fromMap,$toMap)"""
         } else {
           val schemaType = arity match {
             case 0  => q"zio.schema.Schema.CaseClass0[..$typeArgs]"
@@ -323,6 +325,7 @@ object DeriveSchema {
 
           val fieldDefs = fieldTypes.zip(fieldAnnotations).zip(fieldValidations).zipWithIndex.map {
             case (((termSymbol, annotations), validation), idx) =>
+              val singletonType = tq"${termSymbol.name.toString().trim()}.type"
               val fieldType = concreteType(tpe, termSymbol.typeSignature)
               val fieldSchema = directInferSchema(
                 tpe,
@@ -337,9 +340,9 @@ object DeriveSchema {
               val setFunc = q" (z: $tpe, v: ${fieldType}) => z.copy($getArg = v)"
 
               if (annotations.nonEmpty)
-                q"""$fieldArg = zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, annotations = zio.Chunk.apply[Any](..$annotations), validation = $validation, get = $getFunc, set = $setFunc)"""
+                q"""$fieldArg = zio.schema.Schema.Field.apply(name0 = $fieldLabel, schema0 = $fieldSchema, annotations0 = zio.Chunk.apply[Any](..$annotations), validation0 = $validation, get0 = $getFunc, set0 = $setFunc).asInstanceOf[zio.schema.Schema.Field.WithFieldName[$tpe, $singletonType, $fieldType]]"""
               else
-                q"""$fieldArg = zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, validation = $validation, get = $getFunc, set = $setFunc)"""
+                q"""$fieldArg = zio.schema.Schema.Field.apply(name0 = $fieldLabel, schema0 = $fieldSchema, validation0 = $validation, get0 = $getFunc, set0 = $setFunc).asInstanceOf[zio.schema.Schema.Field.WithFieldName[$tpe, $singletonType, $fieldType]]"""
           }
 
           val constructArgs = fieldTypes.zipWithIndex.map {

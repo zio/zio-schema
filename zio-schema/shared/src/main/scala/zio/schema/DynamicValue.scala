@@ -1852,8 +1852,8 @@ private[schema] object DynamicValueSchema {
         Schema.Field(
           "message",
           Schema.primitive[String],
-          get = error => error.message,
-          set = (error, message) => error.copy(message = message)
+          get0 = error => error.message,
+          set0 = (error, message) => error.copy(message = message)
         ),
         message => DynamicValue.Error(message)
       ),
@@ -1880,8 +1880,8 @@ private[schema] object DynamicValueSchema {
         Schema.Field(
           "value",
           Schema.defer(DynamicValueSchema()),
-          get = rightValue => rightValue.value,
-          set = (rightValue, value) => rightValue.copy(value = value)
+          get0 = rightValue => rightValue.value,
+          set0 = (rightValue, value) => rightValue.copy(value = value)
         ),
         dynamicValue => DynamicValue.RightValue(dynamicValue)
       ),
@@ -1898,8 +1898,8 @@ private[schema] object DynamicValueSchema {
         Schema.Field(
           "value",
           Schema.defer(DynamicValueSchema()),
-          get = leftValue => leftValue.value,
-          set = (leftValue, value) => leftValue.copy(value = value)
+          get0 = leftValue => leftValue.value,
+          set0 = (leftValue, value) => leftValue.copy(value = value)
         ),
         dynamicValue => DynamicValue.LeftValue(dynamicValue)
       ),
@@ -1916,14 +1916,14 @@ private[schema] object DynamicValueSchema {
         Schema.Field(
           "left",
           Schema.defer(DynamicValueSchema()),
-          get = tuple => tuple.left,
-          set = (tuple, left) => tuple.copy(left = left)
+          get0 = tuple => tuple.left,
+          set0 = (tuple, left) => tuple.copy(left = left)
         ),
         Schema.Field(
           "right",
           Schema.defer(DynamicValueSchema()),
-          get = tuple => tuple.right,
-          set = (tuple, right) => tuple.copy(right = right)
+          get0 = tuple => tuple.right,
+          set0 = (tuple, right) => tuple.copy(right = right)
         ),
         (left, right) => DynamicValue.Tuple(left, right)
       ),
@@ -1941,8 +1941,8 @@ private[schema] object DynamicValueSchema {
           .Field(
             "value",
             Schema.defer(DynamicValueSchema()),
-            get = someValue => someValue.value,
-            set = (someValue, value) => someValue.copy(value = value)
+            get0 = someValue => someValue.value,
+            set0 = (someValue, value) => someValue.copy(value = value)
           ),
         dv => DynamicValue.SomeValue(dv)
       ),
@@ -1959,8 +1959,8 @@ private[schema] object DynamicValueSchema {
         Schema.Field(
           "entries",
           Schema.defer(Schema.chunk(Schema.tuple2(DynamicValueSchema(), DynamicValueSchema()))),
-          get = dictionary => dictionary.entries,
-          set = (dictionary, entries) => dictionary.copy(entries = entries)
+          get0 = dictionary => dictionary.entries,
+          set0 = (dictionary, entries) => dictionary.copy(entries = entries)
         ),
         chunk => DynamicValue.Dictionary(chunk)
       ),
@@ -1977,8 +1977,8 @@ private[schema] object DynamicValueSchema {
         Schema.Field(
           "values",
           Schema.defer(Schema.chunk(DynamicValueSchema())),
-          get = seq => seq.values,
-          set = (seq, values) => seq.copy(values = values)
+          get0 = seq => seq.values,
+          set0 = (seq, values) => seq.copy(values = values)
         ),
         chunk => DynamicValue.Sequence(chunk)
       ),
@@ -1995,8 +1995,8 @@ private[schema] object DynamicValueSchema {
         Schema.Field(
           "values",
           Schema.defer(Schema.set(DynamicValueSchema())),
-          get = seq => seq.values,
-          set = (seq, values) => seq.copy(values = values)
+          get0 = seq => seq.values,
+          set0 = (seq, values) => seq.copy(values = values)
         ),
         set => DynamicValue.SetValue(set)
       ),
@@ -2013,14 +2013,14 @@ private[schema] object DynamicValueSchema {
         Schema.Field(
           "id",
           Schema[TypeId],
-          get = enumeration => enumeration.id,
-          set = (enumeration, id) => enumeration.copy(id = id)
+          get0 = enumeration => enumeration.id,
+          set0 = (enumeration, id) => enumeration.copy(id = id)
         ),
         Schema.Field(
           "value",
           Schema.defer(Schema.tuple2(Schema.primitive[String], DynamicValueSchema())),
-          get = enumeration => enumeration.value,
-          set = (enumeration, value) => enumeration.copy(value = value)
+          get0 = enumeration => enumeration.value,
+          set0 = (enumeration, value) => enumeration.copy(value = value)
         ),
         (id, value) => DynamicValue.Enumeration(id, value)
       ),
@@ -2034,13 +2034,13 @@ private[schema] object DynamicValueSchema {
       "Record",
       Schema.CaseClass2[TypeId, Chunk[(String, DynamicValue)], DynamicValue.Record](
         TypeId.parse("zio.schema.DynamicValue.Record"),
-        Schema.Field("id", Schema[TypeId], get = record => record.id, set = (record, id) => record.copy(id = id)),
+        Schema.Field("id", Schema[TypeId], get0 = record => record.id, set0 = (record, id) => record.copy(id = id)),
         Schema
           .Field(
             "values",
             Schema.defer(Schema.chunk(Schema.tuple2(Schema.primitive[String], DynamicValueSchema()))),
-            get = record => Chunk.fromIterable(record.values),
-            set = (record, values) =>
+            get0 = record => Chunk.fromIterable(record.values),
+            set0 = (record, values) =>
               record.copy(values = values.foldRight(ListMap.empty[String, DynamicValue])((a, b) => b + a))
           ),
         (id, chunk) => DynamicValue.Record(id, ListMap(chunk.toSeq: _*))
@@ -2058,8 +2058,8 @@ private[schema] object DynamicValueSchema {
         Schema.Field(
           "ast",
           MetaSchema.schema,
-          get = dynamicAst => dynamicAst.ast,
-          set = (dynamicAst, ast) => dynamicAst.copy(ast = ast)
+          get0 = dynamicAst => dynamicAst.ast,
+          set0 = (dynamicAst, ast) => dynamicAst.copy(ast = ast)
         ),
         schemaAst => DynamicValue.DynamicAst(schemaAst)
       ),

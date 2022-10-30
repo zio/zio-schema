@@ -30,10 +30,13 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
 
   val fo = new annotation1("foo")
 
-  final case class ContainerFields(field1: Option[String], field2: List[String])
+  case class ContainerFields(field1: Option[String])
 
   object ContainerFields {
-    implicit lazy val schema: Schema[ContainerFields] = DeriveSchema.gen[ContainerFields]
+
+    implicit lazy val schema = DeriveSchema.gen[ContainerFields]
+
+    val f1 = schema.field
   }
 
   sealed case class UserId(id: String)
@@ -273,8 +276,8 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
             field = Schema.Field(
               "id",
               Schema.Primitive(StandardType.StringType),
-              get = _.id,
-              set = (a, b: String) => a.copy(id = b)
+              get0 = _.id,
+              set0 = (a, b: String) => a.copy(id = b)
             ),
             UserId.apply
           )
@@ -295,8 +298,8 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
             field1 = Schema.Field(
               "name",
               Schema.Primitive(StandardType.StringType),
-              get = _.name,
-              set = (a, b: String) => a.copy(name = b)
+              get0 = _.name,
+              set0 = (a, b: String) => a.copy(name = b)
             ),
             field2 = Schema.Field(
               "id",
@@ -305,14 +308,14 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
                 field = Schema.Field(
                   "id",
                   Schema.Primitive(StandardType.StringType),
-                  get = (uid: UserId) => uid.id,
-                  set = (uid: UserId, id: String) => uid.copy(id = id)
+                  get0 = (uid: UserId) => uid.id,
+                  set0 = (uid: UserId, id: String) => uid.copy(id = id)
                 ),
                 UserId.apply
               ),
               Chunk(annotation1("foo"), annotation2("bar"), new annotation3, new annotation4(0)),
-              get = _.id,
-              set = (a, b: UserId) => a.copy(id = b)
+              get0 = _.id,
+              set0 = (a, b: UserId) => a.copy(id = b)
             ),
             User.apply,
             annotations = Chunk(new annotation3)

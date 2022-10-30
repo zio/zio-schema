@@ -274,8 +274,8 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
             field = Schema.Field(
               "id",
               Schema.Primitive(StandardType.StringType),
-              get = (uid: UserId) => uid.id,
-              set = (uid: UserId, v: String) => uid.copy(id = v)
+              get0 = (uid: UserId) => uid.id,
+              set0 = (uid: UserId, v: String) => uid.copy(id = v)
             ),
             UserId.apply
           )
