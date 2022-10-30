@@ -1,15 +1,13 @@
 ---
-id: understanding
+id: understanding-zio-schema
 title: "Understanding ZIO Schema"
 ---
-
-
-## Understanding ZIO Schema
 
 ZIO Schema is a library used in many ZIO projects such as _ZIO Flow_, _ZIO Redis_, _ZIO Web_, _ZIO SQL_ and _ZIO DynamoDB_.
 ZIO is all about reification of your types. Reification means transforming something abstract (e.g. side effects, accessing fields, structure)  into something "real" (values).
 
-### Reification: functional effects
+## Reification: Functional Effects
+
 In functional effects, we reify by turning side-effects into values.
 
 E.g. you might have a simple statement like
@@ -29,7 +27,8 @@ and then are able to do awesome things like:
 (Task(println("Hello")) zipPar Task(println("World"))).retryN(100)
 ```
 
-### Reification: Optics
+## Reification: Optics
+
 In scala we have product types like this case class of a Person:
 ```scala
 final case class Person(name: String, age: Int)
@@ -69,7 +68,7 @@ Once we have a value, we can compose these things together to solve hard problem
 For more information on optics, refer to the [ZIO Optics](https://zio.github.io/zio-optics/docs/overview/overview_index) documentation.
 
 
-### Reification: Schema
+## Reification: Schema
 
 So far we've looked at how to
 - reify side-effects into values (ZIO)
@@ -83,7 +82,8 @@ E.g. the following data type:
 ```scala
 final case class Person(name: String, age: Int)
 ```
-has the following information:
+
+Has the following information:
 - name of the structure: "Person"
 - fields: "name" and "age"
 - type of the fields: String and Int
@@ -93,16 +93,14 @@ ZIO Schema tries to reify the concept of structure for datatypes by turning the 
 
 Not only for case classes, but also for other types like collections, tuples, enumerations etc.
 
-
 ## Getting started
-
 
 To get started, first you need to understand that a ZIO Schema is basically built-up from these three
 sealed traits:
 - `Record[R]`
 - `Enum[A]`
 - `Sequence[Col, Elem]`
-and the case class `Primitive[A]`. Every other type is just a specialisation of one of these (or not relevant to get you started).
+  and the case class `Primitive[A]`. Every other type is just a specialisation of one of these (or not relevant to get you started).
 
 We will take a look at them now.
 
@@ -141,8 +139,6 @@ sealed trait Schema[A] {
 }
 ```
 
-
-
 #### Records
 
 Your data structures usually are composed from a lot of types. For example, you might have a `User`
@@ -168,8 +164,8 @@ object Schema {
 
 ```
 
-
 #### Enumerations
+
 Other times, you might have a type that represents a list of different types. For example, you might
 have a type, like this:
 ```scala
@@ -195,7 +191,6 @@ object Schema ... {
     def structure: ListMap[String, Schema[_]]
   }
 }
-
 ```
 
 #### Sequence
@@ -219,10 +214,12 @@ object Schema ... {
   }
   ...
 }
-
 ```
+
 #### Optionals
+
 A special variant of a collection type is the `Optional[A]` type:
+
 ```scala
 object Schema ... {
 
@@ -248,7 +245,9 @@ object Schema ... {
 ```
 
 #### Primitives
+
 Last but not least, we have primitive values.
+
 ```scala
 object Schema ... {
   ...
@@ -260,6 +259,7 @@ object Schema ... {
   ...
 }
 ```
+
 Primitive values are represented using the `Primitive[A]` type class and represent the elements,
 that we cannot further define through other means. If you visualize your data structure as a tree,
 primitives are the leaves.
@@ -268,6 +268,7 @@ ZIO Schema provides a number of built-in primitive types, that you can use to re
 These can be found in the `StandardType` companion-object.
 
 ### Transforming Schemas
+
 Once we have a `Schema`, we can transform it into another `Schema` by applying a `Transformer`.
 In normal Scala code this would be the equivalent of `map`.
 
@@ -288,6 +289,7 @@ In ZIO Schema this is modelled by the `Transform` type class:
 
 In the example above, we can transform the `User` Schema into a `UserRecord` Schema, which is a record,
 by using the `transform`-method, which has to be an "isomorphism" (= providing methods to transform A to B _and_ B to A):
+
 ```scala
   /**
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
@@ -298,6 +300,7 @@ by using the `transform`-method, which has to be an "isomorphism" (= providing m
 ```
 
 #### Codecs
+
 Once you have your schema, you can combine it with a codec.
 A codec is a combination of a schema and a serializer.
 Unlike codecs in other libraries, a codec in ZIO Schema has no type parameter.
@@ -320,12 +323,13 @@ It basically says:
 
 
 Example of possible codecs are:
-- CSV Codec
-- JSON Codec (already available)
-- Apache Avro Codec (in progress)
-- Apache Thrift Codec (in progress)
-- XML Codec
-- YAML Codec
-- Protobuf Codec (already available)
-- QueryString Codec
-- etc.
+
+  - CSV Codec
+  - JSON Codec (already available)
+  - Apache Avro Codec (in progress)
+  - Apache Thrift Codec (in progress)
+  - XML Codec
+  - YAML Codec
+  - Protobuf Codec (already available)
+  - QueryString Codec
+  - etc.
