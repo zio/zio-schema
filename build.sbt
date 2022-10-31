@@ -75,6 +75,7 @@ lazy val root = project
     zioSchemaMsgPackJS,
     zioSchemaMsgPackJVM
   )
+  .enablePlugins(WebsitePlugin)
 
 lazy val tests = crossProject(JSPlatform, JVMPlatform)
   .in(file("tests"))
