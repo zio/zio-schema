@@ -28,6 +28,11 @@ jobs:
         uses: olafurpg/setup-scala@v13
       - name: Cache scala dependencies
         uses: coursier/cache-action@v6
+      - name: Compile zio-sbt
+        run: |
+          git clone https://github.com/khajavi/zio-sbt.git
+          cd zio-sbt
+          sbt zioSbtWebsite/publishLocal
       - name: Lint code
         run: sbt fmtCheck fixCheck
 
@@ -46,6 +51,11 @@ jobs:
         java-version: ${{ matrix.java }}
     - name: Cache scala dependencies
       uses: coursier/cache-action@v6
+    - name: Compile zio-sbt
+      run: |
+        git clone https://github.com/khajavi/zio-sbt.git
+        cd zio-sbt
+        sbt zioSbtWebsite/publishLocal
     - name: Run tests
       run: sbt ++${{ matrix.scala }}! test
 
@@ -59,6 +69,11 @@ jobs:
         with:
           fetch-depth: 0
       - uses: olafurpg/setup-scala@v13
+      - name: Compile zio-sbt
+        run: |
+          git clone https://github.com/khajavi/zio-sbt.git
+          cd zio-sbt
+          sbt zioSbtWebsite/publishLocal
       - run: sbt ci-release
         env:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
