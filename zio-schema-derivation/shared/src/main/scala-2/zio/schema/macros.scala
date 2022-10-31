@@ -26,12 +26,15 @@ object DeriveSchema {
 
     def isSealedTrait(tpe: Type): Boolean = tpe.typeSymbol.asClass.isTrait && tpe.typeSymbol.asClass.isSealed
 
+    def isMap(tpe: Type): Boolean = tpe.typeSymbol.fullName == "scala.collection.immutable.Map"
+
     def recurse(tpe: Type, stack: List[Frame[c.type]]): Tree =
       if (isCaseObject(tpe))
         q"zio.schema.Schema.singleton(${tpe.typeSymbol.asClass.module})"
       else if (isCaseClass(tpe)) deriveRecord(tpe, stack)
       else if (isSealedTrait(tpe))
         deriveEnum(tpe, stack)
+      else if (isMap(tpe)) deriveMap(tpe)
       else
         c.abort(
           c.enclosingPosition,
@@ -602,6 +605,21 @@ object DeriveSchema {
             q"""{lazy val $selfRefIdent: zio.schema.Schema.EnumN[$tpe,zio.schema.CaseSet.Aux[$tpe]] = zio.schema.Schema.EnumN.apply[$tpe,zio.schema.CaseSet.Aux[$tpe]]($typeId, $caseSet, $annotationArg); $selfRefIdent}"""
           }
       }
+    }
+
+    def deriveMap(tpe: Type): Tree = {
+      val selfRefName  = c.freshName("ref")
+      val selfRefIdent = Ident(TermName(selfRefName))
+
+      val (keyType, valueType) = tpe match {
+        case TypeRef(_, _, List(keyType, valueType)) => (keyType, valueType)
+        case _                                       => c.abort(c.enclosingPosition, (s"Invalid type $tpe for @deriveSchema"))
+      }
+
+      val keySchema   = q"""zio.schema.Schema[$keyType]"""
+      val valueSchema = q"""zio.schema.Schema[$valueType]"""
+
+      q"""{lazy val $selfRefIdent: zio.schema.Schema.Map[$keyType, $valueType] = zio.schema.Schema.Map.apply[$keyType, $valueType]($keySchema, $valueSchema, zio.Chunk.empty); $selfRefIdent}"""
     }
 
     recurse(tpe, List.empty[Frame[c.type]])
