@@ -288,32 +288,6 @@ lazy val zioSchemaZioTestJS = zioSchemaZioTest.js
 
 lazy val zioSchemaZioTestJVM = zioSchemaZioTest.jvm
 
-lazy val docs = project
-  .in(file("zio-schema-docs"))
-  .settings(
-    publish / skip := true,
-    mdocVariables := Map(
-      "SNAPSHOT_VERSION" -> version.value,
-      "RELEASE_VERSION"  -> previousStableVersion.value.getOrElse("can't find release"),
-      "ORG"              -> organization.value,
-      "NAME"             -> (zioSchemaJVM / name).value,
-      "CROSS_VERSIONS"   -> (zioSchemaJVM / crossScalaVersions).value.mkString(", ")
-    ),
-    moduleName := "zio-schema-docs",
-    scalacOptions -= "-Yno-imports",
-    scalacOptions -= "-Xfatal-warnings",
-    libraryDependencies ++= Seq(
-      "dev.zio" %% "zio" % zioVersion
-    ),
-    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(root),
-    ScalaUnidoc / unidoc / target := (LocalRootProject / baseDirectory).value / "website" / "static" / "api",
-    cleanFiles += (ScalaUnidoc / unidoc / target).value,
-    docusaurusCreateSite := docusaurusCreateSite.dependsOn(Compile / unidoc).value,
-    docusaurusPublishGhpages := docusaurusPublishGhpages.dependsOn(Compile / unidoc).value
-  )
-  .dependsOn(root)
-  .enablePlugins(MdocPlugin, DocusaurusPlugin, ScalaUnidocPlugin)
-
 lazy val benchmarks = project
   .in(file("benchmarks"))
   .dependsOn(zioSchemaJVM, zioSchemaDerivationJVM, zioSchemaProtobufJVM)
