@@ -10,6 +10,9 @@ sealed trait FieldSet {
   type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]]
   type Append[That <: FieldSet] <: FieldSet
 
+  type Terms
+  type FieldNames
+
   def :*:[A](head: Field[ListMap[String, _], A]): FieldSet.Cons[A, FieldSet]
 
   def ++[That <: FieldSet](that: That): Append[That]
@@ -33,6 +36,9 @@ object FieldSet {
     override type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Unit
     override type Append[That <: FieldSet]                                         = That
 
+    override type Terms = Any
+    override type FieldNames = Any
+
     override def :*:[A](head: Field[ListMap[String, _], A]): FieldSet.Cons[A, Empty] = Cons(head, Empty)
 
     override def ++[That <: FieldSet](that: That): Append[That] = that
@@ -51,6 +57,10 @@ object FieldSet {
     override type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (Lens[head.Field, Whole, A], tail.Accessors[Whole, Lens, Prism, Traversal])
     override type Append[That <: FieldSet] = Cons[A, tail.Append[That]]
+
+    override type Terms = (head.Field, A) with tail.Terms
+
+    override type FieldNames = head.Field with tail.FieldNames
 
     override def :*:[B](head2: Field[ListMap[String, _], B]): FieldSet.Cons[B, Cons[A, T]] = Cons(head2, self)
 

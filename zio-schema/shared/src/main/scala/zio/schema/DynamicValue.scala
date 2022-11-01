@@ -1055,69 +1055,70 @@ object DynamicValue {
         DynamicValue.Record(id, ListMap())
 
       case Schema.CaseClass1(id, f, _, _) =>
-        DynamicValue.Record(id, ListMap(f.name -> fromSchemaAndValue(f.schema, f.get(value))))
+        DynamicValue.Record(id, ListMap(f.name -> fromSchemaAndValue(f.schema.asInstanceOf[Schema[Any]], f.get(value))))
 
       case Schema.CaseClass2(id, f1, f2, _, _) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name -> fromSchemaAndValue(f2.schema, f2.get(value))
+            f1.name -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value))
           )
         )
+
       case Schema.CaseClass3(id, f1, f2, f3, _, _) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name -> fromSchemaAndValue(f3.schema, f3.get(value))
+            f1.name -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value))
           )
         )
       case Schema.CaseClass4(id, f1, f2, f3, f4, _, _) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name -> fromSchemaAndValue(f4.schema, f4.get(value))
+            f1.name -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value))
           )
         )
       case Schema.CaseClass5(id, f1, f2, f3, f4, f5, _, _) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name -> fromSchemaAndValue(f5.schema, f5.get(value))
+            f1.name -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value))
           )
         )
       case Schema.CaseClass6(id, f1, f2, f3, f4, f5, f6, _, _) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name -> fromSchemaAndValue(f6.schema, f6.get(value))
+            f1.name -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value))
           )
         )
       case Schema.CaseClass7(id, f1, f2, f3, f4, f5, f6, f7, _, _) =>
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name -> fromSchemaAndValue(f6.schema, f6.get(value)),
-            f7.name -> fromSchemaAndValue(f7.schema, f7.get(value))
+            f1.name -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value)),
+            f7.name -> fromSchemaAndValue(f7.schema.asInstanceOf[Schema[Any]], f7.get(value))
           )
         )
       case Schema.CaseClass8(
@@ -1136,14 +1137,14 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name -> fromSchemaAndValue(f6.schema, f6.get(value)),
-            f7.name -> fromSchemaAndValue(f7.schema, f7.get(value)),
-            f8.name -> fromSchemaAndValue(f8.schema, f8.get(value))
+            f1.name -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value)),
+            f7.name -> fromSchemaAndValue(f7.schema.asInstanceOf[Schema[Any]], f7.get(value)),
+            f8.name -> fromSchemaAndValue(f8.schema.asInstanceOf[Schema[Any]], f8.get(value))
           )
         )
       case Schema.CaseClass9(
@@ -1163,15 +1164,15 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name -> fromSchemaAndValue(f6.schema, f6.get(value)),
-            f7.name -> fromSchemaAndValue(f7.schema, f7.get(value)),
-            f8.name -> fromSchemaAndValue(f8.schema, f8.get(value)),
-            f9.name -> fromSchemaAndValue(f9.schema, f9.get(value))
+            f1.name -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value)),
+            f7.name -> fromSchemaAndValue(f7.schema.asInstanceOf[Schema[Any]], f7.get(value)),
+            f8.name -> fromSchemaAndValue(f8.schema.asInstanceOf[Schema[Any]], f8.get(value)),
+            f9.name -> fromSchemaAndValue(f9.schema.asInstanceOf[Schema[Any]], f9.get(value))
           )
         )
       case Schema.CaseClass10(
@@ -1192,16 +1193,16 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value))
+            f1.name  -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema.asInstanceOf[Schema[Any]], f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema.asInstanceOf[Schema[Any]], f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema.asInstanceOf[Schema[Any]], f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema.asInstanceOf[Schema[Any]], f10.get(value))
           )
         )
       case Schema.CaseClass11(
@@ -1223,17 +1224,17 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value))
+            f1.name  -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema.asInstanceOf[Schema[Any]], f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema.asInstanceOf[Schema[Any]], f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema.asInstanceOf[Schema[Any]], f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema.asInstanceOf[Schema[Any]], f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema.asInstanceOf[Schema[Any]], f11.get(value))
           )
         )
       case Schema.CaseClass12(
@@ -1256,18 +1257,18 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value))
+            f1.name  -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema.asInstanceOf[Schema[Any]], f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema.asInstanceOf[Schema[Any]], f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema.asInstanceOf[Schema[Any]], f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema.asInstanceOf[Schema[Any]], f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema.asInstanceOf[Schema[Any]], f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema.asInstanceOf[Schema[Any]], f12.get(value))
           )
         )
       case Schema.CaseClass13(
@@ -1291,19 +1292,19 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value))
+            f1.name  -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema.asInstanceOf[Schema[Any]], f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema.asInstanceOf[Schema[Any]], f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema.asInstanceOf[Schema[Any]], f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema.asInstanceOf[Schema[Any]], f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema.asInstanceOf[Schema[Any]], f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema.asInstanceOf[Schema[Any]], f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema.asInstanceOf[Schema[Any]], f13.get(value))
           )
         )
       case Schema.CaseClass14(
@@ -1328,20 +1329,20 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value))
+            f1.name  -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema.asInstanceOf[Schema[Any]], f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema.asInstanceOf[Schema[Any]], f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema.asInstanceOf[Schema[Any]], f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema.asInstanceOf[Schema[Any]], f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema.asInstanceOf[Schema[Any]], f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema.asInstanceOf[Schema[Any]], f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema.asInstanceOf[Schema[Any]], f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema.asInstanceOf[Schema[Any]], f14.get(value))
           )
         )
       case Schema.CaseClass15(
@@ -1367,21 +1368,21 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value)),
-            f15.name -> fromSchemaAndValue(f15.schema, f15.get(value))
+            f1.name  -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema.asInstanceOf[Schema[Any]], f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema.asInstanceOf[Schema[Any]], f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema.asInstanceOf[Schema[Any]], f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema.asInstanceOf[Schema[Any]], f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema.asInstanceOf[Schema[Any]], f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema.asInstanceOf[Schema[Any]], f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema.asInstanceOf[Schema[Any]], f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema.asInstanceOf[Schema[Any]], f14.get(value)),
+            f15.name -> fromSchemaAndValue(f15.schema.asInstanceOf[Schema[Any]], f15.get(value))
           )
         )
       case Schema.CaseClass16(
@@ -1408,22 +1409,22 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value)),
-            f15.name -> fromSchemaAndValue(f15.schema, f15.get(value)),
-            f16.name -> fromSchemaAndValue(f16.schema, f16.get(value))
+            f1.name  -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema.asInstanceOf[Schema[Any]], f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema.asInstanceOf[Schema[Any]], f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema.asInstanceOf[Schema[Any]], f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema.asInstanceOf[Schema[Any]], f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema.asInstanceOf[Schema[Any]], f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema.asInstanceOf[Schema[Any]], f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema.asInstanceOf[Schema[Any]], f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema.asInstanceOf[Schema[Any]], f14.get(value)),
+            f15.name -> fromSchemaAndValue(f15.schema.asInstanceOf[Schema[Any]], f15.get(value)),
+            f16.name -> fromSchemaAndValue(f16.schema.asInstanceOf[Schema[Any]], f16.get(value))
           )
         )
       case Schema.CaseClass17(
@@ -1451,23 +1452,23 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value)),
-            f15.name -> fromSchemaAndValue(f15.schema, f15.get(value)),
-            f16.name -> fromSchemaAndValue(f16.schema, f16.get(value)),
-            f17.name -> fromSchemaAndValue(f17.schema, f17.get(value))
+            f1.name  -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema.asInstanceOf[Schema[Any]], f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema.asInstanceOf[Schema[Any]], f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema.asInstanceOf[Schema[Any]], f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema.asInstanceOf[Schema[Any]], f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema.asInstanceOf[Schema[Any]], f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema.asInstanceOf[Schema[Any]], f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema.asInstanceOf[Schema[Any]], f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema.asInstanceOf[Schema[Any]], f14.get(value)),
+            f15.name -> fromSchemaAndValue(f15.schema.asInstanceOf[Schema[Any]], f15.get(value)),
+            f16.name -> fromSchemaAndValue(f16.schema.asInstanceOf[Schema[Any]], f16.get(value)),
+            f17.name -> fromSchemaAndValue(f17.schema.asInstanceOf[Schema[Any]], f17.get(value))
           )
         )
       case Schema.CaseClass18(
@@ -1496,24 +1497,24 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value)),
-            f15.name -> fromSchemaAndValue(f15.schema, f15.get(value)),
-            f16.name -> fromSchemaAndValue(f16.schema, f16.get(value)),
-            f17.name -> fromSchemaAndValue(f17.schema, f17.get(value)),
-            f18.name -> fromSchemaAndValue(f18.schema, f18.get(value))
+            f1.name  -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema.asInstanceOf[Schema[Any]], f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema.asInstanceOf[Schema[Any]], f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema.asInstanceOf[Schema[Any]], f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema.asInstanceOf[Schema[Any]], f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema.asInstanceOf[Schema[Any]], f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema.asInstanceOf[Schema[Any]], f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema.asInstanceOf[Schema[Any]], f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema.asInstanceOf[Schema[Any]], f14.get(value)),
+            f15.name -> fromSchemaAndValue(f15.schema.asInstanceOf[Schema[Any]], f15.get(value)),
+            f16.name -> fromSchemaAndValue(f16.schema.asInstanceOf[Schema[Any]], f16.get(value)),
+            f17.name -> fromSchemaAndValue(f17.schema.asInstanceOf[Schema[Any]], f17.get(value)),
+            f18.name -> fromSchemaAndValue(f18.schema.asInstanceOf[Schema[Any]], f18.get(value))
           )
         )
       case Schema.CaseClass19(
@@ -1543,25 +1544,25 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value)),
-            f15.name -> fromSchemaAndValue(f15.schema, f15.get(value)),
-            f16.name -> fromSchemaAndValue(f16.schema, f16.get(value)),
-            f17.name -> fromSchemaAndValue(f17.schema, f17.get(value)),
-            f18.name -> fromSchemaAndValue(f18.schema, f18.get(value)),
-            f19.name -> fromSchemaAndValue(f19.schema, f19.get(value))
+            f1.name  -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema.asInstanceOf[Schema[Any]], f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema.asInstanceOf[Schema[Any]], f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema.asInstanceOf[Schema[Any]], f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema.asInstanceOf[Schema[Any]], f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema.asInstanceOf[Schema[Any]], f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema.asInstanceOf[Schema[Any]], f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema.asInstanceOf[Schema[Any]], f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema.asInstanceOf[Schema[Any]], f14.get(value)),
+            f15.name -> fromSchemaAndValue(f15.schema.asInstanceOf[Schema[Any]], f15.get(value)),
+            f16.name -> fromSchemaAndValue(f16.schema.asInstanceOf[Schema[Any]], f16.get(value)),
+            f17.name -> fromSchemaAndValue(f17.schema.asInstanceOf[Schema[Any]], f17.get(value)),
+            f18.name -> fromSchemaAndValue(f18.schema.asInstanceOf[Schema[Any]], f18.get(value)),
+            f19.name -> fromSchemaAndValue(f19.schema.asInstanceOf[Schema[Any]], f19.get(value))
           )
         )
       case Schema.CaseClass20(
@@ -1592,26 +1593,26 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value)),
-            f15.name -> fromSchemaAndValue(f15.schema, f15.get(value)),
-            f16.name -> fromSchemaAndValue(f16.schema, f16.get(value)),
-            f17.name -> fromSchemaAndValue(f17.schema, f17.get(value)),
-            f18.name -> fromSchemaAndValue(f18.schema, f18.get(value)),
-            f19.name -> fromSchemaAndValue(f19.schema, f19.get(value)),
-            f20.name -> fromSchemaAndValue(f20.schema, f20.get(value))
+            f1.name  -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema.asInstanceOf[Schema[Any]], f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema.asInstanceOf[Schema[Any]], f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema.asInstanceOf[Schema[Any]], f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema.asInstanceOf[Schema[Any]], f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema.asInstanceOf[Schema[Any]], f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema.asInstanceOf[Schema[Any]], f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema.asInstanceOf[Schema[Any]], f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema.asInstanceOf[Schema[Any]], f14.get(value)),
+            f15.name -> fromSchemaAndValue(f15.schema.asInstanceOf[Schema[Any]], f15.get(value)),
+            f16.name -> fromSchemaAndValue(f16.schema.asInstanceOf[Schema[Any]], f16.get(value)),
+            f17.name -> fromSchemaAndValue(f17.schema.asInstanceOf[Schema[Any]], f17.get(value)),
+            f18.name -> fromSchemaAndValue(f18.schema.asInstanceOf[Schema[Any]], f18.get(value)),
+            f19.name -> fromSchemaAndValue(f19.schema.asInstanceOf[Schema[Any]], f19.get(value)),
+            f20.name -> fromSchemaAndValue(f20.schema.asInstanceOf[Schema[Any]], f20.get(value))
           )
         )
       case Schema.CaseClass21(
@@ -1643,27 +1644,27 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value)),
-            f15.name -> fromSchemaAndValue(f15.schema, f15.get(value)),
-            f16.name -> fromSchemaAndValue(f16.schema, f16.get(value)),
-            f17.name -> fromSchemaAndValue(f17.schema, f17.get(value)),
-            f18.name -> fromSchemaAndValue(f18.schema, f18.get(value)),
-            f19.name -> fromSchemaAndValue(f19.schema, f19.get(value)),
-            f20.name -> fromSchemaAndValue(f20.schema, f20.get(value)),
-            f21.name -> fromSchemaAndValue(f21.schema, f21.get(value))
+            f1.name  -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema.asInstanceOf[Schema[Any]], f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema.asInstanceOf[Schema[Any]], f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema.asInstanceOf[Schema[Any]], f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema.asInstanceOf[Schema[Any]], f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema.asInstanceOf[Schema[Any]], f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema.asInstanceOf[Schema[Any]], f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema.asInstanceOf[Schema[Any]], f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema.asInstanceOf[Schema[Any]], f14.get(value)),
+            f15.name -> fromSchemaAndValue(f15.schema.asInstanceOf[Schema[Any]], f15.get(value)),
+            f16.name -> fromSchemaAndValue(f16.schema.asInstanceOf[Schema[Any]], f16.get(value)),
+            f17.name -> fromSchemaAndValue(f17.schema.asInstanceOf[Schema[Any]], f17.get(value)),
+            f18.name -> fromSchemaAndValue(f18.schema.asInstanceOf[Schema[Any]], f18.get(value)),
+            f19.name -> fromSchemaAndValue(f19.schema.asInstanceOf[Schema[Any]], f19.get(value)),
+            f20.name -> fromSchemaAndValue(f20.schema.asInstanceOf[Schema[Any]], f20.get(value)),
+            f21.name -> fromSchemaAndValue(f21.schema.asInstanceOf[Schema[Any]], f21.get(value))
           )
         )
       case Schema.CaseClass22(
@@ -1696,28 +1697,28 @@ object DynamicValue {
         DynamicValue.Record(
           id,
           ListMap(
-            f1.name  -> fromSchemaAndValue(f1.schema, f1.get(value)),
-            f2.name  -> fromSchemaAndValue(f2.schema, f2.get(value)),
-            f3.name  -> fromSchemaAndValue(f3.schema, f3.get(value)),
-            f4.name  -> fromSchemaAndValue(f4.schema, f4.get(value)),
-            f5.name  -> fromSchemaAndValue(f5.schema, f5.get(value)),
-            f6.name  -> fromSchemaAndValue(f6.schema, f6.get(value)),
-            f7.name  -> fromSchemaAndValue(f7.schema, f7.get(value)),
-            f8.name  -> fromSchemaAndValue(f8.schema, f8.get(value)),
-            f9.name  -> fromSchemaAndValue(f9.schema, f9.get(value)),
-            f10.name -> fromSchemaAndValue(f10.schema, f10.get(value)),
-            f11.name -> fromSchemaAndValue(f11.schema, f11.get(value)),
-            f12.name -> fromSchemaAndValue(f12.schema, f12.get(value)),
-            f13.name -> fromSchemaAndValue(f13.schema, f13.get(value)),
-            f14.name -> fromSchemaAndValue(f14.schema, f14.get(value)),
-            f15.name -> fromSchemaAndValue(f15.schema, f15.get(value)),
-            f16.name -> fromSchemaAndValue(f16.schema, f16.get(value)),
-            f17.name -> fromSchemaAndValue(f17.schema, f17.get(value)),
-            f18.name -> fromSchemaAndValue(f18.schema, f18.get(value)),
-            f19.name -> fromSchemaAndValue(f19.schema, f19.get(value)),
-            f20.name -> fromSchemaAndValue(f20.schema, f20.get(value)),
-            f21.name -> fromSchemaAndValue(f21.schema, f21.get(value)),
-            f22.name -> fromSchemaAndValue(f22.schema, f22.get(value))
+            f1.name  -> fromSchemaAndValue(f1.schema.asInstanceOf[Schema[Any]], f1.get(value)),
+            f2.name  -> fromSchemaAndValue(f2.schema.asInstanceOf[Schema[Any]], f2.get(value)),
+            f3.name  -> fromSchemaAndValue(f3.schema.asInstanceOf[Schema[Any]], f3.get(value)),
+            f4.name  -> fromSchemaAndValue(f4.schema.asInstanceOf[Schema[Any]], f4.get(value)),
+            f5.name  -> fromSchemaAndValue(f5.schema.asInstanceOf[Schema[Any]], f5.get(value)),
+            f6.name  -> fromSchemaAndValue(f6.schema.asInstanceOf[Schema[Any]], f6.get(value)),
+            f7.name  -> fromSchemaAndValue(f7.schema.asInstanceOf[Schema[Any]], f7.get(value)),
+            f8.name  -> fromSchemaAndValue(f8.schema.asInstanceOf[Schema[Any]], f8.get(value)),
+            f9.name  -> fromSchemaAndValue(f9.schema.asInstanceOf[Schema[Any]], f9.get(value)),
+            f10.name -> fromSchemaAndValue(f10.schema.asInstanceOf[Schema[Any]], f10.get(value)),
+            f11.name -> fromSchemaAndValue(f11.schema.asInstanceOf[Schema[Any]], f11.get(value)),
+            f12.name -> fromSchemaAndValue(f12.schema.asInstanceOf[Schema[Any]], f12.get(value)),
+            f13.name -> fromSchemaAndValue(f13.schema.asInstanceOf[Schema[Any]], f13.get(value)),
+            f14.name -> fromSchemaAndValue(f14.schema.asInstanceOf[Schema[Any]], f14.get(value)),
+            f15.name -> fromSchemaAndValue(f15.schema.asInstanceOf[Schema[Any]], f15.get(value)),
+            f16.name -> fromSchemaAndValue(f16.schema.asInstanceOf[Schema[Any]], f16.get(value)),
+            f17.name -> fromSchemaAndValue(f17.schema.asInstanceOf[Schema[Any]], f17.get(value)),
+            f18.name -> fromSchemaAndValue(f18.schema.asInstanceOf[Schema[Any]], f18.get(value)),
+            f19.name -> fromSchemaAndValue(f19.schema.asInstanceOf[Schema[Any]], f19.get(value)),
+            f20.name -> fromSchemaAndValue(f20.schema.asInstanceOf[Schema[Any]], f20.get(value)),
+            f21.name -> fromSchemaAndValue(f21.schema.asInstanceOf[Schema[Any]], f21.get(value)),
+            f22.name -> fromSchemaAndValue(f22.schema.asInstanceOf[Schema[Any]], f22.get(value))
           )
         )
       case Schema.Dynamic(_) => value
