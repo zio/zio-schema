@@ -12,8 +12,6 @@ on:
   release:
     types:
       - published
-  workflow_dispatch:
-    branches: ['*']
 
 jobs:
   lint:
