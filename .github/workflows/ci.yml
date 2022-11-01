@@ -30,7 +30,7 @@ jobs:
         uses: coursier/cache-action@v6
       - name: Compile zio-sbt
         run: |
-          git clone https://github.com/khajavi/zio-sbt.git
+          git clone https://github.com/zio/zio-sbt.git
           cd zio-sbt
           sbt zioSbtWebsite/publishLocal
       - name: Lint code
@@ -55,7 +55,7 @@ jobs:
       uses: coursier/cache-action@v6
     - name: Compile zio-sbt
       run: |
-        git clone https://github.com/khajavi/zio-sbt.git
+        git clone https://github.com/zio/zio-sbt.git
         cd zio-sbt
         sbt zioSbtWebsite/publishLocal
     - name: Run tests
@@ -73,7 +73,7 @@ jobs:
       - uses: olafurpg/setup-scala@v13
       - name: Compile zio-sbt
         run: |
-          git clone https://github.com/khajavi/zio-sbt.git
+          git clone https://github.com/zio/zio-sbt.git
           cd zio-sbt
           sbt zioSbtWebsite/publishLocal
       - run: sbt ci-release
