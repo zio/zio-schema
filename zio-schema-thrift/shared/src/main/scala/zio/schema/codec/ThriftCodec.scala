@@ -13,6 +13,7 @@ import scala.util.{ Failure, Success, Try }
 import org.apache.thrift.protocol._
 
 import zio.schema._
+import zio.schema.codec.BinaryCodec._
 import zio.schema.codec.ThriftCodec.Thrift.{
   bigDecimalStructure,
   durationStructure,
@@ -23,38 +24,48 @@ import zio.schema.codec.ThriftCodec.Thrift.{
 import zio.stream.ZPipeline
 import zio.{ Chunk, ChunkBuilder, ZIO }
 
-object ThriftCodec extends Codec {
-  override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] = {
-    val encoder = new Encoder()
-    ZPipeline.mapChunks { chunk =>
-      chunk.flatMap(encoder.encode(schema, _))
-    }
-  }
+object ThriftCodec extends BinaryCodec {
 
-  override def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Byte, A] =
-    ZPipeline.mapChunksZIO { chunk =>
-      ZIO.fromEither(
-        new Decoder(chunk)
-          .decode(Chunk.empty, schema)
-          .map(Chunk(_))
-          .left
-          .map(err => s"Error at path /${err.path.mkString(".")}: ${err.error}")
-      )
+  override def encoderFor[A](schema: Schema[A]): BinaryEncoder[A] =
+    new BinaryEncoder[A] {
+
+      override def encode(value: A): Chunk[Byte] =
+        new ThriftEncoder().encode(schema, value)
+
+      override def streamEncoder: BinaryStreamEncoder[A] = {
+        val encoder = new ThriftEncoder()
+        ZPipeline.mapChunks { chunk =>
+          chunk.flatMap(encoder.encode(schema, _))
+        }
+      }
+
     }
 
-  override def encode[A](schema: Schema[A]): A => Chunk[Byte] = a => new Encoder().encode(schema, a)
+  override def decoderFor[A](schema: Schema[A]): BinaryDecoder[A] =
+    new BinaryDecoder[A] {
 
-  override def decode[A](schema: Schema[A]): Chunk[Byte] => scala.util.Either[String, A] =
-    ch =>
-      if (ch.isEmpty)
-        Left("No bytes to decode")
-      else
-        new Decoder(ch)
+      override def decode(chunk: Chunk[Byte]): Either[String, A] =
+        if (chunk.isEmpty)
+          Left("No bytes to decode")
+        else
+          decodeChunk(chunk)
+
+      override def streamDecoder: BinaryStreamDecoder[A] =
+        ZPipeline.mapChunksZIO { chunk =>
+          ZIO.fromEither(
+            decodeChunk(chunk).map(Chunk(_))
+          )
+        }
+
+      private def decodeChunk(chunk: Chunk[Byte]) =
+        new ThriftDecoder(chunk)
           .decode(Chunk.empty, schema)
           .left
           .map(
             err => s"Error at path /${err.path.mkString(".")}: ${err.error}"
           )
+
+    }
 
   object Thrift {
 
@@ -139,7 +150,8 @@ object ThriftCodec extends Codec {
       )
   }
 
-  class Encoder {
+  final class ThriftEncoder {
+
     val write = new ChunkTransport.Write()
     val p     = new TBinaryProtocol(write)
 
@@ -149,7 +161,7 @@ object ThriftCodec extends Codec {
     }
 
     @tailrec
-    final def getType[A](schema: Schema[A]): Byte = schema match {
+    def getType[A](schema: Schema[A]): Byte = schema match {
       case _: Schema.Record[A]                  => TType.STRUCT
       case Schema.Sequence(_, _, _, _, _)       => TType.LIST
       case Schema.Map(_, _, _)                  => TType.MAP
@@ -498,9 +510,11 @@ object ThriftCodec extends Codec {
     }
   }
 
-  class Decoder(chunk: Chunk[Byte]) {
+  final class ThriftDecoder(chunk: Chunk[Byte]) {
+
     type Path = Chunk[String]
     case class Error(path: Path, error: String)
+
     type Result[A]          = scala.util.Either[Error, A]
     type PrimitiveResult[A] = Path => Result[A]
 
@@ -1197,4 +1211,5 @@ object ThriftCodec extends Codec {
         )
     }
   }
+
 }
