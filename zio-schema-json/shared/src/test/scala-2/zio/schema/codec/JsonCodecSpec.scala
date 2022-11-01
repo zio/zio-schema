@@ -178,13 +178,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
     ),
     suite("case class")(
       test("case object") {
-        assertDecodes(schemaObject, Singleton, JsonCodec.Encoder.charSequenceToByteChunk("{}"))
+        assertDecodes(schemaObject, Singleton, charSequenceToByteChunk("{}"))
       },
       test("CaseClass0 whitespace") {
         assertDecodes(
           Schema[Enumeration],
           Enumeration(EmptyValue()),
-          JsonCodec.Encoder.charSequenceToByteChunk("""{"oneOf":{"EmptyValue":{ }}}""")
+          charSequenceToByteChunk("""{"oneOf":{"EmptyValue":{ }}}""")
         )
       }
     )
