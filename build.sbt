@@ -318,3 +318,7 @@ lazy val benchmarks = project
   .in(file("benchmarks"))
   .dependsOn(zioSchemaJVM, zioSchemaDerivationJVM, zioSchemaProtobufJVM)
   .enablePlugins(JmhPlugin)
+
+docsDependencies ++= Seq(
+  "dev.zio" %% "zio" % "2.0.2"
+)
