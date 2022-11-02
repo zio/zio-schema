@@ -332,7 +332,7 @@ object DeriveSchema {
                 fieldType,
                 currentFrame +: stack
               )
-              val fieldArg   = if (fieldTypes.size > 1) TermName(s"field${idx + 1}") else TermName("field")
+              val fieldArg   = if (fieldTypes.size > 1) TermName(s"field0${idx + 1}") else TermName("field0")
               val fieldLabel = termSymbol.name.toString.trim
               val getArg     = TermName(fieldLabel)
 
@@ -358,17 +358,17 @@ object DeriveSchema {
 
           val constructExpr =
             if (arity < 2)
-              q"defaultConstruct = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
+              q"defaultConstruct0 = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
             else
-              q"construct = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
+              q"construct0 = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
 
           val applyArgs =
             if (typeAnnotations.isEmpty)
-              Iterable(q"annotations = zio.Chunk.empty") ++ Iterable(q"id = ${typeId}") ++ fieldDefs ++ Iterable(
+              Iterable(q"annotations0 = zio.Chunk.empty") ++ Iterable(q"id0 = ${typeId}") ++ fieldDefs ++ Iterable(
                 constructExpr
               )
             else
-              Iterable(q"annotations = zio.Chunk.apply(..$typeAnnotations)") ++ Iterable(q"id = ${typeId}") ++ fieldDefs ++ Iterable(
+              Iterable(q"annotations0 = zio.Chunk.apply(..$typeAnnotations)") ++ Iterable(q"id0 = ${typeId}") ++ fieldDefs ++ Iterable(
                 constructExpr
               )
 

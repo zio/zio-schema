@@ -32,7 +32,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
   final case class ContainerFields(field1: Option[String], field2: List[String])
 
   object ContainerFields {
-    // implicit lazy val schema: Schema[ContainerFields] = DeriveSchema.gen[ContainerFields]
+     implicit lazy val schema: Schema[ContainerFields] = DeriveSchema.gen[ContainerFields]
   }
 
   sealed case class UserId(id: String)
@@ -270,8 +270,8 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         val derived: Schema[UserId] = DeriveSchema.gen[UserId]
         val expected: Schema[UserId] =
           Schema.CaseClass1(
-            id = TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
-            field = Schema.Field(
+            id0 = TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
+            field0 = Schema.Field(
               "id",
               Schema.Primitive(StandardType.StringType),
               get0 = (uid: UserId) => uid.id,

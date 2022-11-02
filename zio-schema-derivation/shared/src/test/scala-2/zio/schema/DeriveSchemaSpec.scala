@@ -273,7 +273,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         val expected: Schema[UserId] =
           Schema.CaseClass1(
             TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
-            field = Schema.Field(
+            field0 = Schema.Field(
               "id",
               Schema.Primitive(StandardType.StringType),
               get0 = _.id,
@@ -295,17 +295,17 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         val expected: Schema[User] = {
           Schema.CaseClass2(
             TypeId.parse("zio.schema.DeriveSchemaSpec.User"),
-            field1 = Schema.Field(
+            field01 = Schema.Field(
               "name",
               Schema.Primitive(StandardType.StringType),
               get0 = _.name,
               set0 = (a, b: String) => a.copy(name = b)
             ),
-            field2 = Schema.Field(
+            field02 = Schema.Field(
               "id",
               Schema.CaseClass1(
                 TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
-                field = Schema.Field(
+                field0 = Schema.Field(
                   "id",
                   Schema.Primitive(StandardType.StringType),
                   get0 = (uid: UserId) => uid.id,
@@ -318,7 +318,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
               set0 = (a, b: UserId) => a.copy(id = b)
             ),
             User.apply,
-            annotations = Chunk(new annotation3)
+            annotations0 = Chunk(new annotation3)
           )
         }
         assert(derived)(hasSameSchema(expected))

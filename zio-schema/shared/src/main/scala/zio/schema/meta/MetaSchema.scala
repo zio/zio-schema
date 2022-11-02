@@ -41,22 +41,22 @@ object MetaSchema {
     implicit val schema: Schema[Product] = {
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Product"),
-        field1 = Schema.Field("id", Schema[TypeId], get0 = _.id, set0 = (a, value: TypeId) => a.copy(id = value)),
-        field2 = Schema
+        field01 = Schema.Field("id", Schema[TypeId], get0 = _.id, set0 = (a, value: TypeId) => a.copy(id = value)),
+        field02 = Schema
           .Field(
             "path",
             Schema[String].repeated,
             get0 = _.path,
             set0 = (p, value: Chunk[String]) => p.copy(path = NodePath(value))
           ),
-        field3 = Schema
+        field03 = Schema
           .Field(
             "fields",
             Schema[Labelled].repeated,
             get0 = _.fields,
             set0 = (a: Product, value: Chunk[Labelled]) => a.copy(fields = value)
           ),
-        field4 = Schema
+        field04 = Schema
           .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
         (id: TypeId, path: Chunk[String], fields: Chunk[Labelled], optional: Boolean) =>
           Product(id, NodePath(path), fields, optional)
@@ -74,18 +74,18 @@ object MetaSchema {
     implicit val schema: Schema[Tuple] = {
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Tuple"),
-        field1 = Schema
+        field01 = Schema
           .Field(
             "path",
             Schema[String].repeated,
             get0 = _.path,
             set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
           ),
-        field2 =
+        field02 =
           Schema.Field("left", Schema[MetaSchema], get0 = _.left, set0 = (a, value: MetaSchema) => a.copy(left = value)),
-        field3 = Schema
+        field03 = Schema
           .Field("right", Schema[MetaSchema], get0 = _.right, set0 = (a, value: MetaSchema) => a.copy(right = value)),
-        field4 = Schema
+        field04 = Schema
           .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
         (path: Chunk[String], left: MetaSchema, right: MetaSchema, optional: Boolean) =>
           Tuple(NodePath(path), left, right, optional)
@@ -104,21 +104,21 @@ object MetaSchema {
     implicit lazy val schema: Schema[Sum] =
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Sum"),
-        field1 = Schema.Field("id", Schema[TypeId], get0 = _.id, set0 = (a, value: TypeId) => a.copy(id = value)),
-        field2 = Schema
+        field01 = Schema.Field("id", Schema[TypeId], get0 = _.id, set0 = (a, value: TypeId) => a.copy(id = value)),
+        field02 = Schema
           .Field(
             "path",
             Schema[String].repeated,
             get0 = _.path,
             set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
           ),
-        field3 = Schema.Field(
+        field03 = Schema.Field(
           "cases",
           Schema[Labelled].repeated,
           get0 = _.cases,
           set0 = (a, value: Chunk[Labelled]) => a.copy(cases = value)
         ),
-        field4 = Schema
+        field04 = Schema
           .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
         (id: TypeId, path: Chunk[String], fields: Chunk[Labelled], optional: Boolean) =>
           Sum(id, NodePath(path), fields, optional)
@@ -136,18 +136,18 @@ object MetaSchema {
     implicit val schema: Schema[Either] = {
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Either"),
-        field1 = Schema
+        field01 = Schema
           .Field(
             "path",
             Schema[String].repeated,
             get0 = _.path,
             set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
           ),
-        field2 =
+        field02 =
           Schema.Field("left", Schema[MetaSchema], get0 = _.left, set0 = (a, value: MetaSchema) => a.copy(left = value)),
-        field3 = Schema
+        field03 = Schema
           .Field("right", Schema[MetaSchema], get0 = _.right, set0 = (a, value: MetaSchema) => a.copy(right = value)),
-        field4 = Schema
+        field04 = Schema
           .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
         (path: Chunk[String], left: MetaSchema, right: MetaSchema, optional: Boolean) =>
           Either(NodePath(path), left, right, optional)
@@ -164,15 +164,15 @@ object MetaSchema {
   object FailNode {
     implicit val schema: Schema[FailNode] = Schema.CaseClass3(
       TypeId.parse("zio.schema.meta.MetaSchema.FailNode"),
-      field1 =
+      field01 =
         Schema.Field("message", Schema[String], get0 = _.message, set0 = (a, value: String) => a.copy(message = value)),
-      field2 = Schema.Field(
+      field02 = Schema.Field(
         "path",
         Schema[String].repeated,
         get0 = _.path,
         set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
       ),
-      field3 = Schema
+      field03 = Schema
         .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
       (m: String, path: Chunk[String], optional: Boolean) => FailNode(m, NodePath(path), optional)
     )
@@ -187,15 +187,15 @@ object MetaSchema {
   object ListNode {
     implicit val schema: Schema[ListNode] = Schema.CaseClass3(
       TypeId.parse("zio.schema.meta.MetaSchema.ListNode"),
-      field1 =
+      field01 =
         Schema.Field("item", Schema[MetaSchema], get0 = _.item, set0 = (a, value: MetaSchema) => a.copy(item = value)),
-      field2 = Schema.Field(
+      field02 = Schema.Field(
         "path",
         Schema[String].repeated,
         get0 = _.path,
         set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
       ),
-      field3 = Schema
+      field03 = Schema
         .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
       (item: MetaSchema, path: Chunk[String], optional: Boolean) => ListNode(item, NodePath(path), optional)
     )
@@ -211,17 +211,17 @@ object MetaSchema {
   object Dictionary {
     implicit val schema: Schema[Dictionary] = Schema.CaseClass4(
       TypeId.parse("zio.schema.meta.MetaSchema.Dictionary"),
-      field1 =
+      field01 =
         Schema.Field("keys", Schema[MetaSchema], get0 = _.keys, set0 = (a, value: MetaSchema) => a.copy(keys = value)),
-      field2 = Schema
+      field02 = Schema
         .Field("values", Schema[MetaSchema], get0 = _.values, set0 = (a, value: MetaSchema) => a.copy(values = value)),
-      field3 = Schema.Field(
+      field03 = Schema.Field(
         "path",
         Schema[String].repeated,
         get0 = _.path,
         set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
       ),
-      field4 = Schema
+      field04 = Schema
         .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
       (keys: MetaSchema, values: MetaSchema, path: Chunk[String], optional: Boolean) =>
         Dictionary(keys, values, NodePath(path), optional)
@@ -239,13 +239,13 @@ object MetaSchema {
       Schema
         .CaseClass3[String, Chunk[String], Boolean, (String, Chunk[String], Boolean)](
           TypeId.parse("zio.schema.meta.MetaSchema.Value"),
-          field1 =
+          field01 =
             Schema.Field("valueType", Schema[String], get0 = _._1, set0 = (a, value: String) => (value, a._2, a._3)),
-          field2 = Schema
+          field02 = Schema
             .Field("path", Schema[String].repeated, get0 = _._2, set0 = (a, value: Chunk[String]) => (a._1, value, a._3)),
-          field3 =
+          field03 =
             Schema.Field("optional", Schema[Boolean], get0 = _._3, set0 = (a, value: Boolean) => (a._1, a._2, value)),
-          construct = (v, p, o) => (v, p, o)
+          construct0 = (v, p, o) => (v, p, o)
         )
         .transformOrFail(fromTuple, tupled)
 
@@ -270,20 +270,20 @@ object MetaSchema {
     implicit val schema: Schema[Ref] =
       Schema.CaseClass3(
         TypeId.parse("zio.schema.meta.MetaSchema.Ref"),
-        field1 = Schema.Field(
+        field01 = Schema.Field(
           "refPath",
           Schema[String].repeated,
           get0 = _.refPath,
           set0 = (a, value: Chunk[String]) => a.copy(refPath = NodePath(value))
         ),
-        field2 = Schema
+        field02 = Schema
           .Field(
             "path",
             Schema[String].repeated,
             get0 = _.path,
             set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
           ),
-        field3 = Schema
+        field03 = Schema
           .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
         (refPath: Chunk[String], path: Chunk[String], optional: Boolean) =>
           Ref(NodePath(refPath), NodePath(path), optional)
@@ -300,20 +300,20 @@ object MetaSchema {
     implicit val schema: Schema[Dynamic] =
       Schema.CaseClass3(
         TypeId.parse("zio.schema.meta.MetaSchema.Dynamic"),
-        field1 = Schema.Field(
+        field01 = Schema.Field(
           "withSchema",
           Schema[Boolean],
           get0 = _.withSchema,
           set0 = (a, value: Boolean) => a.copy(withSchema = value)
         ),
-        field2 = Schema
+        field02 = Schema
           .Field(
             "path",
             Schema[String].repeated,
             get0 = _.path,
             set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
           ),
-        field3 = Schema
+        field03 = Schema
           .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
         (withSchema: Boolean, path: Chunk[String], optional: Boolean) => Dynamic(withSchema, NodePath(path), optional)
       )

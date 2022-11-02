@@ -24,9 +24,9 @@ private[example3] object Domain {
 
     val schema: Schema[Person] = CaseClass2[String, Int, Person](
       TypeId.parse("dev.zio.example.example3.Domain.Person"),
-      field1 = name,
-      field2 = age,
-      construct = (name, age) => Person(name, age)
+      field01 = name,
+      field02 = age,
+      construct0 = (name, age) => Person(name, age)
     )
   }
 
@@ -43,10 +43,10 @@ private[example3] object Domain {
 
     val schema: Schema[PersonDTO] = CaseClass3[String, String, Int, PersonDTO](
       TypeId.parse("dev.zio.example.example3.Domain.PersonDTO"),
-      field1 = firstname,
-      field2 = lastname,
-      field3 = years,
-      construct = (fn, ln, y) => PersonDTO(fn, ln, y)
+      field01 = firstname,
+      field02 = lastname,
+      field03 = years,
+      construct0 = (fn, ln, y) => PersonDTO(fn, ln, y)
     )
   }
 

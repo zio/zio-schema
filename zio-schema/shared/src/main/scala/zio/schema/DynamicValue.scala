@@ -1587,7 +1587,6 @@ object DynamicValue {
           f18,
           f19,
           f20,
-          _,
           _
           ) =>
         DynamicValue.Record(
@@ -1637,9 +1636,7 @@ object DynamicValue {
           f18,
           f19,
           f20,
-          f21,
-          _,
-          _
+          tail,
           ) =>
         DynamicValue.Record(
           id,
@@ -1664,7 +1661,7 @@ object DynamicValue {
             f18.name -> fromSchemaAndValue(f18.schema.asInstanceOf[Schema[Any]], f18.get(value)),
             f19.name -> fromSchemaAndValue(f19.schema.asInstanceOf[Schema[Any]], f19.get(value)),
             f20.name -> fromSchemaAndValue(f20.schema.asInstanceOf[Schema[Any]], f20.get(value)),
-            f21.name -> fromSchemaAndValue(f21.schema.asInstanceOf[Schema[Any]], f21.get(value))
+            tail._1.name -> fromSchemaAndValue(tail._1.schema.asInstanceOf[Schema[Any]], tail._1.get(value))
           )
         )
       case Schema.CaseClass22(
@@ -1689,10 +1686,7 @@ object DynamicValue {
           f18,
           f19,
           f20,
-          f21,
-          f22,
-          _,
-          _
+          tail
           ) =>
         DynamicValue.Record(
           id,
@@ -1717,8 +1711,8 @@ object DynamicValue {
             f18.name -> fromSchemaAndValue(f18.schema.asInstanceOf[Schema[Any]], f18.get(value)),
             f19.name -> fromSchemaAndValue(f19.schema.asInstanceOf[Schema[Any]], f19.get(value)),
             f20.name -> fromSchemaAndValue(f20.schema.asInstanceOf[Schema[Any]], f20.get(value)),
-            f21.name -> fromSchemaAndValue(f21.schema.asInstanceOf[Schema[Any]], f21.get(value)),
-            f22.name -> fromSchemaAndValue(f22.schema.asInstanceOf[Schema[Any]], f22.get(value))
+            tail._1.name -> fromSchemaAndValue(tail._1.schema.asInstanceOf[Schema[Any]], tail._1.get(value)),
+            tail._2.name -> fromSchemaAndValue(tail._2.schema.asInstanceOf[Schema[Any]], tail._2.get(value))
           )
         )
       case Schema.Dynamic(_) => value

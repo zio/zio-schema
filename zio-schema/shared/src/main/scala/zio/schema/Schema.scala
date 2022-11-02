@@ -3236,21 +3236,17 @@ object Schema extends SchemaEquality {
      * Returns a new schema that with `annotation`
      */
     override def annotate(annotation: Any): GenericRecord = copy(annotations = annotations :+ annotation)
-
   }
 
-  sealed case class CaseClass0[Z](
-    id: TypeId,
-    defaultConstruct: () => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  sealed trait CaseClass0[Z] extends Record[Z] { self =>
 
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Nothing
-
     override type Terms = Any
     override type FieldNames = Any
 
-    override def annotate(annotation: Any): CaseClass0[Z] = copy(annotations = annotations :+ annotation)
+    def id: TypeId
+    def defaultConstruct: () => Z
+    def annotations: Chunk[Any]    
 
     override def makeAccessors(b: AccessorBuilder): Nothing = ???
 
@@ -3270,6 +3266,23 @@ object Schema extends SchemaEquality {
     override def toString: String = s"CaseClass1(${fields.mkString(",")})"
   }
 
+  object CaseClass0 {
+    def apply[Z](
+        id0: TypeId, 
+        defaultConstruct0: () => Z,
+        annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass0[Z] = new CaseClass0[Z] {
+        override def id: TypeId = id0
+        override def defaultConstruct: () => Z = defaultConstruct0
+        override def annotations: Chunk[Any] = annotations0
+
+        override def annotate(annotation: Any): CaseClass0[Z] = CaseClass0(id, defaultConstruct0, annotations :+ annotation)
+    }
+
+    def unapply[Z](schema: CaseClass0[Z]): Some[(TypeId, () => Z, Chunk[Any])] =
+      Some((schema.id, schema.defaultConstruct, schema.annotations))
+  }
+
   sealed trait CaseClass1[A, Z] extends Record[Z] { self =>
 
     type Field1 <: Singleton with String
@@ -3277,15 +3290,13 @@ object Schema extends SchemaEquality {
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Lens[Field1, Z, A]
 
     override type Terms = (Field1, A)
-
     override type FieldNames = Field1
 
     def id: TypeId
     def field: Field.WithFieldName[Z, Field1, A]
     def defaultConstruct: A => Z
     def annotations: Chunk[Any]
-
-
+    
     override def makeAccessors(b: AccessorBuilder): b.Lens[Field1, Z, A] = b.makeLens(self, field)
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field)
@@ -3337,8 +3348,10 @@ object Schema extends SchemaEquality {
     override type FieldNames = Field1 with Field2
 
     def id: TypeId
-    def field1: Field.WithFieldName[Z, Field1, A1]
-    def field2: Field.WithFieldName[Z, Field2, A2]
+    //def field1: Field.WithFieldName[Z, Field1, A1]
+    def field1: Field[Z, A1]
+    //def field2: Field.WithFieldName[Z, Field2, A2]
+    def field2: Field[Z, A2]
     def construct: (A1, A2) => Z
     def annotations: Chunk[Any]
 
@@ -3375,15 +3388,18 @@ object Schema extends SchemaEquality {
 
         new CaseClass2[A1, A2, Z] {
           def id: TypeId = id0
-          def field1: Field.WithFieldName[Z, Field1, A1] = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
-          def field2: Field.WithFieldName[Z, Field2, A2] = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+          //def field1: Field.WithFieldName[Z, Field1, A1] = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+          def field1: Field[Z, A1] = field01
+          //def field2: Field.WithFieldName[Z, Field2, A2] = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+          def field2: Field[Z, A2] = field02
           def construct: (A1, A2) => Z = construct0
           def annotations: Chunk[Any] = annotations0
           def annotate(annotation: Any): CaseClass2[A1, A2, Z] = CaseClass2(id0, field01, field02, construct0, annotations0 :+ annotation)
         }
       }
 
-    def unapply[A1, A2, Z](schema: CaseClass2[A1, A2, Z]): Some[(TypeId, Field.WithFieldName[Z,schema.Field1, A1], Field.WithFieldName[Z,schema.Field2, A2], (A1, A2) => Z, Chunk[Any])] =
+    //def unapply[A1, A2, Z](schema: CaseClass2[A1, A2, Z]): Some[(TypeId, Field.WithFieldName[Z,schema.Field1, A1], Field.WithFieldName[Z,schema.Field2, A2], (A1, A2) => Z, Chunk[Any])] =
+    def unapply[A1, A2, Z](schema: CaseClass2[A1, A2, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], (A1, A2) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.construct, schema.annotations))
 
 
@@ -7036,7 +7052,7 @@ object Schema extends SchemaEquality {
       }
   }
 
-    sealed trait CaseClass20[    
+  sealed trait CaseClass20[    
     A1,
     A2,
     A3,
@@ -7371,9 +7387,9 @@ object Schema extends SchemaEquality {
         }
       }
 
-    // def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](
-    //     schema: CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], Field[Z, A13], Field[Z, A14], Field[Z, A15], Field[Z, A16], Field[Z, A17], Field[Z, A18], Field[Z, A19], Field[Z, A20], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) => Z, Chunk[Any])] =
-    //   Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19, schema.field20, schema.construct, schema.annotations))
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](
+        schema: CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], Field[Z, A13], Field[Z, A14], Field[Z, A15], Field[Z, A16], Field[Z, A17], Field[Z, A18], Field[Z, A19], Field[Z, A20], ((A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) => Z, Chunk[Any]))] =
+      Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19, schema.field20, (schema.construct, schema.annotations)))
 
     type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
         F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String,
@@ -7756,9 +7772,9 @@ object Schema extends SchemaEquality {
         }
       }
 
-    // def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](
-    //     schema: CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], Field[Z, A13], Field[Z, A14], Field[Z, A15], Field[Z, A16], Field[Z, A17], Field[Z, A18], Field[Z, A19], Field[Z, A20], Field[Z, A21], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z, Chunk[Any])] =
-    //   Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19, schema.field20, schema.field21, schema.construct, schema.annotations))
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](
+        schema: CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], Field[Z, A13], Field[Z, A14], Field[Z, A15], Field[Z, A16], Field[Z, A17], Field[Z, A18], Field[Z, A19], Field[Z, A20], (Field[Z, A21], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z, Chunk[Any]))] =
+      Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19, schema.field20, (schema.field21, schema.construct, schema.annotations)))
 
     type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
         F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String,
@@ -8155,9 +8171,9 @@ object Schema extends SchemaEquality {
         }
       }
 
-    // def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](
-    //     schema: CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], Field[Z, A13], Field[Z, A14], Field[Z, A15], Field[Z, A16], Field[Z, A17], Field[Z, A18], Field[Z, A19], Field[Z, A20], Field[Z, A21], Field[Z, A22], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22) => Z, Chunk[Any])] =
-    //   Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19, schema.field20, schema.field21, schema.field22, schema.construct, schema.annotations))
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](
+        schema: CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], Field[Z, A13], Field[Z, A14], Field[Z, A15], Field[Z, A16], Field[Z, A17], Field[Z, A18], Field[Z, A19], Field[Z, A20], (Field[Z, A21], Field[Z, A22], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22) => Z, Chunk[Any]))] =
+      Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19, schema.field20, (schema.field21, schema.field22, schema.construct, schema.annotations)))
 
     type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
         F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String,

@@ -150,7 +150,7 @@ object DefaultValueSpec extends ZIOSpecDefault {
         val schema: Schema[UserId] =
           Schema.CaseClass1(
             TypeId.parse("zio.schema.DefaultValueSpec.UserId"),
-            field = Schema.Field(
+            field0 = Schema.Field(
               "id",
               Schema.Primitive(StandardType.StringType),
               get0 = (uid: UserId) => uid.id,
@@ -164,11 +164,11 @@ object DefaultValueSpec extends ZIOSpecDefault {
         val expected: Schema[User] =
           Schema.CaseClass3(
             TypeId.parse("zio.schema.DefaultValueSpec.User"),
-            field1 = Schema.Field(
+            field01 = Schema.Field(
               "id",
               Schema.CaseClass1(
                 TypeId.parse("zio.schema.DefaultValueSpec.UserId"),
-                field = Schema.Field(
+                Schema.Field(
                   "id",
                   Schema.Primitive(StandardType.StringType),
                   get0 = (uid: UserId) => uid.id,
@@ -179,13 +179,13 @@ object DefaultValueSpec extends ZIOSpecDefault {
               get0 = (u: User) => u.id,
               set0 = (u: User, id: UserId) => u.copy(id = id)
             ),
-            field2 = Schema.Field(
+            field02 = Schema.Field(
               "name",
               Schema.Primitive(StandardType.StringType),
               get0 = (u: User) => u.name,
               set0 = (u: User, name: String) => u.copy(name = name)
             ),
-            field3 = Schema.Field(
+            field03 = Schema.Field(
               "age",
               Schema.Primitive(StandardType.IntType),
               get0 = (u: User) => u.age,

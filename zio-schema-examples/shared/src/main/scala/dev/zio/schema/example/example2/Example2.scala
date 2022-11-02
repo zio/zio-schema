@@ -29,9 +29,9 @@ object Domain {
 
     val schema: Schema[Person] = Schema.CaseClass2[String, Int, Person](
       TypeId.parse("dev.zio.schema.example.example2.Domain.Person"),
-      field1 = name,
-      field2 = age,
-      construct = (name, age) => Person(name, age)
+      field01 = name,
+      field02 = age,
+      construct0 = (name, age) => Person(name, age)
     )
   }
 
@@ -65,10 +65,10 @@ object Domain {
         )
       implicit val schema: Schema[CreditCard] = Schema.CaseClass3[String, Int, Int, CreditCard](
         TypeId.parse("dev.zio.schema.example.example2.Domain.PaymentMethod.CreditCard"),
-        field1 = number,
-        field2 = expirationMonth,
-        field3 = expirationYear,
-        construct =
+        field01 = number,
+        field02 = expirationMonth,
+        field03 = expirationYear,
+        construct0 =
           (number, expirationMonth, expirationYear) => PaymentMethod.CreditCard(number, expirationMonth, expirationYear)
       )
     }
@@ -95,9 +95,9 @@ object Domain {
 
       implicit val schema: Schema[WireTransfer] = Schema.CaseClass2[String, String, WireTransfer](
         TypeId.parse("dev.zio.schema.example.example2.Domain.PaymentMethod.WireTransfer"),
-        field1 = accountNumber,
-        field2 = bankCode,
-        construct = (number, bankCode) => PaymentMethod.WireTransfer(number, bankCode)
+        field01 = accountNumber,
+        field02 = bankCode,
+        construct0 = (number, bankCode) => PaymentMethod.WireTransfer(number, bankCode)
       )
     }
 
@@ -141,9 +141,9 @@ object Domain {
 
     implicit val schema: Schema[Customer] = Schema.CaseClass2[Person, PaymentMethod, Customer](
       TypeId.parse("dev.zio.schema.example.example2.Domain.Customer"),
-      field1 = Customer.person,
-      field2 = Customer.paymentMethod,
-      construct = (person, paymentMethod) => Customer(person, paymentMethod)
+      field01 = Customer.person,
+      field02 = Customer.paymentMethod,
+      construct0 = (person, paymentMethod) => Customer(person, paymentMethod)
     )
   }
 }
