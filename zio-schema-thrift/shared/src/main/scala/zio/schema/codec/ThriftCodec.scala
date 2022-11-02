@@ -405,7 +405,7 @@ object ThriftCodec extends Codec {
   type Result[A]          = scala.util.Either[Error, A]
   type PrimitiveResult[A] = Path => Result[A]
 
-  final case class DecoderState(path: Path, remainingCount: Option[Int])
+  final case class DecoderState(path: Path, expectedCount: Option[Int])
 
   class Decoder(chunk: Chunk[Byte]) extends CreateValueFromSchema[Result[Any], DecoderState] {
 
@@ -634,16 +634,16 @@ object ThriftCodec extends Codec {
       val begin = p.readListBegin()
       if (begin.size == 0) None
       else
-        Some(state.copy(remainingCount = Some(begin.size)))
+        Some(state.copy(expectedCount = Some(begin.size)))
     }
 
     override protected def readOneSequenceElement(
       state: DecoderState,
-      schema: Schema.Sequence[_, _, _]
+      schema: Schema.Sequence[_, _, _],
+      index: Int
     ): (DecoderState, Boolean) = {
-      val updatedState = state.copy(remainingCount = state.remainingCount.map(_ - 1))
-      val continue     = updatedState.remainingCount.exists(_ > 0)
-      (updatedState, continue)
+      val continue = state.expectedCount.map(_ - index).exists(_ > 0)
+      (state, continue)
     }
 
     override protected def createSequence(
@@ -660,16 +660,16 @@ object ThriftCodec extends Codec {
       val begin = p.readMapBegin()
       if (begin.size == 0) None
       else
-        Some(state.copy(remainingCount = Some(begin.size)))
+        Some(state.copy(expectedCount = Some(begin.size)))
     }
 
     override protected def readOneDictionaryElement(
       state: DecoderState,
-      schema: Schema.Map[_, _]
+      schema: Schema.Map[_, _],
+      index: Int
     ): (DecoderState, Boolean) = {
-      val updatedState = state.copy(remainingCount = state.remainingCount.map(_ - 1))
-      val continue     = updatedState.remainingCount.exists(_ > 0)
-      (updatedState, continue)
+      val continue = state.expectedCount.map(_ - index).exists(_ > 0)
+      (state, continue)
     }
 
     override protected def createDictionary(
@@ -689,13 +689,16 @@ object ThriftCodec extends Codec {
     override protected def startCreatingSet(state: DecoderState, schema: Schema.Set[_]): Option[DecoderState] = {
       val begin = p.readSetBegin()
       if (begin.size == 0) None
-      else Some(state.copy(remainingCount = Some(begin.size)))
+      else Some(state.copy(expectedCount = Some(begin.size)))
     }
 
-    override protected def readOneSetElement(state: DecoderState, schema: Schema.Set[_]): (DecoderState, Boolean) = {
-      val updatedState = state.copy(remainingCount = state.remainingCount.map(_ - 1))
-      val continue     = updatedState.remainingCount.exists(_ > 0)
-      (updatedState, continue)
+    override protected def readOneSetElement(
+      state: DecoderState,
+      schema: Schema.Set[_],
+      index: Int
+    ): (DecoderState, Boolean) = {
+      val continue = state.expectedCount.map(_ - index).exists(_ > 0)
+      (state, continue)
     }
 
     override protected def createSet(

@@ -15,15 +15,15 @@ trait CreateValueFromSchema[Target, State] {
   protected def createEnum(state: State, cases: Chunk[Schema.Case[_, _]], index: Int, value: Target): Target
 
   protected def startCreatingSequence(state: State, schema: Schema.Sequence[_, _, _]): Option[State]
-  protected def readOneSequenceElement(state: State, schema: Schema.Sequence[_, _, _]): (State, Boolean)
+  protected def readOneSequenceElement(state: State, schema: Schema.Sequence[_, _, _], index: Int): (State, Boolean)
   protected def createSequence(state: State, schema: Schema.Sequence[_, _, _], values: Chunk[Target]): Target
 
   protected def startCreatingDictionary(state: State, schema: Schema.Map[_, _]): Option[State]
-  protected def readOneDictionaryElement(state: State, schema: Schema.Map[_, _]): (State, Boolean)
+  protected def readOneDictionaryElement(state: State, schema: Schema.Map[_, _], index: Int): (State, Boolean)
   protected def createDictionary(state: State, schema: Schema.Map[_, _], values: Chunk[(Target, Target)]): Target
 
   protected def startCreatingSet(state: State, schema: Schema.Set[_]): Option[State]
-  protected def readOneSetElement(state: State, schema: Schema.Set[_]): (State, Boolean)
+  protected def readOneSetElement(state: State, schema: Schema.Set[_], index: Int): (State, Boolean)
   protected def createSet(state: State, schema: Schema.Set[_], values: Chunk[Target]): Target
 
   protected def startCreatingOptional(state: State, schema: Schema.Optional[_]): Option[State]
@@ -68,8 +68,8 @@ trait CreateValueFromSchema[Target, State] {
       val values = ChunkBuilder.make[(Int, Target)](record.fields.size)
 
       def readField(index: Int): Unit = {
-        val (updatedState, fieldIndex) = startReadingField(stateStack.head, record, index)
         stateStack = stateStack.tail
+        val (updatedState, fieldIndex) = startReadingField(stateStack.head, record, index)
         fieldIndex match {
           case Some(idx) =>
             currentSchema = record.fields(idx).schema
@@ -407,17 +407,17 @@ trait CreateValueFromSchema[Target, State] {
         case s @ Schema.Sequence(elementSchema, _, _, _, _) =>
           val elems = ChunkBuilder.make[Target]()
 
-          def readOne(): Unit =
+          def readOne(index: Int): Unit =
             push { elem =>
               elems += elem
 
-              val (newState, continue) = readOneSequenceElement(stateStack.head, s)
               stateStack = stateStack.tail
+              val (newState, continue) = readOneSequenceElement(stateStack.head, s, index)
 
               if (continue) {
                 currentSchema = elementSchema
                 pushState(newState)
-                readOne()
+                readOne(index + 1)
               } else {
                 finishWith(createSequence(stateStack.head, s, elems.result()))
               }
@@ -427,7 +427,8 @@ trait CreateValueFromSchema[Target, State] {
           startCreatingSequence(state, s) match {
             case Some(startingState) =>
               pushState(startingState)
-              readOne()
+              pushState(startingState)
+              readOne(0)
             case None =>
               finishWith(createSequence(stateStack.head, s, Chunk.empty))
           }
@@ -435,7 +436,7 @@ trait CreateValueFromSchema[Target, State] {
         case s @ Schema.Map(ks: Schema[k], vs: Schema[v], _) =>
           val elems = ChunkBuilder.make[(Target, Target)]()
 
-          def readOne(): Unit =
+          def readOne(index: Int): Unit =
             push { key =>
               currentSchema = vs
 
@@ -443,13 +444,13 @@ trait CreateValueFromSchema[Target, State] {
                 val elem = (key, value)
                 elems += elem
 
-                val (newState, continue) = readOneDictionaryElement(stateStack.head, s)
                 stateStack = stateStack.tail
+                val (newState, continue) = readOneDictionaryElement(stateStack.head, s, index)
 
                 if (continue) {
                   currentSchema = ks
                   pushState(newState)
-                  readOne()
+                  readOne(index + 1)
                 } else {
                   finishWith(createDictionary(stateStack.head, s, elems.result()))
                 }
@@ -460,7 +461,8 @@ trait CreateValueFromSchema[Target, State] {
             case Some(startingState) =>
               currentSchema = ks
               pushState(startingState)
-              readOne()
+              pushState(startingState)
+              readOne(0)
             case None =>
               finishWith(createDictionary(stateStack.head, s, Chunk.empty))
           }
@@ -468,17 +470,17 @@ trait CreateValueFromSchema[Target, State] {
         case s @ Schema.Set(as: Schema[a], _) =>
           val elems = ChunkBuilder.make[Target]()
 
-          def readOne(): Unit =
+          def readOne(index: Int): Unit =
             push { elem =>
               elems += elem
 
-              val (newState, continue) = readOneSetElement(stateStack.head, s)
               stateStack = stateStack.tail
+              val (newState, continue) = readOneSetElement(stateStack.head, s, index)
 
               if (continue) {
                 currentSchema = as
                 pushState(newState)
-                readOne()
+                readOne(index + 1)
               } else {
                 finishWith(createSet(stateStack.head, s, elems.result()))
               }
@@ -488,7 +490,8 @@ trait CreateValueFromSchema[Target, State] {
             case Some(startingState) =>
               currentSchema = as
               pushState(startingState)
-              readOne()
+              pushState(startingState)
+              readOne(0)
             case None =>
               finishWith(createSet(stateStack.head, s, Chunk.empty))
           }
@@ -888,4 +891,148 @@ trait CreateValueFromSchema[Target, State] {
     }
     result.get
   }
+}
+
+trait CreateValueFromSchemaWithoutState[Target] extends CreateValueFromSchema[Target, Unit] {
+  override protected def createPrimitive(context: Unit, typ: StandardType[_]): Target =
+    createPrimitive(typ)
+  protected def createPrimitive(typ: StandardType[_]): Target
+
+  override protected def startCreatingRecord(context: Unit, record: Schema.Record[_]): Unit =
+    startCreatingRecord(record)
+  protected def startCreatingRecord(record: Schema.Record[_]): Unit
+
+  override protected def startReadingField(context: Unit, record: Schema.Record[_], index: Int): (Unit, Option[Int]) =
+    ((), startReadingField(record, index))
+  protected def startReadingField(record: Schema.Record[_], index: Int): Option[Int]
+
+  override protected def createRecord(context: Unit, record: Schema.Record[_], values: Chunk[(Int, Target)]): Target =
+    createRecord(record, values)
+  protected def createRecord(record: Schema.Record[_], values: Chunk[(Int, Target)]): Target
+
+  override protected def startCreatingEnum(context: Unit, cases: Chunk[Schema.Case[_, _]]): (Unit, Int) =
+    ((), startCreatingEnum(cases))
+
+  protected def startCreatingEnum(cases: Chunk[Schema.Case[_, _]]): Int
+
+  override protected def createEnum(context: Unit, cases: Chunk[Schema.Case[_, _]], index: Int, value: Target): Target =
+    createEnum(cases, index, value)
+
+  protected def createEnum(cases: Chunk[Schema.Case[_, _]], index: Int, value: Target): Target
+
+  override protected def startCreatingSequence(context: Unit, schema: Schema.Sequence[_, _, _]): Option[Unit] =
+    startCreatingSequence(schema)
+
+  protected def startCreatingSequence(schema: Schema.Sequence[_, _, _]): Option[Unit]
+
+  override protected def readOneSequenceElement(
+    context: Unit,
+    schema: Schema.Sequence[_, _, _],
+    index: Int
+  ): (Unit, Boolean) =
+    ((), readOneSequenceElement(schema, index))
+
+  protected def readOneSequenceElement(schema: Schema.Sequence[_, _, _], index: Int): Boolean
+
+  override protected def createSequence(
+    context: Unit,
+    schema: Schema.Sequence[_, _, _],
+    values: Chunk[Target]
+  ): Target =
+    createSequence(schema, values)
+
+  protected def createSequence(schema: Schema.Sequence[_, _, _], values: Chunk[Target]): Target
+
+  override protected def startCreatingDictionary(context: Unit, schema: Schema.Map[_, _]): Option[Unit] =
+    startCreatingDictionary(schema)
+
+  protected def startCreatingDictionary(schema: Schema.Map[_, _]): Option[Unit]
+
+  override protected def readOneDictionaryElement(
+    context: Unit,
+    schema: Schema.Map[_, _],
+    index: Int
+  ): (Unit, Boolean) =
+    ((), readOneDictionaryElement(schema, index))
+
+  protected def readOneDictionaryElement(schema: Schema.Map[_, _], index: Int): Boolean
+
+  override protected def createDictionary(
+    context: Unit,
+    schema: Schema.Map[_, _],
+    values: Chunk[(Target, Target)]
+  ): Target =
+    createDictionary(schema, values)
+
+  protected def createDictionary(schema: Schema.Map[_, _], values: Chunk[(Target, Target)]): Target
+
+  override protected def startCreatingSet(context: Unit, schema: Schema.Set[_]): Option[Unit] =
+    startCreatingSet(schema)
+
+  protected def startCreatingSet(schema: Schema.Set[_]): Option[Unit]
+
+  override protected def readOneSetElement(context: Unit, schema: Schema.Set[_], index: Int): (Unit, Boolean) =
+    ((), readOneSetElement(schema, index))
+
+  protected def readOneSetElement(schema: Schema.Set[_], index: Int): Boolean
+
+  override protected def createSet(context: Unit, schema: Schema.Set[_], values: Chunk[Target]): Target =
+    createSet(schema, values)
+
+  protected def createSet(schema: Schema.Set[_], values: Chunk[Target]): Target
+
+  override protected def startCreatingOptional(context: Unit, schema: Schema.Optional[_]): Option[Unit] =
+    startCreatingOptional(schema)
+
+  protected def startCreatingOptional(schema: Schema.Optional[_]): Option[Unit]
+
+  override protected def createOptional(context: Unit, schema: Schema.Optional[_], value: Option[Target]): Target =
+    createOptional(schema, value)
+
+  protected def createOptional(schema: Schema.Optional[_], value: Option[Target]): Target
+
+  override protected def startCreatingEither(context: Unit, schema: Schema.Either[_, _]): Either[Unit, Unit] =
+    startCreatingEither(schema)
+  protected def startCreatingEither(schema: Schema.Either[_, _]): Either[Unit, Unit]
+
+  override protected def createEither(
+    context: Unit,
+    schema: Schema.Either[_, _],
+    value: Either[Target, Target]
+  ): Target =
+    createEither(schema, value)
+
+  protected def createEither(schema: Schema.Either[_, _], value: Either[Target, Target]): Target
+
+  override protected def startCreatingTuple(context: Unit, schema: Schema.Tuple2[_, _]): Unit =
+    startCreatingTuple(schema)
+
+  protected def startCreatingTuple(schema: Schema.Tuple2[_, _]): Unit
+
+  override protected def startReadingSecondTupleElement(context: Unit, schema: Schema.Tuple2[_, _]): Unit =
+    startReadingSecondTupleElement(schema)
+
+  protected def startReadingSecondTupleElement(schema: Schema.Tuple2[_, _]): Unit
+
+  override protected def createTuple(context: Unit, schema: Schema.Tuple2[_, _], left: Target, right: Target): Target =
+    createTuple(schema, left, right)
+
+  protected def createTuple(schema: Schema.Tuple2[_, _], left: Target, right: Target): Target
+
+  override protected def createDynamic(context: Unit): Option[Target] =
+    createDynamic()
+
+  protected def createDynamic(): Option[Target]
+
+  override protected def transform(context: Unit, value: Target, f: Any => Either[String, Any]): Target =
+    transform(value, f)
+
+  protected def transform(value: Target, f: Any => Either[String, Any]): Target
+
+  override protected def fail(context: Unit, message: String): Target =
+    fail(message)
+
+  protected def fail(message: String): Target
+
+  override protected val initialState: Unit = ()
 }
