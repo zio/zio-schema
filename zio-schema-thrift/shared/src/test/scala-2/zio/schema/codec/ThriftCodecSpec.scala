@@ -21,14 +21,12 @@ import java.time.{
 }
 import java.util
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
 import scala.util.Try
-
 import org.apache.thrift.TSerializable
 import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
-
 import zio.schema.CaseSet.caseOf
+import zio.schema.annotation.optionalField
 import zio.schema.codec.{ generated => g }
 import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
 import zio.stream.{ ZSink, ZStream }
@@ -771,6 +769,16 @@ object ThriftCodecSpec extends ZIOSpecDefault {
           encoded <- write(new g.EnumValue(g.Color.BLUE))
           ed      <- decodeNS(schemaEnumValue, encoded)
         } yield assert(ed)(equalTo(EnumValue(2)))
+      },
+      test("decode case class with optionalField") {
+        for {
+          bytes <- writeManually { p =>
+                    p.writeFieldBegin(new TField("name", TType.STRING, 1))
+                    p.writeString("Dan")
+                    p.writeFieldStop()
+                  }
+          d <- decodeNS(PersonWithOptionalField.schema, bytes)
+        } yield assert(d)(equalTo(PersonWithOptionalField("Dan", 0)))
       }
     ),
     suite("Should fail to decode")(
@@ -1017,6 +1025,12 @@ object ThriftCodecSpec extends ZIOSpecDefault {
   lazy val sequenceOfProductSchema: Schema[SequenceOfProduct] = DeriveSchema.gen[SequenceOfProduct]
 
   lazy val sequenceOfSumSchema: Schema[SequenceOfSum] = DeriveSchema.gen[SequenceOfSum]
+
+  case class PersonWithOptionalField(name: String, @optionalField age: Int)
+
+  object PersonWithOptionalField {
+    implicit val schema: Schema[PersonWithOptionalField] = DeriveSchema.gen[PersonWithOptionalField]
+  }
 
   def toHex(chunk: Chunk[Byte]): String =
     chunk.toArray.map("%02X".format(_)).mkString
