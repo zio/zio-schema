@@ -187,7 +187,7 @@ object DeriveSchema {
           case p: TermSymbol if p.isCaseAccessor && p.isMethod => p.name
         }
 
-        val typeId = q"zio.schema.TypeId.parse(${tpe.toString()})"
+        val typeId = q"zio.schema.TypeId.parse(${tpe.typeSymbol.fullName})"
 
         @nowarn
         val typeAnnotations: List[Tree] =
@@ -372,53 +372,57 @@ object DeriveSchema {
                 constructExpr
               )
 
+          val typeArgsWithFields = fieldTypes.map { ft =>
+            tq"${ft.name.toString().trim()}.type"
+          } ++ typeArgs
+
           fieldTypes.size match {
             case 0 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass0[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass0[..$typeArgsWithFields] = $schemaType(..$applyArgs); $selfRef}"
             case 1 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass1[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass1.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass1.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 2 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass2[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass2.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass2.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 3 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass3[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass3.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass3.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 4 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass4[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass4.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass4.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 5 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass5[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass5.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass5.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 6 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass6[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass6.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass6.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 7 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass7[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass7.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass7.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 8 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass8[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass8.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass8.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 9 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass9[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass9.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass9.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 10 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass10[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass10.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass10.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 11 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass11[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass11.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass11.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 12 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass12[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass12.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass12.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 13 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass13[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass13.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass13.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 14 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass14[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass14.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass14.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 15 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass15[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass15.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass15.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 16 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass16[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass16.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass16.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 17 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass17[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass17.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass17.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 18 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass18[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass18.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass18.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 19 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass19[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass19.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass19.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 20 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass20[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass20.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass20.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 21 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass21[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass21.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass21.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 22 =>
-              q"{lazy val $selfRef: zio.schema.Schema.CaseClass22[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: zio.schema.Schema.CaseClass22.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[zio.schema.Schema.CaseClass22.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case s =>
               c.abort(
                 tpe.termSymbol.pos,

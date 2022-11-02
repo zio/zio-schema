@@ -3238,6 +3238,13 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): GenericRecord = copy(annotations = annotations :+ annotation)
   }
 
+  object GenericRecord {
+    //TODO return from macro
+    type WithFields[FieldNames0] = GenericRecord {
+      type FieldNames = FieldNames0
+    }
+  }
+
   sealed trait CaseClass0[Z] extends Record[Z] { self =>
 
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Nothing
@@ -3263,7 +3270,7 @@ object Schema extends SchemaEquality {
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(value)
 
-    override def toString: String = s"CaseClass1(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass0(${fields.mkString(",")})"
   }
 
   object CaseClass0 {
@@ -3326,7 +3333,7 @@ object Schema extends SchemaEquality {
         override def annotate(annotation: Any): CaseClass1[A, Z] = CaseClass1(id0, field0, defaultConstruct0, annotations0 :+ annotation)
       }
 
-    def unapply[A, Z](schema: CaseClass1[A, Z]): Option[(TypeId, Field[Z, A], A => Z, Chunk[Any])] =
+    def unapply[A, Z](schema: CaseClass1[A, Z]): Option[(TypeId, Field.WithFieldName[Z, schema.Field1, A], A => Z, Chunk[Any])] =
       Some((schema.id, schema.field, schema.defaultConstruct, schema.annotations))
 
     type WithFields[F <: Singleton with String, A, Z] =
@@ -3347,11 +3354,9 @@ object Schema extends SchemaEquality {
 
     override type FieldNames = Field1 with Field2
 
-    def id: TypeId
-    //def field1: Field.WithFieldName[Z, Field1, A1]
-    def field1: Field[Z, A1]
-    //def field2: Field.WithFieldName[Z, Field2, A2]
-    def field2: Field[Z, A2]
+
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
     def construct: (A1, A2) => Z
     def annotations: Chunk[Any]
 
@@ -3388,18 +3393,15 @@ object Schema extends SchemaEquality {
 
         new CaseClass2[A1, A2, Z] {
           def id: TypeId = id0
-          //def field1: Field.WithFieldName[Z, Field1, A1] = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
-          def field1: Field[Z, A1] = field01
-          //def field2: Field.WithFieldName[Z, Field2, A2] = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
-          def field2: Field[Z, A2] = field02
+          def field1: Field.WithFieldName[Z, Field1, A1] = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+          def field2: Field.WithFieldName[Z, Field2, A2] = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
           def construct: (A1, A2) => Z = construct0
           def annotations: Chunk[Any] = annotations0
           def annotate(annotation: Any): CaseClass2[A1, A2, Z] = CaseClass2(id0, field01, field02, construct0, annotations0 :+ annotation)
         }
       }
 
-    //def unapply[A1, A2, Z](schema: CaseClass2[A1, A2, Z]): Some[(TypeId, Field.WithFieldName[Z,schema.Field1, A1], Field.WithFieldName[Z,schema.Field2, A2], (A1, A2) => Z, Chunk[Any])] =
-    def unapply[A1, A2, Z](schema: CaseClass2[A1, A2, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], (A1, A2) => Z, Chunk[Any])] =
+    def unapply[A1, A2, Z](schema: CaseClass2[A1, A2, Z]): Some[(TypeId, Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], (A1, A2) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.construct, schema.annotations))
 
 
@@ -3424,9 +3426,9 @@ object Schema extends SchemaEquality {
     override type FieldNames = Field1 with Field2 with Field3
 
     def id: TypeId
-    def field1: Field[Z, A1]
-    def field2: Field[Z, A2]
-    def field3: Field[Z, A3]
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
     def construct: (A1, A2, A3) => Z
     def annotations: Chunk[Any]
 
@@ -3462,9 +3464,9 @@ object Schema extends SchemaEquality {
 
         new CaseClass3[A1, A2, A3, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
           def construct: (A1, A2, A3) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -3472,10 +3474,13 @@ object Schema extends SchemaEquality {
         }
       }
 
-    def unapply[A1, A2, A3, Z](schema: CaseClass3[A1, A2, A3, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], (A1, A2, A3) => Z, Chunk[Any])] =
+    def unapply[A1, A2, A3, Z](schema: CaseClass3[A1, A2, A3, Z]): Some[(
+      TypeId, 
+      Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], 
+      (A1, A2, A3) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.field3, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, A1, A2, A3, Z] =
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, A1, A2, A3, Z] =
       CaseClass3[A1, A2, A3, Z] {
         type Field1 = F1
         type Field2 = F2
@@ -3497,10 +3502,10 @@ object Schema extends SchemaEquality {
     override type FieldNames = Field1 with Field2 with Field3 with Field4
 
     def id: TypeId
-    def field1: Field[Z, A1]
-    def field2: Field[Z, A2]
-    def field3: Field[Z, A3]
-    def field4: Field[Z, A4]
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
     def construct: (A1, A2, A3, A4) => Z
     def annotations: Chunk[Any]
     
@@ -3547,10 +3552,10 @@ object Schema extends SchemaEquality {
 
         new CaseClass4[A1, A2, A3, A4, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
           def construct: (A1, A2, A3, A4) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -3558,10 +3563,13 @@ object Schema extends SchemaEquality {
         }
       }
     
-    def unapply[A1, A2, A3, A4, Z](schema: CaseClass4[A1, A2, A3, A4, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], (A1, A2, A3, A4) => Z, Chunk[Any])] =
+    def unapply[A1, A2, A3, A4, Z](schema: CaseClass4[A1, A2, A3, A4, Z]): Some[
+      (TypeId, 
+      Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], 
+      (A1, A2, A3, A4) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.field3, schema.field4, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, F4 <: Singleton with String, A1, A2, A3, A4, Z] =
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, F4 <: Singleton with String, A1, A2, A3, A4, Z] =
       CaseClass4[A1, A2, A3, A4, Z] {
         type Field1 = F1
         type Field2 = F2
@@ -3585,11 +3593,11 @@ object Schema extends SchemaEquality {
     override type FieldNames = Field1 with Field2 with Field3 with Field4 with Field5
 
     def id: TypeId
-    def field1: Field[Z, A1]
-    def field2: Field[Z, A2]
-    def field3: Field[Z, A3]
-    def field4: Field[Z, A4]
-    def field5: Field[Z, A5]
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
 
     def construct: (A1, A2, A3, A4, A5) => Z
     def annotations: Chunk[Any]
@@ -3651,11 +3659,11 @@ object Schema extends SchemaEquality {
 
         new CaseClass5[A1, A2, A3, A4, A5, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
           def construct: (A1, A2, A3, A4, A5) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -3663,10 +3671,13 @@ object Schema extends SchemaEquality {
         }
       }
 
-    def unapply[A1, A2, A3, A4, A5, Z](schema: CaseClass5[A1, A2, A3, A4, A5, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], (A1, A2, A3, A4, A5) => Z, Chunk[Any])] =
+    def unapply[A1, A2, A3, A4, A5, Z](schema: CaseClass5[A1, A2, A3, A4, A5, Z]): Some[(
+      TypeId, 
+      Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5],
+      (A1, A2, A3, A4, A5) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, F4 <: Singleton with String, F5 <: Singleton with String, A1, A2, A3, A4, A5, Z] =
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, F4 <: Singleton with String, F5 <: Singleton with String, A1, A2, A3, A4, A5, Z] =
       CaseClass5[A1, A2, A3, A4, A5, Z] {
         type Field1 = F1
         type Field2 = F2
@@ -3692,12 +3703,12 @@ object Schema extends SchemaEquality {
     override type FieldNames = Field1 with Field2 with Field3 with Field4 with Field5 with Field6
 
     def id: TypeId
-    def field1: Field[Z, A1]
-    def field2: Field[Z, A2]
-    def field3: Field[Z, A3]
-    def field4: Field[Z, A4]
-    def field5: Field[Z, A5]
-    def field6: Field[Z, A6]
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
 
     def construct: (A1, A2, A3, A4, A5, A6) => Z
     def annotations: Chunk[Any]
@@ -3766,12 +3777,12 @@ object Schema extends SchemaEquality {
 
         new CaseClass6[A1, A2, A3, A4, A5, A6, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
           def construct: (A1, A2, A3, A4, A5, A6) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -3779,10 +3790,13 @@ object Schema extends SchemaEquality {
         }
       }
 
-    def unapply[A1, A2, A3, A4, A5, A6, Z](schema: CaseClass6[A1, A2, A3, A4, A5, A6, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], (A1, A2, A3, A4, A5, A6) => Z, Chunk[Any])] =
+    def unapply[A1, A2, A3, A4, A5, A6, Z](schema: CaseClass6[A1, A2, A3, A4, A5, A6, Z]): Some[(
+      TypeId, 
+      Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6],
+      (A1, A2, A3, A4, A5, A6) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, A1, A2, A3, A4, A5, A6, Z] =
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, A1, A2, A3, A4, A5, A6, Z] =
       CaseClass6[A1, A2, A3, A4, A5, A6, Z] {
         type Field1 = F1
         type Field2 = F2
@@ -3810,13 +3824,13 @@ object Schema extends SchemaEquality {
     override type FieldNames = Field1 with Field2 with Field3 with Field4 with Field5 with Field6 with Field7    
 
     def id: TypeId
-    def field1: Field[Z, A1]
-    def field2: Field[Z, A2]
-    def field3: Field[Z, A3]
-    def field4: Field[Z, A4]
-    def field5: Field[Z, A5]
-    def field6: Field[Z, A6]
-    def field7: Field[Z, A7]
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
 
     def construct: (A1, A2, A3, A4, A5, A6, A7) => Z
     def annotations: Chunk[Any]
@@ -3889,13 +3903,13 @@ object Schema extends SchemaEquality {
 
         new CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
-          def field7: Field[Z, A7] = field07
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
+          def field7: Field.WithFieldName[Z, Field7, A7] = field7.asInstanceOf[Field.WithFieldName[Z, Field7, A7]] 
           def construct: (A1, A2, A3, A4, A5, A6, A7) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -3903,10 +3917,13 @@ object Schema extends SchemaEquality {
         }
       }
 
-    def unapply[A1, A2, A3, A4, A5, A6, A7, Z](schema: CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], (A1, A2, A3, A4, A5, A6, A7) => Z, Chunk[Any])] =
+    def unapply[A1, A2, A3, A4, A5, A6, A7, Z](schema: CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z]): Some[(
+      TypeId, 
+      Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6], Field.WithFieldName[Z, schema.Field7, A7],
+      (A1, A2, A3, A4, A5, A6, A7) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, A1, A2, A3, A4, A5, A6, A7, Z] =
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, A1, A2, A3, A4, A5, A6, A7, Z] =
       CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z] {
         type Field1 = F1
         type Field2 = F2
@@ -3936,14 +3953,14 @@ object Schema extends SchemaEquality {
     override type FieldNames = Field1 with Field2 with Field3 with Field4 with Field5 with Field6 with Field7 with Field8
 
     def id: TypeId
-    def field1: Field[Z, A1]
-    def field2: Field[Z, A2]
-    def field3: Field[Z, A3]
-    def field4: Field[Z, A4]
-    def field5: Field[Z, A5]
-    def field6: Field[Z, A6]
-    def field7: Field[Z, A7]
-    def field8: Field[Z, A8]
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
 
     def construct: (A1, A2, A3, A4, A5, A6, A7, A8) => Z
     def annotations: Chunk[Any]
@@ -4021,14 +4038,14 @@ object Schema extends SchemaEquality {
 
         new CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
-          def field7: Field[Z, A7] = field07
-          def field8: Field[Z, A8] = field08
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
+          def field7: Field.WithFieldName[Z, Field7, A7] = field7.asInstanceOf[Field.WithFieldName[Z, Field7, A7]] 
+          def field8: Field.WithFieldName[Z, Field8, A8] = field8.asInstanceOf[Field.WithFieldName[Z, Field8, A8]] 
           def construct: (A1, A2, A3, A4, A5, A6, A7, A8) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -4036,10 +4053,13 @@ object Schema extends SchemaEquality {
         }
       }
 
-    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, Z](caseClass: CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], (A1, A2, A3, A4, A5, A6, A7, A8) => Z, Chunk[Any])] =
-      Some((caseClass.id, caseClass.field1, caseClass.field2, caseClass.field3, caseClass.field4, caseClass.field5, caseClass.field6, caseClass.field7, caseClass.field8, caseClass.construct, caseClass.annotations))
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, Z](schema: CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z]): Some[
+      (TypeId, 
+      Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6], Field.WithFieldName[Z, schema.Field7, A7], Field.WithFieldName[Z, schema.Field8, A8],
+      (A1, A2, A3, A4, A5, A6, A7, A8) => Z, Chunk[Any])] =
+      Some((schema.id, schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String, A1, A2, A3, A4, A5, A6, A7, A8, Z] =
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String, A1, A2, A3, A4, A5, A6, A7, A8, Z] =
       CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z] {
         type Field1 = F1
         type Field2 = F2
@@ -4071,15 +4091,15 @@ object Schema extends SchemaEquality {
     override type FieldNames = Field1 with Field2 with Field3 with Field4 with Field5 with Field6 with Field7 with Field8 with Field9
 
     def id: TypeId
-    def field1: Field[Z, A1]
-    def field2: Field[Z, A2]
-    def field3: Field[Z, A3]
-    def field4: Field[Z, A4]
-    def field5: Field[Z, A5]
-    def field6: Field[Z, A6]
-    def field7: Field[Z, A7]
-    def field8: Field[Z, A8]
-    def field9: Field[Z, A9]
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
+    def field9: Field.WithFieldName[Z, Field9, A9]
 
     def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z
     def annotations: Chunk[Any]
@@ -4161,15 +4181,15 @@ object Schema extends SchemaEquality {
 
         new CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
-          def field7: Field[Z, A7] = field07
-          def field8: Field[Z, A8] = field08
-          def field9: Field[Z, A9] = field09
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
+          def field7: Field.WithFieldName[Z, Field7, A7] = field7.asInstanceOf[Field.WithFieldName[Z, Field7, A7]] 
+          def field8: Field.WithFieldName[Z, Field8, A8] = field8.asInstanceOf[Field.WithFieldName[Z, Field8, A8]] 
+          def field9: Field.WithFieldName[Z, Field9, A9] = field9.asInstanceOf[Field.WithFieldName[Z, Field9, A9]] 
           def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -4177,10 +4197,13 @@ object Schema extends SchemaEquality {
         }
       }
 
-    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](caseClass: CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], (A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z, Chunk[Any])] =
-      Some((caseClass.id, caseClass.field1, caseClass.field2, caseClass.field3, caseClass.field4, caseClass.field5, caseClass.field6, caseClass.field7, caseClass.field8, caseClass.field9, caseClass.construct, caseClass.annotations))
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](schema: CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]): Some[
+      (TypeId, 
+      Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6], Field.WithFieldName[Z, schema.Field7, A7], Field.WithFieldName[Z, schema.Field8, A8], Field.WithFieldName[Z, schema.Field9, A9],
+      (A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z, Chunk[Any])] =
+      Some((schema.id, schema.field1, schema.field2, schema.field3, schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String, F9 <: Singleton with String, A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] =
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String, F9 <: Singleton with String, A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] =
       CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] {
         type Field1 = F1
         type Field2 = F2
@@ -4253,16 +4276,16 @@ object Schema extends SchemaEquality {
         with Field10
 
       def id: TypeId
-      def field1: Field[Z, A1]
-      def field2: Field[Z, A2]
-      def field3: Field[Z, A3]
-      def field4: Field[Z, A4]
-      def field5: Field[Z, A5]
-      def field6: Field[Z, A6]
-      def field7: Field[Z, A7]
-      def field8: Field[Z, A8]
-      def field9: Field[Z, A9]
-      def field10: Field[Z, A10]
+      def field1: Field.WithFieldName[Z, Field1, A1]
+      def field2: Field.WithFieldName[Z, Field2, A2]
+      def field3: Field.WithFieldName[Z, Field3, A3]
+      def field4: Field.WithFieldName[Z, Field4, A4]
+      def field5: Field.WithFieldName[Z, Field5, A5]
+      def field6: Field.WithFieldName[Z, Field6, A6]
+      def field7: Field.WithFieldName[Z, Field7, A7]
+      def field8: Field.WithFieldName[Z, Field8, A8]
+      def field9: Field.WithFieldName[Z, Field9, A9]
+      def field10: Field.WithFieldName[Z, Field10, A10]
       def construct: (
         A1,
         A2,
@@ -4351,7 +4374,7 @@ object Schema extends SchemaEquality {
       field10.get(value)
     )
 
-    override def toString: String = s"CaseClass22(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass10(${fields.mkString(",")})"
     }
 
   object CaseClass10 {
@@ -4372,16 +4395,16 @@ object Schema extends SchemaEquality {
 
         new CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
-          def field7: Field[Z, A7] = field07
-          def field8: Field[Z, A8] = field08
-          def field9: Field[Z, A9] = field09
-          def field10: Field[Z, A10] = field010
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
+          def field7: Field.WithFieldName[Z, Field7, A7] = field7.asInstanceOf[Field.WithFieldName[Z, Field7, A7]] 
+          def field8: Field.WithFieldName[Z, Field8, A8] = field8.asInstanceOf[Field.WithFieldName[Z, Field8, A8]] 
+          def field9: Field.WithFieldName[Z, Field9, A9] = field9.asInstanceOf[Field.WithFieldName[Z, Field9, A9]] 
+          def field10: Field.WithFieldName[Z, Field10, A10] = field10.asInstanceOf[Field.WithFieldName[Z, Field10, A10]] 
           def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -4390,10 +4413,13 @@ object Schema extends SchemaEquality {
       }
 
     def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
-        schema: CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10],(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) => Z, Chunk[Any])] =
+        schema: CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]): Some[
+          (TypeId, 
+          Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6], Field.WithFieldName[Z, schema.Field7, A7], Field.WithFieldName[Z, schema.Field8, A8], Field.WithFieldName[Z, schema.Field9, A9], Field.WithFieldName[Z, schema.Field10, A10], 
+          (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
         F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String,
         F9 <: Singleton with String, F10 <: Singleton with String,
         A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] =
@@ -4475,17 +4501,17 @@ object Schema extends SchemaEquality {
         with Field11
 
       def id: TypeId
-      def field1: Field[Z, A1]
-      def field2: Field[Z, A2]
-      def field3: Field[Z, A3]
-      def field4: Field[Z, A4]
-      def field5: Field[Z, A5]
-      def field6: Field[Z, A6]
-      def field7: Field[Z, A7]
-      def field8: Field[Z, A8]
-      def field9: Field[Z, A9]
-      def field10: Field[Z, A10]
-      def field11: Field[Z, A11]
+      def field1: Field.WithFieldName[Z, Field1, A1]
+      def field2: Field.WithFieldName[Z, Field2, A2]
+      def field3: Field.WithFieldName[Z, Field3, A3]
+      def field4: Field.WithFieldName[Z, Field4, A4]
+      def field5: Field.WithFieldName[Z, Field5, A5]
+      def field6: Field.WithFieldName[Z, Field6, A6]
+      def field7: Field.WithFieldName[Z, Field7, A7]
+      def field8: Field.WithFieldName[Z, Field8, A8]
+      def field9: Field.WithFieldName[Z, Field9, A9]
+      def field10: Field.WithFieldName[Z, Field10, A10]
+      def field11: Field.WithFieldName[Z, Field11, A11]
       def construct: (
         A1,
         A2,
@@ -4580,7 +4606,7 @@ object Schema extends SchemaEquality {
       field11.get(value)
     )
 
-    override def toString: String = s"CaseClass22(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass11(${fields.mkString(",")})"
     }
 
   object CaseClass11 {
@@ -4602,17 +4628,17 @@ object Schema extends SchemaEquality {
 
         new CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
-          def field7: Field[Z, A7] = field07
-          def field8: Field[Z, A8] = field08
-          def field9: Field[Z, A9] = field09
-          def field10: Field[Z, A10] = field010
-          def field11: Field[Z, A11] = field011
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
+          def field7: Field.WithFieldName[Z, Field7, A7] = field7.asInstanceOf[Field.WithFieldName[Z, Field7, A7]] 
+          def field8: Field.WithFieldName[Z, Field8, A8] = field8.asInstanceOf[Field.WithFieldName[Z, Field8, A8]] 
+          def field9: Field.WithFieldName[Z, Field9, A9] = field9.asInstanceOf[Field.WithFieldName[Z, Field9, A9]] 
+          def field10: Field.WithFieldName[Z, Field10, A10] = field10.asInstanceOf[Field.WithFieldName[Z, Field10, A10]] 
+          def field11: Field.WithFieldName[Z, Field11, A11] = field11.asInstanceOf[Field.WithFieldName[Z, Field11, A11]] 
           def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -4621,10 +4647,13 @@ object Schema extends SchemaEquality {
       }
 
     def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
-        schema: CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11) => Z, Chunk[Any])] =
+        schema: CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]): Some[
+          (TypeId, 
+          Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6], Field.WithFieldName[Z, schema.Field7, A7], Field.WithFieldName[Z, schema.Field8, A8], Field.WithFieldName[Z, schema.Field9, A9], Field.WithFieldName[Z, schema.Field10, A10], Field.WithFieldName[Z, schema.Field11, A11], 
+          (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
         F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String,
         F9 <: Singleton with String, F10 <: Singleton with String, F11 <: Singleton with String,
         A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] =
@@ -4712,18 +4741,18 @@ object Schema extends SchemaEquality {
         with Field12
 
       def id: TypeId
-      def field1: Field[Z, A1]
-      def field2: Field[Z, A2]
-      def field3: Field[Z, A3]
-      def field4: Field[Z, A4]
-      def field5: Field[Z, A5]
-      def field6: Field[Z, A6]
-      def field7: Field[Z, A7]
-      def field8: Field[Z, A8]
-      def field9: Field[Z, A9]
-      def field10: Field[Z, A10]
-      def field11: Field[Z, A11]
-      def field12: Field[Z, A12]
+      def field1: Field.WithFieldName[Z, Field1, A1]
+      def field2: Field.WithFieldName[Z, Field2, A2]
+      def field3: Field.WithFieldName[Z, Field3, A3]
+      def field4: Field.WithFieldName[Z, Field4, A4]
+      def field5: Field.WithFieldName[Z, Field5, A5]
+      def field6: Field.WithFieldName[Z, Field6, A6]
+      def field7: Field.WithFieldName[Z, Field7, A7]
+      def field8: Field.WithFieldName[Z, Field8, A8]
+      def field9: Field.WithFieldName[Z, Field9, A9]
+      def field10: Field.WithFieldName[Z, Field10, A10]
+      def field11: Field.WithFieldName[Z, Field11, A11]
+      def field12: Field.WithFieldName[Z, Field12, A12]
       def construct: (
         A1,
         A2,
@@ -4824,7 +4853,7 @@ object Schema extends SchemaEquality {
       field12.get(value)
     )
 
-    override def toString: String = s"CaseClass22(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass12(${fields.mkString(",")})"
     }
 
   object CaseClass12 {
@@ -4847,18 +4876,18 @@ object Schema extends SchemaEquality {
 
         new CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
-          def field7: Field[Z, A7] = field07
-          def field8: Field[Z, A8] = field08
-          def field9: Field[Z, A9] = field09
-          def field10: Field[Z, A10] = field010
-          def field11: Field[Z, A11] = field011
-          def field12: Field[Z, A12] = field012
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
+          def field7: Field.WithFieldName[Z, Field7, A7] = field7.asInstanceOf[Field.WithFieldName[Z, Field7, A7]] 
+          def field8: Field.WithFieldName[Z, Field8, A8] = field8.asInstanceOf[Field.WithFieldName[Z, Field8, A8]] 
+          def field9: Field.WithFieldName[Z, Field9, A9] = field9.asInstanceOf[Field.WithFieldName[Z, Field9, A9]] 
+          def field10: Field.WithFieldName[Z, Field10, A10] = field10.asInstanceOf[Field.WithFieldName[Z, Field10, A10]] 
+          def field11: Field.WithFieldName[Z, Field11, A11] = field11.asInstanceOf[Field.WithFieldName[Z, Field11, A11]] 
+          def field12: Field.WithFieldName[Z, Field12, A12] = field12.asInstanceOf[Field.WithFieldName[Z, Field12, A12]] 
           def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -4867,10 +4896,13 @@ object Schema extends SchemaEquality {
       }
 
     def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
-        schema: CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12) => Z, Chunk[Any])] =
+        schema: CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]): Some[
+          (TypeId, 
+          Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6], Field.WithFieldName[Z, schema.Field7, A7], Field.WithFieldName[Z, schema.Field8, A8], Field.WithFieldName[Z, schema.Field9, A9], Field.WithFieldName[Z, schema.Field10, A10], Field.WithFieldName[Z, schema.Field11, A11], Field.WithFieldName[Z, schema.Field12, A12], 
+          (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
         F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String,
         F9 <: Singleton with String, F10 <: Singleton with String, F11 <: Singleton with String, F12 <: Singleton with String, 
         A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] =
@@ -4965,19 +4997,19 @@ object Schema extends SchemaEquality {
         with Field13
 
       def id: TypeId
-      def field1: Field[Z, A1]
-      def field2: Field[Z, A2]
-      def field3: Field[Z, A3]
-      def field4: Field[Z, A4]
-      def field5: Field[Z, A5]
-      def field6: Field[Z, A6]
-      def field7: Field[Z, A7]
-      def field8: Field[Z, A8]
-      def field9: Field[Z, A9]
-      def field10: Field[Z, A10]
-      def field11: Field[Z, A11]
-      def field12: Field[Z, A12]
-      def field13: Field[Z, A13]
+      def field1: Field.WithFieldName[Z, Field1, A1]
+      def field2: Field.WithFieldName[Z, Field2, A2]
+      def field3: Field.WithFieldName[Z, Field3, A3]
+      def field4: Field.WithFieldName[Z, Field4, A4]
+      def field5: Field.WithFieldName[Z, Field5, A5]
+      def field6: Field.WithFieldName[Z, Field6, A6]
+      def field7: Field.WithFieldName[Z, Field7, A7]
+      def field8: Field.WithFieldName[Z, Field8, A8]
+      def field9: Field.WithFieldName[Z, Field9, A9]
+      def field10: Field.WithFieldName[Z, Field10, A10]
+      def field11: Field.WithFieldName[Z, Field11, A11]
+      def field12: Field.WithFieldName[Z, Field12, A12]
+      def field13: Field.WithFieldName[Z, Field13, A13]
       def construct: (
         A1,
         A2,
@@ -5084,7 +5116,7 @@ object Schema extends SchemaEquality {
       field13.get(value)
     )
 
-    override def toString: String = s"CaseClass22(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass13(${fields.mkString(",")})"
     }
 
   object CaseClass13 {
@@ -5108,19 +5140,19 @@ object Schema extends SchemaEquality {
 
         new CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
-          def field7: Field[Z, A7] = field07
-          def field8: Field[Z, A8] = field08
-          def field9: Field[Z, A9] = field09
-          def field10: Field[Z, A10] = field010
-          def field11: Field[Z, A11] = field011
-          def field12: Field[Z, A12] = field012
-          def field13: Field[Z, A13] = field013
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
+          def field7: Field.WithFieldName[Z, Field7, A7] = field7.asInstanceOf[Field.WithFieldName[Z, Field7, A7]] 
+          def field8: Field.WithFieldName[Z, Field8, A8] = field8.asInstanceOf[Field.WithFieldName[Z, Field8, A8]] 
+          def field9: Field.WithFieldName[Z, Field9, A9] = field9.asInstanceOf[Field.WithFieldName[Z, Field9, A9]] 
+          def field10: Field.WithFieldName[Z, Field10, A10] = field10.asInstanceOf[Field.WithFieldName[Z, Field10, A10]] 
+          def field11: Field.WithFieldName[Z, Field11, A11] = field11.asInstanceOf[Field.WithFieldName[Z, Field11, A11]] 
+          def field12: Field.WithFieldName[Z, Field12, A12] = field12.asInstanceOf[Field.WithFieldName[Z, Field12, A12]] 
+          def field13: Field.WithFieldName[Z, Field13, A13] = field13.asInstanceOf[Field.WithFieldName[Z, Field13, A13]] 
           def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -5129,10 +5161,13 @@ object Schema extends SchemaEquality {
       }
 
     def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
-        schema: CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], Field[Z, A13], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13) => Z, Chunk[Any])] =
+        schema: CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]): Some[
+          (TypeId, 
+          Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6], Field.WithFieldName[Z, schema.Field7, A7], Field.WithFieldName[Z, schema.Field8, A8], Field.WithFieldName[Z, schema.Field9, A9], Field.WithFieldName[Z, schema.Field10, A10], Field.WithFieldName[Z, schema.Field11, A11], Field.WithFieldName[Z, schema.Field12, A12], Field.WithFieldName[Z, schema.Field13, A13],
+          (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
         F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String,
         F9 <: Singleton with String, F10 <: Singleton with String, F11 <: Singleton with String, F12 <: Singleton with String, F13 <: Singleton with String, 
         A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] =
@@ -5232,20 +5267,20 @@ object Schema extends SchemaEquality {
         with Field14
 
       def id: TypeId
-      def field1: Field[Z, A1]
-      def field2: Field[Z, A2]
-      def field3: Field[Z, A3]
-      def field4: Field[Z, A4]
-      def field5: Field[Z, A5]
-      def field6: Field[Z, A6]
-      def field7: Field[Z, A7]
-      def field8: Field[Z, A8]
-      def field9: Field[Z, A9]
-      def field10: Field[Z, A10]
-      def field11: Field[Z, A11]
-      def field12: Field[Z, A12]
-      def field13: Field[Z, A13]
-      def field14: Field[Z, A14]
+      def field1: Field.WithFieldName[Z, Field1, A1]
+      def field2: Field.WithFieldName[Z, Field2, A2]
+      def field3: Field.WithFieldName[Z, Field3, A3]
+      def field4: Field.WithFieldName[Z, Field4, A4]
+      def field5: Field.WithFieldName[Z, Field5, A5]
+      def field6: Field.WithFieldName[Z, Field6, A6]
+      def field7: Field.WithFieldName[Z, Field7, A7]
+      def field8: Field.WithFieldName[Z, Field8, A8]
+      def field9: Field.WithFieldName[Z, Field9, A9]
+      def field10: Field.WithFieldName[Z, Field10, A10]
+      def field11: Field.WithFieldName[Z, Field11, A11]
+      def field12: Field.WithFieldName[Z, Field12, A12]
+      def field13: Field.WithFieldName[Z, Field13, A13]
+      def field14: Field.WithFieldName[Z, Field14, A14]
       def construct: (
         A1,
         A2,
@@ -5358,7 +5393,7 @@ object Schema extends SchemaEquality {
       field14.get(value)
     )
 
-    override def toString: String = s"CaseClass22(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass14(${fields.mkString(",")})"
     }
 
   object CaseClass14 {
@@ -5383,20 +5418,20 @@ object Schema extends SchemaEquality {
 
         new CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
-          def field7: Field[Z, A7] = field07
-          def field8: Field[Z, A8] = field08
-          def field9: Field[Z, A9] = field09
-          def field10: Field[Z, A10] = field010
-          def field11: Field[Z, A11] = field011
-          def field12: Field[Z, A12] = field012
-          def field13: Field[Z, A13] = field013
-          def field14: Field[Z, A14] = field014
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
+          def field7: Field.WithFieldName[Z, Field7, A7] = field7.asInstanceOf[Field.WithFieldName[Z, Field7, A7]] 
+          def field8: Field.WithFieldName[Z, Field8, A8] = field8.asInstanceOf[Field.WithFieldName[Z, Field8, A8]] 
+          def field9: Field.WithFieldName[Z, Field9, A9] = field9.asInstanceOf[Field.WithFieldName[Z, Field9, A9]] 
+          def field10: Field.WithFieldName[Z, Field10, A10] = field10.asInstanceOf[Field.WithFieldName[Z, Field10, A10]] 
+          def field11: Field.WithFieldName[Z, Field11, A11] = field11.asInstanceOf[Field.WithFieldName[Z, Field11, A11]] 
+          def field12: Field.WithFieldName[Z, Field12, A12] = field12.asInstanceOf[Field.WithFieldName[Z, Field12, A12]] 
+          def field13: Field.WithFieldName[Z, Field13, A13] = field13.asInstanceOf[Field.WithFieldName[Z, Field13, A13]] 
+          def field14: Field.WithFieldName[Z, Field14, A14] = field14.asInstanceOf[Field.WithFieldName[Z, Field14, A14]] 
           def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -5405,10 +5440,13 @@ object Schema extends SchemaEquality {
       }
 
     def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
-        schema: CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], Field[Z, A13], Field[Z, A14], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14) => Z, Chunk[Any])] =
+        schema: CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]): Some[
+          (TypeId, 
+          Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6], Field.WithFieldName[Z, schema.Field7, A7], Field.WithFieldName[Z, schema.Field8, A8], Field.WithFieldName[Z, schema.Field9, A9], Field.WithFieldName[Z, schema.Field10, A10], Field.WithFieldName[Z, schema.Field11, A11], Field.WithFieldName[Z, schema.Field12, A12], Field.WithFieldName[Z, schema.Field13, A13], Field.WithFieldName[Z, schema.Field14, A14],
+          (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
         F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String,
         F9 <: Singleton with String, F10 <: Singleton with String, F11 <: Singleton with String, F12 <: Singleton with String, F13 <: Singleton with String, 
         F14 <: Singleton with String,
@@ -5515,21 +5553,21 @@ object Schema extends SchemaEquality {
         with Field15
 
       def id: TypeId
-      def field1: Field[Z, A1]
-      def field2: Field[Z, A2]
-      def field3: Field[Z, A3]
-      def field4: Field[Z, A4]
-      def field5: Field[Z, A5]
-      def field6: Field[Z, A6]
-      def field7: Field[Z, A7]
-      def field8: Field[Z, A8]
-      def field9: Field[Z, A9]
-      def field10: Field[Z, A10]
-      def field11: Field[Z, A11]
-      def field12: Field[Z, A12]
-      def field13: Field[Z, A13]
-      def field14: Field[Z, A14]
-      def field15: Field[Z, A15]
+      def field1: Field.WithFieldName[Z, Field1, A1] 
+      def field2: Field.WithFieldName[Z, Field2, A2] 
+      def field3: Field.WithFieldName[Z, Field3, A3] 
+      def field4: Field.WithFieldName[Z, Field4, A4] 
+      def field5: Field.WithFieldName[Z, Field5, A5] 
+      def field6: Field.WithFieldName[Z, Field6, A6] 
+      def field7: Field.WithFieldName[Z, Field7, A7] 
+      def field8: Field.WithFieldName[Z, Field8, A8] 
+      def field9: Field.WithFieldName[Z, Field9, A9] 
+      def field10: Field.WithFieldName[Z, Field10, A10] 
+      def field11: Field.WithFieldName[Z, Field11, A11] 
+      def field12: Field.WithFieldName[Z, Field12, A12] 
+      def field13: Field.WithFieldName[Z, Field13, A13] 
+      def field14: Field.WithFieldName[Z, Field14, A14] 
+      def field15: Field.WithFieldName[Z, Field15, A15] 
       def construct: (
         A1,
         A2,
@@ -5648,7 +5686,7 @@ object Schema extends SchemaEquality {
       field15.get(value)
     )
 
-    override def toString: String = s"CaseClass22(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass15(${fields.mkString(",")})"
     }
 
   object CaseClass15 {
@@ -5674,21 +5712,21 @@ object Schema extends SchemaEquality {
 
         new CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
-          def field7: Field[Z, A7] = field07
-          def field8: Field[Z, A8] = field08
-          def field9: Field[Z, A9] = field09
-          def field10: Field[Z, A10] = field010
-          def field11: Field[Z, A11] = field011
-          def field12: Field[Z, A12] = field012
-          def field13: Field[Z, A13] = field013
-          def field14: Field[Z, A14] = field014
-          def field15: Field[Z, A15] = field015
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
+          def field7: Field.WithFieldName[Z, Field7, A7] = field7.asInstanceOf[Field.WithFieldName[Z, Field7, A7]] 
+          def field8: Field.WithFieldName[Z, Field8, A8] = field8.asInstanceOf[Field.WithFieldName[Z, Field8, A8]] 
+          def field9: Field.WithFieldName[Z, Field9, A9] = field9.asInstanceOf[Field.WithFieldName[Z, Field9, A9]] 
+          def field10: Field.WithFieldName[Z, Field10, A10] = field10.asInstanceOf[Field.WithFieldName[Z, Field10, A10]] 
+          def field11: Field.WithFieldName[Z, Field11, A11] = field11.asInstanceOf[Field.WithFieldName[Z, Field11, A11]] 
+          def field12: Field.WithFieldName[Z, Field12, A12] = field12.asInstanceOf[Field.WithFieldName[Z, Field12, A12]] 
+          def field13: Field.WithFieldName[Z, Field13, A13] = field13.asInstanceOf[Field.WithFieldName[Z, Field13, A13]] 
+          def field14: Field.WithFieldName[Z, Field14, A14] = field14.asInstanceOf[Field.WithFieldName[Z, Field14, A14]] 
+          def field15: Field.WithFieldName[Z, Field15, A15] = field15.asInstanceOf[Field.WithFieldName[Z, Field15, A15]] 
           def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -5697,10 +5735,13 @@ object Schema extends SchemaEquality {
       }
 
     def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
-        schema: CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], Field[Z, A13], Field[Z, A14], Field[Z, A15], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15) => Z, Chunk[Any])] =
+        schema: CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]): Some[
+          (TypeId, 
+          Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6], Field.WithFieldName[Z, schema.Field7, A7], Field.WithFieldName[Z, schema.Field8, A8], Field.WithFieldName[Z, schema.Field9, A9], Field.WithFieldName[Z, schema.Field10, A10], Field.WithFieldName[Z, schema.Field11, A11], Field.WithFieldName[Z, schema.Field12, A12], Field.WithFieldName[Z, schema.Field13, A13], Field.WithFieldName[Z, schema.Field14, A14], Field.WithFieldName[Z, schema.Field15, A15], 
+          (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
         F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String,
         F9 <: Singleton with String, F10 <: Singleton with String, F11 <: Singleton with String, F12 <: Singleton with String, F13 <: Singleton with String, 
         F14 <: Singleton with String, F15 <: Singleton with String, 
@@ -5814,22 +5855,22 @@ object Schema extends SchemaEquality {
         with Field16
 
       def id: TypeId
-      def field1: Field[Z, A1]
-      def field2: Field[Z, A2]
-      def field3: Field[Z, A3]
-      def field4: Field[Z, A4]
-      def field5: Field[Z, A5]
-      def field6: Field[Z, A6]
-      def field7: Field[Z, A7]
-      def field8: Field[Z, A8]
-      def field9: Field[Z, A9]
-      def field10: Field[Z, A10]
-      def field11: Field[Z, A11]
-      def field12: Field[Z, A12]
-      def field13: Field[Z, A13]
-      def field14: Field[Z, A14]
-      def field15: Field[Z, A15]
-      def field16: Field[Z, A16]
+      def field1: Field.WithFieldName[Z, Field1, A1]
+      def field2: Field.WithFieldName[Z, Field2, A2]
+      def field3: Field.WithFieldName[Z, Field3, A3]
+      def field4: Field.WithFieldName[Z, Field4, A4]
+      def field5: Field.WithFieldName[Z, Field5, A5]
+      def field6: Field.WithFieldName[Z, Field6, A6]
+      def field7: Field.WithFieldName[Z, Field7, A7]
+      def field8: Field.WithFieldName[Z, Field8, A8]
+      def field9: Field.WithFieldName[Z, Field9, A9]
+      def field10: Field.WithFieldName[Z, Field10, A10]
+      def field11: Field.WithFieldName[Z, Field11, A11]
+      def field12: Field.WithFieldName[Z, Field12, A12]
+      def field13: Field.WithFieldName[Z, Field13, A13]
+      def field14: Field.WithFieldName[Z, Field14, A14]
+      def field15: Field.WithFieldName[Z, Field15, A15]
+      def field16: Field.WithFieldName[Z, Field16, A16]
       def construct: (
         A1,
         A2,
@@ -5954,7 +5995,7 @@ object Schema extends SchemaEquality {
       field16.get(value)
     )
 
-    override def toString: String = s"CaseClass22(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass16(${fields.mkString(",")})"
     }
 
   object CaseClass16 {
@@ -5981,22 +6022,22 @@ object Schema extends SchemaEquality {
 
         new CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
-          def field7: Field[Z, A7] = field07
-          def field8: Field[Z, A8] = field08
-          def field9: Field[Z, A9] = field09
-          def field10: Field[Z, A10] = field010
-          def field11: Field[Z, A11] = field011
-          def field12: Field[Z, A12] = field012
-          def field13: Field[Z, A13] = field013
-          def field14: Field[Z, A14] = field014
-          def field15: Field[Z, A15] = field015
-          def field16: Field[Z, A16] = field016
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
+          def field7: Field.WithFieldName[Z, Field7, A7] = field7.asInstanceOf[Field.WithFieldName[Z, Field7, A7]] 
+          def field8: Field.WithFieldName[Z, Field8, A8] = field8.asInstanceOf[Field.WithFieldName[Z, Field8, A8]] 
+          def field9: Field.WithFieldName[Z, Field9, A9] = field9.asInstanceOf[Field.WithFieldName[Z, Field9, A9]] 
+          def field10: Field.WithFieldName[Z, Field10, A10] = field10.asInstanceOf[Field.WithFieldName[Z, Field10, A10]] 
+          def field11: Field.WithFieldName[Z, Field11, A11] = field11.asInstanceOf[Field.WithFieldName[Z, Field11, A11]] 
+          def field12: Field.WithFieldName[Z, Field12, A12] = field12.asInstanceOf[Field.WithFieldName[Z, Field12, A12]] 
+          def field13: Field.WithFieldName[Z, Field13, A13] = field13.asInstanceOf[Field.WithFieldName[Z, Field13, A13]] 
+          def field14: Field.WithFieldName[Z, Field14, A14] = field14.asInstanceOf[Field.WithFieldName[Z, Field14, A14]] 
+          def field15: Field.WithFieldName[Z, Field15, A15] = field15.asInstanceOf[Field.WithFieldName[Z, Field15, A15]] 
+          def field16: Field.WithFieldName[Z, Field16, A16] = field16.asInstanceOf[Field.WithFieldName[Z, Field16, A16]] 
           def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -6005,10 +6046,13 @@ object Schema extends SchemaEquality {
       }
 
     def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
-        schema: CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], Field[Z, A13], Field[Z, A14], Field[Z, A15], Field[Z, A16], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) => Z, Chunk[Any])] =
+        schema: CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]): Some[
+          (TypeId, 
+          Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6], Field.WithFieldName[Z, schema.Field7, A7], Field.WithFieldName[Z, schema.Field8, A8], Field.WithFieldName[Z, schema.Field9, A9], Field.WithFieldName[Z, schema.Field10, A10], Field.WithFieldName[Z, schema.Field11, A11], Field.WithFieldName[Z, schema.Field12, A12], Field.WithFieldName[Z, schema.Field13, A13], Field.WithFieldName[Z, schema.Field14, A14], Field.WithFieldName[Z, schema.Field15, A15], Field.WithFieldName[Z, schema.Field16, A16],
+          (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
         F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String,
         F9 <: Singleton with String, F10 <: Singleton with String, F11 <: Singleton with String, F12 <: Singleton with String, F13 <: Singleton with String, 
         F14 <: Singleton with String, F15 <: Singleton with String, F16 <: Singleton with String,
@@ -6128,23 +6172,23 @@ object Schema extends SchemaEquality {
         with Field17
 
       def id: TypeId
-      def field1: Field[Z, A1]
-      def field2: Field[Z, A2]
-      def field3: Field[Z, A3]
-      def field4: Field[Z, A4]
-      def field5: Field[Z, A5]
-      def field6: Field[Z, A6]
-      def field7: Field[Z, A7]
-      def field8: Field[Z, A8]
-      def field9: Field[Z, A9]
-      def field10: Field[Z, A10]
-      def field11: Field[Z, A11]
-      def field12: Field[Z, A12]
-      def field13: Field[Z, A13]
-      def field14: Field[Z, A14]
-      def field15: Field[Z, A15]
-      def field16: Field[Z, A16]
-      def field17: Field[Z, A17]
+      def field1: Field.WithFieldName[Z, Field1, A1]
+      def field2: Field.WithFieldName[Z, Field2, A2]
+      def field3: Field.WithFieldName[Z, Field3, A3]
+      def field4: Field.WithFieldName[Z, Field4, A4]
+      def field5: Field.WithFieldName[Z, Field5, A5]
+      def field6: Field.WithFieldName[Z, Field6, A6]
+      def field7: Field.WithFieldName[Z, Field7, A7]
+      def field8: Field.WithFieldName[Z, Field8, A8]
+      def field9: Field.WithFieldName[Z, Field9, A9]
+      def field10: Field.WithFieldName[Z, Field10, A10]
+      def field11: Field.WithFieldName[Z, Field11, A11]
+      def field12: Field.WithFieldName[Z, Field12, A12]
+      def field13: Field.WithFieldName[Z, Field13, A13]
+      def field14: Field.WithFieldName[Z, Field14, A14]
+      def field15: Field.WithFieldName[Z, Field15, A15]
+      def field16: Field.WithFieldName[Z, Field16, A16]
+      def field17: Field.WithFieldName[Z, Field17, A17]
       def construct: (
         A1,
         A2,
@@ -6275,7 +6319,7 @@ object Schema extends SchemaEquality {
       field17.get(value)
     )
 
-    override def toString: String = s"CaseClass22(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass17(${fields.mkString(",")})"
     }
 
   object CaseClass17 {
@@ -6303,23 +6347,23 @@ object Schema extends SchemaEquality {
 
         new CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
-          def field7: Field[Z, A7] = field07
-          def field8: Field[Z, A8] = field08
-          def field9: Field[Z, A9] = field09
-          def field10: Field[Z, A10] = field010
-          def field11: Field[Z, A11] = field011
-          def field12: Field[Z, A12] = field012
-          def field13: Field[Z, A13] = field013
-          def field14: Field[Z, A14] = field014
-          def field15: Field[Z, A15] = field015
-          def field16: Field[Z, A16] = field016
-          def field17: Field[Z, A17] = field017
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
+          def field7: Field.WithFieldName[Z, Field7, A7] = field7.asInstanceOf[Field.WithFieldName[Z, Field7, A7]] 
+          def field8: Field.WithFieldName[Z, Field8, A8] = field8.asInstanceOf[Field.WithFieldName[Z, Field8, A8]] 
+          def field9: Field.WithFieldName[Z, Field9, A9] = field9.asInstanceOf[Field.WithFieldName[Z, Field9, A9]] 
+          def field10: Field.WithFieldName[Z, Field10, A10] = field10.asInstanceOf[Field.WithFieldName[Z, Field10, A10]] 
+          def field11: Field.WithFieldName[Z, Field11, A11] = field11.asInstanceOf[Field.WithFieldName[Z, Field11, A11]] 
+          def field12: Field.WithFieldName[Z, Field12, A12] = field12.asInstanceOf[Field.WithFieldName[Z, Field12, A12]] 
+          def field13: Field.WithFieldName[Z, Field13, A13] = field13.asInstanceOf[Field.WithFieldName[Z, Field13, A13]] 
+          def field14: Field.WithFieldName[Z, Field14, A14] = field14.asInstanceOf[Field.WithFieldName[Z, Field14, A14]] 
+          def field15: Field.WithFieldName[Z, Field15, A15] = field15.asInstanceOf[Field.WithFieldName[Z, Field15, A15]] 
+          def field16: Field.WithFieldName[Z, Field16, A16] = field16.asInstanceOf[Field.WithFieldName[Z, Field16, A16]] 
+          def field17: Field.WithFieldName[Z, Field17, A17] = field17.asInstanceOf[Field.WithFieldName[Z, Field17, A17]]
           def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -6328,10 +6372,13 @@ object Schema extends SchemaEquality {
       }
 
     def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
-        schema: CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], Field[Z, A13], Field[Z, A14], Field[Z, A15], Field[Z, A16], Field[Z, A17], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17) => Z, Chunk[Any])] =
+        schema: CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]): Some[
+          (TypeId, 
+          Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6], Field.WithFieldName[Z, schema.Field7, A7], Field.WithFieldName[Z, schema.Field8, A8], Field.WithFieldName[Z, schema.Field9, A9], Field.WithFieldName[Z, schema.Field10, A10], Field.WithFieldName[Z, schema.Field11, A11], Field.WithFieldName[Z, schema.Field12, A12], Field.WithFieldName[Z, schema.Field13, A13], Field.WithFieldName[Z, schema.Field14, A14], Field.WithFieldName[Z, schema.Field15, A15], Field.WithFieldName[Z, schema.Field16, A16], Field.WithFieldName[Z, schema.Field17, A17],
+          (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
         F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String,
         F9 <: Singleton with String, F10 <: Singleton with String, F11 <: Singleton with String, F12 <: Singleton with String, F13 <: Singleton with String, 
         F14 <: Singleton with String, F15 <: Singleton with String, F16 <: Singleton with String, F17 <: Singleton with String,
@@ -6457,24 +6504,24 @@ object Schema extends SchemaEquality {
         with Field18
 
       def id: TypeId
-      def field1: Field[Z, A1]
-      def field2: Field[Z, A2]
-      def field3: Field[Z, A3]
-      def field4: Field[Z, A4]
-      def field5: Field[Z, A5]
-      def field6: Field[Z, A6]
-      def field7: Field[Z, A7]
-      def field8: Field[Z, A8]
-      def field9: Field[Z, A9]
-      def field10: Field[Z, A10]
-      def field11: Field[Z, A11]
-      def field12: Field[Z, A12]
-      def field13: Field[Z, A13]
-      def field14: Field[Z, A14]
-      def field15: Field[Z, A15]
-      def field16: Field[Z, A16]
-      def field17: Field[Z, A17]
-      def field18: Field[Z, A18]
+      def field1: Field.WithFieldName[Z, Field1, A1]
+      def field2: Field.WithFieldName[Z, Field2, A2]
+      def field3: Field.WithFieldName[Z, Field3, A3]
+      def field4: Field.WithFieldName[Z, Field4, A4]
+      def field5: Field.WithFieldName[Z, Field5, A5]
+      def field6: Field.WithFieldName[Z, Field6, A6]
+      def field7: Field.WithFieldName[Z, Field7, A7]
+      def field8: Field.WithFieldName[Z, Field8, A8]
+      def field9: Field.WithFieldName[Z, Field9, A9]
+      def field10: Field.WithFieldName[Z, Field10, A10]
+      def field11: Field.WithFieldName[Z, Field11, A11]
+      def field12: Field.WithFieldName[Z, Field12, A12]
+      def field13: Field.WithFieldName[Z, Field13, A13]
+      def field14: Field.WithFieldName[Z, Field14, A14]
+      def field15: Field.WithFieldName[Z, Field15, A15]
+      def field16: Field.WithFieldName[Z, Field16, A16]
+      def field17: Field.WithFieldName[Z, Field17, A17]
+      def field18: Field.WithFieldName[Z, Field18, A18]
       def construct: (
         A1,
         A2,
@@ -6611,7 +6658,7 @@ object Schema extends SchemaEquality {
       field18.get(value)
     )
 
-    override def toString: String = s"CaseClass22(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass18(${fields.mkString(",")})"
     }
 
   object CaseClass18 {
@@ -6640,24 +6687,24 @@ object Schema extends SchemaEquality {
 
         new CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
-          def field7: Field[Z, A7] = field07
-          def field8: Field[Z, A8] = field08
-          def field9: Field[Z, A9] = field09
-          def field10: Field[Z, A10] = field010
-          def field11: Field[Z, A11] = field011
-          def field12: Field[Z, A12] = field012
-          def field13: Field[Z, A13] = field013
-          def field14: Field[Z, A14] = field014
-          def field15: Field[Z, A15] = field015
-          def field16: Field[Z, A16] = field016
-          def field17: Field[Z, A17] = field017
-          def field18: Field[Z, A18] = field018
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
+          def field7: Field.WithFieldName[Z, Field7, A7] = field7.asInstanceOf[Field.WithFieldName[Z, Field7, A7]] 
+          def field8: Field.WithFieldName[Z, Field8, A8] = field8.asInstanceOf[Field.WithFieldName[Z, Field8, A8]] 
+          def field9: Field.WithFieldName[Z, Field9, A9] = field9.asInstanceOf[Field.WithFieldName[Z, Field9, A9]] 
+          def field10: Field.WithFieldName[Z, Field10, A10] = field10.asInstanceOf[Field.WithFieldName[Z, Field10, A10]] 
+          def field11: Field.WithFieldName[Z, Field11, A11] = field11.asInstanceOf[Field.WithFieldName[Z, Field11, A11]] 
+          def field12: Field.WithFieldName[Z, Field12, A12] = field12.asInstanceOf[Field.WithFieldName[Z, Field12, A12]] 
+          def field13: Field.WithFieldName[Z, Field13, A13] = field13.asInstanceOf[Field.WithFieldName[Z, Field13, A13]] 
+          def field14: Field.WithFieldName[Z, Field14, A14] = field14.asInstanceOf[Field.WithFieldName[Z, Field14, A14]] 
+          def field15: Field.WithFieldName[Z, Field15, A15] = field15.asInstanceOf[Field.WithFieldName[Z, Field15, A15]] 
+          def field16: Field.WithFieldName[Z, Field16, A16] = field16.asInstanceOf[Field.WithFieldName[Z, Field16, A16]] 
+          def field17: Field.WithFieldName[Z, Field17, A17] = field17.asInstanceOf[Field.WithFieldName[Z, Field17, A17]] 
+          def field18: Field.WithFieldName[Z, Field18, A18] = field18.asInstanceOf[Field.WithFieldName[Z, Field18, A18]] 
           def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -6666,10 +6713,13 @@ object Schema extends SchemaEquality {
       }
 
     def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
-        schema: CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], Field[Z, A13], Field[Z, A14], Field[Z, A15], Field[Z, A16], Field[Z, A17], Field[Z, A18], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18) => Z, Chunk[Any])] =
+        schema: CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]): Some[
+          (TypeId, 
+          Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6], Field.WithFieldName[Z, schema.Field7, A7], Field.WithFieldName[Z, schema.Field8, A8], Field.WithFieldName[Z, schema.Field9, A9], Field.WithFieldName[Z, schema.Field10, A10], Field.WithFieldName[Z, schema.Field11, A11], Field.WithFieldName[Z, schema.Field12, A12], Field.WithFieldName[Z, schema.Field13, A13], Field.WithFieldName[Z, schema.Field14, A14], Field.WithFieldName[Z, schema.Field15, A15], Field.WithFieldName[Z, schema.Field16, A16], Field.WithFieldName[Z, schema.Field17, A17], Field.WithFieldName[Z, schema.Field18, A18],
+          (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
         F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String,
         F9 <: Singleton with String, F10 <: Singleton with String, F11 <: Singleton with String, F12 <: Singleton with String, F13 <: Singleton with String, 
         F14 <: Singleton with String, F15 <: Singleton with String, F16 <: Singleton with String, F17 <: Singleton with String, F18 <: Singleton with String,
@@ -6801,25 +6851,25 @@ object Schema extends SchemaEquality {
         with Field19
 
       def id: TypeId
-      def field1: Field[Z, A1]
-      def field2: Field[Z, A2]
-      def field3: Field[Z, A3]
-      def field4: Field[Z, A4]
-      def field5: Field[Z, A5]
-      def field6: Field[Z, A6]
-      def field7: Field[Z, A7]
-      def field8: Field[Z, A8]
-      def field9: Field[Z, A9]
-      def field10: Field[Z, A10]
-      def field11: Field[Z, A11]
-      def field12: Field[Z, A12]
-      def field13: Field[Z, A13]
-      def field14: Field[Z, A14]
-      def field15: Field[Z, A15]
-      def field16: Field[Z, A16]
-      def field17: Field[Z, A17]
-      def field18: Field[Z, A18]
-      def field19: Field[Z, A19]
+      def field1: Field.WithFieldName[Z, Field1, A1]
+      def field2: Field.WithFieldName[Z, Field2, A2]
+      def field3: Field.WithFieldName[Z, Field3, A3]
+      def field4: Field.WithFieldName[Z, Field4, A4]
+      def field5: Field.WithFieldName[Z, Field5, A5]
+      def field6: Field.WithFieldName[Z, Field6, A6]
+      def field7: Field.WithFieldName[Z, Field7, A7]
+      def field8: Field.WithFieldName[Z, Field8, A8]
+      def field9: Field.WithFieldName[Z, Field9, A9]
+      def field10: Field.WithFieldName[Z, Field10, A10]
+      def field11: Field.WithFieldName[Z, Field11, A11]
+      def field12: Field.WithFieldName[Z, Field12, A12]
+      def field13: Field.WithFieldName[Z, Field13, A13]
+      def field14: Field.WithFieldName[Z, Field14, A14]
+      def field15: Field.WithFieldName[Z, Field15, A15]
+      def field16: Field.WithFieldName[Z, Field16, A16]
+      def field17: Field.WithFieldName[Z, Field17, A17]
+      def field18: Field.WithFieldName[Z, Field18, A18]
+      def field19: Field.WithFieldName[Z, Field19, A19]
       def construct: (
         A1,
         A2,
@@ -6962,7 +7012,7 @@ object Schema extends SchemaEquality {
       field19.get(value)
     )
 
-    override def toString: String = s"CaseClass22(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass19(${fields.mkString(",")})"
     }
 
   object CaseClass19 {
@@ -6992,25 +7042,25 @@ object Schema extends SchemaEquality {
 
         new CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
-          def field7: Field[Z, A7] = field07
-          def field8: Field[Z, A8] = field08
-          def field9: Field[Z, A9] = field09
-          def field10: Field[Z, A10] = field010
-          def field11: Field[Z, A11] = field011
-          def field12: Field[Z, A12] = field012
-          def field13: Field[Z, A13] = field013
-          def field14: Field[Z, A14] = field014
-          def field15: Field[Z, A15] = field015
-          def field16: Field[Z, A16] = field016
-          def field17: Field[Z, A17] = field017
-          def field18: Field[Z, A18] = field018
-          def field19: Field[Z, A19] = field019
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
+          def field7: Field.WithFieldName[Z, Field7, A7] = field7.asInstanceOf[Field.WithFieldName[Z, Field7, A7]] 
+          def field8: Field.WithFieldName[Z, Field8, A8] = field8.asInstanceOf[Field.WithFieldName[Z, Field8, A8]] 
+          def field9: Field.WithFieldName[Z, Field9, A9] = field9.asInstanceOf[Field.WithFieldName[Z, Field9, A9]] 
+          def field10: Field.WithFieldName[Z, Field10, A10] = field10.asInstanceOf[Field.WithFieldName[Z, Field10, A10]] 
+          def field11: Field.WithFieldName[Z, Field11, A11] = field11.asInstanceOf[Field.WithFieldName[Z, Field11, A11]] 
+          def field12: Field.WithFieldName[Z, Field12, A12] = field12.asInstanceOf[Field.WithFieldName[Z, Field12, A12]] 
+          def field13: Field.WithFieldName[Z, Field13, A13] = field13.asInstanceOf[Field.WithFieldName[Z, Field13, A13]] 
+          def field14: Field.WithFieldName[Z, Field14, A14] = field14.asInstanceOf[Field.WithFieldName[Z, Field14, A14]] 
+          def field15: Field.WithFieldName[Z, Field15, A15] = field15.asInstanceOf[Field.WithFieldName[Z, Field15, A15]] 
+          def field16: Field.WithFieldName[Z, Field16, A16] = field16.asInstanceOf[Field.WithFieldName[Z, Field16, A16]] 
+          def field17: Field.WithFieldName[Z, Field17, A17] = field17.asInstanceOf[Field.WithFieldName[Z, Field17, A17]] 
+          def field18: Field.WithFieldName[Z, Field18, A18] = field18.asInstanceOf[Field.WithFieldName[Z, Field18, A18]] 
+          def field19: Field.WithFieldName[Z, Field19, A19] = field19.asInstanceOf[Field.WithFieldName[Z, Field19, A19]] 
           def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -7019,10 +7069,12 @@ object Schema extends SchemaEquality {
       }
 
     def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
-        schema: CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], Field[Z, A13], Field[Z, A14], Field[Z, A15], Field[Z, A16], Field[Z, A17], Field[Z, A18], Field[Z, A19], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19) => Z, Chunk[Any])] =
+        schema: CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]): Some[(TypeId, 
+        Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6], Field.WithFieldName[Z, schema.Field7, A7], Field.WithFieldName[Z, schema.Field8, A8], Field.WithFieldName[Z, schema.Field9, A9], Field.WithFieldName[Z, schema.Field10, A10], Field.WithFieldName[Z, schema.Field11, A11], Field.WithFieldName[Z, schema.Field12, A12], Field.WithFieldName[Z, schema.Field13, A13], Field.WithFieldName[Z, schema.Field14, A14], Field.WithFieldName[Z, schema.Field15, A15], Field.WithFieldName[Z, schema.Field16, A16], Field.WithFieldName[Z, schema.Field17, A17], Field.WithFieldName[Z, schema.Field18, A18], Field.WithFieldName[Z, schema.Field19, A19],
+        (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19) => Z, Chunk[Any])] =
       Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19, schema.construct, schema.annotations))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
         F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String,
         F9 <: Singleton with String, F10 <: Singleton with String, F11 <: Singleton with String, F12 <: Singleton with String, F13 <: Singleton with String, 
         F14 <: Singleton with String, F15 <: Singleton with String, F16 <: Singleton with String, F17 <: Singleton with String, F18 <: Singleton with String,
@@ -7161,26 +7213,26 @@ object Schema extends SchemaEquality {
         with Field20
 
       def id: TypeId
-      def field1: Field[Z, A1]
-      def field2: Field[Z, A2]
-      def field3: Field[Z, A3]
-      def field4: Field[Z, A4]
-      def field5: Field[Z, A5]
-      def field6: Field[Z, A6]
-      def field7: Field[Z, A7]
-      def field8: Field[Z, A8]
-      def field9: Field[Z, A9]
-      def field10: Field[Z, A10]
-      def field11: Field[Z, A11]
-      def field12: Field[Z, A12]
-      def field13: Field[Z, A13]
-      def field14: Field[Z, A14]
-      def field15: Field[Z, A15]
-      def field16: Field[Z, A16]
-      def field17: Field[Z, A17]
-      def field18: Field[Z, A18]
-      def field19: Field[Z, A19]
-      def field20: Field[Z, A20]
+      def field1: Field.WithFieldName[Z, Field1, A1]
+      def field2: Field.WithFieldName[Z, Field2, A2]
+      def field3: Field.WithFieldName[Z, Field3, A3]
+      def field4: Field.WithFieldName[Z, Field4, A4]
+      def field5: Field.WithFieldName[Z, Field5, A5]
+      def field6: Field.WithFieldName[Z, Field6, A6]
+      def field7: Field.WithFieldName[Z, Field7, A7]
+      def field8: Field.WithFieldName[Z, Field8, A8]
+      def field9: Field.WithFieldName[Z, Field9, A9]
+      def field10: Field.WithFieldName[Z, Field10, A10]
+      def field11: Field.WithFieldName[Z, Field11, A11]
+      def field12: Field.WithFieldName[Z, Field12, A12]
+      def field13: Field.WithFieldName[Z, Field13, A13]
+      def field14: Field.WithFieldName[Z, Field14, A14]
+      def field15: Field.WithFieldName[Z, Field15, A15]
+      def field16: Field.WithFieldName[Z, Field16, A16]
+      def field17: Field.WithFieldName[Z, Field17, A17]
+      def field18: Field.WithFieldName[Z, Field18, A18]
+      def field19: Field.WithFieldName[Z, Field19, A19]
+      def field20: Field.WithFieldName[Z, Field20, A20]
       def construct: (
         A1,
         A2,
@@ -7329,7 +7381,7 @@ object Schema extends SchemaEquality {
       field20.get(value)
     )
 
-    override def toString: String = s"CaseClass22(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass20(${fields.mkString(",")})"
     }
 
   object CaseClass20 {
@@ -7360,26 +7412,26 @@ object Schema extends SchemaEquality {
 
         new CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
-          def field7: Field[Z, A7] = field07
-          def field8: Field[Z, A8] = field08
-          def field9: Field[Z, A9] = field09
-          def field10: Field[Z, A10] = field010
-          def field11: Field[Z, A11] = field011
-          def field12: Field[Z, A12] = field012
-          def field13: Field[Z, A13] = field013
-          def field14: Field[Z, A14] = field014
-          def field15: Field[Z, A15] = field015
-          def field16: Field[Z, A16] = field016
-          def field17: Field[Z, A17] = field017
-          def field18: Field[Z, A18] = field018
-          def field19: Field[Z, A19] = field019
-          def field20: Field[Z, A20] = field020
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
+          def field7: Field.WithFieldName[Z, Field7, A7] = field7.asInstanceOf[Field.WithFieldName[Z, Field7, A7]] 
+          def field8: Field.WithFieldName[Z, Field8, A8] = field8.asInstanceOf[Field.WithFieldName[Z, Field8, A8]] 
+          def field9: Field.WithFieldName[Z, Field9, A9] = field9.asInstanceOf[Field.WithFieldName[Z, Field9, A9]] 
+          def field10: Field.WithFieldName[Z, Field10, A10] = field10.asInstanceOf[Field.WithFieldName[Z, Field10, A10]] 
+          def field11: Field.WithFieldName[Z, Field11, A11] = field11.asInstanceOf[Field.WithFieldName[Z, Field11, A11]] 
+          def field12: Field.WithFieldName[Z, Field12, A12] = field12.asInstanceOf[Field.WithFieldName[Z, Field12, A12]] 
+          def field13: Field.WithFieldName[Z, Field13, A13] = field13.asInstanceOf[Field.WithFieldName[Z, Field13, A13]] 
+          def field14: Field.WithFieldName[Z, Field14, A14] = field14.asInstanceOf[Field.WithFieldName[Z, Field14, A14]] 
+          def field15: Field.WithFieldName[Z, Field15, A15] = field15.asInstanceOf[Field.WithFieldName[Z, Field15, A15]] 
+          def field16: Field.WithFieldName[Z, Field16, A16] = field16.asInstanceOf[Field.WithFieldName[Z, Field16, A16]] 
+          def field17: Field.WithFieldName[Z, Field17, A17] = field17.asInstanceOf[Field.WithFieldName[Z, Field17, A17]] 
+          def field18: Field.WithFieldName[Z, Field18, A18] = field18.asInstanceOf[Field.WithFieldName[Z, Field18, A18]] 
+          def field19: Field.WithFieldName[Z, Field19, A19] = field19.asInstanceOf[Field.WithFieldName[Z, Field19, A19]] 
+          def field20: Field.WithFieldName[Z, Field20, A20] = field20.asInstanceOf[Field.WithFieldName[Z, Field20, A20]] 
           def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -7388,10 +7440,13 @@ object Schema extends SchemaEquality {
       }
 
     def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](
-        schema: CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], Field[Z, A13], Field[Z, A14], Field[Z, A15], Field[Z, A16], Field[Z, A17], Field[Z, A18], Field[Z, A19], Field[Z, A20], ((A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) => Z, Chunk[Any]))] =
+        schema: CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]): 
+          Some[(TypeId, 
+          Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6], Field.WithFieldName[Z, schema.Field7, A7], Field.WithFieldName[Z, schema.Field8, A8], Field.WithFieldName[Z, schema.Field9, A9], Field.WithFieldName[Z, schema.Field10, A10], Field.WithFieldName[Z, schema.Field11, A11], Field.WithFieldName[Z, schema.Field12, A12], Field.WithFieldName[Z, schema.Field13, A13], Field.WithFieldName[Z, schema.Field14, A14], Field.WithFieldName[Z, schema.Field15, A15], Field.WithFieldName[Z, schema.Field16, A16], Field.WithFieldName[Z, schema.Field17, A17], Field.WithFieldName[Z, schema.Field18, A18], Field.WithFieldName[Z, schema.Field19, A19], Field.WithFieldName[Z, schema.Field20, A20],
+          ((A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) => Z, Chunk[Any]))] =
       Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19, schema.field20, (schema.construct, schema.annotations)))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
         F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String,
         F9 <: Singleton with String, F10 <: Singleton with String, F11 <: Singleton with String, F12 <: Singleton with String, F13 <: Singleton with String, 
         F14 <: Singleton with String, F15 <: Singleton with String, F16 <: Singleton with String, F17 <: Singleton with String, F18 <: Singleton with String,
@@ -7537,27 +7592,27 @@ object Schema extends SchemaEquality {
         with Field21
 
       def id: TypeId
-      def field1: Field[Z, A1]
-      def field2: Field[Z, A2]
-      def field3: Field[Z, A3]
-      def field4: Field[Z, A4]
-      def field5: Field[Z, A5]
-      def field6: Field[Z, A6]
-      def field7: Field[Z, A7]
-      def field8: Field[Z, A8]
-      def field9: Field[Z, A9]
-      def field10: Field[Z, A10]
-      def field11: Field[Z, A11]
-      def field12: Field[Z, A12]
-      def field13: Field[Z, A13]
-      def field14: Field[Z, A14]
-      def field15: Field[Z, A15]
-      def field16: Field[Z, A16]
-      def field17: Field[Z, A17]
-      def field18: Field[Z, A18]
-      def field19: Field[Z, A19]
-      def field20: Field[Z, A20]
-      def field21: Field[Z, A21]
+      def field1: Field.WithFieldName[Z, Field1, A1]
+      def field2: Field.WithFieldName[Z, Field2, A2]
+      def field3: Field.WithFieldName[Z, Field3, A3]
+      def field4: Field.WithFieldName[Z, Field4, A4]
+      def field5: Field.WithFieldName[Z, Field5, A5]
+      def field6: Field.WithFieldName[Z, Field6, A6]
+      def field7: Field.WithFieldName[Z, Field7, A7]
+      def field8: Field.WithFieldName[Z, Field8, A8]
+      def field9: Field.WithFieldName[Z, Field9, A9]
+      def field10: Field.WithFieldName[Z, Field10, A10]
+      def field11: Field.WithFieldName[Z, Field11, A11]
+      def field12: Field.WithFieldName[Z, Field12, A12]
+      def field13: Field.WithFieldName[Z, Field13, A13]
+      def field14: Field.WithFieldName[Z, Field14, A14]
+      def field15: Field.WithFieldName[Z, Field15, A15]
+      def field16: Field.WithFieldName[Z, Field16, A16]
+      def field17: Field.WithFieldName[Z, Field17, A17]
+      def field18: Field.WithFieldName[Z, Field18, A18]
+      def field19: Field.WithFieldName[Z, Field19, A19]
+      def field20: Field.WithFieldName[Z, Field20, A20]
+      def field21: Field.WithFieldName[Z, Field21, A21]
       def construct: (
         A1,
         A2,
@@ -7712,7 +7767,7 @@ object Schema extends SchemaEquality {
       field21.get(value)
     )
 
-    override def toString: String = s"CaseClass22(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass21(${fields.mkString(",")})"
     }
 
   object CaseClass21 {
@@ -7744,27 +7799,27 @@ object Schema extends SchemaEquality {
 
         new CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
-          def field7: Field[Z, A7] = field07
-          def field8: Field[Z, A8] = field08
-          def field9: Field[Z, A9] = field09
-          def field10: Field[Z, A10] = field010
-          def field11: Field[Z, A11] = field011
-          def field12: Field[Z, A12] = field012
-          def field13: Field[Z, A13] = field013
-          def field14: Field[Z, A14] = field014
-          def field15: Field[Z, A15] = field015
-          def field16: Field[Z, A16] = field016
-          def field17: Field[Z, A17] = field017
-          def field18: Field[Z, A18] = field018
-          def field19: Field[Z, A19] = field019
-          def field20: Field[Z, A20] = field020
-          def field21: Field[Z, A21] = field021
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
+          def field7: Field.WithFieldName[Z, Field7, A7] = field7.asInstanceOf[Field.WithFieldName[Z, Field7, A7]] 
+          def field8: Field.WithFieldName[Z, Field8, A8] = field8.asInstanceOf[Field.WithFieldName[Z, Field8, A8]] 
+          def field9: Field.WithFieldName[Z, Field9, A9] = field9.asInstanceOf[Field.WithFieldName[Z, Field9, A9]] 
+          def field10: Field.WithFieldName[Z, Field10, A10] = field10.asInstanceOf[Field.WithFieldName[Z, Field10, A10]] 
+          def field11: Field.WithFieldName[Z, Field11, A11] = field11.asInstanceOf[Field.WithFieldName[Z, Field11, A11]] 
+          def field12: Field.WithFieldName[Z, Field12, A12] = field12.asInstanceOf[Field.WithFieldName[Z, Field12, A12]] 
+          def field13: Field.WithFieldName[Z, Field13, A13] = field13.asInstanceOf[Field.WithFieldName[Z, Field13, A13]] 
+          def field14: Field.WithFieldName[Z, Field14, A14] = field14.asInstanceOf[Field.WithFieldName[Z, Field14, A14]] 
+          def field15: Field.WithFieldName[Z, Field15, A15] = field15.asInstanceOf[Field.WithFieldName[Z, Field15, A15]] 
+          def field16: Field.WithFieldName[Z, Field16, A16] = field16.asInstanceOf[Field.WithFieldName[Z, Field16, A16]] 
+          def field17: Field.WithFieldName[Z, Field17, A17] = field17.asInstanceOf[Field.WithFieldName[Z, Field17, A17]] 
+          def field18: Field.WithFieldName[Z, Field18, A18] = field18.asInstanceOf[Field.WithFieldName[Z, Field18, A18]] 
+          def field19: Field.WithFieldName[Z, Field19, A19] = field19.asInstanceOf[Field.WithFieldName[Z, Field19, A19]] 
+          def field20: Field.WithFieldName[Z, Field20, A20] = field20.asInstanceOf[Field.WithFieldName[Z, Field20, A20]] 
+          def field21: Field.WithFieldName[Z, Field21, A21] = field21.asInstanceOf[Field.WithFieldName[Z, Field21, A21]] 
           def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -7773,10 +7828,10 @@ object Schema extends SchemaEquality {
       }
 
     def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](
-        schema: CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], Field[Z, A13], Field[Z, A14], Field[Z, A15], Field[Z, A16], Field[Z, A17], Field[Z, A18], Field[Z, A19], Field[Z, A20], (Field[Z, A21], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z, Chunk[Any]))] =
+        schema: CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]): Some[(TypeId, Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6], Field.WithFieldName[Z, schema.Field7, A7], Field.WithFieldName[Z, schema.Field8, A8], Field.WithFieldName[Z, schema.Field9, A9], Field.WithFieldName[Z, schema.Field10, A10], Field.WithFieldName[Z, schema.Field11, A11], Field.WithFieldName[Z, schema.Field12, A12], Field.WithFieldName[Z, schema.Field13, A13], Field.WithFieldName[Z, schema.Field14, A14], Field.WithFieldName[Z, schema.Field15, A15], Field.WithFieldName[Z, schema.Field16, A16], Field.WithFieldName[Z, schema.Field17, A17], Field.WithFieldName[Z, schema.Field18, A18], Field.WithFieldName[Z, schema.Field19, A19], Field.WithFieldName[Z, schema.Field20, A20], (Field.WithFieldName[Z, schema.Field21, A21], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z, Chunk[Any]))] =
       Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19, schema.field20, (schema.field21, schema.construct, schema.annotations)))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
         F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String,
         F9 <: Singleton with String, F10 <: Singleton with String, F11 <: Singleton with String, F12 <: Singleton with String, F13 <: Singleton with String, 
         F14 <: Singleton with String, F15 <: Singleton with String, F16 <: Singleton with String, F17 <: Singleton with String, F18 <: Singleton with String,
@@ -7927,28 +7982,28 @@ object Schema extends SchemaEquality {
         with Field22
 
       def id: TypeId
-      def field1: Field[Z, A1]
-      def field2: Field[Z, A2]
-      def field3: Field[Z, A3]
-      def field4: Field[Z, A4]
-      def field5: Field[Z, A5]
-      def field6: Field[Z, A6]
-      def field7: Field[Z, A7]
-      def field8: Field[Z, A8]
-      def field9: Field[Z, A9]
-      def field10: Field[Z, A10]
-      def field11: Field[Z, A11]
-      def field12: Field[Z, A12]
-      def field13: Field[Z, A13]
-      def field14: Field[Z, A14]
-      def field15: Field[Z, A15]
-      def field16: Field[Z, A16]
-      def field17: Field[Z, A17]
-      def field18: Field[Z, A18]
-      def field19: Field[Z, A19]
-      def field20: Field[Z, A20]
-      def field21: Field[Z, A21]
-      def field22: Field[Z, A22]
+      def field1: Field.WithFieldName[Z, Field1, A1]
+      def field2: Field.WithFieldName[Z, Field2, A2]
+      def field3: Field.WithFieldName[Z, Field3, A3]
+      def field4: Field.WithFieldName[Z, Field4, A4]
+      def field5: Field.WithFieldName[Z, Field5, A5]
+      def field6: Field.WithFieldName[Z, Field6, A6]
+      def field7: Field.WithFieldName[Z, Field7, A7]
+      def field8: Field.WithFieldName[Z, Field8, A8]
+      def field9: Field.WithFieldName[Z, Field9, A9]
+      def field10: Field.WithFieldName[Z, Field10, A10]
+      def field11: Field.WithFieldName[Z, Field11, A11]
+      def field12: Field.WithFieldName[Z, Field12, A12]
+      def field13: Field.WithFieldName[Z, Field13, A13]
+      def field14: Field.WithFieldName[Z, Field14, A14]
+      def field15: Field.WithFieldName[Z, Field15, A15]
+      def field16: Field.WithFieldName[Z, Field16, A16]
+      def field17: Field.WithFieldName[Z, Field17, A17]
+      def field18: Field.WithFieldName[Z, Field18, A18]
+      def field19: Field.WithFieldName[Z, Field19, A19]
+      def field20: Field.WithFieldName[Z, Field20, A20]
+      def field21: Field.WithFieldName[Z, Field21, A21]
+      def field22: Field.WithFieldName[Z, Field22, A22]
       def construct: (
         A1,
         A2,
@@ -8142,28 +8197,28 @@ object Schema extends SchemaEquality {
 
         new CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z] {
           def id: TypeId = id0
-          def field1: Field[Z, A1] = field01
-          def field2: Field[Z, A2] = field02
-          def field3: Field[Z, A3] = field03
-          def field4: Field[Z, A4] = field04
-          def field5: Field[Z, A5] = field05
-          def field6: Field[Z, A6] = field06
-          def field7: Field[Z, A7] = field07
-          def field8: Field[Z, A8] = field08
-          def field9: Field[Z, A9] = field09
-          def field10: Field[Z, A10] = field010
-          def field11: Field[Z, A11] = field011
-          def field12: Field[Z, A12] = field012
-          def field13: Field[Z, A13] = field013
-          def field14: Field[Z, A14] = field014
-          def field15: Field[Z, A15] = field015
-          def field16: Field[Z, A16] = field016
-          def field17: Field[Z, A17] = field017
-          def field18: Field[Z, A18] = field018
-          def field19: Field[Z, A19] = field019
-          def field20: Field[Z, A20] = field020
-          def field21: Field[Z, A21] = field021
-          def field22: Field[Z, A22] = field022
+          def field1: Field.WithFieldName[Z, Field1, A1] = field1.asInstanceOf[Field.WithFieldName[Z, Field1, A1]] 
+          def field2: Field.WithFieldName[Z, Field2, A2] = field2.asInstanceOf[Field.WithFieldName[Z, Field2, A2]] 
+          def field3: Field.WithFieldName[Z, Field3, A3] = field3.asInstanceOf[Field.WithFieldName[Z, Field3, A3]] 
+          def field4: Field.WithFieldName[Z, Field4, A4] = field4.asInstanceOf[Field.WithFieldName[Z, Field4, A4]] 
+          def field5: Field.WithFieldName[Z, Field5, A5] = field5.asInstanceOf[Field.WithFieldName[Z, Field5, A5]] 
+          def field6: Field.WithFieldName[Z, Field6, A6] = field6.asInstanceOf[Field.WithFieldName[Z, Field6, A6]] 
+          def field7: Field.WithFieldName[Z, Field7, A7] = field7.asInstanceOf[Field.WithFieldName[Z, Field7, A7]] 
+          def field8: Field.WithFieldName[Z, Field8, A8] = field8.asInstanceOf[Field.WithFieldName[Z, Field8, A8]] 
+          def field9: Field.WithFieldName[Z, Field9, A9] = field9.asInstanceOf[Field.WithFieldName[Z, Field9, A9]] 
+          def field10: Field.WithFieldName[Z, Field10, A10] = field10.asInstanceOf[Field.WithFieldName[Z, Field10, A10]] 
+          def field11: Field.WithFieldName[Z, Field11, A11] = field11.asInstanceOf[Field.WithFieldName[Z, Field11, A11]] 
+          def field12: Field.WithFieldName[Z, Field12, A12] = field12.asInstanceOf[Field.WithFieldName[Z, Field12, A12]] 
+          def field13: Field.WithFieldName[Z, Field13, A13] = field13.asInstanceOf[Field.WithFieldName[Z, Field13, A13]] 
+          def field14: Field.WithFieldName[Z, Field14, A14] = field14.asInstanceOf[Field.WithFieldName[Z, Field14, A14]] 
+          def field15: Field.WithFieldName[Z, Field15, A15] = field15.asInstanceOf[Field.WithFieldName[Z, Field15, A15]] 
+          def field16: Field.WithFieldName[Z, Field16, A16] = field16.asInstanceOf[Field.WithFieldName[Z, Field16, A16]] 
+          def field17: Field.WithFieldName[Z, Field17, A17] = field17.asInstanceOf[Field.WithFieldName[Z, Field17, A17]] 
+          def field18: Field.WithFieldName[Z, Field18, A18] = field18.asInstanceOf[Field.WithFieldName[Z, Field18, A18]] 
+          def field19: Field.WithFieldName[Z, Field19, A19] = field19.asInstanceOf[Field.WithFieldName[Z, Field19, A19]] 
+          def field20: Field.WithFieldName[Z, Field20, A20] = field20.asInstanceOf[Field.WithFieldName[Z, Field20, A20]] 
+          def field21: Field.WithFieldName[Z, Field21, A21] = field21.asInstanceOf[Field.WithFieldName[Z, Field21, A21]] 
+          def field22: Field.WithFieldName[Z, Field22, A22] = field22.asInstanceOf[Field.WithFieldName[Z, Field22, A22]]
           def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22) => Z = construct0
           def annotations: Chunk[Any] = annotations0
 
@@ -8172,10 +8227,13 @@ object Schema extends SchemaEquality {
       }
 
     def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](
-        schema: CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z]): Some[(TypeId, Field[Z, A1], Field[Z, A2], Field[Z, A3], Field[Z, A4], Field[Z, A5], Field[Z, A6], Field[Z, A7], Field[Z, A8], Field[Z, A9], Field[Z, A10], Field[Z, A11], Field[Z, A12], Field[Z, A13], Field[Z, A14], Field[Z, A15], Field[Z, A16], Field[Z, A17], Field[Z, A18], Field[Z, A19], Field[Z, A20], (Field[Z, A21], Field[Z, A22], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22) => Z, Chunk[Any]))] =
+        schema: CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z]): 
+          Some[(TypeId, 
+          Field.WithFieldName[Z, schema.Field1, A1], Field.WithFieldName[Z, schema.Field2, A2], Field.WithFieldName[Z, schema.Field3, A3], Field.WithFieldName[Z, schema.Field4, A4], Field.WithFieldName[Z, schema.Field5, A5], Field.WithFieldName[Z, schema.Field6, A6], Field.WithFieldName[Z, schema.Field7, A7], Field.WithFieldName[Z, schema.Field8, A8], Field.WithFieldName[Z, schema.Field9, A9], Field.WithFieldName[Z, schema.Field10, A10], Field.WithFieldName[Z, schema.Field11, A11], Field.WithFieldName[Z, schema.Field12, A12], Field.WithFieldName[Z, schema.Field13, A13], Field.WithFieldName[Z, schema.Field14, A14], Field.WithFieldName[Z, schema.Field15, A15], Field.WithFieldName[Z, schema.Field16, A16], Field.WithFieldName[Z, schema.Field17, A17], Field.WithFieldName[Z, schema.Field18, A18], Field.WithFieldName[Z, schema.Field19, A19], Field.WithFieldName[Z, schema.Field20, A20], 
+          (Field.WithFieldName[Z, schema.Field21, A21], Field.WithFieldName[Z, schema.Field22, A22], (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22) => Z, Chunk[Any]))] =
       Some((schema.id, schema.field1, schema.field2, schema.field3,  schema.field4, schema.field5, schema.field6, schema.field7, schema.field8, schema.field9, schema.field10, schema.field11, schema.field12, schema.field13, schema.field14, schema.field15, schema.field16, schema.field17, schema.field18, schema.field19, schema.field20, (schema.field21, schema.field22, schema.construct, schema.annotations)))
 
-    type WithFieldName[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, F3 <: Singleton with String, 
         F4 <: Singleton with String, F5 <: Singleton with String, F6 <: Singleton with String, F7 <: Singleton with String, F8 <: Singleton with String,
         F9 <: Singleton with String, F10 <: Singleton with String, F11 <: Singleton with String, F12 <: Singleton with String, F13 <: Singleton with String, 
         F14 <: Singleton with String, F15 <: Singleton with String, F16 <: Singleton with String, F17 <: Singleton with String, F18 <: Singleton with String,

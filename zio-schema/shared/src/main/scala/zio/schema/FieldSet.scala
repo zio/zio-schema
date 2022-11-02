@@ -83,12 +83,12 @@ object FieldSet {
   def fromFields(fields: Field.WithFieldName[ListMap[String, _], _ <: Singleton with String, _]*): FieldSet =
     fields.foldRight[FieldSet](FieldSet.Empty)((field, acc) => field :*: acc)
 
-  // def field[A: Schema](name: String): A :*: Empty =
+  // def field[A](name: String)(implicit schema: Schema[A]): A :*: Empty =
   //   Field(
   //     name,
-  //     Schema[A],
-  //     get = (p: ListMap[String, _]) => p(name).asInstanceOf[A],
-  //     set = (p: ListMap[String, _], value: A) => p.updated(name, value)
+  //     schema,
+  //     get0 = (p: ListMap[String, _]) => p(name).asInstanceOf[A],
+  //     set0 = (p: ListMap[String, _], value: A) => p.updated(name, value)
   //   ) :*: Empty
 
 }
