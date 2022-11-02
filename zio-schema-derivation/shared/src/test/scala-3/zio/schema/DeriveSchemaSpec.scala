@@ -3,6 +3,7 @@ package zio.schema
 import scala.annotation.Annotation
 
 import zio.Chunk
+import zio.schema.annotation.fieldName
 import zio.test._
 
 object DeriveSchemaSpec extends ZIOSpecDefault {
@@ -245,6 +246,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
     implicit val schema: Schema[ContainsSchema] = DeriveSchema.gen[ContainsSchema]
   }
 
+  case class RenamedField(@fieldName("renamed") name: String, @fieldName("number") num: Int)
+
+  object RenamedField {
+    implicit lazy val schema: Schema[RenamedField] = DeriveSchema.gen[RenamedField]
+  }
+
   override def spec = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("correctly derives case class") {
@@ -305,13 +312,26 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         val expected: Schema[Status] =
           Schema.Enum3(
             TypeId.parse("zio.schema.DeriveSchemaSpec.Status"),
-            Schema.Case("Ok", DeriveSchema.gen[Status.Ok], (s: Status) => s.asInstanceOf[Status.Ok], (s: Status.Ok) => s.asInstanceOf[Status], (s: Status) => s.isInstanceOf[Status.Ok]),
-            Schema.Case("Failed", DeriveSchema.gen[Status.Failed], (s: Status) => s.asInstanceOf[Status.Failed],(s: Status.Failed) => s.asInstanceOf[Status], (s: Status) => s.isInstanceOf[Status.Failed]),
+            Schema.Case(
+              "Ok",
+              DeriveSchema.gen[Status.Ok],
+              (s: Status) => s.asInstanceOf[Status.Ok],
+              (s: Status.Ok) => s.asInstanceOf[Status],
+              (s: Status) => s.isInstanceOf[Status.Ok]
+            ),
+            Schema.Case(
+              "Failed",
+              DeriveSchema.gen[Status.Failed],
+              (s: Status) => s.asInstanceOf[Status.Failed],
+              (s: Status.Failed) => s.asInstanceOf[Status],
+              (s: Status) => s.isInstanceOf[Status.Failed]
+            ),
             Schema.Case(
               "Pending",
               DeriveSchema.gen[Status.Pending.type],
               (s: Status) => s.asInstanceOf[Status.Pending.type],
-              (s: Status.Pending.type) => s.asInstanceOf[Status], (s: Status) => s.isInstanceOf[Status.Pending.type]
+              (s: Status.Pending.type) => s.asInstanceOf[Status],
+              (s: Status) => s.isInstanceOf[Status.Pending.type]
             )
           )
 
@@ -345,10 +365,34 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
       },
       test("correctly derives schema for case classes that use schema") {
         assert(Schema[ContainsSchema].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
-      }
+      },
 //       test("correctly derives Enum with > 22 cases") {
 //         assert(Schema[Enum23].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
 //      }
+      test("correctly derives renaming field when fieldName annotation is present") {
+        val derived: Schema[RenamedField] = Schema[RenamedField]
+        val expected: Schema[RenamedField] = {
+          Schema.CaseClass2(
+            TypeId.parse("zio.schema.DeriveSchemaSpec.RenamedField"),
+            field1 = Schema.Field(
+              "renamed",
+              Schema.Primitive(StandardType.StringType),
+              Chunk(fieldName("renamed")),
+              get = _.name,
+              set = (a, b: String) => a.copy(name = b)
+            ),
+            field2 = Schema.Field(
+              "number",
+              Schema.Primitive(StandardType.IntType),
+              Chunk(fieldName("number")),
+              get = _.num,
+              set = (a, b: Int) => a.copy(num = b)
+            ),
+            RenamedField.apply
+          )
+        }
+        assert(derived)(hasSameSchema(expected))
+      }
     )
   )
 }

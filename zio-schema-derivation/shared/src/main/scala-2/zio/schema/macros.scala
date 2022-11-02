@@ -160,6 +160,12 @@ object DeriveSchema {
           }
         }
 
+    @nowarn
+    def getFieldName(annotations: List[Tree]): Option[String] =
+      annotations.collectFirst {
+        case q"new fieldName($name1)" => name1.toString
+      }.map(s => s.substring(1, s.length() - 1))
+
     def deriveRecord(tpe: Type, stack: List[Frame[c.type]]): Tree = stack.find(_.tpe =:= tpe) match {
       case Some(Frame(_, ref, _)) =>
         val refIdent = Ident(TermName(ref))
@@ -268,7 +274,8 @@ object DeriveSchema {
                 q" (z: scala.collection.immutable.ListMap[String, _], v: ${termSymbol.typeSignature}) => z.updated($fieldLabel, v)"
 
               if (annotations.nonEmpty)
-                q"zio.schema.Schema.Field.apply(name0 = $fieldLabel, schema0 = $fieldSchema, annotations0 = zio.Chunk.apply[Any](..$annotations), get0 = $getFunc, set0 = $setFunc).asInstanceOf[zio.schema.Schema.Field.WithFieldName[scala.collection.immutable.ListMap[String, _], $singletonType, ${fieldType}]]"
+              val newName = getFieldName(annotations).getOrElse(fieldLabel)
+                q"zio.schema.Schema.Field.apply(name0 = $newName, schema0 = $fieldSchema, annotations0 = zio.Chunk.apply[Any](..$annotations), get0 = $getFunc, set0 = $setFunc).asInstanceOf[zio.schema.Schema.Field.WithFieldName[scala.collection.immutable.ListMap[String, _], $singletonType, ${fieldType}]]"
               else
                 q"zio.schema.Schema.Field.apply(name0 = $fieldLabel, schema0 = $fieldSchema, get0 = $getFunc, set0 = $setFunc).asInstanceOf[zio.schema.Schema.Field.WithFieldName[scala.collection.immutable.ListMap[String, _], $singletonType, ${fieldType}]]"
           }
@@ -340,7 +347,8 @@ object DeriveSchema {
               val setFunc = q" (z: $tpe, v: ${fieldType}) => z.copy($getArg = v)"
 
               if (annotations.nonEmpty)
-                q"""$fieldArg = zio.schema.Schema.Field.apply(name0 = $fieldLabel, schema0 = $fieldSchema, annotations0 = zio.Chunk.apply[Any](..$annotations), validation0 = $validation, get0 = $getFunc, set0 = $setFunc).asInstanceOf[zio.schema.Schema.Field.WithFieldName[$tpe, $singletonType, $fieldType]]"""
+              val newName = getFieldName(annotations).getOrElse(fieldLabel)
+                q"""$fieldArg = zio.schema.Schema.Field.apply(name0 = $newName, schema0 = $fieldSchema, annotations0 = zio.Chunk.apply[Any](..$annotations), validation0 = $validation, get0 = $getFunc, set0 = $setFunc).asInstanceOf[zio.schema.Schema.Field.WithFieldName[$tpe, $singletonType, $fieldType]]"""
               else
                 q"""$fieldArg = zio.schema.Schema.Field.apply(name0 = $fieldLabel, schema0 = $fieldSchema, validation0 = $validation, get0 = $getFunc, set0 = $setFunc).asInstanceOf[zio.schema.Schema.Field.WithFieldName[$tpe, $singletonType, $fieldType]]"""
           }
