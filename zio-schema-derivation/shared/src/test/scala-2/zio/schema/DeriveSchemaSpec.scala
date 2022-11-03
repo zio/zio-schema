@@ -3,8 +3,7 @@ package zio.schema
 import scala.annotation.Annotation
 
 import zio.Chunk
-import zio.schema.annotation.fieldName
-import zio.schema.annotation.optionalField
+import zio.schema.annotation.{ fieldName, optionalField }
 import zio.test._
 
 object DeriveSchemaSpec extends ZIOSpecDefault {
