@@ -2,7 +2,9 @@ package zio.schema.codec
 
 import java.nio.CharBuffer
 import java.nio.charset.StandardCharsets
+
 import scala.collection.immutable.ListMap
+
 import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.internal.{ Lexer, RetractReader, StringMatrix, Write }
