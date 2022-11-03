@@ -36,7 +36,7 @@ object FieldSet {
     override type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Unit
     override type Append[That <: FieldSet]                                         = That
 
-    override type Terms = Any
+    override type Terms      = Any
     override type FieldNames = Any
 
     override def :*:[A](head: Field[ListMap[String, _], A]): FieldSet.Cons[A, Empty] = Cons(head, Empty)

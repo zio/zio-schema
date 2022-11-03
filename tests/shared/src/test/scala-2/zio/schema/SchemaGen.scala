@@ -255,15 +255,15 @@ object SchemaGen {
       name          <- Gen.string(Gen.alphaChar).map(TypeId.parse)
       structure     <- anyStructure(schema, maxFieldCount)
     } yield {
-      val valueGen : Gen[Sized,ListMap[String, _]] = 
+      val valueGen: Gen[Sized, ListMap[String, _]] =
         Gen
-        .const(structure.map(_.name.toString()))
-        .zip(Gen.listOfN(structure.size)(gen))
-        .map {
-          case (labels, values) =>
-            labels.zip(values)
-        }
-        .map(ListMap.empty ++ _)
+          .const(structure.map(_.name.toString()))
+          .zip(Gen.listOfN(structure.size)(gen))
+          .map {
+            case (labels, values) =>
+              labels.zip(values)
+          }
+          .map(ListMap.empty ++ _)
 
       Schema.record(name, structure: _*) -> valueGen
     }

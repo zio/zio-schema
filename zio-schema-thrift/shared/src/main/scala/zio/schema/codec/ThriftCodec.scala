@@ -106,14 +106,20 @@ object ThriftCodec extends BinaryCodec {
 
     val periodStructure: Seq[Schema.Field[Period, Int]] = Seq(
       Schema
-        .Field("years", Schema.Primitive(StandardType.IntType), get0 = _.getYears, set0 = (a, b: Int) => a.withYears(b)),
+        .Field(
+          "years",
+          Schema.Primitive(StandardType.IntType),
+          get0 = _.getYears,
+          set0 = (a, b: Int) => a.withYears(b)
+        ),
       Schema.Field(
         "months",
         Schema.Primitive(StandardType.IntType),
         get0 = _.getMonths,
         set0 = (a, b: Int) => a.withMonths(b)
       ),
-      Schema.Field("days", Schema.Primitive(StandardType.IntType), get0 = _.getDays, set0 = (a, b: Int) => a.withDays(b))
+      Schema
+        .Field("days", Schema.Primitive(StandardType.IntType), get0 = _.getDays, set0 = (a, b: Int) => a.withDays(b))
     )
 
     val yearMonthStructure: Seq[Schema.Field[YearMonth, Int]] =

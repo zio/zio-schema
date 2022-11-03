@@ -4,7 +4,6 @@ import zio._
 import zio.schema.Schema._
 import zio.schema.{ Schema, TypeId }
 import zio.stream.ZPipeline
-import zio.schema.FieldSet
 
 /**
  * Example 2 of ZIO-Schema

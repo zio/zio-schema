@@ -118,7 +118,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
 
     val annotationExprs = TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
     val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) }
-    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].typeSymbol.fullName)})}
+    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
     val args = List(typeInfo) ++ fields ++ Seq(constructor) ++  Seq(annotations)
     val terms = Expr.ofTupleFromSeq(args)
 

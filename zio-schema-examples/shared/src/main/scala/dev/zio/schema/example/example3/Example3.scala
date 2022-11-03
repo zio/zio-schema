@@ -39,7 +39,9 @@ private[example3] object Domain {
 
     val lastname: Field[PersonDTO, String] =
       Field("lastname", primitive[String], get0 = _.lastname, set0 = (p, v) => p.copy(lastname = v))
-    val years: Field[PersonDTO, Int] = Field("years", primitive[Int], get0 = _.years, set0 = (p, v) => p.copy(years = v))
+
+    val years: Field[PersonDTO, Int] =
+      Field("years", primitive[Int], get0 = _.years, set0 = (p, v) => p.copy(years = v))
 
     val schema: Schema[PersonDTO] = CaseClass3[String, String, Int, PersonDTO](
       TypeId.parse("dev.zio.example.example3.Domain.PersonDTO"),

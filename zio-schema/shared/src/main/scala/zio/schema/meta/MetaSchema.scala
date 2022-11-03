@@ -57,7 +57,12 @@ object MetaSchema {
             set0 = (a: Product, value: Chunk[Labelled]) => a.copy(fields = value)
           ),
         field04 = Schema
-          .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
+          .Field(
+            "optional",
+            Schema[Boolean],
+            get0 = _.optional,
+            set0 = (a, value: Boolean) => a.copy(optional = value)
+          ),
         (id: TypeId, path: Chunk[String], fields: Chunk[Labelled], optional: Boolean) =>
           Product(id, NodePath(path), fields, optional)
       )
@@ -81,12 +86,17 @@ object MetaSchema {
             get0 = _.path,
             set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
           ),
-        field02 =
-          Schema.Field("left", Schema[MetaSchema], get0 = _.left, set0 = (a, value: MetaSchema) => a.copy(left = value)),
+        field02 = Schema
+          .Field("left", Schema[MetaSchema], get0 = _.left, set0 = (a, value: MetaSchema) => a.copy(left = value)),
         field03 = Schema
           .Field("right", Schema[MetaSchema], get0 = _.right, set0 = (a, value: MetaSchema) => a.copy(right = value)),
         field04 = Schema
-          .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
+          .Field(
+            "optional",
+            Schema[Boolean],
+            get0 = _.optional,
+            set0 = (a, value: Boolean) => a.copy(optional = value)
+          ),
         (path: Chunk[String], left: MetaSchema, right: MetaSchema, optional: Boolean) =>
           Tuple(NodePath(path), left, right, optional)
       )
@@ -119,7 +129,12 @@ object MetaSchema {
           set0 = (a, value: Chunk[Labelled]) => a.copy(cases = value)
         ),
         field04 = Schema
-          .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
+          .Field(
+            "optional",
+            Schema[Boolean],
+            get0 = _.optional,
+            set0 = (a, value: Boolean) => a.copy(optional = value)
+          ),
         (id: TypeId, path: Chunk[String], fields: Chunk[Labelled], optional: Boolean) =>
           Sum(id, NodePath(path), fields, optional)
       )
@@ -143,12 +158,17 @@ object MetaSchema {
             get0 = _.path,
             set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
           ),
-        field02 =
-          Schema.Field("left", Schema[MetaSchema], get0 = _.left, set0 = (a, value: MetaSchema) => a.copy(left = value)),
+        field02 = Schema
+          .Field("left", Schema[MetaSchema], get0 = _.left, set0 = (a, value: MetaSchema) => a.copy(left = value)),
         field03 = Schema
           .Field("right", Schema[MetaSchema], get0 = _.right, set0 = (a, value: MetaSchema) => a.copy(right = value)),
         field04 = Schema
-          .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
+          .Field(
+            "optional",
+            Schema[Boolean],
+            get0 = _.optional,
+            set0 = (a, value: Boolean) => a.copy(optional = value)
+          ),
         (path: Chunk[String], left: MetaSchema, right: MetaSchema, optional: Boolean) =>
           Either(NodePath(path), left, right, optional)
       )
@@ -242,7 +262,12 @@ object MetaSchema {
           field01 =
             Schema.Field("valueType", Schema[String], get0 = _._1, set0 = (a, value: String) => (value, a._2, a._3)),
           field02 = Schema
-            .Field("path", Schema[String].repeated, get0 = _._2, set0 = (a, value: Chunk[String]) => (a._1, value, a._3)),
+            .Field(
+              "path",
+              Schema[String].repeated,
+              get0 = _._2,
+              set0 = (a, value: Chunk[String]) => (a._1, value, a._3)
+            ),
           field03 =
             Schema.Field("optional", Schema[Boolean], get0 = _._3, set0 = (a, value: Boolean) => (a._1, a._2, value)),
           construct0 = (v, p, o) => (v, p, o)
@@ -284,7 +309,12 @@ object MetaSchema {
             set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
           ),
         field03 = Schema
-          .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
+          .Field(
+            "optional",
+            Schema[Boolean],
+            get0 = _.optional,
+            set0 = (a, value: Boolean) => a.copy(optional = value)
+          ),
         (refPath: Chunk[String], path: Chunk[String], optional: Boolean) =>
           Ref(NodePath(refPath), NodePath(path), optional)
       )
@@ -314,7 +344,12 @@ object MetaSchema {
             set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
           ),
         field03 = Schema
-          .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
+          .Field(
+            "optional",
+            Schema[Boolean],
+            get0 = _.optional,
+            set0 = (a, value: Boolean) => a.copy(optional = value)
+          ),
         (withSchema: Boolean, path: Chunk[String], optional: Boolean) => Dynamic(withSchema, NodePath(path), optional)
       )
   }

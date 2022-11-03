@@ -106,7 +106,8 @@ object ManualConstruction {
 
   val schemaCustomer: Schema[Customer] = Schema.CaseClass2[Person, PaymentMethod, Customer](
     TypeId.parse("dev.zio.schema.example.example1.Domain.Customer"),
-    field01 = Schema.Field[Customer, Person]("person", schemaPerson, get0 = _.person, set0 = (p, v) => p.copy(person = v)),
+    field01 =
+      Schema.Field[Customer, Person]("person", schemaPerson, get0 = _.person, set0 = (p, v) => p.copy(person = v)),
     field02 = Schema.Field[Customer, PaymentMethod](
       "paymentMethod",
       schemaPaymentMethod,

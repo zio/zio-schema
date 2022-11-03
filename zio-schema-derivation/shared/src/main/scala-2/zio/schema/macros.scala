@@ -258,7 +258,6 @@ object DeriveSchema {
         if (arity > 22) {
           val fields = fieldTypes.zip(fieldAnnotations).map {
             case (termSymbol, annotations) =>
-              val singletonType = tq"${termSymbol.name.toString().trim()}.type"
               val fieldType = concreteType(tpe, termSymbol.typeSignature)
               val fieldSchema = directInferSchema(
                 tpe,
@@ -266,18 +265,20 @@ object DeriveSchema {
                 currentFrame +: stack
               )
               val fieldLabel = termSymbol.name.toString.trim
-
               val getFunc =
                 q" (z: scala.collection.immutable.ListMap[String, _]) => z.apply($fieldLabel).asInstanceOf[${termSymbol.typeSignature}]"
 
               val setFunc =
                 q" (z: scala.collection.immutable.ListMap[String, _], v: ${termSymbol.typeSignature}) => z.updated($fieldLabel, v)"
 
-              if (annotations.nonEmpty)
-              val newName = getFieldName(annotations).getOrElse(fieldLabel)
+              if (annotations.nonEmpty) {
+                val newName       = getFieldName(annotations).getOrElse(fieldLabel)
+                val singletonType = tq"${newName}.type"
                 q"zio.schema.Schema.Field.apply(name0 = $newName, schema0 = $fieldSchema, annotations0 = zio.Chunk.apply[Any](..$annotations), get0 = $getFunc, set0 = $setFunc).asInstanceOf[zio.schema.Schema.Field.WithFieldName[scala.collection.immutable.ListMap[String, _], $singletonType, ${fieldType}]]"
-              else
+              } else {
+                val singletonType = tq"${fieldLabel}.type"
                 q"zio.schema.Schema.Field.apply(name0 = $fieldLabel, schema0 = $fieldSchema, get0 = $getFunc, set0 = $setFunc).asInstanceOf[zio.schema.Schema.Field.WithFieldName[scala.collection.immutable.ListMap[String, _], $singletonType, ${fieldType}]]"
+              }
           }
           val fromMap = {
             val casts = fieldTypes.map { termSymbol =>
@@ -332,7 +333,6 @@ object DeriveSchema {
 
           val fieldDefs = fieldTypes.zip(fieldAnnotations).zip(fieldValidations).zipWithIndex.map {
             case (((termSymbol, annotations), validation), idx) =>
-              val singletonType = tq"${termSymbol.name.toString().trim()}.type"
               val fieldType = concreteType(tpe, termSymbol.typeSignature)
               val fieldSchema = directInferSchema(
                 tpe,
@@ -346,11 +346,14 @@ object DeriveSchema {
               val getFunc = q" (z: $tpe) => z.$getArg"
               val setFunc = q" (z: $tpe, v: ${fieldType}) => z.copy($getArg = v)"
 
-              if (annotations.nonEmpty)
-              val newName = getFieldName(annotations).getOrElse(fieldLabel)
+              if (annotations.nonEmpty) {
+                val newName       = getFieldName(annotations).getOrElse(fieldLabel)
+                val singletonType = tq"${newName}.type"
                 q"""$fieldArg = zio.schema.Schema.Field.apply(name0 = $newName, schema0 = $fieldSchema, annotations0 = zio.Chunk.apply[Any](..$annotations), validation0 = $validation, get0 = $getFunc, set0 = $setFunc).asInstanceOf[zio.schema.Schema.Field.WithFieldName[$tpe, $singletonType, $fieldType]]"""
-              else
+              } else {
+                val singletonType = tq"${fieldLabel}.type"
                 q"""$fieldArg = zio.schema.Schema.Field.apply(name0 = $fieldLabel, schema0 = $fieldSchema, validation0 = $validation, get0 = $getFunc, set0 = $setFunc).asInstanceOf[zio.schema.Schema.Field.WithFieldName[$tpe, $singletonType, $fieldType]]"""
+              }
           }
 
           val constructArgs = fieldTypes.zipWithIndex.map {
@@ -380,8 +383,11 @@ object DeriveSchema {
                 constructExpr
               )
 
-          val typeArgsWithFields = fieldTypes.map { ft =>
-            tq"${ft.name.toString().trim()}.type"
+          val typeArgsWithFields = fieldTypes.zip(fieldAnnotations).map {
+            case (termSymbol, annotations) if annotations.nonEmpty =>
+              tq"${getFieldName(annotations).getOrElse(termSymbol.name.toString.trim)}.type"
+            case (termSymbol, _) =>
+              tq"${termSymbol.name.toString.trim}.type"
           } ++ typeArgs
 
           fieldTypes.size match {

@@ -16,7 +16,8 @@ private[example4] object Domain {
   object WebPerson {
 
     val name: Schema.Field[WebPerson, String] =
-      Schema.Field[WebPerson, String]("name", Schema.primitive[String], get0 = _.name, set0 = (p, v) => p.copy(name = v))
+      Schema
+        .Field[WebPerson, String]("name", Schema.primitive[String], get0 = _.name, set0 = (p, v) => p.copy(name = v))
 
     val age: Schema.Field[WebPerson, Int] =
       Schema.Field[WebPerson, Int]("age", Schema.primitive[Int], get0 = _.age, set0 = (p, v) => p.copy(age = v))
