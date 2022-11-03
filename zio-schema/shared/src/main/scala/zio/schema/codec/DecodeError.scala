@@ -31,8 +31,6 @@ object DecodeError {
 
   final case class MissingField(value: Schema[_], message: String) extends DecodeError
 
-  final case class GenericMissingField(message: String) extends DecodeError
-
   final case class MalformedField(value: Schema[_], message: String) extends DecodeError
 
   final case class MalformedFieldWithPath(path: Chunk[Any], message: String) extends DecodeError
@@ -43,5 +41,5 @@ object DecodeError {
 
   final case class ExtraFields(fieldName: String, message: String) extends DecodeError
 
-  final case class GenericError(message: String) extends DecodeError
+  final case class EmptyContent(message: String) extends DecodeError
 }

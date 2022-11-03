@@ -11,7 +11,7 @@ import scala.util.{ Failure, Success, Try }
 import org.apache.thrift.protocol._
 import zio.schema._
 import zio.schema.codec.BinaryCodec._
-import zio.schema.codec.DecodeError.{ GenericError, MalformedFieldWithPath }
+import zio.schema.codec.DecodeError.{ EmptyContent, MalformedFieldWithPath }
 import zio.schema.codec.ThriftCodec.Thrift.{
   bigDecimalStructure,
   durationStructure,
@@ -44,7 +44,7 @@ object ThriftCodec extends BinaryCodec {
 
       override def decode(chunk: Chunk[Byte]): Either[DecodeError, A] =
         if (chunk.isEmpty)
-          Left(GenericError("No bytes to decode"))
+          Left(EmptyContent("No bytes to decode"))
         else
           decodeChunk(chunk)
 

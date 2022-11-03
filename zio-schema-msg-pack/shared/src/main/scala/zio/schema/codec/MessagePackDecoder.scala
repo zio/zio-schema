@@ -7,7 +7,7 @@ import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 import scala.util.{ Failure, Success, Try }
 import org.msgpack.core.{ MessagePack, MessageUnpacker }
-import zio.schema.codec.DecodeError.{ GenericError, MalformedFieldWithPath }
+import zio.schema.codec.DecodeError.MalformedFieldWithPath
 import zio.schema.codec.MessagePackDecoder._
 import zio.schema.{ DynamicValueSchema, Schema, StandardType }
 import zio.{ Chunk, ChunkBuilder }

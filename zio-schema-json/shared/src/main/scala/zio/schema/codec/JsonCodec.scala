@@ -15,7 +15,7 @@ import zio.json.{
 }
 import zio.schema._
 import zio.schema.codec.BinaryCodec._
-import zio.schema.codec.DecodeError.{ GenericError, ReadError }
+import zio.schema.codec.DecodeError.ReadError
 import zio.stream.ZPipeline
 import zio.{ Cause, Chunk, ChunkBuilder, NonEmptyChunk, ZIO }
 
@@ -303,7 +303,7 @@ object JsonCodec extends BinaryCodec {
 
     final def decode[A](schema: Schema[A], json: String): Either[DecodeError, A] =
       schemaDecoder(schema).decodeJson(json) match {
-        case Left(value)  => Left(GenericError(value))
+        case Left(value)  => Left(ReadError(Cause.empty, value))
         case Right(value) => Right(value)
       }
 

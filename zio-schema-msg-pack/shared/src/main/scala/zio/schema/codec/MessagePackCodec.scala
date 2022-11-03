@@ -3,10 +3,10 @@ package zio.schema.codec
 import java.math.{ BigInteger, MathContext }
 import java.time.{ Duration, Month, MonthDay, Period, Year, YearMonth }
 import zio.schema.codec.BinaryCodec.{ BinaryDecoder, BinaryEncoder, BinaryStreamDecoder, BinaryStreamEncoder }
-import zio.schema.codec.DecodeError.{ GenericError, MalformedFieldWithPath }
+import zio.schema.codec.DecodeError.ReadError
 import zio.schema.{ Schema, StandardType }
 import zio.stream.ZPipeline
-import zio.{ Chunk, ZIO }
+import zio.{ Cause, Chunk, ZIO }
 
 object MessagePackCodec extends BinaryCodec {
   override def encoderFor[A](schema: Schema[A]): BinaryEncoder[A] = new BinaryEncoder[A] {
@@ -26,7 +26,7 @@ object MessagePackCodec extends BinaryCodec {
 
     override def decode(chunk: Chunk[Byte]): Either[DecodeError, A] =
       if (chunk.isEmpty)
-        Left(GenericError("No bytes to decode"))
+        Left(ReadError(Cause.empty, "No bytes to decode"))
       else
         decodeChunk(chunk)
 
