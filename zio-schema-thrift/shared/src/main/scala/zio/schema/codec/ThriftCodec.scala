@@ -4,11 +4,14 @@ import java.math.{ BigInteger, MathContext }
 import java.nio.ByteBuffer
 import java.time._
 import java.util.UUID
+
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 import scala.util.{ Failure, Success, Try }
+
 import org.apache.thrift.protocol._
+
 import zio.schema._
 import zio.schema.annotation.optionalField
 import zio.schema.codec.BinaryCodec._
