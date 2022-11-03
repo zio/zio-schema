@@ -29,6 +29,6 @@ object BinaryCodec {
 
   type BinaryStreamEncoder[A] = ZPipeline[Any, Nothing, A, Byte]
 
-  type BinaryStreamDecoder[A] = ZPipeline[Any, String, Byte, A]
+  type BinaryStreamDecoder[A] = ZPipeline[Any, DecodeError, Byte, A]
 
 }

@@ -2,15 +2,14 @@ package zio.schema.codec
 
 import java.time.format.DateTimeFormatter
 import java.time.{ ZoneId, ZoneOffset }
-
 import scala.collection.immutable.ListMap
-
 import zio.Console._
 import zio._
 import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
+import zio.schema.codec.DecodeError.GenericError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.stream.ZStream
 import zio.test.Assertion._
@@ -690,9 +689,9 @@ object JsonCodecSpec extends ZIOSpecDefault {
     val stream = ZStream
       .fromChunk(charSequenceToByteChunk(json))
       .via(JsonCodec.decoder(schema))
-      .catchAll(ZStream.succeed[String](_))
+      .catchAll(ZStream.succeed[DecodeError](_))
       .runHead
-    assertZIO(stream)(isSome(equalTo(JsonError.render(errors))))
+    assertZIO(stream)(isSome(equalTo(GenericError(JsonError.render(errors)))))
   }
 
   private def assertDecodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {

@@ -763,7 +763,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       },
       test("empty input by non streaming variant") {
         assertZIO(decodeNS(Schema[Int], "").exit)(
-          fails(equalTo("No bytes to decode"))
+          failsWithA[DecodeError]
         )
       },
       test("thrift enum value as an integer") {
@@ -778,8 +778,8 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         for {
           d  <- decode(Record.schemaRecord, "0F").exit
           d2 <- decodeNS(Record.schemaRecord, "0F").exit
-        } yield assert(d)(fails(equalTo("Error at path /: Error reading field begin: MaxMessageSize reached"))) &&
-          assert(d2)(fails(equalTo("Error at path /: Error reading field begin: MaxMessageSize reached")))
+        } yield assert(d)(failsWithA[DecodeError]) &&
+          assert(d2)(failsWithA[DecodeError])
       },
       test("missing value") {
         for {
@@ -795,8 +795,8 @@ object ThriftCodecSpec extends ZIOSpecDefault {
                      p.writeFieldStop()
                    }
           d2 <- decode(Record.schemaRecord, bytes2).exit
-        } yield assert(d)(fails(equalTo("Error at path /value: Missing value"))) &&
-          assert(d2)(fails(equalTo("Error at path /name: Missing value")))
+        } yield assert(d)(failsWithA[DecodeError]) &&
+          assert(d2)(failsWithA[DecodeError])
       },
       test("unable to decode") {
         for {
@@ -807,7 +807,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
                     p.writeFieldStop()
                   }
           d <- decode(Record.schemaRecord, bytes).exit
-        } yield assert(d)(fails(equalTo("Error at path /fieldId:2: Unable to decode Int")))
+        } yield assert(d)(failsWithA[DecodeError])
       },
       test("unknown type") {
         for {
@@ -817,7 +817,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
                     p.writeFieldStop()
                   }
           d <- decode(Record.schemaRecord, bytes).exit
-        } yield assert(d)(fails(startsWithString("Error at path /fieldId:26729")))
+        } yield assert(d)(failsWithA[DecodeError])
       }
     )
   )
@@ -1036,24 +1036,24 @@ object ThriftCodecSpec extends ZIOSpecDefault {
   def encodeNS[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
     ZIO.succeed(ThriftCodec.encode(schema)(input))
 
-  def decode[A](schema: Schema[A], hex: String): ZIO[Any, String, Chunk[A]] =
+  def decode[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, Chunk[A]] =
     ZStream
       .fromChunk(fromHex(hex))
       .via(ThriftCodec.decoder(schema))
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of decode
-  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, String, A] =
-    ZIO.succeed(ThriftCodec.decode(schema)(fromHex(hex))).absolve[String, A]
+  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
+    ZIO.succeed(ThriftCodec.decode(schema)(fromHex(hex))).absolve[DecodeError, A]
 
-  def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
+  def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ZStream
       .succeed(input)
       .via(ThriftCodec.encoder(schema))
       .via(ThriftCodec.decoder(schema))
       .run(ZSink.collectAll)
 
-  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
+  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ZStream
       .succeed(input)
       .via(ThriftCodec.encoder(encodeSchema))
@@ -1061,7 +1061,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, String, A] =
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)
       .tap(value => Console.printLine(s"Input Value: $value").when(print).ignore)
@@ -1070,7 +1070,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       .map(ch => ThriftCodec.decode(schema)(ch))
       .absolve
 
-  def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, A] =
+  def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)
       .map(a => ThriftCodec.encode(encodeSchema)(a))

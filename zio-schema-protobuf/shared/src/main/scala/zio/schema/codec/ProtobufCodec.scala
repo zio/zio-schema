@@ -5,13 +5,19 @@ import java.nio.charset.StandardCharsets
 import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
 import java.util.UUID
-
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
-
 import zio.schema._
 import zio.schema.codec.BinaryCodec._
+import zio.schema.codec.DecodeError.{
+  ExtraFields,
+  GenericError,
+  GenericMissingField,
+  MalformedField,
+  MissingField,
+  RecordMissingField
+}
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZPipeline
 import zio.{ Chunk, ZIO }
@@ -34,7 +40,7 @@ object ProtobufCodec extends BinaryCodec {
   override def decoderFor[A](schema: Schema[A]): BinaryDecoder[A] =
     new BinaryDecoder[A] {
 
-      override def decode(chunk: Chunk[Byte]): Either[String, A] =
+      override def decode(chunk: Chunk[Byte]): Either[DecodeError, A] =
         ProtobufDecoder.decode(schema, chunk)
 
       override def streamDecoder: BinaryStreamDecoder[A] =
@@ -516,7 +522,7 @@ object ProtobufCodec extends BinaryCodec {
       }.getOrElse(Chunk.empty)
   }
 
-  final case class ProtobufDecoder[+A](run: Chunk[Byte] => scala.util.Either[String, (Chunk[Byte], A)]) {
+  final case class ProtobufDecoder[+A](run: Chunk[Byte] => scala.util.Either[DecodeError, (Chunk[Byte], A)]) {
     self =>
 
     def map[B](f: A => B): ProtobufDecoder[B] =
@@ -565,7 +571,7 @@ object ProtobufCodec extends BinaryCodec {
     import ProductDecoder._
     import Protobuf._
 
-    def fail(failure: String): ProtobufDecoder[Nothing] = ProtobufDecoder(_ => Left(failure))
+    def fail(failure: DecodeError): ProtobufDecoder[Nothing] = ProtobufDecoder(_ => Left(failure))
 
     def succeedNow[A](a: A): ProtobufDecoder[A] = ProtobufDecoder(bytes => Right((bytes, a)))
 
@@ -576,12 +582,12 @@ object ProtobufCodec extends BinaryCodec {
     def collectAll[A](chunk: Chunk[ProtobufDecoder[A]]): ProtobufDecoder[Chunk[A]] = ???
 
     def failWhen(cond: Boolean, message: String): ProtobufDecoder[Unit] =
-      if (cond) ProtobufDecoder.fail(message) else ProtobufDecoder.succeed(())
+      if (cond) ProtobufDecoder.fail(GenericError(message)) else ProtobufDecoder.succeed(())
 
     private[codec] val stringDecoder: ProtobufDecoder[String] =
       ProtobufDecoder(bytes => Right((Chunk.empty, new String(bytes.toArray, StandardCharsets.UTF_8))))
 
-    def decode[A](schema: Schema[A], chunk: Chunk[Byte]): scala.util.Either[String, A] =
+    def decode[A](schema: Schema[A], chunk: Chunk[Byte]): scala.util.Either[DecodeError, A] =
       decoder(schema)
         .run(chunk)
         .map(_._2)
@@ -599,7 +605,7 @@ object ProtobufCodec extends BinaryCodec {
         case Schema.Primitive(standardType, _)           => primitiveDecoder(standardType)
         case Schema.Tuple2(left, right, _)               => tupleDecoder(left, right)
         case Schema.Optional(codec, _)                   => optionalDecoder(codec)
-        case Schema.Fail(message, _)                     => fail(message)
+        case Schema.Fail(message, _)                     => fail(GenericError(message))
         case Schema.Either(left, right, _)               => eitherDecoder(left, right)
         case lzy @ Schema.Lazy(_)                        => decoder(lzy.schema)
         // case Schema.Meta(_, _)                                                                 => astDecoder
@@ -673,7 +679,12 @@ object ProtobufCodec extends BinaryCodec {
                 .asInstanceOf[ProtobufDecoder[Z]]
           }
         case (_, fieldNumber) =>
-          fail(s"Failed to decode enumeration. Schema does not contain field number $fieldNumber.")
+          fail(
+            MissingField(
+              cases(fieldNumber - 1).schema,
+              s"Failed to decode enumeration. Schema does not contain field number $fieldNumber."
+            )
+          )
       }
 
     private def recordDecoder[Z](
@@ -702,7 +713,7 @@ object ProtobufCodec extends BinaryCodec {
                   } yield (remainder.updated(fieldName, fieldValue))
               }
             } else {
-              fail(s"Failed to decode record. Schema does not contain field number $fieldNumber.")
+              fail(GenericMissingField(s"Failed to decode record. Schema does not contain field number $fieldNumber."))
             }
         }
 
@@ -714,7 +725,8 @@ object ProtobufCodec extends BinaryCodec {
             case lzy @ Schema.Lazy(_) => decoder(lzy.schema).loop.take(width)
             case _                    => decoder(schema).loop.take(width)
           }
-        case (wt, fieldNumber) => fail(s"Invalid wire type ($wt) or field number ($fieldNumber) for packed sequence")
+        case (wt, fieldNumber) =>
+          fail(MalformedField(schema, s"Invalid wire type ($wt) or field number ($fieldNumber) for packed sequence"))
       }
 
     private def nonPackedSequenceDecoder[A](schema: Schema[A]): ProtobufDecoder[Chunk[A]] =
@@ -725,11 +737,13 @@ object ProtobufCodec extends BinaryCodec {
             case (wt, _) =>
               wt match {
                 case LengthDelimited(width) => decoder(schema).take(width)
-                case _                      => fail(s"Unexpected wire type $wt for non-packed sequence")
+                case _                      => fail(MalformedField(schema, s"Unexpected wire type $wt for non-packed sequence"))
               }
           }.loop.take(width)
         case (wt, fieldNumber) =>
-          fail(s"Invalid wire type ($wt) or field number ($fieldNumber) for non-packed sequence")
+          fail(
+            MalformedField(schema, s"Invalid wire type ($wt) or field number ($fieldNumber) for non-packed sequence")
+          )
       }
 
     private def tupleDecoder[A, B](left: Schema[A], right: Schema[B]): ProtobufDecoder[(A, B)] = {
@@ -744,7 +758,7 @@ object ProtobufCodec extends BinaryCodec {
             keyDecoder.flatMap {
               case (wt, 2) =>
                 elementDecoder(right, wt).map(rightValue => (leftValue, rightValue))
-              case (_, fieldNumber) => fail(s"Invalid field number ($fieldNumber) for tuple")
+              case (_, fieldNumber) => fail(MalformedField(left, s"Invalid field number ($fieldNumber) for tuple"))
             }
           }
         case (wt, 2) =>
@@ -752,10 +766,10 @@ object ProtobufCodec extends BinaryCodec {
             keyDecoder.flatMap {
               case (wt, 1) =>
                 elementDecoder(left, wt).map(leftValue => (leftValue, rightValue))
-              case (_, fieldNumber) => fail(s"Invalid field number ($fieldNumber) for tuple")
+              case (_, fieldNumber) => fail(MalformedField(right, s"Invalid field number ($fieldNumber) for tuple"))
             }
           }
-        case (_, fieldNumber) => fail(s"Invalid field number ($fieldNumber) for tuple")
+        case (_, fieldNumber) => fail(GenericMissingField(s"Invalid field number ($fieldNumber) for tuple"))
       }
     }
 
@@ -763,7 +777,7 @@ object ProtobufCodec extends BinaryCodec {
       keyDecoder.flatMap {
         case (_, fieldNumber) if fieldNumber == 1 => decoder(left).map(Left(_))
         case (_, fieldNumber) if fieldNumber == 2 => decoder(right).map(Right(_))
-        case (_, fieldNumber)                     => fail(s"Invalid field number ($fieldNumber) for either")
+        case (_, fieldNumber)                     => fail(GenericMissingField(s"Invalid field number ($fieldNumber) for either"))
       }
 
     private def optionalDecoder[A](schema: Schema[A]): ProtobufDecoder[Option[A]] =
@@ -771,13 +785,15 @@ object ProtobufCodec extends BinaryCodec {
         case (LengthDelimited(0), 1)     => succeed(None)
         case (LengthDelimited(width), 2) => decoder(schema).take(width).map(Some(_))
         case (_, 2)                      => decoder(schema).map(Some(_))
-        case (_, fieldNumber)            => fail(s"Invalid field number $fieldNumber for option")
+        case (_, fieldNumber)            => fail(MalformedField(schema, s"Invalid field number $fieldNumber for option"))
       }
 
     private def floatDecoder: ProtobufDecoder[Float] =
       ProtobufDecoder(bytes => {
         if (bytes.size < 4) {
-          Left(s"Invalid number of bytes for Float. Expected 4, got ${bytes.size}")
+          Left(
+            MalformedField(Schema.primitive[Float], s"Invalid number of bytes for Float. Expected 4, got ${bytes.size}")
+          )
         } else {
           Right((bytes, ByteBuffer.wrap(bytes.toArray).order(ByteOrder.LITTLE_ENDIAN).getFloat()))
         }
@@ -786,22 +802,40 @@ object ProtobufCodec extends BinaryCodec {
     private def doubleDecoder: ProtobufDecoder[Double] =
       ProtobufDecoder(bytes => {
         if (bytes.size < 8) {
-          Left(s"Invalid number of bytes for Double. Expected 8, got ${bytes.size}")
+          Left(
+            MalformedField(
+              Schema.primitive[Double],
+              s"Invalid number of bytes for Double. Expected 8, got ${bytes.size}"
+            )
+          )
         } else {
           Right((bytes, ByteBuffer.wrap(bytes.toArray).order(ByteOrder.LITTLE_ENDIAN).getDouble()))
         }
       }).take(8)
 
-    private def transformDecoder[A, B](schema: Schema[B], f: B => scala.util.Either[String, A]): ProtobufDecoder[A] =
+    private def transformDecoder[A, B](
+      schema: Schema[B],
+      f: B => scala.util.Either[String, A]
+    ): ProtobufDecoder[A] =
       schema match {
         case Schema.Primitive(typ, _) if typ == StandardType.UnitType =>
           ProtobufDecoder { (chunk: Chunk[Byte]) =>
             f(().asInstanceOf[B]) match {
-              case Left(err) => Left(err)
+              case Left(err) => Left(MalformedField(schema, err))
               case Right(b)  => Right(chunk -> b)
             }
           }
-        case _ => decoder(schema).flatMap(a => ProtobufDecoder(chunk => f(a).map(b => (chunk, b))))
+        case _ =>
+          decoder(schema).flatMap(
+            a =>
+              ProtobufDecoder(
+                chunk =>
+                  f(a).map(b => (chunk, b)) match {
+                    case Left(err)    => Left(MalformedField(schema, err))
+                    case Right(value) => Right(value)
+                  }
+              )
+          )
       }
 
     private def primitiveDecoder[A](standardType: StandardType[A]): ProtobufDecoder[A] =
@@ -830,7 +864,8 @@ object ProtobufCodec extends BinaryCodec {
 
             opt match {
               case Some(value) => succeedNow(value)
-              case None        => fail(s"Invalid big decimal record $data")
+              case None =>
+                fail(MalformedField(Schema.primitive[java.math.BigDecimal], s"Invalid big decimal record $data"))
             }
           }
         case StandardType.BinaryType => binaryDecoder
@@ -839,7 +874,7 @@ object ProtobufCodec extends BinaryCodec {
           stringDecoder.flatMap { uuid =>
             try succeedNow(UUID.fromString(uuid))
             catch {
-              case NonFatal(_) => fail(s"Invalid UUID string $uuid")
+              case NonFatal(_) => fail(MalformedField(Schema.primitive[UUID], s"Invalid UUID string $uuid"))
             }
           }
         case StandardType.DayOfWeekType =>
@@ -898,7 +933,7 @@ object ProtobufCodec extends BinaryCodec {
           stringDecoder.map(OffsetDateTime.parse(_, formatter))
         case StandardType.ZonedDateTimeType(formatter) =>
           stringDecoder.map(ZonedDateTime.parse(_, formatter))
-        case st => fail(s"Unsupported primitive type $st")
+        case st => fail(GenericError(s"Unsupported primitive type $st"))
       }
 
     /**
@@ -911,7 +946,7 @@ object ProtobufCodec extends BinaryCodec {
       varIntDecoder.flatMap { key =>
         val fieldNumber = (key >>> 3).toInt
         if (fieldNumber < 1) {
-          fail(s"Failed decoding key. Invalid field number $fieldNumber")
+          fail(GenericError(s"Failed decoding key. Invalid field number $fieldNumber"))
         } else {
           key & 0x07 match {
             case 0 => succeed((WireType.VarInt, fieldNumber))
@@ -921,7 +956,7 @@ object ProtobufCodec extends BinaryCodec {
             case 3 => succeed((WireType.StartGroup, fieldNumber))
             case 4 => succeed((WireType.EndGroup, fieldNumber))
             case 5 => succeed((WireType.Bit32, fieldNumber))
-            case n => fail(s"Failed decoding key. Unknown wire type $n")
+            case n => fail(GenericError(s"Failed decoding key. Unknown wire type $n"))
           }
         }
       }
@@ -939,11 +974,16 @@ object ProtobufCodec extends BinaryCodec {
       ProtobufDecoder(
         (chunk) =>
           if (chunk.isEmpty) {
-            Left("Failed to decode VarInt. Unexpected end of chunk")
+            Left(MalformedField(Schema.primitive[Long], "Failed to decode VarInt. Unexpected end of chunk"))
           } else {
             val length = chunk.indexWhere(octet => (octet.longValue() & 0x80) != 0x80) + 1
             if (length <= 0) {
-              Left("Failed to decode VarInt. No byte within the range 0 - 127 are present")
+              Left(
+                MalformedField(
+                  Schema.primitive[Long],
+                  "Failed to decode VarInt. No byte within the range 0 - 127 are present"
+                )
+              )
             } else {
               val value = chunk.take(length).foldRight(0L)((octet, v) => (v << 7) + (octet & 0x7F))
               Right((chunk.drop(length), value))
@@ -1002,7 +1042,7 @@ object ProtobufCodec extends BinaryCodec {
                 } yield remainder.updated(fieldNumber - 1, fieldValue)
             }
           } else {
-            fail(s"Failed to decode record. Schema does not contain field number $fieldNumber.")
+            fail(ExtraFields("Unknown", s"Failed to decode record. Schema does not contain field number $fieldNumber."))
           }
       }
 
@@ -1011,7 +1051,7 @@ object ProtobufCodec extends BinaryCodec {
       if (index == buffer.length - 1 && buffer(index) != null)
         succeed(buffer)
       else if (buffer(index) == null)
-        fail(s"Failed to decode record. Missing field number $index.")
+        fail(GenericMissingField(s"Failed to decode record. Missing field number $index."))
       else
         validateBuffer(index + 1, buffer)
 
@@ -1021,7 +1061,7 @@ object ProtobufCodec extends BinaryCodec {
     private[codec] def caseClass1Decoder[A, Z](schema: Schema.CaseClass1[A, Z]): ProtobufDecoder[Z] =
       unsafeDecodeFields(Array.ofDim[Any](1), schema.field).flatMap { buffer =>
         if (buffer(0) == null)
-          fail("Failed to decode record. Missing field 1.")
+          fail(RecordMissingField(schema, schema.field, "Failed to decode record. Missing field 1."))
         else
           succeed(schema.defaultConstruct(buffer(0).asInstanceOf[A]))
       }

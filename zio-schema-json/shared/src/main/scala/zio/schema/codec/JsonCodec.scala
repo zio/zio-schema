@@ -2,23 +2,22 @@ package zio.schema.codec
 
 import java.nio.CharBuffer
 import java.nio.charset.StandardCharsets
-
 import scala.collection.immutable.ListMap
-
 import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.internal.{ Lexer, RetractReader, StringMatrix, Write }
 import zio.json.{
+  JsonFieldDecoder,
+  JsonFieldEncoder,
   JsonCodec => ZJsonCodec,
   JsonDecoder => ZJsonDecoder,
-  JsonEncoder => ZJsonEncoder,
-  JsonFieldDecoder,
-  JsonFieldEncoder
+  JsonEncoder => ZJsonEncoder
 }
 import zio.schema._
 import zio.schema.codec.BinaryCodec._
+import zio.schema.codec.DecodeError.{ GenericError, ReadError }
 import zio.stream.ZPipeline
-import zio.{ Chunk, ChunkBuilder, NonEmptyChunk, ZIO }
+import zio.{ Cause, Chunk, ChunkBuilder, NonEmptyChunk, ZIO }
 
 object JsonCodec extends BinaryCodec {
 
@@ -38,7 +37,7 @@ object JsonCodec extends BinaryCodec {
   override def decoderFor[A](schema: Schema[A]): BinaryDecoder[A] =
     new BinaryDecoder[A] {
 
-      override def decode(chunk: Chunk[Byte]): Either[String, A] =
+      override def decode(chunk: Chunk[Byte]): Either[DecodeError, A] =
         JsonDecoder.decode(
           schema,
           new String(chunk.toArray, JsonEncoder.CHARSET)
@@ -46,7 +45,7 @@ object JsonCodec extends BinaryCodec {
 
       override def streamDecoder: BinaryStreamDecoder[A] =
         ZPipeline.fromChannel(
-          ZPipeline.utfDecode.channel.mapError(_.toString)
+          ZPipeline.utfDecode.channel.mapError(cce => ReadError(Cause.fail(cce), cce.getMessage))
         ) >>>
           ZPipeline.groupAdjacentBy[String, Unit](_ => ()) >>>
           ZPipeline.map[(Unit, NonEmptyChunk[String]), String] {
@@ -302,8 +301,11 @@ object JsonCodec extends BinaryCodec {
     import Codecs._
     import ProductDecoder._
 
-    final def decode[A](schema: Schema[A], json: String): Either[String, A] =
-      schemaDecoder(schema).decodeJson(json)
+    final def decode[A](schema: Schema[A], json: String): Either[DecodeError, A] =
+      schemaDecoder(schema).decodeJson(json) match {
+        case Left(value)  => Left(GenericError(value))
+        case Right(value) => Right(value)
+      }
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[codec] def schemaDecoder[A](schema: Schema[A]): ZJsonDecoder[A] = schema match {
