@@ -11,7 +11,7 @@ object types {
   //scalafmt: { maxColumn = 400 }
   sealed trait Arities
 
-  object Arities extends DefaultJavaTimeSchemas {
+  object Arities {
     implicit val durationSchema: Schema[java.time.Duration] = Schema.primitive(StandardType.DurationType)
 
     case object Arity0         extends Arities

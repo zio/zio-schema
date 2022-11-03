@@ -7,7 +7,7 @@ import zio.test.Assertion._
 import zio.test._
 import zio.{ Chunk, Scope, URIO }
 
-object PatchSpec extends ZIOSpecDefault with DefaultJavaTimeSchemas {
+object PatchSpec extends ZIOSpecDefault {
 
   def spec: Spec[TestEnvironment with Scope, Any] = suite("PatchSpec")(
     suite("identity law")(
