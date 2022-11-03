@@ -637,6 +637,12 @@ object ThriftCodec extends Codec {
         Some(state.copy(expectedCount = Some(begin.size)))
     }
 
+    override protected def startReadingOneSequenceElement(
+      state: DecoderState,
+      schema: Schema.Sequence[_, _, _]
+    ): DecoderState =
+      state
+
     override protected def readOneSequenceElement(
       state: DecoderState,
       schema: Schema.Sequence[_, _, _],
@@ -662,6 +668,12 @@ object ThriftCodec extends Codec {
       else
         Some(state.copy(expectedCount = Some(begin.size)))
     }
+
+    override protected def startReadingOneDictionaryElement(
+      state: DecoderState,
+      schema: Schema.Map[_, _]
+    ): DecoderState =
+      state
 
     override protected def readOneDictionaryElement(
       state: DecoderState,
@@ -691,6 +703,9 @@ object ThriftCodec extends Codec {
       if (begin.size == 0) None
       else Some(state.copy(expectedCount = Some(begin.size)))
     }
+
+    override protected def startReadingOneSetElement(state: DecoderState, schema: Schema.Set[_]): DecoderState =
+      state
 
     override protected def readOneSetElement(
       state: DecoderState,

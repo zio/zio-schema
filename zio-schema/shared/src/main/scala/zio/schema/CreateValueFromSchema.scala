@@ -15,14 +15,17 @@ trait CreateValueFromSchema[Target, State] {
   protected def createEnum(state: State, cases: Chunk[Schema.Case[_, _]], index: Int, value: Target): Target
 
   protected def startCreatingSequence(state: State, schema: Schema.Sequence[_, _, _]): Option[State]
+  protected def startReadingOneSequenceElement(state: State, schema: Schema.Sequence[_, _, _]): State
   protected def readOneSequenceElement(state: State, schema: Schema.Sequence[_, _, _], index: Int): (State, Boolean)
   protected def createSequence(state: State, schema: Schema.Sequence[_, _, _], values: Chunk[Target]): Target
 
   protected def startCreatingDictionary(state: State, schema: Schema.Map[_, _]): Option[State]
+  protected def startReadingOneDictionaryElement(state: State, schema: Schema.Map[_, _]): State
   protected def readOneDictionaryElement(state: State, schema: Schema.Map[_, _], index: Int): (State, Boolean)
   protected def createDictionary(state: State, schema: Schema.Map[_, _], values: Chunk[(Target, Target)]): Target
 
   protected def startCreatingSet(state: State, schema: Schema.Set[_]): Option[State]
+  protected def startReadingOneSetElement(state: State, schema: Schema.Set[_]): State
   protected def readOneSetElement(state: State, schema: Schema.Set[_], index: Int): (State, Boolean)
   protected def createSet(state: State, schema: Schema.Set[_], values: Chunk[Target]): Target
 
@@ -412,14 +415,16 @@ trait CreateValueFromSchema[Target, State] {
               elems += elem
 
               stateStack = stateStack.tail
-              val (newState, continue) = readOneSequenceElement(stateStack.head, s, index)
+              val (newState0, continue) = readOneSequenceElement(stateStack.head, s, index)
 
               if (continue) {
                 currentSchema = elementSchema
-                pushState(newState)
+                pushState(startReadingOneSequenceElement(newState0, s))
                 readOne(index + 1)
               } else {
-                finishWith(createSequence(stateStack.head, s, elems.result()))
+                val state = stateStack.head
+                stateStack = stateStack.tail
+                finishWith(createSequence(state, s, elems.result()))
               }
             }
 
@@ -427,7 +432,7 @@ trait CreateValueFromSchema[Target, State] {
           startCreatingSequence(state, s) match {
             case Some(startingState) =>
               pushState(startingState)
-              pushState(startingState)
+              pushState(startReadingOneSequenceElement(startingState, s))
               readOne(0)
             case None =>
               finishWith(createSequence(stateStack.head, s, Chunk.empty))
@@ -445,14 +450,16 @@ trait CreateValueFromSchema[Target, State] {
                 elems += elem
 
                 stateStack = stateStack.tail
-                val (newState, continue) = readOneDictionaryElement(stateStack.head, s, index)
+                val (newState0, continue) = readOneDictionaryElement(stateStack.head, s, index)
 
                 if (continue) {
                   currentSchema = ks
-                  pushState(newState)
+                  pushState(startReadingOneDictionaryElement(newState0, s))
                   readOne(index + 1)
                 } else {
-                  finishWith(createDictionary(stateStack.head, s, elems.result()))
+                  val state = stateStack.head
+                  stateStack = stateStack.tail
+                  finishWith(createDictionary(state, s, elems.result()))
                 }
               }
             }
@@ -461,7 +468,7 @@ trait CreateValueFromSchema[Target, State] {
             case Some(startingState) =>
               currentSchema = ks
               pushState(startingState)
-              pushState(startingState)
+              pushState(startReadingOneDictionaryElement(startingState, s))
               readOne(0)
             case None =>
               finishWith(createDictionary(stateStack.head, s, Chunk.empty))
@@ -475,14 +482,16 @@ trait CreateValueFromSchema[Target, State] {
               elems += elem
 
               stateStack = stateStack.tail
-              val (newState, continue) = readOneSetElement(stateStack.head, s, index)
+              val (newState0, continue) = readOneSetElement(stateStack.head, s, index)
 
               if (continue) {
                 currentSchema = as
-                pushState(newState)
+                pushState(startReadingOneSetElement(newState0, s))
                 readOne(index + 1)
               } else {
-                finishWith(createSet(stateStack.head, s, elems.result()))
+                val state = stateStack.head
+                stateStack = stateStack.tail
+                finishWith(createSet(state, s, elems.result()))
               }
             }
 
@@ -490,7 +499,7 @@ trait CreateValueFromSchema[Target, State] {
             case Some(startingState) =>
               currentSchema = as
               pushState(startingState)
-              pushState(startingState)
+              pushState(startReadingOneSetElement(startingState, s))
               readOne(0)
             case None =>
               finishWith(createSet(stateStack.head, s, Chunk.empty))
@@ -518,8 +527,8 @@ trait CreateValueFromSchema[Target, State] {
           currentSchema = s.left
           pushState(startCreatingTuple(state, s))
           push { left =>
-            val newState = startReadingSecondTupleElement(stateStack.head, s)
             stateStack = stateStack.tail
+            val newState = startReadingSecondTupleElement(stateStack.head, s)
             currentSchema = s.right
             pushState(newState)
             push { right =>
@@ -925,6 +934,11 @@ trait CreateValueFromSchemaWithoutState[Target] extends CreateValueFromSchema[Ta
 
   protected def startCreatingSequence(schema: Schema.Sequence[_, _, _]): Option[Unit]
 
+  override protected def startReadingOneSequenceElement(state: Unit, schema: Schema.Sequence[_, _, _]): Unit =
+    startReadingOneSequenceElement(schema)
+
+  protected def startReadingOneSequenceElement(schema: Schema.Sequence[_, _, _]): Unit
+
   override protected def readOneSequenceElement(
     context: Unit,
     schema: Schema.Sequence[_, _, _],
@@ -955,6 +969,11 @@ trait CreateValueFromSchemaWithoutState[Target] extends CreateValueFromSchema[Ta
   ): (Unit, Boolean) =
     ((), readOneDictionaryElement(schema, index))
 
+  override protected def startReadingOneDictionaryElement(state: Unit, schema: Schema.Map[_, _]): Unit =
+    startReadingOneDictionaryElement(schema)
+
+  protected def startReadingOneDictionaryElement(schema: Schema.Map[_, _]): Unit
+
   protected def readOneDictionaryElement(schema: Schema.Map[_, _], index: Int): Boolean
 
   override protected def createDictionary(
@@ -970,6 +989,11 @@ trait CreateValueFromSchemaWithoutState[Target] extends CreateValueFromSchema[Ta
     startCreatingSet(schema)
 
   protected def startCreatingSet(schema: Schema.Set[_]): Option[Unit]
+
+  override protected def startReadingOneSetElement(state: Unit, schema: Schema.Set[_]): Unit =
+    startReadingOneSetElement(schema)
+
+  protected def startReadingOneSetElement(schema: Schema.Set[_]): Unit
 
   override protected def readOneSetElement(context: Unit, schema: Schema.Set[_], index: Int): (Unit, Boolean) =
     ((), readOneSetElement(schema, index))

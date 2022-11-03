@@ -149,21 +149,23 @@ object ProtobufCodec extends Codec {
       } else {
         val chunk = value.map {
           case (left, right) =>
-            ??? // TODO
-//            (Decoder.keyDecoder.run(left), Decoder.keyDecoder.run(right)) match {
-//              case (
-//                  Right((leftRemainder, (leftWireType, seqIndex))),
-//                  Right((rightRemainder, (rightWireType, _)))
-//                  ) =>
-//                val data =
-//                  encodeKey(leftWireType, Some(1)) ++
-//                    leftRemainder ++
-//                    encodeKey(rightWireType, Some(2)) ++
-//                    rightRemainder
-//                encodeKey(WireType.LengthDelimited(data.size), Some(seqIndex)) ++ data
-//              case other =>
-//                throw new IllegalStateException(s"Invalid state in processDictionary: $other")
-//            }
+            val leftDecoder  = new Decoder(left)
+            val rightDecoder = new Decoder(right)
+
+            (
+              leftDecoder.keyDecoder(DecoderContext(None, packed = false)),
+              rightDecoder.keyDecoder(DecoderContext(None, packed = false))
+            ) match {
+              case ((leftWireType, seqIndex), (rightWireType, _)) =>
+                val data =
+                  encodeKey(leftWireType, Some(1)) ++
+                    leftDecoder.remainder ++
+                    encodeKey(rightWireType, Some(2)) ++
+                    rightDecoder.remainder
+                encodeKey(WireType.LengthDelimited(data.size), Some(seqIndex)) ++ data
+              case other =>
+                throw new IllegalStateException(s"Invalid state in processDictionary: $other")
+            }
         }.flatten
         val data = encodeKey(
           WireType.LengthDelimited(chunk.size),
@@ -613,29 +615,30 @@ object ProtobufCodec extends Codec {
           throw DecoderException(s"Invalid wire type ($wt) or field number ($fieldNumber) for packed sequence")
       }
 
+    override protected def startReadingOneSequenceElement(
+      context: DecoderContext,
+      schema: Schema.Sequence[_, _, _]
+    ): DecoderContext =
+      if (context.packed)
+        context
+      else {
+        keyDecoder(context) match {
+          case (wt, _) =>
+            wt match {
+              case LengthDelimited(elemWidth) =>
+                context.limitedTo(state, elemWidth)
+              case _ =>
+                throw DecoderException(s"Unexpected wire type $wt for non-packed sequence")
+            }
+        }
+      }
+
     override protected def readOneSequenceElement(
       context: DecoderContext,
       schema: Schema.Sequence[_, _, _],
       index: Int
     ): (DecoderContext, Boolean) =
-      if (state.length(context) > 0) {
-        if (context.packed) {
-          (context, true)
-        } else {
-          keyDecoder(context) match {
-            case (wt, _) =>
-              wt match {
-                case LengthDelimited(elemWidth) =>
-                  (context.limitedTo(state, elemWidth), true)
-                case _ =>
-                  throw DecoderException(s"Unexpected wire type $wt for non-packed sequence")
-
-              }
-          }
-        }
-      } else {
-        (context, false)
-      }
+      (context, state.length(context) > 0)
 
     override protected def createSequence(
       context: DecoderContext,
@@ -657,29 +660,30 @@ object ProtobufCodec extends Codec {
           throw DecoderException(s"Invalid wire type ($wt) or field number ($fieldNumber) for packed sequence")
       }
 
+    override protected def startReadingOneDictionaryElement(
+      context: DecoderContext,
+      schema: Schema.Map[_, _]
+    ): DecoderContext =
+      if (context.packed) {
+        context
+      } else {
+        keyDecoder(context) match {
+          case (wt, _) =>
+            wt match {
+              case LengthDelimited(elemWidth) =>
+                context.limitedTo(state, elemWidth)
+              case _ =>
+                throw DecoderException(s"Unexpected wire type $wt for non-packed sequence")
+            }
+        }
+      }
+
     override protected def readOneDictionaryElement(
       context: DecoderContext,
       schema: Schema.Map[_, _],
       index: Int
     ): (DecoderContext, Boolean) =
-      if (state.length(context) > 0) {
-        if (context.packed) {
-          (context, true)
-        } else {
-          keyDecoder(context) match {
-            case (wt, _) =>
-              wt match {
-                case LengthDelimited(elemWidth) =>
-                  (context.limitedTo(state, elemWidth), true)
-                case _ =>
-                  throw DecoderException(s"Unexpected wire type $wt for non-packed sequence")
-
-              }
-          }
-        }
-      } else {
-        (context, false)
-      }
+      (context, state.length(context) > 0)
 
     override protected def createDictionary(
       context: DecoderContext,
@@ -698,28 +702,27 @@ object ProtobufCodec extends Codec {
           throw DecoderException(s"Invalid wire type ($wt) or field number ($fieldNumber) for packed sequence")
       }
 
+    override protected def startReadingOneSetElement(context: DecoderContext, schema: Schema.Set[_]): DecoderContext =
+      if (context.packed) {
+        context
+      } else {
+        keyDecoder(context) match {
+          case (wt, _) =>
+            wt match {
+              case LengthDelimited(elemWidth) =>
+                context.limitedTo(state, elemWidth)
+              case _ =>
+                throw DecoderException(s"Unexpected wire type $wt for non-packed sequence")
+            }
+        }
+      }
+
     override protected def readOneSetElement(
       context: DecoderContext,
       schema: Schema.Set[_],
       index: Int
     ): (DecoderContext, Boolean) =
-      if (state.length(context) > 0) {
-        if (context.packed) {
-          (context, true)
-        } else {
-          keyDecoder(context) match {
-            case (wt, _) =>
-              wt match {
-                case LengthDelimited(elemWidth) =>
-                  (context.limitedTo(state, elemWidth), true)
-                case _ =>
-                  throw DecoderException(s"Unexpected wire type $wt for non-packed sequence")
-              }
-          }
-        }
-      } else {
-        (context, false)
-      }
+      (context, state.length(context) > 0)
 
     override protected def createSet(context: DecoderContext, schema: Schema.Set[_], values: Chunk[Any]): Any =
       values.toSet
@@ -812,7 +815,7 @@ object ProtobufCodec extends Codec {
      * 8 >>> 3 => 1, 16 >>> 3 => 2, 24 >>> 3 => 3, 32 >>> 3 => 4
      * 0 & 0x07 => 0, 1 & 0x07 => 1, 2 & 0x07 => 2, 9 & 0x07 => 1, 15 & 0x07 => 7
      */
-    private def keyDecoder(context: DecoderContext): (WireType, Int) = {
+    private[codec] def keyDecoder(context: DecoderContext): (WireType, Int) = {
       val key         = varIntDecoder(context)
       val fieldNumber = (key >>> 3).toInt
       if (fieldNumber < 1) {
@@ -891,6 +894,9 @@ object ProtobufCodec extends Codec {
 
     private def binaryDecoder(context: DecoderContext): Chunk[Byte] =
       state.all(context)
+
+    private[codec] def remainder: Chunk[Byte] =
+      state.peek(DecoderContext(None, packed = false))
   }
 
 }
