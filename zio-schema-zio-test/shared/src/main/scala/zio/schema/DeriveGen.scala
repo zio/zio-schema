@@ -482,36 +482,36 @@ object DeriveGen {
 
   def genPrimitive[A](standardType: StandardType[A]): Gen[Sized, A] = {
     val gen = standardType match {
-      case StandardType.UnitType              => Gen.unit
-      case StandardType.StringType            => Gen.string
-      case StandardType.BoolType              => Gen.boolean
-      case StandardType.ByteType              => Gen.byte
-      case StandardType.ShortType             => Gen.short
-      case StandardType.IntType               => Gen.int
-      case StandardType.LongType              => Gen.long
-      case StandardType.FloatType             => Gen.float
-      case StandardType.DoubleType            => Gen.double
-      case StandardType.BinaryType            => Gen.chunkOf1(Gen.byte).map(_.toChunk)
-      case StandardType.CharType              => Gen.char
-      case StandardType.UUIDType              => Gen.uuid
-      case StandardType.BigDecimalType        => Gen.double.map(new java.math.BigDecimal(_))
-      case StandardType.BigIntegerType        => Gen.long.map(java.math.BigInteger.valueOf(_))
-      case StandardType.DayOfWeekType         => Gen.dayOfWeek
-      case StandardType.MonthType             => Gen.month
-      case StandardType.MonthDayType          => Gen.monthDay
-      case StandardType.PeriodType            => Gen.period
-      case StandardType.YearType              => Gen.year
-      case StandardType.YearMonthType         => Gen.yearMonth
-      case StandardType.ZoneIdType            => Gen.zoneId
-      case StandardType.ZoneOffsetType        => Gen.zoneOffset
-      case StandardType.DurationType          => Gen.finiteDuration
-      case StandardType.InstantType(_)        => Gen.instant
-      case StandardType.LocalDateType(_)      => Gen.localDate
-      case StandardType.LocalTimeType(_)      => Gen.localTime
-      case StandardType.LocalDateTimeType(_)  => Gen.localDateTime
-      case StandardType.OffsetTimeType(_)     => Gen.offsetTime
-      case StandardType.OffsetDateTimeType(_) => Gen.offsetDateTime
-      case StandardType.ZonedDateTimeType(_)  => Gen.zonedDateTime
+      case StandardType.UnitType           => Gen.unit
+      case StandardType.StringType         => Gen.string
+      case StandardType.BoolType           => Gen.boolean
+      case StandardType.ByteType           => Gen.byte
+      case StandardType.ShortType          => Gen.short
+      case StandardType.IntType            => Gen.int
+      case StandardType.LongType           => Gen.long
+      case StandardType.FloatType          => Gen.float
+      case StandardType.DoubleType         => Gen.double
+      case StandardType.BinaryType         => Gen.chunkOf1(Gen.byte).map(_.toChunk)
+      case StandardType.CharType           => Gen.char
+      case StandardType.UUIDType           => Gen.uuid
+      case StandardType.BigDecimalType     => Gen.double.map(new java.math.BigDecimal(_))
+      case StandardType.BigIntegerType     => Gen.long.map(java.math.BigInteger.valueOf(_))
+      case StandardType.DayOfWeekType      => Gen.dayOfWeek
+      case StandardType.MonthType          => Gen.month
+      case StandardType.MonthDayType       => Gen.monthDay
+      case StandardType.PeriodType         => Gen.period
+      case StandardType.YearType           => Gen.year
+      case StandardType.YearMonthType      => Gen.yearMonth
+      case StandardType.ZoneIdType         => Gen.zoneId
+      case StandardType.ZoneOffsetType     => Gen.zoneOffset
+      case StandardType.DurationType       => Gen.finiteDuration
+      case StandardType.InstantType        => Gen.instant
+      case StandardType.LocalDateType      => Gen.localDate
+      case StandardType.LocalTimeType      => Gen.localTime
+      case StandardType.LocalDateTimeType  => Gen.localDateTime
+      case StandardType.OffsetTimeType     => Gen.offsetTime
+      case StandardType.OffsetDateTimeType => Gen.offsetDateTime
+      case StandardType.ZonedDateTimeType  => Gen.zonedDateTime
     }
 
     gen.map(_.asInstanceOf[A])
@@ -584,13 +584,13 @@ object DeriveGen {
                     Gen.const(StandardType.ZoneIdType),
                     Gen.const(StandardType.ZoneOffsetType),
                     Gen.const(StandardType.DurationType),
-                    Gen.const(StandardType.InstantType(formatter)),
-                    Gen.const(StandardType.LocalDateType(formatter)),
-                    Gen.const(StandardType.LocalTimeType(formatter)),
-                    Gen.const(StandardType.LocalDateTimeType(formatter)),
-                    Gen.const(StandardType.OffsetTimeType(formatter)),
-                    Gen.const(StandardType.OffsetDateTimeType(formatter)),
-                    Gen.const(StandardType.ZonedDateTimeType(formatter))
+                    Gen.const(StandardType.InstantType),
+                    Gen.const(StandardType.LocalDateType),
+                    Gen.const(StandardType.LocalTimeType),
+                    Gen.const(StandardType.LocalDateTimeType),
+                    Gen.const(StandardType.OffsetTimeType),
+                    Gen.const(StandardType.OffsetDateTimeType),
+                    Gen.const(StandardType.ZonedDateTimeType)
                   )
       optional <- Gen.boolean
     } yield MetaSchema.Value(valueType, path, optional)

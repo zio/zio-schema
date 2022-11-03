@@ -138,36 +138,36 @@ object ProtobufCodec extends Codec {
     }
 
     private def canBePacked(standardType: StandardType[_]): Boolean = standardType match {
-      case StandardType.UnitType              => false
-      case StandardType.StringType            => false
-      case StandardType.BoolType              => true
-      case StandardType.ByteType              => true
-      case StandardType.ShortType             => true
-      case StandardType.IntType               => true
-      case StandardType.LongType              => true
-      case StandardType.FloatType             => true
-      case StandardType.DoubleType            => true
-      case StandardType.BinaryType            => false
-      case StandardType.CharType              => true
-      case StandardType.BigIntegerType        => false
-      case StandardType.BigDecimalType        => false
-      case StandardType.UUIDType              => false
-      case StandardType.DayOfWeekType         => true
-      case StandardType.MonthType             => true
-      case StandardType.MonthDayType          => false
-      case StandardType.PeriodType            => false
-      case StandardType.YearType              => true
-      case StandardType.YearMonthType         => false
-      case StandardType.ZoneIdType            => false
-      case StandardType.ZoneOffsetType        => true
-      case StandardType.DurationType          => true
-      case StandardType.InstantType           => false
-      case StandardType.LocalDateType         => false
-      case StandardType.LocalTimeType         => false
-      case StandardType.LocalDateTimeType     => false
-      case StandardType.OffsetTimeType        => false
-      case StandardType.OffsetDateTimeType    => false
-      case StandardType.ZonedDateTimeType     => false
+      case StandardType.UnitType           => false
+      case StandardType.StringType         => false
+      case StandardType.BoolType           => true
+      case StandardType.ByteType           => true
+      case StandardType.ShortType          => true
+      case StandardType.IntType            => true
+      case StandardType.LongType           => true
+      case StandardType.FloatType          => true
+      case StandardType.DoubleType         => true
+      case StandardType.BinaryType         => false
+      case StandardType.CharType           => true
+      case StandardType.BigIntegerType     => false
+      case StandardType.BigDecimalType     => false
+      case StandardType.UUIDType           => false
+      case StandardType.DayOfWeekType      => true
+      case StandardType.MonthType          => true
+      case StandardType.MonthDayType       => false
+      case StandardType.PeriodType         => false
+      case StandardType.YearType           => true
+      case StandardType.YearMonthType      => false
+      case StandardType.ZoneIdType         => false
+      case StandardType.ZoneOffsetType     => true
+      case StandardType.DurationType       => true
+      case StandardType.InstantType        => false
+      case StandardType.LocalDateType      => false
+      case StandardType.LocalTimeType      => false
+      case StandardType.LocalDateTimeType  => false
+      case StandardType.OffsetTimeType     => false
+      case StandardType.OffsetDateTimeType => false
+      case StandardType.ZonedDateTimeType  => false
     }
   }
 
@@ -410,7 +410,7 @@ object ProtobufCodec extends Codec {
         case (StandardType.DurationType, v: Duration) =>
           encodeRecord(fieldNumber, durationStructure, ListMap("seconds" -> v.getSeconds, "nanos" -> v.getNano))
         case (StandardType.InstantType, v: Instant) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, v.getNano)
+          encodePrimitive(fieldNumber, StandardType.IntType, v.getNano)
         case (StandardType.LocalDateType, v: LocalDate) =>
           encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
         case (StandardType.LocalTimeType, v: LocalTime) =>
@@ -861,20 +861,20 @@ object ProtobufCodec extends Codec {
                   data.getOrElse("nanos", 0).asInstanceOf[Int].toLong
                 )
             )
-        case StandardType.InstantType(formatter) =>
-          stringDecoder.map(v => Instant.from(formatter.parse(v)))
-        case StandardType.LocalDateType(formatter) =>
-          stringDecoder.map(LocalDate.parse(_, formatter))
-        case StandardType.LocalTimeType(formatter) =>
-          stringDecoder.map(LocalTime.parse(_, formatter))
-        case StandardType.LocalDateTimeType(formatter) =>
-          stringDecoder.map(LocalDateTime.parse(_, formatter))
-        case StandardType.OffsetTimeType(formatter) =>
-          stringDecoder.map(OffsetTime.parse(_, formatter))
-        case StandardType.OffsetDateTimeType(formatter) =>
-          stringDecoder.map(OffsetDateTime.parse(_, formatter))
-        case StandardType.ZonedDateTimeType(formatter) =>
-          stringDecoder.map(ZonedDateTime.parse(_, formatter))
+        case StandardType.InstantType =>
+          stringDecoder.map(v => Instant.parse(v))
+        case StandardType.LocalDateType =>
+          stringDecoder.map(LocalDate.parse(_))
+        case StandardType.LocalTimeType =>
+          stringDecoder.map(LocalTime.parse(_))
+        case StandardType.LocalDateTimeType =>
+          stringDecoder.map(LocalDateTime.parse(_))
+        case StandardType.OffsetTimeType =>
+          stringDecoder.map(OffsetTime.parse(_))
+        case StandardType.OffsetDateTimeType =>
+          stringDecoder.map(OffsetDateTime.parse(_))
+        case StandardType.ZonedDateTimeType =>
+          stringDecoder.map(ZonedDateTime.parse(_))
         case st => fail(s"Unsupported primitive type $st")
       }
 

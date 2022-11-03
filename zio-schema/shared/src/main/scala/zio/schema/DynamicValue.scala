@@ -2,7 +2,6 @@ package zio.schema
 
 import java.math.{ BigDecimal, BigInteger }
 import java.time._
-import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 import scala.collection.immutable.ListMap
@@ -1824,25 +1823,25 @@ private[schema] object DynamicValueSchema {
     )
 
   implicit val instantStandardType: StandardType[Instant] =
-    StandardType.InstantType(DateTimeFormatter.ISO_INSTANT)
+    StandardType.InstantType
 
   implicit val localDateStandardType: StandardType[LocalDate] =
-    StandardType.LocalDateType(DateTimeFormatter.ISO_LOCAL_DATE)
+    StandardType.LocalDateType
 
   implicit val localTimeStandardType: StandardType[LocalTime] =
-    StandardType.LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME)
+    StandardType.LocalTimeType
 
   implicit val localDateTimeStandardType: StandardType[LocalDateTime] =
-    StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+    StandardType.LocalDateTimeType
 
   implicit val offsetTimeStandardType: StandardType[OffsetTime] =
-    StandardType.OffsetTimeType(DateTimeFormatter.ISO_OFFSET_TIME)
+    StandardType.OffsetTimeType
 
   implicit val offsetDateTimeStandardType: StandardType[OffsetDateTime] =
-    StandardType.OffsetDateTimeType(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+    StandardType.OffsetDateTimeType
 
   implicit val zonedDateTimeStandardType: StandardType[ZonedDateTime] =
-    StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)
+    StandardType.ZonedDateTimeType
 
   private val errorCase: Schema.Case[DynamicValue, DynamicValue.Error] =
     Schema.Case(

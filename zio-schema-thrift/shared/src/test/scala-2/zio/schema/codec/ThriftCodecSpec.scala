@@ -1,6 +1,5 @@
 package zio.schema.codec
 
-import java.time.format.DateTimeFormatter
 import java.time.{
   DayOfWeek,
   Duration,
@@ -337,30 +336,30 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       test("instants") {
         val value = Instant.now()
         for {
-          ed  <- encodeAndDecode(Primitive(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT)), value)
-          ed2 <- encodeAndDecodeNS(Primitive(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT)), value)
+          ed  <- encodeAndDecode(Primitive(StandardType.InstantType), value)
+          ed2 <- encodeAndDecodeNS(Primitive(StandardType.InstantType), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       test("local dates") {
         val value = LocalDate.now()
         for {
-          ed  <- encodeAndDecode(Primitive(StandardType.LocalDateType(DateTimeFormatter.ISO_LOCAL_DATE)), value)
-          ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalDateType(DateTimeFormatter.ISO_LOCAL_DATE)), value)
+          ed  <- encodeAndDecode(Primitive(StandardType.LocalDateType), value)
+          ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalDateType), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       test("local times") {
         val value = LocalTime.now()
         for {
-          ed  <- encodeAndDecode(Primitive(StandardType.LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME)), value)
-          ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME)), value)
+          ed  <- encodeAndDecode(Primitive(StandardType.LocalTimeType), value)
+          ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalTimeType), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       test("local date times") {
         val value = LocalDateTime.now()
         for {
-          ed <- encodeAndDecode(Primitive(StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME)), value)
+          ed <- encodeAndDecode(Primitive(StandardType.LocalDateTimeType), value)
           ed2 <- encodeAndDecodeNS(
-                  Primitive(StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME)),
+                  Primitive(StandardType.LocalDateTimeType),
                   value
                 )
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
@@ -368,20 +367,20 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       test("offset times") {
         val value = OffsetTime.now()
         for {
-          ed  <- encodeAndDecode(Primitive(StandardType.OffsetTimeType(DateTimeFormatter.ISO_OFFSET_TIME)), value)
-          ed2 <- encodeAndDecodeNS(Primitive(StandardType.OffsetTimeType(DateTimeFormatter.ISO_OFFSET_TIME)), value)
+          ed  <- encodeAndDecode(Primitive(StandardType.OffsetTimeType), value)
+          ed2 <- encodeAndDecodeNS(Primitive(StandardType.OffsetTimeType), value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       test("offset date times") {
         val value            = OffsetDateTime.now()
-        val offsetDateSchema = Primitive(StandardType.OffsetDateTimeType(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+        val offsetDateSchema = Primitive(StandardType.OffsetDateTimeType)
         for {
           ed  <- encodeAndDecode(offsetDateSchema, value)
           ed2 <- encodeAndDecodeNS(offsetDateSchema, value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       test("zoned date times") {
-        val zoneSchema = Primitive(StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+        val zoneSchema = Primitive(StandardType.ZonedDateTimeType)
         val now        = ZonedDateTime.now()
         for {
           ed  <- encodeAndDecode(zoneSchema, now)
@@ -671,7 +670,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         },
         test("dynamic instant") {
           check(
-            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.InstantType)
           ) { dynamicValue =>
             assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
@@ -679,7 +678,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         test("dynamic zoned date time") {
           check(
             DynamicValueGen.anyPrimitiveDynamicValue(
-              StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)
+              StandardType.ZonedDateTimeType
             )
           ) { dynamicValue =>
             assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))

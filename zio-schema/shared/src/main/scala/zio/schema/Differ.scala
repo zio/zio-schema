@@ -1,7 +1,6 @@
 package zio.schema
 
 import java.math.{ BigInteger, MathContext }
-import java.time.format.DateTimeFormatter
 import java.time.temporal.{ ChronoField, ChronoUnit }
 import java.time.{
   DayOfWeek,
@@ -241,23 +240,23 @@ object Differ {
             Right(ZoneId.of(s))
           } catch { case e: Throwable => Left(s"$s is not a valid ZoneId: ${e.getMessage}") }
       )
-    case Schema.Primitive(StandardType.DayOfWeekType, _)               => dayOfWeek
-    case Schema.Primitive(StandardType.PeriodType, _)                  => period
-    case Schema.Primitive(StandardType.MonthType, _)                   => month
-    case Schema.Primitive(StandardType.MonthDayType, _)                => monthDay
-    case Schema.Primitive(StandardType.YearType, _)                    => year
-    case Schema.Primitive(StandardType.YearMonthType, _)               => yearMonth
-    case Schema.Primitive(tpe @ StandardType.LocalDateType, _)         => localDate
-    case Schema.Primitive(tpe @ StandardType.InstantType, _)           => instant
-    case Schema.Primitive(StandardType.DurationType, _)                => duration
-    case Schema.Primitive(tpe @ StandardType.LocalTimeType, _)         => localTime
-    case Schema.Primitive(tpe @ StandardType.LocalDateTimeType, _)     => localDateTime
-    case Schema.Primitive(tpe @ StandardType.OffsetTimeType, _)        => offsetTime
-    case Schema.Primitive(tpe @ StandardType.OffsetDateTimeType, _)    => offsetDateTime
-    case Schema.Primitive(StandardType.ZonedDateTimeType, _)           => zonedDateTime
-    case Schema.Primitive(StandardType.ZoneOffsetType, _)              => zoneOffset
-    case Schema.Tuple2(leftSchema, rightSchema, _)                     => fromSchema(leftSchema) <*> fromSchema(rightSchema)
-    case Schema.Optional(schema, _)                                    => fromSchema(schema).optional
+    case Schema.Primitive(StandardType.DayOfWeekType, _)      => dayOfWeek
+    case Schema.Primitive(StandardType.PeriodType, _)         => period
+    case Schema.Primitive(StandardType.MonthType, _)          => month
+    case Schema.Primitive(StandardType.MonthDayType, _)       => monthDay
+    case Schema.Primitive(StandardType.YearType, _)           => year
+    case Schema.Primitive(StandardType.YearMonthType, _)      => yearMonth
+    case Schema.Primitive(StandardType.LocalDateType, _)      => localDate
+    case Schema.Primitive(StandardType.InstantType, _)        => instant
+    case Schema.Primitive(StandardType.DurationType, _)       => duration
+    case Schema.Primitive(StandardType.LocalTimeType, _)      => localTime
+    case Schema.Primitive(StandardType.LocalDateTimeType, _)  => localDateTime
+    case Schema.Primitive(StandardType.OffsetTimeType, _)     => offsetTime
+    case Schema.Primitive(StandardType.OffsetDateTimeType, _) => offsetDateTime
+    case Schema.Primitive(StandardType.ZonedDateTimeType, _)  => zonedDateTime
+    case Schema.Primitive(StandardType.ZoneOffsetType, _)     => zoneOffset
+    case Schema.Tuple2(leftSchema, rightSchema, _)            => fromSchema(leftSchema) <*> fromSchema(rightSchema)
+    case Schema.Optional(schema, _)                           => fromSchema(schema).optional
     case Schema.Sequence(schema, g, f, _, _) =>
       fromSchema(schema).chunk.transform(f, g)
     case Schema.Set(s, _)                                                                        => set(s)

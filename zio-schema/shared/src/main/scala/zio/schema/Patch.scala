@@ -104,17 +104,17 @@ object Patch {
               )
               .asInstanceOf[A]
           )
-        case (_: StandardType.LocalDateType, distance :: Nil) =>
+        case (_: StandardType.ZonedDateTimeType.type, distance :: Nil) =>
           Right(LocalDate.ofEpochDay(a.asInstanceOf[LocalDate].toEpochDay - distance).asInstanceOf[A])
-        case (_: StandardType.InstantType, dist1 :: dist2 :: Nil) =>
+        case (_: StandardType.InstantType.type, dist1 :: dist2 :: Nil) =>
           Right(
             Instant
               .ofEpochSecond(a.asInstanceOf[Instant].getEpochSecond - dist1, a.asInstanceOf[Instant].getNano() - dist2)
               .asInstanceOf[A]
           )
-        case (_: StandardType.LocalTimeType, distance :: Nil) =>
+        case (_: StandardType.LocalTimeType.type, distance :: Nil) =>
           Right(LocalTime.ofNanoOfDay(a.asInstanceOf[LocalTime].toNanoOfDay - distance).asInstanceOf[A])
-        case (_: StandardType.LocalDateTimeType, dist1 :: dist2 :: Nil) =>
+        case (_: StandardType.LocalDateTimeType.type, dist1 :: dist2 :: Nil) =>
           Right {
             LocalDateTime
               .of(
@@ -123,7 +123,7 @@ object Patch {
               )
               .asInstanceOf[A]
           }
-        case (_: StandardType.OffsetTimeType, dist1 :: dist2 :: Nil) =>
+        case (_: StandardType.OffsetTimeType.type, dist1 :: dist2 :: Nil) =>
           Right {
             OffsetTime
               .of(
@@ -132,7 +132,7 @@ object Patch {
               )
               .asInstanceOf[A]
           }
-        case (_: StandardType.OffsetDateTimeType, dist1 :: dist2 :: dist3 :: Nil) =>
+        case (_: StandardType.OffsetDateTimeType.type, dist1 :: dist2 :: dist3 :: Nil) =>
           Right {
             OffsetDateTime
               .of(

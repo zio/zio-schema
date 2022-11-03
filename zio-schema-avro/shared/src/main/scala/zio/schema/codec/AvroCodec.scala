@@ -93,7 +93,7 @@ object AvroCodec extends AvroCodec {
                        val dateTimeFormatter = Formatter.fromAvroStringOrDefault(avroSchema, stringType)
                        dateTimeFormatter
                          .map(_.dateTimeFormatter)
-                         .flatMap(formatter => {
+                         .flatMap(_ => {
                            stringType match {
                              case StringType.ZoneId => Right(Schema.primitive(StandardType.ZoneIdType))
                              case StringType.Instant =>
@@ -161,12 +161,12 @@ object AvroCodec extends AvroCodec {
                            case _: LogicalTypes.TimeMillis =>
                              val formatter = Formatter.fromAvroStringOrDefault(avroSchema, avroSchema.getLogicalType)
                              formatter.map(
-                               formatter => Schema.primitive(StandardType.LocalTimeType)
+                               _ => Schema.primitive(StandardType.LocalTimeType)
                              )
                            case _: LogicalTypes.Date =>
                              val formatter = Formatter.fromAvroStringOrDefault(avroSchema, avroSchema.getLogicalType)
                              formatter.map(
-                               formatter => Schema.primitive(StandardType.LocalDateType)
+                               _ => Schema.primitive(StandardType.LocalDateType)
                              )
                            case _ => Left(s"Unsupported int logical type ${avroSchema.getLogicalType.getName}")
                          }
@@ -179,27 +179,27 @@ object AvroCodec extends AvroCodec {
                        case _: LogicalTypes.TimeMicros =>
                          val formatter = Formatter.fromAvroStringOrDefault(avroSchema, avroSchema.getLogicalType)
                          formatter.map(
-                           formatter => Schema.primitive(StandardType.LocalTimeType)
+                           _ => Schema.primitive(StandardType.LocalTimeType)
                          )
                        case _: LogicalTypes.TimestampMillis =>
                          val formatter = Formatter.fromAvroStringOrDefault(avroSchema, avroSchema.getLogicalType)
                          formatter.map(
-                           formatter => Schema.primitive(StandardType.InstantType)
+                           _ => Schema.primitive(StandardType.InstantType)
                          )
                        case _: LogicalTypes.TimestampMicros =>
                          val formatter = Formatter.fromAvroStringOrDefault(avroSchema, avroSchema.getLogicalType)
                          formatter.map(
-                           formatter => Schema.primitive(StandardType.InstantType)
+                           _ => Schema.primitive(StandardType.InstantType)
                          )
                        case _: LogicalTypes.LocalTimestampMillis =>
                          val formatter = Formatter.fromAvroStringOrDefault(avroSchema, avroSchema.getLogicalType)
                          formatter.map(
-                           formatter => Schema.primitive(StandardType.LocalDateTimeType)
+                           _ => Schema.primitive(StandardType.LocalDateTimeType)
                          )
                        case _: LogicalTypes.LocalTimestampMicros =>
                          val formatter = Formatter.fromAvroStringOrDefault(avroSchema, avroSchema.getLogicalType)
                          formatter.map(
-                           formatter => Schema.primitive(StandardType.LocalDateTimeType)
+                           _ => Schema.primitive(StandardType.LocalDateTimeType)
                          )
                        case _ => Left(s"Unsupported long logical type ${avroSchema.getLogicalType.getName}")
                      }
@@ -329,30 +329,47 @@ object AvroCodec extends AvroCodec {
             //  _.addMarkerProp(RecordDiscriminator(RecordType.Duration)).addMarkerProp(chronoUnitMarker))
             Right(SchemaAvro.create(SchemaAvro.Type.RECORD))
 
-          case t: StandardType.InstantType       => toAvroInstant(t.formatter, schema.annotations)
-          case t: StandardType.LocalDateType     => toAvroLocalDate(t.formatter, schema.annotations)
-          case t: StandardType.LocalTimeType     => toAvroLocalTime(t.formatter, schema.annotations)
-          case t: StandardType.LocalDateTimeType => toAvroLocalDateTime(t.formatter, schema.annotations)
-          case StandardType.OffsetTimeType(formatter) =>
+          case StandardType.InstantType =>
+            Right(
+              SchemaAvro
+                .create(SchemaAvro.Type.STRING)
+                .addMarkerProp(StringDiscriminator(StringType.Instant))
+            )
+          case StandardType.LocalDateType =>
+            Right(
+              SchemaAvro
+                .create(SchemaAvro.Type.STRING)
+                .addMarkerProp(StringDiscriminator(StringType.LocalDate))
+            )
+          case StandardType.LocalTimeType =>
+            Right(
+              SchemaAvro
+                .create(SchemaAvro.Type.STRING)
+                .addMarkerProp(StringDiscriminator(StringType.LocalTime))
+            )
+          case StandardType.LocalDateTimeType =>
+            Right(
+              SchemaAvro
+                .create(SchemaAvro.Type.STRING)
+                .addMarkerProp(StringDiscriminator(StringType.LocalDateTime))
+            )
+          case StandardType.OffsetTimeType =>
             Right(
               SchemaAvro
                 .create(SchemaAvro.Type.STRING)
                 .addMarkerProp(StringDiscriminator(StringType.OffsetTime))
-                .addMarkerProp(Formatter(formatter))
             )
-          case StandardType.OffsetDateTimeType(formatter) =>
+          case StandardType.OffsetDateTimeType =>
             Right(
               SchemaAvro
                 .create(SchemaAvro.Type.STRING)
                 .addMarkerProp(StringDiscriminator(StringType.OffsetDateTime))
-                .addMarkerProp(Formatter(formatter))
             )
-          case StandardType.ZonedDateTimeType(formatter) =>
+          case StandardType.ZonedDateTimeType =>
             Right(
               SchemaAvro
                 .create(SchemaAvro.Type.STRING)
                 .addMarkerProp(StringDiscriminator(StringType.ZoneDateTime))
-                .addMarkerProp(Formatter(formatter))
             )
         }
       case Optional(codec, _) =>

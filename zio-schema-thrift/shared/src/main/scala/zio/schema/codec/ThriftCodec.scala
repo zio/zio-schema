@@ -195,21 +195,21 @@ object ThriftCodec extends Codec {
           TType.BYTE
         case StandardType.MonthType =>
           TType.BYTE
-        case StandardType.MonthDayType          => TType.STRUCT
-        case StandardType.PeriodType            => TType.STRUCT
-        case StandardType.YearType              => TType.I32
-        case StandardType.YearMonthType         => TType.STRUCT
-        case StandardType.ZoneIdType            => TType.STRING
-        case StandardType.ZoneOffsetType        => TType.I32
-        case StandardType.DurationType          => TType.STRUCT
-        case StandardType.InstantType           => TType.STRING
-        case StandardType.LocalDateType         => TType.STRING
-        case StandardType.LocalTimeType         => TType.STRING
-        case StandardType.LocalDateTimeType     => TType.STRING
-        case StandardType.OffsetTimeType        => TType.STRING
-        case StandardType.OffsetDateTimeType    => TType.STRING
-        case StandardType.ZonedDateTimeType     => TType.STRING
-        case _                                  => TType.VOID
+        case StandardType.MonthDayType       => TType.STRUCT
+        case StandardType.PeriodType         => TType.STRUCT
+        case StandardType.YearType           => TType.I32
+        case StandardType.YearMonthType      => TType.STRUCT
+        case StandardType.ZoneIdType         => TType.STRING
+        case StandardType.ZoneOffsetType     => TType.I32
+        case StandardType.DurationType       => TType.STRUCT
+        case StandardType.InstantType        => TType.STRING
+        case StandardType.LocalDateType      => TType.STRING
+        case StandardType.LocalTimeType      => TType.STRING
+        case StandardType.LocalDateTimeType  => TType.STRING
+        case StandardType.OffsetTimeType     => TType.STRING
+        case StandardType.OffsetDateTimeType => TType.STRING
+        case StandardType.ZonedDateTimeType  => TType.STRING
+        case _                               => TType.VOID
       }
 
     def writePrimitiveType[A](standardType: StandardType[A], value: A): Unit =
@@ -711,20 +711,20 @@ object ThriftCodec extends Codec {
         case StandardType.DurationType =>
           decodeRecord(path, durationStructure)
             .map(data => Duration.ofSeconds(data.getOrElse(1, 0L).asInstanceOf[Long], data.getOrElse(2, 0L).asInstanceOf[Int].toLong))
-        case StandardType.InstantType(formatter) =>
-          decodeString(path).map(v => Instant.from(formatter.parse(v)))
-        case StandardType.LocalDateType(formatter) =>
-          decodeString(path).map(LocalDate.parse(_, formatter))
-        case StandardType.LocalTimeType(formatter) =>
-          decodeString(path).map(LocalTime.parse(_, formatter))
-        case StandardType.LocalDateTimeType(formatter) =>
-          decodeString(path).map(LocalDateTime.parse(_, formatter))
-        case StandardType.OffsetTimeType(formatter) =>
-          decodeString(path).map(OffsetTime.parse(_, formatter))
-        case StandardType.OffsetDateTimeType(formatter) =>
-          decodeString(path).map(OffsetDateTime.parse(_, formatter))
-        case StandardType.ZonedDateTimeType(formatter) =>
-          decodeString(path).map(ZonedDateTime.parse(_, formatter))
+        case StandardType.InstantType =>
+          decodeString(path).map(v => Instant.parse(v))
+        case StandardType.LocalDateType =>
+          decodeString(path).map(LocalDate.parse(_))
+        case StandardType.LocalTimeType =>
+          decodeString(path).map(LocalTime.parse(_))
+        case StandardType.LocalDateTimeType =>
+          decodeString(path).map(LocalDateTime.parse(_))
+        case StandardType.OffsetTimeType =>
+          decodeString(path).map(OffsetTime.parse(_))
+        case StandardType.OffsetDateTimeType =>
+          decodeString(path).map(OffsetDateTime.parse(_))
+        case StandardType.ZonedDateTimeType =>
+          decodeString(path).map(ZonedDateTime.parse(_))
         case _ => fail(path, s"Unsupported primitive type $standardType")
       }
 

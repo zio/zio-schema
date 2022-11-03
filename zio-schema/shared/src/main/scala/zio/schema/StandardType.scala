@@ -3,7 +3,6 @@ package zio.schema
 import java.math.BigInteger
 import java.time
 import java.time._
-import java.time.format.DateTimeFormatter
 
 import zio.Chunk
 
