@@ -72,7 +72,7 @@ object BuildHelper {
       } else {
         Seq()
       }
-    } ++ Seq("-Ypatmat-exhaust-depth", "off")
+    }
 
     val std2xOptions = Seq(
       "-language:higherKinds",
@@ -84,7 +84,7 @@ object BuildHelper {
       "-Ywarn-numeric-widen",
       "-Ywarn-value-discard",
       "-Xsource:3.0"
-    )
+    ) ++ Seq("-Ypatmat-exhaust-depth", "off")
 
     val optimizerOptions =
       if (optimize)

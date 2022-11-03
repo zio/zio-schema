@@ -4,7 +4,6 @@ import scala.collection.immutable.ListMap
 
 import zio.Chunk
 import zio.schema.Schema._
-import zio.schema.Singleton
 
 sealed trait FieldSet {
   type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]]

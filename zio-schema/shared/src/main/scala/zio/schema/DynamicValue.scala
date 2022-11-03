@@ -1716,6 +1716,7 @@ object DynamicValue {
           )
         )
       case Schema.Dynamic(_) => value
+      case _ => value
     }
 
   def decodeStructure(

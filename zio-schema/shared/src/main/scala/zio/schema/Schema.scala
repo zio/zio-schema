@@ -5,7 +5,6 @@ import java.time.temporal.ChronoUnit
 
 import scala.collection.immutable.ListMap
 
-import zio.schema.Singleton
 import zio.schema.internal.SourceLocation
 import zio.schema.meta._
 import zio.schema.validation._
