@@ -1716,7 +1716,7 @@ object DynamicValue {
           )
         )
       case Schema.Dynamic(_) => value
-      case _ => value
+      case _                 => DynamicValue.NoneValue
     }
 
   def decodeStructure(
