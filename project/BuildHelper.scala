@@ -72,7 +72,7 @@ object BuildHelper {
       } else {
         Seq()
       }
-    }
+    } ++ Seq("-Ypatmat-exhaust-depth", "off")
 
     val std2xOptions = Seq(
       "-language:higherKinds",

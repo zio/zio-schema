@@ -3241,14 +3241,6 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): GenericRecord = copy(annotations = annotations :+ annotation)
   }
 
-  object GenericRecord {
-
-    //TODO return from macro
-    type WithFields[FieldNames0] = GenericRecord {
-      type FieldNames = FieldNames0
-    }
-  }
-
   sealed trait CaseClass0[Z] extends Record[Z] { self =>
 
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Nothing
