@@ -206,13 +206,15 @@ object Schema extends SchemaEquality {
         case enumeration: Enum[_] =>
           enumeration.caseOf(value) match {
             case Some(c) =>
-              loop(c.unsafeDeconstruct(value), c.schema.asInstanceOf[Schema[Any]])
+              loop(c.deconstruct(value), c.schema.asInstanceOf[Schema[Any]])
             case None =>
               Chunk.empty // TODO could consider this a fatal error
           }
         case record: Record[_] =>
-          val fieldValues = record.rawDeconstruct(value)
-          record.structure
+          val fieldValues = Unsafe.unsafe { implicit unsafe =>
+            record.deconstruct(value)
+          }
+          record.fields
             .zip(fieldValues)
             .foldLeft[Chunk[ValidationError]](Chunk.empty) {
               case (acc, (field, fieldValue)) =>
@@ -2578,9 +2580,6 @@ object Schema extends SchemaEquality {
 
     override def makeAccessors(b: AccessorBuilder): caseSet.Accessors[Z, b.Lens, b.Prism, b.Traversal] =
       caseSet.makeAccessors(self, b)
-
-    override def caseOf(z: Z): Option[Case[_, Z]] = // TODO CHECK
-      caseSet.toSeq.find(c => c.deconstruct(z).nonEmpty)
   }
 
   implicit def tuple2[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
@@ -3260,9 +3259,6 @@ object Schema extends SchemaEquality {
 
     override def deconstruct(values: ListMap[String, _])(implicit unsafe: Unsafe): Chunk[Any] =
       Chunk.fromIterable(fields.map(f => values(f.name)))
-
-    override def rawDeconstruct(r: ListMap[String, _]): Chunk[Any] =
-      Chunk.fromIterable(r.values)
 
     /**
      * Returns a new schema that with `annotation`

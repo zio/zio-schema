@@ -225,10 +225,16 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
 
     val tpe = TypeRepr.of[T]
     val s = tpe.typeSymbol.declaredFields
-    val interestingField = s.find (_.name == name).get
-    val ct = tpe.memberType (interestingField)
+    val interestingField = s.find (_.name == name)
 
-    ct.asType match { case '[t] =>
+    val fieldType = interestingField match {
+      case Some(interestingField) =>
+        val ct = tpe.memberType (interestingField)
+        ct.asType
+      case None =>
+        repr.asType
+    }
+    fieldType match { case '[t] =>
       val schema = deriveSchema[t](stack)
       val validations = anns.collect {
         case ann if ann.isExprOf[validate[t]] => ann.asExprOf[validate[t]]
