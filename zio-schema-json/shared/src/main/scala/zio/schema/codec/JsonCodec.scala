@@ -232,6 +232,7 @@ object JsonCodec extends BinaryCodec {
         enumEncoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case Schema.EnumN(_, cs, _) => enumEncoder(cs.toSeq: _*)
       case Schema.Dynamic(_)      => dynamicEncoder(DynamicValueSchema.schema)
+      case _                      => throw new Exception(s"Missing a handler for encoding of schema ${schema.toString()}.")
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -304,6 +305,10 @@ object JsonCodec extends BinaryCodec {
 
     final def decode[A](schema: Schema[A], json: String): Either[String, A] =
       schemaDecoder(schema).decodeJson(json)
+
+    def x[A](dec: ZJsonDecoder[A]): Unit = dec match {
+      case _: ZJsonDecoder[_] =>
+    }
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[codec] def schemaDecoder[A](schema: Schema[A]): ZJsonDecoder[A] = schema match {
@@ -395,6 +400,7 @@ object JsonCodec extends BinaryCodec {
         enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case Schema.EnumN(_, cs, _) => enumDecoder(cs.toSeq: _*)
       case Schema.Dynamic(_)      => dynamicDecoder(DynamicValueSchema.schema)
+      case _                      => throw new Exception(s"Missing a handler for decoding of schema ${schema.toString()}.")
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 

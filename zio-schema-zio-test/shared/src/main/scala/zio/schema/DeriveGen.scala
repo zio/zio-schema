@@ -71,6 +71,7 @@ object DeriveGen {
       case either @ Schema.Either(_, _, _)                                                                                          => genEither(either)
       case lazzy @ Schema.Lazy(_)                                                                                                   => genLazy(lazzy)
       case Schema.Dynamic(_)                                                                                                        => gen(DynamicValueSchema())
+      case _                                                                                                                        => throw new Exception(s"Missing handler for generating value of schema ${schema.toString()}")
     } // scalafmt: { maxColumn = 120 }
 
   private def genEnum[Z](cases: Schema.Case[Z, _]*) =
