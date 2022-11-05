@@ -11,6 +11,7 @@ import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
+import zio.schema.annotation.optionalField
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.stream.ZStream
 import zio.test.Assertion._
@@ -179,6 +180,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
     suite("case class")(
       test("case object") {
         assertDecodes(schemaObject, Singleton, charSequenceToByteChunk("{}"))
+      },
+      test("optional") {
+        assertDecodes(
+          optionalSearchRequestSchema,
+          OptionalSearchRequest("test", 0, 10, Schema[String].defaultValue.getOrElse("")),
+          charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
+        )
       }
     )
   )
@@ -448,6 +456,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
       test("basic") {
         check(searchRequestGen) { value =>
           assertEncodesThenDecodes(searchRequestSchema, value)
+        }
+      },
+      test("optional") {
+        check(optionalSearchRequestGen) { value =>
+          assertEncodesThenDecodes(optionalSearchRequestSchema, value)
         }
       },
       test("object") {
@@ -759,6 +772,17 @@ object JsonCodecSpec extends ZIOSpecDefault {
     implicit val encoder: JsonEncoder[SearchRequest] = DeriveJsonEncoder.gen[SearchRequest]
   }
 
+  case class OptionalSearchRequest(
+    query: String,
+    pageNumber: Int,
+    resultPerPage: Int,
+    @optionalField nextPage: String
+  )
+
+  object OptionalSearchRequest {
+    implicit val encoder: JsonEncoder[OptionalSearchRequest] = DeriveJsonEncoder.gen[OptionalSearchRequest]
+  }
+
   private val searchRequestGen: Gen[Sized, SearchRequest] =
     for {
       query      <- Gen.string
@@ -767,7 +791,17 @@ object JsonCodecSpec extends ZIOSpecDefault {
       nextPage   <- Gen.option(Gen.asciiString)
     } yield SearchRequest(query, pageNumber, results, nextPage)
 
+  private val optionalSearchRequestGen: Gen[Sized, OptionalSearchRequest] =
+    for {
+      query      <- Gen.string
+      pageNumber <- Gen.int(Int.MinValue, Int.MaxValue)
+      results    <- Gen.int(Int.MinValue, Int.MaxValue)
+      nextPage   <- Gen.asciiString
+    } yield OptionalSearchRequest(query, pageNumber, results, nextPage)
+
   val searchRequestSchema: Schema[SearchRequest] = DeriveSchema.gen[SearchRequest]
+
+  val optionalSearchRequestSchema: Schema[OptionalSearchRequest] = DeriveSchema.gen[OptionalSearchRequest]
 
   val recordSchema: Schema[ListMap[String, _]] = Schema.record(
     TypeId.Structural,
