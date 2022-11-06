@@ -1,11 +1,11 @@
 package zio.schema.codec
 
-import zio.{ Cause, Chunk }
+import scala.util.control.NoStackTrace
+
 import zio.schema.Schema
 import zio.schema.Schema.{ Field, Record }
 import zio.schema.validation.Validation
-
-import scala.util.control.NoStackTrace
+import zio.{ Cause, Chunk }
 
 sealed trait DecodeError extends Exception with NoStackTrace { self =>
   def message: String
