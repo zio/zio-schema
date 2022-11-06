@@ -4,27 +4,40 @@ import java.nio.charset.StandardCharsets
 import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
 import scala.util.control.{ NoStackTrace, NonFatal }
-
 import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
 import zio.schema._
+import zio.schema.codec.BinaryCodec.{ BinaryDecoder, BinaryEncoder, BinaryStreamDecoder, BinaryStreamEncoder }
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZPipeline
 import zio.{ Chunk, Unsafe, ZIO }
 
-object ProtobufCodec extends Codec {
-  override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] =
-    ZPipeline.mapChunks(values => values.flatMap(Encoder.process(schema, _)))
+object ProtobufCodec extends BinaryCodec {
 
-  override def encode[A](schema: Schema[A]): A => Chunk[Byte] = a => Encoder.process(schema, a)
+  override def encoderFor[A](schema: Schema[A]): BinaryEncoder[A] =
+    new BinaryEncoder[A] {
 
-  override def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Byte, A] =
-    ZPipeline.mapChunksZIO(chunk => ZIO.fromEither(new Decoder(chunk).decode(schema).map(Chunk(_))))
+      override def encode(value: A): Chunk[Byte] =
+        Encoder.process(schema, value)
 
-  override def decode[A](schema: Schema[A]): Chunk[Byte] => scala.util.Either[String, A] =
-    ch => new Decoder(ch).decode(schema)
+      override def streamEncoder: BinaryStreamEncoder[A] =
+        ZPipeline.mapChunks(
+          _.flatMap(encode)
+        )
+
+    }
+
+  override def decoderFor[A](schema: Schema[A]): BinaryDecoder[A] =
+    new BinaryDecoder[A] {
+
+      override def decode(chunk: Chunk[Byte]): Either[String, A] =
+        new Decoder(chunk).decode(schema)
+
+      override def streamDecoder: BinaryStreamDecoder[A] =
+        ZPipeline.mapChunksZIO(chunk => ZIO.fromEither(new Decoder(chunk).decode(schema).map(Chunk(_))))
+
+    }
 
   object Protobuf {
 

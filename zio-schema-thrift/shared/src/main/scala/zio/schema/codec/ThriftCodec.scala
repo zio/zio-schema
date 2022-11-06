@@ -1,61 +1,76 @@
 package zio.schema.codec
 
+import org.apache.thrift.protocol._
+import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
+import zio.schema._
+import zio.schema.annotation.optionalField
+import zio.schema.codec.BinaryCodec.{ BinaryDecoder, BinaryEncoder, BinaryStreamDecoder, BinaryStreamEncoder }
+import zio.stream.ZPipeline
+import zio.{ Chunk, Unsafe, ZIO }
+
 import java.nio.ByteBuffer
 import java.time._
 import java.util.UUID
-
 import scala.annotation.{ nowarn, tailrec }
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 
-import org.apache.thrift.protocol._
+object ThriftCodec extends BinaryCodec {
 
-import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
-import zio.schema._
-import zio.stream.ZPipeline
-import zio.{ Chunk, Unsafe, ZIO }
+  override def encoderFor[A](schema: Schema[A]): BinaryEncoder[A] =
+    new BinaryEncoder[A] {
 
-object ThriftCodec extends Codec {
-  override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] = {
-    val encoder = new Encoder()
-    ZPipeline.mapChunks { chunk =>
-      chunk.flatMap(encoder.encode(schema, _))
-    }
-  }
+      override def encode(value: A): Chunk[Byte] =
+        new Encoder().encode(schema, value)
 
-  override def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Byte, A] = {
-    val d: Chunk[Byte] => Either[String, A] = decode(schema)
-    ZPipeline.mapChunksZIO { chunk =>
-      ZIO.fromEither(
-        d(chunk).map(Chunk.single)
-      )
-    }
-  }
-
-  override def encode[A](schema: Schema[A]): A => Chunk[Byte] = a => new Encoder().encode(schema, a)
-
-  override def decode[A](schema: Schema[A]): Chunk[Byte] => scala.util.Either[String, A] =
-    ch =>
-      if (ch.isEmpty)
-        Left("No bytes to decode")
-      else {
-        try {
-          Right(
-            new Decoder(ch)
-              .create(schema)
-              .asInstanceOf[A]
-          )
-        } catch {
-          case error: CreateValueFromSchemaError[DecoderContext] =>
-            error.cause match {
-              case error: Error => Left(error.getMessage)
-              case _ =>
-                Left(Error(error.context.path, error.cause.getMessage, error).getMessage)
-            }
-          case NonFatal(err) =>
-            Left(err.getMessage)
+      override def streamEncoder: BinaryStreamEncoder[A] = {
+        val encoder = new Encoder()
+        ZPipeline.mapChunks { chunk =>
+          chunk.flatMap(encoder.encode(schema, _))
         }
-      }: @nowarn
+      }
+
+    }
+
+  override def decoderFor[A](schema: Schema[A]): BinaryDecoder[A] =
+    new BinaryDecoder[A] {
+
+      override def decode(chunk: Chunk[Byte]): Either[String, A] =
+        if (chunk.isEmpty)
+          Left("No bytes to decode")
+        else
+          decodeChunk(chunk)
+
+      override def streamDecoder: BinaryStreamDecoder[A] =
+        ZPipeline.mapChunksZIO { chunk =>
+          ZIO.fromEither(
+            decodeChunk(chunk).map(Chunk(_))
+          )
+        }
+
+      private def decodeChunk(chunk: Chunk[Byte]) =
+        if (chunk.isEmpty)
+          Left("No bytes to decode")
+        else {
+          try {
+            Right(
+              new Decoder(chunk)
+                .create(schema)
+                .asInstanceOf[A]
+            )
+          } catch {
+            case error: CreateValueFromSchemaError[DecoderContext] =>
+              error.cause match {
+                case error: Error => Left(error.getMessage)
+                case _ =>
+                  Left(Error(error.context.path, error.cause.getMessage, error).getMessage)
+              }
+            case NonFatal(err) =>
+              Left(err.getMessage)
+          }
+        }: @nowarn
+
+    }
 
   class Encoder extends MutableSchemaBasedValueProcessor[Unit, Encoder.Context] {
     import Encoder._
@@ -589,8 +604,15 @@ object ThriftCodec extends Codec {
               case Some(value) => value
               case None =>
                 emptyValue(field.schema) match {
-                  case Some(value) => value
-                  case None        => fail(context.copy(path = context.path :+ field.name), s"Missing value")
+                  case Some(value) =>
+                    value
+                  case None =>
+                    val optionalFieldAnnotation = field.annotations.collectFirst({ case a: optionalField => a })
+                    if (optionalFieldAnnotation.isDefined) {
+                      field.schema.defaultValue.toOption.get
+                    } else {
+                      fail(context.copy(path = context.path :+ field.name), s"Missing value")
+                    }
                 }
             }
         }

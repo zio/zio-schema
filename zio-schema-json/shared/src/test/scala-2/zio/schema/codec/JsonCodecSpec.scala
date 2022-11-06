@@ -11,6 +11,8 @@ import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
+import zio.schema.annotation.optionalField
+import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -78,7 +80,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodes(
           Schema.map[Key, Value],
           Map(Key("a", 0) -> Value(0, true), Key("b", 1) -> Value(1, false)),
-          JsonCodec.Encoder.charSequenceToByteChunk(
+          charSequenceToByteChunk(
             """[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]"""
           )
         )
@@ -89,7 +91,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodes(
           Schema.set[Value],
           Set(Value(0, true), Value(1, false)),
-          JsonCodec.Encoder.charSequenceToByteChunk(
+          charSequenceToByteChunk(
             """[{"first":0,"second":true},{"first":1,"second":false}]"""
           )
         )
@@ -100,14 +102,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodes(
           recordSchema,
           ListMap[String, Any]("foo" -> "s", "bar" -> 1),
-          JsonCodec.Encoder.charSequenceToByteChunk("""{"foo":"s","bar":1}""")
+          charSequenceToByteChunk("""{"foo":"s","bar":1}""")
         )
       },
       test("of records") {
         assertEncodes(
           nestedRecordSchema,
           ListMap[String, Any]("l1" -> "s", "l2" -> ListMap("foo" -> "s", "bar" -> 1)),
-          JsonCodec.Encoder.charSequenceToByteChunk("""{"l1":"s","l2":{"foo":"s","bar":1}}""")
+          charSequenceToByteChunk("""{"l1":"s","l2":{"foo":"s","bar":1}}""")
         )
       },
       test("case class") {
@@ -131,14 +133,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodes(
           enumSchema,
           ("foo"),
-          JsonCodec.Encoder.charSequenceToByteChunk("""{"string":"foo"}""")
+          charSequenceToByteChunk("""{"string":"foo"}""")
         )
       },
       test("ADT") {
         assertEncodes(
           Schema[Enumeration],
           Enumeration(StringValue("foo")),
-          JsonCodec.Encoder.charSequenceToByteChunk("""{"oneOf":{"StringValue":{"value":"foo"}}}""")
+          charSequenceToByteChunk("""{"oneOf":{"StringValue":{"value":"foo"}}}""")
         )
       }
     )
@@ -177,7 +179,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
     ),
     suite("case class")(
       test("case object") {
-        assertDecodes(schemaObject, Singleton, JsonCodec.Encoder.charSequenceToByteChunk("{}"))
+        assertDecodes(schemaObject, Singleton, charSequenceToByteChunk("{}"))
+      },
+      test("optional") {
+        assertDecodes(
+          optionalSearchRequestSchema,
+          OptionalSearchRequest("test", 0, 10, Schema[String].defaultValue.getOrElse("")),
+          charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
+        )
       }
     )
   )
@@ -271,7 +280,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodes(
           Schema.map[Key, Value],
           Map(Key("a", 0) -> Value(0, true), Key("b", 1) -> Value(1, false)),
-          JsonCodec.Encoder.charSequenceToByteChunk(
+          charSequenceToByteChunk(
             """[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]"""
           )
         )
@@ -280,7 +289,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodes(
           Schema.set[Value],
           Set(Value(0, true), Value(1, false)),
-          JsonCodec.Encoder.charSequenceToByteChunk(
+          charSequenceToByteChunk(
             """[{"first":0,"second":true},{"first":1,"second":false}]"""
           )
         )
@@ -447,6 +456,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
       test("basic") {
         check(searchRequestGen) { value =>
           assertEncodesThenDecodes(searchRequestSchema, value)
+        }
+      },
+      test("optional") {
+        check(optionalSearchRequestGen) { value =>
+          assertEncodesThenDecodes(optionalSearchRequestSchema, value)
         }
       },
       test("object") {
@@ -693,7 +707,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   private def assertDecodesToError[A](schema: Schema[A], json: CharSequence, errors: List[JsonError]) = {
     val stream = ZStream
-      .fromChunk(JsonCodec.Encoder.charSequenceToByteChunk(json))
+      .fromChunk(charSequenceToByteChunk(json))
       .via(JsonCodec.decoder(schema))
       .catchAll(ZStream.succeed[String](_))
       .runHead
@@ -751,17 +765,28 @@ object JsonCodecSpec extends ZIOSpecDefault {
     JsonEncoder.chunk(keyEncoder.zip(valueEncoder)).contramap[Map[K, V]](m => Chunk.fromIterable(m))
 
   private def jsonEncoded[A](value: A)(implicit enc: JsonEncoder[A]): Chunk[Byte] =
-    JsonCodec.Encoder.charSequenceToByteChunk(enc.encodeJson(value, None))
+    charSequenceToByteChunk(enc.encodeJson(value, None))
 
   private def stringify(s: String): Chunk[Byte] = {
     val encoded = JsonEncoder.string.encodeJson(s, None)
-    JsonCodec.Encoder.charSequenceToByteChunk(encoded)
+    charSequenceToByteChunk(encoded)
   }
 
   case class SearchRequest(query: String, pageNumber: Int, resultPerPage: Int, nextPage: Option[String])
 
   object SearchRequest {
     implicit val encoder: JsonEncoder[SearchRequest] = DeriveJsonEncoder.gen[SearchRequest]
+  }
+
+  case class OptionalSearchRequest(
+    query: String,
+    pageNumber: Int,
+    resultPerPage: Int,
+    @optionalField nextPage: String
+  )
+
+  object OptionalSearchRequest {
+    implicit val encoder: JsonEncoder[OptionalSearchRequest] = DeriveJsonEncoder.gen[OptionalSearchRequest]
   }
 
   private val searchRequestGen: Gen[Sized, SearchRequest] =
@@ -772,7 +797,17 @@ object JsonCodecSpec extends ZIOSpecDefault {
       nextPage   <- Gen.option(Gen.asciiString)
     } yield SearchRequest(query, pageNumber, results, nextPage)
 
+  private val optionalSearchRequestGen: Gen[Sized, OptionalSearchRequest] =
+    for {
+      query      <- Gen.string
+      pageNumber <- Gen.int(Int.MinValue, Int.MaxValue)
+      results    <- Gen.int(Int.MinValue, Int.MaxValue)
+      nextPage   <- Gen.asciiString
+    } yield OptionalSearchRequest(query, pageNumber, results, nextPage)
+
   val searchRequestSchema: Schema[SearchRequest] = DeriveSchema.gen[SearchRequest]
+
+  val optionalSearchRequestSchema: Schema[OptionalSearchRequest] = DeriveSchema.gen[OptionalSearchRequest]
 
   val recordSchema: Schema[ListMap[String, _]] = Schema.record(
     TypeId.Structural,

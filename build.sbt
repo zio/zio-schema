@@ -71,8 +71,11 @@ lazy val root = project
     zioSchemaThriftJS,
     zioSchemaThriftJVM,
     zioSchemaAvroJS,
-    zioSchemaAvroJVM
+    zioSchemaAvroJVM,
+    zioSchemaMsgPackJS,
+    zioSchemaMsgPackJVM
   )
+  .enablePlugins(WebsitePlugin)
 
 lazy val tests = crossProject(JSPlatform, JVMPlatform)
   .in(file("tests"))
@@ -195,6 +198,26 @@ lazy val zioSchemaThriftJS = zioSchemaThrift.js
 
 lazy val zioSchemaThriftJVM = zioSchemaThrift.jvm
 
+lazy val zioSchemaMsgPack = crossProject(JSPlatform, JVMPlatform)
+  .in(file("zio-schema-msg-pack"))
+  .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
+  .settings(stdSettings("zio-schema-msg-pack"))
+  .settings(dottySettings)
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema.msgpack"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.msgpack"                  % "msgpack-core"               % "0.9.3",
+      "org.msgpack"                  % "jackson-dataformat-msgpack" % "0.9.3" % Test,
+      "com.fasterxml.jackson.module" %% "jackson-module-scala"      % "2.13.2" % Test
+    )
+  )
+
+lazy val zioSchemaMsgPackJS = zioSchemaMsgPack.js
+  .settings(scalaJSUseMainModuleInitializer := true)
+
+lazy val zioSchemaMsgPackJVM = zioSchemaMsgPack.jvm
+
 lazy val zioSchemaAvro = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-avro"))
   .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
@@ -265,33 +288,7 @@ lazy val zioSchemaZioTestJS = zioSchemaZioTest.js
 
 lazy val zioSchemaZioTestJVM = zioSchemaZioTest.jvm
 
-lazy val docs = project
-  .in(file("zio-schema-docs"))
-  .settings(
-    publish / skip := true,
-    mdocVariables := Map(
-      "SNAPSHOT_VERSION" -> version.value,
-      "RELEASE_VERSION"  -> previousStableVersion.value.getOrElse("can't find release"),
-      "ORG"              -> organization.value,
-      "NAME"             -> (zioSchemaJVM / name).value,
-      "CROSS_VERSIONS"   -> (zioSchemaJVM / crossScalaVersions).value.mkString(", ")
-    ),
-    moduleName := "zio-schema-docs",
-    scalacOptions -= "-Yno-imports",
-    scalacOptions -= "-Xfatal-warnings",
-    libraryDependencies ++= Seq(
-      "dev.zio" %% "zio" % zioVersion
-    ),
-    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(root),
-    ScalaUnidoc / unidoc / target := (LocalRootProject / baseDirectory).value / "website" / "static" / "api",
-    cleanFiles += (ScalaUnidoc / unidoc / target).value,
-    docusaurusCreateSite := docusaurusCreateSite.dependsOn(Compile / unidoc).value,
-    docusaurusPublishGhpages := docusaurusPublishGhpages.dependsOn(Compile / unidoc).value
-  )
-  .dependsOn(root)
-  .enablePlugins(MdocPlugin, DocusaurusPlugin, ScalaUnidocPlugin)
-
 lazy val benchmarks = project
   .in(file("benchmarks"))
-  .dependsOn(zioSchemaJVM)
+  .dependsOn(zioSchemaJVM, zioSchemaDerivationJVM, zioSchemaProtobufJVM)
   .enablePlugins(JmhPlugin)

@@ -1,53 +1,30 @@
 package zio.schema.codec
 
+import java.time._
 import java.time.format.DateTimeFormatter
-import java.time.{
-  DayOfWeek,
-  Duration,
-  Instant,
-  LocalDate,
-  LocalDateTime,
-  LocalTime,
-  Month,
-  MonthDay,
-  OffsetDateTime,
-  OffsetTime,
-  Period,
-  Year,
-  YearMonth,
-  ZoneId,
-  ZoneOffset,
-  ZonedDateTime
-}
-import java.util
 import java.util.UUID
 
 import scala.collection.immutable.ListMap
 import scala.util.Try
 
-import org.apache.thrift.TSerializable
-import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import org.msgpack.core.{ MessagePack, MessagePacker }
+import org.msgpack.jackson.dataformat.MessagePackFactory
 
 import zio.schema.CaseSet.caseOf
-import zio.schema.annotation.optionalField
-import zio.schema.codec.{ generated => g }
-import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
+import zio.schema._
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
 import zio.{ Chunk, Console, Scope, Task, ZIO }
 
-// TODO: use generators instead of manual encode/decode
-
-/**
- * Testing data were generated with thrift compiler
- *
- * cd zio-schema-thrift/shared/src/test                                                                                                                                                           ±[●●●][thrift]
- * thrift -r --gen java:generated_annotations=undated -out scala resources/testing-data.thrift
- */
-object ThriftCodecSpec extends ZIOSpecDefault {
+object MessagePackCodecSpec extends ZIOSpecDefault {
 
   import Schema._
+
+  val objectMapper = new ObjectMapper(new MessagePackFactory())
+  objectMapper.registerModule(DefaultScalaModule)
 
   def spec: Spec[TestEnvironment with Scope, Any] = suite("ThriftCodec Spec")(
     suite("Should correctly encode")(
@@ -55,101 +32,77 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         for {
           e   <- encode(schemaBasicInt, BasicInt(150)).map(toHex)
           e2  <- encodeNS(schemaBasicInt, BasicInt(150)).map(toHex)
-          res <- write(new g.BasicInt(150))
+          res <- write(BasicInt(150))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
       test("strings") {
         for {
           e   <- encode(schemaBasicString, BasicString("testing")).map(toHex)
           e2  <- encodeNS(schemaBasicString, BasicString("testing")).map(toHex)
-          res <- write(new g.BasicString("testing"))
+          res <- write(BasicString("testing"))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
       test("floats") {
         for {
-          e  <- encode(schemaBasicFloat, BasicFloat(0.001f)).map(toHex)
-          e2 <- encodeNS(schemaBasicFloat, BasicFloat(0.001f)).map(toHex)
-          // there is no float in Thrift
-          res <- write(new g.BasicDouble(0.001f))
+          e   <- encode(schemaBasicFloat, BasicFloat(0.001f)).map(toHex)
+          e2  <- encodeNS(schemaBasicFloat, BasicFloat(0.001f)).map(toHex)
+          res <- write(BasicFloat(0.001f))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
       test("doubles") {
         for {
           e   <- encode(schemaBasicDouble, BasicDouble(0.001)).map(toHex)
           e2  <- encodeNS(schemaBasicDouble, BasicDouble(0.001)).map(toHex)
-          res <- write(new g.BasicDouble(0.001))
+          res <- write(BasicDouble(0.001))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
       test("embedded messages") {
         for {
           e   <- encode(schemaEmbedded, Embedded(BasicInt(150))).map(toHex)
           e2  <- encodeNS(schemaEmbedded, Embedded(BasicInt(150))).map(toHex)
-          res <- write(new g.Embedded(new g.BasicInt(150)))
+          res <- write(Embedded(BasicInt(150)))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
       test("int lists") {
         for {
           e   <- encode(schemaIntList, IntList(List(3, 270, 86942))).map(toHex)
           e2  <- encodeNS(schemaIntList, IntList(List(3, 270, 86942))).map(toHex)
-          res <- write(new g.IntList(util.Arrays.asList[java.lang.Integer](3, 270, 86942)))
+          res <- write(IntList(List(3, 270, 86942)))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
       test("string lists") {
         for {
           e   <- encode(schemaStringList, StringList(List("foo", "bar", "baz"))).map(toHex)
           e2  <- encodeNS(schemaStringList, StringList(List("foo", "bar", "baz"))).map(toHex)
-          res <- write(new g.StringList(util.Arrays.asList[String]("foo", "bar", "baz")))
+          res <- write(StringList(List("foo", "bar", "baz")))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
       test("records") {
         for {
           e   <- encode(Record.schemaRecord, Record("Foo", 123)).map(toHex)
           e2  <- encodeNS(Record.schemaRecord, Record("Foo", 123)).map(toHex)
-          res <- write(new g.Record("Foo", 123))
-        } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
-      },
-      test("enumerations") {
-        for {
-
-          e   <- encode(schemaEnumeration, Enumeration(IntValue(482))).map(toHex)
-          e2  <- encodeNS(schemaEnumeration, Enumeration(IntValue(482))).map(toHex)
-          res <- write(new g.Enumeration(g.OneOf.intValue(new generated.IntValue(482))))
-        } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
-      },
-      test("enums unwrapped") {
-        for {
-          e   <- encode(schemaOneOf, IntValue(482)).map(toHex)
-          e2  <- encodeNS(schemaOneOf, IntValue(482)).map(toHex)
-          res <- write(g.OneOf.intValue(new generated.IntValue(482)))
+          res <- write(Record("Foo", 123))
         } yield assert(e)(equalTo(res)) && assert(e2)(equalTo(res))
       },
       test("map") {
-        val m       = MapValue(scala.collection.immutable.Map("a" -> Record("Foo", 123), "b" -> Record("Bar", 456)))
-        val javaMap = new util.HashMap[String, g.Record]()
-        javaMap.put("a", new g.Record("Foo", 123))
-        javaMap.put("b", new g.Record("Bar", 456))
-        val m2 = new g.MapValue(javaMap)
+        val m = MapValue(scala.collection.immutable.Map("a" -> Record("Foo", 123), "b" -> Record("Bar", 456)))
         for {
           e   <- encodeNS(schemaMapValue, m).map(toHex)
-          res <- write(m2)
+          res <- write(m)
         } yield assert(e)(equalTo(res))
       },
       test("set") {
-        val m       = SetValue(scala.collection.immutable.Set(Record("Foo", 123), Record("Bar", 456)))
-        val javaSet = new util.HashSet[g.Record]()
-        javaSet.add(new g.Record("Foo", 123))
-        javaSet.add(new g.Record("Bar", 456))
-        val m2 = new g.SetValue(javaSet)
+        val m = SetValue(scala.collection.immutable.Set(Record("Foo", 123), Record("Bar", 456)))
         for {
           e   <- encodeNS(schemaSetValue, m).map(toHex)
-          res <- write(m2)
+          res <- write(m)
         } yield assert(e)(equalTo(res))
       },
       test("failure") {
         for {
-          e  <- encode(schemaFail, StringValue("foo")).map(_.size).exit
-          e2 <- encodeNS(schemaFail, StringValue("foo")).map(_.size).exit
-        } yield assert(e)(dies(anything)) && assert(e2)(dies(anything))
+          e  <- encode(schemaFail, StringValue("foo")).map(_.size)
+          e2 <- encodeNS(schemaFail, StringValue("foo")).map(_.size)
+        } yield assert(e)(equalTo(0)) && assert(e2)(equalTo(0))
       }
     ),
     suite("Should successfully encode and decode")(
@@ -178,12 +131,9 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       },
       test("records with arity greater than 22") {
         for {
-          e <- encode(schemaHighArityRecord, HighArity()).map(toHex)
-          res <- write(
-                  new generated.HighArity(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
-                    23, 24)
-                )
-          ed <- encodeAndDecodeNS(schemaHighArityRecord, HighArity())
+          e   <- encode(schemaHighArityRecord, HighArity()).map(toHex)
+          res <- write(HighArity())
+          ed  <- encodeAndDecodeNS(schemaHighArityRecord, HighArity())
         } yield assert(ed)(equalTo(HighArity())) && assert(e)(equalTo(res))
       },
       test("integer") {
@@ -503,40 +453,20 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         val value         = Some(Some(true))
         val valueSomeNone = Some(None)
         val valueNone     = None
+        val scheme        = Schema.option(Schema.option(Schema[Boolean]))
         for {
-          ed          <- encodeAndDecode(Schema.option(Schema.option(Schema[Boolean])), value)
-          ed2         <- encodeAndDecodeNS(Schema.option(Schema.option(Schema[Boolean])), value)
-          edSomeNone  <- encodeAndDecode(Schema.option(Schema.option(Schema[Boolean])), valueSomeNone)
-          edSomeNone2 <- encodeAndDecodeNS(Schema.option(Schema.option(Schema[Boolean])), valueSomeNone)
-          edNone      <- encodeAndDecode(Schema.option(Schema.option(Schema[Boolean])), valueNone)
-          edNone2     <- encodeAndDecodeNS(Schema.option(Schema.option(Schema[Boolean])), valueNone)
+          ed          <- encodeAndDecode(scheme, value)
+          ed2         <- encodeAndDecodeNS(scheme, value)
+          edSomeNone  <- encodeAndDecode(scheme, valueSomeNone)
+          edSomeNone2 <- encodeAndDecodeNS(scheme, valueSomeNone)
+          edNone      <- encodeAndDecode(scheme, valueNone)
+          edNone2     <- encodeAndDecodeNS(scheme, valueNone)
         } yield assert(ed)(equalTo(Chunk(value))) &&
           assert(ed2)(equalTo(value)) &&
           assert(edSomeNone)(equalTo(Chunk(valueSomeNone))) &&
           assert(edSomeNone2)(equalTo(valueSomeNone)) &&
           assert(edNone)(equalTo(Chunk(valueNone))) &&
           assert(edNone2)(equalTo(valueNone))
-      },
-      test("option with omitted field") {
-        // this behavior is useful for decoding classes which were generated by thrift compiler
-        val value = ClassWithOption(123, None)
-        for {
-          bytesFieldOmitted <- writeManually { p =>
-                                p.writeFieldBegin(new TField("number", TType.I32, 1))
-                                p.writeI32(123)
-                                p.writeFieldStop()
-                              }
-          d <- decodeNS(classWithOptionSchema, bytesFieldOmitted)
-          bytesFieldPresent <- writeManually { p =>
-                                p.writeFieldBegin(new TField("number", TType.I32, 1))
-                                p.writeI32(123)
-                                p.writeFieldBegin(new TField("name", TType.STRUCT, 2))
-                                p.writeFieldBegin(new TField("", TType.VOID, 1))
-                                p.writeFieldStop()
-                                p.writeFieldStop()
-                              }
-          d2 <- decodeNS(classWithOptionSchema, bytesFieldPresent)
-        } yield assert(d)(equalTo(value)) && assert(d2)(equalTo(value))
       },
       test("product type with inner product type") {
         val richProduct = RichProduct(StringValue("sum_type"), BasicString("string"), Record("value", 47))
@@ -665,15 +595,6 @@ object ThriftCodecSpec extends ZIOSpecDefault {
             } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         }
       },
-      test("deep recursive data types") {
-        check(SchemaGen.anyDeepRecursiveTypeAndValue) {
-          case (schema, value) =>
-            for {
-              ed  <- encodeAndDecode(schema, value)
-              ed2 <- encodeAndDecodeNS(schema, value)
-            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-        }
-      } @@ TestAspect.sized(200),
       suite("dynamic")(
         test("dynamic int") {
           check(
@@ -778,22 +699,6 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         assertZIO(decodeNS(Schema[Int], "").exit)(
           fails(equalTo("No bytes to decode"))
         )
-      },
-      test("thrift enum value as an integer") {
-        for {
-          encoded <- write(new g.EnumValue(g.Color.BLUE))
-          ed      <- decodeNS(schemaEnumValue, encoded)
-        } yield assert(ed)(equalTo(EnumValue(2)))
-      },
-      test("decode case class with optionalField") {
-        for {
-          bytes <- writeManually { p =>
-                    p.writeFieldBegin(new TField("name", TType.STRING, 1))
-                    p.writeString("Dan")
-                    p.writeFieldStop()
-                  }
-          d <- decodeNS(PersonWithOptionalField.schema, bytes)
-        } yield assert(d)(equalTo(PersonWithOptionalField("Dan", 0)))
       }
     ),
     suite("Should fail to decode")(
@@ -801,59 +706,99 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         for {
           d  <- decode(Record.schemaRecord, "0F").exit
           d2 <- decodeNS(Record.schemaRecord, "0F").exit
-        } yield assert(d)(fails(equalTo("Error at path /: MaxMessageSize reached"))) &&
-          assert(d2)(fails(equalTo("Error at path /: MaxMessageSize reached")))
+        } yield assert(d)(
+          fails(
+            equalTo(
+              "Error at path /: Error reading object header: [org.msgpack.core.MessageTypeException: Expected Map, but got Integer (0f)]"
+            )
+          )
+        ) &&
+          assert(d2)(
+            fails(
+              equalTo(
+                "Error at path /: Error reading object header: [org.msgpack.core.MessageTypeException: Expected Map, but got Integer (0f)]"
+              )
+            )
+          )
       },
       test("missing value") {
         for {
           bytes <- writeManually { p =>
-                    p.writeFieldBegin(new TField("name", TType.STRING, 1))
-                    p.writeString("Dan")
-                    p.writeFieldStop()
+                    p.packMapHeader(2)
+                    p.packString("name")
+                    p.packString("Dan")
+                    p.packString("value")
                   }
           d <- decode(Record.schemaRecord, bytes).exit
           bytes2 <- writeManually { p =>
-                     p.writeFieldBegin(new TField("value", TType.I32, 2))
-                     p.writeI32(123)
-                     p.writeFieldStop()
+                     p.packMapHeader(2)
+                     p.packString("name")
+                     p.packString("value")
+                     p.packInt(123)
                    }
           d2 <- decode(Record.schemaRecord, bytes2).exit
-        } yield assert(d)(fails(equalTo("Error at path /value: Missing value"))) &&
-          assert(d2)(fails(equalTo("Error at path /name: Missing value")))
+        } yield assert(d)(
+          fails(
+            equalTo(
+              "Error at path /fieldId:[value]: Cannot read int: [org.msgpack.core.MessageInsufficientBufferException]"
+            )
+          )
+        ) &&
+          assert(d2)(
+            fails(
+              equalTo(
+                "Error at path /: Error reading field name on index 2: [org.msgpack.core.MessageTypeException: Expected String, but got Integer (7b)]"
+              )
+            )
+          )
       },
       test("unable to decode") {
         for {
           bytes <- writeManually { p =>
-                    p.writeFieldBegin(new TField("name", TType.STRING, 1))
-                    p.writeString("Dan")
-                    p.writeFieldBegin(new TField("value", TType.I32, 2))
-                    p.writeFieldStop()
+                    p.packMapHeader(2)
+                    p.packString("name")
+                    p.packString("Dan")
+                    p.packString("value")
+                    p.packString("no an Int")
                   }
           d <- decode(Record.schemaRecord, bytes).exit
-        } yield assert(d)(fails(equalTo("Error at path /fieldId:2: Unable to decode Int")))
+        } yield assert(d)(
+          fails(
+            equalTo(
+              "Error at path /fieldId:[value]: Cannot read int: [org.msgpack.core.MessageTypeException: Expected Integer, but got String (a9)]"
+            )
+          )
+        )
       },
       test("unknown type") {
         for {
           bytes <- writeManually { p =>
-                    p.writeFieldBegin(new TField("value", TType.I32, 2))
-                    p.writeString("This is number one bullshit")
-                    p.writeFieldStop()
+                    p.packMapHeader(2)
+                    p.packString("This is number one bullshit")
                   }
           d <- decode(Record.schemaRecord, bytes).exit
-        } yield assert(d)(fails(startsWithString("Error at path /fieldId:26729")))
+        } yield assert(d)(
+          fails(
+            startsWithString(
+              "Error at path /: Could not find schema for field: [This is number one bullshit] on index: 1"
+            )
+          )
+        )
       }
     )
   )
 
-  def writeManually(f: TBinaryProtocol => Unit): Task[String] = ZIO.attempt {
-    val writeRecord = new ChunkTransport.Write()
-    f(new TBinaryProtocol(writeRecord))
-    toHex(writeRecord.chunk)
+  def writeManually(f: MessagePacker => Any): Task[String] = ZIO.attempt {
+    val packer = MessagePack.newDefaultBufferPacker()
+    f(packer)
+    val hex = toHex(Chunk.fromArray(packer.toByteArray))
+    packer.close()
+    hex
   }
 
-  def write(serializable: TSerializable): Task[String] =
-    writeManually(serializable.write(_))
-
+  def write[A](serializable: A): Task[String] = ZIO.attempt(
+    toHex(Chunk.fromArray(objectMapper.writeValueAsBytes(serializable)))
+  )
   // some tests are based on https://developers.google.com/protocol-buffers/docs/encoding
   case class BasicInt(value: Int)
 
@@ -958,6 +903,8 @@ object ThriftCodecSpec extends ZIOSpecDefault {
 
   lazy val schemaOneOf: Schema[OneOf] = DeriveSchema.gen[OneOf]
 
+  lazy val schemaIntValue: Schema[IntValue] = DeriveSchema.gen[IntValue]
+
   case class MyRecord(age: Int)
 
   lazy val myRecord: Schema[MyRecord] = DeriveSchema.gen[MyRecord]
@@ -1041,12 +988,6 @@ object ThriftCodecSpec extends ZIOSpecDefault {
 
   lazy val sequenceOfSumSchema: Schema[SequenceOfSum] = DeriveSchema.gen[SequenceOfSum]
 
-  case class PersonWithOptionalField(name: String, @optionalField age: Int)
-
-  object PersonWithOptionalField {
-    implicit val schema: Schema[PersonWithOptionalField] = DeriveSchema.gen[PersonWithOptionalField]
-  }
-
   def toHex(chunk: Chunk[Byte]): String =
     chunk.toArray.map("%02X".format(_)).mkString
 
@@ -1058,35 +999,35 @@ object ThriftCodecSpec extends ZIOSpecDefault {
   def encode[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
     ZStream
       .succeed(input)
-      .via(ThriftCodec.encoder(schema))
+      .via(MessagePackCodec.encoder(schema))
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encode
   def encodeNS[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
-    ZIO.succeed(ThriftCodec.encode(schema)(input))
+    ZIO.succeed(MessagePackCodec.encode(schema)(input))
 
   def decode[A](schema: Schema[A], hex: String): ZIO[Any, String, Chunk[A]] =
     ZStream
       .fromChunk(fromHex(hex))
-      .via(ThriftCodec.decoder(schema))
+      .via(MessagePackCodec.decoder(schema))
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of decode
   def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, String, A] =
-    ZIO.succeed(ThriftCodec.decode(schema)(fromHex(hex))).absolve[String, A]
+    ZIO.succeed(MessagePackCodec.decode(schema)(fromHex(hex))).absolve[String, A]
 
   def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
     ZStream
       .succeed(input)
-      .via(ThriftCodec.encoder(schema))
-      .via(ThriftCodec.decoder(schema))
+      .via(MessagePackCodec.encoder(schema))
+      .via(MessagePackCodec.decoder(schema))
       .run(ZSink.collectAll)
 
   def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
     ZStream
       .succeed(input)
-      .via(ThriftCodec.encoder(encodeSchema))
-      .via(ThriftCodec.decoder(decodeSchema))
+      .via(MessagePackCodec.encoder(encodeSchema))
+      .via(MessagePackCodec.decoder(decodeSchema))
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
@@ -1094,16 +1035,16 @@ object ThriftCodecSpec extends ZIOSpecDefault {
     ZIO
       .succeed(input)
       .tap(value => Console.printLine(s"Input Value: $value").when(print).ignore)
-      .map(a => ThriftCodec.encode(schema)(a))
+      .map(a => MessagePackCodec.encode(schema)(a))
       .tap(encoded => Console.printLine(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
-      .map(ch => ThriftCodec.decode(schema)(ch))
+      .map(ch => MessagePackCodec.decode(schema)(ch))
       .absolve
 
   def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, A] =
     ZIO
       .succeed(input)
-      .map(a => ThriftCodec.encode(encodeSchema)(a))
-      .map(ch => ThriftCodec.decode(decodeSchema)(ch))
+      .map(a => MessagePackCodec.encode(encodeSchema)(a))
+      .map(ch => MessagePackCodec.decode(decodeSchema)(ch))
       .absolve
 
 }
