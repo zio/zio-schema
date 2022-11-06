@@ -1,20 +1,17 @@
 package zio.schema.codec
 
-import java.math.{ BigInteger, MathContext }
+import org.apache.thrift.protocol._
+import zio.schema._
+import zio.stream.ZPipeline
+import zio.{ Chunk, Unsafe, ZIO }
+
 import java.nio.ByteBuffer
 import java.time._
 import java.util.UUID
-
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.util.Try
 import scala.util.control.NonFatal
-
-import org.apache.thrift.protocol._
-
-import zio.schema._
-import zio.stream.ZPipeline
-import zio.{ Chunk, Unsafe, ZIO }
 
 object ThriftCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] = {
@@ -648,7 +645,7 @@ object ThriftCodec extends Codec {
       schema: Schema.Sequence[_, _, _],
       index: Int
     ): (DecoderState, Boolean) = {
-      val continue = state.expectedCount.map(_ - index).exists(_ > 0)
+      val continue = state.expectedCount.map(_ - (index + 1)).exists(_ > 0)
       (state, continue)
     }
 
@@ -686,7 +683,7 @@ object ThriftCodec extends Codec {
       schema: Schema.Map[_, _],
       index: Int
     ): (DecoderState, Boolean) = {
-      val continue = state.expectedCount.map(_ - index).exists(_ > 0)
+      val continue = state.expectedCount.map(_ - (index + 1)).exists(_ > 0)
       (state, continue)
     }
 
@@ -718,7 +715,7 @@ object ThriftCodec extends Codec {
       schema: Schema.Set[_],
       index: Int
     ): (DecoderState, Boolean) = {
-      val continue = state.expectedCount.map(_ - index).exists(_ > 0)
+      val continue = state.expectedCount.map(_ - (index + 1)).exists(_ > 0)
       (state, continue)
     }
 

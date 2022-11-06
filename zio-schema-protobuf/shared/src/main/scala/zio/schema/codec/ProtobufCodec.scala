@@ -3,14 +3,14 @@ package zio.schema.codec
 import zio.schema._
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZPipeline
-import zio.{Chunk, Unsafe, ZIO}
+import zio.{ Chunk, Unsafe, ZIO }
 
 import java.nio.charset.StandardCharsets
-import java.nio.{ByteBuffer, ByteOrder}
+import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
 import java.util.UUID
 import scala.collection.immutable.ListMap
-import scala.util.control.{NoStackTrace, NonFatal}
+import scala.util.control.{ NoStackTrace, NonFatal }
 
 object ProtobufCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] =
@@ -486,8 +486,8 @@ object ProtobufCodec extends Codec {
           new java.math.BigInteger(bytes.toArray)
         case StandardType.BigDecimalType =>
           val unscaled  = createTypedPrimitive(rawFieldDecoder(context, 1), StandardType.BigIntegerType)
-          val scale     = createTypedPrimitive(rawFieldDecoder(context, 2), StandardType.IntType)
-          val precision = createTypedPrimitive(rawFieldDecoder(context, 3), StandardType.IntType)
+          val precision = createTypedPrimitive(rawFieldDecoder(context, 2), StandardType.IntType)
+          val scale     = createTypedPrimitive(rawFieldDecoder(context, 3), StandardType.IntType)
           val ctx       = new java.math.MathContext(precision)
           new java.math.BigDecimal(unscaled, scale, ctx)
 
