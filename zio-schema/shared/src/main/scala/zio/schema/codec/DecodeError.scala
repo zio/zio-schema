@@ -1,8 +1,8 @@
 package zio.schema.codec
 
-import zio.{Cause, Chunk}
+import zio.{ Cause, Chunk }
 import zio.schema.Schema
-import zio.schema.Schema.{Field, Record}
+import zio.schema.Schema.{ Field, Record }
 import zio.schema.validation.Validation
 
 import scala.util.control.NoStackTrace
