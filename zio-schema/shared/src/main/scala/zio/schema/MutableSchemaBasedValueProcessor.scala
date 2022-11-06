@@ -5,68 +5,120 @@ import scala.collection.immutable.ListMap
 
 import zio.{ Chunk, ChunkBuilder }
 
-trait ProcessValueWithSchema[Target, State] {
-  protected def processPrimitive(state: State, value: Any, typ: StandardType[Any]): Target
+/** Base trait for mutable value processors, processing a value with a known schema. An example
+ * is protocol encoders.
+ *
+ * The implementation is stack safe and consists of invocations of a series of processXYZ methods, as well
+ * as built-in support for a context value which is handled in a stacked way.
+ *
+ * Maintaining any global state (per process) such as stream writers etc. is the responsibility of the implementation class.
+ *
+ * The Target type parameter is the base type for the process function's output value. In case the process is
+ * built entirely using side effects (such as calls to a mutable writer interface) this type can be Unit.
+ *
+ * The Context type parameter is the use-case specific context type which is passed for each process invocation, and
+ * can be manipulated before each process call achieving a local state.
+ */
+trait MutableSchemaBasedValueProcessor[Target, Context] {
 
-  @nowarn protected def startProcessingRecord(state: State, schema: Schema.Record[_]): Unit = {}
+  /** Process a primitive value */
+  protected def processPrimitive(context: Context, value: Any, typ: StandardType[Any]): Target
 
-  protected def processRecord(state: State, schema: Schema.Record[_], value: ListMap[String, Target]): Target
+  /** Called before processing a record (before calling processXYZ for the record's fields) */
+  @nowarn protected def startProcessingRecord(context: Context, schema: Schema.Record[_]): Unit = {}
 
-  @nowarn protected def startProcessingEnum(state: State, schema: Schema.Enum[_]): Unit = {}
+  /** Process a record in the given context with the given schema, using the already processed values of its fields. */
+  protected def processRecord(context: Context, schema: Schema.Record[_], value: ListMap[String, Target]): Target
 
-  protected def processEnum(state: State, schema: Schema.Enum[_], tuple: (String, Target)): Target
+  /** Called before processing an enum */
+  @nowarn protected def startProcessingEnum(context: Context, schema: Schema.Enum[_]): Unit = {}
 
-  @nowarn protected def startProcessingSequence(state: State, schema: Schema.Sequence[_, _, _], size: Int): Unit = {}
+  /** Process an enum in the given context with the given schema using the processed constructor  value and it's name */
+  protected def processEnum(context: Context, schema: Schema.Enum[_], tuple: (String, Target)): Target
 
-  protected def processSequence(state: State, schema: Schema.Sequence[_, _, _], value: Chunk[Target]): Target
+  /** Called before processing a sequence */
+  @nowarn protected def startProcessingSequence(context: Context, schema: Schema.Sequence[_, _, _], size: Int): Unit = {}
 
-  @nowarn protected def startProcessingDictionary(state: State, schema: Schema.Map[_, _], size: Int): Unit = {}
+  /** Process a sequence using its already processed elements */
+  protected def processSequence(context: Context, schema: Schema.Sequence[_, _, _], value: Chunk[Target]): Target
 
-  protected def processDictionary(state: State, schema: Schema.Map[_, _], value: Chunk[(Target, Target)]): Target
+  /** Called before processing a dictionary */
+  @nowarn protected def startProcessingDictionary(context: Context, schema: Schema.Map[_, _], size: Int): Unit = {}
 
-  @nowarn protected def startProcessingSet(state: State, schema: Schema.Set[_], size: Int): Unit = {}
+  /*** Process a dictionary using its already processed key-value pairs */
+  protected def processDictionary(context: Context, schema: Schema.Map[_, _], value: Chunk[(Target, Target)]): Target
 
-  protected def processSet(state: State, schema: Schema.Set[_], value: Set[Target]): Target
+  /** Called before processing a set */
+  @nowarn protected def startProcessingSet(context: Context, schema: Schema.Set[_], size: Int): Unit = {}
 
-  @nowarn protected def startProcessingEither(state: State, schema: Schema.Either[_, _]): Unit = {}
+  /** Process a set using its already processed elements */
+  protected def processSet(context: Context, schema: Schema.Set[_], value: Set[Target]): Target
 
-  protected def processEither(state: State, schema: Schema.Either[_, _], value: Either[Target, Target]): Target
+  /** Called before processing and either value */
+  @nowarn protected def startProcessingEither(context: Context, schema: Schema.Either[_, _]): Unit = {}
 
-  @nowarn protected def startProcessingOption(state: State, schema: Schema.Optional[_]): Unit = {}
+  /** Process an either value using its already processed left or right value */
+  protected def processEither(context: Context, schema: Schema.Either[_, _], value: Either[Target, Target]): Target
 
-  protected def processOption(state: State, schema: Schema.Optional[_], value: Option[Target]): Target
+  /** Called before processing an option value */
+  @nowarn protected def startProcessingOption(context: Context, schema: Schema.Optional[_]): Unit = {}
 
-  @nowarn protected def startProcessingTuple(state: State, schema: Schema.Tuple2[_, _]): Unit = {}
+  /** Process an optional value using its already processed inner value, or None */
+  protected def processOption(context: Context, schema: Schema.Optional[_], value: Option[Target]): Target
 
-  protected def processTuple(state: State, schema: Schema.Tuple2[_, _], left: Target, right: Target): Target
+  /** Called before processing a pair of values */
+  @nowarn protected def startProcessingTuple(context: Context, schema: Schema.Tuple2[_, _]): Unit = {}
 
-  protected def processDynamic(state: State, value: DynamicValue): Option[Target]
+  /** Process a tuple using its already processed left and right values */
+  protected def processTuple(context: Context, schema: Schema.Tuple2[_, _], left: Target, right: Target): Target
 
-  protected def fail(state: State, message: String): Target
+  /** Process a dynamic value. If the result is None it indicates that the processor has no
+   * built-in support for dynamic values, and the Dynamic value's schema should be used instead. */
+  protected def processDynamic(context: Context, value: DynamicValue): Option[Target]
 
-  protected val initialState: State
+  /** Fails the processing */
+  protected def fail(context: Context, message: String): Target
 
-  protected def stateForRecordField(state: State, index: Int, field: Schema.Field[_, _]): State
-  protected def stateForTuple(state: State, index: Int): State
-  protected def stateForEnumConstructor(state: State, index: Int, c: Schema.Case[_, _]): State
-  protected def stateForEither(state: State, e: Either[Unit, Unit]): State
-  protected def stateForOption(state: State, o: Option[Unit]): State
-  protected def stateForSequence(state: State, schema: Schema.Sequence[_, _, _], index: Int): State
-  protected def stateForMap(state: State, schema: Schema.Map[_, _], index: Int): State
-  protected def stateForSet(state: State, schema: Schema.Set[_], index: Int): State
+  /** The initial (top-level) context value */
+  protected val initialContext: Context
 
+  /** Gets the context for a record's given field within the parent context */
+  protected def contextForRecordField(context: Context, index: Int, field: Schema.Field[_, _]): Context
+
+  /** Gets the context for a tuple's given field within the parent context */
+  protected def contextForTuple(context: Context, index: Int): Context
+
+  /** Gets the context for an enum's given constructor within the parent context */
+  protected def contextForEnumConstructor(context: Context, index: Int, c: Schema.Case[_, _]): Context
+
+  /** Gets the context for an either's left or right value within the parent context */
+  protected def contextForEither(context: Context, e: Either[Unit, Unit]): Context
+
+  /** Gets the context for an option's inner value within the parent context */
+  protected def contextForOption(context: Context, o: Option[Unit]): Context
+
+  /** Gets the context for a sequence's given element within the parent context */
+  protected def contextForSequence(context: Context, schema: Schema.Sequence[_, _, _], index: Int): Context
+
+  /** Gets the context for a dictionary's given element within the parent context */
+  protected def contextForMap(context: Context, schema: Schema.Map[_, _], index: Int): Context
+
+  /** Gets the context for a set's given element within the parent context */
+  protected def contextForSet(context: Context, schema: Schema.Set[_], index: Int): Context
+
+  /** Process a value based on it's schema */
   def process[A](schema: Schema[A], value: A): Target = {
     var currentSchema: Schema[_]    = schema
     var currentValue: Any           = value
     var result: Option[Target]      = None
     var stack: List[Target => Unit] = List.empty[Target => Unit]
-    var stateStack: List[State]     = List(initialState)
+    var contextStack: List[Context] = List(initialContext)
 
     def push(f: Target => Unit): Unit =
       stack = f :: stack
 
-    def pushState(s: State): Unit =
-      stateStack = s :: stateStack
+    def pushContext(s: Context): Unit =
+      contextStack = s :: contextStack
 
     def finishWith(resultValue: Target): Unit =
       if (stack.nonEmpty) {
@@ -85,12 +137,12 @@ trait ProcessValueWithSchema[Target, State] {
           case next :: _ =>
             currentSchema = next.schema
             currentValue = next.asInstanceOf[Schema.Field[Any, Any]].get(record)
-            pushState(stateForRecordField(stateStack.head, index, next))
+            pushContext(contextForRecordField(contextStack.head, index, next))
             push(processField(index, remaining, _))
           case Nil =>
             finishWith(
               processRecord(
-                stateStack.head,
+                contextStack.head,
                 s,
                 fs.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, Target]) {
                   case (lm, pair) =>
@@ -101,18 +153,18 @@ trait ProcessValueWithSchema[Target, State] {
         }
 
       def processField(index: Int, currentStructure: List[Schema.Field[_, _]], fieldResult: Target): Unit = {
-        stateStack = stateStack.tail
+        contextStack = contextStack.tail
         values += fieldResult
         val remaining = currentStructure.tail
         processNext(index + 1, remaining)
       }
 
-      startProcessingRecord(stateStack.head, s)
+      startProcessingRecord(contextStack.head, s)
       processNext(0, fs.toList)
     }
 
     def enumCases(s: Schema.Enum[_], cs: Schema.Case[_, _]*): Unit = {
-      startProcessingEnum(stateStack.head, s)
+      startProcessingEnum(contextStack.head, s)
 
       var found = false
       val it    = cs.iterator
@@ -123,10 +175,10 @@ trait ProcessValueWithSchema[Target, State] {
           case Some(v) =>
             currentValue = v
             currentSchema = c.schema
-            pushState(stateForEnumConstructor(stateStack.head, index, c))
+            pushContext(contextForEnumConstructor(contextStack.head, index, c))
             push { dv =>
-              stateStack = stateStack.tail
-              finishWith(processEnum(stateStack.head, s, c.id -> dv))
+              contextStack = contextStack.tail
+              finishWith(processEnum(contextStack.head, s, c.id -> dv))
             }
             found = true
           case None =>
@@ -136,12 +188,12 @@ trait ProcessValueWithSchema[Target, State] {
 
       if (!found) {
         //This should never happen unless someone manually builds an Enum and doesn't include all cases
-        finishWith(fail(stateStack.head, "Invalid enum constructor"))
+        finishWith(fail(contextStack.head, "Invalid enum constructor"))
       }
     }
 
     while (result.isEmpty) {
-      val state = stateStack.head
+      val currentContext = contextStack.head
 
       currentSchema match {
 
@@ -149,7 +201,7 @@ trait ProcessValueWithSchema[Target, State] {
           currentSchema = l.schema
 
         case Schema.Primitive(p, _) =>
-          finishWith(processPrimitive(state, currentValue, p.asInstanceOf[StandardType[Any]]))
+          finishWith(processPrimitive(currentContext, currentValue, p.asInstanceOf[StandardType[Any]]))
 
         case s @ Schema.GenericRecord(_, structure, _) =>
           val map            = currentValue.asInstanceOf[ListMap[String, _]]
@@ -161,12 +213,12 @@ trait ProcessValueWithSchema[Target, State] {
               case next :: _ =>
                 currentSchema = next.schema
                 currentValue = map(next.name)
-                pushState(stateForRecordField(state, index, next))
+                pushContext(contextForRecordField(currentContext, index, next))
                 push(processField(index, remaining, _))
               case Nil =>
                 finishWith(
                   processRecord(
-                    state,
+                    currentContext,
                     s,
                     structureChunk.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, Target]) {
                       case (lm, pair) =>
@@ -181,13 +233,13 @@ trait ProcessValueWithSchema[Target, State] {
             currentStructure: List[Schema.Field[ListMap[String, _], _]],
             fieldResult: Target
           ): Unit = {
-            stateStack = stateStack.tail
+            contextStack = contextStack.tail
             values += fieldResult
             val remaining = currentStructure.tail
             processNext(index + 1, remaining)
           }
 
-          startProcessingRecord(state, s)
+          startProcessingRecord(currentContext, s)
           processNext(0, structureChunk.toList)
 
         case s @ Schema.Enum1(_, case1, _) =>
@@ -676,20 +728,20 @@ trait ProcessValueWithSchema[Target, State] {
           enumCases(s, cases.toSeq: _*)
 
         case Schema.Fail(message, _) =>
-          finishWith(fail(state, message))
+          finishWith(fail(currentContext, message))
 
         case s @ Schema.Sequence(schema, _, toChunk, _, _) =>
           val inputChunk  = toChunk.asInstanceOf[Any => Chunk[Any]](currentValue)
           val resultChunk = ChunkBuilder.make[Target](inputChunk.size)
 
           def processNext(inputIdx: Int): Unit = {
-            stateStack = stateStack.tail
+            contextStack = contextStack.tail
             if (inputIdx == inputChunk.size) {
-              finishWith(processSequence(state, s, resultChunk.result()))
+              finishWith(processSequence(currentContext, s, resultChunk.result()))
             } else {
               currentSchema = schema
               currentValue = inputChunk(inputIdx)
-              pushState(stateForSequence(state, s, inputIdx))
+              pushContext(contextForSequence(currentContext, s, inputIdx))
               push { dv =>
                 resultChunk += dv
                 processNext(inputIdx + 1)
@@ -697,8 +749,8 @@ trait ProcessValueWithSchema[Target, State] {
             }
           }
 
-          startProcessingSequence(state, s, inputChunk.size)
-          pushState(stateForSequence(state, s, 0))
+          startProcessingSequence(currentContext, s, inputChunk.size)
+          pushContext(contextForSequence(currentContext, s, 0))
           processNext(0)
 
         case s @ Schema.Map(ks: Schema[k], vs: Schema[v], _) =>
@@ -707,21 +759,21 @@ trait ProcessValueWithSchema[Target, State] {
 
           def processNext(inputIdx: Int): Unit =
             if (inputIdx == inputChunk.size) {
-              finishWith(processDictionary(state, s, resultChunk.result()))
+              finishWith(processDictionary(currentContext, s, resultChunk.result()))
             } else {
               currentSchema = ks
               val currentTuple = inputChunk(inputIdx)
               currentValue = currentTuple._1
 
-              pushState(stateForMap(state, s, inputIdx))
+              pushContext(contextForMap(currentContext, s, inputIdx))
               push { (a: Target) =>
-                stateStack = stateStack.tail
+                contextStack = contextStack.tail
 
                 currentSchema = vs
                 currentValue = currentTuple._2
-                pushState(stateForMap(state, s, inputIdx))
+                pushContext(contextForMap(currentContext, s, inputIdx))
                 push { (b: Target) =>
-                  stateStack = stateStack.tail
+                  contextStack = contextStack.tail
                   val pair = (a, b)
                   resultChunk += pair
                   processNext(inputIdx + 1)
@@ -729,7 +781,7 @@ trait ProcessValueWithSchema[Target, State] {
               }
             }
 
-          startProcessingDictionary(state, s, inputChunk.size)
+          startProcessingDictionary(currentContext, s, inputChunk.size)
           processNext(0)
 
         case s @ Schema.Set(as: Schema[a], _) =>
@@ -737,13 +789,13 @@ trait ProcessValueWithSchema[Target, State] {
           val resultChunk = ChunkBuilder.make[Target](inputChunk.size)
 
           def processNext(inputIdx: Int): Unit = {
-            stateStack = stateStack.tail
+            contextStack = contextStack.tail
             if (inputIdx == inputChunk.size) {
-              finishWith(processSet(state, s, resultChunk.result().toSet))
+              finishWith(processSet(currentContext, s, resultChunk.result().toSet))
             } else {
               currentSchema = as
               currentValue = inputChunk(inputIdx)
-              pushState(stateForSet(state, s, inputIdx))
+              pushContext(contextForSet(currentContext, s, inputIdx))
               push { dv =>
                 resultChunk += dv
                 processNext(inputIdx + 1)
@@ -751,74 +803,74 @@ trait ProcessValueWithSchema[Target, State] {
             }
           }
 
-          startProcessingSet(state, s, inputChunk.size)
-          pushState(stateForSet(state, s, 0))
+          startProcessingSet(currentContext, s, inputChunk.size)
+          pushContext(contextForSet(currentContext, s, 0))
           processNext(0)
 
         case s: Schema.Either[l, r] =>
-          startProcessingEither(state, s)
+          startProcessingEither(currentContext, s)
           currentValue.asInstanceOf[Either[l, r]] match {
             case Left(value: l) =>
               currentValue = value
               currentSchema = s.left
-              pushState(stateForEither(state, Left(())))
+              pushContext(contextForEither(currentContext, Left(())))
               push { dyn =>
-                stateStack = stateStack.tail
-                finishWith(processEither(state, s, Left(dyn)))
+                contextStack = contextStack.tail
+                finishWith(processEither(currentContext, s, Left(dyn)))
               }
             case Right(value: r) =>
               currentValue = value
               currentSchema = s.right
-              pushState(stateForEither(state, Right(())))
+              pushContext(contextForEither(currentContext, Right(())))
               push { dyn =>
-                stateStack = stateStack.tail
-                finishWith(processEither(state, s, Right(dyn)))
+                contextStack = contextStack.tail
+                finishWith(processEither(currentContext, s, Right(dyn)))
               }
           }
 
         case s: Schema.Tuple2[a, b] =>
-          startProcessingTuple(state, s)
+          startProcessingTuple(currentContext, s)
           val (a: a, b: b) = currentValue.asInstanceOf[(a, b)]
           currentValue = a
           currentSchema = s.left
-          pushState(stateForTuple(state, 1))
+          pushContext(contextForTuple(currentContext, 1))
           push { dynA =>
             currentValue = b
             currentSchema = s.right
-            stateStack = stateStack.tail
-            pushState(stateForTuple(state, 2))
+            contextStack = contextStack.tail
+            pushContext(contextForTuple(currentContext, 2))
             push { dynB =>
-              stateStack = stateStack.tail
-              finishWith(processTuple(state, s, dynA, dynB))
+              contextStack = contextStack.tail
+              finishWith(processTuple(currentContext, s, dynA, dynB))
             }
           }
 
         case s: Schema.Optional[a] =>
-          startProcessingOption(state, s)
+          startProcessingOption(currentContext, s)
           currentValue.asInstanceOf[Option[a]] match {
             case Some(value: a) =>
               currentValue = value
               currentSchema = s.schema
-              pushState(stateForOption(state, Some(())))
+              pushContext(contextForOption(currentContext, Some(())))
               push { dyn =>
-                stateStack = stateStack.tail
-                finishWith(processOption(state, s, Some(dyn)))
+                contextStack = contextStack.tail
+                finishWith(processOption(currentContext, s, Some(dyn)))
               }
             case None =>
-              finishWith(processOption(state, s, None))
+              finishWith(processOption(currentContext, s, None))
           }
 
         case Schema.Transform(schema, _, g, _, _) =>
           g.asInstanceOf[Any => Either[String, Any]](currentValue) match {
             case Left(message) =>
-              finishWith(fail(state, message))
+              finishWith(fail(currentContext, message))
             case Right(a) =>
               currentValue = a
               currentSchema = schema
           }
 
         case s @ Schema.CaseClass0(_, _, _) =>
-          finishWith(processRecord(state, s, ListMap()))
+          finishWith(processRecord(currentContext, s, ListMap()))
 
         case s @ Schema.CaseClass1(_, f, _, _) =>
           fields(s, currentValue, f)
@@ -1266,7 +1318,7 @@ trait ProcessValueWithSchema[Target, State] {
             f22
           )
         case Schema.Dynamic(_) =>
-          processDynamic(state, currentValue.asInstanceOf[DynamicValue]) match {
+          processDynamic(currentContext, currentValue.asInstanceOf[DynamicValue]) match {
             case Some(target) => finishWith(target)
             case None =>
               currentSchema = Schema.dynamicValue
@@ -1277,7 +1329,8 @@ trait ProcessValueWithSchema[Target, State] {
   }
 }
 
-trait ProcessSchemaAndValueWithoutState[Target] extends ProcessValueWithSchema[Target, Unit] {
+/** A simpler version of MutableSchemaBasedValueProcessor without using any Context  */
+trait SimpleMutableSchemaBasedValueProcessor[Target] extends MutableSchemaBasedValueProcessor[Target, Unit] {
 
   protected def processPrimitive(value: Any, typ: StandardType[Any]): Target
 
@@ -1301,70 +1354,78 @@ trait ProcessSchemaAndValueWithoutState[Target] extends ProcessValueWithSchema[T
 
   protected def fail(message: String): Target
 
-  override protected def processPrimitive(state: Unit, value: Any, typ: StandardType[Any]): Target =
+  override protected def processPrimitive(context: Unit, value: Any, typ: StandardType[Any]): Target =
     processPrimitive(value, typ)
 
-  override protected def processRecord(state: Unit, schema: Schema.Record[_], value: ListMap[String, Target]): Target =
+  override protected def processRecord(
+    context: Unit,
+    schema: Schema.Record[_],
+    value: ListMap[String, Target]
+  ): Target =
     processRecord(schema, value)
 
-  override protected def processEnum(state: Unit, schema: Schema.Enum[_], tuple: (String, Target)): Target =
+  override protected def processEnum(context: Unit, schema: Schema.Enum[_], tuple: (String, Target)): Target =
     processEnum(schema, tuple)
 
-  override protected def processSequence(state: Unit, schema: Schema.Sequence[_, _, _], value: Chunk[Target]): Target =
+  override protected def processSequence(
+    context: Unit,
+    schema: Schema.Sequence[_, _, _],
+    value: Chunk[Target]
+  ): Target =
     processSequence(schema, value)
 
   override protected def processDictionary(
-    state: Unit,
+    context: Unit,
     schema: Schema.Map[_, _],
     value: Chunk[(Target, Target)]
   ): Target =
     processDictionary(schema, value)
 
-  override protected def processSet(state: Unit, schema: Schema.Set[_], value: Set[Target]): Target =
+  override protected def processSet(context: Unit, schema: Schema.Set[_], value: Set[Target]): Target =
     processSet(schema, value)
 
   override protected def processEither(
-    state: Unit,
+    context: Unit,
     schema: Schema.Either[_, _],
     value: Either[Target, Target]
   ): Target =
     processEither(schema, value)
 
-  override protected def processOption(state: Unit, schema: Schema.Optional[_], value: Option[Target]): Target =
+  override protected def processOption(context: Unit, schema: Schema.Optional[_], value: Option[Target]): Target =
     processOption(schema, value)
 
-  override protected def processTuple(state: Unit, schema: Schema.Tuple2[_, _], left: Target, right: Target): Target =
+  override protected def processTuple(context: Unit, schema: Schema.Tuple2[_, _], left: Target, right: Target): Target =
     processTuple(schema, left, right)
 
-  override protected def fail(state: Unit, message: String): Target =
+  override protected def fail(context: Unit, message: String): Target =
     fail(message)
 
-  override protected def processDynamic(state: Unit, value: DynamicValue): Option[Target] =
+  override protected def processDynamic(context: Unit, value: DynamicValue): Option[Target] =
     processDynamic(value)
 
-  override protected val initialState: Unit = ()
+  override protected val initialContext: Unit = ()
 
-  override protected def stateForRecordField(state: Unit, index: Int, field: Schema.Field[_, _]): Unit =
+  override protected def contextForRecordField(context: Unit, index: Int, field: Schema.Field[_, _]): Unit =
     ()
 
-  override protected def stateForEnumConstructor(state: Unit, index: Int, c: Schema.Case[_, _]): Unit =
+  override protected def contextForEnumConstructor(context: Unit, index: Int, c: Schema.Case[_, _]): Unit =
     ()
 
-  override protected def stateForEither(state: Unit, e: Either[Unit, Unit]): Unit =
+  override protected def contextForEither(context: Unit, e: Either[Unit, Unit]): Unit =
     ()
 
-  override protected def stateForOption(state: Unit, o: Option[Unit]): Unit =
+  override protected def contextForOption(context: Unit, o: Option[Unit]): Unit =
     ()
 
-  override protected def stateForTuple(state: Unit, index: Int): Unit =
+  override protected def contextForTuple(context: Unit, index: Int): Unit =
     ()
 
-  override protected def stateForSequence(state: Unit, schema: Schema.Sequence[_, _, _], index: Int): Unit =
+  override protected def contextForSequence(context: Unit, schema: Schema.Sequence[_, _, _], index: Int): Unit =
     ()
 
-  override protected def stateForMap(state: Unit, schema: Schema.Map[_, _], index: Int): Unit =
+  override protected def contextForMap(context: Unit, schema: Schema.Map[_, _], index: Int): Unit =
     ()
 
-  override protected def stateForSet(state: Unit, schema: Schema.Set[_], index: Int): Unit =
+  override protected def contextForSet(context: Unit, schema: Schema.Set[_], index: Int): Unit =
     ()
 }

@@ -117,7 +117,7 @@ sealed trait DynamicValue {
 }
 
 object DynamicValue {
-  private object FromSchemaAndValue extends ProcessSchemaAndValueWithoutState[DynamicValue] {
+  private object FromSchemaAndValue extends SimpleMutableSchemaBasedValueProcessor[DynamicValue] {
     override protected def processPrimitive(value: Any, typ: StandardType[Any]): DynamicValue =
       DynamicValue.Primitive(value, typ)
 

@@ -1,17 +1,19 @@
 package zio.schema.codec
 
-import org.apache.thrift.protocol._
-import zio.schema._
-import zio.stream.ZPipeline
-import zio.{ Chunk, Unsafe, ZIO }
-
 import java.nio.ByteBuffer
 import java.time._
 import java.util.UUID
-import scala.annotation.tailrec
+
+import scala.annotation.{ nowarn, tailrec }
 import scala.collection.immutable.ListMap
-import scala.util.Try
 import scala.util.control.NonFatal
+
+import org.apache.thrift.protocol._
+
+import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
+import zio.schema._
+import zio.stream.ZPipeline
+import zio.{ Chunk, Unsafe, ZIO }
 
 object ThriftCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] = {
@@ -21,17 +23,14 @@ object ThriftCodec extends Codec {
     }
   }
 
-  override def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Byte, A] =
+  override def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Byte, A] = {
+    val d: Chunk[Byte] => Either[String, A] = decode(schema)
     ZPipeline.mapChunksZIO { chunk =>
       ZIO.fromEither(
-        new Decoder(chunk)
-          .create(schema)
-          .map(Chunk(_))
-          .map(_.asInstanceOf[Chunk[A]])
-          .left
-          .map(err => s"Error at path /${err.path.mkString(".")}: ${err.error}")
+        d(chunk).map(Chunk.single)
       )
     }
+  }
 
   override def encode[A](schema: Schema[A]): A => Chunk[Byte] = a => new Encoder().encode(schema, a)
 
@@ -39,86 +38,100 @@ object ThriftCodec extends Codec {
     ch =>
       if (ch.isEmpty)
         Left("No bytes to decode")
-      else
-        new Decoder(ch)
-          .create(schema)
-          .map(_.asInstanceOf[A])
-          .left
-          .map(
-            err => s"Error at path /${err.path.mkString(".")}: ${err.error}"
+      else {
+        try {
+          Right(
+            new Decoder(ch)
+              .create(schema)
+              .asInstanceOf[A]
           )
+        } catch {
+          case error: CreateValueFromSchemaError[DecoderContext] =>
+            error.cause match {
+              case error: Error => Left(error.getMessage)
+              case _ =>
+                Left(Error(error.context.path, error.cause.getMessage, error).getMessage)
+            }
+          case NonFatal(err) =>
+            Left(err.getMessage)
+        }
+      }: @nowarn
 
-  class Encoder extends ProcessValueWithSchema[Unit, Encoder.State] {
+  class Encoder extends MutableSchemaBasedValueProcessor[Unit, Encoder.Context] {
     import Encoder._
 
-    override protected def processPrimitive(state: State, value: Any, typ: StandardType[Any]): Unit = {
-      writeFieldBegin(state.fieldNumber, getPrimitiveType(typ))
+    override protected def processPrimitive(context: Context, value: Any, typ: StandardType[Any]): Unit = {
+      writeFieldBegin(context.fieldNumber, getPrimitiveType(typ))
       writePrimitiveType(typ, value)
     }
 
-    override protected def startProcessingRecord(state: State, schema: Schema.Record[_]): Unit =
-      writeFieldBegin(state.fieldNumber, TType.STRUCT)
+    override protected def startProcessingRecord(context: Context, schema: Schema.Record[_]): Unit =
+      writeFieldBegin(context.fieldNumber, TType.STRUCT)
 
     override protected def processRecord(
-      state: State,
+      context: Context,
       schema: Schema.Record[_],
       value: ListMap[String, Unit]
     ): Unit =
       writeFieldEnd()
 
-    override protected def startProcessingEnum(state: State, schema: Schema.Enum[_]): Unit =
-      writeFieldBegin(state.fieldNumber, TType.STRUCT)
+    override protected def startProcessingEnum(context: Context, schema: Schema.Enum[_]): Unit =
+      writeFieldBegin(context.fieldNumber, TType.STRUCT)
 
-    override protected def processEnum(state: State, schema: Schema.Enum[_], tuple: (String, Unit)): Unit =
+    override protected def processEnum(context: Context, schema: Schema.Enum[_], tuple: (String, Unit)): Unit =
       writeFieldEnd()
 
-    override protected def startProcessingSequence(state: State, schema: Schema.Sequence[_, _, _], size: Int): Unit = {
-      writeFieldBegin(state.fieldNumber, TType.LIST)
+    override protected def startProcessingSequence(
+      context: Context,
+      schema: Schema.Sequence[_, _, _],
+      size: Int
+    ): Unit = {
+      writeFieldBegin(context.fieldNumber, TType.LIST)
       writeListBegin(getType(schema.elementSchema), size)
     }
 
     override protected def processSequence(
-      state: State,
+      context: Context,
       schema: Schema.Sequence[_, _, _],
       value: Chunk[Unit]
     ): Unit = {}
 
-    override protected def startProcessingDictionary(state: State, schema: Schema.Map[_, _], size: Int): Unit = {
-      writeFieldBegin(state.fieldNumber, TType.MAP)
+    override protected def startProcessingDictionary(context: Context, schema: Schema.Map[_, _], size: Int): Unit = {
+      writeFieldBegin(context.fieldNumber, TType.MAP)
       writeMapBegin(getType(schema.keySchema), getType(schema.valueSchema), size)
     }
 
     override protected def processDictionary(
-      state: State,
+      context: Context,
       schema: Schema.Map[_, _],
       value: Chunk[(Unit, Unit)]
     ): Unit = {}
 
-    override protected def startProcessingSet(state: State, schema: Schema.Set[_], size: Int): Unit = {
-      writeFieldBegin(state.fieldNumber, TType.SET)
+    override protected def startProcessingSet(context: Context, schema: Schema.Set[_], size: Int): Unit = {
+      writeFieldBegin(context.fieldNumber, TType.SET)
       writeSetBegin(getType(schema.elementSchema), size)
     }
 
-    override protected def processSet(state: State, schema: Schema.Set[_], value: Set[Unit]): Unit = {}
+    override protected def processSet(context: Context, schema: Schema.Set[_], value: Set[Unit]): Unit = {}
 
-    override protected def startProcessingEither(state: State, schema: Schema.Either[_, _]): Unit =
-      writeFieldBegin(state.fieldNumber, TType.STRUCT)
+    override protected def startProcessingEither(context: Context, schema: Schema.Either[_, _]): Unit =
+      writeFieldBegin(context.fieldNumber, TType.STRUCT)
 
     override protected def processEither(
-      state: State,
+      context: Context,
       schema: Schema.Either[_, _],
       value: Either[Unit, Unit]
     ): Unit =
       writeFieldEnd()
 
-    override def startProcessingOption(state: State, schema: Schema.Optional[_]): Unit =
-      writeFieldBegin(state.fieldNumber, TType.STRUCT)
+    override def startProcessingOption(context: Context, schema: Schema.Optional[_]): Unit =
+      writeFieldBegin(context.fieldNumber, TType.STRUCT)
 
-    override protected def processOption(state: State, schema: Schema.Optional[_], value: Option[Unit]): Unit = {
+    override protected def processOption(context: Context, schema: Schema.Optional[_], value: Option[Unit]): Unit = {
       value match {
         case None =>
           processPrimitive(
-            state.copy(fieldNumber = Some(1)),
+            context.copy(fieldNumber = Some(1)),
             (),
             StandardType.UnitType.asInstanceOf[StandardType[Any]]
           )
@@ -127,54 +140,54 @@ object ThriftCodec extends Codec {
       writeFieldEnd()
     }
 
-    override protected def startProcessingTuple(state: State, schema: Schema.Tuple2[_, _]): Unit =
-      writeFieldBegin(state.fieldNumber, TType.STRUCT)
+    override protected def startProcessingTuple(context: Context, schema: Schema.Tuple2[_, _]): Unit =
+      writeFieldBegin(context.fieldNumber, TType.STRUCT)
 
     override protected def processTuple(
-      state: State,
+      context: Context,
       schema: Schema.Tuple2[_, _],
       left: Unit,
       right: Unit
     ): Unit =
       writeFieldEnd()
 
-    override protected def fail(state: State, message: String): Unit =
+    override protected def fail(context: Context, message: String): Unit =
       fail(message)
 
-    override protected def processDynamic(state: State, value: DynamicValue): Option[Unit] =
+    override protected def processDynamic(context: Context, value: DynamicValue): Option[Unit] =
       None
 
-    override protected val initialState: State = State(None)
+    override protected val initialContext: Context = Context(None)
 
-    override protected def stateForRecordField(state: State, index: Int, field: Schema.Field[_, _]): State =
-      state.copy(fieldNumber = Some((index + 1).toShort))
+    override protected def contextForRecordField(context: Context, index: Int, field: Schema.Field[_, _]): Context =
+      context.copy(fieldNumber = Some((index + 1).toShort))
 
-    override protected def stateForEnumConstructor(state: State, index: Int, c: Schema.Case[_, _]): State =
-      state.copy(fieldNumber = Some((index + 1).toShort))
+    override protected def contextForEnumConstructor(context: Context, index: Int, c: Schema.Case[_, _]): Context =
+      context.copy(fieldNumber = Some((index + 1).toShort))
 
-    override protected def stateForEither(state: State, e: Either[Unit, Unit]): State =
+    override protected def contextForEither(context: Context, e: Either[Unit, Unit]): Context =
       e match {
-        case Left(_)  => state.copy(fieldNumber = Some(1))
-        case Right(_) => state.copy(fieldNumber = Some(2))
+        case Left(_)  => context.copy(fieldNumber = Some(1))
+        case Right(_) => context.copy(fieldNumber = Some(2))
       }
 
-    override protected def stateForOption(state: State, o: Option[Unit]): State =
+    override protected def contextForOption(context: Context, o: Option[Unit]): Context =
       o match {
-        case None    => state.copy(fieldNumber = Some(1))
-        case Some(_) => state.copy(fieldNumber = Some(2))
+        case None    => context.copy(fieldNumber = Some(1))
+        case Some(_) => context.copy(fieldNumber = Some(2))
       }
 
-    override protected def stateForTuple(state: State, index: Int): State =
-      state.copy(fieldNumber = Some(index.toShort))
+    override protected def contextForTuple(context: Context, index: Int): Context =
+      context.copy(fieldNumber = Some(index.toShort))
 
-    override protected def stateForSequence(state: State, schema: Schema.Sequence[_, _, _], index: Int): State =
-      state.copy(fieldNumber = None)
+    override protected def contextForSequence(context: Context, schema: Schema.Sequence[_, _, _], index: Int): Context =
+      context.copy(fieldNumber = None)
 
-    override protected def stateForMap(state: State, schema: Schema.Map[_, _], index: Int): State =
-      state.copy(fieldNumber = None)
+    override protected def contextForMap(context: Context, schema: Schema.Map[_, _], index: Int): Context =
+      context.copy(fieldNumber = None)
 
-    override protected def stateForSet(state: State, schema: Schema.Set[_], index: Int): State =
-      state.copy(fieldNumber = None)
+    override protected def contextForSet(context: Context, schema: Schema.Set[_], index: Int): Context =
+      context.copy(fieldNumber = None)
 
     private[codec] def encode[A](schema: Schema[A], value: A): Chunk[Byte] = {
       process(schema, value)
@@ -329,7 +342,7 @@ object ThriftCodec extends Codec {
   }
 
   object Encoder {
-    final case class State(fieldNumber: Option[Short])
+    final case class Context(fieldNumber: Option[Short])
 
     private def getPrimitiveType[A](standardType: StandardType[A]): Byte =
       standardType match {
@@ -396,189 +409,178 @@ object ThriftCodec extends Codec {
     }
   }
 
-  case class Error(path: Path, error: String)
+  type Path                = Chunk[String]
+  type PrimitiveDecoder[A] = Path => A
 
-  type Path               = Chunk[String]
-  type Result[A]          = scala.util.Either[Error, A]
-  type PrimitiveResult[A] = Path => Result[A]
+  case class Error(path: Path, error: String, cause: Throwable)
+      extends RuntimeException(s"Error at path /${path.mkString(".")}: $error", cause)
 
-  final case class DecoderState(path: Path, expectedCount: Option[Int])
+  object Error {
+    def apply(path: Path, error: String): Error = Error(path, error, null)
+  }
 
-  class Decoder(chunk: Chunk[Byte]) extends CreateValueFromSchema[Result[Any], DecoderState] {
+  final case class DecoderContext(path: Path, expectedCount: Option[Int])
+
+  class Decoder(chunk: Chunk[Byte]) extends MutableSchemaBasedValueBuilder[Any, DecoderContext] {
 
     val read = new ChunkTransport.Read(chunk)
     val p    = new TBinaryProtocol(read)
 
-    def succeed[A](a: => A): Result[A] = Right(a)
-
-    def flip[A](as: Chunk[Result[A]]): Result[Chunk[A]] =
-      as.foldLeft[Result[Chunk[A]]](Right(Chunk.empty[A])) {
-        case (Right(as), Right(a)) => Right(as :+ a)
-        case (Left(failure), _)    => Left(failure)
-        case (_, Left(failure))    => Left(failure)
-      }
-
-    def decodePrimitive[A](f: TProtocol => A, name: String): PrimitiveResult[A] =
+    def decodePrimitive[A](f: TProtocol => A, name: String): PrimitiveDecoder[A] =
       path =>
-        Try {
+        try {
           f(p)
-        }.toEither.left.map(_ => Error(path, s"Unable to decode $name"))
+        } catch {
+          case NonFatal(reason) => throw Error(path, s"Unable to decode $name", reason)
+        }
 
-    def decodeString: PrimitiveResult[String] =
+    def decodeString: PrimitiveDecoder[String] =
       decodePrimitive(_.readString(), "String")
 
-    def decodeByte: PrimitiveResult[Byte] =
+    def decodeUUID: PrimitiveDecoder[UUID] =
+      decodePrimitive(protocol => UUID.fromString(protocol.readString()), "UUID")
+
+    def decodeByte: PrimitiveDecoder[Byte] =
       decodePrimitive(_.readByte(), "Byte")
 
-    def decodeBoolean: PrimitiveResult[Boolean] =
+    def decodeBoolean: PrimitiveDecoder[Boolean] =
       decodePrimitive(_.readBool(), "Boolean")
 
-    def decodeShort: PrimitiveResult[Short] =
+    def decodeShort: PrimitiveDecoder[Short] =
       decodePrimitive(_.readI16(), "Short")
 
-    def decodeInt: PrimitiveResult[Int] =
+    def decodeInt: PrimitiveDecoder[Int] =
       decodePrimitive(_.readI32(), "Int")
 
-    def decodeLong: PrimitiveResult[Long] =
+    def decodeLong: PrimitiveDecoder[Long] =
       decodePrimitive(_.readI64(), "Long")
 
-    def decodeFloat: PrimitiveResult[Float] =
+    def decodeFloat: PrimitiveDecoder[Float] =
       decodePrimitive(_.readDouble().toFloat, "Float")
 
-    def decodeDouble: PrimitiveResult[Double] =
+    def decodeDouble: PrimitiveDecoder[Double] =
       decodePrimitive(_.readDouble(), "Double")
 
-    def decodeBigInteger: PrimitiveResult[java.math.BigInteger] =
+    def decodeBigInteger: PrimitiveDecoder[java.math.BigInteger] =
       decodePrimitive(p => new java.math.BigInteger(p.readBinary().array()), "BigInteger")
 
-    def decodeBinary: PrimitiveResult[Chunk[Byte]] =
+    def decodeBinary: PrimitiveDecoder[Chunk[Byte]] =
       decodePrimitive(p => Chunk.fromByteBuffer(p.readBinary()), "Binary")
 
-    override protected def createPrimitive(state: DecoderState, typ: StandardType[_]): Result[Any] =
+    override protected def createPrimitive(context: DecoderContext, typ: StandardType[_]): Any =
       typ match {
-        case StandardType.UnitType       => Right(())
-        case StandardType.StringType     => decodeString(state.path)
-        case StandardType.BoolType       => decodeBoolean(state.path)
-        case StandardType.ByteType       => decodeByte(state.path)
-        case StandardType.ShortType      => decodeShort(state.path)
-        case StandardType.IntType        => decodeInt(state.path)
-        case StandardType.LongType       => decodeLong(state.path)
-        case StandardType.FloatType      => decodeFloat(state.path)
-        case StandardType.DoubleType     => decodeDouble(state.path)
-        case StandardType.BigIntegerType => decodeBigInteger(state.path)
+        case StandardType.UnitType       => ()
+        case StandardType.StringType     => decodeString(context.path)
+        case StandardType.BoolType       => decodeBoolean(context.path)
+        case StandardType.ByteType       => decodeByte(context.path)
+        case StandardType.ShortType      => decodeShort(context.path)
+        case StandardType.IntType        => decodeInt(context.path)
+        case StandardType.LongType       => decodeLong(context.path)
+        case StandardType.FloatType      => decodeFloat(context.path)
+        case StandardType.DoubleType     => decodeDouble(context.path)
+        case StandardType.BigIntegerType => decodeBigInteger(context.path)
         case StandardType.BigDecimalType =>
           p.readFieldBegin()
-          decodeBigInteger(state.path).flatMap { unscaled =>
-            p.readFieldBegin()
-            decodeInt(state.path).flatMap { precision =>
-              p.readFieldBegin()
-              decodeInt(state.path).map { scale =>
-                p.readFieldBegin()
-                new java.math.BigDecimal(unscaled, scale, new java.math.MathContext(precision))
-              }
-            }
-          }
-        case StandardType.BinaryType => decodeBinary(state.path)
+          val unscaled = decodeBigInteger(context.path)
+          p.readFieldBegin()
+          val precision = decodeInt(context.path)
+          p.readFieldBegin()
+          val scale = decodeInt(context.path)
+          p.readFieldBegin()
+          new java.math.BigDecimal(unscaled, scale, new java.math.MathContext(precision))
+
+        case StandardType.BinaryType => decodeBinary(context.path)
         case StandardType.CharType =>
-          decodeString(state.path).flatMap(
-            decoded =>
-              if (decoded.length == 1)
-                succeed(decoded.charAt(0))
-              else {
-                fail(state, s"""Expected character, found string "$decoded"""")
-              }
-          )
-        case StandardType.UUIDType =>
-          decodeString(state.path).flatMap { uuid =>
-            try succeed(UUID.fromString(uuid))
-            catch {
-              case NonFatal(_) => fail(state, "Invalid UUID string")
-            }
+          val decoded = decodeString(context.path)
+
+          if (decoded.length == 1)
+            decoded.charAt(0)
+          else {
+            fail(context, s"""Expected character, found string "$decoded"""")
           }
+
+        case StandardType.UUIDType =>
+          decodeUUID(context.path)
         case StandardType.DayOfWeekType =>
-          decodeByte(state.path).map(_.toInt).map(DayOfWeek.of)
+          DayOfWeek.of(decodeByte(context.path).toInt)
         case StandardType.MonthType =>
-          decodeByte(state.path).map(_.toInt).map(Month.of)
+          Month.of(decodeByte(context.path).toInt)
         case StandardType.MonthDayType =>
           p.readFieldBegin()
-          decodeInt(state.path).flatMap { month =>
-            p.readFieldBegin()
-            decodeInt(state.path).map { day =>
-              p.readFieldBegin()
-              MonthDay.of(month, day)
-            }
-          }
+          val month = decodeInt(context.path)
+          p.readFieldBegin()
+          val day = decodeInt(context.path)
+          p.readFieldBegin()
+          MonthDay.of(month, day)
+
         case StandardType.PeriodType =>
           p.readFieldBegin()
-          decodeInt(state.path).flatMap { year =>
-            p.readFieldBegin()
-            decodeInt(state.path).flatMap { month =>
-              p.readFieldBegin()
-              decodeInt(state.path).map { day =>
-                p.readFieldBegin()
-                Period.of(year, month, day)
-              }
-            }
-          }
+          val year = decodeInt(context.path)
+          p.readFieldBegin()
+          val month = decodeInt(context.path)
+          p.readFieldBegin()
+          val day = decodeInt(context.path)
+          p.readFieldBegin()
+          Period.of(year, month, day)
+
         case StandardType.YearType =>
-          decodeInt(state.path).map(_.intValue).map(Year.of)
+          Year.of(decodeInt(context.path).intValue)
         case StandardType.YearMonthType =>
           p.readFieldBegin()
-          decodeInt(state.path).flatMap { year =>
-            p.readFieldBegin()
-            decodeInt(state.path).map { month =>
-              p.readFieldBegin()
-              YearMonth.of(year, month)
-            }
-          }
-        case StandardType.ZoneIdType => decodeString(state.path).map(ZoneId.of)
+          val year = decodeInt(context.path)
+          p.readFieldBegin()
+          val month = decodeInt(context.path)
+          p.readFieldBegin()
+          YearMonth.of(year, month)
+
+        case StandardType.ZoneIdType =>
+          ZoneId.of(decodeString(context.path))
+
         case StandardType.ZoneOffsetType =>
-          decodeInt(state.path)
-            .map(_.intValue)
-            .map(ZoneOffset.ofTotalSeconds)
+          ZoneOffset.ofTotalSeconds(decodeInt(context.path).intValue)
         case StandardType.DurationType =>
           p.readFieldBegin()
-          decodeLong(state.path).flatMap { seconds =>
-            p.readFieldBegin()
-            decodeInt(state.path).map { nano =>
-              p.readFieldBegin()
-              Duration.ofSeconds(seconds, nano.toLong)
-            }
-          }
+          val seconds = decodeLong(context.path)
+          p.readFieldBegin()
+          val nano = decodeInt(context.path)
+          p.readFieldBegin()
+          Duration.ofSeconds(seconds, nano.toLong)
+
         case StandardType.InstantType(formatter) =>
-          decodeString(state.path).map(v => Instant.from(formatter.parse(v)))
+          Instant.from(formatter.parse(decodeString(context.path)))
         case StandardType.LocalDateType(formatter) =>
-          decodeString(state.path).map(LocalDate.parse(_, formatter))
+          LocalDate.parse(decodeString(context.path), formatter)
         case StandardType.LocalTimeType(formatter) =>
-          decodeString(state.path).map(LocalTime.parse(_, formatter))
+          LocalTime.parse(decodeString(context.path), formatter)
         case StandardType.LocalDateTimeType(formatter) =>
-          decodeString(state.path).map(LocalDateTime.parse(_, formatter))
+          LocalDateTime.parse(decodeString(context.path), formatter)
         case StandardType.OffsetTimeType(formatter) =>
-          decodeString(state.path).map(OffsetTime.parse(_, formatter))
+          OffsetTime.parse(decodeString(context.path), formatter)
         case StandardType.OffsetDateTimeType(formatter) =>
-          decodeString(state.path).map(OffsetDateTime.parse(_, formatter))
+          OffsetDateTime.parse(decodeString(context.path), formatter)
         case StandardType.ZonedDateTimeType(formatter) =>
-          decodeString(state.path).map(ZonedDateTime.parse(_, formatter))
-        case _ => fail(state, s"Unsupported primitive type $typ")
+          ZonedDateTime.parse(decodeString(context.path), formatter)
+        case _ => fail(context, s"Unsupported primitive type $typ")
       }
 
-    override protected def startCreatingRecord(state: DecoderState, record: Schema.Record[_]): DecoderState =
-      state
+    override protected def startCreatingRecord(context: DecoderContext, record: Schema.Record[_]): DecoderContext =
+      context
 
     override protected def startReadingField(
-      state: DecoderState,
+      context: DecoderContext,
       record: Schema.Record[_],
       index: Int
-    ): (DecoderState, Option[Int]) = {
+    ): Option[(DecoderContext, Int)] = {
       val tfield = p.readFieldBegin()
-      (state, if (tfield.`type` == TType.STOP) None else Some(tfield.id - 1))
+      if (tfield.`type` == TType.STOP) None
+      else Some((context.copy(path = context.path :+ s"fieldId:${tfield.id}"), tfield.id - 1))
     }
 
     override protected def createRecord(
-      state: DecoderState,
+      context: DecoderContext,
       record: Schema.Record[_],
-      values: Chunk[(Int, Result[Any])]
-    ): Result[Any] = {
+      values: Chunk[(Int, Any)]
+    ): Any = {
       val valuesMap = values.toMap
       val allValues =
         record.fields.zipWithIndex.map {
@@ -587,237 +589,209 @@ object ThriftCodec extends Codec {
               case Some(value) => value
               case None =>
                 emptyValue(field.schema) match {
-                  case Some(value) => succeed(value)
-                  case None        => fail(state, s"Missing value for field ${field.name}")
+                  case Some(value) => value
+                  case None        => fail(context.copy(path = context.path :+ field.name), s"Missing value")
                 }
             }
         }
       Unsafe.unsafe { implicit u =>
-        flip(allValues).flatMap { vs =>
-          record.construct(vs) match {
-            case Left(message) => fail(state, message)
-            case Right(value)  => succeed(value)
-          }
+        record.construct(allValues) match {
+          case Left(message) => fail(context, message)
+          case Right(value)  => value
         }
       }
     }
 
     override protected def startCreatingEnum(
-      state: DecoderState,
+      context: DecoderContext,
       cases: Chunk[Schema.Case[_, _]]
-    ): (DecoderState, Int) = {
+    ): (DecoderContext, Int) = {
       val readField   = p.readFieldBegin()
       val consIdx     = readField.id - 1
       val subtypeCase = cases(consIdx)
-      (state.copy(path = state.path :+ s"[case:${subtypeCase.id}]"), consIdx)
+      (context.copy(path = context.path :+ s"[case:${subtypeCase.id}]"), consIdx)
     }
 
     override protected def createEnum(
-      state: DecoderState,
+      context: DecoderContext,
       cases: Chunk[Schema.Case[_, _]],
       index: Int,
-      value: Result[Any]
-    ): Result[Any] = {
-      value.foreach { _ =>
-        p.readFieldBegin()
-      }
+      value: Any
+    ): Any = {
+      p.readFieldBegin()
       value
     }
 
     override protected def startCreatingSequence(
-      state: DecoderState,
+      context: DecoderContext,
       schema: Schema.Sequence[_, _, _]
-    ): Option[DecoderState] = {
+    ): Option[DecoderContext] = {
       val begin = p.readListBegin()
       if (begin.size == 0) None
       else
-        Some(state.copy(expectedCount = Some(begin.size)))
+        Some(context.copy(expectedCount = Some(begin.size)))
     }
 
-    override protected def startReadingOneSequenceElement(
-      state: DecoderState,
+    override protected def startCreatingOneSequenceElement(
+      context: DecoderContext,
       schema: Schema.Sequence[_, _, _]
-    ): DecoderState =
-      state
+    ): DecoderContext =
+      context
 
-    override protected def readOneSequenceElement(
-      state: DecoderState,
+    override protected def finishedCreatingOneSequenceElement(
+      context: DecoderContext,
       schema: Schema.Sequence[_, _, _],
       index: Int
-    ): (DecoderState, Boolean) = {
-      val continue = state.expectedCount.map(_ - (index + 1)).exists(_ > 0)
-      (state, continue)
-    }
+    ): Boolean =
+      context.expectedCount.map(_ - (index + 1)).exists(_ > 0)
 
     override protected def createSequence(
-      state: DecoderState,
+      context: DecoderContext,
       schema: Schema.Sequence[_, _, _],
-      values: Chunk[Result[Any]]
-    ): Result[Any] =
-      flip(values).map(chunk => schema.fromChunk.asInstanceOf[Chunk[Any] => Any](chunk))
+      values: Chunk[Any]
+    ): Any =
+      schema.fromChunk.asInstanceOf[Chunk[Any] => Any](values)
 
     override protected def startCreatingDictionary(
-      state: DecoderState,
+      context: DecoderContext,
       schema: Schema.Map[_, _]
-    ): Option[DecoderState] = {
+    ): Option[DecoderContext] = {
       val begin = p.readMapBegin()
       if (begin.size == 0) None
       else
-        Some(state.copy(expectedCount = Some(begin.size)))
+        Some(context.copy(expectedCount = Some(begin.size)))
     }
 
-    override protected def startReadingOneDictionaryElement(
-      state: DecoderState,
+    override protected def startCreatingOneDictionaryElement(
+      context: DecoderContext,
       schema: Schema.Map[_, _]
-    ): DecoderState =
-      state
+    ): DecoderContext =
+      context
 
-    override protected def startReadingOneDictionaryValue(
-      state: DecoderState,
+    override protected def startCreatingOneDictionaryValue(
+      context: DecoderContext,
       schema: Schema.Map[_, _]
-    ): DecoderState =
-      state
+    ): DecoderContext =
+      context
 
-    override protected def readOneDictionaryElement(
-      state: DecoderState,
+    override protected def finishedCreatingOneDictionaryElement(
+      context: DecoderContext,
       schema: Schema.Map[_, _],
       index: Int
-    ): (DecoderState, Boolean) = {
-      val continue = state.expectedCount.map(_ - (index + 1)).exists(_ > 0)
-      (state, continue)
-    }
+    ): Boolean =
+      context.expectedCount.map(_ - (index + 1)).exists(_ > 0)
 
     override protected def createDictionary(
-      state: DecoderState,
+      context: DecoderContext,
       schema: Schema.Map[_, _],
-      values: Chunk[(Result[Any], Result[Any])]
-    ): Result[Any] =
-      flip(values.map {
-        case (aa, bb) =>
-          aa.flatMap { a =>
-            bb.map { b =>
-              (a, b)
-            }
-          }
-      }).map(_.toMap)
+      values: Chunk[(Any, Any)]
+    ): Any =
+      values.toMap
 
-    override protected def startCreatingSet(state: DecoderState, schema: Schema.Set[_]): Option[DecoderState] = {
+    override protected def startCreatingSet(context: DecoderContext, schema: Schema.Set[_]): Option[DecoderContext] = {
       val begin = p.readSetBegin()
       if (begin.size == 0) None
-      else Some(state.copy(expectedCount = Some(begin.size)))
+      else Some(context.copy(expectedCount = Some(begin.size)))
     }
 
-    override protected def startReadingOneSetElement(state: DecoderState, schema: Schema.Set[_]): DecoderState =
-      state
+    override protected def startCreatingOneSetElement(context: DecoderContext, schema: Schema.Set[_]): DecoderContext =
+      context
 
-    override protected def readOneSetElement(
-      state: DecoderState,
+    override protected def finishedCreatingOneSetElement(
+      context: DecoderContext,
       schema: Schema.Set[_],
       index: Int
-    ): (DecoderState, Boolean) = {
-      val continue = state.expectedCount.map(_ - (index + 1)).exists(_ > 0)
-      (state, continue)
-    }
+    ): Boolean =
+      context.expectedCount.map(_ - (index + 1)).exists(_ > 0)
 
     override protected def createSet(
-      state: DecoderState,
+      context: DecoderContext,
       schema: Schema.Set[_],
-      values: Chunk[Result[Any]]
-    ): Result[Any] =
-      flip(values).map(_.toSet)
+      values: Chunk[Any]
+    ): Any =
+      values.toSet
 
     override protected def startCreatingOptional(
-      state: DecoderState,
+      context: DecoderContext,
       schema: Schema.Optional[_]
-    ): Option[DecoderState] = {
+    ): Option[DecoderContext] = {
       val field = p.readFieldBegin()
       field.id match {
         case 1 => None
-        case 2 => Some(state.copy(path = state.path :+ "Some"))
-        // TODO
+        case 2 => Some(context.copy(path = context.path :+ "Some"))
+        case id =>
+          fail(context, s"Error decoding optional, wrong field id $id").asInstanceOf[Option[DecoderContext]]
       }
     }
 
     override protected def createOptional(
-      state: DecoderState,
+      context: DecoderContext,
       schema: Schema.Optional[_],
-      value: Option[Result[Any]]
-    ): Result[Any] = {
+      value: Option[Any]
+    ): Any = {
       p.readFieldBegin()
-      value match {
-        case Some(value) => value.map(Some(_))
-        case None        => succeed(None)
-      }
+      value
     }
 
     override protected def startCreatingEither(
-      state: DecoderState,
+      context: DecoderContext,
       schema: Schema.Either[_, _]
-    ): Either[DecoderState, DecoderState] = {
+    ): Either[DecoderContext, DecoderContext] = {
       val readField = p.readFieldBegin()
       readField.id match {
-        case 1 => Left(state.copy(path = state.path :+ "either:left"))
-        case 2 => Right(state.copy(path = state.path :+ "either:right"))
-        //case _ => fail(path, "Failed to decode either.") // TODO
+        case 1 => Left(context.copy(path = context.path :+ "either:left"))
+        case 2 => Right(context.copy(path = context.path :+ "either:right"))
+        case _ => fail(context, "Failed to decode either.").asInstanceOf[Either[DecoderContext, DecoderContext]]
       }
     }
 
     override protected def createEither(
-      state: DecoderState,
+      context: DecoderContext,
       schema: Schema.Either[_, _],
-      value: Either[Result[Any], Result[Any]]
-    ): Result[Any] =
-      value match {
-        case Left(value)  => value.map(Left(_))
-        case Right(value) => value.map(Right(_))
-      }
+      value: Either[Any, Any]
+    ): Any =
+      value
 
-    override protected def startCreatingTuple(state: DecoderState, schema: Schema.Tuple2[_, _]): DecoderState = {
+    override protected def startCreatingTuple(context: DecoderContext, schema: Schema.Tuple2[_, _]): DecoderContext = {
       p.readFieldBegin()
-      state
+      context
     }
 
     override protected def startReadingSecondTupleElement(
-      state: DecoderState,
+      context: DecoderContext,
       schema: Schema.Tuple2[_, _]
-    ): DecoderState = {
+    ): DecoderContext = {
       p.readFieldBegin()
-      state
+      context
     }
 
     override protected def createTuple(
-      state: DecoderState,
+      context: DecoderContext,
       schema: Schema.Tuple2[_, _],
-      left: Result[Any],
-      right: Result[Any]
-    ): Result[Any] = {
+      left: Any,
+      right: Any
+    ): Any = {
       p.readFieldBegin()
-      left.flatMap { l =>
-        right.map { r =>
-          (l, r)
-        }
-      }
+      (left, right)
     }
 
-    override protected def createDynamic(state: DecoderState): Option[Result[Any]] =
+    override protected def createDynamic(context: DecoderContext): Option[Any] =
       None
 
     override protected def transform(
-      state: DecoderState,
-      value: Result[Any],
+      context: DecoderContext,
+      value: Any,
       f: Any => Either[String, Any]
-    ): Result[Any] =
-      value.flatMap { v =>
-        f(v) match {
-          case Left(value)  => fail(state, value)
-          case Right(value) => succeed(value)
-        }
+    ): Any =
+      f(value) match {
+        case Left(value)  => fail(context, value)
+        case Right(value) => value
       }
 
-    override protected def fail(state: DecoderState, message: String): Result[Any] =
-      Left(Error(state.path, message))
+    override protected def fail(context: DecoderContext, message: String): Any =
+      throw Error(context.path, message)
 
-    override protected val initialState: DecoderState = DecoderState(Chunk.empty, None)
+    override protected val initialContext: DecoderContext = DecoderContext(Chunk.empty, None)
 
     private def emptyValue[A](schema: Schema[A]): Option[A] = schema match {
       case Schema.Lazy(s)                             => emptyValue(s())

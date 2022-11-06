@@ -790,8 +790,8 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         for {
           d  <- decode(Record.schemaRecord, "0F").exit
           d2 <- decodeNS(Record.schemaRecord, "0F").exit
-        } yield assert(d)(fails(equalTo("Error at path /: Error reading field begin: MaxMessageSize reached"))) &&
-          assert(d2)(fails(equalTo("Error at path /: Error reading field begin: MaxMessageSize reached")))
+        } yield assert(d)(fails(equalTo("Error at path /: MaxMessageSize reached"))) &&
+          assert(d2)(fails(equalTo("Error at path /: MaxMessageSize reached")))
       },
       test("missing value") {
         for {

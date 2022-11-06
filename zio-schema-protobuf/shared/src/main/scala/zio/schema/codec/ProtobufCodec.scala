@@ -1,16 +1,18 @@
 package zio.schema.codec
 
-import zio.schema._
-import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
-import zio.stream.ZPipeline
-import zio.{ Chunk, Unsafe, ZIO }
-
 import java.nio.charset.StandardCharsets
 import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
 import java.util.UUID
+
 import scala.collection.immutable.ListMap
 import scala.util.control.{ NoStackTrace, NonFatal }
+
+import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
+import zio.schema._
+import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
+import zio.stream.ZPipeline
+import zio.{ Chunk, Unsafe, ZIO }
 
 object ProtobufCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] =
@@ -87,40 +89,40 @@ object ProtobufCodec extends Codec {
     }
   }
 
-  final private[codec] case class EncoderState(fieldNumber: Option[Int])
+  final private[codec] case class EncoderContext(fieldNumber: Option[Int])
 
-  object Encoder extends ProcessValueWithSchema[Chunk[Byte], EncoderState] {
+  object Encoder extends MutableSchemaBasedValueProcessor[Chunk[Byte], EncoderContext] {
     import Protobuf._
 
-    override protected def processPrimitive(state: EncoderState, value: Any, typ: StandardType[Any]): Chunk[Byte] =
-      encodePrimitive(state.fieldNumber, typ, value)
+    override protected def processPrimitive(context: EncoderContext, value: Any, typ: StandardType[Any]): Chunk[Byte] =
+      encodePrimitive(context.fieldNumber, typ, value)
 
     override protected def processRecord(
-      state: EncoderState,
+      context: EncoderContext,
       schema: Schema.Record[_],
       value: ListMap[String, Chunk[Byte]]
     ): Chunk[Byte] = {
       val encodedRecord = Chunk.fromIterable(value.values).flatten
-      encodeKey(WireType.LengthDelimited(encodedRecord.size), state.fieldNumber) ++ encodedRecord
+      encodeKey(WireType.LengthDelimited(encodedRecord.size), context.fieldNumber) ++ encodedRecord
     }
 
     override protected def processEnum(
-      state: EncoderState,
+      context: EncoderContext,
       schema: Schema.Enum[_],
       tuple: (String, Chunk[Byte])
     ): Chunk[Byte] = {
       val encoded = tuple._2
-      encodeKey(WireType.LengthDelimited(encoded.size), state.fieldNumber) ++ encoded
+      encodeKey(WireType.LengthDelimited(encoded.size), context.fieldNumber) ++ encoded
     }
 
     override protected def processSequence(
-      state: EncoderState,
+      context: EncoderContext,
       schema: Schema.Sequence[_, _, _],
       value: Chunk[Chunk[Byte]]
     ): Chunk[Byte] =
       if (value.isEmpty) {
         val data = encodeKey(WireType.LengthDelimited(0), Some(1))
-        encodeKey(WireType.LengthDelimited(data.size), state.fieldNumber) ++ encodeKey(
+        encodeKey(WireType.LengthDelimited(data.size), context.fieldNumber) ++ encodeKey(
           WireType.LengthDelimited(0),
           Some(1)
         )
@@ -131,17 +133,17 @@ object ProtobufCodec extends Codec {
           Some(2)
         ) ++ chunk
 
-        encodeKey(WireType.LengthDelimited(data.size), state.fieldNumber) ++ data
+        encodeKey(WireType.LengthDelimited(data.size), context.fieldNumber) ++ data
       }
 
     override protected def processDictionary(
-      state: EncoderState,
+      context: EncoderContext,
       schema: Schema.Map[_, _],
       value: Chunk[(Chunk[Byte], Chunk[Byte])]
     ): Chunk[Byte] =
       if (value.isEmpty) {
         val data = encodeKey(WireType.LengthDelimited(0), Some(1))
-        encodeKey(WireType.LengthDelimited(data.size), state.fieldNumber) ++ encodeKey(
+        encodeKey(WireType.LengthDelimited(data.size), context.fieldNumber) ++ encodeKey(
           WireType.LengthDelimited(0),
           Some(1)
         )
@@ -171,17 +173,17 @@ object ProtobufCodec extends Codec {
           Some(2)
         ) ++ chunk
 
-        encodeKey(WireType.LengthDelimited(data.size), state.fieldNumber) ++ data
+        encodeKey(WireType.LengthDelimited(data.size), context.fieldNumber) ++ data
       }
 
     override protected def processSet(
-      state: EncoderState,
+      context: EncoderContext,
       schema: Schema.Set[_],
       value: Set[Chunk[Byte]]
     ): Chunk[Byte] =
       if (value.isEmpty) {
         val data = encodeKey(WireType.LengthDelimited(0), Some(1))
-        encodeKey(WireType.LengthDelimited(data.size), state.fieldNumber) ++ encodeKey(
+        encodeKey(WireType.LengthDelimited(data.size), context.fieldNumber) ++ encodeKey(
           WireType.LengthDelimited(0),
           Some(1)
         )
@@ -192,20 +194,20 @@ object ProtobufCodec extends Codec {
           Some(2)
         ) ++ chunk
 
-        encodeKey(WireType.LengthDelimited(data.size), state.fieldNumber) ++ data
+        encodeKey(WireType.LengthDelimited(data.size), context.fieldNumber) ++ data
       }
 
     override protected def processEither(
-      state: EncoderState,
+      context: EncoderContext,
       schema: Schema.Either[_, _],
       value: Either[Chunk[Byte], Chunk[Byte]]
     ): Chunk[Byte] = {
       val encodedEither = value.merge
-      encodeKey(WireType.LengthDelimited(encodedEither.size), state.fieldNumber) ++ encodedEither
+      encodeKey(WireType.LengthDelimited(encodedEither.size), context.fieldNumber) ++ encodedEither
     }
 
     override protected def processOption(
-      state: EncoderState,
+      context: EncoderContext,
       schema: Schema.Optional[_],
       value: Option[Chunk[Byte]]
     ): Chunk[Byte] = {
@@ -214,71 +216,71 @@ object ProtobufCodec extends Codec {
         case None        => encodeKey(WireType.LengthDelimited(0), Some(1))
       }
 
-      encodeKey(WireType.LengthDelimited(data.size), state.fieldNumber) ++ data
+      encodeKey(WireType.LengthDelimited(data.size), context.fieldNumber) ++ data
     }
 
     override protected def processTuple(
-      state: EncoderState,
+      context: EncoderContext,
       schema: Schema.Tuple2[_, _],
       left: Chunk[Byte],
       right: Chunk[Byte]
     ): Chunk[Byte] = {
       val data = left ++ right
-      encodeKey(WireType.LengthDelimited(data.size), state.fieldNumber) ++ data
+      encodeKey(WireType.LengthDelimited(data.size), context.fieldNumber) ++ data
     }
 
-    override protected def processDynamic(state: EncoderState, value: DynamicValue): Option[Chunk[Byte]] =
+    override protected def processDynamic(context: EncoderContext, value: DynamicValue): Option[Chunk[Byte]] =
       None
 
-    override protected def fail(state: EncoderState, message: String): Chunk[Byte] =
+    override protected def fail(context: EncoderContext, message: String): Chunk[Byte] =
       throw new RuntimeException(message)
 
-    override protected val initialState: EncoderState = EncoderState(None)
+    override protected val initialContext: EncoderContext = EncoderContext(None)
 
-    override protected def stateForRecordField(
-      state: EncoderState,
+    override protected def contextForRecordField(
+      context: EncoderContext,
       index: Int,
       field: Schema.Field[_, _]
-    ): EncoderState =
-      state.copy(fieldNumber = Some(index + 1))
+    ): EncoderContext =
+      context.copy(fieldNumber = Some(index + 1))
 
-    override protected def stateForTuple(state: EncoderState, index: Int): EncoderState =
-      state.copy(fieldNumber = Some(index))
+    override protected def contextForTuple(context: EncoderContext, index: Int): EncoderContext =
+      context.copy(fieldNumber = Some(index))
 
-    override protected def stateForEnumConstructor(
-      state: EncoderState,
+    override protected def contextForEnumConstructor(
+      context: EncoderContext,
       index: Int,
       c: Schema.Case[_, _]
-    ): EncoderState =
-      state.copy(fieldNumber = Some(index + 1))
+    ): EncoderContext =
+      context.copy(fieldNumber = Some(index + 1))
 
-    override protected def stateForEither(state: EncoderState, e: Either[Unit, Unit]): EncoderState =
+    override protected def contextForEither(context: EncoderContext, e: Either[Unit, Unit]): EncoderContext =
       e match {
-        case Left(_)  => state.copy(fieldNumber = Some(1))
-        case Right(_) => state.copy(fieldNumber = Some(2))
+        case Left(_)  => context.copy(fieldNumber = Some(1))
+        case Right(_) => context.copy(fieldNumber = Some(2))
       }
 
-    override protected def stateForOption(state: EncoderState, o: Option[Unit]): EncoderState =
+    override protected def contextForOption(context: EncoderContext, o: Option[Unit]): EncoderContext =
       o match {
-        case None    => state.copy(fieldNumber = Some(1))
-        case Some(_) => state.copy(fieldNumber = Some(2))
+        case None    => context.copy(fieldNumber = Some(1))
+        case Some(_) => context.copy(fieldNumber = Some(2))
       }
 
-    override protected def stateForSequence(
-      state: EncoderState,
+    override protected def contextForSequence(
+      context: EncoderContext,
       s: Schema.Sequence[_, _, _],
       index: Int
-    ): EncoderState =
-      if (canBePacked(s.elementSchema)) state.copy(fieldNumber = None)
-      else state.copy(fieldNumber = Some(index + 1))
+    ): EncoderContext =
+      if (canBePacked(s.elementSchema)) context.copy(fieldNumber = None)
+      else context.copy(fieldNumber = Some(index + 1))
 
-    override protected def stateForMap(state: EncoderState, s: Schema.Map[_, _], index: Int): EncoderState =
-      if (canBePacked(s.keySchema <*> s.valueSchema)) state.copy(fieldNumber = None)
-      else state.copy(fieldNumber = Some(index + 1))
+    override protected def contextForMap(context: EncoderContext, s: Schema.Map[_, _], index: Int): EncoderContext =
+      if (canBePacked(s.keySchema <*> s.valueSchema)) context.copy(fieldNumber = None)
+      else context.copy(fieldNumber = Some(index + 1))
 
-    override protected def stateForSet(state: EncoderState, s: Schema.Set[_], index: Int): EncoderState =
-      if (canBePacked(s.elementSchema)) state.copy(fieldNumber = None)
-      else state.copy(fieldNumber = Some(index + 1))
+    override protected def contextForSet(context: EncoderContext, s: Schema.Set[_], index: Int): EncoderContext =
+      if (canBePacked(s.elementSchema)) context.copy(fieldNumber = None)
+      else context.copy(fieldNumber = Some(index + 1))
 
     private def encodePrimitive[A](
       fieldNumber: Option[Int],
@@ -453,7 +455,7 @@ object ProtobufCodec extends Codec {
 
   final case class DecoderException(message: String) extends RuntimeException(message) with NoStackTrace
 
-  class Decoder(chunk: Chunk[Byte]) extends CreateValueFromSchema[Any, DecoderContext] {
+  class Decoder(chunk: Chunk[Byte]) extends MutableSchemaBasedValueBuilder[Any, DecoderContext] {
 
     import Protobuf._
 
@@ -463,7 +465,7 @@ object ProtobufCodec extends Codec {
       try {
         Right(create(schema).asInstanceOf[A])
       } catch {
-        case DecoderException(message) =>
+        case CreateValueFromSchemaError(_, DecoderException(message)) =>
           Left(message)
       }
 
@@ -550,19 +552,19 @@ object ProtobufCodec extends Codec {
       context: DecoderContext,
       record: Schema.Record[_],
       index: Int
-    ): (DecoderContext, Option[Int]) =
+    ): Option[(DecoderContext, Int)] =
       if (index == record.fields.size) {
-        (context, None)
+        None
       } else {
         keyDecoder(context) match {
           case (wt, fieldNumber) =>
             if (record.fields.isDefinedAt(fieldNumber - 1)) {
-              wt match {
+              Some(wt match {
                 case LengthDelimited(width) =>
-                  (context.limitedTo(state, width), Some(fieldNumber - 1))
+                  (context.limitedTo(state, width), fieldNumber - 1)
                 case _ =>
-                  (context, Some(fieldNumber - 1))
-              }
+                  (context, fieldNumber - 1)
+              })
             } else {
               throw DecoderException(s"Failed to decode record. Schema does not contain field number $fieldNumber.")
             }
@@ -618,7 +620,7 @@ object ProtobufCodec extends Codec {
           throw DecoderException(s"Invalid wire type ($wt) or field number ($fieldNumber) for packed sequence")
       }
 
-    override protected def startReadingOneSequenceElement(
+    override protected def startCreatingOneSequenceElement(
       context: DecoderContext,
       schema: Schema.Sequence[_, _, _]
     ): DecoderContext =
@@ -636,12 +638,12 @@ object ProtobufCodec extends Codec {
         }
       }
 
-    override protected def readOneSequenceElement(
+    override protected def finishedCreatingOneSequenceElement(
       context: DecoderContext,
       schema: Schema.Sequence[_, _, _],
       index: Int
-    ): (DecoderContext, Boolean) =
-      (context, state.length(context) > 0)
+    ): Boolean =
+      state.length(context) > 0
 
     override protected def createSequence(
       context: DecoderContext,
@@ -663,7 +665,7 @@ object ProtobufCodec extends Codec {
           throw DecoderException(s"Invalid wire type ($wt) or field number ($fieldNumber) for packed sequence")
       }
 
-    override protected def startReadingOneDictionaryElement(
+    override protected def startCreatingOneDictionaryElement(
       context: DecoderContext,
       schema: Schema.Map[_, _]
     ): DecoderContext = {
@@ -684,18 +686,18 @@ object ProtobufCodec extends Codec {
       enterFirstTupleElement(elemContext).copy(dictionaryElementContext = Some(elemContext))
     }
 
-    override protected def startReadingOneDictionaryValue(
+    override protected def startCreatingOneDictionaryValue(
       context: DecoderContext,
       schema: Schema.Map[_, _]
     ): DecoderContext =
       enterSecondTupleElement(context.dictionaryElementContext.getOrElse(context))
 
-    override protected def readOneDictionaryElement(
+    override protected def finishedCreatingOneDictionaryElement(
       context: DecoderContext,
       schema: Schema.Map[_, _],
       index: Int
-    ): (DecoderContext, Boolean) =
-      (context, state.length(context) > 0)
+    ): Boolean =
+      state.length(context) > 0
 
     override protected def createDictionary(
       context: DecoderContext,
@@ -714,7 +716,7 @@ object ProtobufCodec extends Codec {
           throw DecoderException(s"Invalid wire type ($wt) or field number ($fieldNumber) for packed sequence")
       }
 
-    override protected def startReadingOneSetElement(context: DecoderContext, schema: Schema.Set[_]): DecoderContext =
+    override protected def startCreatingOneSetElement(context: DecoderContext, schema: Schema.Set[_]): DecoderContext =
       if (context.packed) {
         context
       } else {
@@ -729,12 +731,12 @@ object ProtobufCodec extends Codec {
         }
       }
 
-    override protected def readOneSetElement(
+    override protected def finishedCreatingOneSetElement(
       context: DecoderContext,
       schema: Schema.Set[_],
       index: Int
-    ): (DecoderContext, Boolean) =
-      (context, state.length(context) > 0)
+    ): Boolean =
+      state.length(context) > 0
 
     override protected def createSet(context: DecoderContext, schema: Schema.Set[_], values: Chunk[Any]): Any =
       values.toSet
@@ -825,7 +827,7 @@ object ProtobufCodec extends Codec {
     override protected def fail(context: DecoderContext, message: String): Any =
       throw DecoderException(message)
 
-    override protected val initialState: DecoderContext =
+    override protected val initialContext: DecoderContext =
       DecoderContext(limit = None, packed = false, dictionaryElementContext = None)
 
     /**
