@@ -209,7 +209,7 @@ lazy val zioSchemaMsgPack = crossProject(JSPlatform, JVMPlatform)
     libraryDependencies ++= Seq(
       "org.msgpack"                  % "msgpack-core"               % "0.9.3",
       "org.msgpack"                  % "jackson-dataformat-msgpack" % "0.9.3" % Test,
-      "com.fasterxml.jackson.module" %% "jackson-module-scala"      % "2.13.2" % Test
+      "com.fasterxml.jackson.module" %% "jackson-module-scala"      % "2.14.0" % Test
     )
   )
 
