@@ -675,6 +675,12 @@ object ThriftCodec extends Codec {
     ): DecoderState =
       state
 
+    override protected def startReadingOneDictionaryValue(
+      state: DecoderState,
+      schema: Schema.Map[_, _]
+    ): DecoderState =
+      state
+
     override protected def readOneDictionaryElement(
       state: DecoderState,
       schema: Schema.Map[_, _],

@@ -1,17 +1,16 @@
 package zio.schema.codec
 
-import java.math.{ BigInteger, MathContext }
-import java.nio.charset.StandardCharsets
-import java.nio.{ ByteBuffer, ByteOrder }
-import java.time._
-import java.util.UUID
-import scala.annotation.tailrec
-import scala.collection.immutable.ListMap
-import scala.util.control.{ NoStackTrace, NonFatal }
 import zio.schema._
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZPipeline
-import zio.{ Chunk, Unsafe, ZIO }
+import zio.{Chunk, Unsafe, ZIO}
+
+import java.nio.charset.StandardCharsets
+import java.nio.{ByteBuffer, ByteOrder}
+import java.time._
+import java.util.UUID
+import scala.collection.immutable.ListMap
+import scala.util.control.{NoStackTrace, NonFatal}
 
 object ProtobufCodec extends Codec {
   override def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Byte] =
@@ -153,8 +152,8 @@ object ProtobufCodec extends Codec {
             val rightDecoder = new Decoder(right)
 
             (
-              leftDecoder.keyDecoder(DecoderContext(None, packed = false)),
-              rightDecoder.keyDecoder(DecoderContext(None, packed = false))
+              leftDecoder.keyDecoder(DecoderContext(None, packed = false, dictionaryElementContext = None)),
+              rightDecoder.keyDecoder(DecoderContext(None, packed = false, dictionaryElementContext = None))
             ) match {
               case ((leftWireType, seqIndex), (rightWireType, _)) =>
                 val data =
@@ -442,7 +441,11 @@ object ProtobufCodec extends Codec {
     def currentPosition: Int = position
   }
 
-  final case class DecoderContext(limit: Option[Int], packed: Boolean) {
+  final case class DecoderContext(
+    limit: Option[Int],
+    packed: Boolean,
+    dictionaryElementContext: Option[DecoderContext]
+  ) {
 
     def limitedTo(state: DecoderState, w: Int): DecoderContext =
       copy(limit = Some(state.currentPosition + w))
@@ -663,20 +666,29 @@ object ProtobufCodec extends Codec {
     override protected def startReadingOneDictionaryElement(
       context: DecoderContext,
       schema: Schema.Map[_, _]
-    ): DecoderContext =
-      if (context.packed) {
-        context
-      } else {
-        keyDecoder(context) match {
-          case (wt, _) =>
-            wt match {
-              case LengthDelimited(elemWidth) =>
-                context.limitedTo(state, elemWidth)
-              case _ =>
-                throw DecoderException(s"Unexpected wire type $wt for non-packed sequence")
-            }
+    ): DecoderContext = {
+      val elemContext =
+        if (context.packed) {
+          context
+        } else {
+          keyDecoder(context) match {
+            case (wt, _) =>
+              wt match {
+                case LengthDelimited(elemWidth) =>
+                  context.limitedTo(state, elemWidth)
+                case _ =>
+                  throw DecoderException(s"Unexpected wire type $wt for non-packed sequence")
+              }
+          }
         }
-      }
+      enterFirstTupleElement(elemContext).copy(dictionaryElementContext = Some(elemContext))
+    }
+
+    override protected def startReadingOneDictionaryValue(
+      context: DecoderContext,
+      schema: Schema.Map[_, _]
+    ): DecoderContext =
+      enterSecondTupleElement(context.dictionaryElementContext.getOrElse(context))
 
     override protected def readOneDictionaryElement(
       context: DecoderContext,
@@ -763,6 +775,9 @@ object ProtobufCodec extends Codec {
       value
 
     override protected def startCreatingTuple(context: DecoderContext, schema: Schema.Tuple2[_, _]): DecoderContext =
+      enterFirstTupleElement(context)
+
+    private def enterFirstTupleElement(context: DecoderContext): DecoderContext =
       keyDecoder(context) match {
         case (wt, 1) =>
           wt match {
@@ -777,6 +792,9 @@ object ProtobufCodec extends Codec {
       context: DecoderContext,
       schema: Schema.Tuple2[_, _]
     ): DecoderContext =
+      enterSecondTupleElement(context)
+
+    private def enterSecondTupleElement(context: DecoderContext): DecoderContext =
       keyDecoder(context) match {
         case (wt, 2) =>
           wt match {
@@ -807,7 +825,8 @@ object ProtobufCodec extends Codec {
     override protected def fail(context: DecoderContext, message: String): Any =
       throw DecoderException(message)
 
-    override protected val initialState: DecoderContext = DecoderContext(limit = None, packed = false)
+    override protected val initialState: DecoderContext =
+      DecoderContext(limit = None, packed = false, dictionaryElementContext = None)
 
     /**
      * Decodes key which consist out of field type (wire type) and a field number.
@@ -896,7 +915,7 @@ object ProtobufCodec extends Codec {
       state.all(context)
 
     private[codec] def remainder: Chunk[Byte] =
-      state.peek(DecoderContext(None, packed = false))
+      state.peek(DecoderContext(None, packed = false, dictionaryElementContext = None))
   }
 
 }

@@ -21,6 +21,7 @@ trait CreateValueFromSchema[Target, State] {
 
   protected def startCreatingDictionary(state: State, schema: Schema.Map[_, _]): Option[State]
   protected def startReadingOneDictionaryElement(state: State, schema: Schema.Map[_, _]): State
+  protected def startReadingOneDictionaryValue(state: State, schema: Schema.Map[_, _]): State
   protected def readOneDictionaryElement(state: State, schema: Schema.Map[_, _], index: Int): (State, Boolean)
   protected def createDictionary(state: State, schema: Schema.Map[_, _], values: Chunk[(Target, Target)]): Target
 
@@ -444,12 +445,13 @@ trait CreateValueFromSchema[Target, State] {
           def readOne(index: Int): Unit =
             push { key =>
               currentSchema = vs
+              pushState(startReadingOneDictionaryValue(state, s))
 
               push { value =>
                 val elem = (key, value)
                 elems += elem
 
-                stateStack = stateStack.tail
+                stateStack = stateStack.tail.tail
                 val (newState0, continue) = readOneDictionaryElement(stateStack.head, s, index)
 
                 if (continue) {
@@ -970,9 +972,14 @@ trait CreateValueFromSchemaWithoutState[Target] extends CreateValueFromSchema[Ta
     ((), readOneDictionaryElement(schema, index))
 
   override protected def startReadingOneDictionaryElement(state: Unit, schema: Schema.Map[_, _]): Unit =
-    startReadingOneDictionaryElement(schema)
+    startReadingOneDictionaryKey(schema)
 
-  protected def startReadingOneDictionaryElement(schema: Schema.Map[_, _]): Unit
+  protected def startReadingOneDictionaryKey(schema: Schema.Map[_, _]): Unit
+
+  override protected def startReadingOneDictionaryValue(state: Unit, schema: Schema.Map[_, _]): Unit =
+    startReadingOneDictionaryValue(schema)
+
+  protected def startReadingOneDictionaryValue(schema: Schema.Map[_, _]): Unit
 
   protected def readOneDictionaryElement(schema: Schema.Map[_, _], index: Int): Boolean
 
