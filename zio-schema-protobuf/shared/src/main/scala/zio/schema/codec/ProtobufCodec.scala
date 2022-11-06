@@ -15,7 +15,6 @@ import zio.schema.codec.BinaryCodec._
 import zio.schema.codec.DecodeError.{
   ExtraFields,
   MalformedField,
-  MalformedFieldWithPath,
   MissingField,
   ReadError,
   RecordMissingField
@@ -965,7 +964,7 @@ object ProtobufCodec extends BinaryCodec {
             case 3 => succeed((WireType.StartGroup, fieldNumber))
             case 4 => succeed((WireType.EndGroup, fieldNumber))
             case 5 => succeed((WireType.Bit32, fieldNumber))
-            case n => fail(MalformedFieldWithPath(Chunk.empty, s"Failed decoding key. Unknown wire type $n"))
+            case n => fail(ExtraFields(fieldNumber.toString, s"Failed decoding key. Unknown wire type $n"))
           }
         }
       }

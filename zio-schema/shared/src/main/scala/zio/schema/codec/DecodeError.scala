@@ -1,8 +1,8 @@
 package zio.schema.codec
 
-import zio.{ Cause, Chunk }
+import zio.{Cause, Chunk}
 import zio.schema.Schema
-import zio.schema.Schema.{ Field, Record }
+import zio.schema.Schema.{Field, Record}
 import zio.schema.validation.Validation
 
 import scala.util.control.NoStackTrace
@@ -33,7 +33,7 @@ object DecodeError {
 
   final case class MalformedField(value: Schema[_], message: String) extends DecodeError
 
-  final case class MalformedFieldWithPath(path: Chunk[Any], message: String) extends DecodeError
+  final case class MalformedFieldWithPath(path: Chunk[String], message: String) extends DecodeError
 
   final case class ReadError(cause: Cause[Any], message: String) extends DecodeError
 
