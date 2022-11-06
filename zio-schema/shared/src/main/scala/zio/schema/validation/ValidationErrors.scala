@@ -41,4 +41,6 @@ object ValidationError {
     override def message: String =
       s"$str matches a regex other than $expected"
   }
+
+  final case class Generic(message: String) extends ValidationError
 }

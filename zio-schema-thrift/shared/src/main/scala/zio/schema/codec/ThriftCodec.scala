@@ -13,6 +13,7 @@ import scala.util.{ Failure, Success, Try }
 import org.apache.thrift.protocol._
 
 import zio.schema._
+import zio.schema.annotation.optionalField
 import zio.schema.codec.BinaryCodec._
 import zio.schema.codec.ThriftCodec.Thrift.{
   bigDecimalStructure,
@@ -869,8 +870,8 @@ object ThriftCodec extends BinaryCodec {
         def addFields(values: ListMap[Short, Any], index: Int): Result[Array[Any]] =
           if (index >= fields.size) Right(buffer)
           else {
-            val Schema.Field(label, schema, _, _, _, _) = fields(index)
-            val rawValue                                = values.get((index + 1).toShort)
+            val Schema.Field(label, schema, annotations, _, _, _) = fields(index)
+            val rawValue                                          = values.get((index + 1).toShort)
             rawValue match {
               case Some(value) =>
                 buffer.update(index, value)
@@ -880,7 +881,12 @@ object ThriftCodec extends BinaryCodec {
                   case Some(value) =>
                     buffer.update(index, value)
                     addFields(values, index + 1)
-                  case None => fail(path :+ label, "Missing value")
+                  case None =>
+                    val optionalFieldAnnotation = annotations.collectFirst({ case a: optionalField => a })
+                    if (optionalFieldAnnotation.isDefined) {
+                      buffer.update(index, schema.defaultValue.toOption.get)
+                      addFields(values, index + 1)
+                    } else fail(path :+ label, "Missing value")
                 }
             }
           }

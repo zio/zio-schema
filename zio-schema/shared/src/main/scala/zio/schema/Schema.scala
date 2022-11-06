@@ -146,6 +146,8 @@ sealed trait Schema[A] {
   ): Schema[B] =
     Schema.Transform[A, B, SourceLocation](self, f, g, annotations, loc)
 
+  def validate(value: A)(implicit schema: Schema[A]): Chunk[ValidationError] = Schema.validate[A](value)
+
   /**
    * Returns a new schema that combines this schema and the specified schema together, modeling
    * their tuple composition.
@@ -176,6 +178,63 @@ object Schema extends SchemaEquality {
     schema.transform[A](_._2, a => ((), a))
 
   def singleton[A](instance: A): Schema[A] = Schema[Unit].transform(_ => instance, _ => ())
+
+  def validate[A](value: A)(implicit schema: Schema[A]): Chunk[ValidationError] = {
+    def loop[A](value: A, schema: Schema[A]): Chunk[ValidationError] =
+      schema match {
+        case Sequence(schema, _, toChunk, _, _) =>
+          toChunk(value).flatMap(value => loop(value, schema))
+        case Transform(schema, _, g, _, _) =>
+          g(value) match {
+            case Right(value) => loop(value, schema)
+            case Left(error)  => Chunk(ValidationError.Generic(error))
+          }
+        case Primitive(_, _) => Chunk.empty
+        case optional @ Optional(schema, _) =>
+          value.asInstanceOf[Option[optional.OptionalType]] match {
+            case Some(value) => loop(value, schema)
+            case None        => Chunk.empty
+          }
+        case tuple @ Schema.Tuple2(left, right, _) =>
+          loop(tuple.extract1(value), left) ++ loop(tuple.extract2(value), right)
+        case l @ Lazy(_) =>
+          loop(value, l.schema)
+        case Schema.Map(ks, vs, _) =>
+          Chunk.fromIterable(value.keys).flatMap(loop(_, ks)) ++ Chunk.fromIterable(value.values).flatMap(loop(_, vs))
+        case set @ Schema.Set(as, _) =>
+          Chunk.fromIterable(value.asInstanceOf[scala.collection.Set[set.ElementType]]).flatMap(loop(_, as))
+        case enumeration: Enum[_] =>
+          enumeration.caseOf(value) match {
+            case Some(c) =>
+              loop(c.deconstruct(value), c.schema.asInstanceOf[Schema[Any]])
+            case None =>
+              Chunk.empty // TODO could consider this a fatal error
+          }
+        case record: Record[_] =>
+          val fieldValues = Unsafe.unsafe { implicit unsafe =>
+            record.deconstruct(value)
+          }
+          record.fields
+            .zip(fieldValues)
+            .foldLeft[Chunk[ValidationError]](Chunk.empty) {
+              case (acc, (field, fieldValue)) =>
+                val validation = field.validation.asInstanceOf[Validation[Any]]
+                validation.validate(fieldValue).swap.getOrElse(Chunk.empty) ++ acc ++ loop(
+                  fieldValue,
+                  field.schema.asInstanceOf[Schema[Any]]
+                )
+            }
+            .reverse
+        case either @ Schema.Either(left, right, _) =>
+          value.asInstanceOf[scala.util.Either[either.LeftType, either.RightType]] match {
+            case Left(value)  => loop(value, left)
+            case Right(value) => loop(value, right)
+          }
+        case Dynamic(_) => Chunk.empty
+        case Fail(_, _) => Chunk.empty
+      }
+    loop(value, schema)
+  }
 
   implicit val bigDecimal: Schema[BigDecimal] = primitive[java.math.BigDecimal].transform(BigDecimal(_), _.bigDecimal)
 
@@ -279,7 +338,6 @@ object Schema extends SchemaEquality {
       casesMap.get(id)
 
     def caseOf(z: Z): Option[Case[Z, _]] = cases.find(_.isCase(z))
-
   }
 
   sealed trait Field[R, A] {
@@ -418,6 +476,7 @@ object Schema extends SchemaEquality {
 
   final case class Optional[A](schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) extends Schema[Option[A]] {
     self =>
+    type OptionalType = A
 
     val some = "Some"
     val none = "None"
@@ -495,11 +554,15 @@ object Schema extends SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): (b.Lens[first.type, (A, B), A], b.Lens[second.type, (A, B), B]) =
       b.makeLens(toRecord, toRecord.field1) -> b.makeLens(toRecord, toRecord.field2)
 
+    def extract1(value: (A, B)): A = value._1
+    def extract2(value: (A, B)): B = value._2
   }
 
   final case class Either[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
       extends Schema[scala.util.Either[A, B]] {
     self =>
+    type LeftType  = A
+    type RightType = B
 
     val leftSingleton  = "Left"
     val rightSingleton = "Right"
@@ -596,6 +659,8 @@ object Schema extends SchemaEquality {
   final case class Set[A](elementSchema: Schema[A], override val annotations: Chunk[Any] = Chunk.empty)
       extends Collection[scala.collection.immutable.Set[A], A] {
     self =>
+    type ElementType = A
+
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       Traversal[scala.collection.immutable.Set[A], A]
 
@@ -3848,7 +3913,6 @@ object Schema extends SchemaEquality {
     )
 
     override def toString: String = s"CaseClass6(${fields.mkString(",")})"
-
   }
 
   object CaseClass6 {

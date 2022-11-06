@@ -3,7 +3,7 @@ package zio.schema
 import scala.annotation.Annotation
 
 import zio.Chunk
-import zio.schema.annotation.fieldName
+import zio.schema.annotation.{ fieldName, optionalField }
 import zio.test._
 
 object DeriveSchemaSpec extends ZIOSpecDefault {
@@ -245,6 +245,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
     implicit val schema: Schema[ContainsSchema] = DeriveSchema.gen[ContainsSchema]
   }
 
+  case class OptionalField(@optionalField name: String, age: Int)
+
+  object OptionalField {
+    implicit val schema: Schema[OptionalField] = DeriveSchema.gen[OptionalField]
+  }
+
   override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("correctly derives case class 0") {
@@ -423,6 +429,30 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
               set0 = (a, b: Int) => a.copy(num = b)
             ),
             RenamedField.apply
+          )
+        }
+        assert(derived)(hasSameSchema(expected))
+      },
+      test("correctly derives optional fields when optional annotation is present") {
+        val derived: Schema[OptionalField] = Schema[OptionalField]
+        val expected: Schema[OptionalField] = {
+          Schema.CaseClass2(
+            TypeId.parse("zio.schema.DeriveSchemaSpec.OptionalField"),
+            field01 = Schema.Field(
+              "name",
+              Schema.Primitive(StandardType.StringType),
+              Chunk(optionalField()),
+              get0 = _.name,
+              set0 = (a, b: String) => a.copy(name = b)
+            ),
+            field02 = Schema.Field(
+              "age",
+              Schema.Primitive(StandardType.IntType),
+              Chunk.empty,
+              get0 = _.age,
+              set0 = (a, b: Int) => a.copy(age = b)
+            ),
+            OptionalField.apply
           )
         }
         assert(derived)(hasSameSchema(expected))

@@ -118,6 +118,8 @@ sealed trait DynamicValue {
 
 object DynamicValue {
 
+  def apply[A](a: A)(implicit ev: Schema[A]): DynamicValue = ev.toDynamic(a)
+
   //scalafmt: { maxColumn = 400 }
   def fromSchemaAndValue[A](schema: Schema[A], value: A): DynamicValue =
     schema match {

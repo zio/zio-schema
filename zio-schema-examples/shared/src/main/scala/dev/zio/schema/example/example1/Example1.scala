@@ -117,15 +117,24 @@ object ManualConstruction {
     construct0 = (person, paymentMethod) => Customer(person, paymentMethod)
   )
 
+  val schemaPersonDictionary: Schema[scala.collection.immutable.Map[String, Person]] =
+    Schema.map(
+      Schema.primitive[String],
+      Schema[Person](schemaPerson)
+    )
+
 }
 
 object MacroConstruction {
 
-  val schemaPerson: Schema[Person] = DeriveSchema.gen[Person]
+  implicit val schemaPerson: Schema[Person] = DeriveSchema.gen[Person]
 
   val schemaPaymentMethod: Schema[PaymentMethod] = DeriveSchema.gen[PaymentMethod]
 
   val schemaCustomer: Schema[Customer] = DeriveSchema.gen[Customer]
+
+  val schemaPersonDictionaryFromMacro: Schema[scala.collection.immutable.Map[String, Person]] =
+    DeriveSchema.gen[Map[String, Person]]
 
 }
 
@@ -203,5 +212,31 @@ object CombiningExample extends ZIOAppDefault {
       _ <- ZIO.debug("is old person the new person? " + (person == newPerson).toString)
       _ <- ZIO.debug("old person: " + person)
       _ <- ZIO.debug("new person: " + newPerson)
+    } yield ExitCode.success
+}
+
+object DictionaryExample extends ZIOAppDefault {
+
+  import MacroConstruction._
+  import zio.schema.codec.JsonCodec
+  import zio.stream.ZStream
+  override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
+    for {
+      _          <- ZIO.unit
+      person     = Person("Mike", 32)
+      dictionary = Map("m" -> person)
+      dictionaryToJson = JsonCodec
+        .encoder[scala.collection.immutable.Map[String, Person]](schemaPersonDictionaryFromMacro)
+      jsonToDictionary = JsonCodec
+        .decoder[scala.collection.immutable.Map[String, Person]](schemaPersonDictionaryFromMacro)
+      newPersonDictionary <- ZStream(dictionary)
+                              .via(dictionaryToJson)
+                              .via(jsonToDictionary)
+                              .runHead
+                              .some
+                              .catchAll(error => ZIO.debug(error))
+      _ <- ZIO.debug("is old dictionary the new dictionary? " + (dictionary == newPersonDictionary).toString)
+      _ <- ZIO.debug("old dictionary: " + dictionary)
+      _ <- ZIO.debug("new dictionary: " + newPersonDictionary)
     } yield ExitCode.success
 }
