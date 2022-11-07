@@ -1,6 +1,7 @@
 package zio.schema
 
 import scala.annotation.Annotation
+
 import zio.Chunk
 import zio.schema.annotation.{ fieldDefaultValue, fieldName, optionalField }
 import zio.test._
