@@ -1,9 +1,8 @@
 package zio.schema
 
 import scala.annotation.Annotation
-
 import zio.Chunk
-import zio.schema.annotation.{ fieldName, optionalField }
+import zio.schema.annotation.{ fieldDefaultValue, fieldName, optionalField }
 import zio.test._
 
 object DeriveSchemaSpec extends ZIOSpecDefault {
@@ -249,6 +248,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
     implicit val schema: Schema[OptionalField] = DeriveSchema.gen[OptionalField]
   }
 
+  case class FieldWithDefault(@fieldDefaultValue("unknown") name: String, age: Int)
+
+  object FieldWithDefault {
+    implicit val schema: Schema[FieldWithDefault] = DeriveSchema.gen[FieldWithDefault]
+  }
+
   override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("correctly derives case class 0") {
@@ -443,6 +448,30 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
               set = (a, b: Int) => a.copy(age = b)
             ),
             OptionalField.apply
+          )
+        }
+        assert(derived)(hasSameSchema(expected))
+      },
+      test("correctly derives fields when fieldDefaultValue annotation is present") {
+        val derived: Schema[FieldWithDefault] = Schema[FieldWithDefault]
+        val expected: Schema[FieldWithDefault] = {
+          Schema.CaseClass2(
+            TypeId.parse("zio.schema.DeriveSchemaSpec.FieldWithDefault"),
+            field1 = Schema.Field(
+              "name",
+              Schema.Primitive(StandardType.StringType),
+              Chunk(fieldDefaultValue("unknown")),
+              get = _.name,
+              set = (a, b: String) => a.copy(name = b)
+            ),
+            field2 = Schema.Field(
+              "age",
+              Schema.Primitive(StandardType.IntType),
+              Chunk.empty,
+              get = _.age,
+              set = (a, b: Int) => a.copy(age = b)
+            ),
+            FieldWithDefault.apply
           )
         }
         assert(derived)(hasSameSchema(expected))

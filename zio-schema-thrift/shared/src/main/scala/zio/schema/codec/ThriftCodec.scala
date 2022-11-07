@@ -3,16 +3,13 @@ package zio.schema.codec
 import java.nio.ByteBuffer
 import java.time._
 import java.util.UUID
-
 import scala.annotation.{ nowarn, tailrec }
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
-
 import org.apache.thrift.protocol._
-
 import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
 import zio.schema._
-import zio.schema.annotation.optionalField
+import zio.schema.annotation.{ fieldDefaultValue, optionalField }
 import zio.schema.codec.BinaryCodec.{ BinaryDecoder, BinaryEncoder, BinaryStreamDecoder, BinaryStreamEncoder }
 import zio.schema.codec.DecodeError.{ EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath }
 import zio.stream.ZPipeline
@@ -606,8 +603,13 @@ object ThriftCodec extends BinaryCodec {
                     value
                   case None =>
                     val optionalFieldAnnotation = field.annotations.collectFirst({ case a: optionalField => a })
+                    val fieldDefaultValueAnnotation = field.annotations.collectFirst {
+                      case a: fieldDefaultValue[_] => a
+                    }
                     if (optionalFieldAnnotation.isDefined) {
                       field.schema.defaultValue.toOption.get
+                    } else if (fieldDefaultValueAnnotation.isDefined) {
+                      fieldDefaultValueAnnotation.get.value
                     } else {
                       fail(context.copy(path = context.path :+ field.name), s"Missing value")
                     }
