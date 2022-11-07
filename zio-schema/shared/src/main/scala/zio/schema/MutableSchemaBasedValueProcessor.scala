@@ -1317,6 +1317,8 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
             case None =>
               currentSchema = Schema.dynamicValue
           }
+
+        case _ => throw new Exception(s"Missing a handler for schema ${currentSchema.toString()}.")
       }
     }
     result.get
