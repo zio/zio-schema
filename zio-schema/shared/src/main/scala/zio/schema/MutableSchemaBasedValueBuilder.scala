@@ -1149,7 +1149,12 @@ trait SimpleMutableSchemaBasedValueBuilder[Target] extends MutableSchemaBasedVal
 
   protected def createDynamic(): Option[Target]
 
-  override protected def transform(context: Unit, value: Target, f: Any => Either[String, Any], schema: Schema[_]): Target =
+  override protected def transform(
+    context: Unit,
+    value: Target,
+    f: Any => Either[String, Any],
+    schema: Schema[_]
+  ): Target =
     transform(value, f, schema)
 
   protected def transform(value: Target, f: Any => Either[String, Any], schema: Schema[_]): Target

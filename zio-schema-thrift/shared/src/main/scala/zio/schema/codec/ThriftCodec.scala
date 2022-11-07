@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 import java.time._
 import java.util.UUID
 
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.{ nowarn, tailrec }
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 
@@ -13,10 +13,10 @@ import org.apache.thrift.protocol._
 import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
 import zio.schema._
 import zio.schema.annotation.optionalField
-import zio.schema.codec.BinaryCodec.{BinaryDecoder, BinaryEncoder, BinaryStreamDecoder, BinaryStreamEncoder}
-import zio.schema.codec.DecodeError.{EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath}
+import zio.schema.codec.BinaryCodec.{ BinaryDecoder, BinaryEncoder, BinaryStreamDecoder, BinaryStreamEncoder }
+import zio.schema.codec.DecodeError.{ EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath }
 import zio.stream.ZPipeline
-import zio.{Cause, Chunk, Unsafe, ZIO}
+import zio.{ Cause, Chunk, Unsafe, ZIO }
 
 object ThriftCodec extends BinaryCodec {
 
