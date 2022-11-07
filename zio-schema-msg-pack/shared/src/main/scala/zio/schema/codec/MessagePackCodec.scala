@@ -4,9 +4,10 @@ import java.math.{ BigInteger, MathContext }
 import java.time.{ Duration, Month, MonthDay, Period, Year, YearMonth }
 
 import zio.schema.codec.BinaryCodec.{ BinaryDecoder, BinaryEncoder, BinaryStreamDecoder, BinaryStreamEncoder }
+import zio.schema.codec.DecodeError.ReadError
 import zio.schema.{ Schema, StandardType }
 import zio.stream.ZPipeline
-import zio.{ Chunk, ZIO }
+import zio.{ Cause, Chunk, ZIO }
 
 object MessagePackCodec extends BinaryCodec {
   override def encoderFor[A](schema: Schema[A]): BinaryEncoder[A] = new BinaryEncoder[A] {
@@ -24,9 +25,9 @@ object MessagePackCodec extends BinaryCodec {
 
   override def decoderFor[A](schema: Schema[A]): BinaryDecoder[A] = new BinaryDecoder[A] {
 
-    override def decode(chunk: Chunk[Byte]): Either[String, A] =
+    override def decode(chunk: Chunk[Byte]): Either[DecodeError, A] =
       if (chunk.isEmpty)
-        Left("No bytes to decode")
+        Left(ReadError(Cause.empty, "No bytes to decode"))
       else
         decodeChunk(chunk)
 
@@ -41,9 +42,7 @@ object MessagePackCodec extends BinaryCodec {
       new MessagePackDecoder(chunk)
         .decode(schema)
         .left
-        .map(
-          err => s"Error at path /${err.path.mkString(".")}: ${err.error}"
-        )
+        .map(identity)
   }
 
   //TODO those are duplicates from ThriftCodec

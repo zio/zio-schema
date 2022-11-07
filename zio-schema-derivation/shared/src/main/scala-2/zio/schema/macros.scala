@@ -243,7 +243,7 @@ object DeriveSchema {
           tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
             symbols.map { symbol =>
               symbol.annotations.collect {
-                case annotation if (annotation.tree.tpe.toString.startsWith("_root_.zio.schema.annotation.validate")) =>
+                case annotation if (annotation.tree.tpe.toString.startsWith("zio.schema.annotation.validate")) =>
                   annotation.tree match {
                     case q"new $annConstructor(..$annotationArgs)" =>
                       q"..$annotationArgs"
@@ -629,10 +629,10 @@ object DeriveSchema {
         case _                                       => c.abort(c.enclosingPosition, (s"Invalid type $tpe for @deriveSchema"))
       }
 
-      val keySchema   = q"""zio.schema.Schema[$keyType]"""
-      val valueSchema = q"""zio.schema.Schema[$valueType]"""
+      val keySchema   = q"""_root_.zio.schema.Schema[$keyType]"""
+      val valueSchema = q"""_root_.zio.schema.Schema[$valueType]"""
 
-      q"""{lazy val $selfRefIdent: zio.schema.Schema.Map[$keyType, $valueType] = zio.schema.Schema.Map.apply[$keyType, $valueType]($keySchema, $valueSchema, zio.Chunk.empty); $selfRefIdent}"""
+      q"""{lazy val $selfRefIdent: _root_.zio.schema.Schema.Map[$keyType, $valueType] = _root_.zio.schema.Schema.Map.apply[$keyType, $valueType]($keySchema, $valueSchema, zio.Chunk.empty); $selfRefIdent}"""
     }
 
     recurse(tpe, List.empty[Frame[c.type]])
