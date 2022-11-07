@@ -15,6 +15,7 @@ import org.apache.thrift.protocol._
 import zio.schema._
 import zio.schema.annotation.optionalField
 import zio.schema.codec.BinaryCodec._
+import zio.schema.codec.DecodeError.{ EmptyContent, MalformedFieldWithPath }
 import zio.schema.codec.ThriftCodec.Thrift.{
   bigDecimalStructure,
   durationStructure,
@@ -45,9 +46,9 @@ object ThriftCodec extends BinaryCodec {
   override def decoderFor[A](schema: Schema[A]): BinaryDecoder[A] =
     new BinaryDecoder[A] {
 
-      override def decode(chunk: Chunk[Byte]): Either[String, A] =
+      override def decode(chunk: Chunk[Byte]): Either[DecodeError, A] =
         if (chunk.isEmpty)
-          Left("No bytes to decode")
+          Left(EmptyContent("No bytes to decode"))
         else
           decodeChunk(chunk)
 
@@ -62,9 +63,7 @@ object ThriftCodec extends BinaryCodec {
         new ThriftDecoder(chunk)
           .decode(Chunk.empty, schema)
           .left
-          .map(
-            err => s"Error at path /${err.path.mkString(".")}: ${err.error}"
-          )
+          .map(identity)
 
     }
 
@@ -514,9 +513,8 @@ object ThriftCodec extends BinaryCodec {
   final class ThriftDecoder(chunk: Chunk[Byte]) {
 
     type Path = Chunk[String]
-    case class Error(path: Path, error: String)
 
-    type Result[A]          = scala.util.Either[Error, A]
+    type Result[A]          = scala.util.Either[DecodeError, A]
     type PrimitiveResult[A] = Path => Result[A]
 
     val read = new ChunkTransport.Read(chunk)
@@ -524,13 +522,13 @@ object ThriftCodec extends BinaryCodec {
 
     def succeed[A](a: => A): Result[A] = Right(a)
 
-    def fail(path: Path, failure: String): Result[Nothing] = Left(Error(path, failure))
+    def fail(path: Path, failure: String): Result[Nothing] = Left(MalformedFieldWithPath(path, failure))
 
     def decodePrimitive[A](f: TProtocol => A, name: String): PrimitiveResult[A] =
       path =>
         Try {
           f(p)
-        }.toEither.left.map(_ => Error(path, s"Unable to decode $name"))
+        }.toEither.left.map(_ => MalformedFieldWithPath(path, s"Unable to decode $name"))
 
     def decodeString: PrimitiveResult[String] =
       decodePrimitive(_.readString(), "String")
@@ -658,7 +656,7 @@ object ThriftCodec extends BinaryCodec {
         )
 
     private def transformDecoder[A, B](path: Path, schema: Schema[B], f: B => scala.util.Either[String, A]): Result[A] =
-      decode(path, schema).flatMap(a => f(a).left.map(msg => Error(path, msg)))
+      decode(path, schema).flatMap(a => f(a).left.map(msg => MalformedFieldWithPath(path, msg)))
 
     private def primitiveDecoder[A](path: Path, standardType: StandardType[A]): Result[A] =
       standardType match {
@@ -802,8 +800,8 @@ object ThriftCodec extends BinaryCodec {
           (decode(path, schema.keySchema), decode(path, schema.valueSchema)) match {
             case (Right(key), Right(value)) => decodeElements(n - 1, m += ((key, value)))
             case (l, r) =>
-              val key   = l.fold(_.error, _.toString)
-              val value = r.fold(_.error, _.toString)
+              val key   = l.fold(_.message, _.toString)
+              val value = r.fold(_.message, _.toString)
               fail(path, s"Error decoding Map element (key: $key; value: $value)")
           } else
           succeed(m.toMap)
