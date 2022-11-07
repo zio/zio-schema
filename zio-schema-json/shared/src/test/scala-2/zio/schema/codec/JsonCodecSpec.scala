@@ -11,7 +11,7 @@ import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
-import zio.schema.annotation.optionalField
+import zio.schema.annotation.{ fieldDefaultValue, optionalField }
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.stream.ZStream
@@ -187,6 +187,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           optionalSearchRequestSchema,
           OptionalSearchRequest("test", 0, 10, Schema[String].defaultValue.getOrElse("")),
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
+        )
+      },
+      test("fieldDefaultValue") {
+        assertDecodes(
+          fieldDefaultValueSearchRequestSchema,
+          FieldDefaultValueSearchRequest("test", 0, 10, "test"),
+          charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10,"nextPage":"test"}""")
         )
       }
     )
@@ -790,6 +797,18 @@ object JsonCodecSpec extends ZIOSpecDefault {
     implicit val encoder: JsonEncoder[OptionalSearchRequest] = DeriveJsonEncoder.gen[OptionalSearchRequest]
   }
 
+  case class FieldDefaultValueSearchRequest(
+    query: String,
+    pageNumber: Int,
+    resultPerPage: Int,
+    @fieldDefaultValue("test") nextPage: String
+  )
+
+  object FieldDefaultValueSearchRequest {
+    implicit val encoder: JsonEncoder[FieldDefaultValueSearchRequest] =
+      DeriveJsonEncoder.gen[FieldDefaultValueSearchRequest]
+  }
+
   private val searchRequestGen: Gen[Sized, SearchRequest] =
     for {
       query      <- Gen.string
@@ -809,6 +828,9 @@ object JsonCodecSpec extends ZIOSpecDefault {
   val searchRequestSchema: Schema[SearchRequest] = DeriveSchema.gen[SearchRequest]
 
   val optionalSearchRequestSchema: Schema[OptionalSearchRequest] = DeriveSchema.gen[OptionalSearchRequest]
+
+  val fieldDefaultValueSearchRequestSchema: Schema[FieldDefaultValueSearchRequest] =
+    DeriveSchema.gen[FieldDefaultValueSearchRequest]
 
   val recordSchema: Schema[ListMap[String, _]] = Schema.record(
     TypeId.Structural,
