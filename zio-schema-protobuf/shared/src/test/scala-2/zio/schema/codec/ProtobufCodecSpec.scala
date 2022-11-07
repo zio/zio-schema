@@ -86,9 +86,9 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         },
         test("failure") {
           for {
-            e  <- encode(schemaFail, StringValue("foo")).map(_.size)
-            e2 <- encodeNS(schemaFail, StringValue("foo")).map(_.size)
-          } yield assert(e)(equalTo(0)) && assert(e2)(equalTo(0))
+            e  <- encode(schemaFail, StringValue("foo")).map(_.size).exit
+            e2 <- encodeNS(schemaFail, StringValue("foo")).map(_.size).exit
+          } yield assert(e)(dies(anything)) && assert(e2)(dies(anything))
         }
       ),
       suite("Should successfully encode and decode")(
@@ -570,8 +570,8 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           val setSchema = Schema.set(Record.schemaRecord)
 
           for {
-            ed  <- encodeAndDecode(setSchema, set)
             ed2 <- encodeAndDecodeNS(setSchema, set)
+            ed  <- encodeAndDecode(setSchema, set)
           } yield assert(ed)(equalTo(Chunk.succeed(set))) && assert(ed2)(equalTo(set))
         },
         test("recursive data types") {
@@ -582,7 +582,16 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 //              ed2 <- encodeAndDecodeNS(schema, value)
               } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
           }
-        }
+        },
+        test("deep recursive data types") {
+          check(SchemaGen.anyDeepRecursiveTypeAndValue) {
+            case (schema, value) =>
+              for {
+                ed <- encodeAndDecode2(schema, value)
+                //              ed2 <- encodeAndDecodeNS(schema, value)
+              } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
+          }
+        } @@ TestAspect.sized(200)
       ),
       suite("Should successfully decode")(
         test("empty input") {
@@ -1002,7 +1011,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .succeed(input)
       .tap(value => printLine(s"Input Value: $value").when(print).ignore)
       .map(a => ProtobufCodec.encode(schema)(a))
-      .tap(encoded => printLine(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
+      .tap(encoded => printLine(s"\nEncoded Bytes (${encoded.size}):\n${toHex(encoded)}").when(print).ignore)
       .map(ch => ProtobufCodec.decode(schema)(ch))
       .absolve
 

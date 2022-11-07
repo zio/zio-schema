@@ -37,6 +37,8 @@ object DecodeError {
 
   final case class ReadError(cause: Cause[Any], message: String) extends DecodeError
 
+  final case class ReadErrorWithPath(path: Chunk[String], cause: Cause[Any], message: String) extends DecodeError
+
   final case class ValidationError(validation: Validation[_], field: Field[_, _], message: String) extends DecodeError
 
   final case class ExtraFields(fieldName: String, message: String) extends DecodeError
