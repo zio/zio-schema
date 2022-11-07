@@ -12,6 +12,7 @@ import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
 import zio.schema.annotation.optionalField
+import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.stream.ZStream
 import zio.test.Assertion._
@@ -703,9 +704,9 @@ object JsonCodecSpec extends ZIOSpecDefault {
     val stream = ZStream
       .fromChunk(charSequenceToByteChunk(json))
       .via(JsonCodec.decoder(schema))
-      .catchAll(ZStream.succeed[String](_))
+      .catchAll(ZStream.succeed[DecodeError](_))
       .runHead
-    assertZIO(stream)(isSome(equalTo(JsonError.render(errors))))
+    assertZIO(stream)(isSome(equalTo(ReadError(Cause.empty, JsonError.render(errors)))))
   }
 
   private def assertDecodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {
