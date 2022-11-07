@@ -147,7 +147,7 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
   /** Transforms a value with the given function that can fail. Making this customizable allows encoding the failure
    * in Target.
    */
-  protected def transform(context: Context, value: Target, f: Any => Either[String, Any]): Target
+  protected def transform(context: Context, value: Target, f: Any => Either[String, Any], schema: Schema[_]): Target
 
   /** Fail the builder with the given message */
   protected def fail(context: Context, message: String): Target
@@ -660,10 +660,10 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
                 finishWith(createOptional(contextStack.head, s, None))
             }
 
-          case Schema.Transform(schema, f, _, _, _) =>
+          case s @ Schema.Transform(schema, f, _, _, _) =>
             currentSchema = schema
             push { result =>
-              finishWith(transform(currentContext, result, f.asInstanceOf[Any => Either[String, Any]]))
+              finishWith(transform(currentContext, result, f.asInstanceOf[Any => Either[String, Any]], s))
             }
 
           case s @ Schema.CaseClass0(_, _, _) =>
@@ -1149,10 +1149,10 @@ trait SimpleMutableSchemaBasedValueBuilder[Target] extends MutableSchemaBasedVal
 
   protected def createDynamic(): Option[Target]
 
-  override protected def transform(context: Unit, value: Target, f: Any => Either[String, Any]): Target =
-    transform(value, f)
+  override protected def transform(context: Unit, value: Target, f: Any => Either[String, Any], schema: Schema[_]): Target =
+    transform(value, f, schema)
 
-  protected def transform(value: Target, f: Any => Either[String, Any]): Target
+  protected def transform(value: Target, f: Any => Either[String, Any], schema: Schema[_]): Target
 
   override protected def fail(context: Unit, message: String): Target =
     fail(message)

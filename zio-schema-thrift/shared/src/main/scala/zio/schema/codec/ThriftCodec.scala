@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 import java.time._
 import java.util.UUID
 
-import scala.annotation.{ nowarn, tailrec }
+import scala.annotation.{nowarn, tailrec}
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 
@@ -13,9 +13,10 @@ import org.apache.thrift.protocol._
 import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
 import zio.schema._
 import zio.schema.annotation.optionalField
-import zio.schema.codec.BinaryCodec.{ BinaryDecoder, BinaryEncoder, BinaryStreamDecoder, BinaryStreamEncoder }
+import zio.schema.codec.BinaryCodec.{BinaryDecoder, BinaryEncoder, BinaryStreamDecoder, BinaryStreamEncoder}
+import zio.schema.codec.DecodeError.{EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath}
 import zio.stream.ZPipeline
-import zio.{ Chunk, Unsafe, ZIO }
+import zio.{Cause, Chunk, Unsafe, ZIO}
 
 object ThriftCodec extends BinaryCodec {
 
@@ -37,9 +38,9 @@ object ThriftCodec extends BinaryCodec {
   override def decoderFor[A](schema: Schema[A]): BinaryDecoder[A] =
     new BinaryDecoder[A] {
 
-      override def decode(chunk: Chunk[Byte]): Either[String, A] =
+      override def decode(chunk: Chunk[Byte]): Either[DecodeError, A] =
         if (chunk.isEmpty)
-          Left("No bytes to decode")
+          Left(EmptyContent("No bytes to decode"))
         else
           decodeChunk(chunk)
 
@@ -50,9 +51,9 @@ object ThriftCodec extends BinaryCodec {
           )
         }
 
-      private def decodeChunk(chunk: Chunk[Byte]) =
+      private def decodeChunk(chunk: Chunk[Byte]): Either[DecodeError, A] =
         if (chunk.isEmpty)
-          Left("No bytes to decode")
+          Left(EmptyContent("No bytes to decode"))
         else {
           try {
             Right(
@@ -63,12 +64,14 @@ object ThriftCodec extends BinaryCodec {
           } catch {
             case error: CreateValueFromSchemaError[DecoderContext] =>
               error.cause match {
-                case error: Error => Left(error.getMessage)
+                case error: DecodeError => Left(error)
                 case _ =>
-                  Left(Error(error.context.path, error.cause.getMessage, error).getMessage)
+                  Left(
+                    ReadErrorWithPath(error.context.path, Cause.fail(error.cause), error.cause.getMessage)
+                  )
               }
             case NonFatal(err) =>
-              Left(err.getMessage)
+              Left(ReadError(Cause.fail(err), err.getMessage))
           }
         }: @nowarn
 
@@ -429,13 +432,6 @@ object ThriftCodec extends BinaryCodec {
   type Path                = Chunk[String]
   type PrimitiveDecoder[A] = Path => A
 
-  case class Error(path: Path, error: String, cause: Throwable)
-      extends RuntimeException(s"Error at path /${path.mkString(".")}: $error", cause)
-
-  object Error {
-    def apply(path: Path, error: String): Error = Error(path, error, null)
-  }
-
   final case class DecoderContext(path: Path, expectedCount: Option[Int])
 
   class Decoder(chunk: Chunk[Byte]) extends MutableSchemaBasedValueBuilder[Any, DecoderContext] {
@@ -448,7 +444,7 @@ object ThriftCodec extends BinaryCodec {
         try {
           f(p)
         } catch {
-          case NonFatal(reason) => throw Error(path, s"Unable to decode $name", reason)
+          case NonFatal(_) => throw MalformedFieldWithPath(path, s"Unable to decode $name")
         }
 
     def decodeString: PrimitiveDecoder[String] =
@@ -805,7 +801,8 @@ object ThriftCodec extends BinaryCodec {
     override protected def transform(
       context: DecoderContext,
       value: Any,
-      f: Any => Either[String, Any]
+      f: Any => Either[String, Any],
+      schema: Schema[_]
     ): Any =
       f(value) match {
         case Left(value)  => fail(context, value)
@@ -813,7 +810,7 @@ object ThriftCodec extends BinaryCodec {
       }
 
     override protected def fail(context: DecoderContext, message: String): Any =
-      throw Error(context.path, message)
+      throw MalformedFieldWithPath(context.path, message)
 
     override protected val initialContext: DecoderContext = DecoderContext(Chunk.empty, None)
 
