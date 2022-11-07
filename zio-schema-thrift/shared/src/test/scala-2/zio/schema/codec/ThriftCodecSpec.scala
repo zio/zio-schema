@@ -29,7 +29,7 @@ import org.apache.thrift.TSerializable
 import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
 
 import zio.schema.CaseSet.caseOf
-import zio.schema.annotation.optionalField
+import zio.schema.annotation.{ fieldDefaultValue, optionalField }
 import zio.schema.codec.{ generated => g }
 import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
 import zio.stream.{ ZSink, ZStream }
@@ -785,7 +785,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
           ed      <- decodeNS(schemaEnumValue, encoded)
         } yield assert(ed)(equalTo(EnumValue(2)))
       },
-      test("decode case class with optionalField") {
+      test("decode case class with optionalField annotation") {
         for {
           bytes <- writeManually { p =>
                     p.writeFieldBegin(new TField("name", TType.STRING, 1))
@@ -794,6 +794,16 @@ object ThriftCodecSpec extends ZIOSpecDefault {
                   }
           d <- decodeNS(PersonWithOptionalField.schema, bytes)
         } yield assert(d)(equalTo(PersonWithOptionalField("Dan", 0)))
+      },
+      test("decode case class with fieldDefaultValue annotation") {
+        for {
+          bytes <- writeManually { p =>
+                    p.writeFieldBegin(new TField("name", TType.STRING, 1))
+                    p.writeString("Alex")
+                    p.writeFieldStop()
+                  }
+          d <- decodeNS(PersonWithDefaultField.schema, bytes)
+        } yield assert(d)(equalTo(PersonWithDefaultField("Alex", 18)))
       }
     ),
     suite("Should fail to decode")(
@@ -1045,6 +1055,12 @@ object ThriftCodecSpec extends ZIOSpecDefault {
 
   object PersonWithOptionalField {
     implicit val schema: Schema[PersonWithOptionalField] = DeriveSchema.gen[PersonWithOptionalField]
+  }
+
+  case class PersonWithDefaultField(name: String, @fieldDefaultValue(18) age: Int)
+
+  object PersonWithDefaultField {
+    implicit val schema: Schema[PersonWithDefaultField] = DeriveSchema.gen[PersonWithDefaultField]
   }
 
   def toHex(chunk: Chunk[Byte]): String =

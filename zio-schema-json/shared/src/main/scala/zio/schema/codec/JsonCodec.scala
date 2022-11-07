@@ -16,7 +16,7 @@ import zio.json.{
   JsonFieldEncoder
 }
 import zio.schema._
-import zio.schema.annotation.optionalField
+import zio.schema.annotation.{ fieldDefaultValue, optionalField }
 import zio.schema.codec.BinaryCodec._
 import zio.schema.codec.DecodeError.ReadError
 import zio.stream.ZPipeline
@@ -859,9 +859,12 @@ object JsonCodec extends BinaryCodec {
       var i = 0
       while (i < len) {
         if (buffer(i) == null) {
-          val optionalAnnotation = fields(i).annotations.collectFirst { case a: optionalField => a }
+          val optionalAnnotation          = fields(i).annotations.collectFirst { case a: optionalField        => a }
+          val fieldDefaultValueAnnotation = fields(i).annotations.collectFirst { case a: fieldDefaultValue[_] => a }
           if (optionalAnnotation.isDefined)
             buffer(i) = schemas(i).defaultValue.toOption.get
+          else if (fieldDefaultValueAnnotation.isDefined)
+            buffer(i) = fieldDefaultValueAnnotation.get.value
           else
             buffer(i) = schemaDecoder(schemas(i)).unsafeDecodeMissing(spans(i) :: trace)
 
