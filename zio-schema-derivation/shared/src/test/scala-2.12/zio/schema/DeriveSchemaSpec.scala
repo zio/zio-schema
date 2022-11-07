@@ -463,19 +463,19 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         val expected: Schema[FieldWithDefault] = {
           Schema.CaseClass2(
             TypeId.parse("zio.schema.DeriveSchemaSpec.FieldWithDefault"),
-            field1 = Schema.Field(
+            field01 = Schema.Field(
               "name",
               Schema.Primitive(StandardType.StringType),
               Chunk(fieldDefaultValue("unknown")),
-              get = _.name,
-              set = (a, b: String) => a.copy(name = b)
+              get0 = _.name,
+              set0 = (a, b: String) => a.copy(name = b)
             ),
-            field2 = Schema.Field(
+            field02 = Schema.Field(
               "age",
               Schema.Primitive(StandardType.IntType),
               Chunk.empty,
-              get = _.age,
-              set = (a, b: Int) => a.copy(age = b)
+              get0 = _.age,
+              set0 = (a, b: Int) => a.copy(age = b)
             ),
             FieldWithDefault.apply
           )
