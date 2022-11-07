@@ -18,8 +18,9 @@ import zio.json.{
 import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec.BinaryCodec._
+import zio.schema.codec.DecodeError.ReadError
 import zio.stream.ZPipeline
-import zio.{ Chunk, ChunkBuilder, NonEmptyChunk, ZIO }
+import zio.{ Cause, Chunk, ChunkBuilder, NonEmptyChunk, ZIO }
 
 object JsonCodec extends BinaryCodec {
   type DiscriminatorTuple = Chunk[(discriminatorName, String)]
@@ -40,7 +41,7 @@ object JsonCodec extends BinaryCodec {
   override def decoderFor[A](schema: Schema[A]): BinaryDecoder[A] =
     new BinaryDecoder[A] {
 
-      override def decode(chunk: Chunk[Byte]): Either[String, A] =
+      override def decode(chunk: Chunk[Byte]): Either[DecodeError, A] =
         JsonDecoder.decode(
           schema,
           new String(chunk.toArray, JsonEncoder.CHARSET)
@@ -48,7 +49,7 @@ object JsonCodec extends BinaryCodec {
 
       override def streamDecoder: BinaryStreamDecoder[A] =
         ZPipeline.fromChannel(
-          ZPipeline.utfDecode.channel.mapError(_.toString)
+          ZPipeline.utfDecode.channel.mapError(cce => ReadError(Cause.fail(cce), cce.getMessage))
         ) >>>
           ZPipeline.groupAdjacentBy[String, Unit](_ => ()) >>>
           ZPipeline.map[(Unit, NonEmptyChunk[String]), String] {
@@ -315,8 +316,11 @@ object JsonCodec extends BinaryCodec {
     import Codecs._
     import ProductDecoder._
 
-    final def decode[A](schema: Schema[A], json: String): Either[String, A] =
-      schemaDecoder(schema).decodeJson(json)
+    final def decode[A](schema: Schema[A], json: String): Either[DecodeError, A] =
+      schemaDecoder(schema).decodeJson(json) match {
+        case Left(value)  => Left(ReadError(Cause.empty, value))
+        case Right(value) => Right(value)
+      }
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[codec] def schemaDecoder[A](schema: Schema[A], hasDiscriminator: Boolean = false): ZJsonDecoder[A] = schema match {
@@ -882,8 +886,17 @@ object JsonCodec extends BinaryCodec {
 
       var i = 0
       while (i < len) {
-        if (buffer(i) == null)
-          buffer(i) = schemaDecoder(schemas(i)).unsafeDecodeMissing(spans(i) :: trace)
+        if (buffer(i) == null) {
+          val optionalAnnotation          = fields(i).annotations.collectFirst { case a: optionalField        => a }
+          val fieldDefaultValueAnnotation = fields(i).annotations.collectFirst { case a: fieldDefaultValue[_] => a }
+          if (optionalAnnotation.isDefined)
+            buffer(i) = schemas(i).defaultValue.toOption.get
+          else if (fieldDefaultValueAnnotation.isDefined)
+            buffer(i) = fieldDefaultValueAnnotation.get.value
+          else
+            buffer(i) = schemaDecoder(schemas(i)).unsafeDecodeMissing(spans(i) :: trace)
+
+        }
         i += 1
       }
       buffer

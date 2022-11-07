@@ -632,6 +632,18 @@ object SchemaGen {
         keys   <- Gen.setOfN(3)(Gen.string)
         values <- Gen.setOfN(3)(leafGen)
       } yield JObject(keys.zip(values).toList)
+
+    val genDeep: Gen[Sized, Json] =
+      Gen.sized { max =>
+        Gen.bounded(1, max) { depth =>
+          leafGen.map { leaf =>
+            (1 to depth).foldLeft(leaf) {
+              case (gen, n) =>
+                JObject(List(n.toString -> gen))
+            }
+          }
+        }
+      }
   }
 
   lazy val anyRecursiveType: Gen[Sized, Schema[_]] =
@@ -641,6 +653,12 @@ object SchemaGen {
     for {
       schema <- Gen.const(Schema[Json])
       value  <- Json.gen
+    } yield (schema, value)
+
+  lazy val anyDeepRecursiveTypeAndValue: Gen[Sized, SchemaAndValue[_]] =
+    for {
+      schema <- Gen.const(Schema[Json])
+      value  <- Json.genDeep
     } yield (schema, value)
 
   lazy val anyDynamic: Gen[Any, Schema[DynamicValue]] = Gen.const(Schema.dynamicValue)
