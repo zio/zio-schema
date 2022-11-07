@@ -1186,7 +1186,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
               f18,
               f19,
               f20,
-              _,
+              _
             ) =>
           fields(
             s,
