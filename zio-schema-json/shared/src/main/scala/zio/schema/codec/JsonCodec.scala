@@ -189,12 +189,12 @@ object JsonCodec extends BinaryCodec {
         caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18)
       case Schema.CaseClass19(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, _, _) =>
         caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19)
-      case Schema.CaseClass20(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, _, _) =>
+      case Schema.CaseClass20(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, _) =>
         caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20)
-      case Schema.CaseClass21(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, _, _) =>
-        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21)
-      case Schema.CaseClass22(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, _, _) =>
-        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22)
+      case Schema.CaseClass21(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, tail) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, tail._1)
+      case Schema.CaseClass22(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, tail) =>
+        caseClassEncoder(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, tail._1, tail._2)
       case Schema.Enum1(_, c, _)                                  => enumEncoder(c)
       case Schema.Enum2(_, c1, c2, _)                             => enumEncoder(c1, c2)
       case Schema.Enum3(_, c1, c2, c3, _)                         => enumEncoder(c1, c2, c3)
@@ -234,6 +234,7 @@ object JsonCodec extends BinaryCodec {
         enumEncoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case Schema.EnumN(_, cs, _) => enumEncoder(cs.toSeq: _*)
       case Schema.Dynamic(_)      => dynamicEncoder(DynamicValueSchema.schema)
+      case _                      => throw new Exception(s"Missing a handler for encoding of schema ${schema.toString()}.")
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -310,6 +311,10 @@ object JsonCodec extends BinaryCodec {
         case Right(value) => Right(value)
       }
 
+    def x[A](dec: ZJsonDecoder[A]): Unit = dec match {
+      case _: ZJsonDecoder[_] =>
+    }
+
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[codec] def schemaDecoder[A](schema: Schema[A]): ZJsonDecoder[A] = schema match {
       case Schema.Primitive(standardType, _)   => primitiveCodec(standardType).decoder
@@ -356,11 +361,11 @@ object JsonCodec extends BinaryCodec {
         caseClass18Decoder(s)
       case s @ Schema.CaseClass19(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass19Decoder(s)
-      case s @ Schema.CaseClass20(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case s @ Schema.CaseClass20(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass20Decoder(s)
-      case s @ Schema.CaseClass21(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case s @ Schema.CaseClass21(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass21Decoder(s)
-      case s @ Schema.CaseClass22(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case s @ Schema.CaseClass22(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass22Decoder(s)
       case Schema.Enum1(_, c, _)                                  => enumDecoder(c)
       case Schema.Enum2(_, c1, c2, _)                             => enumDecoder(c1, c2)
@@ -400,6 +405,7 @@ object JsonCodec extends BinaryCodec {
         enumDecoder(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case Schema.EnumN(_, cs, _) => enumDecoder(cs.toSeq: _*)
       case Schema.Dynamic(_)      => dynamicDecoder(DynamicValueSchema.schema)
+      case _                      => throw new Exception(s"Missing a handler for decoding of schema ${schema.toString()}.")
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -469,9 +475,9 @@ object JsonCodec extends BinaryCodec {
         pad(indent_, out)
         var first = true
         fields.foreach {
-          case Schema.Field(key, schema, _, _, get, _) =>
-            val enc = JsonEncoder.schemaEncoder(schema)
-            if (!enc.isNothing(get(a))) {
+          case s: Schema.Field[_, _] =>
+            val enc = JsonEncoder.schemaEncoder(s.schema)
+            if (!enc.isNothing(s.get(a))) {
               if (first)
                 first = false
               else {
@@ -480,10 +486,10 @@ object JsonCodec extends BinaryCodec {
                   ZJsonEncoder.pad(indent_, out)
               }
 
-              string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(key), indent_, out)
+              string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(s.name), indent_, out)
               if (indent.isEmpty) out.write(':')
               else out.write(" : ")
-              enc.unsafeEncode(get(a), indent_, out)
+              enc.unsafeEncode(s.get(a), indent_, out)
             }
         }
         pad(indent, out)
@@ -832,7 +838,7 @@ object JsonCodec extends BinaryCodec {
       val len: Int                  = fields.length
       val buffer                    = Array.ofDim[Any](len)
       val matrix                    = new StringMatrix(fields.map(_.name).toArray)
-      val spans: Array[JsonError]   = fields.map(_.name).toArray.map(JsonError.ObjectAccess(_))
+      val spans: Array[JsonError]   = fields.map(_.name.asInstanceOf[String]).toArray.map(JsonError.ObjectAccess(_))
       val schemas: Array[Schema[_]] = fields.map(_.schema).toArray
       Lexer.char(trace, in, '{')
       if (Lexer.firstField(trace, in)) {

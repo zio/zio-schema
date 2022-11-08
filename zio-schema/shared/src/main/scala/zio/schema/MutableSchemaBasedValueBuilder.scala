@@ -940,13 +940,10 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
                 _,
                 _,
                 _,
-                _,
                 _
               ) =>
             record(s)
           case s @ Schema.CaseClass21(
-                _,
-                _,
                 _,
                 _,
                 _,
@@ -993,9 +990,6 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
                 _,
                 _,
                 _,
-                _,
-                _,
-                _,
                 _
               ) =>
             record(s)
@@ -1006,6 +1000,7 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
               case None =>
                 currentSchema = Schema.dynamicValue
             }
+          case _ => throw new Exception(s"Missing a handler for schema ${currentSchema.toString()}.")
         }
       }
     } catch {
