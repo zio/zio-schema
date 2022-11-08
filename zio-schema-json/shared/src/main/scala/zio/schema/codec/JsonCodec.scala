@@ -73,7 +73,7 @@ object JsonCodec extends BinaryCodec {
     protected[codec] val unitEncoder: ZJsonEncoder[Unit] =
       (_: Unit, _: Option[Int], out: Write) => out.write("{}")
 
-    protected[codec] val unitDecoder: ZJsonDecoder[Unit] =
+    private[codec] val unitDecoder: ZJsonDecoder[Unit] =
       (trace: List[ZJsonDecoder.JsonError], in: RetractReader) => {
         Lexer.char(trace, in, '{')
         Lexer.char(trace, in, '}')
@@ -502,7 +502,8 @@ object JsonCodec extends BinaryCodec {
   private[codec] object ProductDecoder {
     import zio.schema.codec.JsonCodec.JsonDecoder.schemaDecoder
 
-    private[codec] def caseClass0Decoder[Z](schema: Schema.CaseClass0[Z]): ZJsonDecoder[Z] = { (_: List[JsonError], _: RetractReader) =>
+    private[codec] def caseClass0Decoder[Z](schema: Schema.CaseClass0[Z]): ZJsonDecoder[Z] = { (trace: List[JsonError], in: RetractReader) =>
+      val _ = Codecs.unitDecoder.unsafeDecode(trace, in)
       schema.defaultConstruct()
     }
 

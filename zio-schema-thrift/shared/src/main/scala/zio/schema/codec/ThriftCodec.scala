@@ -86,14 +86,20 @@ object ThriftCodec extends BinaryCodec {
     }
 
     override protected def startProcessingRecord(context: Context, schema: Schema.Record[_]): Unit =
-      writeFieldBegin(context.fieldNumber, TType.STRUCT)
+      if (schema.fields.nonEmpty) {
+        writeFieldBegin(context.fieldNumber, TType.STRUCT)
+      } else {
+        writeFieldBegin(context.fieldNumber, getPrimitiveType(StandardType.UnitType))
+      }
 
     override protected def processRecord(
       context: Context,
       schema: Schema.Record[_],
       value: ListMap[String, Unit]
     ): Unit =
-      writeFieldEnd()
+      if (schema.fields.nonEmpty) {
+        writeFieldEnd()
+      }
 
     override protected def startProcessingEnum(context: Context, schema: Schema.Enum[_]): Unit =
       writeFieldBegin(context.fieldNumber, TType.STRUCT)
@@ -583,11 +589,12 @@ object ThriftCodec extends BinaryCodec {
       context: DecoderContext,
       record: Schema.Record[_],
       index: Int
-    ): Option[(DecoderContext, Int)] = {
-      val tfield = p.readFieldBegin()
-      if (tfield.`type` == TType.STOP) None
-      else Some((context.copy(path = context.path :+ s"fieldId:${tfield.id}"), tfield.id - 1))
-    }
+    ): Option[(DecoderContext, Int)] =
+      if (record.fields.nonEmpty) {
+        val tfield = p.readFieldBegin()
+        if (tfield.`type` == TType.STOP) None
+        else Some((context.copy(path = context.path :+ s"fieldId:${tfield.id}"), tfield.id - 1))
+      } else None
 
     override protected def createRecord(
       context: DecoderContext,
