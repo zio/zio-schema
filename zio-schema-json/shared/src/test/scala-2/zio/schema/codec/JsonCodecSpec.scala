@@ -9,7 +9,7 @@ import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
-import zio.schema.annotation.{ optionalField, transientField }
+import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.stream.ZStream
@@ -194,11 +194,18 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
         )
       },
+
       test("transient field annotation") {
         assertDecodes(
           searchRequestWithTransientFieldSchema,
           SearchRequestWithTransientField("test", 0, 10, Schema[String].defaultValue.getOrElse("")),
-          charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
+          charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}"""))
+      },
+      test("fieldDefaultValue") {
+        assertDecodes(
+          fieldDefaultValueSearchRequestSchema,
+          FieldDefaultValueSearchRequest("test", 0, 10, "test"),
+          charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10,"nextPage":"test"}""")
         )
       }
     )
@@ -496,8 +503,8 @@ object JsonCodecSpec extends ZIOSpecDefault {
                 .Field[ListMap[String, _], ListMap[String, _]](
                   key,
                   schema,
-                  get = (p: ListMap[String, _]) => p(key).asInstanceOf[ListMap[String, _]],
-                  set = (p: ListMap[String, _], v: ListMap[String, _]) => p.updated(key, v)
+                  get0 = (p: ListMap[String, _]) => p(key).asInstanceOf[ListMap[String, _]],
+                  set0 = (p: ListMap[String, _], v: ListMap[String, _]) => p.updated(key, v)
                 )
             )
             assertEncodesThenDecodes(embedded, ListMap(key -> value))
@@ -523,8 +530,8 @@ object JsonCodecSpec extends ZIOSpecDefault {
               Schema.Field(
                 "zoneOffset",
                 Schema.Primitive(StandardType.ZoneOffsetType),
-                get = (p: ListMap[String, _]) => p("zoneOffset").asInstanceOf[ZoneOffset],
-                set = (p: ListMap[String, _], v: ZoneOffset) => p.updated("zoneOffset", v)
+                get0 = (p: ListMap[String, _]) => p("zoneOffset").asInstanceOf[ZoneOffset],
+                set0 = (p: ListMap[String, _], v: ZoneOffset) => p.updated("zoneOffset", v)
               )
             ),
             ListMap[String, Any]("zoneOffset" -> zoneOffset)
@@ -802,6 +809,18 @@ object JsonCodecSpec extends ZIOSpecDefault {
     implicit val encoder: JsonEncoder[OptionalSearchRequest] = DeriveJsonEncoder.gen[OptionalSearchRequest]
   }
 
+  case class FieldDefaultValueSearchRequest(
+    query: String,
+    pageNumber: Int,
+    resultPerPage: Int,
+    @fieldDefaultValue("test") nextPage: String
+  )
+
+  object FieldDefaultValueSearchRequest {
+    implicit val encoder: JsonEncoder[FieldDefaultValueSearchRequest] =
+      DeriveJsonEncoder.gen[FieldDefaultValueSearchRequest]
+  }
+
   private val searchRequestGen: Gen[Sized, SearchRequest] =
     for {
       query      <- Gen.string
@@ -832,20 +851,24 @@ object JsonCodecSpec extends ZIOSpecDefault {
   val searchRequestWithTransientFieldSchema: Schema[SearchRequestWithTransientField] =
     DeriveSchema.gen[SearchRequestWithTransientField]
 
+  val fieldDefaultValueSearchRequestSchema: Schema[FieldDefaultValueSearchRequest] =
+    DeriveSchema.gen[FieldDefaultValueSearchRequest]
+
+
   val recordSchema: Schema[ListMap[String, _]] = Schema.record(
     TypeId.Structural,
     Schema.Field(
       "foo",
       Schema.Primitive(StandardType.StringType),
-      get = (p: ListMap[String, _]) => p("foo").asInstanceOf[String],
-      set = (p: ListMap[String, _], v: String) => p.updated("foo", v)
+      get0 = (p: ListMap[String, _]) => p("foo").asInstanceOf[String],
+      set0 = (p: ListMap[String, _], v: String) => p.updated("foo", v)
     ),
     Schema
       .Field(
         "bar",
         Schema.Primitive(StandardType.IntType),
-        get = (p: ListMap[String, _]) => p("bar").asInstanceOf[Int],
-        set = (p: ListMap[String, _], v: Int) => p.updated("bar", v)
+        get0 = (p: ListMap[String, _]) => p("bar").asInstanceOf[Int],
+        set0 = (p: ListMap[String, _], v: Int) => p.updated("bar", v)
       )
   )
 
@@ -854,14 +877,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
     Schema.Field(
       "l1",
       Schema.Primitive(StandardType.StringType),
-      get = (p: ListMap[String, _]) => p("l1").asInstanceOf[String],
-      set = (p: ListMap[String, _], v: String) => p.updated("l1", v)
+      get0 = (p: ListMap[String, _]) => p("l1").asInstanceOf[String],
+      set0 = (p: ListMap[String, _], v: String) => p.updated("l1", v)
     ),
     Schema.Field(
       "l2",
       recordSchema,
-      get = (p: ListMap[String, _]) => p("l2").asInstanceOf[ListMap[String, _]],
-      set = (p: ListMap[String, _], v: ListMap[String, _]) => p.updated("l2", v)
+      get0 = (p: ListMap[String, _]) => p("l2").asInstanceOf[ListMap[String, _]],
+      set0 = (p: ListMap[String, _], v: ListMap[String, _]) => p.updated("l2", v)
     )
   )
 

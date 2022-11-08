@@ -25,8 +25,8 @@ object SchemaGen {
                   .Field[ListMap[String, A], A](
                     label,
                     schema.asInstanceOf[Schema[A]],
-                    get = _(label),
-                    set = (a, b) => a + (label -> b)
+                    get0 = _(label),
+                    set0 = (a, b) => a + (label -> b)
                   )
                   .asInstanceOf[Schema.Field[ListMap[String, _], _]]
             }
@@ -43,8 +43,8 @@ object SchemaGen {
             Schema.Field[ListMap[String, _], A](
               label,
               schema,
-              get = _(label).asInstanceOf[A],
-              set = (a, b) => a + (label -> b)
+              get0 = _(label).asInstanceOf[A],
+              set0 = (a, b) => a + (label -> b)
             )
         )
       )
@@ -255,14 +255,15 @@ object SchemaGen {
       name          <- Gen.string(Gen.alphaChar).map(TypeId.parse)
       structure     <- anyStructure(schema, maxFieldCount)
     } yield {
-      val valueGen = Gen
-        .const(structure.map(_.name))
-        .zip(Gen.listOfN(structure.size)(gen))
-        .map {
-          case (labels, values) =>
-            labels.zip(values)
-        }
-        .map(ListMap.empty ++ _)
+      val valueGen: Gen[Sized, ListMap[String, _]] =
+        Gen
+          .const(structure.map(_.name.toString()))
+          .zip(Gen.listOfN(structure.size)(gen))
+          .map {
+            case (labels, values) =>
+              labels.zip(values)
+          }
+          .map(ListMap.empty ++ _)
 
       Schema.record(name, structure: _*) -> valueGen
     }
@@ -288,9 +289,9 @@ object SchemaGen {
     } yield Schema.record(
       name,
       FieldSet(
-        Schema.Field(key1, schema1.asInstanceOf[Schema[Any]], get = _(key1), set = (r, v: Any) => r.updated(key1, v)),
-        Schema.Field(key2, schema2.asInstanceOf[Schema[Any]], get = _(key2), set = (r, v: Any) => r.updated(key2, v)),
-        Schema.Field(key3, schema3.asInstanceOf[Schema[Any]], get = _(key3), set = (r, v: Any) => r.updated(key3, v))
+        Schema.Field(key1, schema1.asInstanceOf[Schema[Any]], get0 = _(key1), set0 = (r, v: Any) => r.updated(key1, v)),
+        Schema.Field(key2, schema2.asInstanceOf[Schema[Any]], get0 = _(key2), set0 = (r, v: Any) => r.updated(key2, v)),
+        Schema.Field(key3, schema3.asInstanceOf[Schema[Any]], get0 = _(key3), set0 = (r, v: Any) => r.updated(key3, v))
       )
     ) -> ListMap(
       (key1, value1),

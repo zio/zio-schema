@@ -1193,7 +1193,6 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
               f18,
               f19,
               f20,
-              _,
               _
             ) =>
           fields(
@@ -1242,9 +1241,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
               f18,
               f19,
               f20,
-              f21,
-              _,
-              _
+              tail
             ) =>
           fields(
             s,
@@ -1269,7 +1266,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
             f18,
             f19,
             f20,
-            f21
+            tail._1
           )
         case s @ Schema.CaseClass22(
               _,
@@ -1293,10 +1290,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
               f18,
               f19,
               f20,
-              f21,
-              f22,
-              _,
-              _
+              tail
             ) =>
           fields(
             s,
@@ -1321,8 +1315,8 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
             f18,
             f19,
             f20,
-            f21,
-            f22
+            tail._1,
+            tail._2
           )
         case Schema.Dynamic(_) =>
           processDynamic(currentContext, currentValue.asInstanceOf[DynamicValue]) match {
@@ -1330,6 +1324,8 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
             case None =>
               currentSchema = Schema.dynamicValue
           }
+
+        case _ => throw new Exception(s"Missing a handler for schema ${currentSchema.toString()}.")
       }
     }
     result.get

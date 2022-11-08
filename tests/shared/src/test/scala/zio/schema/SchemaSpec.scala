@@ -59,8 +59,8 @@ object SchemaSpec extends ZIOSpecDefault {
       Schema.Field(
         key,
         schemaUnit.asInstanceOf[Schema[Any]],
-        get = (p: ListMap[String, _]) => p(key),
-        set = (p: ListMap[String, _], v: Any) => p.updated(key, v)
+        get0 = (p: ListMap[String, _]) => p(key),
+        set0 = (p: ListMap[String, _], v: Any) => p.updated(key, v)
       )
     )
 

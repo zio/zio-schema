@@ -48,14 +48,14 @@ object MetaSchemaSpec extends ZIOSpecDefault {
                 Schema.Field[ListMap[String, _], String](
                   "a",
                   Schema[String],
-                  get = _("a").asInstanceOf[String],
-                  set = (r, v) => r.updated("a", v)
+                  get0 = _("a").asInstanceOf[String],
+                  set0 = (r, v) => r.updated("a", v)
                 ),
                 Schema.Field[ListMap[String, _], Int](
                   "b",
                   Schema[Int],
-                  get = _("b").asInstanceOf[Int],
-                  set = (r, v) => r.updated("b", v)
+                  get0 = _("b").asInstanceOf[Int],
+                  set0 = (r, v) => r.updated("b", v)
                 )
               ): _*
             )

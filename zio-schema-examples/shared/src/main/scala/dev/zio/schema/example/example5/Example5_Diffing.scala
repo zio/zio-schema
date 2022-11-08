@@ -14,16 +14,16 @@ private[example5] object Domain {
   object Person {
 
     val name: Field[Person, String] =
-      Field[Person, String]("name", primitive[String], get = _.name, set = (p, v) => p.copy(name = v))
+      Field[Person, String]("name", primitive[String], get0 = _.name, set0 = (p, v) => p.copy(name = v))
 
     val age: Field[Person, Int] =
-      Field[Person, Int]("age", primitive[Int], get = _.age, set = (p, v) => p.copy(age = v))
+      Field[Person, Int]("age", primitive[Int], get0 = _.age, set0 = (p, v) => p.copy(age = v))
 
     val schema: Schema[Person] = CaseClass2[String, Int, Person](
       TypeId.parse("dev.zio.schema.example.example5.Domain.Person"),
-      field1 = name,
-      field2 = age,
-      construct = (name, age) => Person(name, age)
+      field01 = name,
+      field02 = age,
+      construct0 = (name, age) => Person(name, age)
     )
   }
 
@@ -32,18 +32,20 @@ private[example5] object Domain {
   object PersonDTO {
 
     val firstname: Field[PersonDTO, String] =
-      Field("firstname", primitive[String], get = _.firstname, set = (p, v) => p.copy(firstname = v))
+      Field("firstname", primitive[String], get0 = _.firstname, set0 = (p, v) => p.copy(firstname = v))
 
     val lastname: Field[PersonDTO, String] =
-      Field("lastname", primitive[String], get = _.lastname, set = (p, v) => p.copy(lastname = v))
-    val years: Field[PersonDTO, Int] = Field("years", primitive[Int], get = _.years, set = (p, v) => p.copy(years = v))
+      Field("lastname", primitive[String], get0 = _.lastname, set0 = (p, v) => p.copy(lastname = v))
+
+    val years: Field[PersonDTO, Int] =
+      Field("years", primitive[Int], get0 = _.years, set0 = (p, v) => p.copy(years = v))
 
     val schema: Schema[PersonDTO] = CaseClass3[String, String, Int, PersonDTO](
       TypeId.parse("dev.zio.schema.example.example5.Domain.PersonDTO"),
-      field1 = firstname,
-      field2 = lastname,
-      field3 = years,
-      construct = (fn, ln, y) => PersonDTO(fn, ln, y)
+      field01 = firstname,
+      field02 = lastname,
+      field03 = years,
+      construct0 = (fn, ln, y) => PersonDTO(fn, ln, y)
     )
   }
 

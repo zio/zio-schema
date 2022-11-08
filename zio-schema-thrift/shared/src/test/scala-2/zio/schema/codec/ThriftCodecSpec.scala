@@ -26,7 +26,7 @@ import scala.util.Try
 import org.apache.thrift.TSerializable
 import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
 import zio.schema.CaseSet.caseOf
-import zio.schema.annotation.{ optionalField, transientField }
+import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
 import zio.schema.codec.{ generated => g }
 import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
 import zio.stream.{ ZSink, ZStream }
@@ -791,7 +791,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
           ed      <- decodeNS(schemaEnumValue, encoded)
         } yield assert(ed)(equalTo(EnumValue(2)))
       },
-      test("decode case class with optionalField") {
+      test("decode case class with optionalField annotation") {
         for {
           bytes <- writeManually { p =>
                     p.writeFieldBegin(new TField("name", TType.STRING, 1))
@@ -804,12 +804,22 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       test("decode case class with transientField") {
         for {
           bytes <- writeManually { p =>
-                    p.writeFieldBegin(new TField("name", TType.STRING, 1))
-                    p.writeString("Jim")
-                    p.writeFieldStop()
-                  }
+            p.writeFieldBegin(new TField("name", TType.STRING, 1))
+            p.writeString("Jim")
+            p.writeFieldStop()
+          }
           d <- decodeNS(PersonWithTransientField.schema, bytes)
         } yield assert(d)(equalTo(PersonWithTransientField("Jim", 0)))
+      },
+      test("decode case class with fieldDefaultValue annotation") {
+        for {
+          bytes <- writeManually { p =>
+                    p.writeFieldBegin(new TField("name", TType.STRING, 1))
+                    p.writeString("Alex")
+                    p.writeFieldStop()
+                  }
+          d <- decodeNS(PersonWithDefaultField.schema, bytes)
+        } yield assert(d)(equalTo(PersonWithDefaultField("Alex", 18)))
       }
     ),
     suite("Should fail to decode")(
@@ -1067,6 +1077,11 @@ object ThriftCodecSpec extends ZIOSpecDefault {
 
   object PersonWithTransientField {
     implicit val schema: Schema[PersonWithTransientField] = DeriveSchema.gen[PersonWithTransientField]
+  }
+  case class PersonWithDefaultField(name: String, @fieldDefaultValue(18) age: Int)
+
+  object PersonWithDefaultField {
+    implicit val schema: Schema[PersonWithDefaultField] = DeriveSchema.gen[PersonWithDefaultField]
   }
 
   def toHex(chunk: Chunk[Byte]): String =
