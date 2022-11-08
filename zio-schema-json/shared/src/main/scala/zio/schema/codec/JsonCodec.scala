@@ -16,7 +16,7 @@ import zio.json.{
   JsonFieldEncoder
 }
 import zio.schema._
-import zio.schema.annotation.{ fieldDefaultValue, optionalField }
+import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
 import zio.schema.codec.BinaryCodec._
 import zio.schema.codec.DecodeError.ReadError
 import zio.stream.ZPipeline
@@ -474,8 +474,12 @@ object JsonCodec extends BinaryCodec {
         val indent_ = bump(indent)
         pad(indent_, out)
         var first = true
-        fields.foreach {
-          case s: Schema.Field[_, _] =>
+        val nonTransientFields = fields.filter {
+          case Schema.Field(_, _, annotations, _, _, _) if annotations.collectFirst { case a: transientField => a }.isDefined => false
+          case _ => true
+        }
+        nonTransientFields.foreach {
+          case s: Schema.Field[Z, _] =>
             val enc = JsonEncoder.schemaEncoder(s.schema)
             if (!enc.isNothing(s.get(a))) {
               if (first)
@@ -861,8 +865,10 @@ object JsonCodec extends BinaryCodec {
       while (i < len) {
         if (buffer(i) == null) {
           val optionalAnnotation          = fields(i).annotations.collectFirst { case a: optionalField        => a }
+          val transientFieldAnnotation    = fields(i).annotations.collectFirst { case a: transientField       => a }
           val fieldDefaultValueAnnotation = fields(i).annotations.collectFirst { case a: fieldDefaultValue[_] => a }
-          if (optionalAnnotation.isDefined)
+
+          if (optionalAnnotation.isDefined || transientFieldAnnotation.isDefined)
             buffer(i) = schemas(i).defaultValue.toOption.get
           else if (fieldDefaultValueAnnotation.isDefined)
             buffer(i) = fieldDefaultValueAnnotation.get.value

@@ -12,7 +12,7 @@ import org.apache.thrift.protocol._
 
 import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
 import zio.schema._
-import zio.schema.annotation.{ fieldDefaultValue, optionalField }
+import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
 import zio.schema.codec.BinaryCodec.{ BinaryDecoder, BinaryEncoder, BinaryStreamDecoder, BinaryStreamEncoder }
 import zio.schema.codec.DecodeError.{ EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath }
 import zio.stream.ZPipeline
@@ -617,11 +617,12 @@ object ThriftCodec extends BinaryCodec {
                     case Some(value) =>
                       value
                     case None =>
-                      val optionalFieldAnnotation = field.annotations.collectFirst({ case a: optionalField => a })
+                      val optionalFieldAnnotation  = field.annotations.collectFirst({ case a: optionalField  => a })
+                      val transientFieldAnnotation = field.annotations.collectFirst({ case a: transientField => a })
                       val fieldDefaultValueAnnotation = field.annotations.collectFirst {
                         case a: fieldDefaultValue[_] => a
                       }
-                      if (optionalFieldAnnotation.isDefined) {
+                      if (optionalFieldAnnotation.isDefined || transientFieldAnnotation.isDefined) {
                         field.schema.defaultValue.toOption.get
                       } else if (fieldDefaultValueAnnotation.isDefined) {
                         fieldDefaultValueAnnotation.get.value

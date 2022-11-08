@@ -29,7 +29,7 @@ import org.apache.thrift.TSerializable
 import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
 
 import zio.schema.CaseSet.caseOf
-import zio.schema.annotation.{ fieldDefaultValue, optionalField }
+import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
 import zio.schema.codec.{ generated => g }
 import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
 import zio.stream.{ ZSink, ZStream }
@@ -694,6 +694,15 @@ object ThriftCodecSpec extends ZIOSpecDefault {
                )
         } yield assert(ed)(equalTo(Chunk(ObjectExample))) && assert(ed2)(equalTo(ObjectExample))
       },
+      test("case class with transient field") {
+        val value    = PersonWithTransientField("Jim", 30)
+        val expected = PersonWithTransientField("Jim", 0)
+        for {
+          ed  <- encodeAndDecode(PersonWithTransientField.schema, value)
+          ed2 <- encodeAndDecodeNS(PersonWithTransientField.schema, value)
+        } yield assert(ed)(equalTo(Chunk(expected))) && assert(ed2)(equalTo(expected))
+
+      },
       suite("dynamic")(
         test("dynamic int") {
           check(
@@ -814,6 +823,16 @@ object ThriftCodecSpec extends ZIOSpecDefault {
                   }
           d <- decodeNS(PersonWithOptionalField.schema, bytes)
         } yield assert(d)(equalTo(PersonWithOptionalField("Dan", 0)))
+      },
+      test("decode case class with transientField") {
+        for {
+          bytes <- writeManually { p =>
+                    p.writeFieldBegin(new TField("name", TType.STRING, 1))
+                    p.writeString("Jim")
+                    p.writeFieldStop()
+                  }
+          d <- decodeNS(PersonWithTransientField.schema, bytes)
+        } yield assert(d)(equalTo(PersonWithTransientField("Jim", 0)))
       },
       test("decode case class with fieldDefaultValue annotation") {
         for {
@@ -1077,6 +1096,11 @@ object ThriftCodecSpec extends ZIOSpecDefault {
     implicit val schema: Schema[PersonWithOptionalField] = DeriveSchema.gen[PersonWithOptionalField]
   }
 
+  case class PersonWithTransientField(name: String, @transientField age: Int)
+
+  object PersonWithTransientField {
+    implicit val schema: Schema[PersonWithTransientField] = DeriveSchema.gen[PersonWithTransientField]
+  }
   case class PersonWithDefaultField(name: String, @fieldDefaultValue(18) age: Int)
 
   object PersonWithDefaultField {

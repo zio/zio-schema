@@ -11,7 +11,7 @@ import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
-import zio.schema.annotation.{ fieldDefaultValue, optionalField }
+import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.stream.ZStream
@@ -143,6 +143,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Enumeration(StringValue("foo")),
           charSequenceToByteChunk("""{"oneOf":{"StringValue":{"value":"foo"}}}""")
         )
+      },
+      test("case class ") {
+        assertEncodes(
+          searchRequestWithTransientFieldSchema,
+          SearchRequestWithTransientField("foo", 10, 20, "bar"),
+          charSequenceToByteChunk("""{"query":"foo","pageNumber":10,"resultPerPage":20}""")
+        )
       }
     )
   )
@@ -186,6 +193,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertDecodes(
           optionalSearchRequestSchema,
           OptionalSearchRequest("test", 0, 10, Schema[String].defaultValue.getOrElse("")),
+          charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
+        )
+      },
+      test("transient field annotation") {
+        assertDecodes(
+          searchRequestWithTransientFieldSchema,
+          SearchRequestWithTransientField("test", 0, 10, Schema[String].defaultValue.getOrElse("")),
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
         )
       },
@@ -828,6 +842,16 @@ object JsonCodecSpec extends ZIOSpecDefault {
   val searchRequestSchema: Schema[SearchRequest] = DeriveSchema.gen[SearchRequest]
 
   val optionalSearchRequestSchema: Schema[OptionalSearchRequest] = DeriveSchema.gen[OptionalSearchRequest]
+
+  case class SearchRequestWithTransientField(
+    query: String,
+    pageNumber: Int,
+    resultPerPage: Int,
+    @transientField nextPage: String
+  )
+
+  val searchRequestWithTransientFieldSchema: Schema[SearchRequestWithTransientField] =
+    DeriveSchema.gen[SearchRequestWithTransientField]
 
   val fieldDefaultValueSearchRequestSchema: Schema[FieldDefaultValueSearchRequest] =
     DeriveSchema.gen[FieldDefaultValueSearchRequest]
