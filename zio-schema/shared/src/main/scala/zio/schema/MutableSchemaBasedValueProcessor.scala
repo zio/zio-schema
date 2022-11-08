@@ -1,8 +1,9 @@
 package zio.schema
 
+import zio.schema.annotation.transientField
+
 import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
-
 import zio.{ Chunk, ChunkBuilder }
 
 /** Base trait for mutable value processors, processing a value with a known schema. An example
@@ -130,7 +131,13 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
       }
 
     def fields(s: Schema.Record[_], record: Any, fs: Schema.Field[_, _]*): Unit = {
-      val values = ChunkBuilder.make[Target](fs.size)
+      val nonTransientFields = fs.filter {
+        case Schema.Field(_, _, annotations, _, _, _)
+            if annotations.collectFirst { case a: transientField => a }.isDefined =>
+          false
+        case _ => true
+      }
+      val values = ChunkBuilder.make[Target](nonTransientFields.size)
 
       def processNext(index: Int, remaining: List[Schema.Field[_, _]]): Unit =
         remaining match {
@@ -144,7 +151,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
               processRecord(
                 contextStack.head,
                 s,
-                fs.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, Target]) {
+                nonTransientFields.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, Target]) {
                   case (lm, pair) =>
                     lm.updated(pair._1, pair._2)
                 }
@@ -160,7 +167,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
       }
 
       startProcessingRecord(contextStack.head, s)
-      processNext(0, fs.toList)
+      processNext(0, nonTransientFields.toList)
     }
 
     def enumCases(s: Schema.Enum[_], cs: Schema.Case[_, _]*): Unit = {

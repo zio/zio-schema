@@ -9,14 +9,14 @@ import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.internal.{ Lexer, RetractReader, StringMatrix, Write }
 import zio.json.{
+  JsonFieldDecoder,
+  JsonFieldEncoder,
   JsonCodec => ZJsonCodec,
   JsonDecoder => ZJsonDecoder,
-  JsonEncoder => ZJsonEncoder,
-  JsonFieldDecoder,
-  JsonFieldEncoder
+  JsonEncoder => ZJsonEncoder
 }
 import zio.schema._
-import zio.schema.annotation.optionalField
+import zio.schema.annotation.{ optionalField, transientField }
 import zio.schema.codec.BinaryCodec._
 import zio.schema.codec.DecodeError.ReadError
 import zio.stream.ZPipeline
@@ -468,7 +468,11 @@ object JsonCodec extends BinaryCodec {
         val indent_ = bump(indent)
         pad(indent_, out)
         var first = true
-        fields.foreach {
+        val nonTransientFields = fields.filter {
+          case Schema.Field(_, _, annotations, _, _, _) if annotations.collectFirst { case a: transientField => a }.isDefined => false
+          case _ => true
+        }
+        nonTransientFields.foreach {
           case Schema.Field(key, schema, _, _, get, _) =>
             val enc = JsonEncoder.schemaEncoder(schema)
             if (!enc.isNothing(get(a))) {
@@ -853,8 +857,9 @@ object JsonCodec extends BinaryCodec {
       var i = 0
       while (i < len) {
         if (buffer(i) == null) {
-          val optionalAnnotation = fields(i).annotations.collectFirst { case a: optionalField => a }
-          if (optionalAnnotation.isDefined)
+          val optionalAnnotation       = fields(i).annotations.collectFirst { case a: optionalField  => a }
+          val transientFieldAnnotation = fields(i).annotations.collectFirst { case a: transientField => a }
+          if (optionalAnnotation.isDefined || transientFieldAnnotation.isDefined)
             buffer(i) = schemas(i).defaultValue.toOption.get
           else
             buffer(i) = schemaDecoder(schemas(i)).unsafeDecodeMissing(spans(i) :: trace)
