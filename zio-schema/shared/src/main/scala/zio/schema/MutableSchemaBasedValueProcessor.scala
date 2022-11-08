@@ -3,6 +3,7 @@ package zio.schema
 import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
 
+import zio.schema.annotation.transientField
 import zio.{ Chunk, ChunkBuilder }
 
 /** Base trait for mutable value processors, processing a value with a known schema. An example
@@ -130,7 +131,13 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
       }
 
     def fields(s: Schema.Record[_], record: Any, fs: Schema.Field[_, _]*): Unit = {
-      val values = ChunkBuilder.make[Target](fs.size)
+      val nonTransientFields = fs.filter {
+        case Schema.Field(_, _, annotations, _, _, _)
+            if annotations.collectFirst { case a: transientField => a }.isDefined =>
+          false
+        case _ => true
+      }
+      val values = ChunkBuilder.make[Target](nonTransientFields.size)
 
       def processNext(index: Int, remaining: List[Schema.Field[_, _]]): Unit =
         remaining match {
@@ -144,7 +151,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
               processRecord(
                 contextStack.head,
                 s,
-                fs.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, Target]) {
+                nonTransientFields.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, Target]) {
                   case (lm, pair) =>
                     lm.updated(pair._1, pair._2)
                 }
@@ -160,7 +167,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
       }
 
       startProcessingRecord(contextStack.head, s)
-      processNext(0, fs.toList)
+      processNext(0, nonTransientFields.toList)
     }
 
     def enumCases(s: Schema.Enum[_], cs: Schema.Case[_, _]*): Unit = {
@@ -1186,7 +1193,6 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
               f18,
               f19,
               f20,
-              _,
               _
             ) =>
           fields(
@@ -1235,9 +1241,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
               f18,
               f19,
               f20,
-              f21,
-              _,
-              _
+              tail
             ) =>
           fields(
             s,
@@ -1262,7 +1266,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
             f18,
             f19,
             f20,
-            f21
+            tail._1
           )
         case s @ Schema.CaseClass22(
               _,
@@ -1286,10 +1290,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
               f18,
               f19,
               f20,
-              f21,
-              f22,
-              _,
-              _
+              tail
             ) =>
           fields(
             s,
@@ -1314,8 +1315,8 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
             f18,
             f19,
             f20,
-            f21,
-            f22
+            tail._1,
+            tail._2
           )
         case Schema.Dynamic(_) =>
           processDynamic(currentContext, currentValue.asInstanceOf[DynamicValue]) match {
@@ -1323,6 +1324,8 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
             case None =>
               currentSchema = Schema.dynamicValue
           }
+
+        case _ => throw new Exception(s"Missing a handler for schema ${currentSchema.toString()}.")
       }
     }
     result.get

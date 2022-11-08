@@ -150,6 +150,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Enumeration2(StringValue2("foo2")),
           charSequenceToByteChunk("""{"oneOf":{"_type":"StringValue2","value":"foo2"}}""")
         )
+      },
+      test("case class ") {
+        assertEncodes(
+          searchRequestWithTransientFieldSchema,
+          SearchRequestWithTransientField("foo", 10, 20, "bar"),
+          charSequenceToByteChunk("""{"query":"foo","pageNumber":10,"resultPerPage":20}""")
+        )
       }
     )
   )
@@ -193,6 +200,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertDecodes(
           optionalSearchRequestSchema,
           OptionalSearchRequest("test", 0, 10, Schema[String].defaultValue.getOrElse("")),
+          charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
+        )
+      },
+      test("transient field annotation") {
+        assertDecodes(
+          searchRequestWithTransientFieldSchema,
+          SearchRequestWithTransientField("test", 0, 10, Schema[String].defaultValue.getOrElse("")),
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
         )
       },
@@ -498,8 +512,8 @@ object JsonCodecSpec extends ZIOSpecDefault {
                 .Field[ListMap[String, _], ListMap[String, _]](
                   key,
                   schema,
-                  get = (p: ListMap[String, _]) => p(key).asInstanceOf[ListMap[String, _]],
-                  set = (p: ListMap[String, _], v: ListMap[String, _]) => p.updated(key, v)
+                  get0 = (p: ListMap[String, _]) => p(key).asInstanceOf[ListMap[String, _]],
+                  set0 = (p: ListMap[String, _], v: ListMap[String, _]) => p.updated(key, v)
                 )
             )
             assertEncodesThenDecodes(embedded, ListMap(key -> value))
@@ -525,8 +539,8 @@ object JsonCodecSpec extends ZIOSpecDefault {
               Schema.Field(
                 "zoneOffset",
                 Schema.Primitive(StandardType.ZoneOffsetType),
-                get = (p: ListMap[String, _]) => p("zoneOffset").asInstanceOf[ZoneOffset],
-                set = (p: ListMap[String, _], v: ZoneOffset) => p.updated("zoneOffset", v)
+                get0 = (p: ListMap[String, _]) => p("zoneOffset").asInstanceOf[ZoneOffset],
+                set0 = (p: ListMap[String, _], v: ZoneOffset) => p.updated("zoneOffset", v)
               )
             ),
             ListMap[String, Any]("zoneOffset" -> zoneOffset)
@@ -851,6 +865,16 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   val optionalSearchRequestSchema: Schema[OptionalSearchRequest] = DeriveSchema.gen[OptionalSearchRequest]
 
+  case class SearchRequestWithTransientField(
+    query: String,
+    pageNumber: Int,
+    resultPerPage: Int,
+    @transientField nextPage: String
+  )
+
+  val searchRequestWithTransientFieldSchema: Schema[SearchRequestWithTransientField] =
+    DeriveSchema.gen[SearchRequestWithTransientField]
+
   val fieldDefaultValueSearchRequestSchema: Schema[FieldDefaultValueSearchRequest] =
     DeriveSchema.gen[FieldDefaultValueSearchRequest]
 
@@ -859,15 +883,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
     Schema.Field(
       "foo",
       Schema.Primitive(StandardType.StringType),
-      get = (p: ListMap[String, _]) => p("foo").asInstanceOf[String],
-      set = (p: ListMap[String, _], v: String) => p.updated("foo", v)
+      get0 = (p: ListMap[String, _]) => p("foo").asInstanceOf[String],
+      set0 = (p: ListMap[String, _], v: String) => p.updated("foo", v)
     ),
     Schema
       .Field(
         "bar",
         Schema.Primitive(StandardType.IntType),
-        get = (p: ListMap[String, _]) => p("bar").asInstanceOf[Int],
-        set = (p: ListMap[String, _], v: Int) => p.updated("bar", v)
+        get0 = (p: ListMap[String, _]) => p("bar").asInstanceOf[Int],
+        set0 = (p: ListMap[String, _], v: Int) => p.updated("bar", v)
       )
   )
 
@@ -876,14 +900,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
     Schema.Field(
       "l1",
       Schema.Primitive(StandardType.StringType),
-      get = (p: ListMap[String, _]) => p("l1").asInstanceOf[String],
-      set = (p: ListMap[String, _], v: String) => p.updated("l1", v)
+      get0 = (p: ListMap[String, _]) => p("l1").asInstanceOf[String],
+      set0 = (p: ListMap[String, _], v: String) => p.updated("l1", v)
     ),
     Schema.Field(
       "l2",
       recordSchema,
-      get = (p: ListMap[String, _]) => p("l2").asInstanceOf[ListMap[String, _]],
-      set = (p: ListMap[String, _], v: ListMap[String, _]) => p.updated("l2", v)
+      get0 = (p: ListMap[String, _]) => p("l2").asInstanceOf[ListMap[String, _]],
+      set0 = (p: ListMap[String, _], v: ListMap[String, _]) => p.updated("l2", v)
     )
   )
 
