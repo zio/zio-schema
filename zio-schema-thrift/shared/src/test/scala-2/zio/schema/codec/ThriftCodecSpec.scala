@@ -21,13 +21,10 @@ import java.time.{
 }
 import java.util
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
 import scala.util.Try
-
 import org.apache.thrift.TSerializable
 import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
-
 import zio.schema.CaseSet.caseOf
 import zio.schema.annotation.{ fieldDefaultValue, optionalField }
 import zio.schema.codec.{ generated => g }
@@ -48,6 +45,8 @@ import zio.{ Chunk, Console, Scope, Task, ZIO }
 object ThriftCodecSpec extends ZIOSpecDefault {
 
   import Schema._
+
+  case object ObjectExample
 
   def spec: Spec[TestEnvironment with Scope, Any] = suite("ThriftCodec Spec")(
     suite("Should correctly encode")(
@@ -674,6 +673,24 @@ object ThriftCodecSpec extends ZIOSpecDefault {
             } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         }
       } @@ TestAspect.sized(200),
+      test("case object") {
+        for {
+          ed2 <- encodeAndDecodeNS(
+                  Schema.CaseClass0(
+                    TypeId.parse("zio.schema.thrift.ThriftCodecSpec.ObjectExample"),
+                    () => ObjectExample
+                  ),
+                  ObjectExample
+                )
+          ed <- encodeAndDecode(
+                 Schema.CaseClass0(
+                   TypeId.parse("zio.schema.thrift.ThriftCodecSpec.ObjectExample"),
+                   () => ObjectExample
+                 ),
+                 ObjectExample
+               )
+        } yield assert(ed)(equalTo(Chunk(ObjectExample))) && assert(ed2)(equalTo(ObjectExample))
+      },
       suite("dynamic")(
         test("dynamic int") {
           check(

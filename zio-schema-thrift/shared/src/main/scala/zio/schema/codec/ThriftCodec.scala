@@ -89,7 +89,8 @@ object ThriftCodec extends BinaryCodec {
       if (schema.fields.nonEmpty) {
         writeFieldBegin(context.fieldNumber, TType.STRUCT)
       } else {
-        writeFieldBegin(context.fieldNumber, getPrimitiveType(StandardType.UnitType))
+        writeFieldBegin(context.fieldNumber, TType.BYTE)
+        writeByte(0)
       }
 
     override protected def processRecord(
@@ -594,45 +595,56 @@ object ThriftCodec extends BinaryCodec {
         val tfield = p.readFieldBegin()
         if (tfield.`type` == TType.STOP) None
         else Some((context.copy(path = context.path :+ s"fieldId:${tfield.id}"), tfield.id - 1))
-      } else None
+      } else {
+        val _ = p.readByte()
+        None
+      }
 
     override protected def createRecord(
       context: DecoderContext,
       record: Schema.Record[_],
       values: Chunk[(Int, Any)]
-    ): Any = {
-      val valuesMap = values.toMap
-      val allValues =
-        record.fields.zipWithIndex.map {
-          case (field, idx) =>
-            valuesMap.get(idx) match {
-              case Some(value) => value
-              case None =>
-                emptyValue(field.schema) match {
-                  case Some(value) =>
-                    value
-                  case None =>
-                    val optionalFieldAnnotation = field.annotations.collectFirst({ case a: optionalField => a })
-                    val fieldDefaultValueAnnotation = field.annotations.collectFirst {
-                      case a: fieldDefaultValue[_] => a
-                    }
-                    if (optionalFieldAnnotation.isDefined) {
-                      field.schema.defaultValue.toOption.get
-                    } else if (fieldDefaultValueAnnotation.isDefined) {
-                      fieldDefaultValueAnnotation.get.value
-                    } else {
-                      fail(context.copy(path = context.path :+ field.name), s"Missing value")
-                    }
-                }
-            }
+    ): Any =
+      if (record.fields.nonEmpty) {
+        val valuesMap = values.toMap
+        val allValues =
+          record.fields.zipWithIndex.map {
+            case (field, idx) =>
+              valuesMap.get(idx) match {
+                case Some(value) => value
+                case None =>
+                  emptyValue(field.schema) match {
+                    case Some(value) =>
+                      value
+                    case None =>
+                      val optionalFieldAnnotation = field.annotations.collectFirst({ case a: optionalField => a })
+                      val fieldDefaultValueAnnotation = field.annotations.collectFirst {
+                        case a: fieldDefaultValue[_] => a
+                      }
+                      if (optionalFieldAnnotation.isDefined) {
+                        field.schema.defaultValue.toOption.get
+                      } else if (fieldDefaultValueAnnotation.isDefined) {
+                        fieldDefaultValueAnnotation.get.value
+                      } else {
+                        fail(context.copy(path = context.path :+ field.name), s"Missing value")
+                      }
+                  }
+              }
+          }
+        Unsafe.unsafe { implicit u =>
+          record.construct(allValues) match {
+            case Left(message) => fail(context, message)
+            case Right(value)  => value
+          }
         }
-      Unsafe.unsafe { implicit u =>
-        record.construct(allValues) match {
-          case Left(message) => fail(context, message)
-          case Right(value)  => value
+      } else {
+        Unsafe.unsafe { implicit u =>
+          record.construct(Chunk.empty) match {
+            case Left(message) => fail(context, message)
+            case Right(value)  => value
+          }
         }
       }
-    }
 
     override protected def startCreatingEnum(
       context: DecoderContext,
