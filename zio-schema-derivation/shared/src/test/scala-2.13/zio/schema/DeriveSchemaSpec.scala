@@ -297,7 +297,11 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
       },
       test("correctly derives for case object") {
         val derived: Schema[Singleton.type]  = DeriveSchema.gen[Singleton.type]
-        val expected: Schema[Singleton.type] = Schema.singleton(Singleton)
+        val expected: Schema[Singleton.type] = Schema.CaseClass0(
+          TypeId.fromTypeName("zio.schema.DeriveSchemaSpec.Singleton"),
+          () => Singleton,
+          Chunk.empty
+        )
 
         assert(derived)(hasSameSchema(expected))
       },
