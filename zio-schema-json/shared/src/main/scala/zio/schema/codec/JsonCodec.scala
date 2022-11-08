@@ -8,13 +8,7 @@ import scala.collection.immutable.ListMap
 import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.internal.{ Lexer, RetractReader, StringMatrix, Write }
-import zio.json.{
-  JsonFieldDecoder,
-  JsonFieldEncoder,
-  JsonCodec => ZJsonCodec,
-  JsonDecoder => ZJsonDecoder,
-  JsonEncoder => ZJsonEncoder
-}
+import zio.json.{JsonCodec => ZJsonCodec, JsonDecoder => ZJsonDecoder, JsonEncoder => ZJsonEncoder, JsonFieldDecoder, JsonFieldEncoder}
 import zio.schema._
 import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
 import zio.schema.codec.BinaryCodec._

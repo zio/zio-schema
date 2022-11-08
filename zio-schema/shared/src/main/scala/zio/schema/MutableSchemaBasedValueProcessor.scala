@@ -1,9 +1,9 @@
 package zio.schema
 
-import zio.schema.annotation.transientField
-
 import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
+
+import zio.schema.annotation.transientField
 import zio.{ Chunk, ChunkBuilder }
 
 /** Base trait for mutable value processors, processing a value with a known schema. An example
