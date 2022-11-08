@@ -804,10 +804,10 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       test("decode case class with transientField") {
         for {
           bytes <- writeManually { p =>
-            p.writeFieldBegin(new TField("name", TType.STRING, 1))
-            p.writeString("Jim")
-            p.writeFieldStop()
-          }
+                    p.writeFieldBegin(new TField("name", TType.STRING, 1))
+                    p.writeString("Jim")
+                    p.writeFieldStop()
+                  }
           d <- decodeNS(PersonWithTransientField.schema, bytes)
         } yield assert(d)(equalTo(PersonWithTransientField("Jim", 0)))
       },

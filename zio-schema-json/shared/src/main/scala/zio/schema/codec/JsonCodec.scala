@@ -479,9 +479,9 @@ object JsonCodec extends BinaryCodec {
           case _ => true
         }
         nonTransientFields.foreach {
-          case Schema.Field(key, schema, _, _, get, _) =>
-            val enc = JsonEncoder.schemaEncoder(schema)
-            if (!enc.isNothing(get(a))) {
+          case s: Schema.Field[Z, _] =>
+            val enc = JsonEncoder.schemaEncoder(s.schema)
+            if (!enc.isNothing(s.get(a))) {
               if (first)
                 first = false
               else {
@@ -490,10 +490,10 @@ object JsonCodec extends BinaryCodec {
                   ZJsonEncoder.pad(indent_, out)
               }
 
-              string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(key), indent_, out)
+              string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(s.name), indent_, out)
               if (indent.isEmpty) out.write(':')
               else out.write(" : ")
-              enc.unsafeEncode(get(a), indent_, out)
+              enc.unsafeEncode(s.get(a), indent_, out)
             }
         }
         pad(indent, out)
@@ -863,8 +863,8 @@ object JsonCodec extends BinaryCodec {
       var i = 0
       while (i < len) {
         if (buffer(i) == null) {
-          val optionalAnnotation       = fields(i).annotations.collectFirst { case a: optionalField  => a }
-          val transientFieldAnnotation = fields(i).annotations.collectFirst { case a: transientField => a }
+          val optionalAnnotation          = fields(i).annotations.collectFirst { case a: optionalField        => a }
+          val transientFieldAnnotation    = fields(i).annotations.collectFirst { case a: transientField       => a }
           val fieldDefaultValueAnnotation = fields(i).annotations.collectFirst { case a: fieldDefaultValue[_] => a }
 
           if (optionalAnnotation.isDefined || transientFieldAnnotation.isDefined)

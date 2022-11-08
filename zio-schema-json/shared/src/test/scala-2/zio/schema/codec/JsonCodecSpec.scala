@@ -194,12 +194,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
         )
       },
-
       test("transient field annotation") {
         assertDecodes(
           searchRequestWithTransientFieldSchema,
           SearchRequestWithTransientField("test", 0, 10, Schema[String].defaultValue.getOrElse("")),
-          charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}"""))
+          charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
+        )
       },
       test("fieldDefaultValue") {
         assertDecodes(
@@ -853,7 +853,6 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   val fieldDefaultValueSearchRequestSchema: Schema[FieldDefaultValueSearchRequest] =
     DeriveSchema.gen[FieldDefaultValueSearchRequest]
-
 
   val recordSchema: Schema[ListMap[String, _]] = Schema.record(
     TypeId.Structural,
