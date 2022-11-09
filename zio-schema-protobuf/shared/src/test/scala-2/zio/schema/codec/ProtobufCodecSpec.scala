@@ -794,22 +794,22 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         .Field(
           "c",
           Schema.Primitive(StandardType.IntType),
-          get = (p: ListMap[String, _]) => p("c").asInstanceOf[Int],
-          set = (p, v: Int) => p.updated("c", v)
+          get0 = (p: ListMap[String, _]) => p("c").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("c", v)
         ),
       Schema
         .Field(
           "b",
           Schema.Primitive(StandardType.IntType),
-          get = (p: ListMap[String, _]) => p("b").asInstanceOf[Int],
-          set = (p, v: Int) => p.updated("b", v)
+          get0 = (p: ListMap[String, _]) => p("b").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("b", v)
         ),
       Schema
         .Field(
           "a",
           Schema.Primitive(StandardType.IntType),
-          get = (p: ListMap[String, _]) => p("a").asInstanceOf[Int],
-          set = (p, v: Int) => p.updated("a", v)
+          get0 = (p: ListMap[String, _]) => p("a").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("a", v)
         )
     )
 
@@ -819,22 +819,22 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         .Field(
           "a",
           Schema.Primitive(StandardType.IntType),
-          get = (p: ListMap[String, _]) => p("a").asInstanceOf[Int],
-          set = (p, v: Int) => p.updated("a", v)
+          get0 = (p: ListMap[String, _]) => p("a").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("a", v)
         ),
       Schema
         .Field(
           "b",
           Schema.Primitive(StandardType.IntType),
-          get = (p: ListMap[String, _]) => p("b").asInstanceOf[Int],
-          set = (p, v: Int) => p.updated("b", v)
+          get0 = (p: ListMap[String, _]) => p("b").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("b", v)
         ),
       Schema
         .Field(
           "c",
           Schema.Primitive(StandardType.IntType),
-          get = (p: ListMap[String, _]) => p("c").asInstanceOf[Int],
-          set = (p, v: Int) => p.updated("c", v)
+          get0 = (p: ListMap[String, _]) => p("c").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("c", v)
         )
     )
   }

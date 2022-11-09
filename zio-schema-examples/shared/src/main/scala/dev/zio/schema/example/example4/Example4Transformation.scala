@@ -16,16 +16,17 @@ private[example4] object Domain {
   object WebPerson {
 
     val name: Schema.Field[WebPerson, String] =
-      Schema.Field[WebPerson, String]("name", Schema.primitive[String], get = _.name, set = (p, v) => p.copy(name = v))
+      Schema
+        .Field[WebPerson, String]("name", Schema.primitive[String], get0 = _.name, set0 = (p, v) => p.copy(name = v))
 
     val age: Schema.Field[WebPerson, Int] =
-      Schema.Field[WebPerson, Int]("age", Schema.primitive[Int], get = _.age, set = (p, v) => p.copy(age = v))
+      Schema.Field[WebPerson, Int]("age", Schema.primitive[Int], get0 = _.age, set0 = (p, v) => p.copy(age = v))
 
     val schema: Schema[WebPerson] = Schema.CaseClass2[String, Int, WebPerson](
       TypeId.parse("dev.zio.schema.example.example4.Domain.WebPerson"),
-      field1 = name,
-      field2 = age,
-      construct = (name, age) => WebPerson(name, age)
+      field01 = name,
+      field02 = age,
+      construct0 = (name, age) => WebPerson(name, age)
     )
   }
 
@@ -34,20 +35,20 @@ private[example4] object Domain {
   object DomainPerson {
 
     val firstname: Schema.Field[DomainPerson, String] =
-      Schema.Field("firstname", Schema.primitive[String], get = _.firstname, set = (p, v) => p.copy(firstname = v))
+      Schema.Field("firstname", Schema.primitive[String], get0 = _.firstname, set0 = (p, v) => p.copy(firstname = v))
 
     val lastname: Schema.Field[DomainPerson, String] =
-      Schema.Field("lastname", Schema.primitive[String], get = _.lastname, set = (p, v) => p.copy(lastname = v))
+      Schema.Field("lastname", Schema.primitive[String], get0 = _.lastname, set0 = (p, v) => p.copy(lastname = v))
 
     val years: Schema.Field[DomainPerson, Int] =
-      Schema.Field("years", Schema.primitive[Int], get = _.years, set = (p, v) => p.copy(years = v))
+      Schema.Field("years", Schema.primitive[Int], get0 = _.years, set0 = (p, v) => p.copy(years = v))
 
     val schema: Schema[DomainPerson] = Schema.CaseClass3[String, String, Int, DomainPerson](
       TypeId.parse("dev.zio.schema.example.example4.Domain.DomainPerson"),
-      field1 = firstname,
-      field2 = lastname,
-      field3 = years,
-      construct = (fn, ln, y) => DomainPerson(fn, ln, y)
+      field01 = firstname,
+      field02 = lastname,
+      field03 = years,
+      construct0 = (fn, ln, y) => DomainPerson(fn, ln, y)
     )
   }
 
