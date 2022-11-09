@@ -1,14 +1,14 @@
 package zio.schema.codec
 
 import java.time.format.DateTimeFormatter
-import java.time.{ZoneId, ZoneOffset}
+import java.time.{ ZoneId, ZoneOffset }
 
 import scala.collection.immutable.ListMap
 
 import zio.Console._
 import zio._
 import zio.json.JsonDecoder.JsonError
-import zio.json.{DeriveJsonEncoder, JsonEncoder}
+import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
 import zio.schema.annotation.{ fieldDefaultValue, optionalField, rejectExtraFields, transientField }
@@ -197,11 +197,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
         )
       },
       test("reject extra fields") {
-        assertDecodes(
+        assertDecodesToError(
           PersonWithRejectExtraFields.schema,
-          PersonWithRejectExtraFields("test", 10),
-          charSequenceToByteChunk("""{"name":"test","age":10,"extraField":10}""")
-        )},
+          """{"name":"test","age":10,"extraField":10}""",
+          JsonError.Message("extra field") :: Nil
+        )
+      },
       test("transient field annotation") {
         assertDecodes(
           searchRequestWithTransientFieldSchema,
@@ -818,6 +819,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
   }
 
   @rejectExtraFields final case class PersonWithRejectExtraFields(name: String, age: Int)
+
   object PersonWithRejectExtraFields {
     implicit val encoder: JsonEncoder[PersonWithRejectExtraFields] =
       DeriveJsonEncoder.gen[PersonWithRejectExtraFields]
