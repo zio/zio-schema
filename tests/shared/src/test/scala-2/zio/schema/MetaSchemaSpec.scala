@@ -159,7 +159,11 @@ object MetaSchemaSpec extends ZIOSpecDefault {
           TypeId.parse("zio.schema.MetaSchemaSpec.Pet"),
           path = NodePath.root,
           cases = Chunk(
-            "Rock" -> MetaSchema.Value(StandardType.UnitType, NodePath.root / "Rock"),
+            "Rock" -> MetaSchema.Product(
+              id = TypeId.parse("zio.schema.MetaSchemaSpec.Rock"),
+              path = NodePath.root / "Rock",
+              fields = Chunk.empty
+            ),
             "Dog" -> MetaSchema.Product(
               id = TypeId.parse("zio.schema.MetaSchemaSpec.Dog"),
               path = NodePath.root / "Dog",

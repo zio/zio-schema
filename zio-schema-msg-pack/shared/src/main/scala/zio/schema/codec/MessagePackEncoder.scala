@@ -34,6 +34,7 @@ private[codec] class MessagePackEncoder {
       case (eitherSchema: Schema.Either[_, _], v: scala.util.Either[_, _]) => encodeEither(eitherSchema.asInstanceOf[Schema.Either[Any, Any]].left, eitherSchema.asInstanceOf[Schema.Either[Any, Any]].right, v.asInstanceOf[scala.util.Either[Any, Any]])
       case (lzy @ Schema.Lazy(_), v)                                       => encodeValue(lzy.schema, v)
       //  case (Schema.Meta(ast, _), _)                                        => encodeValue(fieldNumber, Schema[MetaSchema], ast)
+      case (Schema.CaseClass0(_, _, _), _)         => encodePrimitive(StandardType.UnitType, ())
       case (Schema.CaseClass1(_, f, _, _), v)      => encodeCaseClass(v, f)
       case (Schema.CaseClass2(_, f1, f2, _, _), v) => encodeCaseClass(v, f1, f2)
       case (Schema.CaseClass3(_, f1, f2, f3, _, _), v) =>

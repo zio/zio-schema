@@ -49,6 +49,8 @@ object ThriftCodecSpec extends ZIOSpecDefault {
 
   import Schema._
 
+  case object ObjectExample
+
   def spec: Spec[TestEnvironment with Scope, Any] = suite("ThriftCodec Spec")(
     suite("Should correctly encode")(
       test("integers") {
@@ -674,6 +676,24 @@ object ThriftCodecSpec extends ZIOSpecDefault {
             } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         }
       } @@ TestAspect.sized(200),
+      test("case object") {
+        for {
+          ed2 <- encodeAndDecodeNS(
+                  Schema.CaseClass0(
+                    TypeId.parse("zio.schema.thrift.ThriftCodecSpec.ObjectExample"),
+                    () => ObjectExample
+                  ),
+                  ObjectExample
+                )
+          ed <- encodeAndDecode(
+                 Schema.CaseClass0(
+                   TypeId.parse("zio.schema.thrift.ThriftCodecSpec.ObjectExample"),
+                   () => ObjectExample
+                 ),
+                 ObjectExample
+               )
+        } yield assert(ed)(equalTo(Chunk(ObjectExample))) && assert(ed2)(equalTo(ObjectExample))
+      },
       test("case class with transient field") {
         val value    = PersonWithTransientField("Jim", 30)
         val expected = PersonWithTransientField("Jim", 0)
