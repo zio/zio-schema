@@ -6,7 +6,7 @@ inThisBuild(
   List(
     name := "zio-schema",
     organization := "dev.zio",
-    homepage := Some(url("https://github.com/zio/zio-schema")),
+    homepage := Some(url("https://zio.dev/zio-schema")),
     developers := List(
       Developer(
         "ioleo",
@@ -73,9 +73,9 @@ lazy val root = project
     zioSchemaAvroJS,
     zioSchemaAvroJVM,
     zioSchemaMsgPackJS,
-    zioSchemaMsgPackJVM
+    zioSchemaMsgPackJVM,
+    docs
   )
-  .enablePlugins(WebsitePlugin)
 
 lazy val tests = crossProject(JSPlatform, JVMPlatform)
   .in(file("tests"))
@@ -292,3 +292,42 @@ lazy val benchmarks = project
   .in(file("benchmarks"))
   .dependsOn(zioSchemaJVM, zioSchemaDerivationJVM, zioSchemaProtobufJVM)
   .enablePlugins(JmhPlugin)
+
+lazy val docs = project
+  .in(file("zio-schema-docs"))
+  .settings(
+    publish / skip := true,
+    moduleName := "zio-schema-docs",
+    scalacOptions -= "-Yno-imports",
+    scalacOptions -= "-Xfatal-warnings",
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio" % zioVersion
+    )
+  )
+  .dependsOn(
+    zioSchemaMacrosJVM,
+    zioSchemaMacrosJS,
+    zioSchemaJVM,
+    zioSchemaJS,
+    zioSchemaDerivationJVM,
+    zioSchemaDerivationJS,
+    zioSchemaJsonJVM,
+    zioSchemaJsonJS,
+    zioSchemaOpticsJS,
+    zioSchemaOpticsJVM,
+    zioSchemaProtobufJS,
+    zioSchemaProtobufJVM,
+    zioSchemaExamplesJS,
+    zioSchemaExamplesJVM,
+    testsJVM,
+    testsJS,
+    zioSchemaZioTestJVM,
+    zioSchemaZioTestJS,
+    zioSchemaThriftJS,
+    zioSchemaThriftJVM,
+    zioSchemaAvroJS,
+    zioSchemaAvroJVM,
+    zioSchemaMsgPackJS,
+    zioSchemaMsgPackJVM
+  )
+  .enablePlugins(WebsitePlugin)
