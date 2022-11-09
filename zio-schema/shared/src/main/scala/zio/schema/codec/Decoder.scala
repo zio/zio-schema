@@ -20,8 +20,8 @@ import zio.stream.ZPipeline
 
 trait Decoder[Whole, Element, +A] {
 
-  def decode(whole: Whole): Either[String, A]
+  def decode(whole: Whole): Either[DecodeError, A]
 
-  def streamDecoder: ZPipeline[Any, String, Element, A]
+  def streamDecoder: ZPipeline[Any, DecodeError, Element, A]
 
 }

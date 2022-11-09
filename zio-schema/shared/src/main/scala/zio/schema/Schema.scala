@@ -146,6 +146,8 @@ sealed trait Schema[A] {
   ): Schema[B] =
     Schema.Transform[A, B, SourceLocation](self, f, g, annotations, loc)
 
+  def validate(value: A)(implicit schema: Schema[A]): Chunk[ValidationError] = Schema.validate[A](value)
+
   /**
    * Returns a new schema that combines this schema and the specified schema together, modeling
    * their tuple composition.
@@ -176,6 +178,63 @@ object Schema extends SchemaEquality {
     schema.transform[A](_._2, a => ((), a))
 
   def singleton[A](instance: A): Schema[A] = Schema[Unit].transform(_ => instance, _ => ())
+
+  def validate[A](value: A)(implicit schema: Schema[A]): Chunk[ValidationError] = {
+    def loop[A](value: A, schema: Schema[A]): Chunk[ValidationError] =
+      schema match {
+        case Sequence(schema, _, toChunk, _, _) =>
+          toChunk(value).flatMap(value => loop(value, schema))
+        case Transform(schema, _, g, _, _) =>
+          g(value) match {
+            case Right(value) => loop(value, schema)
+            case Left(error)  => Chunk(ValidationError.Generic(error))
+          }
+        case Primitive(_, _) => Chunk.empty
+        case optional @ Optional(schema, _) =>
+          value.asInstanceOf[Option[optional.OptionalType]] match {
+            case Some(value) => loop(value, schema)
+            case None        => Chunk.empty
+          }
+        case tuple @ Schema.Tuple2(left, right, _) =>
+          loop(tuple.extract1(value), left) ++ loop(tuple.extract2(value), right)
+        case l @ Lazy(_) =>
+          loop(value, l.schema)
+        case Schema.Map(ks, vs, _) =>
+          Chunk.fromIterable(value.keys).flatMap(loop(_, ks)) ++ Chunk.fromIterable(value.values).flatMap(loop(_, vs))
+        case set @ Schema.Set(as, _) =>
+          Chunk.fromIterable(value.asInstanceOf[scala.collection.Set[set.ElementType]]).flatMap(loop(_, as))
+        case enumeration: Enum[_] =>
+          enumeration.caseOf(value) match {
+            case Some(c) =>
+              loop(c.deconstruct(value), c.schema.asInstanceOf[Schema[Any]])
+            case None =>
+              Chunk.empty // TODO could consider this a fatal error
+          }
+        case record: Record[_] =>
+          val fieldValues = Unsafe.unsafe { implicit unsafe =>
+            record.deconstruct(value)
+          }
+          record.fields
+            .zip(fieldValues)
+            .foldLeft[Chunk[ValidationError]](Chunk.empty) {
+              case (acc, (field, fieldValue)) =>
+                val validation = field.validation.asInstanceOf[Validation[Any]]
+                validation.validate(fieldValue).swap.getOrElse(Chunk.empty) ++ acc ++ loop(
+                  fieldValue,
+                  field.schema.asInstanceOf[Schema[Any]]
+                )
+            }
+            .reverse
+        case either @ Schema.Either(left, right, _) =>
+          value.asInstanceOf[scala.util.Either[either.LeftType, either.RightType]] match {
+            case Left(value)  => loop(value, left)
+            case Right(value) => loop(value, right)
+          }
+        case Dynamic(_) => Chunk.empty
+        case Fail(_, _) => Chunk.empty
+      }
+    loop(value, schema)
+  }
 
   implicit val bigDecimal: Schema[BigDecimal] = primitive[java.math.BigDecimal].transform(BigDecimal(_), _.bigDecimal)
 
@@ -279,23 +338,58 @@ object Schema extends SchemaEquality {
       casesMap.get(id)
 
     def caseOf(z: Z): Option[Case[Z, _]] = cases.find(_.isCase(z))
-
   }
 
-  final case class Field[R, A](
-    name: String,
-    schema: Schema[A],
-    annotations: Chunk[Any] = Chunk.empty,
-    validation: Validation[A] = Validation.succeed[A],
-    get: R => A,
-    set: (R, A) => R
-  ) {
+  sealed trait Field[R, A] {
+    type Field <: Singleton with String
+
+    def name: Field
+    def schema: Schema[A]
+    def annotations: Chunk[Any]
+    def validation: Validation[A]
+    def get: R => A
+    def set: (R, A) => R
 
     override def toString: String = s"Field($name,$schema)"
   }
 
+  object Field {
+
+    type WithFieldName[R, F <: Singleton with String, A] = Field[R, A] {
+      type Field = F
+    }
+
+    def apply[R, A](
+      name0: String,
+      schema0: Schema[A],
+      annotations0: Chunk[Any] = Chunk.empty,
+      validation0: Validation[A] = Validation.succeed[A],
+      get0: R => A,
+      set0: (R, A) => R
+    ): Field[R, A] = new Field[R, A] {
+
+      override type Field = name0.type
+
+      def name: Field               = name0.asInstanceOf[Field]
+      def schema: Schema[A]         = schema0
+      def annotations: Chunk[Any]   = annotations0
+      def validation: Validation[A] = validation0
+      def get: R => A               = get0
+      def set: (R, A) => R          = set0
+    }
+
+    def unapply[R, A](field: Field[R, A]): Some[(String, Schema[A], Chunk[Any], Validation[A], R => A, (R, A) => R)] =
+      Some[(String, Schema[A], Chunk[Any], Validation[A], R => A, (R, A) => R)](
+        (field.name, field.schema, field.annotations, field.validation, field.get, field.set)
+      )
+  }
+
   sealed trait Record[R] extends Schema[R] {
     self =>
+
+    type Terms
+    type FieldNames
+
     def fields: Chunk[Field[R, _]]
 
     def construct(fieldValues: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, R]
@@ -382,6 +476,7 @@ object Schema extends SchemaEquality {
 
   final case class Optional[A](schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) extends Schema[Option[A]] {
     self =>
+    type OptionalType = A
 
     val some = "Some"
     val none = "None"
@@ -446,10 +541,10 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Tuple2[A, B] = copy(annotations = annotations :+ annotation)
 
     val toRecord: CaseClass2[A, B, (A, B)] = CaseClass2[A, B, (A, B)](
-      id = TypeId.parse("zio.schema.Schema.CaseClass2"),
-      field1 = Field[(A, B), A]("_1", left, get = _._1, set = (ab, a) => (a, ab._2)),
-      field2 = Field[(A, B), B]("_2", right, get = _._2, set = (a, b) => (a._1, b)),
-      construct = (a, b) => (a, b),
+      id0 = TypeId.parse("zio.schema.Schema.CaseClass2"),
+      field01 = Field[(A, B), A]("_1", left, get0 = _._1, set0 = (ab, a) => (a, ab._2)),
+      field02 = Field[(A, B), B]("_2", right, get0 = _._2, set0 = (a, b) => (a._1, b)),
+      construct0 = (a, b) => (a, b),
       annotations
     )
 
@@ -459,11 +554,15 @@ object Schema extends SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): (b.Lens[first.type, (A, B), A], b.Lens[second.type, (A, B), B]) =
       b.makeLens(toRecord, toRecord.field1) -> b.makeLens(toRecord, toRecord.field2)
 
+    def extract1(value: (A, B)): A = value._1
+    def extract2(value: (A, B)): B = value._2
   }
 
   final case class Either[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
       extends Schema[scala.util.Either[A, B]] {
     self =>
+    type LeftType  = A
+    type RightType = B
 
     val leftSingleton  = "Left"
     val rightSingleton = "Right"
@@ -560,6 +659,8 @@ object Schema extends SchemaEquality {
   final case class Set[A](elementSchema: Schema[A], override val annotations: Chunk[Any] = Chunk.empty)
       extends Collection[scala.collection.immutable.Set[A], A] {
     self =>
+    type ElementType = A
+
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       Traversal[scala.collection.immutable.Set[A], A]
 
@@ -3178,6 +3279,9 @@ object Schema extends SchemaEquality {
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Record[ListMap[String, _]] { self =>
 
+    type Terms      = fieldSet.Terms
+    type FieldNames = fieldSet.FieldNames
+
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       fieldSet.Accessors[ListMap[String, _], Lens, Prism, Traversal]
 
@@ -3199,18 +3303,17 @@ object Schema extends SchemaEquality {
      * Returns a new schema that with `annotation`
      */
     override def annotate(annotation: Any): GenericRecord = copy(annotations = annotations :+ annotation)
-
   }
 
-  sealed case class CaseClass0[Z](
-    id: TypeId,
-    defaultConstruct: () => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  sealed trait CaseClass0[Z] extends Record[Z] { self =>
 
-    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Nothing
+    override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Nothing
+    override type Terms                                                     = Any
+    override type FieldNames                                                = Any
 
-    override def annotate(annotation: Any): CaseClass0[Z] = copy(annotations = annotations :+ annotation)
+    def id: TypeId
+    def defaultConstruct: () => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): Nothing = ???
 
@@ -3227,21 +3330,43 @@ object Schema extends SchemaEquality {
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(value)
 
-    override def toString: String = s"CaseClass1(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass0(${fields.mkString(",")})"
   }
 
-  sealed case class CaseClass1[A, Z](
-    id: TypeId,
-    field: Field[Z, A],
-    defaultConstruct: A => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass0 {
 
-    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Lens[field.name.type, Z, A]
+    def apply[Z](
+      id0: TypeId,
+      defaultConstruct0: () => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass0[Z] = new CaseClass0[Z] {
+      override def id: TypeId                = id0
+      override def defaultConstruct: () => Z = defaultConstruct0
+      override def annotations: Chunk[Any]   = annotations0
 
-    override def annotate(annotation: Any): CaseClass1[A, Z] = copy(annotations = annotations :+ annotation)
+      override def annotate(annotation: Any): CaseClass0[Z] =
+        CaseClass0(id, defaultConstruct0, annotations :+ annotation)
+    }
 
-    override def makeAccessors(b: AccessorBuilder): b.Lens[field.name.type, Z, A] = b.makeLens(self, field)
+    def unapply[Z](schema: CaseClass0[Z]): Some[(TypeId, () => Z, Chunk[Any])] =
+      Some((schema.id, schema.defaultConstruct, schema.annotations))
+  }
+
+  sealed trait CaseClass1[A, Z] extends Record[Z] { self =>
+
+    type Field1 <: Singleton with String
+
+    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Lens[Field1, Z, A]
+
+    override type Terms      = (Field1, A)
+    override type FieldNames = Field1
+
+    def id: TypeId
+    def field: Field.WithFieldName[Z, Field1, A]
+    def defaultConstruct: A => Z
+    def annotations: Chunk[Any]
+
+    override def makeAccessors(b: AccessorBuilder): b.Lens[Field1, Z, A] = b.makeLens(self, field)
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field)
 
@@ -3256,25 +3381,58 @@ object Schema extends SchemaEquality {
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(field.get(value))
     override def toString: String                                           = s"CaseClass1(${fields.mkString(",")})"
-
   }
 
-  sealed case class CaseClass2[A1, A2, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    construct: (A1, A2) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass1 {
+
+    def apply[A, Z](
+      id0: TypeId,
+      field0: Field[Z, A],
+      defaultConstruct0: A => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass1[A, Z] =
+      new CaseClass1[A, Z] {
+
+        override def id: TypeId                               = id0
+        override def field: Field.WithFieldName[Z, Field1, A] = field0.asInstanceOf[Field.WithFieldName[Z, Field1, A]]
+        override def defaultConstruct: A => Z                 = defaultConstruct0
+        override def annotations: Chunk[Any]                  = annotations0
+
+        override def annotate(annotation: Any): CaseClass1[A, Z] =
+          CaseClass1(id0, field0, defaultConstruct0, annotations0 :+ annotation)
+      }
+
+    def unapply[A, Z](
+      schema: CaseClass1[A, Z]
+    ): Option[(TypeId, Field.WithFieldName[Z, schema.Field1, A], A => Z, Chunk[Any])] =
+      Some((schema.id, schema.field, schema.defaultConstruct, schema.annotations))
+
+    type WithFields[F <: Singleton with String, A, Z] =
+      CaseClass1[A, Z] {
+        type Field1 = F
+      }
+  }
+
+  sealed trait CaseClass2[A1, A2, Z] extends Record[Z] { self =>
+
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
-      (Lens[field1.name.type, Z, A1], Lens[field2.name.type, Z, A2])
+      (Lens[Field1, Z, A1], Lens[Field2, Z, A2])
 
-    override def annotate(annotation: Any): CaseClass2[A1, A2, Z] = copy(annotations = annotations :+ annotation)
+    override type Terms = (Field1, A1) with (Field2, A2)
+
+    override type FieldNames = Field1 with Field2
+
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def construct: (A1, A2) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(
       b: AccessorBuilder
-    ): (b.Lens[field1.name.type, Z, A1], b.Lens[field2.name.type, Z, A2]) =
+    ): (b.Lens[Field1, Z, A1], b.Lens[Field2, Z, A2]) =
       (b.makeLens(self, field1), b.makeLens(self, field2))
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2)
@@ -3290,27 +3448,71 @@ object Schema extends SchemaEquality {
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
       Chunk(field1.get(value), field2.get(value))
-    override def toString: String = s"CaseClass2(${fields.mkString(",")})"
 
+    override def toString: String = s"CaseClass2(${fields.mkString(",")})"
   }
 
-  sealed case class CaseClass3[A1, A2, A3, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    construct: (A1, A2, A3) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass2 {
+
+    def apply[A1, A2, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      construct0: (A1, A2) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass2[A1, A2, Z] =
+      new CaseClass2[A1, A2, Z] {
+        def id: TypeId                                 = id0
+        def field1: Field.WithFieldName[Z, Field1, A1] = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2] = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def construct: (A1, A2) => Z                   = construct0
+        def annotations: Chunk[Any]                    = annotations0
+
+        def annotate(annotation: Any): CaseClass2[A1, A2, Z] =
+          CaseClass2(id0, field01, field02, construct0, annotations0 :+ annotation)
+      }
+
+    def unapply[A1, A2, Z](schema: CaseClass2[A1, A2, Z]): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        (A1, A2) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some((schema.id, schema.field1, schema.field2, schema.construct, schema.annotations))
+
+    type WithFields[F1 <: Singleton with String, F2 <: Singleton with String, A1, A2, Z] =
+      CaseClass2[A1, A2, Z] {
+        type Field1 = F1
+        type Field2 = F2
+      }
+  }
+
+  sealed trait CaseClass3[A1, A2, A3, Z] extends Record[Z] { self =>
+
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
-      (Lens[field1.name.type, Z, A1], Lens[field2.name.type, Z, A2], Lens[field3.name.type, Z, A3])
+      (Lens[Field1, Z, A1], Lens[Field2, Z, A2], Lens[Field3, Z, A3])
 
-    override def annotate(annotation: Any): CaseClass3[A1, A2, A3, Z] = copy(annotations = annotations :+ annotation)
+    override type Terms = (Field1, A1) with (Field2, A2) with (Field3, A3)
+
+    override type FieldNames = Field1 with Field2 with Field3
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def construct: (A1, A2, A3) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(
       b: AccessorBuilder
-    ): (b.Lens[field1.name.type, Z, A1], b.Lens[field2.name.type, Z, A2], b.Lens[field3.name.type, Z, A3]) =
+    ): (b.Lens[Field1, Z, A1], b.Lens[Field2, Z, A2], b.Lens[Field3, Z, A3]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3))
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3)
@@ -3327,34 +3529,84 @@ object Schema extends SchemaEquality {
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
       Chunk(field1.get(value), field2.get(value), field3.get(value))
     override def toString: String = s"CaseClass3(${fields.mkString(",")})"
-
   }
 
-  sealed case class CaseClass4[A1, A2, A3, A4, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    construct: (A1, A2, A3, A4) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass3 {
 
-    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4]
-    )
+    def apply[A1, A2, A3, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      construct0: (A1, A2, A3) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass3[A1, A2, A3, Z] =
+      new CaseClass3[A1, A2, A3, Z] {
+        def id: TypeId                                 = id0
+        def field1: Field.WithFieldName[Z, Field1, A1] = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2] = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3] = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def construct: (A1, A2, A3) => Z               = construct0
+        def annotations: Chunk[Any]                    = annotations0
 
-    override def annotate(annotation: Any): CaseClass4[A1, A2, A3, A4, Z] =
-      copy(annotations = annotations :+ annotation)
+        def annotate(annotation: Any): CaseClass3[A1, A2, A3, Z] =
+          CaseClass3(id0, field01, field02, field03, construct0, annotations0 :+ annotation)
+      }
+
+    def unapply[A1, A2, A3, Z](schema: CaseClass3[A1, A2, A3, Z]): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        (A1, A2, A3) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some((schema.id, schema.field1, schema.field2, schema.field3, schema.construct, schema.annotations))
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      Z
+    ] =
+      CaseClass3[A1, A2, A3, Z] {
+        type Field1 = F1
+        type Field2 = F2
+        type Field3 = F3
+      }
+  }
+
+  sealed trait CaseClass4[A1, A2, A3, A4, Z] extends Record[Z] { self =>
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+
+    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
+      (Lens[Field1, Z, A1], Lens[Field2, Z, A2], Lens[Field3, Z, A3], Lens[Field4, Z, A4])
+
+    override type Terms = (Field1, A1) with (Field2, A2) with (Field3, A3) with (Field4, A4)
+
+    override type FieldNames = Field1 with Field2 with Field3 with Field4
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def construct: (A1, A2, A3, A4) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4]
     ) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4))
 
@@ -3379,37 +3631,96 @@ object Schema extends SchemaEquality {
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
       Chunk(field1.get(value), field2.get(value), field3.get(value), field4.get(value))
     override def toString: String = s"CaseClass4(${fields.mkString(",")})"
-
   }
 
-  sealed case class CaseClass5[A1, A2, A3, A4, A5, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    construct: (A1, A2, A3, A4, A5) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass4 {
 
-    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4],
-      Lens[field5.name.type, Z, A5]
-    )
+    def apply[A1, A2, A3, A4, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      construct0: (A1, A2, A3, A4) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass4[A1, A2, A3, A4, Z] =
+      new CaseClass4[A1, A2, A3, A4, Z] {
+        def id: TypeId                                 = id0
+        def field1: Field.WithFieldName[Z, Field1, A1] = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2] = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3] = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4] = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def construct: (A1, A2, A3, A4) => Z           = construct0
+        def annotations: Chunk[Any]                    = annotations0
 
-    override def annotate(annotation: Any): CaseClass5[A1, A2, A3, A4, A5, Z] =
-      copy(annotations = annotations :+ annotation)
+        def annotate(annotation: Any): CaseClass4[A1, A2, A3, A4, Z] =
+          CaseClass4(id0, field01, field02, field03, field04, construct0, annotations0 :+ annotation)
+      }
+
+    def unapply[A1, A2, A3, A4, Z](schema: CaseClass4[A1, A2, A3, A4, Z]): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        (A1, A2, A3, A4) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some(
+        (schema.id, schema.field1, schema.field2, schema.field3, schema.field4, schema.construct, schema.annotations)
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      Z
+    ] =
+      CaseClass4[A1, A2, A3, A4, Z] {
+        type Field1 = F1
+        type Field2 = F2
+        type Field3 = F3
+        type Field4 = F4
+      }
+  }
+
+  sealed trait CaseClass5[A1, A2, A3, A4, A5, Z] extends Record[Z] { self =>
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+
+    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
+      (Lens[Field1, Z, A1], Lens[Field2, Z, A2], Lens[Field3, Z, A3], Lens[Field4, Z, A4], Lens[Field5, Z, A5])
+
+    override type Terms = (Field1, A1) with (Field2, A2) with (Field3, A3) with (Field4, A4) with (Field5, A5)
+
+    override type FieldNames = Field1 with Field2 with Field3 with Field4 with Field5
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+
+    def construct: (A1, A2, A3, A4, A5) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5]
     ) =
       (
         b.makeLens(self, field1),
@@ -3446,40 +3757,122 @@ object Schema extends SchemaEquality {
       field5.get(value)
     )
     override def toString: String = s"CaseClass5(${fields.mkString(",")})"
-
   }
 
-  sealed case class CaseClass6[A1, A2, A3, A4, A5, A6, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    construct: (A1, A2, A3, A4, A5, A6) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass5 {
 
-    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4],
-      Lens[field5.name.type, Z, A5],
-      Lens[field6.name.type, Z, A6]
-    )
+    def apply[A1, A2, A3, A4, A5, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      construct0: (A1, A2, A3, A4, A5) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass5[A1, A2, A3, A4, A5, Z] =
+      new CaseClass5[A1, A2, A3, A4, A5, Z] {
+        def id: TypeId                                 = id0
+        def field1: Field.WithFieldName[Z, Field1, A1] = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2] = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3] = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4] = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5] = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def construct: (A1, A2, A3, A4, A5) => Z       = construct0
+        def annotations: Chunk[Any]                    = annotations0
 
-    override def annotate(annotation: Any): CaseClass6[A1, A2, A3, A4, A5, A6, Z] =
-      copy(annotations = annotations :+ annotation)
+        def annotate(annotation: Any): CaseClass5[A1, A2, A3, A4, A5, Z] =
+          CaseClass5(id0, field01, field02, field03, field04, field05, construct0, annotations0 :+ annotation)
+      }
+
+    def unapply[A1, A2, A3, A4, A5, Z](schema: CaseClass5[A1, A2, A3, A4, A5, Z]): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        (A1, A2, A3, A4, A5) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.construct,
+          schema.annotations
+        )
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      Z
+    ] =
+      CaseClass5[A1, A2, A3, A4, A5, Z] {
+        type Field1 = F1
+        type Field2 = F2
+        type Field3 = F3
+        type Field4 = F4
+        type Field5 = F5
+      }
+  }
+
+  sealed trait CaseClass6[A1, A2, A3, A4, A5, A6, Z] extends Record[Z] { self =>
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+
+    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
+      (
+        Lens[Field1, Z, A1],
+        Lens[Field2, Z, A2],
+        Lens[Field3, Z, A3],
+        Lens[Field4, Z, A4],
+        Lens[Field5, Z, A5],
+        Lens[Field6, Z, A6]
+      )
+
+    override type Terms =
+      (Field1, A1) with (Field2, A2) with (Field3, A3) with (Field4, A4) with (Field5, A5) with (Field6, A6)
+
+    override type FieldNames = Field1 with Field2 with Field3 with Field4 with Field5 with Field6
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+
+    def construct: (A1, A2, A3, A4, A5, A6) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6]
     ) =
       (
         b.makeLens(self, field1),
@@ -3520,43 +3913,138 @@ object Schema extends SchemaEquality {
     )
 
     override def toString: String = s"CaseClass6(${fields.mkString(",")})"
-
   }
 
-  sealed case class CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    field7: Field[Z, A7],
-    construct: (A1, A2, A3, A4, A5, A6, A7) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass6 {
 
-    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4],
-      Lens[field5.name.type, Z, A5],
-      Lens[field6.name.type, Z, A6],
-      Lens[field7.name.type, Z, A7]
-    )
+    def apply[A1, A2, A3, A4, A5, A6, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      construct0: (A1, A2, A3, A4, A5, A6) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass6[A1, A2, A3, A4, A5, A6, Z] =
+      new CaseClass6[A1, A2, A3, A4, A5, A6, Z] {
+        def id: TypeId                                 = id0
+        def field1: Field.WithFieldName[Z, Field1, A1] = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2] = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3] = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4] = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5] = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6] = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def construct: (A1, A2, A3, A4, A5, A6) => Z   = construct0
+        def annotations: Chunk[Any]                    = annotations0
 
-    override def annotate(annotation: Any): CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z] =
-      copy(annotations = annotations :+ annotation)
+        def annotate(annotation: Any): CaseClass6[A1, A2, A3, A4, A5, A6, Z] =
+          CaseClass6(id0, field01, field02, field03, field04, field05, field06, construct0, annotations0 :+ annotation)
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, Z](schema: CaseClass6[A1, A2, A3, A4, A5, A6, Z]): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        (A1, A2, A3, A4, A5, A6) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.construct,
+          schema.annotations
+        )
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      Z
+    ] =
+      CaseClass6[A1, A2, A3, A4, A5, A6, Z] {
+        type Field1 = F1
+        type Field2 = F2
+        type Field3 = F3
+        type Field4 = F4
+        type Field5 = F5
+        type Field6 = F6
+      }
+  }
+
+  sealed trait CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z] extends Record[Z] { self =>
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+    type Field7 <: Singleton with String
+
+    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
+      (
+        Lens[Field1, Z, A1],
+        Lens[Field2, Z, A2],
+        Lens[Field3, Z, A3],
+        Lens[Field4, Z, A4],
+        Lens[Field5, Z, A5],
+        Lens[Field6, Z, A6],
+        Lens[Field7, Z, A7]
+      )
+
+    override type Terms = (Field1, A1)
+      with (Field2, A2)
+      with (Field3, A3)
+      with (Field4, A4)
+      with (Field5, A5)
+      with (Field6, A6)
+      with (Field7, A7)
+
+    override type FieldNames = Field1 with Field2 with Field3 with Field4 with Field5 with Field6 with Field7
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+
+    def construct: (A1, A2, A3, A4, A5, A6, A7) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6],
-      b.Lens[field7.name.type, Z, A7]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6],
+      b.Lens[Field7, Z, A7]
     ) =
       (
         b.makeLens(self, field1),
@@ -3602,43 +4090,166 @@ object Schema extends SchemaEquality {
     override def toString: String = s"CaseClass7(${fields.mkString(",")})"
   }
 
-  sealed case class CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    field7: Field[Z, A7],
-    field8: Field[Z, A8],
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass7 {
 
-    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4],
-      Lens[field5.name.type, Z, A5],
-      Lens[field6.name.type, Z, A6],
-      Lens[field7.name.type, Z, A7],
-      Lens[field8.name.type, Z, A8]
-    )
+    def apply[A1, A2, A3, A4, A5, A6, A7, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      field07: Field[Z, A7],
+      construct0: (A1, A2, A3, A4, A5, A6, A7) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z] =
+      new CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z] {
+        def id: TypeId                                   = id0
+        def field1: Field.WithFieldName[Z, Field1, A1]   = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2]   = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3]   = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4]   = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5]   = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6]   = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def field7: Field.WithFieldName[Z, Field7, A7]   = field07.asInstanceOf[Field.WithFieldName[Z, Field7, A7]]
+        def construct: (A1, A2, A3, A4, A5, A6, A7) => Z = construct0
+        def annotations: Chunk[Any]                      = annotations0
 
-    override def annotate(annotation: Any): CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z] =
-      copy(annotations = annotations :+ annotation)
+        def annotate(annotation: Any): CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z] =
+          CaseClass7(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            field07,
+            construct0,
+            annotations0 :+ annotation
+          )
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, A7, Z](schema: CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z]): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        Field.WithFieldName[Z, schema.Field7, A7],
+        (A1, A2, A3, A4, A5, A6, A7) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.field7,
+          schema.construct,
+          schema.annotations
+        )
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      F7 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      Z
+    ] =
+      CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z] {
+        type Field1 = F1
+        type Field2 = F2
+        type Field3 = F3
+        type Field4 = F4
+        type Field5 = F5
+        type Field6 = F6
+        type Field7 = F7
+      }
+  }
+
+  sealed trait CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z] extends Record[Z] { self =>
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+    type Field7 <: Singleton with String
+    type Field8 <: Singleton with String
+
+    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
+      (
+        Lens[Field1, Z, A1],
+        Lens[Field2, Z, A2],
+        Lens[Field3, Z, A3],
+        Lens[Field4, Z, A4],
+        Lens[Field5, Z, A5],
+        Lens[Field6, Z, A6],
+        Lens[Field7, Z, A7],
+        Lens[Field8, Z, A8]
+      )
+
+    override type Terms = (Field1, A1)
+      with (Field2, A2)
+      with (Field3, A3)
+      with (Field4, A4)
+      with (Field5, A5)
+      with (Field6, A6)
+      with (Field7, A7)
+      with (Field8, A8)
+
+    override type FieldNames = Field1
+      with Field2
+      with Field3
+      with Field4
+      with Field5
+      with Field6
+      with Field7
+      with Field8
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
+
+    def construct: (A1, A2, A3, A4, A5, A6, A7, A8) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6],
-      b.Lens[field7.name.type, Z, A7],
-      b.Lens[field8.name.type, Z, A8]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6],
+      b.Lens[Field7, Z, A7],
+      b.Lens[Field8, Z, A8]
     ) =
       (
         b.makeLens(self, field1),
@@ -3685,49 +4296,182 @@ object Schema extends SchemaEquality {
     )
 
     override def toString: String = s"CaseClass8(${fields.mkString(",")})"
-
   }
 
-  sealed case class CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    field7: Field[Z, A7],
-    field8: Field[Z, A8],
-    field9: Field[Z, A9],
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass8 {
 
-    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4],
-      Lens[field5.name.type, Z, A5],
-      Lens[field6.name.type, Z, A6],
-      Lens[field7.name.type, Z, A7],
-      Lens[field8.name.type, Z, A8],
-      Lens[field9.name.type, Z, A9]
-    )
+    def apply[A1, A2, A3, A4, A5, A6, A7, A8, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      field07: Field[Z, A7],
+      field08: Field[Z, A8],
+      construct0: (A1, A2, A3, A4, A5, A6, A7, A8) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z] =
+      new CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z] {
+        def id: TypeId                                       = id0
+        def field1: Field.WithFieldName[Z, Field1, A1]       = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2]       = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3]       = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4]       = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5]       = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6]       = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def field7: Field.WithFieldName[Z, Field7, A7]       = field07.asInstanceOf[Field.WithFieldName[Z, Field7, A7]]
+        def field8: Field.WithFieldName[Z, Field8, A8]       = field08.asInstanceOf[Field.WithFieldName[Z, Field8, A8]]
+        def construct: (A1, A2, A3, A4, A5, A6, A7, A8) => Z = construct0
+        def annotations: Chunk[Any]                          = annotations0
 
-    override def annotate(annotation: Any): CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] =
-      copy(annotations = annotations :+ annotation)
+        def annotate(annotation: Any): CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z] =
+          CaseClass8(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            field07,
+            field08,
+            construct0,
+            annotations0 :+ annotation
+          )
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, Z](schema: CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z]): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        Field.WithFieldName[Z, schema.Field7, A7],
+        Field.WithFieldName[Z, schema.Field8, A8],
+        (A1, A2, A3, A4, A5, A6, A7, A8) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.field7,
+          schema.field8,
+          schema.construct,
+          schema.annotations
+        )
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      F7 <: Singleton with String,
+      F8 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      Z
+    ] =
+      CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z] {
+        type Field1 = F1
+        type Field2 = F2
+        type Field3 = F3
+        type Field4 = F4
+        type Field5 = F5
+        type Field6 = F6
+        type Field7 = F7
+        type Field8 = F8
+      }
+  }
+
+  sealed trait CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] extends Record[Z] { self =>
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+    type Field7 <: Singleton with String
+    type Field8 <: Singleton with String
+    type Field9 <: Singleton with String
+
+    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
+      (
+        Lens[Field1, Z, A1],
+        Lens[Field2, Z, A2],
+        Lens[Field3, Z, A3],
+        Lens[Field4, Z, A4],
+        Lens[Field5, Z, A5],
+        Lens[Field6, Z, A6],
+        Lens[Field7, Z, A7],
+        Lens[Field8, Z, A8],
+        Lens[Field9, Z, A9]
+      )
+
+    override type Terms = (Field1, A1)
+      with (Field2, A2)
+      with (Field3, A3)
+      with (Field4, A4)
+      with (Field5, A5)
+      with (Field6, A6)
+      with (Field7, A7)
+      with (Field8, A8)
+      with (Field8, A9)
+
+    override type FieldNames = Field1
+      with Field2
+      with Field3
+      with Field4
+      with Field5
+      with Field6
+      with Field7
+      with Field8
+      with Field9
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
+    def field9: Field.WithFieldName[Z, Field9, A9]
+
+    def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6],
-      b.Lens[field7.name.type, Z, A7],
-      b.Lens[field8.name.type, Z, A8],
-      b.Lens[field9.name.type, Z, A9]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6],
+      b.Lens[Field7, Z, A7],
+      b.Lens[Field8, Z, A8],
+      b.Lens[Field9, Z, A9]
     ) =
       (
         b.makeLens(self, field1),
@@ -3776,52 +4520,206 @@ object Schema extends SchemaEquality {
       field9.get(value)
     )
     override def toString: String = s"CaseClass9(${fields.mkString(",")})"
-
   }
 
-  sealed case class CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    field7: Field[Z, A7],
-    field8: Field[Z, A8],
-    field9: Field[Z, A9],
-    field10: Field[Z, A10],
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass9 {
+
+    def apply[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      field07: Field[Z, A7],
+      field08: Field[Z, A8],
+      field09: Field[Z, A9],
+      construct0: (A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] =
+      new CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] {
+        def id: TypeId                                           = id0
+        def field1: Field.WithFieldName[Z, Field1, A1]           = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2]           = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3]           = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4]           = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5]           = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6]           = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def field7: Field.WithFieldName[Z, Field7, A7]           = field07.asInstanceOf[Field.WithFieldName[Z, Field7, A7]]
+        def field8: Field.WithFieldName[Z, Field8, A8]           = field08.asInstanceOf[Field.WithFieldName[Z, Field8, A8]]
+        def field9: Field.WithFieldName[Z, Field9, A9]           = field09.asInstanceOf[Field.WithFieldName[Z, Field9, A9]]
+        def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z = construct0
+        def annotations: Chunk[Any]                              = annotations0
+
+        def annotate(annotation: Any): CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] =
+          CaseClass9(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            field07,
+            field08,
+            field09,
+            construct0,
+            annotations0 :+ annotation
+          )
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](schema: CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        Field.WithFieldName[Z, schema.Field7, A7],
+        Field.WithFieldName[Z, schema.Field8, A8],
+        Field.WithFieldName[Z, schema.Field9, A9],
+        (A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.field7,
+          schema.field8,
+          schema.field9,
+          schema.construct,
+          schema.annotations
+        )
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      F7 <: Singleton with String,
+      F8 <: Singleton with String,
+      F9 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      Z
+    ] =
+      CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] {
+        type Field1 = F1
+        type Field2 = F2
+        type Field3 = F3
+        type Field4 = F4
+        type Field5 = F5
+        type Field6 = F6
+        type Field7 = F7
+        type Field8 = F8
+        type Field9 = F9
+      }
+  }
+
+  sealed trait CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] extends Record[Z] { self =>
+
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+    type Field7 <: Singleton with String
+    type Field8 <: Singleton with String
+    type Field9 <: Singleton with String
+    type Field10 <: Singleton with String
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4],
-      Lens[field5.name.type, Z, A5],
-      Lens[field6.name.type, Z, A6],
-      Lens[field7.name.type, Z, A7],
-      Lens[field8.name.type, Z, A8],
-      Lens[field9.name.type, Z, A9],
-      Lens[field10.name.type, Z, A10]
+      Lens[Field1, Z, A1],
+      Lens[Field2, Z, A2],
+      Lens[Field3, Z, A3],
+      Lens[Field4, Z, A4],
+      Lens[Field5, Z, A5],
+      Lens[Field6, Z, A6],
+      Lens[Field7, Z, A7],
+      Lens[Field8, Z, A8],
+      Lens[Field9, Z, A9],
+      Lens[Field10, Z, A10]
     )
 
-    override def annotate(annotation: Any): CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] =
-      copy(annotations = annotations :+ annotation)
+    override type Terms = (Field1, A1)
+      with (Field2, A2)
+      with (Field3, A3)
+      with (Field4, A4)
+      with (Field5, A5)
+      with (Field6, A6)
+      with (Field7, A7)
+      with (Field8, A8)
+      with (Field10, A10)
+
+    override type FieldNames = Field1
+      with Field2
+      with Field3
+      with Field4
+      with Field5
+      with Field6
+      with Field7
+      with Field8
+      with Field9
+      with Field10
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
+    def field9: Field.WithFieldName[Z, Field9, A9]
+    def field10: Field.WithFieldName[Z, Field10, A10]
+
+    def construct: (
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10
+    ) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6],
-      b.Lens[field7.name.type, Z, A7],
-      b.Lens[field8.name.type, Z, A8],
-      b.Lens[field9.name.type, Z, A9],
-      b.Lens[field10.name.type, Z, A10]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6],
+      b.Lens[Field7, Z, A7],
+      b.Lens[Field8, Z, A8],
+      b.Lens[Field9, Z, A9],
+      b.Lens[Field10, Z, A10]
     ) =
       (
         b.makeLens(self, field1),
@@ -3837,7 +4735,18 @@ object Schema extends SchemaEquality {
       )
 
     override def fields: Chunk[Field[Z, _]] =
-      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10)
+      Chunk(
+        field1,
+        field2,
+        field3,
+        field4,
+        field5,
+        field6,
+        field7,
+        field8,
+        field9,
+        field10
+      )
 
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 10)
@@ -3873,59 +4782,225 @@ object Schema extends SchemaEquality {
       field9.get(value),
       field10.get(value)
     )
-    override def toString: String = s"CaseClass10(${fields.mkString(",")})"
 
+    override def toString: String = s"CaseClass10(${fields.mkString(",")})"
   }
 
-  sealed case class CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    field7: Field[Z, A7],
-    field8: Field[Z, A8],
-    field9: Field[Z, A9],
-    field10: Field[Z, A10],
-    field11: Field[Z, A11],
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass10 {
 
-    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
+    def apply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      field07: Field[Z, A7],
+      field08: Field[Z, A8],
+      field09: Field[Z, A9],
+      field010: Field[Z, A10],
+      construct0: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] =
+      new CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] {
+        def id: TypeId                                                = id0
+        def field1: Field.WithFieldName[Z, Field1, A1]                = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2]                = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3]                = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4]                = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5]                = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6]                = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def field7: Field.WithFieldName[Z, Field7, A7]                = field07.asInstanceOf[Field.WithFieldName[Z, Field7, A7]]
+        def field8: Field.WithFieldName[Z, Field8, A8]                = field08.asInstanceOf[Field.WithFieldName[Z, Field8, A8]]
+        def field9: Field.WithFieldName[Z, Field9, A9]                = field09.asInstanceOf[Field.WithFieldName[Z, Field9, A9]]
+        def field10: Field.WithFieldName[Z, Field10, A10]             = field010.asInstanceOf[Field.WithFieldName[Z, Field10, A10]]
+        def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) => Z = construct0
+        def annotations: Chunk[Any]                                   = annotations0
+
+        def annotate(annotation: Any): CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] =
+          CaseClass10(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            field07,
+            field08,
+            field09,
+            field010,
+            construct0,
+            annotations0 :+ annotation
+          )
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
+      schema: CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]
+    ): Some[
       (
-        Lens[field1.name.type, Z, A1],
-        Lens[field2.name.type, Z, A2],
-        Lens[field3.name.type, Z, A3],
-        Lens[field4.name.type, Z, A4],
-        Lens[field5.name.type, Z, A5],
-        Lens[field6.name.type, Z, A6],
-        Lens[field7.name.type, Z, A7],
-        Lens[field8.name.type, Z, A8],
-        Lens[field9.name.type, Z, A9],
-        Lens[field10.name.type, Z, A10],
-        Lens[field11.name.type, Z, A11]
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        Field.WithFieldName[Z, schema.Field7, A7],
+        Field.WithFieldName[Z, schema.Field8, A8],
+        Field.WithFieldName[Z, schema.Field9, A9],
+        Field.WithFieldName[Z, schema.Field10, A10],
+        (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.field7,
+          schema.field8,
+          schema.field9,
+          schema.field10,
+          schema.construct,
+          schema.annotations
+        )
       )
 
-    override def annotate(annotation: Any): CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] =
-      copy(annotations = annotations :+ annotation)
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      F7 <: Singleton with String,
+      F8 <: Singleton with String,
+      F9 <: Singleton with String,
+      F10 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      Z
+    ] =
+      CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] {
+        type Field1  = F1
+        type Field2  = F2
+        type Field3  = F3
+        type Field4  = F4
+        type Field5  = F5
+        type Field6  = F6
+        type Field7  = F7
+        type Field8  = F8
+        type Field9  = F9
+        type Field10 = F10
+      }
+  }
 
-    override def makeAccessors(
-      b: AccessorBuilder
-    ): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6],
-      b.Lens[field7.name.type, Z, A7],
-      b.Lens[field8.name.type, Z, A8],
-      b.Lens[field9.name.type, Z, A9],
-      b.Lens[field10.name.type, Z, A10],
-      b.Lens[field11.name.type, Z, A11]
+  sealed trait CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] extends Record[Z] { self =>
+
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+    type Field7 <: Singleton with String
+    type Field8 <: Singleton with String
+    type Field9 <: Singleton with String
+    type Field10 <: Singleton with String
+    type Field11 <: Singleton with String
+
+    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
+      Lens[Field1, Z, A1],
+      Lens[Field2, Z, A2],
+      Lens[Field3, Z, A3],
+      Lens[Field4, Z, A4],
+      Lens[Field5, Z, A5],
+      Lens[Field6, Z, A6],
+      Lens[Field7, Z, A7],
+      Lens[Field8, Z, A8],
+      Lens[Field9, Z, A9],
+      Lens[Field10, Z, A10],
+      Lens[Field11, Z, A11]
+    )
+
+    override type Terms = (Field1, A1)
+      with (Field2, A2)
+      with (Field3, A3)
+      with (Field4, A4)
+      with (Field5, A5)
+      with (Field6, A6)
+      with (Field7, A7)
+      with (Field8, A8)
+      with (Field10, A10)
+      with (Field11, A11)
+
+    override type FieldNames = Field1
+      with Field2
+      with Field3
+      with Field4
+      with Field5
+      with Field6
+      with Field7
+      with Field8
+      with Field9
+      with Field10
+      with Field11
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
+    def field9: Field.WithFieldName[Z, Field9, A9]
+    def field10: Field.WithFieldName[Z, Field10, A10]
+    def field11: Field.WithFieldName[Z, Field11, A11]
+
+    def construct: (
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11
+    ) => Z
+    def annotations: Chunk[Any]
+
+    override def makeAccessors(b: AccessorBuilder): (
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6],
+      b.Lens[Field7, Z, A7],
+      b.Lens[Field8, Z, A8],
+      b.Lens[Field9, Z, A9],
+      b.Lens[Field10, Z, A10],
+      b.Lens[Field11, Z, A11]
     ) =
       (
         b.makeLens(self, field1),
@@ -3942,7 +5017,19 @@ object Schema extends SchemaEquality {
       )
 
     override def fields: Chunk[Field[Z, _]] =
-      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11)
+      Chunk(
+        field1,
+        field2,
+        field3,
+        field4,
+        field5,
+        field6,
+        field7,
+        field8,
+        field9,
+        field10,
+        field11
+      )
 
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 11)
@@ -3982,59 +5069,238 @@ object Schema extends SchemaEquality {
     )
 
     override def toString: String = s"CaseClass11(${fields.mkString(",")})"
-
   }
 
-  sealed case class CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    field7: Field[Z, A7],
-    field8: Field[Z, A8],
-    field9: Field[Z, A9],
-    field10: Field[Z, A10],
-    field11: Field[Z, A11],
-    field12: Field[Z, A12],
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass11 {
 
-    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
+    def apply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      field07: Field[Z, A7],
+      field08: Field[Z, A8],
+      field09: Field[Z, A9],
+      field010: Field[Z, A10],
+      field011: Field[Z, A11],
+      construct0: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] =
+      new CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] {
+        def id: TypeId                                                     = id0
+        def field1: Field.WithFieldName[Z, Field1, A1]                     = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2]                     = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3]                     = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4]                     = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5]                     = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6]                     = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def field7: Field.WithFieldName[Z, Field7, A7]                     = field07.asInstanceOf[Field.WithFieldName[Z, Field7, A7]]
+        def field8: Field.WithFieldName[Z, Field8, A8]                     = field08.asInstanceOf[Field.WithFieldName[Z, Field8, A8]]
+        def field9: Field.WithFieldName[Z, Field9, A9]                     = field09.asInstanceOf[Field.WithFieldName[Z, Field9, A9]]
+        def field10: Field.WithFieldName[Z, Field10, A10]                  = field010.asInstanceOf[Field.WithFieldName[Z, Field10, A10]]
+        def field11: Field.WithFieldName[Z, Field11, A11]                  = field011.asInstanceOf[Field.WithFieldName[Z, Field11, A11]]
+        def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11) => Z = construct0
+        def annotations: Chunk[Any]                                        = annotations0
+
+        def annotate(annotation: Any): CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] =
+          CaseClass11(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            field07,
+            field08,
+            field09,
+            field010,
+            field011,
+            construct0,
+            annotations0 :+ annotation
+          )
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
+      schema: CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]
+    ): Some[
       (
-        Lens[field1.name.type, Z, A1],
-        Lens[field2.name.type, Z, A2],
-        Lens[field3.name.type, Z, A3],
-        Lens[field4.name.type, Z, A4],
-        Lens[field5.name.type, Z, A5],
-        Lens[field6.name.type, Z, A6],
-        Lens[field7.name.type, Z, A7],
-        Lens[field8.name.type, Z, A8],
-        Lens[field9.name.type, Z, A9],
-        Lens[field10.name.type, Z, A10],
-        Lens[field11.name.type, Z, A11],
-        Lens[field12.name.type, Z, A12]
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        Field.WithFieldName[Z, schema.Field7, A7],
+        Field.WithFieldName[Z, schema.Field8, A8],
+        Field.WithFieldName[Z, schema.Field9, A9],
+        Field.WithFieldName[Z, schema.Field10, A10],
+        Field.WithFieldName[Z, schema.Field11, A11],
+        (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.field7,
+          schema.field8,
+          schema.field9,
+          schema.field10,
+          schema.field11,
+          schema.construct,
+          schema.annotations
+        )
       )
 
-    override def annotate(annotation: Any): CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] =
-      copy(annotations = annotations :+ annotation)
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      F7 <: Singleton with String,
+      F8 <: Singleton with String,
+      F9 <: Singleton with String,
+      F10 <: Singleton with String,
+      F11 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      Z
+    ] =
+      CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] {
+        type Field1  = F1
+        type Field2  = F2
+        type Field3  = F3
+        type Field4  = F4
+        type Field5  = F5
+        type Field6  = F6
+        type Field7  = F7
+        type Field8  = F8
+        type Field9  = F9
+        type Field10 = F10
+        type Field11 = F11
+      }
+  }
+
+  sealed trait CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] extends Record[Z] { self =>
+
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+    type Field7 <: Singleton with String
+    type Field8 <: Singleton with String
+    type Field9 <: Singleton with String
+    type Field10 <: Singleton with String
+    type Field11 <: Singleton with String
+    type Field12 <: Singleton with String
+
+    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
+      Lens[Field1, Z, A1],
+      Lens[Field2, Z, A2],
+      Lens[Field3, Z, A3],
+      Lens[Field4, Z, A4],
+      Lens[Field5, Z, A5],
+      Lens[Field6, Z, A6],
+      Lens[Field7, Z, A7],
+      Lens[Field8, Z, A8],
+      Lens[Field9, Z, A9],
+      Lens[Field10, Z, A10],
+      Lens[Field11, Z, A11],
+      Lens[Field12, Z, A12]
+    )
+
+    override type Terms = (Field1, A1)
+      with (Field2, A2)
+      with (Field3, A3)
+      with (Field4, A4)
+      with (Field5, A5)
+      with (Field6, A6)
+      with (Field7, A7)
+      with (Field8, A8)
+      with (Field10, A10)
+      with (Field11, A11)
+      with (Field12, A12)
+
+    override type FieldNames = Field1
+      with Field2
+      with Field3
+      with Field4
+      with Field5
+      with Field6
+      with Field7
+      with Field8
+      with Field9
+      with Field10
+      with Field11
+      with Field12
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
+    def field9: Field.WithFieldName[Z, Field9, A9]
+    def field10: Field.WithFieldName[Z, Field10, A10]
+    def field11: Field.WithFieldName[Z, Field11, A11]
+    def field12: Field.WithFieldName[Z, Field12, A12]
+
+    def construct: (
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12
+    ) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6],
-      b.Lens[field7.name.type, Z, A7],
-      b.Lens[field8.name.type, Z, A8],
-      b.Lens[field9.name.type, Z, A9],
-      b.Lens[field10.name.type, Z, A10],
-      b.Lens[field11.name.type, Z, A11],
-      b.Lens[field12.name.type, Z, A12]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6],
+      b.Lens[Field7, Z, A7],
+      b.Lens[Field8, Z, A8],
+      b.Lens[Field9, Z, A9],
+      b.Lens[Field10, Z, A10],
+      b.Lens[Field11, Z, A11],
+      b.Lens[Field12, Z, A12]
     ) =
       (
         b.makeLens(self, field1),
@@ -4052,7 +5318,20 @@ object Schema extends SchemaEquality {
       )
 
     override def fields: Chunk[Field[Z, _]] =
-      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12)
+      Chunk(
+        field1,
+        field2,
+        field3,
+        field4,
+        field5,
+        field6,
+        field7,
+        field8,
+        field9,
+        field10,
+        field11,
+        field12
+      )
 
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 12)
@@ -4092,62 +5371,255 @@ object Schema extends SchemaEquality {
       field11.get(value),
       field12.get(value)
     )
-    override def toString: String = s"CaseClass12(${fields.mkString(",")})"
 
+    override def toString: String = s"CaseClass12(${fields.mkString(",")})"
   }
 
-  sealed case class CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    field7: Field[Z, A7],
-    field8: Field[Z, A8],
-    field9: Field[Z, A9],
-    field10: Field[Z, A10],
-    field11: Field[Z, A11],
-    field12: Field[Z, A12],
-    field13: Field[Z, A13],
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass12 {
+
+    def apply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      field07: Field[Z, A7],
+      field08: Field[Z, A8],
+      field09: Field[Z, A9],
+      field010: Field[Z, A10],
+      field011: Field[Z, A11],
+      field012: Field[Z, A12],
+      construct0: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] =
+      new CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] {
+        def id: TypeId                                                          = id0
+        def field1: Field.WithFieldName[Z, Field1, A1]                          = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2]                          = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3]                          = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4]                          = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5]                          = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6]                          = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def field7: Field.WithFieldName[Z, Field7, A7]                          = field07.asInstanceOf[Field.WithFieldName[Z, Field7, A7]]
+        def field8: Field.WithFieldName[Z, Field8, A8]                          = field08.asInstanceOf[Field.WithFieldName[Z, Field8, A8]]
+        def field9: Field.WithFieldName[Z, Field9, A9]                          = field09.asInstanceOf[Field.WithFieldName[Z, Field9, A9]]
+        def field10: Field.WithFieldName[Z, Field10, A10]                       = field010.asInstanceOf[Field.WithFieldName[Z, Field10, A10]]
+        def field11: Field.WithFieldName[Z, Field11, A11]                       = field011.asInstanceOf[Field.WithFieldName[Z, Field11, A11]]
+        def field12: Field.WithFieldName[Z, Field12, A12]                       = field012.asInstanceOf[Field.WithFieldName[Z, Field12, A12]]
+        def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12) => Z = construct0
+        def annotations: Chunk[Any]                                             = annotations0
+
+        def annotate(annotation: Any): CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] =
+          CaseClass12(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            field07,
+            field08,
+            field09,
+            field010,
+            field011,
+            field012,
+            construct0,
+            annotations0 :+ annotation
+          )
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
+      schema: CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]
+    ): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        Field.WithFieldName[Z, schema.Field7, A7],
+        Field.WithFieldName[Z, schema.Field8, A8],
+        Field.WithFieldName[Z, schema.Field9, A9],
+        Field.WithFieldName[Z, schema.Field10, A10],
+        Field.WithFieldName[Z, schema.Field11, A11],
+        Field.WithFieldName[Z, schema.Field12, A12],
+        (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.field7,
+          schema.field8,
+          schema.field9,
+          schema.field10,
+          schema.field11,
+          schema.field12,
+          schema.construct,
+          schema.annotations
+        )
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      F7 <: Singleton with String,
+      F8 <: Singleton with String,
+      F9 <: Singleton with String,
+      F10 <: Singleton with String,
+      F11 <: Singleton with String,
+      F12 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      Z
+    ] =
+      CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] {
+        type Field1  = F1
+        type Field2  = F2
+        type Field3  = F3
+        type Field4  = F4
+        type Field5  = F5
+        type Field6  = F6
+        type Field7  = F7
+        type Field8  = F8
+        type Field9  = F9
+        type Field10 = F10
+        type Field11 = F11
+        type Field12 = F12
+      }
+  }
+
+  sealed trait CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] extends Record[Z] { self =>
+
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+    type Field7 <: Singleton with String
+    type Field8 <: Singleton with String
+    type Field9 <: Singleton with String
+    type Field10 <: Singleton with String
+    type Field11 <: Singleton with String
+    type Field12 <: Singleton with String
+    type Field13 <: Singleton with String
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4],
-      Lens[field5.name.type, Z, A5],
-      Lens[field6.name.type, Z, A6],
-      Lens[field7.name.type, Z, A7],
-      Lens[field8.name.type, Z, A8],
-      Lens[field9.name.type, Z, A9],
-      Lens[field10.name.type, Z, A10],
-      Lens[field11.name.type, Z, A11],
-      Lens[field12.name.type, Z, A12],
-      Lens[field13.name.type, Z, A13]
+      Lens[Field1, Z, A1],
+      Lens[Field2, Z, A2],
+      Lens[Field3, Z, A3],
+      Lens[Field4, Z, A4],
+      Lens[Field5, Z, A5],
+      Lens[Field6, Z, A6],
+      Lens[Field7, Z, A7],
+      Lens[Field8, Z, A8],
+      Lens[Field9, Z, A9],
+      Lens[Field10, Z, A10],
+      Lens[Field11, Z, A11],
+      Lens[Field12, Z, A12],
+      Lens[Field13, Z, A13]
     )
 
-    override def annotate(annotation: Any): CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] =
-      copy(annotations = annotations :+ annotation)
+    override type Terms = (Field1, A1)
+      with (Field2, A2)
+      with (Field3, A3)
+      with (Field4, A4)
+      with (Field5, A5)
+      with (Field6, A6)
+      with (Field7, A7)
+      with (Field8, A8)
+      with (Field10, A10)
+      with (Field11, A11)
+      with (Field12, A12)
+      with (Field13, A13)
+
+    override type FieldNames = Field1
+      with Field2
+      with Field3
+      with Field4
+      with Field5
+      with Field6
+      with Field7
+      with Field8
+      with Field9
+      with Field10
+      with Field11
+      with Field12
+      with Field13
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
+    def field9: Field.WithFieldName[Z, Field9, A9]
+    def field10: Field.WithFieldName[Z, Field10, A10]
+    def field11: Field.WithFieldName[Z, Field11, A11]
+    def field12: Field.WithFieldName[Z, Field12, A12]
+    def field13: Field.WithFieldName[Z, Field13, A13]
+
+    def construct: (
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13
+    ) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6],
-      b.Lens[field7.name.type, Z, A7],
-      b.Lens[field8.name.type, Z, A8],
-      b.Lens[field9.name.type, Z, A9],
-      b.Lens[field10.name.type, Z, A10],
-      b.Lens[field11.name.type, Z, A11],
-      b.Lens[field12.name.type, Z, A12],
-      b.Lens[field13.name.type, Z, A13]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6],
+      b.Lens[Field7, Z, A7],
+      b.Lens[Field8, Z, A8],
+      b.Lens[Field9, Z, A9],
+      b.Lens[Field10, Z, A10],
+      b.Lens[Field11, Z, A11],
+      b.Lens[Field12, Z, A12],
+      b.Lens[Field13, Z, A13]
     ) =
       (
         b.makeLens(self, field1),
@@ -4166,7 +5638,21 @@ object Schema extends SchemaEquality {
       )
 
     override def fields: Chunk[Field[Z, _]] =
-      Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12, field13)
+      Chunk(
+        field1,
+        field2,
+        field3,
+        field4,
+        field5,
+        field6,
+        field7,
+        field8,
+        field9,
+        field10,
+        field11,
+        field12,
+        field13
+      )
 
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 13)
@@ -4210,66 +5696,268 @@ object Schema extends SchemaEquality {
     )
 
     override def toString: String = s"CaseClass13(${fields.mkString(",")})"
-
   }
 
-  sealed case class CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    field7: Field[Z, A7],
-    field8: Field[Z, A8],
-    field9: Field[Z, A9],
-    field10: Field[Z, A10],
-    field11: Field[Z, A11],
-    field12: Field[Z, A12],
-    field13: Field[Z, A13],
-    field14: Field[Z, A14],
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass13 {
+
+    def apply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      field07: Field[Z, A7],
+      field08: Field[Z, A8],
+      field09: Field[Z, A9],
+      field010: Field[Z, A10],
+      field011: Field[Z, A11],
+      field012: Field[Z, A12],
+      field013: Field[Z, A13],
+      construct0: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] =
+      new CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] {
+        def id: TypeId                                                               = id0
+        def field1: Field.WithFieldName[Z, Field1, A1]                               = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2]                               = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3]                               = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4]                               = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5]                               = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6]                               = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def field7: Field.WithFieldName[Z, Field7, A7]                               = field07.asInstanceOf[Field.WithFieldName[Z, Field7, A7]]
+        def field8: Field.WithFieldName[Z, Field8, A8]                               = field08.asInstanceOf[Field.WithFieldName[Z, Field8, A8]]
+        def field9: Field.WithFieldName[Z, Field9, A9]                               = field09.asInstanceOf[Field.WithFieldName[Z, Field9, A9]]
+        def field10: Field.WithFieldName[Z, Field10, A10]                            = field010.asInstanceOf[Field.WithFieldName[Z, Field10, A10]]
+        def field11: Field.WithFieldName[Z, Field11, A11]                            = field011.asInstanceOf[Field.WithFieldName[Z, Field11, A11]]
+        def field12: Field.WithFieldName[Z, Field12, A12]                            = field012.asInstanceOf[Field.WithFieldName[Z, Field12, A12]]
+        def field13: Field.WithFieldName[Z, Field13, A13]                            = field013.asInstanceOf[Field.WithFieldName[Z, Field13, A13]]
+        def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13) => Z = construct0
+        def annotations: Chunk[Any]                                                  = annotations0
+
+        def annotate(annotation: Any): CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] =
+          CaseClass13(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            field07,
+            field08,
+            field09,
+            field010,
+            field011,
+            field012,
+            field013,
+            construct0,
+            annotations0 :+ annotation
+          )
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
+      schema: CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]
+    ): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        Field.WithFieldName[Z, schema.Field7, A7],
+        Field.WithFieldName[Z, schema.Field8, A8],
+        Field.WithFieldName[Z, schema.Field9, A9],
+        Field.WithFieldName[Z, schema.Field10, A10],
+        Field.WithFieldName[Z, schema.Field11, A11],
+        Field.WithFieldName[Z, schema.Field12, A12],
+        Field.WithFieldName[Z, schema.Field13, A13],
+        (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.field7,
+          schema.field8,
+          schema.field9,
+          schema.field10,
+          schema.field11,
+          schema.field12,
+          schema.field13,
+          schema.construct,
+          schema.annotations
+        )
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      F7 <: Singleton with String,
+      F8 <: Singleton with String,
+      F9 <: Singleton with String,
+      F10 <: Singleton with String,
+      F11 <: Singleton with String,
+      F12 <: Singleton with String,
+      F13 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      Z
+    ] =
+      CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] {
+        type Field1  = F1
+        type Field2  = F2
+        type Field3  = F3
+        type Field4  = F4
+        type Field5  = F5
+        type Field6  = F6
+        type Field7  = F7
+        type Field8  = F8
+        type Field9  = F9
+        type Field10 = F10
+        type Field11 = F11
+        type Field12 = F12
+        type Field13 = F13
+      }
+  }
+
+  sealed trait CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] extends Record[Z] { self =>
+
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+    type Field7 <: Singleton with String
+    type Field8 <: Singleton with String
+    type Field9 <: Singleton with String
+    type Field10 <: Singleton with String
+    type Field11 <: Singleton with String
+    type Field12 <: Singleton with String
+    type Field13 <: Singleton with String
+    type Field14 <: Singleton with String
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4],
-      Lens[field5.name.type, Z, A5],
-      Lens[field6.name.type, Z, A6],
-      Lens[field7.name.type, Z, A7],
-      Lens[field8.name.type, Z, A8],
-      Lens[field9.name.type, Z, A9],
-      Lens[field10.name.type, Z, A10],
-      Lens[field11.name.type, Z, A11],
-      Lens[field12.name.type, Z, A12],
-      Lens[field13.name.type, Z, A13],
-      Lens[field14.name.type, Z, A14]
+      Lens[Field1, Z, A1],
+      Lens[Field2, Z, A2],
+      Lens[Field3, Z, A3],
+      Lens[Field4, Z, A4],
+      Lens[Field5, Z, A5],
+      Lens[Field6, Z, A6],
+      Lens[Field7, Z, A7],
+      Lens[Field8, Z, A8],
+      Lens[Field9, Z, A9],
+      Lens[Field10, Z, A10],
+      Lens[Field11, Z, A11],
+      Lens[Field12, Z, A12],
+      Lens[Field13, Z, A13],
+      Lens[Field14, Z, A14]
     )
 
-    override def annotate(
-      annotation: Any
-    ): CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] =
-      copy(annotations = annotations :+ annotation)
+    override type Terms = (Field1, A1)
+      with (Field2, A2)
+      with (Field3, A3)
+      with (Field4, A4)
+      with (Field5, A5)
+      with (Field6, A6)
+      with (Field7, A7)
+      with (Field8, A8)
+      with (Field10, A10)
+      with (Field11, A11)
+      with (Field12, A12)
+      with (Field13, A13)
+      with (Field14, A14)
+
+    override type FieldNames = Field1
+      with Field2
+      with Field3
+      with Field4
+      with Field5
+      with Field6
+      with Field7
+      with Field8
+      with Field9
+      with Field10
+      with Field11
+      with Field12
+      with Field13
+      with Field14
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
+    def field9: Field.WithFieldName[Z, Field9, A9]
+    def field10: Field.WithFieldName[Z, Field10, A10]
+    def field11: Field.WithFieldName[Z, Field11, A11]
+    def field12: Field.WithFieldName[Z, Field12, A12]
+    def field13: Field.WithFieldName[Z, Field13, A13]
+    def field14: Field.WithFieldName[Z, Field14, A14]
+
+    def construct: (
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14
+    ) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6],
-      b.Lens[field7.name.type, Z, A7],
-      b.Lens[field8.name.type, Z, A8],
-      b.Lens[field9.name.type, Z, A9],
-      b.Lens[field10.name.type, Z, A10],
-      b.Lens[field11.name.type, Z, A11],
-      b.Lens[field12.name.type, Z, A12],
-      b.Lens[field13.name.type, Z, A13],
-      b.Lens[field14.name.type, Z, A14]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6],
+      b.Lens[Field7, Z, A7],
+      b.Lens[Field8, Z, A8],
+      b.Lens[Field9, Z, A9],
+      b.Lens[Field10, Z, A10],
+      b.Lens[Field11, Z, A11],
+      b.Lens[Field12, Z, A12],
+      b.Lens[Field13, Z, A13],
+      b.Lens[Field14, Z, A14]
     ) =
       (
         b.makeLens(self, field1),
@@ -4348,70 +6036,286 @@ object Schema extends SchemaEquality {
       field13.get(value),
       field14.get(value)
     )
-    override def toString: String = s"CaseClass14(${fields.mkString(",")})"
 
+    override def toString: String = s"CaseClass14(${fields.mkString(",")})"
   }
 
-  sealed case class CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    field7: Field[Z, A7],
-    field8: Field[Z, A8],
-    field9: Field[Z, A9],
-    field10: Field[Z, A10],
-    field11: Field[Z, A11],
-    field12: Field[Z, A12],
-    field13: Field[Z, A13],
-    field14: Field[Z, A14],
-    field15: Field[Z, A15],
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass14 {
+
+    def apply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      field07: Field[Z, A7],
+      field08: Field[Z, A8],
+      field09: Field[Z, A9],
+      field010: Field[Z, A10],
+      field011: Field[Z, A11],
+      field012: Field[Z, A12],
+      field013: Field[Z, A13],
+      field014: Field[Z, A14],
+      construct0: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] =
+      new CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] {
+        def id: TypeId                                                                    = id0
+        def field1: Field.WithFieldName[Z, Field1, A1]                                    = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2]                                    = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3]                                    = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4]                                    = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5]                                    = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6]                                    = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def field7: Field.WithFieldName[Z, Field7, A7]                                    = field07.asInstanceOf[Field.WithFieldName[Z, Field7, A7]]
+        def field8: Field.WithFieldName[Z, Field8, A8]                                    = field08.asInstanceOf[Field.WithFieldName[Z, Field8, A8]]
+        def field9: Field.WithFieldName[Z, Field9, A9]                                    = field09.asInstanceOf[Field.WithFieldName[Z, Field9, A9]]
+        def field10: Field.WithFieldName[Z, Field10, A10]                                 = field010.asInstanceOf[Field.WithFieldName[Z, Field10, A10]]
+        def field11: Field.WithFieldName[Z, Field11, A11]                                 = field011.asInstanceOf[Field.WithFieldName[Z, Field11, A11]]
+        def field12: Field.WithFieldName[Z, Field12, A12]                                 = field012.asInstanceOf[Field.WithFieldName[Z, Field12, A12]]
+        def field13: Field.WithFieldName[Z, Field13, A13]                                 = field013.asInstanceOf[Field.WithFieldName[Z, Field13, A13]]
+        def field14: Field.WithFieldName[Z, Field14, A14]                                 = field014.asInstanceOf[Field.WithFieldName[Z, Field14, A14]]
+        def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14) => Z = construct0
+        def annotations: Chunk[Any]                                                       = annotations0
+
+        def annotate(annotation: Any): CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] =
+          CaseClass14(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            field07,
+            field08,
+            field09,
+            field010,
+            field011,
+            field012,
+            field013,
+            field014,
+            construct0,
+            annotations0 :+ annotation
+          )
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
+      schema: CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]
+    ): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        Field.WithFieldName[Z, schema.Field7, A7],
+        Field.WithFieldName[Z, schema.Field8, A8],
+        Field.WithFieldName[Z, schema.Field9, A9],
+        Field.WithFieldName[Z, schema.Field10, A10],
+        Field.WithFieldName[Z, schema.Field11, A11],
+        Field.WithFieldName[Z, schema.Field12, A12],
+        Field.WithFieldName[Z, schema.Field13, A13],
+        Field.WithFieldName[Z, schema.Field14, A14],
+        (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.field7,
+          schema.field8,
+          schema.field9,
+          schema.field10,
+          schema.field11,
+          schema.field12,
+          schema.field13,
+          schema.field14,
+          schema.construct,
+          schema.annotations
+        )
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      F7 <: Singleton with String,
+      F8 <: Singleton with String,
+      F9 <: Singleton with String,
+      F10 <: Singleton with String,
+      F11 <: Singleton with String,
+      F12 <: Singleton with String,
+      F13 <: Singleton with String,
+      F14 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      Z
+    ] =
+      CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] {
+        type Field1  = F1
+        type Field2  = F2
+        type Field3  = F3
+        type Field4  = F4
+        type Field5  = F5
+        type Field6  = F6
+        type Field7  = F7
+        type Field8  = F8
+        type Field9  = F9
+        type Field10 = F10
+        type Field11 = F11
+        type Field12 = F12
+        type Field13 = F13
+        type Field14 = F14
+      }
+  }
+
+  sealed trait CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] extends Record[Z] {
+    self =>
+
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+    type Field7 <: Singleton with String
+    type Field8 <: Singleton with String
+    type Field9 <: Singleton with String
+    type Field10 <: Singleton with String
+    type Field11 <: Singleton with String
+    type Field12 <: Singleton with String
+    type Field13 <: Singleton with String
+    type Field14 <: Singleton with String
+    type Field15 <: Singleton with String
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4],
-      Lens[field5.name.type, Z, A5],
-      Lens[field6.name.type, Z, A6],
-      Lens[field7.name.type, Z, A7],
-      Lens[field8.name.type, Z, A8],
-      Lens[field9.name.type, Z, A9],
-      Lens[field10.name.type, Z, A10],
-      Lens[field11.name.type, Z, A11],
-      Lens[field12.name.type, Z, A12],
-      Lens[field13.name.type, Z, A13],
-      Lens[field14.name.type, Z, A14],
-      Lens[field15.name.type, Z, A15]
+      Lens[Field1, Z, A1],
+      Lens[Field2, Z, A2],
+      Lens[Field3, Z, A3],
+      Lens[Field4, Z, A4],
+      Lens[Field5, Z, A5],
+      Lens[Field6, Z, A6],
+      Lens[Field7, Z, A7],
+      Lens[Field8, Z, A8],
+      Lens[Field9, Z, A9],
+      Lens[Field10, Z, A10],
+      Lens[Field11, Z, A11],
+      Lens[Field12, Z, A12],
+      Lens[Field13, Z, A13],
+      Lens[Field14, Z, A14],
+      Lens[Field15, Z, A15]
     )
 
-    override def annotate(
-      annotation: Any
-    ): CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] =
-      copy(annotations = annotations :+ annotation)
+    override type Terms = (Field1, A1)
+      with (Field2, A2)
+      with (Field3, A3)
+      with (Field4, A4)
+      with (Field5, A5)
+      with (Field6, A6)
+      with (Field7, A7)
+      with (Field8, A8)
+      with (Field10, A10)
+      with (Field11, A11)
+      with (Field12, A12)
+      with (Field13, A13)
+      with (Field14, A14)
+      with (Field15, A15)
+
+    override type FieldNames = Field1
+      with Field2
+      with Field3
+      with Field4
+      with Field5
+      with Field6
+      with Field7
+      with Field8
+      with Field9
+      with Field10
+      with Field11
+      with Field12
+      with Field13
+      with Field14
+      with Field15
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
+    def field9: Field.WithFieldName[Z, Field9, A9]
+    def field10: Field.WithFieldName[Z, Field10, A10]
+    def field11: Field.WithFieldName[Z, Field11, A11]
+    def field12: Field.WithFieldName[Z, Field12, A12]
+    def field13: Field.WithFieldName[Z, Field13, A13]
+    def field14: Field.WithFieldName[Z, Field14, A14]
+    def field15: Field.WithFieldName[Z, Field15, A15]
+
+    def construct: (
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15
+    ) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6],
-      b.Lens[field7.name.type, Z, A7],
-      b.Lens[field8.name.type, Z, A8],
-      b.Lens[field9.name.type, Z, A9],
-      b.Lens[field10.name.type, Z, A10],
-      b.Lens[field11.name.type, Z, A11],
-      b.Lens[field12.name.type, Z, A12],
-      b.Lens[field13.name.type, Z, A13],
-      b.Lens[field14.name.type, Z, A14],
-      b.Lens[field15.name.type, Z, A15]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6],
+      b.Lens[Field7, Z, A7],
+      b.Lens[Field8, Z, A8],
+      b.Lens[Field9, Z, A9],
+      b.Lens[Field10, Z, A10],
+      b.Lens[Field11, Z, A11],
+      b.Lens[Field12, Z, A12],
+      b.Lens[Field13, Z, A13],
+      b.Lens[Field14, Z, A14],
+      b.Lens[Field15, Z, A15]
     ) =
       (
         b.makeLens(self, field1),
@@ -4494,73 +6398,303 @@ object Schema extends SchemaEquality {
       field14.get(value),
       field15.get(value)
     )
-    override def toString: String = s"CaseClass15(${fields.mkString(",")})"
 
+    override def toString: String = s"CaseClass15(${fields.mkString(",")})"
   }
 
-  sealed case class CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    field7: Field[Z, A7],
-    field8: Field[Z, A8],
-    field9: Field[Z, A9],
-    field10: Field[Z, A10],
-    field11: Field[Z, A11],
-    field12: Field[Z, A12],
-    field13: Field[Z, A13],
-    field14: Field[Z, A14],
-    field15: Field[Z, A15],
-    field16: Field[Z, A16],
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass15 {
+
+    def apply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      field07: Field[Z, A7],
+      field08: Field[Z, A8],
+      field09: Field[Z, A9],
+      field010: Field[Z, A10],
+      field011: Field[Z, A11],
+      field012: Field[Z, A12],
+      field013: Field[Z, A13],
+      field014: Field[Z, A14],
+      field015: Field[Z, A15],
+      construct0: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] =
+      new CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] {
+        def id: TypeId                                                                         = id0
+        def field1: Field.WithFieldName[Z, Field1, A1]                                         = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2]                                         = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3]                                         = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4]                                         = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5]                                         = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6]                                         = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def field7: Field.WithFieldName[Z, Field7, A7]                                         = field07.asInstanceOf[Field.WithFieldName[Z, Field7, A7]]
+        def field8: Field.WithFieldName[Z, Field8, A8]                                         = field08.asInstanceOf[Field.WithFieldName[Z, Field8, A8]]
+        def field9: Field.WithFieldName[Z, Field9, A9]                                         = field09.asInstanceOf[Field.WithFieldName[Z, Field9, A9]]
+        def field10: Field.WithFieldName[Z, Field10, A10]                                      = field010.asInstanceOf[Field.WithFieldName[Z, Field10, A10]]
+        def field11: Field.WithFieldName[Z, Field11, A11]                                      = field011.asInstanceOf[Field.WithFieldName[Z, Field11, A11]]
+        def field12: Field.WithFieldName[Z, Field12, A12]                                      = field012.asInstanceOf[Field.WithFieldName[Z, Field12, A12]]
+        def field13: Field.WithFieldName[Z, Field13, A13]                                      = field013.asInstanceOf[Field.WithFieldName[Z, Field13, A13]]
+        def field14: Field.WithFieldName[Z, Field14, A14]                                      = field014.asInstanceOf[Field.WithFieldName[Z, Field14, A14]]
+        def field15: Field.WithFieldName[Z, Field15, A15]                                      = field015.asInstanceOf[Field.WithFieldName[Z, Field15, A15]]
+        def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15) => Z = construct0
+        def annotations: Chunk[Any]                                                            = annotations0
+
+        def annotate(
+          annotation: Any
+        ): CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] =
+          CaseClass15(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            field07,
+            field08,
+            field09,
+            field010,
+            field011,
+            field012,
+            field013,
+            field014,
+            field015,
+            construct0,
+            annotations0 :+ annotation
+          )
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
+      schema: CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]
+    ): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        Field.WithFieldName[Z, schema.Field7, A7],
+        Field.WithFieldName[Z, schema.Field8, A8],
+        Field.WithFieldName[Z, schema.Field9, A9],
+        Field.WithFieldName[Z, schema.Field10, A10],
+        Field.WithFieldName[Z, schema.Field11, A11],
+        Field.WithFieldName[Z, schema.Field12, A12],
+        Field.WithFieldName[Z, schema.Field13, A13],
+        Field.WithFieldName[Z, schema.Field14, A14],
+        Field.WithFieldName[Z, schema.Field15, A15],
+        (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.field7,
+          schema.field8,
+          schema.field9,
+          schema.field10,
+          schema.field11,
+          schema.field12,
+          schema.field13,
+          schema.field14,
+          schema.field15,
+          schema.construct,
+          schema.annotations
+        )
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      F7 <: Singleton with String,
+      F8 <: Singleton with String,
+      F9 <: Singleton with String,
+      F10 <: Singleton with String,
+      F11 <: Singleton with String,
+      F12 <: Singleton with String,
+      F13 <: Singleton with String,
+      F14 <: Singleton with String,
+      F15 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      Z
+    ] =
+      CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] {
+        type Field1  = F1
+        type Field2  = F2
+        type Field3  = F3
+        type Field4  = F4
+        type Field5  = F5
+        type Field6  = F6
+        type Field7  = F7
+        type Field8  = F8
+        type Field9  = F9
+        type Field10 = F10
+        type Field11 = F11
+        type Field12 = F12
+        type Field13 = F13
+        type Field14 = F14
+        type Field15 = F15
+      }
+  }
+
+  sealed trait CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] extends Record[Z] {
+    self =>
+
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+    type Field7 <: Singleton with String
+    type Field8 <: Singleton with String
+    type Field9 <: Singleton with String
+    type Field10 <: Singleton with String
+    type Field11 <: Singleton with String
+    type Field12 <: Singleton with String
+    type Field13 <: Singleton with String
+    type Field14 <: Singleton with String
+    type Field15 <: Singleton with String
+    type Field16 <: Singleton with String
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4],
-      Lens[field5.name.type, Z, A5],
-      Lens[field6.name.type, Z, A6],
-      Lens[field7.name.type, Z, A7],
-      Lens[field8.name.type, Z, A8],
-      Lens[field9.name.type, Z, A9],
-      Lens[field10.name.type, Z, A10],
-      Lens[field11.name.type, Z, A11],
-      Lens[field12.name.type, Z, A12],
-      Lens[field13.name.type, Z, A13],
-      Lens[field14.name.type, Z, A14],
-      Lens[field15.name.type, Z, A15],
-      Lens[field16.name.type, Z, A16]
+      Lens[Field1, Z, A1],
+      Lens[Field2, Z, A2],
+      Lens[Field3, Z, A3],
+      Lens[Field4, Z, A4],
+      Lens[Field5, Z, A5],
+      Lens[Field6, Z, A6],
+      Lens[Field7, Z, A7],
+      Lens[Field8, Z, A8],
+      Lens[Field9, Z, A9],
+      Lens[Field10, Z, A10],
+      Lens[Field11, Z, A11],
+      Lens[Field12, Z, A12],
+      Lens[Field13, Z, A13],
+      Lens[Field14, Z, A14],
+      Lens[Field15, Z, A15],
+      Lens[Field16, Z, A16]
     )
 
-    override def annotate(
-      annotation: Any
-    ): CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] =
-      copy(annotations = annotations :+ annotation)
+    override type Terms = (Field1, A1)
+      with (Field2, A2)
+      with (Field3, A3)
+      with (Field4, A4)
+      with (Field5, A5)
+      with (Field6, A6)
+      with (Field7, A7)
+      with (Field8, A8)
+      with (Field10, A10)
+      with (Field11, A11)
+      with (Field12, A12)
+      with (Field13, A13)
+      with (Field14, A14)
+      with (Field15, A15)
+      with (Field16, A16)
+
+    override type FieldNames = Field1
+      with Field2
+      with Field3
+      with Field4
+      with Field5
+      with Field6
+      with Field7
+      with Field8
+      with Field9
+      with Field10
+      with Field11
+      with Field12
+      with Field13
+      with Field14
+      with Field15
+      with Field16
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
+    def field9: Field.WithFieldName[Z, Field9, A9]
+    def field10: Field.WithFieldName[Z, Field10, A10]
+    def field11: Field.WithFieldName[Z, Field11, A11]
+    def field12: Field.WithFieldName[Z, Field12, A12]
+    def field13: Field.WithFieldName[Z, Field13, A13]
+    def field14: Field.WithFieldName[Z, Field14, A14]
+    def field15: Field.WithFieldName[Z, Field15, A15]
+    def field16: Field.WithFieldName[Z, Field16, A16]
+
+    def construct: (
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16
+    ) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6],
-      b.Lens[field7.name.type, Z, A7],
-      b.Lens[field8.name.type, Z, A8],
-      b.Lens[field9.name.type, Z, A9],
-      b.Lens[field10.name.type, Z, A10],
-      b.Lens[field11.name.type, Z, A11],
-      b.Lens[field12.name.type, Z, A12],
-      b.Lens[field13.name.type, Z, A13],
-      b.Lens[field14.name.type, Z, A14],
-      b.Lens[field15.name.type, Z, A15],
-      b.Lens[field16.name.type, Z, A16]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6],
+      b.Lens[Field7, Z, A7],
+      b.Lens[Field8, Z, A8],
+      b.Lens[Field9, Z, A9],
+      b.Lens[Field10, Z, A10],
+      b.Lens[Field11, Z, A11],
+      b.Lens[Field12, Z, A12],
+      b.Lens[Field13, Z, A13],
+      b.Lens[Field14, Z, A14],
+      b.Lens[Field15, Z, A15],
+      b.Lens[Field16, Z, A16]
     ) =
       (
         b.makeLens(self, field1),
@@ -4647,76 +6781,318 @@ object Schema extends SchemaEquality {
       field15.get(value),
       field16.get(value)
     )
-    override def toString: String = s"CaseClass16(${fields.mkString(",")})"
 
+    override def toString: String = s"CaseClass16(${fields.mkString(",")})"
   }
 
-  sealed case class CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    field7: Field[Z, A7],
-    field8: Field[Z, A8],
-    field9: Field[Z, A9],
-    field10: Field[Z, A10],
-    field11: Field[Z, A11],
-    field12: Field[Z, A12],
-    field13: Field[Z, A13],
-    field14: Field[Z, A14],
-    field15: Field[Z, A15],
-    field16: Field[Z, A16],
-    field17: Field[Z, A17],
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass16 {
+
+    def apply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      field07: Field[Z, A7],
+      field08: Field[Z, A8],
+      field09: Field[Z, A9],
+      field010: Field[Z, A10],
+      field011: Field[Z, A11],
+      field012: Field[Z, A12],
+      field013: Field[Z, A13],
+      field014: Field[Z, A14],
+      field015: Field[Z, A15],
+      field016: Field[Z, A16],
+      construct0: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] =
+      new CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] {
+        def id: TypeId                                                                              = id0
+        def field1: Field.WithFieldName[Z, Field1, A1]                                              = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2]                                              = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3]                                              = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4]                                              = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5]                                              = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6]                                              = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def field7: Field.WithFieldName[Z, Field7, A7]                                              = field07.asInstanceOf[Field.WithFieldName[Z, Field7, A7]]
+        def field8: Field.WithFieldName[Z, Field8, A8]                                              = field08.asInstanceOf[Field.WithFieldName[Z, Field8, A8]]
+        def field9: Field.WithFieldName[Z, Field9, A9]                                              = field09.asInstanceOf[Field.WithFieldName[Z, Field9, A9]]
+        def field10: Field.WithFieldName[Z, Field10, A10]                                           = field010.asInstanceOf[Field.WithFieldName[Z, Field10, A10]]
+        def field11: Field.WithFieldName[Z, Field11, A11]                                           = field011.asInstanceOf[Field.WithFieldName[Z, Field11, A11]]
+        def field12: Field.WithFieldName[Z, Field12, A12]                                           = field012.asInstanceOf[Field.WithFieldName[Z, Field12, A12]]
+        def field13: Field.WithFieldName[Z, Field13, A13]                                           = field013.asInstanceOf[Field.WithFieldName[Z, Field13, A13]]
+        def field14: Field.WithFieldName[Z, Field14, A14]                                           = field014.asInstanceOf[Field.WithFieldName[Z, Field14, A14]]
+        def field15: Field.WithFieldName[Z, Field15, A15]                                           = field015.asInstanceOf[Field.WithFieldName[Z, Field15, A15]]
+        def field16: Field.WithFieldName[Z, Field16, A16]                                           = field016.asInstanceOf[Field.WithFieldName[Z, Field16, A16]]
+        def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) => Z = construct0
+        def annotations: Chunk[Any]                                                                 = annotations0
+
+        def annotate(
+          annotation: Any
+        ): CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] =
+          CaseClass16(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            field07,
+            field08,
+            field09,
+            field010,
+            field011,
+            field012,
+            field013,
+            field014,
+            field015,
+            field016,
+            construct0,
+            annotations0 :+ annotation
+          )
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
+      schema: CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]
+    ): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        Field.WithFieldName[Z, schema.Field7, A7],
+        Field.WithFieldName[Z, schema.Field8, A8],
+        Field.WithFieldName[Z, schema.Field9, A9],
+        Field.WithFieldName[Z, schema.Field10, A10],
+        Field.WithFieldName[Z, schema.Field11, A11],
+        Field.WithFieldName[Z, schema.Field12, A12],
+        Field.WithFieldName[Z, schema.Field13, A13],
+        Field.WithFieldName[Z, schema.Field14, A14],
+        Field.WithFieldName[Z, schema.Field15, A15],
+        Field.WithFieldName[Z, schema.Field16, A16],
+        (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.field7,
+          schema.field8,
+          schema.field9,
+          schema.field10,
+          schema.field11,
+          schema.field12,
+          schema.field13,
+          schema.field14,
+          schema.field15,
+          schema.field16,
+          schema.construct,
+          schema.annotations
+        )
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      F7 <: Singleton with String,
+      F8 <: Singleton with String,
+      F9 <: Singleton with String,
+      F10 <: Singleton with String,
+      F11 <: Singleton with String,
+      F12 <: Singleton with String,
+      F13 <: Singleton with String,
+      F14 <: Singleton with String,
+      F15 <: Singleton with String,
+      F16 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      Z
+    ] =
+      CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] {
+        type Field1  = F1
+        type Field2  = F2
+        type Field3  = F3
+        type Field4  = F4
+        type Field5  = F5
+        type Field6  = F6
+        type Field7  = F7
+        type Field8  = F8
+        type Field9  = F9
+        type Field10 = F10
+        type Field11 = F11
+        type Field12 = F12
+        type Field13 = F13
+        type Field14 = F14
+        type Field15 = F15
+        type Field16 = F16
+      }
+  }
+
+  sealed trait CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]
+      extends Record[Z] { self =>
+
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+    type Field7 <: Singleton with String
+    type Field8 <: Singleton with String
+    type Field9 <: Singleton with String
+    type Field10 <: Singleton with String
+    type Field11 <: Singleton with String
+    type Field12 <: Singleton with String
+    type Field13 <: Singleton with String
+    type Field14 <: Singleton with String
+    type Field15 <: Singleton with String
+    type Field16 <: Singleton with String
+    type Field17 <: Singleton with String
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4],
-      Lens[field5.name.type, Z, A5],
-      Lens[field6.name.type, Z, A6],
-      Lens[field7.name.type, Z, A7],
-      Lens[field8.name.type, Z, A8],
-      Lens[field9.name.type, Z, A9],
-      Lens[field10.name.type, Z, A10],
-      Lens[field11.name.type, Z, A11],
-      Lens[field12.name.type, Z, A12],
-      Lens[field13.name.type, Z, A13],
-      Lens[field14.name.type, Z, A14],
-      Lens[field15.name.type, Z, A15],
-      Lens[field16.name.type, Z, A16],
-      Lens[field17.name.type, Z, A17]
+      Lens[Field1, Z, A1],
+      Lens[Field2, Z, A2],
+      Lens[Field3, Z, A3],
+      Lens[Field4, Z, A4],
+      Lens[Field5, Z, A5],
+      Lens[Field6, Z, A6],
+      Lens[Field7, Z, A7],
+      Lens[Field8, Z, A8],
+      Lens[Field9, Z, A9],
+      Lens[Field10, Z, A10],
+      Lens[Field11, Z, A11],
+      Lens[Field12, Z, A12],
+      Lens[Field13, Z, A13],
+      Lens[Field14, Z, A14],
+      Lens[Field15, Z, A15],
+      Lens[Field16, Z, A16],
+      Lens[Field17, Z, A17]
     )
 
-    override def annotate(
-      annotation: Any
-    ): CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z] =
-      copy(annotations = annotations :+ annotation)
+    override type Terms = (Field1, A1)
+      with (Field2, A2)
+      with (Field3, A3)
+      with (Field4, A4)
+      with (Field5, A5)
+      with (Field6, A6)
+      with (Field7, A7)
+      with (Field8, A8)
+      with (Field10, A10)
+      with (Field11, A11)
+      with (Field12, A12)
+      with (Field13, A13)
+      with (Field14, A14)
+      with (Field15, A15)
+      with (Field16, A16)
+      with (Field17, A17)
+
+    override type FieldNames = Field1
+      with Field2
+      with Field3
+      with Field4
+      with Field5
+      with Field6
+      with Field7
+      with Field8
+      with Field9
+      with Field10
+      with Field11
+      with Field12
+      with Field13
+      with Field14
+      with Field15
+      with Field16
+      with Field17
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
+    def field9: Field.WithFieldName[Z, Field9, A9]
+    def field10: Field.WithFieldName[Z, Field10, A10]
+    def field11: Field.WithFieldName[Z, Field11, A11]
+    def field12: Field.WithFieldName[Z, Field12, A12]
+    def field13: Field.WithFieldName[Z, Field13, A13]
+    def field14: Field.WithFieldName[Z, Field14, A14]
+    def field15: Field.WithFieldName[Z, Field15, A15]
+    def field16: Field.WithFieldName[Z, Field16, A16]
+    def field17: Field.WithFieldName[Z, Field17, A17]
+
+    def construct: (
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17
+    ) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6],
-      b.Lens[field7.name.type, Z, A7],
-      b.Lens[field8.name.type, Z, A8],
-      b.Lens[field9.name.type, Z, A9],
-      b.Lens[field10.name.type, Z, A10],
-      b.Lens[field11.name.type, Z, A11],
-      b.Lens[field12.name.type, Z, A12],
-      b.Lens[field13.name.type, Z, A13],
-      b.Lens[field14.name.type, Z, A14],
-      b.Lens[field15.name.type, Z, A15],
-      b.Lens[field16.name.type, Z, A16],
-      b.Lens[field17.name.type, Z, A17]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6],
+      b.Lens[Field7, Z, A7],
+      b.Lens[Field8, Z, A8],
+      b.Lens[Field9, Z, A9],
+      b.Lens[Field10, Z, A10],
+      b.Lens[Field11, Z, A11],
+      b.Lens[Field12, Z, A12],
+      b.Lens[Field13, Z, A13],
+      b.Lens[Field14, Z, A14],
+      b.Lens[Field15, Z, A15],
+      b.Lens[Field16, Z, A16],
+      b.Lens[Field17, Z, A17]
     ) =
       (
         b.makeLens(self, field1),
@@ -4807,79 +7183,333 @@ object Schema extends SchemaEquality {
       field16.get(value),
       field17.get(value)
     )
-    override def toString: String = s"CaseClass17(${fields.mkString(",")})"
 
+    override def toString: String = s"CaseClass17(${fields.mkString(",")})"
   }
 
-  sealed case class CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    field7: Field[Z, A7],
-    field8: Field[Z, A8],
-    field9: Field[Z, A9],
-    field10: Field[Z, A10],
-    field11: Field[Z, A11],
-    field12: Field[Z, A12],
-    field13: Field[Z, A13],
-    field14: Field[Z, A14],
-    field15: Field[Z, A15],
-    field16: Field[Z, A16],
-    field17: Field[Z, A17],
-    field18: Field[Z, A18],
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass17 {
+
+    def apply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      field07: Field[Z, A7],
+      field08: Field[Z, A8],
+      field09: Field[Z, A9],
+      field010: Field[Z, A10],
+      field011: Field[Z, A11],
+      field012: Field[Z, A12],
+      field013: Field[Z, A13],
+      field014: Field[Z, A14],
+      field015: Field[Z, A15],
+      field016: Field[Z, A16],
+      field017: Field[Z, A17],
+      construct0: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z] =
+      new CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z] {
+        def id: TypeId                                                                                   = id0
+        def field1: Field.WithFieldName[Z, Field1, A1]                                                   = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2]                                                   = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3]                                                   = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4]                                                   = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5]                                                   = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6]                                                   = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def field7: Field.WithFieldName[Z, Field7, A7]                                                   = field07.asInstanceOf[Field.WithFieldName[Z, Field7, A7]]
+        def field8: Field.WithFieldName[Z, Field8, A8]                                                   = field08.asInstanceOf[Field.WithFieldName[Z, Field8, A8]]
+        def field9: Field.WithFieldName[Z, Field9, A9]                                                   = field09.asInstanceOf[Field.WithFieldName[Z, Field9, A9]]
+        def field10: Field.WithFieldName[Z, Field10, A10]                                                = field010.asInstanceOf[Field.WithFieldName[Z, Field10, A10]]
+        def field11: Field.WithFieldName[Z, Field11, A11]                                                = field011.asInstanceOf[Field.WithFieldName[Z, Field11, A11]]
+        def field12: Field.WithFieldName[Z, Field12, A12]                                                = field012.asInstanceOf[Field.WithFieldName[Z, Field12, A12]]
+        def field13: Field.WithFieldName[Z, Field13, A13]                                                = field013.asInstanceOf[Field.WithFieldName[Z, Field13, A13]]
+        def field14: Field.WithFieldName[Z, Field14, A14]                                                = field014.asInstanceOf[Field.WithFieldName[Z, Field14, A14]]
+        def field15: Field.WithFieldName[Z, Field15, A15]                                                = field015.asInstanceOf[Field.WithFieldName[Z, Field15, A15]]
+        def field16: Field.WithFieldName[Z, Field16, A16]                                                = field016.asInstanceOf[Field.WithFieldName[Z, Field16, A16]]
+        def field17: Field.WithFieldName[Z, Field17, A17]                                                = field017.asInstanceOf[Field.WithFieldName[Z, Field17, A17]]
+        def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17) => Z = construct0
+        def annotations: Chunk[Any]                                                                      = annotations0
+
+        def annotate(
+          annotation: Any
+        ): CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z] =
+          CaseClass17(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            field07,
+            field08,
+            field09,
+            field010,
+            field011,
+            field012,
+            field013,
+            field014,
+            field015,
+            field016,
+            field017,
+            construct0,
+            annotations0 :+ annotation
+          )
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
+      schema: CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]
+    ): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        Field.WithFieldName[Z, schema.Field7, A7],
+        Field.WithFieldName[Z, schema.Field8, A8],
+        Field.WithFieldName[Z, schema.Field9, A9],
+        Field.WithFieldName[Z, schema.Field10, A10],
+        Field.WithFieldName[Z, schema.Field11, A11],
+        Field.WithFieldName[Z, schema.Field12, A12],
+        Field.WithFieldName[Z, schema.Field13, A13],
+        Field.WithFieldName[Z, schema.Field14, A14],
+        Field.WithFieldName[Z, schema.Field15, A15],
+        Field.WithFieldName[Z, schema.Field16, A16],
+        Field.WithFieldName[Z, schema.Field17, A17],
+        (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.field7,
+          schema.field8,
+          schema.field9,
+          schema.field10,
+          schema.field11,
+          schema.field12,
+          schema.field13,
+          schema.field14,
+          schema.field15,
+          schema.field16,
+          schema.field17,
+          schema.construct,
+          schema.annotations
+        )
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      F7 <: Singleton with String,
+      F8 <: Singleton with String,
+      F9 <: Singleton with String,
+      F10 <: Singleton with String,
+      F11 <: Singleton with String,
+      F12 <: Singleton with String,
+      F13 <: Singleton with String,
+      F14 <: Singleton with String,
+      F15 <: Singleton with String,
+      F16 <: Singleton with String,
+      F17 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      Z
+    ] =
+      CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z] {
+        type Field1  = F1
+        type Field2  = F2
+        type Field3  = F3
+        type Field4  = F4
+        type Field5  = F5
+        type Field6  = F6
+        type Field7  = F7
+        type Field8  = F8
+        type Field9  = F9
+        type Field10 = F10
+        type Field11 = F11
+        type Field12 = F12
+        type Field13 = F13
+        type Field14 = F14
+        type Field15 = F15
+        type Field16 = F16
+        type Field17 = F17
+      }
+  }
+
+  sealed trait CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]
+      extends Record[Z] { self =>
+
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+    type Field7 <: Singleton with String
+    type Field8 <: Singleton with String
+    type Field9 <: Singleton with String
+    type Field10 <: Singleton with String
+    type Field11 <: Singleton with String
+    type Field12 <: Singleton with String
+    type Field13 <: Singleton with String
+    type Field14 <: Singleton with String
+    type Field15 <: Singleton with String
+    type Field16 <: Singleton with String
+    type Field17 <: Singleton with String
+    type Field18 <: Singleton with String
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4],
-      Lens[field5.name.type, Z, A5],
-      Lens[field6.name.type, Z, A6],
-      Lens[field7.name.type, Z, A7],
-      Lens[field8.name.type, Z, A8],
-      Lens[field9.name.type, Z, A9],
-      Lens[field10.name.type, Z, A10],
-      Lens[field11.name.type, Z, A11],
-      Lens[field12.name.type, Z, A12],
-      Lens[field13.name.type, Z, A13],
-      Lens[field14.name.type, Z, A14],
-      Lens[field15.name.type, Z, A15],
-      Lens[field16.name.type, Z, A16],
-      Lens[field17.name.type, Z, A17],
-      Lens[field18.name.type, Z, A18]
+      Lens[Field1, Z, A1],
+      Lens[Field2, Z, A2],
+      Lens[Field3, Z, A3],
+      Lens[Field4, Z, A4],
+      Lens[Field5, Z, A5],
+      Lens[Field6, Z, A6],
+      Lens[Field7, Z, A7],
+      Lens[Field8, Z, A8],
+      Lens[Field9, Z, A9],
+      Lens[Field10, Z, A10],
+      Lens[Field11, Z, A11],
+      Lens[Field12, Z, A12],
+      Lens[Field13, Z, A13],
+      Lens[Field14, Z, A14],
+      Lens[Field15, Z, A15],
+      Lens[Field16, Z, A16],
+      Lens[Field17, Z, A17],
+      Lens[Field18, Z, A18]
     )
 
-    override def annotate(
-      annotation: Any
-    ): CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z] =
-      copy(annotations = annotations :+ annotation)
+    override type Terms = (Field1, A1)
+      with (Field2, A2)
+      with (Field3, A3)
+      with (Field4, A4)
+      with (Field5, A5)
+      with (Field6, A6)
+      with (Field7, A7)
+      with (Field8, A8)
+      with (Field10, A10)
+      with (Field11, A11)
+      with (Field12, A12)
+      with (Field13, A13)
+      with (Field14, A14)
+      with (Field15, A15)
+      with (Field16, A16)
+      with (Field17, A17)
+      with (Field18, A18)
+
+    override type FieldNames = Field1
+      with Field2
+      with Field3
+      with Field4
+      with Field5
+      with Field6
+      with Field7
+      with Field8
+      with Field9
+      with Field10
+      with Field11
+      with Field12
+      with Field13
+      with Field14
+      with Field15
+      with Field16
+      with Field17
+      with Field18
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
+    def field9: Field.WithFieldName[Z, Field9, A9]
+    def field10: Field.WithFieldName[Z, Field10, A10]
+    def field11: Field.WithFieldName[Z, Field11, A11]
+    def field12: Field.WithFieldName[Z, Field12, A12]
+    def field13: Field.WithFieldName[Z, Field13, A13]
+    def field14: Field.WithFieldName[Z, Field14, A14]
+    def field15: Field.WithFieldName[Z, Field15, A15]
+    def field16: Field.WithFieldName[Z, Field16, A16]
+    def field17: Field.WithFieldName[Z, Field17, A17]
+    def field18: Field.WithFieldName[Z, Field18, A18]
+
+    def construct: (
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18
+    ) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6],
-      b.Lens[field7.name.type, Z, A7],
-      b.Lens[field8.name.type, Z, A8],
-      b.Lens[field9.name.type, Z, A9],
-      b.Lens[field10.name.type, Z, A10],
-      b.Lens[field11.name.type, Z, A11],
-      b.Lens[field12.name.type, Z, A12],
-      b.Lens[field13.name.type, Z, A13],
-      b.Lens[field14.name.type, Z, A14],
-      b.Lens[field15.name.type, Z, A15],
-      b.Lens[field16.name.type, Z, A16],
-      b.Lens[field17.name.type, Z, A17],
-      b.Lens[field18.name.type, Z, A18]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6],
+      b.Lens[Field7, Z, A7],
+      b.Lens[Field8, Z, A8],
+      b.Lens[Field9, Z, A9],
+      b.Lens[Field10, Z, A10],
+      b.Lens[Field11, Z, A11],
+      b.Lens[Field12, Z, A12],
+      b.Lens[Field13, Z, A13],
+      b.Lens[Field14, Z, A14],
+      b.Lens[Field15, Z, A15],
+      b.Lens[Field16, Z, A16],
+      b.Lens[Field17, Z, A17],
+      b.Lens[Field18, Z, A18]
     ) =
       (
         b.makeLens(self, field1),
@@ -4974,82 +7604,350 @@ object Schema extends SchemaEquality {
       field17.get(value),
       field18.get(value)
     )
-    override def toString: String = s"CaseClass18(${fields.mkString(",")})"
 
+    override def toString: String = s"CaseClass18(${fields.mkString(",")})"
   }
 
-  sealed case class CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    field7: Field[Z, A7],
-    field8: Field[Z, A8],
-    field9: Field[Z, A9],
-    field10: Field[Z, A10],
-    field11: Field[Z, A11],
-    field12: Field[Z, A12],
-    field13: Field[Z, A13],
-    field14: Field[Z, A14],
-    field15: Field[Z, A15],
-    field16: Field[Z, A16],
-    field17: Field[Z, A17],
-    field18: Field[Z, A18],
-    field19: Field[Z, A19],
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass18 {
+
+    def apply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      field07: Field[Z, A7],
+      field08: Field[Z, A8],
+      field09: Field[Z, A9],
+      field010: Field[Z, A10],
+      field011: Field[Z, A11],
+      field012: Field[Z, A12],
+      field013: Field[Z, A13],
+      field014: Field[Z, A14],
+      field015: Field[Z, A15],
+      field016: Field[Z, A16],
+      field017: Field[Z, A17],
+      field018: Field[Z, A18],
+      construct0: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z] =
+      new CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z] {
+        def id: TypeId                                    = id0
+        def field1: Field.WithFieldName[Z, Field1, A1]    = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2]    = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3]    = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4]    = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5]    = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6]    = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def field7: Field.WithFieldName[Z, Field7, A7]    = field07.asInstanceOf[Field.WithFieldName[Z, Field7, A7]]
+        def field8: Field.WithFieldName[Z, Field8, A8]    = field08.asInstanceOf[Field.WithFieldName[Z, Field8, A8]]
+        def field9: Field.WithFieldName[Z, Field9, A9]    = field09.asInstanceOf[Field.WithFieldName[Z, Field9, A9]]
+        def field10: Field.WithFieldName[Z, Field10, A10] = field010.asInstanceOf[Field.WithFieldName[Z, Field10, A10]]
+        def field11: Field.WithFieldName[Z, Field11, A11] = field011.asInstanceOf[Field.WithFieldName[Z, Field11, A11]]
+        def field12: Field.WithFieldName[Z, Field12, A12] = field012.asInstanceOf[Field.WithFieldName[Z, Field12, A12]]
+        def field13: Field.WithFieldName[Z, Field13, A13] = field013.asInstanceOf[Field.WithFieldName[Z, Field13, A13]]
+        def field14: Field.WithFieldName[Z, Field14, A14] = field014.asInstanceOf[Field.WithFieldName[Z, Field14, A14]]
+        def field15: Field.WithFieldName[Z, Field15, A15] = field015.asInstanceOf[Field.WithFieldName[Z, Field15, A15]]
+        def field16: Field.WithFieldName[Z, Field16, A16] = field016.asInstanceOf[Field.WithFieldName[Z, Field16, A16]]
+        def field17: Field.WithFieldName[Z, Field17, A17] = field017.asInstanceOf[Field.WithFieldName[Z, Field17, A17]]
+        def field18: Field.WithFieldName[Z, Field18, A18] = field018.asInstanceOf[Field.WithFieldName[Z, Field18, A18]]
+
+        def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18) => Z =
+          construct0
+        def annotations: Chunk[Any] = annotations0
+
+        def annotate(
+          annotation: Any
+        ): CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z] =
+          CaseClass18(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            field07,
+            field08,
+            field09,
+            field010,
+            field011,
+            field012,
+            field013,
+            field014,
+            field015,
+            field016,
+            field017,
+            field018,
+            construct0,
+            annotations0 :+ annotation
+          )
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
+      schema: CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]
+    ): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        Field.WithFieldName[Z, schema.Field7, A7],
+        Field.WithFieldName[Z, schema.Field8, A8],
+        Field.WithFieldName[Z, schema.Field9, A9],
+        Field.WithFieldName[Z, schema.Field10, A10],
+        Field.WithFieldName[Z, schema.Field11, A11],
+        Field.WithFieldName[Z, schema.Field12, A12],
+        Field.WithFieldName[Z, schema.Field13, A13],
+        Field.WithFieldName[Z, schema.Field14, A14],
+        Field.WithFieldName[Z, schema.Field15, A15],
+        Field.WithFieldName[Z, schema.Field16, A16],
+        Field.WithFieldName[Z, schema.Field17, A17],
+        Field.WithFieldName[Z, schema.Field18, A18],
+        (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.field7,
+          schema.field8,
+          schema.field9,
+          schema.field10,
+          schema.field11,
+          schema.field12,
+          schema.field13,
+          schema.field14,
+          schema.field15,
+          schema.field16,
+          schema.field17,
+          schema.field18,
+          schema.construct,
+          schema.annotations
+        )
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      F7 <: Singleton with String,
+      F8 <: Singleton with String,
+      F9 <: Singleton with String,
+      F10 <: Singleton with String,
+      F11 <: Singleton with String,
+      F12 <: Singleton with String,
+      F13 <: Singleton with String,
+      F14 <: Singleton with String,
+      F15 <: Singleton with String,
+      F16 <: Singleton with String,
+      F17 <: Singleton with String,
+      F18 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      Z
+    ] =
+      CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z] {
+        type Field1  = F1
+        type Field2  = F2
+        type Field3  = F3
+        type Field4  = F4
+        type Field5  = F5
+        type Field6  = F6
+        type Field7  = F7
+        type Field8  = F8
+        type Field9  = F9
+        type Field10 = F10
+        type Field11 = F11
+        type Field12 = F12
+        type Field13 = F13
+        type Field14 = F14
+        type Field15 = F15
+        type Field16 = F16
+        type Field17 = F17
+        type Field18 = F18
+      }
+  }
+
+  sealed trait CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]
+      extends Record[Z] { self =>
+
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+    type Field7 <: Singleton with String
+    type Field8 <: Singleton with String
+    type Field9 <: Singleton with String
+    type Field10 <: Singleton with String
+    type Field11 <: Singleton with String
+    type Field12 <: Singleton with String
+    type Field13 <: Singleton with String
+    type Field14 <: Singleton with String
+    type Field15 <: Singleton with String
+    type Field16 <: Singleton with String
+    type Field17 <: Singleton with String
+    type Field18 <: Singleton with String
+    type Field19 <: Singleton with String
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4],
-      Lens[field5.name.type, Z, A5],
-      Lens[field6.name.type, Z, A6],
-      Lens[field7.name.type, Z, A7],
-      Lens[field8.name.type, Z, A8],
-      Lens[field9.name.type, Z, A9],
-      Lens[field10.name.type, Z, A10],
-      Lens[field11.name.type, Z, A11],
-      Lens[field12.name.type, Z, A12],
-      Lens[field13.name.type, Z, A13],
-      Lens[field14.name.type, Z, A14],
-      Lens[field15.name.type, Z, A15],
-      Lens[field16.name.type, Z, A16],
-      Lens[field17.name.type, Z, A17],
-      Lens[field18.name.type, Z, A18],
-      Lens[field19.name.type, Z, A19]
+      Lens[Field1, Z, A1],
+      Lens[Field2, Z, A2],
+      Lens[Field3, Z, A3],
+      Lens[Field4, Z, A4],
+      Lens[Field5, Z, A5],
+      Lens[Field6, Z, A6],
+      Lens[Field7, Z, A7],
+      Lens[Field8, Z, A8],
+      Lens[Field9, Z, A9],
+      Lens[Field10, Z, A10],
+      Lens[Field11, Z, A11],
+      Lens[Field12, Z, A12],
+      Lens[Field13, Z, A13],
+      Lens[Field14, Z, A14],
+      Lens[Field15, Z, A15],
+      Lens[Field16, Z, A16],
+      Lens[Field17, Z, A17],
+      Lens[Field18, Z, A18],
+      Lens[Field19, Z, A19]
     )
 
-    override def annotate(
-      annotation: Any
-    ): CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z] =
-      copy(annotations = annotations :+ annotation)
+    override type Terms = (Field1, A1)
+      with (Field2, A2)
+      with (Field3, A3)
+      with (Field4, A4)
+      with (Field5, A5)
+      with (Field6, A6)
+      with (Field7, A7)
+      with (Field8, A8)
+      with (Field10, A10)
+      with (Field11, A11)
+      with (Field12, A12)
+      with (Field13, A13)
+      with (Field14, A14)
+      with (Field15, A15)
+      with (Field16, A16)
+      with (Field17, A17)
+      with (Field18, A18)
+      with (Field19, A19)
+
+    override type FieldNames = Field1
+      with Field2
+      with Field3
+      with Field4
+      with Field5
+      with Field6
+      with Field7
+      with Field8
+      with Field9
+      with Field10
+      with Field11
+      with Field12
+      with Field13
+      with Field14
+      with Field15
+      with Field16
+      with Field17
+      with Field18
+      with Field19
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
+    def field9: Field.WithFieldName[Z, Field9, A9]
+    def field10: Field.WithFieldName[Z, Field10, A10]
+    def field11: Field.WithFieldName[Z, Field11, A11]
+    def field12: Field.WithFieldName[Z, Field12, A12]
+    def field13: Field.WithFieldName[Z, Field13, A13]
+    def field14: Field.WithFieldName[Z, Field14, A14]
+    def field15: Field.WithFieldName[Z, Field15, A15]
+    def field16: Field.WithFieldName[Z, Field16, A16]
+    def field17: Field.WithFieldName[Z, Field17, A17]
+    def field18: Field.WithFieldName[Z, Field18, A18]
+    def field19: Field.WithFieldName[Z, Field19, A19]
+
+    def construct: (
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      A19
+    ) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6],
-      b.Lens[field7.name.type, Z, A7],
-      b.Lens[field8.name.type, Z, A8],
-      b.Lens[field9.name.type, Z, A9],
-      b.Lens[field10.name.type, Z, A10],
-      b.Lens[field11.name.type, Z, A11],
-      b.Lens[field12.name.type, Z, A12],
-      b.Lens[field13.name.type, Z, A13],
-      b.Lens[field14.name.type, Z, A14],
-      b.Lens[field15.name.type, Z, A15],
-      b.Lens[field16.name.type, Z, A16],
-      b.Lens[field17.name.type, Z, A17],
-      b.Lens[field18.name.type, Z, A18],
-      b.Lens[field19.name.type, Z, A19]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6],
+      b.Lens[Field7, Z, A7],
+      b.Lens[Field8, Z, A8],
+      b.Lens[Field9, Z, A9],
+      b.Lens[Field10, Z, A10],
+      b.Lens[Field11, Z, A11],
+      b.Lens[Field12, Z, A12],
+      b.Lens[Field13, Z, A13],
+      b.Lens[Field14, Z, A14],
+      b.Lens[Field15, Z, A15],
+      b.Lens[Field16, Z, A16],
+      b.Lens[Field17, Z, A17],
+      b.Lens[Field18, Z, A18],
+      b.Lens[Field19, Z, A19]
     ) =
       (
         b.makeLens(self, field1),
@@ -5148,107 +8046,365 @@ object Schema extends SchemaEquality {
       field18.get(value),
       field19.get(value)
     )
-    override def toString: String = s"CaseClass19(${fields.mkString(",")})"
 
+    override def toString: String = s"CaseClass19(${fields.mkString(",")})"
   }
 
-  sealed case class CaseClass20[
-    A1,
-    A2,
-    A3,
-    A4,
-    A5,
-    A6,
-    A7,
-    A8,
-    A9,
-    A10,
-    A11,
-    A12,
-    A13,
-    A14,
-    A15,
-    A16,
-    A17,
-    A18,
-    A19,
-    A20,
-    Z
-  ](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    field7: Field[Z, A7],
-    field8: Field[Z, A8],
-    field9: Field[Z, A9],
-    field10: Field[Z, A10],
-    field11: Field[Z, A11],
-    field12: Field[Z, A12],
-    field13: Field[Z, A13],
-    field14: Field[Z, A14],
-    field15: Field[Z, A15],
-    field16: Field[Z, A16],
-    field17: Field[Z, A17],
-    field18: Field[Z, A18],
-    field19: Field[Z, A19],
-    field20: Field[Z, A20],
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  object CaseClass19 {
+
+    def apply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      field07: Field[Z, A7],
+      field08: Field[Z, A8],
+      field09: Field[Z, A9],
+      field010: Field[Z, A10],
+      field011: Field[Z, A11],
+      field012: Field[Z, A12],
+      field013: Field[Z, A13],
+      field014: Field[Z, A14],
+      field015: Field[Z, A15],
+      field016: Field[Z, A16],
+      field017: Field[Z, A17],
+      field018: Field[Z, A18],
+      field019: Field[Z, A19],
+      construct0: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z] =
+      new CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z] {
+        def id: TypeId                                    = id0
+        def field1: Field.WithFieldName[Z, Field1, A1]    = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2]    = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3]    = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4]    = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5]    = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6]    = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def field7: Field.WithFieldName[Z, Field7, A7]    = field07.asInstanceOf[Field.WithFieldName[Z, Field7, A7]]
+        def field8: Field.WithFieldName[Z, Field8, A8]    = field08.asInstanceOf[Field.WithFieldName[Z, Field8, A8]]
+        def field9: Field.WithFieldName[Z, Field9, A9]    = field09.asInstanceOf[Field.WithFieldName[Z, Field9, A9]]
+        def field10: Field.WithFieldName[Z, Field10, A10] = field010.asInstanceOf[Field.WithFieldName[Z, Field10, A10]]
+        def field11: Field.WithFieldName[Z, Field11, A11] = field011.asInstanceOf[Field.WithFieldName[Z, Field11, A11]]
+        def field12: Field.WithFieldName[Z, Field12, A12] = field012.asInstanceOf[Field.WithFieldName[Z, Field12, A12]]
+        def field13: Field.WithFieldName[Z, Field13, A13] = field013.asInstanceOf[Field.WithFieldName[Z, Field13, A13]]
+        def field14: Field.WithFieldName[Z, Field14, A14] = field014.asInstanceOf[Field.WithFieldName[Z, Field14, A14]]
+        def field15: Field.WithFieldName[Z, Field15, A15] = field015.asInstanceOf[Field.WithFieldName[Z, Field15, A15]]
+        def field16: Field.WithFieldName[Z, Field16, A16] = field016.asInstanceOf[Field.WithFieldName[Z, Field16, A16]]
+        def field17: Field.WithFieldName[Z, Field17, A17] = field017.asInstanceOf[Field.WithFieldName[Z, Field17, A17]]
+        def field18: Field.WithFieldName[Z, Field18, A18] = field018.asInstanceOf[Field.WithFieldName[Z, Field18, A18]]
+        def field19: Field.WithFieldName[Z, Field19, A19] = field019.asInstanceOf[Field.WithFieldName[Z, Field19, A19]]
+
+        def construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19) => Z =
+          construct0
+        def annotations: Chunk[Any] = annotations0
+
+        def annotate(
+          annotation: Any
+        ): CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z] =
+          CaseClass19(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            field07,
+            field08,
+            field09,
+            field010,
+            field011,
+            field012,
+            field013,
+            field014,
+            field015,
+            field016,
+            field017,
+            field018,
+            field019,
+            construct0,
+            annotations0 :+ annotation
+          )
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
+      schema: CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]
+    ): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        Field.WithFieldName[Z, schema.Field7, A7],
+        Field.WithFieldName[Z, schema.Field8, A8],
+        Field.WithFieldName[Z, schema.Field9, A9],
+        Field.WithFieldName[Z, schema.Field10, A10],
+        Field.WithFieldName[Z, schema.Field11, A11],
+        Field.WithFieldName[Z, schema.Field12, A12],
+        Field.WithFieldName[Z, schema.Field13, A13],
+        Field.WithFieldName[Z, schema.Field14, A14],
+        Field.WithFieldName[Z, schema.Field15, A15],
+        Field.WithFieldName[Z, schema.Field16, A16],
+        Field.WithFieldName[Z, schema.Field17, A17],
+        Field.WithFieldName[Z, schema.Field18, A18],
+        Field.WithFieldName[Z, schema.Field19, A19],
+        (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19) => Z,
+        Chunk[Any]
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.field7,
+          schema.field8,
+          schema.field9,
+          schema.field10,
+          schema.field11,
+          schema.field12,
+          schema.field13,
+          schema.field14,
+          schema.field15,
+          schema.field16,
+          schema.field17,
+          schema.field18,
+          schema.field19,
+          schema.construct,
+          schema.annotations
+        )
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      F7 <: Singleton with String,
+      F8 <: Singleton with String,
+      F9 <: Singleton with String,
+      F10 <: Singleton with String,
+      F11 <: Singleton with String,
+      F12 <: Singleton with String,
+      F13 <: Singleton with String,
+      F14 <: Singleton with String,
+      F15 <: Singleton with String,
+      F16 <: Singleton with String,
+      F17 <: Singleton with String,
+      F18 <: Singleton with String,
+      F19 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      A19,
+      Z
+    ] =
+      CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z] {
+        type Field1  = F1
+        type Field2  = F2
+        type Field3  = F3
+        type Field4  = F4
+        type Field5  = F5
+        type Field6  = F6
+        type Field7  = F7
+        type Field8  = F8
+        type Field9  = F9
+        type Field10 = F10
+        type Field11 = F11
+        type Field12 = F12
+        type Field13 = F13
+        type Field14 = F14
+        type Field15 = F15
+        type Field16 = F16
+        type Field17 = F17
+        type Field18 = F18
+        type Field19 = F19
+      }
+  }
+
+  sealed trait CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]
+      extends Record[Z] { self =>
+
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+    type Field7 <: Singleton with String
+    type Field8 <: Singleton with String
+    type Field9 <: Singleton with String
+    type Field10 <: Singleton with String
+    type Field11 <: Singleton with String
+    type Field12 <: Singleton with String
+    type Field13 <: Singleton with String
+    type Field14 <: Singleton with String
+    type Field15 <: Singleton with String
+    type Field16 <: Singleton with String
+    type Field17 <: Singleton with String
+    type Field18 <: Singleton with String
+    type Field19 <: Singleton with String
+    type Field20 <: Singleton with String
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4],
-      Lens[field5.name.type, Z, A5],
-      Lens[field6.name.type, Z, A6],
-      Lens[field7.name.type, Z, A7],
-      Lens[field8.name.type, Z, A8],
-      Lens[field9.name.type, Z, A9],
-      Lens[field10.name.type, Z, A10],
-      Lens[field11.name.type, Z, A11],
-      Lens[field12.name.type, Z, A12],
-      Lens[field13.name.type, Z, A13],
-      Lens[field14.name.type, Z, A14],
-      Lens[field15.name.type, Z, A15],
-      Lens[field16.name.type, Z, A16],
-      Lens[field17.name.type, Z, A17],
-      Lens[field18.name.type, Z, A18],
-      Lens[field19.name.type, Z, A19],
-      Lens[field20.name.type, Z, A20]
+      Lens[Field1, Z, A1],
+      Lens[Field2, Z, A2],
+      Lens[Field3, Z, A3],
+      Lens[Field4, Z, A4],
+      Lens[Field5, Z, A5],
+      Lens[Field6, Z, A6],
+      Lens[Field7, Z, A7],
+      Lens[Field8, Z, A8],
+      Lens[Field9, Z, A9],
+      Lens[Field10, Z, A10],
+      Lens[Field11, Z, A11],
+      Lens[Field12, Z, A12],
+      Lens[Field13, Z, A13],
+      Lens[Field14, Z, A14],
+      Lens[Field15, Z, A15],
+      Lens[Field16, Z, A16],
+      Lens[Field17, Z, A17],
+      Lens[Field18, Z, A18],
+      Lens[Field19, Z, A19],
+      Lens[Field20, Z, A20]
     )
 
-    override def annotate(
-      annotation: Any
-    ): CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z] =
-      copy(annotations = annotations :+ annotation)
+    override type Terms = (Field1, A1)
+      with (Field2, A2)
+      with (Field3, A3)
+      with (Field4, A4)
+      with (Field5, A5)
+      with (Field6, A6)
+      with (Field7, A7)
+      with (Field8, A8)
+      with (Field10, A10)
+      with (Field11, A11)
+      with (Field12, A12)
+      with (Field13, A13)
+      with (Field14, A14)
+      with (Field15, A15)
+      with (Field16, A16)
+      with (Field17, A17)
+      with (Field18, A18)
+      with (Field19, A19)
+      with (Field20, A20)
+
+    override type FieldNames = Field1
+      with Field2
+      with Field3
+      with Field4
+      with Field5
+      with Field6
+      with Field7
+      with Field8
+      with Field9
+      with Field10
+      with Field11
+      with Field12
+      with Field13
+      with Field14
+      with Field15
+      with Field16
+      with Field17
+      with Field18
+      with Field19
+      with Field20
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
+    def field9: Field.WithFieldName[Z, Field9, A9]
+    def field10: Field.WithFieldName[Z, Field10, A10]
+    def field11: Field.WithFieldName[Z, Field11, A11]
+    def field12: Field.WithFieldName[Z, Field12, A12]
+    def field13: Field.WithFieldName[Z, Field13, A13]
+    def field14: Field.WithFieldName[Z, Field14, A14]
+    def field15: Field.WithFieldName[Z, Field15, A15]
+    def field16: Field.WithFieldName[Z, Field16, A16]
+    def field17: Field.WithFieldName[Z, Field17, A17]
+    def field18: Field.WithFieldName[Z, Field18, A18]
+    def field19: Field.WithFieldName[Z, Field19, A19]
+    def field20: Field.WithFieldName[Z, Field20, A20]
+
+    def construct: (
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      A19,
+      A20
+    ) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6],
-      b.Lens[field7.name.type, Z, A7],
-      b.Lens[field8.name.type, Z, A8],
-      b.Lens[field9.name.type, Z, A9],
-      b.Lens[field10.name.type, Z, A10],
-      b.Lens[field11.name.type, Z, A11],
-      b.Lens[field12.name.type, Z, A12],
-      b.Lens[field13.name.type, Z, A13],
-      b.Lens[field14.name.type, Z, A14],
-      b.Lens[field15.name.type, Z, A15],
-      b.Lens[field16.name.type, Z, A16],
-      b.Lens[field17.name.type, Z, A17],
-      b.Lens[field18.name.type, Z, A18],
-      b.Lens[field19.name.type, Z, A19],
-      b.Lens[field20.name.type, Z, A20]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6],
+      b.Lens[Field7, Z, A7],
+      b.Lens[Field8, Z, A8],
+      b.Lens[Field9, Z, A9],
+      b.Lens[Field10, Z, A10],
+      b.Lens[Field11, Z, A11],
+      b.Lens[Field12, Z, A12],
+      b.Lens[Field13, Z, A13],
+      b.Lens[Field14, Z, A14],
+      b.Lens[Field15, Z, A15],
+      b.Lens[Field16, Z, A16],
+      b.Lens[Field17, Z, A17],
+      b.Lens[Field18, Z, A18],
+      b.Lens[Field19, Z, A19],
+      b.Lens[Field20, Z, A20]
     ) =
       (
         b.makeLens(self, field1),
@@ -5353,10 +8509,216 @@ object Schema extends SchemaEquality {
     )
 
     override def toString: String = s"CaseClass20(${fields.mkString(",")})"
-
   }
 
-  sealed case class CaseClass21[
+  object CaseClass20 {
+
+    def apply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      field07: Field[Z, A7],
+      field08: Field[Z, A8],
+      field09: Field[Z, A9],
+      field010: Field[Z, A10],
+      field011: Field[Z, A11],
+      field012: Field[Z, A12],
+      field013: Field[Z, A13],
+      field014: Field[Z, A14],
+      field015: Field[Z, A15],
+      field016: Field[Z, A16],
+      field017: Field[Z, A17],
+      field018: Field[Z, A18],
+      field019: Field[Z, A19],
+      field020: Field[Z, A20],
+      construct0: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z] =
+      new CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z] {
+        def id: TypeId                                    = id0
+        def field1: Field.WithFieldName[Z, Field1, A1]    = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2]    = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3]    = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4]    = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5]    = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6]    = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def field7: Field.WithFieldName[Z, Field7, A7]    = field07.asInstanceOf[Field.WithFieldName[Z, Field7, A7]]
+        def field8: Field.WithFieldName[Z, Field8, A8]    = field08.asInstanceOf[Field.WithFieldName[Z, Field8, A8]]
+        def field9: Field.WithFieldName[Z, Field9, A9]    = field09.asInstanceOf[Field.WithFieldName[Z, Field9, A9]]
+        def field10: Field.WithFieldName[Z, Field10, A10] = field010.asInstanceOf[Field.WithFieldName[Z, Field10, A10]]
+        def field11: Field.WithFieldName[Z, Field11, A11] = field011.asInstanceOf[Field.WithFieldName[Z, Field11, A11]]
+        def field12: Field.WithFieldName[Z, Field12, A12] = field012.asInstanceOf[Field.WithFieldName[Z, Field12, A12]]
+        def field13: Field.WithFieldName[Z, Field13, A13] = field013.asInstanceOf[Field.WithFieldName[Z, Field13, A13]]
+        def field14: Field.WithFieldName[Z, Field14, A14] = field014.asInstanceOf[Field.WithFieldName[Z, Field14, A14]]
+        def field15: Field.WithFieldName[Z, Field15, A15] = field015.asInstanceOf[Field.WithFieldName[Z, Field15, A15]]
+        def field16: Field.WithFieldName[Z, Field16, A16] = field016.asInstanceOf[Field.WithFieldName[Z, Field16, A16]]
+        def field17: Field.WithFieldName[Z, Field17, A17] = field017.asInstanceOf[Field.WithFieldName[Z, Field17, A17]]
+        def field18: Field.WithFieldName[Z, Field18, A18] = field018.asInstanceOf[Field.WithFieldName[Z, Field18, A18]]
+        def field19: Field.WithFieldName[Z, Field19, A19] = field019.asInstanceOf[Field.WithFieldName[Z, Field19, A19]]
+        def field20: Field.WithFieldName[Z, Field20, A20] = field020.asInstanceOf[Field.WithFieldName[Z, Field20, A20]]
+
+        def construct
+          : (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) => Z =
+          construct0
+        def annotations: Chunk[Any] = annotations0
+
+        def annotate(
+          annotation: Any
+        ): CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z] =
+          CaseClass20(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            field07,
+            field08,
+            field09,
+            field010,
+            field011,
+            field012,
+            field013,
+            field014,
+            field015,
+            field016,
+            field017,
+            field018,
+            field019,
+            field020,
+            construct0,
+            annotations0 :+ annotation
+          )
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](
+      schema: CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]
+    ): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        Field.WithFieldName[Z, schema.Field7, A7],
+        Field.WithFieldName[Z, schema.Field8, A8],
+        Field.WithFieldName[Z, schema.Field9, A9],
+        Field.WithFieldName[Z, schema.Field10, A10],
+        Field.WithFieldName[Z, schema.Field11, A11],
+        Field.WithFieldName[Z, schema.Field12, A12],
+        Field.WithFieldName[Z, schema.Field13, A13],
+        Field.WithFieldName[Z, schema.Field14, A14],
+        Field.WithFieldName[Z, schema.Field15, A15],
+        Field.WithFieldName[Z, schema.Field16, A16],
+        Field.WithFieldName[Z, schema.Field17, A17],
+        Field.WithFieldName[Z, schema.Field18, A18],
+        Field.WithFieldName[Z, schema.Field19, A19],
+        Field.WithFieldName[Z, schema.Field20, A20],
+        ((A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20) => Z, Chunk[Any])
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.field7,
+          schema.field8,
+          schema.field9,
+          schema.field10,
+          schema.field11,
+          schema.field12,
+          schema.field13,
+          schema.field14,
+          schema.field15,
+          schema.field16,
+          schema.field17,
+          schema.field18,
+          schema.field19,
+          schema.field20,
+          (schema.construct, schema.annotations)
+        )
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      F7 <: Singleton with String,
+      F8 <: Singleton with String,
+      F9 <: Singleton with String,
+      F10 <: Singleton with String,
+      F11 <: Singleton with String,
+      F12 <: Singleton with String,
+      F13 <: Singleton with String,
+      F14 <: Singleton with String,
+      F15 <: Singleton with String,
+      F16 <: Singleton with String,
+      F17 <: Singleton with String,
+      F18 <: Singleton with String,
+      F19 <: Singleton with String,
+      F20 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      A19,
+      A20,
+      Z
+    ] =
+      CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z] {
+        type Field1  = F1
+        type Field2  = F2
+        type Field3  = F3
+        type Field4  = F4
+        type Field5  = F5
+        type Field6  = F6
+        type Field7  = F7
+        type Field8  = F8
+        type Field9  = F9
+        type Field10 = F10
+        type Field11 = F11
+        type Field12 = F12
+        type Field13 = F13
+        type Field14 = F14
+        type Field15 = F15
+        type Field16 = F16
+        type Field17 = F17
+        type Field18 = F18
+        type Field19 = F19
+        type Field20 = F20
+      }
+  }
+
+  sealed trait CaseClass21[
     A1,
     A2,
     A3,
@@ -5379,84 +8741,167 @@ object Schema extends SchemaEquality {
     A20,
     A21,
     Z
-  ](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    field7: Field[Z, A7],
-    field8: Field[Z, A8],
-    field9: Field[Z, A9],
-    field10: Field[Z, A10],
-    field11: Field[Z, A11],
-    field12: Field[Z, A12],
-    field13: Field[Z, A13],
-    field14: Field[Z, A14],
-    field15: Field[Z, A15],
-    field16: Field[Z, A16],
-    field17: Field[Z, A17],
-    field18: Field[Z, A18],
-    field19: Field[Z, A19],
-    field20: Field[Z, A20],
-    field21: Field[Z, A21],
-    construct: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
+  ] extends Record[Z] { self =>
+
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+    type Field7 <: Singleton with String
+    type Field8 <: Singleton with String
+    type Field9 <: Singleton with String
+    type Field10 <: Singleton with String
+    type Field11 <: Singleton with String
+    type Field12 <: Singleton with String
+    type Field13 <: Singleton with String
+    type Field14 <: Singleton with String
+    type Field15 <: Singleton with String
+    type Field16 <: Singleton with String
+    type Field17 <: Singleton with String
+    type Field18 <: Singleton with String
+    type Field19 <: Singleton with String
+    type Field20 <: Singleton with String
+    type Field21 <: Singleton with String
 
     type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4],
-      Lens[field5.name.type, Z, A5],
-      Lens[field6.name.type, Z, A6],
-      Lens[field7.name.type, Z, A7],
-      Lens[field8.name.type, Z, A8],
-      Lens[field9.name.type, Z, A9],
-      Lens[field10.name.type, Z, A10],
-      Lens[field11.name.type, Z, A11],
-      Lens[field12.name.type, Z, A12],
-      Lens[field13.name.type, Z, A13],
-      Lens[field14.name.type, Z, A14],
-      Lens[field15.name.type, Z, A15],
-      Lens[field16.name.type, Z, A16],
-      Lens[field17.name.type, Z, A17],
-      Lens[field18.name.type, Z, A18],
-      Lens[field19.name.type, Z, A19],
-      Lens[field20.name.type, Z, A20],
-      Lens[field21.name.type, Z, A21]
+      Lens[Field1, Z, A1],
+      Lens[Field2, Z, A2],
+      Lens[Field3, Z, A3],
+      Lens[Field4, Z, A4],
+      Lens[Field5, Z, A5],
+      Lens[Field6, Z, A6],
+      Lens[Field7, Z, A7],
+      Lens[Field8, Z, A8],
+      Lens[Field9, Z, A9],
+      Lens[Field10, Z, A10],
+      Lens[Field11, Z, A11],
+      Lens[Field12, Z, A12],
+      Lens[Field13, Z, A13],
+      Lens[Field14, Z, A14],
+      Lens[Field15, Z, A15],
+      Lens[Field16, Z, A16],
+      Lens[Field17, Z, A17],
+      Lens[Field18, Z, A18],
+      Lens[Field19, Z, A19],
+      Lens[Field20, Z, A20],
+      Lens[Field21, Z, A21]
     )
 
-    override def annotate(
-      annotation: Any
-    ): CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] =
-      copy(annotations = annotations :+ annotation)
+    override type Terms = (Field1, A1)
+      with (Field2, A2)
+      with (Field3, A3)
+      with (Field4, A4)
+      with (Field5, A5)
+      with (Field6, A6)
+      with (Field7, A7)
+      with (Field8, A8)
+      with (Field10, A10)
+      with (Field11, A11)
+      with (Field12, A12)
+      with (Field13, A13)
+      with (Field14, A14)
+      with (Field15, A15)
+      with (Field16, A16)
+      with (Field17, A17)
+      with (Field18, A18)
+      with (Field19, A19)
+      with (Field20, A20)
+      with (Field21, A21)
+
+    override type FieldNames = Field1
+      with Field2
+      with Field3
+      with Field4
+      with Field5
+      with Field6
+      with Field7
+      with Field8
+      with Field9
+      with Field10
+      with Field11
+      with Field12
+      with Field13
+      with Field14
+      with Field15
+      with Field16
+      with Field17
+      with Field18
+      with Field19
+      with Field20
+      with Field21
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
+    def field9: Field.WithFieldName[Z, Field9, A9]
+    def field10: Field.WithFieldName[Z, Field10, A10]
+    def field11: Field.WithFieldName[Z, Field11, A11]
+    def field12: Field.WithFieldName[Z, Field12, A12]
+    def field13: Field.WithFieldName[Z, Field13, A13]
+    def field14: Field.WithFieldName[Z, Field14, A14]
+    def field15: Field.WithFieldName[Z, Field15, A15]
+    def field16: Field.WithFieldName[Z, Field16, A16]
+    def field17: Field.WithFieldName[Z, Field17, A17]
+    def field18: Field.WithFieldName[Z, Field18, A18]
+    def field19: Field.WithFieldName[Z, Field19, A19]
+    def field20: Field.WithFieldName[Z, Field20, A20]
+    def field21: Field.WithFieldName[Z, Field21, A21]
+
+    def construct: (
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      A19,
+      A20,
+      A21
+    ) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6],
-      b.Lens[field7.name.type, Z, A7],
-      b.Lens[field8.name.type, Z, A8],
-      b.Lens[field9.name.type, Z, A9],
-      b.Lens[field10.name.type, Z, A10],
-      b.Lens[field11.name.type, Z, A11],
-      b.Lens[field12.name.type, Z, A12],
-      b.Lens[field13.name.type, Z, A13],
-      b.Lens[field14.name.type, Z, A14],
-      b.Lens[field15.name.type, Z, A15],
-      b.Lens[field16.name.type, Z, A16],
-      b.Lens[field17.name.type, Z, A17],
-      b.Lens[field18.name.type, Z, A18],
-      b.Lens[field19.name.type, Z, A19],
-      b.Lens[field20.name.type, Z, A20],
-      b.Lens[field21.name.type, Z, A21]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6],
+      b.Lens[Field7, Z, A7],
+      b.Lens[Field8, Z, A8],
+      b.Lens[Field9, Z, A9],
+      b.Lens[Field10, Z, A10],
+      b.Lens[Field11, Z, A11],
+      b.Lens[Field12, Z, A12],
+      b.Lens[Field13, Z, A13],
+      b.Lens[Field14, Z, A14],
+      b.Lens[Field15, Z, A15],
+      b.Lens[Field16, Z, A16],
+      b.Lens[Field17, Z, A17],
+      b.Lens[Field18, Z, A18],
+      b.Lens[Field19, Z, A19],
+      b.Lens[Field20, Z, A20],
+      b.Lens[Field21, Z, A21]
     ) =
       (
         b.makeLens(self, field1),
@@ -5565,10 +9010,270 @@ object Schema extends SchemaEquality {
     )
 
     override def toString: String = s"CaseClass21(${fields.mkString(",")})"
-
   }
 
-  sealed case class CaseClass22[
+  object CaseClass21 {
+
+    def apply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      field07: Field[Z, A7],
+      field08: Field[Z, A8],
+      field09: Field[Z, A9],
+      field010: Field[Z, A10],
+      field011: Field[Z, A11],
+      field012: Field[Z, A12],
+      field013: Field[Z, A13],
+      field014: Field[Z, A14],
+      field015: Field[Z, A15],
+      field016: Field[Z, A16],
+      field017: Field[Z, A17],
+      field018: Field[Z, A18],
+      field019: Field[Z, A19],
+      field020: Field[Z, A20],
+      field021: Field[Z, A21],
+      construct0: (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] =
+      new CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] {
+        def id: TypeId                                    = id0
+        def field1: Field.WithFieldName[Z, Field1, A1]    = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2]    = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3]    = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4]    = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5]    = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6]    = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def field7: Field.WithFieldName[Z, Field7, A7]    = field07.asInstanceOf[Field.WithFieldName[Z, Field7, A7]]
+        def field8: Field.WithFieldName[Z, Field8, A8]    = field08.asInstanceOf[Field.WithFieldName[Z, Field8, A8]]
+        def field9: Field.WithFieldName[Z, Field9, A9]    = field09.asInstanceOf[Field.WithFieldName[Z, Field9, A9]]
+        def field10: Field.WithFieldName[Z, Field10, A10] = field010.asInstanceOf[Field.WithFieldName[Z, Field10, A10]]
+        def field11: Field.WithFieldName[Z, Field11, A11] = field011.asInstanceOf[Field.WithFieldName[Z, Field11, A11]]
+        def field12: Field.WithFieldName[Z, Field12, A12] = field012.asInstanceOf[Field.WithFieldName[Z, Field12, A12]]
+        def field13: Field.WithFieldName[Z, Field13, A13] = field013.asInstanceOf[Field.WithFieldName[Z, Field13, A13]]
+        def field14: Field.WithFieldName[Z, Field14, A14] = field014.asInstanceOf[Field.WithFieldName[Z, Field14, A14]]
+        def field15: Field.WithFieldName[Z, Field15, A15] = field015.asInstanceOf[Field.WithFieldName[Z, Field15, A15]]
+        def field16: Field.WithFieldName[Z, Field16, A16] = field016.asInstanceOf[Field.WithFieldName[Z, Field16, A16]]
+        def field17: Field.WithFieldName[Z, Field17, A17] = field017.asInstanceOf[Field.WithFieldName[Z, Field17, A17]]
+        def field18: Field.WithFieldName[Z, Field18, A18] = field018.asInstanceOf[Field.WithFieldName[Z, Field18, A18]]
+        def field19: Field.WithFieldName[Z, Field19, A19] = field019.asInstanceOf[Field.WithFieldName[Z, Field19, A19]]
+        def field20: Field.WithFieldName[Z, Field20, A20] = field020.asInstanceOf[Field.WithFieldName[Z, Field20, A20]]
+        def field21: Field.WithFieldName[Z, Field21, A21] = field021.asInstanceOf[Field.WithFieldName[Z, Field21, A21]]
+
+        def construct
+          : (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z =
+          construct0
+        def annotations: Chunk[Any] = annotations0
+
+        def annotate(annotation: Any): CaseClass21[
+          A1,
+          A2,
+          A3,
+          A4,
+          A5,
+          A6,
+          A7,
+          A8,
+          A9,
+          A10,
+          A11,
+          A12,
+          A13,
+          A14,
+          A15,
+          A16,
+          A17,
+          A18,
+          A19,
+          A20,
+          A21,
+          Z
+        ] =
+          CaseClass21(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            field07,
+            field08,
+            field09,
+            field010,
+            field011,
+            field012,
+            field013,
+            field014,
+            field015,
+            field016,
+            field017,
+            field018,
+            field019,
+            field020,
+            field021,
+            construct0,
+            annotations0 :+ annotation
+          )
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](
+      schema: CaseClass21[
+        A1,
+        A2,
+        A3,
+        A4,
+        A5,
+        A6,
+        A7,
+        A8,
+        A9,
+        A10,
+        A11,
+        A12,
+        A13,
+        A14,
+        A15,
+        A16,
+        A17,
+        A18,
+        A19,
+        A20,
+        A21,
+        Z
+      ]
+    ): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        Field.WithFieldName[Z, schema.Field7, A7],
+        Field.WithFieldName[Z, schema.Field8, A8],
+        Field.WithFieldName[Z, schema.Field9, A9],
+        Field.WithFieldName[Z, schema.Field10, A10],
+        Field.WithFieldName[Z, schema.Field11, A11],
+        Field.WithFieldName[Z, schema.Field12, A12],
+        Field.WithFieldName[Z, schema.Field13, A13],
+        Field.WithFieldName[Z, schema.Field14, A14],
+        Field.WithFieldName[Z, schema.Field15, A15],
+        Field.WithFieldName[Z, schema.Field16, A16],
+        Field.WithFieldName[Z, schema.Field17, A17],
+        Field.WithFieldName[Z, schema.Field18, A18],
+        Field.WithFieldName[Z, schema.Field19, A19],
+        Field.WithFieldName[Z, schema.Field20, A20],
+        (
+          Field.WithFieldName[Z, schema.Field21, A21],
+          (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21) => Z,
+          Chunk[Any]
+        )
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.field7,
+          schema.field8,
+          schema.field9,
+          schema.field10,
+          schema.field11,
+          schema.field12,
+          schema.field13,
+          schema.field14,
+          schema.field15,
+          schema.field16,
+          schema.field17,
+          schema.field18,
+          schema.field19,
+          schema.field20,
+          (schema.field21, schema.construct, schema.annotations)
+        )
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      F7 <: Singleton with String,
+      F8 <: Singleton with String,
+      F9 <: Singleton with String,
+      F10 <: Singleton with String,
+      F11 <: Singleton with String,
+      F12 <: Singleton with String,
+      F13 <: Singleton with String,
+      F14 <: Singleton with String,
+      F15 <: Singleton with String,
+      F16 <: Singleton with String,
+      F17 <: Singleton with String,
+      F18 <: Singleton with String,
+      F19 <: Singleton with String,
+      F20 <: Singleton with String,
+      F21 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      A19,
+      A20,
+      A21,
+      Z
+    ] =
+      CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] {
+        type Field1  = F1
+        type Field2  = F2
+        type Field3  = F3
+        type Field4  = F4
+        type Field5  = F5
+        type Field6  = F6
+        type Field7  = F7
+        type Field8  = F8
+        type Field9  = F9
+        type Field10 = F10
+        type Field11 = F11
+        type Field12 = F12
+        type Field13 = F13
+        type Field14 = F14
+        type Field15 = F15
+        type Field16 = F16
+        type Field17 = F17
+        type Field18 = F18
+        type Field19 = F19
+        type Field20 = F20
+        type Field21 = F21
+      }
+  }
+
+  sealed trait CaseClass22[
     A1,
     A2,
     A3,
@@ -5592,31 +9297,126 @@ object Schema extends SchemaEquality {
     A21,
     A22,
     Z
-  ](
-    id: TypeId,
-    field1: Field[Z, A1],
-    field2: Field[Z, A2],
-    field3: Field[Z, A3],
-    field4: Field[Z, A4],
-    field5: Field[Z, A5],
-    field6: Field[Z, A6],
-    field7: Field[Z, A7],
-    field8: Field[Z, A8],
-    field9: Field[Z, A9],
-    field10: Field[Z, A10],
-    field11: Field[Z, A11],
-    field12: Field[Z, A12],
-    field13: Field[Z, A13],
-    field14: Field[Z, A14],
-    field15: Field[Z, A15],
-    field16: Field[Z, A16],
-    field17: Field[Z, A17],
-    field18: Field[Z, A18],
-    field19: Field[Z, A19],
-    field20: Field[Z, A20],
-    field21: Field[Z, A21],
-    field22: Field[Z, A22],
-    construct: (
+  ] extends Record[Z] { self =>
+
+    type Field1 <: Singleton with String
+    type Field2 <: Singleton with String
+    type Field3 <: Singleton with String
+    type Field4 <: Singleton with String
+    type Field5 <: Singleton with String
+    type Field6 <: Singleton with String
+    type Field7 <: Singleton with String
+    type Field8 <: Singleton with String
+    type Field9 <: Singleton with String
+    type Field10 <: Singleton with String
+    type Field11 <: Singleton with String
+    type Field12 <: Singleton with String
+    type Field13 <: Singleton with String
+    type Field14 <: Singleton with String
+    type Field15 <: Singleton with String
+    type Field16 <: Singleton with String
+    type Field17 <: Singleton with String
+    type Field18 <: Singleton with String
+    type Field19 <: Singleton with String
+    type Field20 <: Singleton with String
+    type Field21 <: Singleton with String
+    type Field22 <: Singleton with String
+
+    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
+      Lens[Field1, Z, A1],
+      Lens[Field2, Z, A2],
+      Lens[Field3, Z, A3],
+      Lens[Field4, Z, A4],
+      Lens[Field5, Z, A5],
+      Lens[Field6, Z, A6],
+      Lens[Field7, Z, A7],
+      Lens[Field8, Z, A8],
+      Lens[Field9, Z, A9],
+      Lens[Field10, Z, A10],
+      Lens[Field11, Z, A11],
+      Lens[Field12, Z, A12],
+      Lens[Field13, Z, A13],
+      Lens[Field14, Z, A14],
+      Lens[Field15, Z, A15],
+      Lens[Field16, Z, A16],
+      Lens[Field17, Z, A17],
+      Lens[Field18, Z, A18],
+      Lens[Field19, Z, A19],
+      Lens[Field20, Z, A20],
+      Lens[Field21, Z, A21],
+      Lens[Field22, Z, A22]
+    )
+
+    override type Terms = (Field1, A1)
+      with (Field2, A2)
+      with (Field3, A3)
+      with (Field4, A4)
+      with (Field5, A5)
+      with (Field6, A6)
+      with (Field7, A7)
+      with (Field8, A8)
+      with (Field10, A10)
+      with (Field11, A11)
+      with (Field12, A12)
+      with (Field13, A13)
+      with (Field14, A14)
+      with (Field15, A15)
+      with (Field16, A16)
+      with (Field17, A17)
+      with (Field18, A18)
+      with (Field19, A19)
+      with (Field20, A20)
+      with (Field21, A21)
+      with (Field22, A22)
+
+    override type FieldNames = Field1
+      with Field2
+      with Field3
+      with Field4
+      with Field5
+      with Field6
+      with Field7
+      with Field8
+      with Field9
+      with Field10
+      with Field11
+      with Field12
+      with Field13
+      with Field14
+      with Field15
+      with Field16
+      with Field17
+      with Field18
+      with Field19
+      with Field20
+      with Field21
+      with Field22
+
+    def id: TypeId
+    def field1: Field.WithFieldName[Z, Field1, A1]
+    def field2: Field.WithFieldName[Z, Field2, A2]
+    def field3: Field.WithFieldName[Z, Field3, A3]
+    def field4: Field.WithFieldName[Z, Field4, A4]
+    def field5: Field.WithFieldName[Z, Field5, A5]
+    def field6: Field.WithFieldName[Z, Field6, A6]
+    def field7: Field.WithFieldName[Z, Field7, A7]
+    def field8: Field.WithFieldName[Z, Field8, A8]
+    def field9: Field.WithFieldName[Z, Field9, A9]
+    def field10: Field.WithFieldName[Z, Field10, A10]
+    def field11: Field.WithFieldName[Z, Field11, A11]
+    def field12: Field.WithFieldName[Z, Field12, A12]
+    def field13: Field.WithFieldName[Z, Field13, A13]
+    def field14: Field.WithFieldName[Z, Field14, A14]
+    def field15: Field.WithFieldName[Z, Field15, A15]
+    def field16: Field.WithFieldName[Z, Field16, A16]
+    def field17: Field.WithFieldName[Z, Field17, A17]
+    def field18: Field.WithFieldName[Z, Field18, A18]
+    def field19: Field.WithFieldName[Z, Field19, A19]
+    def field20: Field.WithFieldName[Z, Field20, A20]
+    def field21: Field.WithFieldName[Z, Field21, A21]
+    def field22: Field.WithFieldName[Z, Field22, A22]
+
+    def construct: (
       A1,
       A2,
       A3,
@@ -5639,84 +9439,32 @@ object Schema extends SchemaEquality {
       A20,
       A21,
       A22
-    ) => Z,
-    override val annotations: Chunk[Any] = Chunk.empty
-  ) extends Record[Z] { self =>
-
-    type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = (
-      Lens[field1.name.type, Z, A1],
-      Lens[field2.name.type, Z, A2],
-      Lens[field3.name.type, Z, A3],
-      Lens[field4.name.type, Z, A4],
-      Lens[field5.name.type, Z, A5],
-      Lens[field6.name.type, Z, A6],
-      Lens[field7.name.type, Z, A7],
-      Lens[field8.name.type, Z, A8],
-      Lens[field9.name.type, Z, A9],
-      Lens[field10.name.type, Z, A10],
-      Lens[field11.name.type, Z, A11],
-      Lens[field12.name.type, Z, A12],
-      Lens[field13.name.type, Z, A13],
-      Lens[field14.name.type, Z, A14],
-      Lens[field15.name.type, Z, A15],
-      Lens[field16.name.type, Z, A16],
-      Lens[field17.name.type, Z, A17],
-      Lens[field18.name.type, Z, A18],
-      Lens[field19.name.type, Z, A19],
-      Lens[field20.name.type, Z, A20],
-      Lens[field21.name.type, Z, A21],
-      Lens[field22.name.type, Z, A22]
-    )
-
-    override def annotate(annotation: Any): CaseClass22[
-      A1,
-      A2,
-      A3,
-      A4,
-      A5,
-      A6,
-      A7,
-      A8,
-      A9,
-      A10,
-      A11,
-      A12,
-      A13,
-      A14,
-      A15,
-      A16,
-      A17,
-      A18,
-      A19,
-      A20,
-      A21,
-      A22,
-      Z
-    ] = copy(annotations = annotations :+ annotation)
+    ) => Z
+    def annotations: Chunk[Any]
 
     override def makeAccessors(b: AccessorBuilder): (
-      b.Lens[field1.name.type, Z, A1],
-      b.Lens[field2.name.type, Z, A2],
-      b.Lens[field3.name.type, Z, A3],
-      b.Lens[field4.name.type, Z, A4],
-      b.Lens[field5.name.type, Z, A5],
-      b.Lens[field6.name.type, Z, A6],
-      b.Lens[field7.name.type, Z, A7],
-      b.Lens[field8.name.type, Z, A8],
-      b.Lens[field9.name.type, Z, A9],
-      b.Lens[field10.name.type, Z, A10],
-      b.Lens[field11.name.type, Z, A11],
-      b.Lens[field12.name.type, Z, A12],
-      b.Lens[field13.name.type, Z, A13],
-      b.Lens[field14.name.type, Z, A14],
-      b.Lens[field15.name.type, Z, A15],
-      b.Lens[field16.name.type, Z, A16],
-      b.Lens[field17.name.type, Z, A17],
-      b.Lens[field18.name.type, Z, A18],
-      b.Lens[field19.name.type, Z, A19],
-      b.Lens[field20.name.type, Z, A20],
-      b.Lens[field21.name.type, Z, A21],
-      b.Lens[field22.name.type, Z, A22]
+      b.Lens[Field1, Z, A1],
+      b.Lens[Field2, Z, A2],
+      b.Lens[Field3, Z, A3],
+      b.Lens[Field4, Z, A4],
+      b.Lens[Field5, Z, A5],
+      b.Lens[Field6, Z, A6],
+      b.Lens[Field7, Z, A7],
+      b.Lens[Field8, Z, A8],
+      b.Lens[Field9, Z, A9],
+      b.Lens[Field10, Z, A10],
+      b.Lens[Field11, Z, A11],
+      b.Lens[Field12, Z, A12],
+      b.Lens[Field13, Z, A13],
+      b.Lens[Field14, Z, A14],
+      b.Lens[Field15, Z, A15],
+      b.Lens[Field16, Z, A16],
+      b.Lens[Field17, Z, A17],
+      b.Lens[Field18, Z, A18],
+      b.Lens[Field19, Z, A19],
+      b.Lens[Field20, Z, A20],
+      b.Lens[Field21, Z, A21],
+      b.Lens[Field22, Z, A22]
     ) =
       (
         b.makeLens(self, field1),
@@ -5829,6 +9577,370 @@ object Schema extends SchemaEquality {
     )
 
     override def toString: String = s"CaseClass22(${fields.mkString(",")})"
+  }
 
+  object CaseClass22 {
+
+    def apply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](
+      id0: TypeId,
+      field01: Field[Z, A1],
+      field02: Field[Z, A2],
+      field03: Field[Z, A3],
+      field04: Field[Z, A4],
+      field05: Field[Z, A5],
+      field06: Field[Z, A6],
+      field07: Field[Z, A7],
+      field08: Field[Z, A8],
+      field09: Field[Z, A9],
+      field010: Field[Z, A10],
+      field011: Field[Z, A11],
+      field012: Field[Z, A12],
+      field013: Field[Z, A13],
+      field014: Field[Z, A14],
+      field015: Field[Z, A15],
+      field016: Field[Z, A16],
+      field017: Field[Z, A17],
+      field018: Field[Z, A18],
+      field019: Field[Z, A19],
+      field020: Field[Z, A20],
+      field021: Field[Z, A21],
+      field022: Field[Z, A22],
+      construct0: (
+        A1,
+        A2,
+        A3,
+        A4,
+        A5,
+        A6,
+        A7,
+        A8,
+        A9,
+        A10,
+        A11,
+        A12,
+        A13,
+        A14,
+        A15,
+        A16,
+        A17,
+        A18,
+        A19,
+        A20,
+        A21,
+        A22
+      ) => Z,
+      annotations0: Chunk[Any] = Chunk.empty
+    ): CaseClass22[
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      A19,
+      A20,
+      A21,
+      A22,
+      Z
+    ] =
+      new CaseClass22[
+        A1,
+        A2,
+        A3,
+        A4,
+        A5,
+        A6,
+        A7,
+        A8,
+        A9,
+        A10,
+        A11,
+        A12,
+        A13,
+        A14,
+        A15,
+        A16,
+        A17,
+        A18,
+        A19,
+        A20,
+        A21,
+        A22,
+        Z
+      ] {
+        def id: TypeId                                    = id0
+        def field1: Field.WithFieldName[Z, Field1, A1]    = field01.asInstanceOf[Field.WithFieldName[Z, Field1, A1]]
+        def field2: Field.WithFieldName[Z, Field2, A2]    = field02.asInstanceOf[Field.WithFieldName[Z, Field2, A2]]
+        def field3: Field.WithFieldName[Z, Field3, A3]    = field03.asInstanceOf[Field.WithFieldName[Z, Field3, A3]]
+        def field4: Field.WithFieldName[Z, Field4, A4]    = field04.asInstanceOf[Field.WithFieldName[Z, Field4, A4]]
+        def field5: Field.WithFieldName[Z, Field5, A5]    = field05.asInstanceOf[Field.WithFieldName[Z, Field5, A5]]
+        def field6: Field.WithFieldName[Z, Field6, A6]    = field06.asInstanceOf[Field.WithFieldName[Z, Field6, A6]]
+        def field7: Field.WithFieldName[Z, Field7, A7]    = field07.asInstanceOf[Field.WithFieldName[Z, Field7, A7]]
+        def field8: Field.WithFieldName[Z, Field8, A8]    = field08.asInstanceOf[Field.WithFieldName[Z, Field8, A8]]
+        def field9: Field.WithFieldName[Z, Field9, A9]    = field09.asInstanceOf[Field.WithFieldName[Z, Field9, A9]]
+        def field10: Field.WithFieldName[Z, Field10, A10] = field010.asInstanceOf[Field.WithFieldName[Z, Field10, A10]]
+        def field11: Field.WithFieldName[Z, Field11, A11] = field011.asInstanceOf[Field.WithFieldName[Z, Field11, A11]]
+        def field12: Field.WithFieldName[Z, Field12, A12] = field012.asInstanceOf[Field.WithFieldName[Z, Field12, A12]]
+        def field13: Field.WithFieldName[Z, Field13, A13] = field013.asInstanceOf[Field.WithFieldName[Z, Field13, A13]]
+        def field14: Field.WithFieldName[Z, Field14, A14] = field014.asInstanceOf[Field.WithFieldName[Z, Field14, A14]]
+        def field15: Field.WithFieldName[Z, Field15, A15] = field015.asInstanceOf[Field.WithFieldName[Z, Field15, A15]]
+        def field16: Field.WithFieldName[Z, Field16, A16] = field016.asInstanceOf[Field.WithFieldName[Z, Field16, A16]]
+        def field17: Field.WithFieldName[Z, Field17, A17] = field017.asInstanceOf[Field.WithFieldName[Z, Field17, A17]]
+        def field18: Field.WithFieldName[Z, Field18, A18] = field018.asInstanceOf[Field.WithFieldName[Z, Field18, A18]]
+        def field19: Field.WithFieldName[Z, Field19, A19] = field019.asInstanceOf[Field.WithFieldName[Z, Field19, A19]]
+        def field20: Field.WithFieldName[Z, Field20, A20] = field020.asInstanceOf[Field.WithFieldName[Z, Field20, A20]]
+        def field21: Field.WithFieldName[Z, Field21, A21] = field021.asInstanceOf[Field.WithFieldName[Z, Field21, A21]]
+        def field22: Field.WithFieldName[Z, Field22, A22] = field022.asInstanceOf[Field.WithFieldName[Z, Field22, A22]]
+
+        def construct
+          : (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22) => Z =
+          construct0
+        def annotations: Chunk[Any] = annotations0
+
+        def annotate(annotation: Any): CaseClass22[
+          A1,
+          A2,
+          A3,
+          A4,
+          A5,
+          A6,
+          A7,
+          A8,
+          A9,
+          A10,
+          A11,
+          A12,
+          A13,
+          A14,
+          A15,
+          A16,
+          A17,
+          A18,
+          A19,
+          A20,
+          A21,
+          A22,
+          Z
+        ] =
+          CaseClass22(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            field07,
+            field08,
+            field09,
+            field010,
+            field011,
+            field012,
+            field013,
+            field014,
+            field015,
+            field016,
+            field017,
+            field018,
+            field019,
+            field020,
+            field021,
+            field022,
+            construct0,
+            annotations0 :+ annotation
+          )
+      }
+
+    def unapply[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](
+      schema: CaseClass22[
+        A1,
+        A2,
+        A3,
+        A4,
+        A5,
+        A6,
+        A7,
+        A8,
+        A9,
+        A10,
+        A11,
+        A12,
+        A13,
+        A14,
+        A15,
+        A16,
+        A17,
+        A18,
+        A19,
+        A20,
+        A21,
+        A22,
+        Z
+      ]
+    ): Some[
+      (
+        TypeId,
+        Field.WithFieldName[Z, schema.Field1, A1],
+        Field.WithFieldName[Z, schema.Field2, A2],
+        Field.WithFieldName[Z, schema.Field3, A3],
+        Field.WithFieldName[Z, schema.Field4, A4],
+        Field.WithFieldName[Z, schema.Field5, A5],
+        Field.WithFieldName[Z, schema.Field6, A6],
+        Field.WithFieldName[Z, schema.Field7, A7],
+        Field.WithFieldName[Z, schema.Field8, A8],
+        Field.WithFieldName[Z, schema.Field9, A9],
+        Field.WithFieldName[Z, schema.Field10, A10],
+        Field.WithFieldName[Z, schema.Field11, A11],
+        Field.WithFieldName[Z, schema.Field12, A12],
+        Field.WithFieldName[Z, schema.Field13, A13],
+        Field.WithFieldName[Z, schema.Field14, A14],
+        Field.WithFieldName[Z, schema.Field15, A15],
+        Field.WithFieldName[Z, schema.Field16, A16],
+        Field.WithFieldName[Z, schema.Field17, A17],
+        Field.WithFieldName[Z, schema.Field18, A18],
+        Field.WithFieldName[Z, schema.Field19, A19],
+        Field.WithFieldName[Z, schema.Field20, A20],
+        (
+          Field.WithFieldName[Z, schema.Field21, A21],
+          Field.WithFieldName[Z, schema.Field22, A22],
+          (A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22) => Z,
+          Chunk[Any]
+        )
+      )
+    ] =
+      Some(
+        (
+          schema.id,
+          schema.field1,
+          schema.field2,
+          schema.field3,
+          schema.field4,
+          schema.field5,
+          schema.field6,
+          schema.field7,
+          schema.field8,
+          schema.field9,
+          schema.field10,
+          schema.field11,
+          schema.field12,
+          schema.field13,
+          schema.field14,
+          schema.field15,
+          schema.field16,
+          schema.field17,
+          schema.field18,
+          schema.field19,
+          schema.field20,
+          (schema.field21, schema.field22, schema.construct, schema.annotations)
+        )
+      )
+
+    type WithFields[
+      F1 <: Singleton with String,
+      F2 <: Singleton with String,
+      F3 <: Singleton with String,
+      F4 <: Singleton with String,
+      F5 <: Singleton with String,
+      F6 <: Singleton with String,
+      F7 <: Singleton with String,
+      F8 <: Singleton with String,
+      F9 <: Singleton with String,
+      F10 <: Singleton with String,
+      F11 <: Singleton with String,
+      F12 <: Singleton with String,
+      F13 <: Singleton with String,
+      F14 <: Singleton with String,
+      F15 <: Singleton with String,
+      F16 <: Singleton with String,
+      F17 <: Singleton with String,
+      F18 <: Singleton with String,
+      F19 <: Singleton with String,
+      F20 <: Singleton with String,
+      F21 <: Singleton with String,
+      F22 <: Singleton with String,
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      A19,
+      A20,
+      A21,
+      A22,
+      Z
+    ] =
+      CaseClass22[
+        A1,
+        A2,
+        A3,
+        A4,
+        A5,
+        A6,
+        A7,
+        A8,
+        A9,
+        A10,
+        A11,
+        A12,
+        A13,
+        A14,
+        A15,
+        A16,
+        A17,
+        A18,
+        A19,
+        A20,
+        A21,
+        A22,
+        Z
+      ] {
+        type Field1  = F1
+        type Field2  = F2
+        type Field3  = F3
+        type Field4  = F4
+        type Field5  = F5
+        type Field6  = F6
+        type Field7  = F7
+        type Field8  = F8
+        type Field9  = F9
+        type Field10 = F10
+        type Field11 = F11
+        type Field12 = F12
+        type Field13 = F13
+        type Field14 = F14
+        type Field15 = F15
+        type Field16 = F16
+        type Field17 = F17
+        type Field18 = F18
+        type Field19 = F19
+        type Field20 = F20
+        type Field21 = F21
+        type Field22 = F22
+      }
   }
 }

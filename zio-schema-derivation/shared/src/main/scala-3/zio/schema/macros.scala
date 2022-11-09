@@ -128,13 +128,11 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
           case '[tt] => TypeTree.of[tt]
       }
 
-    // This seems to work even hard-coded to CaseClass2 🤷‍♂️
-    val ctor = TypeRepr.of[CaseClass2[_, _, _]].typeSymbol.primaryConstructor
-    val typeTree = caseClassTypeTree[T](labels.length)
+    val ctor = typeRprOf[T](labels.length).typeSymbol.companionModule
 
     val applied = Apply(
       TypeApply(
-        Select(New(typeTree), ctor),
+        Select.unique(Ref(ctor), "apply"),
         typeArgs
       ),
       args.map(_.asTerm)
@@ -221,20 +219,27 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
   // Derive Field for a CaseClass
   def deriveField[T: Type](repr: TypeRepr, name: String, anns: List[Expr[Any]], stack: Stack) = {
     import zio.schema.validation.Validation
+    import zio.schema.annotation.validate
 
     val tpe = TypeRepr.of[T]
     val s = tpe.typeSymbol.declaredFields
-    val interestingField = s.find (_.name == name).get
-    val ct = tpe.memberType (interestingField)
+    val interestingField = s.find (_.name == name)
 
-    ct.asType match { case '[t] =>
+    val fieldType = interestingField match {
+      case Some(interestingField) =>
+        val ct = tpe.memberType (interestingField)
+        ct.asType
+      case None =>
+        repr.asType
+    }
+    fieldType match { case '[t] =>
       val schema = deriveSchema[t](stack)
-      val validators = anns.collect {
-        case ann if ann.isExprOf[Validation[t]] => ann.asExprOf[Validation[t]]
+      val validations = anns.collect {
+        case ann if ann.isExprOf[validate[t]] => ann.asExprOf[validate[t]]
       }
-      val validator: Expr[Validation[t]] = validators.foldLeft[Expr[Validation[t]]]('{Validation.succeed}){
+      val validator: Expr[Validation[t]] = validations.foldLeft[Expr[Validation[t]]]('{Validation.succeed}){
         case (acc, expr) => '{
-          $acc && $expr
+          $acc && ${expr}.validation
         }
       }
 
@@ -322,6 +327,33 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
       case 20 => TypeTree.of[CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
       case 21 => TypeTree.of[CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
       case 22 => TypeTree.of[CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+    }
+
+  def typeRprOf[T: Type](arity: Int): TypeRepr = 
+    arity match {
+      case 0 => TypeRepr.of[CaseClass0[T]]
+      case 1 => TypeRepr.of[CaseClass1[_, T]]
+      case 2 => TypeRepr.of[CaseClass2[_, _, T]]
+      case 3 => TypeRepr.of[CaseClass3[_, _, _, T]]
+      case 4 => TypeRepr.of[CaseClass4[_, _, _, _, T]]
+      case 5 => TypeRepr.of[CaseClass5[_, _, _, _, _, T]]
+      case 6 => TypeRepr.of[CaseClass6[_, _, _, _, _, _, T]]
+      case 7 => TypeRepr.of[CaseClass7[_, _, _, _, _, _, _, T]]
+      case 8 => TypeRepr.of[CaseClass8[_, _, _, _, _, _, _, _, T]]
+      case 9 => TypeRepr.of[CaseClass9[_, _, _, _, _, _, _, _, _, T]]
+      case 10 => TypeRepr.of[CaseClass10[_, _, _, _, _, _, _, _, _, _, T]]
+      case 11 => TypeRepr.of[CaseClass11[_, _, _, _, _, _, _, _, _, _, _, T]]
+      case 12 => TypeRepr.of[CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 13 => TypeRepr.of[CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 14 => TypeRepr.of[CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 15 => TypeRepr.of[CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 16 => TypeRepr.of[CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 17 => TypeRepr.of[CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 18 => TypeRepr.of[CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 19 => TypeRepr.of[CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 20 => TypeRepr.of[CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 21 => TypeRepr.of[CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
+      case 22 => TypeRepr.of[CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
     }
     
 

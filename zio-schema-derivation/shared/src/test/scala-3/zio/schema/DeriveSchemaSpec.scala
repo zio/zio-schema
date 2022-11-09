@@ -33,7 +33,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
   final case class ContainerFields(field1: Option[String], field2: List[String])
 
   object ContainerFields {
-    // implicit lazy val schema: Schema[ContainerFields] = DeriveSchema.gen[ContainerFields]
+    implicit lazy val schema: Schema[ContainerFields] = DeriveSchema.gen[ContainerFields]
   }
 
   sealed case class UserId(id: String)
@@ -242,6 +242,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
   }
 
   case class ContainsSchema(schema: Schema[User])
+
   object ContainsSchema {
     implicit val schema: Schema[ContainsSchema] = DeriveSchema.gen[ContainsSchema]
   }
@@ -277,12 +278,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         val derived: Schema[UserId] = DeriveSchema.gen[UserId]
         val expected: Schema[UserId] =
           Schema.CaseClass1(
-            id = TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
-            field = Schema.Field(
+            id0 = TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
+            field0 = Schema.Field(
               "id",
               Schema.Primitive(StandardType.StringType),
-              get = (uid: UserId) => uid.id,
-              set = (uid: UserId, v: String) => uid.copy(id = v)
+              get0 = (uid: UserId) => uid.id,
+              set0 = (uid: UserId, v: String) => uid.copy(id = v)
             ),
             UserId.apply
           )
@@ -374,19 +375,19 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         val expected: Schema[RenamedField] = {
           Schema.CaseClass2(
             TypeId.parse("zio.schema.DeriveSchemaSpec.RenamedField"),
-            field1 = Schema.Field(
+            field01 = Schema.Field(
               "renamed",
               Schema.Primitive(StandardType.StringType),
               Chunk(fieldName("renamed")),
-              get = _.name,
-              set = (a, b: String) => a.copy(name = b)
+              get0 = _.name,
+              set0 = (a, b: String) => a.copy(name = b)
             ),
-            field2 = Schema.Field(
+            field02 = Schema.Field(
               "number",
               Schema.Primitive(StandardType.IntType),
               Chunk(fieldName("number")),
-              get = _.num,
-              set = (a, b: Int) => a.copy(num = b)
+              get0 = _.num,
+              set0 = (a, b: Int) => a.copy(num = b)
             ),
             RenamedField.apply
           )

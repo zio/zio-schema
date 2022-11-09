@@ -86,9 +86,9 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         },
         test("failure") {
           for {
-            e  <- encode(schemaFail, StringValue("foo")).map(_.size)
-            e2 <- encodeNS(schemaFail, StringValue("foo")).map(_.size)
-          } yield assert(e)(equalTo(0)) && assert(e2)(equalTo(0))
+            e  <- encode(schemaFail, StringValue("foo")).map(_.size).exit
+            e2 <- encodeNS(schemaFail, StringValue("foo")).map(_.size).exit
+          } yield assert(e)(dies(anything)) && assert(e2)(dies(anything))
         }
       ),
       suite("Should successfully encode and decode")(
@@ -570,8 +570,8 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           val setSchema = Schema.set(Record.schemaRecord)
 
           for {
-            ed  <- encodeAndDecode(setSchema, set)
             ed2 <- encodeAndDecodeNS(setSchema, set)
+            ed  <- encodeAndDecode(setSchema, set)
           } yield assert(ed)(equalTo(Chunk.succeed(set))) && assert(ed2)(equalTo(set))
         },
         test("recursive data types") {
@@ -582,7 +582,16 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 //              ed2 <- encodeAndDecodeNS(schema, value)
               } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
           }
-        }
+        },
+        test("deep recursive data types") {
+          check(SchemaGen.anyDeepRecursiveTypeAndValue) {
+            case (schema, value) =>
+              for {
+                ed <- encodeAndDecode2(schema, value)
+                //              ed2 <- encodeAndDecodeNS(schema, value)
+              } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
+          }
+        } @@ TestAspect.sized(200)
       ),
       suite("Should successfully decode")(
         test("empty input") {
@@ -592,7 +601,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         },
         test("empty input by non streaming variant") {
           assertZIO(decodeNS(Schema[Int], "").exit)(
-            fails(equalTo("Failed to decode VarInt. Unexpected end of chunk"))
+            failsWithA[DecodeError]
           )
         }
       ),
@@ -629,7 +638,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           for {
             d  <- decode(schemaFail, "0F").exit
             d2 <- decodeNS(schemaFail, "0F").exit
-          } yield assert(d)(fails(equalTo("failing schema"))) && assert(d2)(fails(equalTo("failing schema")))
+          } yield assert(d)(failsWithA[DecodeError]) && assert(d2)(failsWithA[DecodeError])
         }
       ),
       suite("dynamic")(
@@ -785,22 +794,22 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         .Field(
           "c",
           Schema.Primitive(StandardType.IntType),
-          get = (p: ListMap[String, _]) => p("c").asInstanceOf[Int],
-          set = (p, v: Int) => p.updated("c", v)
+          get0 = (p: ListMap[String, _]) => p("c").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("c", v)
         ),
       Schema
         .Field(
           "b",
           Schema.Primitive(StandardType.IntType),
-          get = (p: ListMap[String, _]) => p("b").asInstanceOf[Int],
-          set = (p, v: Int) => p.updated("b", v)
+          get0 = (p: ListMap[String, _]) => p("b").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("b", v)
         ),
       Schema
         .Field(
           "a",
           Schema.Primitive(StandardType.IntType),
-          get = (p: ListMap[String, _]) => p("a").asInstanceOf[Int],
-          set = (p, v: Int) => p.updated("a", v)
+          get0 = (p: ListMap[String, _]) => p("a").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("a", v)
         )
     )
 
@@ -810,22 +819,22 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         .Field(
           "a",
           Schema.Primitive(StandardType.IntType),
-          get = (p: ListMap[String, _]) => p("a").asInstanceOf[Int],
-          set = (p, v: Int) => p.updated("a", v)
+          get0 = (p: ListMap[String, _]) => p("a").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("a", v)
         ),
       Schema
         .Field(
           "b",
           Schema.Primitive(StandardType.IntType),
-          get = (p: ListMap[String, _]) => p("b").asInstanceOf[Int],
-          set = (p, v: Int) => p.updated("b", v)
+          get0 = (p: ListMap[String, _]) => p("b").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("b", v)
         ),
       Schema
         .Field(
           "c",
           Schema.Primitive(StandardType.IntType),
-          get = (p: ListMap[String, _]) => p("c").asInstanceOf[Int],
-          set = (p, v: Int) => p.updated("c", v)
+          get0 = (p: ListMap[String, _]) => p("c").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("c", v)
         )
     )
   }
@@ -957,7 +966,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
   def encodeNS[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
     ZIO.succeed(ProtobufCodec.encode(schema)(input))
 
-  def decode[A](schema: Schema[A], hex: String): ZIO[Any, String, Chunk[A]] =
+  def decode[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, Chunk[A]] =
     ProtobufCodec
       .decoder(schema)
       .apply(
@@ -967,17 +976,17 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of decode
-  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, String, A] =
-    ZIO.succeed(ProtobufCodec.decode(schema)(fromHex(hex))).absolve[String, A]
+  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
+    ZIO.succeed(ProtobufCodec.decode(schema)(fromHex(hex))).absolve[DecodeError, A]
 
-  def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
+  def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ProtobufCodec
       .encoder(schema)
       .andThen(ProtobufCodec.decoder(schema))
       .apply(ZStream.succeed(input))
       .run(ZSink.collectAll)
 
-  def encodeAndDecode2[A](schema: Schema[A], input: A): ZIO[Any, Any, scala.util.Either[String, Chunk[A]]] =
+  def encodeAndDecode2[A](schema: Schema[A], input: A): ZIO[Any, Any, scala.util.Either[DecodeError, Chunk[A]]] =
     ProtobufCodec
       .encoder(schema)
       .andThen(ProtobufCodec.decoder(schema))
@@ -989,7 +998,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           printLine(s"Failed to encode and decode input $input\nError=$error").orDie
       }
 
-  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
+  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ProtobufCodec
       .encoder(encodeSchema)
       .andThen(ProtobufCodec.decoder(decodeSchema))
@@ -997,12 +1006,12 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, String, A] =
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)
       .tap(value => printLine(s"Input Value: $value").when(print).ignore)
       .map(a => ProtobufCodec.encode(schema)(a))
-      .tap(encoded => printLine(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
+      .tap(encoded => printLine(s"\nEncoded Bytes (${encoded.size}):\n${toHex(encoded)}").when(print).ignore)
       .map(ch => ProtobufCodec.decode(schema)(ch))
       .absolve
 
@@ -1010,7 +1019,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
     schema: Schema[A],
     input: A,
     print: Boolean = false
-  ): ZIO[Any, String, scala.util.Either[String, A]] =
+  ): ZIO[Any, DecodeError, scala.util.Either[DecodeError, A]] =
     ZIO
       .succeed(input)
       .tap(value => printLine(s"Input Value: $value").when(print).ignore)
@@ -1021,7 +1030,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         case Left(err) => printLine(s"Failed to encode and decode value $input\nError = $err").orDie
       }
 
-  def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, A] =
+  def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)
       .map(a => ProtobufCodec.encode(encodeSchema)(a))
