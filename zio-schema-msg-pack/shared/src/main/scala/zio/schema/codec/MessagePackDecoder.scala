@@ -38,6 +38,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
       case Schema.Either(left, right, _)              => decodeEither(path, left, right)
       case lzy @ Schema.Lazy(_)                       => decodeValue(path, lzy.schema)
       //case Schema.Meta(_, _)                                                                                                        => decode(path, Schema[MetaSchema]).map(_.toSchema)
+      case s: Schema.CaseClass0[A]                                                           => caseClass0Decoder(path, s)
       case s: Schema.CaseClass1[_, A]                                                        => caseClass1Decoder(path, s)
       case s: Schema.CaseClass2[_, _, A]                                                     => caseClass2Decoder(path, s)
       case s: Schema.CaseClass3[_, _, _, A]                                                  => caseClass3Decoder(path, s)
@@ -323,6 +324,9 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
 
   private def unsafeDecodeFields[Z](path: Path, fields: Schema.Field[Z, _]*): Result[Array[Any]] =
     decodeRecord(path, fields).map(_.values.toArray)
+
+  private def caseClass0Decoder[Z](path: Path, schema: Schema.CaseClass0[Z]): Result[Z] =
+    decodePrimitive(path, StandardType.UnitType).map(_ => schema.defaultConstruct())
 
   private def caseClass1Decoder[A, Z](path: Path, schema: Schema.CaseClass1[A, Z]): Result[Z] =
     unsafeDecodeFields(path, schema.field).flatMap { buffer =>

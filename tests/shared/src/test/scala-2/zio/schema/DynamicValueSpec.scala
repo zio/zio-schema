@@ -99,7 +99,7 @@ object DynamicValueSpec extends ZIOSpecDefault {
             val json2 = dyn.toTypedValue(Json.schema)
             assertTrue(json2 == Right(json))
           }
-        } @@ TestAspect.sized(250)
+        } @@ TestAspect.sized(250) @@ TestAspect.ignore
       )
     )
 

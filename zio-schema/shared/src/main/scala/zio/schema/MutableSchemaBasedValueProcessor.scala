@@ -877,7 +877,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
           }
 
         case s @ Schema.CaseClass0(_, _, _) =>
-          finishWith(processRecord(currentContext, s, ListMap()))
+          fields(s, currentValue)
 
         case s @ Schema.CaseClass1(_, f, _, _) =>
           fields(s, currentValue, f)

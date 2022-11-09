@@ -667,7 +667,7 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
             }
 
           case s @ Schema.CaseClass0(_, _, _) =>
-            finishWith(createRecord(currentContext, s, Chunk.empty))
+            record(s)
 
           case s @ Schema.CaseClass1(_, _, _, _) =>
             record(s)
