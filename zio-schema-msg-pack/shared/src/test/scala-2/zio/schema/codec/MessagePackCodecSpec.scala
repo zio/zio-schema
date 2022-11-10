@@ -697,7 +697,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       },
       test("empty input by non streaming variant") {
         assertZIO(decodeNS(Schema[Int], "").exit)(
-          fails(equalTo("No bytes to decode"))
+          failsWithA[DecodeError]
         )
       }
     ),
@@ -707,18 +707,10 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
           d  <- decode(Record.schemaRecord, "0F").exit
           d2 <- decodeNS(Record.schemaRecord, "0F").exit
         } yield assert(d)(
-          fails(
-            equalTo(
-              "Error at path /: Error reading object header: [org.msgpack.core.MessageTypeException: Expected Map, but got Integer (0f)]"
-            )
-          )
+          failsWithA[DecodeError]
         ) &&
           assert(d2)(
-            fails(
-              equalTo(
-                "Error at path /: Error reading object header: [org.msgpack.core.MessageTypeException: Expected Map, but got Integer (0f)]"
-              )
-            )
+            failsWithA[DecodeError]
           )
       },
       test("missing value") {
@@ -738,18 +730,10 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
                    }
           d2 <- decode(Record.schemaRecord, bytes2).exit
         } yield assert(d)(
-          fails(
-            equalTo(
-              "Error at path /fieldId:[value]: Cannot read int: [org.msgpack.core.MessageInsufficientBufferException]"
-            )
-          )
+          failsWithA[DecodeError]
         ) &&
           assert(d2)(
-            fails(
-              equalTo(
-                "Error at path /: Error reading field name on index 2: [org.msgpack.core.MessageTypeException: Expected String, but got Integer (7b)]"
-              )
-            )
+            failsWithA[DecodeError]
           )
       },
       test("unable to decode") {
@@ -763,11 +747,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
                   }
           d <- decode(Record.schemaRecord, bytes).exit
         } yield assert(d)(
-          fails(
-            equalTo(
-              "Error at path /fieldId:[value]: Cannot read int: [org.msgpack.core.MessageTypeException: Expected Integer, but got String (a9)]"
-            )
-          )
+          failsWithA[DecodeError]
         )
       },
       test("unknown type") {
@@ -778,11 +758,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
                   }
           d <- decode(Record.schemaRecord, bytes).exit
         } yield assert(d)(
-          fails(
-            startsWithString(
-              "Error at path /: Could not find schema for field: [This is number one bullshit] on index: 1"
-            )
-          )
+          failsWithA[DecodeError]
         )
       }
     )
@@ -1006,24 +982,24 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
   def encodeNS[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
     ZIO.succeed(MessagePackCodec.encode(schema)(input))
 
-  def decode[A](schema: Schema[A], hex: String): ZIO[Any, String, Chunk[A]] =
+  def decode[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, Chunk[A]] =
     ZStream
       .fromChunk(fromHex(hex))
       .via(MessagePackCodec.decoder(schema))
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of decode
-  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, String, A] =
-    ZIO.succeed(MessagePackCodec.decode(schema)(fromHex(hex))).absolve[String, A]
+  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
+    ZIO.succeed(MessagePackCodec.decode(schema)(fromHex(hex))).absolve[DecodeError, A]
 
-  def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
+  def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ZStream
       .succeed(input)
       .via(MessagePackCodec.encoder(schema))
       .via(MessagePackCodec.decoder(schema))
       .run(ZSink.collectAll)
 
-  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
+  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ZStream
       .succeed(input)
       .via(MessagePackCodec.encoder(encodeSchema))
@@ -1031,7 +1007,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, String, A] =
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)
       .tap(value => Console.printLine(s"Input Value: $value").when(print).ignore)
@@ -1040,7 +1016,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       .map(ch => MessagePackCodec.decode(schema)(ch))
       .absolve
 
-  def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, A] =
+  def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)
       .map(a => MessagePackCodec.encode(encodeSchema)(a))

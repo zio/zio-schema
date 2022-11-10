@@ -10,6 +10,7 @@ import scala.util.{ Failure, Success, Try }
 
 import org.msgpack.core.{ MessagePack, MessageUnpacker }
 
+import zio.schema.codec.DecodeError.MalformedFieldWithPath
 import zio.schema.codec.MessagePackDecoder._
 import zio.schema.{ DynamicValueSchema, Schema, StandardType }
 import zio.{ Chunk, ChunkBuilder }
@@ -37,6 +38,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
       case Schema.Either(left, right, _)              => decodeEither(path, left, right)
       case lzy @ Schema.Lazy(_)                       => decodeValue(path, lzy.schema)
       //case Schema.Meta(_, _)                                                                                                        => decode(path, Schema[MetaSchema]).map(_.toSchema)
+      case s: Schema.CaseClass0[A]                                                           => caseClass0Decoder(path, s)
       case s: Schema.CaseClass1[_, A]                                                        => caseClass1Decoder(path, s)
       case s: Schema.CaseClass2[_, _, A]                                                     => caseClass2Decoder(path, s)
       case s: Schema.CaseClass3[_, _, _, A]                                                  => caseClass3Decoder(path, s)
@@ -104,7 +106,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
     }
 
   private def decodeTransform[A, B](path: Path, schema: Schema[B], f: B => scala.util.Either[String, A]): Result[A] =
-    decodeValue(path, schema).flatMap(a => f(a).left.map(msg => Error(path, msg)))
+    decodeValue(path, schema).flatMap(a => f(a).left.map(msg => MalformedFieldWithPath(path, msg)))
 
   private def decodeRecord[Z](path: Path, fields: Seq[Schema.Field[Z, _]]): Result[ListMap[String, _]] =
     decodeStructure(path, fields.map(f => f.name -> f.schema).toMap)
@@ -151,8 +153,8 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
         (decodeValue(path, schema.keySchema), decodeValue(path, schema.valueSchema)) match {
           case (Right(key), Right(value)) => decodeElements(n - 1, m += ((key, value)))
           case (l, r) =>
-            val key   = l.fold(_.error, _.toString)
-            val value = r.fold(_.error, _.toString)
+            val key   = l.fold(_.message, _.toString)
+            val value = r.fold(_.message, _.toString)
             fail(path, s"Error decoding Map element (key: $key; value: $value)")
         }
       } else {
@@ -322,6 +324,9 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
 
   private def unsafeDecodeFields[Z](path: Path, fields: Schema.Field[Z, _]*): Result[Array[Any]] =
     decodeRecord(path, fields).map(_.values.toArray)
+
+  private def caseClass0Decoder[Z](path: Path, schema: Schema.CaseClass0[Z]): Result[Z] =
+    decodePrimitive(path, StandardType.UnitType).map(_ => schema.defaultConstruct())
 
   private def caseClass1Decoder[A, Z](path: Path, schema: Schema.CaseClass1[A, Z]): Result[Z] =
     unsafeDecodeFields(path, schema.field).flatMap { buffer =>
@@ -608,12 +613,12 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
 
 object MessagePackDecoder {
   type Path = Chunk[String]
-  case class Error(path: Path, error: String)
-  type Result[A] = scala.util.Either[Error, A]
+
+  type Result[A] = scala.util.Either[DecodeError, A]
 
   private def succeed[A](a: => A): Result[A] =
     Right(a)
 
   private def fail(path: Path, failure: String): Result[Nothing] =
-    Left(Error(path, failure))
+    Left(MalformedFieldWithPath(path, failure))
 }

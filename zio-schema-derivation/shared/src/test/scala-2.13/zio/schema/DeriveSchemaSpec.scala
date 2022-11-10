@@ -31,10 +31,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
 
   val fo = new annotation1("foo")
 
-  final case class ContainerFields(field1: Option[String], field2: List[String])
+  case class ContainerFields(field1: Option[String])
 
   object ContainerFields {
-    implicit lazy val schema: Schema[ContainerFields] = DeriveSchema.gen[ContainerFields]
+
+    implicit lazy val schema: Schema.CaseClass1.WithFields["field1", Option[String], ContainerFields] =
+      DeriveSchema.gen[ContainerFields]
   }
 
   sealed case class UserId(id: String)
@@ -282,11 +284,11 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         val expected: Schema[UserId] =
           Schema.CaseClass1(
             TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
-            field = Schema.Field(
+            field0 = Schema.Field(
               "id",
               Schema.Primitive(StandardType.StringType),
-              get = _.id,
-              set = (a, b: String) => a.copy(id = b)
+              get0 = _.id,
+              set0 = (a, b: String) => a.copy(id = b)
             ),
             UserId.apply
           )
@@ -294,40 +296,48 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         assert(derived)(hasSameSchema(expected))
       },
       test("correctly derives for case object") {
-        val derived: Schema[Singleton.type]  = DeriveSchema.gen[Singleton.type]
-        val expected: Schema[Singleton.type] = Schema.singleton(Singleton)
+        val derived: Schema[Singleton.type] = DeriveSchema.gen[Singleton.type]
+        val expected: Schema[Singleton.type] = Schema.CaseClass0(
+          TypeId.fromTypeName("zio.schema.DeriveSchemaSpec.Singleton"),
+          () => Singleton,
+          Chunk.empty
+        )
 
         assert(derived)(hasSameSchema(expected))
       },
       test("correctly captures annotations on case class") {
-        val derived: Schema[User] = Schema[User]
+        val derived = DeriveSchema.gen[User]
+
+        implicitly[derived.Field1 =:= "name"]
+        implicitly[derived.Field2 =:= "id"]
+
         val expected: Schema[User] = {
           Schema.CaseClass2(
             TypeId.parse("zio.schema.DeriveSchemaSpec.User"),
-            field1 = Schema.Field(
+            field01 = Schema.Field(
               "name",
               Schema.Primitive(StandardType.StringType),
-              get = _.name,
-              set = (a, b: String) => a.copy(name = b)
+              get0 = _.name,
+              set0 = (a, b: String) => a.copy(name = b)
             ),
-            field2 = Schema.Field(
+            field02 = Schema.Field(
               "id",
               Schema.CaseClass1(
                 TypeId.parse("zio.schema.DeriveSchemaSpec.UserId"),
-                field = Schema.Field(
+                field0 = Schema.Field(
                   "id",
                   Schema.Primitive(StandardType.StringType),
-                  get = (uid: UserId) => uid.id,
-                  set = (uid: UserId, id: String) => uid.copy(id = id)
+                  get0 = (uid: UserId) => uid.id,
+                  set0 = (uid: UserId, id: String) => uid.copy(id = id)
                 ),
                 UserId.apply
               ),
               Chunk(annotation1("foo"), annotation2("bar"), new annotation3, new annotation4(0)),
-              get = _.id,
-              set = (a, b: UserId) => a.copy(id = b)
+              get0 = _.id,
+              set0 = (a, b: UserId) => a.copy(id = b)
             ),
             User.apply,
-            annotations = Chunk(new annotation3)
+            annotations0 = Chunk(new annotation3)
           )
         }
         assert(derived)(hasSameSchema(expected))
@@ -400,23 +410,27 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         assert(Schema[ContainsSchema].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
       test("correctly derives renaming field when fieldName annotation is present") {
-        val derived: Schema[RenamedField] = Schema[RenamedField]
+        val derived: Schema.CaseClass2.WithFields["renamed", "number", String, Int, RenamedField] =
+          DeriveSchema.gen[RenamedField]
+
+        implicitly[derived.Field1 =:= "renamed"]
+
         val expected: Schema[RenamedField] = {
           Schema.CaseClass2(
             TypeId.parse("zio.schema.DeriveSchemaSpec.RenamedField"),
-            field1 = Schema.Field(
+            field01 = Schema.Field(
               "renamed",
               Schema.Primitive(StandardType.StringType),
               Chunk(fieldName("renamed")),
-              get = _.name,
-              set = (a, b: String) => a.copy(name = b)
+              get0 = _.name,
+              set0 = (a, b: String) => a.copy(name = b)
             ),
-            field2 = Schema.Field(
+            field02 = Schema.Field(
               "number",
               Schema.Primitive(StandardType.IntType),
               Chunk(fieldName("number")),
-              get = _.num,
-              set = (a, b: Int) => a.copy(num = b)
+              get0 = _.num,
+              set0 = (a, b: Int) => a.copy(num = b)
             ),
             RenamedField.apply
           )
@@ -428,19 +442,19 @@ object DeriveSchemaSpec extends ZIOSpecDefault {
         val expected: Schema[OptionalField] = {
           Schema.CaseClass2(
             TypeId.parse("zio.schema.DeriveSchemaSpec.OptionalField"),
-            field1 = Schema.Field(
+            field01 = Schema.Field(
               "name",
               Schema.Primitive(StandardType.StringType),
               Chunk(optionalField()),
-              get = _.name,
-              set = (a, b: String) => a.copy(name = b)
+              get0 = _.name,
+              set0 = (a, b: String) => a.copy(name = b)
             ),
-            field2 = Schema.Field(
+            field02 = Schema.Field(
               "age",
               Schema.Primitive(StandardType.IntType),
               Chunk.empty,
-              get = _.age,
-              set = (a, b: Int) => a.copy(age = b)
+              get0 = _.age,
+              set0 = (a, b: Int) => a.copy(age = b)
             ),
             OptionalField.apply
           )

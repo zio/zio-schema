@@ -28,10 +28,32 @@ object DeriveSchema {
 
     def isMap(tpe: Type): Boolean = tpe.typeSymbol.fullName == "scala.collection.immutable.Map"
 
+    @nowarn def collectTypeAnnotations(tpe: Type): List[Tree] =
+      tpe.typeSymbol.annotations.collect {
+        case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
+          annotation.tree match {
+            case q"new $annConstructor(..$annotationArgs)" =>
+              q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
+            case q"new $annConstructor()" =>
+              q"new ${annConstructor.tpe.typeSymbol}()"
+            case tree =>
+              c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
+              EmptyTree
+          }
+        case annotation =>
+          c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
+          EmptyTree
+      }.filter(_ != EmptyTree)
+
     def recurse(tpe: Type, stack: List[Frame[c.type]]): Tree =
-      if (isCaseObject(tpe))
-        q"_root_.zio.schema.Schema.singleton(${tpe.typeSymbol.asClass.module})"
-      else if (isCaseClass(tpe)) deriveRecord(tpe, stack)
+      if (isCaseObject(tpe)) {
+        val typeId          = q"_root_.zio.schema.TypeId.parse(${tpe.typeSymbol.asClass.fullName})"
+        val typeAnnotations = collectTypeAnnotations(tpe)
+        val annotations =
+          if (typeAnnotations.isEmpty) q"_root_.zio.Chunk.empty"
+          else q"_root_.zio.Chunk.apply(..$typeAnnotations)"
+        q"_root_.zio.schema.Schema.CaseClass0($typeId, () => ${tpe.typeSymbol.asClass.module}, $annotations)"
+      } else if (isCaseClass(tpe)) deriveRecord(tpe, stack)
       else if (isSealedTrait(tpe))
         deriveEnum(tpe, stack)
       else if (isMap(tpe)) deriveMap(tpe)
@@ -196,25 +218,9 @@ object DeriveSchema {
           case p: TermSymbol if p.isCaseAccessor && p.isMethod => p.name
         }
 
-        val typeId = q"_root_.zio.schema.TypeId.parse(${tpe.toString()})"
+        val typeId = q"_root_.zio.schema.TypeId.parse(${tpe.typeSymbol.fullName})"
 
-        @nowarn
-        val typeAnnotations: List[Tree] =
-          tpe.typeSymbol.annotations.collect {
-            case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
-              annotation.tree match {
-                case q"new $annConstructor(..$annotationArgs)" =>
-                  q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
-                case q"new $annConstructor()" =>
-                  q"new ${annConstructor.tpe.typeSymbol}()"
-                case tree =>
-                  c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
-                  EmptyTree
-              }
-            case annotation =>
-              c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
-              EmptyTree
-          }.filter(_ != EmptyTree)
+        val typeAnnotations: List[Tree] = collectTypeAnnotations(tpe)
 
         @nowarn
         val fieldAnnotations: List[List[Tree]] = //List.fill(arity)(Nil)
@@ -243,7 +249,7 @@ object DeriveSchema {
           tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
             symbols.map { symbol =>
               symbol.annotations.collect {
-                case annotation if (annotation.tree.tpe.toString.startsWith("_root_.zio.schema.annotation.validate")) =>
+                case annotation if (annotation.tree.tpe.toString.startsWith("zio.schema.annotation.validate")) =>
                   annotation.tree match {
                     case q"new $annConstructor(..$annotationArgs)" =>
                       q"..$annotationArgs"
@@ -261,13 +267,13 @@ object DeriveSchema {
         if (arity > 22) {
           val fields = fieldTypes.zip(fieldAnnotations).map {
             case (termSymbol, annotations) =>
+              val fieldType = concreteType(tpe, termSymbol.typeSignature)
               val fieldSchema = directInferSchema(
                 tpe,
                 concreteType(tpe, termSymbol.typeSignature),
                 currentFrame +: stack
               )
               val fieldLabel = termSymbol.name.toString.trim
-
               val getFunc =
                 q" (z: scala.collection.immutable.ListMap[String, _]) => z.apply($fieldLabel).asInstanceOf[${termSymbol.typeSignature}]"
 
@@ -275,10 +281,13 @@ object DeriveSchema {
                 q" (z: scala.collection.immutable.ListMap[String, _], v: ${termSymbol.typeSignature}) => z.updated($fieldLabel, v)"
 
               if (annotations.nonEmpty) {
-                val newName = getFieldName(annotations).getOrElse(fieldLabel)
-                q"_root_.zio.schema.Schema.Field.apply(name = $newName, schema = $fieldSchema, annotations = _root_.zio.Chunk.apply[Any](..$annotations), get = $getFunc, set = $setFunc)"
-              } else
-                q"_root_.zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, get = $getFunc, set = $setFunc)"
+                val newName       = getFieldName(annotations).getOrElse(fieldLabel)
+                val singletonType = tq"${newName}.type"
+                q"_root_.zio.schema.Schema.Field.apply(name0 = $newName, schema0 = $fieldSchema, annotations0 = _root_.zio.Chunk.apply[Any](..$annotations), get0 = $getFunc, set0 = $setFunc).asInstanceOf[_root_.zio.schema.Schema.Field.WithFieldName[scala.collection.immutable.ListMap[String, _], $singletonType, ${fieldType}]]"
+              } else {
+                val singletonType = tq"${fieldLabel}.type"
+                q"_root_.zio.schema.Schema.Field.apply(name0 = $fieldLabel, schema0 = $fieldSchema, get0 = $getFunc, set0 = $setFunc).asInstanceOf[_root_.zio.schema.Schema.Field.WithFieldName[scala.collection.immutable.ListMap[String, _], $singletonType, ${fieldType}]]"
+              }
           }
           val fromMap = {
             val casts = fieldTypes.map { termSymbol =>
@@ -303,7 +312,7 @@ object DeriveSchema {
             if (typeAnnotations.isEmpty) Iterable(q"annotations = _root_.zio.Chunk.empty")
             else Iterable(q"annotations = _root_.zio.Chunk.apply(..$typeAnnotations)")
 
-          q"""_root_.zio.schema.Schema.GenericRecord($typeId, _root_.zio.schema.FieldSet(..$fields), ..$applyArgs).transformOrFail[$tpe]($fromMap,$toMap)"""
+          q"""_root_.zio.schema.Schema.GenericRecord($typeId, _root_.zio.schema.FieldSet.fromFields(..$fields), ..$applyArgs).transformOrFail[$tpe]($fromMap,$toMap)"""
         } else {
           val schemaType = arity match {
             case 0  => q"_root_.zio.schema.Schema.CaseClass0[..$typeArgs]"
@@ -339,7 +348,7 @@ object DeriveSchema {
                 fieldType,
                 currentFrame +: stack
               )
-              val fieldArg   = if (fieldTypes.size > 1) TermName(s"field${idx + 1}") else TermName("field")
+              val fieldArg   = if (fieldTypes.size > 1) TermName(s"field0${idx + 1}") else TermName("field0")
               val fieldLabel = termSymbol.name.toString.trim
               val getArg     = TermName(fieldLabel)
 
@@ -347,10 +356,13 @@ object DeriveSchema {
               val setFunc = q" (z: $tpe, v: ${fieldType}) => z.copy($getArg = v)"
 
               if (annotations.nonEmpty) {
-                val newName = getFieldName(annotations).getOrElse(fieldLabel)
-                q"""$fieldArg = _root_.zio.schema.Schema.Field.apply(name = $newName, schema = $fieldSchema, annotations = _root_.zio.Chunk.apply[Any](..$annotations), validation = $validation, get = $getFunc, set = $setFunc)"""
-              } else
-                q"""$fieldArg = _root_.zio.schema.Schema.Field.apply(name = $fieldLabel, schema = $fieldSchema, validation = $validation, get = $getFunc, set = $setFunc)"""
+                val newName       = getFieldName(annotations).getOrElse(fieldLabel)
+                val singletonType = tq"${newName}.type"
+                q"""$fieldArg = _root_.zio.schema.Schema.Field.apply(name0 = $newName, schema0 = $fieldSchema, annotations0 = _root_.zio.Chunk.apply[Any](..$annotations), validation0 = $validation, get0 = $getFunc, set0 = $setFunc).asInstanceOf[_root_.zio.schema.Schema.Field.WithFieldName[$tpe, $singletonType, $fieldType]]"""
+              } else {
+                val singletonType = tq"${fieldLabel}.type"
+                q"""$fieldArg = _root_.zio.schema.Schema.Field.apply(name0 = $fieldLabel, schema0 = $fieldSchema, validation0 = $validation, get0 = $getFunc, set0 = $setFunc).asInstanceOf[_root_.zio.schema.Schema.Field.WithFieldName[$tpe, $singletonType, $fieldType]]"""
+              }
           }
 
           val constructArgs = fieldTypes.zipWithIndex.map {
@@ -366,67 +378,74 @@ object DeriveSchema {
 
           val constructExpr =
             if (arity < 2)
-              q"defaultConstruct = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
+              q"defaultConstruct0 = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
             else
-              q"construct = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
+              q"construct0 = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
 
           val applyArgs =
             if (typeAnnotations.isEmpty)
-              Iterable(q"annotations = _root_.zio.Chunk.empty") ++ Iterable(q"id = ${typeId}") ++ fieldDefs ++ Iterable(
+              Iterable(q"annotations0 = _root_.zio.Chunk.empty") ++ Iterable(q"id0 = ${typeId}") ++ fieldDefs ++ Iterable(
                 constructExpr
               )
             else
-              Iterable(q"annotations = _root_.zio.Chunk.apply(..$typeAnnotations)") ++ Iterable(q"id = ${typeId}") ++ fieldDefs ++ Iterable(
+              Iterable(q"annotations0 = _root_.zio.Chunk.apply(..$typeAnnotations)") ++ Iterable(q"id0 = ${typeId}") ++ fieldDefs ++ Iterable(
                 constructExpr
               )
 
+          val typeArgsWithFields = fieldTypes.zip(fieldAnnotations).map {
+            case (termSymbol, annotations) if annotations.nonEmpty =>
+              tq"${getFieldName(annotations).getOrElse(termSymbol.name.toString.trim)}.type"
+            case (termSymbol, _) =>
+              tq"${termSymbol.name.toString.trim}.type"
+          } ++ typeArgs
+
           fieldTypes.size match {
             case 0 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass0[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass0[..$typeArgsWithFields] = $schemaType(..$applyArgs); $selfRef}"
             case 1 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass1[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass1.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass1.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 2 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass2[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass2.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass2.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 3 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass3[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass3.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass3.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 4 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass4[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass4.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass4.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 5 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass5[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass5.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass5.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 6 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass6[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass6.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass6.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 7 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass7[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass7.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass7.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 8 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass8[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass8.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass8.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 9 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass9[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass9.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass9.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 10 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass10[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass10.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass10.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 11 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass11[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass11.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass11.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 12 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass12[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass12.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass12.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 13 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass13[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass13.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass13.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 14 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass14[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass14.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass14.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 15 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass15[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass15.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass15.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 16 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass16[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass16.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass16.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 17 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass17[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass17.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass17.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 18 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass18[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass18.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass18.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 19 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass19[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass19.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass19.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 20 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass20[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass20.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass20.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 21 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass21[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass21.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass21.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case 22 =>
-              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass22[..$typeArgs] = $schemaType(..$applyArgs); $selfRef}"
+              q"{lazy val $selfRef: _root_.zio.schema.Schema.CaseClass22.WithFields[..$typeArgsWithFields] = $schemaType(..$applyArgs).asInstanceOf[_root_.zio.schema.Schema.CaseClass22.WithFields[..$typeArgsWithFields]]; $selfRef}"
             case s =>
               c.abort(
                 tpe.termSymbol.pos,
@@ -616,10 +635,10 @@ object DeriveSchema {
         case _                                       => c.abort(c.enclosingPosition, (s"Invalid type $tpe for @deriveSchema"))
       }
 
-      val keySchema   = q"""zio.schema.Schema[$keyType]"""
-      val valueSchema = q"""zio.schema.Schema[$valueType]"""
+      val keySchema   = q"""_root_.zio.schema.Schema[$keyType]"""
+      val valueSchema = q"""_root_.zio.schema.Schema[$valueType]"""
 
-      q"""{lazy val $selfRefIdent: zio.schema.Schema.Map[$keyType, $valueType] = zio.schema.Schema.Map.apply[$keyType, $valueType]($keySchema, $valueSchema, zio.Chunk.empty); $selfRefIdent}"""
+      q"""{lazy val $selfRefIdent: _root_.zio.schema.Schema.Map[$keyType, $valueType] = _root_.zio.schema.Schema.Map.apply[$keyType, $valueType]($keySchema, $valueSchema, zio.Chunk.empty); $selfRefIdent}"""
     }
 
     recurse(tpe, List.empty[Frame[c.type]])

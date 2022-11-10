@@ -12,13 +12,13 @@ trait Codec[Whole, Element] {
   final def encoder[A](schema: Schema[A]): ZPipeline[Any, Nothing, A, Element] =
     encoderFor[A](schema).streamEncoder
 
-  final def decoder[A](schema: Schema[A]): ZPipeline[Any, String, Element, A] =
+  final def decoder[A](schema: Schema[A]): ZPipeline[Any, DecodeError, Element, A] =
     decoderFor[A](schema).streamDecoder
 
   final def encode[A](schema: Schema[A]): A => Whole =
     encoderFor[A](schema).encode
 
-  final def decode[A](schema: Schema[A]): Whole => Either[String, A] =
+  final def decode[A](schema: Schema[A]): Whole => Either[DecodeError, A] =
     decoderFor[A](schema).decode
 
 }
