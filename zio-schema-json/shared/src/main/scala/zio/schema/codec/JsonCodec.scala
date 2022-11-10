@@ -2,21 +2,19 @@ package zio.schema.codec
 
 import java.nio.CharBuffer
 import java.nio.charset.StandardCharsets
-
 import scala.collection.immutable.ListMap
-
 import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.internal.{ Lexer, RetractReader, StringMatrix, Write }
 import zio.json.{
+  JsonFieldDecoder,
+  JsonFieldEncoder,
   JsonCodec => ZJsonCodec,
   JsonDecoder => ZJsonDecoder,
-  JsonEncoder => ZJsonEncoder,
-  JsonFieldDecoder,
-  JsonFieldEncoder
+  JsonEncoder => ZJsonEncoder
 }
 import zio.schema._
-import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
+import zio.schema.annotation.{ caseNameAliases, fieldDefaultValue, optionalField, transientField }
 import zio.schema.codec.BinaryCodec._
 import zio.schema.codec.DecodeError.ReadError
 import zio.stream.ZPipeline
@@ -415,9 +413,13 @@ object JsonCodec extends BinaryCodec {
     private def enumDecoder[Z](cases: Schema.Case[Z, _]*): ZJsonDecoder[Z] = {
       (trace: List[JsonError], in: RetractReader) =>
         {
+          val caseNameAliases = cases.map {
+            case Schema.Case(name, _, _, _, _, annotations) =>
+              (name, annotations.collectFirst { case a: caseNameAliases => a.aliases.toList }.getOrElse(List.empty))
+          }.toMap
           Lexer.char(trace, in, '{')
           if (Lexer.firstField(trace, in)) {
-            val subtype = Lexer.string(trace, in).toString
+            val subtype = deAliasCaseName(Lexer.string(trace, in).toString, caseNameAliases)
             val trace_  = JsonError.ObjectAccess(subtype) :: trace
             Lexer.char(trace_, in, ':')
             cases.find(_.id == subtype) match {
@@ -433,6 +435,9 @@ object JsonCodec extends BinaryCodec {
           }
         }
     }
+
+    private def deAliasCaseName(alias: String, caseNameAliases: Map[String, List[String]]): String =
+      caseNameAliases.find(_._2.contains(alias)).map(_._1).getOrElse(alias)
 
     private def recordDecoder[Z](structure: Seq[Schema.Field[Z, _]]): ZJsonDecoder[ListMap[String, Any]] = {
       (trace: List[JsonError], in: RetractReader) =>
