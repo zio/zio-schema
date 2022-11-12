@@ -11,7 +11,7 @@ import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
-import zio.schema.annotation.{ fieldDefaultValue, fieldNameAliases, optionalField, transientField }
+import zio.schema.annotation.{ fieldDefaultValue, fieldNameAliases, optionalField, rejectExtraFields, transientField }
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.stream.ZStream
@@ -194,6 +194,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           optionalSearchRequestSchema,
           OptionalSearchRequest("test", 0, 10, Schema[String].defaultValue.getOrElse("")),
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
+        )
+      },
+      test("reject extra fields") {
+        assertDecodesToError(
+          PersonWithRejectExtraFields.schema,
+          """{"name":"test","age":10,"extraField":10}""",
+          JsonError.Message("extra field") :: Nil
         )
       },
       test("transient field annotation") {
@@ -832,6 +839,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
     implicit val encoder: JsonEncoder[OptionalSearchRequest] = DeriveJsonEncoder.gen[OptionalSearchRequest]
   }
 
+  @rejectExtraFields final case class PersonWithRejectExtraFields(name: String, age: Int)
+
+  object PersonWithRejectExtraFields {
+    implicit val encoder: JsonEncoder[PersonWithRejectExtraFields] =
+      DeriveJsonEncoder.gen[PersonWithRejectExtraFields]
+
+    val schema: Schema[PersonWithRejectExtraFields] = DeriveSchema.gen[PersonWithRejectExtraFields]
+  }
   case class FieldDefaultValueSearchRequest(
     query: String,
     pageNumber: Int,
