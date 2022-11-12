@@ -26,9 +26,9 @@ When our data structures need to be serialized, deserialized, persisted, or tran
 In order to use this library, we need to add the following lines in our `build.sbt` file:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema" % "@RELEASE_VERSION@"
-libraryDependencies += "dev.zio" %% "zio-schema-json" % "@RELEASE_VERSION@"
-libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "@RELEASE_VERSION@"
+libraryDependencies += "dev.zio" %% "zio-schema" % "@VERSION@"
+libraryDependencies += "dev.zio" %% "zio-schema-json" % "@VERSION@"
+libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "@VERSION@"
 ```
 
 ## Example
