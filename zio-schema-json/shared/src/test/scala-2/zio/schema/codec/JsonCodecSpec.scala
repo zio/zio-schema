@@ -11,7 +11,7 @@ import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
-import zio.schema.annotation.{ fieldDefaultValue, optionalField, rejectExtraFields, transientField }
+import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.stream.ZStream
@@ -142,6 +142,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[Enumeration],
           Enumeration(StringValue("foo")),
           charSequenceToByteChunk("""{"oneOf":{"StringValue":{"value":"foo"}}}""")
+        )
+      },
+      test("ADT with annotation") {
+        assertEncodes(
+          Schema[Enumeration2],
+          Enumeration2(StringValue2("foo2")),
+          charSequenceToByteChunk("""{"oneOf":{"_type":"StringValue2","value":"foo2"}}""")
         )
       },
       test("case class ") {
@@ -569,6 +576,18 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[Enumeration],
           Enumeration(BooleanValue(false))
         )
+      },
+      test("ADT with annotation") {
+        assertEncodesThenDecodes(
+          Schema[Enumeration2],
+          Enumeration2(StringValue2("foo"))
+        ) &> assertEncodesThenDecodes(
+          Schema[Enumeration2],
+          Enumeration2(StringValue2Multi("foo", "bar"))
+        ) &> assertEncodesThenDecodes(Schema[Enumeration2], Enumeration2(IntValue2(-1))) &> assertEncodesThenDecodes(
+          Schema[Enumeration2],
+          Enumeration2(BooleanValue2(false))
+        )
       }
     ),
     suite("transform")(
@@ -709,11 +728,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
     )
   )
 
-  private def assertEncodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {
+  private def assertEncodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte], print: Boolean = false) = {
     val stream = ZStream
       .succeed(value)
       .via(JsonCodec.encoder(schema))
       .runCollect
+      .tap { chunk =>
+        printLine(s"${new String(chunk.toArray)}").when(print).ignore
+      }
     assertZIO(stream)(equalTo(chunk))
   }
 
@@ -928,6 +950,19 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object Enumeration {
     implicit val schema: Schema[Enumeration] = DeriveSchema.gen[Enumeration]
+  }
+
+  @discriminatorName("_type")
+  sealed trait OneOf2
+  case class StringValue2(value: String)                       extends OneOf2
+  case class IntValue2(value: Int)                             extends OneOf2
+  case class BooleanValue2(value: Boolean)                     extends OneOf2
+  case class StringValue2Multi(value1: String, value2: String) extends OneOf2
+
+  case class Enumeration2(oneOf: OneOf2)
+
+  object Enumeration2 {
+    implicit val schema: Schema[Enumeration2] = DeriveSchema.gen[Enumeration2]
   }
 
   case object Singleton
