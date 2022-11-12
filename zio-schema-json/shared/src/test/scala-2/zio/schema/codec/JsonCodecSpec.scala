@@ -11,7 +11,7 @@ import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
-import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
+import zio.schema.annotation.{ fieldDefaultValue, fieldNameAliases, optionalField, transientField }
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.stream.ZStream
@@ -208,6 +208,27 @@ object JsonCodecSpec extends ZIOSpecDefault {
           fieldDefaultValueSearchRequestSchema,
           FieldDefaultValueSearchRequest("test", 0, 10, "test"),
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10,"nextPage":"test"}""")
+        )
+      },
+      test("field name with alias - id") {
+        assertDecodes(
+          Order.schema,
+          Order(1, BigDecimal.valueOf(10), "test"),
+          charSequenceToByteChunk("""{"id":1,"value":10,"description":"test"}""")
+        )
+      },
+      test("field name with alias - order_id") {
+        assertDecodes(
+          Order.schema,
+          Order(1, BigDecimal.valueOf(10), "test"),
+          charSequenceToByteChunk("""{"id":1,"value":10,"description":"test"}""")
+        )
+      },
+      test("field name with alias - no alias") {
+        assertDecodes(
+          Order.schema,
+          Order(1, BigDecimal.valueOf(10), "test"),
+          charSequenceToByteChunk("""{"orderId":1,"value":10,"description":"test"}""")
         )
       }
     )
@@ -927,5 +948,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object Value {
     implicit lazy val schema: Schema[Value] = DeriveSchema.gen[Value]
+  }
+
+  case class Order(@fieldNameAliases("order_id", "id") orderId: Int, value: BigDecimal, description: String)
+
+  object Order {
+    implicit lazy val schema: Schema[Order] = DeriveSchema.gen[Order]
   }
 }
