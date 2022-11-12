@@ -850,14 +850,14 @@ object JsonCodec extends BinaryCodec {
           val aliases = annotations.collectFirst { case a: fieldNameAliases => a.aliases }.getOrElse(Nil)
           aliases.map(_ -> fieldNames.indexOf(name)) :+ (name -> fieldNames.indexOf(name))
       }.toMap
-      val aliasesMatrix = fieldAliases.keys.toArray ++ fieldNames
-      val rejectExtraFields         = caseClassSchema.annotations.collectFirst({ case _: rejectExtraFields => () }).isDefined
+      val aliasesMatrix     = fieldAliases.keys.toArray ++ fieldNames
+      val rejectExtraFields = caseClassSchema.annotations.collectFirst({ case _: rejectExtraFields => () }).isDefined
       Lexer.char(trace, in, '{')
       if (Lexer.firstField(trace, in)) {
         while ({
           var trace_   = trace
           val fieldRaw = Lexer.field(trace, in, new StringMatrix(aliasesMatrix))
-          val field    = fieldAliases.getOrElse(aliasesMatrix(fieldRaw), -1)
+          val field    = if (fieldRaw != -1) fieldAliases.getOrElse(aliasesMatrix(fieldRaw), -1) else -1
           if (field != -1) {
             trace_ = spans(field) :: trace
             if (buffer(field) != null)
