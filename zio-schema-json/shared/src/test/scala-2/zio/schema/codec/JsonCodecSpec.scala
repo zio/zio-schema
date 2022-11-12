@@ -203,6 +203,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
         )
       },
+      test("reject extra fields") {
+        assertDecodesToError(
+          PersonWithRejectExtraFields.schema,
+          """{"name":"test","age":10,"extraField":10}""",
+          JsonError.Message("extra field") :: Nil
+        )
+      },
       test("transient field annotation") {
         assertDecodes(
           searchRequestWithTransientFieldSchema,
@@ -833,6 +840,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
     implicit val encoder: JsonEncoder[OptionalSearchRequest] = DeriveJsonEncoder.gen[OptionalSearchRequest]
   }
 
+  @rejectExtraFields final case class PersonWithRejectExtraFields(name: String, age: Int)
+
+  object PersonWithRejectExtraFields {
+    implicit val encoder: JsonEncoder[PersonWithRejectExtraFields] =
+      DeriveJsonEncoder.gen[PersonWithRejectExtraFields]
+
+    val schema: Schema[PersonWithRejectExtraFields] = DeriveSchema.gen[PersonWithRejectExtraFields]
+  }
   case class FieldDefaultValueSearchRequest(
     query: String,
     pageNumber: Int,

@@ -28,10 +28,32 @@ object DeriveSchema {
 
     def isMap(tpe: Type): Boolean = tpe.typeSymbol.fullName == "scala.collection.immutable.Map"
 
+    @nowarn def collectTypeAnnotations(tpe: Type): List[Tree] =
+      tpe.typeSymbol.annotations.collect {
+        case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
+          annotation.tree match {
+            case q"new $annConstructor(..$annotationArgs)" =>
+              q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
+            case q"new $annConstructor()" =>
+              q"new ${annConstructor.tpe.typeSymbol}()"
+            case tree =>
+              c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
+              EmptyTree
+          }
+        case annotation =>
+          c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
+          EmptyTree
+      }.filter(_ != EmptyTree)
+
     def recurse(tpe: Type, stack: List[Frame[c.type]]): Tree =
-      if (isCaseObject(tpe))
-        q"_root_.zio.schema.Schema.singleton(${tpe.typeSymbol.asClass.module})"
-      else if (isCaseClass(tpe)) deriveRecord(tpe, stack)
+      if (isCaseObject(tpe)) {
+        val typeId          = q"_root_.zio.schema.TypeId.parse(${tpe.typeSymbol.asClass.fullName})"
+        val typeAnnotations = collectTypeAnnotations(tpe)
+        val annotations =
+          if (typeAnnotations.isEmpty) q"_root_.zio.Chunk.empty"
+          else q"_root_.zio.Chunk.apply(..$typeAnnotations)"
+        q"_root_.zio.schema.Schema.CaseClass0($typeId, () => ${tpe.typeSymbol.asClass.module}, $annotations)"
+      } else if (isCaseClass(tpe)) deriveRecord(tpe, stack)
       else if (isSealedTrait(tpe))
         deriveEnum(tpe, stack)
       else if (isMap(tpe)) deriveMap(tpe)
@@ -198,23 +220,7 @@ object DeriveSchema {
 
         val typeId = q"_root_.zio.schema.TypeId.parse(${tpe.typeSymbol.fullName})"
 
-        @nowarn
-        val typeAnnotations: List[Tree] =
-          tpe.typeSymbol.annotations.collect {
-            case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
-              annotation.tree match {
-                case q"new $annConstructor(..$annotationArgs)" =>
-                  q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
-                case q"new $annConstructor()" =>
-                  q"new ${annConstructor.tpe.typeSymbol}()"
-                case tree =>
-                  c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
-                  EmptyTree
-              }
-            case annotation =>
-              c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
-              EmptyTree
-          }.filter(_ != EmptyTree)
+        val typeAnnotations: List[Tree] = collectTypeAnnotations(tpe)
 
         @nowarn
         val fieldAnnotations: List[List[Tree]] = //List.fill(arity)(Nil)

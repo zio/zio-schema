@@ -519,6 +519,7 @@ object AvroCodec extends AvroCodec {
           if standardType == StandardType.UnitType && avroEnumAnnotationExists =>
         true
       case (Primitive(standardType, _)) if standardType == StandardType.StringType => true
+      case (CaseClass0(_, _, _)) if avroEnumAnnotationExists                       => true
       case _                                                                       => false
     }
     if (isAvroEnumEquivalent) {
@@ -535,6 +536,9 @@ object AvroCodec extends AvroCodec {
       val cases = enu.cases.map(c => (c.id, (c.schema, c.annotations))).map {
         case (symbol, (Transform(Primitive(standardType, _), _, _, _, _), annotations))
             if standardType == StandardType.UnitType =>
+          val name = getNameOption(annotations).getOrElse(symbol)
+          Right(SchemaAvro.createRecord(name, null, null, false, new java.util.ArrayList[SchemaAvro.Field]))
+        case (symbol, (CaseClass0(_, _, _), annotations)) =>
           val name = getNameOption(annotations).getOrElse(symbol)
           Right(SchemaAvro.createRecord(name, null, null, false, new java.util.ArrayList[SchemaAvro.Field]))
         case (symbol, (schema, annotations)) =>
@@ -802,8 +806,7 @@ object AvroCodec extends AvroCodec {
     } else {
       val annotations = buildZioAnnotations(avroSchema)
       extractZioFields(avroSchema).map { (fs: List[Field[ListMap[String, _], _]]) =>
-        if (fs.isEmpty) Schema.Primitive(StandardType.UnitType).addAllAnnotations(annotations)
-        else Schema.record(TypeId.parse(avroSchema.getName), fs: _*).addAllAnnotations(annotations)
+        Schema.record(TypeId.parse(avroSchema.getName), fs: _*).addAllAnnotations(annotations)
       }
     }
 
