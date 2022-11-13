@@ -11,7 +11,7 @@ object DeriveSchema {
 
   transparent inline def gen[T]: Schema[T] = ${ deriveSchema[T] }
 
-  def deriveSchema[T: Type](using Quotes): Expr[Schema[T]] = 
+  private def deriveSchema[T: Type](using Quotes): Expr[Schema[T]] =
     DeriveSchema().deriveSchema[T](top = true)
 }
 

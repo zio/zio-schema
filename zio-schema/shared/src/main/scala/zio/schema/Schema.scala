@@ -2,13 +2,13 @@ package zio.schema
 
 import java.net.{ URI, URL }
 import java.time.temporal.ChronoUnit
-
 import scala.collection.immutable.ListMap
-
 import zio.schema.internal.SourceLocation
 import zio.schema.meta._
 import zio.schema.validation._
 import zio.{ Chunk, Unsafe }
+
+import scala.annotation.tailrec
 
 /**
  * A `Schema[A]` describes the structure of some data type `A`, in terms of case classes,
@@ -168,6 +168,13 @@ object Schema extends SchemaEquality {
   def first[A](schema: Schema[(A, Unit)]): Schema[A] =
     schema.transform[A](_._1, a => (a, ()))
 
+  @tailrec
+  def force[A](schema: Schema[A]): Schema[A] =
+    schema match {
+      case Schema.Lazy(f) => force(f())
+      case _              => schema
+    }
+
   def record(id: TypeId, fields: Field[ListMap[String, _], _]*): Schema[ListMap[String, _]] =
     GenericRecord(id, FieldSet(fields: _*))
 
@@ -303,7 +310,7 @@ object Schema extends SchemaEquality {
   def toDynamic[A](a: A)(implicit schema: Schema[A]): DynamicValue = schema.toDynamic(a)
 
   implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
-    chunk(element).transform(_.toVector, Chunk.fromIterable(_))
+    Schema.Sequence[Vector[A], A, String](element, _.toVector, Chunk.fromIterable(_), Chunk.empty, "Vector")
 
   implicit val url: Schema[java.net.URL] =
     Schema[String].transformOrFail(
