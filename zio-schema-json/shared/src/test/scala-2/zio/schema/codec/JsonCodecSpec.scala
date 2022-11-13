@@ -224,6 +224,27 @@ object JsonCodecSpec extends ZIOSpecDefault {
           FieldDefaultValueSearchRequest("test", 0, 10, "test"),
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10,"nextPage":"test"}""")
         )
+      },
+      test("field name with alias - id") {
+        assertDecodes(
+          Order.schema,
+          Order(1, BigDecimal.valueOf(10), "test"),
+          charSequenceToByteChunk("""{"id":1,"value":10,"description":"test"}""")
+        )
+      },
+      test("field name with alias - order_id") {
+        assertDecodes(
+          Order.schema,
+          Order(1, BigDecimal.valueOf(10), "test"),
+          charSequenceToByteChunk("""{"id":1,"value":10,"description":"test"}""")
+        )
+      },
+      test("field name with alias - no alias") {
+        assertDecodes(
+          Order.schema,
+          Order(1, BigDecimal.valueOf(10), "test"),
+          charSequenceToByteChunk("""{"orderId":1,"value":10,"description":"test"}""")
+        )
       }
     ),
     suite("enums")(
@@ -1016,5 +1037,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
     final case class WireTransfer(accountNumber: String, bankCode: String) extends PaymentMethod
 
     implicit lazy val schema: Schema[PaymentMethod] = DeriveSchema.gen[PaymentMethod]
+  }
+
+  case class Order(@fieldNameAliases("order_id", "id") orderId: Int, value: BigDecimal, description: String)
+
+  object Order {
+    implicit lazy val schema: Schema[Order] = DeriveSchema.gen[Order]
   }
 }

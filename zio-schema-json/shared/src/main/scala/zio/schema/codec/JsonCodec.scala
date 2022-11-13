@@ -906,16 +906,24 @@ object JsonCodec extends BinaryCodec {
     private def unsafeDecodeFields[Z](hasDiscriminator: Boolean, trace: List[JsonError], in: RetractReader, caseClassSchema: Schema[Z], fields: Schema.Field[Z, _]*): Array[Any] = {
       val len: Int                  = fields.length
       val buffer                    = Array.ofDim[Any](len)
-      val matrix                    = new StringMatrix(fields.map(_.name).toArray)
+      val fieldNames                = fields.map(_.name.asInstanceOf[String]).toArray
       val spans: Array[JsonError]   = fields.map(_.name.asInstanceOf[String]).toArray.map(JsonError.ObjectAccess(_))
       val schemas: Array[Schema[_]] = fields.map(_.schema).toArray
-      val rejectExtraFields         = caseClassSchema.annotations.collectFirst({ case _: rejectExtraFields => () }).isDefined
+      val fieldAliases = fields.flatMap {
+        case Schema.Field(name, _, annotations, _, _, _) =>
+          val aliases = annotations.collectFirst { case a: fieldNameAliases => a.aliases }.getOrElse(Nil)
+          aliases.map(_ -> fieldNames.indexOf(name)) :+ (name -> fieldNames.indexOf(name))
+      }.toMap
+      val aliasesMatrix     = fieldAliases.keys.toArray ++ fieldNames
+      val rejectExtraFields = caseClassSchema.annotations.collectFirst({ case _: rejectExtraFields => () }).isDefined
+
       if (!hasDiscriminator) Lexer.char(trace, in, '{')
       else Lexer.char(trace, in, ',')
       if (Lexer.firstField(trace, in)) {
         while ({
-          var trace_ = trace
-          val field  = Lexer.field(trace, in, matrix)
+          var trace_   = trace
+          val fieldRaw = Lexer.field(trace, in, new StringMatrix(aliasesMatrix))
+          val field    = if (fieldRaw != -1) fieldAliases.getOrElse(aliasesMatrix(fieldRaw), -1) else -1
           if (field != -1) {
             trace_ = spans(field) :: trace
             if (buffer(field) != null)
