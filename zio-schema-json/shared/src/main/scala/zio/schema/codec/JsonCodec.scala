@@ -427,9 +427,13 @@ object JsonCodec extends BinaryCodec {
     private def enumDecoder[Z](parentSchema: Schema.Enum[Z], cases: Schema.Case[Z, _]*): ZJsonDecoder[Z] = {
       (trace: List[JsonError], in: RetractReader) =>
         {
+          val caseNameAliases = cases.map {
+            case Schema.Case(name, _, _, _, _, annotations) =>
+              (name, annotations.collectFirst { case a: caseNameAliases => a.aliases.toList }.getOrElse(List.empty))
+          }.toMap
           Lexer.char(trace, in, '{')
           if (Lexer.firstField(trace, in)) {
-            val subtypeOrDiscriminator = Lexer.string(trace, in).toString
+            val subtypeOrDiscriminator = deAliasCaseName(Lexer.string(trace, in).toString, caseNameAliases)
             val (subtype, trace_, hasDiscriminator) = parentSchema.annotations.collect {
               case d: discriminatorName if d.tag == subtypeOrDiscriminator =>
                 val trace_ = JsonError.ObjectAccess(subtypeOrDiscriminator) :: trace
@@ -441,7 +445,6 @@ object JsonCodec extends BinaryCodec {
               Lexer.char(trace_, in, ':')
               (subtypeOrDiscriminator, trace_, false)
             }
-
             cases.find(_.id == subtype) match {
               case Some(c) =>
                 val decoded = schemaDecoder(c.schema, hasDiscriminator).unsafeDecode(trace_, in).asInstanceOf[Z]
@@ -455,6 +458,9 @@ object JsonCodec extends BinaryCodec {
           }
         }
     }
+
+    private def deAliasCaseName(alias: String, caseNameAliases: Map[String, List[String]]): String =
+      caseNameAliases.find(_._2.contains(alias)).map(_._1).getOrElse(alias)
 
     private def recordDecoder[Z](structure: Seq[Schema.Field[Z, _]]): ZJsonDecoder[ListMap[String, Any]] = {
       (trace: List[JsonError], in: RetractReader) =>
