@@ -20,7 +20,11 @@ object Derive {
     val setTpe          = c.typeOf[Set[_]]
     val vectorTpe       = c.typeOf[Vector[_]]
     val chunkTpe        = c.typeOf[Chunk[_]]
-    val eitherTpe          = c.typeOf[Either[_, _]]
+    val eitherTpe       = c.typeOf[Either[_, _]]
+    val tuple2Tpe       = c.typeOf[Tuple2[_, _]]
+    val tuple3Tpe       = c.typeOf[Tuple3[_, _, _]]
+    val tuple4Tpe       = c.typeOf[Tuple4[_, _, _, _]]
+    // NOTE: DeriveSchema only supports tuple arities 2-4 currently
 
     def concreteType(seenFrom: Type, tpe: Type): Type =
       tpe.asSeenFrom(seenFrom, seenFrom.typeSymbol.asClass)
@@ -130,7 +134,10 @@ object Derive {
             val innerSchema   = q"$schemaRef.elementSchema"
             val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack)
             q"""{
-               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Sequence[${appliedType(vectorTpe, innerTpe)}, $innerTpe, _]]
+               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Sequence[${appliedType(
+              vectorTpe,
+              innerTpe
+            )}, $innerTpe, _]]
                lazy val $selfRef = $deriver.deriveSequence[_root_.scala.collection.immutable.Vector, $innerTpe]($schemaRef, $innerInstance, $summoned)
                $selfRef
              }"""
@@ -139,7 +146,10 @@ object Derive {
             val innerSchema   = q"$schemaRef.elementSchema"
             val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack)
             q"""{
-                   lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Sequence[${appliedType(chunkTpe, innerTpe)}, $innerTpe, _]]
+                   lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Sequence[${appliedType(
+              chunkTpe,
+              innerTpe
+            )}, $innerTpe, _]]
                    lazy val $selfRef = $deriver.deriveSequence[_root_.zio.Chunk, $innerTpe]($schemaRef, $innerInstance, $summoned)
                    $selfRef
                  }"""
@@ -153,13 +163,13 @@ object Derive {
                   $selfRef
                 }"""
           } else if (tpe <:< eitherTpe) {
-            val leftTpe = tpe.typeArgs.head
+            val leftTpe  = tpe.typeArgs.head
             val rightTpe = tpe.typeArgs(1)
 
-            val leftSchema = q"$schemaRef.left"
+            val leftSchema  = q"$schemaRef.left"
             val rightSchema = q"$schemaRef.right"
 
-            val leftInstance = recurse(concreteType(tpe, leftTpe), leftSchema, currentFrame +: stack)
+            val leftInstance  = recurse(concreteType(tpe, leftTpe), leftSchema, currentFrame +: stack)
             val rightInstance = recurse(concreteType(tpe, rightTpe), rightSchema, currentFrame +: stack)
 
             q"""{
@@ -167,7 +177,68 @@ object Derive {
               lazy val $selfRef = $deriver.deriveEither[$leftTpe, $rightTpe]($schemaRef, $leftInstance, $rightInstance, $summoned)
               $selfRef
             }"""
-          }else if (isCaseObject(tpe)) {
+          } else if (tpe <:< tuple2Tpe) {
+            val leftTpe  = tpe.typeArgs.head
+            val rightTpe = tpe.typeArgs(1)
+
+            val leftSchema  = q"$schemaRef.left"
+            val rightSchema = q"$schemaRef.right"
+
+            val leftInstance  = recurse(concreteType(tpe, leftTpe), leftSchema, currentFrame +: stack)
+            val rightInstance = recurse(concreteType(tpe, rightTpe), rightSchema, currentFrame +: stack)
+
+            q"""{
+              lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Tuple2[$leftTpe, $rightTpe]]
+              lazy val $selfRef = $deriver.deriveTuple2[$leftTpe, $rightTpe]($schemaRef, $leftInstance, $rightInstance, $summoned)
+              $selfRef
+            }"""
+          } else if (tpe <:< tuple3Tpe) {
+            // NOTE: Higher arity tuples cannot be treated as Records because they are constructed in the form of Transform(Tuple2(Tuple2(...))
+            val t1Tpe = tpe.typeArgs.head
+            val t2Tpe = tpe.typeArgs(1)
+            val t3Tpe = tpe.typeArgs(2)
+
+            val t123schema = q"$schemaRef.schema.asInstanceOf[Schema.Tuple2[Schema.Tuple2[$t1Tpe, $t2Tpe], $t3Tpe]]"
+            val t12schema  = q"$t123schema.left.asInstanceOf[Schema.Tuple2[$t1Tpe, $t2Tpe]]"
+            val t1Schema   = q"$t12schema.left"
+            val t2Schema   = q"$t12schema.right"
+            val t3Schema   = q"$t123schema.right"
+
+            val t1Instance = recurse(concreteType(tpe, t1Tpe), t1Schema, currentFrame +: stack)
+            val t2Instance = recurse(concreteType(tpe, t2Tpe), t2Schema, currentFrame +: stack)
+            val t3Instance = recurse(concreteType(tpe, t3Tpe), t3Schema, currentFrame +: stack)
+
+            q"""{
+              lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Transform[(($t1Tpe, $t2Tpe), $t3Tpe), ($t1Tpe, $t2Tpe, $t3Tpe), _]]
+              lazy val $selfRef = $deriver.deriveTuple3[$t1Tpe, $t2Tpe, $t3Tpe]($t123schema, $t1Instance, $t2Instance, $t3Instance, $summoned)
+              $selfRef
+            }"""
+          } else if (tpe <:< tuple4Tpe) {
+            val t1Tpe = tpe.typeArgs.head
+            val t2Tpe = tpe.typeArgs(1)
+            val t3Tpe = tpe.typeArgs(2)
+            val t4Tpe = tpe.typeArgs(2)
+
+            val t1234schema =
+              q"$schemaRef.schema.asInstanceOf[Schema.Tuple2[Schema.Tuple2[Schema.Tuple2[$t1Tpe, $t2Tpe], $t3Tpe], $t4Tpe]]"
+            val t123schema = q"$t1234schema.left.asInstanceOf[Schema.Tuple2[Schema.Tuple2[$t1Tpe, $t2Tpe], $t3Tpe]]"
+            val t12schema  = q"$t123schema.left.asInstanceOf[Schema.Tuple2[$t1Tpe, $t2Tpe]]"
+            val t1Schema   = q"$t12schema.left"
+            val t2Schema   = q"$t12schema.right"
+            val t3Schema   = q"$t123schema.right"
+            val t4Schema   = q"$t1234schema.right"
+
+            val t1Instance = recurse(concreteType(tpe, t1Tpe), t1Schema, currentFrame +: stack)
+            val t2Instance = recurse(concreteType(tpe, t2Tpe), t2Schema, currentFrame +: stack)
+            val t3Instance = recurse(concreteType(tpe, t3Tpe), t3Schema, currentFrame +: stack)
+            val t4Instance = recurse(concreteType(tpe, t4Tpe), t4Schema, currentFrame +: stack)
+
+            q"""{
+              lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Transform[((($t1Tpe, $t2Tpe), $t3Tpe), $t4Tpe), ($t1Tpe, $t2Tpe, $t3Tpe, $t4Tpe), _]]
+              lazy val $selfRef = $deriver.deriveTuple4[$t1Tpe, $t2Tpe, $t3Tpe, $t4Tpe]($t1234schema, $t1Instance, $t2Instance, $t3Instance, $t4Instance, $summoned)
+              $selfRef
+            }"""
+          } else if (isCaseObject(tpe)) {
             q"$deriver.deriveRecord[$tpe]($forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Record[$tpe]], _root_.zio.Chunk.empty, $summoned)"
           } else if (isCaseClass(tpe)) {
             val fields = tpe.decls.sorted.collect {
@@ -198,13 +269,13 @@ object Derive {
               $selfRef
             }"""
           } else if (isMap(tpe)) {
-            val keyTpe = tpe.typeArgs.head
+            val keyTpe   = tpe.typeArgs.head
             val valueTpe = tpe.typeArgs(1)
 
-            val keySchema = q"$schemaRef.keySchema"
+            val keySchema   = q"$schemaRef.keySchema"
             val valueSchema = q"$schemaRef.valueSchema"
 
-            val keyInstance = recurse(concreteType(tpe, keyTpe), keySchema, currentFrame +: stack)
+            val keyInstance   = recurse(concreteType(tpe, keyTpe), keySchema, currentFrame +: stack)
             val valueInstance = recurse(concreteType(tpe, valueTpe), valueSchema, currentFrame +: stack)
 
             q"""{
@@ -212,8 +283,7 @@ object Derive {
               lazy val $selfRef = $deriver.deriveMap[$keyTpe, $valueTpe]($schemaRef, $keyInstance, $valueInstance, $summoned)
               $selfRef
             }"""
-          }
-          else
+          } else
             c.abort(
               c.enclosingPosition,
               s"Failed to derive type class for $tpe"

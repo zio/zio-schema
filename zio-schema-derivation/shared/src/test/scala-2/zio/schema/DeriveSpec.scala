@@ -1,6 +1,5 @@
 package zio.schema
 
-import zio.schema.Schema.Enum21
 import zio.{ Chunk, Scope }
 import zio.test.{ Spec, TestEnvironment, ZIOSpecDefault, assertTrue }
 
@@ -54,6 +53,12 @@ object DeriveSpec extends ZIOSpecDefault {
           assertTrue(
             tc.isDerived == true,
             tc.inner.flatMap(_.inner).exists(_.isDerived == true)
+          )
+        },
+        test("can derive new instance for case class containing a 3-tuple field") {
+          val tc = Derive.derive[TC, Record7](deriver)
+          assertTrue(
+            tc.isDerived == true
           )
         }
       ),
@@ -118,6 +123,12 @@ object DeriveSpec extends ZIOSpecDefault {
     implicit val schema: Schema[Record6] = DeriveSchema.gen[Record6]
   }
 
+  case class Record7(pair: (Record1, Int), triple: (String, Enum1, Record2))
+
+  object Record7 {
+    implicit val schema: Schema[Record7] = DeriveSchema.gen[Record7]
+  }
+
   sealed trait Enum1
 
   object Enum1 {
@@ -136,12 +147,12 @@ object DeriveSpec extends ZIOSpecDefault {
   }
 
   // TODO: recursive type
-  // TODO: type parameters
-  // TODO: tuples
+  // TODO: >22 fields
 
   val deriver: Deriver[TC] = new Deriver[TC] {
     override def deriveRecord[A](record: Schema.Record[A], fields: => Chunk[TC[_]], summoned: => Option[TC[A]]): TC[A] =
       summoned.getOrElse {
+        assert(fields.forall(_ ne null)) // force evaluation
         new TC[A] {
           override def isDerived: Boolean   = true
           override def inner: Option[TC[_]] = fields.headOption
@@ -150,6 +161,7 @@ object DeriveSpec extends ZIOSpecDefault {
 
     override def deriveEnum[A](`enum`: Schema.Enum[A], cases: => Chunk[TC[_]], summoned: => Option[TC[A]]): TC[A] =
       summoned.getOrElse {
+        assert(cases.forall(_ ne null)) // force evaluation
         new TC[A] {
           override def isDerived: Boolean   = true
           override def inner: Option[TC[_]] = cases.headOption
@@ -170,6 +182,7 @@ object DeriveSpec extends ZIOSpecDefault {
       summoned: => Option[TC[Option[A]]]
     ): TC[Option[A]] =
       summoned.getOrElse {
+        assert(innerTC ne null) // force evaluation
         new TC[Option[A]] {
           override def isDerived: Boolean   = true
           override def inner: Option[TC[_]] = Some(innerTC)
@@ -182,6 +195,7 @@ object DeriveSpec extends ZIOSpecDefault {
       summoned: => Option[TC[C[A]]]
     ): TC[C[A]] =
       summoned.getOrElse {
+        assert(innerTC ne null) // force evaluation
         new TC[C[A]] {
           override def isDerived: Boolean   = true
           override def inner: Option[TC[_]] = Some(innerTC)
@@ -190,6 +204,7 @@ object DeriveSpec extends ZIOSpecDefault {
 
     override def deriveSet[A](set: Schema.Set[A], innerTC: => TC[A], summoned: Option[TC[Set[A]]]): TC[Set[A]] =
       summoned.getOrElse {
+        assert(innerTC ne null) // force evaluation
         new TC[Set[A]] {
           override def isDerived: Boolean   = true
           override def inner: Option[TC[_]] = Some(innerTC)
@@ -203,6 +218,8 @@ object DeriveSpec extends ZIOSpecDefault {
       summoned: Option[TC[Map[K, V]]]
     ): TC[Map[K, V]] =
       summoned.getOrElse {
+        assert(key ne null)
+        assert(value ne null) // force evaluation
         new TC[Map[K, V]] {
           override def isDerived: Boolean   = true
           override def inner: Option[TC[_]] = Some(key)
@@ -216,9 +233,65 @@ object DeriveSpec extends ZIOSpecDefault {
       summoned: Option[TC[Either[A, B]]]
     ): TC[Either[A, B]] =
       summoned.getOrElse {
+        assert(left ne null)
+        assert(right ne null)
         new TC[Either[A, B]] {
           override def isDerived: Boolean   = true
           override def inner: Option[TC[_]] = Some(right)
+        }
+      }
+
+    override def deriveTuple2[A, B](
+      tuple: Schema.Tuple2[A, B],
+      left: => TC[A],
+      right: => TC[B],
+      summoned: Option[TC[(A, B)]]
+    ): TC[(A, B)] =
+      summoned.getOrElse {
+        assert(left ne null)
+        assert(right ne null)
+        new TC[(A, B)] {
+          override def isDerived: Boolean = true
+
+          override def inner: Option[TC[_]] = Some(left)
+        }
+      }
+
+    override def deriveTuple3[A, B, C](
+      tuple: Schema.Tuple2[Schema.Tuple2[A, B], C],
+      t1: => TC[A],
+      t2: => TC[B],
+      t3: => TC[C],
+      summoned: Option[TC[(A, B, C)]]
+    ): TC[(A, B, C)] =
+      summoned.getOrElse {
+        assert(t1 ne null)
+        assert(t2 ne null)
+        assert(t3 ne null)
+        new TC[(A, B, C)] {
+          override def isDerived: Boolean = true
+
+          override def inner: Option[TC[_]] = Some(t1)
+        }
+      }
+
+    override def deriveTuple4[A, B, C, D](
+      tuple: Schema.Tuple2[Schema.Tuple2[Schema.Tuple2[A, B], C], D],
+      t1: => TC[A],
+      t2: => TC[B],
+      t3: => TC[C],
+      t4: => TC[D],
+      summoned: Option[TC[(A, B, C, D)]]
+    ): TC[(A, B, C, D)] =
+      summoned.getOrElse {
+        assert(t1 ne null)
+        assert(t2 ne null)
+        assert(t3 ne null)
+        assert(t4 ne null)
+        new TC[(A, B, C, D)] {
+          override def isDerived: Boolean = true
+
+          override def inner: Option[TC[_]] = Some(t1)
         }
       }
   }
