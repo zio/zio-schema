@@ -14,6 +14,7 @@ import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
+import zio.schema.codec.JsonCodecSpec.PaymentMethod.CreditCard
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -222,6 +223,50 @@ object JsonCodecSpec extends ZIOSpecDefault {
           fieldDefaultValueSearchRequestSchema,
           FieldDefaultValueSearchRequest("test", 0, 10, "test"),
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10,"nextPage":"test"}""")
+        )
+      },
+      test("field name with alias - id") {
+        assertDecodes(
+          Order.schema,
+          Order(1, BigDecimal.valueOf(10), "test"),
+          charSequenceToByteChunk("""{"id":1,"value":10,"description":"test"}""")
+        )
+      },
+      test("field name with alias - order_id") {
+        assertDecodes(
+          Order.schema,
+          Order(1, BigDecimal.valueOf(10), "test"),
+          charSequenceToByteChunk("""{"id":1,"value":10,"description":"test"}""")
+        )
+      },
+      test("field name with alias - no alias") {
+        assertDecodes(
+          Order.schema,
+          Order(1, BigDecimal.valueOf(10), "test"),
+          charSequenceToByteChunk("""{"orderId":1,"value":10,"description":"test"}""")
+        )
+      }
+    ),
+    suite("enums")(
+      test("case name aliases - default") {
+        assertDecodes(
+          PaymentMethod.schema,
+          CreditCard("foo", 12, 2022),
+          charSequenceToByteChunk("""{"CreditCard":{"number":"foo","expirationMonth":12,"expirationYear":2022}}""")
+        )
+      },
+      test("case name aliases - first alias") {
+        assertDecodes(
+          PaymentMethod.schema,
+          CreditCard("foo", 12, 2022),
+          charSequenceToByteChunk("""{"credit_card":{"number":"foo","expirationMonth":12,"expirationYear":2022}}""")
+        )
+      },
+      test("case name aliases - second alias") {
+        assertDecodes(
+          PaymentMethod.schema,
+          CreditCard("foo", 12, 2022),
+          charSequenceToByteChunk("""{"cc":{"number":"foo","expirationMonth":12,"expirationYear":2022}}""")
         )
       }
     )
@@ -977,5 +1022,26 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object Value {
     implicit lazy val schema: Schema[Value] = DeriveSchema.gen[Value]
+  }
+
+  sealed trait PaymentMethod
+
+  object PaymentMethod {
+
+    @caseNameAliases("credit_card", "cc") final case class CreditCard(
+      number: String,
+      expirationMonth: Int,
+      expirationYear: Int
+    ) extends PaymentMethod
+
+    final case class WireTransfer(accountNumber: String, bankCode: String) extends PaymentMethod
+
+    implicit lazy val schema: Schema[PaymentMethod] = DeriveSchema.gen[PaymentMethod]
+  }
+
+  case class Order(@fieldNameAliases("order_id", "id") orderId: Int, value: BigDecimal, description: String)
+
+  object Order {
+    implicit lazy val schema: Schema[Order] = DeriveSchema.gen[Order]
   }
 }
