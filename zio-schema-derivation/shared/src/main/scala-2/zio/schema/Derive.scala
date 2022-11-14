@@ -92,10 +92,8 @@ object Derive {
           val typeClassTpe       = weakTypeOf[F[_]]
           val appliedTpe         = appliedType(typeClassTpe, tpe)
           val appliedStandardTpe = appliedType(standardTypeTpe, tpe)
-          val summoned = c.inferImplicitValue(appliedTpe) match {
-            case EmptyTree      => q"None"
-            case instance: Tree => q"Some[$appliedTpe]($instance)"
-          }
+          val summonedTree       = c.inferImplicitValue(appliedTpe)
+          val summoned           = if (summonedTree == EmptyTree) q"None" else q"Some[$appliedTpe]($summonedTree)"
 
           val selfRefName     = c.freshName("instance")
           val selfRef         = Ident(TermName(selfRefName))

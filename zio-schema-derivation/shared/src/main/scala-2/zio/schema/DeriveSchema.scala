@@ -26,7 +26,7 @@ object DeriveSchema {
 
     def isSealedTrait(tpe: Type): Boolean = tpe.typeSymbol.asClass.isTrait && tpe.typeSymbol.asClass.isSealed
 
-    def isMap(tpe: Type): Boolean = tpe.typeSymbol.fullName == "_root_.scala.collection.immutable.Map"
+    def isMap(tpe: Type): Boolean = tpe.typeSymbol.fullName == "scala.collection.immutable.Map"
 
     @nowarn def collectTypeAnnotations(tpe: Type): List[Tree] =
       tpe.typeSymbol.annotations.collect {

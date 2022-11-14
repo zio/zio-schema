@@ -2,8 +2,6 @@ package zio.schema
 
 import java.util.concurrent.{ ConcurrentHashMap, ConcurrentMap }
 
-import scala.collection.JavaConverters._
-
 import zio.Chunk
 import zio.schema.CachedDeriver.{ Cache, CacheKey }
 
@@ -163,10 +161,10 @@ object CachedDeriver {
   class Cache[F[_]] private[CachedDeriver] (map: ConcurrentMap[CacheKey[_], F[_]]) {
 
     def get[A](schema: CacheKey[A]): Option[F[A]] =
-      map.asScala.get(schema).map(_.asInstanceOf[F[A]])
+      Option(map.get(schema)).map(_.asInstanceOf[F[A]])
 
     def put[A](schema: CacheKey[A], value: F[A]): F[A] = {
-      map.asScala.update(schema, value)
+      map.put(schema, value)
       value
     }
 
