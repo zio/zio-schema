@@ -254,7 +254,7 @@ object DeriveSpec extends ZIOSpecDefault {
         }
       }
 
-    override def deriveSet[A](set: Schema.Set[A], innerTC: => TC[A], summoned: Option[TC[Set[A]]]): TC[Set[A]] =
+    override def deriveSet[A](set: Schema.Set[A], innerTC: => TC[A], summoned: => Option[TC[Set[A]]]): TC[Set[A]] =
       summoned.getOrElse {
         assert(innerTC ne null) // force evaluation
         new TC[Set[A]] {
@@ -267,7 +267,7 @@ object DeriveSpec extends ZIOSpecDefault {
       map: Schema.Map[K, V],
       key: => TC[K],
       value: => TC[V],
-      summoned: Option[TC[Map[K, V]]]
+      summoned: => Option[TC[Map[K, V]]]
     ): TC[Map[K, V]] =
       summoned.getOrElse {
         assert(key ne null)
@@ -282,7 +282,7 @@ object DeriveSpec extends ZIOSpecDefault {
       either: Schema.Either[A, B],
       left: => TC[A],
       right: => TC[B],
-      summoned: Option[TC[Either[A, B]]]
+      summoned: => Option[TC[Either[A, B]]]
     ): TC[Either[A, B]] =
       summoned.getOrElse {
         assert(left ne null)
@@ -293,11 +293,14 @@ object DeriveSpec extends ZIOSpecDefault {
         }
       }
 
+    override def deriveTupleN[T](schemasAndInstances: => Chunk[(Schema[_], TC[_])], summoned: => Option[TC[T]]): TC[T] =
+      ???
+
     override def deriveTuple2[A, B](
       tuple: Schema.Tuple2[A, B],
       left: => TC[A],
       right: => TC[B],
-      summoned: Option[TC[(A, B)]]
+      summoned: => Option[TC[(A, B)]]
     ): TC[(A, B)] =
       summoned.getOrElse {
         assert(left ne null)
@@ -315,7 +318,7 @@ object DeriveSpec extends ZIOSpecDefault {
       t1: => TC[A],
       t2: => TC[B],
       t3: => TC[C],
-      summoned: Option[TC[(A, B, C)]]
+      summoned: => Option[TC[(A, B, C)]]
     ): TC[(A, B, C)] =
       summoned.getOrElse {
         assert(t1 ne null)
@@ -335,7 +338,7 @@ object DeriveSpec extends ZIOSpecDefault {
       t2: => TC[B],
       t3: => TC[C],
       t4: => TC[D],
-      summoned: Option[TC[(A, B, C, D)]]
+      summoned: => Option[TC[(A, B, C, D)]]
     ): TC[(A, B, C, D)] =
       summoned.getOrElse {
         assert(t1 ne null)
