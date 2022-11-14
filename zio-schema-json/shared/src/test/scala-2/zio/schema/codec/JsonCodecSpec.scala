@@ -11,9 +11,10 @@ import zio.json.JsonDecoder.JsonError
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
-import zio.schema.annotation.{ fieldDefaultValue, optionalField, rejectExtraFields, transientField }
+import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
+import zio.schema.codec.JsonCodecSpec.PaymentMethod.CreditCard
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -144,6 +145,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"oneOf":{"StringValue":{"value":"foo"}}}""")
         )
       },
+      test("ADT with annotation") {
+        assertEncodes(
+          Schema[Enumeration2],
+          Enumeration2(StringValue2("foo2")),
+          charSequenceToByteChunk("""{"oneOf":{"_type":"StringValue2","value":"foo2"}}""")
+        )
+      },
       test("case class ") {
         assertEncodes(
           searchRequestWithTransientFieldSchema,
@@ -215,6 +223,50 @@ object JsonCodecSpec extends ZIOSpecDefault {
           fieldDefaultValueSearchRequestSchema,
           FieldDefaultValueSearchRequest("test", 0, 10, "test"),
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10,"nextPage":"test"}""")
+        )
+      },
+      test("field name with alias - id") {
+        assertDecodes(
+          Order.schema,
+          Order(1, BigDecimal.valueOf(10), "test"),
+          charSequenceToByteChunk("""{"id":1,"value":10,"description":"test"}""")
+        )
+      },
+      test("field name with alias - order_id") {
+        assertDecodes(
+          Order.schema,
+          Order(1, BigDecimal.valueOf(10), "test"),
+          charSequenceToByteChunk("""{"id":1,"value":10,"description":"test"}""")
+        )
+      },
+      test("field name with alias - no alias") {
+        assertDecodes(
+          Order.schema,
+          Order(1, BigDecimal.valueOf(10), "test"),
+          charSequenceToByteChunk("""{"orderId":1,"value":10,"description":"test"}""")
+        )
+      }
+    ),
+    suite("enums")(
+      test("case name aliases - default") {
+        assertDecodes(
+          PaymentMethod.schema,
+          CreditCard("foo", 12, 2022),
+          charSequenceToByteChunk("""{"CreditCard":{"number":"foo","expirationMonth":12,"expirationYear":2022}}""")
+        )
+      },
+      test("case name aliases - first alias") {
+        assertDecodes(
+          PaymentMethod.schema,
+          CreditCard("foo", 12, 2022),
+          charSequenceToByteChunk("""{"credit_card":{"number":"foo","expirationMonth":12,"expirationYear":2022}}""")
+        )
+      },
+      test("case name aliases - second alias") {
+        assertDecodes(
+          PaymentMethod.schema,
+          CreditCard("foo", 12, 2022),
+          charSequenceToByteChunk("""{"cc":{"number":"foo","expirationMonth":12,"expirationYear":2022}}""")
         )
       }
     )
@@ -569,6 +621,18 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[Enumeration],
           Enumeration(BooleanValue(false))
         )
+      },
+      test("ADT with annotation") {
+        assertEncodesThenDecodes(
+          Schema[Enumeration2],
+          Enumeration2(StringValue2("foo"))
+        ) &> assertEncodesThenDecodes(
+          Schema[Enumeration2],
+          Enumeration2(StringValue2Multi("foo", "bar"))
+        ) &> assertEncodesThenDecodes(Schema[Enumeration2], Enumeration2(IntValue2(-1))) &> assertEncodesThenDecodes(
+          Schema[Enumeration2],
+          Enumeration2(BooleanValue2(false))
+        )
       }
     ),
     suite("transform")(
@@ -709,11 +773,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
     )
   )
 
-  private def assertEncodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {
+  private def assertEncodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte], print: Boolean = false) = {
     val stream = ZStream
       .succeed(value)
       .via(JsonCodec.encoder(schema))
       .runCollect
+      .tap { chunk =>
+        printLine(s"${new String(chunk.toArray)}").when(print).ignore
+      }
     assertZIO(stream)(equalTo(chunk))
   }
 
@@ -930,6 +997,19 @@ object JsonCodecSpec extends ZIOSpecDefault {
     implicit val schema: Schema[Enumeration] = DeriveSchema.gen[Enumeration]
   }
 
+  @discriminatorName("_type")
+  sealed trait OneOf2
+  case class StringValue2(value: String)                       extends OneOf2
+  case class IntValue2(value: Int)                             extends OneOf2
+  case class BooleanValue2(value: Boolean)                     extends OneOf2
+  case class StringValue2Multi(value1: String, value2: String) extends OneOf2
+
+  case class Enumeration2(oneOf: OneOf2)
+
+  object Enumeration2 {
+    implicit val schema: Schema[Enumeration2] = DeriveSchema.gen[Enumeration2]
+  }
+
   case object Singleton
   implicit val schemaObject: Schema[Singleton.type] = DeriveSchema.gen[Singleton.type]
 
@@ -942,5 +1022,26 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object Value {
     implicit lazy val schema: Schema[Value] = DeriveSchema.gen[Value]
+  }
+
+  sealed trait PaymentMethod
+
+  object PaymentMethod {
+
+    @caseNameAliases("credit_card", "cc") final case class CreditCard(
+      number: String,
+      expirationMonth: Int,
+      expirationYear: Int
+    ) extends PaymentMethod
+
+    final case class WireTransfer(accountNumber: String, bankCode: String) extends PaymentMethod
+
+    implicit lazy val schema: Schema[PaymentMethod] = DeriveSchema.gen[PaymentMethod]
+  }
+
+  case class Order(@fieldNameAliases("order_id", "id") orderId: Int, value: BigDecimal, description: String)
+
+  object Order {
+    implicit lazy val schema: Schema[Order] = DeriveSchema.gen[Order]
   }
 }
