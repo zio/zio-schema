@@ -259,12 +259,19 @@ object JsonCodec extends BinaryCodec {
             case d: discriminatorName => (d, case_.id)
           }
 
+          val caseName = case_ match {
+            case Schema.Case(id, _, _, _, _, annotations) =>
+              annotations.collectFirst {
+                case name: caseName => name
+              }.map(_.name).getOrElse(id)
+          }
+
           if (discriminatorChunk.isEmpty) out.write('{')
           val indent_ = bump(indent)
           pad(indent_, out)
 
           if (discriminatorChunk.isEmpty) {
-            string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(case_.id), indent_, out)
+            string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(caseName), indent_, out)
             if (indent.isEmpty) out.write(':')
             else out.write(" : ")
           }
@@ -429,7 +436,10 @@ object JsonCodec extends BinaryCodec {
         {
           val caseNameAliases = cases.map {
             case Schema.Case(name, _, _, _, _, annotations) =>
-              (name, annotations.collectFirst { case a: caseNameAliases => a.aliases.toList }.getOrElse(List.empty))
+              (name, annotations.collectFirst {
+                case a: caseNameAliases => a.aliases.toList
+                case cn: caseName       => List(cn.name)
+              }.getOrElse(List.empty))
           }.toMap
           Lexer.char(trace, in, '{')
           if (Lexer.firstField(trace, in)) {
