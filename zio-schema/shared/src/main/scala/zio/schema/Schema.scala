@@ -2,13 +2,14 @@ package zio.schema
 
 import java.net.{ URI, URL }
 import java.time.temporal.ChronoUnit
+
+import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
+
 import zio.schema.internal.SourceLocation
 import zio.schema.meta._
 import zio.schema.validation._
 import zio.{ Chunk, Unsafe }
-
-import scala.annotation.tailrec
 
 /**
  * A `Schema[A]` describes the structure of some data type `A`, in terms of case classes,

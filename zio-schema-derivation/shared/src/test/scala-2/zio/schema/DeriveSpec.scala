@@ -1,7 +1,7 @@
 package zio.schema
 
-import zio.{ Chunk, Scope }
 import zio.test.{ Spec, TestEnvironment, ZIOSpecDefault, assertTrue }
+import zio.{ Chunk, Scope }
 
 object DeriveSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -72,8 +72,36 @@ object DeriveSpec extends ZIOSpecDefault {
         test("can derive instance for enum") {
           val tc = Derive.derive[TC, Enum1](deriver)
           assertTrue(tc.isDerived == true)
+        },
+        test("can derive instance for recursive enum") {
+          val tc = Derive.derive[TC3, Enum2](recursiveDeriver)
+          assertTrue(
+            tc.inner.isDefined,
+            tc.inner.flatMap(_.inner).isDefined,
+            tc.inner.flatMap(_.inner).flatMap(_.inner).isDefined,
+            tc.inner.flatMap(_.inner).flatMap(_.inner).flatMap(_.inner).isDefined
+          )
         }
-      )
+      ),
+      suite("caching") {
+        test("reuses derived instances") {
+          val (cachedDeriver, cache) = deriver.cached
+          val tc1                    = Derive.derive[TC, Record1](cachedDeriver)
+          val _                      = Derive.derive[TC, Record2](cachedDeriver)
+          val _                      = Derive.derive[TC, Record3](cachedDeriver)
+          val _                      = Derive.derive[TC, Record4](cachedDeriver)
+          val _                      = Derive.derive[TC, Record5](cachedDeriver)
+          val _                      = Derive.derive[TC, Record6](cachedDeriver)
+          val tc7                    = Derive.derive[TC, Record7](cachedDeriver)
+          val _                      = Derive.derive[TC, Record8](cachedDeriver)
+
+          val eq1 = tc7.inner.get.inner.get eq tc1
+          assertTrue(
+            eq1, // (pair._1)
+            cache.size == 22
+          )
+        }
+      }
     )
 
   trait TC[A] {
@@ -184,7 +212,14 @@ object DeriveSpec extends ZIOSpecDefault {
     implicit val schema: Schema[Enum1] = DeriveSchema.gen[Enum1]
   }
 
-  // TODO: recursive type
+  sealed trait Enum2
+
+  object Enum2 {
+    final case class Next(value: Enum2) extends Enum2
+    case object Stop                    extends Enum2
+
+    implicit val schema: Schema[Enum2] = DeriveSchema.gen[Enum2]
+  }
 
   val deriver: Deriver[TC] = new Deriver[TC] {
     override def deriveRecord[A](record: Schema.Record[A], fields: => Chunk[TC[_]], summoned: => Option[TC[A]]): TC[A] =
@@ -197,7 +232,7 @@ object DeriveSpec extends ZIOSpecDefault {
       }
 
     override def deriveTransformedRecord[A, B](
-      record: Schema.Record[B],
+      record: Schema.Record[A],
       transform: Schema.Transform[A, B, _],
       fields: => Chunk[TC[_]],
       summoned: => Option[TC[B]]
@@ -350,6 +385,158 @@ object DeriveSpec extends ZIOSpecDefault {
 
           override def inner: Option[TC[_]] = Some(t1)
         }
+      }
+  }
+
+  trait TC2[A] {
+    def schema: Schema[A]
+    def innerCount: Int
+    def hadSummoned: Boolean
+  }
+
+  val simpleDeriver: Deriver[TC2] = new Deriver[TC2] {
+    override def deriveRecord[A](
+      record: Schema.Record[A],
+      fields: => Chunk[TC2[_]],
+      summoned: => Option[TC2[A]]
+    ): TC2[A] =
+      new TC2[A] {
+        override def schema: Schema[A]    = record
+        override def innerCount: Int      = fields.size
+        override def hadSummoned: Boolean = summoned.isDefined
+      }
+
+    override def deriveEnum[A](`enum`: Schema.Enum[A], cases: => Chunk[TC2[_]], summoned: => Option[TC2[A]]): TC2[A] =
+      new TC2[A] {
+        override def schema: Schema[A]    = `enum`
+        override def innerCount: Int      = cases.size
+        override def hadSummoned: Boolean = summoned.isDefined
+      }
+
+    override def derivePrimitive[A](st: StandardType[A], summoned: => Option[TC2[A]]): TC2[A] =
+      new TC2[A] {
+        override def schema: Schema[A]    = Schema.primitive(st)
+        override def innerCount: Int      = 0
+        override def hadSummoned: Boolean = summoned.isDefined
+      }
+
+    override def deriveOption[A](
+      option: Schema.Optional[A],
+      inner: => TC2[A],
+      summoned: => Option[TC2[Option[A]]]
+    ): TC2[Option[A]] =
+      new TC2[Option[A]] {
+        override def schema: Schema[Option[A]] = option
+        override def innerCount: Int           = 1
+        override def hadSummoned: Boolean      = summoned.isDefined
+      }
+
+    override def deriveSequence[C[_], A](
+      sequence: Schema.Sequence[C[A], A, _],
+      inner: => TC2[A],
+      summoned: => Option[TC2[C[A]]]
+    ): TC2[C[A]] =
+      new TC2[C[A]] {
+        override def schema: Schema[C[A]] = sequence
+        override def innerCount: Int      = 1
+        override def hadSummoned: Boolean = summoned.isDefined
+      }
+
+    override def deriveMap[K, V](
+      map: Schema.Map[K, V],
+      key: => TC2[K],
+      value: => TC2[V],
+      summoned: => Option[TC2[Map[K, V]]]
+    ): TC2[Map[K, V]] =
+      new TC2[Map[K, V]] {
+        override def schema: Schema[Map[K, V]] = map
+        override def innerCount: Int           = 2
+        override def hadSummoned: Boolean      = summoned.isDefined
+      }
+
+    override def deriveTransformedRecord[A, B](
+      record: Schema.Record[A],
+      transform: Schema.Transform[A, B, _],
+      fields: => Chunk[TC2[_]],
+      summoned: => Option[TC2[B]]
+    ): TC2[B] =
+      new TC2[B] {
+        override def schema: Schema[B]    = transform
+        override def innerCount: Int      = fields.size
+        override def hadSummoned: Boolean = summoned.isDefined
+      }
+
+  }
+
+  // Example typeclass supporting Suspend to deal with recursive types
+  sealed trait TC3[A] {
+    def inner: Option[TC3[_]]
+  }
+
+  object TC3 {
+    final case class Suspend[A](f: () => TC3[A]) extends TC3[A] {
+      def inner: Option[TC3[_]] = f().inner
+    }
+
+    final case class Const[A](inner: Option[TC3[_]]) extends TC3[A]
+  }
+
+  val recursiveDeriver: Deriver[TC3] = new Deriver[TC3] {
+    override def deriveRecord[A](
+      record: Schema.Record[A],
+      fields: => Chunk[TC3[_]],
+      summoned: => Option[TC3[A]]
+    ): TC3[A] =
+      summoned.getOrElse {
+        TC3.Suspend(() => TC3.Const(fields.headOption))
+      }
+
+    override def deriveEnum[A](`enum`: Schema.Enum[A], cases: => Chunk[TC3[_]], summoned: => Option[TC3[A]]): TC3[A] =
+      summoned.getOrElse {
+        TC3.Suspend(() => TC3.Const(cases.headOption))
+      }
+
+    override def derivePrimitive[A](st: StandardType[A], summoned: => Option[TC3[A]]): TC3[A] =
+      summoned.getOrElse {
+        TC3.Const(None)
+      }
+
+    override def deriveOption[A](
+      option: Schema.Optional[A],
+      inner: => TC3[A],
+      summoned: => Option[TC3[Option[A]]]
+    ): TC3[Option[A]] =
+      summoned.getOrElse {
+        TC3.Suspend(() => TC3.Const(Some(inner)))
+      }
+
+    override def deriveSequence[C[_], A](
+      sequence: Schema.Sequence[C[A], A, _],
+      inner: => TC3[A],
+      summoned: => Option[TC3[C[A]]]
+    ): TC3[C[A]] =
+      summoned.getOrElse {
+        TC3.Suspend(() => TC3.Const(Some(inner)))
+      }
+
+    override def deriveMap[K, V](
+      map: Schema.Map[K, V],
+      key: => TC3[K],
+      value: => TC3[V],
+      summoned: => Option[TC3[Map[K, V]]]
+    ): TC3[Map[K, V]] =
+      summoned.getOrElse {
+        TC3.Suspend(() => TC3.Const(Some(key)))
+      }
+
+    override def deriveTransformedRecord[A, B](
+      record: Schema.Record[A],
+      transform: Schema.Transform[A, B, _],
+      fields: => Chunk[TC3[_]],
+      summoned: => Option[TC3[B]]
+    ): TC3[B] =
+      summoned.getOrElse {
+        TC3.Suspend(() => TC3.Const(fields.headOption))
       }
   }
 }

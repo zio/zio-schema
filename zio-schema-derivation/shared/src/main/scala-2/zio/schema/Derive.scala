@@ -1,17 +1,19 @@
 package zio.schema
 
+import scala.language.experimental.macros
 import scala.reflect.macros.whitebox
+
 import zio.Chunk
 
-import scala.language.experimental.macros
-
-// TODO: option to shortcut derivation in case of summoned implicit
 object Derive {
+
   def derive[F[_], A](deriver: Deriver[F])(implicit schema: Schema[A]): F[A] = macro deriveImpl[F, A]
 
   def deriveImpl[F[_], A: c.WeakTypeTag](
     c: whitebox.Context
-  )(deriver: c.Expr[Deriver[F]])(schema: c.Expr[Schema[A]])(implicit ftt: c.WeakTypeTag[F[_]]): c.Tree = {
+  )(deriver: c.Expr[Deriver[F]])(
+    schema: c.Expr[Schema[A]]
+  )(implicit ftt: c.WeakTypeTag[F[_]]): c.Tree = {
     import c.universe._
 
     val standardTypeTpe = c.typeOf[StandardType[_]]
@@ -95,8 +97,9 @@ object Derive {
             case instance: Tree => q"Some[$appliedTpe]($instance)"
           }
 
-          val selfRefName = c.freshName("instance")
-          val selfRef     = Ident(TermName(selfRefName))
+          val selfRefName     = c.freshName("instance")
+          val selfRef         = Ident(TermName(selfRefName))
+          val selfRefWithType = q"$selfRef: $appliedTpe"
 
           val schemaRefName = c.freshName("schema")
           val schemaRef     = Ident(TermName(schemaRefName))
@@ -114,7 +117,7 @@ object Derive {
             val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack)
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Optional[$innerTpe]]
-              lazy val $selfRef = $deriver.deriveOption[$innerTpe]($schemaRef, $innerInstance, $summoned)
+              lazy val $selfRefWithType = $deriver.deriveOption[$innerTpe]($schemaRef, $innerInstance, $summoned)
               $selfRef
             }"""
           } else if (tpe <:< listTpe) {
@@ -126,7 +129,7 @@ object Derive {
               listTpe,
               innerTpe
             )}, $innerTpe, _]]
-              lazy val $selfRef = $deriver.deriveSequence[_root_.scala.collection.immutable.List, $innerTpe]($schemaRef, $innerInstance, $summoned)
+              lazy val $selfRefWithType = $deriver.deriveSequence[_root_.scala.collection.immutable.List, $innerTpe]($schemaRef, $innerInstance, $summoned)
               $selfRef
             }"""
           } else if (tpe <:< vectorTpe) {
@@ -138,7 +141,7 @@ object Derive {
               vectorTpe,
               innerTpe
             )}, $innerTpe, _]]
-               lazy val $selfRef = $deriver.deriveSequence[_root_.scala.collection.immutable.Vector, $innerTpe]($schemaRef, $innerInstance, $summoned)
+               lazy val $selfRefWithType = $deriver.deriveSequence[_root_.scala.collection.immutable.Vector, $innerTpe]($schemaRef, $innerInstance, $summoned)
                $selfRef
              }"""
           } else if (tpe <:< chunkTpe) {
@@ -150,7 +153,7 @@ object Derive {
               chunkTpe,
               innerTpe
             )}, $innerTpe, _]]
-                   lazy val $selfRef = $deriver.deriveSequence[_root_.zio.Chunk, $innerTpe]($schemaRef, $innerInstance, $summoned)
+                   lazy val $selfRefWithType = $deriver.deriveSequence[_root_.zio.Chunk, $innerTpe]($schemaRef, $innerInstance, $summoned)
                    $selfRef
                  }"""
           } else if (tpe <:< setTpe) {
@@ -159,7 +162,7 @@ object Derive {
             val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack)
             q"""{
                   lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Set[$innerTpe]]
-                  lazy val $selfRef = $deriver.deriveSet[$innerTpe]($schemaRef, $innerInstance, $summoned)
+                  lazy val $selfRefWithType = $deriver.deriveSet[$innerTpe]($schemaRef, $innerInstance, $summoned)
                   $selfRef
                 }"""
           } else if (tpe <:< eitherTpe) {
@@ -174,7 +177,7 @@ object Derive {
 
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Either[$leftTpe, $rightTpe]]
-              lazy val $selfRef = $deriver.deriveEither[$leftTpe, $rightTpe]($schemaRef, $leftInstance, $rightInstance, $summoned)
+              lazy val $selfRefWithType = $deriver.deriveEither[$leftTpe, $rightTpe]($schemaRef, $leftInstance, $rightInstance, $summoned)
               $selfRef
             }"""
           } else if (tpe <:< tuple2Tpe) {
@@ -189,7 +192,7 @@ object Derive {
 
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Tuple2[$leftTpe, $rightTpe]]
-              lazy val $selfRef = $deriver.deriveTuple2[$leftTpe, $rightTpe]($schemaRef, $leftInstance, $rightInstance, $summoned)
+              lazy val $selfRefWithType = $deriver.deriveTuple2[$leftTpe, $rightTpe]($schemaRef, $leftInstance, $rightInstance, $summoned)
               $selfRef
             }"""
           } else if (tpe <:< tuple3Tpe) {
@@ -210,7 +213,7 @@ object Derive {
 
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Transform[(($t1Tpe, $t2Tpe), $t3Tpe), ($t1Tpe, $t2Tpe, $t3Tpe), _]]
-              lazy val $selfRef = $deriver.deriveTuple3[$t1Tpe, $t2Tpe, $t3Tpe]($t123schema, $schemaRef, $t1Instance, $t2Instance, $t3Instance, $summoned)
+              lazy val $selfRefWithType = $deriver.deriveTuple3[$t1Tpe, $t2Tpe, $t3Tpe]($t123schema, $schemaRef, $t1Instance, $t2Instance, $t3Instance, $summoned)
               $selfRef
             }"""
           } else if (tpe <:< tuple4Tpe) {
@@ -235,7 +238,7 @@ object Derive {
 
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Transform[((($t1Tpe, $t2Tpe), $t3Tpe), $t4Tpe), ($t1Tpe, $t2Tpe, $t3Tpe, $t4Tpe), _]]
-              lazy val $selfRef = $deriver.deriveTuple4[$t1Tpe, $t2Tpe, $t3Tpe, $t4Tpe]($t1234schema, $schemaRef, $t1Instance, $t2Instance, $t3Instance, $t4Instance, $summoned)
+              lazy val $selfRefWithType = $deriver.deriveTuple4[$t1Tpe, $t2Tpe, $t3Tpe, $t4Tpe]($t1234schema, $schemaRef, $t1Instance, $t2Instance, $t3Instance, $t4Instance, $summoned)
               $selfRef
             }"""
           } else if (isCaseObject(tpe)) {
@@ -246,7 +249,7 @@ object Derive {
             }
 
             if (fields.size > 22) {
-              val recordSchemaRef = q"$schemaRef.schema.asInstanceOf[_root_.zio.schema.Schema.Record[$tpe]]"
+              val recordSchemaRef = q"$schemaRef.schema.asInstanceOf[Schema.GenericRecord]"
               val fieldInstances = fields.zipWithIndex.map {
                 case (termSymbol, idx) =>
                   val fieldSchema = q"$recordSchemaRef.fields($idx).schema"
@@ -255,7 +258,7 @@ object Derive {
 
               q"""{
                 lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Transform[_root_.scala.collection.immutable.ListMap[String, _], $tpe, _]]
-                lazy val $selfRef = $deriver.deriveTransformedRecord[_root_.scala.collection.immutable.ListMap[String, _], $tpe]($recordSchemaRef, $schemaRef, _root_.zio.Chunk(..$fieldInstances), $summoned)
+                lazy val $selfRefWithType = $deriver.deriveTransformedRecord[_root_.scala.collection.immutable.ListMap[String, _], $tpe]($recordSchemaRef, $schemaRef, _root_.zio.Chunk(..$fieldInstances), $summoned)
                 $selfRef
               }"""
             } else {
@@ -267,7 +270,7 @@ object Derive {
 
               q"""{
                   lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Record[$tpe]]
-                  lazy val $selfRef = $deriver.deriveRecord[$tpe]($schemaRef, _root_.zio.Chunk(..$fieldInstances), $summoned)
+                  lazy val $selfRefWithType = $deriver.deriveRecord[$tpe]($schemaRef, _root_.zio.Chunk(..$fieldInstances), $summoned)
                   $selfRef
                 }"""
             }
@@ -282,7 +285,7 @@ object Derive {
             }
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Enum[$tpe]]
-              lazy val $selfRef = $deriver.deriveEnum[$tpe]($schemaRef, _root_.zio.Chunk(..$subtypeInstances), $summoned)
+              lazy val $selfRefWithType = $deriver.deriveEnum[$tpe]($schemaRef, _root_.zio.Chunk(..$subtypeInstances), $summoned)
               $selfRef
             }"""
           } else if (isMap(tpe)) {
@@ -297,7 +300,7 @@ object Derive {
 
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Map[$keyTpe, $valueTpe]]
-              lazy val $selfRef = $deriver.deriveMap[$keyTpe, $valueTpe]($schemaRef, $keyInstance, $valueInstance, $summoned)
+              lazy val $selfRefWithType = $deriver.deriveMap[$keyTpe, $valueTpe]($schemaRef, $keyInstance, $valueInstance, $summoned)
               $selfRef
             }"""
           } else
@@ -308,7 +311,7 @@ object Derive {
       }
 
     val tree = recurse(weakTypeOf[A], schema.tree, List.empty[Frame[c.type]])
-    println(tree)
+    //println(tree)
     tree
   }
 
