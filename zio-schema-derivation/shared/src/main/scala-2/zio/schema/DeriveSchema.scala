@@ -275,10 +275,10 @@ object DeriveSchema {
               )
               val fieldLabel = termSymbol.name.toString.trim
               val getFunc =
-                q" (z: scala.collection.immutable.ListMap[String, _]) => z.apply($fieldLabel).asInstanceOf[${termSymbol.typeSignature}]"
+                q" (z: _root_.scala.collection.immutable.ListMap[String, _]) => z.apply($fieldLabel).asInstanceOf[${termSymbol.typeSignature}]"
 
               val setFunc =
-                q" (z: scala.collection.immutable.ListMap[String, _], v: ${termSymbol.typeSignature}) => z.updated($fieldLabel, v)"
+                q" (z: _root_.scala.collection.immutable.ListMap[String, _], v: ${termSymbol.typeSignature}) => z.updated($fieldLabel, v)"
 
               if (annotations.nonEmpty) {
                 val newName       = getFieldName(annotations).getOrElse(fieldLabel)

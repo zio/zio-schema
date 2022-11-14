@@ -4,6 +4,14 @@ import zio.Chunk
 
 trait Deriver[F[_]] {
   def deriveRecord[A](record: Schema.Record[A], fields: => Chunk[F[_]], summoned: => Option[F[A]]): F[A]
+
+  def deriveTransformedRecord[A, B](
+    record: Schema.Record[B],
+    transform: Schema.Transform[A, B, _],
+    fields: => Chunk[F[_]],
+    summoned: => Option[F[B]]
+  ): F[B]
+
   def deriveEnum[A](`enum`: Schema.Enum[A], cases: => Chunk[F[_]], summoned: => Option[F[A]]): F[A]
   def derivePrimitive[A](st: StandardType[A], summoned: => Option[F[A]]): F[A]
   def deriveOption[A](option: Schema.Optional[A], inner: => F[A], summoned: => Option[F[Option[A]]]): F[Option[A]]
@@ -33,6 +41,7 @@ trait Deriver[F[_]] {
 
   def deriveTuple3[A, B, C](
     tuple: Schema.Tuple2[Schema.Tuple2[A, B], C],
+    transform: Schema.Transform[((A, B), C), (A, B, C), _],
     t1: => F[A],
     t2: => F[B],
     t3: => F[C],
@@ -41,6 +50,7 @@ trait Deriver[F[_]] {
 
   def deriveTuple4[A, B, C, D](
     tuple: Schema.Tuple2[Schema.Tuple2[Schema.Tuple2[A, B], C], D],
+    transform: Schema.Transform[(((A, B), C), D), (A, B, C, D), _],
     t1: => F[A],
     t2: => F[B],
     t3: => F[C],

@@ -210,7 +210,7 @@ object Derive {
 
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Transform[(($t1Tpe, $t2Tpe), $t3Tpe), ($t1Tpe, $t2Tpe, $t3Tpe), _]]
-              lazy val $selfRef = $deriver.deriveTuple3[$t1Tpe, $t2Tpe, $t3Tpe]($t123schema, $t1Instance, $t2Instance, $t3Instance, $summoned)
+              lazy val $selfRef = $deriver.deriveTuple3[$t1Tpe, $t2Tpe, $t3Tpe]($t123schema, $schemaRef, $t1Instance, $t2Instance, $t3Instance, $summoned)
               $selfRef
             }"""
           } else if (tpe <:< tuple4Tpe) {
@@ -235,7 +235,7 @@ object Derive {
 
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Transform[((($t1Tpe, $t2Tpe), $t3Tpe), $t4Tpe), ($t1Tpe, $t2Tpe, $t3Tpe, $t4Tpe), _]]
-              lazy val $selfRef = $deriver.deriveTuple4[$t1Tpe, $t2Tpe, $t3Tpe, $t4Tpe]($t1234schema, $t1Instance, $t2Instance, $t3Instance, $t4Instance, $summoned)
+              lazy val $selfRef = $deriver.deriveTuple4[$t1Tpe, $t2Tpe, $t3Tpe, $t4Tpe]($t1234schema, $schemaRef, $t1Instance, $t2Instance, $t3Instance, $t4Instance, $summoned)
               $selfRef
             }"""
           } else if (isCaseObject(tpe)) {
@@ -244,16 +244,33 @@ object Derive {
             val fields = tpe.decls.sorted.collect {
               case p: TermSymbol if p.isCaseAccessor && !p.isMethod => p
             }
-            val fieldInstances = fields.zipWithIndex.map {
-              case (termSymbol, idx) =>
-                val fieldSchema = q"$schemaRef.fields($idx).schema"
-                recurse(concreteType(tpe, termSymbol.typeSignature), fieldSchema, currentFrame +: stack)
-            }
-            q"""{
+
+            if (fields.size > 22) {
+              val recordSchemaRef = q"$schemaRef.schema.asInstanceOf[_root_.zio.schema.Schema.Record[$tpe]]"
+              val fieldInstances = fields.zipWithIndex.map {
+                case (termSymbol, idx) =>
+                  val fieldSchema = q"$recordSchemaRef.fields($idx).schema"
+                  recurse(concreteType(tpe, termSymbol.typeSignature), fieldSchema, currentFrame +: stack)
+              }
+
+              q"""{
+                lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Transform[_root_.scala.collection.immutable.ListMap[String, _], $tpe, _]]
+                lazy val $selfRef = $deriver.deriveTransformedRecord[_root_.scala.collection.immutable.ListMap[String, _], $tpe]($recordSchemaRef, $schemaRef, _root_.zio.Chunk(..$fieldInstances), $summoned)
+                $selfRef
+              }"""
+            } else {
+              val fieldInstances = fields.zipWithIndex.map {
+                case (termSymbol, idx) =>
+                  val fieldSchema = q"$schemaRef.fields($idx).schema"
+                  recurse(concreteType(tpe, termSymbol.typeSignature), fieldSchema, currentFrame +: stack)
+              }
+
+              q"""{
                   lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Record[$tpe]]
                   lazy val $selfRef = $deriver.deriveRecord[$tpe]($schemaRef, _root_.zio.Chunk(..$fieldInstances), $summoned)
                   $selfRef
                 }"""
+            }
           } else if (isSealedTrait(tpe)) {
             val appliedTypeArgs: Map[String, Type] =
               tpe.typeConstructor.typeParams.map(_.name.toString).zip(tpe.typeArgs).toMap

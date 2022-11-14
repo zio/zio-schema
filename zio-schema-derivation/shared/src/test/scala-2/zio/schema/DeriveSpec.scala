@@ -60,6 +60,12 @@ object DeriveSpec extends ZIOSpecDefault {
           assertTrue(
             tc.isDerived == true
           )
+        },
+        test("works with with arity > 22") {
+          val tc = Derive.derive[TC, Record8](deriver)
+          assertTrue(
+            tc.isDerived == true
+          )
         }
       ),
       suite("enum")(
@@ -129,6 +135,38 @@ object DeriveSpec extends ZIOSpecDefault {
     implicit val schema: Schema[Record7] = DeriveSchema.gen[Record7]
   }
 
+  case class Record8(
+    t01: Int,
+    t02: Int,
+    t03: Int,
+    t04: Int,
+    t05: Int,
+    t06: Int,
+    t07: Int,
+    t08: Int,
+    t09: Int,
+    t10: Int,
+    t11: Int,
+    t12: Int,
+    t13: Int,
+    t14: Int,
+    t15: Int,
+    t16: Int,
+    t17: Int,
+    t18: Int,
+    t19: Int,
+    t20: Int,
+    t21: Int,
+    t22: Int,
+    t23: Int,
+    t24: Int,
+    t25: Int
+  )
+
+  object Record8 {
+    implicit val schema: Schema[Record8] = DeriveSchema.gen[Record8]
+  }
+
   sealed trait Enum1
 
   object Enum1 {
@@ -147,7 +185,6 @@ object DeriveSpec extends ZIOSpecDefault {
   }
 
   // TODO: recursive type
-  // TODO: >22 fields
 
   val deriver: Deriver[TC] = new Deriver[TC] {
     override def deriveRecord[A](record: Schema.Record[A], fields: => Chunk[TC[_]], summoned: => Option[TC[A]]): TC[A] =
@@ -155,6 +192,21 @@ object DeriveSpec extends ZIOSpecDefault {
         assert(fields.forall(_ ne null)) // force evaluation
         new TC[A] {
           override def isDerived: Boolean   = true
+          override def inner: Option[TC[_]] = fields.headOption
+        }
+      }
+
+    override def deriveTransformedRecord[A, B](
+      record: Schema.Record[B],
+      transform: Schema.Transform[A, B, _],
+      fields: => Chunk[TC[_]],
+      summoned: => Option[TC[B]]
+    ): TC[B] =
+      summoned.getOrElse {
+        assert(fields.forall(_ ne null)) // force evaluation
+        new TC[B] {
+          override def isDerived: Boolean = true
+
           override def inner: Option[TC[_]] = fields.headOption
         }
       }
@@ -259,6 +311,7 @@ object DeriveSpec extends ZIOSpecDefault {
 
     override def deriveTuple3[A, B, C](
       tuple: Schema.Tuple2[Schema.Tuple2[A, B], C],
+      transform: Schema.Transform[((A, B), C), (A, B, C), _],
       t1: => TC[A],
       t2: => TC[B],
       t3: => TC[C],
@@ -277,6 +330,7 @@ object DeriveSpec extends ZIOSpecDefault {
 
     override def deriveTuple4[A, B, C, D](
       tuple: Schema.Tuple2[Schema.Tuple2[Schema.Tuple2[A, B], C], D],
+      transform: Schema.Transform[(((A, B), C), D), (A, B, C, D), _],
       t1: => TC[A],
       t2: => TC[B],
       t3: => TC[C],
