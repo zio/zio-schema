@@ -1,7 +1,9 @@
 package zio.schema
 
-import zio.test.{ Spec, TestEnvironment, ZIOSpecDefault, assertTrue }
+import zio.schema.Deriver.WrappedF
+import zio.test.{ Spec, TestEnvironment, ZIOSpecDefault }
 import zio.{ Chunk, Scope }
+import zio.test.assertTrue
 
 object DeriveSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -228,36 +230,44 @@ object DeriveSpec extends ZIOSpecDefault {
   }
 
   val deriver: Deriver[TC] = new Deriver[TC] {
-    override def deriveRecord[A](record: Schema.Record[A], fields: => Chunk[TC[_]], summoned: => Option[TC[A]]): TC[A] =
+    override def deriveRecord[A](
+      record: Schema.Record[A],
+      fields: => Chunk[WrappedF[TC, _]],
+      summoned: => Option[TC[A]]
+    ): TC[A] =
       summoned.getOrElse {
-        assert(fields.forall(_ ne null)) // force evaluation
+        assert(fields.forall(_.unwrap ne null)) // force evaluation
         new TC[A] {
           override def isDerived: Boolean   = true
-          override def inner: Option[TC[_]] = fields.headOption
+          override def inner: Option[TC[_]] = fields.headOption.map(_.unwrap)
         }
       }
 
     override def deriveTransformedRecord[A, B](
       record: Schema.Record[A],
       transform: Schema.Transform[A, B, _],
-      fields: => Chunk[TC[_]],
+      fields: => Chunk[WrappedF[TC, _]],
       summoned: => Option[TC[B]]
     ): TC[B] =
       summoned.getOrElse {
-        assert(fields.forall(_ ne null)) // force evaluation
+        assert(fields.forall(_.unwrap ne null)) // force evaluation
         new TC[B] {
           override def isDerived: Boolean = true
 
-          override def inner: Option[TC[_]] = fields.headOption
+          override def inner: Option[TC[_]] = fields.headOption.map(_.unwrap)
         }
       }
 
-    override def deriveEnum[A](`enum`: Schema.Enum[A], cases: => Chunk[TC[_]], summoned: => Option[TC[A]]): TC[A] =
+    override def deriveEnum[A](
+      `enum`: Schema.Enum[A],
+      cases: => Chunk[WrappedF[TC, _]],
+      summoned: => Option[TC[A]]
+    ): TC[A] =
       summoned.getOrElse {
-        assert(cases.forall(_ ne null)) // force evaluation
+        assert(cases.forall(_.unwrap ne null)) // force evaluation
         new TC[A] {
           override def isDerived: Boolean   = true
-          override def inner: Option[TC[_]] = cases.headOption
+          override def inner: Option[TC[_]] = cases.headOption.map(_.unwrap)
         }
       }
 
@@ -334,7 +344,10 @@ object DeriveSpec extends ZIOSpecDefault {
         }
       }
 
-    override def deriveTupleN[T](schemasAndInstances: => Chunk[(Schema[_], TC[_])], summoned: => Option[TC[T]]): TC[T] =
+    override def deriveTupleN[T](
+      schemasAndInstances: => Chunk[(Schema[_], WrappedF[TC, _])],
+      summoned: => Option[TC[T]]
+    ): TC[T] =
       ???
 
     override def deriveTuple2[A, B](
@@ -403,7 +416,7 @@ object DeriveSpec extends ZIOSpecDefault {
   val simpleDeriver: Deriver[TC2] = new Deriver[TC2] {
     override def deriveRecord[A](
       record: Schema.Record[A],
-      fields: => Chunk[TC2[_]],
+      fields: => Chunk[WrappedF[TC2, _]],
       summoned: => Option[TC2[A]]
     ): TC2[A] =
       new TC2[A] {
@@ -412,7 +425,11 @@ object DeriveSpec extends ZIOSpecDefault {
         override def hadSummoned: Boolean = summoned.isDefined
       }
 
-    override def deriveEnum[A](`enum`: Schema.Enum[A], cases: => Chunk[TC2[_]], summoned: => Option[TC2[A]]): TC2[A] =
+    override def deriveEnum[A](
+      `enum`: Schema.Enum[A],
+      cases: => Chunk[WrappedF[TC2, _]],
+      summoned: => Option[TC2[A]]
+    ): TC2[A] =
       new TC2[A] {
         override def schema: Schema[A]    = `enum`
         override def innerCount: Int      = cases.size
@@ -463,7 +480,7 @@ object DeriveSpec extends ZIOSpecDefault {
     override def deriveTransformedRecord[A, B](
       record: Schema.Record[A],
       transform: Schema.Transform[A, B, _],
-      fields: => Chunk[TC2[_]],
+      fields: => Chunk[WrappedF[TC2, _]],
       summoned: => Option[TC2[B]]
     ): TC2[B] =
       new TC2[B] {
@@ -490,16 +507,20 @@ object DeriveSpec extends ZIOSpecDefault {
   val recursiveDeriver: Deriver[TC3] = new Deriver[TC3] {
     override def deriveRecord[A](
       record: Schema.Record[A],
-      fields: => Chunk[TC3[_]],
+      fields: => Chunk[WrappedF[TC3, _]],
       summoned: => Option[TC3[A]]
     ): TC3[A] =
       summoned.getOrElse {
-        TC3.Suspend(() => TC3.Const(fields.headOption))
+        TC3.Suspend(() => TC3.Const(fields.headOption.map(_.unwrap)))
       }
 
-    override def deriveEnum[A](`enum`: Schema.Enum[A], cases: => Chunk[TC3[_]], summoned: => Option[TC3[A]]): TC3[A] =
+    override def deriveEnum[A](
+      `enum`: Schema.Enum[A],
+      cases: => Chunk[WrappedF[TC3, _]],
+      summoned: => Option[TC3[A]]
+    ): TC3[A] =
       summoned.getOrElse {
-        TC3.Suspend(() => TC3.Const(cases.headOption))
+        TC3.Suspend(() => TC3.Const(cases.headOption.map(_.unwrap)))
       }
 
     override def derivePrimitive[A](st: StandardType[A], summoned: => Option[TC3[A]]): TC3[A] =
@@ -538,11 +559,11 @@ object DeriveSpec extends ZIOSpecDefault {
     override def deriveTransformedRecord[A, B](
       record: Schema.Record[A],
       transform: Schema.Transform[A, B, _],
-      fields: => Chunk[TC3[_]],
+      fields: => Chunk[WrappedF[TC3, _]],
       summoned: => Option[TC3[B]]
     ): TC3[B] =
       summoned.getOrElse {
-        TC3.Suspend(() => TC3.Const(fields.headOption))
+        TC3.Suspend(() => TC3.Const(fields.headOption.map(_.unwrap)))
       }
   }
 }

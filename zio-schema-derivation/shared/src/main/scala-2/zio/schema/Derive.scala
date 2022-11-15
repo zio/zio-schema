@@ -251,7 +251,8 @@ object Derive {
               val fieldInstances = fields.zipWithIndex.map {
                 case (termSymbol, idx) =>
                   val fieldSchema = q"$recordSchemaRef.fields($idx).schema"
-                  recurse(concreteType(tpe, termSymbol.typeSignature), fieldSchema, currentFrame +: stack)
+                  val f           = recurse(concreteType(tpe, termSymbol.typeSignature), fieldSchema, currentFrame +: stack)
+                  q"_root_.zio.schema.Deriver.wrap($f)"
               }
 
               q"""{
@@ -263,7 +264,8 @@ object Derive {
               val fieldInstances = fields.zipWithIndex.map {
                 case (termSymbol, idx) =>
                   val fieldSchema = q"$schemaRef.fields($idx).schema"
-                  recurse(concreteType(tpe, termSymbol.typeSignature), fieldSchema, currentFrame +: stack)
+                  val f           = recurse(concreteType(tpe, termSymbol.typeSignature), fieldSchema, currentFrame +: stack)
+                  q"_root_.zio.schema.Deriver.wrap($f)"
               }
 
               q"""{
@@ -279,7 +281,8 @@ object Derive {
             val subtypeInstances = subtypes.zipWithIndex.map {
               case (subtype, idx) =>
                 val subtypeSchema = q"$schemaRef.cases($idx).schema"
-                recurse(subtype, subtypeSchema, currentFrame +: stack)
+                val f             = recurse(subtype, subtypeSchema, currentFrame +: stack)
+                q"_root_.zio.schema.Deriver.wrap($f)"
             }
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Enum[$tpe]]
@@ -309,7 +312,6 @@ object Derive {
       }
 
     val tree = recurse(weakTypeOf[A], schema.tree, List.empty[Frame[c.type]])
-    //println(tree)
     tree
   }
 

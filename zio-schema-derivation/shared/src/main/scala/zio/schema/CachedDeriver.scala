@@ -1,17 +1,22 @@
 package zio.schema
 
 import java.util.concurrent.{ ConcurrentHashMap, ConcurrentMap }
-
 import zio.Chunk
 import zio.schema.CachedDeriver.{ Cache, CacheKey }
+import zio.schema.Deriver.WrappedF
 
 class CachedDeriver[F[_]] private (deriver: Deriver[F], cache: Cache[F]) extends Deriver[F] {
-  override def deriveRecord[A](record: Schema.Record[A], fields: => Chunk[F[_]], summoned: => Option[F[A]]): F[A] =
+
+  override def deriveRecord[A](
+    record: Schema.Record[A],
+    fields: => Chunk[WrappedF[F, _]],
+    summoned: => Option[F[A]]
+  ): F[A] =
     cached(record) {
       deriver.deriveRecord(record, fields, summoned)
     }
 
-  override def deriveEnum[A](`enum`: Schema.Enum[A], cases: => Chunk[F[_]], summoned: => Option[F[A]]): F[A] =
+  override def deriveEnum[A](`enum`: Schema.Enum[A], cases: => Chunk[WrappedF[F, _]], summoned: => Option[F[A]]): F[A] =
     cached(`enum`) {
       deriver.deriveEnum(`enum`, cases, summoned)
     }
@@ -67,7 +72,7 @@ class CachedDeriver[F[_]] private (deriver: Deriver[F], cache: Cache[F]) extends
   override def deriveTransformedRecord[A, B](
     record: Schema.Record[A],
     transform: Schema.Transform[A, B, _],
-    fields: => Chunk[F[_]],
+    fields: => Chunk[WrappedF[F, _]],
     summoned: => Option[F[B]]
   ): F[B] =
     cached(transform) {
@@ -117,7 +122,10 @@ class CachedDeriver[F[_]] private (deriver: Deriver[F], cache: Cache[F]) extends
     }
   }
 
-  override def deriveTupleN[T](schemasAndInstances: => Chunk[(Schema[_], F[_])], summoned: => Option[F[T]]): F[T] =
+  override def deriveTupleN[T](
+    schemasAndInstances: => Chunk[(Schema[_], WrappedF[F, _])],
+    summoned: => Option[F[T]]
+  ): F[T] =
     throw new IllegalStateException(s"CachedDeriver uses explicit deriveTupleN overrides")
 }
 
@@ -139,7 +147,7 @@ object CachedDeriver {
 
     def fromSchema[A](schema: Schema[A]): CacheKey[A] =
       schema match {
-        case enum: Schema.Enum[_]          => WithId(enum.id)
+        case e: Schema.Enum[_]             => WithId(e.id)
         case record: Schema.Record[_]      => WithId(record.id)
         case seq: Schema.Sequence[_, _, _] => WithIdentityObject(seq.identity)
         case set: Schema.Set[_]            => Set(fromSchema(set.elementSchema)).asInstanceOf[CacheKey[A]]
@@ -158,7 +166,7 @@ object CachedDeriver {
       }
   }
 
-  class Cache[F[_]] private[CachedDeriver] (map: ConcurrentMap[CacheKey[_], F[_]]) {
+  class Cache[F[_]] private[CachedDeriver] (map: ConcurrentMap[CacheKey[_], Any]) {
 
     def get[A](schema: CacheKey[A]): Option[F[A]] =
       Option(map.get(schema)).map(_.asInstanceOf[F[A]])
@@ -175,5 +183,5 @@ object CachedDeriver {
     new CachedDeriver[F](deriver, cache)
 
   def createCache[F[_]]: Cache[F] =
-    new Cache[F](new ConcurrentHashMap[CacheKey[_], F[_]]())
+    new Cache[F](new ConcurrentHashMap[CacheKey[_], Any]())
 }
