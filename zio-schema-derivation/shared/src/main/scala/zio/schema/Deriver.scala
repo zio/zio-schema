@@ -163,7 +163,13 @@ object Deriver {
     def deriveSet[A](set: Schema.Set[A], inner: => F[A]): F[Set[A]] =
       deriveSequence[Set, A](
         Schema
-          .Sequence(set.elementSchema, _.toSet, Chunk.fromIterable, set.annotations, getClass.getName + "#deriveSet"),
+          .Sequence(
+            set.elementSchema,
+            (chunk: Chunk[A]) => chunk.toSet,
+            (set: Set[A]) => Chunk.fromIterable(set),
+            set.annotations,
+            getClass.getName + "#deriveSet"
+          ),
         inner
       )
 
