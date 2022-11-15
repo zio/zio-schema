@@ -10,13 +10,13 @@ object DeriveSpec extends ZIOSpecDefault {
     suite("Derive")(
       suite("case object")(
         test("can derive new instance for case object") {
-          implicit val schema = DeriveSchema.gen[CaseObject1.type]
-          val tc              = Derive.derive[TC, CaseObject1.type](deriver)
+          implicit val schema: Schema[CaseObject1.type] = DeriveSchema.gen[CaseObject1.type]
+          val tc                                        = Derive.derive[TC, CaseObject1.type](deriver)
           assertTrue(tc.isDerived == true)
         },
         test("can use existing instance for case object") {
-          implicit val schema = DeriveSchema.gen[CaseObject2.type]
-          val tc              = Derive.derive[TC, CaseObject2.type](deriver)
+          implicit val schema: Schema[CaseObject2.type] = DeriveSchema.gen[CaseObject2.type]
+          val tc                                        = Derive.derive[TC, CaseObject2.type](deriver)
           assertTrue(tc.isDerived == false)
         }
       ),

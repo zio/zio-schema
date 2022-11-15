@@ -81,26 +81,69 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
                 // println(s"Found schema ${schema.show}")
                 schema
               case _ =>
-                // println(s"TYPE REPR ${typeRepr.show}")
-                val mirror = Mirror(typeRepr).get
-                mirror.mirrorType match {
-                  case MirrorType.Sum => 
-                    deriveEnum[T](mirror, stack)
-                  case MirrorType.Product =>
-                    deriveCaseClass[T](mirror, stack, top)
-                }
+                Mirror(typeRepr) match {
+                  case Some(mirror) =>
+                    mirror.mirrorType match {
+                      case MirrorType.Sum =>
+                        deriveEnum[T](mirror, stack)
+                      case MirrorType.Product =>
+                       deriveCaseClass[T](mirror, stack, top)
+                    }
+                  case None =>
+                    val sym = typeRepr.typeSymbol
+                    if (sym.isClassDef && sym.flags.is(Flags.Module)) {
+                      deriveCaseObject[T](stack, top)
+                    }
+                    else {
+                      report.errorAndAbort(s"Deriving schema for ${typeRepr.show} is not supported")
+                    }
+              }
             }
         }
     }
 
     // println()
     // println()
-    // println(s"RESULT ${typeRepr.show}")
-    // println(s"------")
-    // println(s"RESULT ${result.show}")
-    // println("HELLO")
+//     println(s"RESULT ${typeRepr.show}")
+//     println(s"------")
+//     println(s"RESULT ${result.show}")
+//     println("HELLO")
 
     result
+  }
+
+  def deriveCaseObject[T: Type](stack: Stack, top: Boolean) = {
+    val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.spliceOwner)
+    val selfRef = Ref(selfRefSymbol)
+
+    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
+    val annotationExprs = TypeRepr.of[T].typeSymbol.annotations.filter (filterAnnotation).map (_.asExpr)
+    val annotations = '{zio.Chunk.fromIterable (${Expr.ofSeq (annotationExprs)})}
+
+    val constructor = '{() => ${Ref(TypeRepr.of[T].typeSymbol.companionModule).asExprOf[T]}}
+    val ctor = typeRprOf[T](0).typeSymbol.companionModule
+    val args = List(typeInfo, constructor, annotations)
+
+    val applied = Apply(
+      TypeApply(
+        Select.unique(Ref(ctor), "apply"),
+        List(TypeRepr.of[T].asType match {
+          case '[tt] => TypeTree.of[tt]
+        })),
+      args.map(_.asTerm)
+    )
+
+    val lazyValDef = ValDef(selfRefSymbol, Some(applied.changeOwner(selfRefSymbol)))
+
+    applied.asExpr match {
+      case '{ type tt <: Schema[T]; $ex : `tt` } =>
+        '{
+          ${Block(
+            List(lazyValDef),
+            selfRef
+          ).asExpr}.asInstanceOf[tt]
+        }
+    }
   }
 
   def deriveCaseClass[T: Type](mirror: Mirror, stack: Stack, top: Boolean) = {
