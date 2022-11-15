@@ -1,9 +1,8 @@
 package zio.schema
 
 import zio.schema.Deriver.WrappedF
-import zio.test.{ Spec, TestEnvironment, ZIOSpecDefault }
+import zio.test.{ Spec, TestEnvironment, ZIOSpecDefault, assertTrue }
 import zio.{ Chunk, Scope }
-import zio.test.assertTrue
 
 object DeriveSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =

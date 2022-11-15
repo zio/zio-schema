@@ -1,6 +1,7 @@
 package zio.schema
 
 import scala.annotation.nowarn
+
 import zio.Chunk
 import zio.schema.Deriver.{ WrappedF, wrap }
 
