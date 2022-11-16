@@ -132,7 +132,57 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                     case MirrorType.Sum =>
                       deriveEnum[F, A](mirror, stack, deriver, schema, selfRef)
                     case MirrorType.Product =>
-                      deriveCaseClass[F, A](mirror, stack, deriver, schema, selfRef)
+                      typeRepr.asType match {
+                        case '[(a, b)] =>
+                          val (schemaRef, schemaRefExpr) = createSchemaRef[(a, b), Schema.Tuple2[a, b]](stack)              
+                          val summoned = summonOptional[F, (a, b)]
+
+                          val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.left}, stack)
+                          val instanceB = deriveInstance[F, b](deriver, '{$schemaRefExpr.right}, stack)
+                          lazyVals[F[A]](selfRef,
+                            schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Tuple2[a, b]]},
+                            selfRef -> '{$deriver.deriveTuple2[a, b]($schemaRefExpr, $instanceA, $instanceB, $summoned)}
+                          )
+                        case '[(a, b, c)] =>
+                          val (schemaRef, schemaRefExpr) = createSchemaRef[(a, b, c), Schema.Transform[((a, b), c), (a, b, c), _]](stack)
+                          val summoned = summonOptional[F, (a, b, c)]
+
+                          val t123Schema = '{$schemaRefExpr.schema.asInstanceOf[Schema.Tuple2[Schema.Tuple2[a, b], c]]}
+                          val t12Schema  = '{$t123Schema.left.asInstanceOf[Schema.Tuple2[a, b]]}
+                          val t1Schema   = '{$t12Schema.left}
+                          val t2Schema   = '{$t12Schema.right}
+                          val t3Schema   = '{$t123Schema.right}
+
+                          val instanceA = deriveInstance[F, a](deriver, t1Schema, stack)
+                          val instanceB = deriveInstance[F, b](deriver, t2Schema, stack)
+                          val instanceC = deriveInstance[F, c](deriver, t3Schema, stack)
+                          lazyVals[F[A]](selfRef,
+                            schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Transform[((a, b), c), (a, b, c), _]]},
+                            selfRef -> '{$deriver.deriveTuple3[a, b, c]($t123Schema, $schemaRefExpr, $instanceA, $instanceB, $instanceC, $summoned)}
+                          )
+                        case '[(a, b, c, d)] =>
+                          val (schemaRef, schemaRefExpr) = createSchemaRef[(a, b, c, d), Schema.Transform[(((a, b), c), d), (a, b, c, d), _]](stack)
+                          val summoned = summonOptional[F, (a, b, c, d)]
+
+                          val t1234Schema ='{$schemaRefExpr.schema.asInstanceOf[Schema.Tuple2[Schema.Tuple2[Schema.Tuple2[a, b], c], d]]}
+                          val t123Schema = '{$t1234Schema.left.asInstanceOf[Schema.Tuple2[Schema.Tuple2[a, b], c]]}
+                          val t12Schema  = '{$t123Schema.left.asInstanceOf[Schema.Tuple2[a, b]]}
+                          val t1Schema   = '{$t12Schema.left}
+                          val t2Schema   = '{$t12Schema.right}
+                          val t3Schema   = '{$t123Schema.right}
+                          val t4Schema   = '{$t1234Schema.right}
+
+                          val instanceA = deriveInstance[F, a](deriver, t1Schema, stack)
+                          val instanceB = deriveInstance[F, b](deriver, t2Schema, stack)
+                          val instanceC = deriveInstance[F, c](deriver, t3Schema, stack)
+                          val instanceD = deriveInstance[F, d](deriver, t4Schema, stack)
+                          lazyVals[F[A]](selfRef,
+                            schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Transform[(((a, b), c), d), (a, b, c, d), _]]},
+                            selfRef -> '{$deriver.deriveTuple4[a, b, c, d]($t1234Schema, $schemaRefExpr, $instanceA, $instanceB, $instanceC, $instanceD, $summoned)}
+                          )
+                        case _ =>
+                          deriveCaseClass[F, A](mirror, stack, deriver, schema, selfRef)
+                      }
                   }
                 case None =>
                   val sym = typeRepr.typeSymbol
@@ -147,11 +197,11 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
       }
     }
 
-    println()
-    println()
-    println(s"FOR ${typeRepr.show}")
-    println(s"------")
-    println(s"RESULT ${result.show}")
+    // println()
+    // println()
+    // println(s"FOR ${typeRepr.show}")
+    // println(s"------")
+    // println(s"RESULT ${result.show}")
 
     result
   }
