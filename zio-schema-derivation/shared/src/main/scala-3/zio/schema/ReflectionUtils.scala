@@ -8,6 +8,12 @@ class ReflectionUtils[Q <: Quotes & Singleton](val q: Q) {
   given q.type = q
   import q.reflect._
 
+  def summonOptional[F[_]: Type, A: Type](using Quotes): Expr[Option[F[A]]] =
+    Expr.summon[F[A]] match {
+      case Some(instance) => '{Some($instance)}
+      case None => '{None}
+    }
+
   enum MirrorType {
     case Sum
     case Product
@@ -49,15 +55,17 @@ class ReflectionUtils[Q <: Quotes & Singleton](val q: Q) {
       }
     }
 
-    def apply(tpe: TypeRepr): Option[Mirror] = {
-      val MirrorType = TypeRepr.of[scala.deriving.Mirror]
+    def apply(tpe: TypeRepr): Option[Mirror] = {      
+      val MirrorType = TypeRepr.of[scala.deriving.Mirror]      
 
       val mtpe = Refinement(MirrorType, "MirroredType", TypeBounds(tpe, tpe))
+      
       val instance = Implicits.search(mtpe) match {
         case iss: ImplicitSearchSuccess => Some(iss.tree.asExprOf[scala.deriving.Mirror])
         case _: ImplicitSearchFailure => None
       }
-      instance.flatMap(Mirror(_))
+            
+      instance.flatMap(Mirror(_))      
     }
   }
 

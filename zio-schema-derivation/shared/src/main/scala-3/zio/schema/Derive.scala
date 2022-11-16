@@ -292,13 +292,6 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
       result
     ).asExprOf[A]
 
-
-  def summonOptional[F[_]: Type, A: Type](using Quotes): Expr[Option[F[A]]] =
-    Expr.summon[F[A]] match {
-      case Some(instance) => '{Some($instance)}
-      case None => '{None}
-    }
-
   def createSchemaRef[T: Type, S <: Schema[T]: Type](stack: Stack)(using Quotes): (Ref, Expr[S]) = {
     val schemaSymbol = Symbol.newVal(Symbol.spliceOwner, s"schema${stack.size}", TypeRepr.of[S], Flags.Lazy, Symbol.spliceOwner)
     val schemaRef = Ref(schemaSymbol)
