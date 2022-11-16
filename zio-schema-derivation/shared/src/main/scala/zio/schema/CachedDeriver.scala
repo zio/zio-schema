@@ -6,7 +6,7 @@ import zio.Chunk
 import zio.schema.CachedDeriver.{ Cache, CacheKey }
 import zio.schema.Deriver.WrappedF
 
-class CachedDeriver[F[_]] private (deriver: Deriver[F], cache: Cache[F]) extends Deriver[F] {
+private[schema] class CachedDeriver[F[_]] private (deriver: Deriver[F], cache: Cache[F]) extends Deriver[F] {
 
   override def deriveRecord[A](
     record: Schema.Record[A],
@@ -130,7 +130,7 @@ class CachedDeriver[F[_]] private (deriver: Deriver[F], cache: Cache[F]) extends
     throw new IllegalStateException(s"CachedDeriver uses explicit deriveTupleN overrides")
 }
 
-object CachedDeriver {
+private[schema] object CachedDeriver {
   sealed trait CacheKey[A]
 
   object CacheKey {
