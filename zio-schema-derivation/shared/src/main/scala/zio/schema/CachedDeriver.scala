@@ -6,7 +6,7 @@ import zio.Chunk
 import zio.schema.CachedDeriver.{ Cache, CacheKey }
 import zio.schema.Deriver.WrappedF
 
-private[schema] class CachedDeriver[F[_]] private (deriver: Deriver[F], cache: Cache[F]) extends Deriver[F] {
+private[schema] class CachedDeriver[F[_]] private (deriver: Deriver[F], val cache: Cache[F]) extends Deriver[F] {
 
   override def deriveRecord[A](
     record: Schema.Record[A],

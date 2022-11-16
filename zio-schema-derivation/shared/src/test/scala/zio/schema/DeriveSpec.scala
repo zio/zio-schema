@@ -86,20 +86,20 @@ object DeriveSpec extends ZIOSpecDefault {
       ),
       suite("caching") {
         test("reuses derived instances") {
-          val (cachedDeriver, cache) = deriver.cached
-          val tc1                    = Derive.derive[TC, Record1](cachedDeriver)
-          val tc2                    = Derive.derive[TC, Record2](cachedDeriver)
-          val tc3                    = Derive.derive[TC, Record3](cachedDeriver)
-          val tc4                    = Derive.derive[TC, Record4](cachedDeriver)
-          val tc5                    = Derive.derive[TC, Record5](cachedDeriver)
-          val tc6                    = Derive.derive[TC, Record6](cachedDeriver)
-          val tc7                    = Derive.derive[TC, Record7](cachedDeriver)
-          val tc8                    = Derive.derive[TC, Record8](cachedDeriver)
+          val cachedDeriver = deriver.cached
+          val tc1           = Derive.derive[TC, Record1](cachedDeriver)
+          val tc2           = Derive.derive[TC, Record2](cachedDeriver)
+          val tc3           = Derive.derive[TC, Record3](cachedDeriver)
+          val tc4           = Derive.derive[TC, Record4](cachedDeriver)
+          val tc5           = Derive.derive[TC, Record5](cachedDeriver)
+          val tc6           = Derive.derive[TC, Record6](cachedDeriver)
+          val tc7           = Derive.derive[TC, Record7](cachedDeriver)
+          val tc8           = Derive.derive[TC, Record8](cachedDeriver)
 
           val eq1 = tc7.inner.get.inner.get eq tc1
           assertTrue(
             eq1, // (pair._1)
-            cache.size == 22,
+            cachedDeriver.asInstanceOf[CachedDeriver[TC]].cache.size == 22,
             tc2 ne null,
             tc3 ne null,
             tc4 ne null,

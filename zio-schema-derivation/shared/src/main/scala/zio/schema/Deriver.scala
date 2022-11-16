@@ -33,11 +33,11 @@ import zio.schema.Deriver.{ WrappedF, wrap }
  * which implements this automatically and only calls the trait's methods in case there is no available implicit for
  * the actual type.
  */
-trait Deriver[F[_]] {
+trait Deriver[F[_]] { self =>
 
-  lazy val cached: (Deriver[F], CachedDeriver.Cache[F]) = {
+  lazy val cached: Deriver[F] = {
     val cache = CachedDeriver.createCache[F]
-    (CachedDeriver.apply(this, cache), cache)
+    CachedDeriver.apply(this, cache)
   }
 
   def deriveRecord[A](record: Schema.Record[A], fields: => Chunk[WrappedF[F, _]], summoned: => Option[F[A]]): F[A]
@@ -148,7 +148,129 @@ trait Deriver[F[_]] {
       summoned
     )
 
-  protected def tupleToRecordSchema[T](
+  def autoAcceptSummoned: Deriver[F] =
+    new Deriver[F] {
+      final override def deriveRecord[A](
+        record: Schema.Record[A],
+        fields: => Chunk[WrappedF[F, _]],
+        summoned: => Option[F[A]]
+      ): F[A] =
+        summoned.getOrElse {
+          self.deriveRecord(record, fields, summoned)
+        }
+
+      final override def deriveEnum[A](
+        `enum`: Schema.Enum[A],
+        cases: => Chunk[WrappedF[F, _]],
+        summoned: => Option[F[A]]
+      ): F[A] =
+        summoned.getOrElse {
+          self.deriveEnum(`enum`, cases, summoned)
+        }
+
+      final override def derivePrimitive[A](st: StandardType[A], summoned: => Option[F[A]]): F[A] =
+        summoned.getOrElse {
+          self.derivePrimitive(st, summoned)
+        }
+
+      final override def deriveOption[A](
+        option: Schema.Optional[A],
+        inner: => F[A],
+        summoned: => Option[F[Option[A]]]
+      ): F[Option[A]] =
+        summoned.getOrElse {
+          self.deriveOption(option, inner, summoned)
+        }
+
+      final override def deriveSequence[C[_], A](
+        sequence: Schema.Sequence[C[A], A, _],
+        inner: => F[A],
+        summoned: => Option[F[C[A]]]
+      ): F[C[A]] =
+        summoned.getOrElse {
+          self.deriveSequence(sequence, inner, summoned)
+        }
+
+      final override def deriveMap[K, V](
+        map: Schema.Map[K, V],
+        key: => F[K],
+        value: => F[V],
+        summoned: => Option[F[Map[K, V]]]
+      ): F[Map[K, V]] =
+        summoned.getOrElse {
+          self.deriveMap(map, key, value, summoned)
+        }
+
+      final override def deriveEither[A, B](
+        either: Schema.Either[A, B],
+        left: => F[A],
+        right: => F[B],
+        summoned: => Option[F[Either[A, B]]]
+      ): F[Either[A, B]] =
+        summoned.getOrElse {
+          self.deriveEither(either, left, right, summoned)
+        }
+
+      final override def deriveSet[A](set: Schema.Set[A], inner: => F[A], summoned: => Option[F[Set[A]]]): F[Set[A]] =
+        summoned.getOrElse {
+          self.deriveSet(set, inner, summoned)
+        }
+
+      final override def deriveTransformedRecord[A, B](
+        record: Schema.Record[A],
+        transform: Schema.Transform[A, B, _],
+        fields: => Chunk[WrappedF[F, _]],
+        summoned: => Option[F[B]]
+      ): F[B] =
+        summoned.getOrElse {
+          self.deriveTransformedRecord(record, transform, fields, summoned)
+        }
+
+      final override def deriveTuple2[A, B](
+        tuple: Schema.Tuple2[A, B],
+        left: => F[A],
+        right: => F[B],
+        summoned: => Option[F[(A, B)]]
+      ): F[(A, B)] =
+        summoned.getOrElse {
+          self.deriveTuple2(tuple, left, right, summoned)
+        }
+
+      final override def deriveTuple3[A, B, C](
+        tuple: Schema.Tuple2[Schema.Tuple2[A, B], C],
+        transform: Schema.Transform[((A, B), C), (A, B, C), _],
+        t1: => F[A],
+        t2: => F[B],
+        t3: => F[C],
+        summoned: => Option[F[(A, B, C)]]
+      ): F[(A, B, C)] =
+        summoned.getOrElse {
+          self.deriveTuple3(tuple, transform, t1, t2, t3, summoned)
+        }
+
+      final override def deriveTuple4[A, B, C, D](
+        tuple: Schema.Tuple2[Schema.Tuple2[Schema.Tuple2[A, B], C], D],
+        transform: Schema.Transform[(((A, B), C), D), (A, B, C, D), _],
+        t1: => F[A],
+        t2: => F[B],
+        t3: => F[C],
+        t4: => F[D],
+        summoned: => Option[F[(A, B, C, D)]]
+      ): F[(A, B, C, D)] =
+        summoned.getOrElse {
+          self.deriveTuple4(tuple, transform, t1, t2, t3, t4, summoned)
+        }
+
+      final override def deriveTupleN[T](
+        schemasAndInstances: => Chunk[(Schema[_], WrappedF[F, _])],
+        summoned: => Option[F[T]]
+      ): F[T] =
+        summoned.getOrElse {
+          self.deriveTupleN(schemasAndInstances, summoned)
+        }
+    }
+
+  private def tupleToRecordSchema[T](
     arity: Int,
     schemasAndInstances: => Chunk[(Schema[_], WrappedF[F, _])]
   ): Schema.Record[T] =
@@ -233,208 +355,6 @@ trait Deriver[F[_]] {
 }
 
 object Deriver {
-
-  trait AutoAcceptSummoned[F[_]] extends Deriver[F] {
-    def deriveRecord[A](record: Schema.Record[A], fields: => Chunk[WrappedF[F, _]]): F[A]
-    def deriveEnum[A](`enum`: Schema.Enum[A], cases: => Chunk[WrappedF[F, _]]): F[A]
-    def derivePrimitive[A](st: StandardType[A]): F[A]
-    def deriveOption[A](option: Schema.Optional[A], inner: => F[A]): F[Option[A]]
-    def deriveSequence[C[_], A](sequence: Schema.Sequence[C[A], A, _], inner: => F[A]): F[C[A]]
-    def deriveMap[K, V](map: Schema.Map[K, V], key: => F[K], value: => F[V]): F[Map[K, V]]
-
-    def deriveEither[A, B](either: Schema.Either[A, B], left: => F[A], right: => F[B]): F[Either[A, B]] =
-      deriveEnum(either.toEnum, Chunk(wrap(left), wrap(right)))
-
-    def deriveSet[A](set: Schema.Set[A], inner: => F[A]): F[Set[A]] =
-      deriveSequence[Set, A](
-        Schema
-          .Sequence(
-            set.elementSchema,
-            (chunk: Chunk[A]) => chunk.toSet,
-            (set: Set[A]) => Chunk.fromIterable(set),
-            set.annotations,
-            getClass.getName + "#deriveSet"
-          ),
-        inner
-      )
-
-    def deriveTuple2[A, B](tuple: Schema.Tuple2[A, B], left: => F[A], right: => F[B]): F[(A, B)] =
-      deriveTupleN[(A, B)](Chunk(tuple.left -> wrap(left), tuple.right -> wrap(right)))
-
-    @nowarn def deriveTuple3[A, B, C](
-      tuple: Schema.Tuple2[Schema.Tuple2[A, B], C],
-      transform: Schema.Transform[((A, B), C), (A, B, C), _],
-      t1: => F[A],
-      t2: => F[B],
-      t3: => F[C]
-    ): F[(A, B, C)] =
-      deriveTupleN[(A, B, C)](
-        Chunk(
-          tuple.left.asInstanceOf[Schema.Tuple2[A, B]].left  -> wrap(t1),
-          tuple.left.asInstanceOf[Schema.Tuple2[A, B]].right -> wrap(t2),
-          tuple.right                                        -> wrap(t3)
-        )
-      )
-
-    @nowarn def deriveTuple4[A, B, C, D](
-      tuple: Schema.Tuple2[Schema.Tuple2[Schema.Tuple2[A, B], C], D],
-      transform: Schema.Transform[(((A, B), C), D), (A, B, C, D), _],
-      t1: => F[A],
-      t2: => F[B],
-      t3: => F[C],
-      t4: => F[D]
-    ): F[(A, B, C, D)] =
-      deriveTupleN[(A, B, C, D)](
-        Chunk(
-          tuple.left
-            .asInstanceOf[Schema.Tuple2[Schema.Tuple2[A, B], C]]
-            .left
-            .asInstanceOf[Schema.Tuple2[A, B]]
-            .left -> wrap(t1),
-          tuple.left
-            .asInstanceOf[Schema.Tuple2[Schema.Tuple2[A, B], C]]
-            .left
-            .asInstanceOf[Schema.Tuple2[A, B]]
-            .right                                                             -> wrap(t2),
-          tuple.left.asInstanceOf[Schema.Tuple2[Schema.Tuple2[A, B], C]].right -> wrap(t3),
-          tuple.right                                                          -> wrap(t4)
-        )
-      )
-
-    def deriveTupleN[T](schemasAndInstances: => Chunk[(Schema[_], WrappedF[F, _])]): F[T] = {
-      val arity        = schemasAndInstances.length
-      val recordSchema = tupleToRecordSchema[T](arity, schemasAndInstances)
-      deriveRecord(
-        recordSchema,
-        schemasAndInstances.map(_._2)
-      )
-    }
-
-    def deriveTransformedRecord[A, B](
-      record: Schema.Record[A],
-      transform: Schema.Transform[A, B, _],
-      fields: => Chunk[WrappedF[F, _]]
-    ): F[B]
-
-    final override def deriveRecord[A](
-      record: Schema.Record[A],
-      fields: => Chunk[WrappedF[F, _]],
-      summoned: => Option[F[A]]
-    ): F[A] =
-      summoned.getOrElse {
-        deriveRecord(record, fields)
-      }
-
-    final override def deriveEnum[A](
-      `enum`: Schema.Enum[A],
-      cases: => Chunk[WrappedF[F, _]],
-      summoned: => Option[F[A]]
-    ): F[A] =
-      summoned.getOrElse {
-        deriveEnum(`enum`, cases)
-      }
-
-    final override def derivePrimitive[A](st: StandardType[A], summoned: => Option[F[A]]): F[A] =
-      summoned.getOrElse {
-        derivePrimitive(st)
-      }
-
-    final override def deriveOption[A](
-      option: Schema.Optional[A],
-      inner: => F[A],
-      summoned: => Option[F[Option[A]]]
-    ): F[Option[A]] =
-      summoned.getOrElse {
-        deriveOption(option, inner)
-      }
-
-    final override def deriveSequence[C[_], A](
-      sequence: Schema.Sequence[C[A], A, _],
-      inner: => F[A],
-      summoned: => Option[F[C[A]]]
-    ): F[C[A]] =
-      summoned.getOrElse {
-        deriveSequence(sequence, inner)
-      }
-
-    final override def deriveMap[K, V](
-      map: Schema.Map[K, V],
-      key: => F[K],
-      value: => F[V],
-      summoned: => Option[F[Map[K, V]]]
-    ): F[Map[K, V]] =
-      summoned.getOrElse {
-        deriveMap(map, key, value)
-      }
-
-    final override def deriveEither[A, B](
-      either: Schema.Either[A, B],
-      left: => F[A],
-      right: => F[B],
-      summoned: => Option[F[Either[A, B]]]
-    ): F[Either[A, B]] =
-      summoned.getOrElse {
-        deriveEither(either, left, right)
-      }
-
-    final override def deriveSet[A](set: Schema.Set[A], inner: => F[A], summoned: => Option[F[Set[A]]]): F[Set[A]] =
-      summoned.getOrElse {
-        deriveSet(set, inner)
-      }
-
-    final override def deriveTransformedRecord[A, B](
-      record: Schema.Record[A],
-      transform: Schema.Transform[A, B, _],
-      fields: => Chunk[WrappedF[F, _]],
-      summoned: => Option[F[B]]
-    ): F[B] =
-      summoned.getOrElse {
-        deriveTransformedRecord(record, transform, fields)
-      }
-
-    final override def deriveTuple2[A, B](
-      tuple: Schema.Tuple2[A, B],
-      left: => F[A],
-      right: => F[B],
-      summoned: => Option[F[(A, B)]]
-    ): F[(A, B)] =
-      summoned.getOrElse {
-        deriveTuple2(tuple, left, right)
-      }
-
-    final override def deriveTuple3[A, B, C](
-      tuple: Schema.Tuple2[Schema.Tuple2[A, B], C],
-      transform: Schema.Transform[((A, B), C), (A, B, C), _],
-      t1: => F[A],
-      t2: => F[B],
-      t3: => F[C],
-      summoned: => Option[F[(A, B, C)]]
-    ): F[(A, B, C)] =
-      summoned.getOrElse {
-        deriveTuple3(tuple, transform, t1, t2, t3)
-      }
-
-    final override def deriveTuple4[A, B, C, D](
-      tuple: Schema.Tuple2[Schema.Tuple2[Schema.Tuple2[A, B], C], D],
-      transform: Schema.Transform[(((A, B), C), D), (A, B, C, D), _],
-      t1: => F[A],
-      t2: => F[B],
-      t3: => F[C],
-      t4: => F[D],
-      summoned: => Option[F[(A, B, C, D)]]
-    ): F[(A, B, C, D)] =
-      summoned.getOrElse {
-        deriveTuple4(tuple, transform, t1, t2, t3, t4)
-      }
-
-    final override def deriveTupleN[T](
-      schemasAndInstances: => Chunk[(Schema[_], WrappedF[F, _])],
-      summoned: => Option[F[T]]
-    ): F[T] =
-      summoned.getOrElse {
-        deriveTupleN(schemasAndInstances)
-      }
-  }
 
   class WrappedF[F[_], A](f: () => F[A]) {
     lazy val unwrap: F[A] = f()

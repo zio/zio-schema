@@ -1,5 +1,7 @@
 package zio.schema
 
+import scala.annotation.nowarn
+
 trait VersionSpecificDeriveSchemaSpec {
   case class ContainerFields(field1: Option[String])
 
@@ -11,6 +13,6 @@ trait VersionSpecificDeriveSchemaSpec {
   def verifyFieldName[F]: FieldNameVerifier[F] = new FieldNameVerifier[F]
 
   class FieldNameVerifier[F] {
-    def apply[S <: String & scala.Singleton](name: S)(implicit ev: F =:= S): Boolean = true
+    @nowarn def apply[S <: String & scala.Singleton](name: S)(implicit ev: F =:= S): Boolean = true
   }
 }
