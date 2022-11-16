@@ -167,7 +167,7 @@ object DeriveSpec extends ZIOSpecDefault {
   case class Record7(pair: (Record1, Int), triple: (String, Enum1, Record2))
 
   object Record7 {
-    implicit val schema: Schema[Record7] = DeriveSchema.gen[Record7]    
+    implicit val schema: Schema[Record7] = DeriveSchema.gen[Record7]
   }
 
   case class Record8(
