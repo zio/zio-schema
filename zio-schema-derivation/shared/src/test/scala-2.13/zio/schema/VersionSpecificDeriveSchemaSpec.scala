@@ -4,7 +4,8 @@ trait VersionSpecificDeriveSchemaSpec {
   case class ContainerFields(field1: Option[String])
 
   object ContainerFields {
-    implicit val schema: Schema.CaseClass1.WithFields["field1",Option[String],ContainerFields] = DeriveSchema.gen[ContainerFields]
+    implicit val schema: Schema.CaseClass1.WithFields["field1", Option[String], ContainerFields] =
+      DeriveSchema.gen[ContainerFields]
   }
 
   def verifyFieldName[F]: FieldNameVerifier[F] = new FieldNameVerifier[F]
