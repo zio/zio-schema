@@ -264,20 +264,20 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
       case StandardType.DurationType =>
         decodeRecord(path, MessagePackCodec.durationStructure)
           .map(data => Duration.ofSeconds(data("seconds").asInstanceOf[Long], data("nanos").asInstanceOf[Int].toLong))
-      case StandardType.InstantType(formatter) =>
-        decodeString(path).map(v => Instant.from(formatter.parse(v)))
-      case StandardType.LocalDateType(formatter) =>
-        decodeString(path).map(LocalDate.parse(_, formatter))
-      case StandardType.LocalTimeType(formatter) =>
-        decodeString(path).map(LocalTime.parse(_, formatter))
-      case StandardType.LocalDateTimeType(formatter) =>
-        decodeString(path).map(LocalDateTime.parse(_, formatter))
-      case StandardType.OffsetTimeType(formatter) =>
-        decodeString(path).map(OffsetTime.parse(_, formatter))
-      case StandardType.OffsetDateTimeType(formatter) =>
-        decodeString(path).map(OffsetDateTime.parse(_, formatter))
-      case StandardType.ZonedDateTimeType(formatter) =>
-        decodeString(path).map(ZonedDateTime.parse(_, formatter))
+      case StandardType.InstantType =>
+        decodeString(path).map(v => Instant.parse(v))
+      case StandardType.LocalDateType =>
+        decodeString(path).map(LocalDate.parse(_))
+      case StandardType.LocalTimeType =>
+        decodeString(path).map(LocalTime.parse(_))
+      case StandardType.LocalDateTimeType =>
+        decodeString(path).map(LocalDateTime.parse(_))
+      case StandardType.OffsetTimeType =>
+        decodeString(path).map(OffsetTime.parse(_))
+      case StandardType.OffsetDateTimeType =>
+        decodeString(path).map(OffsetDateTime.parse(_))
+      case StandardType.ZonedDateTimeType =>
+        decodeString(path).map(ZonedDateTime.parse(_))
       case _ => fail(path, s"Unsupported primitive type $standardType")
     }
 

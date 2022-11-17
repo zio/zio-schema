@@ -1,6 +1,5 @@
 package zio.schema.codec
 
-import java.time.format.DateTimeFormatter
 import java.time.{ ZoneId, ZoneOffset }
 
 import scala.collection.immutable.ListMap
@@ -692,7 +691,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         },
         test("dynamic instant") {
           check(
-            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.InstantType)
           ) { dynamicValue =>
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
           }
@@ -700,7 +699,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         test("dynamic zoned date time") {
           check(
             DynamicValueGen.anyPrimitiveDynamicValue(
-              StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)
+              StandardType.ZonedDateTimeType
             )
           ) { dynamicValue =>
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)

@@ -1,7 +1,5 @@
 package zio.schema
 
-import java.time.format.DateTimeFormatter
-
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
@@ -689,28 +687,28 @@ object SchemaGen {
     ),
     SchemaTest("DayOfWeek", StandardType.DayOfWeekType, JavaTimeGen.anyDayOfWeek),
     SchemaTest("Duration", StandardType.DurationType, JavaTimeGen.anyDuration),
-    SchemaTest("Instant", StandardType.InstantType(DateTimeFormatter.ISO_DATE_TIME), JavaTimeGen.anyInstant),
-    SchemaTest("LocalDate", StandardType.LocalDateType(DateTimeFormatter.ISO_DATE), JavaTimeGen.anyLocalDate),
+    SchemaTest("Instant", StandardType.InstantType, JavaTimeGen.anyInstant),
+    SchemaTest("LocalDate", StandardType.LocalDateType, JavaTimeGen.anyLocalDate),
     SchemaTest(
       "LocalDateTime",
-      StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+      StandardType.LocalDateTimeType,
       JavaTimeGen.anyLocalDateTime
     ),
     SchemaTest(
       "LocalTime",
-      StandardType.LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME),
+      StandardType.LocalTimeType,
       JavaTimeGen.anyLocalTime
     ),
     SchemaTest("Month", StandardType.MonthType, JavaTimeGen.anyMonth),
     SchemaTest("MonthDay", StandardType.MonthDayType, JavaTimeGen.anyMonthDay),
     SchemaTest(
       "OffsetDateTime",
-      StandardType.OffsetDateTimeType(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+      StandardType.OffsetDateTimeType,
       JavaTimeGen.anyOffsetDateTime
     ),
     SchemaTest(
       "OffsetTime",
-      StandardType.OffsetTimeType(DateTimeFormatter.ISO_OFFSET_TIME),
+      StandardType.OffsetTimeType,
       JavaTimeGen.anyOffsetTime
     ),
     SchemaTest("Period", StandardType.PeriodType, JavaTimeGen.anyPeriod),
@@ -718,7 +716,7 @@ object SchemaGen {
     SchemaTest("YearMonth", StandardType.YearMonthType, JavaTimeGen.anyYearMonth),
     SchemaTest(
       "ZonedDateTime",
-      StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME),
+      StandardType.ZonedDateTimeType,
       JavaTimeGen.anyZonedDateTime
     ),
     SchemaTest("ZoneId", StandardType.ZoneIdType, JavaTimeGen.anyZoneId),

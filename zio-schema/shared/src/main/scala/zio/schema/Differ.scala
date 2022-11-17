@@ -1,7 +1,6 @@
 package zio.schema
 
 import java.math.{ BigInteger, MathContext }
-import java.time.format.DateTimeFormatter
 import java.time.temporal.{ ChronoField, ChronoUnit }
 import java.time.{
   DayOfWeek,
@@ -241,23 +240,23 @@ object Differ {
             Right(ZoneId.of(s))
           } catch { case e: Throwable => Left(s"$s is not a valid ZoneId: ${e.getMessage}") }
       )
-    case Schema.Primitive(StandardType.DayOfWeekType, _)               => dayOfWeek
-    case Schema.Primitive(StandardType.PeriodType, _)                  => period
-    case Schema.Primitive(StandardType.MonthType, _)                   => month
-    case Schema.Primitive(StandardType.MonthDayType, _)                => monthDay
-    case Schema.Primitive(StandardType.YearType, _)                    => year
-    case Schema.Primitive(StandardType.YearMonthType, _)               => yearMonth
-    case Schema.Primitive(tpe @ StandardType.LocalDateType(_), _)      => localDate(tpe)
-    case Schema.Primitive(tpe @ StandardType.InstantType(_), _)        => instant(tpe)
-    case Schema.Primitive(StandardType.DurationType, _)                => duration
-    case Schema.Primitive(tpe @ StandardType.LocalTimeType(_), _)      => localTime(tpe)
-    case Schema.Primitive(tpe @ StandardType.LocalDateTimeType(_), _)  => localDateTime(tpe)
-    case Schema.Primitive(tpe @ StandardType.OffsetTimeType(_), _)     => offsetTime(tpe)
-    case Schema.Primitive(tpe @ StandardType.OffsetDateTimeType(_), _) => offsetDateTime(tpe)
-    case Schema.Primitive(StandardType.ZonedDateTimeType(fmt), _)      => zonedDateTime(fmt)
-    case Schema.Primitive(StandardType.ZoneOffsetType, _)              => zoneOffset
-    case Schema.Tuple2(leftSchema, rightSchema, _)                     => fromSchema(leftSchema) <*> fromSchema(rightSchema)
-    case Schema.Optional(schema, _)                                    => fromSchema(schema).optional
+    case Schema.Primitive(StandardType.DayOfWeekType, _)      => dayOfWeek
+    case Schema.Primitive(StandardType.PeriodType, _)         => period
+    case Schema.Primitive(StandardType.MonthType, _)          => month
+    case Schema.Primitive(StandardType.MonthDayType, _)       => monthDay
+    case Schema.Primitive(StandardType.YearType, _)           => year
+    case Schema.Primitive(StandardType.YearMonthType, _)      => yearMonth
+    case Schema.Primitive(StandardType.LocalDateType, _)      => localDate
+    case Schema.Primitive(StandardType.InstantType, _)        => instant
+    case Schema.Primitive(StandardType.DurationType, _)       => duration
+    case Schema.Primitive(StandardType.LocalTimeType, _)      => localTime
+    case Schema.Primitive(StandardType.LocalDateTimeType, _)  => localDateTime
+    case Schema.Primitive(StandardType.OffsetTimeType, _)     => offsetTime
+    case Schema.Primitive(StandardType.OffsetDateTimeType, _) => offsetDateTime
+    case Schema.Primitive(StandardType.ZonedDateTimeType, _)  => zonedDateTime
+    case Schema.Primitive(StandardType.ZoneOffsetType, _)     => zoneOffset
+    case Schema.Tuple2(leftSchema, rightSchema, _)            => fromSchema(leftSchema) <*> fromSchema(rightSchema)
+    case Schema.Optional(schema, _)                           => fromSchema(schema).optional
     case Schema.Sequence(schema, g, f, _, _) =>
       fromSchema(schema).chunk.transform(f, g)
     case Schema.Set(s, _)                                                                        => set(s)
@@ -377,14 +376,14 @@ object Differ {
           StandardType.YearMonthType
         )
 
-  def localDate(tpe: StandardType.LocalDateType): Differ[LocalDate] =
+  def localDate: Differ[LocalDate] =
     (thisLocalDate: LocalDate, thatLocalDate: LocalDate) =>
       if (thisLocalDate == thatLocalDate)
         Patch.identical
       else
-        Patch.Temporal(List[Long](thisLocalDate.toEpochDay - thatLocalDate.toEpochDay), tpe)
+        Patch.Temporal(List[Long](thisLocalDate.toEpochDay - thatLocalDate.toEpochDay), StandardType.LocalDateType)
 
-  def instant(tpe: StandardType.InstantType): Differ[Instant] =
+  def instant: Differ[Instant] =
     (thisInstant: Instant, thatInstant: Instant) =>
       if (thisInstant == thatInstant)
         Patch.identical
@@ -394,7 +393,7 @@ object Differ {
             thisInstant.getEpochSecond - thatInstant.getEpochSecond,
             (thisInstant.getNano - thatInstant.getNano).toLong
           ),
-          tpe
+          StandardType.InstantType
         )
 
   def duration: Differ[JDuration] =
@@ -410,14 +409,14 @@ object Differ {
           StandardType.DurationType
         )
 
-  def localTime(tpe: StandardType.LocalTimeType): Differ[LocalTime] =
+  def localTime: Differ[LocalTime] =
     (thisLocalTime: LocalTime, thatLocalTime: LocalTime) =>
       if (thisLocalTime == thatLocalTime)
         Patch.identical
       else
-        Patch.Temporal(List[Long](thisLocalTime.toNanoOfDay - thatLocalTime.toNanoOfDay), tpe)
+        Patch.Temporal(List[Long](thisLocalTime.toNanoOfDay - thatLocalTime.toNanoOfDay), StandardType.LocalTimeType)
 
-  def localDateTime(tpe: StandardType.LocalDateTimeType): Differ[LocalDateTime] =
+  def localDateTime: Differ[LocalDateTime] =
     (thisLocalDateTime: LocalDateTime, thatLocalDateTime: LocalDateTime) =>
       if (thisLocalDateTime == thatLocalDateTime)
         Patch.identical
@@ -427,10 +426,10 @@ object Differ {
             thisLocalDateTime.toLocalDate.toEpochDay - thatLocalDateTime.toLocalDate.toEpochDay,
             thisLocalDateTime.toLocalTime.toNanoOfDay - thatLocalDateTime.toLocalTime.toNanoOfDay
           ),
-          tpe
+          StandardType.LocalDateTimeType
         )
 
-  def offsetTime(tpe: StandardType.OffsetTimeType): Differ[OffsetTime] =
+  def offsetTime: Differ[OffsetTime] =
     (thisOffsetTime: OffsetTime, thatOffsetTime: OffsetTime) =>
       if (thisOffsetTime == thatOffsetTime)
         Patch.identical
@@ -440,10 +439,10 @@ object Differ {
             thisOffsetTime.toLocalTime.toNanoOfDay - thatOffsetTime.toLocalTime.toNanoOfDay,
             (thisOffsetTime.getOffset.getTotalSeconds - thatOffsetTime.getOffset.getTotalSeconds).toLong
           ),
-          tpe
+          StandardType.OffsetTimeType
         )
 
-  def offsetDateTime(tpe: StandardType.OffsetDateTimeType): Differ[OffsetDateTime] =
+  def offsetDateTime: Differ[OffsetDateTime] =
     (thisOffsetDateTime: OffsetDateTime, thatOffsetDateTime: OffsetDateTime) =>
       if (thisOffsetDateTime == thatOffsetDateTime)
         Patch.identical
@@ -454,16 +453,16 @@ object Differ {
             thisOffsetDateTime.toLocalTime.toNanoOfDay - thatOffsetDateTime.toLocalTime.toNanoOfDay,
             (thisOffsetDateTime.getOffset.getTotalSeconds - thatOffsetDateTime.getOffset.getTotalSeconds).toLong
           ),
-          tpe
+          StandardType.OffsetDateTimeType
         )
 
-  def zonedDateTime(formatter: DateTimeFormatter): Differ[JZonedDateTime] =
+  def zonedDateTime: Differ[JZonedDateTime] =
     (thisZonedDateTime: JZonedDateTime, thatZonedDateTime: JZonedDateTime) =>
       if (thisZonedDateTime == thatZonedDateTime)
         Patch.identical
       else
         Patch.ZonedDateTime(
-          localDateTime(StandardType.LocalDateTimeType(formatter))(
+          localDateTime(
             thisZonedDateTime.toLocalDateTime,
             thatZonedDateTime.toLocalDateTime
           ),

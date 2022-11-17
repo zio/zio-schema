@@ -1,7 +1,5 @@
 package zio.schema
 
-import java.time.format.DateTimeFormatter
-
 import zio.Chunk
 
 object TestData {
@@ -28,25 +26,25 @@ object TestData {
   val zoneOffsetSchema: Schema[java.time.ZoneOffset] = Schema.Primitive(StandardType.ZoneOffsetType)
 
   val instantSchema: Schema[java.time.Instant] =
-    Schema.Primitive(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
+    Schema.Primitive(StandardType.InstantType)
 
   val localDateSchema: Schema[java.time.LocalDate] =
-    Schema.Primitive(StandardType.LocalDateType(DateTimeFormatter.ISO_LOCAL_DATE))
+    Schema.Primitive(StandardType.LocalDateType)
 
   val localTimeSchema: Schema[java.time.LocalTime] =
-    Schema.Primitive(StandardType.LocalTimeType(DateTimeFormatter.ISO_LOCAL_TIME))
+    Schema.Primitive(StandardType.LocalTimeType)
 
   val localDateTimeSchema: Schema[java.time.LocalDateTime] =
-    Schema.Primitive(StandardType.LocalDateTimeType(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+    Schema.Primitive(StandardType.LocalDateTimeType)
 
   val offsetTimeSchema: Schema[java.time.OffsetTime] =
-    Schema.Primitive(StandardType.OffsetTimeType(DateTimeFormatter.ISO_OFFSET_TIME))
+    Schema.Primitive(StandardType.OffsetTimeType)
 
   val offsetDateTimeSchema: Schema[java.time.OffsetDateTime] =
-    Schema.Primitive(StandardType.OffsetDateTimeType(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+    Schema.Primitive(StandardType.OffsetDateTimeType)
 
   val zonedDateTimeSchema: Schema[java.time.ZonedDateTime] =
-    Schema.Primitive(StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+    Schema.Primitive(StandardType.ZonedDateTimeType)
 
   val uuidSchema: Schema[java.util.UUID] = Schema.Primitive(StandardType.UUIDType)
 
