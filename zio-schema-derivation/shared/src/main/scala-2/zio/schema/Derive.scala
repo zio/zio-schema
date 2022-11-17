@@ -26,7 +26,24 @@ object Derive {
     val tuple2Tpe       = c.typeOf[Tuple2[_, _]]
     val tuple3Tpe       = c.typeOf[Tuple3[_, _, _]]
     val tuple4Tpe       = c.typeOf[Tuple4[_, _, _, _]]
-    // NOTE: DeriveSchema only supports tuple arities 2-4 currently
+    val tuple5Tpe       = c.typeOf[Tuple5[_, _, _, _, _]]
+    val tuple6Tpe       = c.typeOf[Tuple6[_, _, _, _, _, _]]
+    val tuple7Tpe       = c.typeOf[Tuple7[_, _, _, _, _, _, _]]
+    val tuple8Tpe       = c.typeOf[Tuple8[_, _, _, _, _, _, _, _]]
+    val tuple9Tpe       = c.typeOf[Tuple9[_, _, _, _, _, _, _, _, _]]
+    val tuple10Tpe      = c.typeOf[Tuple10[_, _, _, _, _, _, _, _, _, _]]
+    val tuple11Tpe      = c.typeOf[Tuple11[_, _, _, _, _, _, _, _, _, _, _]]
+    val tuple12Tpe      = c.typeOf[Tuple12[_, _, _, _, _, _, _, _, _, _, _, _]]
+    val tuple13Tpe      = c.typeOf[Tuple13[_, _, _, _, _, _, _, _, _, _, _, _, _]]
+    val tuple14Tpe      = c.typeOf[Tuple14[_, _, _, _, _, _, _, _, _, _, _, _, _, _]]
+    val tuple15Tpe      = c.typeOf[Tuple15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _]]
+    val tuple16Tpe      = c.typeOf[Tuple16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]]
+    val tuple17Tpe      = c.typeOf[Tuple17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]]
+    val tuple18Tpe      = c.typeOf[Tuple18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]]
+    val tuple19Tpe      = c.typeOf[Tuple19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]]
+    val tuple20Tpe      = c.typeOf[Tuple20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]]
+    val tuple21Tpe      = c.typeOf[Tuple21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]]
+    val tuple22Tpe      = c.typeOf[Tuple22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]]
 
     def concreteType(seenFrom: Type, tpe: Type): Type =
       tpe.asSeenFrom(seenFrom, seenFrom.typeSymbol.asClass)
@@ -79,6 +96,13 @@ object Derive {
       }
     }
 
+    def toTupleSchemaType(tpes: Chunk[Type]): Tree =
+      tpes.tail.foldLeft(tq"${tpes.head}") { case (xs, x) => tq"_root_.zio.schema.Schema.Tuple2[$xs, $x]" }
+
+    def lefts(tschema: Tree, tpes: Chunk[Type]): Tree =
+      if (tpes.size < 2) tschema
+      else lefts(q"$tschema.left.asInstanceOf[${toTupleSchemaType(tpes)}]", tpes.init)
+
     def recurse(tpe: Type, schema: c.Tree, stack: List[Frame[c.type]]): Tree =
       stack.find(_.tpe =:= tpe) match {
         case Some(f @ Frame(_, ref, _)) =>
@@ -104,6 +128,42 @@ object Derive {
           val forcedSchema  = q"_root_.zio.schema.Schema.force($schema)"
 
           val currentFrame = Frame[c.type](c, selfRefName, tpe)
+
+          def tupleN(): Tree = {
+            val n    = tpe.typeArgs.size
+            val tpes = Chunk.fromIterable(tpe.typeArgs)
+
+            val tschemaType = toTupleSchemaType(tpes)
+            val tschema     = q"$schemaRef.schema.asInstanceOf[$tschemaType]"
+
+            val schemas = (1 to n).map { idx =>
+              if (idx == n) {
+                q"$tschema.right"
+              } else if (idx == 1) {
+                q"${lefts(q"$tschema", tpes.take(2))}.left"
+              } else {
+                q"${lefts(q"$tschema", tpes.take(idx))}.right"
+              }
+            }
+
+            val instances = tpes.zip(schemas).map {
+              case (t, schema) =>
+                recurse(concreteType(tpe, t), schema, stack)
+            }
+
+            val flatTupleType   = tpe
+            val nestedTupleType = tpes.tail.foldLeft(q"${tpes.head}") { case (xs, x) => tq"($xs, $x)" }
+
+            val pairs = schemas.zip(instances).map {
+              case (schema, instance) => q"($schema, _root_.zio.schema.Deriver.wrap($instance))"
+            }
+
+            q"""{
+              lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Transform[$nestedTupleType, $flatTupleType, _]]
+              lazy val $selfRefWithType = $deriver.deriveTupleN[$flatTupleType](Chunk(..$pairs), $summoned)
+              $selfRef
+            }"""
+          }
 
           val summonedStandardType = c.inferImplicitValue(appliedStandardTpe)
 
@@ -194,51 +254,45 @@ object Derive {
               $selfRef
             }"""
           } else if (tpe <:< tuple3Tpe) {
-            // NOTE: Higher arity tuples cannot be treated as Records because they are constructed in the form of Transform(Tuple2(Tuple2(...))
-            val t1Tpe = tpe.typeArgs.head
-            val t2Tpe = tpe.typeArgs(1)
-            val t3Tpe = tpe.typeArgs(2)
-
-            val t123schema = q"$schemaRef.schema.asInstanceOf[Schema.Tuple2[Schema.Tuple2[$t1Tpe, $t2Tpe], $t3Tpe]]"
-            val t12schema  = q"$t123schema.left.asInstanceOf[Schema.Tuple2[$t1Tpe, $t2Tpe]]"
-            val t1Schema   = q"$t12schema.left"
-            val t2Schema   = q"$t12schema.right"
-            val t3Schema   = q"$t123schema.right"
-
-            val t1Instance = recurse(concreteType(tpe, t1Tpe), t1Schema, currentFrame +: stack)
-            val t2Instance = recurse(concreteType(tpe, t2Tpe), t2Schema, currentFrame +: stack)
-            val t3Instance = recurse(concreteType(tpe, t3Tpe), t3Schema, currentFrame +: stack)
-
-            q"""{
-              lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Transform[(($t1Tpe, $t2Tpe), $t3Tpe), ($t1Tpe, $t2Tpe, $t3Tpe), _]]
-              lazy val $selfRefWithType = $deriver.deriveTupleN[$tpe](Chunk($t1Schema -> _root_.zio.schema.Deriver.wrap($t1Instance), $t2Schema -> _root_.zio.schema.Deriver.wrap($t2Instance), $t3Schema -> _root_.zio.schema.Deriver.wrap($t3Instance)), $summoned)
-              $selfRef
-            }"""
+            tupleN()
           } else if (tpe <:< tuple4Tpe) {
-            val t1Tpe = tpe.typeArgs.head
-            val t2Tpe = tpe.typeArgs(1)
-            val t3Tpe = tpe.typeArgs(2)
-            val t4Tpe = tpe.typeArgs(2)
-
-            val t1234schema =
-              q"$schemaRef.schema.asInstanceOf[Schema.Tuple2[Schema.Tuple2[Schema.Tuple2[$t1Tpe, $t2Tpe], $t3Tpe], $t4Tpe]]"
-            val t123schema = q"$t1234schema.left.asInstanceOf[Schema.Tuple2[Schema.Tuple2[$t1Tpe, $t2Tpe], $t3Tpe]]"
-            val t12schema  = q"$t123schema.left.asInstanceOf[Schema.Tuple2[$t1Tpe, $t2Tpe]]"
-            val t1Schema   = q"$t12schema.left"
-            val t2Schema   = q"$t12schema.right"
-            val t3Schema   = q"$t123schema.right"
-            val t4Schema   = q"$t1234schema.right"
-
-            val t1Instance = recurse(concreteType(tpe, t1Tpe), t1Schema, currentFrame +: stack)
-            val t2Instance = recurse(concreteType(tpe, t2Tpe), t2Schema, currentFrame +: stack)
-            val t3Instance = recurse(concreteType(tpe, t3Tpe), t3Schema, currentFrame +: stack)
-            val t4Instance = recurse(concreteType(tpe, t4Tpe), t4Schema, currentFrame +: stack)
-
-            q"""{
-              lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Transform[((($t1Tpe, $t2Tpe), $t3Tpe), $t4Tpe), ($t1Tpe, $t2Tpe, $t3Tpe, $t4Tpe), _]]
-              lazy val $selfRefWithType = $deriver.deriveTupleN[$tpe](Chunk($t1Schema -> _root_.zio.schema.Deriver.wrap($t1Instance), $t2Schema -> _root_.zio.schema.Deriver.wrap($t2Instance), $t3Schema -> _root_.zio.schema.Deriver.wrap($t3Instance), $t4Schema -> _root_.zio.schema.Deriver.wrap($t4Instance)), $summoned)
-              $selfRef
-            }"""
+            tupleN()
+          } else if (tpe <:< tuple5Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple6Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple7Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple8Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple9Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple10Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple11Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple12Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple13Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple14Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple15Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple16Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple17Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple18Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple19Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple20Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple21Tpe) {
+            tupleN()
+          } else if (tpe <:< tuple22Tpe) {
+            tupleN()
           } else if (isCaseObject(tpe)) {
             q"$deriver.deriveRecord[$tpe]($forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Record[$tpe]], _root_.zio.Chunk.empty, $summoned)"
           } else if (isCaseClass(tpe)) {
