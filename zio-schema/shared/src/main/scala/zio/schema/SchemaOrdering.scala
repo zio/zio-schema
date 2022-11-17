@@ -19,17 +19,17 @@ object SchemaOrdering {
       val lTypeCoerced = lType.asInstanceOf[StandardType[t]]
       lTypeCoerced.compare(lVal.asInstanceOf[t], rVal.asInstanceOf[t])
     case (Schema.Primitive(UnitType, _), _, _) => 0
-    case (Schema.EitherSchema(leftSchema, _, _), LeftValue(lVal), LeftValue(rVal)) =>
+    case (Schema.Either(leftSchema, _, _), LeftValue(lVal), LeftValue(rVal)) =>
       compareBySchema(leftSchema)(lVal, rVal)
-    case (Schema.EitherSchema(_, rightSchema, _), RightValue(lVal), RightValue(rVal)) =>
+    case (Schema.Either(_, rightSchema, _), RightValue(lVal), RightValue(rVal)) =>
       compareBySchema(rightSchema)(lVal, rVal)
-    case (Schema.EitherSchema(_, _, _), LeftValue(_), RightValue(_)) => -1
-    case (Schema.EitherSchema(_, _, _), RightValue(_), LeftValue(_)) => 1
+    case (Schema.Either(_, _, _), LeftValue(_), RightValue(_)) => -1
+    case (Schema.Either(_, _, _), RightValue(_), LeftValue(_)) => 1
     case (Schema.Optional(innerSchema, _), SomeValue(lVal), SomeValue(rVal)) =>
       compareBySchema(innerSchema)(lVal, rVal)
     case (Schema.Optional(_, _), NoneValue, SomeValue(_)) => -1
     case (Schema.Optional(_, _), SomeValue(_), NoneValue) => 1
-    case (Schema.Tuple(lSchema, rSchema, _), l: Tuple, r: Tuple) => {
+    case (Schema.Tuple2(lSchema, rSchema, _), l: Tuple, r: Tuple) => {
       val leftComparison = compareBySchema(lSchema)(l.left, r.left)
       if (leftComparison != 0)
         leftComparison
@@ -45,16 +45,14 @@ object SchemaOrdering {
     case (Schema.Transform(schemaA, _, _, _, _), lVal, rVal) =>
       compareBySchema(schemaA)(lVal, rVal)
     case (e: Schema.Enum[_], Enumeration(_, (lField, lVal)), Enumeration(_, (rField, rVal))) if lField == rField =>
-      compareBySchema(e.structure(lField))(lVal, rVal)
+      compareBySchema(e.caseOf(lField).map(_.schema).get)(lVal, rVal) // FIXME: .get
     case (e: Schema.Enum[_], Enumeration(_, (lField, _)), Enumeration(_, (rField, _))) => {
-      val fields = e.structure.keys.toList
+      val fields = e.cases.map(_.id).toList
       fields.indexOf(lField).compareTo(fields.indexOf(rField))
     }
     //are two record with the different name equal?
     case (r: Schema.Record[_], Record(_, lVals), Record(_, rVals)) =>
       compareRecords(r, lVals, rVals)
-    case (Schema.SemiDynamic(_, _), Tuple(l, DynamicAst(ast)), Tuple(r, DynamicAst(_))) =>
-      compareBySchema(ast.toSchema)(l, r)
     case (Schema.Dynamic(_), left, right) =>
       ordering(Schema[DynamicValue]).compare(left, right)
     case _ => 0
@@ -65,13 +63,13 @@ object SchemaOrdering {
     lVals: Map[String, DynamicValue],
     rVals: Map[String, DynamicValue]
   ): Int = {
-    val j = r.structure.length
+    val j = r.fields.length
     @tailrec
     def loop(i: Int): Int =
       if (i == j) 0
       else {
-        val field           = r.structure(i)
-        val fieldComparison = compareBySchema(field.schema)(lVals(field.label), rVals(field.label))
+        val field           = r.fields(i)
+        val fieldComparison = compareBySchema(field.schema)(lVals(field.name), rVals(field.name))
         if (fieldComparison == 0) loop(i + 1) else fieldComparison
       }
     loop(0)

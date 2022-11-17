@@ -2,7 +2,7 @@ package dev.zio.schema.example.example4
 
 import zio._
 import zio.schema._
-import zio.schema.ast._
+import zio.schema.meta._
 
 /**
  * Example 4: In this Example, we use ZIO-Schema to migrate objects from one representation to another.
@@ -14,35 +14,41 @@ private[example4] object Domain {
   final case class WebPerson(name: String, age: Int)
 
   object WebPerson {
-    val name: Schema.Field[String] = Schema.Field[String]("name", Schema.primitive[String])
-    val age: Schema.Field[Int]     = Schema.Field[Int]("age", Schema.primitive[Int])
+
+    val name: Schema.Field[WebPerson, String] =
+      Schema
+        .Field[WebPerson, String]("name", Schema.primitive[String], get0 = _.name, set0 = (p, v) => p.copy(name = v))
+
+    val age: Schema.Field[WebPerson, Int] =
+      Schema.Field[WebPerson, Int]("age", Schema.primitive[Int], get0 = _.age, set0 = (p, v) => p.copy(age = v))
 
     val schema: Schema[WebPerson] = Schema.CaseClass2[String, Int, WebPerson](
       TypeId.parse("dev.zio.schema.example.example4.Domain.WebPerson"),
-      field1 = name,
-      field2 = age,
-      construct = (name, age) => WebPerson(name, age),
-      extractField1 = p => p.name,
-      extractField2 = p => p.age
+      field01 = name,
+      field02 = age,
+      construct0 = (name, age) => WebPerson(name, age)
     )
   }
 
   final case class DomainPerson(firstname: String, lastname: String, years: Int)
 
   object DomainPerson {
-    val firstname: Schema.Field[String] = Schema.Field("firstname", Schema.primitive[String])
-    val lastname: Schema.Field[String]  = Schema.Field("lastname", Schema.primitive[String])
-    val years: Schema.Field[Int]        = Schema.Field("years", Schema.primitive[Int])
+
+    val firstname: Schema.Field[DomainPerson, String] =
+      Schema.Field("firstname", Schema.primitive[String], get0 = _.firstname, set0 = (p, v) => p.copy(firstname = v))
+
+    val lastname: Schema.Field[DomainPerson, String] =
+      Schema.Field("lastname", Schema.primitive[String], get0 = _.lastname, set0 = (p, v) => p.copy(lastname = v))
+
+    val years: Schema.Field[DomainPerson, Int] =
+      Schema.Field("years", Schema.primitive[Int], get0 = _.years, set0 = (p, v) => p.copy(years = v))
 
     val schema: Schema[DomainPerson] = Schema.CaseClass3[String, String, Int, DomainPerson](
       TypeId.parse("dev.zio.schema.example.example4.Domain.DomainPerson"),
-      field1 = firstname,
-      field2 = lastname,
-      field3 = years,
-      construct = (fn, ln, y) => DomainPerson(fn, ln, y),
-      extractField1 = _.firstname,
-      extractField2 = _.lastname,
-      extractField3 = _.years
+      field01 = firstname,
+      field02 = lastname,
+      field03 = years,
+      construct0 = (fn, ln, y) => DomainPerson(fn, ln, y)
     )
   }
 
@@ -83,7 +89,7 @@ object Example4Ast extends zio.ZIOAppDefault {
     .toDynamic(webPerson)
     .transform(
       Chunk(
-        Migration.AddNode(NodePath.root / "lastname", SchemaAst.fromSchema(DomainPerson.lastname.schema))
+        Migration.AddNode(NodePath.root / "lastname", MetaSchema.fromSchema(DomainPerson.lastname.schema))
 //      Migration.Relabel(NodePath.root / "years", Migration.LabelTransformation("age")) // does not compile, LabelTransformation
       )
     )
@@ -104,9 +110,9 @@ object Example4Ast2 extends zio.ZIOAppDefault {
     },
     (dto: DomainPerson) => WebPerson(dto.firstname + " " + dto.lastname, dto.years)
   )
-  val webPersonAst: SchemaAst    = SchemaAst.fromSchema(WebPerson.schema)
-  val domainPersonAst: SchemaAst = SchemaAst.fromSchema(DomainPerson.schema)
-  val migrationAst: SchemaAst    = SchemaAst.fromSchema(personTransformation)
+  val webPersonAst: MetaSchema    = MetaSchema.fromSchema(WebPerson.schema)
+  val domainPersonAst: MetaSchema = MetaSchema.fromSchema(DomainPerson.schema)
+  val migrationAst: MetaSchema    = MetaSchema.fromSchema(personTransformation)
 
   val migrationWebPersonAstToMigrationAst: Either[String, Chunk[Migration]] =
     Migration.derive(webPersonAst, migrationAst)

@@ -54,8 +54,8 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
         assert(
           accessor match {
             case (
-                Prism(e1, Case("Some", c1, _, _)),
-                Prism(e2, Case("None", _, _, _))
+                Prism(e1, Case("Some", c1, _, _, _, _)),
+                Prism(e2, Case("None", _, _, _, _, _))
                 ) =>
               e1 == e2 && e2 == enumSchema && c1 == optionalSchema.someCodec
             case _ => false
@@ -66,7 +66,7 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
     test("tuple") {
       check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
         case (leftSchema, rightSchema) =>
-          val tupleSchema: Schema.Tuple[_, _] = (leftSchema <*> rightSchema).asInstanceOf[Schema.Tuple[_, _]]
+          val tupleSchema: Schema.Tuple2[_, _] = (leftSchema <*> rightSchema).asInstanceOf[Schema.Tuple2[_, _]]
 
           val accessor = tupleSchema.makeAccessors(builder)
 
@@ -74,8 +74,8 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
             accessor match {
               case (Lens(r1, f1), Lens(r2, f2)) =>
                 r1 == r2 && r2 == tupleSchema.toRecord &&
-                  f1.label == "_1" && f1.schema == leftSchema &&
-                  f2.label == "_2" && f2.schema == rightSchema
+                  f1.name == "_1" && f1.schema == leftSchema &&
+                  f2.name == "_2" && f2.schema == rightSchema
               case _ => false
             }
           )(isTrue)
@@ -84,15 +84,15 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
     test("either") {
       check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
         case (leftSchema, rightSchema) =>
-          val eitherSchema: Schema.EitherSchema[_, _] =
-            (rightSchema <+> leftSchema).asInstanceOf[Schema.EitherSchema[_, _]]
+          val eitherSchema: Schema.Either[_, _] =
+            (rightSchema <+> leftSchema).asInstanceOf[Schema.Either[_, _]]
           val accessor = eitherSchema.makeAccessors(builder)
 
           assert(
             accessor match {
               case (
-                  Prism(e1, Case("Right", c1, _, _)),
-                  Prism(e2, Case("Left", c2, _, _))
+                  Prism(e1, Case("Right", c1, _, _, _, _)),
+                  Prism(e2, Case("Left", c2, _, _, _, _))
                   ) =>
                 e1 == e2 && e2 == eitherSchema.toEnum &&
                   c1 == eitherSchema.rightSchema && c2 == eitherSchema.leftSchema

@@ -86,9 +86,9 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         },
         test("failure") {
           for {
-            e  <- encode(schemaFail, StringValue("foo")).map(_.size)
-            e2 <- encodeNS(schemaFail, StringValue("foo")).map(_.size)
-          } yield assert(e)(equalTo(0)) && assert(e2)(equalTo(0))
+            e  <- encode(schemaFail, StringValue("foo")).map(_.size).exit
+            e2 <- encodeNS(schemaFail, StringValue("foo")).map(_.size).exit
+          } yield assert(e)(dies(anything)) && assert(e2)(dies(anything))
         }
       ),
       suite("Should successfully encode and decode")(
@@ -553,7 +553,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
         },
         test("map of products") {
-          val m: Map[Record, MyRecord] = Map(
+          val m: scala.collection.immutable.Map[Record, MyRecord] = scala.collection.immutable.Map(
             Record("AAA", 1) -> MyRecord(1),
             Record("BBB", 2) -> MyRecord(2)
           )
@@ -565,12 +565,13 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
         },
         test("set of products") {
-          val set: Set[Record] = Set(Record("AAA", 1), Record("BBB", 2))
-          val setSchema        = Schema.set(Record.schemaRecord)
+          val set: scala.collection.immutable.Set[Record] =
+            scala.collection.immutable.Set(Record("AAA", 1), Record("BBB", 2))
+          val setSchema = Schema.set(Record.schemaRecord)
 
           for {
-            ed  <- encodeAndDecode(setSchema, set)
             ed2 <- encodeAndDecodeNS(setSchema, set)
+            ed  <- encodeAndDecode(setSchema, set)
           } yield assert(ed)(equalTo(Chunk.succeed(set))) && assert(ed2)(equalTo(set))
         },
         test("recursive data types") {
@@ -582,36 +583,15 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
               } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
           }
         },
-        test("semi dynamic string within an enum") {
-          check(Gen.string) {
-            case (value) =>
-              val dynamicValue = DynamicValue.fromSchemaAndValue(Schema[String], value)
-              val semiDynamicSchema = Schema
-                .semiDynamic[String]()
-                .transformOrFail(
-                  { case (str, schema) => Right(DynamicValue.fromSchemaAndValue(schema, str)) },
-                  (v: DynamicValue) => v.toTypedValue(Schema[String]).map((_, Schema[String]))
-                )
-              val enumSchema = Schema
-                .Enum1[DynamicValue, DynamicValue](TypeId.Structural, Schema.Case("one", semiDynamicSchema, identity))
-              assertZIO(encodeAndDecode(enumSchema, dynamicValue))(equalTo(Chunk(dynamicValue)))
+        test("deep recursive data types") {
+          check(SchemaGen.anyDeepRecursiveTypeAndValue) {
+            case (schema, value) =>
+              for {
+                ed <- encodeAndDecode2(schema, value)
+                //              ed2 <- encodeAndDecodeNS(schema, value)
+              } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
           }
-        },
-        test("semi dynamic list of ints within an enum") {
-          check(Gen.chunkOf(Gen.int)) {
-            case (value) =>
-              val dynamicValue = DynamicValue.fromSchemaAndValue(Schema[Chunk[Int]], value)
-              val semiDynamicSchema = Schema
-                .semiDynamic[Chunk[Int]]()
-                .transformOrFail(
-                  { case (str, schema) => Right(DynamicValue.fromSchemaAndValue(schema, str)) },
-                  (v: DynamicValue) => v.toTypedValue(Schema[Chunk[Int]]).map((_, Schema[Chunk[Int]]))
-                )
-              val enumSchema = Schema
-                .Enum1[DynamicValue, DynamicValue](TypeId.Structural, Schema.Case("one", semiDynamicSchema, identity))
-              assertZIO(encodeAndDecode(enumSchema, dynamicValue))(equalTo(Chunk(dynamicValue)))
-          }
-        }
+        } @@ TestAspect.sized(200)
       ),
       suite("Should successfully decode")(
         test("empty input") {
@@ -621,7 +601,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         },
         test("empty input by non streaming variant") {
           assertZIO(decodeNS(Schema[Int], "").exit)(
-            fails(equalTo("Failed to decode VarInt. Unexpected end of chunk"))
+            failsWithA[DecodeError]
           )
         }
       ),
@@ -658,7 +638,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           for {
             d  <- decode(schemaFail, "0F").exit
             d2 <- decodeNS(schemaFail, "0F").exit
-          } yield assert(d)(fails(equalTo("failing schema"))) && assert(d2)(fails(equalTo("failing schema")))
+          } yield assert(d)(failsWithA[DecodeError]) && assert(d2)(failsWithA[DecodeError])
         }
       ),
       suite("dynamic")(
@@ -751,26 +731,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
             assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
           }
         }
-      ),
-      test("semi dynamic record") {
-        check(
-          SchemaGen.anyRecord.flatMap(
-            record =>
-              DynamicValueGen
-                .anyDynamicValueOfSchema(record)
-                .map(dyn => (dyn.toTypedValue(record).toOption.get, record))
-          )
-        ) { value =>
-          val schema = Schema.semiDynamic[ListMap[String, _]]()
-          for {
-            result                      <- encodeAndDecode(schema, value)
-            (resultValue, resultSchema) = result.head
-          } yield assertTrue(
-            Schema.structureEquality.equal(value._2, resultSchema),
-            resultValue.keySet == value._1.keySet
-          )
-        }
-      }
+      )
     )
 
   // some tests are based on https://developers.google.com/protocol-buffers/docs/encoding
@@ -829,20 +790,56 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
     val genericRecord: Schema[ListMap[String, _]] = Schema.record(
       TypeId.Structural,
-      Schema.Field("c", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("b", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("a", Schema.Primitive(StandardType.IntType))
+      Schema
+        .Field(
+          "c",
+          Schema.Primitive(StandardType.IntType),
+          get0 = (p: ListMap[String, _]) => p("c").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("c", v)
+        ),
+      Schema
+        .Field(
+          "b",
+          Schema.Primitive(StandardType.IntType),
+          get0 = (p: ListMap[String, _]) => p("b").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("b", v)
+        ),
+      Schema
+        .Field(
+          "a",
+          Schema.Primitive(StandardType.IntType),
+          get0 = (p: ListMap[String, _]) => p("a").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("a", v)
+        )
     )
 
     val genericRecordSorted: Schema[ListMap[String, _]] = Schema.record(
       TypeId.Structural,
-      Schema.Field("a", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("b", Schema.Primitive(StandardType.IntType)),
-      Schema.Field("c", Schema.Primitive(StandardType.IntType))
+      Schema
+        .Field(
+          "a",
+          Schema.Primitive(StandardType.IntType),
+          get0 = (p: ListMap[String, _]) => p("a").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("a", v)
+        ),
+      Schema
+        .Field(
+          "b",
+          Schema.Primitive(StandardType.IntType),
+          get0 = (p: ListMap[String, _]) => p("b").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("b", v)
+        ),
+      Schema
+        .Field(
+          "c",
+          Schema.Primitive(StandardType.IntType),
+          get0 = (p: ListMap[String, _]) => p("c").asInstanceOf[Int],
+          set0 = (p, v: Int) => p.updated("c", v)
+        )
     )
   }
 
-  val schemaTuple: Schema.Tuple[Int, String] = Schema.Tuple(Schema[Int], Schema[String])
+  val schemaTuple: Schema.Tuple2[Int, String] = Schema.Tuple2(Schema[Int], Schema[String])
 
   sealed trait OneOf
   case class StringValue(value: String)   extends OneOf
@@ -884,15 +881,15 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
   lazy val myRecord: Schema[MyRecord] = DeriveSchema.gen[MyRecord]
 
-  val complexTupleSchema: Schema.Tuple[Record, OneOf] = Schema.Tuple(Record.schemaRecord, schemaOneOf)
+  val complexTupleSchema: Schema.Tuple2[Record, OneOf] = Schema.Tuple2(Record.schemaRecord, schemaOneOf)
 
-  val eitherSchema: Schema.EitherSchema[Int, String] = Schema.EitherSchema(Schema[Int], Schema[String])
+  val eitherSchema: Schema.Either[Int, String] = Schema.Either(Schema[Int], Schema[String])
 
-  val complexEitherSchema: Schema.EitherSchema[Record, OneOf] =
-    Schema.EitherSchema(Record.schemaRecord, schemaOneOf)
+  val complexEitherSchema: Schema.Either[Record, OneOf] =
+    Schema.Either(Record.schemaRecord, schemaOneOf)
 
-  val complexEitherSchema2: Schema.EitherSchema[MyRecord, MyRecord] =
-    Schema.EitherSchema(myRecord, myRecord)
+  val complexEitherSchema2: Schema.Either[MyRecord, MyRecord] =
+    Schema.Either(myRecord, myRecord)
 
   case class RichProduct(stringOneOf: OneOf, basicString: BasicString, record: Record)
 
@@ -914,12 +911,17 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
   lazy val schemaGenericEnumeration: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
     TypeId.Structural,
-    caseOf[String, Any]("string")(_.asInstanceOf[String]) ++ caseOf[Int, Any]("int")(_.asInstanceOf[Int])
+    caseOf[String, Any]("string")(_.asInstanceOf[String])(_.asInstanceOf[Any])(_.isInstanceOf[String]) ++ caseOf[
+      Int,
+      Any
+    ]("int")(_.asInstanceOf[Int])(_.asInstanceOf[Any])(_.isInstanceOf[Int])
   )
 
   lazy val schemaGenericEnumerationSorted: Schema[Any] = Schema.enumeration[Any, CaseSet.Aux[Any]](
     TypeId.Structural,
-    caseOf[Int, Any]("int")(_.asInstanceOf[Int]) ++ caseOf[String, Any]("string")(_.asInstanceOf[String])
+    caseOf[Int, Any]("int")(_.asInstanceOf[Int])(_.asInstanceOf[Any])(_.isInstanceOf[Int]) ++ caseOf[String, Any](
+      "string"
+    )(_.asInstanceOf[String])(_.asInstanceOf[Any])(_.isInstanceOf[String])
   )
 
   val schemaFail: Schema[StringValue] = Schema.fail("failing schema")
@@ -964,7 +966,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
   def encodeNS[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
     ZIO.succeed(ProtobufCodec.encode(schema)(input))
 
-  def decode[A](schema: Schema[A], hex: String): ZIO[Any, String, Chunk[A]] =
+  def decode[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, Chunk[A]] =
     ProtobufCodec
       .decoder(schema)
       .apply(
@@ -974,17 +976,17 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of decode
-  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, String, A] =
-    ZIO.succeed(ProtobufCodec.decode(schema)(fromHex(hex))).absolve[String, A]
+  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
+    ZIO.succeed(ProtobufCodec.decode(schema)(fromHex(hex))).absolve[DecodeError, A]
 
-  def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
+  def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ProtobufCodec
       .encoder(schema)
       .andThen(ProtobufCodec.decoder(schema))
       .apply(ZStream.succeed(input))
       .run(ZSink.collectAll)
 
-  def encodeAndDecode2[A](schema: Schema[A], input: A): ZIO[Any, Any, Either[String, Chunk[A]]] =
+  def encodeAndDecode2[A](schema: Schema[A], input: A): ZIO[Any, Any, scala.util.Either[DecodeError, Chunk[A]]] =
     ProtobufCodec
       .encoder(schema)
       .andThen(ProtobufCodec.decoder(schema))
@@ -996,7 +998,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           printLine(s"Failed to encode and decode input $input\nError=$error").orDie
       }
 
-  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, Chunk[A]] =
+  def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ProtobufCodec
       .encoder(encodeSchema)
       .andThen(ProtobufCodec.decoder(decodeSchema))
@@ -1004,12 +1006,12 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, String, A] =
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)
       .tap(value => printLine(s"Input Value: $value").when(print).ignore)
       .map(a => ProtobufCodec.encode(schema)(a))
-      .tap(encoded => printLine(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
+      .tap(encoded => printLine(s"\nEncoded Bytes (${encoded.size}):\n${toHex(encoded)}").when(print).ignore)
       .map(ch => ProtobufCodec.decode(schema)(ch))
       .absolve
 
@@ -1017,7 +1019,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
     schema: Schema[A],
     input: A,
     print: Boolean = false
-  ): ZIO[Any, String, Either[String, A]] =
+  ): ZIO[Any, DecodeError, scala.util.Either[DecodeError, A]] =
     ZIO
       .succeed(input)
       .tap(value => printLine(s"Input Value: $value").when(print).ignore)
@@ -1028,7 +1030,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         case Left(err) => printLine(s"Failed to encode and decode value $input\nError = $err").orDie
       }
 
-  def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, String, A] =
+  def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)
       .map(a => ProtobufCodec.encode(encodeSchema)(a))

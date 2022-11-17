@@ -22,9 +22,27 @@ object AvroCodecSpec extends ZIOSpecDefault {
       suite("encode")(
         suite("enum")(
           test("encodes string only enum as avro enum") {
-            val caseA  = Schema.Case[String, String]("A", Schema.primitive(StandardType.StringType), identity)
-            val caseB  = Schema.Case[String, String]("B", Schema.primitive(StandardType.StringType), identity)
-            val caseC  = Schema.Case[String, String]("C", Schema.primitive(StandardType.StringType), identity)
+            val caseA = Schema.Case[String, String](
+              "A",
+              Schema.primitive(StandardType.StringType),
+              identity,
+              identity,
+              _.isInstanceOf[String]
+            )
+            val caseB = Schema.Case[String, String](
+              "B",
+              Schema.primitive(StandardType.StringType),
+              identity,
+              identity,
+              _.isInstanceOf[String]
+            )
+            val caseC = Schema.Case[String, String](
+              "C",
+              Schema.primitive(StandardType.StringType),
+              identity,
+              identity,
+              _.isInstanceOf[String]
+            )
             val schema = Schema.Enum3(TypeId.Structural, caseA, caseB, caseC, Chunk(AvroAnnotations.name("MyEnum")))
 
             val result = AvroCodec.encode(schema)
@@ -74,27 +92,45 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val nested: Enum2[UnionWithNesting.Nested.A.type, UnionWithNesting.Nested.B.type, UnionWithNesting.Nested] =
               Schema.Enum2(
                 TypeId.Structural,
-                Schema.Case[UnionWithNesting.Nested.A.type, UnionWithNesting.Nested](
+                Schema.Case[UnionWithNesting.Nested, UnionWithNesting.Nested.A.type](
                   "A",
                   schemaA,
-                  _.asInstanceOf[UnionWithNesting.Nested.A.type]
+                  _.asInstanceOf[UnionWithNesting.Nested.A.type],
+                  _.asInstanceOf[UnionWithNesting.Nested],
+                  _.isInstanceOf[UnionWithNesting.Nested.A.type]
                 ),
-                Schema.Case[UnionWithNesting.Nested.B.type, UnionWithNesting.Nested](
+                Schema.Case[UnionWithNesting.Nested, UnionWithNesting.Nested.B.type](
                   "B",
                   schemaB,
-                  _.asInstanceOf[UnionWithNesting.Nested.B.type]
+                  _.asInstanceOf[UnionWithNesting.Nested.B.type],
+                  _.asInstanceOf[UnionWithNesting.Nested],
+                  _.isInstanceOf[UnionWithNesting.Nested.B.type]
                 )
               )
             val unionWithNesting = Schema.Enum3(
               TypeId.Structural,
-              Schema.Case[UnionWithNesting.Nested, UnionWithNesting](
+              Schema.Case[UnionWithNesting, UnionWithNesting.Nested](
                 "Nested",
                 nested,
-                _.asInstanceOf[UnionWithNesting.Nested]
+                _.asInstanceOf[UnionWithNesting.Nested],
+                _.asInstanceOf[UnionWithNesting],
+                _.isInstanceOf[UnionWithNesting.Nested]
               ),
               Schema
-                .Case[UnionWithNesting.C.type, UnionWithNesting]("C", schemaC, _.asInstanceOf[UnionWithNesting.C.type]),
-              Schema.Case[UnionWithNesting.D, UnionWithNesting]("D", schemaD, _.asInstanceOf[UnionWithNesting.D])
+                .Case[UnionWithNesting, UnionWithNesting.C.type](
+                  "C",
+                  schemaC,
+                  _.asInstanceOf[UnionWithNesting.C.type],
+                  _.asInstanceOf[UnionWithNesting],
+                  _.isInstanceOf[UnionWithNesting.C.type]
+                ),
+              Schema.Case[UnionWithNesting, UnionWithNesting.D](
+                "D",
+                schemaD,
+                _.asInstanceOf[UnionWithNesting.D],
+                _.asInstanceOf[UnionWithNesting],
+                _.isInstanceOf[UnionWithNesting.D]
+              )
             )
 
             val schema = unionWithNesting
@@ -206,7 +242,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("string keys and string values") {
             val keySchema   = Schema.primitive(StandardType.StringType)
             val valueSchema = Schema.primitive(StandardType.StringType)
-            val schema      = Schema.MapSchema(keySchema, valueSchema)
+            val schema      = Schema.Map(keySchema, valueSchema)
             val result      = AvroCodec.encode(schema)
 
             assert(result)(isRight(equalTo("""{"type":"map","values":"string"}""")))
@@ -214,7 +250,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("string keys and complex values") {
             val keySchema   = Schema.primitive(StandardType.StringType)
             val valueSchema = DeriveSchema.gen[SpecTestData.SimpleRecord]
-            val schema      = Schema.MapSchema(keySchema, valueSchema)
+            val schema      = Schema.Map(keySchema, valueSchema)
             val result      = AvroCodec.encode(schema)
 
             assert(result)(
@@ -228,7 +264,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("complex keys and string values") {
             val keySchema   = DeriveSchema.gen[SpecTestData.SimpleRecord]
             val valueSchema = Schema.primitive(StandardType.StringType)
-            val schema      = Schema.MapSchema(keySchema, valueSchema)
+            val schema      = Schema.Map(keySchema, valueSchema)
             val result      = AvroCodec.encode(schema)
 
             val isArray    = startsWithString("""{"type":"array"""")
@@ -243,7 +279,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("complex keys and complex values") {
             val keySchema   = DeriveSchema.gen[SpecTestData.SimpleRecord]
             val valueSchema = DeriveSchema.gen[SpecTestData.NamedRecord]
-            val schema      = Schema.MapSchema(keySchema, valueSchema)
+            val schema      = Schema.Map(keySchema, valueSchema)
             val result      = AvroCodec.encode(schema)
 
             val isArray    = startsWithString("""{"type":"array"""")
@@ -374,7 +410,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           },
           test("encodes optionals of either") {
             val either =
-              Schema.EitherSchema(Schema.primitive(StandardType.StringType), Schema.primitive(StandardType.IntType))
+              Schema.Either(Schema.primitive(StandardType.StringType), Schema.primitive(StandardType.IntType))
             val schema = Schema.Optional(either)
             val result = AvroCodec.encode(schema)
 
@@ -390,7 +426,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
         suite("either")(
           test("create an union") {
             val schema =
-              Schema.EitherSchema(Schema.primitive(StandardType.StringType), Schema.primitive(StandardType.IntType))
+              Schema.Either(Schema.primitive(StandardType.StringType), Schema.primitive(StandardType.IntType))
             val result = AvroCodec.encode(schema)
 
             val expected =
@@ -399,7 +435,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           },
           test("create a named union") {
             val schema = Schema
-              .EitherSchema(Schema.primitive(StandardType.StringType), Schema.primitive(StandardType.IntType))
+              .Either(Schema.primitive(StandardType.StringType), Schema.primitive(StandardType.IntType))
               .annotate(AvroAnnotations.name("MyEither"))
             val result = AvroCodec.encode(schema)
 
@@ -410,7 +446,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("encodes complex types") {
             val left   = DeriveSchema.gen[SpecTestData.SimpleRecord]
             val right  = Schema.primitive(StandardType.StringType)
-            val schema = Schema.EitherSchema(left, right)
+            val schema = Schema.Either(left, right)
             val result = AvroCodec.encode(schema)
 
             val expected =
@@ -420,7 +456,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("fails with duplicate names") {
             val left   = DeriveSchema.gen[SpecTestData.SimpleRecord]
             val right  = DeriveSchema.gen[SpecTestData.SimpleRecord]
-            val schema = Schema.EitherSchema(left, right)
+            val schema = Schema.Either(left, right)
             val result = AvroCodec.encode(schema)
 
             assert(result)(
@@ -430,7 +466,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("encodes either containing optional") {
             val left   = Schema.Optional(Schema.primitive(StandardType.StringType))
             val right  = Schema.primitive(StandardType.StringType)
-            val schema = Schema.EitherSchema(left, right)
+            val schema = Schema.Either(left, right)
             val result = AvroCodec.encode(schema)
 
             assert(result)(
@@ -444,8 +480,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("encodes nested either") {
             val left   = Schema.Optional(Schema.primitive(StandardType.StringType))
             val right  = Schema.primitive(StandardType.StringType)
-            val nested = Schema.EitherSchema(left, right)
-            val schema = Schema.EitherSchema(nested, right)
+            val nested = Schema.Either(left, right)
+            val schema = Schema.Either(nested, right)
             val result = AvroCodec.encode(schema)
 
             val expected =
@@ -457,7 +493,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("creates a record type and applies the name") {
             val left   = Schema.primitive(StandardType.StringType)
             val right  = Schema.primitive(StandardType.StringType)
-            val schema = Schema.Tuple(left, right).annotate(AvroAnnotations.name("MyTuple"))
+            val schema = Schema.Tuple2(left, right).annotate(AvroAnnotations.name("MyTuple"))
             val result = AvroCodec.encode(schema)
 
             assert(result)(
@@ -471,7 +507,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("encodes complex types") {
             val left   = DeriveSchema.gen[SpecTestData.SimpleRecord]
             val right  = DeriveSchema.gen[SpecTestData.NamedRecord]
-            val schema = Schema.Tuple(left, right).annotate(AvroAnnotations.name("MyTuple"))
+            val schema = Schema.Tuple2(left, right).annotate(AvroAnnotations.name("MyTuple"))
             val result = AvroCodec.encode(schema)
 
             val field_1 =
@@ -483,7 +519,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           test("encodes duplicate complex types by reference") {
             val left   = DeriveSchema.gen[SpecTestData.SimpleRecord]
             val right  = DeriveSchema.gen[SpecTestData.SimpleRecord]
-            val schema = Schema.Tuple(left, right).annotate(AvroAnnotations.name("MyTuple"))
+            val schema = Schema.Tuple2(left, right).annotate(AvroAnnotations.name("MyTuple"))
             val result = AvroCodec.encode(schema)
 
             val field_1 =
@@ -935,8 +971,18 @@ object AvroCodecSpec extends ZIOSpecDefault {
                   Schema
                     .record(
                       TypeId.fromTypeName("TestRecord"),
-                      Schema.Field("s", Schema.primitive(StandardType.StringType)),
-                      Schema.Field("b", Schema.primitive(StandardType.BoolType))
+                      Schema.Field(
+                        "s",
+                        Schema.primitive(StandardType.StringType),
+                        get0 = (p: ListMap[String, _]) => p("s").asInstanceOf[String],
+                        set0 = (p: ListMap[String, _], v: String) => p.updated("s", v)
+                      ),
+                      Schema.Field(
+                        "b",
+                        Schema.primitive(StandardType.BoolType),
+                        get0 = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean],
+                        set0 = (p: ListMap[String, _], v: Boolean) => p.updated("b", v)
+                      )
                     )
                     .ast
                 )
@@ -953,10 +999,22 @@ object AvroCodecSpec extends ZIOSpecDefault {
                 "nested",
                 Schema.record(
                   TypeId.fromTypeName("Inner"),
-                  Schema.Field("innerS", Schema.primitive(StandardType.StringType))
-                )
+                  Schema.Field(
+                    "innerS",
+                    Schema.primitive(StandardType.StringType),
+                    get0 = (p: ListMap[String, _]) => p("innerS").asInstanceOf[String],
+                    set0 = (p: ListMap[String, _], v: String) => p.updated("innerS", v)
+                  )
+                ),
+                get0 = (p: ListMap[String, _]) => p("nested").asInstanceOf[ListMap[String, _]],
+                set0 = (p: ListMap[String, _], v: ListMap[String, _]) => p.updated("nested", v)
               ),
-              Schema.Field("b", Schema.primitive(StandardType.BoolType))
+              Schema.Field(
+                "b",
+                Schema.primitive(StandardType.BoolType),
+                get0 = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean],
+                set0 = (p: ListMap[String, _], v: Boolean) => p.updated("b", v)
+              )
             )
 
             assert(schema.map(_.ast))(isRight(equalTo(expectedSchema.ast)))
@@ -972,8 +1030,18 @@ object AvroCodecSpec extends ZIOSpecDefault {
                   Schema
                     .record(
                       TypeId.fromTypeName("TestRecord"),
-                      Schema.Field("s", Schema.primitive(StandardType.StringType)),
-                      Schema.Field("b", Schema.primitive(StandardType.BoolType))
+                      Schema.Field(
+                        "s",
+                        Schema.primitive(StandardType.StringType),
+                        get0 = (p: ListMap[String, _]) => p("s").asInstanceOf[String],
+                        set0 = (p: ListMap[String, _], v: String) => p.updated("s", v)
+                      ),
+                      Schema.Field(
+                        "b",
+                        Schema.primitive(StandardType.BoolType),
+                        get0 = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean],
+                        set0 = (p: ListMap[String, _], v: Boolean) => p.updated("b", v)
+                      )
                     )
                     .ast
                 )
@@ -1326,9 +1394,9 @@ object AvroCodecSpec extends ZIOSpecDefault {
               """[{"type":"record","name":"A","fields":[]},{"type":"record","name":"B","fields":[]},{"type":"record","name":"MyC","fields":[]}]"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            val assertionA   = hasKey("A", tuple2First(isStandardType(StandardType.UnitType)))
-            val assertionB   = hasKey("B", tuple2First(isStandardType(StandardType.UnitType)))
-            val assertionMyC = hasKey("MyC", tuple2First(isStandardType(StandardType.UnitType)))
+            val assertionA   = hasKey("A", tuple2First(isEmptyRecord))
+            val assertionB   = hasKey("B", tuple2First(isEmptyRecord))
+            val assertionMyC = hasKey("MyC", tuple2First(isEmptyRecord))
             assert(schema)(isRight(isEnum(enumStructure(assertionA && assertionB && assertionMyC))))
           },
           test("correct case codec for case class of ADT") {
@@ -1340,8 +1408,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
               "A",
               tuple2First(isRecord(hasRecordField(hasLabel(equalTo("s"))) && hasRecordField(hasLabel(equalTo("b")))))
             )
-            val assertionB   = hasKey("B", tuple2First(isStandardType(StandardType.UnitType)))
-            val assertionMyC = hasKey("MyC", tuple2First(isStandardType(StandardType.UnitType)))
+            val assertionB   = hasKey("B", tuple2First(isEmptyRecord))
+            val assertionMyC = hasKey("MyC", tuple2First(isEmptyRecord))
             assert(schema)(isRight(isEnum(enumStructure(assertionA && assertionB && assertionMyC))))
           },
           test("unwrap nested union") {
@@ -1351,15 +1419,15 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val nestedEnumAssertion = isEnum(
               enumStructure(
-                hasKey("A", tuple2First(isStandardType(StandardType.UnitType))) && hasKey(
+                hasKey("A", tuple2First(isEmptyRecord)) && hasKey(
                   "B",
-                  tuple2First(isStandardType(StandardType.UnitType))
+                  tuple2First(isEmptyRecord)
                 )
               )
             )
             val nestedEnumKey =
               hasKey("zio.schema.codec.avro.wrapper_hashed_n465006219", tuple2First(nestedEnumAssertion))
-            val cEnumKey = hasKey("C", tuple2First(isStandardType(StandardType.UnitType)))
+            val cEnumKey = hasKey("C", tuple2First(isEmptyRecord))
             val dEnumKey = hasKey("D", tuple2First(isRecord(hasRecordField(hasLabel(equalTo("s"))))))
             assert(schema)(isRight(isEnum(enumStructure(nestedEnumKey && cEnumKey && dEnumKey))))
           }
@@ -1776,6 +1844,16 @@ object AssertionHelper {
       assertion
     )
 
+  def isEmptyRecord[A]: Assertion[Schema[_]] =
+    Assertion.isCase[Schema[_], Schema[_]](
+      "EmptyRecord", {
+        case r: CaseClass0[_]                                                => Some(r)
+        case r @ GenericRecord(_, structure, _) if structure.toChunk.isEmpty => Some(r)
+        case _                                                               => None
+      },
+      anything
+    )
+
   def isEnum[A](assertion: Assertion[Schema.Enum[A]]): Assertion[Schema[_]] =
     Assertion.isCase[Schema[_], Schema.Enum[A]](
       "Enum", {
@@ -1794,46 +1872,46 @@ object AssertionHelper {
       assertion
     )
 
-  def isMap[K, V](assertion: Assertion[Schema.MapSchema[K, V]]): Assertion[Schema[_]] =
-    Assertion.isCase[Schema[_], Schema.MapSchema[K, V]](
+  def isMap[K, V](assertion: Assertion[Schema.Map[K, V]]): Assertion[Schema[_]] =
+    Assertion.isCase[Schema[_], Schema.Map[K, V]](
       "Map", {
-        case r: Schema.MapSchema[_, _] => Try { r.asInstanceOf[Schema.MapSchema[K, V]] }.toOption
-        case _                         => None
+        case r: Schema.Map[_, _] => Try { r.asInstanceOf[Schema.Map[K, V]] }.toOption
+        case _                   => None
       },
       assertion
     )
 
-  def isTuple[A, B](assertion: Assertion[Schema.Tuple[A, B]]): Assertion[Schema[_]] =
-    Assertion.isCase[Schema[_], Schema.Tuple[A, B]](
+  def isTuple[A, B](assertion: Assertion[Schema.Tuple2[A, B]]): Assertion[Schema[_]] =
+    Assertion.isCase[Schema[_], Schema.Tuple2[A, B]](
       "Tuple", {
-        case r: Schema.Tuple[_, _] => Try { r.asInstanceOf[Schema.Tuple[A, B]] }.toOption
-        case _                     => None
+        case r: Schema.Tuple2[_, _] => Try { r.asInstanceOf[Schema.Tuple2[A, B]] }.toOption
+        case _                      => None
       },
       assertion
     )
 
   def isTuple[A, B](assertionA: Assertion[Schema[A]], assertionB: Assertion[Schema[B]]): Assertion[Schema[_]] =
     isTuple[A, B](
-      hasField[Schema.Tuple[A, B], Schema[A]]("left", _.left, assertionA) && hasField[Schema.Tuple[A, B], Schema[B]](
+      hasField[Schema.Tuple2[A, B], Schema[A]]("left", _.left, assertionA) && hasField[Schema.Tuple2[A, B], Schema[B]](
         "right",
         _.right,
         assertionB
       )
     )
 
-  def isEither[A, B](assertion: Assertion[Schema.EitherSchema[A, B]]): Assertion[Schema[_]] =
-    Assertion.isCase[Schema[_], Schema.EitherSchema[A, B]](
+  def isEither[A, B](assertion: Assertion[Schema.Either[A, B]]): Assertion[Schema[_]] =
+    Assertion.isCase[Schema[_], Schema.Either[A, B]](
       "Either", {
-        case r: Schema.EitherSchema[_, _] => Try { r.asInstanceOf[Schema.EitherSchema[A, B]] }.toOption
-        case _                            => None
+        case r: Schema.Either[_, _] => Try { r.asInstanceOf[Schema.Either[A, B]] }.toOption
+        case _                      => None
       },
       assertion
     )
 
   def isEither[A, B](leftAssertion: Assertion[Schema[A]], rightAssertion: Assertion[Schema[B]]): Assertion[Schema[_]] =
     isEither[A, B](
-      hasField[Schema.EitherSchema[A, B], Schema[A]]("left", _.left, leftAssertion) && hasField[
-        Schema.EitherSchema[A, B],
+      hasField[Schema.Either[A, B], Schema[A]]("left", _.left, leftAssertion) && hasField[
+        Schema.Either[A, B],
         Schema[B]
       ]("right", _.right, rightAssertion)
     )
@@ -1852,22 +1930,25 @@ object AssertionHelper {
       case (a, _) => Some(a)
     }, assertion)
 
-  def hasMapKeys[K](assertion: Assertion[Schema[K]]): Assertion[Schema.MapSchema[K, _]] =
-    hasField("ks", _.ks, assertion)
+  def hasMapKeys[K](assertion: Assertion[Schema[K]]): Assertion[Schema.Map[K, _]] =
+    hasField("keySchema", _.keySchema, assertion)
 
-  def hasMapValues[V](assertion: Assertion[Schema[V]]): Assertion[Schema.MapSchema[_, V]] =
-    hasField("vs", _.vs, assertion)
+  def hasMapValues[V](assertion: Assertion[Schema[V]]): Assertion[Schema.Map[_, V]] =
+    hasField("valueSchema", _.valueSchema, assertion)
 
   def enumStructure(assertion: Assertion[ListMap[String, (Schema[_], Chunk[Any])]]): Assertion[Schema.Enum[_]] =
     Assertion.assertionRec("enumStructure")(assertion)(
-      enum => Some(`enum`.structureWithAnnotations)
+      enum =>
+        Some(`enum`.cases.foldRight(ListMap.empty[String, (Schema[_], Chunk[Any])]) { (caseValue, acc) =>
+          (acc + (caseValue.id -> scala.Tuple2(caseValue.schema, caseValue.annotations)))
+        })
     )
 
   def annotations(assertion: Assertion[Chunk[Any]]): Assertion[Any] =
     Assertion.assertionRec("hasAnnotations")(assertion) {
-      case s: Schema[_]       => Some(s.annotations)
-      case f: Schema.Field[_] => Some(f.annotations)
-      case _                  => None
+      case s: Schema[_]          => Some(s.annotations)
+      case f: Schema.Field[_, _] => Some(f.annotations)
+      case _                     => None
     }
 
   def hasNameAnnotation(assertion: Assertion[String]): Assertion[Any] =
@@ -1881,7 +1962,7 @@ object AssertionHelper {
   def hasDocAnnotation(assertion: Assertion[String]): Assertion[Any] =
     annotations(Assertion.exists(Assertion.isSubtype[AvroAnnotations.doc](hasField("doc", _.doc, assertion))))
 
-  def hasFieldOrderAnnotation(assertion: Assertion[FieldOrderType]): Assertion[Field[_]] =
+  def hasFieldOrderAnnotation(assertion: Assertion[FieldOrderType]): Assertion[Field[_, _]] =
     annotations(
       Assertion.exists(
         Assertion.isSubtype[AvroAnnotations.fieldOrder](hasField("fieldOrderType", _.fieldOrderType, assertion))
@@ -1893,7 +1974,7 @@ object AssertionHelper {
       Assertion.exists(Assertion.isSubtype[AvroAnnotations.aliases](hasField("aliases", _.aliases, assertion)))
     )
 
-  def hasFieldDefaultAnnotation(assertion: Assertion[Object]): Assertion[Field[_]] =
+  def hasFieldDefaultAnnotation(assertion: Assertion[Object]): Assertion[Field[_, _]] =
     annotations(
       Assertion.exists(
         Assertion.isSubtype[AvroAnnotations.default](hasField("javaDefaultObject", _.javaDefaultObject, assertion))
@@ -1913,27 +1994,27 @@ object AssertionHelper {
   def asString(assertion: Assertion[String]): Assertion[Any] =
     Assertion.assertionRec("asString")(assertion)(v => Some(v.toString))
 
-  def recordFields(assertion: Assertion[Iterable[Schema.Field[_]]]): Assertion[Schema.Record[_]] =
-    Assertion.assertionRec[Schema.Record[_], Chunk[Field[_]]]("hasRecordField")(
+  def recordFields(assertion: Assertion[Iterable[Schema.Field[_, _]]]): Assertion[Schema.Record[_]] =
+    Assertion.assertionRec[Schema.Record[_], Chunk[Field[_, _]]]("hasRecordField")(
       assertion
     ) {
-      case r: Schema.Record[_] => Some(r.structure)
+      case r: Schema.Record[_] => Some(r.fields)
       case _                   => None
     }
 
   def hasSequenceElementSchema[A](assertion: Assertion[Schema[A]]): Assertion[Schema.Sequence[_, A, _]] =
-    Assertion.hasField("schemaA", _.schemaA, assertion)
+    Assertion.hasField("schemaA", _.elementSchema, assertion)
 
   def hasOptionElementSchema[A](assertion: Assertion[Schema[A]]): Assertion[Schema.Optional[A]] =
-    Assertion.hasField("codec", _.codec, assertion)
+    Assertion.hasField("schema", _.schema, assertion)
 
-  def hasRecordField(assertion: Assertion[Schema.Field[_]]): Assertion[Schema.Record[_]] =
+  def hasRecordField(assertion: Assertion[Schema.Field[_, _]]): Assertion[Schema.Record[_]] =
     recordFields(Assertion.exists(assertion))
 
-  def hasLabel(assertion: Assertion[String]): Assertion[Schema.Field[_]] =
-    hasField("label", _.label, assertion)
+  def hasLabel(assertion: Assertion[String]): Assertion[Schema.Field[_, _]] =
+    hasField("label", _.name, assertion)
 
-  def hasSchema(assertion: Assertion[Schema[_]]): Assertion[Schema.Field[_]] =
+  def hasSchema(assertion: Assertion[Schema[_]]): Assertion[Schema.Field[_, _]] =
     hasField("initialSchemaDerived", _.schema, assertion)
 
   def isPrimitive[A](assertion: Assertion[Primitive[A]]): Assertion[Schema[_]] =
@@ -2020,17 +2101,17 @@ object SpecTestData {
         char: Char,
         uuid: UUID
       ) extends TopLevelUnion
-      case class NestedRecord(innerRecord: InnerRecord)               extends TopLevelUnion
-      case class Unions(union: Union)                                 extends TopLevelUnion
-      case class Enumeration(`enum`: Enum)                            extends TopLevelUnion
-      case class Iterables(list: List[String], map: Map[String, Int]) extends TopLevelUnion
+      case class NestedRecord(innerRecord: InnerRecord)                                          extends TopLevelUnion
+      case class Unions(union: Union)                                                            extends TopLevelUnion
+      case class Enumeration(`enum`: Enum)                                                       extends TopLevelUnion
+      case class Iterables(list: List[String], map: scala.collection.immutable.Map[String, Int]) extends TopLevelUnion
 
       // TODO: Schema derivation fails for the following case classes
       // case class RecordWithTimeRelatedPrimitives(localDateTime: LocalDateTime, localTime: LocalTime, localDate: LocalDate, offsetTime: OffsetTime, offsetDateTime: OffsetDateTime, zonedDateTime: ZonedDateTime, zoneOffset: ZoneOffset, zoneId: ZoneId, instant: Instant) extends TopLevelUnion
       // case class IterablesComplex(list: List[InnerRecord], map: Map[InnerRecord, Enum]) extends TopLevelUnion
     }
 
-    case class InnerRecord(s: String, union: Option[Either[String, Int]])
+    case class InnerRecord(s: String, union: Option[scala.util.Either[String, Int]])
 
     sealed trait Union
     case class NestedUnion(inner: InnerUnion) extends Union

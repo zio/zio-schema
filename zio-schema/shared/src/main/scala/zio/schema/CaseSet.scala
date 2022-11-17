@@ -13,13 +13,13 @@ sealed trait CaseSet { self =>
 
   type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]]
 
-  def :+:[A](head: Case[A, EnumType]): A :+: CaseSet.Aux[EnumType]
+  def :+:[A](head: Case[EnumType, A]): A :+: CaseSet.Aux[EnumType]
 
   // def ++[That](that: That)(implicit append: Append[EnumType, self.type, That]): append.Out
 
   def toMap: ListMap[String, Schema[_]]
 
-  def toSeq: Seq[Case[_, EnumType]]
+  def toSeq: Seq[Case[EnumType, _]]
 
   def makeAccessors(whole: Enum[EnumType], b: AccessorBuilder): Accessors[EnumType, b.Lens, b.Prism, b.Traversal]
 
@@ -33,14 +33,14 @@ object CaseSet {
 
     override type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Unit
 
-    override def :+:[A](head: Case[A, EnumType]): A :+: Empty[EnumType] = Cons(head, self)
+    override def :+:[A](head: Case[EnumType, A]): A :+: Empty[EnumType] = Cons(head, self)
 
     def ++[That](that: That)(implicit append: Append[Z, Empty[Z], That]): append.Out =
       append(self, that)
 
     override def toMap: ListMap[String, Schema[_]] = ListMap.empty
 
-    override def toSeq: Seq[Case[_, Z]] = Seq.empty
+    override def toSeq: Seq[Case[Z, _]] = Seq.empty
 
     override def makeAccessors(
       whole: Enum[EnumType],
@@ -55,23 +55,23 @@ object CaseSet {
   }
 
   sealed trait :+:[A, +T <: CaseSet] extends CaseSet {
-    def head: Case[A, EnumType]
+    def head: Case[EnumType, A]
   }
 
-  final case class Cons[A, +T <: CaseSet.Aux[Z], Z](head: Case[A, Z], tail: T) extends :+:[A, T] { self =>
+  final case class Cons[A, +T <: CaseSet.Aux[Z], Z](head: Case[Z, A], tail: T) extends :+:[A, T] { self =>
     type EnumType = Z
 
     override type Accessors[Whole, Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (Prism[head.id.type, Whole, A], tail.Accessors[Whole, Lens, Prism, Traversal])
 
-    override def :+:[B](head2: Case[B, Z]): Cons[B, Cons[A, T, Z], Z] = Cons(head2, self)
+    override def :+:[B](head2: Case[Z, B]): Cons[B, Cons[A, T, Z], Z] = Cons(head2, self)
 
     def ++[That](that: That)(implicit append: Append[Z, Cons[A, T, Z], That]): append.Out =
       append(self, that)
 
-    override def toMap: ListMap[String, Schema[_]] = ListMap(head.id -> head.codec) ++ tail.toMap
+    override def toMap: ListMap[String, Schema[_]] = ListMap(head.id -> head.schema) ++ tail.toMap
 
-    override def toSeq: Seq[Case[_, Z]] =
+    override def toSeq: Seq[Case[Z, _]] =
       Seq(head) ++ tail.toSeq
 
     override def makeAccessors(
@@ -84,12 +84,14 @@ object CaseSet {
   }
   val :+: = Cons
 
-  def apply[Z](c: Case[_, Z]*): CaseSet = c.foldRight[CaseSet.Aux[Z]](Empty[Z]()) {
+  def apply[Z](c: Case[Z, _]*): CaseSet = c.foldRight[CaseSet.Aux[Z]](Empty[Z]()) {
     case (c, cs) => Cons(c, cs)
   }
 
-  def caseOf[A: Schema, Z >: A](id: String)(unsafeDeconstruct: Z => A): Cons[A, Empty[Z], Z] =
-    Cons(Case(id, Schema[A], unsafeDeconstruct, Chunk.empty), Empty[Z]())
+  def caseOf[A: Schema, Z >: A](
+    id: String
+  )(unsafeDeconstruct: Z => A)(construct: A => Z)(isCase: Z => Boolean): Cons[A, Empty[Z], Z] =
+    Cons(Case(id, Schema[A], unsafeDeconstruct, construct, isCase, Chunk.empty), Empty[Z]())
 
 }
 

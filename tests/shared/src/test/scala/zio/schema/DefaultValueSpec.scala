@@ -150,9 +150,13 @@ object DefaultValueSpec extends ZIOSpecDefault {
         val schema: Schema[UserId] =
           Schema.CaseClass1(
             TypeId.parse("zio.schema.DefaultValueSpec.UserId"),
-            field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
-            UserId.apply,
-            (uid: UserId) => uid.id
+            field0 = Schema.Field(
+              "id",
+              Schema.Primitive(StandardType.StringType),
+              get0 = (uid: UserId) => uid.id,
+              set0 = (uid: UserId, id: String) => uid.copy(id = id)
+            ),
+            UserId.apply
           )
         assert(schema.defaultValue)(isRight(equalTo(UserId(""))))
       },
@@ -160,21 +164,34 @@ object DefaultValueSpec extends ZIOSpecDefault {
         val expected: Schema[User] =
           Schema.CaseClass3(
             TypeId.parse("zio.schema.DefaultValueSpec.User"),
-            field1 = Schema.Field(
+            field01 = Schema.Field(
               "id",
               Schema.CaseClass1(
                 TypeId.parse("zio.schema.DefaultValueSpec.UserId"),
-                field = Schema.Field("id", Schema.Primitive(StandardType.StringType)),
-                UserId.apply,
-                (uid: UserId) => uid.id
-              )
+                Schema.Field(
+                  "id",
+                  Schema.Primitive(StandardType.StringType),
+                  get0 = (uid: UserId) => uid.id,
+                  set0 = (uid: UserId, id: String) => uid.copy(id = id)
+                ),
+                UserId.apply
+              ),
+              get0 = (u: User) => u.id,
+              set0 = (u: User, id: UserId) => u.copy(id = id)
             ),
-            field2 = Schema.Field("name", Schema.Primitive(StandardType.StringType)),
-            field3 = Schema.Field("age", Schema.Primitive(StandardType.IntType)),
-            User.apply,
-            (u: User) => u.id,
-            (u: User) => u.name,
-            (u: User) => u.age
+            field02 = Schema.Field(
+              "name",
+              Schema.Primitive(StandardType.StringType),
+              get0 = (u: User) => u.name,
+              set0 = (u: User, name: String) => u.copy(name = name)
+            ),
+            field03 = Schema.Field(
+              "age",
+              Schema.Primitive(StandardType.IntType),
+              get0 = (u: User) => u.age,
+              set0 = (u: User, age: Int) => u.copy(age = age)
+            ),
+            User.apply
           )
         assert(expected.defaultValue)(isRight(equalTo(User(UserId(""), "", 0))))
       }
@@ -191,7 +208,10 @@ object DefaultValueSpec extends ZIOSpecDefault {
       test("defaults to first case") {
         val schema = Schema.enumeration[Any, CaseSet.Aux[Any]](
           TypeId.Structural,
-          caseOf[Int, Any]("myInt")(_.asInstanceOf[Int]) ++ caseOf[String, Any]("myString")(_.asInstanceOf[String])
+          caseOf[Int, Any]("myInt")(_.asInstanceOf[Int])(_.asInstanceOf[Any])(_.isInstanceOf[Int]) ++ caseOf[
+            String,
+            Any
+          ]("myString")(_.asInstanceOf[String])(_.asInstanceOf[Any])(_.isInstanceOf[String])
         )
         assert(schema.defaultValue)(isRight(equalTo(0)))
       }
@@ -234,12 +254,26 @@ object DefaultValueSpec extends ZIOSpecDefault {
         val schema: Schema[Status] =
           Schema.Enum3(
             TypeId.parse("zio.schema.DefaultValueSpec.Status"),
-            Schema.Case("Failed", Schema[Failed], (s: Status) => s.asInstanceOf[Failed]),
-            Schema.Case("Ok", Schema[Ok], (s: Status) => s.asInstanceOf[Ok]),
+            Schema.Case(
+              "Failed",
+              Schema[Failed],
+              (s: Status) => s.asInstanceOf[Failed],
+              (f: Failed) => f.asInstanceOf[Status],
+              (s: Status) => s.isInstanceOf[Failed]
+            ),
+            Schema.Case(
+              "Ok",
+              Schema[Ok],
+              (s: Status) => s.asInstanceOf[Ok],
+              (o: Ok) => o.asInstanceOf[Status],
+              (s: Status) => s.isInstanceOf[Ok]
+            ),
             Schema.Case(
               "Pending",
               Schema[Pending.type],
-              (s: Status) => s.asInstanceOf[Pending.type]
+              (s: Status) => s.asInstanceOf[Pending.type],
+              (p: Pending.type) => p.asInstanceOf[Status],
+              (s: Status) => s.isInstanceOf[Pending.type]
             )
           )
         assert(schema.defaultValue)(isRight(equalTo(Failed(0, "", None, ""))))

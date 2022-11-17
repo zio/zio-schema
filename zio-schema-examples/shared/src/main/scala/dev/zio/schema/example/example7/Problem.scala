@@ -3,8 +3,8 @@ package dev.zio.schema.example.example7
 import scala.collection.immutable.ListMap
 import scala.util.Try
 
-import zio.Chunk
 import zio.schema._
+import zio.{ Chunk, Unsafe }
 
 /** This exercise is based on John DeGoes' Spartan training on ZIO-Schema from 2021-11-04
  */
@@ -23,13 +23,13 @@ private[example7] object Problem {
   // sample url1: /foo/?name=john&age=42#foo
   // sample url2: /foo/?name=john&age=42&location=london&address=baker%20street
 
-  def decodePersonFromQueryParams(params: Map[String, List[String]]): Either[String, Person] =
+  def decodePersonFromQueryParams(params: Map[String, List[String]]): scala.util.Either[String, Person] =
     for {
       name <- params.get("name").toRight("name parameter is missing")
       age  <- params.get("age").toRight("age parameter is missing")
     } yield Person(name.head, age.head.toInt)
 
-  def decodeProfileFromQueryParams(params: Map[String, List[String]]): Either[String, Profile] =
+  def decodeProfileFromQueryParams(params: Map[String, List[String]]): scala.util.Either[String, Profile] =
     for {
       location <- params.get("location").toRight("location parameter is missing")
       address  <- params.get("address").toRight("address parameter is missing")
@@ -42,7 +42,7 @@ private[example7] object Problem {
     // probably suitable for the normal business application with medium performance requirements
     def decode[A](
       params: Map[String, List[String]]
-    )(implicit schema: Schema[A]): Either[String, A] =
+    )(implicit schema: Schema[A]): scala.util.Either[String, A] =
       toDV(params)
         .map(_.toTypedValue(schema))
         .collectFirst {
@@ -85,28 +85,28 @@ private[example7] object Problem {
         .map(v => DynamicValue.Record(TypeId.Structural, v))
     }
 
-    val p: Either[String, Person] = decode[Person](Map("name" -> List("John"), "age" -> List("42")))
+    val p: scala.util.Either[String, Person] = decode[Person](Map("name" -> List("John"), "age" -> List("42")))
 
     println(p)
   }
 
   object Approach2 extends scala.App {
     import Schema._
-    type QueryParams = Map[String, List[String]]
+    type QueryParams = scala.collection.immutable.Map[String, List[String]]
 
     // this will be a sophisticated solution for a high performance library like ZIO
     def decodeFromQueryParams[A](
       params: QueryParams
-    )(implicit schema: Schema[A], decoder: QueryParams => Either[String, A]): Either[String, A] =
+    )(implicit schema: Schema[A], decoder: QueryParams => scala.util.Either[String, A]): scala.util.Either[String, A] =
       decoder(params)
 
-    def buildDecoder[A](implicit schema: Schema[A]): QueryParams => Either[String, A] = {
+    def buildDecoder[A](implicit schemaA: Schema[A]): QueryParams => scala.util.Either[String, A] = {
 
-      def compile[B](key: Option[String], schema: Schema[B]): QueryParams => Either[String, B] =
-        schema match {
+      def compile[B](key: Option[String], schemaB: Schema[B]): QueryParams => scala.util.Either[String, B] =
+        schemaB match {
           case transform: Transform[a, B, _] =>
-            import transform.{ codec, f }
-            val func: QueryParams => Either[String, Any] = compile(key, codec)
+            import transform.{ f, schema }
+            val func: QueryParams => scala.util.Either[String, Any] = compile(key, schema)
             (params: QueryParams) => func(params).flatMap(v => f(v.asInstanceOf[a]))
           case Primitive(standardType, _) =>
             key match {
@@ -116,14 +116,14 @@ private[example7] object Problem {
               case Some(key) =>
                 standardType match {
                   case StandardType.StringType =>
-                    val f: QueryParams => Either[String, B] = (qp: QueryParams) =>
+                    val f: QueryParams => scala.util.Either[String, B] = (qp: QueryParams) =>
                       qp.get(key) match {
                         case Some(value :: _) => Right[String, B](value.asInstanceOf[B])
                         case _                => Left(s"Cannot extract a primitive string out of nothing")
                       }
                     f
                   case StandardType.IntType =>
-                    val f: QueryParams => Either[String, B] = (qp: QueryParams) =>
+                    val f: QueryParams => scala.util.Either[String, B] = (qp: QueryParams) =>
                       qp.get(key) match {
                         case Some(value :: _) =>
                           Try(value.toInt).toOption.toRight(s"cannot create an integer out of $value")
@@ -137,12 +137,12 @@ private[example7] object Problem {
             }
 
           case cc: CaseClass1[a, B] =>
-            val f = compile[a](Some(cc.field.label), cc.field.schema)
-            (qp: QueryParams) => f(qp).map(v => cc.construct(v))
+            val f = compile[a](Some(cc.field.name), cc.field.schema)
+            (qp: QueryParams) => f(qp).map(v => cc.defaultConstruct(v))
 
           case cc: CaseClass2[a, b, B] =>
-            val f1 = compile[a](Some(cc.field1.label), cc.field1.schema)
-            val f2 = compile[b](Some(cc.field2.label), cc.field2.schema)
+            val f1 = compile[a](Some(cc.field1.name), cc.field1.schema)
+            val f2 = compile[b](Some(cc.field2.name), cc.field2.schema)
 
             (qp: QueryParams) =>
               for {
@@ -151,9 +151,9 @@ private[example7] object Problem {
               } yield cc.construct(v1, v2)
 
           case cc: CaseClass3[a, b, c, B] =>
-            val f1 = compile[a](Some(cc.field1.label), cc.field1.schema)
-            val f2 = compile[b](Some(cc.field2.label), cc.field2.schema)
-            val f3 = compile[c](Some(cc.field3.label), cc.field3.schema)
+            val f1 = compile[a](Some(cc.field1.name), cc.field1.schema)
+            val f2 = compile[b](Some(cc.field2.name), cc.field2.schema)
+            val f3 = compile[c](Some(cc.field3.name), cc.field3.schema)
 
             (qp: QueryParams) =>
               for {
@@ -165,16 +165,18 @@ private[example7] object Problem {
             // And so on to arity 23..
 
           case record: Record[B] =>
-            (qp: QueryParams) => {
-              record.structure.map {
-                case Schema.Field(label, schema, _, _) =>
-                  compile(Some(label), schema)(qp)
-              }.foldRight[Either[String, Chunk[Any]]](Right(Chunk.empty)) {
-                  case (Right(nextValue), Right(values)) => Right(values :+ nextValue)
-                  case (Left(err), _)                    => Left(err)
-                  case (_, Left(err))                    => Left(err)
-                }
-                .flatMap(record.rawConstruct)
+            Unsafe.unsafe { implicit unsafe => (qp: QueryParams) =>
+              {
+                record.fields.map {
+                  case Schema.Field(label, schema, _, _, _, _) =>
+                    compile(Some(label), schema)(qp)
+                }.foldRight[scala.util.Either[String, Chunk[Any]]](Right(Chunk.empty)) {
+                    case (Right(nextValue), Right(values)) => Right(values :+ nextValue)
+                    case (Left(err), _)                    => Left(err)
+                    case (_, Left(err))                    => Left(err)
+                  }
+                  .flatMap(record.construct)
+              }
             }
 
           case Fail(message, _) => Function.const(Left(message))
@@ -187,18 +189,18 @@ private[example7] object Problem {
             lazy val compiled = compile(key, lzy.schema)
             (qp: QueryParams) => compiled(qp)
           case _ =>
-            val err = Left(s"Decoding from query parameters is not supported for $schema")
+            val err = Left(s"Decoding from query parameters is not supported for $schemaB")
             Function.const(err)
         }
 
-      compile(None, schema)
+      compile(None, schemaA)
     }
 
-    implicit val personDecoder: QueryParams => Either[String, Person] = buildDecoder[Person]
+    implicit val personDecoder: QueryParams => scala.util.Either[String, Person] = buildDecoder[Person]
 
     println("approach 2")
 
-    private val data = Map("name" -> List("John"), "age" -> List("42"))
+    private val data = scala.collection.immutable.Map("name" -> List("John"), "age" -> List("42"))
 
     println(decodeFromQueryParams[Person](data))
   }

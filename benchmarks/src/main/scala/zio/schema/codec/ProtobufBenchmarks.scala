@@ -1,10 +1,6 @@
 package zio.schema.codec
 
 import org.openjdk.jmh.annotations._
-import zio.internal.{Platform, Tracing}
-import zio.{BootstrapRuntime, Chunk}
-import zio.schema.{DeriveSchema, Schema}
-import zio.stream.{ZSink, ZStream}
 
 import java.util.concurrent.TimeUnit
 
@@ -18,19 +14,14 @@ import java.util.concurrent.TimeUnit
 class ProtobufBenchmarks {
   import CodecBenchmarks._
 
-  val TracedRuntime: BootstrapRuntime = new BootstrapRuntime {
-    override val platform = Platform.benchmark.withTracing(Tracing.enabled)
-  }
-
   @Param(Array("1000"))
   var size: Int = _
 
   var outputs: Array[Any] = _
 
   @Setup
-  def allocateOutputs(): Unit = {
+  def allocateOutputs(): Unit =
     outputs = Array.ofDim[Any](size)
-  }
 
   @Benchmark
   def enumEncoding(): Array[Any] = {

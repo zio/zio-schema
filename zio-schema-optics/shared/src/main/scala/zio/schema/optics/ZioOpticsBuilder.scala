@@ -21,7 +21,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
 
   override def makeLens[F, S, A](
     product: Schema.Record[S],
-    term: Schema.Field[A]
+    term: Schema.Field[S, A]
   ): Optic[S, S, A, OpticFailure, OpticFailure, A, S] =
     Optic(
       getOptic = ZioOpticsBuilder.makeLensGet(product, term),
@@ -30,7 +30,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
 
   override def makePrism[F, S, A](
     sum: Schema.Enum[S],
-    term: Schema.Case[A, S]
+    term: Schema.Case[S, A]
   ): ZPrism[S, S, A, A] =
     ZPrism(
       get = ZioOpticsBuilder.makePrismGet(term),
@@ -47,12 +47,12 @@ object ZioOpticsBuilder extends AccessorBuilder {
           ZioOpticsBuilder.makeSeqTraversalGet(seq),
           ZioOpticsBuilder.makeSeqTraversalSet(seq)
         )
-      case Schema.MapSchema(_: Schema[k], _: Schema[v], _) =>
+      case Schema.Map(_: Schema[k], _: Schema[v], _) =>
         ZTraversal(
           ZioOpticsBuilder.makeMapTraversalGet[k, v],
           ZioOpticsBuilder.makeMapTraversalSet[k, v]
         )
-      case Schema.SetSchema(_, _) =>
+      case Schema.Set(_, _) =>
         ZTraversal(
           ZioOpticsBuilder.makeSetTraversalGet[A],
           ZioOpticsBuilder.makeSetTraversalSet[A]
@@ -61,30 +61,30 @@ object ZioOpticsBuilder extends AccessorBuilder {
 
   private[optics] def makeLensGet[S, A](
     product: Schema.Record[S],
-    term: Schema.Field[A]
+    term: Schema.Field[S, A]
   ): S => Either[(OpticFailure, S), A] = { (whole: S) =>
     product.toDynamic(whole) match {
       case DynamicValue.Record(_, values) =>
         values
-          .get(term.label)
+          .get(term.name)
           .map { dynamicField =>
             term.schema.fromDynamic(dynamicField) match {
               case Left(error)  => Left(OpticFailure(error) -> whole)
               case Right(value) => Right(value)
             }
           }
-          .getOrElse(Left(OpticFailure(s"No term found with label ${term.label}") -> whole))
+          .getOrElse(Left(OpticFailure(s"No term found with label ${term.name}") -> whole))
       case _ => Left(OpticFailure(s"Unexpected dynamic value for whole") -> whole)
     }
   }
 
   private[optics] def makeLensSet[S, A](
     product: Schema.Record[S],
-    term: Schema.Field[A]
+    term: Schema.Field[S, A]
   ): A => S => Either[(OpticFailure, S), S] = { (piece: A) => (whole: S) =>
     product.toDynamic(whole) match {
       case DynamicValue.Record(name, values) =>
-        val updated = spliceRecord(values, term.label, term.label -> term.schema.toDynamic(piece))
+        val updated = spliceRecord(values, term.name, term.name -> term.schema.toDynamic(piece))
         product.fromDynamic(DynamicValue.Record(name, updated)) match {
           case Left(error)  => Left(OpticFailure(error) -> whole)
           case Right(value) => Right(value)
@@ -94,9 +94,9 @@ object ZioOpticsBuilder extends AccessorBuilder {
   }
 
   private[optics] def makePrismGet[S, A](
-    term: Schema.Case[A, S]
+    term: Schema.Case[S, A]
   ): S => Either[(OpticFailure, S), A] = { (whole: S) =>
-    term.deconstruct(whole) match {
+    term.deconstructOption(whole) match {
       case Some(a) => Right(a)
       case None    => Left(OpticFailure(s"Cannot deconstruct to term ${term.id}") -> whole)
     }
