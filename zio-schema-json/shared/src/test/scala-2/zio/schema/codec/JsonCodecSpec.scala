@@ -14,7 +14,7 @@ import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
-import zio.schema.codec.JsonCodecSpec.PaymentMethod.CreditCard
+import zio.schema.codec.JsonCodecSpec.PaymentMethod.{ CreditCard, WireTransfer }
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -158,6 +158,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           SearchRequestWithTransientField("foo", 10, 20, "bar"),
           charSequenceToByteChunk("""{"query":"foo","pageNumber":10,"resultPerPage":20}""")
         )
+      },
+      test("case name annotation") {
+        assertEncodes(
+          PaymentMethod.schema,
+          WireTransfer("foo", "bar"),
+          charSequenceToByteChunk("""{"wire_transfer":{"accountNumber":"foo","bankCode":"bar"}}""")
+        )
       }
     )
   )
@@ -267,6 +274,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           PaymentMethod.schema,
           CreditCard("foo", 12, 2022),
           charSequenceToByteChunk("""{"cc":{"number":"foo","expirationMonth":12,"expirationYear":2022}}""")
+        )
+      },
+      test("case name") {
+        assertDecodes(
+          PaymentMethod.schema,
+          WireTransfer("foo", "bar"),
+          charSequenceToByteChunk("""{"wire_transfer":{"accountNumber":"foo","bankCode":"bar"}}""")
         )
       }
     )
@@ -1034,7 +1048,8 @@ object JsonCodecSpec extends ZIOSpecDefault {
       expirationYear: Int
     ) extends PaymentMethod
 
-    final case class WireTransfer(accountNumber: String, bankCode: String) extends PaymentMethod
+    @caseName("wire_transfer") final case class WireTransfer(accountNumber: String, bankCode: String)
+        extends PaymentMethod
 
     implicit lazy val schema: Schema[PaymentMethod] = DeriveSchema.gen[PaymentMethod]
   }
