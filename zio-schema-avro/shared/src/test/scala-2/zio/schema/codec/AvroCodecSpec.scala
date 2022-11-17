@@ -974,14 +974,14 @@ object AvroCodecSpec extends ZIOSpecDefault {
                       Schema.Field(
                         "s",
                         Schema.primitive(StandardType.StringType),
-                        get = (p: ListMap[String, _]) => p("s").asInstanceOf[String],
-                        set = (p: ListMap[String, _], v: String) => p.updated("s", v)
+                        get0 = (p: ListMap[String, _]) => p("s").asInstanceOf[String],
+                        set0 = (p: ListMap[String, _], v: String) => p.updated("s", v)
                       ),
                       Schema.Field(
                         "b",
                         Schema.primitive(StandardType.BoolType),
-                        get = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean],
-                        set = (p: ListMap[String, _], v: Boolean) => p.updated("b", v)
+                        get0 = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean],
+                        set0 = (p: ListMap[String, _], v: Boolean) => p.updated("b", v)
                       )
                     )
                     .ast
@@ -1002,18 +1002,18 @@ object AvroCodecSpec extends ZIOSpecDefault {
                   Schema.Field(
                     "innerS",
                     Schema.primitive(StandardType.StringType),
-                    get = (p: ListMap[String, _]) => p("innerS").asInstanceOf[String],
-                    set = (p: ListMap[String, _], v: String) => p.updated("innerS", v)
+                    get0 = (p: ListMap[String, _]) => p("innerS").asInstanceOf[String],
+                    set0 = (p: ListMap[String, _], v: String) => p.updated("innerS", v)
                   )
                 ),
-                get = (p: ListMap[String, _]) => p("nested").asInstanceOf[ListMap[String, _]],
-                set = (p: ListMap[String, _], v: ListMap[String, _]) => p.updated("nested", v)
+                get0 = (p: ListMap[String, _]) => p("nested").asInstanceOf[ListMap[String, _]],
+                set0 = (p: ListMap[String, _], v: ListMap[String, _]) => p.updated("nested", v)
               ),
               Schema.Field(
                 "b",
                 Schema.primitive(StandardType.BoolType),
-                get = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean],
-                set = (p: ListMap[String, _], v: Boolean) => p.updated("b", v)
+                get0 = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean],
+                set0 = (p: ListMap[String, _], v: Boolean) => p.updated("b", v)
               )
             )
 
@@ -1033,14 +1033,14 @@ object AvroCodecSpec extends ZIOSpecDefault {
                       Schema.Field(
                         "s",
                         Schema.primitive(StandardType.StringType),
-                        get = (p: ListMap[String, _]) => p("s").asInstanceOf[String],
-                        set = (p: ListMap[String, _], v: String) => p.updated("s", v)
+                        get0 = (p: ListMap[String, _]) => p("s").asInstanceOf[String],
+                        set0 = (p: ListMap[String, _], v: String) => p.updated("s", v)
                       ),
                       Schema.Field(
                         "b",
                         Schema.primitive(StandardType.BoolType),
-                        get = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean],
-                        set = (p: ListMap[String, _], v: Boolean) => p.updated("b", v)
+                        get0 = (p: ListMap[String, _]) => p("b").asInstanceOf[Boolean],
+                        set0 = (p: ListMap[String, _], v: Boolean) => p.updated("b", v)
                       )
                     )
                     .ast
@@ -1394,9 +1394,9 @@ object AvroCodecSpec extends ZIOSpecDefault {
               """[{"type":"record","name":"A","fields":[]},{"type":"record","name":"B","fields":[]},{"type":"record","name":"MyC","fields":[]}]"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            val assertionA   = hasKey("A", tuple2First(isStandardType(StandardType.UnitType)))
-            val assertionB   = hasKey("B", tuple2First(isStandardType(StandardType.UnitType)))
-            val assertionMyC = hasKey("MyC", tuple2First(isStandardType(StandardType.UnitType)))
+            val assertionA   = hasKey("A", tuple2First(isEmptyRecord))
+            val assertionB   = hasKey("B", tuple2First(isEmptyRecord))
+            val assertionMyC = hasKey("MyC", tuple2First(isEmptyRecord))
             assert(schema)(isRight(isEnum(enumStructure(assertionA && assertionB && assertionMyC))))
           },
           test("correct case codec for case class of ADT") {
@@ -1408,8 +1408,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
               "A",
               tuple2First(isRecord(hasRecordField(hasLabel(equalTo("s"))) && hasRecordField(hasLabel(equalTo("b")))))
             )
-            val assertionB   = hasKey("B", tuple2First(isStandardType(StandardType.UnitType)))
-            val assertionMyC = hasKey("MyC", tuple2First(isStandardType(StandardType.UnitType)))
+            val assertionB   = hasKey("B", tuple2First(isEmptyRecord))
+            val assertionMyC = hasKey("MyC", tuple2First(isEmptyRecord))
             assert(schema)(isRight(isEnum(enumStructure(assertionA && assertionB && assertionMyC))))
           },
           test("unwrap nested union") {
@@ -1419,15 +1419,15 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val nestedEnumAssertion = isEnum(
               enumStructure(
-                hasKey("A", tuple2First(isStandardType(StandardType.UnitType))) && hasKey(
+                hasKey("A", tuple2First(isEmptyRecord)) && hasKey(
                   "B",
-                  tuple2First(isStandardType(StandardType.UnitType))
+                  tuple2First(isEmptyRecord)
                 )
               )
             )
             val nestedEnumKey =
               hasKey("zio.schema.codec.avro.wrapper_hashed_n465006219", tuple2First(nestedEnumAssertion))
-            val cEnumKey = hasKey("C", tuple2First(isStandardType(StandardType.UnitType)))
+            val cEnumKey = hasKey("C", tuple2First(isEmptyRecord))
             val dEnumKey = hasKey("D", tuple2First(isRecord(hasRecordField(hasLabel(equalTo("s"))))))
             assert(schema)(isRight(isEnum(enumStructure(nestedEnumKey && cEnumKey && dEnumKey))))
           }
@@ -1843,6 +1843,16 @@ object AssertionHelper {
         case _                   => None
       },
       assertion
+    )
+
+  def isEmptyRecord[A]: Assertion[Schema[_]] =
+    Assertion.isCase[Schema[_], Schema[_]](
+      "EmptyRecord", {
+        case r: CaseClass0[_]                                                => Some(r)
+        case r @ GenericRecord(_, structure, _) if structure.toChunk.isEmpty => Some(r)
+        case _                                                               => None
+      },
+      anything
     )
 
   def isEnum[A](assertion: Assertion[Schema.Enum[A]]): Assertion[Schema[_]] =

@@ -1,5 +1,3 @@
--J-Xss512M
-
 -J-Xms5120m
 -J-Xmx5120m
 -J-XX:MaxMetaspaceSize=1024m

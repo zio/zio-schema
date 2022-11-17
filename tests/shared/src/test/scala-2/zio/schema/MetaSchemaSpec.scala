@@ -48,14 +48,14 @@ object MetaSchemaSpec extends ZIOSpecDefault {
                 Schema.Field[ListMap[String, _], String](
                   "a",
                   Schema[String],
-                  get = _("a").asInstanceOf[String],
-                  set = (r, v) => r.updated("a", v)
+                  get0 = _("a").asInstanceOf[String],
+                  set0 = (r, v) => r.updated("a", v)
                 ),
                 Schema.Field[ListMap[String, _], Int](
                   "b",
                   Schema[Int],
-                  get = _("b").asInstanceOf[Int],
-                  set = (r, v) => r.updated("b", v)
+                  get0 = _("b").asInstanceOf[Int],
+                  set0 = (r, v) => r.updated("b", v)
                 )
               ): _*
             )
@@ -159,7 +159,11 @@ object MetaSchemaSpec extends ZIOSpecDefault {
           TypeId.parse("zio.schema.MetaSchemaSpec.Pet"),
           path = NodePath.root,
           cases = Chunk(
-            "Rock" -> MetaSchema.Value(StandardType.UnitType, NodePath.root / "Rock"),
+            "Rock" -> MetaSchema.Product(
+              id = TypeId.parse("zio.schema.MetaSchemaSpec.Rock"),
+              path = NodePath.root / "Rock",
+              fields = Chunk.empty
+            ),
             "Dog" -> MetaSchema.Product(
               id = TypeId.parse("zio.schema.MetaSchemaSpec.Dog"),
               path = NodePath.root / "Dog",

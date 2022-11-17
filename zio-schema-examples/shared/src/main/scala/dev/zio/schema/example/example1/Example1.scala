@@ -35,50 +35,50 @@ object ManualConstruction {
 
   val schemaPerson: Schema[Person] = Schema.CaseClass2[String, Int, Person](
     TypeId.parse("dev.zio.schema.example.example1.Domain.Person"),
-    field1 =
-      Schema.Field[Person, String]("name", Schema.primitive[String], get = _.name, set = (p, v) => p.copy(name = v)),
-    field2 = Schema.Field[Person, Int]("age", Schema.primitive[Int], get = _.age, set = (p, v) => p.copy(age = v)),
-    construct = (name, age) => Person(name, age)
+    field01 =
+      Schema.Field[Person, String]("name", Schema.primitive[String], get0 = _.name, set0 = (p, v) => p.copy(name = v)),
+    field02 = Schema.Field[Person, Int]("age", Schema.primitive[Int], get0 = _.age, set0 = (p, v) => p.copy(age = v)),
+    construct0 = (name, age) => Person(name, age)
   )
 
   val schemaPaymentMethodWireTransfer: Schema[WireTransfer] = Schema.CaseClass2[String, String, WireTransfer](
     TypeId.parse("dev.zio.schema.example.example1.Domain.PaymentMethod.WireTransfer"),
-    field1 = Schema.Field[WireTransfer, String](
+    field01 = Schema.Field[WireTransfer, String](
       "accountNumber",
       Schema.primitive[String],
-      get = _.accountNumber,
-      set = (p, v) => p.copy(accountNumber = v)
+      get0 = _.accountNumber,
+      set0 = (p, v) => p.copy(accountNumber = v)
     ),
-    field2 = Schema.Field[WireTransfer, String](
+    field02 = Schema.Field[WireTransfer, String](
       "bankCode",
       Schema.primitive[String],
-      get = _.bankCode,
-      set = (p, v) => p.copy(bankCode = v)
+      get0 = _.bankCode,
+      set0 = (p, v) => p.copy(bankCode = v)
     ),
-    construct = (number, bankCode) => PaymentMethod.WireTransfer(number, bankCode)
+    construct0 = (number, bankCode) => PaymentMethod.WireTransfer(number, bankCode)
   )
 
   val schemaPaymentMethodCreditCard: Schema[CreditCard] = Schema.CaseClass3[String, Int, Int, CreditCard](
     TypeId.parse("dev.zio.schema.example.example1.Domain.PaymentMethod.CreditCard"),
-    field1 = Schema.Field[CreditCard, String](
+    field01 = Schema.Field[CreditCard, String](
       "number",
       Schema.primitive[String],
-      get = _.number,
-      set = (p, v) => p.copy(number = v)
+      get0 = _.number,
+      set0 = (p, v) => p.copy(number = v)
     ),
-    field2 = Schema.Field[CreditCard, Int](
+    field02 = Schema.Field[CreditCard, Int](
       "expirationMonth",
       Schema.primitive[Int],
-      get = _.expirationMonth,
-      set = (p, v) => p.copy(expirationMonth = v)
+      get0 = _.expirationMonth,
+      set0 = (p, v) => p.copy(expirationMonth = v)
     ),
-    field3 = Schema.Field[CreditCard, Int](
+    field03 = Schema.Field[CreditCard, Int](
       "expirationYear",
       Schema.primitive[Int],
-      get = _.expirationYear,
-      set = (p, v) => p.copy(expirationYear = v)
+      get0 = _.expirationYear,
+      set0 = (p, v) => p.copy(expirationYear = v)
     ),
-    construct =
+    construct0 =
       (number, expirationMonth, expirationYear) => PaymentMethod.CreditCard(number, expirationMonth, expirationYear)
   )
 
@@ -106,25 +106,35 @@ object ManualConstruction {
 
   val schemaCustomer: Schema[Customer] = Schema.CaseClass2[Person, PaymentMethod, Customer](
     TypeId.parse("dev.zio.schema.example.example1.Domain.Customer"),
-    field1 = Schema.Field[Customer, Person]("person", schemaPerson, get = _.person, set = (p, v) => p.copy(person = v)),
-    field2 = Schema.Field[Customer, PaymentMethod](
+    field01 =
+      Schema.Field[Customer, Person]("person", schemaPerson, get0 = _.person, set0 = (p, v) => p.copy(person = v)),
+    field02 = Schema.Field[Customer, PaymentMethod](
       "paymentMethod",
       schemaPaymentMethod,
-      get = _.paymentMethod,
-      set = (p, v) => p.copy(paymentMethod = v)
+      get0 = _.paymentMethod,
+      set0 = (p, v) => p.copy(paymentMethod = v)
     ),
-    construct = (person, paymentMethod) => Customer(person, paymentMethod)
+    construct0 = (person, paymentMethod) => Customer(person, paymentMethod)
   )
+
+  val schemaPersonDictionary: Schema[scala.collection.immutable.Map[String, Person]] =
+    Schema.map(
+      Schema.primitive[String],
+      Schema[Person](schemaPerson)
+    )
 
 }
 
 object MacroConstruction {
 
-  val schemaPerson: Schema[Person] = DeriveSchema.gen[Person]
+  implicit val schemaPerson: Schema[Person] = DeriveSchema.gen[Person]
 
   val schemaPaymentMethod: Schema[PaymentMethod] = DeriveSchema.gen[PaymentMethod]
 
   val schemaCustomer: Schema[Customer] = DeriveSchema.gen[Customer]
+
+  val schemaPersonDictionaryFromMacro: Schema[scala.collection.immutable.Map[String, Person]] =
+    DeriveSchema.gen[Map[String, Person]]
 
 }
 
@@ -202,5 +212,31 @@ object CombiningExample extends ZIOAppDefault {
       _ <- ZIO.debug("is old person the new person? " + (person == newPerson).toString)
       _ <- ZIO.debug("old person: " + person)
       _ <- ZIO.debug("new person: " + newPerson)
+    } yield ExitCode.success
+}
+
+object DictionaryExample extends ZIOAppDefault {
+
+  import MacroConstruction._
+  import zio.schema.codec.JsonCodec
+  import zio.stream.ZStream
+  override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
+    for {
+      _          <- ZIO.unit
+      person     = Person("Mike", 32)
+      dictionary = Map("m" -> person)
+      dictionaryToJson = JsonCodec
+        .encoder[scala.collection.immutable.Map[String, Person]](schemaPersonDictionaryFromMacro)
+      jsonToDictionary = JsonCodec
+        .decoder[scala.collection.immutable.Map[String, Person]](schemaPersonDictionaryFromMacro)
+      newPersonDictionary <- ZStream(dictionary)
+                              .via(dictionaryToJson)
+                              .via(jsonToDictionary)
+                              .runHead
+                              .some
+                              .catchAll(error => ZIO.debug(error))
+      _ <- ZIO.debug("is old dictionary the new dictionary? " + (dictionary == newPersonDictionary).toString)
+      _ <- ZIO.debug("old dictionary: " + dictionary)
+      _ <- ZIO.debug("new dictionary: " + newPersonDictionary)
     } yield ExitCode.success
 }
