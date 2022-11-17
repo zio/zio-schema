@@ -80,40 +80,15 @@ private[schema] class CachedDeriver[F[_]] private (deriver: Deriver[F], val cach
       deriver.deriveTransformedRecord(record, transform, fields, summoned)
     }
 
-  override def deriveTuple2[A, B](
-    tuple: Schema.Tuple2[A, B],
-    left: => F[A],
-    right: => F[B],
-    summoned: => Option[F[(A, B)]]
-  ): F[(A, B)] =
-    cached(tuple) {
-      deriver.deriveTuple2(tuple, left, right, summoned)
+  override def deriveTupleN[T](
+    schemasAndInstances: => Chunk[(Schema[_], WrappedF[F, _])],
+    summoned: => Option[F[T]]
+  ): F[T] = {
+    val zipped = zippedTupleSchema(schemasAndInstances.map(_._1))
+    cached(zipped.asInstanceOf[Schema[T]]) {
+      deriver.deriveTupleN(schemasAndInstances, summoned)
     }
-
-  override def deriveTuple3[A, B, C](
-    tuple: Schema.Tuple2[Schema.Tuple2[A, B], C],
-    transform: Schema.Transform[((A, B), C), (A, B, C), _],
-    t1: => F[A],
-    t2: => F[B],
-    t3: => F[C],
-    summoned: => Option[F[(A, B, C)]]
-  ): F[(A, B, C)] =
-    cached(transform) {
-      deriver.deriveTuple3(tuple, transform, t1, t2, t3, summoned)
-    }
-
-  override def deriveTuple4[A, B, C, D](
-    tuple: Schema.Tuple2[Schema.Tuple2[Schema.Tuple2[A, B], C], D],
-    transform: Schema.Transform[(((A, B), C), D), (A, B, C, D), _],
-    t1: => F[A],
-    t2: => F[B],
-    t3: => F[C],
-    t4: => F[D],
-    summoned: => Option[F[(A, B, C, D)]]
-  ): F[(A, B, C, D)] =
-    cached(transform) {
-      deriver.deriveTuple4(tuple, transform, t1, t2, t3, t4, summoned)
-    }
+  }
 
   private def cached[A](schema: Schema[A])(f: => F[A]): F[A] = {
     val key = CacheKey.fromSchema(schema)
@@ -123,11 +98,8 @@ private[schema] class CachedDeriver[F[_]] private (deriver: Deriver[F], val cach
     }
   }
 
-  override def deriveTupleN[T](
-    schemasAndInstances: => Chunk[(Schema[_], WrappedF[F, _])],
-    summoned: => Option[F[T]]
-  ): F[T] =
-    throw new IllegalStateException(s"CachedDeriver uses explicit deriveTupleN overrides")
+  private def zippedTupleSchema(schemas: Chunk[Schema[_]]): Schema[_] =
+    schemas.reduceLeft((a, b) => a.zip(b))
 }
 
 private[schema] object CachedDeriver {

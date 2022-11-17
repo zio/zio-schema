@@ -141,7 +141,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           val instanceB = deriveInstance[F, b](deriver, '{$schemaRefExpr.right}, stack)
                           lazyVals[F[A]](selfRef,
                             schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Tuple2[a, b]]},
-                            selfRef -> '{$deriver.deriveTuple2[a, b]($schemaRefExpr, $instanceA, $instanceB, $summoned)}
+                            selfRef -> '{$deriver.deriveTupleN[(a, b)](Chunk($schemaRefExpr.left -> Deriver.wrap($instanceA), $schemaRefExpr.right -> Deriver.wrap($instanceB)), $summoned)}
                           )
                         case '[(a, b, c)] =>
                           val (schemaRef, schemaRefExpr) = createSchemaRef[(a, b, c), Schema.Transform[((a, b), c), (a, b, c), _]](stack)
@@ -153,12 +153,12 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           val t2Schema   = '{$t12Schema.right}
                           val t3Schema   = '{$t123Schema.right}
 
-                          val instanceA = deriveInstance[F, a](deriver, t1Schema, stack)
-                          val instanceB = deriveInstance[F, b](deriver, t2Schema, stack)
-                          val instanceC = deriveInstance[F, c](deriver, t3Schema, stack)
+                          val t1Instance = deriveInstance[F, a](deriver, t1Schema, stack)
+                          val t2Instance = deriveInstance[F, b](deriver, t2Schema, stack)
+                          val t3Instance = deriveInstance[F, c](deriver, t3Schema, stack)
                           lazyVals[F[A]](selfRef,
                             schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Transform[((a, b), c), (a, b, c), _]]},
-                            selfRef -> '{$deriver.deriveTuple3[a, b, c]($t123Schema, $schemaRefExpr, $instanceA, $instanceB, $instanceC, $summoned)}
+                            selfRef -> '{$deriver.deriveTupleN[(a, b, c)](Chunk($t1Schema -> Deriver.wrap($t1Instance), $t2Schema -> Deriver.wrap($t2Instance), $t3Schema -> Deriver.wrap($t3Instance)), $summoned)}
                           )
                         case '[(a, b, c, d)] =>
                           val (schemaRef, schemaRefExpr) = createSchemaRef[(a, b, c, d), Schema.Transform[(((a, b), c), d), (a, b, c, d), _]](stack)
@@ -172,13 +172,13 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           val t3Schema   = '{$t123Schema.right}
                           val t4Schema   = '{$t1234Schema.right}
 
-                          val instanceA = deriveInstance[F, a](deriver, t1Schema, stack)
-                          val instanceB = deriveInstance[F, b](deriver, t2Schema, stack)
-                          val instanceC = deriveInstance[F, c](deriver, t3Schema, stack)
-                          val instanceD = deriveInstance[F, d](deriver, t4Schema, stack)
+                          val t1Instance = deriveInstance[F, a](deriver, t1Schema, stack)
+                          val t2Instance = deriveInstance[F, b](deriver, t2Schema, stack)
+                          val t3Instance = deriveInstance[F, c](deriver, t3Schema, stack)
+                          val t4Instance = deriveInstance[F, d](deriver, t4Schema, stack)
                           lazyVals[F[A]](selfRef,
                             schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Transform[(((a, b), c), d), (a, b, c, d), _]]},
-                            selfRef -> '{$deriver.deriveTuple4[a, b, c, d]($t1234Schema, $schemaRefExpr, $instanceA, $instanceB, $instanceC, $instanceD, $summoned)}
+                            selfRef -> '{$deriver.deriveTupleN[(a, b, c, d)](Chunk($t1Schema -> Deriver.wrap($t1Instance), $t2Schema -> Deriver.wrap($t2Instance), $t3Schema -> Deriver.wrap($t3Instance), $t4Schema -> Deriver.wrap($t4Instance)), $summoned)}
                           )
                         case _ =>
                           deriveCaseClass[F, A](mirror, stack, deriver, schema, selfRef)

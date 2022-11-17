@@ -1,7 +1,5 @@
 package zio.schema
 
-import scala.annotation.nowarn
-
 import zio.Chunk
 import zio.schema.Deriver.{ WrappedF, wrap }
 
@@ -20,9 +18,6 @@ import zio.schema.Deriver.{ WrappedF, wrap }
  *   - `deriveEither` (calls `deriveEnum` by default)
  *   - `deriveSet` (calls `deriveSequence` by default)
  *   - `deriveTupleN` (calls `deriveRecord` by default)
- *
- * If it is more convenient to handle the different tuple types in separate methods, it is possible to override
- * `deriveTuple2` etc. These methods call `deriveTupleN` by default.
  *
  * The `cached` method converts this deriver to one that uses a cache of instances shared between macro invocations.
  *
@@ -95,58 +90,6 @@ trait Deriver[F[_]] { self =>
     fields: => Chunk[WrappedF[F, _]],
     summoned: => Option[F[B]]
   ): F[B]
-
-  def deriveTuple2[A, B](
-    tuple: Schema.Tuple2[A, B],
-    left: => F[A],
-    right: => F[B],
-    summoned: => Option[F[(A, B)]]
-  ): F[(A, B)] =
-    deriveTupleN[(A, B)](Chunk(tuple.left -> wrap(left), tuple.right -> wrap(right)), summoned)
-
-  @nowarn def deriveTuple3[A, B, C](
-    tuple: Schema.Tuple2[Schema.Tuple2[A, B], C],
-    transform: Schema.Transform[((A, B), C), (A, B, C), _],
-    t1: => F[A],
-    t2: => F[B],
-    t3: => F[C],
-    summoned: => Option[F[(A, B, C)]]
-  ): F[(A, B, C)] =
-    deriveTupleN[(A, B, C)](
-      Chunk(
-        tuple.left.asInstanceOf[Schema.Tuple2[A, B]].left  -> wrap(t1),
-        tuple.left.asInstanceOf[Schema.Tuple2[A, B]].right -> wrap(t2),
-        tuple.right                                        -> wrap(t3)
-      ),
-      summoned
-    )
-
-  @nowarn def deriveTuple4[A, B, C, D](
-    tuple: Schema.Tuple2[Schema.Tuple2[Schema.Tuple2[A, B], C], D],
-    transform: Schema.Transform[(((A, B), C), D), (A, B, C, D), _],
-    t1: => F[A],
-    t2: => F[B],
-    t3: => F[C],
-    t4: => F[D],
-    summoned: => Option[F[(A, B, C, D)]]
-  ): F[(A, B, C, D)] =
-    deriveTupleN[(A, B, C, D)](
-      Chunk(
-        tuple.left
-          .asInstanceOf[Schema.Tuple2[Schema.Tuple2[A, B], C]]
-          .left
-          .asInstanceOf[Schema.Tuple2[A, B]]
-          .left -> wrap(t1),
-        tuple.left
-          .asInstanceOf[Schema.Tuple2[Schema.Tuple2[A, B], C]]
-          .left
-          .asInstanceOf[Schema.Tuple2[A, B]]
-          .right                                                             -> wrap(t2),
-        tuple.left.asInstanceOf[Schema.Tuple2[Schema.Tuple2[A, B], C]].right -> wrap(t3),
-        tuple.right                                                          -> wrap(t4)
-      ),
-      summoned
-    )
 
   def autoAcceptSummoned: Deriver[F] =
     new Deriver[F] {
@@ -224,41 +167,6 @@ trait Deriver[F[_]] { self =>
       ): F[B] =
         summoned.getOrElse {
           self.deriveTransformedRecord(record, transform, fields, summoned)
-        }
-
-      final override def deriveTuple2[A, B](
-        tuple: Schema.Tuple2[A, B],
-        left: => F[A],
-        right: => F[B],
-        summoned: => Option[F[(A, B)]]
-      ): F[(A, B)] =
-        summoned.getOrElse {
-          self.deriveTuple2(tuple, left, right, summoned)
-        }
-
-      final override def deriveTuple3[A, B, C](
-        tuple: Schema.Tuple2[Schema.Tuple2[A, B], C],
-        transform: Schema.Transform[((A, B), C), (A, B, C), _],
-        t1: => F[A],
-        t2: => F[B],
-        t3: => F[C],
-        summoned: => Option[F[(A, B, C)]]
-      ): F[(A, B, C)] =
-        summoned.getOrElse {
-          self.deriveTuple3(tuple, transform, t1, t2, t3, summoned)
-        }
-
-      final override def deriveTuple4[A, B, C, D](
-        tuple: Schema.Tuple2[Schema.Tuple2[Schema.Tuple2[A, B], C], D],
-        transform: Schema.Transform[(((A, B), C), D), (A, B, C, D), _],
-        t1: => F[A],
-        t2: => F[B],
-        t3: => F[C],
-        t4: => F[D],
-        summoned: => Option[F[(A, B, C, D)]]
-      ): F[(A, B, C, D)] =
-        summoned.getOrElse {
-          self.deriveTuple4(tuple, transform, t1, t2, t3, t4, summoned)
         }
 
       final override def deriveTupleN[T](

@@ -347,61 +347,13 @@ object DeriveSpec extends ZIOSpecDefault {
       schemasAndInstances: => Chunk[(Schema[_], WrappedF[TC, _])],
       summoned: => Option[TC[T]]
     ): TC[T] =
-      ???
-
-    override def deriveTuple2[A, B](
-      tuple: Schema.Tuple2[A, B],
-      left: => TC[A],
-      right: => TC[B],
-      summoned: => Option[TC[(A, B)]]
-    ): TC[(A, B)] =
       summoned.getOrElse {
-        assert(left ne null)
-        assert(right ne null)
-        new TC[(A, B)] {
+        assert(schemasAndInstances.map(_._2).forall(_.unwrap ne null)) // force evaluation
+
+        new TC[T] {
           override def isDerived: Boolean = true
 
-          override def inner: Option[TC[_]] = Some(left)
-        }
-      }
-
-    override def deriveTuple3[A, B, C](
-      tuple: Schema.Tuple2[Schema.Tuple2[A, B], C],
-      transform: Schema.Transform[((A, B), C), (A, B, C), _],
-      t1: => TC[A],
-      t2: => TC[B],
-      t3: => TC[C],
-      summoned: => Option[TC[(A, B, C)]]
-    ): TC[(A, B, C)] =
-      summoned.getOrElse {
-        assert(t1 ne null)
-        assert(t2 ne null)
-        assert(t3 ne null)
-        new TC[(A, B, C)] {
-          override def isDerived: Boolean = true
-
-          override def inner: Option[TC[_]] = Some(t1)
-        }
-      }
-
-    override def deriveTuple4[A, B, C, D](
-      tuple: Schema.Tuple2[Schema.Tuple2[Schema.Tuple2[A, B], C], D],
-      transform: Schema.Transform[(((A, B), C), D), (A, B, C, D), _],
-      t1: => TC[A],
-      t2: => TC[B],
-      t3: => TC[C],
-      t4: => TC[D],
-      summoned: => Option[TC[(A, B, C, D)]]
-    ): TC[(A, B, C, D)] =
-      summoned.getOrElse {
-        assert(t1 ne null)
-        assert(t2 ne null)
-        assert(t3 ne null)
-        assert(t4 ne null)
-        new TC[(A, B, C, D)] {
-          override def isDerived: Boolean = true
-
-          override def inner: Option[TC[_]] = Some(t1)
+          override def inner: Option[TC[_]] = schemasAndInstances.headOption.map(_._2.unwrap)
         }
       }
   }

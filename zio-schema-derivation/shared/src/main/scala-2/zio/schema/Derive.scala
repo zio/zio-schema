@@ -190,7 +190,7 @@ object Derive {
 
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Tuple2[$leftTpe, $rightTpe]]
-              lazy val $selfRefWithType = $deriver.deriveTuple2[$leftTpe, $rightTpe]($schemaRef, $leftInstance, $rightInstance, $summoned)
+              lazy val $selfRefWithType = $deriver.deriveTupleN[$tpe](Chunk($leftSchema -> _root_.zio.schema.Deriver.wrap($leftInstance), $rightSchema -> _root_.zio.schema.Deriver.wrap($rightInstance)), $summoned)
               $selfRef
             }"""
           } else if (tpe <:< tuple3Tpe) {
@@ -211,7 +211,7 @@ object Derive {
 
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Transform[(($t1Tpe, $t2Tpe), $t3Tpe), ($t1Tpe, $t2Tpe, $t3Tpe), _]]
-              lazy val $selfRefWithType = $deriver.deriveTuple3[$t1Tpe, $t2Tpe, $t3Tpe]($t123schema, $schemaRef, $t1Instance, $t2Instance, $t3Instance, $summoned)
+              lazy val $selfRefWithType = $deriver.deriveTupleN[$tpe](Chunk($t1Schema -> _root_.zio.schema.Deriver.wrap($t1Instance), $t2Schema -> _root_.zio.schema.Deriver.wrap($t2Instance), $t3Schema -> _root_.zio.schema.Deriver.wrap($t3Instance)), $summoned)
               $selfRef
             }"""
           } else if (tpe <:< tuple4Tpe) {
@@ -236,7 +236,7 @@ object Derive {
 
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Transform[((($t1Tpe, $t2Tpe), $t3Tpe), $t4Tpe), ($t1Tpe, $t2Tpe, $t3Tpe, $t4Tpe), _]]
-              lazy val $selfRefWithType = $deriver.deriveTuple4[$t1Tpe, $t2Tpe, $t3Tpe, $t4Tpe]($t1234schema, $schemaRef, $t1Instance, $t2Instance, $t3Instance, $t4Instance, $summoned)
+              lazy val $selfRefWithType = $deriver.deriveTupleN[$tpe](Chunk($t1Schema -> _root_.zio.schema.Deriver.wrap($t1Instance), $t2Schema -> _root_.zio.schema.Deriver.wrap($t2Instance), $t3Schema -> _root_.zio.schema.Deriver.wrap($t3Instance), $t4Schema -> _root_.zio.schema.Deriver.wrap($t4Instance)), $summoned)
               $selfRef
             }"""
           } else if (isCaseObject(tpe)) {
