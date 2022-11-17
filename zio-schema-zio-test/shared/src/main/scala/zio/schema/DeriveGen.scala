@@ -1,7 +1,5 @@
 package zio.schema
 
-import java.time.format.DateTimeFormatter
-
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
@@ -559,10 +557,6 @@ object DeriveGen {
 
   private def genSchemaAstValue(path: NodePath): Gen[Any, MetaSchema.Value] =
     for {
-      formatter <- Gen.oneOf(
-                    Gen.const(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-                    Gen.const(DateTimeFormatter.RFC_1123_DATE_TIME)
-                  )
       valueType <- Gen.oneOf(
                     Gen.const(StandardType.UnitType),
                     Gen.const(StandardType.StringType),
