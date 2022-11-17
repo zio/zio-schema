@@ -4,7 +4,6 @@ import java.math.{ BigInteger, MathContext }
 import java.time.temporal.{ ChronoField, ChronoUnit }
 import java.time.{
   DayOfWeek,
-  Duration => JDuration,
   Instant,
   LocalDate,
   LocalDateTime,
@@ -17,12 +16,11 @@ import java.time.{
   YearMonth,
   ZoneId,
   ZoneOffset,
+  Duration => JDuration,
   ZonedDateTime => JZonedDateTime
 }
-
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
-
 import zio.Chunk
 import zio.schema.diff.Edit
 import zio.schema.meta.Migration
@@ -174,6 +172,12 @@ object Patch {
         case (_: StandardType.MonthDayType.type, regDiff :: _ :: Nil) =>
           Right(
             MonthDay.from(ChronoUnit.DAYS.addTo(a.asInstanceOf[MonthDay].atYear(2001), regDiff.toLong)).asInstanceOf[A]
+          )
+        case (_: StandardType.LocalDateType.type, dist :: Nil) =>
+          Right(
+            LocalDate
+              .ofEpochDay(a.asInstanceOf[LocalDate].toEpochDay - dist)
+              .asInstanceOf[A]
           )
         case (s, _) => Left(s"Cannot apply temporal diff to value with type $s")
       }

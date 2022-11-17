@@ -350,7 +350,7 @@ object ThriftCodec extends BinaryCodec {
           writeFieldEnd()
 
         case (StandardType.InstantType, v: Instant) =>
-          p.writeI32(v.getNano)
+          p.writeString(v.toString)
         case (StandardType.LocalDateType, v: LocalDate) =>
           p.writeString(v.toString)
         case (StandardType.LocalTimeType, v: LocalTime) =>

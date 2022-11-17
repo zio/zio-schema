@@ -387,7 +387,7 @@ object ProtobufCodec extends BinaryCodec {
 
           encodeKey(WireType.LengthDelimited(encodedRecord.size), fieldNumber) ++ encodedRecord
         case (StandardType.InstantType, v: Instant) =>
-          encodePrimitive(fieldNumber, StandardType.IntType, v.getNano)
+          encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
         case (StandardType.LocalDateType, v: LocalDate) =>
           encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
         case (StandardType.LocalTimeType, v: LocalTime) =>

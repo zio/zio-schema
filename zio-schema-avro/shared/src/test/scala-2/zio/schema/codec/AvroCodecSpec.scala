@@ -1,6 +1,5 @@
 package zio.schema.codec
 
-import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 import scala.collection.immutable.ListMap
@@ -8,7 +7,7 @@ import scala.util.Try
 
 import zio.schema.Schema._
 import zio.schema._
-import zio.schema.codec.AvroAnnotations.{ BytesType, DecimalType, FieldOrderType, TimePrecisionType }
+import zio.schema.codec.AvroAnnotations.{ BytesType, DecimalType, FieldOrderType }
 import zio.test.Assertion._
 import zio.test._
 import zio.{ Chunk, Scope }
@@ -780,89 +779,32 @@ object AvroCodecSpec extends ZIOSpecDefault {
           //    )
           //  )
           //},
-          test("encodes InstantType as logical type") {
-            DateTimeFormatter.ISO_INSTANT
-            val schema = Schema.primitive(StandardType.InstantType)
-            val result = AvroCodec.encode(schema)
-
-            assert(result)(
-              isRight(
-                equalTo(
-                  """{"type":"long","logicalType":"timestamp-millis","zio.schema.codec.avro.dateTimeFormatter":"ISO_INSTANT"}"""
-                )
-              )
-            )
-          },
           test("encodes InstantType as string") {
-            DateTimeFormatter.ISO_INSTANT
             val schema = Schema.primitive(StandardType.InstantType).annotate(AvroAnnotations.formatToString)
             val result = AvroCodec.encode(schema)
 
             assert(result)(
               isRight(
                 equalTo(
-                  """{"type":"string","zio.schema.codec.stringType":"instant","zio.schema.codec.avro.dateTimeFormatter":"ISO_INSTANT"}"""
-                )
-              )
-            )
-          },
-          test("encodes LocalDateType as logical type") {
-            DateTimeFormatter.ISO_LOCAL_DATE
-            val schema = Schema.primitive(StandardType.ZonedDateTimeType)
-            val result = AvroCodec.encode(schema)
-
-            assert(result)(
-              isRight(
-                equalTo(
-                  """{"type":"int","logicalType":"date","zio.schema.codec.avro.dateTimeFormatter":"ISO_LOCAL_DATE"}"""
+                  """{"type":"string","zio.schema.codec.stringType":"instant"}"""
                 )
               )
             )
           },
           test("encodes LocalDateType as string") {
-            DateTimeFormatter.ISO_LOCAL_DATE
             val schema =
-              Schema.primitive(StandardType.ZonedDateTimeType).annotate(AvroAnnotations.formatToString)
+              Schema.primitive(StandardType.LocalDateType).annotate(AvroAnnotations.formatToString)
             val result = AvroCodec.encode(schema)
 
             assert(result)(
               isRight(
                 equalTo(
-                  """{"type":"string","zio.schema.codec.stringType":"localDate","zio.schema.codec.avro.dateTimeFormatter":"ISO_LOCAL_DATE"}"""
-                )
-              )
-            )
-          },
-          test("encodes LocalTimeType as logical type int") {
-            DateTimeFormatter.ISO_LOCAL_TIME
-            val schema = Schema.primitive(StandardType.LocalTimeType)
-            val result = AvroCodec.encode(schema)
-
-            assert(result)(
-              isRight(
-                equalTo(
-                  """{"type":"int","logicalType":"time-millis","zio.schema.codec.avro.dateTimeFormatter":"ISO_LOCAL_TIME"}"""
-                )
-              )
-            )
-          },
-          test("encodes LocalTimeType as logical type long") {
-            DateTimeFormatter.ISO_LOCAL_TIME
-            val schema = Schema
-              .primitive(StandardType.LocalTimeType)
-              .annotate(AvroAnnotations.timeprecision(TimePrecisionType.Micros))
-            val result = AvroCodec.encode(schema)
-
-            assert(result)(
-              isRight(
-                equalTo(
-                  """{"type":"long","logicalType":"time-micros","zio.schema.codec.avro.dateTimeFormatter":"ISO_LOCAL_TIME"}"""
+                  """{"type":"string","zio.schema.codec.stringType":"localDate"}"""
                 )
               )
             )
           },
           test("encodes LocalTimeType as string") {
-            DateTimeFormatter.ISO_LOCAL_TIME
             val schema =
               Schema.primitive(StandardType.LocalTimeType).annotate(AvroAnnotations.formatToString)
             val result = AvroCodec.encode(schema)
@@ -870,26 +812,12 @@ object AvroCodecSpec extends ZIOSpecDefault {
             assert(result)(
               isRight(
                 equalTo(
-                  """{"type":"string","zio.schema.codec.stringType":"localTime","zio.schema.codec.avro.dateTimeFormatter":"ISO_LOCAL_TIME"}"""
-                )
-              )
-            )
-          },
-          test("encodes LocalDateTimeType as logical type") {
-            DateTimeFormatter.ISO_LOCAL_DATE_TIME
-            val schema = Schema.primitive(StandardType.LocalDateTimeType)
-            val result = AvroCodec.encode(schema)
-
-            assert(result)(
-              isRight(
-                equalTo(
-                  """{"type":"long","logicalType":"local-timestamp-millis","zio.schema.codec.avro.dateTimeFormatter":"ISO_LOCAL_DATE_TIME"}"""
+                  """{"type":"string","zio.schema.codec.stringType":"localTime"}"""
                 )
               )
             )
           },
           test("encodes LocalDateTimeType as string") {
-            DateTimeFormatter.ISO_LOCAL_DATE_TIME
             val schema =
               Schema.primitive(StandardType.LocalDateTimeType).annotate(AvroAnnotations.formatToString)
             val result = AvroCodec.encode(schema)
@@ -897,46 +825,43 @@ object AvroCodecSpec extends ZIOSpecDefault {
             assert(result)(
               isRight(
                 equalTo(
-                  """{"type":"string","zio.schema.codec.stringType":"localDateTime","zio.schema.codec.avro.dateTimeFormatter":"ISO_LOCAL_DATE_TIME"}"""
+                  """{"type":"string","zio.schema.codec.stringType":"localDateTime"}"""
                 )
               )
             )
           },
           test("encodes OffsetTimeType") {
-            DateTimeFormatter.ISO_OFFSET_TIME
             val schema = Schema.primitive(StandardType.OffsetTimeType)
             val result = AvroCodec.encode(schema)
 
             assert(result)(
               isRight(
                 equalTo(
-                  """{"type":"string","zio.schema.codec.stringType":"offsetTime","zio.schema.codec.avro.dateTimeFormatter":"ISO_OFFSET_TIME"}"""
+                  """{"type":"string","zio.schema.codec.stringType":"offsetTime"}"""
                 )
               )
             )
           },
           test("encodes OffsetDateTimeType") {
-            DateTimeFormatter.ISO_OFFSET_DATE_TIME
             val schema = Schema.primitive(StandardType.OffsetDateTimeType)
             val result = AvroCodec.encode(schema)
 
             assert(result)(
               isRight(
                 equalTo(
-                  """{"type":"string","zio.schema.codec.stringType":"offsetDateTime","zio.schema.codec.avro.dateTimeFormatter":"ISO_OFFSET_DATE_TIME"}"""
+                  """{"type":"string","zio.schema.codec.stringType":"offsetDateTime"}"""
                 )
               )
             )
           },
           test("encodes ZonedDateTimeType") {
-            DateTimeFormatter.ISO_ZONED_DATE_TIME
             val schema = Schema.primitive(StandardType.ZonedDateTimeType)
             val result = AvroCodec.encode(schema)
 
             assert(result)(
               isRight(
                 equalTo(
-                  """{"type":"string","zio.schema.codec.stringType":"zoneDateTime","zio.schema.codec.avro.dateTimeFormatter":"ISO_ZONED_DATE_TIME"}"""
+                  """{"type":"string","zio.schema.codec.stringType":"zoneDateTime"}"""
                 )
               )
             )
@@ -1498,18 +1423,12 @@ object AvroCodecSpec extends ZIOSpecDefault {
             assert(schema)(isRight(isStandardType(StandardType.InstantType)))
           },
           test("decodes instant with formatter pattern") {
-            val pattern   = "yyyy MM dd"
-            val formatter = DateTimeFormatter.ofPattern(pattern)
+            val pattern = "yyyy MM dd"
             val s =
               s"""{"type":"string","zio.schema.codec.stringType":"instant","zio.schema.codec.avro.dateTimeFormatter":"$pattern"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            val instantTypeAssertion =
-              Assertion.isCase[StandardType[_], StandardType[java.time.Instant]]("InstantType", {
-                case t @ StandardType.InstantType => Some(t)
-                case _                            => None
-              }, hasField("formatter", _.toString, equalTo(formatter.toString)))
-            assert(schema)(isRight(isPrimitiveType(instantTypeAssertion)))
+            assert(schema)(isRight(isStandardType(StandardType.InstantType)))
           },
           test("decode DateTimeFormatter field fails on invalid formatter") {
             val pattern = "this is not a valid formatter pattern"
@@ -1524,13 +1443,13 @@ object AvroCodecSpec extends ZIOSpecDefault {
               """{"type":"string","zio.schema.codec.stringType":"localDate","zio.schema.codec.avro.dateTimeFormatter":"ISO_ORDINAL_DATE"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(isRight(isStandardType(StandardType.ZonedDateTimeType)))
+            assert(schema)(isRight(isStandardType(StandardType.LocalDateType)))
           },
           test("decodes localDate with default formatter") {
             val s      = """{"type":"string","zio.schema.codec.stringType":"localDate"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(isRight(isStandardType(StandardType.ZonedDateTimeType)))
+            assert(schema)(isRight(isStandardType(StandardType.LocalDateType)))
           },
           test("decodes localTime with formatter") {
             val s =
@@ -1706,16 +1625,16 @@ object AvroCodecSpec extends ZIOSpecDefault {
           },
           test("decodes logical type date") {
             val s =
-              """{"type":"int","logicalType":"date","zio.schema.codec.avro.dateTimeFormatter":"ISO_ORDINAL_DATE"}"""
+              """{"type":"int","logicalType":"date"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(isRight(isStandardType(StandardType.ZonedDateTimeType)))
+            assert(schema)(isRight(isStandardType(StandardType.LocalDateType)))
           },
           test("decodes logical type date with default formatter") {
             val s      = """{"type":"int","logicalType":"date"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(isRight(isStandardType(StandardType.ZonedDateTimeType)))
+            assert(schema)(isRight(isStandardType(StandardType.LocalDateType)))
           }
         ),
         suite("long")(

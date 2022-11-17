@@ -182,7 +182,6 @@ object PatchSpec extends ZIOSpecDefault {
           val afterInvert        = diff.invert.invert
           val patched            = schema.diff(l, r).patch(l)
           val patchedAfterInvert = afterInvert.patch(l)
-          if (patched.isLeft || patchedAfterInvert.isLeft) println(diff)
           assert(patched)(isRight(equalTo(r))) && assert(patchedAfterInvert)(isRight(equalTo(r)))
         } else {
           assertTrue(true)
