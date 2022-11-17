@@ -158,6 +158,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
           SearchRequestWithTransientField("foo", 10, 20, "bar"),
           charSequenceToByteChunk("""{"query":"foo","pageNumber":10,"resultPerPage":20}""")
         )
+      },
+      test("record name annotation") {
+        assertEncodes(
+          OneOf.schema,
+          IntValue(124),
+          charSequenceToByteChunk("""{"int_value":{"value":124}}"""),
+          true
+        )
       }
     )
   )
@@ -267,6 +275,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           PaymentMethod.schema,
           CreditCard("foo", 12, 2022),
           charSequenceToByteChunk("""{"cc":{"number":"foo","expirationMonth":12,"expirationYear":2022}}""")
+        )
+      },
+      test("record name annotation"){
+        assertDecodes(
+          OneOf.schema,
+          IntValue(123),
+          charSequenceToByteChunk("""{"int_value":{"value":123}}""")
         )
       }
     )
@@ -984,7 +999,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   sealed trait OneOf
   case class StringValue(value: String)   extends OneOf
-  case class IntValue(value: Int)         extends OneOf
+  @recordName("int_value") case class IntValue(value: Int)         extends OneOf
   case class BooleanValue(value: Boolean) extends OneOf
 
   object OneOf {
