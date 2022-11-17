@@ -3,6 +3,7 @@ package zio.schema
 import scala.quoted._
 import scala.deriving.Mirror
 import scala.compiletime.{erasedValue, summonInline, constValueTuple}
+import scala.collection.immutable.ListMap
 import Schema._
 
 import zio.schema.annotation.fieldName
@@ -11,7 +12,7 @@ object DeriveSchema {
 
   transparent inline def gen[T]: Schema[T] = ${ deriveSchema[T] }
 
-  def deriveSchema[T: Type](using Quotes): Expr[Schema[T]] = 
+  private def deriveSchema[T: Type](using Quotes): Expr[Schema[T]] =
     DeriveSchema().deriveSchema[T](top = true)
 }
 
@@ -38,7 +39,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
 
   var depth = 0
 
-  def deriveSchema[T: Type](stack: Stack = Stack.empty, top: Boolean = false): Expr[Schema[T]] = {
+  def deriveSchema[T: Type](stack: Stack = Stack.empty, top: Boolean = false)(using Quotes): Expr[Schema[T]] = {
     depth += 1
     if (depth > 1024)
       throw new Exception("Schema derivation exceeded")
@@ -74,67 +75,62 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
             val schema = deriveSchema[a](stack)
             '{ Schema.chunk(Schema.defer(${schema})) }.asExprOf[Schema[T]]
           case _ => 
-            Expr.summon[Schema[T]] match {
-              case Some(schema) if !top =>
+            val summoned = if (!top) Expr.summon[Schema[T]] else None
+            summoned match {
+              case Some(schema) =>
                 // println(s"FOR TYPE ${typeRepr.show}")
                 // println(s"STACK ${stack.find(typeRepr)}")
                 // println(s"Found schema ${schema.show}")
                 schema
               case _ =>
-                // println(s"TYPE REPR ${typeRepr.show}")
-                val mirror = Mirror(typeRepr).get
-                mirror.mirrorType match {
-                  case MirrorType.Sum => 
-                    deriveEnum[T](mirror, stack)
-                  case MirrorType.Product =>
-                    deriveCaseClass[T](mirror, stack, top)
-                }
+                Mirror(typeRepr) match {
+                  case Some(mirror) =>
+                    mirror.mirrorType match {
+                      case MirrorType.Sum =>
+                        deriveEnum[T](mirror, stack)
+                      case MirrorType.Product =>
+                       deriveCaseClass[T](mirror, stack, top)
+                    }
+                  case None =>
+                    val sym = typeRepr.typeSymbol
+                    if (sym.isClassDef && sym.flags.is(Flags.Module)) {
+                      deriveCaseObject[T](stack, top)
+                    }
+                    else {
+                      report.errorAndAbort(s"Deriving schema for ${typeRepr.show} is not supported")
+                    }
+              }
             }
         }
     }
 
-    // println()
-    // println()
-    // println(s"RESULT ${typeRepr.show}")
-    // println(s"------")
-    // println(s"RESULT ${result.show}")
-    // println("HELLO")
+    //println()
+    //println()
+    //println(s"RESULT ${typeRepr.show}")
+    //println(s"------")
+    //println(s"RESULT ${result.show}")
 
     result
   }
 
-  def deriveCaseClass[T: Type](mirror: Mirror, stack: Stack, top: Boolean) = {
+  def deriveCaseObject[T: Type](stack: Stack, top: Boolean)(using Quotes) = {
     val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.spliceOwner)
     val selfRef = Ref(selfRefSymbol)
-    val newStack = stack.push(selfRef, TypeRepr.of[T])
 
-    val labels = mirror.labels.toList
-    val types = mirror.types.toList
-    val typesAndLabels = types.zip(labels)
-
-    val paramAnns = fromConstructor(TypeRepr.of[T].typeSymbol)
-    val fields = typesAndLabels.map { case (tpe, label) => deriveField[T](tpe, label, paramAnns.getOrElse(label, List.empty), newStack) }
-    val constructor = caseClassConstructor[T](mirror).asExpr
-
-    val annotationExprs = TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
-    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) }
     val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
-    val args = List(typeInfo) ++ fields ++ Seq(constructor) ++  Seq(annotations)
-    val terms = Expr.ofTupleFromSeq(args)
+    val annotationExprs = TypeRepr.of[T].typeSymbol.annotations.filter (filterAnnotation).map (_.asExpr)
+    val annotations = '{zio.Chunk.fromIterable (${Expr.ofSeq (annotationExprs)})}
 
-    val typeArgs = 
-      (types.appended(TypeRepr.of[T])).map { tpe =>
-        tpe.asType match
-          case '[tt] => TypeTree.of[tt]
-      }
-
-    val ctor = typeRprOf[T](labels.length).typeSymbol.companionModule
+    val constructor = '{() => ${Ref(TypeRepr.of[T].typeSymbol.companionModule).asExprOf[T]}}
+    val ctor = typeRprOf[T](0).typeSymbol.companionModule
+    val args = List(typeInfo, constructor, annotations)
 
     val applied = Apply(
       TypeApply(
         Select.unique(Ref(ctor), "apply"),
-        typeArgs
-      ),
+        List(TypeRepr.of[T].asType match {
+          case '[tt] => TypeTree.of[tt]
+        })),
       args.map(_.asTerm)
     )
 
@@ -144,7 +140,126 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
       case '{ type tt <: Schema[T]; $ex : `tt` } =>
         '{
           ${Block(
-            List(lazyValDef), 
+            List(lazyValDef),
+            selfRef
+          ).asExpr}.asInstanceOf[tt]
+        }
+    }
+  }
+
+  def deriveCaseClass[T: Type](mirror: Mirror, stack: Stack, top: Boolean)(using Quotes) = {
+    val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.spliceOwner)
+    val selfRef = Ref(selfRefSymbol)
+    val newStack = stack.push(selfRef, TypeRepr.of[T])
+
+    val labels = mirror.labels.toList
+    val types = mirror.types.toList
+    val typesAndLabels = types.zip(labels)
+
+    val paramAnns = fromConstructor(TypeRepr.of[T].typeSymbol)
+    val constructor = caseClassConstructor[T](mirror).asExpr
+
+    val annotationExprs = TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
+    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) }
+    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
+
+    val applied = if (labels.length <= 22) {
+
+      val typeArgs =
+        (types.appended(TypeRepr.of[T])).map { tpe =>
+            tpe.asType match
+              case '[tt] => TypeTree.of[tt]
+        }
+
+      val ctor = typeRprOf[T](labels.length).typeSymbol.companionModule
+      val typeAppliedCtor = TypeApply(
+            Select.unique(Ref(ctor), "apply"),
+            typeArgs
+          )
+
+      val fieldsAndFieldTypes = typesAndLabels.map { case (tpe, label) => deriveField[T](tpe, label, paramAnns.getOrElse(label, List.empty), newStack) }
+      val (fields, fieldTypes) = fieldsAndFieldTypes.unzip      
+      val args = List(typeInfo) ++ fields ++ Seq(constructor) ++  Seq(annotations)
+      val terms = Expr.ofTupleFromSeq(args)
+
+      if (labels.length > 0) {
+        val caseClassWithFieldsTpe = caseClassWithFieldsType(labels.length)
+        val appliedCaseClassWithFieldsTpe = caseClassWithFieldsTpe.appliedTo(
+          fieldTypes ++ types ++ List(TypeRepr.of[T])
+        )
+
+        Select.unique(Apply(
+          typeAppliedCtor,
+          args.map(_.asTerm)
+        ), "asInstanceOf").appliedToType(appliedCaseClassWithFieldsTpe)
+      } else {
+        Apply(
+          typeAppliedCtor,
+          args.map(_.asTerm)
+        )
+      }
+    } else {
+       val fieldsAndFieldTypes = typesAndLabels.map { case (tpe, label) => deriveGenericField[T](tpe, label, paramAnns.getOrElse(label, List.empty), newStack) }
+       val fields = fieldsAndFieldTypes.map(_._1)
+       val genericRecord = '{GenericRecord($typeInfo, FieldSet.fromFields(${Varargs(fields)} : _*), $annotations)}
+
+       val s = TypeRepr.of[T].typeSymbol.declaredFields
+
+       def casts(m: Expr[ListMap[String, _]])(using Quotes) =
+         typesAndLabels.map { case (tpe, label) =>
+           val interestingField = s.find (_.name == label)
+           val fieldType = interestingField match {
+             case Some(interestingField) =>
+               val ct = tpe.memberType (interestingField)
+               ct.asType
+             case None =>
+               tpe.asType
+           }
+           fieldType match { case '[t] =>
+            '{ try ${m}.apply(${Expr(label)}).asInstanceOf[t]
+               catch {
+                 case _: ClassCastException => throw new RuntimeException("Field " + ${Expr(label)} + " has invalid type")
+                 case _: Throwable => throw new RuntimeException("Field " + ${Expr(label)} + " is missing")
+               }
+            }.asTerm
+           }
+         }
+
+       def appliedConstructor(m: Expr[ListMap[String, _]])(using Quotes) = {
+         Apply(Select.unique(Ref(TypeRepr.of[T].typeSymbol.companionModule), "apply"), casts(m)).asExprOf[T]
+       }
+
+       val fromMap = '{ (m: ListMap[String, _]) =>
+         try { Right(${appliedConstructor('m)}) } catch {
+         case e: Throwable  => Left(e.getMessage)
+       }}
+
+       def tuples(b: Expr[T])(using Quotes) =
+         typesAndLabels.map { case (tpe, label) =>
+           val interestingField = s.find (_.name == label)
+           val fieldType = interestingField match {
+             case Some(interestingField) =>
+                val ct = tpe.memberType (interestingField)
+                ct.asType
+              case None =>
+                tpe.asType
+            }
+           fieldType match { case '[t] =>
+             '{(${Expr(label)}, ${Select.unique(b.asTerm, label).asExprOf[t]})}
+           }
+         }
+       val toMap = '{(b: T) => Right(ListMap.apply(${Varargs(tuples('b))} :_*)) }
+
+       '{${genericRecord.asExprOf[GenericRecord]}.transformOrFail[T]($fromMap, $toMap)}.asTerm
+    }
+
+    val lazyValDef = ValDef(selfRefSymbol, Some(applied.changeOwner(selfRefSymbol)))
+
+    applied.asExpr match {
+      case '{ type tt <: Schema[T]; $ex : `tt` } =>
+        '{
+          ${Block(
+            List(lazyValDef),
             selfRef
           ).asExpr}.asInstanceOf[tt]
         }
@@ -164,10 +279,8 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
           .filter(filterAnnotation)
           .map(_.asExpr.asInstanceOf[Expr[Any]])
       }.toMap
-
-  //   sealed case class Enum2[A1 <: Z, A2 <: Z, Z](
-  //      case1: Case[A1, Z], case2: Case[A2, Z], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] { self =>
-  def deriveEnum[T: Type](mirror: Mirror, stack: Stack) = {
+  
+  def deriveEnum[T: Type](mirror: Mirror, stack: Stack)(using Quotes) = {
     val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.spliceOwner)
     val selfRef = Ref(selfRefSymbol)
     val newStack = stack.push(selfRef, TypeRepr.of[T])
@@ -182,25 +295,30 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
     val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) }
 
     val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
-    val args = List(typeInfo) ++ cases :+ annotations
-    val terms = Expr.ofTupleFromSeq(args)
-    val ctor = TypeRepr.of[Enum2[_, _, _]].typeSymbol.primaryConstructor
 
-    val typeArgs = 
-      (types.appended(TypeRepr.of[T])).map { tpe =>
-        tpe.asType match
-          case '[tt] => TypeTree.of[tt]
-      }
+    val applied = if (cases.length <= 22) {
+      val args = List(typeInfo) ++ cases :+ annotations
+      val terms = Expr.ofTupleFromSeq(args)
+      val ctor = TypeRepr.of[Enum2[_, _, _]].typeSymbol.primaryConstructor
 
-    val typeTree = enumTypeTree[T](labels.length)
+      val typeArgs = 
+        (types.appended(TypeRepr.of[T])).map { tpe =>
+          tpe.asType match
+            case '[tt] => TypeTree.of[tt]
+        }
+        
+      val typeTree = enumTypeTree[T](labels.length)
 
-    val applied = Apply(
-      TypeApply(
-        Select(New(typeTree), ctor),
-        typeArgs
-      ),
-      args.map(_.asTerm)
-    )
+      Apply(
+        TypeApply(
+          Select(New(typeTree), ctor),
+          typeArgs
+        ),
+        args.map(_.asTerm)
+      )
+    } else {
+      '{EnumN($typeInfo, CaseSet(${Varargs(cases)}: _*).asInstanceOf[CaseSet.Aux[T]], $annotations) }.asTerm
+    }
 
     val lazyValDef = ValDef(selfRefSymbol, Some(applied.changeOwner(selfRefSymbol)))
 
@@ -217,7 +335,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
 
 
   // Derive Field for a CaseClass
-  def deriveField[T: Type](repr: TypeRepr, name: String, anns: List[Expr[Any]], stack: Stack) = {
+  def deriveField[T: Type](repr: TypeRepr, name: String, anns: List[Expr[Any]], stack: Stack)(using Quotes) = {
     import zio.schema.validation.Validation
     import zio.schema.annotation.validate
 
@@ -252,19 +370,82 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
       val chunk = '{ zio.Chunk.fromIterable(${ Expr.ofSeq(anns.reverse) }) }
 
       if (anns.nonEmpty) {
-        val newName = anns.collectFirst {
-          case ann if ann.isExprOf[fieldName] => '{${ann.asExprOf[fieldName]}.name}
-        }.getOrElse(Expr(name))
-
-        '{ Field($newName, $schema, $chunk, $validator, $get, $set) }
+        val (newName, newNameValue) = anns.collectFirst {
+          case ann if ann.isExprOf[fieldName] => 
+            val fieldNameAnn = ann.asExprOf[fieldName]
+            ('{${fieldNameAnn}.name}, extractFieldNameValue(fieldNameAnn))
+        }.getOrElse((Expr(name), name))
+              
+        val f = '{ Field($newName, $schema, $chunk, $validator, $get, $set)}
+        addFieldName(newNameValue)(f) // TODO: we need to pass the evaluated annotation value instead of name
       } else {
-        '{ Field(${Expr(name)}, $schema, $chunk, $validator, $get, $set) }
+        val f = '{ Field(${Expr(name)}, $schema, $chunk, $validator, $get, $set) }        
+        addFieldName(name)(f)        
       }
     }
   }
 
+// Derive Field for a GenericRecord
+  def deriveGenericField[T: Type](repr: TypeRepr, name: String, anns: List[Expr[Any]], stack: Stack)(using Quotes) = {
+    import zio.schema.validation.Validation
+    import zio.schema.annotation.validate
+
+    val tpe = TypeRepr.of[T]
+    val s = tpe.typeSymbol.declaredFields
+    val interestingField = s.find (_.name == name)
+
+    val fieldType = interestingField match {
+      case Some(interestingField) =>
+        val ct = tpe.memberType (interestingField)
+        ct.asType
+      case None =>
+        repr.asType
+    }
+    fieldType match { case '[t] =>
+      val schema = deriveSchema[t](stack)
+      val validations = anns.collect {
+        case ann if ann.isExprOf[validate[t]] => ann.asExprOf[validate[t]]
+      }
+      val validator: Expr[Validation[t]] = validations.foldLeft[Expr[Validation[t]]]('{Validation.succeed}){
+        case (acc, expr) => '{
+          $acc && ${expr}.validation
+        }
+      }
+
+      val typeParams = TypeRepr.of[T].dealias match
+           case AppliedType (t, params) => params
+           case _ => Nil
+
+      val get = '{ (t: ListMap[String, _]) => t.apply(${Expr(name)}).asInstanceOf[t] }
+      val set = '{ (ts: ListMap[String, _], v: t) => ts.updated(${Expr(name)}, v) }
+      val chunk = '{ zio.Chunk.fromIterable(${ Expr.ofSeq(anns.reverse) }) }
+
+      if (anns.nonEmpty) {
+        val newName = anns.collectFirst {
+          case ann if ann.isExprOf[fieldName] => '{${ann.asExprOf[fieldName]}.name}
+        }.getOrElse(Expr(name))
+
+        val f = '{ Field($newName, $schema, $chunk, $validator, $get, $set) }
+        addFieldName(name)(f) // TODO: we need to pass the evaluated annotation value instead of name
+      } else {
+        val f = '{ Field(${Expr(name)}, $schema, $chunk, $validator, $get, $set) }
+        addFieldName(name)(f)
+      }
+    }
+  }
+
+  def addFieldName[R: Type, T: Type, F <: Field[R, T]: Type](name: String)(f: Expr[F])(using Quotes) = {
+    val withFieldName = TypeRepr.of[Field.WithFieldName]
+    val r = TypeRepr.of[R]
+    val t = TypeRepr.of[T]
+    val nameT = ConstantType(StringConstant(name))
+    val fieldWithName = withFieldName.appliedTo(List(r, nameT, t))    
+    (Select.unique(f.asTerm, "asInstanceOf").appliedToType(fieldWithName).asExprOf[F], nameT)
+  }
+
+
   // sealed case class Case[A, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A, annotations: Chunk[Any] = Chunk.empty) {
-  def deriveCase[T: Type](repr: TypeRepr, label: String, stack: Stack) = {
+  def deriveCase[T: Type](repr: TypeRepr, label: String, stack: Stack)(using Quotes) = {
     repr.asType match { case '[t] => 
       val schema = deriveSchema[t](stack)
       val stringExpr = Expr(label)
@@ -301,6 +482,13 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
   private def filterAnnotation(a: Term): Boolean =
     a.tpe.typeSymbol.maybeOwner.isNoSymbol ||
       a.tpe.typeSymbol.owner.fullName != "scala.annotation.internal"
+
+  def extractFieldNameValue(attribute: Expr[fieldName]): String = 
+    attribute.asTerm match {
+      // Apply(Select(New(Ident(fieldName)),<init>),List(Literal(Constant(renamed))))
+      case Apply(_, List(Literal(StringConstant(name)))) =>
+        name
+    }    
 
   def caseClassTypeTree[T: Type](arity: Int): TypeTree = 
     arity match {
@@ -355,7 +543,32 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
       case 21 => TypeRepr.of[CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
       case 22 => TypeRepr.of[CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
     }
-    
+
+  def caseClassWithFieldsType(arity: Int): TypeRepr = 
+    arity match {
+      case 1 => TypeRepr.of[CaseClass1.WithFields]
+      case 2 => TypeRepr.of[CaseClass2.WithFields]
+      case 3 => TypeRepr.of[CaseClass3.WithFields]
+      case 4 => TypeRepr.of[CaseClass4.WithFields]
+      case 5 => TypeRepr.of[CaseClass5.WithFields]
+      case 6 => TypeRepr.of[CaseClass6.WithFields]
+      case 7 => TypeRepr.of[CaseClass7.WithFields]
+      case 8 => TypeRepr.of[CaseClass8.WithFields]
+      case 9 => TypeRepr.of[CaseClass9.WithFields]
+      case 10 => TypeRepr.of[CaseClass10.WithFields]
+      case 11 => TypeRepr.of[CaseClass11.WithFields]
+      case 12 => TypeRepr.of[CaseClass12.WithFields]
+      case 13 => TypeRepr.of[CaseClass13.WithFields]
+      case 14 => TypeRepr.of[CaseClass14.WithFields]
+      case 15 => TypeRepr.of[CaseClass15.WithFields]
+      case 16 => TypeRepr.of[CaseClass16.WithFields]
+      case 17 => TypeRepr.of[CaseClass17.WithFields]
+      case 18 => TypeRepr.of[CaseClass18.WithFields]
+      case 19 => TypeRepr.of[CaseClass19.WithFields]
+      case 20 => TypeRepr.of[CaseClass20.WithFields]
+      case 21 => TypeRepr.of[CaseClass21.WithFields]
+      case 22 => TypeRepr.of[CaseClass22.WithFields]
+    }
 
   def enumTypeTree[T: Type](arity: Int): TypeTree = 
     arity match {
