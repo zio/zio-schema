@@ -252,8 +252,9 @@ object JsonCodec extends BinaryCodec {
 
     private def enumEncoder[Z](parentSchema: Schema.Enum[Z], cases: Schema.Case[Z, _]*): ZJsonEncoder[Z] =
       (value: Z, indent: Option[Int], out: Write) => {
-        val nonTransientCases = cases.filter{
-          case Schema.Case(_, _, _, _, _, annotations) => annotations.collectFirst {case _: transientCase => ()}.isEmpty
+        val nonTransientCases = cases.filter {
+          case Schema.Case(_, _, _, _, _, annotations) =>
+            annotations.collectFirst { case _: transientCase => () }.isEmpty
         }
         val fieldIndex = nonTransientCases.indexWhere(c => c.deconstructOption(value).isDefined)
         if (fieldIndex > -1) {
