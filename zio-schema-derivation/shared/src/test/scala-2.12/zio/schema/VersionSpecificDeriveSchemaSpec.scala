@@ -9,11 +9,9 @@ trait VersionSpecificDeriveSchemaSpec {
     implicit val schema = DeriveSchema.gen[ContainerFields]
   }
 
-
   def verifyFieldName[F]: FieldNameVerifier[F] = new FieldNameVerifier[F]
-    
-    
+
   class FieldNameVerifier[F] {
-     @nowarn def apply(name: String): Boolean = true // Cannot check as we don't have singleton types
-  }    
+    @nowarn def apply(name: String): Boolean = true // Cannot check as we don't have singleton types
+  }
 }

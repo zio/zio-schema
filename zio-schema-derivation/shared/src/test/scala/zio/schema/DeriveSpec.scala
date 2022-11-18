@@ -1,11 +1,12 @@
 package zio.schema
 
 import scala.reflect.ClassTag
-
 import zio.schema.Deriver.WrappedF
 import zio.schema.Schema.Field
 import zio.test.{ Spec, TestEnvironment, ZIOSpecDefault, assertTrue }
 import zio.{ Chunk, Scope }
+
+import scala.annotation.nowarn
 
 object DeriveSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
@@ -314,7 +315,7 @@ object DeriveSpec extends ZIOSpecDefault {
 
   @SuppressWarnings(Array("all"))
   object UnsupportedField1 {
-    implicit private val openTraitPlaceholderSchema: Schema[OpenTrait] = Schema.fail("OpenTrait")
+    @nowarn implicit private val openTraitPlaceholderSchema: Schema[OpenTrait] = Schema.fail("OpenTrait")
 
     implicit val schema: Schema[UnsupportedField1] = DeriveSchema.gen[UnsupportedField1]
   }
