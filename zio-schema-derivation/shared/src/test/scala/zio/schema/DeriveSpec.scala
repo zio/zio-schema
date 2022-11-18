@@ -1,6 +1,7 @@
 package zio.schema
 
 import zio.schema.Deriver.WrappedF
+import zio.schema.Schema.Field
 import zio.test.{ Spec, TestEnvironment, ZIOSpecDefault, assertTrue }
 import zio.{ Chunk, Scope }
 
@@ -116,6 +117,30 @@ object DeriveSpec extends ZIOSpecDefault {
             tc8 ne null
           )
         }
+      },
+      suite("default implementation") {
+        test("default tupleN implementation creates proper record schema") {
+          val capturedSchema = Derive.derive[CapturedSchema, RecordWithBigTuple](schemaCapturer)
+          val tupleSchema    = capturedSchema.inner.map(_.schema)
+          val isARecord      = tupleSchema.get.isInstanceOf[Schema.Record[_]]
+          def record: Schema.Record[(String, Int, Double, Record1, Record2, Record3)] =
+            tupleSchema.get.asInstanceOf[Schema.Record[(String, Int, Double, Record1, Record2, Record3)]]
+
+          val ex1 = ("test", 1, 100.0, Record1("x", -5), Record2("y", 200), Record3(None))
+          val ex2 = record
+            .fields(2)
+            .asInstanceOf[Field[(String, Int, Double, Record1, Record2, Record3), Double]]
+            .set(ex1, 1000.0)
+          val r3: Record3 =
+            record.fields(5).asInstanceOf[Field[(String, Int, Double, Record1, Record2, Record3), Record3]].get(ex1)
+
+          assertTrue(
+            isARecord,
+            record.fields.size == 6,
+            ex2 == (("test", 1, 1000.0, Record1("x", -5), Record2("y", 200), Record3(None))),
+            r3 == Record3(None)
+          )
+        }
       }
     )
 
@@ -220,6 +245,12 @@ object DeriveSpec extends ZIOSpecDefault {
 
   object Record8 {
     implicit val schema: Schema[Record8] = DeriveSchema.gen[Record8]
+  }
+
+  case class RecordWithBigTuple(tuple: (String, Int, Double, Record1, Record2, Record3))
+
+  object RecordWithBigTuple {
+    implicit val schema: Schema[RecordWithBigTuple] = DeriveSchema.gen[RecordWithBigTuple]
   }
 
   sealed trait Enum1
@@ -546,6 +577,84 @@ object DeriveSpec extends ZIOSpecDefault {
     ): TC3[B] =
       summoned.getOrElse {
         TC3.Suspend(() => TC3.Const(fields.headOption.map(_.unwrap)))
+      }
+  }
+
+  trait CapturedSchema[T] {
+    def schema: Schema[T]
+    def inner: Option[CapturedSchema[_]]
+  }
+
+  val schemaCapturer: Deriver[CapturedSchema] = new Deriver[CapturedSchema] {
+    override def deriveRecord[A](
+      record: Schema.Record[A],
+      fields: => Chunk[WrappedF[CapturedSchema, _]],
+      summoned: => Option[CapturedSchema[A]]
+    ): CapturedSchema[A] =
+      new CapturedSchema[A] {
+        override def schema: Schema[A] = record
+        override def inner: Option[CapturedSchema[_]] =
+          fields.headOption.map(_.unwrap)
+      }
+
+    override def deriveEnum[A](
+      `enum`: Schema.Enum[A],
+      cases: => Chunk[WrappedF[CapturedSchema, _]],
+      summoned: => Option[CapturedSchema[A]]
+    ): CapturedSchema[A] =
+      new CapturedSchema[A] {
+        override def schema: Schema[A] = `enum`
+        override def inner: Option[CapturedSchema[_]] =
+          cases.headOption.map(_.unwrap)
+      }
+
+    override def derivePrimitive[A](st: StandardType[A], summoned: => Option[CapturedSchema[A]]): CapturedSchema[A] =
+      new CapturedSchema[A] {
+        override def schema: Schema[A]                = Schema.Primitive(st)
+        override def inner: Option[CapturedSchema[_]] = None
+      }
+
+    override def deriveOption[A](
+      option: Schema.Optional[A],
+      innerCS: => CapturedSchema[A],
+      summoned: => Option[CapturedSchema[Option[A]]]
+    ): CapturedSchema[Option[A]] =
+      new CapturedSchema[Option[A]] {
+        override def schema: Schema[Option[A]]        = option
+        override def inner: Option[CapturedSchema[_]] = Some(innerCS)
+      }
+
+    override def deriveSequence[C[_], A](
+      sequence: Schema.Sequence[C[A], A, _],
+      innerCS: => CapturedSchema[A],
+      summoned: => Option[CapturedSchema[C[A]]]
+    ): CapturedSchema[C[A]] =
+      new CapturedSchema[C[A]] {
+        override def schema: Schema[C[A]]             = sequence
+        override def inner: Option[CapturedSchema[_]] = Some(innerCS)
+      }
+
+    override def deriveMap[K, V](
+      map: Schema.Map[K, V],
+      key: => CapturedSchema[K],
+      value: => CapturedSchema[V],
+      summoned: => Option[CapturedSchema[Map[K, V]]]
+    ): CapturedSchema[Map[K, V]] =
+      new CapturedSchema[Map[K, V]] {
+        override def schema: Schema[Map[K, V]]        = map
+        override def inner: Option[CapturedSchema[_]] = Some(key)
+      }
+
+    override def deriveTransformedRecord[A, B](
+      record: Schema.Record[A],
+      transform: Schema.Transform[A, B, _],
+      fields: => Chunk[WrappedF[CapturedSchema, _]],
+      summoned: => Option[CapturedSchema[B]]
+    ): CapturedSchema[B] =
+      new CapturedSchema[B] {
+        override def schema: Schema[B] = transform
+        override def inner: Option[CapturedSchema[_]] =
+          fields.headOption.map(_.unwrap)
       }
   }
 }

@@ -99,9 +99,9 @@ object Derive {
     def toTupleSchemaType(tpes: Chunk[Type]): Tree =
       tpes.tail.foldLeft(tq"${tpes.head}") { case (xs, x) => tq"_root_.zio.schema.Schema.Tuple2[$xs, $x]" }
 
-    def lefts(tschema: Tree, tpes: Chunk[Type]): Tree =
-      if (tpes.size < 2) tschema
-      else lefts(q"$tschema.left.asInstanceOf[${toTupleSchemaType(tpes)}]", tpes.init)
+    def lefts(tschema: Tree, tpes: Chunk[Type], depth: Int): Tree =
+      if (tpes.size < 2 || depth == 0) tschema
+      else lefts(q"$tschema.left.asInstanceOf[${toTupleSchemaType(tpes)}]", tpes.init, depth - 1)
 
     def recurse(tpe: Type, schema: c.Tree, stack: List[Frame[c.type]], top: Boolean): Tree =
       stack.find(_.tpe =:= tpe) match {
@@ -140,9 +140,9 @@ object Derive {
               if (idx == n) {
                 q"$tschema.right"
               } else if (idx == 1) {
-                q"${lefts(q"$tschema", tpes.take(2))}.left"
+                q"${lefts(q"$tschema", tpes.init, n - 1)}.left"
               } else {
-                q"${lefts(q"$tschema", tpes.take(idx))}.right"
+                q"${lefts(q"$tschema", tpes.init, n - idx)}.right"
               }
             }
 

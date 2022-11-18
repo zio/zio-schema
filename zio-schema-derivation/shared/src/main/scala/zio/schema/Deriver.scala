@@ -75,8 +75,7 @@ trait Deriver[F[_]] extends VersionSpecificDeriver[F] { self =>
     )
 
   def deriveTupleN[T](schemasAndInstances: => Chunk[(Schema[_], WrappedF[F, _])], summoned: => Option[F[T]]): F[T] = {
-    val arity        = schemasAndInstances.length
-    val recordSchema = tupleToRecordSchema[T](arity, schemasAndInstances)
+    val recordSchema = TupleRecordSchema.tupleToRecordSchema[T](schemasAndInstances.map(_._1))
     deriveRecord(
       recordSchema,
       schemasAndInstances.map(_._2),
@@ -178,88 +177,6 @@ trait Deriver[F[_]] extends VersionSpecificDeriver[F] { self =>
         }
     }
 
-  private def tupleToRecordSchema[T](
-    arity: Int,
-    schemasAndInstances: => Chunk[(Schema[_], WrappedF[F, _])]
-  ): Schema.Record[T] =
-    arity match {
-      case 2 =>
-        Schema
-          .CaseClass2[Any, Any, (Any, Any)](
-            TypeId.parse(s"zio.schema.Tuple.Tuple$arity"),
-            Schema.Field(
-              "_1",
-              schemasAndInstances(0)._1.asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any)) => t._1,
-              set0 = (t: (Any, Any), v: Any) => t.copy(_1 = v)
-            ),
-            Schema.Field(
-              "_2",
-              schemasAndInstances(1)._1.asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any)) => t._2,
-              set0 = (t: (Any, Any), v: Any) => t.copy(_2 = v)
-            ),
-            (t1, t2) => (t1, t2)
-          )
-          .asInstanceOf[Schema.Record[T]]
-      case 3 =>
-        Schema
-          .CaseClass3[Any, Any, Any, (Any, Any, Any)](
-            TypeId.parse(s"zio.schema.Tuple.Tuple$arity"),
-            Schema.Field(
-              "_1",
-              schemasAndInstances(0)._1.asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any)) => t._1,
-              set0 = (t: (Any, Any, Any), v: Any) => t.copy(_1 = v)
-            ),
-            Schema.Field(
-              "_2",
-              schemasAndInstances(1)._1.asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any)) => t._2,
-              set0 = (t: (Any, Any, Any), v: Any) => t.copy(_2 = v)
-            ),
-            Schema.Field(
-              "_3",
-              schemasAndInstances(2)._1.asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any)) => t._3,
-              set0 = (t: (Any, Any, Any), v: Any) => t.copy(_3 = v)
-            ),
-            (t1, t2, t3) => (t1, t2, t3)
-          )
-          .asInstanceOf[Schema.Record[T]]
-      case 4 =>
-        Schema
-          .CaseClass4[Any, Any, Any, Any, (Any, Any, Any, Any)](
-            TypeId.parse(s"zio.schema.Tuple.Tuple$arity"),
-            Schema.Field(
-              "_1",
-              schemasAndInstances(0)._1.asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any)) => t._1,
-              set0 = (t: (Any, Any, Any, Any), v: Any) => t.copy(_1 = v)
-            ),
-            Schema.Field(
-              "_2",
-              schemasAndInstances(1)._1.asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any)) => t._2,
-              set0 = (t: (Any, Any, Any, Any), v: Any) => t.copy(_2 = v)
-            ),
-            Schema.Field(
-              "_3",
-              schemasAndInstances(2)._1.asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any)) => t._3,
-              set0 = (t: (Any, Any, Any, Any), v: Any) => t.copy(_3 = v)
-            ),
-            Schema.Field(
-              "_4",
-              schemasAndInstances(3)._1.asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any)) => t._4,
-              set0 = (t: (Any, Any, Any, Any), v: Any) => t.copy(_4 = v)
-            ),
-            (t1, t2, t3, t4) => (t1, t2, t3, t4)
-          )
-          .asInstanceOf[Schema.Record[T]]
-      case _ => throw new IllegalArgumentException(s"Unsupported tuple arity: $arity")
-    }
 }
 
 object Deriver {

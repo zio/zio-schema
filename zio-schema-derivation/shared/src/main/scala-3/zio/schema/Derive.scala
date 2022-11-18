@@ -440,11 +440,11 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
   def toTupleSchemaType(tpes: Chunk[TypeRepr]) =
     tpes.tail.foldLeft(tpes.head) { case (xs, x) => TypeRepr.of[Schema.Tuple2].appliedTo(List(xs, x)) }
 
-  def lefts[T <: Schema.Tuple2[_, _]: Type](tschema: Expr[T], tpes: Chunk[TypeRepr]): Expr[Schema.Tuple2[_, _]] =
-    if (tpes.size < 2) tschema
+  def lefts[T <: Schema.Tuple2[_, _]: Type](tschema: Expr[T], tpes: Chunk[TypeRepr], depth: Int): Expr[Schema.Tuple2[_, _]] =
+    if (tpes.size < 2 || depth == 0) tschema
     else toTupleSchemaType(tpes).asType match {
       case '[Schema.Tuple2[a, b]] =>
-         lefts('{ $tschema.left.asInstanceOf[Schema.Tuple2[a, b]] }, tpes.init)
+         lefts('{ $tschema.left.asInstanceOf[Schema.Tuple2[a, b]] }, tpes.init, depth - 1)
     }
 
   def tupleN[F[_]: Type, A: Type](top: Boolean, selfRef: Ref, deriver: Expr[Deriver[F]], schema: Expr[Schema[A]], stack: Stack, tpes: Chunk[TypeRepr])(using Quotes): Expr[F[A]] = {
@@ -454,6 +454,24 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
       case 2 => TypeRepr.of[scala.Tuple2]
       case 3 => TypeRepr.of[scala.Tuple3]
       case 4 => TypeRepr.of[scala.Tuple4]
+      case 5 => TypeRepr.of[scala.Tuple5]
+      case 6 => TypeRepr.of[scala.Tuple6]
+      case 7 => TypeRepr.of[scala.Tuple7]
+      case 8 => TypeRepr.of[scala.Tuple8]
+      case 9 => TypeRepr.of[scala.Tuple9]
+      case 10 => TypeRepr.of[scala.Tuple10]
+      case 11 => TypeRepr.of[scala.Tuple11]
+      case 12 => TypeRepr.of[scala.Tuple12]
+      case 13 => TypeRepr.of[scala.Tuple13]
+      case 14 => TypeRepr.of[scala.Tuple14]
+      case 15 => TypeRepr.of[scala.Tuple15]
+      case 16 => TypeRepr.of[scala.Tuple16]
+      case 17 => TypeRepr.of[scala.Tuple17]
+      case 18 => TypeRepr.of[scala.Tuple18]
+      case 19 => TypeRepr.of[scala.Tuple19]
+      case 20 => TypeRepr.of[scala.Tuple20]
+      case 21 => TypeRepr.of[scala.Tuple21]
+      case 22 => TypeRepr.of[scala.Tuple22]
     }
     val flatTupleType = tupleType.appliedTo(tpes.toList)
     val nestedTupleType = tpes.tail.foldLeft(tpes.head) { case (xs, x) => TypeRepr.of[scala.Tuple2].appliedTo(List(xs, x)) }
@@ -471,13 +489,16 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
 
                 val n = tpes.length
                 val schemas = (1 to n).map { idx =>
-                  if (idx == n) {
+                  val s = if (idx == n) {
                     '{ $tschema.right }
                   } else if (idx == 1) {
-                    '{${lefts(tschema, tpes.take(2))}.left }
+                    '{${lefts(tschema, tpes.init, n-1)}.left }
                   } else {
-                    '{${lefts(tschema, tpes.take(idx))}.right }
+                    '{${lefts(tschema, tpes.init, n-idx)}.right }
                   }
+
+                  println(s"***\n$idx: ${s.show}\n***")
+                  s
                 }
 
                 val pairs = tpes.zip(schemas).map { case (tp, s) =>
