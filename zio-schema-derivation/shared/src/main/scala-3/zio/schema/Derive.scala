@@ -54,7 +54,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
 
         Expr.summon[StandardType[A]] match {
           case Some(st) =>
-            val summoned = summonOptional[F, A]
+            val summoned = summonOptionalIfNotTop[F, A](top)
 
             '{ $deriver.derivePrimitive[A]($st, $summoned) }
           case None =>                    
@@ -62,7 +62,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
             case '[List[a]] =>
               val (seqSchemaRef, seqSchemaRefExpr) = createSchemaRef[List[a], Schema.Sequence[List[a], a, _]](stack)              
 
-              val summoned = summonOptional[F, List[a]]
+              val summoned = summonOptionalIfNotTop[F, List[a]](top)
                                 
               val elemInstance = deriveInstance[F, a](deriver, '{$seqSchemaRefExpr.elementSchema}, stack)
               lazyVals[F[A]](selfRef,
@@ -71,7 +71,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
               )            
             case '[scala.util.Either[a, b]] =>
               val (schemaRef, schemaRefExpr) = createSchemaRef[scala.util.Either[a, b], Schema.Either[a, b]](stack)              
-              val summoned = summonOptional[F, scala.util.Either[a, b]]
+              val summoned = summonOptionalIfNotTop[F, scala.util.Either[a, b]](top)
 
               val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.left}, stack)
               val instanceB = deriveInstance[F, b](deriver, '{$schemaRefExpr.right}, stack)
@@ -81,7 +81,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
               )
             case '[Option[a]] =>
               val (schemaRef, schemaRefExpr) = createSchemaRef[Option[a], Schema.Optional[a]](stack)              
-              val summoned = summonOptional[F, Option[a]]
+              val summoned = summonOptionalIfNotTop[F, Option[a]](top)
 
               val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.schema}, stack)              
               lazyVals[F[A]](selfRef,
@@ -90,7 +90,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
               )
             case '[scala.collection.immutable.Set[a]] =>
               val (schemaRef, schemaRefExpr) = createSchemaRef[scala.collection.immutable.Set[a], Schema.Set[a]](stack)              
-              val summoned = summonOptional[F, scala.collection.immutable.Set[a]]
+              val summoned = summonOptionalIfNotTop[F, scala.collection.immutable.Set[a]](top)
 
               val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.elementSchema}, stack)              
               lazyVals[F[A]](selfRef,
@@ -99,7 +99,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
               )
             case '[Vector[a]] =>
               val (schemaRef, schemaRefExpr) = createSchemaRef[scala.collection.immutable.Vector[a], Schema.Sequence[Vector[a], a, _]](stack)              
-              val summoned = summonOptional[F, scala.collection.immutable.Vector[a]]
+              val summoned = summonOptionalIfNotTop[F, scala.collection.immutable.Vector[a]](top)
 
               val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.elementSchema}, stack)
               lazyVals[F[A]](selfRef,
@@ -108,7 +108,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
               )
             case '[scala.collection.immutable.Map[a, b]] =>
               val (schemaRef, schemaRefExpr) = createSchemaRef[scala.collection.immutable.Map[a, b], Schema.Map[a, b]](stack)              
-              val summoned = summonOptional[F, scala.collection.immutable.Map[a, b]]
+              val summoned = summonOptionalIfNotTop[F, scala.collection.immutable.Map[a, b]](top)
 
               val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.keySchema}, stack)
               val instanceB = deriveInstance[F, b](deriver, '{$schemaRefExpr.valueSchema}, stack)
@@ -118,7 +118,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
               )              
             case '[zio.Chunk[a]] =>
               val (schemaRef, schemaRefExpr) = createSchemaRef[Chunk[a], Schema.Sequence[Chunk[a], a, _]](stack)              
-              val summoned = summonOptional[F, Chunk[a]]
+              val summoned = summonOptionalIfNotTop[F, Chunk[a]](top)
 
               val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.elementSchema}, stack)              
               lazyVals[F[A]](selfRef,
@@ -130,12 +130,12 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                 case Some(mirror) =>
                   mirror.mirrorType match {
                     case MirrorType.Sum =>
-                      deriveEnum[F, A](mirror, stack, deriver, schema, selfRef)
+                      deriveEnum[F, A](top, mirror, stack, deriver, schema, selfRef)
                     case MirrorType.Product =>
                       typeRepr.asType match {
                         case '[(a, b)] =>
                           val (schemaRef, schemaRefExpr) = createSchemaRef[(a, b), Schema.Tuple2[a, b]](stack)              
-                          val summoned = summonOptional[F, (a, b)]
+                          val summoned = summonOptionalIfNotTop[F, (a, b)](top)
 
                           val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.left}, stack)
                           val instanceB = deriveInstance[F, b](deriver, '{$schemaRefExpr.right}, stack)
@@ -145,6 +145,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           )
                         case '[(t1, t2, t3)] =>
                           tupleN[F, (t1, t2, t3)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3)]],
@@ -153,6 +154,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4)] =>
                           tupleN[F, (t1, t2, t3, t4)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4)]],
@@ -161,6 +163,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5)] =>
                           tupleN[F, (t1, t2, t3, t4, t5)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5)]],
@@ -169,6 +172,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6)]],
@@ -177,6 +181,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6, t7)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6, t7)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7)]],
@@ -185,6 +190,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6, t7, t8)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8)]],
@@ -193,6 +199,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9)]],
@@ -201,6 +208,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10)]],
@@ -209,6 +217,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)]],
@@ -217,6 +226,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12)]],
@@ -225,6 +235,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13)]],
@@ -233,6 +244,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14)]],
@@ -241,6 +253,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15)]],
@@ -249,6 +262,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16)]],
@@ -257,6 +271,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17)]],
@@ -265,6 +280,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18)]],
@@ -273,6 +289,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19)]],
@@ -281,6 +298,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20)]],
@@ -289,6 +307,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21)]],
@@ -297,6 +316,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                           ).asExprOf[F[A]]
                         case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22)] =>
                           tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22)](
+                            top,
                             selfRef,
                             deriver,
                             schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22)]],
@@ -304,16 +324,22 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                             Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15], TypeRepr.of[t16], TypeRepr.of[t17], TypeRepr.of[t18], TypeRepr.of[t19], TypeRepr.of[t20], TypeRepr.of[t21], TypeRepr.of[t22])
                           ).asExprOf[F[A]]
                         case _ =>
-                          deriveCaseClass[F, A](mirror, stack, deriver, schema, selfRef)
+                          deriveCaseClass[F, A](top, mirror, stack, deriver, schema, selfRef)
                       }
                   }
                 case None =>
                   val sym = typeRepr.typeSymbol
                   if (sym.isClassDef && sym.flags.is(Flags.Module)) {
-                    deriveCaseObject[F, A](deriver, schema)
+                    deriveCaseObject[F, A](top, deriver, schema)
                   }
                   else {
-                    report.errorAndAbort(s"Deriving schema for ${typeRepr.show} is not supported")
+                    val summoned = summonOptionalIfNotTop[F, A](top)
+                    Expr.summon[scala.reflect.ClassTag[A]] match {
+                        case Some(classTag) =>
+                          '{ $deriver.deriveUnknown[A]($summoned)($classTag) }
+                        case None =>
+                          report.errorAndAbort(s"Cannot find a ClassTag for ${typeRepr.show}")
+                    }
                   }
             }            
         }
@@ -323,12 +349,12 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
     result
   }
 
-  def deriveCaseObject[F[_]: Type, A: Type](deriver: Expr[Deriver[F]], schema: Expr[Schema[A]])(using Quotes) = {
-    val summoned = summonOptional[F, A]
+  def deriveCaseObject[F[_]: Type, A: Type](top: Boolean, deriver: Expr[Deriver[F]], schema: Expr[Schema[A]])(using Quotes) = {
+    val summoned = summonOptionalIfNotTop[F, A](top)
     '{$deriver.deriveRecord[A](Schema.force($schema).asInstanceOf[Schema.Record[A]], Chunk.empty, $summoned)}
    }
 
-  def deriveCaseClass[F[_]: Type, A: Type](mirror: Mirror, stack: Stack, deriver: Expr[Deriver[F]], schema: Expr[Schema[A]], selfRef: Ref)(using Quotes) = {
+  def deriveCaseClass[F[_]: Type, A: Type](top: Boolean, mirror: Mirror, stack: Stack, deriver: Expr[Deriver[F]], schema: Expr[Schema[A]], selfRef: Ref)(using Quotes) = {
     val newStack = stack.push(selfRef, TypeRepr.of[A])
 
     val labels = mirror.labels.toList
@@ -347,7 +373,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
         }
       }
 
-      val summoned = summonOptional[F, A]
+      val summoned = summonOptionalIfNotTop[F, A](top)
 
       lazyVals[F[A]](selfRef,
         schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Record[A]]},
@@ -366,7 +392,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
         }
       }
 
-      val summoned = summonOptional[F, A]
+      val summoned = summonOptionalIfNotTop[F, A](top)
 
       lazyVals[F[A]](selfRef,
         schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Transform[ListMap[String, _], A, _]]},
@@ -376,7 +402,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
     }
   }
 
-  def deriveEnum[F[_]: Type, A: Type](mirror: Mirror, stack: Stack, deriver: Expr[Deriver[F]], schema: Expr[Schema[A]], selfRef: Ref)(using Quotes) = {    
+  def deriveEnum[F[_]: Type, A: Type](top: Boolean, mirror: Mirror, stack: Stack, deriver: Expr[Deriver[F]], schema: Expr[Schema[A]], selfRef: Ref)(using Quotes) = {
     val newStack = stack.push(selfRef, TypeRepr.of[A])
 
     val labels = mirror.labels.toList
@@ -393,7 +419,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
       }
     }
 
-    val summoned = summonOptional[F, A]
+    val summoned = summonOptionalIfNotTop[F, A](top)
 
     lazyVals[F[A]](selfRef, 
       schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Enum[A]]},
@@ -420,20 +446,38 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
   def toTupleSchemaType(tpes: Chunk[TypeRepr]) =
     tpes.tail.foldLeft(tpes.head) { case (xs, x) => TypeRepr.of[Schema.Tuple2].appliedTo(List(xs, x)) }
 
-  def lefts[T <: Schema.Tuple2[_, _]: Type](tschema: Expr[T], tpes: Chunk[TypeRepr]): Expr[Schema.Tuple2[_, _]] =
-    if (tpes.size < 2) tschema
+  def lefts[T <: Schema.Tuple2[_, _]: Type](tschema: Expr[T], tpes: Chunk[TypeRepr], depth: Int): Expr[Schema.Tuple2[_, _]] =
+    if (tpes.size < 2 || depth == 0) tschema
     else toTupleSchemaType(tpes).asType match {
       case '[Schema.Tuple2[a, b]] =>
-         lefts('{ $tschema.left.asInstanceOf[Schema.Tuple2[a, b]] }, tpes.init)
+         lefts('{ $tschema.left.asInstanceOf[Schema.Tuple2[a, b]] }, tpes.init, depth - 1)
     }
 
-  def tupleN[F[_]: Type, A: Type](selfRef: Ref, deriver: Expr[Deriver[F]], schema: Expr[Schema[A]], stack: Stack, tpes: Chunk[TypeRepr])(using Quotes): Expr[F[A]] = {
+  def tupleN[F[_]: Type, A: Type](top: Boolean, selfRef: Ref, deriver: Expr[Deriver[F]], schema: Expr[Schema[A]], stack: Stack, tpes: Chunk[TypeRepr])(using Quotes): Expr[F[A]] = {
     val tschemaType = toTupleSchemaType(tpes)
     val tupleType = tpes.length match {
       case 1 => TypeRepr.of[scala.Tuple1]
       case 2 => TypeRepr.of[scala.Tuple2]
       case 3 => TypeRepr.of[scala.Tuple3]
       case 4 => TypeRepr.of[scala.Tuple4]
+      case 5 => TypeRepr.of[scala.Tuple5]
+      case 6 => TypeRepr.of[scala.Tuple6]
+      case 7 => TypeRepr.of[scala.Tuple7]
+      case 8 => TypeRepr.of[scala.Tuple8]
+      case 9 => TypeRepr.of[scala.Tuple9]
+      case 10 => TypeRepr.of[scala.Tuple10]
+      case 11 => TypeRepr.of[scala.Tuple11]
+      case 12 => TypeRepr.of[scala.Tuple12]
+      case 13 => TypeRepr.of[scala.Tuple13]
+      case 14 => TypeRepr.of[scala.Tuple14]
+      case 15 => TypeRepr.of[scala.Tuple15]
+      case 16 => TypeRepr.of[scala.Tuple16]
+      case 17 => TypeRepr.of[scala.Tuple17]
+      case 18 => TypeRepr.of[scala.Tuple18]
+      case 19 => TypeRepr.of[scala.Tuple19]
+      case 20 => TypeRepr.of[scala.Tuple20]
+      case 21 => TypeRepr.of[scala.Tuple21]
+      case 22 => TypeRepr.of[scala.Tuple22]
     }
     val flatTupleType = tupleType.appliedTo(tpes.toList)
     val nestedTupleType = tpes.tail.foldLeft(tpes.head) { case (xs, x) => TypeRepr.of[scala.Tuple2].appliedTo(List(xs, x)) }
@@ -445,7 +489,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
             nestedTupleType.asType match {
               case '[ntt] =>
                 val (schemaRef, schemaRefExpr) = createSchemaRef[ftt, Schema.Transform[ntt, ftt, _]](stack)
-                val summoned = summonOptional[F, ftt]
+                val summoned = summonOptionalIfNotTop[F, ftt](top)
 
                 val tschema = '{$schemaRefExpr.schema.asInstanceOf[Schema.Tuple2[a, b]]}
 
@@ -454,9 +498,9 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                   if (idx == n) {
                     '{ $tschema.right }
                   } else if (idx == 1) {
-                    '{${lefts(tschema, tpes.take(2))}.left }
+                    '{${lefts(tschema, tpes.init, n-1)}.left }
                   } else {
-                    '{${lefts(tschema, tpes.take(idx))}.right }
+                    '{${lefts(tschema, tpes.init, n-idx)}.right }
                   }
                 }
 
@@ -476,6 +520,8 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
             }
           }
     }
-
   }
+
+  def summonOptionalIfNotTop[F[_]: Type, A: Type](top: Boolean)(using Quotes): Expr[Option[F[A]]] =
+    if (top) '{None} else summonOptional[F, A]
 }
