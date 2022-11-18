@@ -158,13 +158,6 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"query":"foo","pageNumber":10,"resultPerPage":20}""")
         )
       },
-      test("record name annotation") {
-        assertEncodes(
-          OneOf.schema,
-          IntValue(124),
-          charSequenceToByteChunk("""{"int_value":{"value":124}}"""),
-          true
-        )},
       test("case name annotation") {
         assertEncodes(
           PaymentMethod.schema,
@@ -282,12 +275,6 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"cc":{"number":"foo","expirationMonth":12,"expirationYear":2022}}""")
         )
       },
-      test("record name annotation"){
-        assertDecodes(
-          OneOf.schema,
-          IntValue(123),
-          charSequenceToByteChunk("""{"int_value":{"value":123}}""")
-        )},
       test("case name") {
         assertDecodes(
           PaymentMethod.schema,
@@ -1009,9 +996,9 @@ object JsonCodecSpec extends ZIOSpecDefault {
   )
 
   sealed trait OneOf
-  case class StringValue(value: String)   extends OneOf
-  @recordName("int_value") case class IntValue(value: Int)         extends OneOf
-  case class BooleanValue(value: Boolean) extends OneOf
+  case class StringValue(value: String)                    extends OneOf
+  @recordName("int_value") case class IntValue(value: Int) extends OneOf
+  case class BooleanValue(value: Boolean)                  extends OneOf
 
   object OneOf {
     implicit val schema: Schema[OneOf] = DeriveSchema.gen[OneOf]
