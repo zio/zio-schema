@@ -369,10 +369,7 @@ object Derive {
               $selfRef
             }"""
           } else
-            c.abort(
-              c.enclosingPosition,
-              s"Failed to derive type class for $tpe"
-            )
+            q"""$deriver.deriveUnknown[$tpe]($summoned)"""
       }
 
     val tree = recurse(weakTypeOf[A], schema.tree, List.empty[Frame[c.type]], top = true)

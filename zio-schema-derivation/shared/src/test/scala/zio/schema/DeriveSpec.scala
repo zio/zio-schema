@@ -5,6 +5,8 @@ import zio.schema.Schema.Field
 import zio.test.{ Spec, TestEnvironment, ZIOSpecDefault, assertTrue }
 import zio.{ Chunk, Scope }
 
+import scala.reflect.ClassTag
+
 object DeriveSpec extends ZIOSpecDefault {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Derive")(
@@ -141,7 +143,23 @@ object DeriveSpec extends ZIOSpecDefault {
             r3 == Record3(None)
           )
         }
-      }
+      },
+      suite("support for unknown types")(
+        test("can pick up existing instance for unknown type") {
+          implicit val openTraitTC: TC[OpenTrait] = new TC[OpenTrait] {
+            override def isDerived: Boolean   = false
+            override def inner: Option[TC[_]] = None
+          }
+          val tc        = Derive.derive[TC, UnsupportedField1](deriver)
+          val refEquals = tc.inner.get eq openTraitTC
+          assertTrue(refEquals)
+        },
+        test("calls deriveUnknown for unknown type") {
+          val tc        = Derive.derive[TC, UnsupportedField1](deriver)
+          val refEquals = tc.inner.get eq defaultOpenTraitTC
+          assertTrue(refEquals)
+        }
+      )
     )
 
   trait TC[A] {
@@ -290,6 +308,21 @@ object DeriveSpec extends ZIOSpecDefault {
     implicit override val tc7: TC[Record7] = Derive.derive[TC, Record7](d)
   }
 
+  trait OpenTrait
+
+  final case class UnsupportedField1(field: OpenTrait)
+
+  object UnsupportedField1 {
+    implicit private val openTraitPlaceholderSchema: Schema[OpenTrait] = Schema.fail("OpenTrait")
+
+    implicit val schema: Schema[UnsupportedField1] = DeriveSchema.gen[UnsupportedField1]
+  }
+
+  private val defaultOpenTraitTC: TC[UnsupportedField1] = new TC[UnsupportedField1] {
+    override def isDerived: Boolean   = true
+    override def inner: Option[TC[_]] = None
+  }
+
   val deriver: Deriver[TC] = new Deriver[TC] {
     override def deriveRecord[A](
       record: Schema.Record[A],
@@ -416,6 +449,18 @@ object DeriveSpec extends ZIOSpecDefault {
           override def isDerived: Boolean = true
 
           override def inner: Option[TC[_]] = schemasAndInstances.headOption.map(_._2.unwrap)
+        }
+      }
+
+    override def deriveUnknown[A: ClassTag](summoned: => Option[TC[A]]): TC[A] =
+      summoned.getOrElse {
+        if (implicitly[ClassTag[A]] == implicitly[ClassTag[OpenTrait]]) {
+          defaultOpenTraitTC.asInstanceOf[TC[A]]
+        } else {
+          new TC[A] {
+            override def isDerived: Boolean   = true
+            override def inner: Option[TC[_]] = None
+          }
         }
       }
   }

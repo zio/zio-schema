@@ -3,6 +3,8 @@ package zio.schema
 import zio.Chunk
 import zio.schema.Deriver.{ WrappedF, wrap }
 
+import scala.reflect.ClassTag
+
 /** Deriver builds type class instances based on a Schema.
  *
  * The minimum set of methods to implement are:
@@ -89,6 +91,15 @@ trait Deriver[F[_]] extends VersionSpecificDeriver[F] { self =>
     fields: => Chunk[WrappedF[F, _]],
     summoned: => Option[F[B]]
   ): F[B]
+
+  def deriveUnknown[A: ClassTag](summoned: => Option[F[A]]): F[A] =
+    summoned match {
+      case Some(value) => value
+      case None =>
+        throw new IllegalArgumentException(
+          s"Cannot derive instance for type ${implicitly[ClassTag[A]].runtimeClass.getName}"
+        )
+    }
 
   def autoAcceptSummoned: Deriver[F] =
     new Deriver[F] {

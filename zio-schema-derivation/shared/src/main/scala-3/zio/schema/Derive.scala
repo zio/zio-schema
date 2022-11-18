@@ -333,7 +333,13 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                     deriveCaseObject[F, A](top, deriver, schema)
                   }
                   else {
-                    report.errorAndAbort(s"Deriving schema for ${typeRepr.show} is not supported")
+                    val summoned = summonOptionalIfNotTop[F, A](top)
+                    Expr.summon[scala.reflect.ClassTag[A]] match {
+                        case Some(classTag) =>
+                          '{ $deriver.deriveUnknown[A]($summoned)($classTag) }
+                        case None =>
+                          report.errorAndAbort(s"Cannot find a ClassTag for ${typeRepr.show}")
+                    }
                   }
             }            
         }
@@ -489,16 +495,13 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
 
                 val n = tpes.length
                 val schemas = (1 to n).map { idx =>
-                  val s = if (idx == n) {
+                  if (idx == n) {
                     '{ $tschema.right }
                   } else if (idx == 1) {
                     '{${lefts(tschema, tpes.init, n-1)}.left }
                   } else {
                     '{${lefts(tschema, tpes.init, n-idx)}.right }
                   }
-
-                  println(s"***\n$idx: ${s.show}\n***")
-                  s
                 }
 
                 val pairs = tpes.zip(schemas).map { case (tp, s) =>
