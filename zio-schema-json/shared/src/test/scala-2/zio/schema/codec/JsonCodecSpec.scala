@@ -996,9 +996,9 @@ object JsonCodecSpec extends ZIOSpecDefault {
   )
 
   sealed trait OneOf
-  case class StringValue(value: String)                    extends OneOf
-  @recordName("int_value") case class IntValue(value: Int) extends OneOf
-  case class BooleanValue(value: Boolean)                  extends OneOf
+  case class StringValue(value: String)   extends OneOf
+  case class IntValue(value: Int)         extends OneOf
+  case class BooleanValue(value: Boolean) extends OneOf
 
   object OneOf {
     implicit val schema: Schema[OneOf] = DeriveSchema.gen[OneOf]
