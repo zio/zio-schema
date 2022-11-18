@@ -1,9 +1,9 @@
 package zio.schema
 
+import scala.reflect.ClassTag
+
 import zio.Chunk
 import zio.schema.Deriver.{ WrappedF, wrap }
-
-import scala.reflect.ClassTag
 
 /** Deriver builds type class instances based on a Schema.
  *
