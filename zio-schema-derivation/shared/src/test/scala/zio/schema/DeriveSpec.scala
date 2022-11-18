@@ -67,6 +67,15 @@ object DeriveSpec extends ZIOSpecDefault {
           assertTrue(
             tc.isDerived == true
           )
+        },
+        test("new top level implicit value is not passed as summoned") {
+          assertTrue(
+            ImplicitDeriveCheck.tc1 ne null,
+            ImplicitDeriveCheck.tc1.isDerived == true,
+            ImplicitDeriveCheck.tc7 ne null,
+            ImplicitDeriveCheck.tc7.isDerived == true,
+            ImplicitDeriveCheck.tc7.inner.flatMap(_.inner).exists(_ ne null) == true
+          )
         }
       ),
       suite("enum")(
@@ -108,7 +117,7 @@ object DeriveSpec extends ZIOSpecDefault {
             tc8 ne null
           )
         }
-      },
+      }
     )
 
   trait TC[A] {
@@ -226,6 +235,17 @@ object DeriveSpec extends ZIOSpecDefault {
     case object Stop                    extends Enum2
 
     implicit val schema: Schema[Enum2] = DeriveSchema.gen[Enum2]
+  }
+
+  trait ImplicitDeriveCheckBase {
+    implicit val tc1: TC[Record1]
+    implicit val tc7: TC[Record7]
+  }
+
+  object ImplicitDeriveCheck extends ImplicitDeriveCheckBase {
+    val d: Deriver[TC]                     = deriver.autoAcceptSummoned
+    implicit override val tc1: TC[Record1] = Derive.derive[TC, Record1](d)
+    implicit override val tc7: TC[Record7] = Derive.derive[TC, Record7](d)
   }
 
   val deriver: Deriver[TC] = new Deriver[TC] {

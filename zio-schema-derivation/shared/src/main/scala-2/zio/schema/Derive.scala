@@ -103,7 +103,7 @@ object Derive {
       if (tpes.size < 2) tschema
       else lefts(q"$tschema.left.asInstanceOf[${toTupleSchemaType(tpes)}]", tpes.init)
 
-    def recurse(tpe: Type, schema: c.Tree, stack: List[Frame[c.type]]): Tree =
+    def recurse(tpe: Type, schema: c.Tree, stack: List[Frame[c.type]], top: Boolean): Tree =
       stack.find(_.tpe =:= tpe) match {
         case Some(f @ Frame(_, ref, _)) =>
           if (f == stack.head)
@@ -116,7 +116,7 @@ object Derive {
           val typeClassTpe       = weakTypeOf[F[_]]
           val appliedTpe         = appliedType(typeClassTpe, tpe)
           val appliedStandardTpe = appliedType(standardTypeTpe, tpe)
-          val summonedTree       = c.inferImplicitValue(appliedTpe)
+          val summonedTree       = if (top) EmptyTree else c.inferImplicitValue(appliedTpe)
           val summoned           = if (summonedTree == EmptyTree) q"None" else q"Some[$appliedTpe]($summonedTree)"
 
           val selfRefName     = c.freshName("instance")
@@ -148,7 +148,7 @@ object Derive {
 
             val instances = tpes.zip(schemas).map {
               case (t, schema) =>
-                recurse(concreteType(tpe, t), schema, stack)
+                recurse(concreteType(tpe, t), schema, stack, top = false)
             }
 
             val flatTupleType   = tpe
@@ -172,7 +172,7 @@ object Derive {
           } else if (tpe <:< optionTpe) {
             val innerTpe      = tpe.typeArgs.head
             val innerSchema   = q"$schemaRef.schema"
-            val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack)
+            val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack, top = false)
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Optional[$innerTpe]]
               lazy val $selfRefWithType = $deriver.deriveOption[$innerTpe]($schemaRef, $innerInstance, $summoned)
@@ -181,7 +181,7 @@ object Derive {
           } else if (tpe <:< listTpe) {
             val innerTpe      = tpe.typeArgs.head
             val innerSchema   = q"$schemaRef.elementSchema"
-            val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack)
+            val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack, top = false)
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Sequence[${appliedType(
               listTpe,
@@ -193,7 +193,7 @@ object Derive {
           } else if (tpe <:< vectorTpe) {
             val innerTpe      = tpe.typeArgs.head
             val innerSchema   = q"$schemaRef.elementSchema"
-            val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack)
+            val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack, top = false)
             q"""{
                lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Sequence[${appliedType(
               vectorTpe,
@@ -205,7 +205,7 @@ object Derive {
           } else if (tpe <:< chunkTpe) {
             val innerTpe      = tpe.typeArgs.head
             val innerSchema   = q"$schemaRef.elementSchema"
-            val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack)
+            val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack, top = false)
             q"""{
                    lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Sequence[${appliedType(
               chunkTpe,
@@ -217,7 +217,7 @@ object Derive {
           } else if (tpe <:< setTpe) {
             val innerTpe      = tpe.typeArgs.head
             val innerSchema   = q"$schemaRef.elementSchema"
-            val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack)
+            val innerInstance = recurse(concreteType(tpe, innerTpe), innerSchema, currentFrame +: stack, top = false)
             q"""{
                   lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Set[$innerTpe]]
                   lazy val $selfRefWithType = $deriver.deriveSet[$innerTpe]($schemaRef, $innerInstance, $summoned)
@@ -230,8 +230,8 @@ object Derive {
             val leftSchema  = q"$schemaRef.left"
             val rightSchema = q"$schemaRef.right"
 
-            val leftInstance  = recurse(concreteType(tpe, leftTpe), leftSchema, currentFrame +: stack)
-            val rightInstance = recurse(concreteType(tpe, rightTpe), rightSchema, currentFrame +: stack)
+            val leftInstance  = recurse(concreteType(tpe, leftTpe), leftSchema, currentFrame +: stack, top = false)
+            val rightInstance = recurse(concreteType(tpe, rightTpe), rightSchema, currentFrame +: stack, top = false)
 
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Either[$leftTpe, $rightTpe]]
@@ -245,8 +245,8 @@ object Derive {
             val leftSchema  = q"$schemaRef.left"
             val rightSchema = q"$schemaRef.right"
 
-            val leftInstance  = recurse(concreteType(tpe, leftTpe), leftSchema, currentFrame +: stack)
-            val rightInstance = recurse(concreteType(tpe, rightTpe), rightSchema, currentFrame +: stack)
+            val leftInstance  = recurse(concreteType(tpe, leftTpe), leftSchema, currentFrame +: stack, top = false)
+            val rightInstance = recurse(concreteType(tpe, rightTpe), rightSchema, currentFrame +: stack, top = false)
 
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Tuple2[$leftTpe, $rightTpe]]
@@ -305,7 +305,12 @@ object Derive {
               val fieldInstances = fields.zipWithIndex.map {
                 case (termSymbol, idx) =>
                   val fieldSchema = q"$recordSchemaRef.fields($idx).schema"
-                  val f           = recurse(concreteType(tpe, termSymbol.typeSignature), fieldSchema, currentFrame +: stack)
+                  val f = recurse(
+                    concreteType(tpe, termSymbol.typeSignature),
+                    fieldSchema,
+                    currentFrame +: stack,
+                    top = false
+                  )
                   q"_root_.zio.schema.Deriver.wrap($f)"
               }
 
@@ -318,7 +323,12 @@ object Derive {
               val fieldInstances = fields.zipWithIndex.map {
                 case (termSymbol, idx) =>
                   val fieldSchema = q"$schemaRef.fields($idx).schema"
-                  val f           = recurse(concreteType(tpe, termSymbol.typeSignature), fieldSchema, currentFrame +: stack)
+                  val f = recurse(
+                    concreteType(tpe, termSymbol.typeSignature),
+                    fieldSchema,
+                    currentFrame +: stack,
+                    top = false
+                  )
                   q"_root_.zio.schema.Deriver.wrap($f)"
               }
 
@@ -335,7 +345,7 @@ object Derive {
             val subtypeInstances = subtypes.zipWithIndex.map {
               case (subtype, idx) =>
                 val subtypeSchema = q"$schemaRef.cases($idx).schema"
-                val f             = recurse(subtype, subtypeSchema, currentFrame +: stack)
+                val f             = recurse(subtype, subtypeSchema, currentFrame +: stack, top = false)
                 q"_root_.zio.schema.Deriver.wrap($f)"
             }
             q"""{
@@ -350,8 +360,8 @@ object Derive {
             val keySchema   = q"$schemaRef.keySchema"
             val valueSchema = q"$schemaRef.valueSchema"
 
-            val keyInstance   = recurse(concreteType(tpe, keyTpe), keySchema, currentFrame +: stack)
-            val valueInstance = recurse(concreteType(tpe, valueTpe), valueSchema, currentFrame +: stack)
+            val keyInstance   = recurse(concreteType(tpe, keyTpe), keySchema, currentFrame +: stack, top = false)
+            val valueInstance = recurse(concreteType(tpe, valueTpe), valueSchema, currentFrame +: stack, top = false)
 
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Map[$keyTpe, $valueTpe]]
@@ -365,7 +375,8 @@ object Derive {
             )
       }
 
-    val tree = recurse(weakTypeOf[A], schema.tree, List.empty[Frame[c.type]])
+    val tree = recurse(weakTypeOf[A], schema.tree, List.empty[Frame[c.type]], top = true)
+    //println(tree)
     tree
   }
 
