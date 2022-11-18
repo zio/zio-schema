@@ -1,19 +1,17 @@
 package zio.schema.codec
 
-import java.time.{ ZoneId, ZoneOffset }
-
+import java.time.{ZoneId, ZoneOffset}
 import scala.collection.immutable.ListMap
-
 import zio.Console._
 import zio._
 import zio.json.JsonDecoder.JsonError
-import zio.json.{ DeriveJsonEncoder, JsonEncoder }
+import zio.json.{DeriveJsonEncoder, JsonEncoder}
 import zio.schema.CaseSet._
 import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
-import zio.schema.codec.JsonCodecSpec.PaymentMethod.{ CreditCard, WireTransfer }
+import zio.schema.codec.JsonCodecSpec.PaymentMethod.{CreditCard, PayPal, WireTransfer}
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -163,6 +161,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           PaymentMethod.schema,
           WireTransfer("foo", "bar"),
           charSequenceToByteChunk("""{"wire_transfer":{"accountNumber":"foo","bankCode":"bar"}}""")
+        )
+      },
+      test("transient case annotation") {
+        assertEncodes(
+          PaymentMethod.schema,
+          PayPal("foo@bar.com"),
+          charSequenceToByteChunk("""{}""")
         )
       }
     )
@@ -1049,6 +1054,8 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
     @caseName("wire_transfer") final case class WireTransfer(accountNumber: String, bankCode: String)
         extends PaymentMethod
+
+    @transientCase final case class PayPal(email: String) extends PaymentMethod
 
     implicit lazy val schema: Schema[PaymentMethod] = DeriveSchema.gen[PaymentMethod]
   }
