@@ -7,7 +7,7 @@ import zio.test.Assertion._
 import zio.test._
 import zio.{ Chunk, Scope, URIO }
 
-object PatchSpec extends ZIOSpecDefault with DefaultJavaTimeSchemas {
+object PatchSpec extends ZIOSpecDefault {
 
   def spec: Spec[TestEnvironment with Scope, Any] = suite("PatchSpec")(
     suite("identity law")(
@@ -182,7 +182,6 @@ object PatchSpec extends ZIOSpecDefault with DefaultJavaTimeSchemas {
           val afterInvert        = diff.invert.invert
           val patched            = schema.diff(l, r).patch(l)
           val patchedAfterInvert = afterInvert.patch(l)
-          if (patched.isLeft || patchedAfterInvert.isLeft) println(diff)
           assert(patched)(isRight(equalTo(r))) && assert(patchedAfterInvert)(isRight(equalTo(r)))
         } else {
           assertTrue(true)

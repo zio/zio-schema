@@ -349,20 +349,20 @@ object ThriftCodec extends BinaryCodec {
           writePrimitiveType(StandardType.IntType, v.getNano)
           writeFieldEnd()
 
-        case (StandardType.InstantType(formatter), v: Instant) =>
-          writeString(formatter.format(v))
-        case (StandardType.LocalDateType(formatter), v: LocalDate) =>
-          writeString(formatter.format(v))
-        case (StandardType.LocalTimeType(formatter), v: LocalTime) =>
-          writeString(formatter.format(v))
-        case (StandardType.LocalDateTimeType(formatter), v: LocalDateTime) =>
-          writeString(formatter.format(v))
-        case (StandardType.OffsetTimeType(formatter), v: OffsetTime) =>
-          writeString(formatter.format(v))
-        case (StandardType.OffsetDateTimeType(formatter), v: OffsetDateTime) =>
-          writeString(formatter.format(v))
-        case (StandardType.ZonedDateTimeType(formatter), v: ZonedDateTime) =>
-          writeString(formatter.format(v))
+        case (StandardType.InstantType, v: Instant) =>
+          p.writeString(v.toString)
+        case (StandardType.LocalDateType, v: LocalDate) =>
+          p.writeString(v.toString)
+        case (StandardType.LocalTimeType, v: LocalTime) =>
+          p.writeString(v.toString)
+        case (StandardType.LocalDateTimeType, v: LocalDateTime) =>
+          p.writeString(v.toString)
+        case (StandardType.OffsetTimeType, v: OffsetTime) =>
+          p.writeString(v.toString)
+        case (StandardType.OffsetDateTimeType, v: OffsetDateTime) =>
+          p.writeString(v.toString)
+        case (StandardType.ZonedDateTimeType, v: ZonedDateTime) =>
+          p.writeString(v.toString)
         case (_, _) =>
           fail(s"No encoder for $standardType")
       }
@@ -402,21 +402,21 @@ object ThriftCodec extends BinaryCodec {
           TType.BYTE
         case StandardType.MonthType =>
           TType.BYTE
-        case StandardType.MonthDayType          => TType.STRUCT
-        case StandardType.PeriodType            => TType.STRUCT
-        case StandardType.YearType              => TType.I32
-        case StandardType.YearMonthType         => TType.STRUCT
-        case StandardType.ZoneIdType            => TType.STRING
-        case StandardType.ZoneOffsetType        => TType.I32
-        case StandardType.DurationType          => TType.STRUCT
-        case StandardType.InstantType(_)        => TType.STRING
-        case StandardType.LocalDateType(_)      => TType.STRING
-        case StandardType.LocalTimeType(_)      => TType.STRING
-        case StandardType.LocalDateTimeType(_)  => TType.STRING
-        case StandardType.OffsetTimeType(_)     => TType.STRING
-        case StandardType.OffsetDateTimeType(_) => TType.STRING
-        case StandardType.ZonedDateTimeType(_)  => TType.STRING
-        case _                                  => TType.VOID
+        case StandardType.MonthDayType       => TType.STRUCT
+        case StandardType.PeriodType         => TType.STRUCT
+        case StandardType.YearType           => TType.I32
+        case StandardType.YearMonthType      => TType.STRUCT
+        case StandardType.ZoneIdType         => TType.STRING
+        case StandardType.ZoneOffsetType     => TType.I32
+        case StandardType.DurationType       => TType.STRUCT
+        case StandardType.InstantType        => TType.STRING
+        case StandardType.LocalDateType      => TType.STRING
+        case StandardType.LocalTimeType      => TType.STRING
+        case StandardType.LocalDateTimeType  => TType.STRING
+        case StandardType.OffsetTimeType     => TType.STRING
+        case StandardType.OffsetDateTimeType => TType.STRING
+        case StandardType.ZonedDateTimeType  => TType.STRING
+        case _                               => TType.VOID
       }
 
     @tailrec
@@ -566,20 +566,20 @@ object ThriftCodec extends BinaryCodec {
           p.readFieldBegin()
           Duration.ofSeconds(seconds, nano.toLong)
 
-        case StandardType.InstantType(formatter) =>
-          Instant.from(formatter.parse(decodeString(context.path)))
-        case StandardType.LocalDateType(formatter) =>
-          LocalDate.parse(decodeString(context.path), formatter)
-        case StandardType.LocalTimeType(formatter) =>
-          LocalTime.parse(decodeString(context.path), formatter)
-        case StandardType.LocalDateTimeType(formatter) =>
-          LocalDateTime.parse(decodeString(context.path), formatter)
-        case StandardType.OffsetTimeType(formatter) =>
-          OffsetTime.parse(decodeString(context.path), formatter)
-        case StandardType.OffsetDateTimeType(formatter) =>
-          OffsetDateTime.parse(decodeString(context.path), formatter)
-        case StandardType.ZonedDateTimeType(formatter) =>
-          ZonedDateTime.parse(decodeString(context.path), formatter)
+        case StandardType.InstantType =>
+          Instant.parse(decodeString(context.path))
+        case StandardType.LocalDateType =>
+          LocalDate.parse(decodeString(context.path))
+        case StandardType.LocalTimeType =>
+          LocalTime.parse(decodeString(context.path))
+        case StandardType.LocalDateTimeType =>
+          LocalDateTime.parse(decodeString(context.path))
+        case StandardType.OffsetTimeType =>
+          OffsetTime.parse(decodeString(context.path))
+        case StandardType.OffsetDateTimeType =>
+          OffsetDateTime.parse(decodeString(context.path))
+        case StandardType.ZonedDateTimeType =>
+          ZonedDateTime.parse(decodeString(context.path))
         case _ => fail(context, s"Unsupported primitive type $typ")
       }
 

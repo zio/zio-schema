@@ -88,36 +88,36 @@ object JsonCodec extends BinaryCodec {
 
     private[codec] def primitiveCodec[A](standardType: StandardType[A]): ZJsonCodec[A] =
       standardType match {
-        case StandardType.UnitType              => unitCodec
-        case StandardType.StringType            => ZJsonCodec.string
-        case StandardType.BoolType              => ZJsonCodec.boolean
-        case StandardType.ByteType              => ZJsonCodec.byte
-        case StandardType.ShortType             => ZJsonCodec.short
-        case StandardType.IntType               => ZJsonCodec.int
-        case StandardType.LongType              => ZJsonCodec.long
-        case StandardType.FloatType             => ZJsonCodec.float
-        case StandardType.DoubleType            => ZJsonCodec.double
-        case StandardType.BinaryType            => ZJsonCodec.chunk(ZJsonCodec.byte.encoder, ZJsonCodec.byte.decoder)
-        case StandardType.CharType              => ZJsonCodec.char
-        case StandardType.BigIntegerType        => ZJsonCodec.bigInteger
-        case StandardType.BigDecimalType        => ZJsonCodec.bigDecimal
-        case StandardType.UUIDType              => ZJsonCodec.uuid
-        case StandardType.DayOfWeekType         => ZJsonCodec.dayOfWeek // ZJsonCodec[java.time.DayOfWeek]
-        case StandardType.DurationType          => ZJsonCodec.duration //ZJsonCodec[java.time.Duration]
-        case StandardType.InstantType(_)        => ZJsonCodec.instant //ZJsonCodec[java.time.Instant]
-        case StandardType.LocalDateType(_)      => ZJsonCodec.localDate //ZJsonCodec[java.time.LocalDate]
-        case StandardType.LocalDateTimeType(_)  => ZJsonCodec.localDateTime //ZJsonCodec[java.time.LocalDateTime]
-        case StandardType.LocalTimeType(_)      => ZJsonCodec.localTime //ZJsonCodec[java.time.LocalTime]
-        case StandardType.MonthType             => ZJsonCodec.month //ZJsonCodec[java.time.Month]
-        case StandardType.MonthDayType          => ZJsonCodec.monthDay //ZJsonCodec[java.time.MonthDay]
-        case StandardType.OffsetDateTimeType(_) => ZJsonCodec.offsetDateTime //ZJsonCodec[java.time.OffsetDateTime]
-        case StandardType.OffsetTimeType(_)     => ZJsonCodec.offsetTime //ZJsonCodec[java.time.OffsetTime]
-        case StandardType.PeriodType            => ZJsonCodec.period //ZJsonCodec[java.time.Period]
-        case StandardType.YearType              => ZJsonCodec.year //ZJsonCodec[java.time.Year]
-        case StandardType.YearMonthType         => ZJsonCodec.yearMonth //ZJsonCodec[java.time.YearMonth]
-        case StandardType.ZonedDateTimeType(_)  => ZJsonCodec.zonedDateTime //ZJsonCodec[java.time.ZonedDateTime]
-        case StandardType.ZoneIdType            => ZJsonCodec.zoneId //ZJsonCodec[java.time.ZoneId]
-        case StandardType.ZoneOffsetType        => ZJsonCodec.zoneOffset //ZJsonCodec[java.time.ZoneOffset]
+        case StandardType.UnitType           => unitCodec
+        case StandardType.StringType         => ZJsonCodec.string
+        case StandardType.BoolType           => ZJsonCodec.boolean
+        case StandardType.ByteType           => ZJsonCodec.byte
+        case StandardType.ShortType          => ZJsonCodec.short
+        case StandardType.IntType            => ZJsonCodec.int
+        case StandardType.LongType           => ZJsonCodec.long
+        case StandardType.FloatType          => ZJsonCodec.float
+        case StandardType.DoubleType         => ZJsonCodec.double
+        case StandardType.BinaryType         => ZJsonCodec.chunk(ZJsonCodec.byte.encoder, ZJsonCodec.byte.decoder)
+        case StandardType.CharType           => ZJsonCodec.char
+        case StandardType.BigIntegerType     => ZJsonCodec.bigInteger
+        case StandardType.BigDecimalType     => ZJsonCodec.bigDecimal
+        case StandardType.UUIDType           => ZJsonCodec.uuid
+        case StandardType.DayOfWeekType      => ZJsonCodec.dayOfWeek // ZJsonCodec[java.time.DayOfWeek]
+        case StandardType.DurationType       => ZJsonCodec.duration //ZJsonCodec[java.time.Duration]
+        case StandardType.InstantType        => ZJsonCodec.instant //ZJsonCodec[java.time.Instant]
+        case StandardType.LocalDateType      => ZJsonCodec.localDate //ZJsonCodec[java.time.LocalDate]
+        case StandardType.LocalDateTimeType  => ZJsonCodec.localDateTime //ZJsonCodec[java.time.LocalDateTime]
+        case StandardType.LocalTimeType      => ZJsonCodec.localTime //ZJsonCodec[java.time.LocalTime]
+        case StandardType.MonthType          => ZJsonCodec.month //ZJsonCodec[java.time.Month]
+        case StandardType.MonthDayType       => ZJsonCodec.monthDay //ZJsonCodec[java.time.MonthDay]
+        case StandardType.OffsetDateTimeType => ZJsonCodec.offsetDateTime //ZJsonCodec[java.time.OffsetDateTime]
+        case StandardType.OffsetTimeType     => ZJsonCodec.offsetTime //ZJsonCodec[java.time.OffsetTime]
+        case StandardType.PeriodType         => ZJsonCodec.period //ZJsonCodec[java.time.Period]
+        case StandardType.YearType           => ZJsonCodec.year //ZJsonCodec[java.time.Year]
+        case StandardType.YearMonthType      => ZJsonCodec.yearMonth //ZJsonCodec[java.time.YearMonth]
+        case StandardType.ZonedDateTimeType  => ZJsonCodec.zonedDateTime //ZJsonCodec[java.time.ZonedDateTime]
+        case StandardType.ZoneIdType         => ZJsonCodec.zoneId //ZJsonCodec[java.time.ZoneId]
+        case StandardType.ZoneOffsetType     => ZJsonCodec.zoneOffset //ZJsonCodec[java.time.ZoneOffset]
       }
   }
 
@@ -259,12 +259,19 @@ object JsonCodec extends BinaryCodec {
             case d: discriminatorName => (d, case_.id)
           }
 
+          val caseName = case_ match {
+            case Schema.Case(id, _, _, _, _, annotations) =>
+              annotations.collectFirst {
+                case name: caseName => name
+              }.map(_.name).getOrElse(id)
+          }
+
           if (discriminatorChunk.isEmpty) out.write('{')
           val indent_ = bump(indent)
           pad(indent_, out)
 
           if (discriminatorChunk.isEmpty) {
-            string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(case_.id), indent_, out)
+            string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(caseName), indent_, out)
             if (indent.isEmpty) out.write(':')
             else out.write(" : ")
           }
@@ -429,7 +436,10 @@ object JsonCodec extends BinaryCodec {
         {
           val caseNameAliases = cases.map {
             case Schema.Case(name, _, _, _, _, annotations) =>
-              (name, annotations.collectFirst { case a: caseNameAliases => a.aliases.toList }.getOrElse(List.empty))
+              (name, annotations.collectFirst {
+                case a: caseNameAliases => a.aliases.toList
+                case cn: caseName       => List(cn.name)
+              }.getOrElse(List.empty))
           }.toMap
           Lexer.char(trace, in, '{')
           if (Lexer.firstField(trace, in)) {

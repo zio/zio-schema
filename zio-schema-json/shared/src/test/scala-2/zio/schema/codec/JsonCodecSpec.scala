@@ -1,6 +1,5 @@
 package zio.schema.codec
 
-import java.time.format.DateTimeFormatter
 import java.time.{ ZoneId, ZoneOffset }
 
 import scala.collection.immutable.ListMap
@@ -14,7 +13,7 @@ import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
-import zio.schema.codec.JsonCodecSpec.PaymentMethod.CreditCard
+import zio.schema.codec.JsonCodecSpec.PaymentMethod.{ CreditCard, WireTransfer }
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -165,6 +164,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
           IntValue(124),
           charSequenceToByteChunk("""{"int_value":{"value":124}}"""),
           true
+        )},
+      test("case name annotation") {
+        assertEncodes(
+          PaymentMethod.schema,
+          WireTransfer("foo", "bar"),
+          charSequenceToByteChunk("""{"wire_transfer":{"accountNumber":"foo","bankCode":"bar"}}""")
         )
       }
     )
@@ -282,6 +287,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
           OneOf.schema,
           IntValue(123),
           charSequenceToByteChunk("""{"int_value":{"value":123}}""")
+        )},
+      test("case name") {
+        assertDecodes(
+          PaymentMethod.schema,
+          WireTransfer("foo", "bar"),
+          charSequenceToByteChunk("""{"wire_transfer":{"accountNumber":"foo","bankCode":"bar"}}""")
         )
       }
     )
@@ -693,7 +704,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         },
         test("dynamic instant") {
           check(
-            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.InstantType(DateTimeFormatter.ISO_INSTANT))
+            DynamicValueGen.anyPrimitiveDynamicValue(StandardType.InstantType)
           ) { dynamicValue =>
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
           }
@@ -701,7 +712,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         test("dynamic zoned date time") {
           check(
             DynamicValueGen.anyPrimitiveDynamicValue(
-              StandardType.ZonedDateTimeType(DateTimeFormatter.ISO_ZONED_DATE_TIME)
+              StandardType.ZonedDateTimeType
             )
           ) { dynamicValue =>
             assertEncodesThenDecodes(Schema.dynamicValue, dynamicValue)
@@ -1049,7 +1060,8 @@ object JsonCodecSpec extends ZIOSpecDefault {
       expirationYear: Int
     ) extends PaymentMethod
 
-    final case class WireTransfer(accountNumber: String, bankCode: String) extends PaymentMethod
+    @caseName("wire_transfer") final case class WireTransfer(accountNumber: String, bankCode: String)
+        extends PaymentMethod
 
     implicit lazy val schema: Schema[PaymentMethod] = DeriveSchema.gen[PaymentMethod]
   }

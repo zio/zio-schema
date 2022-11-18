@@ -221,26 +221,26 @@ private[codec] class MessagePackEncoder {
         ()
       case (StandardType.DurationType, v: Duration) =>
         encodeRecord(MessagePackCodec.durationStructure, ListMap("seconds" -> v.getSeconds, "nanos" -> v.getNano))
-      case (StandardType.InstantType(formatter), v: Instant) =>
-        packer.packString(formatter.format(v))
+      case (StandardType.InstantType, v: Instant) =>
+        packer.packString(v.toString)
         ()
-      case (StandardType.LocalDateType(formatter), v: LocalDate) =>
-        packer.packString(formatter.format(v))
+      case (StandardType.LocalDateType, v: LocalDate) =>
+        packer.packString(v.toString)
         ()
-      case (StandardType.LocalTimeType(formatter), v: LocalTime) =>
-        packer.packString(formatter.format(v))
+      case (StandardType.LocalTimeType, v: LocalTime) =>
+        packer.packString(v.toString)
         ()
-      case (StandardType.LocalDateTimeType(formatter), v: LocalDateTime) =>
-        packer.packString(formatter.format(v))
+      case (StandardType.LocalDateTimeType, v: LocalDateTime) =>
+        packer.packString(v.toString)
         ()
-      case (StandardType.OffsetTimeType(formatter), v: OffsetTime) =>
-        packer.packString(formatter.format(v))
+      case (StandardType.OffsetTimeType, v: OffsetTime) =>
+        packer.packString(v.toString)
         ()
-      case (StandardType.OffsetDateTimeType(formatter), v: OffsetDateTime) =>
-        packer.packString(formatter.format(v))
+      case (StandardType.OffsetDateTimeType, v: OffsetDateTime) =>
+        packer.packString(v.toString)
         ()
-      case (StandardType.ZonedDateTimeType(formatter), v: ZonedDateTime) =>
-        packer.packString(formatter.format(v))
+      case (StandardType.ZonedDateTimeType, v: ZonedDateTime) =>
+        packer.packString(v.toString)
         ()
       case (_, _) =>
         throw new NotImplementedError(s"No encoder for $standardType")

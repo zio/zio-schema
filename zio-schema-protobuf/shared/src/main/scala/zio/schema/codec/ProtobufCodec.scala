@@ -11,7 +11,7 @@ import scala.util.control.NonFatal
 import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
 import zio.schema._
 import zio.schema.codec.BinaryCodec.{ BinaryDecoder, BinaryEncoder, BinaryStreamDecoder, BinaryStreamEncoder }
-import zio.schema.codec.DecodeError.{ ExtraFields, MalformedField, MissingField, ReadError }
+import zio.schema.codec.DecodeError.{ ExtraFields, MalformedField, MissingField }
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZPipeline
 import zio.{ Cause, Chunk, Unsafe, ZIO }
@@ -72,36 +72,36 @@ object ProtobufCodec extends BinaryCodec {
     }
 
     private def canBePacked(standardType: StandardType[_]): Boolean = standardType match {
-      case StandardType.UnitType              => false
-      case StandardType.StringType            => false
-      case StandardType.BoolType              => true
-      case StandardType.ByteType              => true
-      case StandardType.ShortType             => true
-      case StandardType.IntType               => true
-      case StandardType.LongType              => true
-      case StandardType.FloatType             => true
-      case StandardType.DoubleType            => true
-      case StandardType.BinaryType            => false
-      case StandardType.CharType              => true
-      case StandardType.BigIntegerType        => false
-      case StandardType.BigDecimalType        => false
-      case StandardType.UUIDType              => false
-      case StandardType.DayOfWeekType         => true
-      case StandardType.MonthType             => true
-      case StandardType.MonthDayType          => false
-      case StandardType.PeriodType            => false
-      case StandardType.YearType              => true
-      case StandardType.YearMonthType         => false
-      case StandardType.ZoneIdType            => false
-      case StandardType.ZoneOffsetType        => true
-      case StandardType.DurationType          => true
-      case StandardType.InstantType(_)        => false
-      case StandardType.LocalDateType(_)      => false
-      case StandardType.LocalTimeType(_)      => false
-      case StandardType.LocalDateTimeType(_)  => false
-      case StandardType.OffsetTimeType(_)     => false
-      case StandardType.OffsetDateTimeType(_) => false
-      case StandardType.ZonedDateTimeType(_)  => false
+      case StandardType.UnitType           => false
+      case StandardType.StringType         => false
+      case StandardType.BoolType           => true
+      case StandardType.ByteType           => true
+      case StandardType.ShortType          => true
+      case StandardType.IntType            => true
+      case StandardType.LongType           => true
+      case StandardType.FloatType          => true
+      case StandardType.DoubleType         => true
+      case StandardType.BinaryType         => false
+      case StandardType.CharType           => true
+      case StandardType.BigIntegerType     => false
+      case StandardType.BigDecimalType     => false
+      case StandardType.UUIDType           => false
+      case StandardType.DayOfWeekType      => true
+      case StandardType.MonthType          => true
+      case StandardType.MonthDayType       => false
+      case StandardType.PeriodType         => false
+      case StandardType.YearType           => true
+      case StandardType.YearMonthType      => false
+      case StandardType.ZoneIdType         => false
+      case StandardType.ZoneOffsetType     => true
+      case StandardType.DurationType       => true
+      case StandardType.InstantType        => false
+      case StandardType.LocalDateType      => false
+      case StandardType.LocalTimeType      => false
+      case StandardType.LocalDateTimeType  => false
+      case StandardType.OffsetTimeType     => false
+      case StandardType.OffsetDateTimeType => false
+      case StandardType.ZonedDateTimeType  => false
     }
   }
 
@@ -386,20 +386,20 @@ object ProtobufCodec extends BinaryCodec {
               encodePrimitive(Some(2), StandardType.IntType, v.getNano)
 
           encodeKey(WireType.LengthDelimited(encodedRecord.size), fieldNumber) ++ encodedRecord
-        case (StandardType.InstantType(formatter), v: Instant) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, formatter.format(v))
-        case (StandardType.LocalDateType(formatter), v: LocalDate) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
-        case (StandardType.LocalTimeType(formatter), v: LocalTime) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
-        case (StandardType.LocalDateTimeType(formatter), v: LocalDateTime) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
-        case (StandardType.OffsetTimeType(formatter), v: OffsetTime) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
-        case (StandardType.OffsetDateTimeType(formatter), v: OffsetDateTime) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
-        case (StandardType.ZonedDateTimeType(formatter), v: ZonedDateTime) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, v.format(formatter))
+        case (StandardType.InstantType, v: Instant) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
+        case (StandardType.LocalDateType, v: LocalDate) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
+        case (StandardType.LocalTimeType, v: LocalTime) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
+        case (StandardType.LocalDateTimeType, v: LocalDateTime) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
+        case (StandardType.OffsetTimeType, v: OffsetTime) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
+        case (StandardType.OffsetDateTimeType, v: OffsetDateTime) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
+        case (StandardType.ZonedDateTimeType, v: ZonedDateTime) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
         case (_, _) =>
           throw new NotImplementedError(s"No encoder for $standardType")
       }
@@ -549,21 +549,21 @@ object ProtobufCodec extends BinaryCodec {
           val seconds = createTypedPrimitive(rawFieldDecoder(context, 1), StandardType.LongType)
           val nanos   = createTypedPrimitive(rawFieldDecoder(context, 2), StandardType.IntType)
           Duration.ofSeconds(seconds, nanos.toLong)
-        case StandardType.InstantType(formatter) =>
-          Instant.from(formatter.parse(stringDecoder(context)))
-        case StandardType.LocalDateType(formatter) =>
-          LocalDate.parse(stringDecoder(context), formatter)
-        case StandardType.LocalTimeType(formatter) =>
-          LocalTime.parse(stringDecoder(context), formatter)
-        case StandardType.LocalDateTimeType(formatter) =>
-          LocalDateTime.parse(stringDecoder(context), formatter)
-        case StandardType.OffsetTimeType(formatter) =>
-          OffsetTime.parse(stringDecoder(context), formatter)
-        case StandardType.OffsetDateTimeType(formatter) =>
-          OffsetDateTime.parse(stringDecoder(context), formatter)
-        case StandardType.ZonedDateTimeType(formatter) =>
-          ZonedDateTime.parse(stringDecoder(context), formatter)
-        case st => throw ReadError(Cause.empty, s"Unsupported primitive type $st")
+        case StandardType.InstantType =>
+          Instant.parse(stringDecoder(context))
+        case StandardType.LocalDateType =>
+          LocalDate.parse(stringDecoder(context))
+        case StandardType.LocalTimeType =>
+          LocalTime.parse(stringDecoder(context))
+        case StandardType.LocalDateTimeType =>
+          LocalDateTime.parse(stringDecoder(context))
+        case StandardType.OffsetTimeType =>
+          OffsetTime.parse(stringDecoder(context))
+        case StandardType.OffsetDateTimeType =>
+          OffsetDateTime.parse(stringDecoder(context))
+        case StandardType.ZonedDateTimeType =>
+          ZonedDateTime.parse(stringDecoder(context))
+        case st => fail(context, s"Unsupported primitive type $st")
       }
 
     override protected def startCreatingRecord(context: DecoderContext, record: Schema.Record[_]): DecoderContext =
