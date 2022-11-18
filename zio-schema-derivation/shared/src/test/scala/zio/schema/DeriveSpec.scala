@@ -14,9 +14,8 @@ object DeriveSpec extends ZIOSpecDefault {
           assertTrue(tc.isDerived == true)
         },
         test("can use existing instance for case object") {
-          implicit val schema: Schema[CaseObject2.type] = DeriveSchema.gen[CaseObject2.type]
-          val tc                                        = Derive.derive[TC, CaseObject2.type](deriver)
-          assertTrue(tc.isDerived == false)
+          val tc = Derive.derive[TC, CaseObject2Wrapper](deriver)
+          assertTrue(tc.isDerived == true, tc.inner.map(_.isDerived).contains(false))
         }
       ),
       suite("case class")(
@@ -25,8 +24,8 @@ object DeriveSpec extends ZIOSpecDefault {
           assertTrue(tc.isDerived == true)
         },
         test("can use existing instance for simple case class") {
-          val tc = Derive.derive[TC, Record2](deriver)
-          assertTrue(tc.isDerived == false)
+          val tc = Derive.derive[TC, Record2Wrapper](deriver)
+          assertTrue(tc.isDerived == true, tc.inner.map(_.isDerived).contains(false))
         },
         test("can derive new instance for case class referring another one using an existing instance") {
           val tc = Derive.derive[TC, Record3](deriver)
@@ -133,6 +132,12 @@ object DeriveSpec extends ZIOSpecDefault {
     override def inner: Option[TC[_]] = None
   }
 
+  case class CaseObject2Wrapper(obj: CaseObject2.type)
+
+  object CaseObject2Wrapper {
+    implicit val schema: Schema[CaseObject2Wrapper] = DeriveSchema.gen[CaseObject2Wrapper]
+  }
+
   case class Record1(a: String, b: Int)
 
   object Record1 {
@@ -147,6 +152,12 @@ object DeriveSpec extends ZIOSpecDefault {
       override def isDerived: Boolean   = false
       override def inner: Option[TC[_]] = None
     }
+  }
+
+  case class Record2Wrapper(obj: Record2)
+
+  object Record2Wrapper {
+    implicit val schema: Schema[Record2Wrapper] = DeriveSchema.gen[Record2Wrapper]
   }
 
   case class Record3(r: Option[Record2])
