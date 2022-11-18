@@ -108,7 +108,7 @@ object DeriveSpec extends ZIOSpecDefault {
             tc8 ne null
           )
         }
-      }
+      },
     )
 
   trait TC[A] {

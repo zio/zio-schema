@@ -28,7 +28,7 @@ import zio.schema.Deriver.{ WrappedF, wrap }
  * which implements this automatically and only calls the trait's methods in case there is no available implicit for
  * the actual type.
  */
-trait Deriver[F[_]] { self =>
+trait Deriver[F[_]] extends VersionSpecificDeriver[F] { self =>
 
   lazy val cached: Deriver[F] = {
     val cache = CachedDeriver.createCache[F]
