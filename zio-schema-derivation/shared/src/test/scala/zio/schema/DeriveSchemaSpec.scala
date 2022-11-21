@@ -3,7 +3,7 @@ package zio.schema
 import scala.annotation.Annotation
 
 import zio.Chunk
-import zio.schema.annotation.{ fieldName, optionalField }
+import zio.schema.annotation.{ fieldName, generator, optionalField }
 import zio.test._
 
 object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaSpec {
@@ -243,6 +243,13 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     implicit val schema: Schema[OptionalField] = DeriveSchema.gen[OptionalField]
   }
 
+  val overrideGenerator: Gen[Any, String] = Gen.const("overridden")
+  case class OverrideGen(@generator(overrideGenerator) name: String, age: Int)
+
+  object OverrideGen {
+    implicit val schema: Schema.CaseClass2[String, Int, OverrideGen] = DeriveSchema.gen[OverrideGen]
+  }
+
   override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("correctly derives case class 0") {
@@ -446,6 +453,30 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
               set0 = (a, b: Int) => a.copy(age = b)
             ),
             OptionalField.apply
+          )
+        }
+        assert(derived)(hasSameSchema(expected))
+      },
+      test("correctly derives generator override when generator annotation is present") {
+        val derived: Schema.CaseClass2[String, Int, OverrideGen] = OverrideGen.schema
+        val expected: Schema.CaseClass2[String, Int, OverrideGen] = {
+          Schema.CaseClass2(
+            TypeId.parse("zio.schema.DeriveSchemaSpec.OverrideGen"),
+            field01 = Schema.Field(
+              "name",
+              Schema.Primitive(StandardType.StringType),
+              Chunk(generator(overrideGenerator)),
+              get0 = _.name,
+              set0 = (a, b: String) => a.copy(name = b)
+            ),
+            field02 = Schema.Field(
+              "age",
+              Schema.Primitive(StandardType.IntType),
+              Chunk.empty,
+              get0 = _.age,
+              set0 = (a, b: Int) => a.copy(age = b)
+            ),
+            OverrideGen.apply
           )
         }
         assert(derived)(hasSameSchema(expected))

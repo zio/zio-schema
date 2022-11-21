@@ -2,6 +2,7 @@ package zio.schema
 
 import zio.ZIO
 import zio.schema.TestData._
+import zio.schema.annotation.generator
 import zio.test.Assertion._
 import zio.test._
 
@@ -63,6 +64,9 @@ object DeriveGenSpec extends ZIOSpecDefault {
     test("correctly derives Lazy") {
       generateValue(DeriveGen.gen(lazySchema))
     },
+    test("correctly overrides generator") {
+      assertZIO(DeriveGen.gen(overrideGenSchema).runCollect.map(_.headOption))(isSome(equalTo("overridden")))
+    },
     test("correctly derives Enums") {
       for {
         enum2 <- generateValue(DeriveGen.gen(Enum2.schema))
@@ -71,6 +75,14 @@ object DeriveGenSpec extends ZIOSpecDefault {
     },
     test("correctly derives CaseClasses") {
       generateValue(DeriveGen.gen(CaseClass22.schema))
+    },
+    test("correctly overrides CaseClass gen") {
+      val defaultGen          = DeriveGen.gen(OverrideGenCaseClass.schema)
+      val overriddenGen       = defaultGen.map(_.copy(f2 = "from schema annotation"))
+      val overriddenGenSchema = OverrideGenCaseClass.schema.annotate(generator(overriddenGen))
+      assertZIO(DeriveGen.gen(overriddenGenSchema).runCollect.map(_.headOption))(
+        isSome(equalTo(OverrideGenCaseClass("from case class annotation", "from schema annotation")))
+      )
     }
   )
 

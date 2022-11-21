@@ -1,6 +1,8 @@
 package zio.schema
 
 import zio.Chunk
+import zio.schema.annotation.generator
+import zio.test.Gen
 
 object TestData {
 
@@ -58,6 +60,9 @@ object TestData {
     intSchema.transformOrFail[String]((int: Int) => Right(int.toString), (_: String) => Left("error"))
   val failSchema: Schema[Unit] = Schema.Fail[Unit]("failed")
   val lazySchema: Schema[Int]  = Schema.Lazy(() => intSchema)
+
+  val overrideGenSchema: Schema[String] =
+    Schema.Primitive(StandardType.StringType).annotate(generator(Gen.const("overridden")))
 
   sealed trait Enum2
 
@@ -469,5 +474,15 @@ object TestData {
 
   object CaseClass22 {
     val schema: Schema[CaseClass22] = DeriveSchema.gen[CaseClass22]
+  }
+
+  case class OverrideGenCaseClass(
+    @generator(Gen.const("from case class annotation")) f1: String,
+    f2: String
+  )
+
+  object OverrideGenCaseClass {
+    implicit val schema: Schema.CaseClass2[String, String, OverrideGenCaseClass] =
+      DeriveSchema.gen[OverrideGenCaseClass]
   }
 }
