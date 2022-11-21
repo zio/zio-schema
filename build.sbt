@@ -109,7 +109,8 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio"         % zioVersion,
       "dev.zio" %% "zio-streams" % zioVersion,
-      "dev.zio" %% "zio-prelude" % zioPreludeVersion
+      "dev.zio" %% "zio-prelude" % zioPreludeVersion,
+      "dev.zio" %% "zio-test"    % zioVersion
     )
   )
   .dependsOn(zioSchemaMacros)
