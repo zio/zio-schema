@@ -87,6 +87,29 @@ object JsonCodecSpec extends ZIOSpecDefault {
             """[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]"""
           )
         )
+      },
+      test("which is empty") {
+        assertEncodes(
+          Schema.map[String, String],
+          Map.empty[String, String],
+          charSequenceToByteChunk("""{}""")
+        )
+      },
+      test("with String key/value") {
+        assertEncodes(
+          Schema.map[String, String],
+          Map[String, String]("extra" -> "config"),
+          charSequenceToByteChunk("""{"extra":"config"}""")
+        )
+      },
+      test("with String key and complex value") {
+        assertEncodes(
+          Schema.map[String, ServerInfo],
+          Map[String, ServerInfo]("serverInfo" -> ServerInfo("server1", "community", "v1")),
+          charSequenceToByteChunk(
+            """{"serverInfo":{"server":"server1","license":"community","version":"v1","details":{}}}"""
+          )
+        )
       }
     ),
     suite("Set")(
@@ -378,6 +401,22 @@ object JsonCodecSpec extends ZIOSpecDefault {
           PaymentMethod.schema,
           WireTransfer("foo", "bar"),
           charSequenceToByteChunk("""{"wire_transfer":{"accountNumber":"foo","bankCode":"bar"}}""")
+        )
+      },
+      test("case class with empty map") {
+        assertDecodes(
+          ServerInfo.schema,
+          ServerInfo("server1", "community", "v1"),
+          charSequenceToByteChunk("""{"server":"server1","license":"community","version":"v1"}""")
+        )
+      },
+      test("case class with map string -> string") {
+        assertDecodes(
+          ServerInfo.schema,
+          ServerInfo("server1", "community", "v1", Map("extra" -> "config")),
+          charSequenceToByteChunk(
+            """{"server":"server1","license":"community","version":"v1","details":{"extra":"config"}}"""
+          )
         )
       }
     ),
@@ -990,8 +1029,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
       .succeed(value)
       .via(JsonCodec.schemaBasedBinaryCodec(schema).streamEncoder)
       .runCollect
-      .tap { chunk =>
-        printLine(s"${new String(chunk.toArray)}").when(print).ignore
+      .tap { _ =>
+        printLine(s"Value:    $value").when(print).ignore
+      }
+      .tap { encoded =>
+        printLine(s"Encoded:  ${new String(encoded.toArray)}").when(print).ignore
+      }
+      .tap { _ =>
+        printLine(s"Expected: ${new String(chunk.toArray)}").when(print).ignore
       }
     assertZIO(stream)(equalTo(chunk))
   }
@@ -1308,6 +1353,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
   object Order {
     implicit lazy val schema: Schema[Order] = DeriveSchema.gen[Order]
   }
+
   @noDiscriminator sealed trait Prompt
 
   object Prompt {
@@ -1321,5 +1367,17 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object WithOptionFields {
     implicit lazy val schema: Schema[WithOptionFields] = DeriveSchema.gen[WithOptionFields]
+  }
+
+  case class ServerInfo(
+    server: String,
+    license: String,
+    version: String,
+    @fieldDefaultValue(Map.empty[String, String]) details: Map[String, String] = Map.empty[String, String]
+  )
+
+  object ServerInfo {
+
+    implicit lazy val schema: Schema[ServerInfo] = DeriveSchema.gen[ServerInfo]
   }
 }

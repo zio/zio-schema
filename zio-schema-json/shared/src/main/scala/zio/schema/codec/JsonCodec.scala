@@ -3,7 +3,7 @@ package zio.schema.codec
 import java.nio.CharBuffer
 import java.nio.charset.StandardCharsets
 
-import scala.collection.immutable.ListMap
+import scala.collection.immutable.{ ListMap, Map }
 
 import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
@@ -147,6 +147,12 @@ object JsonCodec {
       }
   }
 
+  private[codec] def isString[A](schema: Schema[A]): Boolean =
+    schema match {
+      case Schema.Primitive(standardType, _) if standardType.tag == StandardType.Tags.STRING => true
+      case _                                                                                 => false
+    }
+
   object JsonEncoder {
 
     import Codecs._
@@ -163,13 +169,27 @@ object JsonCodec {
       Chunk.fromByteBuffer(bytes)
     }
 
+    private[codec] def encodeStringKeysMap[V](
+      valueSchema: Schema[V],
+      discriminatorTuple: DiscriminatorTuple = Chunk.empty
+    ): ZJsonEncoder[Map[String, V]] = {
+      implicit val keysEncoder                    = JsonFieldEncoder.string
+      implicit val valuesEncoder: ZJsonEncoder[V] = schemaEncoder(valueSchema, discriminatorTuple)
+
+      ZJsonEncoder.map[String, V]
+    }
+
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[codec] def schemaEncoder[A](schema: Schema[A], discriminatorTuple: DiscriminatorTuple = Chunk.empty): ZJsonEncoder[A] =
       schema match {
         case Schema.Primitive(standardType, _)   => primitiveCodec(standardType).encoder
         case Schema.Sequence(schema, _, g, _, _) => ZJsonEncoder.chunk(schemaEncoder(schema, discriminatorTuple)).contramap(g)
         case Schema.Map(ks, vs, _) =>
-          ZJsonEncoder.chunk(schemaEncoder(ks, discriminatorTuple).zip(schemaEncoder(vs, discriminatorTuple))).contramap(m => Chunk.fromIterable(m))
+          if (isString(ks)) {
+            encodeStringKeysMap(vs, discriminatorTuple).asInstanceOf[ZJsonEncoder[A]]
+          } else {
+            ZJsonEncoder.chunk(schemaEncoder(ks, discriminatorTuple).zip(schemaEncoder(vs, discriminatorTuple))).contramap(m => Chunk.fromIterable(m))
+          }
         case Schema.Set(s, _) =>
           ZJsonEncoder.chunk(schemaEncoder(s, discriminatorTuple)).contramap(m => Chunk.fromIterable(m))
         case Schema.Transform(c, _, g, _, _)        => transformEncoder(c, g)
@@ -461,6 +481,16 @@ object JsonCodec {
       case _: ZJsonDecoder[_] =>
     }
 
+    private[codec] def decodeStringKeysMap[V](
+      valueSchema: Schema[V],
+      hasDiscriminator: Boolean = false
+    ): ZJsonDecoder[Map[String, V]] = {
+      implicit val keysDecoder                    = JsonFieldDecoder.string
+      implicit val valuesDecoder: ZJsonDecoder[V] = schemaDecoder(valueSchema, hasDiscriminator)
+
+      ZJsonDecoder.map[String, V]
+    }
+
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[codec] def schemaDecoder[A](schema: Schema[A], hasDiscriminator: Boolean = false): ZJsonDecoder[A] = schema match {
       case Schema.Primitive(standardType, _)   => primitiveCodec(standardType).decoder
@@ -469,7 +499,11 @@ object JsonCodec {
       case Schema.Transform(codec, f, _, _, _) => schemaDecoder(codec, hasDiscriminator).mapOrFail(f)
       case Schema.Sequence(codec, f, _, _, _)  => ZJsonDecoder.chunk(schemaDecoder(codec, hasDiscriminator)).map(f)
       case Schema.Map(ks, vs, _) =>
-        ZJsonDecoder.chunk(schemaDecoder(ks, hasDiscriminator) <*> schemaDecoder(vs, hasDiscriminator)).map(entries => entries.toList.toMap)
+        if (isString(ks)) {
+          decodeStringKeysMap(vs, hasDiscriminator).asInstanceOf[ZJsonDecoder[A]]
+        } else {
+          ZJsonDecoder.chunk(schemaDecoder(ks, hasDiscriminator) <*> schemaDecoder(vs, hasDiscriminator)).map(entries => entries.toList.toMap)
+        }
       case Schema.Set(s, _)                      => ZJsonDecoder.chunk(schemaDecoder(s, hasDiscriminator)).map(entries => entries.toSet)
       case Schema.Fail(message, _)               => failDecoder(message)
       case Schema.GenericRecord(_, structure, _) => recordDecoder(structure.toChunk)
