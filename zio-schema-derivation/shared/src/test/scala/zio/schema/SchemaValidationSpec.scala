@@ -3,7 +3,7 @@ package zio.schema
 import zio._
 import zio.schema.Schema._
 import zio.schema.annotation.validate
-import zio.schema.validation.{ Validation, ValidationError }
+import zio.schema.validation.{ Bool, Predicate, Validation, ValidationError }
 import zio.test._
 
 object SchemaValidationSpec extends ZIOSpecDefault {
@@ -43,7 +43,23 @@ object SchemaValidationSpec extends ZIOSpecDefault {
   // val schemaCaseClass1: Schema.CaseClass1[Int, Grade] = DeriveSchema.gen[Grade]
   val schemaGrade: CaseClass1[Int, Grade] = DeriveSchema.gen[Grade]
 
+  val isVnPhone: Predicate[String] = value => {
+    val r = """^(?:(?:\+|00)84|0)(?:[ -]?\d){9,10}$""".r
+    if (r.pattern.matcher(value).matches()) Right(Chunk(ValidationError.Generic("yes")))
+    else Left(Chunk(ValidationError.Generic("no")))
+  }
+  final case class VnPhone(@validate(Validation(Bool.Leaf(isVnPhone))) phone: String)
+
   override def spec: Spec[Environment, Any] = suite("Schema Validation Spec")(
+    test("Validate VnPhone creation with custom Validation") {
+      implicit val vnPhone: Schema[VnPhone] = DeriveSchema.gen[VnPhone]
+      assert(Schema.validate(VnPhone("012345678901")))(
+        Assertion.hasSameElements(
+          Chunk(ValidationError.Generic("no"))
+        )
+      ) &&
+        assert(Schema.validate(VnPhone("+84 123-45-6789")))(Assertion.isEmpty)
+    },
     test("Invalid CaseClass1 creation") {
       val grade                               = Grade(-50)
       implicit val gradeSchema: Schema[Grade] = schemaGrade
