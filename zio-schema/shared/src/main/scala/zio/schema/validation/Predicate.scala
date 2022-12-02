@@ -2,7 +2,7 @@ package zio.schema.validation
 
 import zio.Chunk
 
-sealed trait Predicate[A] {
+trait Predicate[A] {
   type Errors = Chunk[ValidationError]
   type Result = Either[Errors, Errors]
   def validate(value: A): Result

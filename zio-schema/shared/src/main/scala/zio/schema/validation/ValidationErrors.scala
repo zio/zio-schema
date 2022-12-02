@@ -1,6 +1,6 @@
 package zio.schema.validation
 
-sealed trait ValidationError {
+trait ValidationError {
   def message: String
 }
 
