@@ -1,49 +1,45 @@
 package zio.schema.codec
 
 import java.math.{ BigInteger, MathContext }
-import java.time.{ Duration, Month, MonthDay, Period, Year, YearMonth }
+import java.time._
 
-import zio.schema.codec.BinaryCodec.{ BinaryDecoder, BinaryEncoder, BinaryStreamDecoder, BinaryStreamEncoder }
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.{ Schema, StandardType }
 import zio.stream.ZPipeline
 import zio.{ Cause, Chunk, ZIO }
 
-object MessagePackCodec extends BinaryCodec {
-  override def encoderFor[A](schema: Schema[A]): BinaryEncoder[A] = new BinaryEncoder[A] {
+object MessagePackCodec {
+  implicit def messagePackCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
+    new BinaryCodec[A] {
+      override def encode(a: A): Chunk[Byte] =
+        new MessagePackEncoder().encode(schema, a)
 
-    override def encode(value: A): Chunk[Byte] =
-      new MessagePackEncoder().encode(schema, value)
+      override def decode(bytes: Chunk[Byte]): Either[DecodeError, A] =
+        if (bytes.isEmpty)
+          Left(ReadError(Cause.empty, "No bytes to decode"))
+        else
+          decodeChunk(bytes)
 
-    override def streamEncoder: BinaryStreamEncoder[A] = {
-      val encoder = new MessagePackEncoder()
-      ZPipeline.mapChunks { chunk =>
-        chunk.flatMap(encoder.encode(schema, _))
+      override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] = {
+        val encoder = new MessagePackEncoder()
+        ZPipeline.mapChunks { chunk =>
+          chunk.flatMap(encoder.encode(schema, _))
+        }
       }
+
+      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
+        ZPipeline.mapChunksZIO { chunk =>
+          ZIO.fromEither(
+            decodeChunk(chunk).map(Chunk(_))
+          )
+        }
+
+      private def decodeChunk(chunk: Chunk[Byte]) =
+        new MessagePackDecoder(chunk)
+          .decode(schema)
+          .left
+          .map(identity)
     }
-  }
-
-  override def decoderFor[A](schema: Schema[A]): BinaryDecoder[A] = new BinaryDecoder[A] {
-
-    override def decode(chunk: Chunk[Byte]): Either[DecodeError, A] =
-      if (chunk.isEmpty)
-        Left(ReadError(Cause.empty, "No bytes to decode"))
-      else
-        decodeChunk(chunk)
-
-    override def streamDecoder: BinaryStreamDecoder[A] =
-      ZPipeline.mapChunksZIO { chunk =>
-        ZIO.fromEither(
-          decodeChunk(chunk).map(Chunk(_))
-        )
-      }
-
-    private def decodeChunk(chunk: Chunk[Byte]) =
-      new MessagePackDecoder(chunk)
-        .decode(schema)
-        .left
-        .map(identity)
-  }
 
   //TODO those are duplicates from ThriftCodec
   val bigDecimalStructure: Seq[Schema.Field[java.math.BigDecimal, _]] =

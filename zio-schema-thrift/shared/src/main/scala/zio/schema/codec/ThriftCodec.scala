@@ -13,43 +13,36 @@ import org.apache.thrift.protocol._
 import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
 import zio.schema._
 import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
-import zio.schema.codec.BinaryCodec.{ BinaryDecoder, BinaryEncoder, BinaryStreamDecoder, BinaryStreamEncoder }
 import zio.schema.codec.DecodeError.{ EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath }
 import zio.stream.ZPipeline
 import zio.{ Cause, Chunk, Unsafe, ZIO }
 
-object ThriftCodec extends BinaryCodec {
+object ThriftCodec {
 
-  override def encoderFor[A](schema: Schema[A]): BinaryEncoder[A] =
-    new BinaryEncoder[A] {
-
-      override def encode(value: A): Chunk[Byte] =
-        new Encoder().encode(schema, value)
-
-      override def streamEncoder: BinaryStreamEncoder[A] = {
-        val encoder = new Encoder()
-        ZPipeline.mapChunks { chunk =>
-          chunk.flatMap(encoder.encode(schema, _))
-        }
-      }
-
-    }
-
-  override def decoderFor[A](schema: Schema[A]): BinaryDecoder[A] =
-    new BinaryDecoder[A] {
-
-      override def decode(chunk: Chunk[Byte]): Either[DecodeError, A] =
-        if (chunk.isEmpty)
+  implicit def thriftCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
+    new BinaryCodec[A] {
+      override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
+        if (whole.isEmpty)
           Left(EmptyContent("No bytes to decode"))
         else
-          decodeChunk(chunk)
+          decodeChunk(whole)
 
-      override def streamDecoder: BinaryStreamDecoder[A] =
+      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
         ZPipeline.mapChunksZIO { chunk =>
           ZIO.fromEither(
             decodeChunk(chunk).map(Chunk(_))
           )
         }
+
+      override def encode(value: A): Chunk[Byte] =
+        new Encoder().encode(schema, value)
+
+      override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] = {
+        val encoder = new Encoder()
+        ZPipeline.mapChunks { chunk =>
+          chunk.flatMap(encoder.encode(schema, _))
+        }
+      }
 
       private def decodeChunk(chunk: Chunk[Byte]): Either[DecodeError, A] =
         if (chunk.isEmpty)
@@ -74,7 +67,6 @@ object ThriftCodec extends BinaryCodec {
               Left(ReadError(Cause.fail(err), err.getMessage))
           }
         }: @nowarn
-
     }
 
   class Encoder extends MutableSchemaBasedValueProcessor[Unit, Encoder.Context] {

@@ -8,46 +8,25 @@ import scala.collection.immutable.ListMap
 import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.internal.{ Lexer, RetractReader, StringMatrix, Write }
-import zio.json.{
-  JsonCodec => ZJsonCodec,
-  JsonDecoder => ZJsonDecoder,
-  JsonEncoder => ZJsonEncoder,
-  JsonFieldDecoder,
-  JsonFieldEncoder
-}
+import zio.json.{JsonCodec => ZJsonCodec, JsonDecoder => ZJsonDecoder, JsonEncoder => ZJsonEncoder, JsonFieldDecoder, JsonFieldEncoder}
 import zio.schema._
 import zio.schema.annotation._
-import zio.schema.codec.BinaryCodec._
 import zio.schema.codec.DecodeError.ReadError
 import zio.stream.ZPipeline
 import zio.{ Cause, Chunk, ChunkBuilder, NonEmptyChunk, ZIO }
 
-object JsonCodec extends BinaryCodec {
+object JsonCodec {
   type DiscriminatorTuple = Chunk[(discriminatorName, String)]
 
-  override def encoderFor[A](schema: Schema[A]): BinaryEncoder[A] =
-    new BinaryEncoder[A] {
-
-      override def encode(value: A): Chunk[Byte] =
-        JsonEncoder.encode(schema, value)
-
-      override def streamEncoder: BinaryStreamEncoder[A] =
-        ZPipeline.mapChunks(
-          _.flatMap(encode)
-        )
-
-    }
-
-  override def decoderFor[A](schema: Schema[A]): BinaryDecoder[A] =
-    new BinaryDecoder[A] {
-
-      override def decode(chunk: Chunk[Byte]): Either[DecodeError, A] =
+  implicit def jsonBinaryCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
+    new BinaryCodec[A] {
+      override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
         JsonDecoder.decode(
           schema,
-          new String(chunk.toArray, JsonEncoder.CHARSET)
+          new String(whole.toArray, JsonEncoder.CHARSET)
         )
 
-      override def streamDecoder: BinaryStreamDecoder[A] =
+      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
         ZPipeline.fromChannel(
           ZPipeline.utfDecode.channel.mapError(cce => ReadError(Cause.fail(cce), cce.getMessage))
         ) >>>
@@ -59,6 +38,13 @@ object JsonCodec extends BinaryCodec {
             ZIO.fromEither(JsonDecoder.decode(schema, s))
           }
 
+      override def encode(value: A): Chunk[Byte] =
+        JsonEncoder.encode(schema, value)
+
+      override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
+        ZPipeline.mapChunks(
+          _.flatMap(encode)
+        )
     }
 
   def jsonEncoder[A](schema: Schema[A]): ZJsonEncoder[A] =
@@ -124,9 +110,8 @@ object JsonCodec extends BinaryCodec {
   object JsonEncoder {
 
     import Codecs._
-    import ZJsonEncoder.bump
-    import ZJsonEncoder.pad
     import ProductEncoder._
+    import ZJsonEncoder.{ bump, pad }
 
     private[codec] val CHARSET = StandardCharsets.UTF_8
 
@@ -507,8 +492,7 @@ object JsonCodec extends BinaryCodec {
 
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   private[codec] object ProductEncoder {
-    import ZJsonEncoder.bump
-    import ZJsonEncoder.pad
+    import ZJsonEncoder.{ bump, pad }
 
     private[codec] def caseClassEncoder[Z](discriminatorTuple: DiscriminatorTuple, fields: Schema.Field[Z, _]*): ZJsonEncoder[Z] = { (a: Z, indent: Option[Int], out: Write) =>
       {

@@ -1117,35 +1117,35 @@ object ThriftCodecSpec extends ZIOSpecDefault {
   def encode[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
     ZStream
       .succeed(input)
-      .via(ThriftCodec.encoder(schema))
+      .via(ThriftCodec.thriftCodec(schema).streamEncoder)
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encode
   def encodeNS[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
-    ZIO.succeed(ThriftCodec.encode(schema)(input))
+    ZIO.succeed(ThriftCodec.thriftCodec(schema).encode(input))
 
   def decode[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, Chunk[A]] =
     ZStream
       .fromChunk(fromHex(hex))
-      .via(ThriftCodec.decoder(schema))
+      .via(ThriftCodec.thriftCodec(schema).streamDecoder)
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of decode
   def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
-    ZIO.succeed(ThriftCodec.decode(schema)(fromHex(hex))).absolve[DecodeError, A]
+    ZIO.succeed(ThriftCodec.thriftCodec(schema).decode(fromHex(hex))).absolve[DecodeError, A]
 
   def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ZStream
       .succeed(input)
-      .via(ThriftCodec.encoder(schema))
-      .via(ThriftCodec.decoder(schema))
+      .via(ThriftCodec.thriftCodec(schema).streamEncoder)
+      .via(ThriftCodec.thriftCodec(schema).streamDecoder)
       .run(ZSink.collectAll)
 
   def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ZStream
       .succeed(input)
-      .via(ThriftCodec.encoder(encodeSchema))
-      .via(ThriftCodec.decoder(decodeSchema))
+      .via(ThriftCodec.thriftCodec(encodeSchema).streamEncoder)
+      .via(ThriftCodec.thriftCodec(decodeSchema).streamDecoder)
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
@@ -1153,16 +1153,16 @@ object ThriftCodecSpec extends ZIOSpecDefault {
     ZIO
       .succeed(input)
       .tap(value => Console.printLine(s"Input Value: $value").when(print).ignore)
-      .map(a => ThriftCodec.encode(schema)(a))
+      .map(a => ThriftCodec.thriftCodec(schema).encode(a))
       .tap(encoded => Console.printLine(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
-      .map(ch => ThriftCodec.decode(schema)(ch))
+      .map(ch => ThriftCodec.thriftCodec(schema).decode(ch))
       .absolve
 
   def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)
-      .map(a => ThriftCodec.encode(encodeSchema)(a))
-      .map(ch => ThriftCodec.decode(decodeSchema)(ch))
+      .map(a => ThriftCodec.thriftCodec(encodeSchema).encode(a))
+      .map(ch => ThriftCodec.thriftCodec(decodeSchema).decode(ch))
       .absolve
 
 }
