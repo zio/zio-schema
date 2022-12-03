@@ -8,7 +8,13 @@ import scala.collection.immutable.ListMap
 import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.internal.{ Lexer, RetractReader, StringMatrix, Write }
-import zio.json.{JsonCodec => ZJsonCodec, JsonDecoder => ZJsonDecoder, JsonEncoder => ZJsonEncoder, JsonFieldDecoder, JsonFieldEncoder}
+import zio.json.{
+  JsonCodec => ZJsonCodec,
+  JsonDecoder => ZJsonDecoder,
+  JsonEncoder => ZJsonEncoder,
+  JsonFieldDecoder,
+  JsonFieldEncoder
+}
 import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
@@ -18,7 +24,40 @@ import zio.{ Cause, Chunk, ChunkBuilder, NonEmptyChunk, ZIO }
 object JsonCodec {
   type DiscriminatorTuple = Chunk[(discriminatorName, String)]
 
-  implicit def jsonBinaryCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
+  implicit def zioJsonBinaryCodec[A](implicit jsonCodec: ZJsonCodec[A]): BinaryCodec[A] =
+    new BinaryCodec[A] {
+      override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
+        jsonCodec
+          .decodeJson(
+            new String(whole.toArray, JsonEncoder.CHARSET)
+          )
+          .left
+          .map(failure => DecodeError.ReadError(Cause.empty, failure))
+
+      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
+        ZPipeline.fromChannel(
+          ZPipeline.utfDecode.channel.mapError(cce => ReadError(Cause.fail(cce), cce.getMessage))
+        ) >>>
+          ZPipeline.groupAdjacentBy[String, Unit](_ => ()) >>>
+          ZPipeline.map[(Unit, NonEmptyChunk[String]), String] {
+            case (_, fragments) => fragments.mkString
+          } >>>
+          ZPipeline.mapZIO { (s: String) =>
+            ZIO
+              .fromEither(jsonCodec.decodeJson(s))
+              .mapError(failure => DecodeError.ReadError(Cause.empty, failure))
+          }
+
+      override def encode(value: A): Chunk[Byte] =
+        JsonEncoder.charSequenceToByteChunk(jsonCodec.encodeJson(value, None))
+
+      override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
+        ZPipeline.mapChunks(
+          _.flatMap(encode)
+        )
+    }
+
+  implicit def schemaBasedBinaryCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
       override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
         JsonDecoder.decode(
