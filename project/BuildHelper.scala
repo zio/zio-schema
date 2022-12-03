@@ -50,14 +50,24 @@ object BuildHelper {
     }
   )
 
-  private def compileOnlyDeps(scalaVersion: String) =
-    CrossVersion.partialVersion(scalaVersion) match {
-      case Some((2, x)) if x <= 12 =>
-        Seq(
-          compilerPlugin(("org.scalamacros" % "paradise" % "2.1.1").cross(CrossVersion.full))
-        )
-      case _ => Seq.empty
-    }
+  private def compileOnlyDeps(scalaVersion: String): Seq[ModuleID] =
+    (
+      CrossVersion.partialVersion(scalaVersion) match {
+        case Some((2, x)) =>
+          Seq(
+            compilerPlugin(("org.typelevel" %% "kind-projector" % "0.13.2").cross(CrossVersion.full))
+          )
+        case _ => Seq.empty
+      }
+    ) ++ (
+      CrossVersion.partialVersion(scalaVersion) match {
+        case Some((2, x)) if x <= 12 =>
+          Seq(
+            compilerPlugin(("org.scalamacros" % "paradise" % "2.1.1").cross(CrossVersion.full))
+          )
+        case _ => Seq.empty
+      }
+    )
 
   private def compilerOptions(scalaVersion: String, optimize: Boolean) = {
     val stdOptions = Seq(
