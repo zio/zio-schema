@@ -10,36 +10,28 @@ import scala.util.control.NonFatal
 
 import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
 import zio.schema._
-import zio.schema.codec.BinaryCodec.{ BinaryDecoder, BinaryEncoder, BinaryStreamDecoder, BinaryStreamEncoder }
 import zio.schema.codec.DecodeError.{ ExtraFields, MalformedField, MissingField }
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZPipeline
 import zio.{ Cause, Chunk, Unsafe, ZIO }
 
-object ProtobufCodec extends BinaryCodec {
+object ProtobufCodec {
 
-  override def encoderFor[A](schema: Schema[A]): BinaryEncoder[A] =
-    new BinaryEncoder[A] {
+  implicit def protobufCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
+    new BinaryCodec[A] {
+      override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
+        new Decoder(whole).decode(schema)
+
+      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
+        ZPipeline.mapChunksZIO(chunk => ZIO.fromEither(new Decoder(chunk).decode(schema).map(Chunk(_))))
 
       override def encode(value: A): Chunk[Byte] =
         Encoder.process(schema, value)
 
-      override def streamEncoder: BinaryStreamEncoder[A] =
+      override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
         ZPipeline.mapChunks(
           _.flatMap(encode)
         )
-
-    }
-
-  override def decoderFor[A](schema: Schema[A]): BinaryDecoder[A] =
-    new BinaryDecoder[A] {
-
-      override def decode(chunk: Chunk[Byte]): Either[DecodeError, A] =
-        new Decoder(chunk).decode(schema)
-
-      override def streamDecoder: BinaryStreamDecoder[A] =
-        ZPipeline.mapChunksZIO(chunk => ZIO.fromEither(new Decoder(chunk).decode(schema).map(Chunk(_))))
-
     }
 
   object Protobuf {

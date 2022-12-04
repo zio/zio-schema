@@ -954,7 +954,8 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
   def encode[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
     ProtobufCodec
-      .encoder(schema)
+      .protobufCodec(schema)
+      .streamEncoder
       .apply(
         ZStream
           .succeed(input)
@@ -963,11 +964,12 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
   //NS == non streaming variant of encode
   def encodeNS[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
-    ZIO.succeed(ProtobufCodec.encode(schema)(input))
+    ZIO.succeed(ProtobufCodec.protobufCodec(schema).encode(input))
 
   def decode[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, Chunk[A]] =
     ProtobufCodec
-      .decoder(schema)
+      .protobufCodec(schema)
+      .streamDecoder
       .apply(
         ZStream
           .fromChunk(fromHex(hex))
@@ -976,19 +978,21 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
   //NS == non streaming variant of decode
   def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
-    ZIO.succeed(ProtobufCodec.decode(schema)(fromHex(hex))).absolve[DecodeError, A]
+    ZIO.succeed(ProtobufCodec.protobufCodec(schema).decode(fromHex(hex))).absolve[DecodeError, A]
 
   def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ProtobufCodec
-      .encoder(schema)
-      .andThen(ProtobufCodec.decoder(schema))
+      .protobufCodec(schema)
+      .streamEncoder
+      .andThen(ProtobufCodec.protobufCodec(schema).streamDecoder)
       .apply(ZStream.succeed(input))
       .run(ZSink.collectAll)
 
   def encodeAndDecode2[A](schema: Schema[A], input: A): ZIO[Any, Any, scala.util.Either[DecodeError, Chunk[A]]] =
     ProtobufCodec
-      .encoder(schema)
-      .andThen(ProtobufCodec.decoder(schema))
+      .protobufCodec(schema)
+      .streamEncoder
+      .andThen(ProtobufCodec.protobufCodec(schema).streamDecoder)
       .apply(ZStream.succeed(input))
       .run(ZSink.collectAll)
       .either
@@ -999,8 +1003,9 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
   def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ProtobufCodec
-      .encoder(encodeSchema)
-      .andThen(ProtobufCodec.decoder(decodeSchema))
+      .protobufCodec(encodeSchema)
+      .streamEncoder
+      .andThen(ProtobufCodec.protobufCodec(decodeSchema).streamDecoder)
       .apply(ZStream.succeed(input))
       .run(ZSink.collectAll)
 
@@ -1009,9 +1014,9 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
     ZIO
       .succeed(input)
       .tap(value => printLine(s"Input Value: $value").when(print).ignore)
-      .map(a => ProtobufCodec.encode(schema)(a))
+      .map(a => ProtobufCodec.protobufCodec(schema).encode(a))
       .tap(encoded => printLine(s"\nEncoded Bytes (${encoded.size}):\n${toHex(encoded)}").when(print).ignore)
-      .map(ch => ProtobufCodec.decode(schema)(ch))
+      .map(ch => ProtobufCodec.protobufCodec(schema).decode(ch))
       .absolve
 
   def encodeAndDecodeNS2[A](
@@ -1022,9 +1027,9 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
     ZIO
       .succeed(input)
       .tap(value => printLine(s"Input Value: $value").when(print).ignore)
-      .map(a => ProtobufCodec.encode(schema)(a))
+      .map(a => ProtobufCodec.protobufCodec(schema).encode(a))
       .tap(encoded => printLine(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
-      .map(ch => ProtobufCodec.decode(schema)(ch))
+      .map(ch => ProtobufCodec.protobufCodec(schema).decode(ch))
       .tapSome {
         case Left(err) => printLine(s"Failed to encode and decode value $input\nError = $err").orDie
       }
@@ -1032,8 +1037,8 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
   def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)
-      .map(a => ProtobufCodec.encode(encodeSchema)(a))
-      .map(ch => ProtobufCodec.decode(decodeSchema)(ch))
+      .map(a => ProtobufCodec.protobufCodec(encodeSchema).encode(a))
+      .map(ch => ProtobufCodec.protobufCodec(decodeSchema).decode(ch))
       .absolve
 
 }

@@ -25,12 +25,13 @@ object BuildHelper {
   val Scala213: String = versions("2.13")
   val Scala3: String   = versions("3.1") //versions.getOrElse("3.0", versions("3.1"))
 
-  val zioVersion        = "2.0.1"
-  val zioJsonVersion    = "0.3.0-RC9"
-  val zioPreludeVersion = "1.0.0-RC15"
-  val zioOpticsVersion  = "0.2.0"
-  val silencerVersion   = "1.7.11"
-  val avroVersion       = "1.11.0"
+  val zioVersion               = "2.0.1"
+  val zioJsonVersion           = "0.3.0-RC9"
+  val zioPreludeVersion        = "1.0.0-RC15"
+  val zioOpticsVersion         = "0.2.0"
+  val silencerVersion          = "1.7.11"
+  val avroVersion              = "1.11.0"
+  val zioConstraintlessVersion = "0.3.1"
 
   private val testDeps = Seq(
     "dev.zio" %% "zio-test"     % zioVersion % "test",
@@ -49,14 +50,24 @@ object BuildHelper {
     }
   )
 
-  private def compileOnlyDeps(scalaVersion: String) =
-    CrossVersion.partialVersion(scalaVersion) match {
-      case Some((2, x)) if x <= 12 =>
-        Seq(
-          compilerPlugin(("org.scalamacros" % "paradise" % "2.1.1").cross(CrossVersion.full))
-        )
-      case _ => Seq.empty
-    }
+  private def compileOnlyDeps(scalaVersion: String): Seq[ModuleID] =
+    (
+      CrossVersion.partialVersion(scalaVersion) match {
+        case Some((2, x)) =>
+          Seq(
+            compilerPlugin(("org.typelevel" %% "kind-projector" % "0.13.2").cross(CrossVersion.full))
+          )
+        case _ => Seq.empty
+      }
+    ) ++ (
+      CrossVersion.partialVersion(scalaVersion) match {
+        case Some((2, x)) if x <= 12 =>
+          Seq(
+            compilerPlugin(("org.scalamacros" % "paradise" % "2.1.1").cross(CrossVersion.full))
+          )
+        case _ => Seq.empty
+      }
+    )
 
   private def compilerOptions(scalaVersion: String, optimize: Boolean) = {
     val stdOptions = Seq(
@@ -97,7 +108,8 @@ object BuildHelper {
       case Some((3, _)) =>
         Seq(
           "-language:implicitConversions",
-          "-Xignore-scala2-macros"
+          "-Xignore-scala2-macros",
+          "-Ykind-projector"
         )
       case Some((2, 13)) =>
         Seq(

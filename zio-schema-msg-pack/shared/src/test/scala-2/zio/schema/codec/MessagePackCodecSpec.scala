@@ -974,35 +974,35 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
   def encode[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
     ZStream
       .succeed(input)
-      .via(MessagePackCodec.encoder(schema))
+      .via(MessagePackCodec.messagePackCodec(schema).streamEncoder)
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encode
   def encodeNS[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
-    ZIO.succeed(MessagePackCodec.encode(schema)(input))
+    ZIO.succeed(MessagePackCodec.messagePackCodec(schema).encode(input))
 
   def decode[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, Chunk[A]] =
     ZStream
       .fromChunk(fromHex(hex))
-      .via(MessagePackCodec.decoder(schema))
+      .via(MessagePackCodec.messagePackCodec(schema).streamDecoder)
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of decode
   def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
-    ZIO.succeed(MessagePackCodec.decode(schema)(fromHex(hex))).absolve[DecodeError, A]
+    ZIO.succeed(MessagePackCodec.messagePackCodec(schema).decode(fromHex(hex))).absolve[DecodeError, A]
 
   def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ZStream
       .succeed(input)
-      .via(MessagePackCodec.encoder(schema))
-      .via(MessagePackCodec.decoder(schema))
+      .via(MessagePackCodec.messagePackCodec(schema).streamEncoder)
+      .via(MessagePackCodec.messagePackCodec(schema).streamDecoder)
       .run(ZSink.collectAll)
 
   def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ZStream
       .succeed(input)
-      .via(MessagePackCodec.encoder(encodeSchema))
-      .via(MessagePackCodec.decoder(decodeSchema))
+      .via(MessagePackCodec.messagePackCodec(encodeSchema).streamEncoder)
+      .via(MessagePackCodec.messagePackCodec(decodeSchema).streamDecoder)
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
@@ -1010,16 +1010,16 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
     ZIO
       .succeed(input)
       .tap(value => Console.printLine(s"Input Value: $value").when(print).ignore)
-      .map(a => MessagePackCodec.encode(schema)(a))
+      .map(a => MessagePackCodec.messagePackCodec(schema).encode(a))
       .tap(encoded => Console.printLine(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
-      .map(ch => MessagePackCodec.decode(schema)(ch))
+      .map(ch => MessagePackCodec.messagePackCodec(schema).decode(ch))
       .absolve
 
   def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)
-      .map(a => MessagePackCodec.encode(encodeSchema)(a))
-      .map(ch => MessagePackCodec.decode(decodeSchema)(ch))
+      .map(a => MessagePackCodec.messagePackCodec(encodeSchema).encode(a))
+      .map(ch => MessagePackCodec.messagePackCodec(decodeSchema).decode(ch))
       .absolve
 
 }

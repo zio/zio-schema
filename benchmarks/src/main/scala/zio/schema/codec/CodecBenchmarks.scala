@@ -10,9 +10,13 @@ object CodecBenchmarks {
   case class Failed(code: Int, reason: String, additionalExplanation: Option[String]) extends Status
   case object Pending                                                                 extends Status
 
-  val statusSchema: Schema[Status]                                 = DeriveSchema.gen[Status]
-  val statusProtobufEncoder: Status => Chunk[Byte]                 = ProtobufCodec.encode(statusSchema)
-  val statusProtobufDecoder: Chunk[Byte] => Either[String, Status] = ProtobufCodec.decode(statusSchema)
+  implicit val statusSchema: Schema[Status] = DeriveSchema.gen[Status]
+
+  val statusProtobufEncoder: Status => Chunk[Byte] =
+    ProtobufCodec.protobufCodec[Status].encode
+
+  val statusProtobufDecoder: Chunk[Byte] => Either[DecodeError, Status] =
+    ProtobufCodec.protobufCodec[Status].decode
 
   val statuses: Array[Status] = Array(
     Ok(List.fill(20)("value")),

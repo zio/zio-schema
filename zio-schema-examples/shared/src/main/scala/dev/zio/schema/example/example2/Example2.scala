@@ -158,7 +158,7 @@ object JsonSample extends zio.ZIOAppDefault {
     for {
       _                    <- ZIO.unit
       person               = Person("Michelle", 32)
-      personToJsonPipeline = JsonCodec.encoder[Person](Person.schema)
+      personToJsonPipeline = JsonCodec.schemaBasedBinaryCodec[Person](Person.schema).streamEncoder
       _ <- ZStream(person)
             .via(personToJsonPipeline)
             .via(ZPipeline.utf8Decode)
@@ -176,8 +176,8 @@ object ProtobufExample extends ZIOAppDefault {
       _      <- ZIO.debug("protobuf roundtrip")
       person = Person("Michelle", 32)
 
-      personToProto = ProtobufCodec.encoder[Person](Person.schema)
-      protoToPerson = ProtobufCodec.decoder[Person](Person.schema)
+      personToProto = ProtobufCodec.protobufCodec[Person](Person.schema).streamEncoder
+      protoToPerson = ProtobufCodec.protobufCodec[Person](Person.schema).streamDecoder
 
       newPerson <- ZStream(person)
                     .via(personToProto)
@@ -201,11 +201,11 @@ object CombiningExample extends zio.ZIOAppDefault {
       _      <- ZIO.debug("combining roundtrip")
       person = Person("Michelle", 32)
 
-      personToJson = JsonCodec.encoder[Person](Person.schema)
-      jsonToPerson = JsonCodec.decoder[Person](Person.schema)
+      personToJson = JsonCodec.schemaBasedBinaryCodec[Person](Person.schema).streamEncoder
+      jsonToPerson = JsonCodec.schemaBasedBinaryCodec[Person](Person.schema).streamDecoder
 
-      personToProto = ProtobufCodec.encoder[Person](Person.schema)
-      protoToPerson = ProtobufCodec.decoder[Person](Person.schema)
+      personToProto = ProtobufCodec.protobufCodec[Person](Person.schema).streamEncoder
+      protoToPerson = ProtobufCodec.protobufCodec[Person](Person.schema).streamDecoder
 
       newPerson <- ZStream(person)
                     .tap(v => ZIO.debug("input object is: " + v))

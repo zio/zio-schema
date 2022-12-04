@@ -73,14 +73,14 @@ object Example3 extends ZIOAppDefault {
     _      <- ZIO.debug("input JSON    : " + json)
 
     // get objects from JSON
-    personDTO <- ZIO.fromEither(JsonCodec.decode[PersonDTO](PersonDTO.schema)(chunks))
-    person    <- ZIO.fromEither(JsonCodec.decode[Person](personTransformation)(chunks))
+    personDTO <- ZIO.fromEither(JsonCodec.schemaBasedBinaryCodec[PersonDTO](PersonDTO.schema).decode(chunks))
+    person    <- ZIO.fromEither(JsonCodec.schemaBasedBinaryCodec[Person](personTransformation).decode(chunks))
     _         <- ZIO.debug("PersonDTO     : " + personDTO)
     _         <- ZIO.debug("Person        : " + person)
 
     // get JSON from Objects
-    personJson    = new String(JsonCodec.encode[Person](Person.schema)(person).toArray)
-    personDTOJson = new String(JsonCodec.encode[Person](personTransformation)(person).toArray)
+    personJson    = new String(JsonCodec.schemaBasedBinaryCodec[Person](Person.schema).encode(person).toArray)
+    personDTOJson = new String(JsonCodec.schemaBasedBinaryCodec[Person](personTransformation).encode(person).toArray)
     _             <- ZIO.debug("Person    JSON: " + personJson)
     _             <- ZIO.debug("PersonDTO JSON: " + personDTOJson)
 
