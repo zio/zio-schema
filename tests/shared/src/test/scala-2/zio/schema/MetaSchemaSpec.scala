@@ -247,6 +247,11 @@ object MetaSchemaSpec extends ZIOSpecDefault {
         val schema       = Schema[Option[List[String]]]
         val materialized = MetaSchema.fromSchema(schema).toSchema
         assert(materialized)(hasSameSchemaStructure(schema))
+      },
+      test("dynamic") {
+        check(SchemaGen.anyDynamic) { schema =>
+          assert(MetaSchema.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
+        }
       }
     )
   )

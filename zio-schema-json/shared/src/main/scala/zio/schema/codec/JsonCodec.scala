@@ -258,7 +258,7 @@ object JsonCodec {
       case e @ Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
         enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case e @ Schema.EnumN(_, cs, _) => enumEncoder(e, cs.toSeq: _*)
-      case Schema.Dynamic(_)          => dynamicEncoder(DynamicValueSchema.schema)
+      case Schema.Dynamic(_)          => dynamicEncoder(DynamicValue.schema)
       case _                          => throw new Exception(s"Missing a handler for encoding of schema ${schema.toString()}.")
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
@@ -451,7 +451,7 @@ object JsonCodec {
       case e @ Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
         enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case e @ Schema.EnumN(_, cs, _) => enumDecoder(e, cs.toSeq: _*)
-      case Schema.Dynamic(_)          => dynamicDecoder(DynamicValueSchema.schema)
+      case Schema.Dynamic(_)          => dynamicDecoder(DynamicValue.schema)
       case _                          => throw new Exception(s"Missing a handler for decoding of schema ${schema.toString()}.")
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }

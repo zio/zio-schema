@@ -12,7 +12,7 @@ import org.msgpack.core.{ MessagePack, MessageUnpacker }
 
 import zio.schema.codec.DecodeError.MalformedFieldWithPath
 import zio.schema.codec.MessagePackDecoder._
-import zio.schema.{ DynamicValueSchema, Schema, StandardType }
+import zio.schema.{ DynamicValue, Schema, StandardType }
 import zio.{ Chunk, ChunkBuilder }
 
 private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
@@ -101,7 +101,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
       case Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
         decodeEnum(path, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case Schema.EnumN(_, cs, _) => decodeEnum(path, cs.toSeq: _*)
-      case Schema.Dynamic(_)      => decodeValue(path, DynamicValueSchema.schema)
+      case Schema.Dynamic(_)      => decodeValue(path, DynamicValue.schema)
       case _                      => fail(path, s"Unknown schema ${schema.getClass.getName}")
     }
 

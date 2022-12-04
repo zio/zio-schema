@@ -1322,7 +1322,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
           processDynamic(currentContext, currentValue.asInstanceOf[DynamicValue]) match {
             case Some(target) => finishWith(target)
             case None =>
-              currentSchema = Schema.dynamicValue
+              currentSchema = DynamicValue.schema
           }
 
         case _ => throw new Exception(s"Missing a handler for schema ${currentSchema.toString()}.")

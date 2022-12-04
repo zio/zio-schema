@@ -218,13 +218,6 @@ object DynamicValue {
 
   final case class Error(message: String) extends DynamicValue
 
-}
-
-private[schema] object DynamicValueSchema {
-  self =>
-
-  def apply(): Schema[DynamicValue] = schema
-
   lazy val schema: Schema[DynamicValue] =
     Schema.EnumN(
       TypeId.fromTypeName("zio.schema.DynamicValue"),
@@ -329,7 +322,7 @@ private[schema] object DynamicValueSchema {
         TypeId.parse("zio.schema.DynamicValue.RightValue"),
         Schema.Field(
           "value",
-          Schema.defer(DynamicValueSchema()),
+          Schema.defer(DynamicValue.schema),
           get0 = rightValue => rightValue.value,
           set0 = (rightValue, value) => rightValue.copy(value = value)
         ),
@@ -347,7 +340,7 @@ private[schema] object DynamicValueSchema {
         TypeId.parse("zio.schema.DynamicValue.LeftValue"),
         Schema.Field(
           "value",
-          Schema.defer(DynamicValueSchema()),
+          Schema.defer(DynamicValue.schema),
           get0 = leftValue => leftValue.value,
           set0 = (leftValue, value) => leftValue.copy(value = value)
         ),
@@ -365,13 +358,13 @@ private[schema] object DynamicValueSchema {
         TypeId.parse("zio.schema.DynamicValue.Tuple"),
         Schema.Field(
           "left",
-          Schema.defer(DynamicValueSchema()),
+          Schema.defer(DynamicValue.schema),
           get0 = tuple => tuple.left,
           set0 = (tuple, left) => tuple.copy(left = left)
         ),
         Schema.Field(
           "right",
-          Schema.defer(DynamicValueSchema()),
+          Schema.defer(DynamicValue.schema),
           get0 = tuple => tuple.right,
           set0 = (tuple, right) => tuple.copy(right = right)
         ),
@@ -390,7 +383,7 @@ private[schema] object DynamicValueSchema {
         Schema
           .Field(
             "value",
-            Schema.defer(DynamicValueSchema()),
+            Schema.defer(DynamicValue.schema),
             get0 = someValue => someValue.value,
             set0 = (someValue, value) => someValue.copy(value = value)
           ),
@@ -408,7 +401,7 @@ private[schema] object DynamicValueSchema {
         TypeId.parse("zio.schema.DynamicValue.Dictionary"),
         Schema.Field(
           "entries",
-          Schema.defer(Schema.chunk(Schema.tuple2(DynamicValueSchema(), DynamicValueSchema()))),
+          Schema.defer(Schema.chunk(Schema.tuple2(DynamicValue.schema, DynamicValue.schema))),
           get0 = dictionary => dictionary.entries,
           set0 = (dictionary, entries) => dictionary.copy(entries = entries)
         ),
@@ -426,7 +419,7 @@ private[schema] object DynamicValueSchema {
         TypeId.parse("zio.schema.DynamicValue.Sequence"),
         Schema.Field(
           "values",
-          Schema.defer(Schema.chunk(DynamicValueSchema())),
+          Schema.defer(Schema.chunk(DynamicValue.schema)),
           get0 = seq => seq.values,
           set0 = (seq, values) => seq.copy(values = values)
         ),
@@ -444,7 +437,7 @@ private[schema] object DynamicValueSchema {
         TypeId.parse("zio.schema.DynamicValue.SetValue"),
         Schema.Field(
           "values",
-          Schema.defer(Schema.set(DynamicValueSchema())),
+          Schema.defer(Schema.set(DynamicValue.schema)),
           get0 = seq => seq.values,
           set0 = (seq, values) => seq.copy(values = values)
         ),
@@ -468,7 +461,7 @@ private[schema] object DynamicValueSchema {
         ),
         Schema.Field(
           "value",
-          Schema.defer(Schema.tuple2(Schema.primitive[String], DynamicValueSchema())),
+          Schema.defer(Schema.tuple2(Schema.primitive[String], DynamicValue.schema)),
           get0 = enumeration => enumeration.value,
           set0 = (enumeration, value) => enumeration.copy(value = value)
         ),
@@ -488,7 +481,7 @@ private[schema] object DynamicValueSchema {
         Schema
           .Field(
             "values",
-            Schema.defer(Schema.chunk(Schema.tuple2(Schema.primitive[String], DynamicValueSchema()))),
+            Schema.defer(Schema.chunk(Schema.tuple2(Schema.primitive[String], DynamicValue.schema))),
             get0 = record => Chunk.fromIterable(record.values),
             set0 = (record, values) => record.copy(values = values.foldRight(ListMap.empty[String, DynamicValue])((a, b) => b + a))
           ),

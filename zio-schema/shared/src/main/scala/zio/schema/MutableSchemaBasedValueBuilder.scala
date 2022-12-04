@@ -998,7 +998,7 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
               case Some(value) =>
                 finishWith(value)
               case None =>
-                currentSchema = Schema.dynamicValue
+                currentSchema = DynamicValue.schema
             }
           case _ => throw new Exception(s"Missing a handler for schema ${currentSchema.toString()}.")
         }

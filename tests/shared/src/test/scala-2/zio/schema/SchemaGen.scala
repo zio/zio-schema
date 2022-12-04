@@ -589,7 +589,8 @@ object SchemaGen {
         anyStructure(anyTree(depth - 1))
           .zip(Gen.string(Gen.alphaChar).map(TypeId.parse))
           .map(z => Schema.record(z._2, z._1)),
-        Gen.const(Schema[Json])
+        Gen.const(Schema[Json]),
+        anyDynamic
 //        anyEnumeration(anyTree(depth - 1)).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_))
       )
 

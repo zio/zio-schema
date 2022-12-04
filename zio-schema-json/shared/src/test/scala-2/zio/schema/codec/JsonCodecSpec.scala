@@ -14,6 +14,7 @@ import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.schema.codec.JsonCodecSpec.PaymentMethod.{ CreditCard, PayPal, WireTransfer }
+import zio.schema.meta.MetaSchema
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
@@ -789,7 +790,27 @@ object JsonCodecSpec extends ZIOSpecDefault {
                 )
               }
         }
-      } @@ TestAspect.sized(1000) @@ TestAspect.samples(1000)
+      } @@ TestAspect.sized(1000) @@ TestAspect.samples(1000),
+      suite("meta schema")(
+        test("primitive string meta schema") {
+          assertEncodesThenDecodes(MetaSchema.schema, Schema[String].ast)
+        },
+        test("case class meta schema") {
+          assertEncodesThenDecodes(MetaSchema.schema, Schema[SchemaGen.Arity1].ast)
+        },
+        test("recursive class meta schema") {
+          assertEncodesThenDecodes(MetaSchema.schema, Schema[SchemaGen.Json].ast)
+        },
+        test("dynamic value meta schema") {
+          assertEncodesThenDecodes(MetaSchema.schema, Schema[DynamicValue].ast)
+        },
+        test("any meta schema") {
+          check(SchemaGen.anySchema) { schema =>
+            val metaSchema = schema.ast
+            assertEncodesThenDecodes(MetaSchema.schema, metaSchema)
+          }
+        }
+      )
     )
   )
 
