@@ -68,7 +68,7 @@ object DeriveGen {
       case tuple @ Schema.Tuple2(_, _, _)                                                                                           => genTuple(tuple)
       case either @ Schema.Either(_, _, _)                                                                                          => genEither(either)
       case lazzy @ Schema.Lazy(_)                                                                                                   => genLazy(lazzy)
-      case Schema.Dynamic(_)                                                                                                        => gen(DynamicValueSchema())
+      case Schema.Dynamic(_)                                                                                                        => gen(DynamicValue.schema)
       case _                                                                                                                        => throw new Exception(s"Missing handler for generating value of schema ${schema.toString()}")
     } // scalafmt: { maxColumn = 120 }
 
@@ -592,9 +592,8 @@ object DeriveGen {
 
   private def genSchemaAstDynamic(path: NodePath): Gen[Any, MetaSchema.Dynamic] =
     for {
-      withSchema <- Gen.boolean
-      optional   <- Gen.boolean
-    } yield MetaSchema.Dynamic(withSchema, path, optional)
+      optional <- Gen.boolean
+    } yield MetaSchema.Dynamic(path, optional)
 
   private def genAst(path: NodePath): Gen[Sized, MetaSchema] =
     Gen.weighted(

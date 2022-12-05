@@ -54,7 +54,7 @@ object SchemaOrdering {
     case (r: Schema.Record[_], Record(_, lVals), Record(_, rVals)) =>
       compareRecords(r, lVals, rVals)
     case (Schema.Dynamic(_), left, right) =>
-      ordering(Schema[DynamicValue]).compare(left, right)
+      ordering(DynamicValue.schema).compare(left, right)
     case _ => 0
   }
 

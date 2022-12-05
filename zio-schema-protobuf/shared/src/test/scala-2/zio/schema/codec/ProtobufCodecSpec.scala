@@ -9,6 +9,7 @@ import scala.util.Try
 import zio.Console._
 import zio._
 import zio.schema.CaseSet._
+import zio.schema.meta.MetaSchema
 import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
@@ -728,6 +729,14 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         test("dynamic set") {
           check(SchemaGen.anyRecord.flatMap(DynamicValueGen.anyDynamicSet)) { dynamicValue =>
             assertZIO(encodeAndDecode(Schema.dynamicValue, dynamicValue))(equalTo(Chunk(dynamicValue)))
+          }
+        }
+      ),
+      suite("meta schema")(
+        test("any meta schema") {
+          check(SchemaGen.anySchema) { schema =>
+            val metaSchema = schema.ast
+            assertZIO(encodeAndDecode(MetaSchema.schema, metaSchema))(equalTo(Chunk(metaSchema)))
           }
         }
       )

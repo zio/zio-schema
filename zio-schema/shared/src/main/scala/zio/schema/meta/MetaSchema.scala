@@ -321,36 +321,29 @@ object MetaSchema {
   }
 
   final case class Dynamic(
-    withSchema: Boolean,
     override val path: NodePath,
     optional: Boolean = false
   ) extends MetaSchema
 
   object Dynamic {
     implicit val schema: Schema[Dynamic] =
-      Schema.CaseClass3(
+      Schema.CaseClass2(
         TypeId.parse("zio.schema.meta.MetaSchema.Dynamic"),
-        field01 = Schema.Field(
-          "withSchema",
-          Schema[Boolean],
-          get0 = _.withSchema,
-          set0 = (a, value: Boolean) => a.copy(withSchema = value)
-        ),
-        field02 = Schema
+        field01 = Schema
           .Field(
             "path",
             Schema[String].repeated,
             get0 = _.path,
             set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
           ),
-        field03 = Schema
+        field02 = Schema
           .Field(
             "optional",
             Schema[Boolean],
             get0 = _.optional,
             set0 = (a, value: Boolean) => a.copy(optional = value)
           ),
-        (withSchema: Boolean, path: Chunk[String], optional: Boolean) => Dynamic(withSchema, NodePath(path), optional)
+        (path: Chunk[String], optional: Boolean) => Dynamic(NodePath(path), optional)
       )
   }
 
@@ -413,7 +406,7 @@ object MetaSchema {
             node.addLabelledSubtree(caseValue.id, caseValue.schema)
         }
         .buildSum(s.id)
-    case Schema.Dynamic(_) => Dynamic(withSchema = false, NodePath.root)
+    case Schema.Dynamic(_) => Dynamic(NodePath.root)
   }
 
   private[schema] def subtree(
@@ -473,7 +466,7 @@ object MetaSchema {
               }
               .buildSum(s.id)
           case Schema.Fail(message, _) => FailNode(message, path)
-          case Schema.Dynamic(_)       => Dynamic(withSchema = false, path, optional)
+          case Schema.Dynamic(_)       => Dynamic(path, optional)
         }
       }
 
@@ -530,7 +523,7 @@ object MetaSchema {
         Schema.chunk(materialize(itemAst, refs))
       case MetaSchema.Dictionary(keyAst, valueAst, _, _) =>
         Schema.Map(materialize(keyAst, refs), materialize(valueAst, refs), Chunk.empty)
-      case MetaSchema.Dynamic(_, _, _) =>
+      case MetaSchema.Dynamic(_, _) =>
         Schema.dynamicValue
       case ast => Schema.Fail(s"AST cannot be materialized to a Schema:\n$ast")
     }
@@ -559,6 +552,12 @@ object MetaSchema {
           ) ++
           caseOf[Dictionary, MetaSchema]("Dictionary")(_.asInstanceOf[Dictionary])(_.asInstanceOf[MetaSchema])(
             _.isInstanceOf[Dictionary]
+          ) ++
+          caseOf[Dynamic, MetaSchema]("Dynamic")(_.asInstanceOf[Dynamic])(_.asInstanceOf[MetaSchema])(
+            _.isInstanceOf[Dynamic]
+          ) ++
+          caseOf[FailNode, MetaSchema]("Fail")(_.asInstanceOf[FailNode])(_.asInstanceOf[MetaSchema])(
+            _.isInstanceOf[FailNode]
           ),
         Chunk.empty
       )
@@ -620,11 +619,10 @@ private[schema] object AstRenderer {
       buffer.append(s"ref#$refPath")
       if (optional) buffer.append("?")
       buffer.toString
-    case MetaSchema.Dynamic(withSchema, _, optional) =>
+    case MetaSchema.Dynamic(_, optional) =>
       val buffer = new StringBuffer()
-      buffer.append(s"list")
+      buffer.append(s"dynamic")
       if (optional) buffer.append("?")
-      if (withSchema) buffer.append("semidynamic") else buffer.append(s"dynamic")
       buffer.toString
   }
 
@@ -682,13 +680,12 @@ private[schema] object AstRenderer {
         buffer.append(s"$label: ")
         if (optional) buffer.append("?")
         buffer.append(s"{ref#${refPath.render}}").toString
-      case (label, MetaSchema.Dynamic(withSchema, _, optional)) =>
+      case (label, MetaSchema.Dynamic(_, optional)) =>
         pad(buffer, indent)
         buffer.append(s"$label: ")
+        buffer.append(s"dynamic")
         if (optional) buffer.append("?")
-        if (withSchema) buffer.append("semidynamic") else buffer.append(s"dynamic")
         buffer.toString
-      case _ => ???
     }
   }
 

@@ -8,7 +8,7 @@ import scala.collection.immutable.ListMap
 import org.msgpack.core.MessagePack
 
 import zio.Chunk
-import zio.schema.{ DynamicValueSchema, Schema, StandardType }
+import zio.schema.{ DynamicValue, Schema, StandardType }
 
 private[codec] class MessagePackEncoder {
   private val packer = MessagePack.newDefaultBufferPacker()
@@ -115,7 +115,7 @@ private[codec] class MessagePackEncoder {
       case (Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _), v) =>
         encodeEnum(v, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case (Schema.EnumN(_, cs, _), v) => encodeEnum(v, cs.toSeq: _*)
-      case (Schema.Dynamic(_), v)      => encodeValue(DynamicValueSchema.schema, v)
+      case (Schema.Dynamic(_), v)      => encodeValue(DynamicValue.schema, v)
       case (_, _)                      => ()
     }
 
