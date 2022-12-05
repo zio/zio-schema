@@ -1,9 +1,9 @@
 package zio.schema
 
 import scala.collection.immutable.ListMap
-
 import zio._
-import zio.schema.meta.{ MetaSchema, Migration, NodePath }
+import zio.constraintless.TypeList._
+import zio.schema.meta.{ ExtensibleMetaSchema, MetaSchema, Migration, NodePath }
 import zio.schema.syntax._
 import zio.test._
 
@@ -13,8 +13,8 @@ object MigrationSpec extends ZIOSpecDefault {
     suite("Derivation")(
       suite("Value")(
         test("change type") {
-          val from = MetaSchema.Value(StandardType.IntType, NodePath.root)
-          val to   = MetaSchema.Value(StandardType.StringType, NodePath.root)
+          val from = ExtensibleMetaSchema.Value[DynamicValue :: End](StandardType.IntType, NodePath.root)
+          val to   = ExtensibleMetaSchema.Value[DynamicValue :: End](StandardType.StringType, NodePath.root)
 
           assertTrue(
             Migration
@@ -22,8 +22,9 @@ object MigrationSpec extends ZIOSpecDefault {
           )
         },
         test("optional") {
-          val from = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = false)
-          val to   = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true)
+          val from =
+            ExtensibleMetaSchema.Value[DynamicValue :: End](StandardType.IntType, NodePath.root, optional = false)
+          val to = ExtensibleMetaSchema.Value[DynamicValue :: End](StandardType.IntType, NodePath.root, optional = true)
 
           assertTrue(
             Migration
@@ -31,8 +32,10 @@ object MigrationSpec extends ZIOSpecDefault {
           )
         },
         test("require") {
-          val from = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true)
-          val to   = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = false)
+          val from =
+            ExtensibleMetaSchema.Value[DynamicValue :: End](StandardType.IntType, NodePath.root, optional = true)
+          val to =
+            ExtensibleMetaSchema.Value[DynamicValue :: End](StandardType.IntType, NodePath.root, optional = false)
 
           assertTrue(
             Migration
@@ -40,9 +43,14 @@ object MigrationSpec extends ZIOSpecDefault {
           )
         },
         test("increment dimensions") {
-          val from = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true)
+          val from =
+            ExtensibleMetaSchema.Value[DynamicValue :: End](StandardType.IntType, NodePath.root, optional = true)
           val to =
-            MetaSchema.ListNode(MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true), NodePath.root)
+            ExtensibleMetaSchema
+              .ListNode(
+                ExtensibleMetaSchema.Value[DynamicValue :: End](StandardType.IntType, NodePath.root, optional = true),
+                NodePath.root
+              )
 
           assertTrue(
             Migration
@@ -51,8 +59,12 @@ object MigrationSpec extends ZIOSpecDefault {
         },
         test("decrement dimensions") {
           val from =
-            MetaSchema.ListNode(MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true), NodePath.root)
-          val to = MetaSchema.Value(StandardType.IntType, NodePath.root, optional = true)
+            ExtensibleMetaSchema
+              .ListNode(
+                ExtensibleMetaSchema.Value[DynamicValue :: End](StandardType.IntType, NodePath.root, optional = true),
+                NodePath.root
+              )
+          val to = ExtensibleMetaSchema.Value[DynamicValue :: End](StandardType.IntType, NodePath.root, optional = true)
 
           assertTrue(
             Migration
@@ -205,7 +217,12 @@ object MigrationSpec extends ZIOSpecDefault {
       test("ignore add case") {
         val value: Pet1  = Pet1.Dog("name")
         val dynamicValue = value.dynamic
-        assert(Migration.AddCase(NodePath.root, MetaSchema.Value(StandardType.UnitType, NodePath.root)))(
+        assert(
+          Migration.AddCase(
+            NodePath.root,
+            ExtensibleMetaSchema.Value[DynamicValue :: End](StandardType.UnitType, NodePath.root)
+          )
+        )(
           transformsValueTo(value, dynamicValue)
         )
       },

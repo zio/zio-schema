@@ -1,9 +1,9 @@
 package zio.schema
 
 import scala.collection.immutable.ListMap
-
 import zio.Chunk
-import zio.schema.meta.{ MetaSchema, NodePath }
+import zio.constraintless.TypeList.{ ::, End }
+import zio.schema.meta.{ ExtensibleMetaSchema, MetaSchema, NodePath }
 import zio.test.{ Gen, Sized }
 
 object DeriveGen {
@@ -533,7 +533,7 @@ object DeriveGen {
   private def genLazy[A](lazySchema: Schema.Lazy[A]): Gen[Sized, A] =
     Gen.suspend(gen(lazySchema.schema))
 
-  private def genSchemaAstProduct(path: NodePath): Gen[Sized, MetaSchema.Product] =
+  private def genSchemaAstProduct(path: NodePath): Gen[Sized, ExtensibleMetaSchema.Product[DynamicValue :: End]] =
     for {
       id       <- Gen.string(Gen.alphaChar).map(TypeId.parse)
       optional <- Gen.boolean
@@ -542,9 +542,9 @@ object DeriveGen {
                    .string1(Gen.asciiChar)
                    .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
                )
-    } yield MetaSchema.Product(id, path, fields, optional)
+    } yield ExtensibleMetaSchema.Product(id, path, fields, optional)
 
-  private def genSchemaAstSum(path: NodePath): Gen[Sized, MetaSchema.Sum] =
+  private def genSchemaAstSum(path: NodePath): Gen[Sized, ExtensibleMetaSchema.Sum[DynamicValue :: End]] =
     for {
       id       <- Gen.string(Gen.alphaChar).map(TypeId.parse)
       optional <- Gen.boolean
@@ -553,9 +553,9 @@ object DeriveGen {
                    .string1(Gen.asciiChar)
                    .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
                )
-    } yield MetaSchema.Sum(id, path, fields, optional)
+    } yield ExtensibleMetaSchema.Sum(id, path, fields, optional)
 
-  private def genSchemaAstValue(path: NodePath): Gen[Any, MetaSchema.Value] =
+  private def genSchemaAstValue(path: NodePath): Gen[Any, ExtensibleMetaSchema.Value[DynamicValue :: End]] =
     for {
       valueType <- Gen.oneOf(
                     Gen.const(StandardType.UnitType),
@@ -588,12 +588,12 @@ object DeriveGen {
                     Gen.const(StandardType.ZonedDateTimeType)
                   )
       optional <- Gen.boolean
-    } yield MetaSchema.Value(valueType, path, optional)
+    } yield ExtensibleMetaSchema.Value(valueType, path, optional)
 
-  private def genSchemaAstDynamic(path: NodePath): Gen[Any, MetaSchema.Dynamic] =
+  private def genSchemaAstDynamic(path: NodePath): Gen[Any, ExtensibleMetaSchema.Known[DynamicValue :: End]] =
     for {
       optional <- Gen.boolean
-    } yield MetaSchema.Dynamic(path, optional)
+    } yield ExtensibleMetaSchema.Known(DynamicValue.typeId, path, optional)
 
   private def genAst(path: NodePath): Gen[Sized, MetaSchema] =
     Gen.weighted(

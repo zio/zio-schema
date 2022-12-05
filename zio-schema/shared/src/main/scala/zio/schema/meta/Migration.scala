@@ -111,54 +111,71 @@ object Migration {
           )
 
       (fromSubtree, toSubtree) match {
-        case (f @ MetaSchema.FailNode(_, _, _), t @ MetaSchema.FailNode(_, _, _)) =>
+        case (f @ ExtensibleMetaSchema.FailNode(_, _, _), t @ ExtensibleMetaSchema.FailNode(_, _, _)) =>
           Right(
             if (f.message == t.message)
               Chunk.empty
             else
               transformShape(path, f, t) :+ UpdateFail(path, t.message)
           )
-        case (f @ MetaSchema.Product(_, _, ffields, _), t @ MetaSchema.Product(_, _, tfields, _)) =>
+        case (f @ ExtensibleMetaSchema.Product(_, _, ffields, _), t @ ExtensibleMetaSchema.Product(_, _, tfields, _)) =>
           goProduct(f, t, ffields, tfields)
-        case (f @ MetaSchema.Tuple(_, fleft, fright, _), t @ MetaSchema.Tuple(_, tleft, tright, _)) =>
+        case (
+            f @ ExtensibleMetaSchema.Tuple(_, fleft, fright, _),
+            t @ ExtensibleMetaSchema.Tuple(_, tleft, tright, _)
+            ) =>
           val ffields = Chunk("left" -> fleft, "right" -> fright)
           val tfields = Chunk("left" -> tleft, "right" -> tright)
           goProduct(f, t, ffields, tfields)
-        case (f @ MetaSchema.Product(_, _, ffields, _), t @ MetaSchema.Tuple(_, tleft, tright, _)) =>
+        case (
+            f @ ExtensibleMetaSchema.Product(_, _, ffields, _),
+            t @ ExtensibleMetaSchema.Tuple(_, tleft, tright, _)
+            ) =>
           val tfields = Chunk("left" -> tleft, "right" -> tright)
           goProduct(f, t, ffields, tfields)
-        case (f @ MetaSchema.Tuple(_, fleft, fright, _), t @ MetaSchema.Product(_, _, tfields, _)) =>
+        case (
+            f @ ExtensibleMetaSchema.Tuple(_, fleft, fright, _),
+            t @ ExtensibleMetaSchema.Product(_, _, tfields, _)
+            ) =>
           val ffields = Chunk("left" -> fleft, "right" -> fright)
           goProduct(f, t, ffields, tfields)
-        case (f @ MetaSchema.ListNode(fitem, _, _), t @ MetaSchema.ListNode(titem, _, _)) =>
+        case (f @ ExtensibleMetaSchema.ListNode(fitem, _, _), t @ ExtensibleMetaSchema.ListNode(titem, _, _)) =>
           val ffields = Chunk("item" -> fitem)
           val tfields = Chunk("item" -> titem)
           goProduct(f, t, ffields, tfields)
-        case (MetaSchema.ListNode(fitem, _, _), titem) =>
+        case (ExtensibleMetaSchema.ListNode(fitem, _, _), titem) =>
           derive(fitem, titem).map(migrations => DecrementDimensions(titem.path, 1) +: migrations)
-        case (fitem, MetaSchema.ListNode(titem, _, _)) =>
+        case (fitem, ExtensibleMetaSchema.ListNode(titem, _, _)) =>
           derive(fitem, titem).map(migrations => IncrementDimensions(titem.path, 1) +: migrations)
-        case (f @ MetaSchema.Dictionary(fkeys, fvalues, _, _), t @ MetaSchema.Dictionary(tkeys, tvalues, _, _)) =>
+        case (
+            f @ ExtensibleMetaSchema.Dictionary(fkeys, fvalues, _, _),
+            t @ ExtensibleMetaSchema.Dictionary(tkeys, tvalues, _, _)
+            ) =>
           val ffields = Chunk("keys" -> fkeys, "values" -> fvalues)
           val tfields = Chunk("keys" -> tkeys, "values" -> tvalues)
           goProduct(f, t, ffields, tfields)
-        case (f @ MetaSchema.Sum(_, _, fcases, _), t @ MetaSchema.Sum(_, _, tcases, _)) =>
+        case (f @ ExtensibleMetaSchema.Sum(_, _, fcases, _), t @ ExtensibleMetaSchema.Sum(_, _, tcases, _)) =>
           goSum(f, t, fcases, tcases)
-        case (f @ MetaSchema.Either(_, fleft, fright, _), t @ MetaSchema.Either(_, tleft, tright, _)) =>
+        case (
+            f @ ExtensibleMetaSchema.Either(_, fleft, fright, _),
+            t @ ExtensibleMetaSchema.Either(_, tleft, tright, _)
+            ) =>
           val fcases = Chunk("left" -> fleft, "right" -> fright)
           val tcases = Chunk("left" -> tleft, "right" -> tright)
           goSum(f, t, fcases, tcases)
-        case (f @ MetaSchema.Sum(_, _, fcases, _), t @ MetaSchema.Either(_, tleft, tright, _)) =>
+        case (f @ ExtensibleMetaSchema.Sum(_, _, fcases, _), t @ ExtensibleMetaSchema.Either(_, tleft, tright, _)) =>
           val tcases = Chunk("left" -> tleft, "right" -> tright)
           goSum(f, t, fcases, tcases)
-        case (f @ MetaSchema.Either(_, fleft, fright, _), t @ MetaSchema.Sum(_, _, tcases, _)) =>
+        case (f @ ExtensibleMetaSchema.Either(_, fleft, fright, _), t @ ExtensibleMetaSchema.Sum(_, _, tcases, _)) =>
           val fcases = Chunk("left" -> fleft, "right" -> fright)
           goSum(f, t, fcases, tcases)
-        case (f @ MetaSchema.Value(ftype, _, _), t @ MetaSchema.Value(ttype, _, _)) if ttype != ftype =>
+        case (f @ ExtensibleMetaSchema.Value(ftype, _, _), t @ ExtensibleMetaSchema.Value(ttype, _, _))
+            if ttype != ftype =>
           Right(transformShape(path, f, t) :+ ChangeType(path, ttype))
-        case (f @ MetaSchema.Value(_, _, _), t @ MetaSchema.Value(_, _, _)) =>
+        case (f @ ExtensibleMetaSchema.Value(_, _, _), t @ ExtensibleMetaSchema.Value(_, _, _)) =>
           Right(transformShape(path, f, t))
-        case (f @ MetaSchema.Ref(fromRef, nodePath, _), t @ MetaSchema.Ref(toRef, _, _)) if fromRef == toRef =>
+        case (f @ ExtensibleMetaSchema.Ref(fromRef, nodePath, _), t @ ExtensibleMetaSchema.Ref(toRef, _, _))
+            if fromRef == toRef =>
           if (ignoreRefs) Right(Chunk.empty)
           else {
             val recursiveMigrations = acc

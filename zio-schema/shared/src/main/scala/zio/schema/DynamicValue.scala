@@ -218,9 +218,11 @@ object DynamicValue {
 
   final case class Error(message: String) extends DynamicValue
 
+  lazy val typeId: TypeId = TypeId.parse("zio.schema.DynamicValue")
+
   lazy val schema: Schema[DynamicValue] =
     Schema.EnumN(
-      TypeId.fromTypeName("zio.schema.DynamicValue"),
+      typeId,
       CaseSet
         .Cons(errorCase, CaseSet.Empty[DynamicValue]())
         .:+:(noneValueCase)
