@@ -84,7 +84,7 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Tuple {
-    implicit def schema[BuiltIn <: TypeList] = schemaAny.asInstanceOf[Schema[Tuple[BuiltIn]]]
+    implicit def schema[BuiltIn <: TypeList]: Schema[Tuple[BuiltIn]] = schemaAny.asInstanceOf[Schema[Tuple[BuiltIn]]]
 
     private lazy val schemaAny: Schema[Tuple[TypeList.End]] = {
       Schema.CaseClass4(

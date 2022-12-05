@@ -1,6 +1,7 @@
 package zio.schema.meta
 
 import zio.Chunk
+import zio.constraintless.TypeList
 
 private[schema] object AstRenderer {
   private val INDENT_STEP = 2
@@ -62,7 +63,7 @@ private[schema] object AstRenderer {
       buffer.toString
   }
 
-  def renderField(value: ExtensibleMetaSchema.Labelled[_], indent: Int): String = {
+  def renderField[BuiltIn <: TypeList](value: ExtensibleMetaSchema.Labelled[BuiltIn], indent: Int): String = {
     val buffer = new StringBuffer()
     value match {
       case (label, value @ ExtensibleMetaSchema.Value(_, _, _)) =>
