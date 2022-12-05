@@ -187,6 +187,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
         }
       )
     ),
+    suite("generic record")(
+      test("with extra fields") {
+        assertDecodes(
+          recordSchema,
+          ListMap[String, Any]("foo" -> "s", "bar" -> 1),
+          charSequenceToByteChunk("""{"foo":"s","bar":1,"baz":2}""")
+        )
+      }
+    ),
     suite("transform")(
       test("string") {
         val stringSchema    = Schema.Primitive(StandardType.StringType)
