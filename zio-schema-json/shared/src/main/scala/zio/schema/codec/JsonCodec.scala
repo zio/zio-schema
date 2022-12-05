@@ -515,6 +515,7 @@ object JsonCodec {
                   val value = schemaDecoder(schema).unsafeDecode(trace_, in)
                   builder += ((JsonFieldDecoder.string.unsafeDecodeField(trace_, label), value))
                 case None =>
+                  Lexer.char(trace, in, ':')
                   Lexer.skipValue(trace, in)
 
               }
