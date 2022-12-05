@@ -1,6 +1,7 @@
 package zio.schema
 
 import scala.collection.immutable.ListMap
+
 import zio._
 import zio.constraintless.TypeList._
 import zio.schema.meta.{ ExtensibleMetaSchema, MetaSchema, Migration, NodePath }

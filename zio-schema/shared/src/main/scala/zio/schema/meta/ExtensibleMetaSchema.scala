@@ -1,13 +1,13 @@
 package zio.schema.meta
 
+import scala.annotation.tailrec
+import scala.collection.immutable.ListMap
+import scala.collection.mutable
+
 import zio.constraintless.TypeList
 import zio.prelude._
 import zio.schema._
 import zio.{ Chunk, ChunkBuilder }
-
-import scala.annotation.tailrec
-import scala.collection.immutable.ListMap
-import scala.collection.mutable
 
 sealed trait ExtensibleMetaSchema[BuiltIn <: TypeList] { self =>
   def builtInInstances: SchemaInstances[BuiltIn]
