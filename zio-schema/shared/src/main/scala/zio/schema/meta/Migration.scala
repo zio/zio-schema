@@ -2,6 +2,7 @@ package zio.schema.meta
 
 import scala.collection.immutable.ListMap
 
+import zio.schema.meta.ExtensibleMetaSchema.Labelled
 import zio.schema.{ DynamicValue, StandardType }
 import zio.{ Chunk, ChunkBuilder }
 
@@ -69,11 +70,11 @@ object Migration {
       def goProduct(
         f: MetaSchema,
         t: MetaSchema,
-        ffields: Chunk[(String, MetaSchema)],
-        tfields: Chunk[(String, MetaSchema)]
+        ffields: Chunk[MetaSchema.Labelled],
+        tfields: Chunk[MetaSchema.Labelled]
       ): Either[String, Chunk[Migration]] =
         matchedSubtrees(ffields, tfields).map {
-          case ((nextPath, fs), (_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
+          case (Labelled(nextPath, fs), Labelled(_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
         }.foldRight[Either[String, Chunk[Migration]]](Right(Chunk.empty)) {
             case (err @ Left(_), Right(_)) => err
             case (Right(_), err @ Left(_)) => err
@@ -91,11 +92,11 @@ object Migration {
       def goSum(
         f: MetaSchema,
         t: MetaSchema,
-        fcases: Chunk[(String, MetaSchema)],
-        tcases: Chunk[(String, MetaSchema)]
+        fcases: Chunk[MetaSchema.Labelled],
+        tcases: Chunk[MetaSchema.Labelled]
       ): Either[String, Chunk[Migration]] =
         matchedSubtrees(fcases, tcases).map {
-          case ((nextPath, fs), (_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
+          case (Labelled(nextPath, fs), Labelled(_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
         }.foldRight[Either[String, Chunk[Migration]]](Right(Chunk.empty)) {
             case (err @ Left(_), Right(_)) => err
             case (Right(_), err @ Left(_)) => err
@@ -111,54 +112,71 @@ object Migration {
           )
 
       (fromSubtree, toSubtree) match {
-        case (f @ MetaSchema.FailNode(_, _, _), t @ MetaSchema.FailNode(_, _, _)) =>
+        case (f @ ExtensibleMetaSchema.FailNode(_, _, _), t @ ExtensibleMetaSchema.FailNode(_, _, _)) =>
           Right(
             if (f.message == t.message)
               Chunk.empty
             else
               transformShape(path, f, t) :+ UpdateFail(path, t.message)
           )
-        case (f @ MetaSchema.Product(_, _, ffields, _), t @ MetaSchema.Product(_, _, tfields, _)) =>
+        case (f @ ExtensibleMetaSchema.Product(_, _, ffields, _), t @ ExtensibleMetaSchema.Product(_, _, tfields, _)) =>
           goProduct(f, t, ffields, tfields)
-        case (f @ MetaSchema.Tuple(_, fleft, fright, _), t @ MetaSchema.Tuple(_, tleft, tright, _)) =>
-          val ffields = Chunk("left" -> fleft, "right" -> fright)
-          val tfields = Chunk("left" -> tleft, "right" -> tright)
+        case (
+            f @ ExtensibleMetaSchema.Tuple(_, fleft, fright, _),
+            t @ ExtensibleMetaSchema.Tuple(_, tleft, tright, _)
+            ) =>
+          val ffields = Chunk(Labelled("left", fleft), Labelled("right", fright))
+          val tfields = Chunk(Labelled("left", tleft), Labelled("right", tright))
           goProduct(f, t, ffields, tfields)
-        case (f @ MetaSchema.Product(_, _, ffields, _), t @ MetaSchema.Tuple(_, tleft, tright, _)) =>
-          val tfields = Chunk("left" -> tleft, "right" -> tright)
+        case (
+            f @ ExtensibleMetaSchema.Product(_, _, ffields, _),
+            t @ ExtensibleMetaSchema.Tuple(_, tleft, tright, _)
+            ) =>
+          val tfields = Chunk(Labelled("left", tleft), Labelled("right", tright))
           goProduct(f, t, ffields, tfields)
-        case (f @ MetaSchema.Tuple(_, fleft, fright, _), t @ MetaSchema.Product(_, _, tfields, _)) =>
-          val ffields = Chunk("left" -> fleft, "right" -> fright)
+        case (
+            f @ ExtensibleMetaSchema.Tuple(_, fleft, fright, _),
+            t @ ExtensibleMetaSchema.Product(_, _, tfields, _)
+            ) =>
+          val ffields = Chunk(Labelled("left", fleft), Labelled("right", fright))
           goProduct(f, t, ffields, tfields)
-        case (f @ MetaSchema.ListNode(fitem, _, _), t @ MetaSchema.ListNode(titem, _, _)) =>
-          val ffields = Chunk("item" -> fitem)
-          val tfields = Chunk("item" -> titem)
+        case (f @ ExtensibleMetaSchema.ListNode(fitem, _, _), t @ ExtensibleMetaSchema.ListNode(titem, _, _)) =>
+          val ffields = Chunk(Labelled("item", fitem))
+          val tfields = Chunk(Labelled("item", titem))
           goProduct(f, t, ffields, tfields)
-        case (MetaSchema.ListNode(fitem, _, _), titem) =>
+        case (ExtensibleMetaSchema.ListNode(fitem, _, _), titem) =>
           derive(fitem, titem).map(migrations => DecrementDimensions(titem.path, 1) +: migrations)
-        case (fitem, MetaSchema.ListNode(titem, _, _)) =>
+        case (fitem, ExtensibleMetaSchema.ListNode(titem, _, _)) =>
           derive(fitem, titem).map(migrations => IncrementDimensions(titem.path, 1) +: migrations)
-        case (f @ MetaSchema.Dictionary(fkeys, fvalues, _, _), t @ MetaSchema.Dictionary(tkeys, tvalues, _, _)) =>
-          val ffields = Chunk("keys" -> fkeys, "values" -> fvalues)
-          val tfields = Chunk("keys" -> tkeys, "values" -> tvalues)
+        case (
+            f @ ExtensibleMetaSchema.Dictionary(fkeys, fvalues, _, _),
+            t @ ExtensibleMetaSchema.Dictionary(tkeys, tvalues, _, _)
+            ) =>
+          val ffields = Chunk(Labelled("keys", fkeys), Labelled("values", fvalues))
+          val tfields = Chunk(Labelled("keys", tkeys), Labelled("values", tvalues))
           goProduct(f, t, ffields, tfields)
-        case (f @ MetaSchema.Sum(_, _, fcases, _), t @ MetaSchema.Sum(_, _, tcases, _)) =>
+        case (f @ ExtensibleMetaSchema.Sum(_, _, fcases, _), t @ ExtensibleMetaSchema.Sum(_, _, tcases, _)) =>
           goSum(f, t, fcases, tcases)
-        case (f @ MetaSchema.Either(_, fleft, fright, _), t @ MetaSchema.Either(_, tleft, tright, _)) =>
-          val fcases = Chunk("left" -> fleft, "right" -> fright)
-          val tcases = Chunk("left" -> tleft, "right" -> tright)
+        case (
+            f @ ExtensibleMetaSchema.Either(_, fleft, fright, _),
+            t @ ExtensibleMetaSchema.Either(_, tleft, tright, _)
+            ) =>
+          val fcases = Chunk(Labelled("left", fleft), Labelled("right", fright))
+          val tcases = Chunk(Labelled("left", tleft), Labelled("right", tright))
           goSum(f, t, fcases, tcases)
-        case (f @ MetaSchema.Sum(_, _, fcases, _), t @ MetaSchema.Either(_, tleft, tright, _)) =>
-          val tcases = Chunk("left" -> tleft, "right" -> tright)
+        case (f @ ExtensibleMetaSchema.Sum(_, _, fcases, _), t @ ExtensibleMetaSchema.Either(_, tleft, tright, _)) =>
+          val tcases = Chunk(Labelled("left", tleft), Labelled("right", tright))
           goSum(f, t, fcases, tcases)
-        case (f @ MetaSchema.Either(_, fleft, fright, _), t @ MetaSchema.Sum(_, _, tcases, _)) =>
-          val fcases = Chunk("left" -> fleft, "right" -> fright)
+        case (f @ ExtensibleMetaSchema.Either(_, fleft, fright, _), t @ ExtensibleMetaSchema.Sum(_, _, tcases, _)) =>
+          val fcases = Chunk(Labelled("left", fleft), Labelled("right", fright))
           goSum(f, t, fcases, tcases)
-        case (f @ MetaSchema.Value(ftype, _, _), t @ MetaSchema.Value(ttype, _, _)) if ttype != ftype =>
+        case (f @ ExtensibleMetaSchema.Value(ftype, _, _), t @ ExtensibleMetaSchema.Value(ttype, _, _))
+            if ttype != ftype =>
           Right(transformShape(path, f, t) :+ ChangeType(path, ttype))
-        case (f @ MetaSchema.Value(_, _, _), t @ MetaSchema.Value(_, _, _)) =>
+        case (f @ ExtensibleMetaSchema.Value(_, _, _), t @ ExtensibleMetaSchema.Value(_, _, _)) =>
           Right(transformShape(path, f, t))
-        case (f @ MetaSchema.Ref(fromRef, nodePath, _), t @ MetaSchema.Ref(toRef, _, _)) if fromRef == toRef =>
+        case (f @ ExtensibleMetaSchema.Ref(fromRef, nodePath, _), t @ ExtensibleMetaSchema.Ref(toRef, _, _))
+            if fromRef == toRef =>
           if (ignoreRefs) Right(Chunk.empty)
           else {
             val recursiveMigrations = acc
@@ -206,8 +224,8 @@ object Migration {
    * Represents a valid label transformation.
    *
    * Not currently implemented but we can use this type to encode
-   * unambiguous string transformations applued to field and case labels.
-   * For example, convering from snake to camel case (or vica versa)
+   * unambiguous string transformations applied to field and case labels.
+   * For example, converting from snake to camel case (or vica versa)
    */
   sealed trait LabelTransformation {
     def apply(label: String): Either[String, String]
@@ -220,7 +238,7 @@ object Migration {
     to: Chunk[MetaSchema.Labelled]
   ): Chunk[(MetaSchema.Labelled, MetaSchema.Labelled)] =
     from.map {
-      case fromNode @ (label, _) => to.find(_._1 == label).map(toNode => fromNode -> toNode)
+      case fromNode @ Labelled(label, _) => to.find(_.label == label).map(toNode => fromNode -> toNode)
     }.collect {
       case Some(pair) => pair
     }
@@ -231,8 +249,8 @@ object Migration {
     to: Chunk[MetaSchema.Labelled]
   ): Chunk[Migration] =
     to.foldRight[Chunk[Migration]](Chunk.empty) {
-      case ((nodeLabel, _), acc) if from.exists(_._1 == nodeLabel) => acc
-      case ((nodeLabel, ast), acc)                                 => acc :+ AddNode(path / nodeLabel, ast)
+      case (Labelled(nodeLabel, _), acc) if from.exists(_.label == nodeLabel) => acc
+      case (Labelled(nodeLabel, ast), acc)                                    => acc :+ AddNode(path / nodeLabel, ast)
     }
 
   private def caseInsertions(
@@ -241,8 +259,8 @@ object Migration {
     to: Chunk[MetaSchema.Labelled]
   ): Chunk[Migration] =
     to.foldRight[Chunk[Migration]](Chunk.empty) {
-      case ((nodeLabel, _), acc) if from.exists(_._1 == nodeLabel) => acc
-      case ((nodeLabel, ast), acc)                                 => acc :+ AddCase(path / nodeLabel, ast)
+      case (Labelled(nodeLabel, _), acc) if from.exists(_.label == nodeLabel) => acc
+      case (Labelled(nodeLabel, ast), acc)                                    => acc :+ AddCase(path / nodeLabel, ast)
     }
 
   private def deletions(
@@ -251,8 +269,8 @@ object Migration {
     to: Chunk[MetaSchema.Labelled]
   ): Chunk[Migration] =
     from.foldRight[Chunk[Migration]](Chunk.empty) {
-      case ((nodeLabel, _), acc) if !to.exists(_._1 == nodeLabel) => acc :+ DeleteNode(path / nodeLabel)
-      case (_, acc)                                               => acc
+      case (Labelled(nodeLabel, _), acc) if !to.exists(_.label == nodeLabel) => acc :+ DeleteNode(path / nodeLabel)
+      case (_, acc)                                                          => acc
     }
 
   private def transformShape(path: NodePath, from: MetaSchema, to: MetaSchema): Chunk[Migration] = {

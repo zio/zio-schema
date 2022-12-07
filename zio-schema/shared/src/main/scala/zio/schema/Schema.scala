@@ -683,6 +683,8 @@ object Schema extends SchemaEquality {
   }
 
   final case class Dynamic(override val annotations: Chunk[Any] = Chunk.empty) extends Schema[DynamicValue] {
+    def id: TypeId = DynamicValue.typeId
+
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Unit
 
     /**
