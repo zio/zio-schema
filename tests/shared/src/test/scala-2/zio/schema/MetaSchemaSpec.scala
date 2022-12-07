@@ -6,6 +6,7 @@ import zio._
 import zio.constraintless.TypeList._
 import zio.schema.CaseSet._
 import zio.schema.SchemaAssertions._
+import zio.schema.meta.ExtensibleMetaSchema.Labelled
 import zio.schema.meta.{ ExtensibleMetaSchema, MetaSchema, NodePath }
 import zio.test._
 
@@ -71,8 +72,11 @@ object MetaSchemaSpec extends ZIOSpecDefault {
             id = TypeId.parse("zio.schema.MetaSchema.Product"),
             path = NodePath.root,
             fields = Chunk(
-              ("a", ExtensibleMetaSchema.Value[DynamicValue :: End](StandardType.StringType, NodePath.root / "a")),
-              ("b", ExtensibleMetaSchema.Value[DynamicValue :: End](StandardType.IntType, NodePath.root / "b"))
+              Labelled(
+                "a",
+                ExtensibleMetaSchema.Value[DynamicValue :: End](StandardType.StringType, NodePath.root / "a")
+              ),
+              Labelled("b", ExtensibleMetaSchema.Value[DynamicValue :: End](StandardType.IntType, NodePath.root / "b"))
             )
           )
         assertTrue(MetaSchema.fromSchema(schema) == expectedAst)
@@ -84,14 +88,23 @@ object MetaSchemaSpec extends ZIOSpecDefault {
             id = TypeId.parse("zio.schema.SchemaGen.Arity2"),
             path = NodePath.root,
             fields = Chunk(
-              "value1" -> ExtensibleMetaSchema
-                .Value[DynamicValue :: End](StandardType.StringType, NodePath.root / "value1"),
-              "value2" -> ExtensibleMetaSchema.Product(
-                id = TypeId.parse("zio.schema.SchemaGen.Arity1"),
-                path = NodePath.root / "value2",
-                fields = Chunk(
-                  "value" -> ExtensibleMetaSchema
-                    .Value[DynamicValue :: End](StandardType.IntType, NodePath.root / "value2" / "value")
+              Labelled(
+                "value1",
+                ExtensibleMetaSchema
+                  .Value[DynamicValue :: End](StandardType.StringType, NodePath.root / "value1")
+              ),
+              Labelled(
+                "value2",
+                ExtensibleMetaSchema.Product(
+                  id = TypeId.parse("zio.schema.SchemaGen.Arity1"),
+                  path = NodePath.root / "value2",
+                  fields = Chunk(
+                    Labelled(
+                      "value",
+                      ExtensibleMetaSchema
+                        .Value[DynamicValue :: End](StandardType.IntType, NodePath.root / "value2" / "value")
+                    )
+                  )
                 )
               )
             )
@@ -106,9 +119,9 @@ object MetaSchemaSpec extends ZIOSpecDefault {
         val recursiveRef: Option[MetaSchema] = ast match {
           case ExtensibleMetaSchema.Product(_, _, elements, _) =>
             elements.find {
-              case ("r", _) => true
-              case _        => false
-            }.map(_._2)
+              case Labelled("r", _) => true
+              case _                => false
+            }.map(_.schema)
           case _ => None
         }
         assertTrue(
@@ -135,26 +148,47 @@ object MetaSchemaSpec extends ZIOSpecDefault {
             TypeId.Structural,
             path = NodePath.root,
             cases = Chunk(
-              "type1" -> ExtensibleMetaSchema.Product(
-                id = TypeId.parse("zio.schema.SchemaGen.Arity1"),
-                path = NodePath.root / "type1",
-                fields = Chunk(
-                  "value" -> ExtensibleMetaSchema
-                    .Value[DynamicValue :: End](StandardType.IntType, NodePath.root / "type1" / "value")
+              Labelled(
+                "type1",
+                ExtensibleMetaSchema.Product(
+                  id = TypeId.parse("zio.schema.SchemaGen.Arity1"),
+                  path = NodePath.root / "type1",
+                  fields = Chunk(
+                    Labelled(
+                      "value",
+                      ExtensibleMetaSchema
+                        .Value[DynamicValue :: End](StandardType.IntType, NodePath.root / "type1" / "value")
+                    )
+                  )
                 )
               ),
-              "type2" -> ExtensibleMetaSchema.Product(
-                id = TypeId.parse("zio.schema.SchemaGen.Arity2"),
-                path = NodePath.root / "type2",
-                fields = Chunk(
-                  "value1" -> ExtensibleMetaSchema
-                    .Value[DynamicValue :: End](StandardType.StringType, NodePath.root / "type2" / "value1"),
-                  "value2" -> ExtensibleMetaSchema.Product(
-                    id = TypeId.parse("zio.schema.SchemaGen.Arity1"),
-                    path = NodePath.root / "type2" / "value2",
-                    fields = Chunk(
-                      "value" -> ExtensibleMetaSchema
-                        .Value[DynamicValue :: End](StandardType.IntType, NodePath.root / "type2" / "value2" / "value")
+              Labelled(
+                "type2",
+                ExtensibleMetaSchema.Product(
+                  id = TypeId.parse("zio.schema.SchemaGen.Arity2"),
+                  path = NodePath.root / "type2",
+                  fields = Chunk(
+                    Labelled(
+                      "value1",
+                      ExtensibleMetaSchema
+                        .Value[DynamicValue :: End](StandardType.StringType, NodePath.root / "type2" / "value1")
+                    ),
+                    Labelled(
+                      "value2",
+                      ExtensibleMetaSchema.Product(
+                        id = TypeId.parse("zio.schema.SchemaGen.Arity1"),
+                        path = NodePath.root / "type2" / "value2",
+                        fields = Chunk(
+                          Labelled(
+                            "value",
+                            ExtensibleMetaSchema
+                              .Value[DynamicValue :: End](
+                                StandardType.IntType,
+                                NodePath.root / "type2" / "value2" / "value"
+                              )
+                          )
+                        )
+                      )
                     )
                   )
                 )
@@ -169,27 +203,45 @@ object MetaSchemaSpec extends ZIOSpecDefault {
           TypeId.parse("zio.schema.MetaSchemaSpec.Pet"),
           path = NodePath.root,
           cases = Chunk(
-            "Rock" -> ExtensibleMetaSchema.Product[DynamicValue :: End](
-              id = TypeId.parse("zio.schema.MetaSchemaSpec.Rock"),
-              path = NodePath.root / "Rock",
-              fields = Chunk.empty
-            ),
-            "Dog" -> ExtensibleMetaSchema.Product[DynamicValue :: End](
-              id = TypeId.parse("zio.schema.MetaSchemaSpec.Dog"),
-              path = NodePath.root / "Dog",
-              fields = Chunk(
-                "name" -> ExtensibleMetaSchema
-                  .Value[DynamicValue :: End](StandardType.StringType, NodePath.root / "Dog" / "name")
+            Labelled(
+              "Rock",
+              ExtensibleMetaSchema.Product[DynamicValue :: End](
+                id = TypeId.parse("zio.schema.MetaSchemaSpec.Rock"),
+                path = NodePath.root / "Rock",
+                fields = Chunk.empty
               )
             ),
-            "Cat" -> ExtensibleMetaSchema.Product[DynamicValue :: End](
-              id = TypeId.parse("zio.schema.MetaSchemaSpec.Cat"),
-              path = NodePath.root / "Cat",
-              fields = Chunk(
-                "name" -> ExtensibleMetaSchema
-                  .Value[DynamicValue :: End](StandardType.StringType, NodePath.root / "Cat" / "name"),
-                "hasHair" -> ExtensibleMetaSchema
-                  .Value[DynamicValue :: End](StandardType.BoolType, NodePath.root / "Cat" / "hasHair")
+            Labelled(
+              "Dog",
+              ExtensibleMetaSchema.Product[DynamicValue :: End](
+                id = TypeId.parse("zio.schema.MetaSchemaSpec.Dog"),
+                path = NodePath.root / "Dog",
+                fields = Chunk(
+                  Labelled(
+                    "name",
+                    ExtensibleMetaSchema
+                      .Value[DynamicValue :: End](StandardType.StringType, NodePath.root / "Dog" / "name")
+                  )
+                )
+              )
+            ),
+            Labelled(
+              "Cat",
+              ExtensibleMetaSchema.Product[DynamicValue :: End](
+                id = TypeId.parse("zio.schema.MetaSchemaSpec.Cat"),
+                path = NodePath.root / "Cat",
+                fields = Chunk(
+                  Labelled(
+                    "name",
+                    ExtensibleMetaSchema
+                      .Value[DynamicValue :: End](StandardType.StringType, NodePath.root / "Cat" / "name")
+                  ),
+                  Labelled(
+                    "hasHair",
+                    ExtensibleMetaSchema
+                      .Value[DynamicValue :: End](StandardType.BoolType, NodePath.root / "Cat" / "hasHair")
+                  )
+                )
               )
             )
           )

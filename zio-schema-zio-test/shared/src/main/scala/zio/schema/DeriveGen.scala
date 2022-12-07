@@ -4,6 +4,7 @@ import scala.collection.immutable.ListMap
 
 import zio.Chunk
 import zio.constraintless.TypeList.{ ::, End }
+import zio.schema.meta.ExtensibleMetaSchema.Labelled
 import zio.schema.meta.{ ExtensibleMetaSchema, MetaSchema, NodePath }
 import zio.test.{ Gen, Sized }
 
@@ -541,7 +542,7 @@ object DeriveGen {
       fields <- Gen.chunkOf(
                  Gen
                    .string1(Gen.asciiChar)
-                   .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
+                   .flatMap(name => genAst(path / name).map(fieldSchema => Labelled(name, fieldSchema)))
                )
     } yield ExtensibleMetaSchema.Product(id, path, fields, optional)
 
@@ -552,7 +553,7 @@ object DeriveGen {
       fields <- Gen.chunkOf(
                  Gen
                    .string1(Gen.asciiChar)
-                   .flatMap(name => genAst(path / name).map(fieldSchema => (name, fieldSchema)))
+                   .flatMap(name => genAst(path / name).map(fieldSchema => Labelled(name, fieldSchema)))
                )
     } yield ExtensibleMetaSchema.Sum(id, path, fields, optional)
 

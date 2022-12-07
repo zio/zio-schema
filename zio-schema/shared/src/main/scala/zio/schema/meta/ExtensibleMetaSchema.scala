@@ -26,8 +26,30 @@ sealed trait ExtensibleMetaSchema[BuiltIn <: TypeList] { self =>
 object ExtensibleMetaSchema {
   import CaseSet._
 
-  type Labelled[BuiltIn <: TypeList] = (String, ExtensibleMetaSchema[BuiltIn])
-  type Lineage                       = Chunk[(Int, NodePath)]
+  final case class Labelled[BuiltIn <: TypeList](label: String, schema: ExtensibleMetaSchema[BuiltIn])
+
+  object Labelled {
+    private lazy val schemaAny: Schema[Labelled[TypeList.End]] =
+      Schema
+        .defer(Schema.tuple2(Schema[String], ExtensibleMetaSchema.schemaAny))
+        .transform(tuple => Labelled(tuple._1, tuple._2), l => (l.label, l.schema))
+
+    implicit def schema[BuiltIn <: TypeList]: Schema[Labelled[BuiltIn]] =
+      schemaAny.asInstanceOf[Schema[Labelled[BuiltIn]]]
+  }
+
+  final case class Lineage(paths: Chunk[(Int, NodePath)]) {
+    def :+(pair: (Int, NodePath)): Lineage = Lineage(paths :+ pair)
+  }
+
+  object Lineage {
+    def apply(paths: (Int, NodePath)*): Lineage = Lineage(Chunk.fromIterable(paths))
+
+    lazy val empty: Lineage = Lineage(Chunk.empty)
+
+    implicit lazy val schema: Schema[Lineage] =
+      Schema.chunk(Schema.tuple2(Schema[Int], Schema[NodePath])).transform(Lineage(_), _.paths)
+  }
 
   implicit val nodePathSchema: Schema[NodePath] =
     Schema[String].repeated
@@ -446,7 +468,7 @@ object ExtensibleMetaSchema {
     private val children: ChunkBuilder[Labelled[BuiltIn]] = ChunkBuilder.make[Labelled[BuiltIn]]()
 
     def addLabelledSubtree(label: String, schema: Schema[_]): NodeBuilder[BuiltIn] = {
-      children += (label -> subtree(path / label, lineage, schema))
+      children += Labelled(label, subtree(path / label, lineage, schema))
       self
     }
 
@@ -465,40 +487,40 @@ object ExtensibleMetaSchema {
         schema match {
           case Schema.Primitive(typ, _)   => Value(typ, NodePath.root)
           case Schema.Fail(message, _)    => FailNode(message, NodePath.root)
-          case Schema.Optional(schema, _) => subtree(NodePath.root, Chunk.empty, schema, optional = true)
+          case Schema.Optional(schema, _) => subtree(NodePath.root, Lineage.empty, schema, optional = true)
           case Schema.Either(left, right, _) =>
             Either(
               NodePath.root,
-              subtree(NodePath.root / "left", Chunk.empty, left),
-              subtree(NodePath.root / "right", Chunk.empty, right)
+              subtree(NodePath.root / "left", Lineage.empty, left),
+              subtree(NodePath.root / "right", Lineage.empty, right)
             )
           case Schema.Tuple2(left, right, _) =>
             Tuple(
               NodePath.root,
-              subtree(NodePath.root / "left", Chunk.empty, left),
-              subtree(NodePath.root / "right", Chunk.empty, right)
+              subtree(NodePath.root / "left", Lineage.empty, left),
+              subtree(NodePath.root / "right", Lineage.empty, right)
             )
           case Schema.Sequence(schema, _, _, _, _) =>
-            ListNode(item = subtree(NodePath.root / "item", Chunk.empty, schema), NodePath.root)
+            ListNode(item = subtree(NodePath.root / "item", Lineage.empty, schema), NodePath.root)
           case Schema.Map(ks, vs, _) =>
             Dictionary(
-              keys = subtree(NodePath.root / "keys", Chunk.empty, ks),
-              values = subtree(NodePath.root / "values", Chunk.empty, vs),
+              keys = subtree(NodePath.root / "keys", Lineage.empty, ks),
+              values = subtree(NodePath.root / "values", Lineage.empty, vs),
               NodePath.root
             )
           case Schema.Set(schema, _) =>
-            ListNode(item = subtree(NodePath.root / "item", Chunk.empty, schema), NodePath.root)
-          case Schema.Transform(schema, _, _, _, _) => subtree(NodePath.root, Chunk.empty, schema)
+            ListNode(item = subtree(NodePath.root / "item", Lineage.empty, schema), NodePath.root)
+          case Schema.Transform(schema, _, _, _, _) => subtree(NodePath.root, Lineage.empty, schema)
           case lzy @ Schema.Lazy(_)                 => fromSchema(lzy.schema)
           case s: Schema.Record[A] =>
             s.fields
-              .foldLeft(NodeBuilder(NodePath.root, Chunk(s.hashCode() -> NodePath.root))) { (node, field) =>
+              .foldLeft(NodeBuilder(NodePath.root, Lineage(s.hashCode() -> NodePath.root))) { (node, field) =>
                 node.addLabelledSubtree(field.name, field.schema)
               }
               .buildProduct(s.id)
           case s: Schema.Enum[A] =>
             s.cases
-              .foldLeft(NodeBuilder(NodePath.root, Chunk(s.hashCode() -> NodePath.root))) {
+              .foldLeft(NodeBuilder(NodePath.root, Lineage(s.hashCode() -> NodePath.root))) {
                 case (node, caseValue) =>
                   node.addLabelledSubtree(caseValue.id, caseValue.schema)
               }
@@ -513,7 +535,7 @@ object ExtensibleMetaSchema {
     schema: Schema[_],
     optional: Boolean = false
   )(implicit builtInInstances: SchemaInstances[BuiltIn]): ExtensibleMetaSchema[BuiltIn] =
-    lineage
+    lineage.paths
       .find(_._1 == schema.hashCode())
       .map {
         case (_, refPath) =>
@@ -544,8 +566,8 @@ object ExtensibleMetaSchema {
                 ListNode(item = subtree(path / "item", lineage, schema, optional = false), path, optional)
               case Schema.Map(ks, vs, _) =>
                 Dictionary(
-                  keys = subtree(path / "keys", Chunk.empty, ks, optional = false),
-                  values = subtree(path / "values", Chunk.empty, vs, optional = false),
+                  keys = subtree(path / "keys", Lineage.empty, ks, optional = false),
+                  values = subtree(path / "values", Lineage.empty, vs, optional = false),
                   path,
                   optional
                 )
@@ -588,7 +610,7 @@ object ExtensibleMetaSchema {
         Schema.record(
           id,
           elems.map {
-            case (label, ast) =>
+            case Labelled(label, ast) =>
               Schema.Field(
                 label,
                 materialize(ast, refs).asInstanceOf[Schema[Any]],
@@ -606,7 +628,7 @@ object ExtensibleMetaSchema {
         Schema.enumeration[Any, CaseSet.Aux[Any]](
           id,
           elems.foldRight[CaseSet.Aux[Any]](CaseSet.Empty[Any]()) {
-            case ((label, ast), acc) =>
+            case (Labelled(label, ast), acc) =>
               val _case: Schema.Case[Any, Any] = Schema
                 .Case[Any, Any](
                   label,

@@ -2,6 +2,7 @@ package zio.schema.meta
 
 import zio.Chunk
 import zio.constraintless.TypeList
+import zio.schema.meta.ExtensibleMetaSchema.Labelled
 
 private[schema] object AstRenderer {
   private val INDENT_STEP = 2
@@ -20,7 +21,7 @@ private[schema] object AstRenderer {
       if (optional) buffer.append("?")
       buffer
         .append("\n")
-        .append(Chunk("left" -> left, "right" -> right).map(renderField(_, INDENT_STEP)).mkString("\n"))
+        .append(Chunk(Labelled("left", left), Labelled("right", right)).map(renderField(_, INDENT_STEP)).mkString("\n"))
         .toString
     case ExtensibleMetaSchema.Sum(_, _, cases, optional) =>
       val buffer = new StringBuffer()
@@ -33,7 +34,7 @@ private[schema] object AstRenderer {
       if (optional) buffer.append("?")
       buffer
         .append("\n")
-        .append(Chunk("left" -> left, "right" -> right).map(renderField(_, INDENT_STEP)).mkString("\n"))
+        .append(Chunk(Labelled("left", left), Labelled("right", right)).map(renderField(_, INDENT_STEP)).mkString("\n"))
         .toString
     case ExtensibleMetaSchema.ListNode(items, _, optional) =>
       val buffer = new StringBuffer()
@@ -41,7 +42,7 @@ private[schema] object AstRenderer {
       if (optional) buffer.append("?")
       buffer
         .append("\n")
-        .append(Chunk("item" -> items).map(renderField(_, INDENT_STEP)).mkString("\n"))
+        .append(Chunk(Labelled("item", items)).map(renderField(_, INDENT_STEP)).mkString("\n"))
         .toString
     case ExtensibleMetaSchema.Dictionary(keys, values, _, optional) =>
       val buffer = new StringBuffer()
@@ -49,7 +50,9 @@ private[schema] object AstRenderer {
       if (optional) buffer.append("?")
       buffer
         .append("\n")
-        .append(Chunk("keys" -> keys, "values" -> values).map(renderField(_, INDENT_STEP)).mkString("\n"))
+        .append(
+          Chunk(Labelled("keys", keys), Labelled("values", values)).map(renderField(_, INDENT_STEP)).mkString("\n")
+        )
         .toString
     case ExtensibleMetaSchema.Ref(refPath, _, optional) =>
       val buffer = new StringBuffer()
@@ -63,63 +66,73 @@ private[schema] object AstRenderer {
       buffer.toString
   }
 
-  def renderField[BuiltIn <: TypeList](value: ExtensibleMetaSchema.Labelled[BuiltIn], indent: Int): String = {
+  def renderField[BuiltIn <: TypeList](labelled: ExtensibleMetaSchema.Labelled[BuiltIn], indent: Int): String = {
     val buffer = new StringBuffer()
-    value match {
-      case (label, value @ ExtensibleMetaSchema.Value(_, _, _)) =>
-        renderValue(value, indent, Some(label))
-      case (label, fail @ ExtensibleMetaSchema.FailNode(_, _, _)) =>
-        renderFail(fail, indent, Some(label))
-      case (label, ExtensibleMetaSchema.Product(_, _, fields, optional)) =>
+    labelled.schema match {
+      case value @ ExtensibleMetaSchema.Value(_, _, _) =>
+        renderValue(value, indent, Some(labelled.label))
+      case fail @ ExtensibleMetaSchema.FailNode(_, _, _) =>
+        renderFail(fail, indent, Some(labelled.label))
+      case ExtensibleMetaSchema.Product(_, _, fields, optional) =>
         pad(buffer, indent)
-        buffer.append(s"$label: record")
+        buffer.append(s"${labelled.label}: record")
         if (optional) buffer.append("?")
         buffer.append("\n").append(fields.map(renderField(_, indent + INDENT_STEP)).mkString("\n")).toString
-      case (label, ExtensibleMetaSchema.Tuple(_, left, right, optional)) =>
+      case ExtensibleMetaSchema.Tuple(_, left, right, optional) =>
         pad(buffer, indent)
-        buffer.append(s"$label: tuple")
+        buffer.append(s"${labelled.label}: tuple")
         if (optional) buffer.append("?")
         buffer
           .append("\n")
-          .append(Chunk("left" -> left, "right" -> right).map(renderField(_, indent + INDENT_STEP)).mkString("\n"))
+          .append(
+            Chunk(Labelled("left", left), Labelled("right", right))
+              .map(renderField(_, indent + INDENT_STEP))
+              .mkString("\n")
+          )
           .toString
-      case (label, ExtensibleMetaSchema.Sum(_, _, cases, optional)) =>
+      case ExtensibleMetaSchema.Sum(_, _, cases, optional) =>
         pad(buffer, indent)
-        buffer.append(s"$label: enum")
+        buffer.append(s"${labelled.label}: enum")
         if (optional) buffer.append("?")
         buffer.append("\n").append(cases.map(renderField(_, indent + INDENT_STEP)).mkString("\n")).toString
-      case (label, ExtensibleMetaSchema.Either(_, left, right, optional)) =>
+      case ExtensibleMetaSchema.Either(_, left, right, optional) =>
         pad(buffer, indent)
-        buffer.append(s"$label: either")
+        buffer.append(s"${labelled.label}: either")
         if (optional) buffer.append("?")
         buffer
           .append("\n")
-          .append(Chunk("left" -> left, "right" -> right).map(renderField(_, indent + INDENT_STEP)).mkString("\n"))
+          .append(
+            Chunk(Labelled("left", left), Labelled("right", right))
+              .map(renderField(_, indent + INDENT_STEP))
+              .mkString("\n")
+          )
           .toString
-      case (label, ExtensibleMetaSchema.ListNode(items, _, optional)) =>
+      case ExtensibleMetaSchema.ListNode(items, _, optional) =>
         val buffer = new StringBuffer()
-        buffer.append(s"$label: list")
+        buffer.append(s"${labelled.label}: list")
         if (optional) buffer.append("?")
         buffer
           .append("\n")
-          .append(Chunk("item" -> items).map(renderField(_, INDENT_STEP)).mkString("\n"))
+          .append(Chunk(Labelled("item", items)).map(renderField(_, INDENT_STEP)).mkString("\n"))
           .toString
-      case (label, ExtensibleMetaSchema.Dictionary(keys, values, _, optional)) =>
+      case ExtensibleMetaSchema.Dictionary(keys, values, _, optional) =>
         val buffer = new StringBuffer()
-        buffer.append(s"$label: map")
+        buffer.append(s"${labelled.label}: map")
         if (optional) buffer.append("?")
         buffer
           .append("\n")
-          .append(Chunk("keys" -> keys, "values" -> values).map(renderField(_, INDENT_STEP)).mkString("\n"))
+          .append(
+            Chunk(Labelled("keys", keys), Labelled("values", values)).map(renderField(_, INDENT_STEP)).mkString("\n")
+          )
           .toString
-      case (label, ExtensibleMetaSchema.Ref(refPath, _, optional)) =>
+      case ExtensibleMetaSchema.Ref(refPath, _, optional) =>
         pad(buffer, indent)
-        buffer.append(s"$label: ")
+        buffer.append(s"${labelled.label}: ")
         if (optional) buffer.append("?")
         buffer.append(s"{ref#${refPath.render}}").toString
-      case (label, ExtensibleMetaSchema.Known(typeId, _, optional)) =>
+      case ExtensibleMetaSchema.Known(typeId, _, optional) =>
         pad(buffer, indent)
-        buffer.append(s"$label: ")
+        buffer.append(s"${labelled.label}: ")
         buffer.append(typeId.toString)
         if (optional) buffer.append("?")
         buffer.toString
