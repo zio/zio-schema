@@ -4,9 +4,9 @@ import scala.collection.immutable.ListMap
 
 import zio.Chunk
 import zio.constraintless.TypeList.{ ::, End }
+import zio.schema.annotation.generator
 import zio.schema.meta.ExtensibleMetaSchema.Labelled
 import zio.schema.meta.{ ExtensibleMetaSchema, MetaSchema, NodePath }
-import zio.schema.annotation.generator
 import zio.test.{ Gen, Sized }
 
 object DeriveGen {

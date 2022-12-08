@@ -110,8 +110,7 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
       "dev.zio" %% "zio"                % zioVersion,
       "dev.zio" %% "zio-streams"        % zioVersion,
       "dev.zio" %% "zio-prelude"        % zioPreludeVersion,
-      "dev.zio" %% "zio-constraintless" % zioConstraintlessVersion,
-      "dev.zio" %% "zio-test"           % zioVersion
+      "dev.zio" %% "zio-constraintless" % zioConstraintlessVersion
     )
   )
   .dependsOn(zioSchemaMacros)
