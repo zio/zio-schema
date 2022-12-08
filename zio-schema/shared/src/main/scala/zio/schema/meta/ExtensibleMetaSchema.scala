@@ -29,13 +29,12 @@ object ExtensibleMetaSchema {
   final case class Labelled[BuiltIn <: TypeList](label: String, schema: ExtensibleMetaSchema[BuiltIn])
 
   object Labelled {
-    private lazy val schemaAny: Schema[Labelled[TypeList.End]] =
+    implicit def schema[BuiltIn <: TypeList](
+      implicit builtInInstances: SchemaInstances[BuiltIn]
+    ): Schema[Labelled[BuiltIn]] =
       Schema
-        .defer(Schema.tuple2(Schema[String], ExtensibleMetaSchema.schemaAny))
+        .defer(Schema.tuple2(Schema[String], ExtensibleMetaSchema.schema[BuiltIn]))
         .transform(tuple => Labelled(tuple._1, tuple._2), l => (l.label, l.schema))
-
-    implicit def schema[BuiltIn <: TypeList]: Schema[Labelled[BuiltIn]] =
-      schemaAny.asInstanceOf[Schema[Labelled[BuiltIn]]]
   }
 
   final case class Lineage(paths: Chunk[(Int, NodePath)]) {
@@ -64,10 +63,9 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Product {
-    implicit def schema[BuiltIn <: TypeList]: Schema[Product[BuiltIn]] =
-      schemaAny.asInstanceOf[Schema[Product[BuiltIn]]]
-
-    private lazy val schemaAny: Schema[Product[TypeList.End]] = {
+    implicit def schema[BuiltIn <: TypeList](
+      implicit builtInInstances: SchemaInstances[BuiltIn]
+    ): Schema[Product[BuiltIn]] =
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Product"),
         field01 = Schema.Field("id", Schema[TypeId], get0 = _.id, set0 = (a, value: TypeId) => a.copy(id = value)),
@@ -81,9 +79,9 @@ object ExtensibleMetaSchema {
         field03 = Schema
           .Field(
             "fields",
-            Schema[Labelled[TypeList.End]].repeated,
+            Schema[Labelled[BuiltIn]].repeated,
             get0 = _.fields,
-            set0 = (a: Product[TypeList.End], value: Chunk[Labelled[TypeList.End]]) => a.copy(fields = value)
+            set0 = (a: Product[BuiltIn], value: Chunk[Labelled[BuiltIn]]) => a.copy(fields = value)
           ),
         field04 = Schema
           .Field(
@@ -92,10 +90,10 @@ object ExtensibleMetaSchema {
             get0 = _.optional,
             set0 = (a, value: Boolean) => a.copy(optional = value)
           ),
-        (id: TypeId, path: Chunk[String], fields: Chunk[Labelled[TypeList.End]], optional: Boolean) =>
+        (id: TypeId, path: Chunk[String], fields: Chunk[Labelled[BuiltIn]], optional: Boolean) =>
           Product(id, NodePath(path), fields, optional)
       )
-    }
+
   }
   final case class Tuple[BuiltIn <: TypeList](
     override val path: NodePath,
@@ -106,9 +104,9 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Tuple {
-    implicit def schema[BuiltIn <: TypeList]: Schema[Tuple[BuiltIn]] = schemaAny.asInstanceOf[Schema[Tuple[BuiltIn]]]
-
-    private lazy val schemaAny: Schema[Tuple[TypeList.End]] = {
+    implicit def schema[BuiltIn <: TypeList](
+      implicit builtInInstances: SchemaInstances[BuiltIn]
+    ): Schema[Tuple[BuiltIn]] =
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Tuple"),
         field01 = Schema
@@ -121,16 +119,16 @@ object ExtensibleMetaSchema {
         field02 = Schema
           .Field(
             "left",
-            Schema[ExtensibleMetaSchema[TypeList.End]],
+            Schema[ExtensibleMetaSchema[BuiltIn]],
             get0 = _.left,
-            set0 = (a, value: ExtensibleMetaSchema[TypeList.End]) => a.copy(left = value)
+            set0 = (a, value: ExtensibleMetaSchema[BuiltIn]) => a.copy(left = value)
           ),
         field03 = Schema
           .Field(
             "right",
-            Schema[ExtensibleMetaSchema[TypeList.End]],
+            Schema[ExtensibleMetaSchema[BuiltIn]],
             get0 = _.right,
-            set0 = (a, value: ExtensibleMetaSchema[TypeList.End]) => a.copy(right = value)
+            set0 = (a, value: ExtensibleMetaSchema[BuiltIn]) => a.copy(right = value)
           ),
         field04 = Schema
           .Field(
@@ -141,12 +139,12 @@ object ExtensibleMetaSchema {
           ),
         (
           path: Chunk[String],
-          left: ExtensibleMetaSchema[TypeList.End],
-          right: ExtensibleMetaSchema[TypeList.End],
+          left: ExtensibleMetaSchema[BuiltIn],
+          right: ExtensibleMetaSchema[BuiltIn],
           optional: Boolean
         ) => Tuple(NodePath(path), left, right, optional)
       )
-    }
+
   }
 
   final case class Sum[BuiltIn <: TypeList](
@@ -158,9 +156,9 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Sum {
-    implicit def schema[BuiltIn <: TypeList]: Schema[Sum[BuiltIn]] = schemaAny.asInstanceOf[Schema[Sum[BuiltIn]]]
-
-    private lazy val schemaAny: Schema[Sum[TypeList.End]] =
+    implicit def schema[BuiltIn <: TypeList](
+      implicit builtInInstances: SchemaInstances[BuiltIn]
+    ): Schema[Sum[BuiltIn]] =
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Sum"),
         field01 = Schema.Field("id", Schema[TypeId], get0 = _.id, set0 = (a, value: TypeId) => a.copy(id = value)),
@@ -173,9 +171,9 @@ object ExtensibleMetaSchema {
           ),
         field03 = Schema.Field(
           "cases",
-          Schema[Labelled[TypeList.End]].repeated,
+          Schema[Labelled[BuiltIn]].repeated,
           get0 = _.cases,
-          set0 = (a, value: Chunk[Labelled[TypeList.End]]) => a.copy(cases = value)
+          set0 = (a, value: Chunk[Labelled[BuiltIn]]) => a.copy(cases = value)
         ),
         field04 = Schema
           .Field(
@@ -184,7 +182,7 @@ object ExtensibleMetaSchema {
             get0 = _.optional,
             set0 = (a, value: Boolean) => a.copy(optional = value)
           ),
-        (id: TypeId, path: Chunk[String], fields: Chunk[Labelled[TypeList.End]], optional: Boolean) =>
+        (id: TypeId, path: Chunk[String], fields: Chunk[Labelled[BuiltIn]], optional: Boolean) =>
           Sum(id, NodePath(path), fields, optional)
       )
   }
@@ -198,9 +196,9 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Either {
-    implicit def schema[BuiltIn <: TypeList]: Schema[Either[BuiltIn]] = schemaAny.asInstanceOf[Schema[Either[BuiltIn]]]
-
-    private lazy val schemaAny: Schema[Either[TypeList.End]] = {
+    implicit def schema[BuiltIn <: TypeList](
+      implicit builtInInstances: SchemaInstances[BuiltIn]
+    ): Schema[Either[BuiltIn]] =
       Schema.CaseClass4(
         TypeId.parse("zio.schema.meta.MetaSchema.Either"),
         field01 = Schema
@@ -213,16 +211,16 @@ object ExtensibleMetaSchema {
         field02 = Schema
           .Field(
             "left",
-            Schema[ExtensibleMetaSchema[TypeList.End]],
+            Schema[ExtensibleMetaSchema[BuiltIn]],
             get0 = _.left,
-            set0 = (a, value: ExtensibleMetaSchema[TypeList.End]) => a.copy(left = value)
+            set0 = (a, value: ExtensibleMetaSchema[BuiltIn]) => a.copy(left = value)
           ),
         field03 = Schema
           .Field(
             "right",
-            Schema[ExtensibleMetaSchema[TypeList.End]],
+            Schema[ExtensibleMetaSchema[BuiltIn]],
             get0 = _.right,
-            set0 = (a, value: ExtensibleMetaSchema[TypeList.End]) => a.copy(right = value)
+            set0 = (a, value: ExtensibleMetaSchema[BuiltIn]) => a.copy(right = value)
           ),
         field04 = Schema
           .Field(
@@ -233,12 +231,12 @@ object ExtensibleMetaSchema {
           ),
         (
           path: Chunk[String],
-          left: ExtensibleMetaSchema[TypeList.End],
-          right: ExtensibleMetaSchema[TypeList.End],
+          left: ExtensibleMetaSchema[BuiltIn],
+          right: ExtensibleMetaSchema[BuiltIn],
           optional: Boolean
         ) => Either(NodePath(path), left, right, optional)
       )
-    }
+
   }
 
   final case class FailNode[BuiltIn <: TypeList](
@@ -249,23 +247,28 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object FailNode {
-    implicit def schema[BuiltIn <: TypeList]: Schema[FailNode[BuiltIn]] =
-      schemaAny.asInstanceOf[Schema[FailNode[BuiltIn]]]
-
-    private lazy val schemaAny: Schema[FailNode[TypeList.End]] = Schema.CaseClass3(
-      TypeId.parse("zio.schema.meta.MetaSchema.FailNode"),
-      field01 =
-        Schema.Field("message", Schema[String], get0 = _.message, set0 = (a, value: String) => a.copy(message = value)),
-      field02 = Schema.Field(
-        "path",
-        Schema[String].repeated,
-        get0 = _.path,
-        set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
-      ),
-      field03 = Schema
-        .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
-      (m: String, path: Chunk[String], optional: Boolean) => FailNode(m, NodePath(path), optional)
-    )
+    implicit def schema[BuiltIn <: TypeList](
+      implicit builtInInstances: SchemaInstances[BuiltIn]
+    ): Schema[FailNode[BuiltIn]] =
+      Schema.CaseClass3(
+        TypeId.parse("zio.schema.meta.MetaSchema.FailNode"),
+        field01 = Schema
+          .Field("message", Schema[String], get0 = _.message, set0 = (a, value: String) => a.copy(message = value)),
+        field02 = Schema.Field(
+          "path",
+          Schema[String].repeated,
+          get0 = _.path,
+          set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
+        ),
+        field03 = Schema
+          .Field(
+            "optional",
+            Schema[Boolean],
+            get0 = _.optional,
+            set0 = (a, value: Boolean) => a.copy(optional = value)
+          ),
+        (m: String, path: Chunk[String], optional: Boolean) => FailNode(m, NodePath(path), optional)
+      )
   }
 
   final case class ListNode[BuiltIn <: TypeList](
@@ -276,28 +279,33 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object ListNode {
-    implicit def schema[BuiltIn <: TypeList]: Schema[ListNode[BuiltIn]] =
-      schemaAny.asInstanceOf[Schema[ListNode[BuiltIn]]]
-
-    private lazy val schemaAny: Schema[ListNode[TypeList.End]] = Schema.CaseClass3(
-      TypeId.parse("zio.schema.meta.MetaSchema.ListNode"),
-      field01 = Schema.Field(
-        "item",
-        Schema[ExtensibleMetaSchema[TypeList.End]],
-        get0 = _.item,
-        set0 = (a, value: ExtensibleMetaSchema[TypeList.End]) => a.copy(item = value)
-      ),
-      field02 = Schema.Field(
-        "path",
-        Schema[String].repeated,
-        get0 = _.path,
-        set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
-      ),
-      field03 = Schema
-        .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
-      (item: ExtensibleMetaSchema[TypeList.End], path: Chunk[String], optional: Boolean) =>
-        ListNode(item, NodePath(path), optional)
-    )
+    implicit def schema[BuiltIn <: TypeList](
+      implicit builtInInstances: SchemaInstances[BuiltIn]
+    ): Schema[ListNode[BuiltIn]] =
+      Schema.CaseClass3(
+        TypeId.parse("zio.schema.meta.MetaSchema.ListNode"),
+        field01 = Schema.Field(
+          "item",
+          Schema[ExtensibleMetaSchema[BuiltIn]],
+          get0 = _.item,
+          set0 = (a, value: ExtensibleMetaSchema[BuiltIn]) => a.copy(item = value)
+        ),
+        field02 = Schema.Field(
+          "path",
+          Schema[String].repeated,
+          get0 = _.path,
+          set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
+        ),
+        field03 = Schema
+          .Field(
+            "optional",
+            Schema[Boolean],
+            get0 = _.optional,
+            set0 = (a, value: Boolean) => a.copy(optional = value)
+          ),
+        (item: ExtensibleMetaSchema[BuiltIn], path: Chunk[String], optional: Boolean) =>
+          ListNode(item, NodePath(path), optional)
+      )
   }
 
   final case class Dictionary[BuiltIn <: TypeList](
@@ -309,39 +317,44 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Dictionary {
-    implicit def schema[BuiltIn <: TypeList]: Schema[Dictionary[BuiltIn]] =
-      schemaAny.asInstanceOf[Schema[Dictionary[BuiltIn]]]
-
-    private lazy val schemaAny: Schema[Dictionary[TypeList.End]] = Schema.CaseClass4(
-      TypeId.parse("zio.schema.meta.MetaSchema.Dictionary"),
-      field01 = Schema.Field(
-        "keys",
-        Schema[ExtensibleMetaSchema[TypeList.End]],
-        get0 = _.keys,
-        set0 = (a, value: ExtensibleMetaSchema[TypeList.End]) => a.copy(keys = value)
-      ),
-      field02 = Schema
-        .Field(
-          "values",
-          Schema[ExtensibleMetaSchema[TypeList.End]],
-          get0 = _.values,
-          set0 = (a, value: ExtensibleMetaSchema[TypeList.End]) => a.copy(values = value)
+    implicit def schema[BuiltIn <: TypeList](
+      implicit builtInInstances: SchemaInstances[BuiltIn]
+    ): Schema[Dictionary[BuiltIn]] =
+      Schema.CaseClass4(
+        TypeId.parse("zio.schema.meta.MetaSchema.Dictionary"),
+        field01 = Schema.Field(
+          "keys",
+          Schema[ExtensibleMetaSchema[BuiltIn]],
+          get0 = _.keys,
+          set0 = (a, value: ExtensibleMetaSchema[BuiltIn]) => a.copy(keys = value)
         ),
-      field03 = Schema.Field(
-        "path",
-        Schema[String].repeated,
-        get0 = _.path,
-        set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
-      ),
-      field04 = Schema
-        .Field("optional", Schema[Boolean], get0 = _.optional, set0 = (a, value: Boolean) => a.copy(optional = value)),
-      (
-        keys: ExtensibleMetaSchema[TypeList.End],
-        values: ExtensibleMetaSchema[TypeList.End],
-        path: Chunk[String],
-        optional: Boolean
-      ) => Dictionary(keys, values, NodePath(path), optional)
-    )
+        field02 = Schema
+          .Field(
+            "values",
+            Schema[ExtensibleMetaSchema[BuiltIn]],
+            get0 = _.values,
+            set0 = (a, value: ExtensibleMetaSchema[BuiltIn]) => a.copy(values = value)
+          ),
+        field03 = Schema.Field(
+          "path",
+          Schema[String].repeated,
+          get0 = _.path,
+          set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
+        ),
+        field04 = Schema
+          .Field(
+            "optional",
+            Schema[Boolean],
+            get0 = _.optional,
+            set0 = (a, value: Boolean) => a.copy(optional = value)
+          ),
+        (
+          keys: ExtensibleMetaSchema[BuiltIn],
+          values: ExtensibleMetaSchema[BuiltIn],
+          path: Chunk[String],
+          optional: Boolean
+        ) => Dictionary(keys, values, NodePath(path), optional)
+      )
   }
 
   final case class Value[BuiltIn <: TypeList](
@@ -352,9 +365,9 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Value {
-    implicit def schema[BuiltIn <: TypeList]: Schema[Value[BuiltIn]] = schemaAny.asInstanceOf[Schema[Value[BuiltIn]]]
-
-    private lazy val schemaAny: Schema[Value[TypeList.End]] =
+    implicit def schema[BuiltIn <: TypeList](
+      implicit builtInInstances: SchemaInstances[BuiltIn]
+    ): Schema[Value[BuiltIn]] =
       Schema
         .CaseClass3[String, Chunk[String], Boolean, (String, Chunk[String], Boolean)](
           TypeId.parse("zio.schema.meta.MetaSchema.Value"),
@@ -396,9 +409,9 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Ref {
-    implicit def schema[BuiltIn <: TypeList]: Schema[Ref[BuiltIn]] = schemaAny.asInstanceOf[Schema[Ref[BuiltIn]]]
-
-    private lazy val schemaAny: Schema[Ref[TypeList.End]] =
+    implicit def schema[BuiltIn <: TypeList](
+      implicit builtInInstances: SchemaInstances[BuiltIn]
+    ): Schema[Ref[BuiltIn]] =
       Schema.CaseClass3(
         TypeId.parse("zio.schema.meta.MetaSchema.Ref"),
         field01 = Schema.Field(
@@ -434,10 +447,9 @@ object ExtensibleMetaSchema {
       extends ExtensibleMetaSchema[BuiltIn]
 
   object Known {
-    implicit def schema[BuiltIn <: TypeList]: Schema[Known[BuiltIn]] =
-      schemaAny.asInstanceOf[Schema[Known[BuiltIn]]]
-
-    private lazy val schemaAny: Schema[Known[TypeList.End]] =
+    implicit def schema[BuiltIn <: TypeList](
+      implicit builtInInstances: SchemaInstances[BuiltIn]
+    ): Schema[Known[BuiltIn]] =
       Schema.CaseClass3(
         TypeId.parse("zio.schema.meta.MetaSchema.Known"),
         field01 =
@@ -664,66 +676,65 @@ object ExtensibleMetaSchema {
     if (ast.optional) baseSchema.optional else baseSchema
   }
 
-  implicit def schema[BuiltIn <: TypeList]: Schema[ExtensibleMetaSchema[BuiltIn]] =
-    schemaAny.asInstanceOf[Schema[ExtensibleMetaSchema[BuiltIn]]]
-
-  private lazy val schemaAny: Schema[ExtensibleMetaSchema[TypeList.End]] =
+  implicit def schema[BuiltIn <: TypeList](
+    implicit builtInInstances: SchemaInstances[BuiltIn]
+  ): Schema[ExtensibleMetaSchema[BuiltIn]] =
     Schema.defer {
-      Schema.EnumN[ExtensibleMetaSchema[TypeList.End], CaseSet.Aux[ExtensibleMetaSchema[TypeList.End]]](
-        TypeId.parse("zio.schema.meta.ExtensibleMetaSchema[TypeList.End]"),
-        caseOf[Value[TypeList.End], ExtensibleMetaSchema[TypeList.End]]("Value")(_.asInstanceOf[Value[TypeList.End]])(
-          _.asInstanceOf[ExtensibleMetaSchema[TypeList.End]]
-        )(_.isInstanceOf[Value[TypeList.End]]) ++
-          caseOf[Sum[TypeList.End], ExtensibleMetaSchema[TypeList.End]]("Sum")(_.asInstanceOf[Sum[TypeList.End]])(
-            _.asInstanceOf[ExtensibleMetaSchema[TypeList.End]]
-          )(_.isInstanceOf[Sum[TypeList.End]]) ++
-          caseOf[Either[TypeList.End], ExtensibleMetaSchema[TypeList.End]]("Either")(
-            _.asInstanceOf[Either[TypeList.End]]
+      Schema.EnumN[ExtensibleMetaSchema[BuiltIn], CaseSet.Aux[ExtensibleMetaSchema[BuiltIn]]](
+        TypeId.parse("zio.schema.meta.ExtensibleMetaSchema[BuiltIn"),
+        caseOf[Value[BuiltIn], ExtensibleMetaSchema[BuiltIn]]("Value")(_.asInstanceOf[Value[BuiltIn]])(
+          _.asInstanceOf[ExtensibleMetaSchema[BuiltIn]]
+        )(_.isInstanceOf[Value[BuiltIn]]) ++
+          caseOf[Sum[BuiltIn], ExtensibleMetaSchema[BuiltIn]]("Sum")(_.asInstanceOf[Sum[BuiltIn]])(
+            _.asInstanceOf[ExtensibleMetaSchema[BuiltIn]]
+          )(_.isInstanceOf[Sum[BuiltIn]]) ++
+          caseOf[Either[BuiltIn], ExtensibleMetaSchema[BuiltIn]]("Either")(
+            _.asInstanceOf[Either[BuiltIn]]
           )(
-            _.asInstanceOf[ExtensibleMetaSchema[TypeList.End]]
+            _.asInstanceOf[ExtensibleMetaSchema[BuiltIn]]
           )(
-            _.isInstanceOf[Either[TypeList.End]]
+            _.isInstanceOf[Either[BuiltIn]]
           ) ++
-          caseOf[Product[TypeList.End], ExtensibleMetaSchema[TypeList.End]]("Product")(
-            _.asInstanceOf[Product[TypeList.End]]
+          caseOf[Product[BuiltIn], ExtensibleMetaSchema[BuiltIn]]("Product")(
+            _.asInstanceOf[Product[BuiltIn]]
           )(
-            _.asInstanceOf[ExtensibleMetaSchema[TypeList.End]]
+            _.asInstanceOf[ExtensibleMetaSchema[BuiltIn]]
           )(
-            _.isInstanceOf[Product[TypeList.End]]
+            _.isInstanceOf[Product[BuiltIn]]
           ) ++
-          caseOf[Tuple[TypeList.End], ExtensibleMetaSchema[TypeList.End]]("Tuple")(_.asInstanceOf[Tuple[TypeList.End]])(
-            _.asInstanceOf[ExtensibleMetaSchema[TypeList.End]]
-          )(_.isInstanceOf[Tuple[TypeList.End]]) ++
-          caseOf[Ref[TypeList.End], ExtensibleMetaSchema[TypeList.End]]("Ref")(_.asInstanceOf[Ref[TypeList.End]])(
-            _.asInstanceOf[ExtensibleMetaSchema[TypeList.End]]
-          )(_.isInstanceOf[Ref[TypeList.End]]) ++
-          caseOf[ListNode[TypeList.End], ExtensibleMetaSchema[TypeList.End]]("ListNode")(
-            _.asInstanceOf[ListNode[TypeList.End]]
+          caseOf[Tuple[BuiltIn], ExtensibleMetaSchema[BuiltIn]]("Tuple")(_.asInstanceOf[Tuple[BuiltIn]])(
+            _.asInstanceOf[ExtensibleMetaSchema[BuiltIn]]
+          )(_.isInstanceOf[Tuple[BuiltIn]]) ++
+          caseOf[Ref[BuiltIn], ExtensibleMetaSchema[BuiltIn]]("Ref")(_.asInstanceOf[Ref[BuiltIn]])(
+            _.asInstanceOf[ExtensibleMetaSchema[BuiltIn]]
+          )(_.isInstanceOf[Ref[BuiltIn]]) ++
+          caseOf[ListNode[BuiltIn], ExtensibleMetaSchema[BuiltIn]]("ListNode")(
+            _.asInstanceOf[ListNode[BuiltIn]]
           )(
-            _.asInstanceOf[ExtensibleMetaSchema[TypeList.End]]
+            _.asInstanceOf[ExtensibleMetaSchema[BuiltIn]]
           )(
-            _.isInstanceOf[ListNode[TypeList.End]]
+            _.isInstanceOf[ListNode[BuiltIn]]
           ) ++
-          caseOf[Dictionary[TypeList.End], ExtensibleMetaSchema[TypeList.End]]("Dictionary")(
-            _.asInstanceOf[Dictionary[TypeList.End]]
+          caseOf[Dictionary[BuiltIn], ExtensibleMetaSchema[BuiltIn]]("Dictionary")(
+            _.asInstanceOf[Dictionary[BuiltIn]]
           )(
-            _.asInstanceOf[ExtensibleMetaSchema[TypeList.End]]
+            _.asInstanceOf[ExtensibleMetaSchema[BuiltIn]]
           )(
-            _.isInstanceOf[Dictionary[TypeList.End]]
+            _.isInstanceOf[Dictionary[BuiltIn]]
           ) ++
-          caseOf[Known[TypeList.End], ExtensibleMetaSchema[TypeList.End]]("Known")(
-            _.asInstanceOf[Known[TypeList.End]]
+          caseOf[Known[BuiltIn], ExtensibleMetaSchema[BuiltIn]]("Known")(
+            _.asInstanceOf[Known[BuiltIn]]
           )(
-            _.asInstanceOf[ExtensibleMetaSchema[TypeList.End]]
+            _.asInstanceOf[ExtensibleMetaSchema[BuiltIn]]
           )(
-            _.isInstanceOf[Known[TypeList.End]]
+            _.isInstanceOf[Known[BuiltIn]]
           ) ++
-          caseOf[FailNode[TypeList.End], ExtensibleMetaSchema[TypeList.End]]("Fail")(
-            _.asInstanceOf[FailNode[TypeList.End]]
+          caseOf[FailNode[BuiltIn], ExtensibleMetaSchema[BuiltIn]]("Fail")(
+            _.asInstanceOf[FailNode[BuiltIn]]
           )(
-            _.asInstanceOf[ExtensibleMetaSchema[TypeList.End]]
+            _.asInstanceOf[ExtensibleMetaSchema[BuiltIn]]
           )(
-            _.isInstanceOf[FailNode[TypeList.End]]
+            _.isInstanceOf[FailNode[BuiltIn]]
           ),
         Chunk.empty
       )

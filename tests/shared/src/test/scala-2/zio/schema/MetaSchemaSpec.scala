@@ -340,6 +340,28 @@ object MetaSchemaSpec extends ZIOSpecDefault {
         val refEq1 = meta1.toSchema eq Schema[Pet]
         val refEq2 = meta2.toSchema eq Schema[DynamicValue]
         assertTrue(refEq1, refEq2)
+      },
+      test("roundtrip serialization with known types") {
+        val meta1 = ExtendedMetaSchema.fromSchema(Schema[Pet])
+        val meta2 = ExtendedMetaSchema.fromSchema(Schema[DynamicValue])
+        val meta3 = ExtendedMetaSchema.fromSchema(Schema[Recursive])
+
+        val dyn1 = DynamicValue(meta1)
+        val dyn2 = DynamicValue(meta2)
+        val dyn3 = DynamicValue(meta3)
+
+        val meta12 = dyn1.toTypedValue(ExtendedMetaSchema.schema).toOption.get
+        val meta22 = dyn2.toTypedValue(ExtendedMetaSchema.schema).toOption.get
+        val meta32 = dyn3.toTypedValue(ExtendedMetaSchema.schema).toOption.get
+
+        val refEq1 = meta12.toSchema eq Schema[Pet]
+        val refEq2 = meta22.toSchema eq Schema[DynamicValue]
+
+        assertTrue(
+          refEq1,
+          refEq2,
+          meta32.isInstanceOf[ExtensibleMetaSchema.Product[_]]
+        )
       }
     )
   )
@@ -379,6 +401,8 @@ object MetaSchemaSpec extends ZIOSpecDefault {
   type ExtendedMetaSchema = ExtensibleMetaSchema[DynamicValue :: Pet :: End]
 
   object ExtendedMetaSchema {
+    lazy val schema: Schema[ExtendedMetaSchema] =
+      ExtensibleMetaSchema.schema[DynamicValue :: Pet :: End]
 
     def fromSchema[A](schema: Schema[A]): ExtendedMetaSchema =
       ExtensibleMetaSchema.fromSchema(schema)

@@ -13,7 +13,7 @@ trait SchemaInstances[As <: TypeList] {
     ev: B IsElementOf As
   ): D
 
-  def all: Set[Schema[_]]
+  def all: List[Schema[_]]
 }
 
 object SchemaInstances {
@@ -35,7 +35,7 @@ object SchemaInstances {
         case Tail(x) => ev.withInstance(use)(x)
       }
 
-    override def all: Set[Schema[_]] = ev.all + c
+    override def all: List[Schema[_]] = c :: ev.all
   }
 
   // The definition is slightly from what mentioned in the paper where it traverses hlist
@@ -46,6 +46,6 @@ object SchemaInstances {
     ): D =
       sys.error("hmmm")
 
-    override def all: Set[Schema[_]] = Set.empty
+    override def all: List[Schema[_]] = List.empty
   }
 }
