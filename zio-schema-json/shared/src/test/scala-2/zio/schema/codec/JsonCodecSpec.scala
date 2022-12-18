@@ -14,6 +14,7 @@ import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.schema.codec.JsonCodecSpec.PaymentMethod.{ CreditCard, PayPal, WireTransfer }
+import zio.schema.codec.JsonCodecSpec.Subscription.{ OneTime, Recurring }
 import zio.schema.meta.MetaSchema
 import zio.stream.ZStream
 import zio.test.Assertion._
@@ -172,6 +173,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           PayPal("foo@bar.com"),
           charSequenceToByteChunk("""{}""")
         )
+      },
+      test("case name annotation with discriminator") {
+        assertEncodes(
+          Subscription.schema,
+          Recurring("monthly", 10),
+          charSequenceToByteChunk("""{"type":"recurring","period":"monthly","amount":10}""")
+        )
       }
     )
   )
@@ -297,6 +305,29 @@ object JsonCodecSpec extends ZIOSpecDefault {
           PaymentMethod.schema,
           WireTransfer("foo", "bar"),
           charSequenceToByteChunk("""{"wire_transfer":{"accountNumber":"foo","bankCode":"bar"}}""")
+        )
+      }
+    ),
+    suite("enums - with discriminator")(
+      test("case name") {
+        assertDecodes(
+          Subscription.schema,
+          Recurring("monthly", 100),
+          charSequenceToByteChunk("""{"type":"recurring","period":"monthly","amount":100}""")
+        )
+      },
+      test("case name aliases - first alias") {
+        assertDecodes(
+          Subscription.schema,
+          OneTime(1000),
+          charSequenceToByteChunk("""{"type":"one_time","amount":1000}""")
+        )
+      },
+      test("case name aliases - second alias") {
+        assertDecodes(
+          Subscription.schema,
+          OneTime(1000),
+          charSequenceToByteChunk("""{"type":"onetime","amount":1000}""")
         )
       }
     )
@@ -1090,6 +1121,22 @@ object JsonCodecSpec extends ZIOSpecDefault {
     @transientCase final case class PayPal(email: String) extends PaymentMethod
 
     implicit lazy val schema: Schema[PaymentMethod] = DeriveSchema.gen[PaymentMethod]
+  }
+
+  @discriminatorName("type") sealed trait Subscription
+
+  object Subscription {
+
+    @caseName("recurring") final case class Recurring(
+      period: String,
+      amount: Int
+    ) extends Subscription
+
+    @caseNameAliases("one_time", "onetime") final case class OneTime(
+      amount: Int
+    ) extends Subscription
+
+    implicit lazy val schema: Schema[Subscription] = DeriveSchema.gen[Subscription]
   }
 
   case class Order(@fieldNameAliases("order_id", "id") orderId: Int, value: BigDecimal, description: String)
