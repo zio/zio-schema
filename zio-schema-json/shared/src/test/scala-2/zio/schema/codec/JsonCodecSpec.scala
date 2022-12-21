@@ -180,6 +180,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Recurring("monthly", 10),
           charSequenceToByteChunk("""{"type":"recurring","period":"monthly","amount":10}""")
         )
+      },
+      test("case name annotation with empty fields") {
+        assertEncodes(
+          Subscription.schema,
+          Subscription.Unlimited(None),
+          charSequenceToByteChunk("""{"type":"unlimited"}""")
+        )
       }
     )
   )
@@ -328,6 +335,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Subscription.schema,
           OneTime(1000),
           charSequenceToByteChunk("""{"type":"onetime","amount":1000}""")
+        )
+      },
+      test("case name - empty fields") {
+        assertDecodes(
+          Subscription.schema,
+          Subscription.Unlimited(None),
+          charSequenceToByteChunk("""{"type":"unlimited"}""")
         )
       }
     )
@@ -1135,6 +1149,8 @@ object JsonCodecSpec extends ZIOSpecDefault {
     @caseNameAliases("one_time", "onetime") final case class OneTime(
       amount: Int
     ) extends Subscription
+
+    @caseName("unlimited") final case class Unlimited(until: Option[Long]) extends Subscription
 
     implicit lazy val schema: Schema[Subscription] = DeriveSchema.gen[Subscription]
   }

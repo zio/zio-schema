@@ -552,11 +552,11 @@ object JsonCodec {
         var first = true
         discriminatorTuple.foreach { discriminator =>
           val (tag, caseTpeName) = discriminator
+          first = false
           string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(tag.tag), indent_, out)
           if (indent.isEmpty) out.write(':')
           else out.write(" : ")
           string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(caseTpeName), indent_, out)
-          out.write(",")
         }
         val nonTransientFields = fields.filter {
           case Schema.Field(_, _, annotations, _, _, _) if annotations.collectFirst { case a: transientField => a }.isDefined => false
@@ -970,9 +970,11 @@ object JsonCodec {
       val aliasesMatrix     = fieldAliases.keys.toArray ++ fieldNames
       val rejectExtraFields = caseClassSchema.annotations.collectFirst({ case _: rejectExtraFields => () }).isDefined
 
-      if (!hasDiscriminator) Lexer.char(trace, in, '{')
-      else Lexer.char(trace, in, ',')
-      if (Lexer.firstField(trace, in)) {
+      val hasMore = if (!hasDiscriminator) {
+        Lexer.char(trace, in, '{')
+        true
+      } else Lexer.nextField(trace, in)
+      if (hasMore && Lexer.firstField(trace, in)) {
         while ({
           var trace_   = trace
           val fieldRaw = Lexer.field(trace, in, new StringMatrix(aliasesMatrix))
