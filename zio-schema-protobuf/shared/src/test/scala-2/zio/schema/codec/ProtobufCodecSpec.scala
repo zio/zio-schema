@@ -377,14 +377,12 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           }
         },
         test("zoned date times") {
-          check(Gen.instant(Instant.parse("1900-01-01T00:00:00Z"), Instant.parse("3000-12-31T23:59:59Z")), Gen.zoneId) {
-            case (instant, zoneId) =>
-              val value      = ZonedDateTime.ofInstant(instant, zoneId)
-              val zoneSchema = Primitive(StandardType.ZonedDateTimeType)
-              for {
-                ed  <- encodeAndDecode(zoneSchema, value)
-                ed2 <- encodeAndDecodeNS(zoneSchema, value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          check(Gen.zonedDateTime) { value =>
+            val zoneSchema = Primitive(StandardType.ZonedDateTimeType)
+            for {
+              ed  <- encodeAndDecode(zoneSchema, value)
+              ed2 <- encodeAndDecodeNS(zoneSchema, value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
           }
         },
         test("packed sequences") {
