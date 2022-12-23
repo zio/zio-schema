@@ -6,6 +6,8 @@ sidebar_label: "Introduction"
 
 [ZIO Schema](https://github.com/zio/zio-schema) is a [ZIO](https://zio.dev)-based library for modeling the schema of data structures as first-class values.
 
+@PROJECT_BADGES@
+
 ## Introduction
 
 Schema is a structure of a data type. ZIO Schema reifies the concept of structure for data types. It makes a high-level description of any data type and makes them as first-class values.
@@ -21,14 +23,20 @@ With schema descriptions that can be automatically derived for case classes and 
 
 When our data structures need to be serialized, deserialized, persisted, or transported across the wire, then _ZIO Schema_ lets us focus on data modeling and automatically tackle all the low-level, messy details for us.
 
+_ZIO Schema_ is used by a growing number of ZIO libraries, including _ZIO Flow_, _ZIO Redis_, _ZIO Web_, _ZIO SQL_ and _ZIO DynamoDB_.
+
 ## Installation
 
 In order to use this library, we need to add the following lines in our `build.sbt` file:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema" % "@VERSION@"
-libraryDependencies += "dev.zio" %% "zio-schema-json" % "@VERSION@"
+libraryDependencies += "dev.zio" %% "zio-schema"          % "@VERSION@"
+libraryDependencies += "dev.zio" %% "zio-schema-json"     % "@VERSION@"
 libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "@VERSION@"
+
+// Required for automatic generic derivation of schemas
+libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "@VERSION@",
+libraryDependencies += "org.scala-lang" % "scala-reflect"  % scalaVersion.value % "provided"
 ```
 
 ## Example
