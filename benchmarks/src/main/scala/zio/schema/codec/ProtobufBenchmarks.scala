@@ -1,8 +1,10 @@
 package zio.schema.codec
 
 import org.openjdk.jmh.annotations._
+import zio.Chunk
 
 import java.util.concurrent.TimeUnit
+import scala.util.Random
 
 @State(Scope.Thread)
 @BenchmarkMode(Array(Mode.Throughput))
@@ -17,11 +19,23 @@ class ProtobufBenchmarks {
   @Param(Array("1000"))
   var size: Int = _
 
+  @Param(Array("30721"))
+  var bigSize: Int = _
+
   var outputs: Array[Any] = _
 
+  var bigByteChunk: Chunk[Byte] = _
+  var encodedBigByteChunk: Chunk[Byte] = _
+  var byteChunkCodec: BinaryCodec[Chunk[Byte]] = _
+
   @Setup
-  def allocateOutputs(): Unit =
+  def setup(): Unit = {
     outputs = Array.ofDim[Any](size)
+
+    byteChunkCodec = ProtobufCodec.protobufCodec[Chunk[Byte]]
+    bigByteChunk = Chunk.fromArray(Random.nextBytes(bigSize))
+    encodedBigByteChunk = byteChunkCodec.encode(bigByteChunk)
+  }
 
   @Benchmark
   def enumEncoding(): Array[Any] = {
@@ -39,4 +53,24 @@ class ProtobufBenchmarks {
     outputs
   }
 
+  @Benchmark
+  def encodeLargeByteChunk(): Chunk[Byte] =
+    byteChunkCodec.encode(bigByteChunk)
+
+  @Benchmark
+  def decodeLargeByteChunk(): Either[DecodeError, Chunk[Byte]] =
+    byteChunkCodec.decode(encodedBigByteChunk)
+}
+
+object ProtobufBenchmarksProfiling extends App {
+
+  val bigSize = 30721
+  val byteChunkCodec = ProtobufCodec.protobufCodec[Chunk[Byte]]
+  val bigByteChunk = Chunk.fromArray(Random.nextBytes(bigSize))
+  val encodedBigByteChunk = byteChunkCodec.encode(bigByteChunk)
+
+  while(true) {
+    val decoded = byteChunkCodec.decode(encodedBigByteChunk)
+    println(s"Decoded ${decoded.map(_.length)} bytes")
+  }
 }

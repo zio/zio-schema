@@ -445,6 +445,8 @@ object ProtobufCodec {
     def peek(context: DecoderContext): Chunk[Byte] =
       chunk.slice(position, position + length(context))
 
+    def peek: Byte = chunk.byte(position)
+
     def move(count: Int): Unit =
       position += count
 
@@ -929,28 +931,41 @@ object ProtobufCodec {
     /**
      * Decodes bytes to following types: int32, int64, uint32, uint64, sint32, sint64, bool, enumN.
      * Takes index of first byte which is inside 0 - 127 range.
-     * Returns remainder of the bytes together with computed value.
      *
      * (0 -> 127) & 0x80 => 0, (128 -> 255) & 0x80 => 128
      * (0 << 7 => 0, 1 << 7 => 128, 2 << 7 => 256, 3 << 7 => 384
      * 1 & 0X7F => 1, 127 & 0x7F => 127, 128 & 0x7F => 0, 129 & 0x7F => 1
      */
-    private def varIntDecoder(context: DecoderContext): Long =
-      if (state.length(context) == 0) {
+    private def varIntDecoder(context: DecoderContext): Long = {
+      val maxLength = state.length(context)
+      if (maxLength == 0) {
         throw MalformedField(Schema.primitive[Long], "Failed to decode VarInt. Unexpected end of chunk")
       } else {
-        val chunk  = state.peek(context)
-        val length = chunk.indexWhere(octet => (octet.longValue() & 0x80) != 0x80) + 1
-        if (length <= 0) {
+        var count  = 0
+        var done   = false
+        var result = 0L
+        while (count < maxLength && !done) {
+          val byte = state.peek
+          result = result | (byte & 0x7f).toLong << (count * 7)
+
+          state.move(1)
+          if ((byte & 0x80) == 0) {
+            done = true
+          } else {
+            count += 1
+          }
+        }
+
+        if (!done) {
           throw MalformedField(
             Schema.primitive[Long],
             "Failed to decode VarInt. No byte within the range 0 - 127 are present"
           )
-        } else {
-          state.move(length)
-          chunk.take(length).foldRight(0L)((octet, v) => (v << 7) + (octet & 0x7F))
         }
+
+        result
       }
+    }
 
     private def binaryDecoder(context: DecoderContext): Chunk[Byte] =
       state.all(context)
