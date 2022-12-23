@@ -4,8 +4,10 @@ import java.nio.charset.StandardCharsets
 import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
 import java.util.UUID
+
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
+
 import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
 import zio.schema._
 import zio.schema.codec.DecodeError.{ ExtraFields, MalformedField, MissingField }
