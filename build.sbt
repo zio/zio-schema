@@ -313,17 +313,16 @@ lazy val docs = project
     ),
     docsPublishBranch := "main",
     readmeContribution +=
-      """
-        |
-        |#### TL;DR
-        |
-        |Before you submit a PR, make sure your tests are passing, and that the code is properly formatted
-        |
-        |```
-        |sbt prepare
-        |
-        |sbt test
-        |```""".stripMargin
+      """|
+         |#### TL;DR
+         |
+         |Before you submit a PR, make sure your tests are passing, and that the code is properly formatted
+         |
+         |```
+         |sbt prepare
+         |
+         |sbt test
+         |```""".stripMargin
   )
   .dependsOn(
     zioSchemaMacrosJVM,
