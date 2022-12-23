@@ -4,16 +4,14 @@ import java.nio.charset.StandardCharsets
 import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
-
 import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
 import zio.schema._
 import zio.schema.codec.DecodeError.{ ExtraFields, MalformedField, MissingField }
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZPipeline
-import zio.{ Cause, Chunk, Unsafe, ZIO }
+import zio.{ Cause, Chunk, ChunkBuilder, Unsafe, ZIO }
 
 object ProtobufCodec {
 
@@ -396,17 +394,32 @@ object ProtobufCodec {
           throw new NotImplementedError(s"No encoder for $standardType")
       }
 
-    private def encodeVarInt(value: Int): Chunk[Byte] =
-      encodeVarInt(value.toLong)
+    private def encodeVarInt(value: Int): Chunk[Byte] = {
+      val builder = ChunkBuilder.make[Byte](5)
+      encodeVarInt(value.toLong, builder)
+      builder.result()
+    }
 
     private def encodeVarInt(value: Long): Chunk[Byte] = {
-      val base128    = value & 0x7F
-      val higherBits = value >>> 7
+      val builder = ChunkBuilder.make[Byte](10)
+      encodeVarInt(value, builder)
+      builder.result()
+    }
 
-      if (higherBits != 0x00) {
-        (0x80 | base128).byteValue() +: encodeVarInt(higherBits)
-      } else {
-        Chunk(base128.byteValue())
+    private def encodeVarInt(value: Long, builder: ChunkBuilder[Byte]): Unit = {
+      var current    = value
+      var higherBits = current >>> 7
+      var done       = false
+
+      while (!done) {
+        if (higherBits != 0x00) {
+          builder += (0x80 | (current & 0x7F)).byteValue()
+          current = higherBits
+          higherBits = higherBits >>> 7
+        } else {
+          builder += (current & 0x7F).byteValue()
+          done = true
+        }
       }
     }
 
