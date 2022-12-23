@@ -377,7 +377,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           }
         },
         test("zoned date times") {
-          check(Gen.zonedDateTime) { value =>
+          check(Gen.zonedDateTime.filter(_.getZone != ZoneId.of("GMT0"))) { value => // https://bugs.openjdk.org/browse/JDK-8138664
             val zoneSchema = Primitive(StandardType.ZonedDateTimeType)
             for {
               ed  <- encodeAndDecode(zoneSchema, value)
