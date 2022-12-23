@@ -276,42 +276,41 @@ object JsonCodec {
 
     private def enumEncoder[Z](parentSchema: Schema.Enum[Z], cases: Schema.Case[Z, _]*): ZJsonEncoder[Z] =
       (value: Z, indent: Option[Int], out: Write) => {
-        val nonTransientCases = cases.filter {
-          case Schema.Case(_, _, _, _, _, annotations) =>
-            annotations.collectFirst { case _: transientCase => () }.isEmpty
+        val nonTransientCase = cases.collectFirst {
+          case c @ Schema.Case(_, _, _, _, _, annotations)
+              if annotations.collectFirst { case _: transientCase => () }.isEmpty &&
+                c.deconstructOption(value).isDefined =>
+            c
         }
-        val fieldIndex = nonTransientCases.indexWhere(c => c.deconstructOption(value).isDefined)
-        if (fieldIndex > -1) {
-          val case_ = nonTransientCases(fieldIndex)
-          val discriminatorChunk = parentSchema.annotations.collect {
-            case d: discriminatorName => (d, case_.id)
-          }
 
-          val caseName = case_ match {
-            case Schema.Case(id, _, _, _, _, annotations) =>
-              annotations.collectFirst {
-                case name: caseName => name
-              }.map(_.name).getOrElse(id)
-          }
+        nonTransientCase match {
+          case Some(case_) =>
+            val caseName = case_.annotations.collectFirst {
+              case name: caseName => name.name
+            }.getOrElse(case_.id)
 
-          if (discriminatorChunk.isEmpty) out.write('{')
-          val indent_ = bump(indent)
-          pad(indent_, out)
+            val discriminatorChunk = parentSchema.annotations.collect {
+              case d: discriminatorName => (d, caseName)
+            }
 
-          if (discriminatorChunk.isEmpty) {
-            string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(caseName), indent_, out)
-            if (indent.isEmpty) out.write(':')
-            else out.write(" : ")
-          }
+            if (discriminatorChunk.isEmpty) out.write('{')
+            val indent_ = bump(indent)
+            pad(indent_, out)
 
-          schemaEncoder(
-            case_.schema.asInstanceOf[Schema[Any]],
-            discriminatorTuple = discriminatorChunk
-          ).unsafeEncode(case_.deconstruct(value), indent, out)
+            if (discriminatorChunk.isEmpty) {
+              string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(caseName), indent_, out)
+              if (indent.isEmpty) out.write(':')
+              else out.write(" : ")
+            }
 
-          if (discriminatorChunk.isEmpty) out.write('}')
-        } else {
-          out.write("{}")
+            schemaEncoder(
+              case_.schema.asInstanceOf[Schema[Any]],
+              discriminatorTuple = discriminatorChunk
+            ).unsafeEncode(case_.deconstruct(value), indent, out)
+
+            if (discriminatorChunk.isEmpty) out.write('}')
+          case None =>
+            out.write("{}")
         }
       }
 
@@ -462,12 +461,13 @@ object JsonCodec {
     private def enumDecoder[Z](parentSchema: Schema.Enum[Z], cases: Schema.Case[Z, _]*): ZJsonDecoder[Z] = {
       (trace: List[JsonError], in: RetractReader) =>
         {
-          val caseNameAliases = cases.map {
+          val caseNameAliases = cases.flatMap {
             case Schema.Case(name, _, _, _, _, annotations) =>
-              (name, annotations.collectFirst {
-                case a: caseNameAliases => a.aliases.toList
-                case cn: caseName       => List(cn.name)
-              }.getOrElse(List.empty))
+              annotations.flatMap {
+                case a: caseNameAliases => a.aliases.toList.map(_ -> name)
+                case cn: caseName       => List(cn.name -> name)
+                case _                  => Nil
+              }
           }.toMap
           Lexer.char(trace, in, '{')
           if (Lexer.firstField(trace, in)) {
@@ -476,7 +476,9 @@ object JsonCodec {
               case d: discriminatorName if d.tag == subtypeOrDiscriminator =>
                 val trace_ = JsonError.ObjectAccess(subtypeOrDiscriminator) :: trace
                 Lexer.char(trace_, in, ':')
-                val innerSubtype = Lexer.string(trace, in).toString
+                val discriminator = Lexer.string(trace, in).toString
+                // Perform a second de-aliasing because the first one would resolve the discriminator key instead.
+                val innerSubtype = deAliasCaseName(discriminator, caseNameAliases)
                 (innerSubtype, JsonError.ObjectAccess(innerSubtype) :: trace_, true)
             }.headOption.getOrElse {
               val trace_ = JsonError.ObjectAccess(subtypeOrDiscriminator) :: trace
@@ -497,8 +499,8 @@ object JsonCodec {
         }
     }
 
-    private def deAliasCaseName(alias: String, caseNameAliases: Map[String, List[String]]): String =
-      caseNameAliases.find(_._2.contains(alias)).map(_._1).getOrElse(alias)
+    private def deAliasCaseName(alias: String, caseNameAliases: Map[String, String]): String =
+      caseNameAliases.getOrElse(alias, alias)
 
     private def recordDecoder[Z](structure: Seq[Schema.Field[Z, _]]): ZJsonDecoder[ListMap[String, Any]] = {
       (trace: List[JsonError], in: RetractReader) =>
