@@ -346,6 +346,8 @@ object Schema extends SchemaEquality {
       casesMap.get(id)
 
     def caseOf(z: Z): Option[Case[Z, _]] = cases.find(_.isCase(z))
+
+    override def toString: String = s"${this.getClass.getSimpleName}($id)"
   }
 
   sealed trait Field[R, A] {
@@ -3340,7 +3342,7 @@ object Schema extends SchemaEquality {
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(value)
 
-    override def toString: String = s"CaseClass0(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass0($id, ${fields.mkString(",")})"
   }
 
   object CaseClass0 {
@@ -3459,7 +3461,7 @@ object Schema extends SchemaEquality {
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
       Chunk(field1.get(value), field2.get(value))
 
-    override def toString: String = s"CaseClass2(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass2($id, ${fields.mkString(",")})"
   }
 
   object CaseClass2 {
@@ -3538,7 +3540,7 @@ object Schema extends SchemaEquality {
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
       Chunk(field1.get(value), field2.get(value), field3.get(value))
-    override def toString: String = s"CaseClass3(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass3($id, ${fields.mkString(",")})"
   }
 
   object CaseClass3 {
@@ -3640,7 +3642,7 @@ object Schema extends SchemaEquality {
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
       Chunk(field1.get(value), field2.get(value), field3.get(value), field4.get(value))
-    override def toString: String = s"CaseClass4(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass4($id, ${fields.mkString(",")})"
   }
 
   object CaseClass4 {
@@ -3766,7 +3768,7 @@ object Schema extends SchemaEquality {
       field4.get(value),
       field5.get(value)
     )
-    override def toString: String = s"CaseClass5(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass5($id, ${fields.mkString(",")})"
   }
 
   object CaseClass5 {
@@ -3922,7 +3924,7 @@ object Schema extends SchemaEquality {
       field6.get(value)
     )
 
-    override def toString: String = s"CaseClass6(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass6($id, ${fields.mkString(",")})"
   }
 
   object CaseClass6 {
@@ -4097,7 +4099,7 @@ object Schema extends SchemaEquality {
       field7.get(value)
     )
 
-    override def toString: String = s"CaseClass7(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass7($id, ${fields.mkString(",")})"
   }
 
   object CaseClass7 {
@@ -4305,7 +4307,7 @@ object Schema extends SchemaEquality {
       field8.get(value)
     )
 
-    override def toString: String = s"CaseClass8(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass8($id, ${fields.mkString(",")})"
   }
 
   object CaseClass8 {
@@ -4529,7 +4531,7 @@ object Schema extends SchemaEquality {
       field8.get(value),
       field9.get(value)
     )
-    override def toString: String = s"CaseClass9(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass9($id, ${fields.mkString(",")})"
   }
 
   object CaseClass9 {
@@ -4793,7 +4795,7 @@ object Schema extends SchemaEquality {
       field10.get(value)
     )
 
-    override def toString: String = s"CaseClass10(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass10($id, ${fields.mkString(",")})"
   }
 
   object CaseClass10 {
@@ -5078,7 +5080,7 @@ object Schema extends SchemaEquality {
       field11.get(value)
     )
 
-    override def toString: String = s"CaseClass11(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass11($id, ${fields.mkString(",")})"
   }
 
   object CaseClass11 {
@@ -5382,7 +5384,7 @@ object Schema extends SchemaEquality {
       field12.get(value)
     )
 
-    override def toString: String = s"CaseClass12(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass12($id, ${fields.mkString(",")})"
   }
 
   object CaseClass12 {
@@ -5705,7 +5707,7 @@ object Schema extends SchemaEquality {
       field13.get(value)
     )
 
-    override def toString: String = s"CaseClass13(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass13($id, ${fields.mkString(",")})"
   }
 
   object CaseClass13 {
@@ -6047,7 +6049,7 @@ object Schema extends SchemaEquality {
       field14.get(value)
     )
 
-    override def toString: String = s"CaseClass14(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass14($id, ${fields.mkString(",")})"
   }
 
   object CaseClass14 {
@@ -6409,7 +6411,7 @@ object Schema extends SchemaEquality {
       field15.get(value)
     )
 
-    override def toString: String = s"CaseClass15(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass15($id, ${fields.mkString(",")})"
   }
 
   object CaseClass15 {
@@ -6792,7 +6794,7 @@ object Schema extends SchemaEquality {
       field16.get(value)
     )
 
-    override def toString: String = s"CaseClass16(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass16($id, ${fields.mkString(",")})"
   }
 
   object CaseClass16 {
@@ -7194,7 +7196,7 @@ object Schema extends SchemaEquality {
       field17.get(value)
     )
 
-    override def toString: String = s"CaseClass17(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass17($id, ${fields.mkString(",")})"
   }
 
   object CaseClass17 {
@@ -7615,7 +7617,7 @@ object Schema extends SchemaEquality {
       field18.get(value)
     )
 
-    override def toString: String = s"CaseClass18(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass18($id, ${fields.mkString(",")})"
   }
 
   object CaseClass18 {
@@ -8057,7 +8059,7 @@ object Schema extends SchemaEquality {
       field19.get(value)
     )
 
-    override def toString: String = s"CaseClass19(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass19($id, ${fields.mkString(",")})"
   }
 
   object CaseClass19 {
@@ -8518,7 +8520,7 @@ object Schema extends SchemaEquality {
       field20.get(value)
     )
 
-    override def toString: String = s"CaseClass20(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass20($id, ${fields.mkString(",")})"
   }
 
   object CaseClass20 {
@@ -9019,7 +9021,7 @@ object Schema extends SchemaEquality {
       field21.get(value)
     )
 
-    override def toString: String = s"CaseClass21(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass21($id, ${fields.mkString(",")})"
   }
 
   object CaseClass21 {
@@ -9586,7 +9588,7 @@ object Schema extends SchemaEquality {
       field22.get(value)
     )
 
-    override def toString: String = s"CaseClass22(${fields.mkString(",")})"
+    override def toString: String = s"CaseClass22($id, ${fields.mkString(",")})"
   }
 
   object CaseClass22 {
