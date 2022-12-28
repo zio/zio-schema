@@ -163,104 +163,109 @@ object JsonCodec {
     }
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
-    private[codec] def schemaEncoder[A](schema: Schema[A], discriminatorTuple: DiscriminatorTuple = Chunk.empty): ZJsonEncoder[A] = schema match {
-      case Schema.Primitive(standardType, _)   => primitiveCodec(standardType).encoder
-      case Schema.Sequence(schema, _, g, _, _) => ZJsonEncoder.chunk(schemaEncoder(schema, discriminatorTuple)).contramap(g)
-      case Schema.Map(ks, vs, _) =>
-        ZJsonEncoder.chunk(schemaEncoder(ks, discriminatorTuple).zip(schemaEncoder(vs, discriminatorTuple))).contramap(m => Chunk.fromIterable(m))
-      case Schema.Set(s, _) =>
-        ZJsonEncoder.chunk(schemaEncoder(s, discriminatorTuple)).contramap(m => Chunk.fromIterable(m))
-      case Schema.Transform(c, _, g, _, _)        => transformEncoder(c, g)
-      case Schema.Tuple2(l, r, _)                 => ZJsonEncoder.tuple2(schemaEncoder(l, discriminatorTuple), schemaEncoder(r, discriminatorTuple))
-      case Schema.Optional(schema, _)             => ZJsonEncoder.option(schemaEncoder(schema, discriminatorTuple))
-      case Schema.Fail(_, _)                      => unitEncoder.contramap(_ => ())
-      case Schema.GenericRecord(_, structure, _)  => recordEncoder(structure.toChunk)
-      case Schema.Either(left, right, _)          => ZJsonEncoder.either(schemaEncoder(left, discriminatorTuple), schemaEncoder(right, discriminatorTuple))
-      case l @ Schema.Lazy(_)                     => schemaEncoder(l.schema, discriminatorTuple)
-      case Schema.CaseClass0(_, _, _)             => caseClassEncoder(discriminatorTuple)
-      case Schema.CaseClass1(_, f, _, _)          => caseClassEncoder(discriminatorTuple, f)
-      case Schema.CaseClass2(_, f1, f2, _, _)     => caseClassEncoder(discriminatorTuple, f1, f2)
-      case Schema.CaseClass3(_, f1, f2, f3, _, _) => caseClassEncoder(discriminatorTuple, f1, f2, f3)
-      case Schema.CaseClass4(_, f1, f2, f3, f4, _, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4)
-      case Schema.CaseClass5(_, f1, f2, f3, f4, f5, _, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5)
-      case Schema.CaseClass6(_, f1, f2, f3, f4, f5, f6, _, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6)
-      case Schema.CaseClass7(_, f1, f2, f3, f4, f5, f6, f7, _, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6, f7)
-      case Schema.CaseClass8(_, f1, f2, f3, f4, f5, f6, f7, f8, _, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8)
-      case Schema
-            .CaseClass9(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, _, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9)
-      case Schema.CaseClass10(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, _, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10)
-      case Schema.CaseClass11(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, _, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11)
-      case Schema.CaseClass12(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, _, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12)
-      case Schema.CaseClass13(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, _, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13)
-      case Schema.CaseClass14(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, _, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14)
-      case Schema.CaseClass15(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, _, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15)
-      case Schema.CaseClass16(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, _, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16)
-      case Schema.CaseClass17(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, _, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17)
-      case Schema.CaseClass18(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, _, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18)
-      case Schema.CaseClass19(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, _, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19)
-      case Schema.CaseClass20(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, _) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20)
-      case Schema.CaseClass21(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, tail) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, tail._1)
-      case Schema.CaseClass22(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, tail) =>
-        caseClassEncoder(discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, tail._1, tail._2)
-      case e @ Schema.Enum1(_, c, _)                                  => enumEncoder(e, c)
-      case e @ Schema.Enum2(_, c1, c2, _)                             => enumEncoder(e, c1, c2)
-      case e @ Schema.Enum3(_, c1, c2, c3, _)                         => enumEncoder(e, c1, c2, c3)
-      case e @ Schema.Enum4(_, c1, c2, c3, c4, _)                     => enumEncoder(e, c1, c2, c3, c4)
-      case e @ Schema.Enum5(_, c1, c2, c3, c4, c5, _)                 => enumEncoder(e, c1, c2, c3, c4, c5)
-      case e @ Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _)             => enumEncoder(e, c1, c2, c3, c4, c5, c6)
-      case e @ Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _)         => enumEncoder(e, c1, c2, c3, c4, c5, c6, c7)
-      case e @ Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _)     => enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8)
-      case e @ Schema.Enum9(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, _) => enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9)
-      case e @ Schema.Enum10(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _) =>
-        enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
-      case e @ Schema.Enum11(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _) =>
-        enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
-      case e @ Schema.Enum12(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _) =>
-        enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
-      case e @ Schema.Enum13(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _) =>
-        enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
-      case e @ Schema.Enum14(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _) =>
-        enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
-      case e @ Schema.Enum15(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _) =>
-        enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
-      case e @ Schema.Enum16(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _) =>
-        enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
-      case e @ Schema.Enum17(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _) =>
-        enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
-      case e @ Schema.Enum18(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _) =>
-        enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
-      case e @ Schema.Enum19(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _) =>
-        enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
-      case e @ Schema
-            .Enum20(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _) =>
-        enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
-      case e @ Schema
-            .Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _) =>
-        enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
-      case e @ Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
-        enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-      case e @ Schema.EnumN(_, cs, _) => enumEncoder(e, cs.toSeq: _*)
-      case Schema.Dynamic(_)          => dynamicEncoder(DynamicValue.schema)
-      case _                          => throw new Exception(s"Missing a handler for encoding of schema ${schema.toString()}.")
-    }
+    private[codec] def schemaEncoder[A](schema: Schema[A], discriminatorTuple: DiscriminatorTuple = Chunk.empty): ZJsonEncoder[A] =
+      schema match {
+        case Schema.Primitive(standardType, _)   => primitiveCodec(standardType).encoder
+        case Schema.Sequence(schema, _, g, _, _) => ZJsonEncoder.chunk(schemaEncoder(schema, discriminatorTuple)).contramap(g)
+        case Schema.Map(ks, vs, _) =>
+          ZJsonEncoder.chunk(schemaEncoder(ks, discriminatorTuple).zip(schemaEncoder(vs, discriminatorTuple))).contramap(m => Chunk.fromIterable(m))
+        case Schema.Set(s, _) =>
+          ZJsonEncoder.chunk(schemaEncoder(s, discriminatorTuple)).contramap(m => Chunk.fromIterable(m))
+        case Schema.Transform(c, _, g, _, _)        => transformEncoder(c, g)
+        case Schema.Tuple2(l, r, _)                 => ZJsonEncoder.tuple2(schemaEncoder(l, discriminatorTuple), schemaEncoder(r, discriminatorTuple))
+        case Schema.Optional(schema, _)             => ZJsonEncoder.option(schemaEncoder(schema, discriminatorTuple))
+        case Schema.Fail(_, _)                      => unitEncoder.contramap(_ => ())
+        case Schema.GenericRecord(_, structure, _)  => recordEncoder(structure.toChunk)
+        case Schema.Either(left, right, _)          => ZJsonEncoder.either(schemaEncoder(left, discriminatorTuple), schemaEncoder(right, discriminatorTuple))
+        case l @ Schema.Lazy(_)                     => schemaEncoder(l.schema, discriminatorTuple)
+        case Schema.CaseClass0(_, _, _)             => caseClassEncoder(schema, discriminatorTuple)
+        case Schema.CaseClass1(_, f, _, _)          => caseClassEncoder(schema, discriminatorTuple, f)
+        case Schema.CaseClass2(_, f1, f2, _, _)     => caseClassEncoder(schema, discriminatorTuple, f1, f2)
+        case Schema.CaseClass3(_, f1, f2, f3, _, _) => caseClassEncoder(schema, discriminatorTuple, f1, f2, f3)
+        case Schema.CaseClass4(_, f1, f2, f3, f4, _, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4)
+        case Schema.CaseClass5(_, f1, f2, f3, f4, f5, _, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5)
+        case Schema.CaseClass6(_, f1, f2, f3, f4, f5, f6, _, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6)
+        case Schema.CaseClass7(_, f1, f2, f3, f4, f5, f6, f7, _, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6, f7)
+        case Schema.CaseClass8(_, f1, f2, f3, f4, f5, f6, f7, f8, _, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8)
+        case Schema
+              .CaseClass9(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, _, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9)
+        case Schema.CaseClass10(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, _, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10)
+        case Schema.CaseClass11(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, _, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11)
+        case Schema.CaseClass12(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, _, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12)
+        case Schema.CaseClass13(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, _, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13)
+        case Schema.CaseClass14(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, _, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14)
+        case Schema.CaseClass15(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, _, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15)
+        case Schema.CaseClass16(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, _, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16)
+        case Schema.CaseClass17(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, _, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17)
+        case Schema.CaseClass18(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, _, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18)
+        case Schema.CaseClass19(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, _, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19)
+        case Schema.CaseClass20(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, _) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20)
+        case Schema.CaseClass21(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, tail) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, tail._1)
+        case Schema.CaseClass22(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, tail) =>
+          caseClassEncoder(schema, discriminatorTuple, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, tail._1, tail._2)
+        case e @ Schema.Enum1(_, c, _)                                  => enumEncoder(e, c)
+        case e @ Schema.Enum2(_, c1, c2, _)                             => enumEncoder(e, c1, c2)
+        case e @ Schema.Enum3(_, c1, c2, c3, _)                         => enumEncoder(e, c1, c2, c3)
+        case e @ Schema.Enum4(_, c1, c2, c3, c4, _)                     => enumEncoder(e, c1, c2, c3, c4)
+        case e @ Schema.Enum5(_, c1, c2, c3, c4, c5, _)                 => enumEncoder(e, c1, c2, c3, c4, c5)
+        case e @ Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _)             => enumEncoder(e, c1, c2, c3, c4, c5, c6)
+        case e @ Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _)         => enumEncoder(e, c1, c2, c3, c4, c5, c6, c7)
+        case e @ Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _)     => enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8)
+        case e @ Schema.Enum9(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, _) => enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9)
+        case e @ Schema.Enum10(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _) =>
+          enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
+        case e @ Schema.Enum11(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _) =>
+          enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
+        case e @ Schema.Enum12(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _) =>
+          enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
+        case e @ Schema.Enum13(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _) =>
+          enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
+        case e @ Schema.Enum14(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _) =>
+          enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
+        case e @ Schema.Enum15(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _) =>
+          enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+        case e @ Schema.Enum16(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _) =>
+          enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
+        case e @ Schema.Enum17(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _) =>
+          enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
+        case e @ Schema.Enum18(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _) =>
+          enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
+        case e @ Schema.Enum19(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _) =>
+          enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
+        case e @ Schema
+              .Enum20(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _) =>
+          enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
+        case e @ Schema
+              .Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _) =>
+          enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
+        case e @ Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
+          enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
+        case e @ Schema.EnumN(_, cs, _) => enumEncoder(e, cs.toSeq: _*)
+        case Schema.Dynamic(_)          => dynamicEncoder(DynamicValue.schema)
+        case _ =>
+          if (schema eq null)
+            throw new Exception(s"A captured schema is null, most likely due to wrong field initialization order")
+          else
+            throw new Exception(s"Missing a handler for encoding of schema ${schema.toString()}.")
+      }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
     private def dynamicEncoder(schema: Schema[DynamicValue]): ZJsonEncoder[DynamicValue] =
@@ -276,12 +281,15 @@ object JsonCodec {
 
     private def enumEncoder[Z](parentSchema: Schema.Enum[Z], cases: Schema.Case[Z, _]*): ZJsonEncoder[Z] =
       (value: Z, indent: Option[Int], out: Write) => {
-        val nonTransientCase = cases.collectFirst {
-          case c @ Schema.Case(_, _, _, _, _, annotations)
-              if annotations.collectFirst { case _: transientCase => () }.isEmpty &&
-                c.deconstructOption(value).isDefined =>
-            c
-        }
+        val nonTransientCase =
+          try cases.collectFirst {
+            case c @ Schema.Case(_, _, _, _, _, annotations)
+                if annotations.collectFirst { case _: transientCase => () }.isEmpty &&
+                  c.deconstructOption(value).isDefined =>
+              c
+          } catch {
+            case ex: Throwable => throw new RuntimeException(s"Failed to encode enum type $parentSchema", ex)
+          }
 
         nonTransientCase match {
           case Some(case_) =>
@@ -536,7 +544,7 @@ object JsonCodec {
   private[codec] object ProductEncoder {
     import ZJsonEncoder.{ bump, pad }
 
-    private[codec] def caseClassEncoder[Z](discriminatorTuple: DiscriminatorTuple, fields: Schema.Field[Z, _]*): ZJsonEncoder[Z] = { (a: Z, indent: Option[Int], out: Write) =>
+    private[codec] def caseClassEncoder[Z](parentSchema: Schema[_], discriminatorTuple: DiscriminatorTuple, fields: Schema.Field[Z, _]*): ZJsonEncoder[Z] = { (a: Z, indent: Option[Int], out: Write) =>
       {
         out.write('{')
         val indent_ = bump(indent)
@@ -556,7 +564,12 @@ object JsonCodec {
         }
         nonTransientFields.foreach {
           case s: Schema.Field[Z, _] =>
-            val enc = JsonEncoder.schemaEncoder(s.schema)
+            val enc =
+              try {
+                JsonEncoder.schemaEncoder(s.schema)
+              } catch {
+                case e: Throwable => throw new RuntimeException(s"Failed to encode field '${s.name}' in $parentSchema'", e)
+              }
             if (!enc.isNothing(s.get(a))) {
               if (first)
                 first = false
