@@ -303,7 +303,26 @@ lazy val docs = project
     scalacOptions -= "-Xfatal-warnings",
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio" % zioVersion
-    )
+    ),
+    projectName := "ZIO Schema",
+    badgeInfo := Some(
+      BadgeInfo(
+        artifact = "zio-schema_2.12",
+        projectStage = ProjectStage.Development
+      )
+    ),
+    docsPublishBranch := "main",
+    readmeContribution +=
+      """|
+         |#### TL;DR
+         |
+         |Before you submit a PR, make sure your tests are passing, and that the code is properly formatted
+         |
+         |```
+         |sbt prepare
+         |
+         |sbt test
+         |```""".stripMargin
   )
   .dependsOn(
     zioSchemaMacrosJVM,
