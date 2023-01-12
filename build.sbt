@@ -306,16 +306,7 @@ lazy val docs = project
     projectName := "ZIO Schema",
     mainModuleName := (zioSchemaJVM / moduleName).value,
     projectStage := ProjectStage.Development,
-    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(
-      zioSchemaJVM,
-      zioSchemaDerivationJVM,
-      zioSchemaJsonJVM,
-      zioSchemaOpticsJVM,
-      zioSchemaProtobufJVM,
-      zioSchemaThriftJVM,
-      zioSchemaAvroJVM,
-      zioSchemaMsgPackJVM
-    ),
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioSchemaJVM),
     docsPublishBranch := "main",
     readmeContribution +=
       """|
