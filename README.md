@@ -6,9 +6,7 @@
 
 [ZIO Schema](https://github.com/zio/zio-schema) is a [ZIO](https://zio.dev)-based library for modeling the schema of data structures as first-class values.
 
-|Project Stage | CI | Release | Snapshot | Discord | Github |
-|--------------|----|---------|----------|---------|--------|
-|[![Development](https://img.shields.io/badge/Project%20Stage-Development-green.svg)](https://github.com/zio/zio/wiki/Project-Stages)        |![CI Badge](https://github.com/zio/zio-schema/workflows/CI/badge.svg) |[![Sonatype Releases](https://img.shields.io/nexus/r/https/oss.sonatype.org/dev.zio/zio-schema_2.12.svg)](https://oss.sonatype.org/content/repositories/releases/dev/zio/zio-schema_2.12/) |[![Sonatype Snapshots](https://img.shields.io/nexus/s/https/oss.sonatype.org/dev.zio/zio-schema_2.12.svg)](https://oss.sonatype.org/content/repositories/snapshots/dev/zio/zio-schema_2.12/) |[![Chat on Discord!](https://img.shields.io/discord/629491597070827530?logo=discord)](https://discord.gg/2ccFBr4) |[![ZIO Schema](https://img.shields.io/github/stars/zio/zio-schema?style=social)](https://github.com/zio/zio-schema) |
+[![Development](https://img.shields.io/badge/Project%20Stage-Development-green.svg)](https://github.com/zio/zio/wiki/Project-Stages) ![CI Badge](https://github.com/zio/zio-schema/workflows/CI/badge.svg) [![Sonatype Releases](https://img.shields.io/nexus/r/https/oss.sonatype.org/dev.zio/zio-schema_2.13.svg?label=Sonatype%20Release)](https://oss.sonatype.org/content/repositories/releases/dev/zio/zio-schema_2.13/) [![Sonatype Snapshots](https://img.shields.io/nexus/s/https/oss.sonatype.org/dev.zio/zio-schema_2.13.svg?label=Sonatype%20Snapshot)](https://oss.sonatype.org/content/repositories/snapshots/dev/zio/zio-schema_2.13/) [![javadoc](https://javadoc.io/badge2/dev.zio/zio-schema-docs_2.13/javadoc.svg)](https://javadoc.io/doc/dev.zio/zio-schema-docs_2.13) [![ZIO Schema](https://img.shields.io/github/stars/zio/zio-schema?style=social)](https://github.com/zio/zio-schema)
 
 ## Introduction
 
@@ -32,12 +30,12 @@ _ZIO Schema_ is used by a growing number of ZIO libraries, including _ZIO Flow_,
 In order to use this library, we need to add the following lines in our `build.sbt` file:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema"          % "0.2.1"
-libraryDependencies += "dev.zio" %% "zio-schema-json"     % "0.2.1"
-libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "0.2.1"
+libraryDependencies += "dev.zio" %% "zio-schema"          % "0.4.2"
+libraryDependencies += "dev.zio" %% "zio-schema-json"     % "0.4.2"
+libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "0.4.2"
 
 // Required for automatic generic derivation of schemas
-libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "<version>",
+libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "0.4.2",
 libraryDependencies += "org.scala-lang" % "scala-reflect"  % scalaVersion.value % "provided"
 ```
 
@@ -89,6 +87,15 @@ Learn more on the [ZIO Schema homepage](https://zio.dev/zio-schema)!
 ## Contributing
 
 For the general guidelines, see ZIO [contributor's guide](https://zio.dev/about/contributing).
+#### TL;DR
+
+Before you submit a PR, make sure your tests are passing, and that the code is properly formatted
+
+```
+sbt prepare
+
+sbt test
+```
 
 ## Code of Conduct
 
