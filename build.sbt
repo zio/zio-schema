@@ -296,6 +296,7 @@ lazy val benchmarks = project
 
 lazy val docs = project
   .in(file("zio-schema-docs"))
+  .settings(macroDefinitionSettings)
   .settings(
     moduleName := "zio-schema-docs",
     scalacOptions -= "-Yno-imports",
