@@ -296,8 +296,8 @@ lazy val benchmarks = project
 
 lazy val docs = project
   .in(file("zio-schema-docs"))
+  .settings(stdSettings("zio-schema-docs"))
   .settings(
-    publish / skip := true,
     moduleName := "zio-schema-docs",
     scalacOptions -= "-Yno-imports",
     scalacOptions -= "-Xfatal-warnings",
@@ -305,12 +305,9 @@ lazy val docs = project
       "dev.zio" %% "zio" % zioVersion
     ),
     projectName := "ZIO Schema",
-    badgeInfo := Some(
-      BadgeInfo(
-        artifact = "zio-schema_2.12",
-        projectStage = ProjectStage.Development
-      )
-    ),
+    mainModuleName := (zioSchemaJVM / moduleName).value,
+    projectStage := ProjectStage.Development,
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioSchemaJVM),
     docsPublishBranch := "main",
     readmeContribution +=
       """|
@@ -337,8 +334,6 @@ lazy val docs = project
     zioSchemaOpticsJVM,
     zioSchemaProtobufJS,
     zioSchemaProtobufJVM,
-    zioSchemaExamplesJS,
-    zioSchemaExamplesJVM,
     testsJVM,
     testsJS,
     zioSchemaZioTestJVM,
