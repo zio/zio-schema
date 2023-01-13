@@ -296,6 +296,7 @@ lazy val benchmarks = project
 
 lazy val docs = project
   .in(file("zio-schema-docs"))
+  .settings(stdSettings("zio-schema-docs"))
   .settings(
     moduleName := "zio-schema-docs",
     scalacOptions -= "-Yno-imports",
@@ -333,8 +334,6 @@ lazy val docs = project
     zioSchemaOpticsJVM,
     zioSchemaProtobufJS,
     zioSchemaProtobufJVM,
-    zioSchemaExamplesJS,
-    zioSchemaExamplesJVM,
     testsJVM,
     testsJS,
     zioSchemaZioTestJVM,
