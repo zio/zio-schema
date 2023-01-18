@@ -27,7 +27,7 @@ object BuildHelper {
 
   val zioVersion               = "2.0.1"
   val zioJsonVersion           = "0.3.0-RC9"
-  val zioPreludeVersion        = "1.0.0-RC15"
+  val zioPreludeVersion        = "1.0.0-RC16"
   val zioOpticsVersion         = "0.2.0"
   val silencerVersion          = "1.7.11"
   val avroVersion              = "1.11.0"
