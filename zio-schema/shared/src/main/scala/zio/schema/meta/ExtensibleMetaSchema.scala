@@ -668,7 +668,6 @@ object ExtensibleMetaSchema {
           case e: Schema.Enum[_] if e.id == typeId             => e
           case dyn: Schema.Dynamic if dyn.id == typeId         => dyn
         }.getOrElse(Schema.Fail(s"invalid known type id $typeId"))
-      case ast => Schema.Fail(s"AST cannot be materialized to a Schema:\n$ast")
     }
 
     refs += ast.path -> baseSchema
