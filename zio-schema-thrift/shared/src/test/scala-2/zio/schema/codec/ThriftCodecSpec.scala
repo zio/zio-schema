@@ -674,7 +674,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
               ed2 <- encodeAndDecodeNS(schema, value)
             } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         }
-      } @@ TestAspect.sized(200),
+      } @@ TestAspect.size(200),
       test("case object") {
         for {
           ed2 <- encodeAndDecodeNS(

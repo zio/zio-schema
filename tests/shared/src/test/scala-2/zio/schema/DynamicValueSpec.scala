@@ -92,14 +92,14 @@ object DynamicValueSpec extends ZIOSpecDefault {
             val _ = DynamicValue.fromSchemaAndValue(Json.schema, json)
             assertCompletes
           }
-        } @@ TestAspect.sized(100),
+        } @@ TestAspect.size(100),
         test("toTyped is stack safe") {
           check(Json.genDeep) { json =>
             val dyn   = DynamicValue.fromSchemaAndValue(Json.schema, json)
             val json2 = dyn.toTypedValue(Json.schema)
             assertTrue(json2 == Right(json))
           }
-        } @@ TestAspect.sized(250) @@ TestAspect.ignore
+        } @@ TestAspect.size(250) @@ TestAspect.ignore
       )
     )
 

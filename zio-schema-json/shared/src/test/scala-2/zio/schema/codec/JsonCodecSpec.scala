@@ -742,7 +742,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           case (schema, value) =>
             assertEncodesThenDecodes(schema, value)
         }
-      } @@ TestAspect.sized(200),
+      } @@ TestAspect.size(200),
       suite("dynamic")(
         test("dynamic int") {
           check(
@@ -844,7 +844,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
                 )
               }
         }
-      } @@ TestAspect.sized(1000) @@ TestAspect.samples(1000),
+      } @@ TestAspect.size(1000) @@ TestAspect.samples(1000),
       suite("meta schema")(
         test("primitive string meta schema") {
           assertEncodesThenDecodes(MetaSchema.schema, Schema[String].ast)
