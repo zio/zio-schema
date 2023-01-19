@@ -88,6 +88,15 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
             e  <- encode(schemaFail, StringValue("foo")).map(_.size).exit
             e2 <- encodeNS(schemaFail, StringValue("foo")).map(_.size).exit
           } yield assert(e)(dies(anything)) && assert(e2)(dies(anything))
+        },
+        test("chunk of bytes") {
+          for {
+            e  <- encode(schemaChunkOfBytes, ChunkOfBytes(Chunk(1, -1, 2, -2, 3, -3))).map(toHex)
+            e2 <- encodeNS(schemaChunkOfBytes, ChunkOfBytes(Chunk(1, -1, 2, -2, 3, -3))).map(toHex)
+          } yield assertTrue(
+            e == "0A08120601FF02FE03FD",
+            e2 == "0A08120601FF02FE03FD"
+          )
         }
       ),
       suite("Should successfully encode and decode")(
@@ -996,6 +1005,10 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
   lazy val sequenceOfProductSchema: Schema[SequenceOfProduct] = DeriveSchema.gen[SequenceOfProduct]
 
   lazy val sequenceOfSumSchema: Schema[SequenceOfSum] = DeriveSchema.gen[SequenceOfSum]
+
+  final case class ChunkOfBytes(value: Chunk[Byte])
+
+  lazy val schemaChunkOfBytes: Schema[ChunkOfBytes] = DeriveSchema.gen[ChunkOfBytes]
 
   def toHex(chunk: Chunk[Byte]): String =
     chunk.toArray.map("%02X".format(_)).mkString
