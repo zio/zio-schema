@@ -1,11 +1,12 @@
 package zio.schema
 
-import zio.schema.codec.DecodeError
-
 import java.math.{ BigDecimal, BigInteger }
 import java.time._
 import java.util.UUID
+
 import scala.collection.immutable.ListMap
+
+import zio.schema.codec.DecodeError
 import zio.schema.meta.{ MetaSchema, Migration }
 import zio.{ Cause, Chunk, Unsafe }
 
