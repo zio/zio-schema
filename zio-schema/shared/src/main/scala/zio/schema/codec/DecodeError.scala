@@ -1,11 +1,12 @@
 package zio.schema.codec
 
 import scala.util.control.NoStackTrace
-
-import zio.schema.Schema
+import zio.schema.{ DynamicValue, Schema }
 import zio.schema.Schema.{ Field, Record }
 import zio.schema.validation.Validation
 import zio.{ Cause, Chunk }
+
+import scala.collection.immutable.ListMap
 
 sealed trait DecodeError extends Exception with NoStackTrace { self =>
   def message: String
@@ -44,4 +45,18 @@ object DecodeError {
   final case class ExtraFields(fieldName: String, message: String) extends DecodeError
 
   final case class EmptyContent(message: String) extends DecodeError
+
+  final case class CastError[A](value: DynamicValue, schema: Schema[A]) extends DecodeError {
+    def message: String = s"Failed to cast $value to schema $schema"
+  }
+
+  final case class MissingCase(key: String, enumN: Schema.Enum[_]) extends DecodeError {
+    def message: String = s"Missing case $key in enum $enumN"
+  }
+
+  final case class IncompatibleShape(values: ListMap[String, DynamicValue], structure: Chunk[Schema.Field[_, _]])
+      extends DecodeError {
+    def message: String = s"Value $values and $structure have incompatible shape"
+  }
+
 }

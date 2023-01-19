@@ -1,13 +1,13 @@
 package zio.schema
 
+import zio.schema.codec.DecodeError
+
 import java.math.{ BigDecimal, BigInteger }
 import java.time._
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
-
 import zio.schema.meta.{ MetaSchema, Migration }
-import zio.{ Chunk, Unsafe }
+import zio.{ Cause, Chunk, Unsafe }
 
 sealed trait DynamicValue {
   self =>
@@ -19,40 +19,32 @@ sealed trait DynamicValue {
     }
 
   def toTypedValue[A](implicit schema: Schema[A]): Either[String, A] =
-    toTypedValueLazyError.left.map {
-      case DynamicValue.Err.CastError(value, schema) => s"Failed to cast $value to schema $schema"
-      case DynamicValue.Err.InvalidValue(value)      => s"Invalid value: $value"
-      case DynamicValue.Err.TupleErrors(left, right) =>
-        s"Converting generic tuple to typed value failed with errors $left and $right"
-      case DynamicValue.Err.IncompatibleShape(values, structure) => s"$values and $structure have incompatible shape"
-      case DynamicValue.Err.MissingCase(key, enumN)              => s"Failed to find case $key in enumN $enumN"
+    toTypedValueLazyError.left.map(_.message)
 
-    }
-
-  def toValue[A](implicit schema: Schema[A]): Either[DynamicValue.Err, A] = toTypedValueLazyError
+  def toValue[A](implicit schema: Schema[A]): Either[DecodeError, A] = toTypedValueLazyError
 
   def toTypedValueOption[A](implicit schema: Schema[A]): Option[A] =
     toTypedValueLazyError.toOption
 
-  private def toTypedValueLazyError[A](implicit schema: Schema[A]): Either[DynamicValue.Err, A] =
+  private def toTypedValueLazyError[A](implicit schema: Schema[A]): Either[DecodeError, A] =
     (self, schema) match {
       case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
         Right(value.asInstanceOf[A])
 
       case (DynamicValue.Record(_, values), Schema.GenericRecord(_, structure, _)) =>
-        DynamicValue.decodeStructure(values, structure.toChunk).asInstanceOf[Either[DynamicValue.Err, A]]
+        DynamicValue.decodeStructure(values, structure.toChunk).asInstanceOf[Either[DecodeError, A]]
 
       case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
         DynamicValue
           .decodeStructure(values, s.fields)
           .map(m => Chunk.fromIterable(m.values))
-          .flatMap(values => s.construct(values)(Unsafe.unsafe).left.map(err => DynamicValue.Err.InvalidValue(err)))
+          .flatMap(values => s.construct(values)(Unsafe.unsafe).left.map(err => DecodeError.MalformedField(s, err)))
 
       case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
         s.caseOf(key) match {
           case Some(caseValue) =>
-            value.toTypedValueLazyError(caseValue.schema).asInstanceOf[Either[DynamicValue.Err, A]]
-          case None => Left(DynamicValue.Err.MissingCase(key, s))
+            value.toTypedValueLazyError(caseValue.schema).asInstanceOf[Either[DecodeError, A]]
+          case None => Left(DecodeError.MissingCase(key, s))
         }
 
       case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
@@ -66,7 +58,7 @@ sealed trait DynamicValue {
         val typedRight = rightValue.toTypedValueLazyError(rightSchema)
         (typedLeft, typedRight) match {
           case (Left(e1), Left(e2)) =>
-            Left(DynamicValue.Err.TupleErrors(e1, e2))
+            Left(DecodeError.And(e1, e2))
           case (_, Left(e))         => Left(e)
           case (Left(e), _)         => Left(e)
           case (Right(a), Right(b)) => Right(a -> b)
@@ -74,7 +66,7 @@ sealed trait DynamicValue {
 
       case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t, _]) =>
         values
-          .foldLeft[Either[DynamicValue.Err, Chunk[t]]](Right[DynamicValue.Err, Chunk[t]](Chunk.empty)) {
+          .foldLeft[Either[DecodeError, Chunk[t]]](Right[DecodeError, Chunk[t]](Chunk.empty)) {
             case (err @ Left(_), _) => err
             case (Right(values), value) =>
               value.toTypedValueLazyError(schema.elementSchema).map(values :+ _)
@@ -82,7 +74,7 @@ sealed trait DynamicValue {
           .map(schema.fromChunk)
 
       case (DynamicValue.SetValue(values), schema: Schema.Set[t]) =>
-        values.foldLeft[Either[DynamicValue.Err, Set[t]]](Right[DynamicValue.Err, Set[t]](Set.empty)) {
+        values.foldLeft[Either[DecodeError, Set[t]]](Right[DecodeError, Set[t]](Set.empty)) {
           case (err @ Left(_), _) => err
           case (Right(values), value) =>
             value.toTypedValueLazyError(schema.elementSchema).map(values + _)
@@ -97,10 +89,10 @@ sealed trait DynamicValue {
       case (value, Schema.Transform(schema, f, _, _, _)) =>
         value
           .toTypedValueLazyError(schema)
-          .flatMap(value => f(value).left.map(err => DynamicValue.Err.InvalidValue(err)))
+          .flatMap(value => f(value).left.map(err => DecodeError.MalformedField(schema, err)))
 
       case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
-        entries.foldLeft[Either[DynamicValue.Err, Map[k, v]]](Right[DynamicValue.Err, Map[k, v]](Map.empty)) {
+        entries.foldLeft[Either[DecodeError, Map[k, v]]](Right[DecodeError, Map[k, v]](Map.empty)) {
           case (err @ Left(_), _) => err
           case (Right(map), entry) => {
             for {
@@ -114,7 +106,7 @@ sealed trait DynamicValue {
         toTypedValueLazyError(l.schema)
 
       case (DynamicValue.Error(message), _) =>
-        Left(DynamicValue.Err.InvalidValue(message))
+        Left(DecodeError.ReadError(Cause.empty, message))
 
       case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), _) =>
         val valueSchema = ast.toSchema.asInstanceOf[Schema[Any]]
@@ -123,25 +115,12 @@ sealed trait DynamicValue {
       case (dyn, Schema.Dynamic(_)) => Right(dyn)
 
       case _ =>
-        Left(DynamicValue.Err.CastError(self, schema))
+        Left(DecodeError.CastError(self, schema))
     }
 
 }
 
 object DynamicValue {
-
-  sealed trait Err
-
-  object Err {
-    final case class MissingCase(key: String, enumN: Schema.Enum[_]) extends Err
-    final case class IncompatibleShape(values: ListMap[String, DynamicValue], structure: Chunk[Schema.Field[_, _]])
-        extends Err
-    final case class InvalidValue(message: String) extends Err
-
-    final case class TupleErrors(left: Err, right: Err) extends Err
-
-    final case class CastError[A](value: DynamicValue, schema: Schema[A]) extends Err
-  }
 
   private object FromSchemaAndValue extends SimpleMutableSchemaBasedValueProcessor[DynamicValue] {
     override protected def processPrimitive(value: Any, typ: StandardType[Any]): DynamicValue =
@@ -203,15 +182,15 @@ object DynamicValue {
   def decodeStructure(
     values: ListMap[String, DynamicValue],
     structure: Chunk[Schema.Field[_, _]]
-  ): Either[DynamicValue.Err, ListMap[String, _]] = {
+  ): Either[DecodeError, ListMap[String, _]] = {
     val keys = values.keySet
-    keys.foldLeft[Either[DynamicValue.Err, ListMap[String, Any]]](Right(ListMap.empty)) {
+    keys.foldLeft[Either[DecodeError, ListMap[String, Any]]](Right(ListMap.empty)) {
       case (Right(record), key) =>
         (structure.find(_.name == key), values.get(key)) match {
           case (Some(field), Some(value)) =>
             value.toTypedValueLazyError(field.schema).map(value => (record + (key -> value)))
           case _ =>
-            Left(DynamicValue.Err.IncompatibleShape(values, structure))
+            Left(DecodeError.IncompatibleShape(values, structure))
         }
       case (Left(err), _) => Left(err)
     }
