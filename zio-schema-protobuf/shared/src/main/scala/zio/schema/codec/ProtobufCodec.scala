@@ -98,13 +98,14 @@ object ProtobufCodec {
     }
   }
 
-  final private[codec] case class EncoderContext(fieldNumber: Option[Int])
+  final private[codec] case class EncoderContext(fieldNumber: Option[Int], directByteEncoding: Boolean)
 
   object Encoder extends MutableSchemaBasedValueProcessor[Chunk[Byte], EncoderContext] {
     import Protobuf._
 
     override protected def processPrimitive(context: EncoderContext, value: Any, typ: StandardType[Any]): Chunk[Byte] =
-      encodePrimitive(context.fieldNumber, typ, value)
+      if (context.directByteEncoding && typ == StandardType.ByteType) Chunk(value.asInstanceOf[Byte])
+      else encodePrimitive(context.fieldNumber, typ, value)
 
     override protected def processRecord(
       context: EncoderContext,
@@ -163,8 +164,12 @@ object ProtobufCodec {
             val rightDecoder = new Decoder(right)
 
             (
-              leftDecoder.keyDecoder(DecoderContext(None, packed = false, dictionaryElementContext = None)),
-              rightDecoder.keyDecoder(DecoderContext(None, packed = false, dictionaryElementContext = None))
+              leftDecoder.keyDecoder(
+                DecoderContext(None, packed = false, dictionaryElementContext = None, directByteEncoding = false)
+              ),
+              rightDecoder.keyDecoder(
+                DecoderContext(None, packed = false, dictionaryElementContext = None, directByteEncoding = false)
+              )
             ) match {
               case ((leftWireType, seqIndex), (rightWireType, _)) =>
                 val data =
@@ -244,7 +249,8 @@ object ProtobufCodec {
     override protected def fail(context: EncoderContext, message: String): Chunk[Byte] =
       throw new RuntimeException(message)
 
-    override protected val initialContext: EncoderContext = EncoderContext(None)
+    override protected val initialContext: EncoderContext =
+      EncoderContext(fieldNumber = None, directByteEncoding = false)
 
     override protected def contextForRecordField(
       context: EncoderContext,
@@ -280,7 +286,8 @@ object ProtobufCodec {
       s: Schema.Sequence[_, _, _],
       index: Int
     ): EncoderContext =
-      if (canBePacked(s.elementSchema)) context.copy(fieldNumber = None)
+      if (s.elementSchema == Schema[Byte]) context.copy(fieldNumber = None, directByteEncoding = true)
+      else if (canBePacked(s.elementSchema)) context.copy(fieldNumber = None)
       else context.copy(fieldNumber = Some(index + 1))
 
     override protected def contextForMap(context: EncoderContext, s: Schema.Map[_, _], index: Int): EncoderContext =
@@ -472,7 +479,8 @@ object ProtobufCodec {
   final case class DecoderContext(
     limit: Option[Int],
     packed: Boolean,
-    dictionaryElementContext: Option[DecoderContext]
+    dictionaryElementContext: Option[DecoderContext],
+    directByteEncoding: Boolean
   ) {
 
     def limitedTo(state: DecoderState, w: Int): DecoderContext =
@@ -504,11 +512,15 @@ object ProtobufCodec {
 
     override protected def createPrimitive(context: DecoderContext, typ: StandardType[_]): Any =
       typ match {
-        case StandardType.UnitType   => ()
-        case StandardType.StringType => stringDecoder(context)
-        case StandardType.BoolType   => varIntDecoder(context) != 0
-        case StandardType.ShortType  => varIntDecoder(context).shortValue
-        case StandardType.ByteType   => varIntDecoder(context).byteValue
+        case StandardType.UnitType                                => ()
+        case StandardType.StringType                              => stringDecoder(context)
+        case StandardType.BoolType                                => varIntDecoder(context) != 0
+        case StandardType.ShortType                               => varIntDecoder(context).shortValue
+        case StandardType.ByteType if !context.directByteEncoding => varIntDecoder(context).byteValue
+        case StandardType.ByteType if context.directByteEncoding =>
+          val result = state.peek
+          state.move(1)
+          result
         case StandardType.IntType    => varIntDecoder(context).intValue
         case StandardType.LongType   => varIntDecoder(context)
         case StandardType.FloatType  => floatDecoder(context)
@@ -662,7 +674,10 @@ object ProtobufCodec {
       schema: Schema.Sequence[_, _, _]
     ): DecoderContext =
       if (context.packed)
-        context
+        if (schema.elementSchema == Schema[Byte])
+          context.copy(directByteEncoding = true)
+        else
+          context
       else {
         keyDecoder(context) match {
           case (wt, _) =>
@@ -872,7 +887,7 @@ object ProtobufCodec {
       throw DecodeError.ReadError(Cause.empty, message)
 
     override protected val initialContext: DecoderContext =
-      DecoderContext(limit = None, packed = false, dictionaryElementContext = None)
+      DecoderContext(limit = None, packed = false, dictionaryElementContext = None, directByteEncoding = false)
 
     /**
      * Decodes key which consist out of field type (wire type) and a field number.
@@ -987,7 +1002,7 @@ object ProtobufCodec {
       state.all(context)
 
     private[codec] def remainder: Chunk[Byte] =
-      state.peek(DecoderContext(None, packed = false, dictionaryElementContext = None))
+      state.peek(DecoderContext(None, packed = false, dictionaryElementContext = None, directByteEncoding = false))
   }
 
 }
