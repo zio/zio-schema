@@ -635,7 +635,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
                 //              ed2 <- encodeAndDecodeNS(schema, value)
               } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
           }
-        } @@ TestAspect.sized(200)
+        } @@ TestAspect.size(200)
       ),
       suite("Should successfully decode")(
         test("empty input") {
