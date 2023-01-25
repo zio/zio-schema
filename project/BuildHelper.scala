@@ -136,7 +136,6 @@ object BuildHelper {
   }
 
   val dottySettings = Seq(
-    crossScalaVersions += Scala3,
     scalacOptions --= {
       if (scalaVersion.value == Scala3)
         Seq("-Xfatal-warnings")
