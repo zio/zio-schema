@@ -307,7 +307,7 @@ lazy val docs = project
     projectName := "ZIO Schema",
     mainModuleName := (zioSchemaJVM / moduleName).value,
     projectStage := ProjectStage.Development,
-    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(zioSchemaJVM),
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(),
     docsPublishBranch := "main",
     readmeContribution +=
       """|
@@ -320,29 +320,5 @@ lazy val docs = project
          |
          |sbt test
          |```""".stripMargin
-  )
-  .dependsOn(
-    zioSchemaMacrosJVM,
-    zioSchemaMacrosJS,
-    zioSchemaJVM,
-    zioSchemaJS,
-    zioSchemaDerivationJVM,
-    zioSchemaDerivationJS,
-    zioSchemaJsonJVM,
-    zioSchemaJsonJS,
-    zioSchemaOpticsJS,
-    zioSchemaOpticsJVM,
-    zioSchemaProtobufJS,
-    zioSchemaProtobufJVM,
-    testsJVM,
-    testsJS,
-    zioSchemaZioTestJVM,
-    zioSchemaZioTestJS,
-    zioSchemaThriftJS,
-    zioSchemaThriftJVM,
-    zioSchemaAvroJS,
-    zioSchemaAvroJVM,
-    zioSchemaMsgPackJS,
-    zioSchemaMsgPackJVM
   )
   .enablePlugins(WebsitePlugin)
