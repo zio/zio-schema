@@ -73,8 +73,7 @@ lazy val root = project
     zioSchemaAvroJS,
     zioSchemaAvroJVM,
     zioSchemaMsgPackJS,
-    zioSchemaMsgPackJVM,
-    docs
+    zioSchemaMsgPackJVM
   )
 
 lazy val tests = crossProject(JSPlatform, JVMPlatform)
