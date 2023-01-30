@@ -129,6 +129,20 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Singleton,
           "{}"
         )
+      },
+      test("record with option fields encoded as null") {
+        assertEncodes(
+          recordWithOptionSchema,
+          ListMap[String, Any]("foo" -> Some("s"), "bar" -> None),
+          charSequenceToByteChunk("""{"foo":"s","bar":null}""")
+        )
+      },
+      test("case class with option fields omitted when empty") {
+        assertEncodes(
+          WithOptionFields.schema,
+          WithOptionFields(Some("s"), None),
+          charSequenceToByteChunk("""{"a":"s"}""")
+        )
       }
     ),
     suite("enumeration")(
@@ -186,6 +200,37 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Subscription.schema,
           Subscription.Unlimited(None),
           charSequenceToByteChunk("""{"type":"unlimited"}""")
+        )
+      },
+      suite("with no discriminator")(
+        test("example 1") {
+          assertEncodes(
+            Prompt.schema,
+            Prompt.Single("hello"),
+            charSequenceToByteChunk("""{"value":"hello"}""")
+          )
+        },
+        test("example 2") {
+          assertEncodes(
+            Prompt.schema,
+            Prompt.Multiple(List("hello", "world")),
+            charSequenceToByteChunk("""{"value":["hello","world"]}""")
+          )
+        }
+      )
+    ),
+    suite("dynamic direct mapping")(
+      test("record") {
+        assertEncodes(
+          Schema.dynamicValue.annotate(directDynamicMapping()),
+          DynamicValue.Record(
+            TypeId.Structural,
+            ListMap(
+              "foo" -> DynamicValue.Primitive("s", StandardType.StringType),
+              "bar" -> DynamicValue.Primitive(1, StandardType.IntType)
+            )
+          ),
+          charSequenceToByteChunk("""{"foo":"s","bar":1}""")
         )
       }
     )
@@ -283,6 +328,27 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Order(1, BigDecimal.valueOf(10), "test"),
           charSequenceToByteChunk("""{"orderId":1,"value":10,"description":"test"}""")
         )
+      },
+      test("with option fields encoded as null") {
+        assertDecodes(
+          recordWithOptionSchema,
+          ListMap[String, Any]("foo" -> Some("s"), "bar" -> None),
+          charSequenceToByteChunk("""{"foo":"s","bar":null}""")
+        )
+      },
+      test("case class with option fields encoded as null") {
+        assertDecodes(
+          WithOptionFields.schema,
+          WithOptionFields(Some("s"), None),
+          charSequenceToByteChunk("""{"a":"s","b":null}""")
+        )
+      },
+      test("case class with option fields omitted when empty") {
+        assertDecodes(
+          WithOptionFields.schema,
+          WithOptionFields(Some("s"), None),
+          charSequenceToByteChunk("""{"a":"s"}""")
+        )
       }
     ),
     suite("enums")(
@@ -342,6 +408,37 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Subscription.schema,
           Subscription.Unlimited(None),
           charSequenceToByteChunk("""{"type":"unlimited"}""")
+        )
+      }
+    ),
+    suite("enums - with no discriminator")(
+      test("example 1") {
+        assertDecodes(
+          Prompt.schema,
+          Prompt.Single("hello"),
+          charSequenceToByteChunk("""{"value":"hello"}""")
+        )
+      },
+      test("example 2") {
+        assertDecodes(
+          Prompt.schema,
+          Prompt.Multiple(List("hello", "world")),
+          charSequenceToByteChunk("""{"value":["hello","world"]}""")
+        )
+      }
+    ),
+    suite("dynamic direct mapping")(
+      test("record") {
+        assertDecodes(
+          Schema.dynamicValue.annotate(directDynamicMapping()),
+          DynamicValue.Record(
+            TypeId.Structural,
+            ListMap(
+              "foo" -> DynamicValue.Primitive("s", StandardType.StringType),
+              "bar" -> DynamicValue.Primitive(java.math.BigDecimal.valueOf(1), StandardType.BigDecimalType)
+            )
+          ),
+          charSequenceToByteChunk("""{"foo":"s","bar":1}""")
         )
       }
     )
@@ -1050,6 +1147,23 @@ object JsonCodecSpec extends ZIOSpecDefault {
       )
   )
 
+  val recordWithOptionSchema: Schema[ListMap[String, _]] = Schema.record(
+    TypeId.Structural,
+    Schema.Field(
+      "foo",
+      Schema.Primitive(StandardType.StringType).optional,
+      get0 = (p: ListMap[String, _]) => p("foo").asInstanceOf[Option[String]],
+      set0 = (p: ListMap[String, _], v: Option[String]) => p.updated("foo", v)
+    ),
+    Schema
+      .Field(
+        "bar",
+        Schema.Primitive(StandardType.IntType).optional,
+        get0 = (p: ListMap[String, _]) => p("bar").asInstanceOf[Option[Int]],
+        set0 = (p: ListMap[String, _], v: Option[Int]) => p.updated("bar", v)
+      )
+  )
+
   val nestedRecordSchema: Schema[ListMap[String, _]] = Schema.record(
     TypeId.Structural,
     Schema.Field(
@@ -1159,5 +1273,19 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object Order {
     implicit lazy val schema: Schema[Order] = DeriveSchema.gen[Order]
+  }
+  @noDiscriminator sealed trait Prompt
+
+  object Prompt {
+    final case class Single(value: String)         extends Prompt
+    final case class Multiple(value: List[String]) extends Prompt
+
+    implicit lazy val schema: Schema[Prompt] = DeriveSchema.gen[Prompt]
+  }
+
+  final case class WithOptionFields(a: Option[String], b: Option[Int])
+
+  object WithOptionFields {
+    implicit lazy val schema: Schema[WithOptionFields] = DeriveSchema.gen[WithOptionFields]
   }
 }

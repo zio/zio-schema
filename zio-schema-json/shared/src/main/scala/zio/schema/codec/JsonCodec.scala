@@ -7,7 +7,8 @@ import scala.collection.immutable.ListMap
 
 import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
-import zio.json.internal.{ Lexer, RetractReader, StringMatrix, Write }
+import zio.json.ast.Json
+import zio.json.internal.{ Lexer, RecordingReader, RetractReader, StringMatrix, Write }
 import zio.json.{
   JsonCodec => ZJsonCodec,
   JsonDecoder => ZJsonDecoder,
@@ -259,7 +260,7 @@ object JsonCodec {
         case e @ Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
           enumEncoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
         case e @ Schema.EnumN(_, cs, _) => enumEncoder(e, cs.toSeq: _*)
-        case Schema.Dynamic(_)          => dynamicEncoder(DynamicValue.schema)
+        case d @ Schema.Dynamic(_)      => dynamicEncoder(d)
         case _ =>
           if (schema eq null)
             throw new Exception(s"A captured schema is null, most likely due to wrong field initialization order")
@@ -268,16 +269,90 @@ object JsonCodec {
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
-    private def dynamicEncoder(schema: Schema[DynamicValue]): ZJsonEncoder[DynamicValue] =
-      schemaEncoder(schema)
+    private def dynamicEncoder(schema: Schema.Dynamic): ZJsonEncoder[DynamicValue] = {
+      val directMapping = schema.annotations.exists {
+        case directDynamicMapping() => true
+        case _                      => false
+      }
 
-    private def transformEncoder[A, B](schema: Schema[A], g: B => Either[String, A]): ZJsonEncoder[B] = {
-      (b: B, indent: Option[Int], out: Write) =>
-        g(b) match {
-          case Left(_)  => ()
-          case Right(a) => schemaEncoder(schema).unsafeEncode(a, indent, out)
+      if (directMapping) {
+        new ZJsonEncoder[DynamicValue] { directEncoder =>
+          override def unsafeEncode(value: DynamicValue, indent: Option[Int], out: Write): Unit =
+            value match {
+              case DynamicValue.Record(_, values) =>
+                if (values.isEmpty) {
+                  out.write("{}")
+                } else {
+                  out.write('{')
+                  val indent_ = bump(indent)
+                  pad(indent_, out)
+                  var first = true
+                  values.foreach {
+                    case (key, value) =>
+                      if (first)
+                        first = false
+                      else {
+                        out.write(',')
+                        if (indent.isDefined)
+                          ZJsonEncoder.pad(indent_, out)
+                      }
+                      string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(key), indent_, out)
+                      if (indent.isEmpty) out.write(':')
+                      else out.write(" : ")
+                      directEncoder.unsafeEncode(value, indent_, out)
+                  }
+                  pad(indent, out)
+                  out.write('}')
+                }
+              case DynamicValue.Enumeration(_, _) =>
+                throw new Exception(s"DynamicValue.Enumeration is not supported in directDynamicMapping mode")
+              case DynamicValue.Sequence(values) =>
+                ZJsonEncoder.chunk(directEncoder).unsafeEncode(values, indent, out)
+              case DynamicValue.Dictionary(_) =>
+                throw new Exception(s"DynamicValue.Dictionary is not supported in directDynamicMapping mode")
+              case DynamicValue.SetValue(values) =>
+                ZJsonEncoder.set(directEncoder).unsafeEncode(values, indent, out)
+              case DynamicValue.Primitive(value, standardType) =>
+                primitiveCodec(standardType).encoder.unsafeEncode(value, indent, out)
+              case DynamicValue.Singleton(_) =>
+                out.write("{}")
+              case DynamicValue.SomeValue(value) =>
+                directEncoder.unsafeEncode(value, indent, out)
+              case DynamicValue.NoneValue =>
+                out.write("null")
+              case DynamicValue.Tuple(_, _) =>
+                throw new Exception(s"DynamicValue.Tuple is not supported in directDynamicMapping mode")
+              case DynamicValue.LeftValue(_) =>
+                throw new Exception(s"DynamicValue.LeftValue is not supported in directDynamicMapping mode")
+              case DynamicValue.RightValue(_) =>
+                throw new Exception(s"DynamicValue.RightValue is not supported in directDynamicMapping mode")
+              case DynamicValue.DynamicAst(_) =>
+                throw new Exception(s"DynamicValue.DynamicAst is not supported in directDynamicMapping mode")
+              case DynamicValue.Error(message) =>
+                throw new Exception(message)
+            }
         }
+      } else {
+        schemaEncoder(DynamicValue.schema)
+      }
     }
+
+    private def transformEncoder[A, B](schema: Schema[A], g: B => Either[String, A]): ZJsonEncoder[B] =
+      new ZJsonEncoder[B] {
+        private lazy val innerEncoder = schemaEncoder(schema)
+
+        override def unsafeEncode(b: B, indent: Option[Int], out: Write): Unit =
+          g(b) match {
+            case Left(_)  => ()
+            case Right(a) => innerEncoder.unsafeEncode(a, indent, out)
+          }
+
+        override def isNothing(b: B): Boolean =
+          g(b) match {
+            case Left(_)  => false
+            case Right(a) => innerEncoder.isNothing(a)
+          }
+      }
 
     private def enumEncoder[Z](parentSchema: Schema.Enum[Z], cases: Schema.Case[Z, _]*): ZJsonEncoder[Z] =
       (value: Z, indent: Option[Int], out: Write) => {
@@ -300,12 +375,16 @@ object JsonCodec {
             val discriminatorChunk = parentSchema.annotations.collect {
               case d: discriminatorName => (d, caseName)
             }
+            val noDiscriminators = parentSchema.annotations.exists {
+              case noDiscriminator() => true
+              case _                 => false
+            }
 
-            if (discriminatorChunk.isEmpty) out.write('{')
+            if (discriminatorChunk.isEmpty && !noDiscriminators) out.write('{')
             val indent_ = bump(indent)
             pad(indent_, out)
 
-            if (discriminatorChunk.isEmpty) {
+            if (discriminatorChunk.isEmpty && !noDiscriminators) {
               string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(caseName), indent_, out)
               if (indent.isEmpty) out.write(':')
               else out.write(" : ")
@@ -313,10 +392,10 @@ object JsonCodec {
 
             schemaEncoder(
               case_.schema.asInstanceOf[Schema[Any]],
-              discriminatorTuple = discriminatorChunk
+              discriminatorTuple = if (noDiscriminators) Chunk.empty else discriminatorChunk
             ).unsafeEncode(case_.deconstruct(value), indent, out)
 
-            if (discriminatorChunk.isEmpty) out.write('}')
+            if (discriminatorChunk.isEmpty && !noDiscriminators) out.write('}')
           case None =>
             out.write("{}")
         }
@@ -458,26 +537,77 @@ object JsonCodec {
       case e @ Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
         enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
       case e @ Schema.EnumN(_, cs, _) => enumDecoder(e, cs.toSeq: _*)
-      case Schema.Dynamic(_)          => dynamicDecoder(DynamicValue.schema)
+      case d @ Schema.Dynamic(_)      => dynamicDecoder(d)
       case _                          => throw new Exception(s"Missing a handler for decoding of schema ${schema.toString()}.")
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
-    private def dynamicDecoder(schema: Schema[DynamicValue]): ZJsonDecoder[DynamicValue] =
-      schemaDecoder(schema)
+    private def dynamicDecoder(schema: Schema.Dynamic): ZJsonDecoder[DynamicValue] = {
+      val directMapping = schema.annotations.exists {
+        case directDynamicMapping() => true
+        case _                      => false
+      }
+
+      if (directMapping) {
+        Json.decoder.map(jsonToDynamicValue)
+      } else {
+        schemaDecoder(DynamicValue.schema)
+      }
+    }
+
+    private def jsonToDynamicValue(json: Json): DynamicValue =
+      json match {
+        case Json.Obj(fields) =>
+          DynamicValue.Record(
+            TypeId.Structural,
+            ListMap(fields.map { case (k, v) => k -> jsonToDynamicValue(v) }: _*)
+          )
+        case Json.Arr(elements) => DynamicValue.Sequence(elements.map(jsonToDynamicValue))
+        case Json.Bool(value)   => DynamicValue.Primitive(value, StandardType.BoolType)
+        case Json.Str(value)    => DynamicValue.Primitive(value, StandardType.StringType)
+        case Json.Num(value)    => DynamicValue.Primitive(value, StandardType.BigDecimalType)
+        case Json.Null          => DynamicValue.NoneValue
+      }
 
     private def enumDecoder[Z](parentSchema: Schema.Enum[Z], cases: Schema.Case[Z, _]*): ZJsonDecoder[Z] = {
-      (trace: List[JsonError], in: RetractReader) =>
-        {
-          val caseNameAliases = cases.flatMap {
-            case Schema.Case(name, _, _, _, _, annotations) =>
-              annotations.flatMap {
-                case a: caseNameAliases => a.aliases.toList.map(_ -> name)
-                case cn: caseName       => List(cn.name -> name)
-                case _                  => Nil
-              }
-          }.toMap
+      val caseNameAliases = cases.flatMap {
+        case Schema.Case(name, _, _, _, _, annotations) =>
+          annotations.flatMap {
+            case a: caseNameAliases => a.aliases.toList.map(_ -> name)
+            case cn: caseName       => List(cn.name -> name)
+            case _                  => Nil
+          }
+      }.toMap
+      val noDiscriminators = parentSchema.annotations.exists {
+        case noDiscriminator() => true
+        case _                 => false
+      }
+
+      (trace: List[JsonError], in: RetractReader) => {
+        if (noDiscriminators) {
+          val rr                = RecordingReader(in)
+          val it                = cases.iterator
+          var result: Option[Z] = None
+
+          while (result.isEmpty && it.hasNext) {
+            val c = it.next()
+            try {
+              val decoded = schemaDecoder(c.schema).unsafeDecode(trace, rr).asInstanceOf[Z]
+              result = Some(decoded)
+            } catch {
+              case _: Exception =>
+                rr.rewind()
+            }
+          }
+
+          result match {
+            case Some(value) => value
+            case None        => throw UnsafeJson(JsonError.Message("none of the subtypes could decode the data") :: trace)
+          }
+
+        } else {
           Lexer.char(trace, in, '{')
+
           if (Lexer.firstField(trace, in)) {
             val subtypeOrDiscriminator = deAliasCaseName(Lexer.string(trace, in).toString, caseNameAliases)
             val (subtype, trace_, hasDiscriminator) = parentSchema.annotations.collect {
@@ -505,6 +635,7 @@ object JsonCodec {
             throw UnsafeJson(JsonError.Message("missing subtype") :: trace)
           }
         }
+      }
     }
 
     private def deAliasCaseName(alias: String, caseNameAliases: Map[String, String]): String =
