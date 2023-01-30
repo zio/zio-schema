@@ -9,7 +9,13 @@ import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.ast.Json
 import zio.json.internal.{ Lexer, RecordingReader, RetractReader, StringMatrix, Write }
-import zio.json.{JsonCodec => ZJsonCodec, JsonDecoder => ZJsonDecoder, JsonEncoder => ZJsonEncoder, JsonFieldDecoder, JsonFieldEncoder}
+import zio.json.{
+  JsonCodec => ZJsonCodec,
+  JsonDecoder => ZJsonDecoder,
+  JsonEncoder => ZJsonEncoder,
+  JsonFieldDecoder,
+  JsonFieldEncoder
+}
 import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
