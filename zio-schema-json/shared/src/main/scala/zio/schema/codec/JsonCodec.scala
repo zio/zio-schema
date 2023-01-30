@@ -277,7 +277,7 @@ object JsonCodec {
         new ZJsonEncoder[DynamicValue] { directEncoder =>
           override def unsafeEncode(value: DynamicValue, indent: Option[Int], out: Write): Unit =
             value match {
-              case DynamicValue.Record(id, values) =>
+              case DynamicValue.Record(_, values) =>
                 if (values.isEmpty) {
                   out.write("{}")
                 } else {
@@ -558,7 +558,7 @@ object JsonCodec {
         case Json.Obj(fields) =>
           DynamicValue.Record(
             TypeId.Structural,
-            ListMap.from(fields.map { case (k, v) => k -> jsonToDynamicValue(v) })
+            ListMap(fields.map { case (k, v) => k -> jsonToDynamicValue(v) }: _*)
           )
         case Json.Arr(elements) => DynamicValue.Sequence(elements.map(jsonToDynamicValue))
         case Json.Bool(value)   => DynamicValue.Primitive(value, StandardType.BoolType)
