@@ -190,7 +190,7 @@ lazy val zioSchemaThrift = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings("zio.schema.thrift"))
   .settings(
     libraryDependencies ++= Seq(
-      "org.apache.thrift" % "libthrift" % "0.16.0"
+      "org.apache.thrift" % "libthrift" % "0.17.0"
     )
   )
 
