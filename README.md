@@ -30,12 +30,12 @@ _ZIO Schema_ is used by a growing number of ZIO libraries, including _ZIO Flow_,
 In order to use this library, we need to add the following lines in our `build.sbt` file:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema"          % "0.4.6"
-libraryDependencies += "dev.zio" %% "zio-schema-json"     % "0.4.6"
-libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "0.4.6"
+libraryDependencies += "dev.zio" %% "zio-schema"          % "0.4.7"
+libraryDependencies += "dev.zio" %% "zio-schema-json"     % "0.4.7"
+libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "0.4.7"
 
 // Required for automatic generic derivation of schemas
-libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "0.4.6",
+libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "0.4.7",
 libraryDependencies += "org.scala-lang" % "scala-reflect"  % scalaVersion.value % "provided"
 ```
 
