@@ -349,12 +349,18 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
     result
   }
 
-  def deriveCaseObject[F[_]: Type, A: Type](top: Boolean, deriver: Expr[Deriver[F]], schema: Expr[Schema[A]])(using Quotes) = {
+  def deriveCaseObject[F[_]: Type, A: Type](top: Boolean, deriver: Expr[Deriver[F]], schema: Expr[Schema[A]])(using Quotes): Expr[F[A]] = {
     val summoned = summonOptionalIfNotTop[F, A](top)
-    '{$deriver.deriveRecord[A](Schema.force($schema).asInstanceOf[Schema.Record[A]], Chunk.empty, $summoned)}
+    Expr.summon[scala.reflect.ClassTag[A]] match {
+      case Some(classTag) =>
+        '{ $deriver.tryDeriveRecord[A](Schema.force($schema), Chunk.empty, $summoned)($classTag) }
+      case None =>
+        val typeRepr = TypeRepr.of[A]
+        report.errorAndAbort(s"Cannot find a ClassTag for ${typeRepr.show}")
+    }
    }
 
-  def deriveCaseClass[F[_]: Type, A: Type](top: Boolean, mirror: Mirror, stack: Stack, deriver: Expr[Deriver[F]], schema: Expr[Schema[A]], selfRef: Ref)(using Quotes) = {
+  def deriveCaseClass[F[_]: Type, A: Type](top: Boolean, mirror: Mirror, stack: Stack, deriver: Expr[Deriver[F]], schema: Expr[Schema[A]], selfRef: Ref)(using Quotes): Expr[F[A]] = {
     val newStack = stack.push(selfRef, TypeRepr.of[A])
 
     val labels = mirror.labels.toList
@@ -374,11 +380,22 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
       }
 
       val summoned = summonOptionalIfNotTop[F, A](top)
-
-      lazyVals[F[A]](selfRef,
-        schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Record[A]]},
-        selfRef -> '{$deriver.deriveRecord[A]($schemaRefExpr, Chunk(${Varargs(fieldInstances)}: _*), $summoned)}
-      )      
+      Expr.summon[scala.reflect.ClassTag[A]] match {
+        case Some(classTag) =>
+          lazyVals[F[A]](selfRef,
+            schemaRef -> '{
+              Schema.force($schema).asInstanceOf[Schema.Record[A]]
+            },
+            selfRef -> '{
+              $deriver.tryDeriveRecord[A](Schema.force($schema), Chunk(${
+                Varargs(fieldInstances)
+              }: _*), $summoned)($classTag)
+            }
+          )
+        case None =>
+          val typeRepr = TypeRepr.of[A]
+          report.errorAndAbort(s"Cannot find a ClassTag for ${typeRepr.show}")
+      }
     } else {       
       val (schemaRef, schemaRefExpr) = createSchemaRef[A, Schema.Transform[ListMap[String, _], A, _]](stack)
       val (recordSchemaRef, recordSchemaRefExpr) = createSchemaRef[ListMap[String, _], GenericRecord](stack)
@@ -402,7 +419,7 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
     }
   }
 
-  def deriveEnum[F[_]: Type, A: Type](top: Boolean, mirror: Mirror, stack: Stack, deriver: Expr[Deriver[F]], schema: Expr[Schema[A]], selfRef: Ref)(using Quotes) = {
+  def deriveEnum[F[_]: Type, A: Type](top: Boolean, mirror: Mirror, stack: Stack, deriver: Expr[Deriver[F]], schema: Expr[Schema[A]], selfRef: Ref)(using Quotes): Expr[F[A]] = {
     val newStack = stack.push(selfRef, TypeRepr.of[A])
 
     val labels = mirror.labels.toList
@@ -421,10 +438,22 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
 
     val summoned = summonOptionalIfNotTop[F, A](top)
 
-    lazyVals[F[A]](selfRef, 
-      schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Enum[A]]},
-      selfRef -> '{$deriver.deriveEnum[A]($schemaRefExpr, Chunk(${Varargs(caseInstances)}: _*), $summoned)}      
-    )
+    Expr.summon[scala.reflect.ClassTag[A]] match {
+      case Some(classTag) =>
+        lazyVals[F[A]](selfRef,
+          schemaRef -> '{
+            Schema.force($schema).asInstanceOf[Schema.Enum[A]]
+          },
+          selfRef -> '{
+            $deriver.tryDeriveEnum[A](Schema.force($schema), Chunk(${
+              Varargs(caseInstances)
+            }: _*), $summoned)($classTag)
+          }
+        )
+      case None =>
+        val typeRepr = TypeRepr.of[A]
+        report.errorAndAbort(s"Cannot find a ClassTag for ${typeRepr.show}")
+    }
   }
 
   def lazyVals[A: Type](result: Ref, defs: (Ref, Expr[_])*)(using Quotes) =
