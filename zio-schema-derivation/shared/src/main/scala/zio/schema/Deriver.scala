@@ -37,6 +37,26 @@ trait Deriver[F[_]] extends VersionSpecificDeriver[F] { self =>
     CachedDeriver.apply(this, cache)
   }
 
+  def tryDeriveRecord[A: ClassTag](
+    schema: Schema[A],
+    fields: => Chunk[WrappedF[F, _]],
+    summoned: => Option[F[A]]
+  ): F[A] =
+    schema match {
+      case record: Schema.Record[A] => deriveRecord(record, fields, summoned)
+      case _                        => deriveUnknown(summoned)
+    }
+
+  def tryDeriveEnum[A: ClassTag](
+    schema: Schema[A],
+    cases: => Chunk[WrappedF[F, _]],
+    summoned: => Option[F[A]]
+  ): F[A] =
+    schema match {
+      case e: Schema.Enum[A] => deriveEnum(e, cases, summoned)
+      case _                 => deriveUnknown(summoned)
+    }
+
   def deriveRecord[A](record: Schema.Record[A], fields: => Chunk[WrappedF[F, _]], summoned: => Option[F[A]]): F[A]
 
   def deriveEnum[A](`enum`: Schema.Enum[A], cases: => Chunk[WrappedF[F, _]], summoned: => Option[F[A]]): F[A]

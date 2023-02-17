@@ -294,7 +294,7 @@ object Derive {
           } else if (tpe <:< tuple22Tpe) {
             tupleN()
           } else if (isCaseObject(tpe)) {
-            q"$deriver.deriveRecord[$tpe]($forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Record[$tpe]], _root_.zio.Chunk.empty, $summoned)"
+            q"$deriver.tryDeriveRecord[$tpe]($forcedSchema.asInstanceOf[_root_.zio.schema.Schema[$tpe]], _root_.zio.Chunk.empty, $summoned)"
           } else if (isCaseClass(tpe)) {
             val fields = tpe.decls.sorted.collect {
               case p: TermSymbol if p.isCaseAccessor && !p.isMethod => p
@@ -334,7 +334,7 @@ object Derive {
 
               q"""{
                   lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Record[$tpe]]
-                  lazy val $selfRefWithType = $deriver.deriveRecord[$tpe]($schemaRef, _root_.zio.Chunk(..$fieldInstances), $summoned)
+                  lazy val $selfRefWithType = $deriver.tryDeriveRecord[$tpe]($forcedSchema.asInstanceOf[_root_.zio.schema.Schema[$tpe]], _root_.zio.Chunk(..$fieldInstances), $summoned)
                   $selfRef
                 }"""
             }
@@ -350,7 +350,7 @@ object Derive {
             }
             q"""{
               lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Enum[$tpe]]
-              lazy val $selfRefWithType = $deriver.deriveEnum[$tpe]($schemaRef, _root_.zio.Chunk(..$subtypeInstances), $summoned)
+              lazy val $selfRefWithType = $deriver.tryDeriveEnum[$tpe]($forcedSchema.asInstanceOf[_root_.zio.schema.Schema[$tpe]], _root_.zio.Chunk(..$subtypeInstances), $summoned)
               $selfRef
             }"""
           } else if (isMap(tpe)) {
