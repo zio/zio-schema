@@ -1,31 +1,58 @@
 package zio.schema.codec
 
+import org.apache.avro.io.{ DecoderFactory, EncoderFactory }
+import org.apache.avro.specific.{ SpecificDatumReader, SpecificDatumWriter }
 import java.nio.charset.StandardCharsets
 import java.time.format.DateTimeFormatter
 import java.time.{ Duration, Month, MonthDay, Period, Year, YearMonth }
-
 import scala.annotation.StaticAnnotation
 import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters._
 import scala.util.{ Right, Try }
-
 import org.apache.avro.{ LogicalTypes, Schema => SchemaAvro }
-
-import zio.Chunk
+import zio.{ Chunk, ZIO }
 import zio.schema.CaseSet.Aux
 import zio.schema.Schema.{ Record, _ }
 import zio.schema._
 import zio.schema.codec.AvroAnnotations._
 import zio.schema.codec.AvroPropMarker._
 import zio.schema.meta.MetaSchema
+import zio.stream.ZPipeline
+import java.io.ByteArrayOutputStream
 
-trait AvroCodec {
-  def encode(schema: Schema[_]): scala.util.Either[String, String]
+object AvroCodec {
 
-  def decode(bytes: Chunk[Byte]): scala.util.Either[String, Schema[_]]
-}
+  implicit def avroCodec[A](implicit schema: Schema[_], clazz: Class[A]): BinaryCodec[A] = new BinaryCodec[A] {
 
-object AvroCodec extends AvroCodec {
+    val avroSchema: scala.util.Either[String, SchemaAvro] = toAvroSchema(schema)
+
+    val writer = new SpecificDatumWriter[A](clazz)
+
+    val reader = new SpecificDatumReader[A](clazz)
+
+    override def decode(whole: Chunk[Byte]): scala.Either[DecodeError, A] =
+      if (avroSchema.isRight) {
+        val decoder = DecoderFactory.get().jsonDecoder(avroSchema.right.get, new String(whole.toArray))
+        Right(reader.read(null.asInstanceOf[A], decoder))
+      } else {
+        Left(DecodeError.ReadError(null, "incompatible schema"))
+      }
+
+    override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
+      ZPipeline.mapChunksZIO(chunks => ZIO.fromEither(decode(chunks).map(Chunk(_))))
+
+    override def encode(value: A): Chunk[Byte] =
+      if (avroSchema.isRight) {
+        val stream      = new ByteArrayOutputStream()
+        val jsonEncoder = EncoderFactory.get().jsonEncoder(avroSchema.right.get, stream)
+        writer.write(value, jsonEncoder)
+        Chunk.fromArray(stream.toByteArray)
+      } else {
+        throw new Exception("")
+      }
+
+    override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] = ZPipeline.mapChunks(_.flatMap(encode))
+  }
 
   def encode(schema: Schema[_]): scala.util.Either[String, String] =
     toAvroSchema(schema).map(_.toString)
