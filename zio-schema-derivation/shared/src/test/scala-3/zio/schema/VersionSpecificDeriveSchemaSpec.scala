@@ -17,6 +17,5 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
        VerifyFieldNameMacro.verifyFieldName[F, S]
   }
 
-  def versionSpecificSuite = suite("Scala 3 specific tests")(
-  )
+  def versionSpecificSuite = Spec.labeled("Scala 3 specific tests", Spec.empty)
 }

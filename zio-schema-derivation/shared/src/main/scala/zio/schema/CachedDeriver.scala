@@ -2,10 +2,11 @@ package zio.schema
 
 import java.util.concurrent.{ ConcurrentHashMap, ConcurrentMap }
 
+import scala.reflect.ClassTag
+
 import zio.Chunk
 import zio.schema.CachedDeriver.{ Cache, CacheKey }
 import zio.schema.Deriver.WrappedF
-import scala.reflect.ClassTag
 
 private[schema] class CachedDeriver[F[_]] private (deriver: Deriver[F], val cache: Cache[F]) extends Deriver[F] {
 
