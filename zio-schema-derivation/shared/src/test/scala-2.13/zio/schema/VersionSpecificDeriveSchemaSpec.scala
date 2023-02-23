@@ -18,5 +18,5 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
     @nowarn def apply[S <: String & scala.Singleton](name: S)(implicit ev: F =:= S): Boolean = true
   }
 
-  def versionSpecificSuite: Spec[Any, Nothing] = Spec.labeled("Scala 2 specific tests", Spec.empty)
+  def versionSpecificSuite: Spec[Any, Nothing] = Spec.labeled("Scala 2.13 specific tests", Spec.empty)
 }

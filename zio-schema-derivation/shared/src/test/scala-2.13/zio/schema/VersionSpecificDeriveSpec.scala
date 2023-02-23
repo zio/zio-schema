@@ -4,5 +4,5 @@ import zio.test._
 
 trait VersionSpecificDeriveSpec extends ZIOSpecDefault {
 
-  def versionSpecificSuite: Spec[Any, Nothing] = Spec.labeled("Scala 2 specific tests", Spec.empty)
+  def versionSpecificSuite: Spec[Any, Nothing] = Spec.labeled("Scala 2.13 specific tests", Spec.empty)
 }
