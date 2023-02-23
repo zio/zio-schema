@@ -62,6 +62,10 @@ trait Deriver[F[_]] extends VersionSpecificDeriver[F] { self =>
   def deriveEnum[A](`enum`: Schema.Enum[A], cases: => Chunk[WrappedF[F, _]], summoned: => Option[F[A]]): F[A]
 
   def derivePrimitive[A](st: StandardType[A], summoned: => Option[F[A]]): F[A]
+
+  def derivePrimitiveAlias[A: ClassTag, U](st: StandardType[U], summoned: => Option[F[A]]): F[A] =
+    deriveUnknown(summoned)
+
   def deriveOption[A](option: Schema.Optional[A], inner: => F[A], summoned: => Option[F[Option[A]]]): F[Option[A]]
 
   def deriveSequence[C[_], A](

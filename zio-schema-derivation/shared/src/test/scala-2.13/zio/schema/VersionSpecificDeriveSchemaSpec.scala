@@ -1,8 +1,9 @@
 package zio.schema
 
 import scala.annotation.nowarn
+import zio.test._
 
-trait VersionSpecificDeriveSchemaSpec {
+trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
   case class ContainerFields(field1: Option[String])
 
   object ContainerFields {

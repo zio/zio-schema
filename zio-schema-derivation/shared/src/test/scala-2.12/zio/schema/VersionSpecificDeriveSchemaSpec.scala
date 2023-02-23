@@ -14,4 +14,7 @@ trait VersionSpecificDeriveSchemaSpec {
   class FieldNameVerifier[F] {
     @nowarn def apply(name: String): Boolean = true // Cannot check as we don't have singleton types
   }
+  
+  def versionSpecificSuite = suite("Scala 2 specific tests")(
+  )
 }

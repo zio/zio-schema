@@ -10,8 +10,13 @@ import Schema._
 object Derive {
   inline def derive[F[_], A](deriver: Deriver[F])(implicit schema: Schema[A]): F[A] = ${ deriveInstance[F, A]('deriver, 'schema) }
 
-  private def deriveInstance[F[_]: Type, A: Type](deriver: Expr[Deriver[F]], schema: Expr[Schema[A]])(using Quotes): Expr[F[A]] =
-    DeriveInstance().deriveInstance[F, A](deriver, schema, top = true)
+  private def deriveInstance[F[_]: Type, A: Type](deriver: Expr[Deriver[F]], schema: Expr[Schema[A]])(using ctx: Quotes): Expr[F[A]] = {
+    import ctx.reflect._
+    println(s"deriveInstance for ${TypeRepr.of[A]}")
+    val result = DeriveInstance().deriveInstance[F, A](deriver, schema, top = true)
+    println(result.show)
+    result
+  }
 }
 
 private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUtils(ctx) {
@@ -57,292 +62,315 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
             val summoned = summonOptionalIfNotTop[F, A](top)
 
             '{ $deriver.derivePrimitive[A]($st, $summoned) }
-          case None =>                    
-          typeRepr.asType match {
-            case '[List[a]] =>
-              val (seqSchemaRef, seqSchemaRefExpr) = createSchemaRef[List[a], Schema.Sequence[List[a], a, _]](stack)              
+          case None =>
+            // If it is an opaque type, we try check if it's underlying type is a StandardType
+            val typeRef = typeRepr.typeSymbol.typeRef
+            if (typeRef.isOpaqueAlias) {
+              println(s"${typeRepr.show} is an opaque type")
+              val underlyingType = typeRef.translucentSuperType
+              underlyingType.asType match {
+                case '[ut] => 
+                  Expr.summon[StandardType[ut]] match {
+                    case Some(st) =>
+                      println(s"${typeRepr.show} is an opaque type with ${st.show}")
+                      val summoned = summonOptionalIfNotTop[F, A](top)
+                      Expr.summon[scala.reflect.ClassTag[A]] match {
+                          case Some(classTag) =>
+                            '{ $deriver.derivePrimitiveAlias[A, ut]($st, $summoned)($classTag) }
+                          case None =>
+                            report.errorAndAbort(s"Cannot find a ClassTag for ${typeRepr.show}")
+                      }                      
+                    case None =>
+                      report.errorAndAbort(s"Opaque type ${typeRepr.show} is not supported because its underlying type is not a primitive type")
+                  }
+              }
+            } else {
+              typeRepr.asType match {
+                case '[List[a]] =>
+                  val (seqSchemaRef, seqSchemaRefExpr) = createSchemaRef[List[a], Schema.Sequence[List[a], a, _]](stack)              
 
-              val summoned = summonOptionalIfNotTop[F, List[a]](top)
-                                
-              val elemInstance = deriveInstance[F, a](deriver, '{$seqSchemaRefExpr.elementSchema}, stack)
-              lazyVals[F[A]](selfRef,
-                seqSchemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Sequence[List[a], a, _]]},
-                selfRef -> '{$deriver.deriveSequence[List, a]($seqSchemaRefExpr, $elemInstance, ${summoned})}
-              )            
-            case '[scala.util.Either[a, b]] =>
-              val (schemaRef, schemaRefExpr) = createSchemaRef[scala.util.Either[a, b], Schema.Either[a, b]](stack)              
-              val summoned = summonOptionalIfNotTop[F, scala.util.Either[a, b]](top)
+                  val summoned = summonOptionalIfNotTop[F, List[a]](top)
+                                    
+                  val elemInstance = deriveInstance[F, a](deriver, '{$seqSchemaRefExpr.elementSchema}, stack)
+                  lazyVals[F[A]](selfRef,
+                    seqSchemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Sequence[List[a], a, _]]},
+                    selfRef -> '{$deriver.deriveSequence[List, a]($seqSchemaRefExpr, $elemInstance, ${summoned})}
+                  )            
+                case '[scala.util.Either[a, b]] =>
+                  val (schemaRef, schemaRefExpr) = createSchemaRef[scala.util.Either[a, b], Schema.Either[a, b]](stack)              
+                  val summoned = summonOptionalIfNotTop[F, scala.util.Either[a, b]](top)
 
-              val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.left}, stack)
-              val instanceB = deriveInstance[F, b](deriver, '{$schemaRefExpr.right}, stack)
-              lazyVals[F[A]](selfRef,
-                schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Either[a, b]]},
-                selfRef -> '{$deriver.deriveEither[a, b]($schemaRefExpr, $instanceA, $instanceB, $summoned)}
-              )
-            case '[Option[a]] =>
-              val (schemaRef, schemaRefExpr) = createSchemaRef[Option[a], Schema.Optional[a]](stack)              
-              val summoned = summonOptionalIfNotTop[F, Option[a]](top)
+                  val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.left}, stack)
+                  val instanceB = deriveInstance[F, b](deriver, '{$schemaRefExpr.right}, stack)
+                  lazyVals[F[A]](selfRef,
+                    schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Either[a, b]]},
+                    selfRef -> '{$deriver.deriveEither[a, b]($schemaRefExpr, $instanceA, $instanceB, $summoned)}
+                  )
+                case '[Option[a]] =>
+                  val (schemaRef, schemaRefExpr) = createSchemaRef[Option[a], Schema.Optional[a]](stack)              
+                  val summoned = summonOptionalIfNotTop[F, Option[a]](top)
 
-              val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.schema}, stack)              
-              lazyVals[F[A]](selfRef,
-                schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Optional[a]]},
-                selfRef -> '{$deriver.deriveOption[a]($schemaRefExpr, $instanceA, $summoned)}
-              )
-            case '[scala.collection.immutable.Set[a]] =>
-              val (schemaRef, schemaRefExpr) = createSchemaRef[scala.collection.immutable.Set[a], Schema.Set[a]](stack)              
-              val summoned = summonOptionalIfNotTop[F, scala.collection.immutable.Set[a]](top)
+                  val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.schema}, stack)              
+                  lazyVals[F[A]](selfRef,
+                    schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Optional[a]]},
+                    selfRef -> '{$deriver.deriveOption[a]($schemaRefExpr, $instanceA, $summoned)}
+                  )
+                case '[scala.collection.immutable.Set[a]] =>
+                  val (schemaRef, schemaRefExpr) = createSchemaRef[scala.collection.immutable.Set[a], Schema.Set[a]](stack)              
+                  val summoned = summonOptionalIfNotTop[F, scala.collection.immutable.Set[a]](top)
 
-              val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.elementSchema}, stack)              
-              lazyVals[F[A]](selfRef,
-                schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Set[a]]},
-                selfRef -> '{$deriver.deriveSet[a]($schemaRefExpr, $instanceA, $summoned)}
-              )
-            case '[Vector[a]] =>
-              val (schemaRef, schemaRefExpr) = createSchemaRef[scala.collection.immutable.Vector[a], Schema.Sequence[Vector[a], a, _]](stack)              
-              val summoned = summonOptionalIfNotTop[F, scala.collection.immutable.Vector[a]](top)
+                  val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.elementSchema}, stack)              
+                  lazyVals[F[A]](selfRef,
+                    schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Set[a]]},
+                    selfRef -> '{$deriver.deriveSet[a]($schemaRefExpr, $instanceA, $summoned)}
+                  )
+                case '[Vector[a]] =>
+                  val (schemaRef, schemaRefExpr) = createSchemaRef[scala.collection.immutable.Vector[a], Schema.Sequence[Vector[a], a, _]](stack)              
+                  val summoned = summonOptionalIfNotTop[F, scala.collection.immutable.Vector[a]](top)
 
-              val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.elementSchema}, stack)
-              lazyVals[F[A]](selfRef,
-                schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Sequence[Vector[a], a, _]]},
-                selfRef -> '{$deriver.deriveSequence[Vector, a]($schemaRefExpr, $instanceA, $summoned)}
-              )
-            case '[scala.collection.immutable.Map[a, b]] =>
-              val (schemaRef, schemaRefExpr) = createSchemaRef[scala.collection.immutable.Map[a, b], Schema.Map[a, b]](stack)              
-              val summoned = summonOptionalIfNotTop[F, scala.collection.immutable.Map[a, b]](top)
+                  val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.elementSchema}, stack)
+                  lazyVals[F[A]](selfRef,
+                    schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Sequence[Vector[a], a, _]]},
+                    selfRef -> '{$deriver.deriveSequence[Vector, a]($schemaRefExpr, $instanceA, $summoned)}
+                  )
+                case '[scala.collection.immutable.Map[a, b]] =>
+                  val (schemaRef, schemaRefExpr) = createSchemaRef[scala.collection.immutable.Map[a, b], Schema.Map[a, b]](stack)              
+                  val summoned = summonOptionalIfNotTop[F, scala.collection.immutable.Map[a, b]](top)
 
-              val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.keySchema}, stack)
-              val instanceB = deriveInstance[F, b](deriver, '{$schemaRefExpr.valueSchema}, stack)
-              lazyVals[F[A]](selfRef, 
-                schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Map[a, b]]},
-                selfRef -> '{$deriver.deriveMap[a, b]($schemaRefExpr, $instanceA, $instanceB, $summoned)}
-              )              
-            case '[zio.Chunk[a]] =>
-              val (schemaRef, schemaRefExpr) = createSchemaRef[Chunk[a], Schema.Sequence[Chunk[a], a, _]](stack)              
-              val summoned = summonOptionalIfNotTop[F, Chunk[a]](top)
+                  val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.keySchema}, stack)
+                  val instanceB = deriveInstance[F, b](deriver, '{$schemaRefExpr.valueSchema}, stack)
+                  lazyVals[F[A]](selfRef, 
+                    schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Map[a, b]]},
+                    selfRef -> '{$deriver.deriveMap[a, b]($schemaRefExpr, $instanceA, $instanceB, $summoned)}
+                  )              
+                case '[zio.Chunk[a]] =>
+                  val (schemaRef, schemaRefExpr) = createSchemaRef[Chunk[a], Schema.Sequence[Chunk[a], a, _]](stack)              
+                  val summoned = summonOptionalIfNotTop[F, Chunk[a]](top)
 
-              val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.elementSchema}, stack)              
-              lazyVals[F[A]](selfRef,
-                schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Sequence[Chunk[a], a, _]]},
-                selfRef -> '{$deriver.deriveSequence[Chunk, a]($schemaRefExpr, $instanceA, $summoned)}
-              )
-            case _ => 
-              Mirror(typeRepr) match {
-                case Some(mirror) =>
-                  mirror.mirrorType match {
-                    case MirrorType.Sum =>
-                      deriveEnum[F, A](top, mirror, stack, deriver, schema, selfRef)
-                    case MirrorType.Product =>
-                      typeRepr.asType match {
-                        case '[(a, b)] =>
-                          val (schemaRef, schemaRefExpr) = createSchemaRef[(a, b), Schema.Tuple2[a, b]](stack)              
-                          val summoned = summonOptionalIfNotTop[F, (a, b)](top)
+                  val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.elementSchema}, stack)              
+                  lazyVals[F[A]](selfRef,
+                    schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Sequence[Chunk[a], a, _]]},
+                    selfRef -> '{$deriver.deriveSequence[Chunk, a]($schemaRefExpr, $instanceA, $summoned)}
+                  )
+                case _ => 
+                  Mirror(typeRepr) match {
+                    case Some(mirror) =>
+                      mirror.mirrorType match {
+                        case MirrorType.Sum =>
+                          deriveEnum[F, A](top, mirror, stack, deriver, schema, selfRef)
+                        case MirrorType.Product =>
+                          typeRepr.asType match {
+                            case '[(a, b)] =>
+                              val (schemaRef, schemaRefExpr) = createSchemaRef[(a, b), Schema.Tuple2[a, b]](stack)              
+                              val summoned = summonOptionalIfNotTop[F, (a, b)](top)
 
-                          val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.left}, stack)
-                          val instanceB = deriveInstance[F, b](deriver, '{$schemaRefExpr.right}, stack)
-                          lazyVals[F[A]](selfRef,
-                            schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Tuple2[a, b]]},
-                            selfRef -> '{$deriver.deriveTupleN[(a, b)](Chunk($schemaRefExpr.left -> Deriver.wrap($instanceA), $schemaRefExpr.right -> Deriver.wrap($instanceB)), $summoned)}
-                          )
-                        case '[(t1, t2, t3)] =>
-                          tupleN[F, (t1, t2, t3)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4)] =>
-                          tupleN[F, (t1, t2, t3, t4)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6, t7)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6, t7)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6, t7, t8)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15], TypeRepr.of[t16])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15], TypeRepr.of[t16], TypeRepr.of[t17])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15], TypeRepr.of[t16], TypeRepr.of[t17], TypeRepr.of[t18])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15], TypeRepr.of[t16], TypeRepr.of[t17], TypeRepr.of[t18], TypeRepr.of[t19])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15], TypeRepr.of[t16], TypeRepr.of[t17], TypeRepr.of[t18], TypeRepr.of[t19], TypeRepr.of[t20])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15], TypeRepr.of[t16], TypeRepr.of[t17], TypeRepr.of[t18], TypeRepr.of[t19], TypeRepr.of[t20], TypeRepr.of[t21])
-                          ).asExprOf[F[A]]
-                        case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22)] =>
-                          tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22)](
-                            top,
-                            selfRef,
-                            deriver,
-                            schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22)]],
-                            stack,
-                            Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15], TypeRepr.of[t16], TypeRepr.of[t17], TypeRepr.of[t18], TypeRepr.of[t19], TypeRepr.of[t20], TypeRepr.of[t21], TypeRepr.of[t22])
-                          ).asExprOf[F[A]]
-                        case _ =>
-                          deriveCaseClass[F, A](top, mirror, stack, deriver, schema, selfRef)
+                              val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.left}, stack)
+                              val instanceB = deriveInstance[F, b](deriver, '{$schemaRefExpr.right}, stack)
+                              lazyVals[F[A]](selfRef,
+                                schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Tuple2[a, b]]},
+                                selfRef -> '{$deriver.deriveTupleN[(a, b)](Chunk($schemaRefExpr.left -> Deriver.wrap($instanceA), $schemaRefExpr.right -> Deriver.wrap($instanceB)), $summoned)}
+                              )
+                            case '[(t1, t2, t3)] =>
+                              tupleN[F, (t1, t2, t3)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4)] =>
+                              tupleN[F, (t1, t2, t3, t4)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6, t7)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6, t7)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6, t7, t8)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15], TypeRepr.of[t16])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15], TypeRepr.of[t16], TypeRepr.of[t17])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15], TypeRepr.of[t16], TypeRepr.of[t17], TypeRepr.of[t18])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15], TypeRepr.of[t16], TypeRepr.of[t17], TypeRepr.of[t18], TypeRepr.of[t19])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15], TypeRepr.of[t16], TypeRepr.of[t17], TypeRepr.of[t18], TypeRepr.of[t19], TypeRepr.of[t20])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15], TypeRepr.of[t16], TypeRepr.of[t17], TypeRepr.of[t18], TypeRepr.of[t19], TypeRepr.of[t20], TypeRepr.of[t21])
+                              ).asExprOf[F[A]]
+                            case '[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22)] =>
+                              tupleN[F, (t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22)](
+                                top,
+                                selfRef,
+                                deriver,
+                                schema.asExprOf[Schema[(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22)]],
+                                stack,
+                                Chunk(TypeRepr.of[t1], TypeRepr.of[t2], TypeRepr.of[t3], TypeRepr.of[t4], TypeRepr.of[t5], TypeRepr.of[t6], TypeRepr.of[t7], TypeRepr.of[t8], TypeRepr.of[t9], TypeRepr.of[t10], TypeRepr.of[t11], TypeRepr.of[t12], TypeRepr.of[t13], TypeRepr.of[t14], TypeRepr.of[t15], TypeRepr.of[t16], TypeRepr.of[t17], TypeRepr.of[t18], TypeRepr.of[t19], TypeRepr.of[t20], TypeRepr.of[t21], TypeRepr.of[t22])
+                              ).asExprOf[F[A]]
+                            case _ =>
+                              deriveCaseClass[F, A](top, mirror, stack, deriver, schema, selfRef)
+                          }
                       }
-                  }
-                case None =>
-                  val sym = typeRepr.typeSymbol
-                  if (sym.isClassDef && sym.flags.is(Flags.Module)) {
-                    deriveCaseObject[F, A](top, deriver, schema)
-                  }
-                  else {
-                    val summoned = summonOptionalIfNotTop[F, A](top)
-                    Expr.summon[scala.reflect.ClassTag[A]] match {
-                        case Some(classTag) =>
-                          '{ $deriver.deriveUnknown[A]($summoned)($classTag) }
-                        case None =>
-                          report.errorAndAbort(s"Cannot find a ClassTag for ${typeRepr.show}")
-                    }
-                  }
-            }            
-        }
+                    case None =>
+                      val sym = typeRepr.typeSymbol
+                      if (sym.isClassDef && sym.flags.is(Flags.Module)) {
+                        deriveCaseObject[F, A](top, deriver, schema)
+                      }
+                      else {
+                        val summoned = summonOptionalIfNotTop[F, A](top)
+                        Expr.summon[scala.reflect.ClassTag[A]] match {
+                            case Some(classTag) =>
+                              '{ $deriver.deriveUnknown[A]($summoned)($classTag) }
+                            case None =>
+                              report.errorAndAbort(s"Cannot find a ClassTag for ${typeRepr.show}")
+                        }
+                      }
+                }            
+              }
+          }
       }
     }
 
