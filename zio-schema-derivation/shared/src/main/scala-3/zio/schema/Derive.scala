@@ -10,13 +10,8 @@ import Schema._
 object Derive {
   inline def derive[F[_], A](deriver: Deriver[F])(implicit schema: Schema[A]): F[A] = ${ deriveInstance[F, A]('deriver, 'schema) }
 
-  private def deriveInstance[F[_]: Type, A: Type](deriver: Expr[Deriver[F]], schema: Expr[Schema[A]])(using ctx: Quotes): Expr[F[A]] = {
-    import ctx.reflect._
-    println(s"deriveInstance for ${TypeRepr.of[A]}")
-    val result = DeriveInstance().deriveInstance[F, A](deriver, schema, top = true)
-    println(result.show)
-    result
-  }
+  private def deriveInstance[F[_]: Type, A: Type](deriver: Expr[Deriver[F]], schema: Expr[Schema[A]])(using ctx: Quotes): Expr[F[A]] =
+    DeriveInstance().deriveInstance[F, A](deriver, schema, top = true)
 }
 
 private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUtils(ctx) {
@@ -66,13 +61,11 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
             // If it is an opaque type, we try check if it's underlying type is a StandardType
             val typeRef = typeRepr.typeSymbol.typeRef
             if (typeRef.isOpaqueAlias) {
-              println(s"${typeRepr.show} is an opaque type")
               val underlyingType = typeRef.translucentSuperType
               underlyingType.asType match {
                 case '[ut] => 
                   Expr.summon[StandardType[ut]] match {
                     case Some(st) =>
-                      println(s"${typeRepr.show} is an opaque type with ${st.show}")
                       val summoned = summonOptionalIfNotTop[F, A](top)
                       Expr.summon[scala.reflect.ClassTag[A]] match {
                           case Some(classTag) =>

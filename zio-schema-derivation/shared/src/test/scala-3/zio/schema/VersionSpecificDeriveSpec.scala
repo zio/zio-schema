@@ -19,7 +19,6 @@ trait VersionSpecificDeriveSpec extends ZIOSpecDefault {
           override def derivePrimitive[A](st: StandardType[A], summoned: => Option[TC[A]]): TC[A] = ???
 
           override def derivePrimitiveAlias[A: ClassTag, U](st: StandardType[U], summoned: => Option[TC[A]]): TC[A] = {
-            println(s"deriving primitive alias for ${implicitly[ClassTag[A]]} with $st"); 
             if (st == StandardType.StringType) {
               new TC[A] {
                 def name(a: A): String = a.asInstanceOf[String]
