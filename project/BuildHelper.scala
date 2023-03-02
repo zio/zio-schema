@@ -211,7 +211,7 @@ object BuildHelper {
         "com.github.liancheng" %% "organize-imports" % "0.6.0",
         "com.github.vovapolu"  %% "scaluzzi"         % "0.1.21"
       ),
-      // semanticDBSettings(scalaVersion.value.startsWith("3")),
+      semanticDBSettings(scalaVersion.value.startsWith("3")),
       Test / parallelExecution := !sys.env.contains("CI"),
       incOptions ~= (_.withLogRecompileOnMacro(true)),
       autoAPIMappings := true,
