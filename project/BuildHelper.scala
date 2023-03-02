@@ -190,6 +190,15 @@ object BuildHelper {
     buildInfoPackage := packageName
   )
 
+  def semanticDBSettings(isScala3: Boolean) =
+    if (!isScala3) {
+      Seq(
+        ThisBuild / semanticdbEnabled := true, // enable SemanticDB,
+        ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
+        ThisBuild / semanticdbVersion := scalafixSemanticdb.revision
+      )
+    } else Seq()
+
   def stdSettings(prjName: String) =
     Seq(
       name := s"$prjName",
@@ -197,14 +206,12 @@ object BuildHelper {
       ThisBuild / scalaVersion := Scala213, //crossScalaVersions.value.head, //Scala3,
       scalacOptions := compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ testDeps,
-      ThisBuild / semanticdbEnabled := scalaVersion.value != Scala3, // enable SemanticDB,
-      ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
-      ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
       ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
       ThisBuild / scalafixDependencies ++= List(
         "com.github.liancheng" %% "organize-imports" % "0.6.0",
         "com.github.vovapolu"  %% "scaluzzi"         % "0.1.21"
       ),
+      // semanticDBSettings(scalaVersion.value.startsWith("3")),
       Test / parallelExecution := !sys.env.contains("CI"),
       incOptions ~= (_.withLogRecompileOnMacro(true)),
       autoAPIMappings := true,
