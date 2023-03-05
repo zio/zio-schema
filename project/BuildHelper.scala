@@ -1,10 +1,10 @@
 import sbt._
 import Keys._
-
-import sbtcrossproject.CrossPlugin.autoImport.crossProjectPlatform
+import sbtcrossproject.CrossPlugin.autoImport._
 import sbtbuildinfo._
 import BuildInfoKeys._
 import scalafix.sbt.ScalafixPlugin.autoImport._
+import org.portablescala.sbtplatformdeps.PlatformDepsPlugin.autoImport._
 
 object BuildHelper {
 
@@ -18,14 +18,17 @@ object BuildHelper {
       .loadFromReader(scala.io.Source.fromFile(".github/workflows/ci.yml").bufferedReader())
     val yaml = doc.asInstanceOf[JMap[String, JMap[String, JMap[String, JMap[String, JMap[String, JList[String]]]]]]]
     val list = yaml.get("jobs").get("build").get("strategy").get("matrix").get("scala").asScala
-    list.map(v => (v.split('.').take(2).mkString("."), v)).toMap
+    list.map { v =>
+      val vs   = v.split('.');
+      val init = vs.take(vs(0) match { case "2" => 2; case _ => 1 }); (init.mkString("."), v)
+    }.toMap
   }
 
   val Scala212: String = versions("2.12")
   val Scala213: String = versions("2.13")
-  val Scala3: String   = versions("3.2") //versions.getOrElse("3.0", versions("3.1"))
+  val Scala3: String   = versions("3")
 
-  val zioVersion               = "2.0.6"
+  val zioVersion               = "2.0.9"
   val zioJsonVersion           = "0.3.0-RC9"
   val zioPreludeVersion        = "1.0.0-RC16"
   val zioOpticsVersion         = "0.2.0"
@@ -34,8 +37,8 @@ object BuildHelper {
   val zioConstraintlessVersion = "0.3.1"
 
   private val testDeps = Seq(
-    "dev.zio" %% "zio-test"     % zioVersion % "test",
-    "dev.zio" %% "zio-test-sbt" % zioVersion % "test"
+    "dev.zio" %%% "zio-test"     % zioVersion % "test",
+    "dev.zio" %%% "zio-test-sbt" % zioVersion % "test"
   )
 
   def macroDefinitionSettings = Seq(
@@ -48,6 +51,11 @@ object BuildHelper {
           "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided"
         )
     }
+  )
+
+  def nativeSettings = Seq(
+    Test / test := (Test / compile).value,
+    Test / fork := crossProjectPlatform.value == JVMPlatform // set fork to `true` on JVM to improve log readability, JS and Native need `false`
   )
 
   private def compileOnlyDeps(scalaVersion: String): Seq[ModuleID] =
