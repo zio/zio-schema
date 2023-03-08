@@ -40,7 +40,7 @@ jobs:
       fail-fast: false
       matrix:
         java: ['8', '17']
-        scala: ['2.12.*', '2.13.*', '3.2.*']
+        scala: ['2.12.17', '2.13.10', '3.2.2']
     steps:
     - name: Checkout current branch
       uses: actions/checkout@v3.3.0
@@ -77,4 +77,3 @@ jobs:
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-          
