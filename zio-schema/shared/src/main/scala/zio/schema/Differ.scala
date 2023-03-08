@@ -189,7 +189,7 @@ object Differ {
     }
 
     val string: Differ[String] = apply[Int].transform(
-      (s: String) => Chunk.fromArray(s.chars().toArray),
+      (s: String) => Chunk.fromArray(s.toCharArray.map(_.toInt)),
       (as: Chunk[Int]) => new String(as.map(_.toChar).toArray)
     )
 
