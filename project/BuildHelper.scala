@@ -31,10 +31,10 @@ object BuildHelper {
   val zioVersion               = "2.0.9"
   val zioJsonVersion           = "0.3.0-RC9"
   val zioPreludeVersion        = "1.0.0-RC16"
-  val zioOpticsVersion         = "0.2.0"
+  val zioOpticsVersion         = "0.2.1"
   val silencerVersion          = "1.7.11"
   val avroVersion              = "1.11.0"
-  val zioConstraintlessVersion = "0.3.1"
+  val zioConstraintlessVersion = "0.3.2"
 
   def macroDefinitionSettings = Seq(
     scalacOptions += "-language:experimental.macros",
