@@ -1,8 +1,8 @@
 name: CI
 
 env:
-  JDK_JAVA_OPTIONS: -XX:+PrintCommandLineFlags -Xmx6G -Xss4M -XX:+UseG1GC # JDK_JAVA_OPTIONS is _the_ env. variable to use for modern Java
-  JVM_OPTS: -XX:+PrintCommandLineFlags -Xmx6G -Xss4M -XX:+UseG1GC # for Java 8 only (sadly, it is not modern enough for JDK_JAVA_OPTIONS)
+  JDK_JAVA_OPTIONS: -XX:+PrintCommandLineFlags -Xmx8G -Xss4M -XX:+UseG1GC # JDK_JAVA_OPTIONS is _the_ env. variable to use for modern Java
+  JVM_OPTS: -XX:+PrintCommandLineFlags -Xmx8G -Xss4M -XX:+UseG1GC # for Java 8 only (sadly, it is not modern enough for JDK_JAVA_OPTIONS)
   NODE_OPTIONS: --max_old_space_size=6144
 
 on:
@@ -59,10 +59,17 @@ jobs:
     - name: Run tests
       run: sbt ++${{ matrix.scala }} test
 
+  ci:
+    runs-on: ubuntu-20.04
+    needs: [lint, build]
+    steps:
+      - name: Aggregate of lint, mdoc and all tests
+        run: echo "ci passed"
+
   publish:
     runs-on: ubuntu-20.04
     timeout-minutes: 45
-    needs: [build,lint]
+    needs: [ci]
     if: github.event_name != 'pull_request'
     steps:
       - name: Checkout current branch
