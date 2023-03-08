@@ -16,7 +16,7 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-20.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
     steps:
@@ -35,7 +35,7 @@ jobs:
 
   build:
     runs-on: ubuntu-20.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -68,7 +68,7 @@ jobs:
 
   publish:
     runs-on: ubuntu-20.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     needs: [ci]
     if: github.event_name != 'pull_request'
     steps:
