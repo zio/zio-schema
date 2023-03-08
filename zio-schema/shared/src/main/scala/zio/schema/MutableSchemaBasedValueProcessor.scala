@@ -26,49 +26,49 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
   protected def processPrimitive(context: Context, value: Any, typ: StandardType[Any]): Target
 
   /** Called before processing a record (before calling processXYZ for the record's fields) */
-  @nowarn protected def startProcessingRecord(context: Context, schema: Schema.Record[_]): Unit = {}
+  protected def startProcessingRecord(context: Context, schema: Schema.Record[_]): Unit = {}
 
   /** Process a record in the given context with the given schema, using the already processed values of its fields. */
   protected def processRecord(context: Context, schema: Schema.Record[_], value: ListMap[String, Target]): Target
 
   /** Called before processing an enum */
-  @nowarn protected def startProcessingEnum(context: Context, schema: Schema.Enum[_]): Unit = {}
+  protected def startProcessingEnum(context: Context, schema: Schema.Enum[_]): Unit = {}
 
   /** Process an enum in the given context with the given schema using the processed constructor  value and it's name */
   protected def processEnum(context: Context, schema: Schema.Enum[_], tuple: (String, Target)): Target
 
   /** Called before processing a sequence */
-  @nowarn protected def startProcessingSequence(context: Context, schema: Schema.Sequence[_, _, _], size: Int): Unit = {}
+  protected def startProcessingSequence(context: Context, schema: Schema.Sequence[_, _, _], size: Int): Unit = {}
 
   /** Process a sequence using its already processed elements */
   protected def processSequence(context: Context, schema: Schema.Sequence[_, _, _], value: Chunk[Target]): Target
 
   /** Called before processing a dictionary */
-  @nowarn protected def startProcessingDictionary(context: Context, schema: Schema.Map[_, _], size: Int): Unit = {}
+  protected def startProcessingDictionary(context: Context, schema: Schema.Map[_, _], size: Int): Unit = {}
 
   /*** Process a dictionary using its already processed key-value pairs */
   protected def processDictionary(context: Context, schema: Schema.Map[_, _], value: Chunk[(Target, Target)]): Target
 
   /** Called before processing a set */
-  @nowarn protected def startProcessingSet(context: Context, schema: Schema.Set[_], size: Int): Unit = {}
+  protected def startProcessingSet(context: Context, schema: Schema.Set[_], size: Int): Unit = {}
 
   /** Process a set using its already processed elements */
   protected def processSet(context: Context, schema: Schema.Set[_], value: Set[Target]): Target
 
   /** Called before processing and either value */
-  @nowarn protected def startProcessingEither(context: Context, schema: Schema.Either[_, _]): Unit = {}
+  protected def startProcessingEither(context: Context, schema: Schema.Either[_, _]): Unit = {}
 
   /** Process an either value using its already processed left or right value */
   protected def processEither(context: Context, schema: Schema.Either[_, _], value: Either[Target, Target]): Target
 
   /** Called before processing an option value */
-  @nowarn protected def startProcessingOption(context: Context, schema: Schema.Optional[_]): Unit = {}
+  protected def startProcessingOption(context: Context, schema: Schema.Optional[_]): Unit = {}
 
   /** Process an optional value using its already processed inner value, or None */
   protected def processOption(context: Context, schema: Schema.Optional[_], value: Option[Target]): Target
 
   /** Called before processing a pair of values */
-  @nowarn protected def startProcessingTuple(context: Context, schema: Schema.Tuple2[_, _]): Unit = {}
+  protected def startProcessingTuple(context: Context, schema: Schema.Tuple2[_, _]): Unit = {}
 
   /** Process a tuple using its already processed left and right values */
   protected def processTuple(context: Context, schema: Schema.Tuple2[_, _], left: Target, right: Target): Target
