@@ -1,6 +1,5 @@
 package zio.schema
 
-import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
 
 import zio.schema.annotation.transientField
