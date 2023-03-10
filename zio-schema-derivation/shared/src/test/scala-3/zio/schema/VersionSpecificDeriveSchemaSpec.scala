@@ -1,6 +1,8 @@
 package zio.schema
 
-trait VersionSpecificDeriveSchemaSpec {
+import zio.test.*
+
+trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
   case class ContainerFields(field1: Option[String])
 
   object ContainerFields {
@@ -13,5 +15,7 @@ trait VersionSpecificDeriveSchemaSpec {
   class FieldNameVerifier[F] {
      inline def apply[S <: String & scala.Singleton](name: S): Boolean =
        VerifyFieldNameMacro.verifyFieldName[F, S]
-  }      
+  }
+
+  def versionSpecificSuite = Spec.labeled("Scala 3 specific tests", Spec.empty)
 }

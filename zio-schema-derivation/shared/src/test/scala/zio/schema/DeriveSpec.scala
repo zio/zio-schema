@@ -8,7 +8,7 @@ import zio.schema.Schema.Field
 import zio.test.{ Spec, TestEnvironment, ZIOSpecDefault, assertTrue }
 import zio.{ Chunk, Scope }
 
-object DeriveSpec extends ZIOSpecDefault {
+object DeriveSpec extends ZIOSpecDefault with VersionSpecificDeriveSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Derive")(
       suite("case object")(
@@ -160,7 +160,8 @@ object DeriveSpec extends ZIOSpecDefault {
           val refEquals = tc.inner.get eq defaultOpenTraitTC
           assertTrue(refEquals)
         }
-      )
+      ),
+      versionSpecificSuite
     )
 
   trait TC[A] {
