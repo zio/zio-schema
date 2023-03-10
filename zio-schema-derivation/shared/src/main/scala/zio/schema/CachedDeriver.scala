@@ -119,7 +119,7 @@ private[schema] object CachedDeriver {
     final case class Primitive[A](standardType: StandardType[A])                                extends CacheKey[A]
     final case class PrimitiveAlias[A, U](standardType: StandardType[U], classTag: ClassTag[A]) extends CacheKey[A]
     final case class WithId[A](typeId: TypeId)                                                  extends CacheKey[A]
-    final case class WithIdentityObject[A](id: Any)                                             extends CacheKey[A]
+    final case class WithIdentityObject[A](inner: CacheKey[_], id: Any)                         extends CacheKey[A]
     final case class Optional[A](key: CacheKey[A])                                              extends CacheKey[A]
     final case class Either[A, B](leftKey: CacheKey[A], rightKey: CacheKey[B])                  extends CacheKey[Either[A, B]]
     final case class Tuple2[A, B](leftKey: CacheKey[A], rightKey: CacheKey[B])                  extends CacheKey[(A, B)]
@@ -133,13 +133,13 @@ private[schema] object CachedDeriver {
       schema match {
         case e: Schema.Enum[_]             => WithId(e.id)
         case record: Schema.Record[_]      => WithId(record.id)
-        case seq: Schema.Sequence[_, _, _] => WithIdentityObject(seq.identity)
+        case seq: Schema.Sequence[_, _, _] => WithIdentityObject(fromSchema(seq.elementSchema), seq.identity)
         case set: Schema.Set[_]            => Set(fromSchema(set.elementSchema)).asInstanceOf[CacheKey[A]]
         case map: Schema.Map[_, _] =>
           Map(fromSchema(map.keySchema), fromSchema(map.valueSchema)).asInstanceOf[CacheKey[A]]
-        case Schema.Transform(_, _, _, _, identity) => WithIdentityObject(identity)
-        case Schema.Primitive(standardType, _)      => fromStandardType(standardType)
-        case optional: Schema.Optional[_]           => Optional(fromSchema(optional.schema)).asInstanceOf[CacheKey[A]]
+        case Schema.Transform(inner, _, _, _, identity) => WithIdentityObject(fromSchema(inner), identity)
+        case Schema.Primitive(standardType, _)          => fromStandardType(standardType)
+        case optional: Schema.Optional[_]               => Optional(fromSchema(optional.schema)).asInstanceOf[CacheKey[A]]
         case tuple: Schema.Tuple2[_, _] =>
           Tuple2(fromSchema(tuple.left), fromSchema(tuple.right)).asInstanceOf[CacheKey[A]]
         case either: Schema.Either[_, _] =>
