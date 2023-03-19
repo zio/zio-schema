@@ -355,49 +355,62 @@ object JsonCodec {
       }
 
     private def enumEncoder[Z](parentSchema: Schema.Enum[Z], cases: Schema.Case[Z, _]*): ZJsonEncoder[Z] =
-      (value: Z, indent: Option[Int], out: Write) => {
-        val nonTransientCase =
-          try cases.collectFirst {
-            case c @ Schema.Case(_, _, _, _, _, annotations)
-                if annotations.collectFirst { case _: transientCase => () }.isEmpty &&
-                  c.deconstructOption(value).isDefined =>
-              c
-          } catch {
-            case ex: Throwable => throw new RuntimeException(s"Failed to encode enum type $parentSchema", ex)
+      // if all cases are CaseClass0, encode as a String
+      if (cases.forall(_.schema.isInstanceOf[Schema.CaseClass0[_]])) {
+        val caseMap: Map[Z, String] = cases
+          .filterNot(_.annotations.exists(_.isInstanceOf[transientCase]))
+          .map(
+            case_ =>
+              case_.schema.asInstanceOf[Schema.CaseClass0[Z]].defaultConstruct() ->
+                case_.annotations.collectFirst { case caseName(name) => name }.getOrElse(case_.id)
+          )
+          .toMap
+        ZJsonEncoder.string.contramap(caseMap(_))
+      } else { (value: Z, indent: Option[Int], out: Write) =>
+        {
+          val nonTransientCase =
+            try cases.collectFirst {
+              case c @ Schema.Case(_, _, _, _, _, annotations) if annotations.collectFirst {
+                    case _: transientCase => ()
+                  }.isEmpty && c.deconstructOption(value).isDefined =>
+                c
+            } catch {
+              case ex: Throwable => throw new RuntimeException(s"Failed to encode enum type $parentSchema", ex)
+            }
+
+          nonTransientCase match {
+            case Some(case_) =>
+              val caseName = case_.annotations.collectFirst {
+                case name: caseName => name.name
+              }.getOrElse(case_.id)
+
+              val discriminatorChunk = parentSchema.annotations.collect {
+                case d: discriminatorName => (d, caseName)
+              }
+              val noDiscriminators = parentSchema.annotations.exists {
+                case noDiscriminator() => true
+                case _                 => false
+              }
+
+              if (discriminatorChunk.isEmpty && !noDiscriminators) out.write('{')
+              val indent_ = bump(indent)
+              pad(indent_, out)
+
+              if (discriminatorChunk.isEmpty && !noDiscriminators) {
+                string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(caseName), indent_, out)
+                if (indent.isEmpty) out.write(':')
+                else out.write(" : ")
+              }
+
+              schemaEncoder(
+                case_.schema.asInstanceOf[Schema[Any]],
+                discriminatorTuple = if (noDiscriminators) Chunk.empty else discriminatorChunk
+              ).unsafeEncode(case_.deconstruct(value), indent, out)
+
+              if (discriminatorChunk.isEmpty && !noDiscriminators) out.write('}')
+            case None =>
+              out.write("{}")
           }
-
-        nonTransientCase match {
-          case Some(case_) =>
-            val caseName = case_.annotations.collectFirst {
-              case name: caseName => name.name
-            }.getOrElse(case_.id)
-
-            val discriminatorChunk = parentSchema.annotations.collect {
-              case d: discriminatorName => (d, caseName)
-            }
-            val noDiscriminators = parentSchema.annotations.exists {
-              case noDiscriminator() => true
-              case _                 => false
-            }
-
-            if (discriminatorChunk.isEmpty && !noDiscriminators) out.write('{')
-            val indent_ = bump(indent)
-            pad(indent_, out)
-
-            if (discriminatorChunk.isEmpty && !noDiscriminators) {
-              string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(caseName), indent_, out)
-              if (indent.isEmpty) out.write(':')
-              else out.write(" : ")
-            }
-
-            schemaEncoder(
-              case_.schema.asInstanceOf[Schema[Any]],
-              discriminatorTuple = if (noDiscriminators) Chunk.empty else discriminatorChunk
-            ).unsafeEncode(case_.deconstruct(value), indent, out)
-
-            if (discriminatorChunk.isEmpty && !noDiscriminators) out.write('}')
-          case None =>
-            out.write("{}")
         }
       }
 
@@ -578,61 +591,76 @@ object JsonCodec {
             case _                  => Nil
           }
       }.toMap
-      val noDiscriminators = parentSchema.annotations.exists {
-        case noDiscriminator() => true
-        case _                 => false
-      }
 
-      (trace: List[JsonError], in: RetractReader) => {
-        if (noDiscriminators) {
-          val rr                = RecordingReader(in)
-          val it                = cases.iterator
-          var result: Option[Z] = None
-
-          while (result.isEmpty && it.hasNext) {
-            val c = it.next()
-            try {
-              val decoded = schemaDecoder(c.schema).unsafeDecode(trace, rr).asInstanceOf[Z]
-              result = Some(decoded)
-            } catch {
-              case _: Exception =>
-                rr.rewind()
+      // if all cases are CaseClass0, decode as String
+      if (cases.forall(_.schema.isInstanceOf[Schema.CaseClass0[_]])) {
+        val caseMap: Map[String, Z] =
+          cases.map(case_ => case_.id -> case_.schema.asInstanceOf[Schema.CaseClass0[Z]].defaultConstruct()).toMap
+        ZJsonDecoder.string.mapOrFail(
+          s =>
+            caseMap.get(caseNameAliases.get(s).getOrElse(s)) match {
+              case Some(z) => Right(z)
+              case None    => Left("unrecognized string")
             }
-          }
+        )
+      } else {
 
-          result match {
-            case Some(value) => value
-            case None        => throw UnsafeJson(JsonError.Message("none of the subtypes could decode the data") :: trace)
-          }
+        val noDiscriminators = parentSchema.annotations.exists {
+          case noDiscriminator() => true
+          case _                 => false
+        }
 
-        } else {
-          Lexer.char(trace, in, '{')
+        (trace: List[JsonError], in: RetractReader) => {
+          if (noDiscriminators) {
+            val rr                = RecordingReader(in)
+            val it                = cases.iterator
+            var result: Option[Z] = None
 
-          if (Lexer.firstField(trace, in)) {
-            val subtypeOrDiscriminator = deAliasCaseName(Lexer.string(trace, in).toString, caseNameAliases)
-            val (subtype, trace_, hasDiscriminator) = parentSchema.annotations.collect {
-              case d: discriminatorName if d.tag == subtypeOrDiscriminator =>
+            while (result.isEmpty && it.hasNext) {
+              val c = it.next()
+              try {
+                val decoded = schemaDecoder(c.schema).unsafeDecode(trace, rr).asInstanceOf[Z]
+                result = Some(decoded)
+              } catch {
+                case _: Exception =>
+                  rr.rewind()
+              }
+            }
+
+            result match {
+              case Some(value) => value
+              case None        => throw UnsafeJson(JsonError.Message("none of the subtypes could decode the data") :: trace)
+            }
+
+          } else {
+            Lexer.char(trace, in, '{')
+
+            if (Lexer.firstField(trace, in)) {
+              val subtypeOrDiscriminator = deAliasCaseName(Lexer.string(trace, in).toString, caseNameAliases)
+              val (subtype, trace_, hasDiscriminator) = parentSchema.annotations.collect {
+                case d: discriminatorName if d.tag == subtypeOrDiscriminator =>
+                  val trace_ = JsonError.ObjectAccess(subtypeOrDiscriminator) :: trace
+                  Lexer.char(trace_, in, ':')
+                  val discriminator = Lexer.string(trace, in).toString
+                  // Perform a second de-aliasing because the first one would resolve the discriminator key instead.
+                  val innerSubtype = deAliasCaseName(discriminator, caseNameAliases)
+                  (innerSubtype, JsonError.ObjectAccess(innerSubtype) :: trace_, true)
+              }.headOption.getOrElse {
                 val trace_ = JsonError.ObjectAccess(subtypeOrDiscriminator) :: trace
                 Lexer.char(trace_, in, ':')
-                val discriminator = Lexer.string(trace, in).toString
-                // Perform a second de-aliasing because the first one would resolve the discriminator key instead.
-                val innerSubtype = deAliasCaseName(discriminator, caseNameAliases)
-                (innerSubtype, JsonError.ObjectAccess(innerSubtype) :: trace_, true)
-            }.headOption.getOrElse {
-              val trace_ = JsonError.ObjectAccess(subtypeOrDiscriminator) :: trace
-              Lexer.char(trace_, in, ':')
-              (subtypeOrDiscriminator, trace_, false)
+                (subtypeOrDiscriminator, trace_, false)
+              }
+              cases.find(_.id == subtype) match {
+                case Some(c) =>
+                  val decoded = schemaDecoder(c.schema, hasDiscriminator).unsafeDecode(trace_, in).asInstanceOf[Z]
+                  if (!hasDiscriminator) Lexer.nextField(trace, in)
+                  decoded
+                case None =>
+                  throw UnsafeJson(JsonError.Message("unrecognized subtype") :: trace_)
+              }
+            } else {
+              throw UnsafeJson(JsonError.Message("missing subtype") :: trace)
             }
-            cases.find(_.id == subtype) match {
-              case Some(c) =>
-                val decoded = schemaDecoder(c.schema, hasDiscriminator).unsafeDecode(trace_, in).asInstanceOf[Z]
-                if (!hasDiscriminator) Lexer.nextField(trace, in)
-                decoded
-              case None =>
-                throw UnsafeJson(JsonError.Message("unrecognized subtype") :: trace_)
-            }
-          } else {
-            throw UnsafeJson(JsonError.Message("missing subtype") :: trace)
           }
         }
       }
