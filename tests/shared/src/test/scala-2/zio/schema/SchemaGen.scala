@@ -13,7 +13,7 @@ object SchemaGen {
     schemaGen: Gen[Sized, Schema[_]]
   ): Gen[Sized, FieldSet] =
     Gen.setOfBounded(1, 3)(anyLabel).flatMap { keySet =>
-      Gen.setOfN(keySet.size)(schemaGen).map { schemas =>
+      Gen.listOfN(keySet.size)(schemaGen).map { schemas =>
         FieldSet(
           keySet
             .zip(schemas)
