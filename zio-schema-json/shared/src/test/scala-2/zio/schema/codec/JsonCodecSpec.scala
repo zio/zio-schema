@@ -450,6 +450,26 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"foo":"s","bar":1}""")
         )
       }
+    ),
+    suite("Map")(
+      test("of complex keys and values") {
+        assertDecodes(
+          Schema.map[Key, Value],
+          Map(Key("a", 0) -> Value(0, true), Key("b", 1) -> Value(1, false)),
+          charSequenceToByteChunk(
+            """[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]"""
+          )
+        )
+      },
+      test("of simple keys and values") {
+        assertDecodes(
+          Schema.map[Int, Value],
+          Map(0 -> Value(0, true), 1 -> Value(1, false)),
+          charSequenceToByteChunk(
+            """{"0":{"first":0,"second":true},"1":{"first":1,"second":false}}"""
+          )
+        )
+      }
     )
   )
 

@@ -281,9 +281,7 @@ object JsonCodec {
       vs: Schema[V],
       discriminatorTuple: DiscriminatorTuple
     ): ZJsonEncoder[Map[K, V]] = {
-
       val valueEncoder = JsonEncoder.schemaEncoder(vs)
-
       jsonFieldEncoder(ks) match {
         case Some(jsonFieldEncoder) =>
           ZJsonEncoder.keyValueIterable(jsonFieldEncoder, valueEncoder).contramap(a => Chunk.fromIterable(a).toMap)
@@ -488,13 +486,12 @@ object JsonCodec {
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[codec] def schemaDecoder[A](schema: Schema[A], hasDiscriminator: Boolean = false): ZJsonDecoder[A] = schema match {
-      case Schema.Primitive(standardType, _)   => primitiveCodec(standardType).decoder
-      case Schema.Optional(codec, _)           => ZJsonDecoder.option(schemaDecoder(codec, hasDiscriminator))
-      case Schema.Tuple2(left, right, _)       => ZJsonDecoder.tuple2(schemaDecoder(left, hasDiscriminator), schemaDecoder(right, hasDiscriminator))
-      case Schema.Transform(codec, f, _, _, _) => schemaDecoder(codec, hasDiscriminator).mapOrFail(f)
-      case Schema.Sequence(codec, f, _, _, _)  => ZJsonDecoder.chunk(schemaDecoder(codec, hasDiscriminator)).map(f)
-      case Schema.Map(ks, vs, _) =>
-        ZJsonDecoder.chunk(schemaDecoder(ks, hasDiscriminator) <*> schemaDecoder(vs, hasDiscriminator)).map(entries => entries.toList.toMap)
+      case Schema.Primitive(standardType, _)     => primitiveCodec(standardType).decoder
+      case Schema.Optional(codec, _)             => ZJsonDecoder.option(schemaDecoder(codec, hasDiscriminator))
+      case Schema.Tuple2(left, right, _)         => ZJsonDecoder.tuple2(schemaDecoder(left, hasDiscriminator), schemaDecoder(right, hasDiscriminator))
+      case Schema.Transform(codec, f, _, _, _)   => schemaDecoder(codec, hasDiscriminator).mapOrFail(f)
+      case Schema.Sequence(codec, f, _, _, _)    => ZJsonDecoder.chunk(schemaDecoder(codec, hasDiscriminator)).map(f)
+      case Schema.Map(ks, vs, _)                 => mapDecoder(ks, vs, hasDiscriminator)
       case Schema.Set(s, _)                      => ZJsonDecoder.chunk(schemaDecoder(s, hasDiscriminator)).map(entries => entries.toSet)
       case Schema.Fail(message, _)               => failDecoder(message)
       case Schema.GenericRecord(_, structure, _) => recordDecoder(structure.toChunk)
@@ -579,6 +576,30 @@ object JsonCodec {
       case _                          => throw new Exception(s"Missing a handler for decoding of schema ${schema.toString()}.")
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
+
+    private[codec] def mapDecoder[K, V](
+      ks: Schema[K],
+      vs: Schema[V],
+      hasDiscriminator: Boolean
+    ): ZJsonDecoder[Map[K, V]] = {
+      val valueDecoder = JsonDecoder.schemaDecoder(vs)
+      jsonFieldDecoder(ks) match {
+        case Some(jsonFieldDecoder) =>
+          ZJsonDecoder.keyValueChunk(jsonFieldDecoder, valueDecoder).map(a => Chunk.fromIterable(a).toMap)
+        case None =>
+          ZJsonDecoder
+            .chunk(schemaDecoder(ks, hasDiscriminator).zip(schemaDecoder(vs, hasDiscriminator)))
+            .map(_.toList.toMap)
+      }
+    }
+
+    private[codec] def jsonFieldDecoder[A](schema: Schema[A]): Option[JsonFieldDecoder[A]] =
+      schema match {
+        case Schema.Primitive(StandardType.StringType, _) => Option(JsonFieldDecoder.string)
+        case Schema.Primitive(StandardType.LongType, _)   => Option(JsonFieldDecoder.long)
+        case Schema.Primitive(StandardType.IntType, _)    => Option(JsonFieldDecoder.int)
+        case _                                            => None
+      }
 
     private def dynamicDecoder(schema: Schema.Dynamic): ZJsonDecoder[DynamicValue] = {
       val directMapping = schema.annotations.exists {
