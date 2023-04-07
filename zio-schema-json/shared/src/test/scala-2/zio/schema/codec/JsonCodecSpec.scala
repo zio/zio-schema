@@ -87,6 +87,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
             """[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]"""
           )
         )
+      },
+      test("of simple keys and values") {
+        assertEncodes(
+          Schema.map[Int, Value],
+          Map(0 -> Value(0, true), 1 -> Value(1, false)),
+          charSequenceToByteChunk(
+            """{"0":{"first":0,"second":true},"1":{"first":1,"second":false}}"""
+          )
+        )
       }
     ),
     suite("Set")(

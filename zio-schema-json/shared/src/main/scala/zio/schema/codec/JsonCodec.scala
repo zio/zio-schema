@@ -168,8 +168,7 @@ object JsonCodec {
       schema match {
         case Schema.Primitive(standardType, _)   => primitiveCodec(standardType).encoder
         case Schema.Sequence(schema, _, g, _, _) => ZJsonEncoder.chunk(schemaEncoder(schema, discriminatorTuple)).contramap(g)
-        case Schema.Map(ks, vs, _) =>
-          ZJsonEncoder.chunk(schemaEncoder(ks, discriminatorTuple).zip(schemaEncoder(vs, discriminatorTuple))).contramap(m => Chunk.fromIterable(m))
+        case Schema.Map(ks, vs, _)               => mapEncoder(ks, vs, discriminatorTuple)
         case Schema.Set(s, _) =>
           ZJsonEncoder.chunk(schemaEncoder(s, discriminatorTuple)).contramap(m => Chunk.fromIterable(m))
         case Schema.Transform(c, _, g, _, _)        => transformEncoder(c, g)
@@ -268,6 +267,32 @@ object JsonCodec {
             throw new Exception(s"Missing a handler for encoding of schema ${schema.toString()}.")
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
+
+    private[codec] def jsonFieldEncoder[A](schema: Schema[A]): Option[JsonFieldEncoder[A]] =
+      schema match {
+        case Schema.Primitive(StandardType.StringType, _) => Option(JsonFieldEncoder.string)
+        case Schema.Primitive(StandardType.LongType, _)   => Option(JsonFieldEncoder.long)
+        case Schema.Primitive(StandardType.IntType, _)    => Option(JsonFieldEncoder.int)
+        case _                                            => None
+      }
+
+    private[codec] def mapEncoder[K, V](
+      ks: Schema[K],
+      vs: Schema[V],
+      discriminatorTuple: DiscriminatorTuple
+    ): ZJsonEncoder[Map[K, V]] = {
+
+      val valueEncoder = JsonEncoder.schemaEncoder(vs)
+
+      jsonFieldEncoder(ks) match {
+        case Some(jsonFieldEncoder) =>
+          ZJsonEncoder.keyValueIterable(jsonFieldEncoder, valueEncoder).contramap(a => Chunk.fromIterable(a).toMap)
+        case None =>
+          ZJsonEncoder
+            .chunk(schemaEncoder(ks, discriminatorTuple).zip(schemaEncoder(vs, discriminatorTuple)))
+            .contramap(m => Chunk.fromIterable(m))
+      }
+    }
 
     private def dynamicEncoder(schema: Schema.Dynamic): ZJsonEncoder[DynamicValue] = {
       val directMapping = schema.annotations.exists {
