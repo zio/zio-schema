@@ -21,7 +21,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Checkout current branch
-        uses: actions/checkout@v3.0.0
+        uses: actions/checkout@v3.5.2
         with:
           fetch-depth: 0
       - name: Setup Scala and Java
@@ -40,7 +40,7 @@ jobs:
         java: ['adopt@1.8', 'adopt@1.11']
         scala: ['2.12.17', '2.13.8', '3.2.1']
     steps:
-    - uses: actions/checkout@v3.0.0
+    - uses: actions/checkout@v3.5.2
       with:
         fetch-depth: 0
     - uses: olafurpg/setup-scala@v13
@@ -57,7 +57,7 @@ jobs:
     needs: [build,lint]
     if: github.event_name != 'pull_request'
     steps:
-      - uses: actions/checkout@v3.0.0
+      - uses: actions/checkout@v3.5.2
         with:
           fetch-depth: 0
       - uses: olafurpg/setup-scala@v13
