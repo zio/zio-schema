@@ -145,6 +145,15 @@ lazy val zioSchemaDerivation = crossProject(JSPlatform, JVMPlatform)
       }
     }
   )
+  .settings(
+    Test / scalacOptions ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((3, _)) =>
+          Seq("-Wconf:name=MatchCaseOnlyNullWarning:e")
+        case _ => Seq.empty
+      }
+    }
+  )
 
 lazy val zioSchemaDerivationJS = zioSchemaDerivation.js
   .settings(scalaJSUseMainModuleInitializer := true)
