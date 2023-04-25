@@ -456,16 +456,13 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
       val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) }
 
       val unsafeDeconstruct = '{ 
-        (z: T) => z match {
-          case (sub: t) => sub
-          case other => throw new MatchError(other)
-        }
-       }
-       val construct = '{
+        (z: T) => z.asInstanceOf[t]
+      }
+      val construct = '{
         (a: t) => a.asInstanceOf[T]
-       }
+      }
 
-       val isCase = '{ (z: T) => z.isInstanceOf[t] }
+      val isCase = '{ (z: T) => z.isInstanceOf[t] }
 
       '{ Case(${Expr(label)}, $schema, $unsafeDeconstruct, $construct, $isCase, $annotations) }
     }
