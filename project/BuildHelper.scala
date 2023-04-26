@@ -29,8 +29,10 @@ object BuildHelper {
   val zioJsonVersion           = "0.5.0"
   val zioPreludeVersion        = "1.0.0-RC18"
   val zioOpticsVersion         = "0.2.1"
+  val zioBsonVersion           = "1.0.2"
   val silencerVersion          = "1.7.11"
   val avroVersion              = "1.11.0"
+  val bsonVersion              = "4.9.1"
   val zioConstraintlessVersion = "0.3.2"
 
   private val testDeps = Seq(
