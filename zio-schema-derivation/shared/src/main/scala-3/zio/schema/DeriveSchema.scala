@@ -462,7 +462,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
         (a: t) => a.asInstanceOf[T]
       }
 
-      val isCase = '{ (z: T) => z.isInstanceOf[t] }
+      val isCase = '{ (z: T) => z.isInstanceOf[t @unchecked] }
 
       '{ Case(${Expr(label)}, $schema, $unsafeDeconstruct, $construct, $isCase, $annotations) }
     }

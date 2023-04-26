@@ -124,7 +124,6 @@ lazy val zioSchemaDerivation = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-derivation"))
   .dependsOn(zioSchema, zioSchema % "test->test")
   .settings(stdSettings("zio-schema-derivation"))
-  .settings(dottySettings)
   .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema"))
   .settings(
@@ -142,15 +141,6 @@ lazy val zioSchemaDerivation = crossProject(JSPlatform, JVMPlatform)
             "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
           )
         case _ => Seq()
-      }
-    }
-  )
-  .settings(
-    Test / scalacOptions ++= {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((3, _)) =>
-          Seq("-Wconf:name=MatchCaseOnlyNullWarning:e")
-        case _ => Seq.empty
       }
     }
   )

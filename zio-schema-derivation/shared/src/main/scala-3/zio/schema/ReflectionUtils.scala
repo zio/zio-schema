@@ -50,7 +50,7 @@ class ReflectionUtils[Q <: Quotes & Singleton](val q: Q) {
             tupleTypeElements(mels).map { case ConstantType(StringConstant(l)) => l }
           }.orElse(Some(Seq.empty))
       } yield {
-        val ConstantType(StringConstant(ml0)) = ml
+        val ConstantType(StringConstant(ml0)) = ml: @unchecked
         Mirror(mt, mmt, mets, ml0, mels, MirrorType.from(mirror))
       }
     }
