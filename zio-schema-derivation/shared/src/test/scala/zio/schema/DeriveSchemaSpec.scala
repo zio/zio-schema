@@ -450,6 +450,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
         }
         assert(derived)(hasSameSchema(expected))
       }
-    )
+    ),
+    versionSpecificSuite
   )
 }

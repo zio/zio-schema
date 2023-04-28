@@ -87,6 +87,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
             """[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]"""
           )
         )
+      },
+      test("of simple keys and values") {
+        assertEncodes(
+          Schema.map[Int, Value],
+          Map(0 -> Value(0, true), 1 -> Value(1, false)),
+          charSequenceToByteChunk(
+            """{"0":{"first":0,"second":true},"1":{"first":1,"second":false}}"""
+          )
+        )
       }
     ),
     suite("Set")(
@@ -439,6 +448,26 @@ object JsonCodecSpec extends ZIOSpecDefault {
             )
           ),
           charSequenceToByteChunk("""{"foo":"s","bar":1}""")
+        )
+      }
+    ),
+    suite("Map")(
+      test("of complex keys and values") {
+        assertDecodes(
+          Schema.map[Key, Value],
+          Map(Key("a", 0) -> Value(0, true), Key("b", 1) -> Value(1, false)),
+          charSequenceToByteChunk(
+            """[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]"""
+          )
+        )
+      },
+      test("of simple keys and values") {
+        assertDecodes(
+          Schema.map[Int, Value],
+          Map(0 -> Value(0, true), 1 -> Value(1, false)),
+          charSequenceToByteChunk(
+            """{"0":{"first":0,"second":true},"1":{"first":1,"second":false}}"""
+          )
         )
       }
     )
@@ -805,7 +834,27 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[Enumeration2],
           Enumeration2(BooleanValue2(false))
         )
-      }
+      },
+      suite("of case objects")(
+        test("without annotation")(
+          assertEncodesThenDecodes(Schema[Color], Color.Red)
+        ),
+        test("with caseName")(
+          assertEncodesThenDecodes(Schema[Color], Color.Grass) &>
+            assertEncodesJson(Schema[Color], Color.Grass, "\"Green\"") &>
+            assertDecodes(Schema[Color], Color.Grass, charSequenceToByteChunk("\"Green\""))
+        ),
+        test("with caseAliases")(
+          assertEncodesThenDecodes(Schema[Color], Color.Blue) &>
+            assertEncodesJson(Schema[Color], Color.Blue, "\"Blue\"") &>
+            assertDecodes(Schema[Color], Color.Blue, charSequenceToByteChunk("\"Blue\"")) &>
+            assertDecodes(Schema[Color], Color.Blue, charSequenceToByteChunk("\"LightBlue\"")) &>
+            assertDecodes(Schema[Color], Color.Blue, charSequenceToByteChunk("\"DarkBlue\""))
+        ),
+        test("invalid case")(
+          assertDecodesToError(Schema[Color], "\"not a color\"", JsonError.Message("unrecognized string") :: Nil)
+        )
+      )
     ),
     suite("transform")(
       test("any") {
@@ -1217,6 +1266,20 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object Enumeration2 {
     implicit val schema: Schema[Enumeration2] = DeriveSchema.gen[Enumeration2]
+  }
+
+  sealed trait Color
+
+  object Color {
+    case object Red extends Color
+
+    @caseName("Green")
+    case object Grass extends Color
+
+    @caseNameAliases("LightBlue", "DarkBlue")
+    case object Blue extends Color
+
+    implicit val schema: Schema[Color] = DeriveSchema.gen[Color]
   }
 
   case object Singleton

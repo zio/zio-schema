@@ -2,6 +2,8 @@ package zio.schema
 
 import java.util.concurrent.{ ConcurrentHashMap, ConcurrentMap }
 
+import scala.reflect.ClassTag
+
 import zio.Chunk
 import zio.schema.CachedDeriver.{ Cache, CacheKey }
 import zio.schema.Deriver.WrappedF
@@ -26,6 +28,14 @@ private[schema] class CachedDeriver[F[_]] private (deriver: Deriver[F], val cach
     cached(Schema.primitive(st)) {
       deriver.derivePrimitive(st, summoned)
     }
+
+  override def derivePrimitiveAlias[A: ClassTag, U](st: StandardType[U], summoned: => Option[F[A]]): F[A] = {
+    val key = CacheKey.PrimitiveAlias(st, implicitly[ClassTag[A]])
+    cache.get(key) match {
+      case None    => cache.put(key, deriver.derivePrimitiveAlias[A, U](st, summoned))
+      case Some(g) => g
+    }
+  }
 
   override def deriveOption[A](
     option: Schema.Optional[A],
@@ -106,15 +116,16 @@ private[schema] object CachedDeriver {
   sealed trait CacheKey[A]
 
   object CacheKey {
-    final case class Primitive[A](standardType: StandardType[A])               extends CacheKey[A]
-    final case class WithId[A](typeId: TypeId)                                 extends CacheKey[A]
-    final case class WithIdentityObject[A](id: Any)                            extends CacheKey[A]
-    final case class Optional[A](key: CacheKey[A])                             extends CacheKey[A]
-    final case class Either[A, B](leftKey: CacheKey[A], rightKey: CacheKey[B]) extends CacheKey[Either[A, B]]
-    final case class Tuple2[A, B](leftKey: CacheKey[A], rightKey: CacheKey[B]) extends CacheKey[(A, B)]
-    final case class Set[A](element: CacheKey[A])                              extends CacheKey[Set[A]]
-    final case class Map[K, V](key: CacheKey[K], valuew: CacheKey[V])          extends CacheKey[Map[K, V]]
-    final case class Misc[A](schema: Schema[A])                                extends CacheKey[A]
+    final case class Primitive[A](standardType: StandardType[A])                                extends CacheKey[A]
+    final case class PrimitiveAlias[A, U](standardType: StandardType[U], classTag: ClassTag[A]) extends CacheKey[A]
+    final case class WithId[A](typeId: TypeId)                                                  extends CacheKey[A]
+    final case class WithIdentityObject[A](inner: CacheKey[_], id: Any)                         extends CacheKey[A]
+    final case class Optional[A](key: CacheKey[A])                                              extends CacheKey[A]
+    final case class Either[A, B](leftKey: CacheKey[A], rightKey: CacheKey[B])                  extends CacheKey[Either[A, B]]
+    final case class Tuple2[A, B](leftKey: CacheKey[A], rightKey: CacheKey[B])                  extends CacheKey[(A, B)]
+    final case class Set[A](element: CacheKey[A])                                               extends CacheKey[Set[A]]
+    final case class Map[K, V](key: CacheKey[K], valuew: CacheKey[V])                           extends CacheKey[Map[K, V]]
+    final case class Misc[A](schema: Schema[A])                                                 extends CacheKey[A]
 
     def fromStandardType[A](st: StandardType[A]): CacheKey[A] = Primitive(st)
 
@@ -122,13 +133,13 @@ private[schema] object CachedDeriver {
       schema match {
         case e: Schema.Enum[_]             => WithId(e.id)
         case record: Schema.Record[_]      => WithId(record.id)
-        case seq: Schema.Sequence[_, _, _] => WithIdentityObject(seq.identity)
+        case seq: Schema.Sequence[_, _, _] => WithIdentityObject(fromSchema(seq.elementSchema), seq.identity)
         case set: Schema.Set[_]            => Set(fromSchema(set.elementSchema)).asInstanceOf[CacheKey[A]]
         case map: Schema.Map[_, _] =>
           Map(fromSchema(map.keySchema), fromSchema(map.valueSchema)).asInstanceOf[CacheKey[A]]
-        case Schema.Transform(_, _, _, _, identity) => WithIdentityObject(identity)
-        case Schema.Primitive(standardType, _)      => fromStandardType(standardType)
-        case optional: Schema.Optional[_]           => Optional(fromSchema(optional.schema)).asInstanceOf[CacheKey[A]]
+        case Schema.Transform(inner, _, _, _, identity) => WithIdentityObject(fromSchema(inner), identity)
+        case Schema.Primitive(standardType, _)          => fromStandardType(standardType)
+        case optional: Schema.Optional[_]               => Optional(fromSchema(optional.schema)).asInstanceOf[CacheKey[A]]
         case tuple: Schema.Tuple2[_, _] =>
           Tuple2(fromSchema(tuple.left), fromSchema(tuple.right)).asInstanceOf[CacheKey[A]]
         case either: Schema.Either[_, _] =>

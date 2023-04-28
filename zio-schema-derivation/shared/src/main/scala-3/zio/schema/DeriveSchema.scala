@@ -8,6 +8,8 @@ import Schema._
 
 import zio.schema.annotation.fieldName
 
+extension (s: Schema.type) transparent inline def derived[A] = DeriveSchema.gen[A]
+
 object DeriveSchema {
 
   transparent inline def gen[T]: Schema[T] = ${ deriveSchema[T] }
