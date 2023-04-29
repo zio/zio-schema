@@ -336,6 +336,15 @@ object Schema extends SchemaEquality {
       uri => Right(uri.toString)
     )
 
+  implicit def standardSchema[A]: Schema[StandardType[A]] = Schema[String].transformOrFail[StandardType[A]](
+    string =>
+      StandardType
+        .fromString(string)
+        .asInstanceOf[Option[StandardType[A]]]
+        .toRight(s"Invalid StandardType tag ${string}"),
+    standardType => Right(standardType.tag)
+  )
+
   sealed trait Enum[Z] extends Schema[Z] {
     private lazy val casesMap: scala.collection.immutable.Map[String, Case[Z, _]] = cases.map(c => c.id -> c).toMap
     def id: TypeId
