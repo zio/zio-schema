@@ -245,11 +245,13 @@ lazy val zioSchemaBson = crossProject(JVMPlatform)
   .settings(buildInfoSettings("zio.schema.bson"))
   .settings(
     libraryDependencies ++= Seq(
-      "org.mongodb" % "bson"               % bsonVersion,
-      "dev.zio"     %% "zio-bson"          % zioBsonVersion,
-      "dev.zio"     %% "zio"               % zioVersion, // zio.Chunk
-      "dev.zio"     %% "zio-test-magnolia" % zioVersion % Test // TODO: implement DeriveDiff in zioSchemaZioTest
-    )
+      "org.mongodb"            % "bson"                     % bsonVersion,
+      "dev.zio"                %% "zio-bson"                % zioBsonVersion,
+      "dev.zio"                %% "zio"                     % zioVersion, // zio.Chunk
+      "dev.zio"                %% "zio-test-magnolia"       % zioVersion % Test, // TODO: implement DeriveDiff in zioSchemaZioTest
+      "org.scala-lang.modules" %% "scala-collection-compat" % scalaCollectionCompatVersion
+    ),
+    scalacOptions -= "-Xfatal-warnings" // cross-version imports
   )
 
 lazy val zioSchemaBsonJVM = zioSchemaBson.jvm

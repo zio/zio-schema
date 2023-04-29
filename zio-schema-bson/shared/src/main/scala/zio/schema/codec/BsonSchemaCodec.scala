@@ -3,6 +3,7 @@ package zio.schema.codec
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 
+import scala.collection.compat._
 import scala.collection.immutable.{ HashMap, ListMap }
 import scala.jdk.CollectionConverters._
 
@@ -18,7 +19,11 @@ import zio.bson.{
   BsonFieldDecoder,
   BsonFieldEncoder,
   BsonTrace,
-  bsonField
+  bsonDiscriminator,
+  bsonExclude,
+  bsonField,
+  bsonHint,
+  bsonNoExtraFields
 }
 import zio.schema.annotation.{
   caseName,
@@ -36,6 +41,11 @@ import zio.schema.{ DynamicValue, Schema, StandardType, TypeId }
 import zio.{ Chunk, ChunkBuilder, Unsafe }
 
 object BsonSchemaCodec {
+
+  {
+    // TODO: better way to prevent scalafix from removing the import
+    val _ = IterableOnce
+  }
 
   def bsonEncoder[A](schema: Schema[A]): BsonEncoder[A] =
     BsonSchemaEncoder.schemaEncoder(schema)
@@ -388,11 +398,7 @@ object BsonSchemaCodec {
         case r: Schema.Record[A]                   => caseClassEncoder(r)
         case e: Schema.Enum[A]                     => enumEncoder(e, e.cases)
         case d @ Schema.Dynamic(_)                 => dynamicEncoder(d)
-        case _ =>
-          if (schema eq null)
-            throw new Exception(s"A captured schema is null, most likely due to wrong field initialization order")
-          else
-            throw new Exception(s"Missing a handler for encoding of schema ${schema.toString}.")
+        case null                                  => throw new Exception(s"A captured schema is null, most likely due to wrong field initialization order")
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -523,22 +529,24 @@ object BsonSchemaCodec {
       if (cases.forall(_.schema.isInstanceOf[Schema.CaseClass0[_]])) {
         val caseMap: Map[Z, String] = cases
           .filterNot(_.annotations.exists(_.isInstanceOf[transientCase]))
-          .map(
-            case_ =>
-              case_.schema.asInstanceOf[Schema.CaseClass0[Z]].defaultConstruct() ->
-                case_.annotations.collectFirst { case caseName(name) => name }.getOrElse(case_.id)
-          )
+          .map { case_ =>
+            val manualBsonHint = case_.annotations.collectFirst { case bsonHint(name) => name }
+            val manualCaseName = case_.annotations.collectFirst { case caseName(name) => name }
+            case_.schema.asInstanceOf[Schema.CaseClass0[Z]].defaultConstruct() ->
+              manualBsonHint.orElse(manualCaseName).getOrElse(case_.id)
+          }
           .toMap
         BsonEncoder.string.contramap(caseMap(_))
       } else {
-        val discriminator = parentSchema.annotations.collectFirst {
-          case d: discriminatorName => d.tag
-        }
+        val bsonDiscriminator   = parentSchema.annotations.collectFirst { case d: bsonDiscriminator => d.name }
+        val schemaDiscriminator = parentSchema.annotations.collectFirst { case d: discriminatorName => d.tag }
+        val discriminator       = bsonDiscriminator.orElse(schemaDiscriminator)
 
-        def getCaseName(case_ : Schema.Case[Z, _]) =
-          case_.annotations.collectFirst {
-            case name: caseName => name.name
-          }.getOrElse(case_.id)
+        def getCaseName(case_ : Schema.Case[Z, _]) = {
+          val manualBsonHint = case_.annotations.collectFirst { case bsonHint(name) => name }
+          val manualCaseName = case_.annotations.collectFirst { case caseName(name) => name }
+          manualBsonHint.orElse(manualCaseName).getOrElse(case_.id)
+        }
 
         val noDiscriminators = parentSchema.annotations.exists {
           case noDiscriminator() => true
@@ -692,7 +700,7 @@ object BsonSchemaCodec {
       case s: Schema.Record[A]                   => caseClassDecoder(s)
       case e: Schema.Enum[A]                     => enumDecoder(e)
       case d @ Schema.Dynamic(_)                 => dynamicDecoder(d)
-      case _                                     => throw new Exception(s"Missing a handler for decoding of schema ${schema.toString}.")
+      case null                                  => throw new Exception(s"Missing a handler for decoding of schema $schema.")
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -722,7 +730,7 @@ object BsonSchemaCodec {
       }
 
       if (directMapping) {
-        BsonDecoder.bsonValueDecoder.map(bsonToDynamicValue)
+        BsonDecoder.bsonValueDecoder[BsonValue].map(bsonToDynamicValue)
       } else {
         schemaDecoder(DynamicValue.schema)
       }
@@ -737,11 +745,12 @@ object BsonSchemaCodec {
           val values = bsonValue
             .asDocument()
             .asScala
+            .toSeq
             .map {
               case (k, v) => k -> bsonToDynamicValue(v)
             }
-            .to(ListMap)
-          DynamicValue.Record(TypeId.Structural, values)
+
+          DynamicValue.Record(TypeId.Structural, ListMap(values: _*))
         case BsonType.ARRAY =>
           DynamicValue.Sequence(bsonValue.asArray().getValues.asScala.map(bsonToDynamicValue).to(Chunk))
         case BsonType.BINARY =>
@@ -775,6 +784,7 @@ object BsonSchemaCodec {
           annotations.flatMap {
             case a: caseNameAliases => a.aliases.toList.map(_ -> name)
             case cn: caseName       => List(cn.name -> name)
+            case bh: bsonHint       => List(bh.name -> name)
             case _                  => Nil
           }
       }.toMap
@@ -851,10 +861,11 @@ object BsonSchemaCodec {
           }
         } else {
           val discriminators = parentSchema.annotations.collect {
+            case d: bsonDiscriminator => d.name
             case d: discriminatorName => d.tag
           }.toSet
 
-          val casesIndex = cases.map(c => c.id -> c).toMap
+          val casesIndex = Map(cases.map(c => c.id -> c): _*)
 
           def getCase(name: String) = casesIndex.get(caseNameAliases.getOrElse(name, name))
 
@@ -910,12 +921,16 @@ object BsonSchemaCodec {
                   var discriminator: String = null
 
                   reader.readStartDocument()
-                  while (hint == null && reader.readBsonType() != BsonType.END_OF_DOCUMENT) {
+
+                  var bsonType = reader.readBsonType()
+                  while (hint == null && bsonType != BsonType.END_OF_DOCUMENT) {
                     val name = reader.readName()
-                    if (discriminators.contains(name) && reader.readBsonType() == BsonType.STRING) {
+                    if (discriminators.contains(name) && bsonType == BsonType.STRING) {
                       hint = unsafeCall(BsonTrace.Field(name) :: trace)(reader.readString())
                       discriminator = name
                     } else reader.skipValue()
+
+                    bsonType = reader.readBsonType()
                   }
 
                   if (hint == null)
@@ -1004,22 +1019,23 @@ object BsonSchemaCodec {
           trace: List[BsonTrace],
           ctx: BsonDecoder.BsonDecoderContext
         ): ListMap[String, Any] = assumeType(trace)(BsonType.DOCUMENT, value) { value =>
-          value
-            .asDocument()
-            .asScala
-            .view
-            .flatMap {
-              case (field, v) =>
-                structure.find(_.name == field) match {
-                  case Some(Schema.Field(label, schema, _, _, _, _)) =>
-                    val nextTrace = BsonTrace.Field(field) :: trace
-                    val value = schemaDecoder(schema)
-                      .fromBsonValueUnsafe(v, nextTrace, BsonDecoder.BsonDecoderContext.default)
-                    Some((label, value))
-                  case None => None
-                }
-            }
-            .to(ListMap)
+          ListMap(
+            value
+              .asDocument()
+              .asScala
+              .toVector
+              .flatMap {
+                case (field, v) =>
+                  structure.find(_.name == field) match {
+                    case Some(Schema.Field(label, schema, _, _, _, _)) =>
+                      val nextTrace = BsonTrace.Field(field) :: trace
+                      val value = schemaDecoder(schema)
+                        .fromBsonValueUnsafe(v, nextTrace, BsonDecoder.BsonDecoderContext.default)
+                      Some((label, value))
+                    case None => None
+                  }
+              }: _*
+          )
         }
       }
 
@@ -1034,8 +1050,10 @@ object BsonSchemaCodec {
       private val fields = parentSchema.fields
 
       private val nonTransientFields = fields.filter {
-        case Schema.Field(_, _, annotations, _, _, _)
-            if annotations.collectFirst { case a: transientField => a }.isDefined =>
+        case Schema.Field(_, _, annotations, _, _, _) if annotations.collectFirst {
+              case _: transientField => ()
+              case _: bsonExclude    => ()
+            }.isDefined =>
           false
         case _ => true
       }.toArray
@@ -1095,20 +1113,24 @@ object BsonSchemaCodec {
       val fields   = caseClassSchema.fields
       val len: Int = fields.length
       Array.ofDim[Any](len)
-      val fieldNames                = fields.map(_.name.asInstanceOf[String]).toArray
-      val spans: Array[BsonTrace]   = fieldNames.map(BsonTrace.Field)
+      val fieldNames = fields.map { f =>
+        f.annotations.collectFirst { case bsonField(n) => n }.getOrElse(f.name.asInstanceOf[String])
+      }.toArray
+      val spans: Array[BsonTrace]   = fieldNames.map(f => BsonTrace.Field(f))
       val schemas: Array[Schema[_]] = fields.map(_.schema).toArray
       val fieldAliases = fields.flatMap {
         case Schema.Field(name, _, annotations, _, _, _) =>
           val aliases = annotations.collectFirst { case a: fieldNameAliases => a.aliases }.getOrElse(Nil)
           aliases.map(_ -> fieldNames.indexOf(name)) :+ (name -> fieldNames.indexOf(name))
       }.toMap
-      val indexes                           = (fieldAliases ++ fieldNames.zipWithIndex).to(HashMap)
-      val noExtra                           = caseClassSchema.annotations.collectFirst({ case _: rejectExtraFields => () }).isDefined
+      val indexes = HashMap((fieldAliases ++ fieldNames.zipWithIndex).toSeq: _*)
+      val noExtra =
+        caseClassSchema.annotations.collectFirst {
+          case _: rejectExtraFields => ()
+          case _: bsonNoExtraFields => ()
+        }.isDefined
       lazy val tcs: Array[BsonDecoder[Any]] = schemas.map(s => schemaDecoder(s).asInstanceOf[BsonDecoder[Any]])
-      lazy val defaults: Array[Option[Any]] = schemas.map { s =>
-        s.annotations.collectFirst { case a: fieldDefaultValue[_] => a.value }.orElse(s.defaultValue.toOption)
-      }
+      lazy val defaults: Array[Option[Any]] = fields.map(_.annotations.collectFirst { case a: fieldDefaultValue[_] => a.value }).toArray
 
       new BsonDecoder[Z] {
         def decodeUnsafe(reader: BsonReader, trace: List[BsonTrace], ctx: BsonDecoder.BsonDecoderContext): Z = unsafeCall(trace) {
