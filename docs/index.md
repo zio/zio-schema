@@ -31,6 +31,7 @@ In order to use this library, we need to add the following lines in our `build.s
 
 ```scala
 libraryDependencies += "dev.zio" %% "zio-schema"          % "@VERSION@"
+libraryDependencies += "dev.zio" %% "zio-schema-bson"     % "@VERSION@"
 libraryDependencies += "dev.zio" %% "zio-schema-json"     % "@VERSION@"
 libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "@VERSION@"
 
