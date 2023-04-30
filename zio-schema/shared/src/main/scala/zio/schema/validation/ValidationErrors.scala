@@ -42,5 +42,10 @@ object ValidationError {
       s"$str matches a regex other than $expected"
   }
 
+  final case class MissingField(field: zio.schema.Schema.Field[_, _]) extends ValidationError {
+    override def message: String =
+      s"Missing field \"${field.name}\""
+  }
+
   final case class Generic(message: String) extends ValidationError
 }
