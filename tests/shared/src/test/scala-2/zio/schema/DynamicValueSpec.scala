@@ -1,6 +1,7 @@
 package zio.schema
 
 import zio._
+import zio.prelude.Validation
 import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen._
 import zio.test.Assertion._
@@ -97,7 +98,7 @@ object DynamicValueSpec extends ZIOSpecDefault {
           check(Json.genDeep) { json =>
             val dyn   = DynamicValue.fromSchemaAndValue(Json.schema, json)
             val json2 = dyn.toTypedValue(Json.schema)
-            assertTrue(json2 == Right(json))
+            assertTrue(json2 == Validation.succeed(json))
           }
         } @@ TestAspect.size(250) @@ TestAspect.ignore
       )

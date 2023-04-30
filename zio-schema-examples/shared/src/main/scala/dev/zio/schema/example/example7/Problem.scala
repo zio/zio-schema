@@ -2,7 +2,6 @@ package dev.zio.schema.example.example7
 
 import scala.collection.immutable.ListMap
 import scala.util.Try
-
 import zio.schema._
 import zio.{ Chunk, Unsafe }
 
@@ -44,7 +43,7 @@ private[example7] object Problem {
       params: Map[String, List[String]]
     )(implicit schema: Schema[A]): scala.util.Either[String, A] =
       toDV(params)
-        .map(_.toTypedValue(schema))
+        .map(_.toTypedValue(schema).toEither)
         .collectFirst {
           case Right(v) =>
             v

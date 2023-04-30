@@ -1,10 +1,14 @@
 package zio.schema
 
+import zio.Chunk
+import zio.schema.diff.Edit
+import zio.schema.meta.Migration
+import zio.prelude.Validation
+
 import java.math.{ BigInteger, MathContext }
 import java.time.temporal.{ ChronoField, ChronoUnit }
 import java.time.{
   DayOfWeek,
-  Duration => JDuration,
   Instant,
   LocalDate,
   LocalDateTime,
@@ -17,15 +21,11 @@ import java.time.{
   YearMonth,
   ZoneId,
   ZoneOffset,
+  Duration => JDuration,
   ZonedDateTime => JZonedDateTime
 }
-
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
-
-import zio.Chunk
-import zio.schema.diff.Edit
-import zio.schema.meta.Migration
 
 sealed trait Patch[A] { self =>
 
@@ -320,34 +320,32 @@ object Patch {
       val structure = schema.fields
 
       val patchedDynamicValue = schema.toDynamic(input) match {
-        case DynamicValue.Record(name, values) => {
-          differences
-            .foldLeft[Either[String, ListMap[String, DynamicValue]]](Right(values)) {
-              case (Right(record), (key, diff)) =>
-                (structure.find(_.name == key).map(_.schema), values.get(key)) match {
-                  case (Some(schema: Schema[b]), Some(oldValue)) =>
-                    val oldVal = oldValue.toTypedValue(schema)
-                    oldVal
-                      .flatMap(v => diff.asInstanceOf[Patch[Any]].patch(v))
-                      .map(v => schema.asInstanceOf[Schema[Any]].toDynamic(v)) match {
-                      case Left(error)     => Left(error)
-                      case Right(newValue) => Right(record + (key -> newValue))
-                    }
-                  case _ =>
-                    Left(s"Values=$values and structure=$structure have incompatible shape.")
-                }
-              case (Left(string), _) => Left(string)
-            }
-            .map(r => (name, r))
+        case DynamicValue.Record(name, values) =>
+          Validation
+            .validateAll(
+              differences.map {
+                case (key, diff) =>
+                  (structure.find(_.name == key).map(_.schema), values.get(key)) match {
+                    case (Some(schema: Schema[b]), Some(oldValue)) =>
+                      val oldVal = oldValue.toTypedValue(schema)
+                      oldVal
+                        .flatMap(v => Validation.fromEither(diff.asInstanceOf[Patch[Any]].patch(v)))
+                        .map(v => schema.asInstanceOf[Schema[Any]].toDynamic(v))
+                        .map(newValue => key -> newValue)
+                    case _ =>
+                      Validation.fail(s"Values=$values and structure=$structure have incompatible shape.")
+                  }
+              }
+            )
+            .map(r => (name, ListMap.from(r)))
 
-        }
-
-        case dv => Left(s"Failed to apply record diff. Unexpected dynamic value for record: $dv")
+        case dv => Validation.fail(s"Failed to apply record diff. Unexpected dynamic value for record: $dv")
       }
 
       patchedDynamicValue.flatMap { newValues =>
-        schema.fromDynamic(DynamicValue.Record(newValues._1, newValues._2))
-      }
+        Validation.fromEither(schema.fromDynamic(DynamicValue.Record(newValues._1, newValues._2)))
+      }.toEither.left
+        .map(_.toString())
     }
 
     def orIdentical: Patch[R] =

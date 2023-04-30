@@ -3,8 +3,8 @@ package zio.schema
 import java.math.BigInteger
 import java.time
 import java.time._
-
 import zio.Chunk
+import zio.prelude.Validation
 
 sealed trait StandardType[A] extends Ordering[A] { self =>
   def tag: String
@@ -14,7 +14,7 @@ sealed trait StandardType[A] extends Ordering[A] { self =>
   /**
    * Converts a DynamicValue into a primitive type.
    */
-  def toTypedPrimitive(value: DynamicValue): Either[String, A] =
+  def toTypedPrimitive(value: DynamicValue): Validation[String, A] =
     value.toTypedValue(Schema.primitive[A](self))
 }
 

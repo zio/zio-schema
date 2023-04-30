@@ -92,7 +92,7 @@ sealed trait Schema[A] {
   def patch(oldValue: A, diff: Patch[A]): scala.util.Either[String, A] = diff.patch(oldValue)
 
   def fromDynamic(value: DynamicValue): scala.util.Either[String, A] =
-    value.toTypedValue(self)
+    value.toTypedValue(self).toEither.left.map(_.toString)
 
   def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal]
 
