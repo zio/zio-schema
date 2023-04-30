@@ -19,7 +19,7 @@ object MigrationSpec extends ZIOSpecDefault {
 
           assertTrue(
             Migration
-              .derive(from, to) == Right(Chunk(Migration.ChangeType(NodePath.root, StandardType.StringType)))
+              .derive(from, to) == zio.prelude.Validation.succeed(Chunk(Migration.ChangeType(NodePath.root, StandardType.StringType)))
           )
         },
         test("optional") {
@@ -29,7 +29,7 @@ object MigrationSpec extends ZIOSpecDefault {
 
           assertTrue(
             Migration
-              .derive(from, to) == Right(Chunk(Migration.Optional(NodePath.root)))
+              .derive(from, to) == zio.prelude.Validation.succeed(Chunk(Migration.Optional(NodePath.root)))
           )
         },
         test("require") {
@@ -40,7 +40,7 @@ object MigrationSpec extends ZIOSpecDefault {
 
           assertTrue(
             Migration
-              .derive(from, to) == Right(Chunk(Migration.Require(NodePath.root)))
+              .derive(from, to) == zio.prelude.Validation.succeed(Chunk(Migration.Require(NodePath.root)))
           )
         },
         test("increment dimensions") {
@@ -55,7 +55,7 @@ object MigrationSpec extends ZIOSpecDefault {
 
           assertTrue(
             Migration
-              .derive(from, to) == Right(Chunk(Migration.IncrementDimensions(NodePath.root, 1)))
+              .derive(from, to) == zio.prelude.Validation.succeed(Chunk(Migration.IncrementDimensions(NodePath.root, 1)))
           )
         },
         test("decrement dimensions") {
@@ -69,7 +69,7 @@ object MigrationSpec extends ZIOSpecDefault {
 
           assertTrue(
             Migration
-              .derive(from, to) == Right(Chunk(Migration.DecrementDimensions(NodePath.root, 1)))
+              .derive(from, to) == zio.prelude.Validation.succeed(Chunk(Migration.DecrementDimensions(NodePath.root, 1)))
           )
         }
       ),
@@ -286,7 +286,7 @@ object MigrationSpec extends ZIOSpecDefault {
   def transformsValueTo[A: Schema](value: A, expected: DynamicValue): Assertion[Migration] =
     Assertion.assertion("transformsValueTo") { transform =>
       val transformed = transform.migrate(value.dynamic)
-      transformed == Right(expected)
+      transformed == zio.prelude.Validation.succeed(expected)
     }
 
   def failsToTransform[A: Schema](value: A): Assertion[Migration] =

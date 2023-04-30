@@ -8,7 +8,7 @@ import zio.prelude.Validation
 
 sealed trait StandardType[A] extends Ordering[A] { self =>
   def tag: String
-  def defaultValue: Either[String, A]
+  def defaultValue: zio.prelude.Validation[String, A]
   override def toString: String = tag
 
   /**
@@ -90,63 +90,66 @@ object StandardType {
   def apply[A](implicit standardType: StandardType[A]): StandardType[A] = standardType
 
   implicit object UnitType extends StandardType[Unit] {
-    override def tag: String                        = Tags.UNIT
-    override def compare(x: Unit, y: Unit): Int     = 0
-    override def defaultValue: Either[String, Unit] = Right(())
+    override def tag: String                                        = Tags.UNIT
+    override def compare(x: Unit, y: Unit): Int                     = 0
+    override def defaultValue: zio.prelude.Validation[String, Unit] = zio.prelude.Validation.succeed(())
   }
 
   implicit object StringType extends StandardType[String] {
-    override def tag: String                          = Tags.STRING
-    override def compare(x: String, y: String): Int   = x.compareTo(y)
-    override def defaultValue: Either[String, String] = Right("")
+    override def tag: String                                          = Tags.STRING
+    override def compare(x: String, y: String): Int                   = x.compareTo(y)
+    override def defaultValue: zio.prelude.Validation[String, String] = zio.prelude.Validation.succeed("")
   }
 
   implicit object BoolType extends StandardType[Boolean] {
-    override def tag: String                           = Tags.BOOL
-    override def compare(x: Boolean, y: Boolean): Int  = x.compareTo(y)
-    override def defaultValue: Either[String, Boolean] = Right(false)
+    override def tag: String                                           = Tags.BOOL
+    override def compare(x: Boolean, y: Boolean): Int                  = x.compareTo(y)
+    override def defaultValue: zio.prelude.Validation[String, Boolean] = zio.prelude.Validation.succeed(false)
   }
 
   implicit object ByteType extends StandardType[Byte] {
-    override def tag: String                        = Tags.BYTE
-    override def compare(x: Byte, y: Byte): Int     = x.compareTo(y)
-    override def defaultValue: Either[String, Byte] = Right(0.toByte)
+    override def tag: String                                        = Tags.BYTE
+    override def compare(x: Byte, y: Byte): Int                     = x.compareTo(y)
+    override def defaultValue: zio.prelude.Validation[String, Byte] = zio.prelude.Validation.succeed(0.toByte)
   }
 
   implicit object ShortType extends StandardType[Short] {
-    override def tag: String                         = Tags.SHORT
-    override def compare(x: Short, y: Short): Int    = x.compareTo(y)
-    override def defaultValue: Either[String, Short] = Right(0.asInstanceOf[Short])
+    override def tag: String                      = Tags.SHORT
+    override def compare(x: Short, y: Short): Int = x.compareTo(y)
+    override def defaultValue: zio.prelude.Validation[String, Short] =
+      zio.prelude.Validation.succeed(0.asInstanceOf[Short])
   }
 
   implicit object IntType extends StandardType[Int] {
-    override def tag: String                       = Tags.INT
-    override def compare(x: Int, y: Int): Int      = x.compareTo(y)
-    override def defaultValue: Either[String, Int] = Right(0)
+    override def tag: String                                       = Tags.INT
+    override def compare(x: Int, y: Int): Int                      = x.compareTo(y)
+    override def defaultValue: zio.prelude.Validation[String, Int] = zio.prelude.Validation.succeed(0)
   }
 
   implicit object LongType extends StandardType[Long] {
-    override def tag: String                        = Tags.LONG
-    override def compare(x: Long, y: Long): Int     = x.compareTo(y)
-    override def defaultValue: Either[String, Long] = Right(0.asInstanceOf[Long])
+    override def tag: String                    = Tags.LONG
+    override def compare(x: Long, y: Long): Int = x.compareTo(y)
+    override def defaultValue: zio.prelude.Validation[String, Long] =
+      zio.prelude.Validation.succeed(0.asInstanceOf[Long])
   }
 
   implicit object FloatType extends StandardType[Float] {
-    override def tag: String                         = Tags.FLOAT
-    override def compare(x: Float, y: Float): Int    = x.compareTo(y)
-    override def defaultValue: Either[String, Float] = Right(0.0.asInstanceOf[Float])
+    override def tag: String                      = Tags.FLOAT
+    override def compare(x: Float, y: Float): Int = x.compareTo(y)
+    override def defaultValue: zio.prelude.Validation[String, Float] =
+      zio.prelude.Validation.succeed(0.0.asInstanceOf[Float])
   }
 
   implicit object DoubleType extends StandardType[Double] {
-    override def tag: String                          = Tags.DOUBLE
-    override def compare(x: Double, y: Double): Int   = x.compareTo(y)
-    override def defaultValue: Either[String, Double] = Right(0.0)
+    override def tag: String                                          = Tags.DOUBLE
+    override def compare(x: Double, y: Double): Int                   = x.compareTo(y)
+    override def defaultValue: zio.prelude.Validation[String, Double] = zio.prelude.Validation.succeed(0.0)
   }
 
   implicit object BinaryType extends StandardType[Chunk[Byte]] {
-    override def tag: String                                  = Tags.BINARY
-    override def compare(x: Chunk[Byte], y: Chunk[Byte]): Int = x.sum.compare(y.sum)
-    override def defaultValue: Either[String, Chunk[Byte]]    = Right(Chunk.empty)
+    override def tag: String                                               = Tags.BINARY
+    override def compare(x: Chunk[Byte], y: Chunk[Byte]): Int              = x.sum.compare(y.sum)
+    override def defaultValue: zio.prelude.Validation[String, Chunk[Byte]] = zio.prelude.Validation.succeed(Chunk.empty)
   }
 
   implicit object CharType extends StandardType[Char] {
@@ -154,46 +157,50 @@ object StandardType {
     override def compare(x: Char, y: Char): Int = x.compareTo(y)
     // The NUL Unicode character is used as the default value for
     // `StandardType[Char]` because the empty Char '' does not compile
-    override def defaultValue: Either[String, Char] = Right('\u0000')
+    override def defaultValue: zio.prelude.Validation[String, Char] = zio.prelude.Validation.succeed('\u0000')
   }
 
   implicit object UUIDType extends StandardType[java.util.UUID] {
     override def tag: String                                        = Tags.UUID
     override def compare(x: java.util.UUID, y: java.util.UUID): Int = x.compareTo(y)
-    override def defaultValue: Either[String, java.util.UUID]       = Right(java.util.UUID.randomUUID())
+    override def defaultValue: zio.prelude.Validation[String, java.util.UUID] =
+      zio.prelude.Validation.succeed(java.util.UUID.randomUUID())
   }
 
   implicit object BigDecimalType extends StandardType[java.math.BigDecimal] {
     override def tag: String                                                    = Tags.BIG_DECIMAL
     override def compare(x: java.math.BigDecimal, y: java.math.BigDecimal): Int = x.compareTo(y)
-    override def defaultValue: Either[String, java.math.BigDecimal]             = Right(java.math.BigDecimal.ZERO)
+    override def defaultValue: zio.prelude.Validation[String, java.math.BigDecimal] =
+      zio.prelude.Validation.succeed(java.math.BigDecimal.ZERO)
   }
 
   implicit object BigIntegerType extends StandardType[java.math.BigInteger] {
-    override def tag: String                                        = Tags.BIG_INTEGER
-    override def compare(x: BigInteger, y: BigInteger): Int         = x.compareTo(y)
-    override def defaultValue: Either[String, java.math.BigInteger] = Right(java.math.BigInteger.ZERO)
+    override def tag: String                                = Tags.BIG_INTEGER
+    override def compare(x: BigInteger, y: BigInteger): Int = x.compareTo(y)
+    override def defaultValue: zio.prelude.Validation[String, java.math.BigInteger] =
+      zio.prelude.Validation.succeed(java.math.BigInteger.ZERO)
   }
 
   //java.time specific types
   implicit object DayOfWeekType extends StandardType[DayOfWeek] {
     override def tag: String                              = Tags.DAY_OF_WEEK
     override def compare(x: DayOfWeek, y: DayOfWeek): Int = x.getValue.compareTo(y.getValue)
-    override def defaultValue: Either[String, DayOfWeek] =
-      Right(java.time.temporal.WeekFields.of(java.util.Locale.getDefault).getFirstDayOfWeek)
+    override def defaultValue: zio.prelude.Validation[String, DayOfWeek] =
+      zio.prelude.Validation.succeed(java.time.temporal.WeekFields.of(java.util.Locale.getDefault).getFirstDayOfWeek)
   }
 
   implicit object MonthType extends StandardType[java.time.Month] {
-    override def tag: String                                   = Tags.MONTH
-    override def compare(x: Month, y: Month): Int              = x.getValue.compareTo(y.getValue)
-    override def defaultValue: Either[String, java.time.Month] = Right(java.time.Month.JANUARY)
+    override def tag: String                      = Tags.MONTH
+    override def compare(x: Month, y: Month): Int = x.getValue.compareTo(y.getValue)
+    override def defaultValue: zio.prelude.Validation[String, java.time.Month] =
+      Validation.succeed(java.time.Month.JANUARY)
   }
 
   implicit object MonthDayType extends StandardType[java.time.MonthDay] {
     override def tag: String                            = Tags.MONTH_DAY
     override def compare(x: MonthDay, y: MonthDay): Int = x.compareTo(y)
-    override def defaultValue: Either[String, java.time.MonthDay] =
-      Right(java.time.MonthDay.of(java.time.Month.JANUARY, 1))
+    override def defaultValue: zio.prelude.Validation[String, java.time.MonthDay] =
+      zio.prelude.Validation.succeed(java.time.MonthDay.of(java.time.Month.JANUARY, 1))
   }
 
   implicit object PeriodType extends StandardType[java.time.Period] {
@@ -202,43 +209,50 @@ object StandardType {
       val startDate = time.LocalDate.of(0, 1, 1)
       startDate.plus(x).compareTo(startDate.plus(y))
     }
-    override def defaultValue: Either[String, java.time.Period] = Right(java.time.Period.ZERO)
+    override def defaultValue: zio.prelude.Validation[String, java.time.Period] =
+      zio.prelude.Validation.succeed(java.time.Period.ZERO)
   }
 
   implicit object YearType extends StandardType[java.time.Year] {
-    override def tag: String                                  = Tags.YEAR
-    override def compare(x: Year, y: Year): Int               = x.getValue.compareTo(y.getValue)
-    override def defaultValue: Either[String, java.time.Year] = Right(java.time.Year.now)
+    override def tag: String                    = Tags.YEAR
+    override def compare(x: Year, y: Year): Int = x.getValue.compareTo(y.getValue)
+    override def defaultValue: zio.prelude.Validation[String, java.time.Year] =
+      zio.prelude.Validation.succeed(java.time.Year.now)
   }
 
   implicit object YearMonthType extends StandardType[java.time.YearMonth] {
-    override def tag: String                                       = Tags.YEAR_MONTH
-    override def compare(x: YearMonth, y: YearMonth): Int          = x.compareTo(y)
-    override def defaultValue: Either[String, java.time.YearMonth] = Right(java.time.YearMonth.now)
+    override def tag: String                              = Tags.YEAR_MONTH
+    override def compare(x: YearMonth, y: YearMonth): Int = x.compareTo(y)
+    override def defaultValue: zio.prelude.Validation[String, java.time.YearMonth] =
+      zio.prelude.Validation.succeed(java.time.YearMonth.now)
   }
 
   implicit object ZoneIdType extends StandardType[java.time.ZoneId] {
-    override def tag: String                                    = Tags.ZONE_ID
-    override def compare(x: ZoneId, y: ZoneId): Int             = x.getId.compareTo(y.getId) // TODO is there a better comparison
-    override def defaultValue: Either[String, java.time.ZoneId] = Right(java.time.ZoneId.systemDefault)
+    override def tag: String                        = Tags.ZONE_ID
+    override def compare(x: ZoneId, y: ZoneId): Int = x.getId.compareTo(y.getId) // TODO is there a better comparison
+    override def defaultValue: zio.prelude.Validation[String, java.time.ZoneId] =
+      zio.prelude.Validation.succeed(java.time.ZoneId.systemDefault)
   }
 
   implicit object ZoneOffsetType extends StandardType[java.time.ZoneOffset] {
-    override def tag: String                                        = Tags.ZONE_OFFSET
-    override def compare(x: ZoneOffset, y: ZoneOffset): Int         = x.compareTo(y)
-    override def defaultValue: Either[String, java.time.ZoneOffset] = Right(java.time.ZoneOffset.UTC)
+    override def tag: String                                = Tags.ZONE_OFFSET
+    override def compare(x: ZoneOffset, y: ZoneOffset): Int = x.compareTo(y)
+    override def defaultValue: zio.prelude.Validation[String, java.time.ZoneOffset] =
+      zio.prelude.Validation.succeed(java.time.ZoneOffset.UTC)
   }
 
   implicit object DurationType extends StandardType[java.time.Duration] {
     override def tag: String                                      = Tags.DURATION
     override def compare(x: time.Duration, y: time.Duration): Int = x.compareTo(y)
-    override def defaultValue: Either[String, java.time.Duration] = Right(java.time.Duration.ZERO)
+    override def defaultValue: zio.prelude.Validation[String, java.time.Duration] =
+      zio.prelude.Validation.succeed(java.time.Duration.ZERO)
   }
 
   implicit object InstantType extends StandardType[java.time.Instant] {
     override def tag: String = Tags.INSTANT
 
-    override def defaultValue: Either[String, Instant] = Right(java.time.Instant.EPOCH)
+    override def defaultValue: zio.prelude.Validation[String, Instant] =
+      zio.prelude.Validation.succeed(java.time.Instant.EPOCH)
 
     override def compare(x: Instant, y: Instant): Int = x.compareTo(y)
   }
@@ -246,7 +260,8 @@ object StandardType {
   implicit object LocalDateType extends StandardType[java.time.LocalDate] {
     override def tag: String = Tags.LOCAL_DATE
 
-    override def defaultValue: Either[String, LocalDate] = Right(java.time.LocalDate.now)
+    override def defaultValue: zio.prelude.Validation[String, LocalDate] =
+      zio.prelude.Validation.succeed(java.time.LocalDate.now)
 
     override def compare(x: LocalDate, y: LocalDate): Int = x.compareTo(y)
   }
@@ -254,7 +269,8 @@ object StandardType {
   implicit object LocalTimeType extends StandardType[java.time.LocalTime] {
     override def tag: String = Tags.LOCAL_TIME
 
-    override def defaultValue: Either[String, LocalTime] = Right(java.time.LocalTime.MIDNIGHT)
+    override def defaultValue: zio.prelude.Validation[String, LocalTime] =
+      zio.prelude.Validation.succeed(java.time.LocalTime.MIDNIGHT)
 
     override def compare(x: LocalTime, y: LocalTime): Int = x.compareTo(y)
   }
@@ -262,7 +278,8 @@ object StandardType {
   implicit object LocalDateTimeType extends StandardType[java.time.LocalDateTime] {
     override def tag: String = Tags.LOCAL_DATE_TIME
 
-    override def defaultValue: Either[String, LocalDateTime] = Right(java.time.LocalDateTime.now)
+    override def defaultValue: zio.prelude.Validation[String, LocalDateTime] =
+      zio.prelude.Validation.succeed(java.time.LocalDateTime.now)
 
     override def compare(x: LocalDateTime, y: LocalDateTime): Int = x.compareTo(y)
   }
@@ -270,7 +287,8 @@ object StandardType {
   implicit object OffsetTimeType extends StandardType[java.time.OffsetTime] {
     override def tag: String = Tags.OFFSET_TIME
 
-    override def defaultValue: Either[String, OffsetTime] = Right(java.time.OffsetTime.now)
+    override def defaultValue: zio.prelude.Validation[String, OffsetTime] =
+      zio.prelude.Validation.succeed(java.time.OffsetTime.now)
 
     override def compare(x: OffsetTime, y: OffsetTime): Int = x.compareTo(y)
   }
@@ -278,7 +296,8 @@ object StandardType {
   implicit object OffsetDateTimeType extends StandardType[java.time.OffsetDateTime] {
     override def tag: String = Tags.OFFSET_DATE_TIME
 
-    override def defaultValue: Either[String, OffsetDateTime] = Right(java.time.OffsetDateTime.now)
+    override def defaultValue: zio.prelude.Validation[String, OffsetDateTime] =
+      zio.prelude.Validation.succeed(java.time.OffsetDateTime.now)
 
     override def compare(x: OffsetDateTime, y: OffsetDateTime): Int = x.compareTo(y)
   }
@@ -286,7 +305,8 @@ object StandardType {
   implicit object ZonedDateTimeType extends StandardType[java.time.ZonedDateTime] {
     override def tag: String = Tags.ZONED_DATE_TIME
 
-    override def defaultValue: Either[String, ZonedDateTime] = Right(java.time.ZonedDateTime.now)
+    override def defaultValue: zio.prelude.Validation[String, ZonedDateTime] =
+      zio.prelude.Validation.succeed(java.time.ZonedDateTime.now)
 
     override def compare(x: ZonedDateTime, y: ZonedDateTime): Int = x.compareTo(y)
   }

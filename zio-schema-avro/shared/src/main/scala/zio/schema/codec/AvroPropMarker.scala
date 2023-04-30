@@ -59,13 +59,13 @@ object AvroPropMarker {
     val propName           = "zio.schema.codec.avro.dateTimeFormatter"
     val default: Formatter = Formatter(DateTimeFormatter.ISO_INSTANT)
 
-    def fromAvroStringOrDefault(avroSchema: SchemaAvro, stringType: StringType): Either[String, Formatter] =
+    def fromAvroStringOrDefault(avroSchema: SchemaAvro, stringType: StringType): zio.prelude.Validation[String, Formatter] =
       fromAvroString(avroSchema).map {
         case Some(value) => value
         case None        => getDefaultByStringType(stringType)
       }
 
-    def fromAvroStringOrDefault(avroSchema: SchemaAvro, logicalType: LogicalType): Either[String, Formatter] =
+    def fromAvroStringOrDefault(avroSchema: SchemaAvro, logicalType: LogicalType): zio.prelude.Validation[String, Formatter] =
       fromAvroString(avroSchema).map {
         case Some(value) => value
         case None        => getDefaultByLogicalType(logicalType)
@@ -95,30 +95,30 @@ object AvroPropMarker {
         case StringType.ZoneDateTime   => Formatter(DateTimeFormatter.ISO_ZONED_DATE_TIME)
       }
 
-    private def fromAvroString(avroSchema: SchemaAvro): Either[String, Option[Formatter]] =
+    private def fromAvroString(avroSchema: SchemaAvro): zio.prelude.Validation[String, Option[Formatter]] =
       avroSchema.getObjectProps.asScala.get(propName).collect {
-        case "ISO_LOCAL_DATE_TIME"  => Right(Formatter(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
-        case "ISO_DATE"             => Right(Formatter(DateTimeFormatter.ISO_DATE))
-        case "ISO_TIME"             => Right(Formatter(DateTimeFormatter.ISO_TIME))
-        case "ISO_LOCAL_TIME"       => Right(Formatter(DateTimeFormatter.ISO_LOCAL_TIME))
-        case "ISO_LOCAL_DATE"       => Right(Formatter(DateTimeFormatter.ISO_LOCAL_DATE))
-        case "ISO_OFFSET_DATE_TIME" => Right(Formatter(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
-        case "ISO_OFFSET_DATE"      => Right(Formatter(DateTimeFormatter.ISO_OFFSET_DATE))
-        case "ISO_OFFSET_TIME"      => Right(Formatter(DateTimeFormatter.ISO_OFFSET_TIME))
-        case "ISO_ZONED_DATE_TIME"  => Right(Formatter(DateTimeFormatter.ISO_ZONED_DATE_TIME))
-        case "ISO_ORDINAL_DATE"     => Right(Formatter(DateTimeFormatter.ISO_ORDINAL_DATE))
-        case "ISO_WEEK_DATE"        => Right(Formatter(DateTimeFormatter.ISO_WEEK_DATE))
-        case "ISO_INSTANT"          => Right(Formatter(DateTimeFormatter.ISO_INSTANT))
-        case "ISO_DATE_TIME"        => Right(Formatter(DateTimeFormatter.ISO_DATE_TIME))
-        case "RFC_1123_DATE_TIME"   => Right(Formatter(DateTimeFormatter.RFC_1123_DATE_TIME))
-        case "BASIC_ISO_DATE"       => Right(Formatter(DateTimeFormatter.BASIC_ISO_DATE))
+        case "ISO_LOCAL_DATE_TIME"  => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+        case "ISO_DATE"             => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.ISO_DATE))
+        case "ISO_TIME"             => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.ISO_TIME))
+        case "ISO_LOCAL_TIME"       => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.ISO_LOCAL_TIME))
+        case "ISO_LOCAL_DATE"       => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.ISO_LOCAL_DATE))
+        case "ISO_OFFSET_DATE_TIME" => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+        case "ISO_OFFSET_DATE"      => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.ISO_OFFSET_DATE))
+        case "ISO_OFFSET_TIME"      => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.ISO_OFFSET_TIME))
+        case "ISO_ZONED_DATE_TIME"  => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+        case "ISO_ORDINAL_DATE"     => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.ISO_ORDINAL_DATE))
+        case "ISO_WEEK_DATE"        => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.ISO_WEEK_DATE))
+        case "ISO_INSTANT"          => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.ISO_INSTANT))
+        case "ISO_DATE_TIME"        => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.ISO_DATE_TIME))
+        case "RFC_1123_DATE_TIME"   => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.RFC_1123_DATE_TIME))
+        case "BASIC_ISO_DATE"       => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.BASIC_ISO_DATE))
         case s: String =>
           Try {
             Formatter(DateTimeFormatter.ofPattern(s))
           }.toEither.left.map(_.getMessage)
       } match {
         case Some(value) => value.map(Some(_))
-        case None        => Right(None)
+        case None        => zio.prelude.Validation.succeed(None)
       }
 
   }

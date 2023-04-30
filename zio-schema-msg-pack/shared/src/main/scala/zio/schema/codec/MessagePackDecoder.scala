@@ -105,7 +105,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
       case _                      => fail(path, s"Unknown schema ${schema.getClass.getName}")
     }
 
-  private def decodeTransform[A, B](path: Path, schema: Schema[B], f: B => scala.util.Either[String, A]): Result[A] =
+  private def decodeTransform[A, B](path: Path, schema: Schema[B], f: B => zio.prelude.Validation[String, A]): Result[A] =
     decodeValue(path, schema).flatMap(a => f(a).left.map(msg => MalformedFieldWithPath(path, msg)))
 
   private def decodeRecord[Z](path: Path, fields: Seq[Schema.Field[Z, _]]): Result[ListMap[String, _]] =
@@ -123,7 +123,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
             case Some(fieldSchema) =>
               decodeValue(actualPath, fieldSchema) match {
                 case Left(err) => Left(err)
-                case Right(value) =>
+                case zio.prelude.Validation.succeed(value) =>
                   if (index == fields.size) {
                     succeed(m.updated(fieldName, value))
                   } else {
@@ -151,7 +151,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
     def decodeElements(n: Int, m: scala.collection.mutable.Map[K, V]): Result[scala.collection.immutable.Map[K, V]] =
       if (n > 0) {
         (decodeValue(path, schema.keySchema), decodeValue(path, schema.valueSchema)) match {
-          case (Right(key), Right(value)) => decodeElements(n - 1, m += ((key, value)))
+          case (zio.prelude.Validation.succeed(key), zio.prelude.Validation.succeed(value)) => decodeElements(n - 1, m += ((key, value)))
           case (l, r) =>
             val key   = l.fold(_.message, _.toString)
             val value = r.fold(_.message, _.toString)
@@ -172,7 +172,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
     def decodeElements(n: Int, cb: ChunkBuilder[A]): Result[Chunk[A]] =
       if (n > 0) {
         decodeValue(path, elementSchema) match {
-          case Right(elem) => decodeElements(n - 1, cb += elem)
+          case zio.prelude.Validation.succeed(elem) => decodeElements(n - 1, cb += elem)
           case Left(err)   => Left(err)
         }
       } else {
@@ -217,7 +217,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
           } yield new java.math.BigDecimal(unscaled, scale, ctx)
 
           opt match {
-            case Some(value) => Right(value)
+            case Some(value) => zio.prelude.Validation.succeed(value)
             case None        => fail(path, s"Invalid big decimal record $data")
           }
         }
@@ -297,7 +297,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
         }
     )
 
-  private def decodeEither[A, B](path: Path, left: Schema[A], right: Schema[B]): Result[Either[A, B]] =
+  private def decodezio.prelude.Validation[A, B](path: Path, left: Schema[A], right: Schema[B]): Result[zio.prelude.Validation[A, B]] =
     Try(unpacker.unpackMapHeader()).fold(
       err => fail(path, s"Error parsing Either structure: ${err.getMessage}"),
       size =>
@@ -306,7 +306,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
         } else {
           decodeString(path :+ "either").flatMap {
             case "left"  => decodeValue(path :+ "either:left", left).map(Left(_))
-            case "right" => decodeValue(path :+ "either:right", right).map(Right(_))
+            case "right" => decodeValue(path :+ "either:right", right).map(zio.prelude.Validation.succeed(_))
             case str     => fail(path :+ "either", s"Unexpected field name: $str")
           }
         }
@@ -614,10 +614,10 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
 object MessagePackDecoder {
   type Path = Chunk[String]
 
-  type Result[A] = scala.util.Either[DecodeError, A]
+  type Result[A] = zio.prelude.Validation[DecodeError, A]
 
   private def succeed[A](a: => A): Result[A] =
-    Right(a)
+    zio.prelude.Validation.succeed(a)
 
   private def fail(path: Path, failure: String): Result[Nothing] =
     Left(MalformedFieldWithPath(path, failure))

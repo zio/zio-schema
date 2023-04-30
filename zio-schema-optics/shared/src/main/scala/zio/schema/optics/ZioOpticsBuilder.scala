@@ -34,7 +34,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
   ): ZPrism[S, S, A, A] =
     ZPrism(
       get = ZioOpticsBuilder.makePrismGet(term),
-      set = (piece: A) => Right(piece.asInstanceOf[S])
+      set = (piece: A) => zio.prelude.Validation.succeed(piece.asInstanceOf[S])
     )
 
   override def makeTraversal[S, A](
@@ -62,7 +62,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
   private[optics] def makeLensGet[S, A](
     product: Schema.Record[S],
     term: Schema.Field[S, A]
-  ): S => Either[(OpticFailure, S), A] = { (whole: S) =>
+  ): S => zio.prelude.Validation[(OpticFailure, S), A] = { (whole: S) =>
     product.toDynamic(whole) match {
       case DynamicValue.Record(_, values) =>
         values
@@ -70,7 +70,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
           .map { dynamicField =>
             term.schema.fromDynamic(dynamicField) match {
               case Left(error)  => Left(OpticFailure(error) -> whole)
-              case Right(value) => Right(value)
+              case zio.prelude.Validation.succeed(value) => zio.prelude.Validation.succeed(value)
             }
           }
           .getOrElse(Left(OpticFailure(s"No term found with label ${term.name}") -> whole))
@@ -81,13 +81,13 @@ object ZioOpticsBuilder extends AccessorBuilder {
   private[optics] def makeLensSet[S, A](
     product: Schema.Record[S],
     term: Schema.Field[S, A]
-  ): A => S => Either[(OpticFailure, S), S] = { (piece: A) => (whole: S) =>
+  ): A => S => zio.prelude.Validation[(OpticFailure, S), S] = { (piece: A) => (whole: S) =>
     product.toDynamic(whole) match {
       case DynamicValue.Record(name, values) =>
         val updated = spliceRecord(values, term.name, term.name -> term.schema.toDynamic(piece))
         product.fromDynamic(DynamicValue.Record(name, updated)) match {
           case Left(error)  => Left(OpticFailure(error) -> whole)
-          case Right(value) => Right(value)
+          case zio.prelude.Validation.succeed(value) => zio.prelude.Validation.succeed(value)
         }
       case _ => Left(OpticFailure(s"Unexpected dynamic value for whole") -> whole)
     }
@@ -95,22 +95,22 @@ object ZioOpticsBuilder extends AccessorBuilder {
 
   private[optics] def makePrismGet[S, A](
     term: Schema.Case[S, A]
-  ): S => Either[(OpticFailure, S), A] = { (whole: S) =>
+  ): S => zio.prelude.Validation[(OpticFailure, S), A] = { (whole: S) =>
     term.deconstructOption(whole) match {
-      case Some(a) => Right(a)
+      case Some(a) => zio.prelude.Validation.succeed(a)
       case None    => Left(OpticFailure(s"Cannot deconstruct to term ${term.id}") -> whole)
     }
   }
 
   private[optics] def makeSeqTraversalGet[S, A](
     collection: Schema.Sequence[S, A, _]
-  ): S => Either[(OpticFailure, S), Chunk[A]] = { (whole: S) =>
-    Right(collection.toChunk(whole))
+  ): S => zio.prelude.Validation[(OpticFailure, S), Chunk[A]] = { (whole: S) =>
+    zio.prelude.Validation.succeed(collection.toChunk(whole))
   }
 
   private[optics] def makeSeqTraversalSet[S, A](
     collection: Schema.Sequence[S, A, _]
-  ): Chunk[A] => S => Either[(OpticFailure, S), S] = { (piece: Chunk[A]) => (whole: S) =>
+  ): Chunk[A] => S => zio.prelude.Validation[(OpticFailure, S), S] = { (piece: Chunk[A]) => (whole: S) =>
     val builder       = ChunkBuilder.make[A]()
     val leftIterator  = collection.toChunk(whole).iterator
     val rightIterator = piece.iterator
@@ -121,24 +121,24 @@ object ZioOpticsBuilder extends AccessorBuilder {
     while (leftIterator.hasNext) {
       builder += leftIterator.next()
     }
-    Right(collection.fromChunk(builder.result()))
+    zio.prelude.Validation.succeed(collection.fromChunk(builder.result()))
   }
 
-  private[optics] def makeMapTraversalGet[K, V](whole: Map[K, V]): Either[(OpticFailure, Map[K, V]), Chunk[(K, V)]] =
-    Right(Chunk.fromIterable(whole))
+  private[optics] def makeMapTraversalGet[K, V](whole: Map[K, V]): zio.prelude.Validation[(OpticFailure, Map[K, V]), Chunk[(K, V)]] =
+    zio.prelude.Validation.succeed(Chunk.fromIterable(whole))
 
   private[optics] def makeMapTraversalSet[K, V]
-    : Chunk[(K, V)] => Map[K, V] => Either[(OpticFailure, Map[K, V]), Map[K, V]] = {
+    : Chunk[(K, V)] => Map[K, V] => zio.prelude.Validation[(OpticFailure, Map[K, V]), Map[K, V]] = {
     (piece: Chunk[(K, V)]) => (whole: Map[K, V]) =>
-      Right(whole ++ piece.toList)
+      zio.prelude.Validation.succeed(whole ++ piece.toList)
   }
 
-  private[optics] def makeSetTraversalGet[A](whole: Set[A]): Either[(OpticFailure, Set[A]), Chunk[A]] =
-    Right(Chunk.fromIterable(whole))
+  private[optics] def makeSetTraversalGet[A](whole: Set[A]): zio.prelude.Validation[(OpticFailure, Set[A]), Chunk[A]] =
+    zio.prelude.Validation.succeed(Chunk.fromIterable(whole))
 
-  private[optics] def makeSetTraversalSet[A]: Chunk[A] => Set[A] => Either[(OpticFailure, Set[A]), Set[A]] = {
+  private[optics] def makeSetTraversalSet[A]: Chunk[A] => Set[A] => zio.prelude.Validation[(OpticFailure, Set[A]), Set[A]] = {
     (piece: Chunk[A]) => (whole: Set[A]) =>
-      Right(whole ++ piece.toSet)
+      zio.prelude.Validation.succeed(whole ++ piece.toSet)
   }
 
   private def spliceRecord(

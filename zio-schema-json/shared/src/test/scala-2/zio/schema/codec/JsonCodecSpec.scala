@@ -275,7 +275,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         val errorMessage = "I'm sorry Dave, I can't do that"
         val schema: Schema[Int] = Schema
           .Primitive(StandardType.StringType)
-          .transformOrFail[Int](_ => Left(errorMessage), i => Right(i.toString))
+          .transformOrFail[Int](_ => Left(errorMessage), i => zio.prelude.Validation.succeed(i.toString))
         check(Gen.int(Int.MinValue, Int.MaxValue)) { int =>
           assertDecodesToError(
             schema,
@@ -495,7 +495,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
             right <- SchemaGen.anyTupleAndValue
           } yield (
             Schema.Either(left._1.asInstanceOf[Schema[(Any, Any)]], right._1.asInstanceOf[Schema[(Any, Any)]]),
-            Right(right._2)
+            zio.prelude.Validation.succeed(right._2)
           )
         ) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
@@ -534,9 +534,9 @@ object JsonCodecSpec extends ZIOSpecDefault {
           )
         ) {
           case (schema, value) =>
-            assertEncodesThenDecodes[scala.util.Either[Map[Any, Any], Map[Any, Any]]](
-              schema.asInstanceOf[Schema[scala.util.Either[Map[Any, Any], Map[Any, Any]]]],
-              value.asInstanceOf[scala.util.Either[Map[Any, Any], Map[Any, Any]]]
+            assertEncodesThenDecodes[zio.prelude.Validation[Map[Any, Any], Map[Any, Any]]](
+              schema.asInstanceOf[Schema[zio.prelude.Validation[Map[Any, Any], Map[Any, Any]]]],
+              value.asInstanceOf[zio.prelude.Validation[Map[Any, Any], Map[Any, Any]]]
             )
         }
       },
@@ -552,9 +552,9 @@ object JsonCodecSpec extends ZIOSpecDefault {
           )
         ) {
           case (schema, value) =>
-            assertEncodesThenDecodes[scala.util.Either[Set[Any], Set[Any]]](
-              schema.asInstanceOf[Schema[scala.util.Either[Set[Any], Set[Any]]]],
-              value.asInstanceOf[scala.util.Either[Set[Any], Set[Any]]]
+            assertEncodesThenDecodes[zio.prelude.Validation[Set[Any], Set[Any]]](
+              schema.asInstanceOf[Schema[zio.prelude.Validation[Set[Any], Set[Any]]]],
+              value.asInstanceOf[zio.prelude.Validation[Set[Any], Set[Any]]]
             )
         }
       },
@@ -588,7 +588,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         check(for {
           (left, _)  <- SchemaGen.anyRecordOfRecordsAndValue
           (right, b) <- SchemaGen.anyRecordOfRecordsAndValue
-        } yield (Schema.Either(left, right), Right(b))) {
+        } yield (Schema.Either(left, right), zio.prelude.Validation.succeed(b))) {
           case (schema, value) =>
             assertEncodesThenDecodes(schema, value)
         }
@@ -597,7 +597,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         check(for {
           (left, _)      <- SchemaGen.anyEnumerationAndValue
           (right, value) <- SchemaGen.anySequenceAndValue
-        } yield (Schema.Either(left, right), Right(value))) {
+        } yield (Schema.Either(left, right), zio.prelude.Validation.succeed(value))) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
         }
       }

@@ -72,12 +72,12 @@ object SchemaSpec extends ZIOSpecDefault {
       )
     )
 
-  val f: Unit => Either[String, Int] = _ => Right(0)
-  val g: Int => Either[String, Unit] = _ => Right(())
+  val f: Unit => zio.prelude.Validation[String, Int] = _ => zio.prelude.Validation.succeed(0)
+  val g: Int => zio.prelude.Validation[String, Unit] = _ => zio.prelude.Validation.succeed(())
   def schemaTransform: Schema[Int]   = schemaUnit.transformOrFail[Int](f, g)
 
-  def tranformF(u: Unit): Either[String, Int] = Some(u).map(_ => 0).toRight("")
-  def tranformG(i: Int): Either[String, Unit] = Some(i).map(_ => ()).toRight("")
+  def tranformF(u: Unit): zio.prelude.Validation[String, Int] = Some(u).map(_ => 0).tozio.prelude.Validation.succeed("")
+  def tranformG(i: Int): zio.prelude.Validation[String, Unit] = Some(i).map(_ => ()).tozio.prelude.Validation.succeed("")
   def schemaTransformMethod: Schema[Int]      = schemaUnit.transformOrFail(tranformF, tranformG)
 
 }

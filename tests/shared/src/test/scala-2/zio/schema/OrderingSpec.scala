@@ -88,27 +88,27 @@ object OrderingSpec extends ZIOSpecDefault {
       } yield (None, Some(a))
     )
 
-  def genAnyOrderedPairEither: Gen[Sized, SchemaAndPair[Either[_, _]]] =
+  def genAnyOrderedPairEither: Gen[Sized, SchemaAndPair[zio.prelude.Validation[_, _]]] =
     for {
       leftSchema  <- anySchema
       rightSchema <- anySchema
       (l, r)      <- genOrderedPairEither(leftSchema, rightSchema)
-    } yield (Schema.Either(leftSchema, rightSchema), l, r).asInstanceOf[SchemaAndPair[Either[_, _]]]
+    } yield (Schema.Either(leftSchema, rightSchema), l, r).asInstanceOf[SchemaAndPair[zio.prelude.Validation[_, _]]]
 
-  def genOrderedPairEither[A, B](
+  def genOrderedPairzio.prelude.Validation[A, B](
     lSchema: Schema[A],
     rSchema: Schema[B]
-  ): Gen[Sized, (Either[A, B], Either[A, B])] = Gen.oneOf(
+  ): Gen[Sized, (zio.prelude.Validation[A, B], zio.prelude.Validation[A, B])] = Gen.oneOf(
     for {
       (small, large) <- genOrderedPair(lSchema)
     } yield (Left(small), Left(large)),
     for {
       (small, large) <- genOrderedPair(rSchema)
-    } yield (Right(small), Right(large)),
+    } yield (zio.prelude.Validation.succeed(small), zio.prelude.Validation.succeed(large)),
     for {
       l <- genFromSchema(lSchema)
       r <- genFromSchema(rSchema)
-    } yield (Left(l), Right(r))
+    } yield (Left(l), zio.prelude.Validation.succeed(r))
   )
 
   def genAnyOrderedPairTuple: Gen[Sized, SchemaAndPair[_]] =
@@ -116,7 +116,7 @@ object OrderingSpec extends ZIOSpecDefault {
       xSchema <- anySchema
       ySchema <- anySchema
       (l, r)  <- genOrderedPairTuple(xSchema, ySchema)
-    } yield (Schema.Tuple2(xSchema, ySchema), l, r).asInstanceOf[SchemaAndPair[Either[_, _]]]
+    } yield (Schema.Tuple2(xSchema, ySchema), l, r).asInstanceOf[SchemaAndPair[zio.prelude.Validation[_, _]]]
 
   def genOrderedPairTuple[A, B](
     xSchema: Schema[A],
@@ -171,9 +171,9 @@ object OrderingSpec extends ZIOSpecDefault {
     for {
       (small, large) <- genOrderedPair(schema)
     } yield (schema.transformOrFail({ (a: A) =>
-      Right(a)
+      zio.prelude.Validation.succeed(a)
     }, { (a: A) =>
-      Right(a)
+      zio.prelude.Validation.succeed(a)
     }), small, large)
 
   def genOrderedPairDecodeTransform[A](
@@ -182,7 +182,7 @@ object OrderingSpec extends ZIOSpecDefault {
     for {
       error               <- Gen.boolean
       (small, large)      <- genOrderedPair(schema)
-      encode              = (a: A) => Right(schema.toDynamic(a))
+      encode              = (a: A) => zio.prelude.Validation.succeed(schema.toDynamic(a))
       decode              = schema.fromDynamic(_)
       smallEncoded        = encode(small).toOption.get
       smallEncodedOrError = if (error) DynamicValue.SomeValue(smallEncoded) else smallEncoded

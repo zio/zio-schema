@@ -7,7 +7,7 @@ import zio.prelude._
 import zio.schema._
 
 trait Decoder[+A] {
-  def decode(in: Json): Either[String, A]
+  def decode(in: Json): zio.prelude.Validation[String, A]
 }
 
 object Decoder {
@@ -19,16 +19,16 @@ object Decoder {
         a  <- schema.fromDynamic(dv)
       } yield a
 
-  private def jsonToDynamicValue(in: Json): Either[String, DynamicValue] =
+  private def jsonToDynamicValue(in: Json): zio.prelude.Validation[String, DynamicValue] =
     in match {
       case Json.JStr(s) =>
-        Right(DynamicValue.Primitive(s, StandardType.StringType))
+        zio.prelude.Validation.succeed(DynamicValue.Primitive(s, StandardType.StringType))
 
       case Json.JNum(d) =>
-        Right(DynamicValue.Primitive(d, StandardType.DoubleType))
+        zio.prelude.Validation.succeed(DynamicValue.Primitive(d, StandardType.DoubleType))
 
       case Json.JBool(b) =>
-        Right(DynamicValue.Primitive(b, StandardType.BoolType))
+        zio.prelude.Validation.succeed(DynamicValue.Primitive(b, StandardType.BoolType))
 
       case Json.JArr(as) =>
         as.forEach(jsonToDynamicValue)
@@ -37,9 +37,9 @@ object Decoder {
       case Json.JObj(map) =>
         map.map {
           case (k, v) => k -> jsonToDynamicValue(v)
-        }.foldRight[Either[String, DynamicValue]](Right(DynamicValue.Record(TypeId.Structural, ListMap.empty))) {
-          case ((key, Right(value)), Right(DynamicValue.Record(_, values))) =>
-            Right(DynamicValue.Record(TypeId.parse(key), values + (key -> value)))
+        }.foldRight[zio.prelude.Validation[String, DynamicValue]](zio.prelude.Validation.succeed(DynamicValue.Record(TypeId.Structural, ListMap.empty))) {
+          case ((key, zio.prelude.Validation.succeed(value)), zio.prelude.Validation.succeed(DynamicValue.Record(_, values))) =>
+            zio.prelude.Validation.succeed(DynamicValue.Record(TypeId.parse(key), values + (key -> value)))
           case ((_, Left(err)), _) => Left(err)
           case (_, Left(err))      => Left(err)
         }

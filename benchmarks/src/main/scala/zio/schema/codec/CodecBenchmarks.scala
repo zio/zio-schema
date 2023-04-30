@@ -15,7 +15,7 @@ object CodecBenchmarks {
   val statusProtobufEncoder: Status => Chunk[Byte] =
     ProtobufCodec.protobufCodec[Status].encode
 
-  val statusProtobufDecoder: Chunk[Byte] => Either[DecodeError, Status] =
+  val statusProtobufDecoder: Chunk[Byte] => zio.prelude.Validation[DecodeError, Status] =
     ProtobufCodec.protobufCodec[Status].decode
 
   val statuses: Array[Status] = Array(

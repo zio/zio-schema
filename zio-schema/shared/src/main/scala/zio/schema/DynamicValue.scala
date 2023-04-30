@@ -13,9 +13,9 @@ import zio.{ Cause, Chunk, Unsafe }
 sealed trait DynamicValue {
   self =>
 
-  def transform(transforms: Chunk[Migration]): Either[String, DynamicValue] =
-    transforms.foldRight[Either[String, DynamicValue]](Right(self)) {
-      case (transform, Right(value)) => transform.migrate(value)
+  def transform(transforms: Chunk[Migration]): zio.prelude.Validation[String, DynamicValue] =
+    transforms.foldRight[zio.prelude.Validation[String, DynamicValue]](zio.prelude.Validation.succeed(self)) {
+      case (transform, zio.prelude.Validation.succeed(value)) => transform.migrate(value)
       case (_, error @ Left(_))      => error
     }
 
@@ -56,7 +56,7 @@ sealed trait DynamicValue {
         value.toTypedValueLazyError(schema1).map(Left(_))
 
       case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
-        value.toTypedValueLazyError(schema1).map(Right(_))
+        value.toTypedValueLazyError(schema1).map(zio.prelude.Validation.succeed(_))
 
       case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
         val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
@@ -143,12 +143,12 @@ object DynamicValue {
       DynamicValue.SetValue(value)
 
     override protected def processEither(
-      schema: Schema.Either[_, _],
-      value: Either[DynamicValue, DynamicValue]
+      schema: Schema.zio.prelude.Validation[_, _],
+      value: zio.prelude.Validation[DynamicValue, DynamicValue]
     ): DynamicValue =
       value match {
         case Left(value)  => DynamicValue.LeftValue(value)
-        case Right(value) => DynamicValue.RightValue(value)
+        case zio.prelude.Validation.succeed(value) => DynamicValue.RightValue(value)
       }
 
     override protected def processOption(schema: Schema.Optional[_], value: Option[DynamicValue]): DynamicValue =
@@ -491,7 +491,7 @@ object DynamicValue {
             "values",
             Schema.defer(Schema.chunk(Schema.tuple2(Schema.primitive[String], DynamicValue.schema))),
             get0 = record => Chunk.fromIterable(record.values),
-            set0 = (record, values) => record.copy(values = values.foldRight(ListMap.empty[String, DynamicValue])((a, b) => b + a))
+            set0 = (record, values) => record.copy(values = values.foldzio.prelude.Validation.succeed(ListMap.empty[String, DynamicValue])((a, b) => b + a))
           ),
         (id, chunk) => DynamicValue.Record(id, ListMap(chunk.toSeq: _*))
       ),

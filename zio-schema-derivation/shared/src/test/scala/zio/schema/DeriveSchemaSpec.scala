@@ -376,12 +376,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
         val a  = DependsOnA(Some(DependsOnB(None)))
         val a0 = Schema[DependsOnA].fromDynamic(Schema[DependsOnA].toDynamic(a))
         assert(Schema[DependsOnA])(anything)
-        assert(a0)(isRight(equalTo(a)))
+        assert(a0)(iszio.prelude.Validation.succeed(equalTo(a)))
 
         val b  = DependsOnB(Some(DependsOnA(None)))
         val b0 = Schema[DependsOnB].fromDynamic(Schema[DependsOnB].toDynamic(b))
         assert(Schema[DependsOnB])(anything)
-        assert(b0)(isRight(equalTo(b)))
+        assert(b0)(iszio.prelude.Validation.succeed(equalTo(b)))
       },
       test("correctly derives recursive Enum with type parameters") {
         val derived: Schema[Tree[Recursive]] = DeriveSchema.gen[Tree[Recursive]]

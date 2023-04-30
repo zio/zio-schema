@@ -475,7 +475,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
         },
         test("either right") {
-          val either = Right("hello")
+          val either = zio.prelude.Validation.succeed("hello")
           for {
             ed  <- encodeAndDecode(eitherSchema, either)
             ed2 <- encodeAndDecodeNS(eitherSchema, either)
@@ -489,8 +489,8 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           } yield assert(ed)(equalTo(Chunk(eitherLeft))) && assert(ed2)(equalTo(eitherLeft))
         },
         test("either with sum type") {
-          val eitherRight  = Right(BooleanValue(true))
-          val eitherRight2 = Right(StringValue("hello"))
+          val eitherRight  = zio.prelude.Validation.succeed(BooleanValue(true))
+          val eitherRight2 = zio.prelude.Validation.succeed(StringValue("hello"))
           for {
             ed  <- encodeAndDecode(complexEitherSchema, eitherRight2)
             ed2 <- encodeAndDecodeNS(complexEitherSchema, eitherRight)
@@ -575,7 +575,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         },
         test("either within either") {
-          val either = Right(Left(BooleanValue(true)))
+          val either = zio.prelude.Validation.succeed(Left(BooleanValue(true)))
           val schema = Schema.either(Schema[Int], Schema.either(schemaOneOf, Schema[String]))
           for {
             ed  <- encodeAndDecode(schema, either)
@@ -585,7 +585,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         test("sequence of tuples") {
           for {
             ed <- encodeAndDecodeNS2(Schema[List[(String, Int)]], List("foo" -> 1, "bar" -> 2))
-          } yield assertTrue(ed == Right(List("foo" -> 1, "bar" -> 2)))
+          } yield assertTrue(ed == zio.prelude.Validation.succeed(List("foo" -> 1, "bar" -> 2)))
         },
         test("sequence of products") {
           val richSequence = SequenceOfProduct(
@@ -633,7 +633,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
               for {
                 ed <- encodeAndDecode2(schema, value)
 //              ed2 <- encodeAndDecodeNS(schema, value)
-              } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
+              } yield assertTrue(ed == zio.prelude.Validation.succeed(Chunk(value))) //&& assert(ed2)(equalTo(value))
           }
         },
         test("deep recursive data types") {
@@ -642,7 +642,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
               for {
                 ed <- encodeAndDecode2(schema, value)
                 //              ed2 <- encodeAndDecodeNS(schema, value)
-              } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
+              } yield assertTrue(ed == zio.prelude.Validation.succeed(Chunk(value))) //&& assert(ed2)(equalTo(value))
           }
         } @@ TestAspect.size(200)
       ),
@@ -944,12 +944,12 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
   val complexTupleSchema: Schema.Tuple2[Record, OneOf] = Schema.Tuple2(Record.schemaRecord, schemaOneOf)
 
-  val eitherSchema: Schema.Either[Int, String] = Schema.Either(Schema[Int], Schema[String])
+  val eitherSchema: Schema.zio.prelude.Validation[Int, String] = Schema.Either(Schema[Int], Schema[String])
 
-  val complexEitherSchema: Schema.Either[Record, OneOf] =
+  val complexEitherSchema: Schema.zio.prelude.Validation[Record, OneOf] =
     Schema.Either(Record.schemaRecord, schemaOneOf)
 
-  val complexEitherSchema2: Schema.Either[MyRecord, MyRecord] =
+  val complexEitherSchema2: Schema.zio.prelude.Validation[MyRecord, MyRecord] =
     Schema.Either(myRecord, myRecord)
 
   case class RichProduct(stringOneOf: OneOf, basicString: BasicString, record: Record)
@@ -1054,7 +1054,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .apply(ZStream.succeed(input))
       .run(ZSink.collectAll)
 
-  def encodeAndDecode2[A](schema: Schema[A], input: A): ZIO[Any, Any, scala.util.Either[DecodeError, Chunk[A]]] =
+  def encodeAndDecode2[A](schema: Schema[A], input: A): ZIO[Any, Any, zio.prelude.Validation[DecodeError, Chunk[A]]] =
     ProtobufCodec
       .protobufCodec(schema)
       .streamEncoder
@@ -1089,7 +1089,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
     schema: Schema[A],
     input: A,
     print: Boolean = false
-  ): ZIO[Any, DecodeError, scala.util.Either[DecodeError, A]] =
+  ): ZIO[Any, DecodeError, zio.prelude.Validation[DecodeError, A]] =
     ZIO
       .succeed(input)
       .tap(value => printLine(s"Input Value: $value").when(print).ignore)

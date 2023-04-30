@@ -97,7 +97,7 @@ object DeriveSchema {
                     else
                       recurse(schemaType, stack)
                   case typeArg1 :: typeArg2 :: Nil =>
-                    if (schemaType <:< typeOf[Either[_, _]])
+                    if (schemaType <:< typeOf[zio.prelude.Validation[_, _]])
                       q"""_root_.zio.schema.Schema.either(
                         _root_.zio.schema.Schema.defer(${directInferSchema(
                         parentType,
@@ -299,13 +299,13 @@ object DeriveSchema {
                  }
                """
             }
-            q"""(m: scala.collection.immutable.ListMap[String, _]) => try { Right($tpeCompanion.apply(..$casts)) } catch { case e: Throwable => Left(e.getMessage) }"""
+            q"""(m: scala.collection.immutable.ListMap[String, _]) => try { zio.prelude.Validation.succeed($tpeCompanion.apply(..$casts)) } catch { case e: Throwable => Left(e.getMessage) }"""
           }
           val toMap = {
             val tuples = fieldAccessors.map { fieldName =>
               q"(${fieldName.toString},b.$fieldName)"
             }
-            q"""(b: $tpe) => Right(scala.collection.immutable.ListMap.apply(..$tuples))"""
+            q"""(b: $tpe) => zio.prelude.Validation.succeed(scala.collection.immutable.ListMap.apply(..$tuples))"""
           }
 
           val applyArgs =

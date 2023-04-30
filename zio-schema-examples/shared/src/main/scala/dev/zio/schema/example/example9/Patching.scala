@@ -18,9 +18,9 @@ object Patching extends App {
   private val patch: Patch[Person]    = schema.diff(person1, person2)
   private val inverted: Patch[Person] = patch.invert
 
-  private val result1: Either[String, Person] = patch.patch(person1)
-  private val result2: Either[String, Person] = result1.flatMap(inverted.patch)
+  private val result1: zio.prelude.Validation[String, Person] = patch.patch(person1)
+  private val result2: zio.prelude.Validation[String, Person] = result1.flatMap(inverted.patch)
 
-  assert(result2 == Right(person1))
+  assert(result2 == zio.prelude.Validation.succeed(person1))
 
 }

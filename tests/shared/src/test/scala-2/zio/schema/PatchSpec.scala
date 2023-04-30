@@ -19,7 +19,7 @@ object PatchSpec extends ZIOSpecDefault {
         test("Boolean")(patchIdentityLaw[Boolean]),
         test("Bytes")(patchIdentityLaw[Chunk[Byte]]),
         suite("Either") {
-          test("primitive")(patchIdentityLaw[Either[String, String]])
+          test("primitive")(patchIdentityLaw[zio.prelude.Validation[String, String]])
         },
         suite("Option") {
           test("primitive")(patchIdentityLaw[Option[String]])
@@ -160,7 +160,7 @@ object PatchSpec extends ZIOSpecDefault {
     ),
     suite("not comparable")(
       test("Left <-> Right") {
-        notComparable[Either[String, String]](_.isLeft, _.isRight)(_.isLeft)
+        notComparable[zio.prelude.Validation[String, String]](_.isLeft, _.isRight)(_.isLeft)
       },
       test("Separate enum cases") {
         notComparable[Pet](_.isInstanceOf[Pet.Dog], _.isInstanceOf[Pet.Cat])(_.isLeft)
@@ -182,7 +182,7 @@ object PatchSpec extends ZIOSpecDefault {
           val afterInvert        = diff.invert.invert
           val patched            = schema.diff(l, r).patch(l)
           val patchedAfterInvert = afterInvert.patch(l)
-          assert(patched)(isRight(equalTo(r))) && assert(patchedAfterInvert)(isRight(equalTo(r)))
+          assert(patched)(iszio.prelude.Validation.succeed(equalTo(r))) && assert(patchedAfterInvert)(iszio.prelude.Validation.succeed(equalTo(r)))
         } else {
           assertTrue(true)
         }
@@ -190,7 +190,7 @@ object PatchSpec extends ZIOSpecDefault {
   }
 
   private def notComparable[A](leftFilter: A => Boolean, rightFilter: A => Boolean)(
-    assertion: Either[String, A] => Boolean
+    assertion: zio.prelude.Validation[String, A] => Boolean
   )(implicit schema: Schema[A]): URIO[Sized with TestConfig, TestResult] = {
     val gen = DeriveGen.gen[A]
 

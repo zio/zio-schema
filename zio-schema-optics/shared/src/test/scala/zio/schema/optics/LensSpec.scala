@@ -32,7 +32,7 @@ object LensSpec extends ZIOSpecDefault {
   ): URIO[Env, TestResult] =
     check(genWhole) { wholeBefore =>
       val wholeAfter = lens.get(wholeBefore).flatMap(lens.set(_)(wholeBefore))
-      assert(wholeAfter)(isRight(equalTo(wholeBefore)))
+      assert(wholeAfter)(iszio.prelude.Validation.succeed(equalTo(wholeBefore)))
     }
 
   def setGetIdentity[F, Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
@@ -40,7 +40,7 @@ object LensSpec extends ZIOSpecDefault {
   ): URIO[Env, TestResult] =
     check(genWhole, genPiece) { (whole, pieceBefore) =>
       val pieceAfter = lens.set(pieceBefore)(whole).flatMap(lens.get)
-      assert(pieceAfter)(isRight(equalTo(pieceBefore)))
+      assert(pieceAfter)(iszio.prelude.Validation.succeed(equalTo(pieceBefore)))
     }
 
   def setSetIdentity[F, Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(

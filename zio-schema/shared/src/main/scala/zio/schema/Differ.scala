@@ -1,15 +1,15 @@
 package zio.schema
 
+import zio.prelude.Validation
+
 import java.math.{ BigInteger, MathContext }
 import java.time.temporal.{ ChronoField, ChronoUnit }
 import java.time.{
   DayOfWeek,
-  Duration => JDuration,
   Instant,
   LocalDate,
   LocalDateTime,
   LocalTime,
-  Month => JMonth,
   MonthDay,
   OffsetDateTime,
   OffsetTime,
@@ -18,13 +18,13 @@ import java.time.{
   YearMonth,
   ZoneId,
   ZoneOffset,
+  Duration => JDuration,
+  Month => JMonth,
   ZonedDateTime => JZonedDateTime
 }
 import java.util.UUID
-
 import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
-
 import zio.schema.diff.Edit
 import zio.{ Chunk, ChunkBuilder }
 
@@ -41,14 +41,15 @@ trait Differ[A] { self =>
 
   def transform[B](f: B => A, g: A => B): Differ[B] =
     (thisValue: B, thatValue: B) =>
-      Patch.Transform(self(f(thisValue), f(thatValue)), g.andThen(Right(_)), f.andThen(Right(_)))
+      Patch.Transform(self(f(thisValue), f(thatValue)), g.andThen(Validation.succeed), f.andThen(Validation.succeed))
 
-  def transformOrFail[B](f: B => Either[String, A], g: A => Either[String, B]): Differ[B] =
+  def transformOrFail[B](f: B => Validation[String, A], g: A => Validation[String, B]): Differ[B] =
     (thisValue: B, thatValue: B) =>
-      f(thisValue) -> f(thatValue) match {
-        case (Right(l), Right(r)) => Patch.Transform(self(l, r), g, f)
-        case _                    => Patch.notComparable
-      }
+      (for {
+        l <- f(thisValue)
+        r <- f(thatValue)
+      } yield Patch.Transform(self(l, r), g, f))
+        .getOrElse(Patch.notComparable)
 
   def chunk: Differ[Chunk[A]] = Differ.LCSDiff[A]
 
@@ -56,8 +57,8 @@ trait Differ[A] { self =>
     case (Some(l), Some(r)) =>
       Patch.Transform[A, Option[A]](
         self(l, r),
-        (a: A) => Right(Some(a)),
-        (a: Option[A]) => a.map(Right(_)).getOrElse(Left("Patch cannot be applied to None value"))
+        (a: A) => Validation(Some(a)),
+        (a: Option[A]) => a.map(zio.prelude.Validation.succeed(_)).getOrElse(Left("Patch cannot be applied to None value"))
       )
     case (Some(_), None) => Patch.Total(None)
     case (None, Some(r)) => Patch.Total(Some(r))
@@ -225,20 +226,13 @@ object Differ {
     case Schema.Primitive(StandardType.BigIntegerType, _) => bigInt
     case Schema.Primitive(StandardType.StringType, _)     => string
     case Schema.Primitive(StandardType.UUIDType, _) =>
-      string.transformOrFail[UUID](
-        (uuid: UUID) => Right(uuid.toString),
-        (s: String) =>
-          try {
-            Right(UUID.fromString(s))
-          } catch { case e: Throwable => Left(s"$s is not a valid UUID: ${e.getMessage}") }
-      )
+      string.transformOrFail[UUID]((uuid: UUID) => Validation.succeed(uuid.toString), (s: String) => Validation(UUID.fromString(s)).mapError(e => s"$s is not a valid UUID: ${e.getMessage}"))
     case Schema.Primitive(StandardType.ZoneIdType, _) =>
       string.transformOrFail[ZoneId](
-        (zoneId: ZoneId) => Right(zoneId.getId),
+        (zoneId: ZoneId) => Validation.succeed(zoneId.getId),
         (s: String) =>
-          try {
-            Right(ZoneId.of(s))
-          } catch { case e: Throwable => Left(s"$s is not a valid ZoneId: ${e.getMessage}") }
+          Validation(ZoneId.of(s))
+            .mapError(e => s"$s is not a valid ZoneId: ${e.getMessage}")
       )
     case Schema.Primitive(StandardType.DayOfWeekType, _)      => dayOfWeek
     case Schema.Primitive(StandardType.PeriodType, _)         => period
@@ -526,7 +520,7 @@ object Differ {
     (thisValue: (A, B), thatValue: (A, B)) =>
       (thisValue, thatValue) match {
         case ((thisA, thisB), (thatA, thatB)) =>
-          left(thisA, thatA) <*> right(thisB, thatB)
+          left(thisA, thatA) <*> zio.prelude.Validation.succeed(thisB, thatB)
       }
 
   def either[A, B](left: Differ[A], right: Differ[B]): Differ[Either[A, B]] =

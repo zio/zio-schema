@@ -11,7 +11,7 @@ trait SchemaSyntax {
      */
     def diffEach(that: A): Patch[A] = Schema[A].diff(a, that)
 
-    def runPatch(diff: Patch[A]): Either[String, A] =
+    def runPatch(diff: Patch[A]): zio.prelude.Validation[String, A] =
       Schema[A].patch(a, diff)
   }
 
@@ -21,7 +21,7 @@ trait SchemaSyntax {
 
   implicit class MigrationOps[A: Schema](a: A) {
 
-    def migrate[B: Schema]: Either[String, B] =
+    def migrate[B: Schema]: zio.prelude.Validation[String, B] =
       Schema[A].migrate(Schema[B]).flatMap(f => f(a))
   }
 }

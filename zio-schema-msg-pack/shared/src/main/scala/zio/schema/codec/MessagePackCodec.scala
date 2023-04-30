@@ -14,7 +14,7 @@ object MessagePackCodec {
       override def encode(a: A): Chunk[Byte] =
         new MessagePackEncoder().encode(schema, a)
 
-      override def decode(bytes: Chunk[Byte]): Either[DecodeError, A] =
+      override def decode(bytes: Chunk[Byte]): zio.prelude.Validation[DecodeError, A] =
         if (bytes.isEmpty)
           Left(ReadError(Cause.empty, "No bytes to decode"))
         else

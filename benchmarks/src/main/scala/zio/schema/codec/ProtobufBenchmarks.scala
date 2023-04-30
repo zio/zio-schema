@@ -58,7 +58,7 @@ class ProtobufBenchmarks {
     byteChunkCodec.encode(bigByteChunk)
 
   @Benchmark
-  def decodeLargeByteChunk(): Either[DecodeError, Chunk[Byte]] =
+  def decodeLargeByteChunk(): zio.prelude.Validation[DecodeError, Chunk[Byte]] =
     byteChunkCodec.decode(encodedBigByteChunk)
 }
 

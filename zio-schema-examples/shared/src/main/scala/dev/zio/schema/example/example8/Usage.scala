@@ -12,8 +12,8 @@ object Usage extends App {
   val p: Person = Person("cal", 30)
 
   val pJson: Json                   = Encoder.deriveEncoder[Person].encode(p)
-  val sameP: Either[String, Person] = Decoder.deriveDecoder[Person].decode(pJson)
-  println(sameP == Right(p))
+  val sameP: zio.prelude.Validation[String, Person] = Decoder.deriveDecoder[Person].decode(pJson)
+  println(sameP == zio.prelude.Validation.succeed(p))
 
   println {
     Decoder

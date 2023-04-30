@@ -9,7 +9,7 @@ object SchemaAssertions {
     Assertion.assertion("migratesTo") { value =>
       value.migrate[B] match {
         case Left(_)                   => false
-        case Right(m) if m != expected => false
+        case zio.prelude.Validation.succeed(m) if m != expected => false
         case _ =>
           true
       }

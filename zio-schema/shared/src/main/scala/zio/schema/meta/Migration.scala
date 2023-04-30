@@ -10,7 +10,7 @@ sealed trait Migration { self =>
 
   def path: NodePath
 
-  def migrate(value: DynamicValue): Either[String, DynamicValue] =
+  def migrate(value: DynamicValue): zio.prelude.Validation[String, DynamicValue] =
     self match {
       case Migration.Require(path)  => Migration.require(value, path.toList)
       case Migration.Optional(path) => Migration.makeOptional(value, path.toList)
@@ -19,7 +19,7 @@ sealed trait Migration { self =>
           s"Cannot change type of node at path ${path.render}: No type conversion is available"
         )
       case Migration.DeleteNode(path) => Migration.deleteNode(value, path.toList)
-      case Migration.AddCase(_, _)    => Right(value)
+      case Migration.AddCase(_, _)    => zio.prelude.Validation.succeed(value)
       case Migration.AddNode(path, _) =>
         Left(s"Cannot add node at path ${path.render}: No default value is available")
       case Migration.Relabel(path, transform) => Migration.relabel(value, path.toList, transform)
@@ -58,28 +58,28 @@ object Migration {
   final case class Recursive(override val path: NodePath, relativeNodePath: NodePath, relativeMigration: Migration)
       extends Migration
 
-  def derive(from: MetaSchema, to: MetaSchema): Either[String, Chunk[Migration]] = {
+  def derive(from: MetaSchema, to: MetaSchema): zio.prelude.Validation[String, Chunk[Migration]] = {
     def go(
       acc: Chunk[Migration],
       path: NodePath,
       fromSubtree: MetaSchema,
       toSubtree: MetaSchema,
       ignoreRefs: Boolean
-    ): Either[String, Chunk[Migration]] = {
+    ): zio.prelude.Validation[String, Chunk[Migration]] = {
 
       def goProduct(
         f: MetaSchema,
         t: MetaSchema,
         ffields: Chunk[MetaSchema.Labelled],
         tfields: Chunk[MetaSchema.Labelled]
-      ): Either[String, Chunk[Migration]] =
+      ): zio.prelude.Validation[String, Chunk[Migration]] =
         matchedSubtrees(ffields, tfields).map {
           case (Labelled(nextPath, fs), Labelled(_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
-        }.foldRight[Either[String, Chunk[Migration]]](Right(Chunk.empty)) {
-            case (err @ Left(_), Right(_)) => err
-            case (Right(_), err @ Left(_)) => err
+        }.foldRight[zio.prelude.Validation[String, Chunk[Migration]]](zio.prelude.Validation.succeed(Chunk.empty)) {
+            case (err @ Left(_), zio.prelude.Validation.succeed(_)) => err
+            case (zio.prelude.Validation.succeed(_), err @ Left(_)) => err
             case (Left(e1), Left(e2))      => Left(s"$e1;\n$e2")
-            case (Right(t1), Right(t2))    => Right(t1 ++ t2)
+            case (zio.prelude.Validation.succeed(t1), zio.prelude.Validation.succeed(t2))    => zio.prelude.Validation.succeed(t1 ++ t2)
           }
           .map(
             _ ++ acc ++ transformShape(path, f, t) ++ insertions(path, ffields, tfields) ++ deletions(
@@ -94,14 +94,14 @@ object Migration {
         t: MetaSchema,
         fcases: Chunk[MetaSchema.Labelled],
         tcases: Chunk[MetaSchema.Labelled]
-      ): Either[String, Chunk[Migration]] =
+      ): zio.prelude.Validation[String, Chunk[Migration]] =
         matchedSubtrees(fcases, tcases).map {
           case (Labelled(nextPath, fs), Labelled(_, ts)) => go(acc, path / nextPath, fs, ts, ignoreRefs)
-        }.foldRight[Either[String, Chunk[Migration]]](Right(Chunk.empty)) {
-            case (err @ Left(_), Right(_)) => err
-            case (Right(_), err @ Left(_)) => err
+        }.foldRight[zio.prelude.Validation[String, Chunk[Migration]]](zio.prelude.Validation.succeed(Chunk.empty)) {
+            case (err @ Left(_), zio.prelude.Validation.succeed(_)) => err
+            case (zio.prelude.Validation.succeed(_), err @ Left(_)) => err
             case (Left(e1), Left(e2))      => Left(s"$e1;\n$e2")
-            case (Right(t1), Right(t2))    => Right(t1 ++ t2)
+            case (zio.prelude.Validation.succeed(t1), zio.prelude.Validation.succeed(t2))    => zio.prelude.Validation.succeed(t1 ++ t2)
           }
           .map(
             _ ++ acc ++ transformShape(path, f, t) ++ caseInsertions(path, fcases, tcases) ++ deletions(
@@ -113,7 +113,7 @@ object Migration {
 
       (fromSubtree, toSubtree) match {
         case (f @ ExtensibleMetaSchema.FailNode(_, _, _), t @ ExtensibleMetaSchema.FailNode(_, _, _)) =>
-          Right(
+          zio.prelude.Validation.succeed(
             if (f.message == t.message)
               Chunk.empty
             else
@@ -172,17 +172,17 @@ object Migration {
           goSum(f, t, fcases, tcases)
         case (f @ ExtensibleMetaSchema.Value(ftype, _, _), t @ ExtensibleMetaSchema.Value(ttype, _, _))
             if ttype != ftype =>
-          Right(transformShape(path, f, t) :+ ChangeType(path, ttype))
+          zio.prelude.Validation.succeed(transformShape(path, f, t) :+ ChangeType(path, ttype))
         case (f @ ExtensibleMetaSchema.Value(_, _, _), t @ ExtensibleMetaSchema.Value(_, _, _)) =>
-          Right(transformShape(path, f, t))
+          zio.prelude.Validation.succeed(transformShape(path, f, t))
         case (f @ ExtensibleMetaSchema.Ref(fromRef, nodePath, _), t @ ExtensibleMetaSchema.Ref(toRef, _, _))
             if fromRef == toRef =>
-          if (ignoreRefs) Right(Chunk.empty)
+          if (ignoreRefs) zio.prelude.Validation.succeed(Chunk.empty)
           else {
             val recursiveMigrations = acc
               .filter(_.path.isSubpathOf(fromRef))
               .map(relativize(fromRef, nodePath.relativeTo(fromRef)))
-            Right(recursiveMigrations ++ transformShape(path, f, t))
+            zio.prelude.Validation.succeed(recursiveMigrations ++ transformShape(path, f, t))
           }
         case (f, t) => Left(s"Subtrees at path ${renderPath(path)} are not homomorphic: $f cannot be mapped to $t")
       }
@@ -228,7 +228,7 @@ object Migration {
    * For example, converting from snake to camel case (or vica versa)
    */
   sealed trait LabelTransformation {
-    def apply(label: String): Either[String, String]
+    def apply(label: String): zio.prelude.Validation[String, String]
   }
 
   object LabelTransformation {}
@@ -289,20 +289,20 @@ object Migration {
     value: DynamicValue,
     path: List[String],
     trace: Chunk[String] = Chunk.empty
-  )(op: (String, DynamicValue) => Either[String, Option[(String, DynamicValue)]]): Either[String, DynamicValue] = {
+  )(op: (String, DynamicValue) => zio.prelude.Validation[String, Option[(String, DynamicValue)]]): zio.prelude.Validation[String, DynamicValue] = {
     (value, path) match {
       case (DynamicValue.SomeValue(value), _) =>
         updateLeaf(value, path, trace)(op).map(DynamicValue.SomeValue(_))
-      case (DynamicValue.NoneValue, _) => Right(DynamicValue.NoneValue)
+      case (DynamicValue.NoneValue, _) => zio.prelude.Validation.succeed(DynamicValue.NoneValue)
       case (DynamicValue.Sequence(values), "item" :: remainder) =>
         values.zipWithIndex.map { case (v, idx) => updateLeaf(v, remainder, trace :+ s"item[$idx]")(op) }
-          .foldRight[Either[String, DynamicValue.Sequence]](Right(DynamicValue.Sequence(Chunk.empty))) {
+          .foldRight[zio.prelude.Validation[String, DynamicValue.Sequence]](zio.prelude.Validation.succeed(DynamicValue.Sequence(Chunk.empty))) {
             case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
-            case (Left(e), Right(_))  => Left(e)
-            case (Right(_), Left(e))  => Left(e)
-            case (Right(DynamicValue.Sequence(v1s)), Right(DynamicValue.Sequence(v2s))) =>
-              Right(DynamicValue.Sequence(v1s ++ v2s))
-            case (Right(v1), Right(DynamicValue.Sequence(v2s))) => Right(DynamicValue.Sequence(v1 +: v2s))
+            case (Left(e), zio.prelude.Validation.succeed(_))  => Left(e)
+            case (zio.prelude.Validation.succeed(_), Left(e))  => Left(e)
+            case (zio.prelude.Validation.succeed(DynamicValue.Sequence(v1s)), zio.prelude.Validation.succeed(DynamicValue.Sequence(v2s))) =>
+              zio.prelude.Validation.succeed(DynamicValue.Sequence(v1s ++ v2s))
+            case (zio.prelude.Validation.succeed(v1), zio.prelude.Validation.succeed(DynamicValue.Sequence(v2s))) => zio.prelude.Validation.succeed(DynamicValue.Sequence(v1 +: v2s))
           }
       case (DynamicValue.Tuple(l, r), "left" :: remainder) =>
         updateLeaf(l, remainder, trace :+ "left")(op).map(newLeft => DynamicValue.Tuple(newLeft, r))
@@ -311,11 +311,11 @@ object Migration {
       case (DynamicValue.LeftValue(l), "left" :: remainder) =>
         updateLeaf(l, remainder, trace :+ "left")(op).map(DynamicValue.LeftValue(_))
       case (value @ DynamicValue.LeftValue(_), "right" :: _) =>
-        Right(value)
+        zio.prelude.Validation.succeed(value)
       case (DynamicValue.RightValue(r), "right" :: remainder) =>
         updateLeaf(r, remainder, trace :+ "right")(op).map(DynamicValue.RightValue(_))
       case (value @ DynamicValue.RightValue(_), "left" :: _) =>
-        Right(value)
+        zio.prelude.Validation.succeed(value)
       case (DynamicValue.Record(name, values), leafLabel :: Nil) if values.keySet.contains(leafLabel) =>
         op(leafLabel, values(leafLabel)).map {
           case Some((newLeafLabel, newLeafValue)) =>
@@ -329,10 +329,10 @@ object Migration {
       case (DynamicValue.Record(_, _), nextLabel :: _) =>
         Left(s"Expected label $nextLabel not found at path ${renderPath(trace)}")
       case (v @ DynamicValue.Enumeration(_, (caseLabel, _)), nextLabel :: _) if caseLabel != nextLabel =>
-        Right(v)
+        zio.prelude.Validation.succeed(v)
       case (DynamicValue.Enumeration(id, (caseLabel, caseValue)), nextLabel :: Nil) if caseLabel == nextLabel =>
         op(caseLabel, caseValue).flatMap {
-          case Some(newCase) => Right(DynamicValue.Enumeration(id, newCase))
+          case Some(newCase) => zio.prelude.Validation.succeed(DynamicValue.Enumeration(id, newCase))
           case None =>
             Left(
               s"Failed to update leaf node at path ${renderPath(trace :+ nextLabel)}: Cannot remove instantiated case"
@@ -349,16 +349,16 @@ object Migration {
           .map {
             case (k, idx) =>
               op(s"key[$idx]", k).flatMap {
-                case Some((_, migrated)) => Right(migrated)
+                case Some((_, migrated)) => zio.prelude.Validation.succeed(migrated)
                 case None                => Left(s"invalid update at $path, cannot remove map key")
               }
           }
-          .foldRight[Either[String, Chunk[DynamicValue]]](Right(Chunk.empty)) {
+          .foldRight[zio.prelude.Validation[String, Chunk[DynamicValue]]](zio.prelude.Validation.succeed(Chunk.empty)) {
             case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
-            case (Left(e), Right(_))  => Left(e)
-            case (Right(_), Left(e))  => Left(e)
-            case (Right(value), Right(chunk)) =>
-              Right(value +: chunk)
+            case (Left(e), zio.prelude.Validation.succeed(_))  => Left(e)
+            case (zio.prelude.Validation.succeed(_), Left(e))  => Left(e)
+            case (zio.prelude.Validation.succeed(value), zio.prelude.Validation.succeed(chunk)) =>
+              zio.prelude.Validation.succeed(value +: chunk)
           }
           .map { keys =>
             DynamicValue.Dictionary(keys.zip(entries.map(_._2)))
@@ -371,12 +371,12 @@ object Migration {
             case (k, idx) =>
               updateLeaf(k, remainder, trace :+ s"key[$idx]")(op)
           }
-          .foldRight[Either[String, Chunk[DynamicValue]]](Right(Chunk.empty)) {
+          .foldRight[zio.prelude.Validation[String, Chunk[DynamicValue]]](zio.prelude.Validation.succeed(Chunk.empty)) {
             case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
-            case (Left(e), Right(_))  => Left(e)
-            case (Right(_), Left(e))  => Left(e)
-            case (Right(value), Right(chunk)) =>
-              Right(value +: chunk)
+            case (Left(e), zio.prelude.Validation.succeed(_))  => Left(e)
+            case (zio.prelude.Validation.succeed(_), Left(e))  => Left(e)
+            case (zio.prelude.Validation.succeed(value), zio.prelude.Validation.succeed(chunk)) =>
+              zio.prelude.Validation.succeed(value +: chunk)
           }
           .map { keys =>
             DynamicValue.Dictionary(keys.zip(entries.map(_._2)))
@@ -388,16 +388,16 @@ object Migration {
           .map {
             case (k, idx) =>
               op(s"key[$idx]", k).flatMap {
-                case Some((_, migrated)) => Right(migrated)
+                case Some((_, migrated)) => zio.prelude.Validation.succeed(migrated)
                 case None                => Left(s"invalid update at $path, cannot remove map value")
               }
           }
-          .foldRight[Either[String, Chunk[DynamicValue]]](Right(Chunk.empty)) {
+          .foldRight[zio.prelude.Validation[String, Chunk[DynamicValue]]](zio.prelude.Validation.succeed(Chunk.empty)) {
             case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
-            case (Left(e), Right(_))  => Left(e)
-            case (Right(_), Left(e))  => Left(e)
-            case (Right(value), Right(chunk)) =>
-              Right(value +: chunk)
+            case (Left(e), zio.prelude.Validation.succeed(_))  => Left(e)
+            case (zio.prelude.Validation.succeed(_), Left(e))  => Left(e)
+            case (zio.prelude.Validation.succeed(value), zio.prelude.Validation.succeed(chunk)) =>
+              zio.prelude.Validation.succeed(value +: chunk)
           }
           .map { values =>
             DynamicValue.Dictionary(entries.map(_._1).zip(values))
@@ -410,12 +410,12 @@ object Migration {
             case (k, idx) =>
               updateLeaf(k, remainder, trace :+ s"value[$idx]")(op)
           }
-          .foldRight[Either[String, Chunk[DynamicValue]]](Right(Chunk.empty)) {
+          .foldRight[zio.prelude.Validation[String, Chunk[DynamicValue]]](zio.prelude.Validation.succeed(Chunk.empty)) {
             case (Left(e1), Left(e2)) => Left(s"$e1;\n$e2")
-            case (Left(e), Right(_))  => Left(e)
-            case (Right(_), Left(e))  => Left(e)
-            case (Right(value), Right(chunk)) =>
-              Right(value +: chunk)
+            case (Left(e), zio.prelude.Validation.succeed(_))  => Left(e)
+            case (zio.prelude.Validation.succeed(_), Left(e))  => Left(e)
+            case (zio.prelude.Validation.succeed(value), zio.prelude.Validation.succeed(chunk)) =>
+              zio.prelude.Validation.succeed(value +: chunk)
           }
           .map { values =>
             DynamicValue.Dictionary(entries.map(_._1).zip(values))
@@ -437,7 +437,7 @@ object Migration {
 
   private def materializeRecursive(depth: Int)(migration: Recursive): Migration = {
     def appendRecursiveN(n: Int)(relativePath: NodePath): NodePath =
-      (0 until n).foldRight(NodePath.root)((_, path) => path / relativePath)
+      (0 until n).foldzio.prelude.Validation.succeed(NodePath.root)((_, path) => path / relativePath)
 
     migration match {
       case Recursive(refPath, relativeNodePath, m: UpdateFail) =>
@@ -465,11 +465,11 @@ object Migration {
     }
   }
 
-  protected[schema] def migrateRecursive(value: DynamicValue, migration: Recursive): Either[String, DynamicValue] = {
-    def go(lastValue: DynamicValue, depth: Int): Either[String, DynamicValue] =
+  protected[schema] def migrateRecursive(value: DynamicValue, migration: Recursive): zio.prelude.Validation[String, DynamicValue] = {
+    def go(lastValue: DynamicValue, depth: Int): zio.prelude.Validation[String, DynamicValue] =
       materializeRecursive(depth)(migration).migrate(lastValue).flatMap { thisValue =>
         if (thisValue == lastValue)
-          Right(thisValue)
+          zio.prelude.Validation.succeed(thisValue)
         else go(thisValue, depth + 1)
       }
 
@@ -480,14 +480,14 @@ object Migration {
     value: DynamicValue,
     path: List[String],
     newMessage: String
-  ): Either[String, DynamicValue] =
+  ): zio.prelude.Validation[String, DynamicValue] =
     (path, value) match {
-      case (Nil, DynamicValue.Error(_)) => Right(DynamicValue.Error(newMessage))
+      case (Nil, DynamicValue.Error(_)) => zio.prelude.Validation.succeed(DynamicValue.Error(newMessage))
       case (Nil, _)                     => Left(s"Failed to update fail message at root. Unexpected type")
       case _ =>
         updateLeaf(value, path) { (label, value) =>
           value match {
-            case DynamicValue.Error(_) => Right(Some(label -> DynamicValue.Error(newMessage)))
+            case DynamicValue.Error(_) => zio.prelude.Validation.succeed(Some(label -> DynamicValue.Error(newMessage)))
             case _                     => Left(s"Failed to update fail message at ${renderPath(path)}. Unexpected type")
           }
         }
@@ -497,20 +497,20 @@ object Migration {
     value: DynamicValue,
     path: List[String],
     n: Int
-  ): Either[String, DynamicValue] =
+  ): zio.prelude.Validation[String, DynamicValue] =
     path match {
       case Nil =>
-        Right(
-          (0 until n).foldRight(value) {
+        zio.prelude.Validation.succeed(
+          (0 until n).foldzio.prelude.Validation.succeed(value) {
             case (_, acc) =>
               DynamicValue.Sequence(Chunk(acc))
           }
         )
       case _ =>
         updateLeaf(value, path) { (label, v) =>
-          Right(
+          zio.prelude.Validation.succeed(
             Some(
-              (0 until n).foldRight(label -> v) {
+              (0 until n).foldzio.prelude.Validation.succeed(label -> v) {
                 case (_, (_, acc)) =>
                   label -> DynamicValue.Sequence(Chunk(acc))
               }
@@ -524,12 +524,12 @@ object Migration {
     value: DynamicValue,
     path: List[String],
     n: Int
-  ): Either[String, DynamicValue] =
+  ): zio.prelude.Validation[String, DynamicValue] =
     path match {
       case Nil =>
-        (0 until n).foldRight[Either[String, DynamicValue]](Right(value)) {
+        (0 until n).foldRight[zio.prelude.Validation[String, DynamicValue]](zio.prelude.Validation.succeed(value)) {
           case (_, error @ Left(_))                                          => error
-          case (_, Right(DynamicValue.Sequence(values))) if values.size == 1 => Right(values(0))
+          case (_, zio.prelude.Validation.succeed(DynamicValue.Sequence(values))) if values.size == 1 => zio.prelude.Validation.succeed(values(0))
           case _ =>
             Left(
               s"Failed to decrement dimensions for node at path ${renderPath(path)}: Can only decrement dimensions on a sequence with one element"
@@ -538,9 +538,9 @@ object Migration {
       case _ =>
         updateLeaf(value, path) { (label, value) =>
           (0 until n)
-            .foldRight[Either[String, DynamicValue]](Right(value)) {
+            .foldRight[zio.prelude.Validation[String, DynamicValue]](zio.prelude.Validation.succeed(value)) {
               case (_, error @ Left(_))                                          => error
-              case (_, Right(DynamicValue.Sequence(values))) if values.size == 1 => Right(values(0))
+              case (_, zio.prelude.Validation.succeed(DynamicValue.Sequence(values))) if values.size == 1 => zio.prelude.Validation.succeed(values(0))
               case _ =>
                 Left(
                   s"Failed to decrement dimensions for node at path ${renderPath(path)}: Can only decrement dimensions on a sequence with one element"
@@ -553,9 +553,9 @@ object Migration {
   protected[schema] def require(
     value: DynamicValue,
     path: List[String]
-  ): Either[String, DynamicValue] =
+  ): zio.prelude.Validation[String, DynamicValue] =
     (value, path) match {
-      case (DynamicValue.SomeValue(v), Nil) => Right(v)
+      case (DynamicValue.SomeValue(v), Nil) => zio.prelude.Validation.succeed(v)
       case (DynamicValue.NoneValue, Nil) =>
         Left(
           s"Failed to require node: Optional value was None"
@@ -563,7 +563,7 @@ object Migration {
       case _ =>
         updateLeaf(value, path) {
           case (label, DynamicValue.SomeValue(v)) =>
-            Right(Some(label -> v))
+            zio.prelude.Validation.succeed(Some(label -> v))
           case (_, DynamicValue.NoneValue) =>
             Left(s"Failed to require leaf at path ${renderPath(path)}: Optional value was not available")
           case _ =>
@@ -575,7 +575,7 @@ object Migration {
     value: DynamicValue,
     path: List[String],
     transformation: LabelTransformation
-  ): Either[String, DynamicValue] =
+  ): zio.prelude.Validation[String, DynamicValue] =
     path match {
       case Nil => Left(s"Cannot relabel node: Path was empty")
       case _ =>
@@ -583,7 +583,7 @@ object Migration {
           transformation(label).fold(
             error =>
               Left(s"Failed to relabel node at path ${renderPath(path)}: Relabel transform failed with error $error"),
-            newLabel => Right(Some(newLabel -> value))
+            newLabel => zio.prelude.Validation.succeed(Some(newLabel -> value))
           )
         }
     }
@@ -591,24 +591,24 @@ object Migration {
   protected[schema] def makeOptional(
     value: DynamicValue,
     path: List[String]
-  ): Either[String, DynamicValue] =
+  ): zio.prelude.Validation[String, DynamicValue] =
     (value, path) match {
-      case (value, Nil) => Right(DynamicValue.SomeValue(value))
+      case (value, Nil) => zio.prelude.Validation.succeed(DynamicValue.SomeValue(value))
       case _ =>
         updateLeaf(value, path) {
           case (label, value) =>
-            Right(Some(label -> DynamicValue.SomeValue(value)))
+            zio.prelude.Validation.succeed(Some(label -> DynamicValue.SomeValue(value)))
         }
     }
 
   protected[schema] def deleteNode(
     value: DynamicValue,
     path: List[String]
-  ): Either[String, DynamicValue] =
+  ): zio.prelude.Validation[String, DynamicValue] =
     path match {
       case Nil => Left(s"Cannot delete node: Path was empty")
       case _ =>
-        updateLeaf(value, path)((_, _) => Right(None))
+        updateLeaf(value, path)((_, _) => zio.prelude.Validation.succeed(None))
     }
 
   private def renderPath(path: Iterable[String]): String = path.mkString("/")

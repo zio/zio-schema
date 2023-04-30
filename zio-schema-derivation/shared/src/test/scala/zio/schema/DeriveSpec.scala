@@ -223,7 +223,7 @@ object DeriveSpec extends ZIOSpecDefault with VersionSpecificDeriveSpec {
     implicit val schema: Schema[Record5] = DeriveSchema.gen[Record5]
   }
 
-  case class Record6(map: Map[String, Record1], either: Either[String, Record2])
+  case class Record6(map: Map[String, Record1], either: zio.prelude.Validation[String, Record2])
 
   object Record6 {
     implicit val schema: Schema[Record6] = DeriveSchema.gen[Record6]
@@ -426,16 +426,16 @@ object DeriveSpec extends ZIOSpecDefault with VersionSpecificDeriveSpec {
         }
       }
 
-    override def deriveEither[A, B](
-      either: Schema.Either[A, B],
+    override def derivezio.prelude.Validation[A, B](
+      either: Schema.zio.prelude.Validation[A, B],
       left: => TC[A],
       right: => TC[B],
-      summoned: => Option[TC[Either[A, B]]]
-    ): TC[Either[A, B]] =
+      summoned: => Option[TC[zio.prelude.Validation[A, B]]]
+    ): TC[zio.prelude.Validation[A, B]] =
       summoned.getOrElse {
         assert(left ne null)
         assert(right ne null)
-        new TC[Either[A, B]] {
+        new TC[zio.prelude.Validation[A, B]] {
           override def isDerived: Boolean   = true
           override def inner: Option[TC[_]] = Some(right)
         }

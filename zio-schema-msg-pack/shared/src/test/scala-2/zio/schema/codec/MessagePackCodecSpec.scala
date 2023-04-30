@@ -413,7 +413,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
       },
       test("either right") {
-        val either = Right("hello")
+        val either = zio.prelude.Validation.succeed("hello")
         for {
           ed  <- encodeAndDecode(eitherSchema, either)
           ed2 <- encodeAndDecodeNS(eitherSchema, either)
@@ -427,8 +427,8 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk(eitherLeft))) && assert(ed2)(equalTo(eitherLeft))
       },
       test("either with sum type") {
-        val eitherRight  = Right(BooleanValue(true))
-        val eitherRight2 = Right(StringValue("hello"))
+        val eitherRight  = zio.prelude.Validation.succeed(BooleanValue(true))
+        val eitherRight2 = zio.prelude.Validation.succeed(StringValue("hello"))
         for {
           ed  <- encodeAndDecode(complexEitherSchema, eitherRight2)
           ed2 <- encodeAndDecodeNS(complexEitherSchema, eitherRight)
@@ -525,7 +525,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       test("either within either") {
-        val either = Right(Left(BooleanValue(true)))
+        val either = zio.prelude.Validation.succeed(Left(BooleanValue(true)))
         val schema = Schema.either(Schema[Int], Schema.either(schemaOneOf, Schema[String]))
         for {
           ed  <- encodeAndDecode(schema, either)
@@ -894,12 +894,12 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
 
   val complexTupleSchema: Schema.Tuple2[Record, OneOf] = Schema.Tuple2(Record.schemaRecord, schemaOneOf)
 
-  val eitherSchema: Schema.Either[Int, String] = Schema.Either(Schema[Int], Schema[String])
+  val eitherSchema: Schema.zio.prelude.Validation[Int, String] = Schema.Either(Schema[Int], Schema[String])
 
-  val complexEitherSchema: Schema.Either[Record, OneOf] =
+  val complexEitherSchema: Schema.zio.prelude.Validation[Record, OneOf] =
     Schema.Either(Record.schemaRecord, schemaOneOf)
 
-  val complexEitherSchema2: Schema.Either[MyRecord, MyRecord] =
+  val complexEitherSchema2: Schema.zio.prelude.Validation[MyRecord, MyRecord] =
     Schema.Either(myRecord, myRecord)
 
   case class RichProduct(stringOneOf: OneOf, basicString: BasicString, record: Record)

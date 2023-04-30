@@ -22,16 +22,16 @@ private[example7] object Problem {
   // sample url1: /foo/?name=john&age=42#foo
   // sample url2: /foo/?name=john&age=42&location=london&address=baker%20street
 
-  def decodePersonFromQueryParams(params: Map[String, List[String]]): scala.util.Either[String, Person] =
+  def decodePersonFromQueryParams(params: Map[String, List[String]]): zio.prelude.Validation[String, Person] =
     for {
-      name <- params.get("name").toRight("name parameter is missing")
-      age  <- params.get("age").toRight("age parameter is missing")
+      name <- params.get("name").tozio.prelude.Validation.succeed("name parameter is missing")
+      age  <- params.get("age").tozio.prelude.Validation.succeed("age parameter is missing")
     } yield Person(name.head, age.head.toInt)
 
-  def decodeProfileFromQueryParams(params: Map[String, List[String]]): scala.util.Either[String, Profile] =
+  def decodeProfileFromQueryParams(params: Map[String, List[String]]): zio.prelude.Validation[String, Profile] =
     for {
-      location <- params.get("location").toRight("location parameter is missing")
-      address  <- params.get("address").toRight("address parameter is missing")
+      location <- params.get("location").tozio.prelude.Validation.succeed("location parameter is missing")
+      address  <- params.get("address").tozio.prelude.Validation.succeed("address parameter is missing")
     } yield Profile(location.head, address.head)
 
   object Approach1 extends scala.App {
@@ -41,14 +41,14 @@ private[example7] object Problem {
     // probably suitable for the normal business application with medium performance requirements
     def decode[A](
       params: Map[String, List[String]]
-    )(implicit schema: Schema[A]): scala.util.Either[String, A] =
+    )(implicit schema: Schema[A]): zio.prelude.Validation[String, A] =
       toDV(params)
         .map(_.toTypedValue(schema).toEither)
         .collectFirst {
-          case Right(v) =>
+          case zio.prelude.Validation.succeed(v) =>
             v
         }
-        .toRight("some error")
+        .tozio.prelude.Validation.succeed("some error")
 
     // parse each element into String and if possible Int representations. We basically create all
     // possible solutions here. The Set[DynamicValue] removes duplicates.
@@ -84,7 +84,7 @@ private[example7] object Problem {
         .map(v => DynamicValue.Record(TypeId.Structural, v))
     }
 
-    val p: scala.util.Either[String, Person] = decode[Person](Map("name" -> List("John"), "age" -> List("42")))
+    val p: zio.prelude.Validation[String, Person] = decode[Person](Map("name" -> List("John"), "age" -> List("42")))
 
     println(p)
   }
@@ -96,16 +96,16 @@ private[example7] object Problem {
     // this will be a sophisticated solution for a high performance library like ZIO
     def decodeFromQueryParams[A](
       params: QueryParams
-    )(implicit schema: Schema[A], decoder: QueryParams => scala.util.Either[String, A]): scala.util.Either[String, A] =
+    )(implicit schema: Schema[A], decoder: QueryParams => zio.prelude.Validation[String, A]): zio.prelude.Validation[String, A] =
       decoder(params)
 
-    def buildDecoder[A](implicit schemaA: Schema[A]): QueryParams => scala.util.Either[String, A] = {
+    def buildDecoder[A](implicit schemaA: Schema[A]): QueryParams => zio.prelude.Validation[String, A] = {
 
-      def compile[B](key: Option[String], schemaB: Schema[B]): QueryParams => scala.util.Either[String, B] =
+      def compile[B](key: Option[String], schemaB: Schema[B]): QueryParams => zio.prelude.Validation[String, B] =
         schemaB match {
           case transform: Transform[a, B, _] =>
             import transform.{ f, schema }
-            val func: QueryParams => scala.util.Either[String, Any] = compile(key, schema)
+            val func: QueryParams => zio.prelude.Validation[String, Any] = compile(key, schema)
             (params: QueryParams) => func(params).flatMap(v => f(v.asInstanceOf[a]))
           case Primitive(standardType, _) =>
             key match {
@@ -115,17 +115,17 @@ private[example7] object Problem {
               case Some(key) =>
                 standardType match {
                   case StandardType.StringType =>
-                    val f: QueryParams => scala.util.Either[String, B] = (qp: QueryParams) =>
+                    val f: QueryParams => zio.prelude.Validation[String, B] = (qp: QueryParams) =>
                       qp.get(key) match {
                         case Some(value :: _) => Right[String, B](value.asInstanceOf[B])
                         case _                => Left(s"Cannot extract a primitive string out of nothing")
                       }
                     f
                   case StandardType.IntType =>
-                    val f: QueryParams => scala.util.Either[String, B] = (qp: QueryParams) =>
+                    val f: QueryParams => zio.prelude.Validation[String, B] = (qp: QueryParams) =>
                       qp.get(key) match {
                         case Some(value :: _) =>
-                          Try(value.toInt).toOption.toRight(s"cannot create an integer out of $value")
+                          Try(value.toInt).toOption.tozio.prelude.Validation.succeed(s"cannot create an integer out of $value")
                         case _ => Left(s"Cannot extract a primitive string out of nothing")
                       }
                     f
@@ -169,8 +169,8 @@ private[example7] object Problem {
                 record.fields.map {
                   case Schema.Field(label, schema, _, _, _, _) =>
                     compile(Some(label), schema)(qp)
-                }.foldRight[scala.util.Either[String, Chunk[Any]]](Right(Chunk.empty)) {
-                    case (Right(nextValue), Right(values)) => Right(values :+ nextValue)
+                }.foldRight[zio.prelude.Validation[String, Chunk[Any]]](zio.prelude.Validation.succeed(Chunk.empty)) {
+                    case (zio.prelude.Validation.succeed(nextValue), zio.prelude.Validation.succeed(values)) => zio.prelude.Validation.succeed(values :+ nextValue)
                     case (Left(err), _)                    => Left(err)
                     case (_, Left(err))                    => Left(err)
                   }
@@ -195,7 +195,7 @@ private[example7] object Problem {
       compile(None, schemaA)
     }
 
-    implicit val personDecoder: QueryParams => scala.util.Either[String, Person] = buildDecoder[Person]
+    implicit val personDecoder: QueryParams => zio.prelude.Validation[String, Person] = buildDecoder[Person]
 
     println("approach 2")
 

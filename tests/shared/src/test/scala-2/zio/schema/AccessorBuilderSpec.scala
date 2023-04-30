@@ -84,8 +84,8 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
     test("either") {
       check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
         case (leftSchema, rightSchema) =>
-          val eitherSchema: Schema.Either[_, _] =
-            (rightSchema <+> leftSchema).asInstanceOf[Schema.Either[_, _]]
+          val eitherSchema: Schema.zio.prelude.Validation[_, _] =
+            (rightSchema <+> leftSchema).asInstanceOf[Schema.zio.prelude.Validation[_, _]]
           val accessor = eitherSchema.makeAccessors(builder)
 
           assert(

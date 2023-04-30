@@ -7,15 +7,15 @@ final case class Validation[A](bool: Bool[Predicate[A]]) { self =>
   def ||(that: Validation[A]): Validation[A] = Validation(self.bool || that.bool)
   def unary_! : Validation[A]                = Validation(!self.bool)
 
-  def validate(value: A): Either[Chunk[ValidationError], Unit] = {
+  def validate(value: A): zio.prelude.Validation[Chunk[ValidationError], Unit] = {
     type Errors = Chunk[ValidationError]
-    type Result = Either[Errors, Errors]
+    type Result = zio.prelude.Validation[Errors, Errors]
     def combineAnd(left: Result, right: Result): Result =
       (left, right) match {
         case (Left(leftErrors), Left(rightErrors))         => Left(leftErrors ++ rightErrors)
         case (Left(leftErrors), _)                         => Left(leftErrors)
         case (_, Left(rightErrors))                        => Left(rightErrors)
-        case (Right(leftSuccesses), Right(rightSuccesses)) => Right(leftSuccesses ++ rightSuccesses)
+        case (zio.prelude.Validation.succeed(leftSuccesses), zio.prelude.Validation.succeed(rightSuccesses)) => zio.prelude.Validation.succeed(leftSuccesses ++ rightSuccesses)
       }
 
     def combineOr(left: Result, right: Result): Result =
@@ -23,7 +23,7 @@ final case class Validation[A](bool: Bool[Predicate[A]]) { self =>
         case (Left(leftErrors), Left(rightErrors))         => Left(leftErrors ++ rightErrors)
         case (Left(_), right)                              => right
         case (right, Left(_))                              => right
-        case (Right(leftSuccesses), Right(rightSuccesses)) => Right(leftSuccesses ++ rightSuccesses)
+        case (zio.prelude.Validation.succeed(leftSuccesses), zio.prelude.Validation.succeed(rightSuccesses)) => zio.prelude.Validation.succeed(leftSuccesses ++ rightSuccesses)
       }
 
     def loop(bool: Bool[Predicate[A]]): Result = {

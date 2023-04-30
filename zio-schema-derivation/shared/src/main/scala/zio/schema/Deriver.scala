@@ -82,12 +82,12 @@ trait Deriver[F[_]] extends VersionSpecificDeriver[F] { self =>
     summoned: => Option[F[Map[K, V]]]
   ): F[Map[K, V]]
 
-  def deriveEither[A, B](
-    either: Schema.Either[A, B],
+  def derivezio.prelude.Validation[A, B](
+    either: Schema.zio.prelude.Validation[A, B],
     left: => F[A],
     right: => F[B],
-    summoned: => Option[F[Either[A, B]]]
-  ): F[Either[A, B]] =
+    summoned: => Option[F[zio.prelude.Validation[A, B]]]
+  ): F[zio.prelude.Validation[A, B]] =
     deriveEnum(
       either.toEnum,
       Chunk(wrap(left), wrap(right)),
@@ -179,12 +179,12 @@ trait Deriver[F[_]] extends VersionSpecificDeriver[F] { self =>
           self.deriveMap(map, key, value, summoned)
         }
 
-      final override def deriveEither[A, B](
-        either: Schema.Either[A, B],
+      final override def derivezio.prelude.Validation[A, B](
+        either: Schema.zio.prelude.Validation[A, B],
         left: => F[A],
         right: => F[B],
-        summoned: => Option[F[Either[A, B]]]
-      ): F[Either[A, B]] =
+        summoned: => Option[F[zio.prelude.Validation[A, B]]]
+      ): F[zio.prelude.Validation[A, B]] =
         summoned.getOrElse {
           self.deriveEither(either, left, right, summoned)
         }

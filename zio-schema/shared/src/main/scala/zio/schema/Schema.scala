@@ -2,14 +2,12 @@ package zio.schema
 
 import java.net.{ URI, URL }
 import java.time.temporal.ChronoUnit
-
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
-
 import zio.schema.internal.SourceLocation
 import zio.schema.meta._
 import zio.schema.validation._
-import zio.{ Chunk, Unsafe }
+import zio.{ Chunk, Unsafe, prelude }
 
 /**
  * A `Schema[A]` describes the structure of some data type `A`, in terms of case classes,
@@ -48,12 +46,12 @@ sealed trait Schema[A] {
   /**
    * A symbolic operator for [[orElseEither]].
    */
-  def <+>[B](that: Schema[B]): Schema[scala.util.Either[A, B]] = self.orElseEither(that)
+  def <+>[B](that: Schema[B]): Schema[zio.prelude.Validation[A, B]] = self.orElseEither(that)
 
   /**
    * The default value for a `Schema` of type `A`.
    */
-  def defaultValue: scala.util.Either[String, A]
+  def defaultValue: zio.prelude.Validation[String, A]
 
   /**
    * Chunk of annotations for this schema
@@ -73,7 +71,7 @@ sealed trait Schema[A] {
    *  This can be used to e.g convert between a case class and it's
    *  "generic" representation as a ListMap[String,_]
    */
-  def coerce[B](newSchema: Schema[B]): Either[String, Schema[B]] =
+  def coerce[B](newSchema: Schema[B]): zio.prelude.Validation[String, Schema[B]] =
     for {
       f <- self.migrate(newSchema)
       g <- newSchema.migrate(self)
@@ -89,17 +87,17 @@ sealed trait Schema[A] {
   /**
    * Patch value with a Patch.
    */
-  def patch(oldValue: A, diff: Patch[A]): scala.util.Either[String, A] = diff.patch(oldValue)
+  def patch(oldValue: A, diff: Patch[A]): prelude.Validation[String, A] = diff.patch(oldValue)
 
-  def fromDynamic(value: DynamicValue): scala.util.Either[String, A] =
-    value.toTypedValue(self).toEither.left.map(_.toString)
+  def fromDynamic(value: DynamicValue): zio.prelude.Validation[String, A] =
+    value.toTypedValue(self)
 
   def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal]
 
   /**
    *  Generate a homomorphism from A to B iff A and B are homomorphic
    */
-  def migrate[B](newSchema: Schema[B]): Either[String, A => scala.util.Either[String, B]] =
+  def migrate[B](newSchema: Schema[B]): zio.prelude.Validation[String, A => zio.prelude.Validation[String, B]] =
     Migration.derive(MetaSchema.fromSchema(self), MetaSchema.fromSchema(newSchema)).map { transforms => (a: A) =>
       self.toDynamic(a).transform(transforms).flatMap(newSchema.fromDynamic)
     }
@@ -125,7 +123,7 @@ sealed trait Schema[A] {
       .asInstanceOf[Schema[Schema[_]]]
       .transformOrFail(
         s => s.coerce(self),
-        s => Right(s.ast.toSchema)
+        s => zio.prelude.Validation.succeed(s.ast.toSchema)
       )
 
   def toDynamic(value: A): DynamicValue =
@@ -136,13 +134,19 @@ sealed trait Schema[A] {
    * between `A` and `B`, without possibility of failure.
    */
   def transform[B](f: A => B, g: B => A)(implicit loc: SourceLocation): Schema[B] =
-    Schema.Transform[A, B, SourceLocation](self, a => Right(f(a)), b => Right(g(b)), annotations, loc)
+    Schema.Transform[A, B, SourceLocation](
+      self,
+      a => prelude.Validation.succeed(f(a)),
+      b => prelude.Validation.succeed(g(b)),
+      annotations,
+      loc
+    )
 
   /**
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
    * between `A` and `B` (possibly failing in some cases).
    */
-  def transformOrFail[B](f: A => scala.util.Either[String, B], g: B => scala.util.Either[String, A])(
+  def transformOrFail[B](f: A => prelude.Validation[String, B], g: B => prelude.Validation[String, A])(
     implicit loc: SourceLocation
   ): Schema[B] =
     Schema.Transform[A, B, SourceLocation](self, f, g, annotations, loc)
@@ -194,8 +198,8 @@ object Schema extends SchemaEquality {
           toChunk(value).flatMap(value => loop(value, schema))
         case Transform(schema, _, g, _, _) =>
           g(value) match {
-            case Right(value) => loop(value, schema)
-            case Left(error)  => Chunk(ValidationError.Generic(error))
+            case zio.prelude.Validation.succeed(value) => loop(value, schema)
+            case Left(error)                           => Chunk(ValidationError.Generic(error))
           }
         case Primitive(_, _) => Chunk.empty
         case optional @ Optional(schema, _) =>
@@ -234,9 +238,9 @@ object Schema extends SchemaEquality {
             }
             .reverse
         case either @ Schema.Either(left, right, _) =>
-          value.asInstanceOf[scala.util.Either[either.LeftType, either.RightType]] match {
-            case Left(value)  => loop(value, left)
-            case Right(value) => loop(value, right)
+          value.asInstanceOf[zio.prelude.Validation[either.LeftType, either.RightType]] match {
+            case Left(value)                           => loop(value, left)
+            case zio.prelude.Validation.succeed(value) => loop(value, right)
           }
         case Dynamic(_) => Chunk.empty
         case Fail(_, _) => Chunk.empty
@@ -250,34 +254,34 @@ object Schema extends SchemaEquality {
 
   implicit val chronoUnit: Schema[ChronoUnit] = Schema[String].transformOrFail(
     {
-      case "SECONDS"   => Right(ChronoUnit.SECONDS)
-      case "CENTURIES" => Right(ChronoUnit.CENTURIES)
-      case "DAYS"      => Right(ChronoUnit.DAYS)
-      case "DECADES"   => Right(ChronoUnit.DECADES)
-      case "FOREVER"   => Right(ChronoUnit.FOREVER)
-      case "HOURS"     => Right(ChronoUnit.HOURS)
-      case "MICROS"    => Right(ChronoUnit.MICROS)
-      case "MILLIS"    => Right(ChronoUnit.MILLIS)
-      case "MINUTES"   => Right(ChronoUnit.MINUTES)
-      case "MONTHS"    => Right(ChronoUnit.MONTHS)
-      case "NANOS"     => Right(ChronoUnit.NANOS)
-      case "WEEKS"     => Right(ChronoUnit.WEEKS)
-      case "YEARS"     => Right(ChronoUnit.YEARS)
+      case "SECONDS"   => zio.prelude.Validation.succeed(ChronoUnit.SECONDS)
+      case "CENTURIES" => zio.prelude.Validation.succeed(ChronoUnit.CENTURIES)
+      case "DAYS"      => zio.prelude.Validation.succeed(ChronoUnit.DAYS)
+      case "DECADES"   => zio.prelude.Validation.succeed(ChronoUnit.DECADES)
+      case "FOREVER"   => zio.prelude.Validation.succeed(ChronoUnit.FOREVER)
+      case "HOURS"     => zio.prelude.Validation.succeed(ChronoUnit.HOURS)
+      case "MICROS"    => zio.prelude.Validation.succeed(ChronoUnit.MICROS)
+      case "MILLIS"    => zio.prelude.Validation.succeed(ChronoUnit.MILLIS)
+      case "MINUTES"   => zio.prelude.Validation.succeed(ChronoUnit.MINUTES)
+      case "MONTHS"    => zio.prelude.Validation.succeed(ChronoUnit.MONTHS)
+      case "NANOS"     => zio.prelude.Validation.succeed(ChronoUnit.NANOS)
+      case "WEEKS"     => zio.prelude.Validation.succeed(ChronoUnit.WEEKS)
+      case "YEARS"     => zio.prelude.Validation.succeed(ChronoUnit.YEARS)
       case _           => Left("Failed")
     }, {
-      case ChronoUnit.SECONDS   => Right("SECONDS")
-      case ChronoUnit.CENTURIES => Right("CENTURIES")
-      case ChronoUnit.DAYS      => Right("DAYS")
-      case ChronoUnit.DECADES   => Right("DECADES")
-      case ChronoUnit.FOREVER   => Right("FOREVER")
-      case ChronoUnit.HOURS     => Right("HOURS")
-      case ChronoUnit.MICROS    => Right("MICROS")
-      case ChronoUnit.MILLIS    => Right("MILLIS")
-      case ChronoUnit.MINUTES   => Right("MINUTES")
-      case ChronoUnit.MONTHS    => Right("MONTHS")
-      case ChronoUnit.NANOS     => Right("NANOS")
-      case ChronoUnit.WEEKS     => Right("WEEKS")
-      case ChronoUnit.YEARS     => Right("YEARS")
+      case ChronoUnit.SECONDS   => zio.prelude.Validation.succeed("SECONDS")
+      case ChronoUnit.CENTURIES => zio.prelude.Validation.succeed("CENTURIES")
+      case ChronoUnit.DAYS      => zio.prelude.Validation.succeed("DAYS")
+      case ChronoUnit.DECADES   => zio.prelude.Validation.succeed("DECADES")
+      case ChronoUnit.FOREVER   => zio.prelude.Validation.succeed("FOREVER")
+      case ChronoUnit.HOURS     => zio.prelude.Validation.succeed("HOURS")
+      case ChronoUnit.MICROS    => zio.prelude.Validation.succeed("MICROS")
+      case ChronoUnit.MILLIS    => zio.prelude.Validation.succeed("MILLIS")
+      case ChronoUnit.MINUTES   => zio.prelude.Validation.succeed("MINUTES")
+      case ChronoUnit.MONTHS    => zio.prelude.Validation.succeed("MONTHS")
+      case ChronoUnit.NANOS     => zio.prelude.Validation.succeed("NANOS")
+      case ChronoUnit.WEEKS     => zio.prelude.Validation.succeed("WEEKS")
+      case ChronoUnit.YEARS     => zio.prelude.Validation.succeed("YEARS")
       case _                    => Left("Failed")
     }
   )
@@ -317,9 +321,9 @@ object Schema extends SchemaEquality {
     Schema[String].transformOrFail(
       string =>
         try {
-          Right(new URL(string))
+          zio.prelude.Validation.succeed(new URL(string))
         } catch { case _: Exception => Left(s"Invalid URL: $string") },
-      url => Right(url.toString)
+      url => zio.prelude.Validation.succeed(url.toString)
     )
 
   implicit def schemaSchema[A]: Schema[Schema[A]] = Schema[MetaSchema].transform(
@@ -331,9 +335,9 @@ object Schema extends SchemaEquality {
     Schema[String].transformOrFail(
       string =>
         try {
-          Right(new URI(string))
+          zio.prelude.Validation.succeed(new URI(string))
         } catch { case _: Exception => Left(s"Invalid URI: $string") },
-      uri => Right(uri.toString)
+      uri => zio.prelude.Validation.succeed(uri.toString)
     )
 
   implicit def standardSchema[A]: Schema[StandardType[A]] = Schema[String].transformOrFail[StandardType[A]](
@@ -341,8 +345,11 @@ object Schema extends SchemaEquality {
       StandardType
         .fromString(string)
         .asInstanceOf[Option[StandardType[A]]]
-        .toRight(s"Invalid StandardType tag ${string}"),
-    standardType => Right(standardType.tag)
+        .tozio
+        .prelude
+        .Validation
+        .succeed(s"Invalid StandardType tag ${string}"),
+    standardType => zio.prelude.Validation.succeed(standardType.tag)
   )
 
   sealed trait Enum[Z] extends Schema[Z] {
@@ -411,20 +418,24 @@ object Schema extends SchemaEquality {
 
     def fields: Chunk[Field[R, _]]
 
-    def construct(fieldValues: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, R]
+    def construct(fieldValues: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, R]
 
     def deconstruct(value: R)(implicit unsafe: Unsafe): Chunk[Any]
 
     def id: TypeId
 
-    def defaultValue: scala.util.Either[String, R] =
+    def defaultValue: zio.prelude.Validation[String, R] =
       Unsafe.unsafe { implicit unsafe =>
-        self.fields
-          .map(_.schema.defaultValue)
-          .foldLeft[scala.util.Either[String, Chunk[R]]](Right(Chunk.empty)) {
-            case (e @ Left(_), _)              => e
-            case (_, Left(e))                  => Left[String, Chunk[R]](e)
-            case (Right(values), Right(value)) => Right[String, Chunk[R]](values :+ value.asInstanceOf[R])
+        zio.prelude.Validation
+          .validateAll(
+            self.fields
+              .map(_.schema.defaultValue)
+          )
+          .foldLeft[zio.prelude.Validation[String, Chunk[R]]](zio.prelude.Validation.succeed(Chunk.empty)) {
+            case (e @ Left(_), _) => e
+            case (_, Left(e))     => Left[String, Chunk[R]](e)
+            case (zio.prelude.Validation.succeed(values), zio.prelude.Validation.succeed(value)) =>
+              Right[String, Chunk[R]](values :+ value.asInstanceOf[R])
           }
           .flatMap(self.construct)
       }
@@ -444,7 +455,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Sequence[Col, Elem, I] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Col] =
+    override def defaultValue: zio.prelude.Validation[String, Col] =
       elementSchema.defaultValue.map(fromChunk.compose(Chunk(_)))
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, elementSchema)
@@ -455,14 +466,14 @@ object Schema extends SchemaEquality {
 
   final case class Transform[A, B, I](
     schema: Schema[A],
-    f: A => scala.util.Either[String, B],
-    g: B => scala.util.Either[String, A],
+    f: A => prelude.Validation[String, B],
+    g: B => prelude.Validation[String, A],
     annotations: Chunk[Any],
     identity: I
   ) extends Schema[B] {
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = schema.Accessors[Lens, Prism, Traversal]
 
-    def defaultValue: scala.util.Either[String, B] = schema.defaultValue.flatMap(f)
+    def defaultValue: zio.prelude.Validation[String, B] = schema.defaultValue.flatMap(f)
 
     override def makeAccessors(b: AccessorBuilder): schema.Accessors[b.Lens, b.Prism, b.Traversal] =
       schema.makeAccessors(b)
@@ -474,8 +485,8 @@ object Schema extends SchemaEquality {
         .fromSchema(schema)
         .asInstanceOf[Schema[Schema[_]]]
         .transformOrFail(
-          s => s.coerce(schema).flatMap(s1 => Right(s1.transformOrFail(f, g))),
-          s => Right(s.transformOrFail(g, f).ast.toSchema)
+          s => s.coerce(schema).flatMap(s1 => zio.prelude.Validation.succeed(s1.transformOrFail(f, g))),
+          s => zio.prelude.Validation.succeed(s.transformOrFail(g, f).ast.toSchema)
         )
 
     override def toString: String = s"Transform($schema, $identity)"
@@ -488,7 +499,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Primitive[A] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, A] = standardType.defaultValue
+    override def defaultValue: zio.prelude.Validation[String, A] = standardType.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
@@ -529,7 +540,7 @@ object Schema extends SchemaEquality {
       Chunk.empty
     )
 
-    def defaultValue: scala.util.Either[String, Option[A]] = Right(None)
+    def defaultValue: zio.prelude.Validation[String, Option[A]] = zio.prelude.Validation.succeed(None)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -543,7 +554,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Fail[A] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, A] = Left(message)
+    override def defaultValue: zio.prelude.Validation[String, A] = Left(message)
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
@@ -567,7 +578,7 @@ object Schema extends SchemaEquality {
       annotations
     )
 
-    override def defaultValue: scala.util.Either[String, (A, B)] =
+    override def defaultValue: zio.prelude.Validation[String, (A, B)] =
       left.defaultValue.flatMap(a => right.defaultValue.map(b => (a, b)))
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[first.type, (A, B), A], b.Lens[second.type, (A, B), B]) =
@@ -644,7 +655,7 @@ object Schema extends SchemaEquality {
 
     lazy val schema: Schema[A] = schema0()
 
-    def defaultValue: scala.util.Either[String, A] = schema.defaultValue
+    def defaultValue: zio.prelude.Validation[String, A] = schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): schema.Accessors[b.Lens, b.Prism, b.Traversal] =
       schema.makeAccessors(b)
@@ -665,7 +676,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Map[K, V] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, scala.collection.immutable.Map[K, V]] =
+    override def defaultValue: zio.prelude.Validation[String, scala.collection.immutable.Map[K, V]] =
       keySchema.defaultValue.flatMap(
         defaultKey =>
           valueSchema.defaultValue.map(defaultValue => scala.collection.immutable.Map(defaultKey -> defaultValue))
@@ -686,7 +697,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Set[A] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, scala.collection.immutable.Set[A]] =
+    override def defaultValue: zio.prelude.Validation[String, scala.collection.immutable.Set[A]] =
       elementSchema.defaultValue.map(scala.collection.immutable.Set(_))
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[scala.collection.immutable.Set[A], A] =
@@ -701,8 +712,8 @@ object Schema extends SchemaEquality {
     /**
      * The default value for a `Schema` of type `A`.
      */
-    override def defaultValue: scala.util.Either[String, DynamicValue] =
-      Right(DynamicValue.NoneValue)
+    override def defaultValue: zio.prelude.Validation[String, DynamicValue] =
+      zio.prelude.Validation.succeed(DynamicValue.NoneValue)
 
     /**
      * Returns a new schema that with `annotation`
@@ -738,7 +749,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum1[A, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): b.Prism[case1.id.type, Z, A] = b.makePrism(self, case1)
 
@@ -758,7 +769,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum2[A1, A2, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[case1.id.type, Z, A1], b.Prism[case2.id.type, Z, A2]) =
       (b.makePrism(self, case1), b.makePrism(self, case2))
@@ -779,7 +790,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum3[A1, A2, A3, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -808,7 +819,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum4[A1, A2, A3, A4, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -842,7 +853,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum5[A1, A2, A3, A4, A5, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -888,7 +899,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum6[A1, A2, A3, A4, A5, A6, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -938,7 +949,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum7[A1, A2, A3, A4, A5, A6, A7, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -990,7 +1001,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum8[A1, A2, A3, A4, A5, A6, A7, A8, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1045,7 +1056,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1104,7 +1115,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1180,7 +1191,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1262,7 +1273,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1361,7 +1372,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1466,7 +1477,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1579,7 +1590,7 @@ object Schema extends SchemaEquality {
     ): Enum15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1698,7 +1709,7 @@ object Schema extends SchemaEquality {
     ): Enum16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1823,7 +1834,7 @@ object Schema extends SchemaEquality {
     ): Enum17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1954,7 +1965,7 @@ object Schema extends SchemaEquality {
     ): Enum18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -2091,7 +2102,7 @@ object Schema extends SchemaEquality {
     ): Enum19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -2234,7 +2245,7 @@ object Schema extends SchemaEquality {
     ): Enum20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -2383,7 +2394,7 @@ object Schema extends SchemaEquality {
     ): Enum21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -2540,7 +2551,7 @@ object Schema extends SchemaEquality {
     ): Enum22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -2629,11 +2640,11 @@ object Schema extends SchemaEquality {
 
     override def cases: Chunk[Case[Z, _]] = Chunk(caseSet.toSeq: _*)
 
-    def defaultValue: scala.util.Either[String, Z] =
+    def defaultValue: zio.prelude.Validation[String, Z] =
       if (caseSet.toSeq.isEmpty)
         Left("cannot access default value for enum with no members")
       else
-        caseSet.toSeq.head.schema.defaultValue.asInstanceOf[scala.util.Either[String, Z]]
+        caseSet.toSeq.head.schema.defaultValue.asInstanceOf[zio.prelude.Validation[String, Z]]
 
     override def makeAccessors(b: AccessorBuilder): caseSet.Accessors[Z, b.Lens, b.Prism, b.Traversal] =
       caseSet.makeAccessors(self, b)
@@ -3311,9 +3322,11 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Schema.Field[ListMap[String, _], _]] = fieldSet.toChunk
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, ListMap[String, _]] =
+    override def construct(
+      values: Chunk[Any]
+    )(implicit unsafe: Unsafe): zio.prelude.Validation[String, ListMap[String, _]] =
       if (values.size == fields.size)
-        Right(ListMap(fields.map(_.name).zip(values): _*))
+        zio.prelude.Validation.succeed(ListMap(fields.map(_.name).zip(values): _*))
       else
         Left(s"wrong number of values for $fields")
 
@@ -3340,10 +3353,10 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk.empty
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.isEmpty)
         try {
-          Right(defaultConstruct())
+          zio.prelude.Validation.succeed(defaultConstruct())
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
@@ -3391,10 +3404,10 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 1)
         try {
-          Right(defaultConstruct(values(0).asInstanceOf[A]))
+          zio.prelude.Validation.succeed(defaultConstruct(values(0).asInstanceOf[A]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
@@ -3458,10 +3471,10 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 2)
         try {
-          Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2]))
+          zio.prelude.Validation.succeed(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
@@ -3538,10 +3551,11 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 3)
         try {
-          Right(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3]))
+          zio.prelude.Validation
+            .succeed(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3]))
         } catch {
           case _: Throwable => Left("invalid type in values")
         } else
@@ -3633,10 +3647,10 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 4)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -3753,10 +3767,10 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 5)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -3906,10 +3920,10 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 6)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -4079,10 +4093,10 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6, field7)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 7)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -4285,10 +4299,10 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6, field7, field8)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 8)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -4508,10 +4522,10 @@ object Schema extends SchemaEquality {
     override def fields: Chunk[Field[Z, _]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 9)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -4769,10 +4783,10 @@ object Schema extends SchemaEquality {
         field10
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 10)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -5052,10 +5066,10 @@ object Schema extends SchemaEquality {
         field11
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 11)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -5354,10 +5368,10 @@ object Schema extends SchemaEquality {
         field12
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 12)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -5675,10 +5689,10 @@ object Schema extends SchemaEquality {
         field13
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 13)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -6015,10 +6029,10 @@ object Schema extends SchemaEquality {
         field14
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 14)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -6375,10 +6389,10 @@ object Schema extends SchemaEquality {
         field15
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 15)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -6756,10 +6770,10 @@ object Schema extends SchemaEquality {
         field16
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 16)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -7156,10 +7170,10 @@ object Schema extends SchemaEquality {
         field17
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 17)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -7575,10 +7589,10 @@ object Schema extends SchemaEquality {
         field18
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 18)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -8015,10 +8029,10 @@ object Schema extends SchemaEquality {
         field19
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 19)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -8474,10 +8488,10 @@ object Schema extends SchemaEquality {
         field20
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 20)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -8973,10 +8987,10 @@ object Schema extends SchemaEquality {
         field21
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 21)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],
@@ -9538,10 +9552,10 @@ object Schema extends SchemaEquality {
         field22
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
       if (values.size == 22)
         try {
-          Right(
+          zio.prelude.Validation.succeed(
             construct(
               values(0).asInstanceOf[A1],
               values(1).asInstanceOf[A2],

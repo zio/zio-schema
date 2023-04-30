@@ -117,8 +117,8 @@ object Example6_PureOptics extends scala.App {
 
   val employees: Lens[Company, List[Employee]] =
     Lens(
-      company => Right(company.employees),
-      employees => company => Right(company.copy(employees = employees))
+      company => zio.prelude.Validation.succeed(company.employees),
+      employees => company => zio.prelude.Validation.succeed(company.copy(employees = employees))
     )
 
   val employee: Employee = Employee("employee2")

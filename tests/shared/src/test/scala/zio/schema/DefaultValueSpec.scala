@@ -37,109 +37,109 @@ object DefaultValueSpec extends ZIOSpecDefault {
   def spec: Spec[Environment, Any] = suite("Default Value Spec")(
     suite("Primitive")(
       test("UnitType default value") {
-        assert(Primitive(StandardType.UnitType).defaultValue)(isRight(equalTo(())))
+        assert(Primitive(StandardType.UnitType).defaultValue)(iszio.prelude.Validation.succeed(equalTo(())))
       },
       test("StringType default value") {
-        assert(Primitive(StandardType.StringType).defaultValue)(isRight(equalTo("")))
+        assert(Primitive(StandardType.StringType).defaultValue)(iszio.prelude.Validation.succeed(equalTo("")))
       },
       test("BoolType default value") {
-        assert(Primitive(StandardType.BoolType).defaultValue)(isRight(equalTo(false)))
+        assert(Primitive(StandardType.BoolType).defaultValue)(iszio.prelude.Validation.succeed(equalTo(false)))
       },
       test("ShortType default value") {
-        assert(Primitive(StandardType.ShortType).defaultValue)(isRight(equalTo(0.asInstanceOf[Short])))
+        assert(Primitive(StandardType.ShortType).defaultValue)(iszio.prelude.Validation.succeed(equalTo(0.asInstanceOf[Short])))
       },
       test("IntType default value") {
-        assert(Primitive(StandardType.IntType).defaultValue)(isRight(equalTo(0)))
+        assert(Primitive(StandardType.IntType).defaultValue)(iszio.prelude.Validation.succeed(equalTo(0)))
       },
       test("LongType default value") {
-        assert(Primitive(StandardType.LongType).defaultValue)(isRight(equalTo(0.asInstanceOf[Long])))
+        assert(Primitive(StandardType.LongType).defaultValue)(iszio.prelude.Validation.succeed(equalTo(0.asInstanceOf[Long])))
       },
       test("FloatType default value") {
-        assert(Primitive(StandardType.FloatType).defaultValue)(isRight(equalTo(0.0.asInstanceOf[Float])))
+        assert(Primitive(StandardType.FloatType).defaultValue)(iszio.prelude.Validation.succeed(equalTo(0.0.asInstanceOf[Float])))
       },
       test("DoubleType default value") {
-        assert(Primitive(StandardType.DoubleType).defaultValue)(isRight(equalTo(0.0)))
+        assert(Primitive(StandardType.DoubleType).defaultValue)(iszio.prelude.Validation.succeed(equalTo(0.0)))
       },
       test("BinaryType default value") {
-        assert(Primitive(StandardType.BinaryType).defaultValue)(isRight(equalTo(Chunk.empty)))
+        assert(Primitive(StandardType.BinaryType).defaultValue)(iszio.prelude.Validation.succeed(equalTo(Chunk.empty)))
       },
       test("CharType default value") {
-        assert(Primitive(StandardType.CharType).defaultValue)(isRight(equalTo('\u0000')))
+        assert(Primitive(StandardType.CharType).defaultValue)(iszio.prelude.Validation.succeed(equalTo('\u0000')))
       },
       test("BigDecimalType default value") {
-        assert(Primitive(StandardType.BigDecimalType).defaultValue)(isRight(equalTo(java.math.BigDecimal.ZERO)))
+        assert(Primitive(StandardType.BigDecimalType).defaultValue)(iszio.prelude.Validation.succeed(equalTo(java.math.BigDecimal.ZERO)))
       },
       test("BigIntegerType default value") {
-        assert(Primitive(StandardType.BigIntegerType).defaultValue)(isRight(equalTo(java.math.BigInteger.ZERO)))
+        assert(Primitive(StandardType.BigIntegerType).defaultValue)(iszio.prelude.Validation.succeed(equalTo(java.math.BigInteger.ZERO)))
       },
       test("DayOfWeekType default value") {
         assert(Primitive(StandardType.DayOfWeekType).defaultValue)(
-          isRight(equalTo(java.time.temporal.WeekFields.of(java.util.Locale.getDefault).getFirstDayOfWeek))
+          iszio.prelude.Validation.succeed(equalTo(java.time.temporal.WeekFields.of(java.util.Locale.getDefault).getFirstDayOfWeek))
         )
       },
       test("Month default value") {
-        assert(Primitive(StandardType.MonthType).defaultValue)(isRight(equalTo(java.time.Month.JANUARY)))
+        assert(Primitive(StandardType.MonthType).defaultValue)(iszio.prelude.Validation.succeed(equalTo(java.time.Month.JANUARY)))
       },
       test("MonthDay default value") {
         assert(Primitive(StandardType.MonthDayType).defaultValue)(
-          isRight(equalTo(java.time.MonthDay.of(java.time.Month.JANUARY, 1)))
+          iszio.prelude.Validation.succeed(equalTo(java.time.MonthDay.of(java.time.Month.JANUARY, 1)))
         )
       },
       test("Period default value") {
-        assert(Primitive(StandardType.PeriodType).defaultValue)(isRight(equalTo(java.time.Period.ZERO)))
+        assert(Primitive(StandardType.PeriodType).defaultValue)(iszio.prelude.Validation.succeed(equalTo(java.time.Period.ZERO)))
       },
       test("Year default value") {
         assert(Primitive(StandardType.YearType).defaultValue)(
-          isRight(equalTo(java.time.Year.now))
+          iszio.prelude.Validation.succeed(equalTo(java.time.Year.now))
         )
       },
       test("YearMonth default value") {
-        assert(Primitive(StandardType.YearMonthType).defaultValue)(isRight(equalTo(java.time.YearMonth.now)))
+        assert(Primitive(StandardType.YearMonthType).defaultValue)(iszio.prelude.Validation.succeed(equalTo(java.time.YearMonth.now)))
       },
       test("ZoneId default value") {
-        assert(Primitive(StandardType.ZoneIdType).defaultValue)(isRight(equalTo(java.time.ZoneId.systemDefault)))
+        assert(Primitive(StandardType.ZoneIdType).defaultValue)(iszio.prelude.Validation.succeed(equalTo(java.time.ZoneId.systemDefault)))
       },
       test("ZoneOffset default value") {
-        assert(Primitive(StandardType.ZoneOffsetType).defaultValue)(isRight(equalTo(java.time.ZoneOffset.UTC)))
+        assert(Primitive(StandardType.ZoneOffsetType).defaultValue)(iszio.prelude.Validation.succeed(equalTo(java.time.ZoneOffset.UTC)))
       },
       test("Duration default value") {
         assert(Primitive(StandardType.DurationType).defaultValue)(
-          isRight(equalTo(java.time.Duration.ZERO))
+          iszio.prelude.Validation.succeed(equalTo(java.time.Duration.ZERO))
         )
       },
       test("Instant default value") {
         assert(Primitive(StandardType.InstantType).defaultValue)(
-          isRight(equalTo(java.time.Instant.EPOCH))
+          iszio.prelude.Validation.succeed(equalTo(java.time.Instant.EPOCH))
         )
       },
       test("LocalDate default value") {
         assert(Primitive(StandardType.LocalDateType).defaultValue)(
-          isRight(isSubtype[java.time.LocalDate](anything))
+          iszio.prelude.Validation.succeed(isSubtype[java.time.LocalDate](anything))
         )
       },
       test("LocalTime default value") {
         assert(Primitive(StandardType.LocalTimeType).defaultValue)(
-          isRight(equalTo(java.time.LocalTime.MIDNIGHT))
+          iszio.prelude.Validation.succeed(equalTo(java.time.LocalTime.MIDNIGHT))
         )
       },
       test("LocalDateTime default value") {
         assert(Primitive(StandardType.LocalDateTimeType).defaultValue)(
-          isRight(isSubtype[java.time.LocalDateTime](anything))
+          iszio.prelude.Validation.succeed(isSubtype[java.time.LocalDateTime](anything))
         )
       },
       test("OffsetTime default value") {
         assert(Primitive(StandardType.OffsetTimeType).defaultValue)(
-          isRight(isSubtype[java.time.OffsetTime](anything))
+          iszio.prelude.Validation.succeed(isSubtype[java.time.OffsetTime](anything))
         )
       },
       test("OffsetDateTime default value") {
         assert(Primitive(StandardType.OffsetDateTimeType).defaultValue)(
-          isRight(isSubtype[java.time.OffsetDateTime](anything))
+          iszio.prelude.Validation.succeed(isSubtype[java.time.OffsetDateTime](anything))
         )
       },
       test("ZonedDateTime default value") {
         assert(Primitive(StandardType.ZonedDateTimeType).defaultValue)(
-          isRight(isSubtype[java.time.ZonedDateTime](anything))
+          iszio.prelude.Validation.succeed(isSubtype[java.time.ZonedDateTime](anything))
         )
       }
     ),
@@ -156,7 +156,7 @@ object DefaultValueSpec extends ZIOSpecDefault {
             ),
             UserId.apply
           )
-        assert(schema.defaultValue)(isRight(equalTo(UserId(""))))
+        assert(schema.defaultValue)(iszio.prelude.Validation.succeed(equalTo(UserId(""))))
       },
       test("recursive") {
         val expected: Schema[User] =
@@ -191,15 +191,15 @@ object DefaultValueSpec extends ZIOSpecDefault {
             ),
             User.apply
           )
-        assert(expected.defaultValue)(isRight(equalTo(User(UserId(""), "", 0))))
+        assert(expected.defaultValue)(iszio.prelude.Validation.succeed(equalTo(User(UserId(""), "", 0))))
       }
     ),
     suite("Sequence")(
       test("chunk") {
-        assert(Schema.chunk[Int].defaultValue)(isRight(equalTo(Chunk(0))))
+        assert(Schema.chunk[Int].defaultValue)(iszio.prelude.Validation.succeed(equalTo(Chunk(0))))
       },
       test("list") {
-        assert(Schema.list[Int].defaultValue)(isRight(equalTo(List(0))))
+        assert(Schema.list[Int].defaultValue)(iszio.prelude.Validation.succeed(equalTo(List(0))))
       }
     ),
     suite("Enumeration")(
@@ -211,19 +211,19 @@ object DefaultValueSpec extends ZIOSpecDefault {
             Any
           ]("myString")(_.asInstanceOf[String])(_.asInstanceOf[Any])(_.isInstanceOf[String])
         )
-        assert(schema.defaultValue)(isRight(equalTo(0)))
+        assert(schema.defaultValue)(iszio.prelude.Validation.succeed(equalTo(0)))
       }
     ),
     suite("Transform")(
       test("returns transformed default value") {
         val schema: Schema[String] = Schema.primitive(StandardType.IntType).transform[String](_.toString, _.toInt)
-        assert(schema.defaultValue)(isRight(equalTo("0")))
+        assert(schema.defaultValue)(iszio.prelude.Validation.succeed(equalTo("0")))
       }
     ),
     suite("Optional")(
       test("defaults to None") {
         val schema: Schema[Option[Int]] = Schema.option[Int]
-        assert(schema.defaultValue)(isRight(isNone))
+        assert(schema.defaultValue)(iszio.prelude.Validation.succeed(isNone))
       }
     ),
     suite("Fail")(
@@ -236,13 +236,13 @@ object DefaultValueSpec extends ZIOSpecDefault {
       test("defaults to default value of tuple members") {
         val schema: Schema[(Int, String)] =
           Schema.tuple2(Schema.primitive(StandardType.IntType), Schema.primitive(StandardType.StringType))
-        assert(schema.defaultValue)(isRight(equalTo((0, ""))))
+        assert(schema.defaultValue)(iszio.prelude.Validation.succeed(equalTo((0, ""))))
       }
     ),
     suite("Lazy")(
       test("calls the schema thunk") {
         val schema: Lazy[Int] = Schema.Lazy(() => Schema.primitive(StandardType.IntType))
-        assert(schema.defaultValue)(isRight(equalTo(0)))
+        assert(schema.defaultValue)(iszio.prelude.Validation.succeed(equalTo(0)))
       }
     ),
     suite("Enum")(
@@ -274,24 +274,24 @@ object DefaultValueSpec extends ZIOSpecDefault {
               (s: Status) => s.isInstanceOf[Pending.type]
             )
           )
-        assert(schema.defaultValue)(isRight(equalTo(Failed(0, "", None, ""))))
+        assert(schema.defaultValue)(iszio.prelude.Validation.succeed(equalTo(Failed(0, "", None, ""))))
       }
     ),
     suite("EitherSchema")(
       test("either") {
-        val eitherSchema: Schema[Either[Int, String]] = Schema.either(
+        val eitherSchema: Schema[zio.prelude.Validation[Int, String]] = Schema.either(
           Schema.primitive(StandardType.IntType),
           Schema.primitive(StandardType.StringType)
         )
-        assert(eitherSchema.defaultValue)(isRight(isLeft(equalTo(0))))
+        assert(eitherSchema.defaultValue)(iszio.prelude.Validation.succeed(isLeft(equalTo(0))))
       },
       test("left") {
         val leftSchema = Schema.either(Schema.primitive(StandardType.IntType), Schema.fail("Nothing"))
-        assert(leftSchema.defaultValue)(isRight(isLeft(equalTo(0))))
+        assert(leftSchema.defaultValue)(iszio.prelude.Validation.succeed(isLeft(equalTo(0))))
       },
       test("right") {
         val rightSchema = Schema.either(Schema.fail("Nothing"), Schema.primitive(StandardType.StringType))
-        assert(rightSchema.defaultValue)(isRight(isRight(equalTo(""))))
+        assert(rightSchema.defaultValue)(iszio.prelude.Validation.succeed(iszio.prelude.Validation.succeed(equalTo(""))))
       }
     )
   )

@@ -89,15 +89,15 @@ private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUti
                     seqSchemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Sequence[List[a], a, _]]},
                     selfRef -> '{$deriver.deriveSequence[List, a]($seqSchemaRefExpr, $elemInstance, ${summoned})}
                   )            
-                case '[scala.util.Either[a, b]] =>
-                  val (schemaRef, schemaRefExpr) = createSchemaRef[scala.util.Either[a, b], Schema.Either[a, b]](stack)              
-                  val summoned = summonOptionalIfNotTop[F, scala.util.Either[a, b]](top)
+                case '[zio.prelude.Validation[a, b]] =>
+                  val (schemaRef, schemaRefExpr) = createSchemaRef[zio.prelude.Validation[a, b], Schema.zio.prelude.Validation[a, b]](stack)
+                  val summoned = summonOptionalIfNotTop[F, zio.prelude.Validation[a, b]](top)
 
                   val instanceA = deriveInstance[F, a](deriver, '{$schemaRefExpr.left}, stack)
                   val instanceB = deriveInstance[F, b](deriver, '{$schemaRefExpr.right}, stack)
                   lazyVals[F[A]](selfRef,
-                    schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.Either[a, b]]},
-                    selfRef -> '{$deriver.deriveEither[a, b]($schemaRefExpr, $instanceA, $instanceB, $summoned)}
+                    schemaRef -> '{Schema.force($schema).asInstanceOf[Schema.zio.prelude.Validation[a, b]]},
+                    selfRef -> '{$deriver.derivezio.prelude.Validation[a, b]($schemaRefExpr, $instanceA, $instanceB, $summoned)}
                   )
                 case '[Option[a]] =>
                   val (schemaRef, schemaRefExpr) = createSchemaRef[Option[a], Schema.Optional[a]](stack)              

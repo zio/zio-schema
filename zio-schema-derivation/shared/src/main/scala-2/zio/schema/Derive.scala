@@ -22,7 +22,7 @@ object Derive {
     val setTpe          = c.typeOf[Set[_]]
     val vectorTpe       = c.typeOf[Vector[_]]
     val chunkTpe        = c.typeOf[Chunk[_]]
-    val eitherTpe       = c.typeOf[Either[_, _]]
+    val eitherTpe       = c.typeOf[zio.prelude.Validation[_, _]]
     val tuple2Tpe       = c.typeOf[Tuple2[_, _]]
     val tuple3Tpe       = c.typeOf[Tuple3[_, _, _]]
     val tuple4Tpe       = c.typeOf[Tuple4[_, _, _, _]]
@@ -234,8 +234,8 @@ object Derive {
             val rightInstance = recurse(concreteType(tpe, rightTpe), rightSchema, currentFrame +: stack, top = false)
 
             q"""{
-              lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.Either[$leftTpe, $rightTpe]]
-              lazy val $selfRefWithType = $deriver.deriveEither[$leftTpe, $rightTpe]($schemaRef, $leftInstance, $rightInstance, $summoned)
+              lazy val $schemaRef = $forcedSchema.asInstanceOf[_root_.zio.schema.Schema.zio.prelude.Validation[$leftTpe, $rightTpe]]
+              lazy val $selfRefWithType = $deriver.derivezio.prelude.Validation[$leftTpe, $rightTpe]($schemaRef, $leftInstance, $rightInstance, $summoned)
               $selfRef
             }"""
           } else if (tpe <:< tuple2Tpe) {

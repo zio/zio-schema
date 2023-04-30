@@ -27,7 +27,7 @@ object JsonCodec {
 
   implicit def zioJsonBinaryCodec[A](implicit jsonCodec: ZJsonCodec[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
-      override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
+      override def decode(whole: Chunk[Byte]): zio.prelude.Validation[DecodeError, A] =
         jsonCodec
           .decodeJson(
             new String(whole.toArray, JsonEncoder.CHARSET)
@@ -60,7 +60,7 @@ object JsonCodec {
 
   implicit def schemaBasedBinaryCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
-      override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
+      override def decode(whole: Chunk[Byte]): zio.prelude.Validation[DecodeError, A] =
         JsonDecoder.decode(
           schema,
           new String(whole.toArray, JsonEncoder.CHARSET)
@@ -360,20 +360,20 @@ object JsonCodec {
       }
     }
 
-    private def transformEncoder[A, B](schema: Schema[A], g: B => Either[String, A]): ZJsonEncoder[B] =
+    private def transformEncoder[A, B](schema: Schema[A], g: B => zio.prelude.Validation[String, A]): ZJsonEncoder[B] =
       new ZJsonEncoder[B] {
         private lazy val innerEncoder = schemaEncoder(schema)
 
         override def unsafeEncode(b: B, indent: Option[Int], out: Write): Unit =
           g(b) match {
             case Left(_)  => ()
-            case Right(a) => innerEncoder.unsafeEncode(a, indent, out)
+            case zio.prelude.Validation.succeed(a) => innerEncoder.unsafeEncode(a, indent, out)
           }
 
         override def isNothing(b: B): Boolean =
           g(b) match {
             case Left(_)  => false
-            case Right(a) => innerEncoder.isNothing(a)
+            case zio.prelude.Validation.succeed(a) => innerEncoder.isNothing(a)
           }
       }
 
@@ -474,10 +474,10 @@ object JsonCodec {
     import Codecs._
     import ProductDecoder._
 
-    final def decode[A](schema: Schema[A], json: String): Either[DecodeError, A] =
+    final def decode[A](schema: Schema[A], json: String): zio.prelude.Validation[DecodeError, A] =
       schemaDecoder(schema).decodeJson(json) match {
         case Left(value)  => Left(ReadError(Cause.empty, value))
-        case Right(value) => Right(value)
+        case zio.prelude.Validation.succeed(value) => zio.prelude.Validation.succeed(value)
       }
 
     def x[A](dec: ZJsonDecoder[A]): Unit = dec match {
@@ -645,7 +645,7 @@ object JsonCodec {
         ZJsonDecoder.string.mapOrFail(
           s =>
             caseMap.get(caseNameAliases.get(s).getOrElse(s)) match {
-              case Some(z) => Right(z)
+              case Some(z) => zio.prelude.Validation.succeed(z)
               case None    => Left("unrecognized string")
             }
         )

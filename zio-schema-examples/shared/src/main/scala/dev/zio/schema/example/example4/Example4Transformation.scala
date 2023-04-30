@@ -70,7 +70,7 @@ object Example4Transformation extends ZIOAppDefault {
     (dto: DomainPerson) => WebPerson(dto.firstname + " " + dto.lastname, dto.years)
   )
 
-  val domainPerson: Either[String, DomainPerson] =
+  val domainPerson: zio.prelude.Validation[String, DomainPerson] =
     WebPerson.schema.migrate(personTransformation).flatMap(f => f(webPerson))
 
   override def run: UIO[Unit] = ZIO.debug(domainPerson)
@@ -85,7 +85,7 @@ object Example4Ast extends zio.ZIOAppDefault {
 
   val webPerson: WebPerson = WebPerson("Mike Moe", 32)
 
-  val dyn: Either[String, DynamicValue] = WebPerson.schema
+  val dyn: zio.prelude.Validation[String, DynamicValue] = WebPerson.schema
     .toDynamic(webPerson)
     .transform(
       Chunk(
@@ -114,10 +114,10 @@ object Example4Ast2 extends zio.ZIOAppDefault {
   val domainPersonAst: MetaSchema = MetaSchema.fromSchema(DomainPerson.schema)
   val migrationAst: MetaSchema    = MetaSchema.fromSchema(personTransformation)
 
-  val migrationWebPersonAstToMigrationAst: Either[String, Chunk[Migration]] =
+  val migrationWebPersonAstToMigrationAst: zio.prelude.Validation[String, Chunk[Migration]] =
     Migration.derive(webPersonAst, migrationAst)
 
-  val migrationWebPersonAstToDomainPersonAst: Either[String, Chunk[Migration]] =
+  val migrationWebPersonAstToDomainPersonAst: zio.prelude.Validation[String, Chunk[Migration]] =
     Migration.derive(webPersonAst, domainPersonAst)
 
   override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =

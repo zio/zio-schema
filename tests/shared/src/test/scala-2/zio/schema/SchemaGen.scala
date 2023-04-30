@@ -98,13 +98,13 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  val anyEither: Gen[Sized, Schema.Either[_, _]] =
+  val anyEither: Gen[Sized, Schema.zio.prelude.Validation[_, _]] =
     for {
       left  <- anyPrimitive
       right <- anyPrimitive
     } yield Schema.Either(left, right)
 
-  type EitherAndGen[A, B] = (Schema.Either[A, B], Gen[Sized, scala.util.Either[A, B]])
+  type EitherAndGen[A, B] = (Schema.zio.prelude.Validation[A, B], Gen[Sized, zio.prelude.Validation[A, B]])
 
   val anyEitherAndGen: Gen[Sized, EitherAndGen[_, _]] =
     for {
@@ -112,7 +112,7 @@ object SchemaGen {
       (rightSchema, rightGen) <- anyPrimitiveAndGen
     } yield (Schema.Either(leftSchema, rightSchema), Gen.either(leftGen, rightGen))
 
-  type EitherAndValue[A, B] = (Schema.Either[A, B], scala.util.Either[A, B])
+  type EitherAndValue[A, B] = (Schema.zio.prelude.Validation[A, B], zio.prelude.Validation[A, B])
 
   val anyEitherAndValue: Gen[Sized, EitherAndValue[_, _]] =
     for {
@@ -315,8 +315,8 @@ object SchemaGen {
   private def transformSequence[A](schema: Schema[Chunk[A]]): SequenceTransform[A] =
     Schema.Transform[Chunk[A], List[A], String](
       schema,
-      chunk => Right(chunk.toList),
-      list => Right(Chunk.fromIterable(list)),
+      chunk => zio.prelude.Validation.succeed(chunk.toList),
+      list => zio.prelude.Validation.succeed(Chunk.fromIterable(list)),
       Chunk.empty,
       "transformSequence"
     )
@@ -594,7 +594,7 @@ object SchemaGen {
 //        anyEnumeration(anyTree(depth - 1)).map(toCaseSet).map(Schema.enumeration[Any, CaseSet.Aux[Any]](_))
       )
 
-  type SchemaAndDerivedValue[A, B] = (Schema[A], Schema[B], Chunk[scala.util.Either[A, B]])
+  type SchemaAndDerivedValue[A, B] = (Schema[A], Schema[B], Chunk[zio.prelude.Validation[A, B]])
 
   lazy val anyLeafAndValue: Gen[Sized, SchemaAndValue[_]] =
     for {

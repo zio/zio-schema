@@ -56,10 +56,10 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
   protected def processSet(context: Context, schema: Schema.Set[_], value: Set[Target]): Target
 
   /** Called before processing and either value */
-  @nowarn protected def startProcessingEither(context: Context, schema: Schema.Either[_, _]): Unit = {}
+  @nowarn protected def startProcessingEither(context: Context, schema: Schema.zio.prelude.Validation[_, _]): Unit = {}
 
   /** Process an either value using its already processed left or right value */
-  protected def processEither(context: Context, schema: Schema.Either[_, _], value: Either[Target, Target]): Target
+  protected def processEither(context: Context, schema: Schema.zio.prelude.Validation[_, _], value: zio.prelude.Validation[Target, Target]): Target
 
   /** Called before processing an option value */
   @nowarn protected def startProcessingOption(context: Context, schema: Schema.Optional[_]): Unit = {}
@@ -93,7 +93,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
   protected def contextForEnumConstructor(context: Context, index: Int, c: Schema.Case[_, _]): Context
 
   /** Gets the context for an either's left or right value within the parent context */
-  protected def contextForEither(context: Context, e: Either[Unit, Unit]): Context
+  protected def contextForEither(context: Context, e: zio.prelude.Validation[Unit, Unit]): Context
 
   /** Gets the context for an option's inner value within the parent context */
   protected def contextForOption(context: Context, o: Option[Unit]): Context
@@ -814,9 +814,9 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
           pushContext(contextForSet(currentContext, s, 0))
           processNext(0)
 
-        case s: Schema.Either[l, r] =>
+        case s: Schema.zio.prelude.Validation[l, r] =>
           startProcessingEither(currentContext, s)
-          currentValue.asInstanceOf[Either[l, r]] match {
+          currentValue.asInstanceOf[zio.prelude.Validation[l, r]] match {
             case Left(value: l) =>
               currentValue = value
               currentSchema = s.left
@@ -825,13 +825,13 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
                 contextStack = contextStack.tail
                 finishWith(processEither(currentContext, s, Left(dyn)))
               }
-            case Right(value: r) =>
+            case zio.prelude.Validation.succeed(value: r) =>
               currentValue = value
               currentSchema = s.right
-              pushContext(contextForEither(currentContext, Right(())))
+              pushContext(contextForEither(currentContext, zio.prelude.Validation.succeed(())))
               push { dyn =>
                 contextStack = contextStack.tail
-                finishWith(processEither(currentContext, s, Right(dyn)))
+                finishWith(processEither(currentContext, s, zio.prelude.Validation.succeed(dyn)))
               }
           }
 
@@ -868,10 +868,10 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
           }
 
         case Schema.Transform(schema, _, g, _, _) =>
-          g.asInstanceOf[Any => Either[String, Any]](currentValue) match {
+          g.asInstanceOf[Any => zio.prelude.Validation[String, Any]](currentValue) match {
             case Left(message) =>
               finishWith(fail(currentContext, message))
-            case Right(a) =>
+            case zio.prelude.Validation.succeed(a) =>
               currentValue = a
               currentSchema = schema
           }
@@ -1347,7 +1347,7 @@ trait SimpleMutableSchemaBasedValueProcessor[Target] extends MutableSchemaBasedV
 
   protected def processSet(schema: Schema.Set[_], value: Set[Target]): Target
 
-  protected def processEither(schema: Schema.Either[_, _], value: Either[Target, Target]): Target
+  protected def processEither(schema: Schema.zio.prelude.Validation[_, _], value: zio.prelude.Validation[Target, Target]): Target
 
   protected def processOption(schema: Schema.Optional[_], value: Option[Target]): Target
 
@@ -1389,8 +1389,8 @@ trait SimpleMutableSchemaBasedValueProcessor[Target] extends MutableSchemaBasedV
 
   override protected def processEither(
     context: Unit,
-    schema: Schema.Either[_, _],
-    value: Either[Target, Target]
+    schema: Schema.zio.prelude.Validation[_, _],
+    value: zio.prelude.Validation[Target, Target]
   ): Target =
     processEither(schema, value)
 
@@ -1414,7 +1414,7 @@ trait SimpleMutableSchemaBasedValueProcessor[Target] extends MutableSchemaBasedV
   override protected def contextForEnumConstructor(context: Unit, index: Int, c: Schema.Case[_, _]): Unit =
     ()
 
-  override protected def contextForEither(context: Unit, e: Either[Unit, Unit]): Unit =
+  override protected def contextForEither(context: Unit, e: zio.prelude.Validation[Unit, Unit]): Unit =
     ()
 
   override protected def contextForOption(context: Unit, o: Option[Unit]): Unit =

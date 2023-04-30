@@ -47,7 +47,7 @@ object SchemaMigrationSpec extends ZIOSpecDefault {
 
         val actualMigration = original.migrate[Recursive3]
 
-        assert(actualMigration)(isRight(equalTo(expectedMigration)))
+        assert(actualMigration)(iszio.prelude.Validation.succeed(equalTo(expectedMigration)))
       },
       test("require optional field") {
         assert(PetFood.DogFood(List("i"), Some("brand")))(migratesTo(BrandedPetFood.DogFood(List("i"), "brand")))
@@ -66,7 +66,7 @@ object SchemaMigrationSpec extends ZIOSpecDefault {
         check(PetFood.gen) { from =>
           PetFood.brandedEquivalent(from) match {
             case Left(_)   => assert(from)(cannotMigrateValue[PetFood, BrandedPetFood])
-            case Right(to) => assert(from)(migratesTo(to))
+            case zio.prelude.Validation.succeed(to) => assert(from)(migratesTo(to))
           }
         }
       }
@@ -114,7 +114,7 @@ object SchemaMigrationSpec extends ZIOSpecDefault {
     check(genA) { a =>
       val roundTrip = a.migrate[B].flatMap(_.migrate[A])
 
-      assertTrue(roundTrip == Right(a))
+      assertTrue(roundTrip == zio.prelude.Validation.succeed(a))
     }
 
   case class Recursive1(level: Int, value: String, r: Option[Recursive1])
@@ -170,9 +170,9 @@ object SchemaMigrationSpec extends ZIOSpecDefault {
         (Gen.listOf(Gen.string) <*> Gen.option(Gen.string)).map((CatFood.apply _).tupled)
     }
 
-    def brandedEquivalent(p: PetFood): Either[String, BrandedPetFood] = p match {
-      case CatFood(ingredients, Some(brand)) => Right(BrandedPetFood.CatFood(ingredients, brand))
-      case DogFood(ingredients, Some(brand)) => Right(BrandedPetFood.DogFood(ingredients, brand))
+    def brandedEquivalent(p: PetFood): zio.prelude.Validation[String, BrandedPetFood] = p match {
+      case CatFood(ingredients, Some(brand)) => zio.prelude.Validation.succeed(BrandedPetFood.CatFood(ingredients, brand))
+      case DogFood(ingredients, Some(brand)) => zio.prelude.Validation.succeed(BrandedPetFood.DogFood(ingredients, brand))
       case _                                 => Left("error")
     }
 
@@ -299,7 +299,7 @@ object SchemaMigrationSpec extends ZIOSpecDefault {
     implicit lazy val schema: Schema[Version2] = DeriveSchema.gen
   }
 
-  case class NestedEither1(v1: Int, v2: Either[String, PetFood.DogFood])
+  case class NestedEither1(v1: Int, v2: zio.prelude.Validation[String, PetFood.DogFood])
 
   object NestedEither1 {
     implicit lazy val schema: Schema[NestedEither1] = DeriveSchema.gen
@@ -311,7 +311,7 @@ object SchemaMigrationSpec extends ZIOSpecDefault {
       } yield NestedEither1(v1, v2)
   }
 
-  case class NestedEither2(v1: Int, v2: Either[String, PetFood.CatFood])
+  case class NestedEither2(v1: Int, v2: zio.prelude.Validation[String, PetFood.CatFood])
 
   object NestedEither2 {
     implicit lazy val schema: Schema[NestedEither2] = DeriveSchema.gen

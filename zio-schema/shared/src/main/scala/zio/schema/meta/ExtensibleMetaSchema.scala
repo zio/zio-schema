@@ -388,17 +388,17 @@ object ExtensibleMetaSchema {
 
     private def tupled[BuiltIn <: TypeList](
       value: Value[BuiltIn]
-    ): scala.Either[String, (String, Chunk[String], Boolean)] =
-      Right((value.valueType.tag, value.path, value.optional))
+    ): scala.zio.prelude.Validation[String, (String, Chunk[String], Boolean)] =
+      zio.prelude.Validation.succeed((value.valueType.tag, value.path, value.optional))
 
     private def fromTuple[BuiltIn <: TypeList](
       tuple: (String, Chunk[String], Boolean)
-    )(implicit builtInInstances: SchemaInstances[BuiltIn]): scala.Either[String, Value[BuiltIn]] = tuple match {
+    )(implicit builtInInstances: SchemaInstances[BuiltIn]): scala.zio.prelude.Validation[String, Value[BuiltIn]] = tuple match {
       case (s, path, optional) =>
         StandardType
           .fromString(s)
           .map(typ => Value(typ, NodePath(path), optional))
-          .toRight(s"unkown standard type $s")
+          .tozio.prelude.Validation.succeed(s"unkown standard type $s")
     }
   }
   final case class Ref[BuiltIn <: TypeList](
@@ -687,12 +687,12 @@ object ExtensibleMetaSchema {
           caseOf[Sum[BuiltIn], ExtensibleMetaSchema[BuiltIn]]("Sum")(_.asInstanceOf[Sum[BuiltIn]])(
             _.asInstanceOf[ExtensibleMetaSchema[BuiltIn]]
           )(_.isInstanceOf[Sum[BuiltIn]]) ++
-          caseOf[Either[BuiltIn], ExtensibleMetaSchema[BuiltIn]]("Either")(
-            _.asInstanceOf[Either[BuiltIn]]
+          caseOf[zio.prelude.Validation[BuiltIn], ExtensibleMetaSchema[BuiltIn]]("Either")(
+            _.asInstanceOf[zio.prelude.Validation[BuiltIn]]
           )(
             _.asInstanceOf[ExtensibleMetaSchema[BuiltIn]]
           )(
-            _.isInstanceOf[Either[BuiltIn]]
+            _.isInstanceOf[zio.prelude.Validation[BuiltIn]]
           ) ++
           caseOf[Product[BuiltIn], ExtensibleMetaSchema[BuiltIn]]("Product")(
             _.asInstanceOf[Product[BuiltIn]]

@@ -55,7 +55,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
           case '[List[a]] =>
             val schema = deriveSchema[a](stack)
             '{ Schema.list(Schema.defer(${schema})) }.asExprOf[Schema[T]]
-          case '[scala.util.Either[a, b]] =>
+          case '[zio.prelude.Validation[a, b]] =>
             val schemaA = deriveSchema[a](stack)
             val schemaB = deriveSchema[b](stack)
             '{ Schema.either(Schema.defer(${schemaA}), Schema.defer(${schemaB})) }.asExprOf[Schema[T]]
@@ -232,7 +232,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
        }
 
        val fromMap = '{ (m: ListMap[String, _]) =>
-         try { Right(${appliedConstructor('m)}) } catch {
+         try { zio.prelude.Validation.succeed(${appliedConstructor('m)}) } catch {
          case e: Throwable  => Left(e.getMessage)
        }}
 
@@ -250,7 +250,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
              '{(${Expr(label)}, ${Select.unique(b.asTerm, label).asExprOf[t]})}
            }
          }
-       val toMap = '{(b: T) => Right(ListMap.apply(${Varargs(tuples('b))} :_*)) }
+       val toMap = '{(b: T) => zio.prelude.Validation.succeed(ListMap.apply(${Varargs(tuples('b))} :_*)) }
 
        '{${genericRecord.asExprOf[GenericRecord]}.transformOrFail[T]($fromMap, $toMap)}.asTerm
     }

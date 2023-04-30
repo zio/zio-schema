@@ -20,7 +20,7 @@ object ProtobufCodec {
 
   implicit def protobufCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
-      override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
+      override def decode(whole: Chunk[Byte]): zio.prelude.Validation[DecodeError, A] =
         new Decoder(whole).decode(schema)
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
@@ -59,7 +59,7 @@ object ProtobufCodec {
       case _: Schema.Tuple2[_, _]               => false
       case _: Schema.Optional[_]                => false
       case _: Schema.Fail[_]                    => false
-      case _: Schema.Either[_, _]               => false
+      case _: Schema.zio.prelude.Validation[_, _]               => false
       case lzy @ Schema.Lazy(_)                 => canBePacked(lzy.schema)
       case _                                    => false
     }
@@ -213,8 +213,8 @@ object ProtobufCodec {
 
     override protected def processEither(
       context: EncoderContext,
-      schema: Schema.Either[_, _],
-      value: Either[Chunk[Byte], Chunk[Byte]]
+      schema: Schema.zio.prelude.Validation[_, _],
+      value: zio.prelude.Validation[Chunk[Byte], Chunk[Byte]]
     ): Chunk[Byte] = {
       val encodedEither = value.merge
       encodeKey(WireType.LengthDelimited(encodedEither.size), context.fieldNumber) ++ encodedEither
@@ -269,10 +269,10 @@ object ProtobufCodec {
     ): EncoderContext =
       context.copy(fieldNumber = Some(index + 1))
 
-    override protected def contextForEither(context: EncoderContext, e: Either[Unit, Unit]): EncoderContext =
+    override protected def contextForEither(context: EncoderContext, e: zio.prelude.Validation[Unit, Unit]): EncoderContext =
       e match {
         case Left(_)  => context.copy(fieldNumber = Some(1))
-        case Right(_) => context.copy(fieldNumber = Some(2))
+        case zio.prelude.Validation.succeed(_) => context.copy(fieldNumber = Some(2))
       }
 
     override protected def contextForOption(context: EncoderContext, o: Option[Unit]): EncoderContext =
@@ -493,9 +493,9 @@ object ProtobufCodec {
 
     private val state: DecoderState = new DecoderState(chunk, 0)
 
-    def decode[A](schema: Schema[A]): scala.util.Either[DecodeError, A] =
+    def decode[A](schema: Schema[A]): zio.prelude.Validation[DecodeError, A] =
       try {
-        Right(create(schema).asInstanceOf[A])
+        zio.prelude.Validation.succeed(create(schema).asInstanceOf[A])
       } catch {
         case CreateValueFromSchemaError(_, cause) =>
           cause match {
@@ -624,7 +624,7 @@ object ProtobufCodec {
     ): Any =
       Unsafe.unsafe { implicit u =>
         record.construct(values.map(_._2)) match {
-          case Right(result) => result
+          case zio.prelude.Validation.succeed(result) => result
           case Left(message) => throw DecodeError.ReadError(Cause.empty, message)
         }
       }
@@ -814,19 +814,19 @@ object ProtobufCodec {
 
     override protected def startCreatingEither(
       context: DecoderContext,
-      schema: Schema.Either[_, _]
-    ): Either[DecoderContext, DecoderContext] =
+      schema: Schema.zio.prelude.Validation[_, _]
+    ): zio.prelude.Validation[DecoderContext, DecoderContext] =
       keyDecoder(context) match {
         case (_, fieldNumber) if fieldNumber == 1 => Left(context)
-        case (_, fieldNumber) if fieldNumber == 2 => Right(context)
+        case (_, fieldNumber) if fieldNumber == 2 => zio.prelude.Validation.succeed(context)
         case (_, fieldNumber) =>
           throw ExtraFields(fieldNumber.toString, s"Invalid field number ($fieldNumber) for either")
       }
 
     override protected def createEither(
       context: DecoderContext,
-      schema: Schema.Either[_, _],
-      value: Either[Any, Any]
+      schema: Schema.zio.prelude.Validation[_, _],
+      value: zio.prelude.Validation[Any, Any]
     ): Any =
       value
 
@@ -875,12 +875,12 @@ object ProtobufCodec {
     override protected def transform(
       context: DecoderContext,
       value: Any,
-      f: Any => Either[String, Any],
+      f: Any => zio.prelude.Validation[String, Any],
       schema: Schema[_]
     ): Any =
       f(value) match {
         case Left(value)  => throw MalformedField(schema, value)
-        case Right(value) => value
+        case zio.prelude.Validation.succeed(value) => value
       }
 
     override protected def fail(context: DecoderContext, message: String): Any =

@@ -10,7 +10,7 @@ object SchemaValidationSpec extends ZIOSpecDefault {
   import Assertion._
 
   final case class ExampleData(
-    either: scala.util.Either[Person, Person] = Right(goodData),
+    either: zio.prelude.Validation[Person, Person] = zio.prelude.Validation.succeed(goodData),
     option: Option[Person] = None,
     list: List[Person] = goodData :: Nil,
     tuple: scala.Tuple2[Person, Person] = (goodData, goodData),
@@ -29,7 +29,7 @@ object SchemaValidationSpec extends ZIOSpecDefault {
   final case class Wrapper(person: Person)
 
   implicit val schema
-    : CaseClass6[scala.util.Either[Person, Person], Option[Person], List[Person], (Person, Person), Wrapper, EnumData, ExampleData] =
+    : CaseClass6[zio.prelude.Validation[Person, Person], Option[Person], List[Person], (Person, Person), Wrapper, EnumData, ExampleData] =
     DeriveSchema.gen[ExampleData]
 
   val badData: Person  = Person("foo", 123123123)
@@ -104,7 +104,7 @@ object SchemaValidationSpec extends ZIOSpecDefault {
       assert(validated)(Assertion.hasSameElements(expected))
     },
     test("Example Data, Right ValidationError") {
-      val exampleData = ExampleData(either = Right(badData))
+      val exampleData = ExampleData(either = zio.prelude.Validation.succeed(badData))
 
       val validated: Chunk[ValidationError] = Schema.validate(exampleData)
 
