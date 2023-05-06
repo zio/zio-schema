@@ -86,7 +86,7 @@ Learn more on the [ZIO Schema homepage](https://zio.dev/zio-schema)!
 
 ## Contributing
 
-For the general guidelines, see ZIO [contributor's guide](https://zio.dev/contributor-guidelines/).
+For the general guidelines, see ZIO [contributor's guide](https://zio.dev/contributor-guidelines).
 #### TL;DR
 
 Before you submit a PR, make sure your tests are passing, and that the code is properly formatted
