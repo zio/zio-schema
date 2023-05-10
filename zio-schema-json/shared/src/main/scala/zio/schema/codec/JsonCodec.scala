@@ -727,16 +727,6 @@ object JsonCodec {
 
             if (foundSubtype != null) {
               rewind.rewind()
-
-              // REMOVE ME
-//              Lexer.char(trace, rewind, '{')
-//              Lexer.firstField(trace, rewind)
-//              Lexer.string(trace, rewind)
-//              Lexer.char(trace, rewind, ':')
-//              Lexer.string(trace, rewind)
-              // REMOVE ME
-
-              // WILL BE FALSE
               (foundSubtype, trace, foundFieldName, rewind)
             } else {
               throw UnsafeJson(JsonError.Message("missing subtype") :: trace)
@@ -763,30 +753,6 @@ object JsonCodec {
         throw UnsafeJson(JsonError.Message("missing subtype") :: trace)
       }
     }
-
-    /*    private def findDiscriminator[Z](
-      parentSchema: Schema.Enum[Z],
-      trace: List[JsonError],
-      _in: RecordingReader,
-      firstSubtypeOrDiscriminator: String,
-      caseNameAliases: Map[String, String]
-    ): (String, List[JsonError], Boolean, Boolean) = {
-
-      val in = RecordingReader(_in)
-
-      val discriminatorNameTag = parentSchema.annotations.collectFirst {
-        case d: discriminatorName => d
-      }
-
-      discriminatorNameTag match {
-        case Some(discriminatorFieldName) => {}
-        case None =>
-          val trace_ = JsonError.ObjectAccess(firstSubtypeOrDiscriminator) :: trace
-          Lexer.char(trace_, in, ':')
-          (firstSubtypeOrDiscriminator, trace_, false, false)
-      }
-
-    }*/
 
     private def deAliasCaseName(alias: String, caseNameAliases: Map[String, String]): String =
       caseNameAliases.getOrElse(alias, alias)
