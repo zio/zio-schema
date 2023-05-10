@@ -711,7 +711,7 @@ object JsonCodec {
               val trace_    = JsonError.ObjectAccess(fieldName) :: trace
               Lexer.char(trace_, rewind, ':')
 
-              if (fieldName == fieldToLookFor) {
+              if (fieldName == fieldToLookFor.tag) {
                 val discriminator = Lexer.string(trace, rewind).toString
                 foundSubtype = deAliasCaseName(discriminator, caseNameAliases)
                 // We found field, break
@@ -719,9 +719,9 @@ object JsonCodec {
               } else {
                 Lexer.skipValue(trace, rewind)
                 // This is not discriminator, still iterate over
-                true
+                Lexer.nextField(trace, rewind)
               }
-            })(Lexer.nextField(trace, rewind))
+            }) (())
 
             if (foundSubtype != null) {
               rewind.rewind()
