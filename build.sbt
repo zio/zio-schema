@@ -72,6 +72,7 @@ lazy val root = project
     zioSchemaThriftJVM,
     zioSchemaAvroJS,
     zioSchemaAvroJVM,
+    zioSchemaBsonJVM,
     zioSchemaMsgPackJS,
     zioSchemaMsgPackJVM,
     docs
@@ -235,6 +236,25 @@ lazy val zioSchemaAvroJS = zioSchemaAvro.js
   .settings(scalaJSUseMainModuleInitializer := true)
 
 lazy val zioSchemaAvroJVM = zioSchemaAvro.jvm
+
+lazy val zioSchemaBson = crossProject(JVMPlatform)
+  .in(file("zio-schema-bson"))
+  .dependsOn(zioSchema, zioSchemaDerivation, zioSchemaZioTest % Test, tests % "test->test")
+  .settings(stdSettings("zio-schema-bson"))
+  .settings(crossProjectSettings)
+  .settings(buildInfoSettings("zio.schema.bson"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.mongodb"            % "bson"                     % bsonVersion,
+      "dev.zio"                %% "zio-bson"                % zioBsonVersion,
+      "dev.zio"                %% "zio"                     % zioVersion, // zio.Chunk
+      "dev.zio"                %% "zio-test-magnolia"       % zioVersion % Test, // TODO: implement DeriveDiff in zioSchemaZioTest
+      "org.scala-lang.modules" %% "scala-collection-compat" % scalaCollectionCompatVersion
+    ),
+    scalacOptions -= "-Xfatal-warnings" // cross-version imports
+  )
+
+lazy val zioSchemaBsonJVM = zioSchemaBson.jvm
 
 lazy val zioSchemaOptics = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-optics"))
