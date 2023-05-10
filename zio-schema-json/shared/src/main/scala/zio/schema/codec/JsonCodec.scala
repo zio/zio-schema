@@ -700,11 +700,12 @@ object JsonCodec {
       }
 
       if (Lexer.firstField(trace, rewind)) {
-        val (subtype, newTrace, hasDiscriminator, newIn) = discriminatorTag match {
+        val (subtype, newTrace, hasDiscriminator, fieldNameToIgnore, newIn) = discriminatorTag match {
           // { "discriminator": "value", "field1:": "value" ... }
 
           case Some(fieldToLookFor) => {
-            var foundSubtype: String = null
+            var foundFieldName: String = null
+            var foundSubtype: String   = null
 
             while ({
               val fieldName = Lexer.string(trace, rewind).toString
@@ -713,6 +714,7 @@ object JsonCodec {
 
               if (fieldName == fieldToLookFor.tag) {
                 val discriminator = Lexer.string(trace, rewind).toString
+                foundFieldName = fieldName
                 foundSubtype = deAliasCaseName(discriminator, caseNameAliases)
                 // We found field, break
                 false
@@ -735,7 +737,7 @@ object JsonCodec {
               // REMOVE ME
 
               // WILL BE FALSE
-              (foundSubtype, trace, true, rewind)
+              (foundSubtype, trace, true, foundFieldName, rewind)
             } else {
               throw UnsafeJson(JsonError.Message("missing subtype") :: trace)
             }
@@ -745,7 +747,7 @@ object JsonCodec {
             val subtypeOrDiscriminator = deAliasCaseName(Lexer.string(trace, _in).toString, caseNameAliases)
             val trace_                 = JsonError.ObjectAccess(subtypeOrDiscriminator) :: trace
             Lexer.char(trace_, _in, ':')
-            (subtypeOrDiscriminator, trace_, false, _in)
+            (subtypeOrDiscriminator, trace_, false, null, _in)
           }
         }
 
@@ -757,29 +759,6 @@ object JsonCodec {
           case None =>
             throw UnsafeJson(JsonError.Message("unrecognized subtype") :: newTrace)
         }
-//        val subtypeOrDiscriminator = deAliasCaseName(Lexer.string(trace, in).toString, caseNameAliases)
-//        val (subtype, trace_, hasDiscriminator) = parentSchema.annotations.collect {
-//          case d: discriminatorName if d.tag == subtypeOrDiscriminator =>
-//            val trace_ = JsonError.ObjectAccess(subtypeOrDiscriminator) :: trace
-//            Lexer.char(trace_, in, ':')
-//            val discriminator = Lexer.string(trace, in).toString
-//            // Perform a second de-aliasing because the first one would resolve the discriminator key instead.
-//            val innerSubtype = deAliasCaseName(discriminator, caseNameAliases)
-//            (innerSubtype, JsonError.ObjectAccess(innerSubtype) :: trace_, true)
-//        }.headOption.getOrElse {
-//          val trace_ = JsonError.ObjectAccess(subtypeOrDiscriminator) :: trace
-//          Lexer.char(trace_, in, ':')
-//          (subtypeOrDiscriminator, trace_, false)
-//        }
-//        cases.find(_.id == subtype) match {
-//          case Some(c) =>
-//            val decoded = schemaDecoder(c.schema, hasDiscriminator).unsafeDecode(trace_, in).asInstanceOf[Z]
-//            if (!hasDiscriminator) Lexer.nextField(trace, in)
-//            decoded
-//          case None =>
-//            throw UnsafeJson(JsonError.Message("unrecognized subtype") :: trace_)
-//        }
-//        ???
       } else {
         throw UnsafeJson(JsonError.Message("missing subtype") :: trace)
       }
