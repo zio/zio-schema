@@ -412,6 +412,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"type":"onetime","amount":1000}""")
         )
       },
+      test("case name aliases - type in the last place") {
+        assertDecodes(
+          Subscription.schema,
+          OneTime(1000),
+          charSequenceToByteChunk("""{"amount":1000, "type":"onetime"}""")
+        )
+      },
       test("case name - empty fields") {
         assertDecodes(
           Subscription.schema,
