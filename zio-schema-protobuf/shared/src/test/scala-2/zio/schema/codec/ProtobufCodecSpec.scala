@@ -475,7 +475,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
         },
         test("either right") {
-          val either = zio.prelude.Validation.succeed("hello")
+          val either = Right("hello")
           for {
             ed  <- encodeAndDecode(eitherSchema, either)
             ed2 <- encodeAndDecodeNS(eitherSchema, either)
@@ -489,8 +489,8 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           } yield assert(ed)(equalTo(Chunk(eitherLeft))) && assert(ed2)(equalTo(eitherLeft))
         },
         test("either with sum type") {
-          val eitherRight  = zio.prelude.Validation.succeed(BooleanValue(true))
-          val eitherRight2 = zio.prelude.Validation.succeed(StringValue("hello"))
+          val eitherRight  = Right(BooleanValue(true))
+          val eitherRight2 = Right(StringValue("hello"))
           for {
             ed  <- encodeAndDecode(complexEitherSchema, eitherRight2)
             ed2 <- encodeAndDecodeNS(complexEitherSchema, eitherRight)
@@ -575,7 +575,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         },
         test("either within either") {
-          val either = zio.prelude.Validation.succeed(Left(BooleanValue(true)))
+          val either = Right(Left(BooleanValue(true)))
           val schema = Schema.either(Schema[Int], Schema.either(schemaOneOf, Schema[String]))
           for {
             ed  <- encodeAndDecode(schema, either)
@@ -633,7 +633,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
               for {
                 ed <- encodeAndDecode2(schema, value)
 //              ed2 <- encodeAndDecodeNS(schema, value)
-              } yield assertTrue(ed == zio.prelude.Validation.succeed(Chunk(value))) //&& assert(ed2)(equalTo(value))
+              } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
           }
         },
         test("deep recursive data types") {
@@ -642,7 +642,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
               for {
                 ed <- encodeAndDecode2(schema, value)
                 //              ed2 <- encodeAndDecodeNS(schema, value)
-              } yield assertTrue(ed == zio.prelude.Validation.succeed(Chunk(value))) //&& assert(ed2)(equalTo(value))
+              } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
           }
         } @@ TestAspect.size(200)
       ),
@@ -944,12 +944,12 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
   val complexTupleSchema: Schema.Tuple2[Record, OneOf] = Schema.Tuple2(Record.schemaRecord, schemaOneOf)
 
-  val eitherSchema: Schema.zio.prelude.Validation[Int, String] = Schema.Either(Schema[Int], Schema[String])
+  val eitherSchema: Schema.Either[Int, String] = Schema.Either(Schema[Int], Schema[String])
 
-  val complexEitherSchema: Schema.zio.prelude.Validation[Record, OneOf] =
+  val complexEitherSchema: Schema.Either[Record, OneOf] =
     Schema.Either(Record.schemaRecord, schemaOneOf)
 
-  val complexEitherSchema2: Schema.zio.prelude.Validation[MyRecord, MyRecord] =
+  val complexEitherSchema2: Schema.Either[MyRecord, MyRecord] =
     Schema.Either(myRecord, myRecord)
 
   case class RichProduct(stringOneOf: OneOf, basicString: BasicString, record: Record)
@@ -1044,7 +1044,9 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
   //NS == non streaming variant of decode
   def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
-    ZIO.succeed(ProtobufCodec.protobufCodec(schema).decode(fromHex(hex))).absolve[DecodeError, A]
+    ZIO.succeed(ProtobufCodec.protobufCodec(schema).decode(fromHex(hex)))
+      .map(_.toEither.left.map(_.head))
+      .absolve[DecodeError, A]
 
   def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ProtobufCodec
@@ -1054,7 +1056,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .apply(ZStream.succeed(input))
       .run(ZSink.collectAll)
 
-  def encodeAndDecode2[A](schema: Schema[A], input: A): ZIO[Any, Any, zio.prelude.Validation[DecodeError, Chunk[A]]] =
+  def encodeAndDecode2[A](schema: Schema[A], input: A): ZIO[Any, Any, scala.Either[DecodeError, Chunk[A]]] =
     ProtobufCodec
       .protobufCodec(schema)
       .streamEncoder
@@ -1083,6 +1085,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .map(a => ProtobufCodec.protobufCodec(schema).encode(a))
       .tap(encoded => printLine(s"\nEncoded Bytes (${encoded.size}):\n${toHex(encoded)}").when(print).ignore)
       .map(ch => ProtobufCodec.protobufCodec(schema).decode(ch))
+      .map(_.toEither.left.map(_.head))
       .absolve
 
   def encodeAndDecodeNS2[A](
@@ -1097,7 +1100,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .tap(encoded => printLine(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
       .map(ch => ProtobufCodec.protobufCodec(schema).decode(ch))
       .tapSome {
-        case Left(err) => printLine(s"Failed to encode and decode value $input\nError = $err").orDie
+        case prelude.Validation.Failure(_, err) => printLine(s"Failed to encode and decode value $input\nError = $err").orDie
       }
 
   def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, A] =
@@ -1105,6 +1108,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .succeed(input)
       .map(a => ProtobufCodec.protobufCodec(encodeSchema).encode(a))
       .map(ch => ProtobufCodec.protobufCodec(decodeSchema).decode(ch))
+      .map(_.toEither.left.map(_.head))
       .absolve
 
 }

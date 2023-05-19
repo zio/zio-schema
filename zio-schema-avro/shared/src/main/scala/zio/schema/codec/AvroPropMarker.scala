@@ -1,12 +1,11 @@
 package zio.schema.codec
 
 import java.time.format.DateTimeFormatter
-import java.time.temporal.{ ChronoUnit, TemporalUnit }
-
+import java.time.temporal.{ChronoUnit, TemporalUnit}
 import scala.jdk.CollectionConverters._
 import scala.util.Try
-
-import org.apache.avro.{ LogicalType, LogicalTypes, Schema => SchemaAvro }
+import org.apache.avro.{LogicalType, LogicalTypes, Schema => SchemaAvro}
+import zio.prelude.Validation
 
 sealed trait AvroPropMarker {
   def propName: String
@@ -113,9 +112,9 @@ object AvroPropMarker {
         case "RFC_1123_DATE_TIME"   => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.RFC_1123_DATE_TIME))
         case "BASIC_ISO_DATE"       => zio.prelude.Validation.succeed(Formatter(DateTimeFormatter.BASIC_ISO_DATE))
         case s: String =>
-          Try {
+          Validation {
             Formatter(DateTimeFormatter.ofPattern(s))
-          }.toEither.left.map(_.getMessage)
+          }.mapError(_.getMessage)
       } match {
         case Some(value) => value.map(Some(_))
         case None        => zio.prelude.Validation.succeed(None)

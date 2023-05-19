@@ -1,5 +1,6 @@
 package zio.schema
 
+import zio.prelude.Validation
 import zio.schema.Schema._
 import zio.schema.SchemaGen.Json.schema
 import zio.test._
@@ -35,7 +36,7 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
     },
     test("transform") {
       check(SchemaGen.anyPrimitive) { schema =>
-        val transform = schema.transformOrFail[Unit](_ => Left("error"), _ => Left("error"))
+        val transform = schema.transformOrFail[Unit](_ => Validation.fail("error"), _ => Validation.fail("error"))
 
         val transformAccessor: Any = transform.makeAccessors(builder).asInstanceOf[Any]
         val schemaAccessor: Any    = schema.makeAccessors(builder).asInstanceOf[Any]
@@ -84,8 +85,8 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
     test("either") {
       check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
         case (leftSchema, rightSchema) =>
-          val eitherSchema: Schema.zio.prelude.Validation[_, _] =
-            (rightSchema <+> leftSchema).asInstanceOf[Schema.zio.prelude.Validation[_, _]]
+          val eitherSchema: Schema.Either[_, _] =
+            (rightSchema <+> leftSchema).asInstanceOf[Schema.Either[_, _]]
           val accessor = eitherSchema.makeAccessors(builder)
 
           assert(

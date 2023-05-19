@@ -529,7 +529,7 @@ object DeriveGen {
   private def genTuple[A, B](tuple: Schema.Tuple2[A, B]): Gen[Sized, (A, B)] =
     gen(tuple.left).zip(gen(tuple.right))
 
-  private def genzio.prelude.Validation[A, B](either: Schema.zio.prelude.Validation[A, B]): Gen[Sized, zio.prelude.Validation[A, B]] =
+  private def genEither[A, B](either: Schema.Either[A, B]): Gen[Sized, scala.Either[A, B]] =
     Gen.either(gen(either.left), gen(either.right))
 
   private def genLazy[A](lazySchema: Schema.Lazy[A]): Gen[Sized, A] =

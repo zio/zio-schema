@@ -2,21 +2,18 @@ package zio.schema.codec
 
 import java.time._
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
 import scala.util.Try
-
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import org.msgpack.core.{ MessagePack, MessagePacker }
+import org.msgpack.core.{MessagePack, MessagePacker}
 import org.msgpack.jackson.dataformat.MessagePackFactory
-
 import zio.schema.CaseSet.caseOf
 import zio.schema._
-import zio.stream.{ ZSink, ZStream }
+import zio.stream.{ZSink, ZStream}
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, Console, Scope, Task, ZIO }
+import zio.{Chunk, Console, NonEmptyChunk, Scope, Task, ZIO}
 
 object MessagePackCodecSpec extends ZIOSpecDefault {
 
@@ -413,7 +410,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
       },
       test("either right") {
-        val either = zio.prelude.Validation.succeed("hello")
+        val either = Right("hello")
         for {
           ed  <- encodeAndDecode(eitherSchema, either)
           ed2 <- encodeAndDecodeNS(eitherSchema, either)
@@ -427,8 +424,8 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk(eitherLeft))) && assert(ed2)(equalTo(eitherLeft))
       },
       test("either with sum type") {
-        val eitherRight  = zio.prelude.Validation.succeed(BooleanValue(true))
-        val eitherRight2 = zio.prelude.Validation.succeed(StringValue("hello"))
+        val eitherRight  = Right(BooleanValue(true))
+        val eitherRight2 = Right(StringValue("hello"))
         for {
           ed  <- encodeAndDecode(complexEitherSchema, eitherRight2)
           ed2 <- encodeAndDecodeNS(complexEitherSchema, eitherRight)
@@ -525,7 +522,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       test("either within either") {
-        val either = zio.prelude.Validation.succeed(Left(BooleanValue(true)))
+        val either = Right(Left(BooleanValue(true)))
         val schema = Schema.either(Schema[Int], Schema.either(schemaOneOf, Schema[String]))
         for {
           ed  <- encodeAndDecode(schema, either)
@@ -696,7 +693,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       },
       test("empty input by non streaming variant") {
         assertZIO(decodeNS(Schema[Int], "").exit)(
-          failsWithA[DecodeError]
+          failsWithA[NonEmptyChunk[DecodeError]]
         )
       }
     ),
@@ -709,7 +706,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
           failsWithA[DecodeError]
         ) &&
           assert(d2)(
-            failsWithA[DecodeError]
+            failsWithA[NonEmptyChunk[DecodeError]]
           )
       },
       test("missing value") {
@@ -894,12 +891,12 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
 
   val complexTupleSchema: Schema.Tuple2[Record, OneOf] = Schema.Tuple2(Record.schemaRecord, schemaOneOf)
 
-  val eitherSchema: Schema.zio.prelude.Validation[Int, String] = Schema.Either(Schema[Int], Schema[String])
+  val eitherSchema: Schema.Either[Int, String] = Schema.Either(Schema[Int], Schema[String])
 
-  val complexEitherSchema: Schema.zio.prelude.Validation[Record, OneOf] =
+  val complexEitherSchema: Schema.Either[Record, OneOf] =
     Schema.Either(Record.schemaRecord, schemaOneOf)
 
-  val complexEitherSchema2: Schema.zio.prelude.Validation[MyRecord, MyRecord] =
+  val complexEitherSchema2: Schema.Either[MyRecord, MyRecord] =
     Schema.Either(myRecord, myRecord)
 
   case class RichProduct(stringOneOf: OneOf, basicString: BasicString, record: Record)
@@ -988,8 +985,8 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of decode
-  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
-    ZIO.succeed(MessagePackCodec.messagePackCodec(schema).decode(fromHex(hex))).absolve[DecodeError, A]
+  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, NonEmptyChunk[DecodeError], A] =
+    ZIO.succeed(MessagePackCodec.messagePackCodec(schema).decode(fromHex(hex)).toEither).absolve
 
   def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ZStream
@@ -1006,20 +1003,20 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, DecodeError, A] =
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, NonEmptyChunk[DecodeError], A] =
     ZIO
       .succeed(input)
       .tap(value => Console.printLine(s"Input Value: $value").when(print).ignore)
       .map(a => MessagePackCodec.messagePackCodec(schema).encode(a))
       .tap(encoded => Console.printLine(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
-      .map(ch => MessagePackCodec.messagePackCodec(schema).decode(ch))
+      .map(ch => MessagePackCodec.messagePackCodec(schema).decode(ch).toEither)
       .absolve
 
-  def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, A] =
+  def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, NonEmptyChunk[DecodeError], A] =
     ZIO
       .succeed(input)
       .map(a => MessagePackCodec.messagePackCodec(encodeSchema).encode(a))
-      .map(ch => MessagePackCodec.messagePackCodec(decodeSchema).decode(ch))
+      .map(ch => MessagePackCodec.messagePackCodec(decodeSchema).decode(ch).toEither)
       .absolve
 
 }

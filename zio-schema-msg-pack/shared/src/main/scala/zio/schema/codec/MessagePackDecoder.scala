@@ -2,18 +2,16 @@ package zio.schema.codec
 
 import java.time._
 import java.util.UUID
-
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
-import scala.util.{ Failure, Success, Try }
-
-import org.msgpack.core.{ MessagePack, MessageUnpacker }
-
+import scala.util.{Failure, Success, Try}
+import org.msgpack.core.{MessagePack, MessageUnpacker}
+import zio.prelude.{Validation, ZValidation}
 import zio.schema.codec.DecodeError.MalformedFieldWithPath
 import zio.schema.codec.MessagePackDecoder._
-import zio.schema.{ DynamicValue, Schema, StandardType }
-import zio.{ Chunk, ChunkBuilder }
+import zio.schema.{DynamicValue, Schema, StandardType}
+import zio.{Chunk, ChunkBuilder}
 
 private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
   private val unpacker = MessagePack.newDefaultUnpacker(bytes.toArray)
@@ -105,8 +103,8 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
       case _                      => fail(path, s"Unknown schema ${schema.getClass.getName}")
     }
 
-  private def decodeTransform[A, B](path: Path, schema: Schema[B], f: B => zio.prelude.Validation[String, A]): Result[A] =
-    decodeValue(path, schema).flatMap(a => f(a).left.map(msg => MalformedFieldWithPath(path, msg)))
+  private def decodeTransform[A, B](path: Path, schema: Schema[B], f: B => Validation[String, A]): Result[A] =
+    decodeValue(path, schema).flatMap(a => f(a).mapError(msg => MalformedFieldWithPath(path, msg)))
 
   private def decodeRecord[Z](path: Path, fields: Seq[Schema.Field[Z, _]]): Result[ListMap[String, _]] =
     decodeStructure(path, fields.map(f => f.name -> f.schema).toMap)
@@ -122,14 +120,21 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
           fields.get(fieldName) match {
             case Some(fieldSchema) =>
               decodeValue(actualPath, fieldSchema) match {
-                case Left(err) => Left(err)
-                case zio.prelude.Validation.succeed(value) =>
+                case f@ Validation.Failure(_, _) => f
+                case Validation.Success(_, value) =>
                   if (index == fields.size) {
-                    succeed(m.updated(fieldName, value))
-                  } else {
-                    readFields(m.updated(fieldName, value), index + 1)
-                  }
+                                                        succeed(m.updated(fieldName, value))
+                                                      } else {
+                                                        readFields(m.updated(fieldName, value), index + 1)
+                                                      }
               }
+//                .flatMap(value => {
+//                                    if (index == fields.size) {
+//                                      succeed(m.updated(fieldName, value))
+//                                    } else {
+//                                      readFields(m.updated(fieldName, value), index + 1)
+//                                    }
+//                })
             case None =>
               fail(path, s"Could not find schema for field: [$fieldName] on index: $index")
           }
@@ -151,10 +156,10 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
     def decodeElements(n: Int, m: scala.collection.mutable.Map[K, V]): Result[scala.collection.immutable.Map[K, V]] =
       if (n > 0) {
         (decodeValue(path, schema.keySchema), decodeValue(path, schema.valueSchema)) match {
-          case (zio.prelude.Validation.succeed(key), zio.prelude.Validation.succeed(value)) => decodeElements(n - 1, m += ((key, value)))
+          case (zio.prelude.Validation.Success(_, key), zio.prelude.Validation.Success(_, value)) => decodeElements(n - 1, m += ((key, value)))
           case (l, r) =>
-            val key   = l.fold(_.message, _.toString)
-            val value = r.fold(_.message, _.toString)
+            val key   = l.fold(_.map(_.message).toString(), _.toString)
+            val value = r.fold(_.map(_.message).toString(), _.toString)
             fail(path, s"Error decoding Map element (key: $key; value: $value)")
         }
       } else {
@@ -172,8 +177,8 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
     def decodeElements(n: Int, cb: ChunkBuilder[A]): Result[Chunk[A]] =
       if (n > 0) {
         decodeValue(path, elementSchema) match {
-          case zio.prelude.Validation.succeed(elem) => decodeElements(n - 1, cb += elem)
-          case Left(err)   => Left(err)
+          case zio.prelude.Validation.Success(_, elem) => decodeElements(n - 1, cb += elem)
+          case failure@ zio.prelude.Validation.Failure(_, _)   => failure
         }
       } else {
         succeed(cb.result())
@@ -297,7 +302,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
         }
     )
 
-  private def decodezio.prelude.Validation[A, B](path: Path, left: Schema[A], right: Schema[B]): Result[zio.prelude.Validation[A, B]] =
+  private def decodeEither[A, B](path: Path, left: Schema[A], right: Schema[B]): Result[Either[A, B]] =
     Try(unpacker.unpackMapHeader()).fold(
       err => fail(path, s"Error parsing Either structure: ${err.getMessage}"),
       size =>
@@ -306,7 +311,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
         } else {
           decodeString(path :+ "either").flatMap {
             case "left"  => decodeValue(path :+ "either:left", left).map(Left(_))
-            case "right" => decodeValue(path :+ "either:right", right).map(zio.prelude.Validation.succeed(_))
+            case "right" => decodeValue(path :+ "either:right", right).map(Right(_))
             case str     => fail(path :+ "either", s"Unexpected field name: $str")
           }
         }
@@ -614,11 +619,11 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
 object MessagePackDecoder {
   type Path = Chunk[String]
 
-  type Result[A] = zio.prelude.Validation[DecodeError, A]
+  type Result[A] = Validation[DecodeError, A]
 
   private def succeed[A](a: => A): Result[A] =
-    zio.prelude.Validation.succeed(a)
+    Validation.succeed(a)
 
   private def fail(path: Path, failure: String): Result[Nothing] =
-    Left(MalformedFieldWithPath(path, failure))
+    Validation.fail(MalformedFieldWithPath(path, failure))
 }

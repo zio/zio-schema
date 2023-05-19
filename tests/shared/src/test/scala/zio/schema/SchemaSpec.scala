@@ -1,8 +1,8 @@
 package zio.schema
 
 import scala.collection.immutable.ListMap
-
 import zio.Chunk
+import zio.prelude.Validation
 import zio.schema.CaseSet._
 import zio.test.Assertion._
 import zio.test._
@@ -72,12 +72,12 @@ object SchemaSpec extends ZIOSpecDefault {
       )
     )
 
-  val f: Unit => zio.prelude.Validation[String, Int] = _ => zio.prelude.Validation.succeed(0)
-  val g: Int => zio.prelude.Validation[String, Unit] = _ => zio.prelude.Validation.succeed(())
+  val f: Unit => Validation[String, Int] = _ => zio.prelude.Validation.succeed(0)
+  val g: Int => Validation[String, Unit] = _ => zio.prelude.Validation.succeed(())
   def schemaTransform: Schema[Int]   = schemaUnit.transformOrFail[Int](f, g)
 
-  def tranformF(u: Unit): zio.prelude.Validation[String, Int] = Some(u).map(_ => 0).tozio.prelude.Validation.succeed("")
-  def tranformG(i: Int): zio.prelude.Validation[String, Unit] = Some(i).map(_ => ()).tozio.prelude.Validation.succeed("")
+  def tranformF(u: Unit): Validation[String, Int] = Validation.fromEither(Some(u).map(_ => 0).toRight(""))
+  def tranformG(i: Int): Validation[String, Unit] = Validation.fromEither(Some(i).map(_ => ()).toRight(""))
   def schemaTransformMethod: Schema[Int]      = schemaUnit.transformOrFail(tranformF, tranformG)
 
 }

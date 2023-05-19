@@ -3,19 +3,17 @@ package zio.schema.codec
 import java.nio.ByteBuffer
 import java.time._
 import java.util.UUID
-
-import scala.annotation.{ nowarn, tailrec }
+import scala.annotation.{nowarn, tailrec}
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
-
 import org.apache.thrift.protocol._
-
+import zio.prelude.Validation
 import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
 import zio.schema._
-import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
-import zio.schema.codec.DecodeError.{ EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath }
+import zio.schema.annotation.{fieldDefaultValue, optionalField, transientField}
+import zio.schema.codec.DecodeError.{EmptyContent, MalformedField, MalformedFieldWithPath, ReadError, ReadErrorWithPath}
 import zio.stream.ZPipeline
-import zio.{ Cause, Chunk, Unsafe, ZIO }
+import zio.{Cause, Chunk, NonEmptyChunk, Unsafe, ZIO}
 
 object ThriftCodec {
 
@@ -23,14 +21,14 @@ object ThriftCodec {
     new BinaryCodec[A] {
       override def decode(whole: Chunk[Byte]): zio.prelude.Validation[DecodeError, A] =
         if (whole.isEmpty)
-          Left(EmptyContent("No bytes to decode"))
+          Validation.fail(EmptyContent("No bytes to decode"))
         else
           decodeChunk(whole)
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
         ZPipeline.mapChunksZIO { chunk =>
           ZIO.fromEither(
-            decodeChunk(chunk).map(Chunk(_))
+            decodeChunk(chunk).map(Chunk(_)).toEither.left.map(_.head)
           )
         }
 
@@ -46,27 +44,24 @@ object ThriftCodec {
 
       private def decodeChunk(chunk: Chunk[Byte]): zio.prelude.Validation[DecodeError, A] =
         if (chunk.isEmpty)
-          Left(EmptyContent("No bytes to decode"))
+          Validation.fail(EmptyContent("No bytes to decode"))
         else {
-          try {
-            zio.prelude.Validation.succeed(
-              new Decoder(chunk)
-                .create(schema)
-                .asInstanceOf[A]
-            )
-          } catch {
-            case error: CreateValueFromSchemaError[DecoderContext] =>
-              error.cause match {
-                case error: DecodeError => Left(error)
-                case _ =>
-                  Left(
+          zio.prelude.Validation(
+            new Decoder(chunk)
+              .create(schema)
+              .asInstanceOf[A]
+          )
+            .mapError {
+              case error: CreateValueFromSchemaError[DecoderContext] =>
+                error.cause match {
+                  case error: DecodeError => error
+                  case _ =>
                     ReadErrorWithPath(error.context.path, Cause.fail(error.cause), error.cause.getMessage)
-                  )
-              }
-            case NonFatal(err) =>
-              Left(ReadError(Cause.fail(err), err.getMessage))
-          }
-        }: @nowarn
+                }
+              case NonFatal(err) =>
+                ReadError(Cause.fail(err), err.getMessage)
+            }
+        }
     }
 
   class Encoder extends MutableSchemaBasedValueProcessor[Unit, Encoder.Context] {
@@ -133,13 +128,13 @@ object ThriftCodec {
 
     override protected def processSet(context: Context, schema: Schema.Set[_], value: Set[Unit]): Unit = {}
 
-    override protected def startProcessingEither(context: Context, schema: Schema.zio.prelude.Validation[_, _]): Unit =
+    override protected def startProcessingEither(context: Context, schema: Schema.Either[_, _]): Unit =
       writeFieldBegin(context.fieldNumber, TType.STRUCT)
 
     override protected def processEither(
       context: Context,
-      schema: Schema.zio.prelude.Validation[_, _],
-      value: zio.prelude.Validation[Unit, Unit]
+      schema: Schema.Either[_, _],
+      value: Either[Unit, Unit]
     ): Unit =
       writeFieldEnd()
 
@@ -184,10 +179,10 @@ object ThriftCodec {
     override protected def contextForEnumConstructor(context: Context, index: Int, c: Schema.Case[_, _]): Context =
       context.copy(fieldNumber = Some((index + 1).toShort))
 
-    override protected def contextForEither(context: Context, e: zio.prelude.Validation[Unit, Unit]): Context =
+    override protected def contextForEither(context: Context, e: Either[Unit, Unit]): Context =
       e match {
         case Left(_)  => context.copy(fieldNumber = Some(1))
-        case zio.prelude.Validation.succeed(_) => context.copy(fieldNumber = Some(2))
+        case Right(_) => context.copy(fieldNumber = Some(2))
       }
 
     override protected def contextForOption(context: Context, o: Option[Unit]): Context =
@@ -625,17 +620,11 @@ object ThriftCodec {
               }
           }
         Unsafe.unsafe { implicit u =>
-          record.construct(allValues) match {
-            case Left(message) => fail(context, message)
-            case zio.prelude.Validation.succeed(value)  => value
-          }
+          record.construct(allValues).mapError(message => fail(context, message))
         }
       } else {
         Unsafe.unsafe { implicit u =>
-          record.construct(Chunk.empty) match {
-            case Left(message) => fail(context, message)
-            case zio.prelude.Validation.succeed(value)  => value
-          }
+          record.construct(Chunk.empty).mapError(message => fail(context, message))
         }
       }
 
@@ -772,20 +761,20 @@ object ThriftCodec {
 
     override protected def startCreatingEither(
       context: DecoderContext,
-      schema: Schema.zio.prelude.Validation[_, _]
-    ): zio.prelude.Validation[DecoderContext, DecoderContext] = {
+      schema: Schema.Either[_, _]
+    ): Either[DecoderContext, DecoderContext] = {
       val readField = p.readFieldBegin()
       readField.id match {
         case 1 => Left(context.copy(path = context.path :+ "either:left"))
-        case 2 => zio.prelude.Validation.succeed(context.copy(path = context.path :+ "either:right"))
-        case _ => fail(context, "Failed to decode either.").asInstanceOf[zio.prelude.Validation[DecoderContext, DecoderContext]]
+        case 2 => Right(context.copy(path = context.path :+ "either:right"))
+        case _ => fail(context, "Failed to decode either.").asInstanceOf[Nothing]
       }
     }
 
     override protected def createEither(
       context: DecoderContext,
-      schema: Schema.zio.prelude.Validation[_, _],
-      value: zio.prelude.Validation[Any, Any]
+      schema: Schema.Either[_, _],
+      value: Either[Any, Any]
     ): Any =
       value
 
@@ -821,13 +810,13 @@ object ThriftCodec {
       f: Any => zio.prelude.Validation[String, Any],
       schema: Schema[_]
     ): Any =
-      f(value) match {
-        case Left(value)  => fail(context, value)
-        case zio.prelude.Validation.succeed(value) => value
-      }
+      f(value).fold(v => fail(context, v), a => a)
 
-    override protected def fail(context: DecoderContext, message: String): Any =
+    override protected def fail(context: DecoderContext, message: String): Nothing =
       throw MalformedFieldWithPath(context.path, message)
+
+    protected def fail(context: DecoderContext, message: NonEmptyChunk[String]): Nothing =
+      throw MalformedFieldWithPath(context.path, message.mkString)
 
     override protected val initialContext: DecoderContext = DecoderContext(Chunk.empty, None)
 

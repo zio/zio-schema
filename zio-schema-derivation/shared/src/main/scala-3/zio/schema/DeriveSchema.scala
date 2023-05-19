@@ -233,7 +233,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
 
        val fromMap = '{ (m: ListMap[String, _]) =>
          try { zio.prelude.Validation.succeed(${appliedConstructor('m)}) } catch {
-         case e: Throwable  => Left(e.getMessage)
+         case e: Throwable  => zio.prelude.Validation.fail(e.getMessage)
        }}
 
        def tuples(b: Expr[T])(using Quotes) =
@@ -338,7 +338,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
 
   // Derive Field for a CaseClass
   def deriveField[T: Type](repr: TypeRepr, name: String, anns: List[Expr[Any]], stack: Stack)(using Quotes) = {
-    import zio.schema.validation.Validation
+    import zio.schema.validation.SchemaValidation
     import zio.schema.annotation.validate
 
     val tpe = TypeRepr.of[T]
@@ -389,7 +389,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
 
 // Derive Field for a GenericRecord
   def deriveGenericField[T: Type](repr: TypeRepr, name: String, anns: List[Expr[Any]], stack: Stack)(using Quotes) = {
-    import zio.schema.validation.Validation
+    import zio.schema.validation.SchemaValidation
     import zio.schema.annotation.validate
 
     val tpe = TypeRepr.of[T]

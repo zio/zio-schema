@@ -2,78 +2,76 @@ package zio.schema.validation
 
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-
 import scala.util.Try
-
 import zio.Scope
 import zio.test._
 
-object ValidationSpec extends ZIOSpecDefault {
-  import zio.schema.validation.ValidationSpec.Hour._
-  import zio.schema.validation.ValidationSpec.Minute._
-  import zio.schema.validation.ValidationSpec.Second._
-  import zio.schema.validation.ValidationSpec.Fraction._
-  import zio.schema.validation.ValidationSpec.AmPm._
+object SchemaValidationSpec extends ZIOSpecDefault {
+  import zio.schema.validation.SchemaValidationSpec.Hour._
+  import zio.schema.validation.SchemaValidationSpec.Minute._
+  import zio.schema.validation.SchemaValidationSpec.Second._
+  import zio.schema.validation.SchemaValidationSpec.Fraction._
+  import zio.schema.validation.SchemaValidationSpec.AmPm._
 
   def spec: Spec[Environment with TestEnvironment with Scope, Any] = suite("ValidationSpec")(
     test("Greater than") {
-      val validation = Validation.greaterThan(4)
+      val validation = SchemaValidation.greaterThan(4)
 
-      assertTrue(validation.validate(4).isLeft) &&
-      assertTrue(validation.validate(5).isRight) &&
-      assertTrue(validation.validate(6).isRight) &&
-      assertTrue(validation.validate(3).isLeft)
+      assertTrue(validation.validate(4).toEither.isLeft) &&
+      assertTrue(validation.validate(5).toEither.isRight) &&
+      assertTrue(validation.validate(6).toEither.isRight) &&
+      assertTrue(validation.validate(3).toEither.isLeft)
     },
     test("Less than") {
-      val validation = Validation.lessThan(4)
+      val validation = SchemaValidation.lessThan(4)
 
-      assertTrue(validation.validate(3).isRight) &&
-      assertTrue(validation.validate(2).isRight) &&
-      assertTrue(validation.validate(5).isLeft) &&
-      assertTrue(validation.validate(4).isLeft)
+      assertTrue(validation.validate(3).toEither.isRight) &&
+      assertTrue(validation.validate(2).toEither.isRight) &&
+      assertTrue(validation.validate(5).toEither.isLeft) &&
+      assertTrue(validation.validate(4).toEither.isLeft)
     },
     test("Equal to") {
-      val validation = Validation.equalTo(3)
+      val validation = SchemaValidation.equalTo(3)
 
-      assertTrue(validation.validate(3).isRight) &&
-      assertTrue(validation.validate(5).isLeft) &&
-      assertTrue(validation.validate(2).isLeft)
+      assertTrue(validation.validate(3).toEither.isRight) &&
+      assertTrue(validation.validate(5).toEither.isLeft) &&
+      assertTrue(validation.validate(2).toEither.isLeft)
     },
     test("MinLength") {
-      val validation = Validation.minLength(4)
+      val validation = SchemaValidation.minLength(4)
 
-      assertTrue(validation.validate("hello").isRight) &&
-      assertTrue(validation.validate("Todd").isRight) &&
-      assertTrue(validation.validate("how").isLeft) &&
-      assertTrue(validation.validate("hi").isLeft)
+      assertTrue(validation.validate("hello").toEither.isRight) &&
+      assertTrue(validation.validate("Todd").toEither.isRight) &&
+      assertTrue(validation.validate("how").toEither.isLeft) &&
+      assertTrue(validation.validate("hi").toEither.isLeft)
     },
     test("MaxLength") {
-      val validation = Validation.maxLength(4)
+      val validation = SchemaValidation.maxLength(4)
 
-      assertTrue(validation.validate("Todd").isRight) &&
-      assertTrue(validation.validate("how").isRight) &&
-      assertTrue(validation.validate("hello").isLeft) &&
-      assertTrue(validation.validate("Automobile").isLeft)
+      assertTrue(validation.validate("Todd").toEither.isRight) &&
+      assertTrue(validation.validate("how").toEither.isRight) &&
+      assertTrue(validation.validate("hello").toEither.isLeft) &&
+      assertTrue(validation.validate("Automobile").toEither.isLeft)
     },
     test("Regex digit or letter Validation") {
-      val validation = Validation.regex(Regex.digitOrLetter)
+      val validation = SchemaValidation.regex(Regex.digitOrLetter)
 
-      assertTrue(validation.validate("a").isRight) &&
-      assertTrue(validation.validate("1").isRight) &&
-      assertTrue(validation.validate("12").isLeft) &&
-      assertTrue(validation.validate("*").isLeft) &&
-      assertTrue(validation.validate("ab").isLeft) &&
-      assertTrue(validation.validate("").isLeft) &&
-      assertTrue(validation.validate("&").isLeft)
+      assertTrue(validation.validate("a").toEither.isRight) &&
+      assertTrue(validation.validate("1").toEither.isRight) &&
+      assertTrue(validation.validate("12").toEither.isLeft) &&
+      assertTrue(validation.validate("*").toEither.isLeft) &&
+      assertTrue(validation.validate("ab").toEither.isLeft) &&
+      assertTrue(validation.validate("").toEither.isLeft) &&
+      assertTrue(validation.validate("&").toEither.isLeft)
     },
     test("Regex identifier Validation") {
-      val validation = Validation.identifier
+      val validation = SchemaValidation.identifier
 
-      assertTrue(validation.validate("_").isRight) &&
-      assertTrue(validation.validate("a").isRight) &&
-      assertTrue(validation.validate("ab").isRight) &&
-      assertTrue(validation.validate("").isLeft) &&
-      assertTrue(validation.validate("*").isLeft)
+      assertTrue(validation.validate("_").toEither.isRight) &&
+      assertTrue(validation.validate("a").toEither.isRight) &&
+      assertTrue(validation.validate("ab").toEither.isRight) &&
+      assertTrue(validation.validate("").toEither.isLeft) &&
+      assertTrue(validation.validate("*").toEither.isLeft)
     },
     suite("Regex email Validation")(
       test("should reject an invalid email") {
@@ -101,10 +99,10 @@ object ValidationSpec extends ZIOSpecDefault {
             "postmaster@[2001:cdba:0:0:0:0:3257:9652]"
           )
         }
-        val validationResult = (value: String) => Validation.email.validate(value)
+        val validationResult = (value: String) => SchemaValidation.email.validate(value)
 
         checkAll(examples) { email =>
-          assertTrue(validationResult(email).isLeft)
+          assertTrue(validationResult(email).toEither.isLeft)
         }
       },
       test("should accept a correct email") {
@@ -124,10 +122,10 @@ object ValidationSpec extends ZIOSpecDefault {
             "postmaster@[IPv6:2001:cdba:0:0:0:0:3257:9652]"
           )
         }
-        val validationResult = (value: String) => Validation.email.validate(value)
+        val validationResult = (value: String) => SchemaValidation.email.validate(value)
 
         checkAll(examples) { email =>
-          assertTrue(validationResult(email).isRight)
+          assertTrue(validationResult(email).toEither.isRight)
         }
       }
     ),
@@ -149,10 +147,10 @@ object ValidationSpec extends ZIOSpecDefault {
           )
         }
 
-        val validationResult = (value: String) => Validation.ipV4.validate(value)
+        val validationResult = (value: String) => SchemaValidation.ipV4.validate(value)
 
         checkAll(examples) { ip =>
-          assertTrue(validationResult(ip).isRight)
+          assertTrue(validationResult(ip).toEither.isRight)
         }
       },
       test("should reject an invalid IPv4 address") {
@@ -166,10 +164,10 @@ object ValidationSpec extends ZIOSpecDefault {
           )
         }
 
-        val validationResult = (value: String) => Validation.ipV4.validate(value)
+        val validationResult = (value: String) => SchemaValidation.ipV4.validate(value)
 
         checkAll(examples) { ip =>
-          assertTrue(validationResult(ip).isLeft)
+          assertTrue(validationResult(ip).toEither.isLeft)
         }
       }
     ),
@@ -194,10 +192,10 @@ object ValidationSpec extends ZIOSpecDefault {
           )
         }
 
-        val validationResult = (value: String) => Validation.ipV6.validate(value)
+        val validationResult = (value: String) => SchemaValidation.ipV6.validate(value)
 
         checkAll(examples) { ip =>
-          assertTrue(validationResult(ip).isRight)
+          assertTrue(validationResult(ip).toEither.isRight)
         }
       },
       test("should reject an invalid IPv6 address") {
@@ -209,26 +207,26 @@ object ValidationSpec extends ZIOSpecDefault {
           )
         }
 
-        val validationResult = (value: String) => Validation.ipV6.validate(value)
+        val validationResult = (value: String) => SchemaValidation.ipV6.validate(value)
 
         checkAll(examples) { ip =>
-          assertTrue(validationResult(ip).isLeft)
+          assertTrue(validationResult(ip).toEither.isLeft)
         }
       }
     ),
     suite("Regex uuid Validations")(
       test("valid UUID") {
-        val validation = Validation.uuidV4
+        val validation = SchemaValidation.uuidV4
         check(Gen.uuid) { uuid =>
-          assertTrue(validation.validate(uuid.toString).isRight)
+          assertTrue(validation.validate(uuid.toString).toEither.isRight)
         }
       },
       test("invalid UUID") {
-        val validation = Validation.uuidV4
-        assertTrue(validation.validate("1e3118de-ddb6-11ec-8653-93e6961d46be").isLeft) &&
-        assertTrue(validation.validate("487f5075-fa89-4723-a26d-2e7a13245").isLeft) &&
-        assertTrue(validation.validate("487f5075fa894723a26d2e7a13245135").isLeft) &&
-        assertTrue(validation.validate("").isLeft)
+        val validation = SchemaValidation.uuidV4
+        assertTrue(validation.validate("1e3118de-ddb6-11ec-8653-93e6961d46be").toEither.isLeft) &&
+        assertTrue(validation.validate("487f5075-fa89-4723-a26d-2e7a13245").toEither.isLeft) &&
+        assertTrue(validation.validate("487f5075fa894723a26d2e7a13245135").toEither.isLeft) &&
+        assertTrue(validation.validate("").toEither.isLeft)
       }
     ),
     test("Time Validation HH") {
@@ -328,7 +326,7 @@ object ValidationSpec extends ZIOSpecDefault {
     },
     test("Regex duration Validation") {
       check(Gen.finiteDuration) { duration =>
-        assertTrue(Validation.duration.validate(duration.toString).isRight)
+        assertTrue(SchemaValidation.duration.validate(duration.toString).toEither.isRight)
       }
     }
   )
@@ -354,12 +352,12 @@ object ValidationSpec extends ZIOSpecDefault {
   private def parseTimes(createTimesConfig: CreateTimesConfig, format: String): ParsedTimes = {
     val times      = createTimes(exampleTimes, createTimesConfig)
     val wrongTimes = createTimes(wrongExampleTimes, createTimesConfig)
-    val validation = Validation.time(format)
+    val validation = SchemaValidation.time(format)
     val formatter  = DateTimeFormatter.ofPattern(format, Locale.US)
 
     def innerParse(times: Seq[String]) =
       times.map { time =>
-        val valid  = validation.validate(time).isRight
+        val valid  = validation.validate(time).toEither.isRight
         val parsed = Try(formatter.parse(time)).isSuccess
         ParsedTime(time, valid, parsed)
       }

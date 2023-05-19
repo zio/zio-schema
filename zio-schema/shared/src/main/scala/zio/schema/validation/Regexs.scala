@@ -2,13 +2,13 @@ package zio.schema.validation
 
 trait Regexs {
 
-  val identifier: Validation[String] =
-    Validation.regex((Regex.digitOrLetter | Regex.oneOf('_')).atLeast(1))
+  val identifier: SchemaValidation[String] =
+    SchemaValidation.regex((Regex.digitOrLetter | Regex.oneOf('_')).atLeast(1))
 
   /**
    * Checks whether a certain string represents a valid email address.
    */
-  lazy val email: Validation[String] = {
+  lazy val email: SchemaValidation[String] = {
     val localPart               = Regex.letter ~ (Regex.digitOrLetter | Regex.oneOf('_', '.', '+', '-')).atMost(63)
     val domainSegment           = Regex.digitOrLetter | Regex.oneOf('-')
     val topLevelDomain          = domainSegment.between(2, 4)
@@ -20,10 +20,10 @@ trait Regexs {
     val emailWithIpv6Domain     = emailBeginning ~ ipBlock(Regex.literal("IPv6:") ~ ipV6Regex)
     val completeEmail           = emailWithNormalDomain | emailWithIpv4Domain | emailWithIpv6Domain
 
-    Validation.regex(completeEmail) && Validation.maxLength(254)
+    SchemaValidation.regex(completeEmail) && SchemaValidation.maxLength(254)
   }
 
-  lazy val duration: Validation[String] = {
+  lazy val duration: SchemaValidation[String] = {
 
     val posDigit = Regex.between('1', '9')
     val integer  = Regex.digit.+
@@ -41,7 +41,7 @@ trait Regexs {
     val date     = (day | month | year) ~ time.?
     val duration = Regex.oneOf('P') ~ (date | time | week)
 
-    Validation.regex(duration)
+    SchemaValidation.regex(duration)
   }
 
   private lazy val ipV4Regex: Regex = {
@@ -61,7 +61,7 @@ trait Regexs {
   /**
    * Checks whether a certain string represents a valid IPv4 address.
    */
-  lazy val ipV4: Validation[String] = Validation.regex(ipV4Regex)
+  lazy val ipV4: SchemaValidation[String] = SchemaValidation.regex(ipV4Regex)
 
   private lazy val ipV6Regex: Regex = {
     val oneDigitHex   = Regex.hexDigit.exactly(1)
@@ -86,9 +86,9 @@ trait Regexs {
   /**
    * Checks whether a certain string represents a valid IPv6 address.
    */
-  lazy val ipV6: Validation[String] = Validation.regex(ipV6Regex)
+  lazy val ipV6: SchemaValidation[String] = SchemaValidation.regex(ipV6Regex)
 
-  lazy val uuidV4: Validation[String] = {
+  lazy val uuidV4: SchemaValidation[String] = {
     val hexOctect = Regex.hexDigit ~ Regex.hexDigit
     val sep       = Regex.oneOf('-')
 
@@ -98,7 +98,7 @@ trait Regexs {
     val clockSeq           = Regex.CharacterSet(Set('8', '9', 'a', 'A', 'b', 'B')) ~ Regex.hexDigit ~ hexOctect
     val node               = hexOctect.exactly(6)
 
-    Validation.regex(
+    SchemaValidation.regex(
       timeLow ~ sep ~
         timeMid ~ sep ~
         timeHighAndVersion ~ sep ~

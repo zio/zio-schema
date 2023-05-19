@@ -2,65 +2,60 @@ package zio.schema.codec
 
 import java.nio.charset.StandardCharsets
 import java.time.format.DateTimeFormatter
-import java.time.{ Duration, Month, MonthDay, Period, Year, YearMonth }
-
+import java.time.{Duration, Month, MonthDay, Period, Year, YearMonth}
 import scala.annotation.StaticAnnotation
 import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters._
-import scala.util.{ Right, Try }
-
-import org.apache.avro.{ LogicalTypes, Schema => SchemaAvro }
-
+import scala.util.{Right, Try}
+import org.apache.avro.{LogicalTypes, Schema => SchemaAvro}
 import zio.Chunk
+import zio.prelude.Validation
 import zio.schema.CaseSet.Aux
-import zio.schema.Schema.{ Record, _ }
+import zio.schema.Schema.{Record, _}
 import zio.schema._
 import zio.schema.codec.AvroAnnotations._
 import zio.schema.codec.AvroPropMarker._
 import zio.schema.meta.MetaSchema
 
 trait AvroCodec {
-  def encode(schema: Schema[_]): zio.prelude.Validation[String, String]
+  def encode(schema: Schema[_]): Validation[String, String]
 
-  def decode(bytes: Chunk[Byte]): zio.prelude.Validation[String, Schema[_]]
+  def decode(bytes: Chunk[Byte]): Validation[String, Schema[_]]
 }
 
 object AvroCodec extends AvroCodec {
 
-  def encode(schema: Schema[_]): zio.prelude.Validation[String, String] =
+  def encode(schema: Schema[_]): Validation[String, String] =
     toAvroSchema(schema).map(_.toString)
 
-  def encodeToApacheAvro(schema: Schema[_]): zio.prelude.Validation[String, SchemaAvro] =
+  def encodeToApacheAvro(schema: Schema[_]): Validation[String, SchemaAvro] =
     toAvroSchema(schema)
 
-  def decode(bytes: Chunk[Byte]): zio.prelude.Validation[String, Schema[_]] = {
+  def decode(bytes: Chunk[Byte]): Validation[String, Schema[_]] = {
     val avroSchemaParser = new SchemaAvro.Parser()
-    val avroSchema = Try {
+    val avroSchema = Validation(
       avroSchemaParser.parse(new String(bytes.toArray, StandardCharsets.UTF_8))
-    }.fold(
-      e => Left(e.getMessage),
-      s => zio.prelude.Validation.succeed(s)
-    )
+    ).mapError(_.getMessage)
     avroSchema.flatMap(toZioSchema)
   }
 
-  def decodeFromApacheAvro: SchemaAvro => zio.prelude.Validation[String, Schema[_]] = toZioSchema
+  def decodeFromApacheAvro: SchemaAvro => Validation[String, Schema[_]] = toZioSchema
 
-  private def toZioSchema(avroSchema: SchemaAvro): zio.prelude.Validation[String, Schema[_]] =
+  private def toZioSchema(avroSchema: SchemaAvro): Validation[String, Schema[_]] =
     for {
       // make sure to parse logical types with throwing exceptions enabled,
       // otherwise parsing errors on invalid logical types might be lost
-      _ <- Try {
+      _ <- Validation {
             LogicalTypes.fromSchema(avroSchema)
-          }.toEither.left.map(e => e.getMessage)
+          }.mapError(e => e.getMessage)
       result <- avroSchema.getType match {
                  case SchemaAvro.Type.RECORD =>
                    RecordType.fromAvroRecord(avroSchema) match {
-                     case Some(RecordType.Period)    => zio.prelude.Validation.succeed(Schema.primitive(StandardType.PeriodType))
-                     case Some(RecordType.YearMonth) => zio.prelude.Validation.succeed(Schema.primitive(StandardType.YearMonthType))
+                     case Some(RecordType.Period)    => Validation.succeed(Schema.primitive(StandardType.PeriodType))
+                     case Some(RecordType.YearMonth) => Validation.succeed(Schema.primitive(StandardType.YearMonthType))
                      case Some(RecordType.Tuple)     => toZioTuple(avroSchema)
-                     case Some(RecordType.MonthDay)  => zio.prelude.Validation.succeed(Schema.primitive(StandardType.MonthDayType))
-                     case Some(RecordType.Duration)  => zio.prelude.Validation.succeed(Schema.primitive(StandardType.DurationType))
+                     case Some(RecordType.MonthDay)  => Validation.succeed(Schema.primitive(StandardType.MonthDayType))
+                     case Some(RecordType.Duration)  => Validation.succeed(Schema.primitive(StandardType.DurationType))
                      case None                       => toZioRecord(avroSchema)
                    }
                  case SchemaAvro.Type.ENUM => toZioStringEnum(avroSchema)
@@ -77,14 +72,14 @@ object AvroCodec extends AvroCodec {
                    }
                  case SchemaAvro.Type.FIXED =>
                    val fixed = if (avroSchema.getLogicalType == null) {
-                     zio.prelude.Validation.succeed(Schema.primitive(StandardType.BinaryType))
+                     Validation.succeed(Schema.primitive(StandardType.BinaryType))
                    } else if (avroSchema.getLogicalType.isInstanceOf[LogicalTypes.Decimal]) {
                      val size = avroSchema.getFixedSize
                      toZioDecimal(avroSchema, DecimalType.Fixed(size))
                    } else {
                      // TODO: Java implementation of Apache Avro does not support logical type Duration yet:
                      //  AVRO-2123 with PR https://github.com/apache/avro/pull/1263
-                     Left(s"Unsupported fixed logical type ${avroSchema.getLogicalType}")
+                     Validation.fail(s"Unsupported fixed logical type ${avroSchema.getLogicalType}")
                    }
                    fixed.map(_.addAllAnnotations(buildZioAnnotations(avroSchema)))
                  case SchemaAvro.Type.STRING =>
@@ -95,67 +90,67 @@ object AvroCodec extends AvroCodec {
                          .map(_.dateTimeFormatter)
                          .flatMap(_ => {
                            stringType match {
-                             case StringType.ZoneId => zio.prelude.Validation.succeed(Schema.primitive(StandardType.ZoneIdType))
+                             case StringType.ZoneId => Validation.succeed(Schema.primitive(StandardType.ZoneIdType))
                              case StringType.Instant =>
-                               zio.prelude.Validation.succeed(
+                               Validation.succeed(
                                  Schema
                                    .primitive(StandardType.InstantType)
                                    .annotate(AvroAnnotations.formatToString)
                                )
                              case StringType.LocalDate =>
-                               zio.prelude.Validation.succeed(
+                               Validation.succeed(
                                  Schema
                                    .primitive(StandardType.LocalDateType)
                                    .annotate(AvroAnnotations.formatToString)
                                )
                              case StringType.LocalTime =>
-                               zio.prelude.Validation.succeed(
+                               Validation.succeed(
                                  Schema
                                    .primitive(StandardType.LocalTimeType)
                                    .annotate(AvroAnnotations.formatToString)
                                )
                              case StringType.LocalDateTime =>
-                               zio.prelude.Validation.succeed(
+                               Validation.succeed(
                                  Schema
                                    .primitive(StandardType.LocalDateTimeType)
                                    .annotate(AvroAnnotations.formatToString)
                                )
                              case StringType.OffsetTime =>
-                               zio.prelude.Validation.succeed(Schema.primitive(StandardType.OffsetTimeType))
+                               Validation.succeed(Schema.primitive(StandardType.OffsetTimeType))
                              case StringType.OffsetDateTime =>
-                               zio.prelude.Validation.succeed(Schema.primitive(StandardType.OffsetDateTimeType))
+                               Validation.succeed(Schema.primitive(StandardType.OffsetDateTimeType))
                              case StringType.ZoneDateTime =>
-                               zio.prelude.Validation.succeed(Schema.primitive(StandardType.ZonedDateTimeType))
+                               Validation.succeed(Schema.primitive(StandardType.ZonedDateTimeType))
                            }
                          })
                      case None =>
                        if (avroSchema.getLogicalType == null) {
-                         zio.prelude.Validation.succeed(Schema.primitive(StandardType.StringType))
+                         Validation.succeed(Schema.primitive(StandardType.StringType))
                        } else if (avroSchema.getLogicalType.getName == LogicalTypes.uuid().getName) {
-                         zio.prelude.Validation.succeed(Schema.primitive(StandardType.UUIDType))
+                         Validation.succeed(Schema.primitive(StandardType.UUIDType))
                        } else {
-                         Left(s"Unsupported string logical type: ${avroSchema.getLogicalType.getName}")
+                         Validation.fail(s"Unsupported string logical type: ${avroSchema.getLogicalType.getName}")
                        }
                    }
                  case SchemaAvro.Type.BYTES =>
                    if (avroSchema.getLogicalType == null) {
-                     zio.prelude.Validation.succeed(Schema.primitive(StandardType.BinaryType))
+                     Validation.succeed(Schema.primitive(StandardType.BinaryType))
                    } else if (avroSchema.getLogicalType.isInstanceOf[LogicalTypes.Decimal]) {
                      toZioDecimal(avroSchema, DecimalType.Bytes)
                    } else {
-                     Left(s"Unsupported bytes logical type ${avroSchema.getLogicalType.getName}")
+                     Validation.fail(s"Unsupported bytes logical type ${avroSchema.getLogicalType.getName}")
                    }
                  case SchemaAvro.Type.INT =>
                    IntType.fromAvroInt(avroSchema) match {
-                     case Some(IntType.Char)       => zio.prelude.Validation.succeed(Schema.primitive(StandardType.CharType))
-                     case Some(IntType.DayOfWeek)  => zio.prelude.Validation.succeed(Schema.primitive(StandardType.DayOfWeekType))
-                     case Some(IntType.Year)       => zio.prelude.Validation.succeed(Schema.primitive(StandardType.YearType))
-                     case Some(IntType.Short)      => zio.prelude.Validation.succeed(Schema.primitive(StandardType.ShortType))
-                     case Some(IntType.Month)      => zio.prelude.Validation.succeed(Schema.primitive(StandardType.MonthType))
-                     case Some(IntType.ZoneOffset) => zio.prelude.Validation.succeed(Schema.primitive(StandardType.ZoneOffsetType))
+                     case Some(IntType.Char)       => Validation.succeed(Schema.primitive(StandardType.CharType))
+                     case Some(IntType.DayOfWeek)  => Validation.succeed(Schema.primitive(StandardType.DayOfWeekType))
+                     case Some(IntType.Year)       => Validation.succeed(Schema.primitive(StandardType.YearType))
+                     case Some(IntType.Short)      => Validation.succeed(Schema.primitive(StandardType.ShortType))
+                     case Some(IntType.Month)      => Validation.succeed(Schema.primitive(StandardType.MonthType))
+                     case Some(IntType.ZoneOffset) => Validation.succeed(Schema.primitive(StandardType.ZoneOffsetType))
                      case None =>
                        if (avroSchema.getLogicalType == null) {
-                         zio.prelude.Validation.succeed(Schema.primitive(StandardType.IntType))
+                         Validation.succeed(Schema.primitive(StandardType.IntType))
                        } else
                          avroSchema.getLogicalType match {
                            case _: LogicalTypes.TimeMillis =>
@@ -168,12 +163,12 @@ object AvroCodec extends AvroCodec {
                              formatter.map(
                                _ => Schema.primitive(StandardType.LocalDateType)
                              )
-                           case _ => Left(s"Unsupported int logical type ${avroSchema.getLogicalType.getName}")
+                           case _ => Validation.fail(s"Unsupported int logical type ${avroSchema.getLogicalType.getName}")
                          }
                    }
                  case SchemaAvro.Type.LONG =>
                    if (avroSchema.getLogicalType == null) {
-                     zio.prelude.Validation.succeed(Schema.primitive(StandardType.LongType))
+                     Validation.succeed(Schema.primitive(StandardType.LongType))
                    } else
                      avroSchema.getLogicalType match {
                        case _: LogicalTypes.TimeMicros =>
@@ -201,13 +196,13 @@ object AvroCodec extends AvroCodec {
                          formatter.map(
                            _ => Schema.primitive(StandardType.LocalDateTimeType)
                          )
-                       case _ => Left(s"Unsupported long logical type ${avroSchema.getLogicalType.getName}")
+                       case _ => Validation.fail(s"Unsupported long logical type ${avroSchema.getLogicalType.getName}")
                      }
-                 case SchemaAvro.Type.FLOAT   => zio.prelude.Validation.succeed(Schema.primitive(StandardType.FloatType))
-                 case SchemaAvro.Type.DOUBLE  => zio.prelude.Validation.succeed(Schema.primitive(StandardType.DoubleType))
-                 case SchemaAvro.Type.BOOLEAN => zio.prelude.Validation.succeed(Schema.primitive(StandardType.BoolType))
-                 case SchemaAvro.Type.NULL    => zio.prelude.Validation.succeed(Schema.primitive(StandardType.UnitType))
-                 case null                    => Left(s"Unsupported type ${avroSchema.getType}")
+                 case SchemaAvro.Type.FLOAT   => Validation.succeed(Schema.primitive(StandardType.FloatType))
+                 case SchemaAvro.Type.DOUBLE  => Validation.succeed(Schema.primitive(StandardType.DoubleType))
+                 case SchemaAvro.Type.BOOLEAN => Validation.succeed(Schema.primitive(StandardType.BoolType))
+                 case SchemaAvro.Type.NULL    => Validation.succeed(Schema.primitive(StandardType.UnitType))
+                 case null                    => Validation.fail(s"Unsupported type ${avroSchema.getType}")
                }
     } yield result
 
@@ -275,7 +270,7 @@ object AvroCodec extends AvroCodec {
     )
   )
 
-  private def toAvroSchema(schema: Schema[_]): zio.prelude.Validation[String, SchemaAvro] = {
+  private def toAvroSchema(schema: Schema[_]): Validation[String, SchemaAvro] = {
     schema match {
       case e: Enum[_]                    => toAvroEnum(e)
       case record: Record[_]             => toAvroRecord(record)
@@ -285,45 +280,45 @@ object AvroCodec extends AvroCodec {
       case Transform(codec, _, _, _, _)  => toAvroSchema(codec)
       case Primitive(standardType, _) =>
         standardType match {
-          case StandardType.UnitType   => zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.NULL))
-          case StandardType.StringType => zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.STRING))
-          case StandardType.BoolType   => zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.BOOLEAN))
+          case StandardType.UnitType   => Validation.succeed(SchemaAvro.create(SchemaAvro.Type.NULL))
+          case StandardType.StringType => Validation.succeed(SchemaAvro.create(SchemaAvro.Type.STRING))
+          case StandardType.BoolType   => Validation.succeed(SchemaAvro.create(SchemaAvro.Type.BOOLEAN))
           case StandardType.ShortType =>
-            zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Short)))
-          case StandardType.ByteType   => zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT))
-          case StandardType.IntType    => zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT))
-          case StandardType.LongType   => zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.LONG))
-          case StandardType.FloatType  => zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.FLOAT))
-          case StandardType.DoubleType => zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.DOUBLE))
-          case StandardType.BinaryType => zio.prelude.Validation.succeed(toAvroBinary(schema))
+            Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Short)))
+          case StandardType.ByteType   => Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT))
+          case StandardType.IntType    => Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT))
+          case StandardType.LongType   => Validation.succeed(SchemaAvro.create(SchemaAvro.Type.LONG))
+          case StandardType.FloatType  => Validation.succeed(SchemaAvro.create(SchemaAvro.Type.FLOAT))
+          case StandardType.DoubleType => Validation.succeed(SchemaAvro.create(SchemaAvro.Type.DOUBLE))
+          case StandardType.BinaryType => Validation.succeed(toAvroBinary(schema))
           case StandardType.CharType =>
-            zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Char)))
+            Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Char)))
           case StandardType.UUIDType =>
-            zio.prelude.Validation.succeed(LogicalTypes.uuid().addToSchema(SchemaAvro.create(SchemaAvro.Type.STRING)))
+            Validation.succeed(LogicalTypes.uuid().addToSchema(SchemaAvro.create(SchemaAvro.Type.STRING)))
           case StandardType.BigDecimalType => toAvroDecimal(schema)
           case StandardType.BigIntegerType => toAvroDecimal(schema)
           case StandardType.DayOfWeekType =>
-            zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.DayOfWeek)))
+            Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.DayOfWeek)))
           case StandardType.MonthType =>
-            zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Month)))
+            Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Month)))
           case StandardType.YearType =>
-            zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Year)))
+            Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Year)))
           case StandardType.ZoneIdType =>
-            zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.STRING).addMarkerProp(StringDiscriminator(StringType.ZoneId)))
+            Validation.succeed(SchemaAvro.create(SchemaAvro.Type.STRING).addMarkerProp(StringDiscriminator(StringType.ZoneId)))
           case StandardType.ZoneOffsetType =>
-            zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.ZoneOffset)))
+            Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.ZoneOffset)))
           case StandardType.MonthDayType =>
             //TODO 1
             //zio.prelude.Validation.succeed(SchemaAvro.create(monthDayStructure).addMarkerProp(RecordDiscriminator(RecordType.MonthDay)))
-            zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.RECORD))
+            Validation.succeed(SchemaAvro.create(SchemaAvro.Type.RECORD))
           case StandardType.PeriodType =>
             //TODO 2
             //toAvroSchema(periodStructure).map(_.addMarkerProp(RecordDiscriminator(RecordType.Period)))
-            zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.RECORD))
+            Validation.succeed(SchemaAvro.create(SchemaAvro.Type.RECORD))
           case StandardType.YearMonthType =>
             //TODO 3
             //toAvroSchema(yearMonthStructure).map(_.addMarkerProp(RecordDiscriminator(RecordType.YearMonth)))
-            zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.RECORD))
+            Validation.succeed(SchemaAvro.create(SchemaAvro.Type.RECORD))
           case StandardType.DurationType =>
             // TODO: Java implementation of Apache Avro does not support logical type Duration yet:
             //  AVRO-2123 with PR https://github.com/apache/avro/pull/1263
@@ -332,46 +327,46 @@ object AvroCodec extends AvroCodec {
             //DurationChronoUnit.fromTemporalUnit(temporalUnit).getOrElse(DurationChronoUnit.default)
             //toAvroSchema(durationStructure).map(
             //  _.addMarkerProp(RecordDiscriminator(RecordType.Duration)).addMarkerProp(chronoUnitMarker))
-            zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.RECORD))
+            Validation.succeed(SchemaAvro.create(SchemaAvro.Type.RECORD))
 
           case StandardType.InstantType =>
-            zio.prelude.Validation.succeed(
+            Validation.succeed(
               SchemaAvro
                 .create(SchemaAvro.Type.STRING)
                 .addMarkerProp(StringDiscriminator(StringType.Instant))
             )
           case StandardType.LocalDateType =>
-            zio.prelude.Validation.succeed(
+            Validation.succeed(
               SchemaAvro
                 .create(SchemaAvro.Type.STRING)
                 .addMarkerProp(StringDiscriminator(StringType.LocalDate))
             )
           case StandardType.LocalTimeType =>
-            zio.prelude.Validation.succeed(
+            Validation.succeed(
               SchemaAvro
                 .create(SchemaAvro.Type.STRING)
                 .addMarkerProp(StringDiscriminator(StringType.LocalTime))
             )
           case StandardType.LocalDateTimeType =>
-            zio.prelude.Validation.succeed(
+            Validation.succeed(
               SchemaAvro
                 .create(SchemaAvro.Type.STRING)
                 .addMarkerProp(StringDiscriminator(StringType.LocalDateTime))
             )
           case StandardType.OffsetTimeType =>
-            zio.prelude.Validation.succeed(
+            Validation.succeed(
               SchemaAvro
                 .create(SchemaAvro.Type.STRING)
                 .addMarkerProp(StringDiscriminator(StringType.OffsetTime))
             )
           case StandardType.OffsetDateTimeType =>
-            zio.prelude.Validation.succeed(
+            Validation.succeed(
               SchemaAvro
                 .create(SchemaAvro.Type.STRING)
                 .addMarkerProp(StringDiscriminator(StringType.OffsetDateTime))
             )
           case StandardType.ZonedDateTimeType =>
-            zio.prelude.Validation.succeed(
+            Validation.succeed(
               SchemaAvro
                 .create(SchemaAvro.Type.STRING)
                 .addMarkerProp(StringDiscriminator(StringType.ZoneDateTime))
@@ -389,7 +384,7 @@ object AvroCodec extends AvroCodec {
             case schema => schema
           }
         } yield SchemaAvro.createUnion(SchemaAvro.create(SchemaAvro.Type.NULL), wrappedAvroSchema)
-      case Fail(message, _) => Left(message)
+      case Fail(message, _) => Validation.fail(message)
       case tuple: Tuple2[_, _] =>
         toAvroSchema(tuple.toRecord).map(
           _.addMarkerProp(RecordDiscriminator(RecordType.Tuple))
@@ -403,8 +398,8 @@ object AvroCodec extends AvroCodec {
           leftSchema  = if (l.getType == SchemaAvro.Type.UNION) wrapAvro(l, lname, UnionWrapper) else l
           rightSchema = if (r.getType == SchemaAvro.Type.UNION) wrapAvro(r, rname, UnionWrapper) else r
           _ <- if (leftSchema.getFullName == rightSchema.getFullName)
-                Left(s"Left and right schemas of either must have different fullnames: ${leftSchema.getFullName}")
-              else zio.prelude.Validation.succeed(())
+                Validation.fail(s"Left and right schemas of either must have different fullnames: ${leftSchema.getFullName}")
+              else Validation.succeed(())
         } yield SchemaAvro.createUnion(leftSchema, rightSchema)
 
         // Unions in Avro can not hold additional properties, so we need to wrap the union in a record
@@ -430,9 +425,9 @@ object AvroCodec extends AvroCodec {
   private[codec] def toAvroInstant(
     formatter: DateTimeFormatter,
     annotations: Chunk[Any]
-  ): zio.prelude.Validation[String, SchemaAvro] =
+  ): Validation[String, SchemaAvro] =
     if (hasFormatToStringAnnotation(annotations)) {
-      zio.prelude.Validation.succeed(
+      Validation.succeed(
         SchemaAvro
           .create(SchemaAvro.Type.STRING)
           .addMarkerProp(StringDiscriminator(StringType.Instant))
@@ -442,33 +437,33 @@ object AvroCodec extends AvroCodec {
       val baseSchema = SchemaAvro.create(SchemaAvro.Type.LONG)
       getTimeprecisionType(annotations).getOrElse(TimePrecisionType.default) match {
         case TimePrecisionType.Millis =>
-          zio.prelude.Validation.succeed(LogicalTypes.timestampMillis().addToSchema(baseSchema).addMarkerProp(Formatter(formatter)))
+          Validation.succeed(LogicalTypes.timestampMillis().addToSchema(baseSchema).addMarkerProp(Formatter(formatter)))
         case TimePrecisionType.Micros =>
-          zio.prelude.Validation.succeed(LogicalTypes.timestampMicros().addToSchema(baseSchema).addMarkerProp(Formatter(formatter)))
+          Validation.succeed(LogicalTypes.timestampMicros().addToSchema(baseSchema).addMarkerProp(Formatter(formatter)))
       }
     }
 
   private[codec] def toAvroLocalDate(
     formatter: DateTimeFormatter,
     annotations: Chunk[Any]
-  ): zio.prelude.Validation[String, SchemaAvro] =
+  ): Validation[String, SchemaAvro] =
     if (hasFormatToStringAnnotation(annotations)) {
-      zio.prelude.Validation.succeed(
+      Validation.succeed(
         SchemaAvro
           .create(SchemaAvro.Type.STRING)
           .addMarkerProp(StringDiscriminator(StringType.LocalDate))
           .addMarkerProp(Formatter(formatter))
       )
     } else {
-      zio.prelude.Validation.succeed(LogicalTypes.date().addToSchema(SchemaAvro.create(SchemaAvro.Type.INT)).addMarkerProp(Formatter(formatter)))
+      Validation.succeed(LogicalTypes.date().addToSchema(SchemaAvro.create(SchemaAvro.Type.INT)).addMarkerProp(Formatter(formatter)))
     }
 
   private[codec] def toAvroLocalTime(
     formatter: DateTimeFormatter,
     annotations: Chunk[Any]
-  ): zio.prelude.Validation[String, SchemaAvro] =
+  ): Validation[String, SchemaAvro] =
     if (hasFormatToStringAnnotation(annotations)) {
-      zio.prelude.Validation.succeed(
+      Validation.succeed(
         SchemaAvro
           .create(SchemaAvro.Type.STRING)
           .addMarkerProp(StringDiscriminator(StringType.LocalTime))
@@ -477,14 +472,14 @@ object AvroCodec extends AvroCodec {
     } else {
       getTimeprecisionType(annotations).getOrElse(TimePrecisionType.default) match {
         case TimePrecisionType.Millis =>
-          zio.prelude.Validation.succeed(
+          Validation.succeed(
             LogicalTypes
               .timeMillis()
               .addToSchema(SchemaAvro.create(SchemaAvro.Type.INT))
               .addMarkerProp(Formatter(formatter))
           )
         case TimePrecisionType.Micros =>
-          zio.prelude.Validation.succeed(
+          Validation.succeed(
             LogicalTypes
               .timeMicros()
               .addToSchema(SchemaAvro.create(SchemaAvro.Type.LONG))
@@ -496,9 +491,9 @@ object AvroCodec extends AvroCodec {
   private[codec] def toAvroLocalDateTime(
     formatter: DateTimeFormatter,
     annotations: Chunk[Any]
-  ): zio.prelude.Validation[String, SchemaAvro] =
+  ): Validation[String, SchemaAvro] =
     if (hasFormatToStringAnnotation(annotations)) {
-      zio.prelude.Validation.succeed(
+      Validation.succeed(
         SchemaAvro
           .create(SchemaAvro.Type.STRING)
           .addMarkerProp(StringDiscriminator(StringType.LocalDateTime))
@@ -508,9 +503,9 @@ object AvroCodec extends AvroCodec {
       val baseSchema = SchemaAvro.create(SchemaAvro.Type.LONG)
       getTimeprecisionType(annotations).getOrElse(TimePrecisionType.default) match {
         case TimePrecisionType.Millis =>
-          zio.prelude.Validation.succeed(LogicalTypes.localTimestampMillis().addToSchema(baseSchema).addMarkerProp(Formatter(formatter)))
+          Validation.succeed(LogicalTypes.localTimestampMillis().addToSchema(baseSchema).addMarkerProp(Formatter(formatter)))
         case TimePrecisionType.Micros =>
-          zio.prelude.Validation.succeed(LogicalTypes.localTimestampMicros().addToSchema(baseSchema).addMarkerProp(Formatter(formatter)))
+          Validation.succeed(LogicalTypes.localTimestampMicros().addToSchema(baseSchema).addMarkerProp(Formatter(formatter)))
       }
     }
 
@@ -529,20 +524,20 @@ object AvroCodec extends AvroCodec {
       .addMarkerProp(marker)
   }
 
-  private[codec] def toAvroEnum(enu: Enum[_]): zio.prelude.Validation[String, SchemaAvro] = {
+  private[codec] def toAvroEnum(enu: Enum[_]): Validation[String, SchemaAvro] = {
     val avroEnumAnnotationExists = hasAvroEnumAnnotation(enu.annotations)
     val isAvroEnumEquivalent = enu.cases.map(_.schema).forall {
       case (Transform(Primitive(standardType, _), _, _, _, _))
-          if standardType == StandardType.UnitType && avroEnumAnnotationExists =>
+        if standardType == StandardType.UnitType && avroEnumAnnotationExists =>
         true
       case (Primitive(standardType, _)) if standardType == StandardType.StringType => true
-      case (CaseClass0(_, _, _)) if avroEnumAnnotationExists                       => true
-      case _                                                                       => false
+      case (CaseClass0(_, _, _)) if avroEnumAnnotationExists => true
+      case _ => false
     }
     if (isAvroEnumEquivalent) {
       for {
-        name            <- getName(enu)
-        doc             = getDoc(enu.annotations).orNull
+        name <- getName(enu)
+        doc = getDoc(enu.annotations).orNull
         namespaceOption <- getNamespace(enu.annotations)
         symbols = enu.cases.map {
           case caseValue => getNameOption(caseValue.annotations).getOrElse(caseValue.id)
@@ -552,14 +547,14 @@ object AvroCodec extends AvroCodec {
     } else {
       val cases = enu.cases.map(c => (c.id, (c.schema, c.annotations))).map {
         case (symbol, (Transform(Primitive(standardType, _), _, _, _, _), annotations))
-            if standardType == StandardType.UnitType =>
+          if standardType == StandardType.UnitType =>
           val name = getNameOption(annotations).getOrElse(symbol)
-          zio.prelude.Validation.succeed(SchemaAvro.createRecord(name, null, null, false, new java.util.ArrayList[SchemaAvro.Field]))
+          Validation.succeed(SchemaAvro.createRecord(name, null, null, false, new java.util.ArrayList[SchemaAvro.Field]))
         case (symbol, (CaseClass0(_, _, _), annotations)) =>
           val name = getNameOption(annotations).getOrElse(symbol)
-          zio.prelude.Validation.succeed(SchemaAvro.createRecord(name, null, null, false, new java.util.ArrayList[SchemaAvro.Field]))
+          Validation.succeed(SchemaAvro.createRecord(name, null, null, false, new java.util.ArrayList[SchemaAvro.Field]))
         case (symbol, (schema, annotations)) =>
-          val name           = getNameOption(annotations).getOrElse(symbol)
+          val name = getNameOption(annotations).getOrElse(symbol)
           val schemaWithName = addNameAnnotationIfMissing(schema, name)
           toAvroSchema(schemaWithName).map {
             case schema: SchemaAvro if schema.getType == SchemaAvro.Type.UNION =>
@@ -567,30 +562,21 @@ object AvroCodec extends AvroCodec {
             case schema => schema
           }
       }
-      cases.toList.map(_.merge).partition {
-        case _: String => true
-        case _         => false
-      } match {
-        case (Nil, right: List[org.apache.avro.Schema @unchecked]) => zio.prelude.Validation.succeed(SchemaAvro.createUnion(right.asJava))
-        case (left, _)                                             => Left(left.mkString("\n"))
-      }
+      Validation.validateAll(cases.toList)
+        .map(c => SchemaAvro.createUnion(c.asJava))
     }
   }
 
-  private def extractAvroFields(record: Record[_]): List[org.apache.avro.Schema.Field] =
-    record.fields.map(toAvroRecordField).toList.map(_.merge).partition {
-      case _: String => true
-      case _         => false
-    } match {
-      case (Nil, right: List[org.apache.avro.Schema.Field @unchecked]) => right
-      case _                                                           => null
-    }
+  private def extractAvroFields(record: Record[_]): List[org.apache.avro.Schema.Field] = {
+    Validation.validateAll(record.fields.map(toAvroRecordField(_)).toList)
+      .getOrElse(null)
+  }
 
-  private[codec] def toAvroRecord(record: Record[_]): zio.prelude.Validation[String, SchemaAvro] =
+  private[codec] def toAvroRecord(record: Record[_]): Validation[String, SchemaAvro] =
     for {
       name            <- getName(record)
       namespaceOption <- getNamespace(record.annotations)
-      result <- zio.prelude.Validation.succeed(
+      result <- Validation.succeed(
                  SchemaAvro.createRecord(
                    name,
                    getDoc(record.annotations).orNull,
@@ -601,7 +587,7 @@ object AvroCodec extends AvroCodec {
                )
     } yield result
 
-  private[codec] def toAvroMap(map: Map[_, _]): zio.prelude.Validation[String, SchemaAvro] =
+  private[codec] def toAvroMap(map: Map[_, _]): Validation[String, SchemaAvro] =
     map.keySchema match {
       case p: Schema.Primitive[_] if p.standardType == StandardType.StringType =>
         toAvroSchema(map.valueSchema).map(SchemaAvro.createMap)
@@ -613,7 +599,7 @@ object AvroCodec extends AvroCodec {
         toAvroSchema(tupleSchema).map(SchemaAvro.createArray)
     }
 
-  private[codec] def toAvroDecimal(schema: Schema[_]): zio.prelude.Validation[String, SchemaAvro] = {
+  private[codec] def toAvroDecimal(schema: Schema[_]): Validation[String, SchemaAvro] = {
     val scale = schema.annotations.collectFirst { case AvroAnnotations.scale(s) => s }
       .getOrElse(AvroAnnotations.scale().scale)
     val precision = schema match {
@@ -632,7 +618,7 @@ object AvroCodec extends AvroCodec {
           doc             = getDoc(schema.annotations).orNull
           result          = SchemaAvro.createFixed(name, doc, namespaceOption.orNull, size)
         } yield result
-      case DecimalType.Bytes => zio.prelude.Validation.succeed(SchemaAvro.create(SchemaAvro.Type.BYTES))
+      case DecimalType.Bytes => Validation.succeed(SchemaAvro.create(SchemaAvro.Type.BYTES))
     }
     baseAvroType.map(
       LogicalTypes
@@ -644,7 +630,7 @@ object AvroCodec extends AvroCodec {
   private[codec] def toErrorMessage(err: Throwable, at: AnyRef) =
     s"Error mapping to Apache Avro schema: $err at ${at.toString}"
 
-  private[codec] def toAvroRecordField[Z](value: Field[Z, _]): zio.prelude.Validation[String, SchemaAvro.Field] =
+  private[codec] def toAvroRecordField[Z](value: Field[Z, _]): Validation[String, SchemaAvro.Field] =
     toAvroSchema(value.schema).map(
       schema =>
         new SchemaAvro.Field(
@@ -659,21 +645,21 @@ object AvroCodec extends AvroCodec {
   private[codec] def getFieldOrder(annotations: Chunk[Any]): Option[FieldOrderType] =
     annotations.collectFirst { case AvroAnnotations.fieldOrder(fieldOrderType) => fieldOrderType }
 
-  private[codec] def getName(schema: Schema[_]): zio.prelude.Validation[String, String] = {
+  private[codec] def getName(schema: Schema[_]): Validation[String, String] = {
     val validNameRegex = raw"[A-Za-z_][A-Za-z0-9_]*".r
 
     schema.annotations.collectFirst { case AvroAnnotations.name(name) => name } match {
       case Some(s) =>
         s match {
-          case validNameRegex() => zio.prelude.Validation.succeed(s)
+          case validNameRegex() => Validation.succeed(s)
           case _ =>
-            Left(s"Invalid Avro name: $s")
+            Validation.fail(s"Invalid Avro name: $s")
         }
       case None =>
         schema match {
-          case r: Record[_] => zio.prelude.Validation.succeed(r.id.name)
-          case e: Enum[_]   => zio.prelude.Validation.succeed(e.id.name)
-          case _            => zio.prelude.Validation.succeed(s"hashed_${schema.ast.toString.hashCode().toString.replaceFirst("-", "n")}")
+          case r: Record[_] => Validation.succeed(r.id.name)
+          case e: Enum[_]   => Validation.succeed(e.id.name)
+          case _            => Validation.succeed(s"hashed_${schema.ast.toString.hashCode().toString.replaceFirst("-", "n")}")
           // TODO: better way to generate a (maybe stable) name?
         }
     }
@@ -688,16 +674,16 @@ object AvroCodec extends AvroCodec {
   private[codec] def getDefault(annotations: Chunk[Any]): Option[java.lang.Object] =
     annotations.collectFirst { case AvroAnnotations.default(javaDefaultObject) => javaDefaultObject }
 
-  private[codec] def getNamespace(annotations: Chunk[Any]): zio.prelude.Validation[String, Option[String]] = {
+  private[codec] def getNamespace(annotations: Chunk[Any]): Validation[String, Option[String]] = {
     val validNamespaceRegex = raw"[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*".r
 
     annotations.collectFirst { case AvroAnnotations.namespace(ns) => ns } match {
       case Some(s) =>
         s match {
-          case validNamespaceRegex(_) => zio.prelude.Validation.succeed(Some(s))
-          case _                      => Left(s"Invalid Avro namespace: $s")
+          case validNamespaceRegex(_) => Validation.succeed(Some(s))
+          case _                      => Validation.fail(s"Invalid Avro namespace: $s")
         }
-      case None => zio.prelude.Validation.succeed(None)
+      case None => Validation.succeed(None)
     }
   }
 
@@ -711,13 +697,13 @@ object AvroCodec extends AvroCodec {
   private[codec] def toZioDecimal(
     avroSchema: SchemaAvro,
     decimalType: DecimalType
-  ): zio.prelude.Validation[String, Schema[_]] = {
+  ): Validation[String, Schema[_]] = {
     val decimalTypeAnnotation = AvroAnnotations.decimal(decimalType)
     val decimalLogicalType    = avroSchema.getLogicalType.asInstanceOf[LogicalTypes.Decimal]
     val precision             = decimalLogicalType.getPrecision
     val scale                 = decimalLogicalType.getScale
     if (precision - scale > 0) {
-      zio.prelude.Validation.succeed(
+      Validation.succeed(
         Schema
           .primitive(StandardType.BigDecimalType)
           .annotate(AvroAnnotations.scale(scale))
@@ -725,7 +711,7 @@ object AvroCodec extends AvroCodec {
           .annotate(decimalTypeAnnotation)
       )
     } else {
-      zio.prelude.Validation.succeed(
+      Validation.succeed(
         Schema
           .primitive(StandardType.BigIntegerType)
           .annotate(AvroAnnotations.scale(scale))
@@ -734,7 +720,7 @@ object AvroCodec extends AvroCodec {
     }
   }
 
-  private[codec] def toZioEnumeration[A, Z](avroSchema: SchemaAvro): zio.prelude.Validation[String, Schema[Z]] = {
+  private[codec] def toZioEnumeration[A, Z](avroSchema: SchemaAvro): Validation[String, Schema[Z]] = {
     val cases = avroSchema.getTypes.asScala
       .map(t => {
         val inner =
@@ -753,24 +739,23 @@ object AvroCodec extends AvroCodec {
             )
         )
       })
-    val caseSet = cases.toList.map(_.merge).partition {
-      case _: String => true
-      case _         => false
-    } match {
-      case (Nil, right: Seq[Case[_, _] @unchecked]) =>
-        Try {
-          CaseSet(right: _*).asInstanceOf[CaseSet { type EnumType = Z }]
-        }.toEither.left.map(_.getMessage)
-      case (left, _) => Left(left.mkString("\n"))
-    }
+
+
+    val caseSet = Validation.validateAll(cases.toList)
+      .flatMap(cases => {
+        Validation(
+          CaseSet(cases: _*).asInstanceOf[CaseSet { type EnumType = Z }]
+        ).mapError(_.getMessage)
+      })
+
     caseSet.map(cs => Schema.enumeration(TypeId.parse(avroSchema.getName), cs))
   }
 
-  private[codec] def toZioRecord(avroSchema: SchemaAvro): zio.prelude.Validation[String, Schema[_]] =
+  private[codec] def toZioRecord(avroSchema: SchemaAvro): Validation[String, Schema[_]] =
     if (avroSchema.getObjectProp(UnionWrapper.propName) != null) {
       avroSchema.getFields.asScala.headOption match {
         case Some(value) => toZioSchema(value.schema())
-        case None        => Left("ZIO schema wrapped record must have a single field")
+        case None        => Validation.fail("ZIO schema wrapped record must have a single field")
       }
     } else if (avroSchema.getObjectProp(EitherWrapper.propName) != null) {
       avroSchema.getFields.asScala.headOption match {
@@ -778,47 +763,47 @@ object AvroCodec extends AvroCodec {
           toZioSchema(value.schema()).flatMap {
             case enu: Enum[_] =>
               enu.cases.toList match {
-                case first :: second :: Nil => zio.prelude.Validation.succeed(Schema.either(first.schema, second.schema))
-                case _                      => Left("ZIO schema wrapped either must have exactly two cases")
+                case first :: second :: Nil => Validation.succeed(Schema.either(first.schema, second.schema))
+                case _                      => Validation.fail("ZIO schema wrapped either must have exactly two cases")
               }
-            case e: Schema.zio.prelude.Validation[_, _]                                                              => zio.prelude.Validation.succeed(e)
-            case c: CaseClass0[_]                                                                    => zio.prelude.Validation.succeed(c)
-            case c: CaseClass1[_, _]                                                                 => zio.prelude.Validation.succeed(c)
-            case c: CaseClass2[_, _, _]                                                              => zio.prelude.Validation.succeed(c)
-            case c: CaseClass3[_, _, _, _]                                                           => zio.prelude.Validation.succeed(c)
-            case c: CaseClass4[_, _, _, _, _]                                                        => zio.prelude.Validation.succeed(c)
-            case c: CaseClass5[_, _, _, _, _, _]                                                     => zio.prelude.Validation.succeed(c)
-            case c: CaseClass6[_, _, _, _, _, _, _]                                                  => zio.prelude.Validation.succeed(c)
-            case c: CaseClass7[_, _, _, _, _, _, _, _]                                               => zio.prelude.Validation.succeed(c)
-            case c: CaseClass8[_, _, _, _, _, _, _, _, _]                                            => zio.prelude.Validation.succeed(c)
-            case c: CaseClass9[_, _, _, _, _, _, _, _, _, _]                                         => zio.prelude.Validation.succeed(c)
-            case c: CaseClass10[_, _, _, _, _, _, _, _, _, _, _]                                     => zio.prelude.Validation.succeed(c)
-            case c: CaseClass11[_, _, _, _, _, _, _, _, _, _, _, _]                                  => zio.prelude.Validation.succeed(c)
-            case c: CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, _]                               => zio.prelude.Validation.succeed(c)
-            case c: CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, _]                            => zio.prelude.Validation.succeed(c)
-            case c: CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                         => zio.prelude.Validation.succeed(c)
-            case c: CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                      => zio.prelude.Validation.succeed(c)
-            case c: CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                   => zio.prelude.Validation.succeed(c)
-            case c: CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                => zio.prelude.Validation.succeed(c)
-            case c: CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]             => zio.prelude.Validation.succeed(c)
-            case c: CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]          => zio.prelude.Validation.succeed(c)
-            case c: CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]       => zio.prelude.Validation.succeed(c)
-            case c: CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]    => zio.prelude.Validation.succeed(c)
-            case c: CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _] => zio.prelude.Validation.succeed(c)
-            case c: Dynamic                                                                          => zio.prelude.Validation.succeed(c)
-            case c: GenericRecord                                                                    => zio.prelude.Validation.succeed(c)
-            case c: Map[_, _]                                                                        => zio.prelude.Validation.succeed(c)
-            case c: Sequence[_, _, _]                                                                => zio.prelude.Validation.succeed(c)
-            case c: Set[_]                                                                           => zio.prelude.Validation.succeed(c)
-            case c: Fail[_]                                                                          => zio.prelude.Validation.succeed(c)
-            case c: Lazy[_]                                                                          => zio.prelude.Validation.succeed(c)
-            case c: Optional[_]                                                                      => zio.prelude.Validation.succeed(c)
-            case c: Primitive[_]                                                                     => zio.prelude.Validation.succeed(c)
-            case c: Transform[_, _, _]                                                               => zio.prelude.Validation.succeed(c)
-            case c: Tuple2[_, _]                                                                     => zio.prelude.Validation.succeed(c)
+            case e: Schema.Either[_, _]                                                              => Validation.succeed(e)
+            case c: CaseClass0[_]                                                                    => Validation.succeed(c)
+            case c: CaseClass1[_, _]                                                                 => Validation.succeed(c)
+            case c: CaseClass2[_, _, _]                                                              => Validation.succeed(c)
+            case c: CaseClass3[_, _, _, _]                                                           => Validation.succeed(c)
+            case c: CaseClass4[_, _, _, _, _]                                                        => Validation.succeed(c)
+            case c: CaseClass5[_, _, _, _, _, _]                                                     => Validation.succeed(c)
+            case c: CaseClass6[_, _, _, _, _, _, _]                                                  => Validation.succeed(c)
+            case c: CaseClass7[_, _, _, _, _, _, _, _]                                               => Validation.succeed(c)
+            case c: CaseClass8[_, _, _, _, _, _, _, _, _]                                            => Validation.succeed(c)
+            case c: CaseClass9[_, _, _, _, _, _, _, _, _, _]                                         => Validation.succeed(c)
+            case c: CaseClass10[_, _, _, _, _, _, _, _, _, _, _]                                     => Validation.succeed(c)
+            case c: CaseClass11[_, _, _, _, _, _, _, _, _, _, _, _]                                  => Validation.succeed(c)
+            case c: CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, _]                               => Validation.succeed(c)
+            case c: CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, _]                            => Validation.succeed(c)
+            case c: CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                         => Validation.succeed(c)
+            case c: CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                      => Validation.succeed(c)
+            case c: CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                   => Validation.succeed(c)
+            case c: CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                => Validation.succeed(c)
+            case c: CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]             => Validation.succeed(c)
+            case c: CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]          => Validation.succeed(c)
+            case c: CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]       => Validation.succeed(c)
+            case c: CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]    => Validation.succeed(c)
+            case c: CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _] => Validation.succeed(c)
+            case c: Dynamic                                                                          => Validation.succeed(c)
+            case c: GenericRecord                                                                    => Validation.succeed(c)
+            case c: Map[_, _]                                                                        => Validation.succeed(c)
+            case c: Sequence[_, _, _]                                                                => Validation.succeed(c)
+            case c: Set[_]                                                                           => Validation.succeed(c)
+            case c: Fail[_]                                                                          => Validation.succeed(c)
+            case c: Lazy[_]                                                                          => Validation.succeed(c)
+            case c: Optional[_]                                                                      => Validation.succeed(c)
+            case c: Primitive[_]                                                                     => Validation.succeed(c)
+            case c: Transform[_, _, _]                                                               => Validation.succeed(c)
+            case c: Tuple2[_, _]                                                                     => Validation.succeed(c)
 
           }
-        case None => Left("ZIO schema wrapped record must have a single field")
+        case None => Validation.fail("ZIO schema wrapped record must have a single field")
       }
     } else {
       val annotations = buildZioAnnotations(avroSchema)
@@ -827,16 +812,10 @@ object AvroCodec extends AvroCodec {
       }
     }
 
-  private def extractZioFields[Z](avroSchema: SchemaAvro): zio.prelude.Validation[String, List[Field[Z, _]]] =
-    avroSchema.getFields.asScala.map(toZioField).toList.map(_.merge).partition {
-      case _: String => true
-      case _         => false
-    } match {
-      case (Nil, right: List[Field[Z, _] @unchecked]) => zio.prelude.Validation.succeed(right)
-      case (left, _)                                  => Left(left.mkString("\n"))
-    }
+  private def extractZioFields[Z](avroSchema: SchemaAvro): Validation[String, List[Field[Z, _]]] =
+    Validation.validateAll(avroSchema.getFields.asScala.map(toZioField).map(_.map(_.asInstanceOf[Field[Z, _]])).toList)
 
-  private[codec] def toZioField(field: SchemaAvro.Field): zio.prelude.Validation[String, Field[ListMap[String, _], _]] =
+  private[codec] def toZioField(field: SchemaAvro.Field): Validation[String, Field[ListMap[String, _], _]] =
     toZioSchema(field.schema())
       .map(
         (s: Schema[_]) =>
@@ -849,10 +828,10 @@ object AvroCodec extends AvroCodec {
           )
       )
 
-  private[codec] def toZioTuple(schema: SchemaAvro): zio.prelude.Validation[String, Schema[_]] =
+  private[codec] def toZioTuple(schema: SchemaAvro): Validation[String, Schema[_]] =
     for {
-      _ <- scala.util.Either
-            .cond(schema.getFields.size() == 2, (), "Tuple must have exactly 2 fields:" + schema.toString(false))
+      _ <- Validation.fromEither(scala.Either
+            .cond(schema.getFields.size() == 2, (), "Tuple must have exactly 2 fields:" + schema.toString(false)))
       _1 <- toZioSchema(schema.getFields.get(0).schema())
       _2 <- toZioSchema(schema.getFields.get(1).schema())
     } yield Schema.Tuple2(_1, _2, buildZioAnnotations(schema))
@@ -891,14 +870,14 @@ object AvroCodec extends AvroCodec {
     Chunk.fromIterable(annotations)
   }
 
-  private[codec] def toZioStringEnum(avroSchema: SchemaAvro): zio.prelude.Validation[String, Schema[_]] = {
+  private[codec] def toZioStringEnum(avroSchema: SchemaAvro): Validation[String, Schema[_]] = {
     val cases =
       avroSchema.getEnumSymbols.asScala
         .map(s => Schema.Case[String, String](s, Schema[String], identity, identity, _.isInstanceOf[String]))
         .toSeq
     val caseSet                     = CaseSet[String](cases: _*).asInstanceOf[Aux[String]]
     val enumeration: Schema[String] = Schema.enumeration(TypeId.parse("org.apache.avro.Schema"), caseSet)
-    zio.prelude.Validation.succeed(enumeration.addAllAnnotations(buildZioAnnotations(avroSchema)))
+    Validation.succeed(enumeration.addAllAnnotations(buildZioAnnotations(avroSchema)))
   }
 
   private[codec] case object OptionUnion {

@@ -1,20 +1,19 @@
 package zio.schema.codec
 
-import java.time.{ ZoneId, ZoneOffset }
-
+import java.time.{ZoneId, ZoneOffset}
 import scala.collection.immutable.ListMap
-
 import zio.Console._
 import zio._
 import zio.json.JsonDecoder.JsonError
-import zio.json.{ DeriveJsonEncoder, JsonEncoder }
+import zio.json.{DeriveJsonEncoder, JsonEncoder}
+import zio.prelude.Validation
 import zio.schema.CaseSet._
 import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
-import zio.schema.codec.JsonCodecSpec.PaymentMethod.{ CreditCard, PayPal, WireTransfer }
-import zio.schema.codec.JsonCodecSpec.Subscription.{ OneTime, Recurring }
+import zio.schema.codec.JsonCodecSpec.PaymentMethod.{CreditCard, PayPal, WireTransfer}
+import zio.schema.codec.JsonCodecSpec.Subscription.{OneTime, Recurring}
 import zio.schema.meta.MetaSchema
 import zio.stream.ZStream
 import zio.test.Assertion._
@@ -275,7 +274,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         val errorMessage = "I'm sorry Dave, I can't do that"
         val schema: Schema[Int] = Schema
           .Primitive(StandardType.StringType)
-          .transformOrFail[Int](_ => Left(errorMessage), i => zio.prelude.Validation.succeed(i.toString))
+          .transformOrFail[Int](_ => Validation.fail(errorMessage), i => Validation.succeed(i.toString))
         check(Gen.int(Int.MinValue, Int.MaxValue)) { int =>
           assertDecodesToError(
             schema,
@@ -495,7 +494,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
             right <- SchemaGen.anyTupleAndValue
           } yield (
             Schema.Either(left._1.asInstanceOf[Schema[(Any, Any)]], right._1.asInstanceOf[Schema[(Any, Any)]]),
-            zio.prelude.Validation.succeed(right._2)
+            Right(right._2)
           )
         ) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
@@ -534,9 +533,9 @@ object JsonCodecSpec extends ZIOSpecDefault {
           )
         ) {
           case (schema, value) =>
-            assertEncodesThenDecodes[zio.prelude.Validation[Map[Any, Any], Map[Any, Any]]](
-              schema.asInstanceOf[Schema[zio.prelude.Validation[Map[Any, Any], Map[Any, Any]]]],
-              value.asInstanceOf[zio.prelude.Validation[Map[Any, Any], Map[Any, Any]]]
+            assertEncodesThenDecodes[Either[Map[Any, Any], Map[Any, Any]]](
+              schema.asInstanceOf[Schema[Either[Map[Any, Any], Map[Any, Any]]]],
+              value.asInstanceOf[Either[Map[Any, Any], Map[Any, Any]]]
             )
         }
       },
@@ -552,9 +551,9 @@ object JsonCodecSpec extends ZIOSpecDefault {
           )
         ) {
           case (schema, value) =>
-            assertEncodesThenDecodes[zio.prelude.Validation[Set[Any], Set[Any]]](
-              schema.asInstanceOf[Schema[zio.prelude.Validation[Set[Any], Set[Any]]]],
-              value.asInstanceOf[zio.prelude.Validation[Set[Any], Set[Any]]]
+            assertEncodesThenDecodes[Either[Set[Any], Set[Any]]](
+              schema.asInstanceOf[Schema[Either[Set[Any], Set[Any]]]],
+              value.asInstanceOf[Either[Set[Any], Set[Any]]]
             )
         }
       },
@@ -588,7 +587,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         check(for {
           (left, _)  <- SchemaGen.anyRecordOfRecordsAndValue
           (right, b) <- SchemaGen.anyRecordOfRecordsAndValue
-        } yield (Schema.Either(left, right), zio.prelude.Validation.succeed(b))) {
+        } yield (Schema.Either(left, right), Right(b))) {
           case (schema, value) =>
             assertEncodesThenDecodes(schema, value)
         }
@@ -597,7 +596,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         check(for {
           (left, _)      <- SchemaGen.anyEnumerationAndValue
           (right, value) <- SchemaGen.anySequenceAndValue
-        } yield (Schema.Either(left, right), zio.prelude.Validation.succeed(value))) {
+        } yield (Schema.Either(left, right), Right(value))) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
         }
       }

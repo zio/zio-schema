@@ -3,8 +3,8 @@ package zio.schema.validation
 import zio.Chunk
 
 sealed trait Predicate[A] {
-  type Errors = Chunk[ValidationError]
-  type Result = zio.prelude.Validation[Errors, Errors]
+  type Errors = Chunk[SchemaValidationError]
+  type Result = Either[Errors, Errors]
   def validate(value: A): Result
 }
 
@@ -16,21 +16,22 @@ object Predicate {
 
       def validate(value: String): Result =
         if (value.length() >= n)
-          zio.prelude.Validation.succeed(Chunk(ValidationError.MaxLength(n, value.length(), value)))
+          Right(Chunk(SchemaValidationError.MaxLength(n, value.length(), value)))
         else
-          Left(Chunk(ValidationError.MinLength(n, value.length(), value)))
+          Left(Chunk(SchemaValidationError.MinLength(n, value.length(), value)))
     }
     final case class MaxLength(n: Int) extends Str[String] {
 
       def validate(value: String): Result =
-        if (value.length() <= n) zio.prelude.Validation.succeed(Chunk(ValidationError.MinLength(n, value.length(), value)))
-        else Left(Chunk(ValidationError.MaxLength(n, value.length(), value)))
+        if (value.length() <= n)
+          Right(Chunk(SchemaValidationError.MinLength(n, value.length(), value)))
+        else Left(Chunk(SchemaValidationError.MaxLength(n, value.length(), value)))
     }
     final case class Matches(r: Regex) extends Str[String] {
 
       def validate(value: String): Result =
-        if (r.test(value)) zio.prelude.Validation.succeed(Chunk(ValidationError.NotRegexMatch(value, r)))
-        else Left(Chunk(ValidationError.RegexMatch(value, r)))
+        if (r.test(value)) Right(Chunk(SchemaValidationError.NotRegexMatch(value, r)))
+        else Left(Chunk(SchemaValidationError.RegexMatch(value, r)))
     }
   }
 
@@ -44,29 +45,29 @@ object Predicate {
 
       def validate(v: A): Result =
         if (numType.numeric.compare(v, value) > 0)
-          zio.prelude.Validation.succeed(Chunk(ValidationError.LessThan(v, value)))
+          Right(Chunk(SchemaValidationError.LessThan(v, value)))
         else
-          Left(Chunk(ValidationError.GreaterThan(v, value)))
+          Left(Chunk(SchemaValidationError.GreaterThan(v, value)))
     }
     final case class LessThan[A](numType: NumType[A], value: A) extends Num[A] {
 
       def validate(v: A): Result =
         if (numType.numeric.compare(v, value) < 0)
-          zio.prelude.Validation.succeed(Chunk(ValidationError.GreaterThan(v, value)))
+          Right(Chunk(SchemaValidationError.GreaterThan(v, value)))
         else
-          Left(Chunk(ValidationError.LessThan(v, value)))
+          Left(Chunk(SchemaValidationError.LessThan(v, value)))
     }
     final case class EqualTo[A](numType: NumType[A], value: A) extends Num[A] {
 
       def validate(v: A): Result =
         if (numType.numeric.compare(v, value) == 0)
-          zio.prelude.Validation.succeed(Chunk(ValidationError.NotEqualTo(v, value)))
+          Right(Chunk(SchemaValidationError.NotEqualTo(v, value)))
         else
-          Left(Chunk(ValidationError.EqualTo(v, value)))
+          Left(Chunk(SchemaValidationError.EqualTo(v, value)))
     }
   }
 
   final case class True[A]() extends Predicate[A] { // A => True
-    def validate(value: A): Result = zio.prelude.Validation.succeed(Chunk.empty)
+    def validate(value: A): Result = Right(Chunk.empty)
   }
 }

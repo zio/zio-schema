@@ -16,11 +16,12 @@
 
 package zio.schema.codec
 
+import zio.prelude.Validation
 import zio.stream.ZPipeline
 
 trait Decoder[Whole, Element, +A] {
 
-  def decode(whole: Whole): zio.prelude.Validation[DecodeError, A]
+  def decode(whole: Whole): Validation[DecodeError, A]
 
   def streamDecoder: ZPipeline[Any, DecodeError, Element, A]
 

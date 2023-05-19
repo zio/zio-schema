@@ -2,13 +2,11 @@ package zio.schema.codec
 
 import java.time._
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
-
 import org.msgpack.core.MessagePack
-
 import zio.Chunk
-import zio.schema.{ DynamicValue, Schema, StandardType }
+import zio.prelude.data.Optional.AllValuesAreNullable
+import zio.schema.{DynamicValue, Schema, StandardType}
 
 private[codec] class MessagePackEncoder {
   private val packer = MessagePack.newDefaultBufferPacker()
@@ -27,11 +25,11 @@ private[codec] class MessagePackEncoder {
       case (Schema.Sequence(element, _, g, _, _), v)                       => encodeSequence(element, g(v))
       case (mapSchema: Schema.Map[_, _], map: Map[_, _])                   => encodeMap(mapSchema.asInstanceOf[Schema.Map[Any, Any]], map.asInstanceOf[scala.collection.immutable.Map[Any, Any]])
       case (setSchema: Schema.Set[_], set: Set[_])                         => encodeSet(setSchema.asInstanceOf[Schema.Set[Any]].elementSchema, set.asInstanceOf[scala.collection.immutable.Set[Any]])
-      case (Schema.Transform(schema, _, g, _, _), _)                       => g(value).foreach(encodeValue(schema, _))
+      case (Schema.Transform(schema, _, g, _, _), _)                       => g(value).map(v => encodeValue(schema, v)): Unit
       case (Schema.Primitive(standardType, _), v)                          => encodePrimitive(standardType, v)
       case (Schema.Tuple2(left, right, _), v @ (_, _))                     => encodeTuple(left, right, v)
       case (optSchema: Schema.Optional[_], v: Option[_])                   => encodeOptional(optSchema.asInstanceOf[Schema.Optional[Any]].schema, v.asInstanceOf[Option[Any]])
-      case (eitherSchema: Schema.zio.prelude.Validation[_, _], v: zio.prelude.Validation[_, _]) => encodeEither(eitherSchema.asInstanceOf[Schema.zio.prelude.Validation[Any, Any]].left, eitherSchema.asInstanceOf[Schema.zio.prelude.Validation[Any, Any]].right, v.asInstanceOf[zio.prelude.Validation[Any, Any]])
+      case (eitherSchema: Schema.Either[_, _], v: Either[_, _]) => encodeEither(eitherSchema.asInstanceOf[Schema.Either[Any, Any]].left, eitherSchema.asInstanceOf[Schema.Either[Any, Any]].right, v.asInstanceOf[scala.Either[Any, Any]])
       case (lzy @ Schema.Lazy(_), v)                                       => encodeValue(lzy.schema, v)
       //  case (Schema.Meta(ast, _), _)                                        => encodeValue(fieldNumber, Schema[MetaSchema], ast)
       case (Schema.CaseClass0(_, _, _), _)         => encodePrimitive(StandardType.UnitType, ())
@@ -128,13 +126,13 @@ private[codec] class MessagePackEncoder {
     }
   }
 
-  private def encodezio.prelude.Validation[A, B](left: Schema[A], right: Schema[B], either: zio.prelude.Validation[A, B]): Unit = {
+  private def encodeEither[A, B](left: Schema[A], right: Schema[B], either: Either[A, B]): Unit = {
     packer.packMapHeader(1)
     either match {
       case Left(value) =>
         packer.packString("left")
         encodeValue(left, value)
-      case zio.prelude.Validation.succeed(value) =>
+      case Right(value) =>
         packer.packString("right")
         encodeValue(right, value)
     }

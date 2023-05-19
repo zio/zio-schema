@@ -239,23 +239,24 @@ object Patch {
     override def invert: Patch[A]                       = Total(value)
   }
 
-  final case class EitherDiff[A, B](diff: zio.prelude.Validation[Patch[A], Patch[B]]) extends Patch[zio.prelude.Validation[A, B]] {
+  final case class EitherDiff[A, B](diff: Either[Patch[A], Patch[B]]) extends Patch[Either[A, B]] {
     override def isIdentical: Boolean = diff.fold(_.isIdentical, _.isIdentical)
 
     override def isComparable: Boolean = diff.fold(_.isComparable, _.isComparable)
 
-    override def patch(input: zio.prelude.Validation[A, B]): Validation[String, zio.prelude.Validation[A, B]] = (input, diff) match {
-      case (Left(_), zio.prelude.Validation.succeed(_)) => Validation.fail(s"Cannot apply a right diff to a left value")
-      case (zio.prelude.Validation.succeed(_), Left(_)) => Validation.fail(s"Cannot apply a left diff to a right value")
-      case (Left(in), Left(diff)) =>
-        diff.patch(in).map(Left(_))
-      case (zio.prelude.Validation.succeed(in), zio.prelude.Validation.succeed(diff)) =>
-        diff.patch(in).map(zio.prelude.Validation.succeed(_))
-    }
+    override def patch(input: Either[A, B]): Validation[String, Either[A, B]] =
+      (input, diff) match {
+        case (Left(_), Right(_)) => Validation.fail(s"Cannot apply a right diff to a left value")
+        case (Right(_), Left(_)) => Validation.fail(s"Cannot apply a left diff to a right value")
+        case (Left(in), Left(diff)) =>
+          diff.patch(in).map(e => Left(e))
+        case (Right(in), Right(diff)) =>
+          diff.patch(in).map(e => Right(e))
+      }
 
-    override def invert: Patch[zio.prelude.Validation[A, B]] = diff match {
+    override def invert: Patch[Either[A, B]] = diff match {
       case Left(value)  => EitherDiff(Left(value.invert))
-      case zio.prelude.Validation.succeed(value) => EitherDiff(zio.prelude.Validation.succeed(value.invert))
+      case Right(value) => EitherDiff(Right(value.invert))
     }
   }
 
@@ -337,7 +338,7 @@ object Patch {
       }
 
       patchedDynamicValue.flatMap { newValues =>
-        Validation.fromEither(schema.fromDynamic(DynamicValue.Record(newValues._1, newValues._2)))
+        schema.fromDynamic(DynamicValue.Record(newValues._1, newValues._2))
       }
     }
 

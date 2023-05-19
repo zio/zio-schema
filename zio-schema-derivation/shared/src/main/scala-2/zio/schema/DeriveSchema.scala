@@ -97,7 +97,7 @@ object DeriveSchema {
                     else
                       recurse(schemaType, stack)
                   case typeArg1 :: typeArg2 :: Nil =>
-                    if (schemaType <:< typeOf[zio.prelude.Validation[_, _]])
+                    if (schemaType <:< typeOf[Either[_, _]])
                       q"""_root_.zio.schema.Schema.either(
                         _root_.zio.schema.Schema.defer(${directInferSchema(
                         parentType,
@@ -259,7 +259,7 @@ object DeriveSchema {
                   }
               }
             }.filter(_ != EmptyTree)
-              .map(_.foldLeft[c.universe.Tree](q"_root_.zio.schema.validation.Validation.succeed") {
+              .map(_.foldLeft[c.universe.Tree](q"_root_.zio.schema.validation.SchemaValidation.succeed") {
                 case (acc, t) => q"$acc && $t"
               })
           }.getOrElse(Nil)
@@ -299,7 +299,7 @@ object DeriveSchema {
                  }
                """
             }
-            q"""(m: scala.collection.immutable.ListMap[String, _]) => try { zio.prelude.Validation.succeed($tpeCompanion.apply(..$casts)) } catch { case e: Throwable => Left(e.getMessage) }"""
+            q"""(m: scala.collection.immutable.ListMap[String, _]) => try { zio.prelude.Validation.succeed($tpeCompanion.apply(..$casts)) } catch { case e: Throwable => zio.prelude.Validation.fail(e.getMessage) }"""
           }
           val toMap = {
             val tuples = fieldAccessors.map { fieldName =>

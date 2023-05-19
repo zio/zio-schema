@@ -47,7 +47,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val result = AvroCodec.encode(schema)
 
             val expected = """{"type":"enum","name":"MyEnum","symbols":["A","B","C"]}"""
-            assert(result)(iszio.prelude.Validation.succeed(equalTo(expected)))
+            assert(result.toEither)(isRight(equalTo(expected)))
           },
           test("encodes sealed trait objects only as union of records when no avroEnum annotation is present") {
 
@@ -56,7 +56,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val expected =
               """[{"type":"record","name":"A","fields":[]},{"type":"record","name":"B","fields":[]},{"type":"record","name":"MyC","fields":[]}]"""
-            assert(result)(iszio.prelude.Validation.succeed(equalTo(expected)))
+            assert(result.toEither)(isRight(equalTo(expected)))
           },
           test("encodes sealed trait objects only as enum when avroEnum annotation is present") {
 
@@ -64,7 +64,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val result = AvroCodec.encode(schema)
 
             val expected = """{"type":"enum","name":"MyEnum","symbols":["A","B","MyC"]}"""
-            assert(result)(iszio.prelude.Validation.succeed(equalTo(expected)))
+            assert(result.toEither)(isRight(equalTo(expected)))
           },
           test("ignores avroEnum annotation if ADT cannot be reduced to String symbols") {
             val schema = DeriveSchema.gen[SpecTestData.CaseObjectAndCaseClassAdt]
@@ -72,7 +72,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val expected =
               """[{"type":"record","name":"A","fields":[]},{"type":"record","name":"B","fields":[]},{"type":"record","name":"MyC","fields":[]},{"type":"record","name":"D","fields":[{"name":"s","type":"string"}]}]"""
-            assert(result)(iszio.prelude.Validation.succeed(equalTo(expected)))
+            assert(result.toEither)(isRight(equalTo(expected)))
           },
           test("flatten nested unions with initialSchemaDerived derivation") {
             val schema = DeriveSchema.gen[SpecTestData.UnionWithNesting]
@@ -80,7 +80,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val expected =
               """[{"type":"record","name":"A","fields":[]},{"type":"record","name":"B","fields":[]},{"type":"record","name":"MyC","fields":[]},{"type":"record","name":"D","fields":[{"name":"s","type":"string"}]}]"""
-            assert(result)(iszio.prelude.Validation.succeed(equalTo(expected)))
+            assert(result.toEither)(isRight(equalTo(expected)))
           },
           test("wraps nested unions") {
             val schemaA = DeriveSchema.gen[UnionWithNesting.Nested.A.type]
@@ -137,7 +137,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val wrappedString =
               """[{"type":"record","name":"wrapper_Nested","namespace":"zio.schema.codec.avro","fields":[{"name":"value","type":[{"type":"record","name":"A","namespace":"","fields":[]},{"type":"record","name":"B","namespace":"","fields":[]}]}],"zio.schema.codec.avro.wrapper":true},{"type":"record","name":"C","fields":[]},{"type":"record","name":"D","fields":[{"name":"s","type":"string"}]}]"""
-            assert(result)(iszio.prelude.Validation.succeed(equalTo(wrappedString)))
+            assert(result.toEither)(isRight(equalTo(wrappedString)))
           }
         ),
         suite("record")(
@@ -149,20 +149,20 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val expected =
               """{"type":"record","name":"hashed_1642816955","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
-            assert(result1)(iszio.prelude.Validation.succeed(equalTo(expected))) && assert(result2)(iszio.prelude.Validation.succeed(equalTo(expected)))
+            assert(result1.toEither)(isRight(equalTo(expected))) && assert(result2.toEither)(isRight(equalTo(expected)))
           } @@ TestAspect.ignore, // TODO: FIX
           test("fail with left on invalid name") {
             val schema = DeriveSchema.gen[SpecTestData.Record].annotate(AvroAnnotations.name("0invalid"))
             val result = AvroCodec.encode(schema)
 
-            assert(result)(isLeft(containsString("""0invalid""")))
+            assert(result.toEither.left.map(_.head))(isLeft(containsString("""0invalid""")))
           },
           test("pick up name from annotation") {
             val schema = DeriveSchema.gen[SpecTestData.NamedRecord]
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"record","name":"MyNamedRecord","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
                 )
@@ -173,8 +173,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = DeriveSchema.gen[SpecTestData.NamedFieldRecord]
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"record","name":"MyNamedFieldRecord","fields":[{"name":"myNamedField","type":"string"},{"name":"b","type":"boolean"}]}"""
                 )
@@ -185,8 +185,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = DeriveSchema.gen[SpecTestData.NamedRecord].annotate(AvroAnnotations.doc("My doc"))
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"record","name":"MyNamedRecord","doc":"My doc","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
                 )
@@ -198,8 +198,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
               DeriveSchema.gen[SpecTestData.NamedRecord].annotate(AvroAnnotations.namespace("test.namespace"))
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"record","name":"MyNamedRecord","namespace":"test.namespace","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
                 )
@@ -210,7 +210,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = DeriveSchema.gen[SpecTestData.NamedRecord].annotate(AvroAnnotations.namespace("0@-.invalid"))
             val result = AvroCodec.encode(schema)
 
-            assert(result)(isLeft(containsString("""0@-.invalid""")))
+            assert(result.toEither.left.map(_.head))(isLeft(containsString("""0@-.invalid""")))
           },
           test("pick up error annotation") {
             val schema = DeriveSchema.gen[SpecTestData.NamedRecord].annotate(AvroAnnotations.error)
@@ -218,7 +218,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val expected =
               """{"type":"error","name":"MyNamedRecord","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
-            assert(result)(iszio.prelude.Validation.succeed(equalTo(expected)))
+            assert(result.toEither)(isRight(equalTo(expected)))
           },
           test("includes all fields") {
             val schema = DeriveSchema.gen[SpecTestData.NamedRecord]
@@ -226,7 +226,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val expected =
               """{"type":"record","name":"MyNamedRecord","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
-            assert(result)(iszio.prelude.Validation.succeed(equalTo(expected)))
+            assert(result.toEither)(isRight(equalTo(expected)))
           },
           test("includes nested record fields") {
             val schema = DeriveSchema.gen[SpecTestData.NestedRecord]
@@ -234,7 +234,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val expected =
               """{"type":"record","name":"NestedRecord","fields":[{"name":"s","type":"string"},{"name":"nested","type":{"type":"record","name":"MyNamedRecord","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}}]}"""
-            assert(result)(iszio.prelude.Validation.succeed(equalTo(expected)))
+            assert(result.toEither)(isRight(equalTo(expected)))
           }
         ),
         suite("map")(
@@ -244,7 +244,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema      = Schema.Map(keySchema, valueSchema)
             val result      = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("""{"type":"map","values":"string"}""")))
+            assert(result.toEither)(isRight(equalTo("""{"type":"map","values":"string"}""")))
           },
           test("string keys and complex values") {
             val keySchema   = Schema.primitive(StandardType.StringType)
@@ -252,8 +252,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema      = Schema.Map(keySchema, valueSchema)
             val result      = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"map","values":{"type":"record","name":"Simple","fields":[{"name":"s","type":"string"}]}}"""
                 )
@@ -273,7 +273,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
             )
             val hasTupleField_2 = containsString("""{"name":"_2","type":"string"}""")
 
-            assert(result)(iszio.prelude.Validation.succeed(isArray && tupleItems && hasTupleField_1 && hasTupleField_2))
+            assert(result.toEither)(isRight(isArray && tupleItems && hasTupleField_1 && hasTupleField_2))
           },
           test("complex keys and complex values") {
             val keySchema   = DeriveSchema.gen[SpecTestData.SimpleRecord]
@@ -290,7 +290,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
               """{"name":"_2","type":{"type":"record","name":"MyNamedRecord","namespace":"","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}}"""
             )
 
-            assert(result)(iszio.prelude.Validation.succeed(isArray && tupleItems && hasTupleField_1 && hasTupleField_2))
+            assert(result.toEither)(isRight(isArray && tupleItems && hasTupleField_1 && hasTupleField_2))
           }
         ),
         suite("seq")(
@@ -304,7 +304,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
             )
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("""{"type":"array","items":"string"}""")))
+            assert(result.toEither)(isRight(equalTo("""{"type":"array","items":"string"}""")))
           },
           test("encodes complex types") {
             val valueSchema = DeriveSchema.gen[SpecTestData.NamedRecord]
@@ -312,8 +312,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
               .Sequence[Chunk[NamedRecord], NamedRecord, String](valueSchema, identity, identity, Chunk.empty, "Seq")
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"array","items":{"type":"record","name":"MyNamedRecord","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}}"""
                 )
@@ -332,7 +332,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
             )
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("""{"type":"array","items":"string"}""")))
+            assert(result.toEither)(isRight(equalTo("""{"type":"array","items":"string"}""")))
           },
           test("encodes complex types") {
             val valueSchema = DeriveSchema.gen[SpecTestData.NamedRecord]
@@ -340,8 +340,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
               .Sequence[Chunk[NamedRecord], NamedRecord, String](valueSchema, identity, identity, Chunk.empty, "Seq")
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"array","items":{"type":"record","name":"MyNamedRecord","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}}"""
                 )
@@ -354,15 +354,15 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = Schema.Optional(Schema.primitive(StandardType.StringType))
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("""["null","string"]""")))
+            assert(result.toEither)(isRight(equalTo("""["null","string"]""")))
           },
           test("encodes complex types") {
             val valueSchema = DeriveSchema.gen[SpecTestData.NamedRecord]
             val schema      = Schema.Optional(valueSchema)
             val result      = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """["null",{"type":"record","name":"MyNamedRecord","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}]"""
                 )
@@ -373,8 +373,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = Schema.Optional(Schema.primitive(StandardType.UnitType))
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """["null",{"type":"record","name":"wrapper_hashed_3594628","namespace":"zio.schema.codec.avro","fields":[{"name":"value","type":"null"}],"zio.schema.codec.avro.wrapper":true}]"""
                 )
@@ -386,8 +386,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = Schema.Optional(nested)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """["null",{"type":"record","name":"wrapper_hashed_n813828848","namespace":"zio.schema.codec.avro","fields":[{"name":"value","type":["null","string"]}],"zio.schema.codec.avro.wrapper":true}]"""
                 )
@@ -399,8 +399,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = Schema.Optional(union)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """["null",{"type":"record","name":"wrapper_MyEnum","namespace":"zio.schema.codec.avro","fields":[{"name":"value","type":[{"type":"record","name":"A","namespace":"","fields":[]},{"type":"record","name":"B","namespace":"","fields":[]},{"type":"record","name":"MyC","namespace":"","fields":[]}]}],"zio.schema.codec.avro.wrapper":true}]"""
                 )
@@ -413,8 +413,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = Schema.Optional(either)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """["null",{"type":"record","name":"wrapper_hashed_n630422444","namespace":"zio.schema.codec.avro","fields":[{"name":"value","type":["string","int"]}],"zio.schema.codec.avro.either":true}]"""
                 )
@@ -430,7 +430,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val expected =
               """{"type":"record","name":"wrapper_hashed_n630422444","namespace":"zio.schema.codec.avro","fields":[{"name":"value","type":["string","int"]}],"zio.schema.codec.avro.either":true}"""
-            assert(result)(iszio.prelude.Validation.succeed(equalTo(expected)))
+            assert(result.toEither)(isRight(equalTo(expected)))
           },
           test("create a named union") {
             val schema = Schema
@@ -440,7 +440,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val expected =
               """{"type":"record","name":"wrapper_MyEither","namespace":"zio.schema.codec.avro","fields":[{"name":"value","type":["string","int"]}],"zio.schema.codec.avro.either":true}"""
-            assert(result)(iszio.prelude.Validation.succeed(equalTo(expected)))
+            assert(result.toEither)(isRight(equalTo(expected)))
           },
           test("encodes complex types") {
             val left   = DeriveSchema.gen[SpecTestData.SimpleRecord]
@@ -450,7 +450,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val expected =
               """{"type":"record","name":"wrapper_hashed_754352222","namespace":"zio.schema.codec.avro","fields":[{"name":"value","type":[{"type":"record","name":"Simple","namespace":"","fields":[{"name":"s","type":"string"}]},"string"]}],"zio.schema.codec.avro.either":true}"""
-            assert(result)(iszio.prelude.Validation.succeed(equalTo(expected)))
+            assert(result.toEither)(isRight(equalTo(expected)))
           },
           test("fails with duplicate names") {
             val left   = DeriveSchema.gen[SpecTestData.SimpleRecord]
@@ -458,7 +458,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = Schema.Either(left, right)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
+            assert(result.toEither.left.map(_.head))(
               isLeft(equalTo("""Left and right schemas of either must have different fullnames: Simple"""))
             )
           },
@@ -468,8 +468,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = Schema.Either(left, right)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"record","name":"wrapper_hashed_n465006219","namespace":"zio.schema.codec.avro","fields":[{"name":"value","type":[{"type":"record","name":"wrapper_hashed_n813828848","fields":[{"name":"value","type":["null","string"]}],"zio.schema.codec.avro.wrapper":true},"string"]}],"zio.schema.codec.avro.either":true}"""
                 )
@@ -485,7 +485,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val expected =
               """{"type":"record","name":"wrapper_hashed_2071802344","namespace":"zio.schema.codec.avro","fields":[{"name":"value","type":[{"type":"record","name":"wrapper_hashed_n465006219","fields":[{"name":"value","type":[{"type":"record","name":"wrapper_hashed_n813828848","fields":[{"name":"value","type":["null","string"]}],"zio.schema.codec.avro.wrapper":true},"string"]}],"zio.schema.codec.avro.either":true},"string"]}],"zio.schema.codec.avro.either":true}"""
-            assert(result)(iszio.prelude.Validation.succeed(equalTo(expected)))
+            assert(result.toEither)(isRight(equalTo(expected)))
           }
         ),
         suite("tuple")(
@@ -495,8 +495,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = Schema.Tuple2(left, right).annotate(AvroAnnotations.name("MyTuple"))
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"record","name":"MyTuple","fields":[{"name":"_1","type":"string"},{"name":"_2","type":"string"}],"zio.schema.codec.recordType":"tuple"}"""
                 )
@@ -513,7 +513,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
               """{"name":"_1","type":{"type":"record","name":"Simple","fields":[{"name":"s","type":"string"}]}}"""
             val field_2 =
               """{"name":"_2","type":{"type":"record","name":"MyNamedRecord","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}}"""
-            assert(result)(iszio.prelude.Validation.succeed(containsString(field_1) && containsString(field_2)))
+            assert(result.toEither)(isRight(containsString(field_1) && containsString(field_2)))
           },
           test("encodes duplicate complex types by reference") {
             val left   = DeriveSchema.gen[SpecTestData.SimpleRecord]
@@ -524,7 +524,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val field_1 =
               """{"name":"_1","type":{"type":"record","name":"Simple","fields":[{"name":"s","type":"string"}]}}"""
             val field_2 = """{"name":"_2","type":"Simple"}"""
-            assert(result)(iszio.prelude.Validation.succeed(containsString(field_1) && containsString(field_2)))
+            assert(result.toEither)(isRight(containsString(field_1) && containsString(field_2)))
           }
         ),
         suite("primitives")(
@@ -532,55 +532,55 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = Schema.primitive(StandardType.UnitType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("\"null\"")))
+            assert(result.toEither)(isRight(equalTo("\"null\"")))
           },
           test("encodes StringType") {
             val schema = Schema.primitive(StandardType.StringType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("\"string\"")))
+            assert(result.toEither)(isRight(equalTo("\"string\"")))
           },
           test("encodes BooleanType") {
             val schema = Schema.primitive(StandardType.BoolType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("\"boolean\"")))
+            assert(result.toEither)(isRight(equalTo("\"boolean\"")))
           },
           test("encodes ShortType") {
             val schema = Schema.primitive(StandardType.ShortType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("""{"type":"int","zio.schema.codec.intType":"short"}""")))
+            assert(result.toEither)(isRight(equalTo("""{"type":"int","zio.schema.codec.intType":"short"}""")))
           },
           test("encodes IntType") {
             val schema = Schema.primitive(StandardType.IntType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("\"int\"")))
+            assert(result.toEither)(isRight(equalTo("\"int\"")))
           },
           test("encodes LongType") {
             val schema = Schema.primitive(StandardType.LongType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("\"long\"")))
+            assert(result.toEither)(isRight(equalTo("\"long\"")))
           },
           test("encodes FloatType") {
             val schema = Schema.primitive(StandardType.FloatType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("\"float\"")))
+            assert(result.toEither)(isRight(equalTo("\"float\"")))
           },
           test("encodes DoubleType") {
             val schema = Schema.primitive(StandardType.DoubleType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("\"double\"")))
+            assert(result.toEither)(isRight(equalTo("\"double\"")))
           },
           test("encodes BinaryType as bytes") {
             val schema = Schema.primitive(StandardType.BinaryType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("\"bytes\"")))
+            assert(result.toEither)(isRight(equalTo("\"bytes\"")))
           },
           test("encodes BinaryType as fixed") {
             val size = 12
@@ -591,26 +591,26 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val result = AvroCodec.encode(schema)
 
             val expected = """{"type":"fixed","name":"MyFixed","doc":"","size":12}"""
-            assert(result)(iszio.prelude.Validation.succeed(equalTo(expected)))
+            assert(result.toEither)(isRight(equalTo(expected)))
           },
           test("encodes CharType") {
             val schema = Schema.primitive(StandardType.CharType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("""{"type":"int","zio.schema.codec.intType":"char"}""")))
+            assert(result.toEither)(isRight(equalTo("""{"type":"int","zio.schema.codec.intType":"char"}""")))
           },
           test("encodes UUIDType") {
             val schema = Schema.primitive(StandardType.UUIDType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("""{"type":"string","logicalType":"uuid"}""")))
+            assert(result.toEither)(isRight(equalTo("""{"type":"string","logicalType":"uuid"}""")))
           },
           test("encodes BigDecimalType as Bytes") {
             val schema =
               Schema.primitive(StandardType.BigDecimalType).annotate(AvroAnnotations.decimal(DecimalType.Bytes))
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("""{"type":"bytes","logicalType":"decimal","precision":48,"scale":24}""")))
+            assert(result.toEither)(isRight(equalTo("""{"type":"bytes","logicalType":"decimal","precision":48,"scale":24}""")))
           },
           test("encodes BigDecimalType as Bytes with scala and precision") {
             val schema = Schema
@@ -620,15 +620,15 @@ object AvroCodecSpec extends ZIOSpecDefault {
               .annotate(AvroAnnotations.precision(20))
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("""{"type":"bytes","logicalType":"decimal","precision":20,"scale":10}""")))
+            assert(result.toEither)(isRight(equalTo("""{"type":"bytes","logicalType":"decimal","precision":20,"scale":10}""")))
           },
           test("encodes BigDecimalType as Fixed") {
             val schema =
               Schema.primitive(StandardType.BigDecimalType).annotate(AvroAnnotations.decimal(DecimalType.Fixed(21)))
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"fixed","name":"Decimal_48_24","size":21,"logicalType":"decimal","precision":48,"scale":24}"""
                 )
@@ -643,8 +643,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
               .annotate(AvroAnnotations.precision(20))
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"fixed","name":"Decimal_20_10","size":9,"logicalType":"decimal","precision":20,"scale":10}"""
                 )
@@ -656,7 +656,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
               Schema.primitive(StandardType.BigIntegerType).annotate(AvroAnnotations.decimal(DecimalType.Bytes))
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("""{"type":"bytes","logicalType":"decimal","precision":24,"scale":24}""")))
+            assert(result.toEither)(isRight(equalTo("""{"type":"bytes","logicalType":"decimal","precision":24,"scale":24}""")))
           },
           test("encodes BigIntegerType as Bytes with scala and precision") {
             val schema = Schema
@@ -666,15 +666,15 @@ object AvroCodecSpec extends ZIOSpecDefault {
               .annotate(AvroAnnotations.precision(20))
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("""{"type":"bytes","logicalType":"decimal","precision":10,"scale":10}""")))
+            assert(result.toEither)(isRight(equalTo("""{"type":"bytes","logicalType":"decimal","precision":10,"scale":10}""")))
           },
           test("encodes BigIntegerType as Fixed") {
             val schema =
               Schema.primitive(StandardType.BigIntegerType).annotate(AvroAnnotations.decimal(DecimalType.Fixed(11)))
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"fixed","name":"Decimal_24_24","size":11,"logicalType":"decimal","precision":24,"scale":24}"""
                 )
@@ -689,8 +689,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
               .annotate(AvroAnnotations.precision(20))
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"fixed","name":"Decimal_10_10","size":5,"logicalType":"decimal","precision":10,"scale":10}"""
                 )
@@ -701,31 +701,31 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = Schema.primitive(StandardType.DayOfWeekType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("""{"type":"int","zio.schema.codec.intType":"dayOfWeek"}""")))
+            assert(result.toEither)(isRight(equalTo("""{"type":"int","zio.schema.codec.intType":"dayOfWeek"}""")))
           },
           test("encodes MonthType") {
             val schema = Schema.primitive(StandardType.MonthType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("""{"type":"int","zio.schema.codec.intType":"month"}""")))
+            assert(result.toEither)(isRight(equalTo("""{"type":"int","zio.schema.codec.intType":"month"}""")))
           },
           test("encodes YearType") {
             val schema = Schema.primitive(StandardType.YearType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("""{"type":"int","zio.schema.codec.intType":"year"}""")))
+            assert(result.toEither)(isRight(equalTo("""{"type":"int","zio.schema.codec.intType":"year"}""")))
           },
           test("encodes ZoneIdType") {
             val schema = Schema.primitive(StandardType.ZoneIdType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("""{"type":"string","zio.schema.codec.stringType":"zoneId"}""")))
+            assert(result.toEither)(isRight(equalTo("""{"type":"string","zio.schema.codec.stringType":"zoneId"}""")))
           },
           test("encodes ZoneOffsetType") {
             val schema = Schema.primitive(StandardType.ZoneOffsetType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(iszio.prelude.Validation.succeed(equalTo("""{"type":"int","zio.schema.codec.intType":"zoneOffset"}""")))
+            assert(result.toEither)(isRight(equalTo("""{"type":"int","zio.schema.codec.intType":"zoneOffset"}""")))
           },
           //TODO 1
           //test("encodes MonthDayType") {
@@ -733,7 +733,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           //  val result = AvroCodec.encode(schema)
 
           //  assert(result)(
-          //    iszio.prelude.Validation.succeed(
+          //    isRight(
           //      equalTo(
           //        """{"type":"record","name":"MonthDay","namespace":"zio.schema.codec.avro","fields":[{"name":"month","type":"int"},{"name":"day","type":"int"}],"zio.schema.codec.recordType":"monthDay"}"""
           //      )
@@ -746,7 +746,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           //  val result = AvroCodec.encode(schema)
           //
           //  assert(result)(
-          //    iszio.prelude.Validation.succeed(
+          //    isRight(
           //      equalTo(
           //        """{"type":"record","name":"Period","namespace":"zio.schema.codec.avro","fields":[{"name":"years","type":"int"},{"name":"months","type":"int"},{"name":"days","type":"int"}],"zio.schema.codec.recordType":"period"}"""
           //      )
@@ -759,7 +759,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           //  val result = AvroCodec.encode(schema)
           //
           //  assert(result)(
-          //    iszio.prelude.Validation.succeed(
+          //    isRight(
           //      equalTo(
           //        """{"type":"record","name":"YearMonth","namespace":"zio.schema.codec.avro","fields":[{"name":"year","type":"int"},{"name":"month","type":"int"}],"zio.schema.codec.recordType":"yearMonth"}"""
           //      )
@@ -772,7 +772,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           //  val result = AvroCodec.encode(schema)
           //
           //  assert(result)(
-          //    iszio.prelude.Validation.succeed(
+          //    isRight(
           //      equalTo(
           //        """{"type":"record","name":"Duration","namespace":"zio.schema.codec.avro","fields":[{"name":"seconds","type":"long"},{"name":"nanos","type":"int"}],"zio.schema.codec.recordType":"duration","zio.schema.codec.avro.durationChronoUnit":"DAYS"}"""
           //      )
@@ -783,8 +783,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = Schema.primitive(StandardType.InstantType).annotate(AvroAnnotations.formatToString)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"string","zio.schema.codec.stringType":"instant"}"""
                 )
@@ -796,8 +796,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
               Schema.primitive(StandardType.LocalDateType).annotate(AvroAnnotations.formatToString)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"string","zio.schema.codec.stringType":"localDate"}"""
                 )
@@ -809,8 +809,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
               Schema.primitive(StandardType.LocalTimeType).annotate(AvroAnnotations.formatToString)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"string","zio.schema.codec.stringType":"localTime"}"""
                 )
@@ -822,8 +822,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
               Schema.primitive(StandardType.LocalDateTimeType).annotate(AvroAnnotations.formatToString)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"string","zio.schema.codec.stringType":"localDateTime"}"""
                 )
@@ -834,8 +834,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = Schema.primitive(StandardType.OffsetTimeType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"string","zio.schema.codec.stringType":"offsetTime"}"""
                 )
@@ -846,8 +846,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = Schema.primitive(StandardType.OffsetDateTimeType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"string","zio.schema.codec.stringType":"offsetDateTime"}"""
                 )
@@ -858,8 +858,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val schema = Schema.primitive(StandardType.ZonedDateTimeType)
             val result = AvroCodec.encode(schema)
 
-            assert(result)(
-              iszio.prelude.Validation.succeed(
+            assert(result.toEither)(
+              isRight(
                 equalTo(
                   """{"type":"string","zio.schema.codec.stringType":"zoneDateTime"}"""
                 )
@@ -871,13 +871,13 @@ object AvroCodecSpec extends ZIOSpecDefault {
           val schema = Schema.fail("I'm failing")
           val result = AvroCodec.encode(schema)
 
-          assert(result)(isLeft(equalTo("""I'm failing""")))
+          assert(result.toEither.left.map(_.head))(isLeft(equalTo("""I'm failing""")))
         },
         test("lazy is handled properly") {
           val schema = Schema.Lazy(() => Schema.primitive(StandardType.StringType))
           val result = AvroCodec.encode(schema)
 
-          assert(result)(iszio.prelude.Validation.succeed(equalTo("\"string\"")))
+          assert(result.toEither)(isRight(equalTo("\"string\"")))
         }
       ),
       /**
@@ -890,8 +890,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
               """{"type":"record","name":"TestRecord","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema.map(_.ast))(
-              iszio.prelude.Validation.succeed(
+            assert(schema.map(_.ast).toEither)(
+              isRight(
                 equalTo(
                   Schema
                     .record(
@@ -942,15 +942,15 @@ object AvroCodecSpec extends ZIOSpecDefault {
               )
             )
 
-            assert(schema.map(_.ast))(iszio.prelude.Validation.succeed(equalTo(expectedSchema.ast)))
+            assert(schema.map(_.ast).toEither)(isRight(equalTo(expectedSchema.ast)))
           },
           test("unwrap a wrapped initialSchemaDerived") {
             val s =
               """{"type":"record","zio.schema.codec.avro.wrapper":true,"name":"wrapper_xyz","namespace":"zio.schema.codec.avro","fields":[{"name":"value","type":{"type":"record","name":"TestRecord","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}}]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema.map(_.ast))(
-              iszio.prelude.Validation.succeed(
+            assert(schema.map(_.ast).toEither)(
+              isRight(
                 equalTo(
                   Schema
                     .record(
@@ -978,22 +978,22 @@ object AvroCodecSpec extends ZIOSpecDefault {
               """{"type":"record","name":"Period","namespace":"zio.schema.codec.avro","fields":[{"name":"years","type":"int"},{"name":"months","type":"int"},{"name":"days","type":"int"}],"zio.schema.codec.recordType":"period"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.PeriodType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.PeriodType)))
           },
           test("yearMonth record") {
             val s =
               """{"type":"record","name":"YearMonth","namespace":"zio.schema.codec.avro","fields":[{"name":"year","type":"int"},{"name":"month","type":"int"}],"zio.schema.codec.recordType":"yearMonth"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.YearMonthType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.YearMonthType)))
           },
           test("tuple record successful") {
             val s =
               """{"type":"record","name":"Tuple","namespace":"zio.schema.codec.avro","fields":[{"name":"_1","type":"string"},{"name":"_2","type":"int"}],"zio.schema.codec.recordType":"tuple"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(
-              iszio.prelude.Validation.succeed(isTuple(isStandardType(StandardType.StringType), isStandardType(StandardType.IntType)))
+            assert(schema.toEither)(
+              isRight(isTuple(isStandardType(StandardType.StringType), isStandardType(StandardType.IntType)))
             )
           },
           test("tuple record failing") {
@@ -1001,71 +1001,71 @@ object AvroCodecSpec extends ZIOSpecDefault {
               """{"type":"record","name":"Tuple","namespace":"zio.schema.codec.avro","fields":[{"name":"_1","type":"string"},{"name":"_2","type":"int"},{"name":"_3","type":"int"}],"zio.schema.codec.recordType":"tuple"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(isLeft)
+            assert(schema.toEither)(isLeft)
           },
           test("monthDay record") {
             val s =
               """{"type":"record","name":"MonthDay","namespace":"zio.schema.codec.avro","fields":[{"name":"month","type":"int"},{"name":"day","type":"int"}],"zio.schema.codec.recordType":"monthDay"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.MonthDayType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.MonthDayType)))
           },
           test("duration record without chrono unit annotation") {
             val s =
               """{"type":"record","name":"Duration","namespace":"zio.schema.codec.avro","fields":[{"name":"seconds","type":"long"},{"name":"nanos","type":"int"}],"zio.schema.codec.recordType":"duration"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.DurationType))) //(ChronoUnit.MILLIS))))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.DurationType))) //(ChronoUnit.MILLIS))))
           },
           test("duration record chrono unit annotation") {
             val s =
               """{"type":"record","name":"Duration","namespace":"zio.schema.codec.avro","fields":[{"name":"seconds","type":"long"},{"name":"nanos","type":"int"}],"zio.schema.codec.recordType":"duration","zio.schema.codec.avro.durationChronoUnit":"DAYS"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.DurationType))) //(ChronoUnit.DAYS))))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.DurationType))) //(ChronoUnit.DAYS))))
           },
           test("assign the name annotation") {
             val s =
               """{"type":"record","name":"TestRecord","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isRecord(hasNameAnnotation(equalTo("TestRecord")))))
+            assert(schema.toEither)(isRight(isRecord(hasNameAnnotation(equalTo("TestRecord")))))
           },
           test("assign the namespace annotation") {
             val s =
               """{"type":"record","name":"TestRecord","namespace":"MyTest","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isRecord(hasNamespaceAnnotation(equalTo("MyTest")))))
+            assert(schema.toEither)(isRight(isRecord(hasNamespaceAnnotation(equalTo("MyTest")))))
           },
           test("not assign the namespace annotation if missing") {
             val s =
               """{"type":"record","name":"TestRecord","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isRecord(hasNamespaceAnnotation(anything).negate)))
+            assert(schema.toEither)(isRight(isRecord(hasNamespaceAnnotation(anything).negate)))
           },
           zio.test.test("assign the doc annotation") {
             val s =
               """{"type":"record","name":"TestRecord","doc":"Very helpful documentation!","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isRecord(hasDocAnnotation(equalTo("Very helpful documentation!")))))
+            assert(schema.toEither)(isRight(isRecord(hasDocAnnotation(equalTo("Very helpful documentation!")))))
           },
           test("not assign the doc annotation if missing") {
             val s =
               """{"type":"record","name":"TestRecord","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isRecord(hasDocAnnotation(anything).negate)))
+            assert(schema.toEither)(isRight(isRecord(hasDocAnnotation(anything).negate)))
           },
           test("assign the aliases annotation") {
             val s =
               """{"type":"record","name":"TestRecord","aliases":["wow", "cool"],"fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(
-              iszio.prelude.Validation.succeed(isRecord(hasAliasesAnnotation(exists[String](equalTo("wow")) && exists(equalTo("cool")))))
+            assert(schema.toEither)(
+              isRight(isRecord(hasAliasesAnnotation(exists[String](equalTo("wow")) && exists(equalTo("cool")))))
             )
           },
           test("not assign the aliases annotation if missing") {
@@ -1073,28 +1073,28 @@ object AvroCodecSpec extends ZIOSpecDefault {
               """{"type":"record","name":"TestRecord","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isRecord(hasAliasesAnnotation(anything).negate)))
+            assert(schema.toEither)(isRight(isRecord(hasAliasesAnnotation(anything).negate)))
           },
           test("not assign the aliases annotation if empty") {
             val s =
               """{"type":"record","name":"TestRecord","aliases":[],"fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isRecord(hasAliasesAnnotation(anything).negate)))
+            assert(schema.toEither)(isRight(isRecord(hasAliasesAnnotation(anything).negate)))
           },
           zio.test.test("assign the error annotation") {
             val s =
               """{"type":"error","name":"MyNamedRecord","fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isRecord(hasErrorAnnotation)))
+            assert(schema.toEither)(isRight(isRecord(hasErrorAnnotation)))
           },
           test("not assign the error annotation if not an error") {
             val s =
               """{"type":"record","name":"TestRecord","aliases":[],"fields":[{"name":"s","type":"string"},{"name":"b","type":"boolean"}]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isRecord(hasErrorAnnotation.negate)))
+            assert(schema.toEither)(isRight(isRecord(hasErrorAnnotation.negate)))
           }
         ),
         suite("fields")(
@@ -1105,7 +1105,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val field1 = hasRecordField(hasLabel(equalTo("s")) && hasSchema(isStandardType(StandardType.StringType)))
             val field2 = hasRecordField(hasLabel(equalTo("b")) && hasSchema(isStandardType(StandardType.BoolType)))
-            assert(schema)(iszio.prelude.Validation.succeed(isRecord(field1 && field2)))
+            assert(schema.toEither)(isRight(isRecord(field1 && field2)))
           },
           test("decodes the fields complex initialSchemaDerived") {
             val s =
@@ -1116,7 +1116,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val field2  = hasRecordField(hasLabel(equalTo("b")) && hasSchema(isStandardType(StandardType.BoolType)))
             val complex = isRecord(field1 && field2)
             val field   = hasRecordField(hasLabel(equalTo("complex")) && hasSchema(complex))
-            assert(schema)(iszio.prelude.Validation.succeed(isRecord(field)))
+            assert(schema.toEither)(isRight(isRecord(field)))
           },
           zio.test.test("assign the field name annotation") {
             val s =
@@ -1125,7 +1125,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val field1 = hasRecordField(hasLabel(equalTo("s")) && hasNameAnnotation(equalTo("s")))
             val field2 = hasRecordField(hasLabel(equalTo("b")) && hasNameAnnotation(equalTo("b")))
-            assert(schema)(iszio.prelude.Validation.succeed(isRecord(field1 && field2)))
+            assert(schema.toEither)(isRight(isRecord(field1 && field2)))
           },
           zio.test.test("assign the field doc annotation iff it exists") {
             val s =
@@ -1134,7 +1134,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
             val field1 = hasRecordField(hasLabel(equalTo("s")) && hasDocAnnotation(equalTo("Very helpful doc!")))
             val field2 = hasRecordField(hasLabel(equalTo("b")) && hasDocAnnotation(anything).negate)
-            assert(schema)(iszio.prelude.Validation.succeed(isRecord(field1 && field2)))
+            assert(schema.toEither)(isRight(isRecord(field1 && field2)))
           },
           test("assign the field default annotation") {
             val s =
@@ -1146,7 +1146,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
               hasLabel(equalTo("complex")) && hasFieldDefaultAnnotation(asString(equalTo("""{s=defaultS, b=true}""")))
             )
             val field3 = hasRecordField(hasLabel(equalTo("b")) && hasFieldDefaultAnnotation(anything).negate)
-            assert(schema)(iszio.prelude.Validation.succeed(isRecord(field1 && field2 && field3)))
+            assert(schema.toEither)(isRight(isRecord(field1 && field2 && field3)))
           },
           zio.test.test("assign the fieldOrder annotation") {
             val s =
@@ -1159,7 +1159,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val field2 = hasRecordField(
               hasLabel(equalTo("b")) && hasFieldOrderAnnotation(equalTo(AvroAnnotations.FieldOrderType.Ascending))
             )
-            assert(schema)(iszio.prelude.Validation.succeed(isRecord(field1 && field2)))
+            assert(schema.toEither)(isRight(isRecord(field1 && field2)))
           },
           zio.test.test("assign the field aliases annotation") {
             val s =
@@ -1170,7 +1170,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
               hasLabel(equalTo("s")) && hasAliasesAnnotation(Assertion.hasSameElements(Seq("wow", "cool")))
             )
             val field2 = hasRecordField(hasLabel(equalTo("b")) && hasAliasesAnnotation(anything).negate)
-            assert(schema)(iszio.prelude.Validation.succeed(isRecord(field1 && field2)))
+            assert(schema.toEither)(isRight(isRecord(field1 && field2)))
           }
         ),
         suite("enum")(
@@ -1181,89 +1181,89 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val symbolKeysAssetion = Assertion.hasKeys(hasSameElements(Seq("a", "b", "c")))
             val enumStringTypeAssertion: Assertion[ListMap[String, (Schema[_], Chunk[Any])]] =
               Assertion.hasValues(forall(tuple2First(isStandardType(StandardType.StringType))))
-            assert(schema)(iszio.prelude.Validation.succeed(isEnum(enumStructure(symbolKeysAssetion && enumStringTypeAssertion))))
+            assert(schema.toEither)(isRight(isEnum(enumStructure(symbolKeysAssetion && enumStringTypeAssertion))))
           },
           test("assign the enum name annotation") {
             val s      = """{"type":"enum","name":"TestEnum","symbols":["a","b","c"]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isEnum(hasNameAnnotation(equalTo("TestEnum")))))
+            assert(schema.toEither)(isRight(isEnum(hasNameAnnotation(equalTo("TestEnum")))))
           },
           test("assign the enum namespace annotation") {
             val s      = """{"type":"enum","name":"TestEnum","namespace":"MyTest","symbols":["a","b","c"]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isEnum(hasNamespaceAnnotation(equalTo("MyTest")))))
+            assert(schema.toEither)(isRight(isEnum(hasNamespaceAnnotation(equalTo("MyTest")))))
           },
           test("not assign the enum namespace annotation if empty") {
             val s      = """{"type":"enum","name":"TestEnum","symbols":["a","b","c"]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isEnum(hasNamespaceAnnotation(anything).negate)))
+            assert(schema.toEither)(isRight(isEnum(hasNamespaceAnnotation(anything).negate)))
           },
           test("assign the enum aliases annotation") {
             val s      = """{"type":"enum","name":"TestEnum","aliases":["MyAlias", "MyAlias2"],"symbols":["a","b","c"]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isEnum(hasAliasesAnnotation(hasSameElements(Seq("MyAlias", "MyAlias2"))))))
+            assert(schema.toEither)(isRight(isEnum(hasAliasesAnnotation(hasSameElements(Seq("MyAlias", "MyAlias2"))))))
           },
           test("not assign the enum aliases annotation if empty") {
             val s      = """{"type":"enum","name":"TestEnum","symbols":["a","b","c"]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isEnum(hasAliasesAnnotation(anything).negate)))
+            assert(schema.toEither)(isRight(isEnum(hasAliasesAnnotation(anything).negate)))
           },
           test("assign the enum doc annotation") {
             val s =
               """{"type":"enum","name":"TestEnum","doc":"Some very helpful documentation!","symbols":["a","b","c"]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isEnum(hasDocAnnotation(equalTo("Some very helpful documentation!")))))
+            assert(schema.toEither)(isRight(isEnum(hasDocAnnotation(equalTo("Some very helpful documentation!")))))
           },
           test("not assign the enum doc annotation if empty") {
             val s      = """{"type":"enum","name":"TestEnum","symbols":["a","b","c"]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isEnum(hasAliasesAnnotation(anything).negate)))
+            assert(schema.toEither)(isRight(isEnum(hasAliasesAnnotation(anything).negate)))
           },
           test("assign the enum default annotation") {
             val s      = """{"type":"enum","name":"TestEnum","default":"a","symbols":["a","b","c"]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isEnum(hasDefaultAnnotation(equalTo("a")))))
+            assert(schema.toEither)(isRight(isEnum(hasDefaultAnnotation(equalTo("a")))))
           },
           test("fail if enum default is not a symbol") {
             val s      = """{"type":"enum","name":"TestEnum","default":"d","symbols":["a","b","c"]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(isLeft(equalTo("The Enum Default: d is not in the enum symbol set: [a, b, c]")))
+            assert(schema.toEither.left.map(_.head))(isLeft(equalTo("The Enum Default: d is not in the enum symbol set: [a, b, c]")))
           },
           test("not assign the enum default annotation if empty") {
             val s      = """{"type":"enum","name":"TestEnum","symbols":["a","b","c"]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isEnum(hasDefaultAnnotation(anything).negate)))
+            assert(schema.toEither)(isRight(isEnum(hasDefaultAnnotation(anything).negate)))
           }
         ),
         test("decodes primitive array") {
           val s      = """{"type":"array","items":{"type":"int"}}"""
           val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-          assert(schema)(iszio.prelude.Validation.succeed(isSequence(hasSequenceElementSchema(isStandardType(StandardType.IntType)))))
+          assert(schema.toEither)(isRight(isSequence(hasSequenceElementSchema(isStandardType(StandardType.IntType)))))
         },
         test("decodes complex array") {
           val s =
             """{"type":"array","items":{"type":"record","name":"TestRecord","fields":[{"name":"f1","type":"int"},{"name":"f2","type":"string"}]}}"""
           val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-          assert(schema)(iszio.prelude.Validation.succeed(isSequence(hasSequenceElementSchema(isRecord(anything)))))
+          assert(schema.toEither)(isRight(isSequence(hasSequenceElementSchema(isRecord(anything)))))
         },
         test("decodes map with string keys") {
           val s      = """{"type":"map","values":{"type":"int"}}"""
           val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-          assert(schema)(
-            iszio.prelude.Validation.succeed(
+          assert(schema.toEither)(
+            isRight(
               isMap(
                 hasMapKeys(isStandardType(StandardType.StringType)) && hasMapValues(
                   isStandardType(StandardType.IntType)
@@ -1277,27 +1277,27 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val s      = """[{"type":"null"}, {"type":"int"}]"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isOption(hasOptionElementSchema(isStandardType(StandardType.IntType)))))
+            assert(schema.toEither)(isRight(isOption(hasOptionElementSchema(isStandardType(StandardType.IntType)))))
           },
           test("option union with null on second position") {
             val s      = """[{"type":"int"}, {"type":"null"}]"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isOption(hasOptionElementSchema(isStandardType(StandardType.IntType)))))
+            assert(schema.toEither)(isRight(isOption(hasOptionElementSchema(isStandardType(StandardType.IntType)))))
           },
           test("not an option union with more than one element type") {
             val s      = """[{"type":"null"}, {"type":"int"}, {"type":"string"}]"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isOption(anything).negate))
+            assert(schema.toEither)(isRight(isOption(anything).negate))
           },
           test("nested either union") {
             val s =
               """{"type":"record","name":"wrapper_hashed_2071802344","namespace":"zio.schema.codec.avro","fields":[{"name":"value","type":[{"type":"record","name":"wrapper_hashed_n465006219","fields":[{"name":"value","type":[{"type":"record","name":"wrapper_hashed_n813828848","fields":[{"name":"value","type":["null","string"]}],"zio.schema.codec.avro.wrapper":true},"string"]}],"zio.schema.codec.avro.either":true},"string"]}],"zio.schema.codec.avro.either":true}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(
-              iszio.prelude.Validation.succeed(
+            assert(schema.toEither)(
+              isRight(
                 isEither(
                   isEither(isOption(anything), isStandardType(StandardType.StringType)),
                   isStandardType(StandardType.StringType)
@@ -1312,7 +1312,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val assertion1 = hasKey("null", tuple2First(isStandardType(StandardType.UnitType)))
             val sssertion2 = hasKey("int", tuple2First(isStandardType(StandardType.IntType)))
             val assertion3 = hasKey("string", tuple2First(isStandardType(StandardType.StringType)))
-            assert(schema)(iszio.prelude.Validation.succeed(isEnum(enumStructure(assertion1 && sssertion2 && assertion3))))
+            assert(schema.toEither)(isRight(isEnum(enumStructure(assertion1 && sssertion2 && assertion3))))
           },
           test("correct case codec for case object of ADT") {
             val s =
@@ -1322,7 +1322,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val assertionA   = hasKey("A", tuple2First(isEmptyRecord))
             val assertionB   = hasKey("B", tuple2First(isEmptyRecord))
             val assertionMyC = hasKey("MyC", tuple2First(isEmptyRecord))
-            assert(schema)(iszio.prelude.Validation.succeed(isEnum(enumStructure(assertionA && assertionB && assertionMyC))))
+            assert(schema.toEither)(isRight(isEnum(enumStructure(assertionA && assertionB && assertionMyC))))
           },
           test("correct case codec for case class of ADT") {
             val s =
@@ -1335,7 +1335,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
             )
             val assertionB   = hasKey("B", tuple2First(isEmptyRecord))
             val assertionMyC = hasKey("MyC", tuple2First(isEmptyRecord))
-            assert(schema)(iszio.prelude.Validation.succeed(isEnum(enumStructure(assertionA && assertionB && assertionMyC))))
+            assert(schema.toEither)(isRight(isEnum(enumStructure(assertionA && assertionB && assertionMyC))))
           },
           test("unwrap nested union") {
             val s =
@@ -1354,7 +1354,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
               hasKey("zio.schema.codec.avro.wrapper_hashed_n465006219", tuple2First(nestedEnumAssertion))
             val cEnumKey = hasKey("C", tuple2First(isEmptyRecord))
             val dEnumKey = hasKey("D", tuple2First(isRecord(hasRecordField(hasLabel(equalTo("s"))))))
-            assert(schema)(iszio.prelude.Validation.succeed(isEnum(enumStructure(nestedEnumKey && cEnumKey && dEnumKey))))
+            assert(schema.toEither)(isRight(isEnum(enumStructure(nestedEnumKey && cEnumKey && dEnumKey))))
           }
         ),
         suite("fixed")(
@@ -1370,7 +1370,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val hasPrecisionAnnotation: Assertion[Iterable[Any]] = exists(equalTo(AvroAnnotations.precision(11)))
             val hasAnnotationsAssertion =
               annotations(hasDecimalTypeAnnotation && hasScalaAnnotation && hasPrecisionAnnotation)
-            assert(schema)(iszio.prelude.Validation.succeed(isDecimalAssertion && hasAnnotationsAssertion))
+            assert(schema.toEither)(isRight(isDecimalAssertion && hasAnnotationsAssertion))
           },
           test("logical type decimal as BigInteger") {
             val s =
@@ -1385,21 +1385,21 @@ object AvroCodecSpec extends ZIOSpecDefault {
               exists(Assertion.isSubtype[AvroAnnotations.precision.type](anything)).negate
             val hasAnnotationsAssertion =
               annotations(hasDecimalTypeAnnotation && hasScalaAnnotation && doesNotHavePrecisionAnnotation)
-            assert(schema)(iszio.prelude.Validation.succeed(isBigIntegerType && hasAnnotationsAssertion))
+            assert(schema.toEither)(isRight(isBigIntegerType && hasAnnotationsAssertion))
           },
           test("fail on invalid logical type") {
             val s =
               """{"type":"fixed","name":"Decimal_10_10","size":5,"logicalType":"decimal","precision":9,"scale":10}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(isLeft(equalTo("Invalid decimal scale: 10 (greater than precision: 9)")))
+            assert(schema.toEither.left.map(_.head))(isLeft(equalTo("Invalid decimal scale: 10 (greater than precision: 9)")))
           },
           test("decode as binary") {
             val s      = """{"type":"fixed","name":"Something","size":5}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
             val hasNameAnnotation = annotations(exists(equalTo(AvroAnnotations.name("Something"))))
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.BinaryType) && hasNameAnnotation))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.BinaryType) && hasNameAnnotation))
           }
         ),
         suite("string")(
@@ -1407,20 +1407,20 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val s      = """{"type":"string","zio.schema.codec.stringType":"zoneId"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.ZoneIdType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.ZoneIdType)))
           },
           test("decodes instant with formatter") {
             val s =
               """{"type":"string","zio.schema.codec.stringType":"instant","zio.schema.codec.avro.dateTimeFormatter":"ISO_INSTANT"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.InstantType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.InstantType)))
           },
           test("decodes instant using default") {
             val s      = """{"type":"string","zio.schema.codec.stringType":"instant"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.InstantType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.InstantType)))
           },
           test("decodes instant with formatter pattern") {
             val pattern = "yyyy MM dd"
@@ -1428,7 +1428,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
               s"""{"type":"string","zio.schema.codec.stringType":"instant","zio.schema.codec.avro.dateTimeFormatter":"$pattern"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.InstantType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.InstantType)))
           },
           test("decode DateTimeFormatter field fails on invalid formatter") {
             val pattern = "this is not a valid formatter pattern"
@@ -1436,47 +1436,47 @@ object AvroCodecSpec extends ZIOSpecDefault {
               s"""{"type":"string","zio.schema.codec.stringType":"instant","zio.schema.codec.avro.dateTimeFormatter":"$pattern"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(isLeft(equalTo("Unknown pattern letter: t")))
+            assert(schema.toEither.left.map(_.head))(isLeft(equalTo("Unknown pattern letter: t")))
           },
           test("decodes localDate with formatter") {
             val s =
               """{"type":"string","zio.schema.codec.stringType":"localDate","zio.schema.codec.avro.dateTimeFormatter":"ISO_ORDINAL_DATE"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.LocalDateType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.LocalDateType)))
           },
           test("decodes localDate with default formatter") {
             val s      = """{"type":"string","zio.schema.codec.stringType":"localDate"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.LocalDateType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.LocalDateType)))
           },
           test("decodes localTime with formatter") {
             val s =
               """{"type":"string","zio.schema.codec.stringType":"localTime","zio.schema.codec.avro.dateTimeFormatter":"ISO_ORDINAL_DATE"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.LocalTimeType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.LocalTimeType)))
           },
           test("decodes localTime with default formatter") {
             val s      = """{"type":"string","zio.schema.codec.stringType":"localTime"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.LocalTimeType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.LocalTimeType)))
           },
           test("decodes localDateTime with formatter") {
             val s =
               """{"type":"string","zio.schema.codec.stringType":"localDateTime","zio.schema.codec.avro.dateTimeFormatter":"ISO_ORDINAL_DATE"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.LocalDateTimeType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.LocalDateTimeType)))
           },
           test("decodes localDateTime with default formatter") {
             val s      = """{"type":"string","zio.schema.codec.stringType":"localDateTime"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(
-              iszio.prelude.Validation.succeed(isStandardType(StandardType.LocalDateTimeType))
+            assert(schema.toEither)(
+              isRight(isStandardType(StandardType.LocalDateTimeType))
             )
           },
           test("decodes zonedDateTime with formatter") {
@@ -1484,14 +1484,14 @@ object AvroCodecSpec extends ZIOSpecDefault {
               """{"type":"string","zio.schema.codec.stringType":"zoneDateTime","zio.schema.codec.avro.dateTimeFormatter":"ISO_ORDINAL_DATE"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.ZonedDateTimeType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.ZonedDateTimeType)))
           },
           test("decodes zonedDateTime with default formatter") {
             val s      = """{"type":"string","zio.schema.codec.stringType":"zoneDateTime"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(
-              iszio.prelude.Validation.succeed(isStandardType(StandardType.ZonedDateTimeType))
+            assert(schema.toEither)(
+              isRight(isStandardType(StandardType.ZonedDateTimeType))
             )
           },
           test("decodes offsetTime with formatter") {
@@ -1499,40 +1499,40 @@ object AvroCodecSpec extends ZIOSpecDefault {
               """{"type":"string","zio.schema.codec.stringType":"offsetTime","zio.schema.codec.avro.dateTimeFormatter":"ISO_ORDINAL_DATE"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.OffsetTimeType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.OffsetTimeType)))
           },
           test("decodes offsetTime with default formatter") {
             val s      = """{"type":"string","zio.schema.codec.stringType":"offsetTime"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.OffsetTimeType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.OffsetTimeType)))
           },
           test("decodes offsetDateTime with formatter") {
             val s =
               """{"type":"string","zio.schema.codec.stringType":"offsetDateTime","zio.schema.codec.avro.dateTimeFormatter":"ISO_ORDINAL_DATE"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.OffsetDateTimeType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.OffsetDateTimeType)))
           },
           test("decodes offsetDateTime with default formatter") {
             val s      = """{"type":"string","zio.schema.codec.stringType":"offsetDateTime"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(
-              iszio.prelude.Validation.succeed(isStandardType(StandardType.OffsetDateTimeType))
+            assert(schema.toEither)(
+              isRight(isStandardType(StandardType.OffsetDateTimeType))
             )
           },
           test("decodes logical type uuid") {
             val s      = """{"type":"string","logicalType":"uuid"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.UUIDType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.UUIDType)))
           },
           test("decodes primitive type string") {
             val s      = """{"type":"string"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.StringType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.StringType)))
           }
         ),
         suite("bytes")(
@@ -1547,7 +1547,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val hasPrecisionAnnotation: Assertion[Iterable[Any]] = exists(equalTo(AvroAnnotations.precision(20)))
             val hasAnnotationsAssertion =
               annotations(hasDecimalTypeAnnotation && hasScalaAnnotation && hasPrecisionAnnotation)
-            assert(schema)(iszio.prelude.Validation.succeed(isDecimalAssertion && hasAnnotationsAssertion))
+            assert(schema.toEither)(isRight(isDecimalAssertion && hasAnnotationsAssertion))
           },
           test("logical type decimal as BigInteger") {
             val s      = """{"type":"bytes","logicalType":"decimal","precision":20,"scale":20}"""
@@ -1558,13 +1558,13 @@ object AvroCodecSpec extends ZIOSpecDefault {
               exists(equalTo(AvroAnnotations.decimal(DecimalType.Bytes)))
             val hasScalaAnnotation: Assertion[Iterable[Any]] = exists(equalTo(AvroAnnotations.scale(20)))
             val hasAnnotationsAssertion                      = annotations(hasDecimalTypeAnnotation && hasScalaAnnotation)
-            assert(schema)(iszio.prelude.Validation.succeed(isBigIntegerAssertion && hasAnnotationsAssertion))
+            assert(schema.toEither)(isRight(isBigIntegerAssertion && hasAnnotationsAssertion))
           },
           test("decode as binary") {
             val s      = """{"type":"bytes"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.BinaryType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.BinaryType)))
           }
         ),
         suite("int")(
@@ -1572,69 +1572,69 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val s      = """{"type":"int","zio.schema.codec.intType":"char"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.CharType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.CharType)))
           },
           test("decodes dayOfWeek") {
             val s      = """{"type":"int","zio.schema.codec.intType":"dayOfWeek"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.DayOfWeekType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.DayOfWeekType)))
           },
           test("decodes Year") {
             val s      = """{"type":"int","zio.schema.codec.intType":"year"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.YearType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.YearType)))
           },
           test("decodes short") {
             val s      = """{"type":"int","zio.schema.codec.intType":"short"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.ShortType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.ShortType)))
           },
           test("decodes month") {
             val s      = """{"type":"int","zio.schema.codec.intType":"month"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.MonthType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.MonthType)))
           },
           test("decodes zoneOffset") {
             val s      = """{"type":"int","zio.schema.codec.intType":"zoneOffset"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.ZoneOffsetType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.ZoneOffsetType)))
           },
           test("decodes int") {
             val s      = """{"type":"int"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.IntType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.IntType)))
           },
           test("decodes logical type timemillis") {
             val s =
               """{"type":"int","logicalType":"time-millis","zio.schema.codec.avro.dateTimeFormatter":"ISO_ORDINAL_DATE"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.LocalTimeType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.LocalTimeType)))
           },
           test("decodes logical type timemillis with default formatter") {
             val s      = """{"type":"int","logicalType":"time-millis"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.LocalTimeType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.LocalTimeType)))
           },
           test("decodes logical type date") {
             val s =
               """{"type":"int","logicalType":"date"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.LocalDateType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.LocalDateType)))
           },
           test("decodes logical type date with default formatter") {
             val s      = """{"type":"int","logicalType":"date"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.LocalDateType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.LocalDateType)))
           }
         ),
         suite("long")(
@@ -1642,60 +1642,60 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val s      = """{"type":"long"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.LongType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.LongType)))
           },
           test("decodes logical type timeMicros") {
             val s =
               """{"type":"long","logicalType":"time-micros","zio.schema.codec.avro.dateTimeFormatter":"ISO_ORDINAL_DATE"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.LocalTimeType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.LocalTimeType)))
           },
           test("decodes logical type timeMicros with default formatter") {
             val s      = """{"type":"long","logicalType":"time-micros"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.LocalTimeType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.LocalTimeType)))
           },
           test("decodes logical type timestampMillis") {
             val s =
               """{"type":"long","logicalType":"timestamp-millis","zio.schema.codec.avro.dateTimeFormatter":"ISO_ORDINAL_DATE"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.InstantType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.InstantType)))
           },
           test("decodes logical type timestampMillis with default formatter") {
             val s      = """{"type":"long","logicalType":"timestamp-millis"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.InstantType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.InstantType)))
           },
           test("decodes logical type timestampMicros") {
             val s =
               """{"type":"long","logicalType":"timestamp-micros","zio.schema.codec.avro.dateTimeFormatter":"ISO_ORDINAL_DATE"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.InstantType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.InstantType)))
           },
           test("decodes logical type timestampMicros with default formatter") {
             val s      = """{"type":"long","logicalType":"timestamp-micros"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.InstantType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.InstantType)))
           },
           test("decodes logical type LocalTimestamp millis") {
             val s =
               """{"type":"long","logicalType":"local-timestamp-millis","zio.schema.codec.avro.dateTimeFormatter":"ISO_ORDINAL_DATE"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.LocalDateTimeType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.LocalDateTimeType)))
           },
           test("decodes logical type LocalTimestamp millis with default formatter") {
             val s      = """{"type":"long","logicalType":"local-timestamp-millis"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(
-              iszio.prelude.Validation.succeed(isStandardType(StandardType.LocalDateTimeType))
+            assert(schema.toEither)(
+              isRight(isStandardType(StandardType.LocalDateTimeType))
             )
           },
           test("decodes logical type LocalTimestamp micros") {
@@ -1703,14 +1703,14 @@ object AvroCodecSpec extends ZIOSpecDefault {
               """{"type":"long","logicalType":"local-timestamp-micros","zio.schema.codec.avro.dateTimeFormatter":"ISO_ORDINAL_DATE"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.LocalDateTimeType)))
+            assert(schema.toEither)(isRight(isStandardType(StandardType.LocalDateTimeType)))
           },
           test("decodes logical type LocalTimestamp micros with default formatter") {
             val s      = """{"type":"long","logicalType":"local-timestamp-micros"}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(
-              iszio.prelude.Validation.succeed(isStandardType(StandardType.LocalDateTimeType))
+            assert(schema.toEither)(
+              isRight(isStandardType(StandardType.LocalDateTimeType))
             )
           }
         ),
@@ -1718,25 +1718,25 @@ object AvroCodecSpec extends ZIOSpecDefault {
           val s      = """{"type":"float"}"""
           val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-          assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.FloatType)))
+          assert(schema.toEither)(isRight(isStandardType(StandardType.FloatType)))
         },
         test("double") {
           val s      = """{"type":"double"}"""
           val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-          assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.DoubleType)))
+          assert(schema.toEither)(isRight(isStandardType(StandardType.DoubleType)))
         },
         test("boolean") {
           val s      = """{"type":"boolean"}"""
           val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-          assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.BoolType)))
+          assert(schema.toEither)(isRight(isStandardType(StandardType.BoolType)))
         },
         test("null") {
           val s      = """{"type":"null"}"""
           val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-          assert(schema)(iszio.prelude.Validation.succeed(isStandardType(StandardType.UnitType)))
+          assert(schema.toEither)(isRight(isStandardType(StandardType.UnitType)))
         }
       ),
       test("encode/decode full adt test") {
@@ -1748,7 +1748,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
           //_ <- AvroCodec.encode(decoded) TODO: this fails
         } yield decoded
 
-        assert(decoded)(iszio.prelude.Validation.succeed(hasField("ast", _.ast, equalTo(initialSchemaDerived.ast))))
+        assert(decoded.toEither)(isRight(hasField("ast", _.ast, equalTo(initialSchemaDerived.ast))))
       } @@ TestAspect.ignore // TODO: FIX
     )
 }
@@ -1819,19 +1819,19 @@ object AssertionHelper {
       )
     )
 
-  def iszio.prelude.Validation[A, B](assertion: Assertion[Schema.zio.prelude.Validation[A, B]]): Assertion[Schema[_]] =
-    Assertion.isCase[Schema[_], Schema.zio.prelude.Validation[A, B]](
+  def isEither[A, B](assertion: Assertion[Schema.Either[A, B]]): Assertion[Schema[_]] =
+    Assertion.isCase[Schema[_], Schema.Either[A, B]](
       "Either", {
-        case r: Schema.zio.prelude.Validation[_, _] => Try { r.asInstanceOf[Schema.zio.prelude.Validation[A, B]] }.toOption
+        case r: Schema.Either[_, _] => Try { r.asInstanceOf[Schema.Either[A, B]] }.toOption
         case _                      => None
       },
       assertion
     )
 
-  def iszio.prelude.Validation[A, B](leftAssertion: Assertion[Schema[A]], rightAssertion: Assertion[Schema[B]]): Assertion[Schema[_]] =
-    iszio.prelude.Validation[A, B](
-      hasField[Schema.zio.prelude.Validation[A, B], Schema[A]]("left", _.left, leftAssertion) && hasField[
-        Schema.zio.prelude.Validation[A, B],
+  def isEither[A, B](leftAssertion: Assertion[Schema[A]], rightAssertion: Assertion[Schema[B]]): Assertion[Schema[_]] =
+    isEither[A, B](
+      hasField[Schema.Either[A, B], Schema[A]]("left", _.left, leftAssertion) && hasField[
+        Schema.Either[A, B],
         Schema[B]
       ]("right", _.right, rightAssertion)
     )
@@ -1859,7 +1859,7 @@ object AssertionHelper {
   def enumStructure(assertion: Assertion[ListMap[String, (Schema[_], Chunk[Any])]]): Assertion[Schema.Enum[_]] =
     Assertion.assertionRec("enumStructure")(assertion)(
       enum =>
-        Some(`enum`.cases.foldzio.prelude.Validation.succeed(ListMap.empty[String, (Schema[_], Chunk[Any])]) { (caseValue, acc) =>
+        Some(`enum`.cases.foldRight(ListMap.empty[String, (Schema[_], Chunk[Any])]) { (caseValue, acc) =>
           (acc + (caseValue.id -> scala.Tuple2(caseValue.schema, caseValue.annotations)))
         })
     )
@@ -2031,7 +2031,7 @@ object SpecTestData {
       // case class IterablesComplex(list: List[InnerRecord], map: Map[InnerRecord, Enum]) extends TopLevelUnion
     }
 
-    case class InnerRecord(s: String, union: Option[zio.prelude.Validation[String, Int]])
+    case class InnerRecord(s: String, union: Option[scala.Either[String, Int]])
 
     sealed trait Union
     case class NestedUnion(inner: InnerUnion) extends Union

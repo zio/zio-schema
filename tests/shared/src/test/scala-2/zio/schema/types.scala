@@ -156,7 +156,7 @@ object types {
     object RecursiveList {
       implicit lazy val schema: Schema[RecursiveList] = DeriveSchema.gen
     }
-    case class RecursiveEither(level: Long, r: zio.prelude.Validation[String, Recursive]) extends Recursive
+    case class RecursiveEither(level: Long, r: Either[String, Recursive]) extends Recursive
 
     object RecursiveEither {
       implicit lazy val schema: Schema[RecursiveEither] = DeriveSchema.gen
@@ -166,13 +166,13 @@ object types {
   }
 
   case class EitherVariants(
-    f1: zio.prelude.Validation[Option[String], Int],
-    f2: zio.prelude.Validation[List[String], String],
-    f3: zio.prelude.Validation[Option[Int], List[String]],
-    f4: zio.prelude.Validation[List[Option[Int]], Option[List[String]]],
-    f5: zio.prelude.Validation[zio.prelude.Validation[Int, String], Option[Int]],
-    f6: zio.prelude.Validation[Arities, Arities],
-    f7: zio.prelude.Validation[Recursive, Recursive]
+    f1: Either[Option[String], Int],
+    f2: Either[List[String], String],
+    f3: Either[Option[Int], List[String]],
+    f4: Either[List[Option[Int]], Option[List[String]]],
+    f5: Either[Either[Int, String], Option[Int]],
+    f6: Either[Arities, Arities],
+    f7: Either[Recursive, Recursive]
   )
 
   object EitherVariants {
@@ -182,7 +182,7 @@ object types {
   case class OptionVariants(
     f1: Option[Int],
     f2: Option[List[String]],
-    f3: Option[zio.prelude.Validation[String, Int]],
+    f3: Option[Either[String, Int]],
     f4: Option[Recursive],
     f5: Option[Arities]
   )
@@ -200,12 +200,12 @@ object types {
     f6: Chunk[Option[String]],
     f7: List[List[String]],
     f8: Chunk[Chunk[String]],
-    f9: List[zio.prelude.Validation[String, Int]],
-    f10: Chunk[zio.prelude.Validation[Option[String], Int]],
-    f11: List[zio.prelude.Validation[Option[String], List[Int]]],
-    f12: Chunk[zio.prelude.Validation[Option[String], List[Int]]],
-    f13: List[Option[zio.prelude.Validation[String, Chunk[Int]]]],
-    f14: Chunk[Option[zio.prelude.Validation[String, List[Int]]]],
+    f9: List[Either[String, Int]],
+    f10: Chunk[Either[Option[String], Int]],
+    f11: List[Either[Option[String], List[Int]]],
+    f12: Chunk[Either[Option[String], List[Int]]],
+    f13: List[Option[Either[String, Chunk[Int]]]],
+    f14: Chunk[Option[Either[String, List[Int]]]],
     f15: List[Arities],
     f16: Chunk[Arities],
     f17: List[Recursive],

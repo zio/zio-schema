@@ -1,40 +1,20 @@
 package zio.schema.codec
 
-import java.time.{
-  DayOfWeek,
-  Duration,
-  Instant,
-  LocalDate,
-  LocalDateTime,
-  LocalTime,
-  Month,
-  MonthDay,
-  OffsetDateTime,
-  OffsetTime,
-  Period,
-  Year,
-  YearMonth,
-  ZoneId,
-  ZoneOffset,
-  ZonedDateTime
-}
+import java.time.{DayOfWeek, Duration, Instant, LocalDate, LocalDateTime, LocalTime, Month, MonthDay, OffsetDateTime, OffsetTime, Period, Year, YearMonth, ZoneId, ZoneOffset, ZonedDateTime}
 import java.util
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
 import scala.util.Try
-
 import org.apache.thrift.TSerializable
-import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
-
+import org.apache.thrift.protocol.{TBinaryProtocol, TField, TType}
 import zio.schema.CaseSet.caseOf
-import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
-import zio.schema.codec.{ generated => g }
-import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
-import zio.stream.{ ZSink, ZStream }
+import zio.schema.annotation.{fieldDefaultValue, optionalField, transientField}
+import zio.schema.codec.{generated => g}
+import zio.schema.{CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId}
+import zio.stream.{ZSink, ZStream}
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, Console, Scope, Task, ZIO }
+import zio.{Chunk, Console, NonEmptyChunk, Scope, Task, ZIO}
 
 // TODO: use generators instead of manual encode/decode
 
@@ -465,7 +445,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
       },
       test("either right") {
-        val either = zio.prelude.Validation.succeed("hello")
+        val either = Right("hello")
         for {
           ed  <- encodeAndDecode(eitherSchema, either)
           ed2 <- encodeAndDecodeNS(eitherSchema, either)
@@ -479,8 +459,8 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk(eitherLeft))) && assert(ed2)(equalTo(eitherLeft))
       },
       test("either with sum type") {
-        val eitherRight  = zio.prelude.Validation.succeed(BooleanValue(true))
-        val eitherRight2 = zio.prelude.Validation.succeed(StringValue("hello"))
+        val eitherRight  = Right(BooleanValue(true))
+        val eitherRight2 = Right(StringValue("hello"))
         for {
           ed  <- encodeAndDecode(complexEitherSchema, eitherRight2)
           ed2 <- encodeAndDecodeNS(complexEitherSchema, eitherRight)
@@ -597,7 +577,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       test("either within either") {
-        val either = zio.prelude.Validation.succeed(Left(BooleanValue(true)))
+        val either = Right(Left(BooleanValue(true)))
         val schema = Schema.either(Schema[Int], Schema.either(schemaOneOf, Schema[String]))
         for {
           ed  <- encodeAndDecode(schema, either)
@@ -1020,12 +1000,12 @@ object ThriftCodecSpec extends ZIOSpecDefault {
 
   val complexTupleSchema: Schema.Tuple2[Record, OneOf] = Schema.Tuple2(Record.schemaRecord, schemaOneOf)
 
-  val eitherSchema: Schema.zio.prelude.Validation[Int, String] = Schema.Either(Schema[Int], Schema[String])
+  val eitherSchema: Schema.Either[Int, String] = Schema.Either(Schema[Int], Schema[String])
 
-  val complexEitherSchema: Schema.zio.prelude.Validation[Record, OneOf] =
+  val complexEitherSchema: Schema.Either[Record, OneOf] =
     Schema.Either(Record.schemaRecord, schemaOneOf)
 
-  val complexEitherSchema2: Schema.zio.prelude.Validation[MyRecord, MyRecord] =
+  val complexEitherSchema2: Schema.Either[MyRecord, MyRecord] =
     Schema.Either(myRecord, myRecord)
 
   case class RichProduct(stringOneOf: OneOf, basicString: BasicString, record: Record)
@@ -1131,8 +1111,8 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of decode
-  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
-    ZIO.succeed(ThriftCodec.thriftCodec(schema).decode(fromHex(hex))).absolve[DecodeError, A]
+  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, NonEmptyChunk[DecodeError], A] =
+    ZIO.succeed(ThriftCodec.thriftCodec(schema).decode(fromHex(hex)).toEither).absolve[NonEmptyChunk[DecodeError], A]
 
   def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ZStream
@@ -1149,20 +1129,22 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, DecodeError, A] =
+  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, NonEmptyChunk[DecodeError], A] =
     ZIO
       .succeed(input)
       .tap(value => Console.printLine(s"Input Value: $value").when(print).ignore)
       .map(a => ThriftCodec.thriftCodec(schema).encode(a))
       .tap(encoded => Console.printLine(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
       .map(ch => ThriftCodec.thriftCodec(schema).decode(ch))
+      .map(_.toEither)
       .absolve
 
-  def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, A] =
+  def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, NonEmptyChunk[DecodeError], A] =
     ZIO
       .succeed(input)
       .map(a => ThriftCodec.thriftCodec(encodeSchema).encode(a))
       .map(ch => ThriftCodec.thriftCodec(decodeSchema).decode(ch))
+      .map(_.toEither)
       .absolve
 
 }

@@ -28,7 +28,7 @@ object NodePath extends Subtype[Chunk[String]] {
 
     def partitionLeaf: (NodePath, Option[String]) =
       if (self.isEmpty) (self, None)
-      else (NodePath(self.dropzio.prelude.Validation.succeed(1)), Some(self.last))
+      else (NodePath(self.dropRight(1)), Some(self.last))
 
     def render: String =
       if (self.isEmpty)

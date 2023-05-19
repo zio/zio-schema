@@ -65,12 +65,12 @@ private[schema] class CachedDeriver[F[_]] private (deriver: Deriver[F], val cach
       deriver.deriveMap(map, key, value, summoned)
     }
 
-  override def derivezio.prelude.Validation[A, B](
-    either: Schema.zio.prelude.Validation[A, B],
+  override def deriveEither[A, B](
+    either: Schema.Either[A, B],
     left: => F[A],
     right: => F[B],
-    summoned: => Option[F[zio.prelude.Validation[A, B]]]
-  ): F[zio.prelude.Validation[A, B]] =
+    summoned: => Option[F[Either[A, B]]]
+  ): F[Either[A, B]] =
     cached(either) {
       deriver.deriveEither(either, left, right, summoned)
     }
@@ -121,7 +121,7 @@ private[schema] object CachedDeriver {
     final case class WithId[A](typeId: TypeId)                                                  extends CacheKey[A]
     final case class WithIdentityObject[A](inner: CacheKey[_], id: Any)                         extends CacheKey[A]
     final case class Optional[A](key: CacheKey[A])                                              extends CacheKey[A]
-    final case class zio.prelude.Validation[A, B](leftKey: CacheKey[A], rightKey: CacheKey[B])                  extends CacheKey[zio.prelude.Validation[A, B]]
+    final case class Either[A, B](leftKey: CacheKey[A], rightKey: CacheKey[B])                  extends CacheKey[Either[A, B]]
     final case class Tuple2[A, B](leftKey: CacheKey[A], rightKey: CacheKey[B])                  extends CacheKey[(A, B)]
     final case class Set[A](element: CacheKey[A])                                               extends CacheKey[Set[A]]
     final case class Map[K, V](key: CacheKey[K], valuew: CacheKey[V])                           extends CacheKey[Map[K, V]]
@@ -142,7 +142,7 @@ private[schema] object CachedDeriver {
         case optional: Schema.Optional[_]               => Optional(fromSchema(optional.schema)).asInstanceOf[CacheKey[A]]
         case tuple: Schema.Tuple2[_, _] =>
           Tuple2(fromSchema(tuple.left), fromSchema(tuple.right)).asInstanceOf[CacheKey[A]]
-        case either: Schema.zio.prelude.Validation[_, _] =>
+        case either: Schema.Either[_, _] =>
           Either(fromSchema(either.leftSchema), fromSchema(either.rightSchema)).asInstanceOf[CacheKey[A]]
         case Schema.Lazy(schema0) => fromSchema(schema0())
         case Schema.Dynamic(_)    => Misc(schema)

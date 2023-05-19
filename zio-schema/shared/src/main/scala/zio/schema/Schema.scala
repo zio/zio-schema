@@ -1,5 +1,7 @@
 package zio.schema
 
+import zio.prelude.Validation
+
 import java.net.{ URI, URL }
 import java.time.temporal.ChronoUnit
 import scala.annotation.tailrec
@@ -46,12 +48,12 @@ sealed trait Schema[A] {
   /**
    * A symbolic operator for [[orElseEither]].
    */
-  def <+>[B](that: Schema[B]): Schema[zio.prelude.Validation[A, B]] = self.orElseEither(that)
+  def <+>[B](that: Schema[B]): Schema[Either[A, B]] = self.orElseEither(that)
 
   /**
    * The default value for a `Schema` of type `A`.
    */
-  def defaultValue: zio.prelude.Validation[String, A]
+  def defaultValue: Validation[String, A]
 
   /**
    * Chunk of annotations for this schema
@@ -71,7 +73,7 @@ sealed trait Schema[A] {
    *  This can be used to e.g convert between a case class and it's
    *  "generic" representation as a ListMap[String,_]
    */
-  def coerce[B](newSchema: Schema[B]): zio.prelude.Validation[String, Schema[B]] =
+  def coerce[B](newSchema: Schema[B]): Validation[String, Schema[B]] =
     for {
       f <- self.migrate(newSchema)
       g <- newSchema.migrate(self)
@@ -87,9 +89,9 @@ sealed trait Schema[A] {
   /**
    * Patch value with a Patch.
    */
-  def patch(oldValue: A, diff: Patch[A]): prelude.Validation[String, A] = diff.patch(oldValue)
+  def patch(oldValue: A, diff: Patch[A]): Validation[String, A] = diff.patch(oldValue)
 
-  def fromDynamic(value: DynamicValue): zio.prelude.Validation[String, A] =
+  def fromDynamic(value: DynamicValue): Validation[String, A] =
     value.toTypedValue(self)
 
   def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal]
@@ -97,7 +99,7 @@ sealed trait Schema[A] {
   /**
    *  Generate a homomorphism from A to B iff A and B are homomorphic
    */
-  def migrate[B](newSchema: Schema[B]): zio.prelude.Validation[String, A => zio.prelude.Validation[String, B]] =
+  def migrate[B](newSchema: Schema[B]): Validation[String, A => Validation[String, B]] =
     Migration.derive(MetaSchema.fromSchema(self), MetaSchema.fromSchema(newSchema)).map { transforms => (a: A) =>
       self.toDynamic(a).transform(transforms).flatMap(newSchema.fromDynamic)
     }
@@ -136,8 +138,8 @@ sealed trait Schema[A] {
   def transform[B](f: A => B, g: B => A)(implicit loc: SourceLocation): Schema[B] =
     Schema.Transform[A, B, SourceLocation](
       self,
-      a => prelude.Validation.succeed(f(a)),
-      b => prelude.Validation.succeed(g(b)),
+      a => Validation.succeed(f(a)),
+      b => Validation.succeed(g(b)),
       annotations,
       loc
     )
@@ -146,12 +148,12 @@ sealed trait Schema[A] {
    * Transforms this `Schema[A]` into a `Schema[B]`, by supplying two functions that can transform
    * between `A` and `B` (possibly failing in some cases).
    */
-  def transformOrFail[B](f: A => prelude.Validation[String, B], g: B => prelude.Validation[String, A])(
+  def transformOrFail[B](f: A => Validation[String, B], g: B => Validation[String, A])(
     implicit loc: SourceLocation
   ): Schema[B] =
     Schema.Transform[A, B, SourceLocation](self, f, g, annotations, loc)
 
-  def validate(value: A)(implicit schema: Schema[A]): Chunk[ValidationError] = Schema.validate[A](value)
+  def validate(value: A)(implicit schema: Schema[A]): Chunk[SchemaValidationError] = Schema.validate[A](value)
 
   /**
    * Returns a new schema that combines this schema and the specified schema together, modeling
@@ -191,16 +193,17 @@ object Schema extends SchemaEquality {
 
   def singleton[A](instance: A): Schema[A] = Schema[Unit].transform(_ => instance, _ => ())
 
-  def validate[A](value: A)(implicit schema: Schema[A]): Chunk[ValidationError] = {
-    def loop[A](value: A, schema: Schema[A]): Chunk[ValidationError] =
+  def validate[A](value: A)(implicit schema: Schema[A]): Chunk[SchemaValidationError] = {
+    def loop[A](value: A, schema: Schema[A]): Chunk[SchemaValidationError] =
       schema match {
         case Sequence(schema, _, toChunk, _, _) =>
           toChunk(value).flatMap(value => loop(value, schema))
         case Transform(schema, _, g, _, _) =>
-          g(value) match {
-            case zio.prelude.Validation.succeed(value) => loop(value, schema)
-            case Left(error)                           => Chunk(ValidationError.Generic(error))
-          }
+          g(value)
+            .mapError(SchemaValidationError.Generic)
+            .map(value => loop(value, schema))
+            .fold(a => a.toChunk, a => a)
+
         case Primitive(_, _) => Chunk.empty
         case optional @ Optional(schema, _) =>
           value.asInstanceOf[Option[optional.OptionalType]] match {
@@ -228,19 +231,19 @@ object Schema extends SchemaEquality {
           }
           record.fields
             .zip(fieldValues)
-            .foldLeft[Chunk[ValidationError]](Chunk.empty) {
+            .foldLeft[Chunk[SchemaValidationError]](Chunk.empty) {
               case (acc, (field, fieldValue)) =>
-                val validation = field.validation.asInstanceOf[Validation[Any]]
-                validation.validate(fieldValue).swap.getOrElse(Chunk.empty) ++ acc ++ loop(
+                val validation = field.validation.asInstanceOf[SchemaValidation[Any]]
+                validation.validate(fieldValue).toEither.swap.map(_.toChunk).getOrElse(Chunk.empty) ++ acc ++ loop(
                   fieldValue,
                   field.schema.asInstanceOf[Schema[Any]]
                 )
             }
             .reverse
         case either @ Schema.Either(left, right, _) =>
-          value.asInstanceOf[zio.prelude.Validation[either.LeftType, either.RightType]] match {
-            case Left(value)                           => loop(value, left)
-            case zio.prelude.Validation.succeed(value) => loop(value, right)
+          value.asInstanceOf[scala.Either[either.LeftType, either.RightType]] match {
+            case Left(value)  => loop(value, left)
+            case Right(value) => loop(value, right)
           }
         case Dynamic(_) => Chunk.empty
         case Fail(_, _) => Chunk.empty
@@ -267,7 +270,7 @@ object Schema extends SchemaEquality {
       case "NANOS"     => zio.prelude.Validation.succeed(ChronoUnit.NANOS)
       case "WEEKS"     => zio.prelude.Validation.succeed(ChronoUnit.WEEKS)
       case "YEARS"     => zio.prelude.Validation.succeed(ChronoUnit.YEARS)
-      case _           => Left("Failed")
+      case _           => Validation.fail("Failed")
     }, {
       case ChronoUnit.SECONDS   => zio.prelude.Validation.succeed("SECONDS")
       case ChronoUnit.CENTURIES => zio.prelude.Validation.succeed("CENTURIES")
@@ -282,7 +285,7 @@ object Schema extends SchemaEquality {
       case ChronoUnit.NANOS     => zio.prelude.Validation.succeed("NANOS")
       case ChronoUnit.WEEKS     => zio.prelude.Validation.succeed("WEEKS")
       case ChronoUnit.YEARS     => zio.prelude.Validation.succeed("YEARS")
-      case _                    => Left("Failed")
+      case _                    => Validation.fail("Failed")
     }
   )
 
@@ -322,7 +325,7 @@ object Schema extends SchemaEquality {
       string =>
         try {
           zio.prelude.Validation.succeed(new URL(string))
-        } catch { case _: Exception => Left(s"Invalid URL: $string") },
+        } catch { case _: Exception => Validation.fail(s"Invalid URL: $string") },
       url => zio.prelude.Validation.succeed(url.toString)
     )
 
@@ -336,20 +339,19 @@ object Schema extends SchemaEquality {
       string =>
         try {
           zio.prelude.Validation.succeed(new URI(string))
-        } catch { case _: Exception => Left(s"Invalid URI: $string") },
+        } catch { case _: Exception => Validation.fail(s"Invalid URI: $string") },
       uri => zio.prelude.Validation.succeed(uri.toString)
     )
 
   implicit def standardSchema[A]: Schema[StandardType[A]] = Schema[String].transformOrFail[StandardType[A]](
     string =>
-      StandardType
-        .fromString(string)
-        .asInstanceOf[Option[StandardType[A]]]
-        .tozio
-        .prelude
-        .Validation
-        .succeed(s"Invalid StandardType tag ${string}"),
-    standardType => zio.prelude.Validation.succeed(standardType.tag)
+      Validation.fromEither(
+        StandardType
+          .fromString(string)
+          .asInstanceOf[Option[StandardType[A]]]
+          .toRight(s"Invalid StandardType tag ${string}")
+      ),
+    standardType => Validation.succeed(standardType.tag)
   )
 
   sealed trait Enum[Z] extends Schema[Z] {
@@ -372,7 +374,7 @@ object Schema extends SchemaEquality {
     def name: Field
     def schema: Schema[A]
     def annotations: Chunk[Any]
-    def validation: Validation[A]
+    def validation: SchemaValidation[A]
     def get: R => A
     def set: (R, A) => R
 
@@ -389,23 +391,25 @@ object Schema extends SchemaEquality {
       name0: String,
       schema0: Schema[A],
       annotations0: Chunk[Any] = Chunk.empty,
-      validation0: Validation[A] = Validation.succeed[A],
+      validation0: SchemaValidation[A] = SchemaValidation.succeed[A],
       get0: R => A,
       set0: (R, A) => R
     ): Field[R, A] = new Field[R, A] {
 
       override type Field = name0.type
 
-      def name: Field               = name0.asInstanceOf[Field]
-      def schema: Schema[A]         = schema0
-      def annotations: Chunk[Any]   = annotations0
-      def validation: Validation[A] = validation0
-      def get: R => A               = get0
-      def set: (R, A) => R          = set0
+      def name: Field                     = name0.asInstanceOf[Field]
+      def schema: Schema[A]               = schema0
+      def annotations: Chunk[Any]         = annotations0
+      def validation: SchemaValidation[A] = validation0
+      def get: R => A                     = get0
+      def set: (R, A) => R                = set0
     }
 
-    def unapply[R, A](field: Field[R, A]): Some[(String, Schema[A], Chunk[Any], Validation[A], R => A, (R, A) => R)] =
-      Some[(String, Schema[A], Chunk[Any], Validation[A], R => A, (R, A) => R)](
+    def unapply[R, A](
+      field: Field[R, A]
+    ): Some[(String, Schema[A], Chunk[Any], SchemaValidation[A], R => A, (R, A) => R)] =
+      Some[(String, Schema[A], Chunk[Any], SchemaValidation[A], R => A, (R, A) => R)](
         (field.name, field.schema, field.annotations, field.validation, field.get, field.set)
       )
   }
@@ -418,25 +422,19 @@ object Schema extends SchemaEquality {
 
     def fields: Chunk[Field[R, _]]
 
-    def construct(fieldValues: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, R]
+    def construct(fieldValues: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, R]
 
     def deconstruct(value: R)(implicit unsafe: Unsafe): Chunk[Any]
 
     def id: TypeId
 
-    def defaultValue: zio.prelude.Validation[String, R] =
+    def defaultValue: Validation[String, R] =
       Unsafe.unsafe { implicit unsafe =>
         zio.prelude.Validation
           .validateAll(
             self.fields
               .map(_.schema.defaultValue)
           )
-          .foldLeft[zio.prelude.Validation[String, Chunk[R]]](zio.prelude.Validation.succeed(Chunk.empty)) {
-            case (e @ Left(_), _) => e
-            case (_, Left(e))     => Left[String, Chunk[R]](e)
-            case (zio.prelude.Validation.succeed(values), zio.prelude.Validation.succeed(value)) =>
-              Right[String, Chunk[R]](values :+ value.asInstanceOf[R])
-          }
           .flatMap(self.construct)
       }
   }
@@ -455,7 +453,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Sequence[Col, Elem, I] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Col] =
+    override def defaultValue: Validation[String, Col] =
       elementSchema.defaultValue.map(fromChunk.compose(Chunk(_)))
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, elementSchema)
@@ -466,14 +464,14 @@ object Schema extends SchemaEquality {
 
   final case class Transform[A, B, I](
     schema: Schema[A],
-    f: A => prelude.Validation[String, B],
-    g: B => prelude.Validation[String, A],
+    f: A => Validation[String, B],
+    g: B => Validation[String, A],
     annotations: Chunk[Any],
     identity: I
   ) extends Schema[B] {
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = schema.Accessors[Lens, Prism, Traversal]
 
-    def defaultValue: zio.prelude.Validation[String, B] = schema.defaultValue.flatMap(f)
+    def defaultValue: Validation[String, B] = schema.defaultValue.flatMap(f)
 
     override def makeAccessors(b: AccessorBuilder): schema.Accessors[b.Lens, b.Prism, b.Traversal] =
       schema.makeAccessors(b)
@@ -499,7 +497,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Primitive[A] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, A] = standardType.defaultValue
+    override def defaultValue: Validation[String, A] = standardType.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
@@ -540,7 +538,7 @@ object Schema extends SchemaEquality {
       Chunk.empty
     )
 
-    def defaultValue: zio.prelude.Validation[String, Option[A]] = zio.prelude.Validation.succeed(None)
+    def defaultValue: Validation[String, Option[A]] = zio.prelude.Validation.succeed(None)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -554,7 +552,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Fail[A] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, A] = Left(message)
+    override def defaultValue: Validation[String, A] = Validation.fail(message)
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
@@ -578,7 +576,7 @@ object Schema extends SchemaEquality {
       annotations
     )
 
-    override def defaultValue: zio.prelude.Validation[String, (A, B)] =
+    override def defaultValue: Validation[String, (A, B)] =
       left.defaultValue.flatMap(a => right.defaultValue.map(b => (a, b)))
 
     override def makeAccessors(b: AccessorBuilder): (b.Lens[first.type, (A, B), A], b.Lens[second.type, (A, B), B]) =
@@ -628,15 +626,11 @@ object Schema extends SchemaEquality {
       Chunk.empty
     )
 
-    override def defaultValue: scala.util.Either[String, scala.util.Either[A, B]] =
-      left.defaultValue match {
-        case Right(a) => Right(Left(a))
-        case _ =>
-          right.defaultValue match {
-            case Right(b) => Right(Right(b))
-            case _        => Left("unable to extract default value for Either")
-          }
-      }
+    override def defaultValue: Validation[String, scala.util.Either[A, B]] =
+      left.defaultValue
+        .map(Left(_))
+        .orElse(right.defaultValue.map(Right(_)))
+        .mapError(e => s"unable to extract default value for Either: ${e}")
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -655,7 +649,7 @@ object Schema extends SchemaEquality {
 
     lazy val schema: Schema[A] = schema0()
 
-    def defaultValue: zio.prelude.Validation[String, A] = schema.defaultValue
+    def defaultValue: Validation[String, A] = schema.defaultValue
 
     override def makeAccessors(b: AccessorBuilder): schema.Accessors[b.Lens, b.Prism, b.Traversal] =
       schema.makeAccessors(b)
@@ -676,7 +670,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Map[K, V] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, scala.collection.immutable.Map[K, V]] =
+    override def defaultValue: Validation[String, scala.collection.immutable.Map[K, V]] =
       keySchema.defaultValue.flatMap(
         defaultKey =>
           valueSchema.defaultValue.map(defaultValue => scala.collection.immutable.Map(defaultKey -> defaultValue))
@@ -697,7 +691,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Set[A] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, scala.collection.immutable.Set[A]] =
+    override def defaultValue: Validation[String, scala.collection.immutable.Set[A]] =
       elementSchema.defaultValue.map(scala.collection.immutable.Set(_))
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[scala.collection.immutable.Set[A], A] =
@@ -712,7 +706,7 @@ object Schema extends SchemaEquality {
     /**
      * The default value for a `Schema` of type `A`.
      */
-    override def defaultValue: zio.prelude.Validation[String, DynamicValue] =
+    override def defaultValue: Validation[String, DynamicValue] =
       zio.prelude.Validation.succeed(DynamicValue.NoneValue)
 
     /**
@@ -749,7 +743,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum1[A, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): b.Prism[case1.id.type, Z, A] = b.makePrism(self, case1)
 
@@ -769,7 +763,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum2[A1, A2, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (b.Prism[case1.id.type, Z, A1], b.Prism[case2.id.type, Z, A2]) =
       (b.makePrism(self, case1), b.makePrism(self, case2))
@@ -790,7 +784,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum3[A1, A2, A3, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -819,7 +813,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum4[A1, A2, A3, A4, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -853,7 +847,7 @@ object Schema extends SchemaEquality {
 
     override def annotate(annotation: Any): Enum5[A1, A2, A3, A4, A5, Z] = copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -899,7 +893,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum6[A1, A2, A3, A4, A5, A6, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -949,7 +943,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum7[A1, A2, A3, A4, A5, A6, A7, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1001,7 +995,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum8[A1, A2, A3, A4, A5, A6, A7, A8, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1056,7 +1050,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1115,7 +1109,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1191,7 +1185,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1273,7 +1267,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1372,7 +1366,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1477,7 +1471,7 @@ object Schema extends SchemaEquality {
     override def annotate(annotation: Any): Enum14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1590,7 +1584,7 @@ object Schema extends SchemaEquality {
     ): Enum15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1709,7 +1703,7 @@ object Schema extends SchemaEquality {
     ): Enum16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1834,7 +1828,7 @@ object Schema extends SchemaEquality {
     ): Enum17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -1965,7 +1959,7 @@ object Schema extends SchemaEquality {
     ): Enum18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -2102,7 +2096,7 @@ object Schema extends SchemaEquality {
     ): Enum19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -2245,7 +2239,7 @@ object Schema extends SchemaEquality {
     ): Enum20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(b: AccessorBuilder): (
       b.Prism[case1.id.type, Z, A1],
@@ -2394,7 +2388,7 @@ object Schema extends SchemaEquality {
     ): Enum21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -2551,7 +2545,7 @@ object Schema extends SchemaEquality {
     ): Enum22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z] =
       copy(annotations = annotations :+ annotation)
 
-    override def defaultValue: zio.prelude.Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
+    override def defaultValue: Validation[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
     override def makeAccessors(
       b: AccessorBuilder
@@ -2640,11 +2634,11 @@ object Schema extends SchemaEquality {
 
     override def cases: Chunk[Case[Z, _]] = Chunk(caseSet.toSeq: _*)
 
-    def defaultValue: zio.prelude.Validation[String, Z] =
+    def defaultValue: Validation[String, Z] =
       if (caseSet.toSeq.isEmpty)
-        Left("cannot access default value for enum with no members")
+        Validation.fail("cannot access default value for enum with no members")
       else
-        caseSet.toSeq.head.schema.defaultValue.asInstanceOf[zio.prelude.Validation[String, Z]]
+        caseSet.toSeq.head.schema.defaultValue.asInstanceOf[Validation[String, Z]]
 
     override def makeAccessors(b: AccessorBuilder): caseSet.Accessors[Z, b.Lens, b.Prism, b.Traversal] =
       caseSet.makeAccessors(self, b)
@@ -3324,11 +3318,11 @@ object Schema extends SchemaEquality {
 
     override def construct(
       values: Chunk[Any]
-    )(implicit unsafe: Unsafe): zio.prelude.Validation[String, ListMap[String, _]] =
+    )(implicit unsafe: Unsafe): Validation[String, ListMap[String, _]] =
       if (values.size == fields.size)
         zio.prelude.Validation.succeed(ListMap(fields.map(_.name).zip(values): _*))
       else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(values: ListMap[String, _])(implicit unsafe: Unsafe): Chunk[Any] =
       Chunk.fromIterable(fields.map(f => values(f.name)))
@@ -3353,14 +3347,14 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk.empty
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.isEmpty)
         try {
           zio.prelude.Validation.succeed(defaultConstruct())
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(value)
 
@@ -3404,14 +3398,14 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 1)
         try {
           zio.prelude.Validation.succeed(defaultConstruct(values(0).asInstanceOf[A]))
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(field.get(value))
     override def toString: String                                           = s"CaseClass1(${fields.mkString(",")})"
@@ -3471,14 +3465,14 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 2)
         try {
           zio.prelude.Validation.succeed(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2]))
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
       Chunk(field1.get(value), field2.get(value))
@@ -3551,15 +3545,15 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 3)
         try {
           zio.prelude.Validation
             .succeed(construct(values(0).asInstanceOf[A1], values(1).asInstanceOf[A2], values(2).asInstanceOf[A3]))
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
       Chunk(field1.get(value), field2.get(value), field3.get(value))
@@ -3647,7 +3641,7 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 4)
         try {
           zio.prelude.Validation.succeed(
@@ -3659,9 +3653,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
       Chunk(field1.get(value), field2.get(value), field3.get(value), field4.get(value))
@@ -3767,7 +3761,7 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 5)
         try {
           zio.prelude.Validation.succeed(
@@ -3780,9 +3774,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -3920,7 +3914,7 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 6)
         try {
           zio.prelude.Validation.succeed(
@@ -3934,9 +3928,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -4093,7 +4087,7 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6, field7)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 7)
         try {
           zio.prelude.Validation.succeed(
@@ -4108,9 +4102,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -4299,7 +4293,7 @@ object Schema extends SchemaEquality {
 
     override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6, field7, field8)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 8)
         try {
           zio.prelude.Validation.succeed(
@@ -4315,9 +4309,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -4522,7 +4516,7 @@ object Schema extends SchemaEquality {
     override def fields: Chunk[Field[Z, _]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9)
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 9)
         try {
           zio.prelude.Validation.succeed(
@@ -4539,9 +4533,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -4783,7 +4777,7 @@ object Schema extends SchemaEquality {
         field10
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 10)
         try {
           zio.prelude.Validation.succeed(
@@ -4801,9 +4795,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -5066,7 +5060,7 @@ object Schema extends SchemaEquality {
         field11
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 11)
         try {
           zio.prelude.Validation.succeed(
@@ -5085,9 +5079,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -5368,7 +5362,7 @@ object Schema extends SchemaEquality {
         field12
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 12)
         try {
           zio.prelude.Validation.succeed(
@@ -5388,9 +5382,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -5689,7 +5683,7 @@ object Schema extends SchemaEquality {
         field13
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 13)
         try {
           zio.prelude.Validation.succeed(
@@ -5710,9 +5704,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -6029,7 +6023,7 @@ object Schema extends SchemaEquality {
         field14
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 14)
         try {
           zio.prelude.Validation.succeed(
@@ -6051,9 +6045,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -6389,7 +6383,7 @@ object Schema extends SchemaEquality {
         field15
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 15)
         try {
           zio.prelude.Validation.succeed(
@@ -6412,9 +6406,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -6770,7 +6764,7 @@ object Schema extends SchemaEquality {
         field16
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 16)
         try {
           zio.prelude.Validation.succeed(
@@ -6794,9 +6788,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -7170,7 +7164,7 @@ object Schema extends SchemaEquality {
         field17
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 17)
         try {
           zio.prelude.Validation.succeed(
@@ -7195,9 +7189,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -7589,7 +7583,7 @@ object Schema extends SchemaEquality {
         field18
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 18)
         try {
           zio.prelude.Validation.succeed(
@@ -7615,9 +7609,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -8029,7 +8023,7 @@ object Schema extends SchemaEquality {
         field19
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 19)
         try {
           zio.prelude.Validation.succeed(
@@ -8056,9 +8050,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -8488,7 +8482,7 @@ object Schema extends SchemaEquality {
         field20
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 20)
         try {
           zio.prelude.Validation.succeed(
@@ -8516,9 +8510,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -8987,7 +8981,7 @@ object Schema extends SchemaEquality {
         field21
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 21)
         try {
           zio.prelude.Validation.succeed(
@@ -9016,9 +9010,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),
@@ -9552,7 +9546,7 @@ object Schema extends SchemaEquality {
         field22
       )
 
-    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): zio.prelude.Validation[String, Z] =
+    override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): Validation[String, Z] =
       if (values.size == 22)
         try {
           zio.prelude.Validation.succeed(
@@ -9582,9 +9576,9 @@ object Schema extends SchemaEquality {
             )
           )
         } catch {
-          case _: Throwable => Left("invalid type in values")
+          case e: Throwable => Validation.fail(s"invalid type in values: [$e]")
         } else
-        Left(s"wrong number of values for $fields")
+        Validation.fail(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
       field1.get(value),

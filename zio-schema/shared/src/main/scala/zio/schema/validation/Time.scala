@@ -37,9 +37,9 @@ trait Time {
    * 1:10:30
    *
    */
-  def time(format: String): Validation[String] = {
+  def time(format: String): SchemaValidation[String] = {
     val regex = parseFormat(format)
-    Validation.regex(regex)
+    SchemaValidation.regex(regex)
   }
 
   sealed private trait Field

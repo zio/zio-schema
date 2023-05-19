@@ -1,6 +1,7 @@
 package zio.schema
 
 import zio.Chunk
+import zio.prelude.Validation
 
 object TestData {
 
@@ -48,14 +49,14 @@ object TestData {
 
   val uuidSchema: Schema[java.util.UUID] = Schema.Primitive(StandardType.UUIDType)
 
-  val eitherSchema: Schema[zio.prelude.Validation[String, Unit]] = Schema.Either(stringSchema, unitSchema)
+  val eitherSchema: Schema[Either[String, Unit]] = Schema.Either(stringSchema, unitSchema)
   val tupleSchema: Schema[(String, Unit)]        = Schema.Tuple2(stringSchema, unitSchema)
   val listSchema: Schema[List[Int]]              = Schema.list(intSchema)
   val mapSchema: Schema[Map[Int, String]]        = Schema.map(intSchema, stringSchema)
   val optionalSchema: Schema[Option[Int]]        = Schema.Optional(intSchema)
 
   val transformSchema: Schema[String] =
-    intSchema.transformOrFail[String]((int: Int) => zio.prelude.Validation.succeed(int.toString), (_: String) => Left("error"))
+    intSchema.transformOrFail[String]((int: Int) => Validation.succeed(int.toString), (_: String) => Validation.fail("error"))
   val failSchema: Schema[Unit] = Schema.Fail[Unit]("failed")
   val lazySchema: Schema[Int]  = Schema.Lazy(() => intSchema)
 

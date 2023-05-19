@@ -15,8 +15,7 @@ sealed trait DynamicValue {
 
   def transform(transforms: Chunk[Migration]): zio.prelude.Validation[String, DynamicValue] =
     transforms.foldRight[zio.prelude.Validation[String, DynamicValue]](zio.prelude.Validation.succeed(self)) {
-      case (transform, zio.prelude.Validation.succeed(value)) => transform.migrate(value)
-      case (_, error @ Left(_))      => error
+      case (transform, result) => result.flatMap(transform.migrate)
     }
 
   def toTypedValue[A](implicit schema: Schema[A]): Validation[String, A] =
@@ -41,8 +40,8 @@ sealed trait DynamicValue {
           .map(m => Chunk.fromIterable(m.values))
           .flatMap(
             values =>
-              Validation
-                .fromEither(s.construct(values)(Unsafe.unsafe).left.map(err => DecodeError.MalformedField(s, err)))
+              s.construct(values)(Unsafe.unsafe)
+                .mapError(err => DecodeError.MalformedField(s, err))
           )
 
       case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
@@ -56,7 +55,7 @@ sealed trait DynamicValue {
         value.toTypedValueLazyError(schema1).map(Left(_))
 
       case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
-        value.toTypedValueLazyError(schema1).map(zio.prelude.Validation.succeed(_))
+        value.toTypedValueLazyError(schema1).map(Right(_))
 
       case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
         val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
@@ -86,7 +85,7 @@ sealed trait DynamicValue {
       case (value, Schema.Transform(schema, f, _, _, _)) =>
         value
           .toTypedValueLazyError(schema)
-          .flatMap(value => Validation.fromEither(f(value).left.map(err => DecodeError.MalformedField(schema, err))))
+          .flatMap(value => f(value).mapError(err => DecodeError.MalformedField(schema, err)))
 
       case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
         Validation
@@ -143,12 +142,12 @@ object DynamicValue {
       DynamicValue.SetValue(value)
 
     override protected def processEither(
-      schema: Schema.zio.prelude.Validation[_, _],
-      value: zio.prelude.Validation[DynamicValue, DynamicValue]
+      schema: Schema.Either[_, _],
+      value: Either[DynamicValue, DynamicValue]
     ): DynamicValue =
       value match {
         case Left(value)  => DynamicValue.LeftValue(value)
-        case zio.prelude.Validation.succeed(value) => DynamicValue.RightValue(value)
+        case Right(value) => DynamicValue.RightValue(value)
       }
 
     override protected def processOption(schema: Schema.Optional[_], value: Option[DynamicValue]): DynamicValue =
@@ -491,7 +490,7 @@ object DynamicValue {
             "values",
             Schema.defer(Schema.chunk(Schema.tuple2(Schema.primitive[String], DynamicValue.schema))),
             get0 = record => Chunk.fromIterable(record.values),
-            set0 = (record, values) => record.copy(values = values.foldzio.prelude.Validation.succeed(ListMap.empty[String, DynamicValue])((a, b) => b + a))
+            set0 = (record, values) => record.copy(values = values.foldRight(ListMap.empty[String, DynamicValue])((a, b) => b + a))
           ),
         (id, chunk) => DynamicValue.Record(id, ListMap(chunk.toSeq: _*))
       ),

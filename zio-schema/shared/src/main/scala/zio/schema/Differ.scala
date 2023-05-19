@@ -57,8 +57,8 @@ trait Differ[A] { self =>
     case (Some(l), Some(r)) =>
       Patch.Transform[A, Option[A]](
         self(l, r),
-        (a: A) => Validation(Some(a)),
-        (a: Option[A]) => a.map(zio.prelude.Validation.succeed(_)).getOrElse(Left("Patch cannot be applied to None value"))
+        (a: A) => Validation.succeed(Some(a)),
+        (a: Option[A]) => Validation.fromOptionWith("Patch cannot be applied to None value")(a)
       )
     case (Some(_), None) => Patch.Total(None)
     case (None, Some(r)) => Patch.Total(Some(r))
@@ -520,11 +520,11 @@ object Differ {
     (thisValue: (A, B), thatValue: (A, B)) =>
       (thisValue, thatValue) match {
         case ((thisA, thisB), (thatA, thatB)) =>
-          left(thisA, thatA) <*> zio.prelude.Validation.succeed(thisB, thatB)
+          left(thisA, thatA) <*> right(thisB, thatB)
       }
 
-  def either[A, B](left: Differ[A], right: Differ[B]): Differ[Either[A, B]] =
-    instancePartial[Either[A, B]] {
+  def either[A, B](left: Differ[A], right: Differ[B]): Differ[scala.Either[A, B]] =
+    instancePartial[scala.Either[A, B]] {
       case (Left(l), Left(r))   => Patch.EitherDiff(Left(left(l, r)))
       case (Right(l), Right(r)) => Patch.EitherDiff(Right(right(l, r)))
     }

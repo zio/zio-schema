@@ -1,12 +1,13 @@
 package zio.schema.codec
 
-import java.math.{ BigInteger, MathContext }
-import java.time._
+import zio.prelude.Validation
 
+import java.math.{BigInteger, MathContext}
+import java.time._
 import zio.schema.codec.DecodeError.ReadError
-import zio.schema.{ Schema, StandardType }
+import zio.schema.{Schema, StandardType}
 import zio.stream.ZPipeline
-import zio.{ Cause, Chunk, ZIO }
+import zio.{Cause, Chunk, ZIO}
 
 object MessagePackCodec {
   implicit def messagePackCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
@@ -14,9 +15,9 @@ object MessagePackCodec {
       override def encode(a: A): Chunk[Byte] =
         new MessagePackEncoder().encode(schema, a)
 
-      override def decode(bytes: Chunk[Byte]): zio.prelude.Validation[DecodeError, A] =
+      override def decode(bytes: Chunk[Byte]): Validation[DecodeError, A] =
         if (bytes.isEmpty)
-          Left(ReadError(Cause.empty, "No bytes to decode"))
+          Validation.fail(ReadError(Cause.empty, "No bytes to decode"))
         else
           decodeChunk(bytes)
 
@@ -30,15 +31,16 @@ object MessagePackCodec {
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
         ZPipeline.mapChunksZIO { chunk =>
           ZIO.fromEither(
-            decodeChunk(chunk).map(Chunk(_))
+            //FIXME??
+            decodeChunk(chunk).map(Chunk(_)).toEither.left.map(_.head)
           )
         }
 
       private def decodeChunk(chunk: Chunk[Byte]) =
         new MessagePackDecoder(chunk)
           .decode(schema)
-          .left
-          .map(identity)
+//          .left
+//          .map(identity)
     }
 
   //TODO those are duplicates from ThriftCodec

@@ -7,17 +7,12 @@ object SchemaAssertions {
 
   def migratesTo[A: Schema, B: Schema](expected: B): Assertion[A] =
     Assertion.assertion("migratesTo") { value =>
-      value.migrate[B] match {
-        case Left(_)                   => false
-        case zio.prelude.Validation.succeed(m) if m != expected => false
-        case _ =>
-          true
-      }
+      value.migrate[B].fold(_ => false, _ == expected)
     }
 
   def cannotMigrateValue[A: Schema, B: Schema]: Assertion[A] =
     Assertion.assertion("cannotMigrateTo") { value =>
-      value.migrate[B].isLeft
+      value.migrate[B].toEither.isLeft
     }
 
   def hasSameSchema(expected: Schema[_]): Assertion[Schema[_]] =

@@ -95,20 +95,20 @@ object OrderingSpec extends ZIOSpecDefault {
       (l, r)      <- genOrderedPairEither(leftSchema, rightSchema)
     } yield (Schema.Either(leftSchema, rightSchema), l, r).asInstanceOf[SchemaAndPair[zio.prelude.Validation[_, _]]]
 
-  def genOrderedPairzio.prelude.Validation[A, B](
+  def genOrderedPairEither[A, B](
     lSchema: Schema[A],
     rSchema: Schema[B]
-  ): Gen[Sized, (zio.prelude.Validation[A, B], zio.prelude.Validation[A, B])] = Gen.oneOf(
+  ): Gen[Sized, (Either[A, B], Either[A, B])] = Gen.oneOf(
     for {
       (small, large) <- genOrderedPair(lSchema)
     } yield (Left(small), Left(large)),
     for {
       (small, large) <- genOrderedPair(rSchema)
-    } yield (zio.prelude.Validation.succeed(small), zio.prelude.Validation.succeed(large)),
+    } yield (Right(small), Right(large)),
     for {
       l <- genFromSchema(lSchema)
       r <- genFromSchema(rSchema)
-    } yield (Left(l), zio.prelude.Validation.succeed(r))
+    } yield (Left(l), Right(r))
   )
 
   def genAnyOrderedPairTuple: Gen[Sized, SchemaAndPair[_]] =

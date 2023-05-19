@@ -3,14 +3,14 @@ package zio.schema
 import zio._
 import zio.schema.Schema._
 import zio.schema.annotation.validate
-import zio.schema.validation.{ Validation, ValidationError }
+import zio.schema.validation.{ SchemaValidation, SchemaValidationError }
 import zio.test._
 
-object SchemaValidationSpec extends ZIOSpecDefault {
+object SchemaSchemaValidationSpec$ extends ZIOSpecDefault {
   import Assertion._
 
   final case class ExampleData(
-    either: zio.prelude.Validation[Person, Person] = zio.prelude.Validation.succeed(goodData),
+    either: scala.Either[Person, Person] = Right(goodData),
     option: Option[Person] = None,
     list: List[Person] = goodData :: Nil,
     tuple: scala.Tuple2[Person, Person] = (goodData, goodData),
@@ -29,17 +29,17 @@ object SchemaValidationSpec extends ZIOSpecDefault {
   final case class Wrapper(person: Person)
 
   implicit val schema
-    : CaseClass6[zio.prelude.Validation[Person, Person], Option[Person], List[Person], (Person, Person), Wrapper, EnumData, ExampleData] =
+    : CaseClass6[scala.Either[Person, Person], Option[Person], List[Person], (Person, Person), Wrapper, EnumData, ExampleData] =
     DeriveSchema.gen[ExampleData]
 
   val badData: Person  = Person("foo", 123123123)
   val goodData: Person = Person("foo", 100)
 
-  final case class Person(name: String, @validate(Validation.between(0, 120)) age: Int)
+  final case class Person(name: String, @validate(SchemaValidation.between(0, 120)) age: Int)
   // val schemaCaseClass2: Schema.CaseClass2[String, Int, Person] = DeriveSchema.gen[Person]
   val schemaPerson: CaseClass2[String, Int, Person] = DeriveSchema.gen[Person]
 
-  final case class Grade(@validate(Validation.greaterThan(0)) value: Int)
+  final case class Grade(@validate(SchemaValidation.greaterThan(0)) value: Int)
   // val schemaCaseClass1: Schema.CaseClass1[Int, Grade] = DeriveSchema.gen[Grade]
   val schemaGrade: CaseClass1[Int, Grade] = DeriveSchema.gen[Grade]
 
@@ -47,70 +47,70 @@ object SchemaValidationSpec extends ZIOSpecDefault {
     test("Invalid CaseClass1 creation") {
       val grade                               = Grade(-50)
       implicit val gradeSchema: Schema[Grade] = schemaGrade
-      val validated: Chunk[ValidationError]   = Schema.validate(grade)
+      val validated: Chunk[SchemaValidationError]   = Schema.validate(grade)
 
-      val expected: Chunk[ValidationError] =
-        Chunk(ValidationError.GreaterThan(-50, 0))
+      val expected: Chunk[SchemaValidationError] =
+        Chunk(SchemaValidationError.GreaterThan(-50, 0))
 
       assert(validated)(Assertion.hasSameElements(expected))
     },
     test("Valid CaseClass1 creation") {
       val grade                               = Grade(97)
       implicit val gradeSchema: Schema[Grade] = schemaGrade
-      val validated: Chunk[ValidationError]   = Schema.validate(grade)
+      val validated: Chunk[SchemaValidationError]   = Schema.validate(grade)
 
-      val expected: Chunk[ValidationError] = Chunk.empty
+      val expected: Chunk[SchemaValidationError] = Chunk.empty
 
       assert(validated)(equalTo(expected))
     },
     test("Invalid CaseClass2 creation") {
       val person                                = Person("Michelle", 200)
       implicit val personSchema: Schema[Person] = schemaPerson
-      val validated: Chunk[ValidationError]     = Schema.validate(person)
+      val validated: Chunk[SchemaValidationError]     = Schema.validate(person)
 
-      val expected: Chunk[ValidationError] =
-        Chunk(ValidationError.LessThan(200, 120), ValidationError.EqualTo(200, 120))
+      val expected: Chunk[SchemaValidationError] =
+        Chunk(SchemaValidationError.LessThan(200, 120), SchemaValidationError.EqualTo(200, 120))
 
       assert(validated)(Assertion.hasSameElements(expected))
     },
     test("Valid CaseClass2 creation") {
       val person                                = Person("Michelle", 20)
       implicit val personSchema: Schema[Person] = schemaPerson
-      val validated: Chunk[ValidationError]     = Schema.validate(person)
+      val validated: Chunk[SchemaValidationError]     = Schema.validate(person)
 
-      val expected: Chunk[ValidationError] = Chunk.empty
+      val expected: Chunk[SchemaValidationError] = Chunk.empty
 
       assert(validated)(Assertion.hasSameElements(expected))
     },
     test("Example Data, no ValidationErrors") {
       val exampleData = ExampleData()
 
-      val validated: Chunk[ValidationError] = Schema.validate(exampleData)
+      val validated: Chunk[SchemaValidationError] = Schema.validate(exampleData)
 
-      val expected: Chunk[ValidationError] = Chunk.empty
+      val expected: Chunk[SchemaValidationError] = Chunk.empty
 
       assert(validated)(hasSameElements(expected))
     },
     test("Example Data, Left ValidationError") {
       val exampleData = ExampleData(either = Left(badData))
 
-      val validated: Chunk[ValidationError] = Schema.validate(exampleData)
+      val validated: Chunk[SchemaValidationError] = Schema.validate(exampleData)
 
-      val expected: Chunk[ValidationError] = Chunk(
-        ValidationError.LessThan(123123123, 120),
-        ValidationError.EqualTo(123123123, 120)
+      val expected: Chunk[SchemaValidationError] = Chunk(
+        SchemaValidationError.LessThan(123123123, 120),
+        SchemaValidationError.EqualTo(123123123, 120)
       )
 
       assert(validated)(Assertion.hasSameElements(expected))
     },
     test("Example Data, Right ValidationError") {
-      val exampleData = ExampleData(either = zio.prelude.Validation.succeed(badData))
+      val exampleData = ExampleData(either = Right(badData))
 
-      val validated: Chunk[ValidationError] = Schema.validate(exampleData)
+      val validated: Chunk[SchemaValidationError] = Schema.validate(exampleData)
 
-      val expected: Chunk[ValidationError] = Chunk(
-        ValidationError.LessThan(123123123, 120),
-        ValidationError.EqualTo(123123123, 120)
+      val expected: Chunk[SchemaValidationError] = Chunk(
+        SchemaValidationError.LessThan(123123123, 120),
+        SchemaValidationError.EqualTo(123123123, 120)
       )
 
       assert(validated)(Assertion.hasSameElements(expected))
@@ -118,20 +118,20 @@ object SchemaValidationSpec extends ZIOSpecDefault {
     test("Example Data, Option value without ValidationError") {
       val exampleData = ExampleData(option = Some(goodData))
 
-      val validated: Chunk[ValidationError] = Schema.validate(exampleData)
+      val validated: Chunk[SchemaValidationError] = Schema.validate(exampleData)
 
-      val expected: Chunk[ValidationError] = Chunk.empty
+      val expected: Chunk[SchemaValidationError] = Chunk.empty
 
       assert(validated)(Assertion.hasSameElements(expected))
     },
     test("Example Data, Option value with ValidationError") {
       val exampleData = ExampleData(option = Some(badData))
 
-      val validated: Chunk[ValidationError] = Schema.validate(exampleData)
+      val validated: Chunk[SchemaValidationError] = Schema.validate(exampleData)
 
-      val expected: Chunk[ValidationError] = Chunk(
-        ValidationError.LessThan(123123123, 120),
-        ValidationError.EqualTo(123123123, 120)
+      val expected: Chunk[SchemaValidationError] = Chunk(
+        SchemaValidationError.LessThan(123123123, 120),
+        SchemaValidationError.EqualTo(123123123, 120)
       )
 
       assert(validated)(Assertion.hasSameElements(expected))
@@ -139,11 +139,11 @@ object SchemaValidationSpec extends ZIOSpecDefault {
     test("Example Data, single element List with ValidationError") {
       val exampleData = ExampleData(list = badData :: Nil)
 
-      val validated: Chunk[ValidationError] = Schema.validate(exampleData)
+      val validated: Chunk[SchemaValidationError] = Schema.validate(exampleData)
 
-      val expected: Chunk[ValidationError] = Chunk(
-        ValidationError.LessThan(123123123, 120),
-        ValidationError.EqualTo(123123123, 120)
+      val expected: Chunk[SchemaValidationError] = Chunk(
+        SchemaValidationError.LessThan(123123123, 120),
+        SchemaValidationError.EqualTo(123123123, 120)
       )
 
       assert(validated)(Assertion.hasSameElements(expected))
@@ -151,11 +151,11 @@ object SchemaValidationSpec extends ZIOSpecDefault {
     test("Example Data, multi element List with ValidationError") {
       val exampleData = ExampleData(list = goodData :: goodData :: badData :: Nil)
 
-      val validated: Chunk[ValidationError] = Schema.validate(exampleData)
+      val validated: Chunk[SchemaValidationError] = Schema.validate(exampleData)
 
-      val expected: Chunk[ValidationError] = Chunk(
-        ValidationError.LessThan(123123123, 120),
-        ValidationError.EqualTo(123123123, 120)
+      val expected: Chunk[SchemaValidationError] = Chunk(
+        SchemaValidationError.LessThan(123123123, 120),
+        SchemaValidationError.EqualTo(123123123, 120)
       )
 
       assert(validated)(Assertion.hasSameElements(expected))
@@ -163,11 +163,11 @@ object SchemaValidationSpec extends ZIOSpecDefault {
     test("Example Data, Tuple with ValidationError on first element") {
       val exampleData = ExampleData(tuple = (badData, goodData))
 
-      val validated: Chunk[ValidationError] = Schema.validate(exampleData)
+      val validated: Chunk[SchemaValidationError] = Schema.validate(exampleData)
 
-      val expected: Chunk[ValidationError] = Chunk(
-        ValidationError.LessThan(123123123, 120),
-        ValidationError.EqualTo(123123123, 120)
+      val expected: Chunk[SchemaValidationError] = Chunk(
+        SchemaValidationError.LessThan(123123123, 120),
+        SchemaValidationError.EqualTo(123123123, 120)
       )
 
       assert(validated)(Assertion.hasSameElements(expected))
@@ -175,11 +175,11 @@ object SchemaValidationSpec extends ZIOSpecDefault {
     test("Example Data, Tuple with ValidationError on second element") {
       val exampleData = ExampleData(tuple = (goodData, badData))
 
-      val validated: Chunk[ValidationError] = Schema.validate(exampleData)
+      val validated: Chunk[SchemaValidationError] = Schema.validate(exampleData)
 
-      val expected: Chunk[ValidationError] = Chunk(
-        ValidationError.LessThan(123123123, 120),
-        ValidationError.EqualTo(123123123, 120)
+      val expected: Chunk[SchemaValidationError] = Chunk(
+        SchemaValidationError.LessThan(123123123, 120),
+        SchemaValidationError.EqualTo(123123123, 120)
       )
 
       assert(validated)(Assertion.hasSameElements(expected))
@@ -187,11 +187,11 @@ object SchemaValidationSpec extends ZIOSpecDefault {
     test("Example Data, Wrapper class wrapping class with ValidationError") {
       val exampleData = ExampleData(wrapper = Wrapper(badData))
 
-      val validated: Chunk[ValidationError] = Schema.validate(exampleData)
+      val validated: Chunk[SchemaValidationError] = Schema.validate(exampleData)
 
-      val expected: Chunk[ValidationError] = Chunk(
-        ValidationError.LessThan(123123123, 120),
-        ValidationError.EqualTo(123123123, 120)
+      val expected: Chunk[SchemaValidationError] = Chunk(
+        SchemaValidationError.LessThan(123123123, 120),
+        SchemaValidationError.EqualTo(123123123, 120)
       )
 
       assert(validated)(Assertion.hasSameElements(expected))
@@ -199,11 +199,11 @@ object SchemaValidationSpec extends ZIOSpecDefault {
     test("Example Data, first Enum with ValidationError") {
       val exampleData = ExampleData(enumData = EnumData.Case1(badData))
 
-      val validated: Chunk[ValidationError] = Schema.validate(exampleData)
+      val validated: Chunk[SchemaValidationError] = Schema.validate(exampleData)
 
-      val expected: Chunk[ValidationError] = Chunk(
-        ValidationError.LessThan(123123123, 120),
-        ValidationError.EqualTo(123123123, 120)
+      val expected: Chunk[SchemaValidationError] = Chunk(
+        SchemaValidationError.LessThan(123123123, 120),
+        SchemaValidationError.EqualTo(123123123, 120)
       )
 
       assert(validated)(Assertion.hasSameElements(expected))
@@ -211,11 +211,11 @@ object SchemaValidationSpec extends ZIOSpecDefault {
     test("Example Data, second Enum with ValidationError") {
       val exampleData = ExampleData(enumData = EnumData.Case2(badData))
 
-      val validated: Chunk[ValidationError] = Schema.validate(exampleData)
+      val validated: Chunk[SchemaValidationError] = Schema.validate(exampleData)
 
-      val expected: Chunk[ValidationError] = Chunk(
-        ValidationError.LessThan(123123123, 120),
-        ValidationError.EqualTo(123123123, 120)
+      val expected: Chunk[SchemaValidationError] = Chunk(
+        SchemaValidationError.LessThan(123123123, 120),
+        SchemaValidationError.EqualTo(123123123, 120)
       )
 
       assert(validated)(Assertion.hasSameElements(expected))
@@ -240,7 +240,7 @@ object SchemaValidationSpec extends ZIOSpecDefault {
     test("Validator successfully extracts from validation annotation") {
       val validation = schemaPerson.field2.validation
 
-      assertTrue(validation.validate(45).isRight) && assertTrue(validation.validate(-20).isLeft)
+      assertTrue(validation.validate(45).toEither.isRight) && assertTrue(validation.validate(-20).toEither.isLeft)
     }
   )
 }

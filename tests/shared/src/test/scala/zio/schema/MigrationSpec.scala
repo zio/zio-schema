@@ -231,7 +231,7 @@ object MigrationSpec extends ZIOSpecDefault {
         val value: Pet2  = Pet2.Hamster("name")
         val dynamicValue = value.dynamic
 
-        assertTrue(Migration.DeleteNode(NodePath.root / "Hamster").migrate(dynamicValue).isLeft)
+        assertTrue(Migration.DeleteNode(NodePath.root / "Hamster").migrate(dynamicValue).toEither.isLeft)
       }
     )
   )
@@ -291,7 +291,7 @@ object MigrationSpec extends ZIOSpecDefault {
 
   def failsToTransform[A: Schema](value: A): Assertion[Migration] =
     Assertion.assertion("failsToTransform") { transform =>
-      transform.migrate(value.dynamic).isLeft
+      transform.migrate(value.dynamic).toEither.isLeft
     }
 
   case class Recursive1(v1: Int, v2: String, r: Option[Recursive1])

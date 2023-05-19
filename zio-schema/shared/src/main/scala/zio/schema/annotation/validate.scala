@@ -1,5 +1,5 @@
 package zio.schema.annotation
 
-import zio.schema.validation.Validation
+import zio.schema.validation.SchemaValidation
 
-final case class validate[A](validation: Validation[A]) extends scala.annotation.StaticAnnotation
+final case class validate[A](validation: SchemaValidation[A]) extends scala.annotation.StaticAnnotation

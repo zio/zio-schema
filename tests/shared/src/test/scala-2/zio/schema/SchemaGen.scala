@@ -1,9 +1,9 @@
 package zio.schema
 
 import scala.collection.immutable.ListMap
-
 import zio.Chunk
-import zio.test.{ Gen, Sized }
+import zio.prelude.Validation
+import zio.test.{Gen, Sized}
 
 object SchemaGen {
 
@@ -98,13 +98,13 @@ object SchemaGen {
       value         <- gen
     } yield schema -> value
 
-  val anyEither: Gen[Sized, Schema.zio.prelude.Validation[_, _]] =
+  val anyEither: Gen[Sized, Schema.Either[_, _]] =
     for {
       left  <- anyPrimitive
       right <- anyPrimitive
     } yield Schema.Either(left, right)
 
-  type EitherAndGen[A, B] = (Schema.zio.prelude.Validation[A, B], Gen[Sized, zio.prelude.Validation[A, B]])
+  type EitherAndGen[A, B] = (Schema.Either[A, B], Gen[Sized, Either[A, B]])
 
   val anyEitherAndGen: Gen[Sized, EitherAndGen[_, _]] =
     for {
@@ -112,7 +112,7 @@ object SchemaGen {
       (rightSchema, rightGen) <- anyPrimitiveAndGen
     } yield (Schema.Either(leftSchema, rightSchema), Gen.either(leftGen, rightGen))
 
-  type EitherAndValue[A, B] = (Schema.zio.prelude.Validation[A, B], zio.prelude.Validation[A, B])
+  type EitherAndValue[A, B] = (Schema.Either[A, B], Either[A, B])
 
   val anyEitherAndValue: Gen[Sized, EitherAndValue[_, _]] =
     for {
@@ -315,8 +315,8 @@ object SchemaGen {
   private def transformSequence[A](schema: Schema[Chunk[A]]): SequenceTransform[A] =
     Schema.Transform[Chunk[A], List[A], String](
       schema,
-      chunk => zio.prelude.Validation.succeed(chunk.toList),
-      list => zio.prelude.Validation.succeed(Chunk.fromIterable(list)),
+      chunk => Validation.succeed(chunk.toList),
+      list => Validation.succeed(Chunk.fromIterable(list)),
       Chunk.empty,
       "transformSequence"
     )
@@ -348,8 +348,8 @@ object SchemaGen {
   def transformRecord[A](schema: Schema[ListMap[String, _]]): RecordTransform[A] =
     Schema.Transform[ListMap[String, _], A, String](
       schema,
-      _ => Left("Not implemented."),
-      _ => Left("Not implemented."),
+      _ => Validation.fail("Not implemented."),
+      _ => Validation.fail("Not implemented."),
       Chunk.empty,
       "transformRecord"
     )
@@ -381,8 +381,8 @@ object SchemaGen {
   def transformEnumeration[A](schema: Schema[Any]): EnumerationTransform[_] =
     Schema.Transform[Any, A, String](
       schema,
-      _ => Left("Not implemented."),
-      _ => Left("Not implemented."),
+      _ => Validation.fail("Not implemented."),
+      _ => Validation.fail("Not implemented."),
       Chunk.empty,
       "transformEnumeration"
     )

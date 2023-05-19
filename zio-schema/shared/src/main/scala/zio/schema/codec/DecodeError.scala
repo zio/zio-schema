@@ -4,7 +4,7 @@ import scala.collection.immutable.ListMap
 import scala.util.control.NoStackTrace
 
 import zio.schema.Schema.{ Field, Record }
-import zio.schema.validation.Validation
+import zio.schema.validation.SchemaValidation
 import zio.schema.{ DynamicValue, Schema }
 import zio.{ Cause, Chunk }
 
@@ -34,7 +34,7 @@ object DecodeError {
 
   final case class ReadErrorWithPath(path: Chunk[String], cause: Cause[Any], message: String) extends DecodeError
 
-  final case class ValidationError(validation: Validation[_], field: Field[_, _], message: String) extends DecodeError
+  final case class ValidationError(validation: SchemaValidation[_], field: Field[_, _], message: String) extends DecodeError
 
   final case class ExtraFields(fieldName: String, message: String) extends DecodeError
 

@@ -123,10 +123,17 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
    * this method is responsible for gathering enough information to decide whether the created value will
    * be a Left or a Right. The result value represents this, and for each case allows specifying a context
    * that will be used to create the inner value. */
-  protected def startCreatingEither(context: Context, schema: Schema.zio.prelude.Validation[_, _]): zio.prelude.Validation[Context, Context]
+  protected def startCreatingEither(
+    context: Context,
+    schema: Schema.Either[_, _]
+  ): Either[Context, Context]
 
   /** Create the either value from an inner value */
-  protected def createEither(context: Context, schema: Schema.zio.prelude.Validation[_, _], value: zio.prelude.Validation[Target, Target]): Target
+  protected def createEither(
+    context: Context,
+    schema: Schema.Either[_, _],
+    value: Either[Target, Target]
+  ): Target
 
   /** The next value to be created is a tuple with the given schema. The returned context is used to
    * construct the first element of the tuple. */
@@ -147,7 +154,12 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
   /** Transforms a value with the given function that can fail. Making this customizable allows encoding the failure
    * in Target.
    */
-  protected def transform(context: Context, value: Target, f: Any => zio.prelude.Validation[String, Any], schema: Schema[_]): Target
+  protected def transform(
+    context: Context,
+    value: Target,
+    f: Any => zio.prelude.Validation[String, Any],
+    schema: Schema[_]
+  ): Target
 
   /** Fail the builder with the given message */
   protected def fail(context: Context, message: String): Target
@@ -615,7 +627,7 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
                 finishWith(createSet(contextStack.head, s, Chunk.empty))
             }
 
-          case s: Schema.zio.prelude.Validation[l, r] =>
+          case s: Schema.Either[l, r] =>
             startCreatingEither(currentContext, s) match {
               case Left(newState) =>
                 currentSchema = s.left
@@ -624,12 +636,12 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
                   contextStack = contextStack.tail
                   finishWith(createEither(contextStack.head, s, Left(value)))
                 }
-              case zio.prelude.Validation.succeed(newState) =>
+              case Right(newState) =>
                 currentSchema = s.right
                 pushContext(newState)
                 push { value =>
                   contextStack = contextStack.tail
-                  finishWith(createEither(contextStack.head, s, zio.prelude.Validation.succeed(value)))
+                  finishWith(createEither(contextStack.head, s, Right(value)))
                 }
             }
 
@@ -663,7 +675,9 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
           case s @ Schema.Transform(schema, f, _, _, _) =>
             currentSchema = schema
             push { result =>
-              finishWith(transform(currentContext, result, f.asInstanceOf[Any => zio.prelude.Validation[String, Any]], s))
+              finishWith(
+                transform(currentContext, result, f.asInstanceOf[Any => zio.prelude.Validation[String, Any]], s)
+              )
             }
 
           case s @ Schema.CaseClass0(_, _, _) =>
@@ -1111,18 +1125,21 @@ trait SimpleMutableSchemaBasedValueBuilder[Target] extends MutableSchemaBasedVal
 
   protected def createOptional(schema: Schema.Optional[_], value: Option[Target]): Target
 
-  override protected def startCreatingEither(context: Unit, schema: Schema.zio.prelude.Validation[_, _]): zio.prelude.Validation[Unit, Unit] =
+  override protected def startCreatingEither(
+    context: Unit,
+    schema: Schema.Either[_, _]
+  ): Either[Unit, Unit] =
     startCreatingEither(schema)
-  protected def startCreatingEither(schema: Schema.zio.prelude.Validation[_, _]): zio.prelude.Validation[Unit, Unit]
+  protected def startCreatingEither(schema: Schema.Either[_, _]): Either[Unit, Unit]
 
   override protected def createEither(
     context: Unit,
-    schema: Schema.zio.prelude.Validation[_, _],
-    value: zio.prelude.Validation[Target, Target]
+    schema: Schema.Either[_, _],
+    value: Either[Target, Target]
   ): Target =
     createEither(schema, value)
 
-  protected def createEither(schema: Schema.zio.prelude.Validation[_, _], value: zio.prelude.Validation[Target, Target]): Target
+  protected def createEither(schema: Schema.Either[_, _], value: Either[Target, Target]): Target
 
   override protected def startCreatingTuple(context: Unit, schema: Schema.Tuple2[_, _]): Unit =
     startCreatingTuple(schema)
