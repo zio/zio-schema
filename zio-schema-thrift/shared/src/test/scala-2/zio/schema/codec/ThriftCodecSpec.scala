@@ -34,7 +34,7 @@ import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, Console, NonEmptyChunk, Scope, Task, ZIO }
+import zio.{ Chunk, Console, Scope, Task, ZIO }
 
 // TODO: use generators instead of manual encode/decode
 
@@ -1131,8 +1131,8 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of decode
-  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, NonEmptyChunk[DecodeError], A] =
-    ZIO.succeed(ThriftCodec.thriftCodec(schema).decode(fromHex(hex)).toEither).absolve[NonEmptyChunk[DecodeError], A]
+  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
+    ThriftCodec.thriftCodec(schema).decode(fromHex(hex)).toZIO
 
   def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ZStream
@@ -1153,26 +1153,24 @@ object ThriftCodecSpec extends ZIOSpecDefault {
     schema: Schema[A],
     input: A,
     print: Boolean = false
-  ): ZIO[Any, NonEmptyChunk[DecodeError], A] =
+  ): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)
       .tap(value => Console.printLine(s"Input Value: $value").when(print).ignore)
       .map(a => ThriftCodec.thriftCodec(schema).encode(a))
       .tap(encoded => Console.printLine(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
       .map(ch => ThriftCodec.thriftCodec(schema).decode(ch))
-      .map(_.toEither)
-      .absolve
+      .flatMap(_.toZIO)
 
   def encodeAndDecodeNS[A](
     encodeSchema: Schema[A],
     decodeSchema: Schema[A],
     input: A
-  ): ZIO[Any, NonEmptyChunk[DecodeError], A] =
+  ): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)
       .map(a => ThriftCodec.thriftCodec(encodeSchema).encode(a))
       .map(ch => ThriftCodec.thriftCodec(decodeSchema).decode(ch))
-      .map(_.toEither)
-      .absolve
+      .flatMap(_.toZIO)
 
 }

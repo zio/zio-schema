@@ -2,7 +2,7 @@ package zio.schema.validation
 import zio.Scope
 import zio.test._
 
-object PhoneNumberSchemaValidationSpec$ extends ZIOSpecDefault {
+object PhoneNumberSchemaValidationSpec extends ZIOSpecDefault {
 
   def spec: Spec[Environment with TestEnvironment with Scope, Any] = suite("PhoneNumberValidationSpec")(
     test("Regex phone number validation for Ascension Island") {

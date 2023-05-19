@@ -131,13 +131,6 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
                     readFields(m.updated(fieldName, value), index + 1)
                   }
               }
-//                .flatMap(value => {
-//                                    if (index == fields.size) {
-//                                      succeed(m.updated(fieldName, value))
-//                                    } else {
-//                                      readFields(m.updated(fieldName, value), index + 1)
-//                                    }
-//                })
             case None =>
               fail(path, s"Could not find schema for field: [$fieldName] on index: $index")
           }
@@ -159,7 +152,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
     def decodeElements(n: Int, m: scala.collection.mutable.Map[K, V]): Result[scala.collection.immutable.Map[K, V]] =
       if (n > 0) {
         (decodeValue(path, schema.keySchema), decodeValue(path, schema.valueSchema)) match {
-          case (zio.prelude.Validation.Success(_, key), zio.prelude.Validation.Success(_, value)) => decodeElements(n - 1, m += ((key, value)))
+          case (Validation.Success(_, key), Validation.Success(_, value)) => decodeElements(n - 1, m += ((key, value)))
           case (l, r) =>
             val key   = l.fold(_.map(_.message).toString(), _.toString)
             val value = r.fold(_.map(_.message).toString(), _.toString)
@@ -180,8 +173,8 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
     def decodeElements(n: Int, cb: ChunkBuilder[A]): Result[Chunk[A]] =
       if (n > 0) {
         decodeValue(path, elementSchema) match {
-          case zio.prelude.Validation.Success(_, elem)        => decodeElements(n - 1, cb += elem)
-          case failure @ zio.prelude.Validation.Failure(_, _) => failure
+          case Validation.Success(_, elem)        => decodeElements(n - 1, cb += elem)
+          case failure @ Validation.Failure(_, _) => failure
         }
       } else {
         succeed(cb.result())
@@ -225,7 +218,7 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
           } yield new java.math.BigDecimal(unscaled, scale, ctx)
 
           opt match {
-            case Some(value) => zio.prelude.Validation.succeed(value)
+            case Some(value) => Validation.succeed(value)
             case None        => fail(path, s"Invalid big decimal record $data")
           }
         }

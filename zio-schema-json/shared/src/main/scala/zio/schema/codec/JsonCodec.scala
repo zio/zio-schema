@@ -63,7 +63,7 @@ object JsonCodec {
 
   implicit def schemaBasedBinaryCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
-      override def decode(whole: Chunk[Byte]): zio.prelude.Validation[DecodeError, A] =
+      override def decode(whole: Chunk[Byte]): Validation[DecodeError, A] =
         JsonDecoder.decode(
           schema,
           new String(whole.toArray, JsonEncoder.CHARSET)
@@ -78,7 +78,7 @@ object JsonCodec {
             case (_, fragments) => fragments.mkString
           } >>>
           ZPipeline.mapZIO { (s: String) =>
-            ZIO.fromEither(JsonDecoder.decode(schema, s).toEither.left.map(_.head))
+            JsonDecoder.decode(schema, s).toZIO
           }
 
       override def encode(value: A): Chunk[Byte] =
@@ -363,7 +363,7 @@ object JsonCodec {
       }
     }
 
-    private def transformEncoder[A, B](schema: Schema[A], g: B => zio.prelude.Validation[String, A]): ZJsonEncoder[B] =
+    private def transformEncoder[A, B](schema: Schema[A], g: B => Validation[String, A]): ZJsonEncoder[B] =
       new ZJsonEncoder[B] {
         private lazy val innerEncoder = schemaEncoder(schema)
 
@@ -477,7 +477,7 @@ object JsonCodec {
     import Codecs._
     import ProductDecoder._
 
-    final def decode[A](schema: Schema[A], json: String): zio.prelude.Validation[DecodeError, A] =
+    final def decode[A](schema: Schema[A], json: String): Validation[DecodeError, A] =
       schemaDecoder(schema).decodeJson(json) match {
         case Left(value)  => Validation.fail(ReadError(Cause.empty, value))
         case Right(value) => Validation.succeed(value)

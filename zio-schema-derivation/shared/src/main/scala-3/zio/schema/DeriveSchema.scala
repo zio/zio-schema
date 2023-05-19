@@ -357,7 +357,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
       val validations = anns.collect {
         case ann if ann.isExprOf[validate[t]] => ann.asExprOf[validate[t]]
       }
-      val validator: Expr[Validation[t]] = validations.foldLeft[Expr[Validation[t]]]('{Validation.succeed}){
+      val validator: Expr[SchemaValidation[t]] = validations.foldLeft[Expr[SchemaValidation[t]]]('{SchemaValidation.succeed}){
         case (acc, expr) => '{
           $acc && ${expr}.validation
         }
@@ -408,7 +408,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
       val validations = anns.collect {
         case ann if ann.isExprOf[validate[t]] => ann.asExprOf[validate[t]]
       }
-      val validator: Expr[Validation[t]] = validations.foldLeft[Expr[Validation[t]]]('{Validation.succeed}){
+      val validator: Expr[SchemaValidation[t]] = validations.foldLeft[Expr[SchemaValidation[t]]]('{SchemaValidation.succeed}){
         case (acc, expr) => '{
           $acc && ${expr}.validation
         }

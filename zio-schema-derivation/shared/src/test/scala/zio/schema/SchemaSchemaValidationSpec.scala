@@ -6,7 +6,7 @@ import zio.schema.annotation.validate
 import zio.schema.validation.{ SchemaValidation, SchemaValidationError }
 import zio.test._
 
-object SchemaSchemaValidationSpec$ extends ZIOSpecDefault {
+object SchemaSchemaValidationSpec extends ZIOSpecDefault {
   import Assertion._
 
   final case class ExampleData(

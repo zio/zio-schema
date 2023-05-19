@@ -17,12 +17,13 @@
 package zio.schema.codec
 
 import zio.constraintless._
+import zio.prelude.Validation
 import zio.stream.ZPipeline
 
 trait Codecs[Whole, Element, Types <: TypeList] {
   def encode[T](value: T)(implicit ev: T IsElementOf Types): Whole
   def streamEncoder[T](implicit ev: T IsElementOf Types): ZPipeline[Any, Nothing, T, Element]
-  def decode[T](whole: Whole)(implicit ev: T IsElementOf Types): zio.prelude.Validation[DecodeError, T]
+  def decode[T](whole: Whole)(implicit ev: T IsElementOf Types): Validation[DecodeError, T]
 
   def streamDecoder[T](implicit ev: T IsElementOf Types): ZPipeline[Any, DecodeError, Element, T]
 }
@@ -39,7 +40,7 @@ object Codecs {
 
       final override def decode[T](
         whole: Whole
-      )(implicit ev: IsElementOf[T, Types]): zio.prelude.Validation[DecodeError, T] =
+      )(implicit ev: IsElementOf[T, Types]): Validation[DecodeError, T] =
         instances.withInstance((codec: Codec[Whole, Element, T]) => codec.decode(whole))
 
       final override def streamDecoder[T](implicit ev: IsElementOf[T, Types]): ZPipeline[Any, DecodeError, Element, T] =

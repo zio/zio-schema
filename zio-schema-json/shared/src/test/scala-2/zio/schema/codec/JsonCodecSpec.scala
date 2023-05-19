@@ -535,9 +535,9 @@ object JsonCodecSpec extends ZIOSpecDefault {
           )
         ) {
           case (schema, value) =>
-            assertEncodesThenDecodes[Either[Map[Any, Any], Map[Any, Any]]](
-              schema.asInstanceOf[Schema[Either[Map[Any, Any], Map[Any, Any]]]],
-              value.asInstanceOf[Either[Map[Any, Any], Map[Any, Any]]]
+            assertEncodesThenDecodes[scala.Either[Map[Any, Any], Map[Any, Any]]](
+              schema.asInstanceOf[Schema[scala.Either[Map[Any, Any], Map[Any, Any]]]],
+              value.asInstanceOf[scala.Either[Map[Any, Any], Map[Any, Any]]]
             )
         }
       },
@@ -553,9 +553,9 @@ object JsonCodecSpec extends ZIOSpecDefault {
           )
         ) {
           case (schema, value) =>
-            assertEncodesThenDecodes[Either[Set[Any], Set[Any]]](
-              schema.asInstanceOf[Schema[Either[Set[Any], Set[Any]]]],
-              value.asInstanceOf[Either[Set[Any], Set[Any]]]
+            assertEncodesThenDecodes[scala.Either[Set[Any], Set[Any]]](
+              schema.asInstanceOf[Schema[scala.Either[Set[Any], Set[Any]]]],
+              value.asInstanceOf[scala.Either[Set[Any], Set[Any]]]
             )
         }
       },

@@ -108,10 +108,11 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings("zio.schema"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio"                % zioVersion,
-      "dev.zio" %% "zio-streams"        % zioVersion,
-      "dev.zio" %% "zio-prelude"        % zioPreludeVersion,
-      "dev.zio" %% "zio-constraintless" % zioConstraintlessVersion
+      "dev.zio"                %% "zio"                     % zioVersion,
+      "dev.zio"                %% "zio-streams"             % zioVersion,
+      "dev.zio"                %% "zio-prelude"             % zioPreludeVersion,
+      "dev.zio"                %% "zio-constraintless"      % zioConstraintlessVersion,
+      "org.scala-lang.modules" %% "scala-collection-compat" % scalaCollectionCompatVersion
     )
   )
   .dependsOn(zioSchemaMacros)
@@ -245,11 +246,10 @@ lazy val zioSchemaBson = crossProject(JVMPlatform)
   .settings(buildInfoSettings("zio.schema.bson"))
   .settings(
     libraryDependencies ++= Seq(
-      "org.mongodb"            % "bson"                     % bsonVersion,
-      "dev.zio"                %% "zio-bson"                % zioBsonVersion,
-      "dev.zio"                %% "zio"                     % zioVersion, // zio.Chunk
-      "dev.zio"                %% "zio-test-magnolia"       % zioVersion % Test, // TODO: implement DeriveDiff in zioSchemaZioTest
-      "org.scala-lang.modules" %% "scala-collection-compat" % scalaCollectionCompatVersion
+      "org.mongodb" % "bson"               % bsonVersion,
+      "dev.zio"     %% "zio-bson"          % zioBsonVersion,
+      "dev.zio"     %% "zio"               % zioVersion, // zio.Chunk
+      "dev.zio"     %% "zio-test-magnolia" % zioVersion % Test // TODO: implement DeriveDiff in zioSchemaZioTest
     ),
     scalacOptions -= "-Xfatal-warnings" // cross-version imports
   )

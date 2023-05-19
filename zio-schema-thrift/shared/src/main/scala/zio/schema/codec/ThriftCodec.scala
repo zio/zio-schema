@@ -16,13 +16,13 @@ import zio.schema._
 import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
 import zio.schema.codec.DecodeError.{ EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath }
 import zio.stream.ZPipeline
-import zio.{ Cause, Chunk, NonEmptyChunk, Unsafe, ZIO }
+import zio.{ Cause, Chunk, NonEmptyChunk, Unsafe }
 
 object ThriftCodec {
 
   implicit def thriftCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
-      override def decode(whole: Chunk[Byte]): zio.prelude.Validation[DecodeError, A] =
+      override def decode(whole: Chunk[Byte]): Validation[DecodeError, A] =
         if (whole.isEmpty)
           Validation.fail(EmptyContent("No bytes to decode"))
         else
@@ -30,9 +30,7 @@ object ThriftCodec {
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
         ZPipeline.mapChunksZIO { chunk =>
-          ZIO.fromEither(
-            decodeChunk(chunk).map(Chunk(_)).toEither.left.map(_.head)
-          )
+          decodeChunk(chunk).map(Chunk(_)).toZIO
         }
 
       override def encode(value: A): Chunk[Byte] =
@@ -45,7 +43,7 @@ object ThriftCodec {
         }
       }
 
-      private def decodeChunk(chunk: Chunk[Byte]): zio.prelude.Validation[DecodeError, A] =
+      private def decodeChunk(chunk: Chunk[Byte]): Validation[DecodeError, A] =
         if (chunk.isEmpty)
           Validation.fail(EmptyContent("No bytes to decode"))
         else {
@@ -624,11 +622,11 @@ object ThriftCodec {
               }
           }
         Unsafe.unsafe { implicit u =>
-          record.construct(allValues).mapError(message => fail(context, message))
+          record.construct(allValues).fold(message => fail(context, message), a => a)
         }
       } else {
         Unsafe.unsafe { implicit u =>
-          record.construct(Chunk.empty).mapError(message => fail(context, message))
+          record.construct(Chunk.empty).fold(message => fail(context, message), a => a)
         }
       }
 
@@ -811,7 +809,7 @@ object ThriftCodec {
     override protected def transform(
       context: DecoderContext,
       value: Any,
-      f: Any => zio.prelude.Validation[String, Any],
+      f: Any => Validation[String, Any],
       schema: Schema[_]
     ): Any =
       f(value).fold(v => fail(context, v), a => a)

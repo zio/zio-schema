@@ -16,7 +16,7 @@ import zio.schema._
 import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, Console, NonEmptyChunk, Scope, Task, ZIO }
+import zio.{ Chunk, Console, Scope, Task, ZIO }
 
 object MessagePackCodecSpec extends ZIOSpecDefault {
 
@@ -696,7 +696,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       },
       test("empty input by non streaming variant") {
         assertZIO(decodeNS(Schema[Int], "").exit)(
-          failsWithA[NonEmptyChunk[DecodeError]]
+          failsWithA[DecodeError]
         )
       }
     ),
@@ -709,7 +709,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
           failsWithA[DecodeError]
         ) &&
           assert(d2)(
-            failsWithA[NonEmptyChunk[DecodeError]]
+            failsWithA[DecodeError]
           )
       },
       test("missing value") {
@@ -988,8 +988,8 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of decode
-  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, NonEmptyChunk[DecodeError], A] =
-    ZIO.succeed(MessagePackCodec.messagePackCodec(schema).decode(fromHex(hex)).toEither).absolve
+  def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
+    MessagePackCodec.messagePackCodec(schema).decode(fromHex(hex)).toZIO
 
   def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ZStream
@@ -1010,24 +1010,22 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
     schema: Schema[A],
     input: A,
     print: Boolean = false
-  ): ZIO[Any, NonEmptyChunk[DecodeError], A] =
+  ): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)
       .tap(value => Console.printLine(s"Input Value: $value").when(print).ignore)
       .map(a => MessagePackCodec.messagePackCodec(schema).encode(a))
       .tap(encoded => Console.printLine(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
-      .map(ch => MessagePackCodec.messagePackCodec(schema).decode(ch).toEither)
-      .absolve
+      .flatMap(ch => MessagePackCodec.messagePackCodec(schema).decode(ch).toZIO)
 
   def encodeAndDecodeNS[A](
     encodeSchema: Schema[A],
     decodeSchema: Schema[A],
     input: A
-  ): ZIO[Any, NonEmptyChunk[DecodeError], A] =
+  ): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)
       .map(a => MessagePackCodec.messagePackCodec(encodeSchema).encode(a))
-      .map(ch => MessagePackCodec.messagePackCodec(decodeSchema).decode(ch).toEither)
-      .absolve
+      .flatMap(ch => MessagePackCodec.messagePackCodec(decodeSchema).decode(ch).toZIO)
 
 }

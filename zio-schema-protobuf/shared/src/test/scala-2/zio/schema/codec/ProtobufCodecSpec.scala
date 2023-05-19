@@ -8,6 +8,7 @@ import scala.util.Try
 
 import zio.Console._
 import zio._
+import zio.prelude.Validation
 import zio.schema.CaseSet._
 import zio.schema.meta.MetaSchema
 import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
@@ -1044,10 +1045,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
   //NS == non streaming variant of decode
   def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
-    ZIO
-      .succeed(ProtobufCodec.protobufCodec(schema).decode(fromHex(hex)))
-      .map(_.toEither.left.map(_.head))
-      .absolve[DecodeError, A]
+    ProtobufCodec.protobufCodec(schema).decode(fromHex(hex)).toZIO
 
   def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ProtobufCodec
@@ -1086,14 +1084,13 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .map(a => ProtobufCodec.protobufCodec(schema).encode(a))
       .tap(encoded => printLine(s"\nEncoded Bytes (${encoded.size}):\n${toHex(encoded)}").when(print).ignore)
       .map(ch => ProtobufCodec.protobufCodec(schema).decode(ch))
-      .map(_.toEither.left.map(_.head))
-      .absolve
+      .flatMap(_.toZIO)
 
   def encodeAndDecodeNS2[A](
     schema: Schema[A],
     input: A,
     print: Boolean = false
-  ): ZIO[Any, DecodeError, zio.prelude.Validation[DecodeError, A]] =
+  ): ZIO[Any, DecodeError, Validation[DecodeError, A]] =
     ZIO
       .succeed(input)
       .tap(value => printLine(s"Input Value: $value").when(print).ignore)
@@ -1110,7 +1107,6 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .succeed(input)
       .map(a => ProtobufCodec.protobufCodec(encodeSchema).encode(a))
       .map(ch => ProtobufCodec.protobufCodec(decodeSchema).decode(ch))
-      .map(_.toEither.left.map(_.head))
-      .absolve
+      .flatMap(_.toZIO)
 
 }

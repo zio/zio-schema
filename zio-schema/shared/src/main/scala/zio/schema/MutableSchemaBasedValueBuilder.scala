@@ -2,6 +2,7 @@ package zio.schema
 
 import scala.util.control.NonFatal
 
+import zio.prelude.Validation
 import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
 import zio.{ Chunk, ChunkBuilder }
 
@@ -157,7 +158,7 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
   protected def transform(
     context: Context,
     value: Target,
-    f: Any => zio.prelude.Validation[String, Any],
+    f: Any => Validation[String, Any],
     schema: Schema[_]
   ): Target
 
@@ -676,7 +677,7 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
             currentSchema = schema
             push { result =>
               finishWith(
-                transform(currentContext, result, f.asInstanceOf[Any => zio.prelude.Validation[String, Any]], s)
+                transform(currentContext, result, f.asInstanceOf[Any => Validation[String, Any]], s)
               )
             }
 
@@ -1164,12 +1165,12 @@ trait SimpleMutableSchemaBasedValueBuilder[Target] extends MutableSchemaBasedVal
   override protected def transform(
     context: Unit,
     value: Target,
-    f: Any => zio.prelude.Validation[String, Any],
+    f: Any => Validation[String, Any],
     schema: Schema[_]
   ): Target =
     transform(value, f, schema)
 
-  protected def transform(value: Target, f: Any => zio.prelude.Validation[String, Any], schema: Schema[_]): Target
+  protected def transform(value: Target, f: Any => Validation[String, Any], schema: Schema[_]): Target
 
   override protected def fail(context: Unit, message: String): Target =
     fail(message)
