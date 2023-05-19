@@ -2,12 +2,12 @@ package zio.schema.codec
 
 import zio.prelude.Validation
 
-import java.math.{BigInteger, MathContext}
+import java.math.{ BigInteger, MathContext }
 import java.time._
 import zio.schema.codec.DecodeError.ReadError
-import zio.schema.{Schema, StandardType}
+import zio.schema.{ Schema, StandardType }
 import zio.stream.ZPipeline
-import zio.{Cause, Chunk, ZIO}
+import zio.{ Cause, Chunk, ZIO }
 
 object MessagePackCodec {
   implicit def messagePackCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =

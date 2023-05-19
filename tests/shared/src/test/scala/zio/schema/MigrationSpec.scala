@@ -19,7 +19,8 @@ object MigrationSpec extends ZIOSpecDefault {
 
           assertTrue(
             Migration
-              .derive(from, to) == zio.prelude.Validation.succeed(Chunk(Migration.ChangeType(NodePath.root, StandardType.StringType)))
+              .derive(from, to) == zio.prelude.Validation
+              .succeed(Chunk(Migration.ChangeType(NodePath.root, StandardType.StringType)))
           )
         },
         test("optional") {
@@ -55,7 +56,8 @@ object MigrationSpec extends ZIOSpecDefault {
 
           assertTrue(
             Migration
-              .derive(from, to) == zio.prelude.Validation.succeed(Chunk(Migration.IncrementDimensions(NodePath.root, 1)))
+              .derive(from, to) == zio.prelude.Validation
+              .succeed(Chunk(Migration.IncrementDimensions(NodePath.root, 1)))
           )
         },
         test("decrement dimensions") {
@@ -69,7 +71,8 @@ object MigrationSpec extends ZIOSpecDefault {
 
           assertTrue(
             Migration
-              .derive(from, to) == zio.prelude.Validation.succeed(Chunk(Migration.DecrementDimensions(NodePath.root, 1)))
+              .derive(from, to) == zio.prelude.Validation
+              .succeed(Chunk(Migration.DecrementDimensions(NodePath.root, 1)))
           )
         }
       ),

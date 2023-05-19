@@ -1,10 +1,10 @@
 package zio.schema.codec
 
 import java.time.format.DateTimeFormatter
-import java.time.temporal.{ChronoUnit, TemporalUnit}
+import java.time.temporal.{ ChronoUnit, TemporalUnit }
 import scala.jdk.CollectionConverters._
 import scala.util.Try
-import org.apache.avro.{LogicalType, LogicalTypes, Schema => SchemaAvro}
+import org.apache.avro.{ LogicalType, LogicalTypes, Schema => SchemaAvro }
 import zio.prelude.Validation
 
 sealed trait AvroPropMarker {
@@ -58,13 +58,19 @@ object AvroPropMarker {
     val propName           = "zio.schema.codec.avro.dateTimeFormatter"
     val default: Formatter = Formatter(DateTimeFormatter.ISO_INSTANT)
 
-    def fromAvroStringOrDefault(avroSchema: SchemaAvro, stringType: StringType): zio.prelude.Validation[String, Formatter] =
+    def fromAvroStringOrDefault(
+      avroSchema: SchemaAvro,
+      stringType: StringType
+    ): zio.prelude.Validation[String, Formatter] =
       fromAvroString(avroSchema).map {
         case Some(value) => value
         case None        => getDefaultByStringType(stringType)
       }
 
-    def fromAvroStringOrDefault(avroSchema: SchemaAvro, logicalType: LogicalType): zio.prelude.Validation[String, Formatter] =
+    def fromAvroStringOrDefault(
+      avroSchema: SchemaAvro,
+      logicalType: LogicalType
+    ): zio.prelude.Validation[String, Formatter] =
       fromAvroString(avroSchema).map {
         case Some(value) => value
         case None        => getDefaultByLogicalType(logicalType)

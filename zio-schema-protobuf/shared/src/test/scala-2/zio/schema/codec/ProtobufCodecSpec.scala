@@ -1044,7 +1044,8 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
   //NS == non streaming variant of decode
   def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
-    ZIO.succeed(ProtobufCodec.protobufCodec(schema).decode(fromHex(hex)))
+    ZIO
+      .succeed(ProtobufCodec.protobufCodec(schema).decode(fromHex(hex)))
       .map(_.toEither.left.map(_.head))
       .absolve[DecodeError, A]
 
@@ -1100,7 +1101,8 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .tap(encoded => printLine(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
       .map(ch => ProtobufCodec.protobufCodec(schema).decode(ch))
       .tapSome {
-        case prelude.Validation.Failure(_, err) => printLine(s"Failed to encode and decode value $input\nError = $err").orDie
+        case prelude.Validation.Failure(_, err) =>
+          printLine(s"Failed to encode and decode value $input\nError = $err").orDie
       }
 
   def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, A] =

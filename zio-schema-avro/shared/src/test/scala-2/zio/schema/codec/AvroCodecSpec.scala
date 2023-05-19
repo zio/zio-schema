@@ -610,7 +610,9 @@ object AvroCodecSpec extends ZIOSpecDefault {
               Schema.primitive(StandardType.BigDecimalType).annotate(AvroAnnotations.decimal(DecimalType.Bytes))
             val result = AvroCodec.encode(schema)
 
-            assert(result.toEither)(isRight(equalTo("""{"type":"bytes","logicalType":"decimal","precision":48,"scale":24}""")))
+            assert(result.toEither)(
+              isRight(equalTo("""{"type":"bytes","logicalType":"decimal","precision":48,"scale":24}"""))
+            )
           },
           test("encodes BigDecimalType as Bytes with scala and precision") {
             val schema = Schema
@@ -620,7 +622,9 @@ object AvroCodecSpec extends ZIOSpecDefault {
               .annotate(AvroAnnotations.precision(20))
             val result = AvroCodec.encode(schema)
 
-            assert(result.toEither)(isRight(equalTo("""{"type":"bytes","logicalType":"decimal","precision":20,"scale":10}""")))
+            assert(result.toEither)(
+              isRight(equalTo("""{"type":"bytes","logicalType":"decimal","precision":20,"scale":10}"""))
+            )
           },
           test("encodes BigDecimalType as Fixed") {
             val schema =
@@ -656,7 +660,9 @@ object AvroCodecSpec extends ZIOSpecDefault {
               Schema.primitive(StandardType.BigIntegerType).annotate(AvroAnnotations.decimal(DecimalType.Bytes))
             val result = AvroCodec.encode(schema)
 
-            assert(result.toEither)(isRight(equalTo("""{"type":"bytes","logicalType":"decimal","precision":24,"scale":24}""")))
+            assert(result.toEither)(
+              isRight(equalTo("""{"type":"bytes","logicalType":"decimal","precision":24,"scale":24}"""))
+            )
           },
           test("encodes BigIntegerType as Bytes with scala and precision") {
             val schema = Schema
@@ -666,7 +672,9 @@ object AvroCodecSpec extends ZIOSpecDefault {
               .annotate(AvroAnnotations.precision(20))
             val result = AvroCodec.encode(schema)
 
-            assert(result.toEither)(isRight(equalTo("""{"type":"bytes","logicalType":"decimal","precision":10,"scale":10}""")))
+            assert(result.toEither)(
+              isRight(equalTo("""{"type":"bytes","logicalType":"decimal","precision":10,"scale":10}"""))
+            )
           },
           test("encodes BigIntegerType as Fixed") {
             val schema =
@@ -1236,7 +1244,9 @@ object AvroCodecSpec extends ZIOSpecDefault {
             val s      = """{"type":"enum","name":"TestEnum","default":"d","symbols":["a","b","c"]}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema.toEither.left.map(_.head))(isLeft(equalTo("The Enum Default: d is not in the enum symbol set: [a, b, c]")))
+            assert(schema.toEither.left.map(_.head))(
+              isLeft(equalTo("The Enum Default: d is not in the enum symbol set: [a, b, c]"))
+            )
           },
           test("not assign the enum default annotation if empty") {
             val s      = """{"type":"enum","name":"TestEnum","symbols":["a","b","c"]}"""
@@ -1392,7 +1402,9 @@ object AvroCodecSpec extends ZIOSpecDefault {
               """{"type":"fixed","name":"Decimal_10_10","size":5,"logicalType":"decimal","precision":9,"scale":10}"""
             val schema = AvroCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema.toEither.left.map(_.head))(isLeft(equalTo("Invalid decimal scale: 10 (greater than precision: 9)")))
+            assert(schema.toEither.left.map(_.head))(
+              isLeft(equalTo("Invalid decimal scale: 10 (greater than precision: 9)"))
+            )
           },
           test("decode as binary") {
             val s      = """{"type":"fixed","name":"Something","size":5}"""

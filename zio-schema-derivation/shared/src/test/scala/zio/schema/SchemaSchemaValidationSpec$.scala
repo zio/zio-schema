@@ -45,9 +45,9 @@ object SchemaSchemaValidationSpec$ extends ZIOSpecDefault {
 
   override def spec: Spec[Environment, Any] = suite("Schema Validation Spec")(
     test("Invalid CaseClass1 creation") {
-      val grade                               = Grade(-50)
-      implicit val gradeSchema: Schema[Grade] = schemaGrade
-      val validated: Chunk[SchemaValidationError]   = Schema.validate(grade)
+      val grade                                   = Grade(-50)
+      implicit val gradeSchema: Schema[Grade]     = schemaGrade
+      val validated: Chunk[SchemaValidationError] = Schema.validate(grade)
 
       val expected: Chunk[SchemaValidationError] =
         Chunk(SchemaValidationError.GreaterThan(-50, 0))
@@ -55,18 +55,18 @@ object SchemaSchemaValidationSpec$ extends ZIOSpecDefault {
       assert(validated)(Assertion.hasSameElements(expected))
     },
     test("Valid CaseClass1 creation") {
-      val grade                               = Grade(97)
-      implicit val gradeSchema: Schema[Grade] = schemaGrade
-      val validated: Chunk[SchemaValidationError]   = Schema.validate(grade)
+      val grade                                   = Grade(97)
+      implicit val gradeSchema: Schema[Grade]     = schemaGrade
+      val validated: Chunk[SchemaValidationError] = Schema.validate(grade)
 
       val expected: Chunk[SchemaValidationError] = Chunk.empty
 
       assert(validated)(equalTo(expected))
     },
     test("Invalid CaseClass2 creation") {
-      val person                                = Person("Michelle", 200)
-      implicit val personSchema: Schema[Person] = schemaPerson
-      val validated: Chunk[SchemaValidationError]     = Schema.validate(person)
+      val person                                  = Person("Michelle", 200)
+      implicit val personSchema: Schema[Person]   = schemaPerson
+      val validated: Chunk[SchemaValidationError] = Schema.validate(person)
 
       val expected: Chunk[SchemaValidationError] =
         Chunk(SchemaValidationError.LessThan(200, 120), SchemaValidationError.EqualTo(200, 120))
@@ -74,9 +74,9 @@ object SchemaSchemaValidationSpec$ extends ZIOSpecDefault {
       assert(validated)(Assertion.hasSameElements(expected))
     },
     test("Valid CaseClass2 creation") {
-      val person                                = Person("Michelle", 20)
-      implicit val personSchema: Schema[Person] = schemaPerson
-      val validated: Chunk[SchemaValidationError]     = Schema.validate(person)
+      val person                                  = Person("Michelle", 20)
+      implicit val personSchema: Schema[Person]   = schemaPerson
+      val validated: Chunk[SchemaValidationError] = Schema.validate(person)
 
       val expected: Chunk[SchemaValidationError] = Chunk.empty
 

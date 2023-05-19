@@ -3,17 +3,23 @@ package zio.schema.codec
 import java.nio.ByteBuffer
 import java.time._
 import java.util.UUID
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.{ nowarn, tailrec }
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 import org.apache.thrift.protocol._
 import zio.prelude.Validation
 import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
 import zio.schema._
-import zio.schema.annotation.{fieldDefaultValue, optionalField, transientField}
-import zio.schema.codec.DecodeError.{EmptyContent, MalformedField, MalformedFieldWithPath, ReadError, ReadErrorWithPath}
+import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
+import zio.schema.codec.DecodeError.{
+  EmptyContent,
+  MalformedField,
+  MalformedFieldWithPath,
+  ReadError,
+  ReadErrorWithPath
+}
 import zio.stream.ZPipeline
-import zio.{Cause, Chunk, NonEmptyChunk, Unsafe, ZIO}
+import zio.{ Cause, Chunk, NonEmptyChunk, Unsafe, ZIO }
 
 object ThriftCodec {
 
@@ -46,11 +52,12 @@ object ThriftCodec {
         if (chunk.isEmpty)
           Validation.fail(EmptyContent("No bytes to decode"))
         else {
-          zio.prelude.Validation(
-            new Decoder(chunk)
-              .create(schema)
-              .asInstanceOf[A]
-          )
+          zio.prelude
+            .Validation(
+              new Decoder(chunk)
+                .create(schema)
+                .asInstanceOf[A]
+            )
             .mapError {
               case error: CreateValueFromSchemaError[DecoderContext] =>
                 error.cause match {

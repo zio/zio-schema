@@ -3,7 +3,7 @@ package zio.schema.codec
 import zio.prelude.Validation
 
 import java.nio.charset.StandardCharsets
-import java.nio.{ByteBuffer, ByteOrder}
+import java.nio.{ ByteBuffer, ByteOrder }
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -11,10 +11,10 @@ import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
 import zio.schema._
-import zio.schema.codec.DecodeError.{ExtraFields, MalformedField, MissingField}
+import zio.schema.codec.DecodeError.{ ExtraFields, MalformedField, MissingField }
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZPipeline
-import zio.{Cause, Chunk, ChunkBuilder, Unsafe, ZIO}
+import zio.{ Cause, Chunk, ChunkBuilder, Unsafe, ZIO }
 
 object ProtobufCodec {
 
@@ -24,7 +24,9 @@ object ProtobufCodec {
         new Decoder(whole).decode(schema)
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
-        ZPipeline.mapChunksZIO(chunk => ZIO.fromEither(new Decoder(chunk).decode(schema).map(Chunk(_)).toEither.left.map(_.head)))
+        ZPipeline.mapChunksZIO(
+          chunk => ZIO.fromEither(new Decoder(chunk).decode(schema).map(Chunk(_)).toEither.left.map(_.head))
+        )
 
       override def encode(value: A): Chunk[Byte] =
         Encoder.process(schema, value)
@@ -494,17 +496,16 @@ object ProtobufCodec {
     private val state: DecoderState = new DecoderState(chunk, 0)
 
     def decode[A](schema: Schema[A]): zio.prelude.Validation[DecodeError, A] =
-      Validation(create(schema).asInstanceOf[A])
-        .mapError {
-          case CreateValueFromSchemaError(_, cause) =>
-            cause match {
-              case error: DecodeError => error
-              case _ =>
-                DecodeError.ReadError(Cause.fail(cause), cause.getMessage)
-            }
-          case NonFatal(err) =>
-            DecodeError.ReadError(Cause.fail(err), err.getMessage)
-        }
+      Validation(create(schema).asInstanceOf[A]).mapError {
+        case CreateValueFromSchemaError(_, cause) =>
+          cause match {
+            case error: DecodeError => error
+            case _ =>
+              DecodeError.ReadError(Cause.fail(cause), cause.getMessage)
+          }
+        case NonFatal(err) =>
+          DecodeError.ReadError(Cause.fail(err), err.getMessage)
+      }
 
     private def createTypedPrimitive[A](context: DecoderContext, standardType: StandardType[A]): A =
       createPrimitive(context, standardType).asInstanceOf[A]
@@ -623,7 +624,9 @@ object ProtobufCodec {
     ): Any =
       Unsafe.unsafe { implicit u =>
         //TODO: Maybe combine exceptions?
-      record.construct(values.map(_._2)).fold(message => throw DecodeError.ReadError(Cause.empty, message.toString()), a => a)
+        record
+          .construct(values.map(_._2))
+          .fold(message => throw DecodeError.ReadError(Cause.empty, message.toString()), a => a)
       }
 
     override protected def startCreatingEnum(
@@ -874,10 +877,9 @@ object ProtobufCodec {
       value: Any,
       f: Any => zio.prelude.Validation[String, Any],
       schema: Schema[_]
-    ): Any = {
+    ): Any =
       //TODO: Maybe combine exceptions?
-      f(value).fold(v => throw MalformedField(schema, v.toString()) , a => a)
-    }
+      f(value).fold(v => throw MalformedField(schema, v.toString()), a => a)
 
     override protected def fail(context: DecoderContext, message: String): Any =
       throw DecodeError.ReadError(Cause.empty, message)

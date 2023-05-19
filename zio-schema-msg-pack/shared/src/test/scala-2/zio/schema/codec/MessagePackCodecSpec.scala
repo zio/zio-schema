@@ -6,14 +6,14 @@ import scala.collection.immutable.ListMap
 import scala.util.Try
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import org.msgpack.core.{MessagePack, MessagePacker}
+import org.msgpack.core.{ MessagePack, MessagePacker }
 import org.msgpack.jackson.dataformat.MessagePackFactory
 import zio.schema.CaseSet.caseOf
 import zio.schema._
-import zio.stream.{ZSink, ZStream}
+import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-import zio.{Chunk, Console, NonEmptyChunk, Scope, Task, ZIO}
+import zio.{ Chunk, Console, NonEmptyChunk, Scope, Task, ZIO }
 
 object MessagePackCodecSpec extends ZIOSpecDefault {
 
@@ -1003,7 +1003,11 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, NonEmptyChunk[DecodeError], A] =
+  def encodeAndDecodeNS[A](
+    schema: Schema[A],
+    input: A,
+    print: Boolean = false
+  ): ZIO[Any, NonEmptyChunk[DecodeError], A] =
     ZIO
       .succeed(input)
       .tap(value => Console.printLine(s"Input Value: $value").when(print).ignore)
@@ -1012,7 +1016,11 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
       .map(ch => MessagePackCodec.messagePackCodec(schema).decode(ch).toEither)
       .absolve
 
-  def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, NonEmptyChunk[DecodeError], A] =
+  def encodeAndDecodeNS[A](
+    encodeSchema: Schema[A],
+    decodeSchema: Schema[A],
+    input: A
+  ): ZIO[Any, NonEmptyChunk[DecodeError], A] =
     ZIO
       .succeed(input)
       .map(a => MessagePackCodec.messagePackCodec(encodeSchema).encode(a))

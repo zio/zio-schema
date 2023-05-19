@@ -37,7 +37,9 @@ object Codecs {
       final override def streamEncoder[T](implicit ev: IsElementOf[T, Types]): ZPipeline[Any, Nothing, T, Element] =
         instances.withInstance((codec: Codec[Whole, Element, T]) => codec.streamEncoder)
 
-      final override def decode[T](whole: Whole)(implicit ev: IsElementOf[T, Types]): zio.prelude.Validation[DecodeError, T] =
+      final override def decode[T](
+        whole: Whole
+      )(implicit ev: IsElementOf[T, Types]): zio.prelude.Validation[DecodeError, T] =
         instances.withInstance((codec: Codec[Whole, Element, T]) => codec.decode(whole))
 
       final override def streamDecoder[T](implicit ev: IsElementOf[T, Types]): ZPipeline[Any, DecodeError, Element, T] =

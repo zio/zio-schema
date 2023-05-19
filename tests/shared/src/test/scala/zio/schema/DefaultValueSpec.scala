@@ -1,10 +1,10 @@
 package zio.schema
 
-import zio.{Chunk, NonEmptyChunk}
+import zio.{ Chunk, NonEmptyChunk }
 import zio.schema.CaseSet.caseOf
-import zio.schema.Schema.{Lazy, Primitive}
+import zio.schema.Schema.{ Lazy, Primitive }
 import zio.test.Assertion._
-import zio.test.{Spec, ZIOSpecDefault, assert}
+import zio.test.{ Spec, ZIOSpecDefault, assert }
 
 object DefaultValueSpec extends ZIOSpecDefault {
   // Record Tests
@@ -67,10 +67,14 @@ object DefaultValueSpec extends ZIOSpecDefault {
         assert(Primitive(StandardType.CharType).defaultValue.toEither)(isRight(equalTo('\u0000')))
       },
       test("BigDecimalType default value") {
-        assert(Primitive(StandardType.BigDecimalType).defaultValue.toEither)(isRight(equalTo(java.math.BigDecimal.ZERO)))
+        assert(Primitive(StandardType.BigDecimalType).defaultValue.toEither)(
+          isRight(equalTo(java.math.BigDecimal.ZERO))
+        )
       },
       test("BigIntegerType default value") {
-        assert(Primitive(StandardType.BigIntegerType).defaultValue.toEither)(isRight(equalTo(java.math.BigInteger.ZERO)))
+        assert(Primitive(StandardType.BigIntegerType).defaultValue.toEither)(
+          isRight(equalTo(java.math.BigInteger.ZERO))
+        )
       },
       test("DayOfWeekType default value") {
         assert(Primitive(StandardType.DayOfWeekType).defaultValue.toEither)(
@@ -97,7 +101,9 @@ object DefaultValueSpec extends ZIOSpecDefault {
         assert(Primitive(StandardType.YearMonthType).defaultValue.toEither)(isRight(equalTo(java.time.YearMonth.now)))
       },
       test("ZoneId default value") {
-        assert(Primitive(StandardType.ZoneIdType).defaultValue.toEither)(isRight(equalTo(java.time.ZoneId.systemDefault)))
+        assert(Primitive(StandardType.ZoneIdType).defaultValue.toEither)(
+          isRight(equalTo(java.time.ZoneId.systemDefault))
+        )
       },
       test("ZoneOffset default value") {
         assert(Primitive(StandardType.ZoneOffsetType).defaultValue.toEither)(isRight(equalTo(java.time.ZoneOffset.UTC)))

@@ -2,16 +2,16 @@ package zio.schema.codec
 
 import java.nio.charset.StandardCharsets
 import java.time.format.DateTimeFormatter
-import java.time.{Duration, Month, MonthDay, Period, Year, YearMonth}
+import java.time.{ Duration, Month, MonthDay, Period, Year, YearMonth }
 import scala.annotation.StaticAnnotation
 import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters._
-import scala.util.{Right, Try}
-import org.apache.avro.{LogicalTypes, Schema => SchemaAvro}
+import scala.util.{ Right, Try }
+import org.apache.avro.{ LogicalTypes, Schema => SchemaAvro }
 import zio.Chunk
 import zio.prelude.Validation
 import zio.schema.CaseSet.Aux
-import zio.schema.Schema.{Record, _}
+import zio.schema.Schema.{ Record, _ }
 import zio.schema._
 import zio.schema.codec.AvroAnnotations._
 import zio.schema.codec.AvroPropMarker._
@@ -163,7 +163,8 @@ object AvroCodec extends AvroCodec {
                              formatter.map(
                                _ => Schema.primitive(StandardType.LocalDateType)
                              )
-                           case _ => Validation.fail(s"Unsupported int logical type ${avroSchema.getLogicalType.getName}")
+                           case _ =>
+                             Validation.fail(s"Unsupported int logical type ${avroSchema.getLogicalType.getName}")
                          }
                    }
                  case SchemaAvro.Type.LONG =>
@@ -298,15 +299,21 @@ object AvroCodec extends AvroCodec {
           case StandardType.BigDecimalType => toAvroDecimal(schema)
           case StandardType.BigIntegerType => toAvroDecimal(schema)
           case StandardType.DayOfWeekType =>
-            Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.DayOfWeek)))
+            Validation.succeed(
+              SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.DayOfWeek))
+            )
           case StandardType.MonthType =>
             Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Month)))
           case StandardType.YearType =>
             Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.Year)))
           case StandardType.ZoneIdType =>
-            Validation.succeed(SchemaAvro.create(SchemaAvro.Type.STRING).addMarkerProp(StringDiscriminator(StringType.ZoneId)))
+            Validation.succeed(
+              SchemaAvro.create(SchemaAvro.Type.STRING).addMarkerProp(StringDiscriminator(StringType.ZoneId))
+            )
           case StandardType.ZoneOffsetType =>
-            Validation.succeed(SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.ZoneOffset)))
+            Validation.succeed(
+              SchemaAvro.create(SchemaAvro.Type.INT).addMarkerProp(IntDiscriminator(IntType.ZoneOffset))
+            )
           case StandardType.MonthDayType =>
             //TODO 1
             //zio.prelude.Validation.succeed(SchemaAvro.create(monthDayStructure).addMarkerProp(RecordDiscriminator(RecordType.MonthDay)))
@@ -398,7 +405,9 @@ object AvroCodec extends AvroCodec {
           leftSchema  = if (l.getType == SchemaAvro.Type.UNION) wrapAvro(l, lname, UnionWrapper) else l
           rightSchema = if (r.getType == SchemaAvro.Type.UNION) wrapAvro(r, rname, UnionWrapper) else r
           _ <- if (leftSchema.getFullName == rightSchema.getFullName)
-                Validation.fail(s"Left and right schemas of either must have different fullnames: ${leftSchema.getFullName}")
+                Validation.fail(
+                  s"Left and right schemas of either must have different fullnames: ${leftSchema.getFullName}"
+                )
               else Validation.succeed(())
         } yield SchemaAvro.createUnion(leftSchema, rightSchema)
 
@@ -455,7 +464,9 @@ object AvroCodec extends AvroCodec {
           .addMarkerProp(Formatter(formatter))
       )
     } else {
-      Validation.succeed(LogicalTypes.date().addToSchema(SchemaAvro.create(SchemaAvro.Type.INT)).addMarkerProp(Formatter(formatter)))
+      Validation.succeed(
+        LogicalTypes.date().addToSchema(SchemaAvro.create(SchemaAvro.Type.INT)).addMarkerProp(Formatter(formatter))
+      )
     }
 
   private[codec] def toAvroLocalTime(
@@ -503,9 +514,13 @@ object AvroCodec extends AvroCodec {
       val baseSchema = SchemaAvro.create(SchemaAvro.Type.LONG)
       getTimeprecisionType(annotations).getOrElse(TimePrecisionType.default) match {
         case TimePrecisionType.Millis =>
-          Validation.succeed(LogicalTypes.localTimestampMillis().addToSchema(baseSchema).addMarkerProp(Formatter(formatter)))
+          Validation.succeed(
+            LogicalTypes.localTimestampMillis().addToSchema(baseSchema).addMarkerProp(Formatter(formatter))
+          )
         case TimePrecisionType.Micros =>
-          Validation.succeed(LogicalTypes.localTimestampMicros().addToSchema(baseSchema).addMarkerProp(Formatter(formatter)))
+          Validation.succeed(
+            LogicalTypes.localTimestampMicros().addToSchema(baseSchema).addMarkerProp(Formatter(formatter))
+          )
       }
     }
 
@@ -528,16 +543,16 @@ object AvroCodec extends AvroCodec {
     val avroEnumAnnotationExists = hasAvroEnumAnnotation(enu.annotations)
     val isAvroEnumEquivalent = enu.cases.map(_.schema).forall {
       case (Transform(Primitive(standardType, _), _, _, _, _))
-        if standardType == StandardType.UnitType && avroEnumAnnotationExists =>
+          if standardType == StandardType.UnitType && avroEnumAnnotationExists =>
         true
       case (Primitive(standardType, _)) if standardType == StandardType.StringType => true
-      case (CaseClass0(_, _, _)) if avroEnumAnnotationExists => true
-      case _ => false
+      case (CaseClass0(_, _, _)) if avroEnumAnnotationExists                       => true
+      case _                                                                       => false
     }
     if (isAvroEnumEquivalent) {
       for {
-        name <- getName(enu)
-        doc = getDoc(enu.annotations).orNull
+        name            <- getName(enu)
+        doc             = getDoc(enu.annotations).orNull
         namespaceOption <- getNamespace(enu.annotations)
         symbols = enu.cases.map {
           case caseValue => getNameOption(caseValue.annotations).getOrElse(caseValue.id)
@@ -547,14 +562,16 @@ object AvroCodec extends AvroCodec {
     } else {
       val cases = enu.cases.map(c => (c.id, (c.schema, c.annotations))).map {
         case (symbol, (Transform(Primitive(standardType, _), _, _, _, _), annotations))
-          if standardType == StandardType.UnitType =>
+            if standardType == StandardType.UnitType =>
           val name = getNameOption(annotations).getOrElse(symbol)
-          Validation.succeed(SchemaAvro.createRecord(name, null, null, false, new java.util.ArrayList[SchemaAvro.Field]))
+          Validation
+            .succeed(SchemaAvro.createRecord(name, null, null, false, new java.util.ArrayList[SchemaAvro.Field]))
         case (symbol, (CaseClass0(_, _, _), annotations)) =>
           val name = getNameOption(annotations).getOrElse(symbol)
-          Validation.succeed(SchemaAvro.createRecord(name, null, null, false, new java.util.ArrayList[SchemaAvro.Field]))
+          Validation
+            .succeed(SchemaAvro.createRecord(name, null, null, false, new java.util.ArrayList[SchemaAvro.Field]))
         case (symbol, (schema, annotations)) =>
-          val name = getNameOption(annotations).getOrElse(symbol)
+          val name           = getNameOption(annotations).getOrElse(symbol)
           val schemaWithName = addNameAnnotationIfMissing(schema, name)
           toAvroSchema(schemaWithName).map {
             case schema: SchemaAvro if schema.getType == SchemaAvro.Type.UNION =>
@@ -562,15 +579,16 @@ object AvroCodec extends AvroCodec {
             case schema => schema
           }
       }
-      Validation.validateAll(cases.toList)
+      Validation
+        .validateAll(cases.toList)
         .map(c => SchemaAvro.createUnion(c.asJava))
     }
   }
 
-  private def extractAvroFields(record: Record[_]): List[org.apache.avro.Schema.Field] = {
-    Validation.validateAll(record.fields.map(toAvroRecordField(_)).toList)
+  private def extractAvroFields(record: Record[_]): List[org.apache.avro.Schema.Field] =
+    Validation
+      .validateAll(record.fields.map(toAvroRecordField(_)).toList)
       .getOrElse(null)
-  }
 
   private[codec] def toAvroRecord(record: Record[_]): Validation[String, SchemaAvro] =
     for {
@@ -740,8 +758,8 @@ object AvroCodec extends AvroCodec {
         )
       })
 
-
-    val caseSet = Validation.validateAll(cases.toList)
+    val caseSet = Validation
+      .validateAll(cases.toList)
       .flatMap(cases => {
         Validation(
           CaseSet(cases: _*).asInstanceOf[CaseSet { type EnumType = Z }]
@@ -766,41 +784,43 @@ object AvroCodec extends AvroCodec {
                 case first :: second :: Nil => Validation.succeed(Schema.either(first.schema, second.schema))
                 case _                      => Validation.fail("ZIO schema wrapped either must have exactly two cases")
               }
-            case e: Schema.Either[_, _]                                                              => Validation.succeed(e)
-            case c: CaseClass0[_]                                                                    => Validation.succeed(c)
-            case c: CaseClass1[_, _]                                                                 => Validation.succeed(c)
-            case c: CaseClass2[_, _, _]                                                              => Validation.succeed(c)
-            case c: CaseClass3[_, _, _, _]                                                           => Validation.succeed(c)
-            case c: CaseClass4[_, _, _, _, _]                                                        => Validation.succeed(c)
-            case c: CaseClass5[_, _, _, _, _, _]                                                     => Validation.succeed(c)
-            case c: CaseClass6[_, _, _, _, _, _, _]                                                  => Validation.succeed(c)
-            case c: CaseClass7[_, _, _, _, _, _, _, _]                                               => Validation.succeed(c)
-            case c: CaseClass8[_, _, _, _, _, _, _, _, _]                                            => Validation.succeed(c)
-            case c: CaseClass9[_, _, _, _, _, _, _, _, _, _]                                         => Validation.succeed(c)
-            case c: CaseClass10[_, _, _, _, _, _, _, _, _, _, _]                                     => Validation.succeed(c)
-            case c: CaseClass11[_, _, _, _, _, _, _, _, _, _, _, _]                                  => Validation.succeed(c)
-            case c: CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, _]                               => Validation.succeed(c)
-            case c: CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, _]                            => Validation.succeed(c)
-            case c: CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                         => Validation.succeed(c)
-            case c: CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                      => Validation.succeed(c)
-            case c: CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                   => Validation.succeed(c)
-            case c: CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                => Validation.succeed(c)
-            case c: CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]             => Validation.succeed(c)
-            case c: CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]          => Validation.succeed(c)
-            case c: CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]       => Validation.succeed(c)
-            case c: CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]    => Validation.succeed(c)
-            case c: CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _] => Validation.succeed(c)
-            case c: Dynamic                                                                          => Validation.succeed(c)
-            case c: GenericRecord                                                                    => Validation.succeed(c)
-            case c: Map[_, _]                                                                        => Validation.succeed(c)
-            case c: Sequence[_, _, _]                                                                => Validation.succeed(c)
-            case c: Set[_]                                                                           => Validation.succeed(c)
-            case c: Fail[_]                                                                          => Validation.succeed(c)
-            case c: Lazy[_]                                                                          => Validation.succeed(c)
-            case c: Optional[_]                                                                      => Validation.succeed(c)
-            case c: Primitive[_]                                                                     => Validation.succeed(c)
-            case c: Transform[_, _, _]                                                               => Validation.succeed(c)
-            case c: Tuple2[_, _]                                                                     => Validation.succeed(c)
+            case e: Schema.Either[_, _]                                                        => Validation.succeed(e)
+            case c: CaseClass0[_]                                                              => Validation.succeed(c)
+            case c: CaseClass1[_, _]                                                           => Validation.succeed(c)
+            case c: CaseClass2[_, _, _]                                                        => Validation.succeed(c)
+            case c: CaseClass3[_, _, _, _]                                                     => Validation.succeed(c)
+            case c: CaseClass4[_, _, _, _, _]                                                  => Validation.succeed(c)
+            case c: CaseClass5[_, _, _, _, _, _]                                               => Validation.succeed(c)
+            case c: CaseClass6[_, _, _, _, _, _, _]                                            => Validation.succeed(c)
+            case c: CaseClass7[_, _, _, _, _, _, _, _]                                         => Validation.succeed(c)
+            case c: CaseClass8[_, _, _, _, _, _, _, _, _]                                      => Validation.succeed(c)
+            case c: CaseClass9[_, _, _, _, _, _, _, _, _, _]                                   => Validation.succeed(c)
+            case c: CaseClass10[_, _, _, _, _, _, _, _, _, _, _]                               => Validation.succeed(c)
+            case c: CaseClass11[_, _, _, _, _, _, _, _, _, _, _, _]                            => Validation.succeed(c)
+            case c: CaseClass12[_, _, _, _, _, _, _, _, _, _, _, _, _]                         => Validation.succeed(c)
+            case c: CaseClass13[_, _, _, _, _, _, _, _, _, _, _, _, _, _]                      => Validation.succeed(c)
+            case c: CaseClass14[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                   => Validation.succeed(c)
+            case c: CaseClass15[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]                => Validation.succeed(c)
+            case c: CaseClass16[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]             => Validation.succeed(c)
+            case c: CaseClass17[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]          => Validation.succeed(c)
+            case c: CaseClass18[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]       => Validation.succeed(c)
+            case c: CaseClass19[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _]    => Validation.succeed(c)
+            case c: CaseClass20[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _] => Validation.succeed(c)
+            case c: CaseClass21[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _] =>
+              Validation.succeed(c)
+            case c: CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _] =>
+              Validation.succeed(c)
+            case c: Dynamic            => Validation.succeed(c)
+            case c: GenericRecord      => Validation.succeed(c)
+            case c: Map[_, _]          => Validation.succeed(c)
+            case c: Sequence[_, _, _]  => Validation.succeed(c)
+            case c: Set[_]             => Validation.succeed(c)
+            case c: Fail[_]            => Validation.succeed(c)
+            case c: Lazy[_]            => Validation.succeed(c)
+            case c: Optional[_]        => Validation.succeed(c)
+            case c: Primitive[_]       => Validation.succeed(c)
+            case c: Transform[_, _, _] => Validation.succeed(c)
+            case c: Tuple2[_, _]       => Validation.succeed(c)
 
           }
         case None => Validation.fail("ZIO schema wrapped record must have a single field")
@@ -830,8 +850,10 @@ object AvroCodec extends AvroCodec {
 
   private[codec] def toZioTuple(schema: SchemaAvro): Validation[String, Schema[_]] =
     for {
-      _ <- Validation.fromEither(scala.Either
-            .cond(schema.getFields.size() == 2, (), "Tuple must have exactly 2 fields:" + schema.toString(false)))
+      _ <- Validation.fromEither(
+            scala.Either
+              .cond(schema.getFields.size() == 2, (), "Tuple must have exactly 2 fields:" + schema.toString(false))
+          )
       _1 <- toZioSchema(schema.getFields.get(0).schema())
       _2 <- toZioSchema(schema.getFields.get(1).schema())
     } yield Schema.Tuple2(_1, _2, buildZioAnnotations(schema))

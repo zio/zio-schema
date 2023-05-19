@@ -3,7 +3,7 @@ package zio.schema
 import scala.collection.immutable.ListMap
 import zio.Chunk
 import zio.prelude.Validation
-import zio.test.{Gen, Sized}
+import zio.test.{ Gen, Sized }
 
 object SchemaGen {
 

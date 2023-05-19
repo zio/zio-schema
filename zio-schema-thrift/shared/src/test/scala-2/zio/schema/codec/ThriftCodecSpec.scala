@@ -1,20 +1,37 @@
 package zio.schema.codec
 
-import java.time.{DayOfWeek, Duration, Instant, LocalDate, LocalDateTime, LocalTime, Month, MonthDay, OffsetDateTime, OffsetTime, Period, Year, YearMonth, ZoneId, ZoneOffset, ZonedDateTime}
+import java.time.{
+  DayOfWeek,
+  Duration,
+  Instant,
+  LocalDate,
+  LocalDateTime,
+  LocalTime,
+  Month,
+  MonthDay,
+  OffsetDateTime,
+  OffsetTime,
+  Period,
+  Year,
+  YearMonth,
+  ZoneId,
+  ZoneOffset,
+  ZonedDateTime
+}
 import java.util
 import java.util.UUID
 import scala.collection.immutable.ListMap
 import scala.util.Try
 import org.apache.thrift.TSerializable
-import org.apache.thrift.protocol.{TBinaryProtocol, TField, TType}
+import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
 import zio.schema.CaseSet.caseOf
-import zio.schema.annotation.{fieldDefaultValue, optionalField, transientField}
-import zio.schema.codec.{generated => g}
-import zio.schema.{CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId}
-import zio.stream.{ZSink, ZStream}
+import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
+import zio.schema.codec.{ generated => g }
+import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
+import zio.stream.{ ZSink, ZStream }
 import zio.test.Assertion._
 import zio.test._
-import zio.{Chunk, Console, NonEmptyChunk, Scope, Task, ZIO}
+import zio.{ Chunk, Console, NonEmptyChunk, Scope, Task, ZIO }
 
 // TODO: use generators instead of manual encode/decode
 
@@ -1129,7 +1146,11 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       .run(ZSink.collectAll)
 
   //NS == non streaming variant of encodeAndDecode
-  def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, NonEmptyChunk[DecodeError], A] =
+  def encodeAndDecodeNS[A](
+    schema: Schema[A],
+    input: A,
+    print: Boolean = false
+  ): ZIO[Any, NonEmptyChunk[DecodeError], A] =
     ZIO
       .succeed(input)
       .tap(value => Console.printLine(s"Input Value: $value").when(print).ignore)
@@ -1139,7 +1160,11 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       .map(_.toEither)
       .absolve
 
-  def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, NonEmptyChunk[DecodeError], A] =
+  def encodeAndDecodeNS[A](
+    encodeSchema: Schema[A],
+    decodeSchema: Schema[A],
+    input: A
+  ): ZIO[Any, NonEmptyChunk[DecodeError], A] =
     ZIO
       .succeed(input)
       .map(a => ThriftCodec.thriftCodec(encodeSchema).encode(a))

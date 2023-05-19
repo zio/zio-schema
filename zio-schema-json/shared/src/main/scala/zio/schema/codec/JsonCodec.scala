@@ -4,31 +4,37 @@ import java.nio.CharBuffer
 import java.nio.charset.StandardCharsets
 import scala.collection.immutable.ListMap
 import zio.json.JsonCodec._
-import zio.json.JsonDecoder.{JsonError, UnsafeJson}
+import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.ast.Json
-import zio.json.internal.{Lexer, RecordingReader, RetractReader, StringMatrix, Write}
-import zio.json.{JsonFieldDecoder, JsonFieldEncoder, JsonCodec => ZJsonCodec, JsonDecoder => ZJsonDecoder, JsonEncoder => ZJsonEncoder}
-import zio.prelude.{Validation, ZValidation}
+import zio.json.internal.{ Lexer, RecordingReader, RetractReader, StringMatrix, Write }
+import zio.json.{
+  JsonFieldDecoder,
+  JsonFieldEncoder,
+  JsonCodec => ZJsonCodec,
+  JsonDecoder => ZJsonDecoder,
+  JsonEncoder => ZJsonEncoder
+}
+import zio.prelude.{ Validation, ZValidation }
 import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
 import zio.stream.ZPipeline
-import zio.{Cause, Chunk, ChunkBuilder, NonEmptyChunk, ZIO, prelude}
+import zio.{ Cause, Chunk, ChunkBuilder, NonEmptyChunk, ZIO, prelude }
 
 object JsonCodec {
   type DiscriminatorTuple = Chunk[(discriminatorName, String)]
 
   implicit def zioJsonBinaryCodec[A](implicit jsonCodec: ZJsonCodec[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
-      override def decode(whole: Chunk[Byte]): Validation[DecodeError, A] = {
-        Validation.fromEither(
-        jsonCodec
-          .decodeJson(
-            new String(whole.toArray, JsonEncoder.CHARSET)
+      override def decode(whole: Chunk[Byte]): Validation[DecodeError, A] =
+        Validation
+          .fromEither(
+            jsonCodec
+              .decodeJson(
+                new String(whole.toArray, JsonEncoder.CHARSET)
+              )
           )
-        )
           .mapError(failure => DecodeError.ReadError(Cause.empty, failure))
-      }
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
         ZPipeline.fromChannel(
@@ -365,12 +371,11 @@ object JsonCodec {
             case Validation.Success(_, a) => innerEncoder.unsafeEncode(a, indent, out)
           }
 
-        override def isNothing(b: B): Boolean = {
+        override def isNothing(b: B): Boolean =
           g(b) match {
             case Validation.Failure(_, _) => false
             case Validation.Success(_, a) => innerEncoder.isNothing(a)
           }
-        }
       }
 
     private def enumEncoder[Z](parentSchema: Schema.Enum[Z], cases: Schema.Case[Z, _]*): ZJsonEncoder[Z] =

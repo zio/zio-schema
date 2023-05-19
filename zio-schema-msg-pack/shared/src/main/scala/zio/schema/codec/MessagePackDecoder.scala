@@ -5,13 +5,13 @@ import java.util.UUID
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try}
-import org.msgpack.core.{MessagePack, MessageUnpacker}
-import zio.prelude.{Validation, ZValidation}
+import scala.util.{ Failure, Success, Try }
+import org.msgpack.core.{ MessagePack, MessageUnpacker }
+import zio.prelude.{ Validation, ZValidation }
 import zio.schema.codec.DecodeError.MalformedFieldWithPath
 import zio.schema.codec.MessagePackDecoder._
-import zio.schema.{DynamicValue, Schema, StandardType}
-import zio.{Chunk, ChunkBuilder}
+import zio.schema.{ DynamicValue, Schema, StandardType }
+import zio.{ Chunk, ChunkBuilder }
 
 private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
   private val unpacker = MessagePack.newDefaultUnpacker(bytes.toArray)
@@ -120,13 +120,13 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
           fields.get(fieldName) match {
             case Some(fieldSchema) =>
               decodeValue(actualPath, fieldSchema) match {
-                case f@ Validation.Failure(_, _) => f
+                case f @ Validation.Failure(_, _) => f
                 case Validation.Success(_, value) =>
                   if (index == fields.size) {
-                                                        succeed(m.updated(fieldName, value))
-                                                      } else {
-                                                        readFields(m.updated(fieldName, value), index + 1)
-                                                      }
+                    succeed(m.updated(fieldName, value))
+                  } else {
+                    readFields(m.updated(fieldName, value), index + 1)
+                  }
               }
 //                .flatMap(value => {
 //                                    if (index == fields.size) {
@@ -177,8 +177,8 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
     def decodeElements(n: Int, cb: ChunkBuilder[A]): Result[Chunk[A]] =
       if (n > 0) {
         decodeValue(path, elementSchema) match {
-          case zio.prelude.Validation.Success(_, elem) => decodeElements(n - 1, cb += elem)
-          case failure@ zio.prelude.Validation.Failure(_, _)   => failure
+          case zio.prelude.Validation.Success(_, elem)        => decodeElements(n - 1, cb += elem)
+          case failure @ zio.prelude.Validation.Failure(_, _) => failure
         }
       } else {
         succeed(cb.result())
