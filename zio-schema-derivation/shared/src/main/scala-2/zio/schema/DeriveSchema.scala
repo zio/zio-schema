@@ -15,6 +15,16 @@ object DeriveSchema {
 
     val JavaAnnotationTpe = typeOf[java.lang.annotation.Annotation]
 
+    lazy val optionType = typeOf[Option[_]]
+    lazy val listType   = typeOf[List[_]]
+    lazy val setType    = typeOf[Set[_]]
+    lazy val vectorType = typeOf[Vector[_]]
+    lazy val chunkType  = typeOf[Chunk[_]]
+    lazy val eitherType = typeOf[Either[_, _]]
+    lazy val tuple2Type = typeOf[(_, _)]
+    lazy val tuple3Type = typeOf[(_, _, _)]
+    lazy val tuple4Type = typeOf[(_, _, _, _)]
+
     val tpe = weakTypeOf[T]
 
     def concreteType(seenFrom: Type, tpe: Type): Type =
@@ -63,7 +73,7 @@ object DeriveSchema {
           s"Failed to derive schema for $tpe. Can only derive Schema for case class or sealed trait"
         )
 
-    def directInferSchema(parentType: Type, schemaType: Type, stack: List[Frame[c.type]]): Tree =
+    def directInferSchema(parentType: Type, schemaType: Type, stack: List[Frame[c.type]]): Tree = {
       stack
         .find(_.tpe =:= schemaType)
         .map {
@@ -84,20 +94,20 @@ object DeriveSchema {
                   case Nil =>
                     recurse(schemaType, stack)
                   case typeArg1 :: Nil =>
-                    if (schemaType <:< c.typeOf[Option[_]])
+                    if (schemaType <:< optionType)
                       q"_root_.zio.schema.Schema.option(_root_.zio.schema.Schema.defer(${directInferSchema(parentType, concreteType(parentType, typeArg1), stack)}))"
-                    else if (schemaType <:< typeOf[List[_]])
+                    else if (schemaType <:< listType)
                       q"_root_.zio.schema.Schema.list(_root_.zio.schema.Schema.defer(${directInferSchema(parentType, concreteType(parentType, typeArg1), stack)}))"
-                    else if (schemaType <:< typeOf[Set[_]])
+                    else if (schemaType <:< setType)
                       q"_root_.zio.schema.Schema.set(_root_.zio.schema.Schema.defer(${directInferSchema(parentType, concreteType(parentType, typeArg1), stack)}))"
-                    else if (schemaType <:< typeOf[Vector[_]])
+                    else if (schemaType <:< vectorType)
                       q"_root_.zio.schema.Schema.vector(_root_.zio.schema.Schema.defer(${directInferSchema(parentType, concreteType(parentType, typeArg1), stack)}))"
-                    else if (schemaType <:< typeOf[Chunk[_]])
+                    else if (schemaType <:< chunkType)
                       q"_root_.zio.schema.Schema.chunk(_root_.zio.schema.Schema.defer(${directInferSchema(parentType, concreteType(parentType, typeArg1), stack)}))"
                     else
                       recurse(schemaType, stack)
                   case typeArg1 :: typeArg2 :: Nil =>
-                    if (schemaType <:< typeOf[Either[_, _]])
+                    if (schemaType <:< eitherType)
                       q"""_root_.zio.schema.Schema.either(
                         _root_.zio.schema.Schema.defer(${directInferSchema(
                         parentType,
@@ -111,7 +121,7 @@ object DeriveSchema {
                       )})
                       )
                    """
-                    else if (schemaType <:< typeOf[(_, _)])
+                    else if (schemaType <:< tuple2Type)
                       q"""_root_.zio.schema.Schema.tuple2(
                         _root_.zio.schema.Schema.defer(${directInferSchema(
                         parentType,
@@ -128,7 +138,7 @@ object DeriveSchema {
                     else
                       recurse(schemaType, stack)
                   case typeArg1 :: typeArg2 :: typeArg3 :: Nil =>
-                    if (schemaType <:< typeOf[(_, _, _)])
+                    if (schemaType <:< tuple3Type)
                       q"""_root_.zio.schema.Schema.tuple3(
                         _root_.zio.schema.Schema.defer(${directInferSchema(
                         parentType,
@@ -151,7 +161,7 @@ object DeriveSchema {
                     else
                       recurse(schemaType, stack)
                   case typeArg1 :: typeArg2 :: typeArg3 :: typeArg4 :: Nil =>
-                    if (schemaType <:< typeOf[(_, _, _)])
+                    if (schemaType <:< tuple4Type)
                       q"""_root_.zio.schema.Schema.tuple4(
                         _root_.zio.schema.Schema.defer(${directInferSchema(
                         parentType,
@@ -184,6 +194,7 @@ object DeriveSchema {
             }
           }
         }
+    }
 
     @nowarn
     def getFieldName(annotations: List[Tree]): Option[String] =
