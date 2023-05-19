@@ -77,6 +77,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     implicit lazy val schema: Schema[Recursive] = DeriveSchema.gen[Recursive]
   }
 
+  case class GenericType[T](t: T)
+
+  object GenericType {
+    implicit def schema[T: Schema]: Schema[GenericType[T]] = DeriveSchema.gen[GenericType[T]]
+  }
+
   case class Cyclic(field1: Long, child: CyclicChild1)
 
   object Cyclic {

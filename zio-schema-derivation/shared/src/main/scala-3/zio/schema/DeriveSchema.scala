@@ -51,6 +51,8 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
       case Some(ref) =>
         '{ Schema.defer(${ref.asExprOf[Schema[T]]}) }
       case None => 
+        val summoned = if (!top) Expr.summon[Schema[T]] else None
+        summoned.map( s => '{ Schema.defer(${s}) }).getOrElse(
         typeRepr.asType match {
           case '[List[a]] =>
             val schema = deriveSchema[a](stack)
@@ -77,14 +79,6 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
             val schema = deriveSchema[a](stack)
             '{ Schema.chunk(Schema.defer(${schema})) }.asExprOf[Schema[T]]
           case _ => 
-            val summoned = if (!top) Expr.summon[Schema[T]] else None
-            summoned match {
-              case Some(schema) =>
-                // println(s"FOR TYPE ${typeRepr.show}")
-                // println(s"STACK ${stack.find(typeRepr)}")
-                // println(s"Found schema ${schema.show}")
-                schema
-              case _ =>
                 Mirror(typeRepr) match {
                   case Some(mirror) =>
                     mirror.mirrorType match {
@@ -102,8 +96,8 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
                       report.errorAndAbort(s"Deriving schema for ${typeRepr.show} is not supported")
                     }
               }
-            }
         }
+        )
     }
 
     //println()
