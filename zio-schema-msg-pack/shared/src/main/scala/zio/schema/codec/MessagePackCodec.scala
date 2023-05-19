@@ -1,9 +1,9 @@
 package zio.schema.codec
 
-import zio.prelude.Validation
-
 import java.math.{ BigInteger, MathContext }
 import java.time._
+
+import zio.prelude.Validation
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.{ Schema, StandardType }
 import zio.stream.ZPipeline

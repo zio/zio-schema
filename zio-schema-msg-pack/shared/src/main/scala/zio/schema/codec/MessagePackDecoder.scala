@@ -2,12 +2,15 @@ package zio.schema.codec
 
 import java.time._
 import java.util.UUID
+
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 import scala.util.{ Failure, Success, Try }
+
 import org.msgpack.core.{ MessagePack, MessageUnpacker }
-import zio.prelude.{ Validation, ZValidation }
+
+import zio.prelude.Validation
 import zio.schema.codec.DecodeError.MalformedFieldWithPath
 import zio.schema.codec.MessagePackDecoder._
 import zio.schema.{ DynamicValue, Schema, StandardType }

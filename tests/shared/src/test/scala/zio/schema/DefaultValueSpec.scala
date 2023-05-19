@@ -1,10 +1,10 @@
 package zio.schema
 
-import zio.{ Chunk, NonEmptyChunk }
 import zio.schema.CaseSet.caseOf
 import zio.schema.Schema.{ Lazy, Primitive }
 import zio.test.Assertion._
 import zio.test.{ Spec, ZIOSpecDefault, assert }
+import zio.{ Chunk, NonEmptyChunk }
 
 object DefaultValueSpec extends ZIOSpecDefault {
   // Record Tests

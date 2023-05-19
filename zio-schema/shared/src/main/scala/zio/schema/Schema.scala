@@ -1,15 +1,16 @@
 package zio.schema
 
-import zio.prelude.Validation
-
 import java.net.{ URI, URL }
 import java.time.temporal.ChronoUnit
+
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
+
+import zio.prelude.Validation
 import zio.schema.internal.SourceLocation
 import zio.schema.meta._
 import zio.schema.validation._
-import zio.{ Chunk, Unsafe, prelude }
+import zio.{ Chunk, Unsafe }
 
 /**
  * A `Schema[A]` describes the structure of some data type `A`, in terms of case classes,

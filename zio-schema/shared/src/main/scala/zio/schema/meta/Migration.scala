@@ -1,8 +1,8 @@
 package zio.schema.meta
 
-import zio.prelude.{ Validation, ZValidation }
-
 import scala.collection.immutable.ListMap
+
+import zio.prelude.{ Validation, ZValidation }
 import zio.schema.meta.ExtensibleMetaSchema.Labelled
 import zio.schema.{ DynamicValue, StandardType }
 import zio.{ Chunk, ChunkBuilder }

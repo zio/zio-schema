@@ -25,6 +25,7 @@ import zio.bson.{
   bsonHint,
   bsonNoExtraFields
 }
+import zio.prelude.{ Validation, ZValidation }
 import zio.schema.annotation.{
   caseName,
   caseNameAliases,
@@ -507,20 +508,21 @@ object BsonSchemaCodec {
       }
     }
 
-    private def transformEncoder[A, B](schema: Schema[A], g: B => Either[String, A]): BsonEncoder[B] =
+    private def transformEncoder[A, B](schema: Schema[A], g: B => Validation[String, A]): BsonEncoder[B] =
       new BsonEncoder[B] {
         private lazy val innerEncoder = schemaEncoder(schema)
 
         override def encode(writer: BsonWriter, b: B, ctx: BsonEncoder.EncoderContext): Unit =
           g(b) match {
-            case Left(_)  => ()
-            case Right(a) => innerEncoder.encode(writer, a, ctx)
+            case ZValidation.Failure(_, _)     => ()
+            case ZValidation.Success(_, value) => innerEncoder.encode(writer, value, ctx)
           }
 
         override def toBsonValue(b: B): BsonValue =
           g(b) match {
-            case Left(_)  => BsonNull.VALUE
-            case Right(a) => innerEncoder.toBsonValue(a)
+            case ZValidation.Failure(_, _)     => BsonNull.VALUE
+            case ZValidation.Success(_, value) => innerEncoder.toBsonValue(value)
+
           }
       }
 
@@ -689,7 +691,7 @@ object BsonSchemaCodec {
       case Schema.Primitive(standardType, _)     => primitiveCodec(standardType).decoder
       case Schema.Optional(codec, _)             => BsonDecoder.option(schemaDecoder(codec))
       case Schema.Tuple2(left, right, _)         => tuple2Decoder(schemaDecoder(left), schemaDecoder(right))
-      case Schema.Transform(codec, f, _, _, _)   => schemaDecoder(codec).mapOrFail(f)
+      case Schema.Transform(codec, f, _, _, _)   => schemaDecoder(codec).mapOrFail(g => f(g).toEither.left.map(_.head))
       case Schema.Sequence(codec, f, _, _, _)    => chunkDecoder(schemaDecoder(codec)).map(f)
       case Schema.Map(ks, vs, _)                 => mapDecoder(ks, vs)
       case Schema.Set(s, _)                      => chunkDecoder(schemaDecoder(s)).map(entries => entries.toSet)
@@ -1174,8 +1176,8 @@ object BsonSchemaCodec {
 
           Unsafe.unsafe { implicit u =>
             caseClassSchema.construct(Chunk.fromArray(ps)) match {
-              case Left(err)    => throw BsonDecoder.Error(trace, s"Failed to construct case class: $err")
-              case Right(value) => value
+              case ZValidation.Failure(_, err)   => throw BsonDecoder.Error(trace, s"Failed to construct case class: $err")
+              case ZValidation.Success(_, value) => value
             }
           }
         }
@@ -1216,8 +1218,8 @@ object BsonSchemaCodec {
 
             Unsafe.unsafe { implicit u =>
               caseClassSchema.construct(Chunk.fromArray(ps)) match {
-                case Left(err)    => throw BsonDecoder.Error(trace, s"Failed to construct case class: $err")
-                case Right(value) => value
+                case ZValidation.Failure(_, errors) => throw BsonDecoder.Error(trace, s"Failed to construct case class: $errors")
+                case ZValidation.Success(_, value)  => value
               }
             }
           }

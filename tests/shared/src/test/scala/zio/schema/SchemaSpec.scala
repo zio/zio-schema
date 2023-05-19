@@ -1,6 +1,7 @@
 package zio.schema
 
 import scala.collection.immutable.ListMap
+
 import zio.Chunk
 import zio.prelude.Validation
 import zio.schema.CaseSet._

@@ -2,10 +2,12 @@ package zio.schema.codec
 
 import java.time._
 import java.util.UUID
+
 import scala.collection.immutable.ListMap
+
 import org.msgpack.core.MessagePack
+
 import zio.Chunk
-import zio.prelude.data.Optional.AllValuesAreNullable
 import zio.schema.{ DynamicValue, Schema, StandardType }
 
 private[codec] class MessagePackEncoder {

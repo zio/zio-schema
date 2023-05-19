@@ -3,21 +3,18 @@ package zio.schema.codec
 import java.nio.ByteBuffer
 import java.time._
 import java.util.UUID
-import scala.annotation.{ nowarn, tailrec }
+
+import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
+
 import org.apache.thrift.protocol._
+
 import zio.prelude.Validation
 import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
 import zio.schema._
 import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
-import zio.schema.codec.DecodeError.{
-  EmptyContent,
-  MalformedField,
-  MalformedFieldWithPath,
-  ReadError,
-  ReadErrorWithPath
-}
+import zio.schema.codec.DecodeError.{ EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath }
 import zio.stream.ZPipeline
 import zio.{ Cause, Chunk, NonEmptyChunk, Unsafe, ZIO }
 

@@ -2,12 +2,15 @@ package zio.schema.codec
 
 import java.time._
 import java.util.UUID
+
 import scala.collection.immutable.ListMap
 import scala.util.Try
+
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.msgpack.core.{ MessagePack, MessagePacker }
 import org.msgpack.jackson.dataformat.MessagePackFactory
+
 import zio.schema.CaseSet.caseOf
 import zio.schema._
 import zio.stream.{ ZSink, ZStream }

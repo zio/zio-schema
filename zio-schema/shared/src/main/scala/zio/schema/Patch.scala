@@ -1,14 +1,10 @@
 package zio.schema
 
-import zio.Chunk
-import zio.schema.diff.Edit
-import zio.schema.meta.Migration
-import zio.prelude.Validation
-
 import java.math.{ BigInteger, MathContext }
 import java.time.temporal.{ ChronoField, ChronoUnit }
 import java.time.{
   DayOfWeek,
+  Duration => JDuration,
   Instant,
   LocalDate,
   LocalDateTime,
@@ -21,11 +17,16 @@ import java.time.{
   YearMonth,
   ZoneId,
   ZoneOffset,
-  Duration => JDuration,
   ZonedDateTime => JZonedDateTime
 }
+
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
+
+import zio.Chunk
+import zio.prelude.Validation
+import zio.schema.diff.Edit
+import zio.schema.meta.Migration
 
 sealed trait Patch[A] { self =>
 

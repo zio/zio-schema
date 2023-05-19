@@ -2,9 +2,11 @@ package zio.schema.codec
 
 import java.time.format.DateTimeFormatter
 import java.time.temporal.{ ChronoUnit, TemporalUnit }
+
 import scala.jdk.CollectionConverters._
-import scala.util.Try
+
 import org.apache.avro.{ LogicalType, LogicalTypes, Schema => SchemaAvro }
+
 import zio.prelude.Validation
 
 sealed trait AvroPropMarker {
