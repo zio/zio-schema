@@ -1,17 +1,27 @@
 package zio.schema.codec
 
-import org.apache.avro.generic.{ GenericData, GenericDatumWriter, GenericRecordBuilder }
-import org.apache.avro.io.EncoderFactory
+import org.apache.avro.generic.{
+  GenericData,
+  GenericDatumReader,
+  GenericDatumWriter,
+  GenericRecord,
+  GenericRecordBuilder
+}
+import org.apache.avro.io.{ DecoderFactory, EncoderFactory }
 import org.apache.avro.util.Utf8
 import org.apache.avro.{ Conversions, LogicalTypes, Schema => SchemaAvro }
-import zio.Chunk
+import zio.prelude.data.Optional.AllValuesAreNullable
+import zio.{ Chunk, ZIO }
 import zio.schema.{ FieldSet, Schema, StandardType, TypeId }
 import zio.stream.ZPipeline
 
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.util.UUID
+import scala.collection.View
 import scala.collection.immutable.ListMap
+import scala.jdk.CollectionConverters.{ CollectionHasAsScala, MapHasAsScala }
+import scala.util.Try
 
 object AvroCodec {
 
@@ -33,30 +43,271 @@ object AvroCodec {
         encoded
       }
 
-      override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] = ???
+      override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] = ZPipeline.mapChunks { chunk =>
+        chunk.flatMap(encode)
+      }
 
-      override def decode(whole: Chunk[Byte]): Either[DecodeError, A] = ???
+      override def decode(whole: Chunk[Byte]): Either[DecodeError, A] = {
+        val datumReader = new GenericDatumReader[Any](avroSchema)
+        val decoder     = DecoderFactory.get().binaryDecoder(whole.toArray, null)
+        val decoded     = datumReader.read(null, decoder)
+        decodeValue(decoded, schema)
+      }
 
-      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] = ???
+      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] = ZPipeline.mapChunksZIO { chunk =>
+        ZIO.fromEither(
+          decode(chunk).map(Chunk(_))
+        )
+      }
     }
 
+  private def decodeValue[A](raw: Any, schema: Schema[A]): Either[DecodeError, A] = schema match {
+    case enum: Schema.Enum[_]                 => ???
+    case record: Schema.Record[_]             => ???
+    case Schema.Sequence(element, f, _, _, _) => decodeSequence(raw, element).map(f)
+    case Schema.Set(element, _)               => decodeSequence(raw, element).map(_.toSet.asInstanceOf[A])
+    case mapSchema: Schema.Map[_, _] =>
+      decodeMap(raw, mapSchema.asInstanceOf[Schema.Map[Any, Any]]).map(_.asInstanceOf[A])
+    case Schema.Transform(schema, f, _, _, _) =>
+      decodeValue(raw, schema).flatMap(
+        a => f(a).left.map(msg => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), msg))
+      )
+    case Schema.Primitive(standardType, _) => decodePrimitiveValues(raw, standardType)
+    case Schema.Optional(schema, _)        => decodeOptionalValue(raw, schema)
+    case Schema.Fail(message, annotations) => ???
+    case Schema.Tuple2(left, right, _)     => decodeTuple2(raw, left, right)
+    case Schema.Either(left, right, _)     => decodeEitherValue(raw, left, right)
+    case lzy @ Schema.Lazy(_)              => decodeValue(raw, lzy.schema)
+    case Schema.Dynamic(annotations)       => ???
+  }
+
+  private def decodePrimitiveValues[A](value: Any, standardTypeSchema: StandardType[A]): Either[DecodeError, A] =
+    standardTypeSchema match {
+      case StandardType.UnitType =>
+        Try(()).toEither.left.map(e => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), e.getMessage))
+      case StandardType.StringType =>
+        Try(value.asInstanceOf[Utf8].toString).toEither.left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), e.getMessage))
+      case StandardType.BoolType =>
+        Try(value.asInstanceOf[Boolean]).toEither.left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), e.getMessage))
+      case StandardType.ByteType =>
+        Try(value.asInstanceOf[Integer]).toEither
+          .map(_.toByte)
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), e.getMessage))
+      case StandardType.ShortType =>
+        Try(value.asInstanceOf[Integer]).toEither
+          .map(_.toShort)
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), e.getMessage))
+      case StandardType.IntType =>
+        Try(value.asInstanceOf[Integer]).toEither.left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), e.getMessage))
+          .map(_.asInstanceOf[A])
+      case StandardType.LongType =>
+        Try(value.asInstanceOf[Long]).toEither.left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), e.getMessage))
+      case StandardType.FloatType =>
+        Try(value.asInstanceOf[Float]).toEither.left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), e.getMessage))
+      case StandardType.DoubleType =>
+        Try(value.asInstanceOf[Double]).toEither.left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), e.getMessage))
+      case StandardType.BinaryType =>
+        Try(value.asInstanceOf[ByteBuffer].array().asInstanceOf[A]).toEither.left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), e.getMessage))
+      case StandardType.CharType =>
+        Try(value.asInstanceOf[Integer]).toEither
+          .map(_.toChar)
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), e.getMessage))
+      case StandardType.UUIDType =>
+        Try(UUID.fromString(value.asInstanceOf[Utf8].toString).asInstanceOf[A]).toEither.left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), e.getMessage))
+      case StandardType.BigDecimalType =>
+        val converter = new Conversions.DecimalConversion()
+        val schema = AvroSchemaCodec
+          .encodeToApacheAvro(Schema.Primitive(StandardType.BigDecimalType, Chunk.empty))
+          .getOrElse(throw new Exception("Avro schema could not be generated for BigDecimal."))
+        Try(converter.fromBytes(value.asInstanceOf[ByteBuffer], schema, LogicalTypes.decimal(48, 24))).toEither.left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.BigIntegerType =>
+        val converter = new Conversions.DecimalConversion()
+        val schema = AvroSchemaCodec
+          .encodeToApacheAvro(Schema.Primitive(StandardType.BigIntegerType, Chunk.empty))
+          .getOrElse(throw new Exception("Avro schema could not be generated for BigInteger."))
+        Try(converter.fromBytes(value.asInstanceOf[ByteBuffer], schema, LogicalTypes.decimal(48, 24))).toEither.left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+          .map(_.toBigInteger)
+      case StandardType.DayOfWeekType =>
+        Try(value.asInstanceOf[Integer])
+          .map(java.time.DayOfWeek.of(_))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.MonthType =>
+        Try(value.asInstanceOf[Integer])
+          .map(java.time.Month.of(_))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.MonthDayType =>
+        Try(value.asInstanceOf[Utf8])
+          .map(raw => java.time.MonthDay.parse(raw.toString))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.PeriodType =>
+        Try(value.asInstanceOf[Utf8])
+          .map(raw => java.time.Period.parse(raw.toString))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.YearType =>
+        Try(value.asInstanceOf[Integer])
+          .map(java.time.Year.of(_))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.YearMonthType =>
+        Try(value.asInstanceOf[Utf8])
+          .map(raw => java.time.YearMonth.parse(raw.toString))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.ZoneIdType =>
+        Try(value.asInstanceOf[Utf8])
+          .map(raw => java.time.ZoneId.of(raw.toString))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.ZoneOffsetType =>
+        Try(value.asInstanceOf[Integer])
+          .map(java.time.ZoneOffset.ofTotalSeconds(_))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.DurationType =>
+        Try(value.asInstanceOf[Utf8])
+          .map(raw => java.time.Duration.parse(raw.toString))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.InstantType =>
+        Try(value.asInstanceOf[Utf8])
+          .map(java.time.Instant.parse(_))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.LocalDateType =>
+        Try(value.asInstanceOf[Utf8])
+          .map(java.time.LocalDate.parse(_))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.LocalTimeType =>
+        Try(value.asInstanceOf[Utf8])
+          .map(java.time.LocalTime.parse(_))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.LocalDateTimeType =>
+        Try(value.asInstanceOf[Utf8])
+          .map(java.time.LocalDateTime.parse(_))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.OffsetTimeType =>
+        Try(value.asInstanceOf[Utf8])
+          .map(java.time.OffsetTime.parse(_))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.OffsetDateTimeType =>
+        Try(value.asInstanceOf[Utf8])
+          .map(java.time.OffsetDateTime.parse(_))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.ZonedDateTimeType =>
+        Try(value.asInstanceOf[Utf8])
+          .map(java.time.ZonedDateTime.parse(_))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+    }
+
+  private def decodeMap(value: Any, schema: Schema.Map[Any, Any]) = {
+    val map = value.asInstanceOf[java.util.Map[Any, Any]]
+    val result: List[(Either[DecodeError, Any], Either[DecodeError, Any])] = map.asScala.toList.map {
+      case (k, v) => (decodeValue(k, schema.keySchema), decodeValue(v, schema.valueSchema))
+    }
+    val traversed: Either[View[DecodeError], View[(Any, Any)]] = result.partition {
+      case (k, v) => k.isLeft || v.isLeft
+    } match {
+      case (Nil, decoded) => Right(for ((Right(k), Right(v)) <- decoded.view) yield (k, v))
+      case (errors, _)    => Left(for ((Left(s), _)          <- errors.view) yield s)
+    }
+
+    val combined: Either[DecodeError, View[(Any, Any)]] = traversed.left.map { errors =>
+      errors.foldLeft[DecodeError](DecodeError.MalformedFieldWithPath(Chunk.empty, "Map decoding failed."))(
+        (acc, error) => acc.and(DecodeError.MalformedFieldWithPath(Chunk.empty, s"${error.message}"))
+      )
+    }
+
+    combined.map(_.toMap)
+
+  }
+  private def decodeSequence[A](a: A, schema: Schema[A]) = {
+    val array  = a.asInstanceOf[GenericData.Array[Any]]
+    val result = array.asScala.toList.map(decodeValue(_, schema))
+    val traversed: Either[View[DecodeError], View[A]] = result.partition(_.isLeft) match {
+      case (Nil, decoded) => Right(for (Right(i) <- decoded.view) yield i)
+      case (errors, _)    => Left(for (Left(s)   <- errors.view) yield s)
+    }
+    val combined: Either[DecodeError, View[A]] = traversed.left.map { errors =>
+      errors.foldLeft[DecodeError](DecodeError.MalformedFieldWithPath(Chunk.empty, "Sequence decoding failed."))(
+        (acc, error) => acc.and(DecodeError.MalformedFieldWithPath(Chunk.empty, s"${error.message}"))
+      )
+    }
+
+    combined.map(Chunk.fromIterable(_))
+  }
+  private def decodeTuple2(value: Any, schemaLeft: Schema[Any], schemaRight: Schema[Any]) = {
+    val record  = value.asInstanceOf[GenericRecord]
+    val result1 = decodeValue(record.get("_1"), schemaLeft)
+    val result2 = decodeValue(record.get("_2"), schemaRight)
+    result1.flatMap(a => result2.map(b => (a, b)))
+  }
+  private def decodeEitherValue(value: Any, schemaLeft: Schema[Any], schemaRight: Schema[Any]) = {
+    val record = value.asInstanceOf[GenericRecord]
+    val result = decodeValue(record.get("value"), schemaLeft)
+    if (result.isRight) result.map(Left(_))
+    else decodeValue(record.get("value"), schemaRight).map(Right(_))
+  }
+
+  private def decodeOptionalValue[A](value: Any, schema: Schema[A]) =
+    if (value == null) Right(None)
+    else decodeValue(value, schema).map(Some(_))
+
   private def encodeValue[A](a: A, schema: Schema[A]): Any = schema match {
-    case Schema.Enum1(_, c1, _)                      => encodeEnum(a, schema, c1)
-    case Schema.Enum2(_, c1, c2, _)                  => encodeEnum(a, schema, c1, c2)
-    case Schema.Enum3(_, c1, c2, c3, _)              => encodeEnum(a, schema, c1, c2, c3)
-    case Schema.GenericRecord(typeId, structure, _)  => encodeGenericRecord(a, typeId, structure)
-    case Schema.Primitive(standardType, annotations) => encodePrimitive(a, standardType, annotations)
-    case Schema.Sequence(element, _, g, _, _)        => encodeSequence(element, g(a))
-    case Schema.Set(element, _)                      => encodeSet(element, a)
+    case Schema.Enum1(_, c1, _)                     => encodeEnum(a, schema, c1)
+    case Schema.Enum2(_, c1, c2, _)                 => encodeEnum(a, schema, c1, c2)
+    case Schema.Enum3(_, c1, c2, c3, _)             => encodeEnum(a, schema, c1, c2, c3)
+    case Schema.GenericRecord(typeId, structure, _) => encodeGenericRecord(a, typeId, structure)
+    case Schema.Primitive(standardType, _)          => encodePrimitive(a, standardType)
+    case Schema.Sequence(element, _, g, _, _)       => encodeSequence(element, g(a))
+    case Schema.Set(element, _)                     => encodeSet(element, a)
     case mapSchema: Schema.Map[_, _] =>
       encodeMap(mapSchema.asInstanceOf[Schema.Map[Any, Any]], a.asInstanceOf[scala.collection.immutable.Map[Any, Any]])
     case Schema.Transform(schema, _, g, _, _) =>
       g(a).map(encodeValue(_, schema)).getOrElse(throw new Exception("Transform failed."))
-    case Schema.Optional(schema, annotations)               => encodeOption(schema, a)
+    case Schema.Optional(schema, _)                         => encodeOption(schema, a)
     case Schema.Tuple2(left, right, _)                      => encodeTuple2(left, right, a)
     case Schema.Either(left, right, _)                      => encodeEither(left, right, a)
     case Schema.Lazy(schema0)                               => encodeValue(a, schema0())
-    case Schema.CaseClass0(_, _, _)                         => encodePrimitive((), StandardType.UnitType, Chunk.empty)
+    case Schema.CaseClass0(_, _, _)                         => encodePrimitive((), StandardType.UnitType)
     case Schema.CaseClass1(_, f, _, _)                      => encodeCaseClass(schema, a, f)
     case Schema.CaseClass2(_, f0, f1, _, _)                 => encodeCaseClass(schema, a, f0, f1)
     case Schema.CaseClass3(_, f0, f1, f2, _, _)             => encodeCaseClass(schema, a, f0, f1, f2)
@@ -238,9 +489,11 @@ object AvroCodec {
         tail._2
       )
 
+    case _ => throw new Exception(s"Unsupported schema $schema")
+
   }
 
-  private def encodePrimitive[A](a: A, standardType: StandardType[A], annotations: Chunk[Any]): Any =
+  private def encodePrimitive[A](a: A, standardType: StandardType[A]): Any =
     standardType match {
       case StandardType.UnitType   => null
       case StandardType.StringType => new Utf8(a.asInstanceOf[String])
@@ -399,7 +652,6 @@ object AvroCodec {
   }
 
   private def encodeEnum[Z](value: Z, schemaRaw: Schema[Z], cases: Schema.Case[Z, _]*): Any = {
-    //val schema = AvroSchemaCodec.encodeToApacheAvro(schemaRaw).getOrElse(throw new Exception("Avro schema could not be generated for CaseClass."))
     val fieldIndex = cases.indexWhere(c => c.deconstructOption(value).isDefined)
     if (fieldIndex >= 0) {
       val subtypeCase = cases(fieldIndex)
@@ -408,4 +660,5 @@ object AvroCodec {
       throw new Exception("Could not find matching case for enum value.")
     }
   }
+
 }

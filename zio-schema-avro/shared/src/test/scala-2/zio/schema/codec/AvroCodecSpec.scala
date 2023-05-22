@@ -5,7 +5,23 @@ import zio.schema.{ DeriveSchema, Schema }
 import zio.test._
 
 import java.math.BigInteger
-import java.time.{ DayOfWeek, Month, MonthDay, Period, Year, YearMonth, ZoneId, ZoneOffset }
+import java.time.{
+  DayOfWeek,
+  Instant,
+  LocalDate,
+  LocalDateTime,
+  LocalTime,
+  Month,
+  MonthDay,
+  OffsetDateTime,
+  OffsetTime,
+  Period,
+  Year,
+  YearMonth,
+  ZoneId,
+  ZoneOffset,
+  ZonedDateTime
+}
 import java.util.UUID
 
 object AvroCodecSpec extends ZIOSpecDefault {
@@ -91,7 +107,12 @@ object AvroCodecSpec extends ZIOSpecDefault {
     tupleEncoderSpec,
     genericRecordEncoderSpec,
     caseClassEncoderSpec,
-    enumEncoderSpec
+    enumEncoderSpec,
+    primitiveDecoderSpec,
+    optionDecoderSpec,
+    eitherDecoderSpec,
+    tupleDecoderSpec,
+    sequenceDecoderSpec
   )
 //    test("Encode simple case class") {
 //        val person = Person("John", 42)
@@ -362,6 +383,256 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val codec = AvroCodec.schemaBasedBinaryCodec[OneOf]
       val bytes = codec.encode(OneOf.BooleanValue(true))
       assertTrue(bytes.length == 2)
+    }
+  )
+
+  private val primitiveDecoderSpec = suite("Avro Codec - Primitive decoder spec")(
+    test("Decode Unit") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Unit]
+      val bytes  = codec.encode(())
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(()))
+    },
+    test("Decode Boolean") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Boolean]
+      val bytes  = codec.encode(true)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(true))
+    },
+    test("Decode String") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[String]
+      val bytes  = codec.encode("John")
+      val result = codec.decode(bytes)
+      assertTrue(result == Right("John"))
+    },
+    test("Decode Byte") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Byte]
+      val bytes  = codec.encode(42.toByte)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(42.toByte))
+    },
+    test("Decode Short") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Short]
+      val bytes  = codec.encode(42.toShort)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(42.toShort))
+    },
+    test("Decode Integer") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Int]
+      val bytes  = codec.encode(42)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(42))
+    },
+    test("Decode Long") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Long]
+      val bytes  = codec.encode(42L)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(42L))
+    },
+    test("Decode Float") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Float]
+      val bytes  = codec.encode(42.0f)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(42.0f))
+    },
+    test("Decode Double") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Double]
+      val bytes  = codec.encode(42.0)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(42.0))
+    },
+    test("Decode Chunk[Byte]") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Chunk[Byte]]
+      val bytes  = codec.encode(Chunk.fromArray(Array[Byte](1, 2, 3)))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Chunk.fromArray(Array[Byte](1, 2, 3))))
+    },
+    test("Decode Char") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Char]
+      val bytes  = codec.encode('a')
+      val result = codec.decode(bytes)
+      assertTrue(result == Right('a'))
+    },
+    test("Decode UUID") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[UUID]
+      val uuid   = UUID.randomUUID()
+      val bytes  = codec.encode(uuid)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(uuid))
+    },
+    test("Decode BigDecimal") {
+      val codec      = AvroCodec.schemaBasedBinaryCodec[BigDecimal]
+      val bigDecimal = BigDecimal(42)
+      val bytes      = codec.encode(bigDecimal)
+      val result     = codec.decode(bytes)
+      assertTrue(result == Right(bigDecimal))
+    },
+    test("Decode BigInt") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[BigInt]
+      val bigInt = BigInt(42)
+      val bytes  = codec.encode(bigInt)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(bigInt))
+    },
+    test("Decode DayOfWeek") {
+      val codec     = AvroCodec.schemaBasedBinaryCodec[DayOfWeek]
+      val dayOfWeek = DayOfWeek.FRIDAY
+      val bytes     = codec.encode(dayOfWeek)
+      val result    = codec.decode(bytes)
+      assertTrue(result == Right(dayOfWeek))
+    },
+    test("Decode Month") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Month]
+      val month  = Month.APRIL
+      val bytes  = codec.encode(month)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(month))
+    },
+    test("Decode MonthDay") {
+      val codec    = AvroCodec.schemaBasedBinaryCodec[MonthDay]
+      val monthDay = MonthDay.of(1, 1)
+      val bytes    = codec.encode(monthDay)
+      val result   = codec.decode(bytes)
+      assertTrue(result == Right(monthDay))
+    },
+    test("Decode Period") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Period]
+      val period = Period.of(1, 1, 1)
+      val bytes  = codec.encode(period)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(period))
+    },
+    test("Decode Year") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Year]
+      val year   = Year.of(2020)
+      val bytes  = codec.encode(year)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(year))
+    },
+    test("Decode YearMonth") {
+      val codec     = AvroCodec.schemaBasedBinaryCodec[YearMonth]
+      val yearMonth = YearMonth.of(2020, 1)
+      val bytes     = codec.encode(yearMonth)
+      val result    = codec.decode(bytes)
+      assertTrue(result == Right(yearMonth))
+    },
+    test("Decode ZoneId") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[ZoneId]
+      val zoneId = ZoneId.of("UTC")
+      val bytes  = codec.encode(zoneId)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(zoneId))
+    },
+    test("Decode ZoneOffset") {
+      val codec      = AvroCodec.schemaBasedBinaryCodec[ZoneOffset]
+      val zoneOffset = ZoneOffset.ofHours(1)
+      val bytes      = codec.encode(zoneOffset)
+      val result     = codec.decode(bytes)
+      assertTrue(result == Right(zoneOffset))
+    },
+    test("Decode Duration") {
+      val codec    = AvroCodec.schemaBasedBinaryCodec[Duration]
+      val duration = Duration.fromMillis(2000)
+      val bytes    = codec.encode(duration)
+      val result   = codec.decode(bytes)
+      assertTrue(result == Right(duration))
+    },
+    test("Decode Instant") {
+      val codec   = AvroCodec.schemaBasedBinaryCodec[Instant]
+      val instant = Instant.now()
+      val bytes   = codec.encode(instant)
+      val result  = codec.decode(bytes)
+      assertTrue(result == Right(instant))
+    },
+    test("Decode LocalDate") {
+      val codec     = AvroCodec.schemaBasedBinaryCodec[LocalDate]
+      val localDate = LocalDate.now()
+      val bytes     = codec.encode(localDate)
+      val result    = codec.decode(bytes)
+      assertTrue(result == Right(localDate))
+    },
+    test("Decode LocalDateTime") {
+      val codec         = AvroCodec.schemaBasedBinaryCodec[LocalDateTime]
+      val localDateTime = LocalDateTime.now()
+      val bytes         = codec.encode(localDateTime)
+      val result        = codec.decode(bytes)
+      assertTrue(result == Right(localDateTime))
+    },
+    test("Decode LocalTime") {
+      val codec     = AvroCodec.schemaBasedBinaryCodec[LocalTime]
+      val localTime = LocalTime.now()
+      val bytes     = codec.encode(localTime)
+      val result    = codec.decode(bytes)
+      assertTrue(result == Right(localTime))
+    },
+    test("Decode OffsetDateTime") {
+      val codec          = AvroCodec.schemaBasedBinaryCodec[OffsetDateTime]
+      val offsetDateTime = OffsetDateTime.now()
+      val bytes          = codec.encode(offsetDateTime)
+      val result         = codec.decode(bytes)
+      assertTrue(result == Right(offsetDateTime))
+    },
+    test("Decode OffsetTime") {
+      val codec      = AvroCodec.schemaBasedBinaryCodec[OffsetTime]
+      val offsetTime = OffsetTime.now()
+      val bytes      = codec.encode(offsetTime)
+      val result     = codec.decode(bytes)
+      assertTrue(result == Right(offsetTime))
+    },
+    test("Decode ZonedDateTime") {
+      val codec         = AvroCodec.schemaBasedBinaryCodec[ZonedDateTime]
+      val zonedDateTime = ZonedDateTime.now()
+      val bytes         = codec.encode(zonedDateTime)
+      val result        = codec.decode(bytes)
+      assertTrue(result == Right(zonedDateTime))
+    }
+  )
+
+  private val optionDecoderSpec = suite("Avro Codec - Option Decoder spec")(
+    test("Decode Option") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Option[Int]]
+      val bytes  = codec.encode(Some(42))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Some(42)))
+    }
+  )
+
+  private val eitherDecoderSpec = suite("Avro Codec - Either Decoder spec")(
+    test("Decode Either") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Either[String, Int]]
+      val bytes  = codec.encode(Right(42))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Right(42)))
+    }
+  )
+
+  private val tupleDecoderSpec = suite("Avro Codec - Tuple Decoder Spec")(
+    test("Decode Tuple2") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[(Int, String)]
+      val bytes  = codec.encode((42, "42"))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right((42, "42")))
+    }
+  )
+
+  private def sequenceDecoderSpec = suite("Avro Codec - Sequence Decoder spec")(
+    test("Decode List") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[List[Int]]
+      val bytes  = codec.encode(List(42))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(List(42)))
+    },
+    test("Decode Set") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Set[Int]]
+      val bytes  = codec.encode(Set(42))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Set(42)))
+    },
+    test("Decode Map") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Map[String, Int]]
+      val bytes  = codec.encode(Map("42" -> 42))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Map("42" -> 42)))
     }
   )
 
