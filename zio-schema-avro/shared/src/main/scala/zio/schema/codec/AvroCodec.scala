@@ -188,7 +188,7 @@ object AvroCodec {
     case s0 @ Schema.CaseClass0(_, _, _) =>
       decodePrimitiveValues(raw, StandardType.UnitType).map(_ => s0.defaultConstruct())
     case s1 @ Schema.CaseClass1(_, _, _, _)   => decodeCaseClass1(raw, s1)
-    case record: Schema.Record[Any]           => decodeRecord(raw, record).map(_.asInstanceOf[A])
+    case record: Schema.Record[_]             => decodeRecord(raw, record).map(_.asInstanceOf[A])
     case Schema.Sequence(element, f, _, _, _) => decodeSequence(raw, element).map(f)
     case Schema.Set(element, _)               => decodeSequence(raw, element).map(_.toSet.asInstanceOf[A])
     case mapSchema: Schema.Map[_, _] =>
@@ -220,7 +220,7 @@ object AvroCodec {
       .flatMap(identity)
   }
 
-  private def decodeRecord[A](value: A, schema: Schema.Record[A]) = {
+  private def decodeRecord[A](value: A, schema: Schema.Record[_]) = {
     val record = value.asInstanceOf[GenericRecord]
     val fields = schema.fields
     val decodedFields: Either[DecodeError, ListMap[String, Any]] =
@@ -234,7 +234,7 @@ object AvroCodec {
           decodedField
         case (Left(error), _) => Left(error)
       }
-    implicit val unsafe = Unsafe.unsafe
+    implicit val unsafe: Unsafe = Unsafe.unsafe
     decodedFields.flatMap { fields =>
       schema.construct(Chunk.fromIterable(fields.values)).left.map { error =>
         DecodeError.MalformedFieldWithPath(Chunk.single("Error"), error)
