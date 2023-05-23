@@ -159,7 +159,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
     },
     test("Encode Long") {
       val codec = AvroCodec.schemaBasedBinaryCodec[Long]
-      val bytes = codec.encode(600_000_000_000L)
+      val bytes = codec.encode(600000000000L)
       assertTrue(bytes.length == 6)
     },
     test("Encode Float") {
