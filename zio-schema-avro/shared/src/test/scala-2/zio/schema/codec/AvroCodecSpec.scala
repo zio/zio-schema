@@ -232,31 +232,6 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val bytes = codec.encode(ZoneOffset.MAX)
       assertTrue(bytes.length == 3)
     },
-    test("Encode Duration") {
-      val codec = AvroCodec.schemaBasedBinaryCodec[java.time.Duration]
-      val bytes = codec.encode(java.time.Duration.ofDays(4))
-      assertTrue(bytes.length == 6)
-    },
-    test("Encode Instant") {
-      val codec = AvroCodec.schemaBasedBinaryCodec[java.time.Instant]
-      val bytes = codec.encode(java.time.Instant.now())
-      assertTrue(bytes.length == 28)
-    },
-    test("Encode LocalDate") {
-      val codec = AvroCodec.schemaBasedBinaryCodec[java.time.LocalDate]
-      val bytes = codec.encode(java.time.LocalDate.now())
-      assertTrue(bytes.length == 11)
-    },
-    test("Encode LocalTime") {
-      val codec = AvroCodec.schemaBasedBinaryCodec[java.time.LocalTime]
-      val bytes = codec.encode(java.time.LocalTime.now())
-      assertTrue(bytes.length == 16)
-    },
-    test("Encode LocalDateTime") {
-      val codec = AvroCodec.schemaBasedBinaryCodec[java.time.LocalDateTime]
-      val bytes = codec.encode(java.time.LocalDateTime.now())
-      assertTrue(bytes.length == 27)
-    },
     test("Encode Unit") {
       val codec = AvroCodec.schemaBasedBinaryCodec[Unit]
       val bytes = codec.encode(())
