@@ -116,7 +116,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
   }
 
   def deriveCaseObject[T: Type](stack: Stack, top: Boolean)(using Quotes) = {
-    val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.spliceOwner)
+    val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.noSymbol)
     val selfRef = Ref(selfRefSymbol)
 
     val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
@@ -150,7 +150,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
   }
 
   def deriveCaseClass[T: Type](mirror: Mirror, stack: Stack, top: Boolean)(using Quotes) = {
-    val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.spliceOwner)
+    val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.noSymbol)
     val selfRef = Ref(selfRefSymbol)
     val newStack = stack.push(selfRef, TypeRepr.of[T])
 
@@ -283,7 +283,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
       }.toMap
   
   def deriveEnum[T: Type](mirror: Mirror, stack: Stack)(using Quotes) = {
-    val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.spliceOwner)
+    val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.noSymbol)
     val selfRef = Ref(selfRefSymbol)
     val newStack = stack.push(selfRef, TypeRepr.of[T])
 
