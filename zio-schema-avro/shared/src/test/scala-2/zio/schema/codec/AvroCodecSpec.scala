@@ -1,9 +1,5 @@
 package zio.schema.codec
 
-import zio._
-import zio.schema.{ DeriveSchema, Schema }
-import zio.test._
-
 import java.math.BigInteger
 import java.time.{
   DayOfWeek,
@@ -23,6 +19,12 @@ import java.time.{
   ZonedDateTime
 }
 import java.util.UUID
+
+import zio._
+import zio.schema.{ DeriveSchema, Schema }
+import zio.stream.ZStream
+import zio.test.TestAspect.failing
+import zio.test._
 
 object AvroCodecSpec extends ZIOSpecDefault {
 
@@ -54,6 +56,14 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
   object Composer {
     implicit val schemaComposer: Schema[Composer] = DeriveSchema.gen[Composer]
+  }
+
+  case class Ingredient(name: String, sugar: Double, fat: Double)
+  case class Pizza(name: String, ingredients: List[Ingredient], vegetarian: Boolean, vegan: Boolean, calories: Int)
+
+  object Pizza {
+    implicit val schemaIngredient: Schema[Ingredient] = DeriveSchema.gen[Ingredient]
+    implicit val schemaPizza: Schema[Pizza]           = DeriveSchema.gen[Pizza]
   }
 
   case class HighArity(
@@ -99,6 +109,19 @@ object AvroCodecSpec extends ZIOSpecDefault {
     implicit val schemaOneOf: Schema[OneOf] = DeriveSchema.gen[OneOf]
   }
 
+  sealed trait Enums
+
+  object Enums {
+    case object A extends Enums
+    case object B extends Enums
+    case object C extends Enums
+    case object D extends Enums
+
+    case object E extends Enums
+
+    implicit val schemaEnums: Schema[Enums] = DeriveSchema.gen[Enums]
+  }
+
   override def spec: Spec[TestEnvironment with Scope, Any] = suite("Avro Codec Spec")(
     primitiveEncoderSpec,
     collectionsEncoderSpec,
@@ -112,16 +135,11 @@ object AvroCodecSpec extends ZIOSpecDefault {
     optionDecoderSpec,
     eitherDecoderSpec,
     tupleDecoderSpec,
-    sequenceDecoderSpec
+    sequenceDecoderSpec,
+    genericRecordDecoderSpec,
+    enumDecoderSpec,
+    streamEncodingDecodingSpec
   )
-//    test("Encode simple case class") {
-//        val person = Person("John", 42)
-//        val codec  = AvroCodec.schemaBasedBinaryCodec[Person]
-//        val bytes  = codec.encode(person)
-//        val decoded: Either[DecodeError, Person] = codec.decode(bytes)
-//        assertTrue(decoded.isRight, decoded.getOrElse(Person("fake", 0)) == person)
-//    }
-//  )
 
   private val primitiveEncoderSpec = suite("Avro Codec - Encoder primitive spec")(
     test("Encode string") {
@@ -603,6 +621,12 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val bytes  = codec.encode(Right(42))
       val result = codec.decode(bytes)
       assertTrue(result == Right(Right(42)))
+    },
+    test("Decode Either[List[String], Int]") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Either[List[String], Int]]
+      val bytes  = codec.encode(Left(List("John", "Adam", "Daniel")))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Left(List("John", "Adam", "Daniel"))))
     }
   )
 
@@ -615,7 +639,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
     }
   )
 
-  private def sequenceDecoderSpec = suite("Avro Codec - Sequence Decoder spec")(
+  private val sequenceDecoderSpec = suite("Avro Codec - Sequence Decoder spec")(
     test("Decode List") {
       val codec  = AvroCodec.schemaBasedBinaryCodec[List[Int]]
       val bytes  = codec.encode(List(42))
@@ -633,7 +657,79 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val bytes  = codec.encode(Map("42" -> 42))
       val result = codec.decode(bytes)
       assertTrue(result == Right(Map("42" -> 42)))
+    },
+    test("Decode Chunk") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Chunk[String]]
+      val bytes  = codec.encode(Chunk("42", "John", "Adam"))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Chunk("42", "John", "Adam")))
+    },
+    test("Decode Chunk[Option[Int]]") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Chunk[Option[Int]]]
+      val bytes  = codec.encode(Chunk(Some(42), Some(53), None, Some(64)))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Chunk(Some(42), Some(53), None, Some(64))))
     }
   )
+
+  private val genericRecordDecoderSpec = suite("Avro Codec - Decode Generic Record")(
+    test("Decode Record") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Record]
+      val bytes  = codec.encode(Record("John", 42))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Record("John", 42)))
+    },
+    test("Decode High Arity") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[HighArity]
+      val bytes  = codec.encode(HighArity())
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(HighArity()))
+    }
+  )
+
+  private val enumDecoderSpec = suite("Avro Codec - Decode enum")(
+    test("Decode Enum3") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[OneOf]
+      val bytes  = codec.encode(OneOf.BooleanValue(true))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(OneOf.BooleanValue(true)))
+    },
+    test("Decode Enum5") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Enums]
+      val bytes  = codec.encode(Enums.A)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Enums.A))
+    } @@ failing, // TODO: the case object from a sealed trait are not properly encoded and decoded.
+    test("Decode Person") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Person]
+      val bytes  = codec.encode(Person("John", 42))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Person("John", 42)))
+    },
+    test("Decode CaseClass3") {
+      val ennio  = Composer("ennio morricone", "rome", List("legend of 1900", "ecstasy of gold"))
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Composer]
+      val bytes  = codec.encode(ennio)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(ennio))
+    }
+  )
+
+  private val streamEncodingDecodingSpec =
+    suite("AvroCodec - Stream encode/decode")(test("Encoding/Decoding using streams") {
+
+      val pepperoni =
+        Pizza("pepperoni", List(Ingredient("pepperoni", 12, 4.4), Ingredient("onions", 1, 0.4)), false, false, 98)
+      val codec = AvroCodec.schemaBasedBinaryCodec[Pizza]
+      val resultZIO = ZStream
+        .fromIterable(List(pepperoni))
+        .via(codec.streamEncoder)
+        .via(codec.streamDecoder)
+        .runCollect
+      for {
+        result <- resultZIO.debug("result")
+      } yield assertTrue(result == Chunk(pepperoni))
+
+    })
 
 }
