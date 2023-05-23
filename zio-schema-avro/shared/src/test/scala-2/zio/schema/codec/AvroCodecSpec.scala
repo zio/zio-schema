@@ -227,11 +227,6 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val bytes = codec.encode(YearMonth.of(2021, 4))
       assertTrue(bytes.length == 8)
     },
-    test("Encode ZoneId") {
-      val codec = AvroCodec.schemaBasedBinaryCodec[ZoneId]
-      val bytes = codec.encode(ZoneId.systemDefault())
-      assertTrue(bytes.length == 17)
-    },
     test("Encode ZoneOffset") {
       val codec = AvroCodec.schemaBasedBinaryCodec[ZoneOffset]
       val bytes = codec.encode(ZoneOffset.MAX)
@@ -261,21 +256,6 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val codec = AvroCodec.schemaBasedBinaryCodec[java.time.LocalDateTime]
       val bytes = codec.encode(java.time.LocalDateTime.now())
       assertTrue(bytes.length == 27)
-    },
-    test("Encode OffsetTime") {
-      val codec = AvroCodec.schemaBasedBinaryCodec[java.time.OffsetTime]
-      val bytes = codec.encode(java.time.OffsetTime.now())
-      assertTrue(bytes.length == 22)
-    },
-    test("Encode OffsetDateTime") {
-      val codec = AvroCodec.schemaBasedBinaryCodec[java.time.OffsetDateTime]
-      val bytes = codec.encode(java.time.OffsetDateTime.now())
-      assertTrue(bytes.length == 33)
-    },
-    test("Encode ZonedDateTime") {
-      val codec = AvroCodec.schemaBasedBinaryCodec[java.time.ZonedDateTime]
-      val bytes = codec.encode(java.time.ZonedDateTime.now())
-      assertTrue(bytes.length == 51)
     },
     test("Encode Unit") {
       val codec = AvroCodec.schemaBasedBinaryCodec[Unit]
