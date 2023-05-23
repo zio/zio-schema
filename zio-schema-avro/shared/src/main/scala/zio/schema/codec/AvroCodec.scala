@@ -186,10 +186,11 @@ object AvroCodec {
       ).map(_.asInstanceOf[A])
     case s0 @ Schema.CaseClass0(_, _, _) =>
       decodePrimitiveValues(raw, StandardType.UnitType).map(_ => s0.defaultConstruct())
-    case s1 @ Schema.CaseClass1(_, _, _, _)   => decodeCaseClass1(raw, s1)
-    case record: Schema.Record[_]             => decodeRecord(raw, record).map(_.asInstanceOf[A])
-    case Schema.Sequence(element, _, _, _, _) => decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(_.asInstanceOf[A])
-    case Schema.Set(element, _)               => decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(_.toSet.asInstanceOf[A])
+    case s1 @ Schema.CaseClass1(_, _, _, _) => decodeCaseClass1(raw, s1)
+    case record: Schema.Record[_]           => decodeRecord(raw, record).map(_.asInstanceOf[A])
+    case Schema.Sequence(element, _, _, _, _) =>
+      decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(_.asInstanceOf[A])
+    case Schema.Set(element, _) => decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(_.toSet.asInstanceOf[A])
     case mapSchema: Schema.Map[_, _] =>
       decodeMap(raw, mapSchema.asInstanceOf[Schema.Map[Any, Any]]).map(_.asInstanceOf[A])
     case Schema.Transform(schema, f, _, _, _) =>
@@ -406,8 +407,8 @@ object AvroCodec {
     val traversed: Either[List[DecodeError], List[(Any, Any)]] = result.partition {
       case (k, v) => k.isLeft || v.isLeft
     } match {
-      case (Nil, decoded) => Right(for (case (Right(k), Right(v)) <- decoded) yield (k, v))
-      case (errors, _)    => Left(for  ( case (Left(s), _)          <- errors) yield s)
+      case (Nil, decoded) => Right(for ((Right(k), Right(v)) <- decoded) yield (k, v))
+      case (errors, _)    => Left(for ((Left(s), _)          <- errors) yield s)
     }
 
     val combined: Either[DecodeError, List[(Any, Any)]] = traversed.left.map { errors =>
@@ -423,8 +424,8 @@ object AvroCodec {
     val array  = a.asInstanceOf[GenericData.Array[Any]]
     val result = array.asScala.toList.map(decodeValue(_, schema))
     val traversed: Either[List[DecodeError], List[A]] = result.partition(_.isLeft) match {
-      case (Nil, decoded) => Right(for (case Right(i) <- decoded) yield i)
-      case (errors, _)    => Left(for (case Left(s)   <- errors) yield s)
+      case (Nil, decoded) => Right(for (Right(i) <- decoded) yield i)
+      case (errors, _)    => Left(for (Left(s)   <- errors) yield s)
     }
     val combined: Either[DecodeError, List[A]] = traversed.left.map { errors =>
       errors.foldLeft[DecodeError](DecodeError.MalformedFieldWithPath(Chunk.empty, "Sequence decoding failed."))(
@@ -576,8 +577,9 @@ object AvroCodec {
       encodeMap(mapSchema.asInstanceOf[Schema.Map[Any, Any]], a.asInstanceOf[scala.collection.immutable.Map[Any, Any]])
     case Schema.Transform(schema, _, g, _, _) =>
       g(a).map(encodeValue(_, schema)).getOrElse(throw new Exception("Transform failed."))
-    case Schema.Optional(schema, _)                         => encodeOption(schema, a)
-    case Schema.Tuple2(left, right, _)                      => encodeTuple2(left.asInstanceOf[Schema[Any]], right.asInstanceOf[Schema[Any]], a)
+    case Schema.Optional(schema, _) => encodeOption(schema, a)
+    case Schema.Tuple2(left, right, _) =>
+      encodeTuple2(left.asInstanceOf[Schema[Any]], right.asInstanceOf[Schema[Any]], a)
     case Schema.Either(left, right, _)                      => encodeEither(left, right, a)
     case Schema.Lazy(schema0)                               => encodeValue(a, schema0())
     case Schema.CaseClass0(_, _, _)                         => encodePrimitive((), StandardType.UnitType)
