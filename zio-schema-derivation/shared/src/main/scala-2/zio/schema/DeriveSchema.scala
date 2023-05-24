@@ -528,7 +528,7 @@ object DeriveSchema {
             case annotation =>
               c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
               EmptyTree
-          }.filter(_ != EmptyTree).prepended(q"new _root_.zio.schema.annotation.simpleEnum()")
+          }.filter(_ != EmptyTree).+:(q"new _root_.zio.schema.annotation.simpleEnum(true)")
         case (false, true) =>
           c.abort(c.enclosingPosition, s"${show(tpe)} must be a simple Enum")
         case _ =>

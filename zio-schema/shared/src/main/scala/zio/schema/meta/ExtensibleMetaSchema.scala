@@ -659,7 +659,7 @@ object ExtensibleMetaSchema {
         Schema.enumeration[Any, CaseSet.Aux[Any]](
           id,
           cases,
-          if(isSimple) Chunk(new simpleEnum()) else Chunk.empty
+          if(isSimple) Chunk(new simpleEnum(true)) else Chunk.empty
         )
       }
       case ExtensibleMetaSchema.Either(_, left, right, _) =>

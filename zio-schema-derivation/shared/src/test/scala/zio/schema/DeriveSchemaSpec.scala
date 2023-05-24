@@ -3,7 +3,7 @@ package zio.schema
 import scala.annotation.Annotation
 
 import zio.Chunk
-import zio.schema.annotation.{ fieldName, optionalField, simpleEnum }
+import zio.schema.annotation.{ fieldName, optionalField }
 import zio.test._
 
 object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaSpec {
@@ -243,8 +243,6 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     implicit val schema: Schema[OptionalField] = DeriveSchema.gen[OptionalField]
   }
 
-  @simpleEnum sealed trait NonSimpleEnum
-  case class NonSimpleClass(name: String) extends NonSimpleEnum
 
   override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
