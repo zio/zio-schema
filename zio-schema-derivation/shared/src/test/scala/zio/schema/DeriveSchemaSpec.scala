@@ -243,7 +243,6 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     implicit val schema: Schema[OptionalField] = DeriveSchema.gen[OptionalField]
   }
 
-
   override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("correctly derives case class 0") {

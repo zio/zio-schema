@@ -7,8 +7,8 @@ import scala.collection.mutable
 import zio.constraintless.TypeList
 import zio.prelude._
 import zio.schema._
-import zio.{ Chunk, ChunkBuilder }
 import zio.schema.annotation.simpleEnum
+import zio.{ Chunk, ChunkBuilder }
 
 sealed trait ExtensibleMetaSchema[BuiltIn <: TypeList] { self =>
   def builtInInstances: SchemaInstances[BuiltIn]
@@ -639,27 +639,27 @@ object ExtensibleMetaSchema {
         )
       case ExtensibleMetaSchema.Sum(id, _, elems, _) => {
         val (cases, isSimple) = elems.foldRight[(CaseSet.Aux[Any], Boolean)]((CaseSet.Empty[Any](), true)) {
-            case (Labelled(label, ast), (acc, wasSimple)) => {
-              val _case: Schema.Case[Any, Any] = Schema
-                .Case[Any, Any](
-                  label,
-                  materialize(ast, refs).asInstanceOf[Schema[Any]],
-                  identity[Any],
-                  identity[Any],
-                  _.isInstanceOf[Any],
-                  Chunk.empty
-                )
-              val isSimple: Boolean = _case.schema match {
-                case _: Schema.CaseClass0[_] => true
-                case _ => false
-              }
-              (CaseSet.Cons(_case, acc), wasSimple && isSimple)
+          case (Labelled(label, ast), (acc, wasSimple)) => {
+            val _case: Schema.Case[Any, Any] = Schema
+              .Case[Any, Any](
+                label,
+                materialize(ast, refs).asInstanceOf[Schema[Any]],
+                identity[Any],
+                identity[Any],
+                _.isInstanceOf[Any],
+                Chunk.empty
+              )
+            val isSimple: Boolean = _case.schema match {
+              case _: Schema.CaseClass0[_] => true
+              case _                       => false
             }
+            (CaseSet.Cons(_case, acc), wasSimple && isSimple)
           }
+        }
         Schema.enumeration[Any, CaseSet.Aux[Any]](
           id,
           cases,
-          if(isSimple) Chunk(new simpleEnum(true)) else Chunk.empty
+          if (isSimple) Chunk(new simpleEnum(true)) else Chunk.empty
         )
       }
       case ExtensibleMetaSchema.Either(_, left, right, _) =>

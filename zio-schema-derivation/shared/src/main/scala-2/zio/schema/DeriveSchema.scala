@@ -502,11 +502,11 @@ object DeriveSchema {
       }
 
       val isSimpleEnum: Boolean =
-        !tpe.typeSymbol.asClass.knownDirectSubclasses.map {subtype => 
+        !tpe.typeSymbol.asClass.knownDirectSubclasses.map { subtype =>
           subtype.typeSignature.decls.sorted.collect {
-          case p: TermSymbol if p.isCaseAccessor && !p.isMethod => p
-        }.size
-        }.exists( _ > 0)
+            case p: TermSymbol if p.isCaseAccessor && !p.isMethod => p
+          }.size
+        }.exists(_ > 0)
 
       val hasSimpleEnum: Boolean =
         tpe.typeSymbol.annotations.exists(_.tree.tpe =:= typeOf[_root_.zio.schema.annotation.simpleEnum])
