@@ -189,7 +189,7 @@ object AvroCodec {
     case s1 @ Schema.CaseClass1(_, _, _, _) => decodeCaseClass1(raw, s1)
     case record: Schema.Record[_]           => decodeRecord(raw, record).map(_.asInstanceOf[A])
     case Schema.Sequence(element, f, _, _, _) =>
-      decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(f)
+      decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(f.asInstanceOf[Chunk[Any] => A])
     case Schema.Set(element, _) => decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(_.toSet.asInstanceOf[A])
     case mapSchema: Schema.Map[_, _] =>
       decodeMap(raw, mapSchema.asInstanceOf[Schema.Map[Any, Any]]).map(_.asInstanceOf[A])

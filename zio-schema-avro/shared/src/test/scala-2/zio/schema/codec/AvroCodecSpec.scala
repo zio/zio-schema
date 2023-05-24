@@ -682,7 +682,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
         .via(codec.streamDecoder)
         .runCollect
       for {
-        result <- resultZIO.debug("result")
+        result <- resultZIO
       } yield assertTrue(result == Chunk(pepperoni))
 
     })
