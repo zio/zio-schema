@@ -8,6 +8,7 @@ import zio.constraintless.TypeList
 import zio.prelude._
 import zio.schema._
 import zio.{ Chunk, ChunkBuilder }
+import zio.schema.annotation.simpleEnum
 
 sealed trait ExtensibleMetaSchema[BuiltIn <: TypeList] { self =>
   def builtInInstances: SchemaInstances[BuiltIn]
@@ -636,11 +637,9 @@ object ExtensibleMetaSchema {
           materialize(left, refs),
           materialize(right, refs)
         )
-      case ExtensibleMetaSchema.Sum(id, _, elems, _) =>
-        Schema.enumeration[Any, CaseSet.Aux[Any]](
-          id,
-          elems.foldRight[CaseSet.Aux[Any]](CaseSet.Empty[Any]()) {
-            case (Labelled(label, ast), acc) =>
+      case ExtensibleMetaSchema.Sum(id, _, elems, _) => {
+        val (cases, isSimple) = elems.foldRight[(CaseSet.Aux[Any], Boolean)]((CaseSet.Empty[Any](), true)) {
+            case (Labelled(label, ast), (acc, wasSimple)) => {
               val _case: Schema.Case[Any, Any] = Schema
                 .Case[Any, Any](
                   label,
@@ -650,9 +649,19 @@ object ExtensibleMetaSchema {
                   _.isInstanceOf[Any],
                   Chunk.empty
                 )
-              CaseSet.Cons(_case, acc)
+              val isSimple: Boolean = _case.schema match {
+                case _: Schema.CaseClass0[_] => true
+                case _ => false
+              }
+              (CaseSet.Cons(_case, acc), wasSimple && isSimple)
+            }
           }
+        Schema.enumeration[Any, CaseSet.Aux[Any]](
+          id,
+          cases,
+          if(isSimple) Chunk(new simpleEnum()) else Chunk.empty
         )
+      }
       case ExtensibleMetaSchema.Either(_, left, right, _) =>
         Schema.either(
           materialize(left, refs),
