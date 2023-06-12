@@ -1,7 +1,5 @@
 package zio.schema.codec
 
-import org.apache.avro.generic.GenericData
-
 import java.math.BigInteger
 import java.time.{
   DayOfWeek,
@@ -21,6 +19,9 @@ import java.time.{
   ZonedDateTime
 }
 import java.util.UUID
+
+import org.apache.avro.generic.GenericData
+
 import zio._
 import zio.schema.{ DeriveSchema, Schema }
 import zio.stream.ZStream
