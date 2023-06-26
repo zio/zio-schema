@@ -213,6 +213,7 @@ sealed trait StringType { self =>
     case StringType.OffsetTime     => "offsetTime"
     case StringType.OffsetDateTime => "offsetDateTime"
     case StringType.ZoneDateTime   => "zoneDateTime"
+    case StringType.Currency       => "currency"
   }
 }
 
@@ -230,6 +231,7 @@ object StringType {
         case "offsetTime"     => StringType.OffsetTime
         case "offsetDateTime" => StringType.OffsetDateTime
         case "zoneDateTime"   => StringType.ZoneDateTime
+        case "currency"       => StringType.Currency
       }
     } else None
 
@@ -241,6 +243,8 @@ object StringType {
   case object OffsetTime     extends StringType
   case object OffsetDateTime extends StringType
   case object ZoneDateTime   extends StringType
+
+  case object Currency extends StringType
 }
 
 sealed trait IntType { self =>

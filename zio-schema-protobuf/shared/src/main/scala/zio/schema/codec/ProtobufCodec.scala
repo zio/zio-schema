@@ -95,6 +95,7 @@ object ProtobufCodec {
       case StandardType.OffsetTimeType     => false
       case StandardType.OffsetDateTimeType => false
       case StandardType.ZonedDateTimeType  => false
+      case StandardType.CurrencyType       => false
     }
   }
 
@@ -400,6 +401,8 @@ object ProtobufCodec {
           encodePrimitive(fieldNumber, StandardType.StringType, v.toString)
         case (StandardType.ZonedDateTimeType, v: ZonedDateTime) =>
           encodePrimitive(fieldNumber, StandardType.StringType, v.format(DateTimeFormatter.ISO_ZONED_DATE_TIME))
+        case (StandardType.CurrencyType, v: java.util.Currency) =>
+          encodePrimitive(fieldNumber, StandardType.StringType, v.getCurrencyCode)
         case (_, _) =>
           throw new NotImplementedError(s"No encoder for $standardType")
       }
@@ -585,7 +588,8 @@ object ProtobufCodec {
           OffsetDateTime.parse(stringDecoder(context))
         case StandardType.ZonedDateTimeType =>
           ZonedDateTime.parse(stringDecoder(context))
-        case st => fail(context, s"Unsupported primitive type $st")
+        case StandardType.CurrencyType => java.util.Currency.getInstance(stringDecoder(context))
+        case st                        => fail(context, s"Unsupported primitive type $st")
       }
 
     override protected def startCreatingRecord(context: DecoderContext, record: Schema.Record[_]): DecoderContext =

@@ -513,6 +513,7 @@ object DeriveGen {
       case StandardType.OffsetTimeType     => Gen.offsetTime
       case StandardType.OffsetDateTimeType => Gen.offsetDateTime
       case StandardType.ZonedDateTimeType  => Gen.zonedDateTime
+      //  case StandardType.CurrencyType      => Gen.currency  // TODO: needs implementation in zio-test
     }
 
     gen.map(_.asInstanceOf[A])

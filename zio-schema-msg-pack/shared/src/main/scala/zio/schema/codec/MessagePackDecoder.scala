@@ -278,7 +278,8 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
         decodeString(path).map(OffsetDateTime.parse(_))
       case StandardType.ZonedDateTimeType =>
         decodeString(path).map(ZonedDateTime.parse(_))
-      case _ => fail(path, s"Unsupported primitive type $standardType")
+      case StandardType.CurrencyType => decodeString(path).map(java.util.Currency.getInstance(_))
+      case _                         => fail(path, s"Unsupported primitive type $standardType")
     }
 
   private def decodeOptional[A](path: Path, schema: Schema.Optional[A]): Result[Option[A]] =

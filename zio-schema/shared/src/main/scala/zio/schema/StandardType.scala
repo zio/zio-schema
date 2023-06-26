@@ -3,8 +3,9 @@ package zio.schema
 import java.math.BigInteger
 import java.time
 import java.time._
-
 import zio.Chunk
+
+import java.util.Currency
 
 sealed trait StandardType[A] extends Ordering[A] { self =>
   def tag: String
@@ -51,6 +52,7 @@ object StandardType {
     final val OFFSET_DATE_TIME = "offsetDateTime"
     final val ZONED_DATE_TIME  = "zonedDateTime"
     final val UUID             = "uuid"
+    final val CURRENCY         = "currency"
   }
 
   def fromString(tag: String): Option[StandardType[_]] =
@@ -85,6 +87,7 @@ object StandardType {
       case Tags.OFFSET_DATE_TIME => Some(OffsetDateTimeType)
       case Tags.ZONED_DATE_TIME  => Some(ZonedDateTimeType)
       case Tags.UUID             => Some(UUIDType)
+      case Tags.CURRENCY         => Some(CurrencyType)
     }
 
   def apply[A](implicit standardType: StandardType[A]): StandardType[A] = standardType
@@ -290,4 +293,15 @@ object StandardType {
 
     override def compare(x: ZonedDateTime, y: ZonedDateTime): Int = x.compareTo(y)
   }
+
+  implicit object CurrencyType extends StandardType[java.util.Currency] {
+
+    override def tag: String = Tags.CURRENCY
+
+    override def defaultValue: Either[String, Currency] =
+      Right(java.util.Currency.getInstance(java.util.Locale.getDefault))
+
+    override def compare(x: Currency, y: Currency): Int = x.getCurrencyCode.compareTo(y.getCurrencyCode)
+  }
+
 }
