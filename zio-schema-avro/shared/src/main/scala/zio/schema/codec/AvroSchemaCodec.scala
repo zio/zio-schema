@@ -382,7 +382,7 @@ object AvroSchemaCodec extends AvroSchemaCodec {
             Right(
               SchemaAvro
                 .create(SchemaAvro.Type.STRING)
-                .addMarkerProp(StringDiscriminator(StringType.Currency))
+                .addMarkerProp(CurrencyWrapper)
             )
         }
       case Optional(codec, _) =>

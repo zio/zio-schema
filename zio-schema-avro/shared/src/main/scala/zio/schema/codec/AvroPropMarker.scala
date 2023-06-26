@@ -25,6 +25,10 @@ object AvroPropMarker {
     override def propName: String = "zio.schema.codec.avro.either"
   }
 
+  case object CurrencyWrapper extends AvroPropMarker {
+    override def propName: String = "zio.schema.codec.avro.currency"
+  }
+
   final case class DurationChronoUnit(chronoUnit: ChronoUnit) extends AvroPropMarker {
     override def propName: String = DurationChronoUnit.propName
     override def value: Any       = chronoUnit.name()
@@ -213,7 +217,6 @@ sealed trait StringType { self =>
     case StringType.OffsetTime     => "offsetTime"
     case StringType.OffsetDateTime => "offsetDateTime"
     case StringType.ZoneDateTime   => "zoneDateTime"
-    case StringType.Currency       => "currency"
   }
 }
 
@@ -231,7 +234,6 @@ object StringType {
         case "offsetTime"     => StringType.OffsetTime
         case "offsetDateTime" => StringType.OffsetDateTime
         case "zoneDateTime"   => StringType.ZoneDateTime
-        case "currency"       => StringType.Currency
       }
     } else None
 
@@ -243,8 +245,6 @@ object StringType {
   case object OffsetTime     extends StringType
   case object OffsetDateTime extends StringType
   case object ZoneDateTime   extends StringType
-
-  case object Currency extends StringType
 }
 
 sealed trait IntType { self =>
