@@ -19,6 +19,7 @@ import java.time.{
   ZonedDateTime
 }
 import java.util.UUID
+
 import zio._
 import zio.schema.codec.AvroAnnotations.avroEnum
 import zio.schema.{ DeriveSchema, Schema }
