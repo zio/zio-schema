@@ -211,8 +211,8 @@ object AvroCodec {
 
   private def decodeEnum[Z](raw: Any, cases: Schema.Case[Z, _]*): Either[DecodeError, Any] =
     raw match {
-      case enum: GenericData.EnumSymbol =>
-        decodeGenericEnum(enum.toString, None, cases: _*)
+      case enums: GenericData.EnumSymbol =>
+        decodeGenericEnum(enums.toString, None, cases: _*)
       case gr: GenericData.Record =>
         val enumCaseName = gr.getSchema.getFullName
         if (gr.hasField("value")) {
