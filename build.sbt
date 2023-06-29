@@ -200,7 +200,7 @@ lazy val zioSchemaThriftJVM = zioSchemaThrift.jvm
 
 lazy val zioSchemaMsgPack = project
   .in(file("zio-schema-msg-pack"))
-  .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
+  .dependsOn(zioSchema.jvm, zioSchemaDerivation.jvm, tests % "test->test")
   .settings(stdSettings("zio-schema-msg-pack"))
   .settings(dottySettings)
   .settings(crossProjectSettings)
