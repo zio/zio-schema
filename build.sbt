@@ -108,10 +108,10 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings("zio.schema"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio"                % zioVersion,
-      "dev.zio" %% "zio-streams"        % zioVersion,
-      "dev.zio" %% "zio-prelude"        % zioPreludeVersion,
-      "dev.zio" %% "zio-constraintless" % zioConstraintlessVersion
+      "dev.zio" %%% "zio"                % zioVersion,
+      "dev.zio" %%% "zio-streams"        % zioVersion,
+      "dev.zio" %%% "zio-prelude"        % zioPreludeVersion,
+      "dev.zio" %%% "zio-constraintless" % zioConstraintlessVersion
     )
   )
   .dependsOn(zioSchemaMacros)
@@ -129,9 +129,9 @@ lazy val zioSchemaDerivation = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings("zio.schema"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio"         % zioVersion,
-      "dev.zio" %% "zio-streams" % zioVersion,
-      "dev.zio" %% "zio-prelude" % zioPreludeVersion
+      "dev.zio" %%% "zio"         % zioVersion,
+      "dev.zio" %%% "zio-streams" % zioVersion,
+      "dev.zio" %%% "zio-prelude" % zioPreludeVersion
     )
   )
   .settings(
@@ -159,7 +159,7 @@ lazy val zioSchemaJson = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings("zio.schema.json"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-json" % zioJsonVersion
+      "dev.zio" %%% "zio-json" % zioJsonVersion
     )
   )
 
@@ -210,7 +210,7 @@ lazy val zioSchemaMsgPack = crossProject(JSPlatform, JVMPlatform)
     libraryDependencies ++= Seq(
       "org.msgpack"                  % "msgpack-core"               % "0.9.3",
       "org.msgpack"                  % "jackson-dataformat-msgpack" % "0.9.3" % Test,
-      "com.fasterxml.jackson.module" %% "jackson-module-scala"      % "2.13.2" % Test
+      "com.fasterxml.jackson.module" %%% "jackson-module-scala"     % "2.13.2" % Test
     )
   )
 
@@ -228,8 +228,8 @@ lazy val zioSchemaAvro = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings("zio.schema.avro"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"         %% "zio-json" % zioJsonVersion,
-      "org.apache.avro" % "avro"      % avroVersion
+      "dev.zio"         %%% "zio-json" % zioJsonVersion,
+      "org.apache.avro" % "avro"       % avroVersion
     )
   )
 
@@ -246,11 +246,11 @@ lazy val zioSchemaBson = crossProject(JVMPlatform)
   .settings(buildInfoSettings("zio.schema.bson"))
   .settings(
     libraryDependencies ++= Seq(
-      "org.mongodb"            % "bson"                     % bsonVersion,
-      "dev.zio"                %% "zio-bson"                % zioBsonVersion,
-      "dev.zio"                %% "zio"                     % zioVersion, // zio.Chunk
-      "dev.zio"                %% "zio-test-magnolia"       % zioVersion % Test, // TODO: implement DeriveDiff in zioSchemaZioTest
-      "org.scala-lang.modules" %% "scala-collection-compat" % scalaCollectionCompatVersion
+      "org.mongodb"            % "bson"                      % bsonVersion,
+      "dev.zio"                %%% "zio-bson"                % zioBsonVersion,
+      "dev.zio"                %%% "zio"                     % zioVersion, // zio.Chunk
+      "dev.zio"                %%% "zio-test-magnolia"       % zioVersion % Test, // TODO: implement DeriveDiff in zioSchemaZioTest
+      "org.scala-lang.modules" %%% "scala-collection-compat" % scalaCollectionCompatVersion
     ),
     scalacOptions -= "-Xfatal-warnings" // cross-version imports
   )
@@ -266,7 +266,7 @@ lazy val zioSchemaOptics = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings("zio.schema.optics"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-optics" % zioOpticsVersion
+      "dev.zio" %%% "zio-optics" % zioOpticsVersion
     )
   )
 
@@ -300,7 +300,7 @@ lazy val zioSchemaZioTest = crossProject(JSPlatform, JVMPlatform)
   .settings(buildInfoSettings("zio.schema.test"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-test" % zioVersion
+      "dev.zio" %%% "zio-test" % zioVersion
     )
   )
 
@@ -322,7 +322,7 @@ lazy val docs = project
     scalacOptions -= "-Yno-imports",
     scalacOptions -= "-Xfatal-warnings",
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio" % zioVersion
+      "dev.zio" %%% "zio" % zioVersion
     ),
     projectName := "ZIO Schema",
     mainModuleName := (zioSchemaJVM / moduleName).value,
