@@ -84,6 +84,10 @@ lazy val tests = crossProject(JSPlatform, JVMPlatform)
   .settings(publish / skip := true)
   .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema"))
+  .jsSettings(
+    libraryDependencies += ("org.scala-js" %%% "scalajs-fake-insecure-java-securerandom" % "1.0.0" % Test)
+      .cross(CrossVersion.for3Use2_13)
+  )
 
 lazy val testsJS = tests.js
   .settings(scalaJSUseMainModuleInitializer := true)

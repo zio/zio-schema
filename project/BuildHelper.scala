@@ -18,14 +18,18 @@ object BuildHelper {
       .loadFromReader(scala.io.Source.fromFile(".github/workflows/ci.yml").bufferedReader())
     val yaml = doc.asInstanceOf[JMap[String, JMap[String, JMap[String, JMap[String, JMap[String, JList[String]]]]]]]
     val list = yaml.get("jobs").get("build").get("strategy").get("matrix").get("scala").asScala
-    list.map(v => (v.split('.').take(2).mkString("."), v)).toMap
+    list.map { v =>
+      val vs   = v.split('.');
+      val init = vs.take(vs(0) match { case "2" => 2; case _ => 1 });
+      (init.mkString("."), v)
+    }.toMap
   }
 
   val Scala212: String = versions("2.12")
   val Scala213: String = versions("2.13")
-  val Scala3: String   = versions("3.2") //versions.getOrElse("3.0", versions("3.1"))
+  val Scala3: String   = versions("3")
 
-  val zioVersion                   = "2.0.10"
+  val zioVersion                   = "2.0.15"
   val zioJsonVersion               = "0.5.0"
   val zioPreludeVersion            = "1.0.0-RC18"
   val zioOpticsVersion             = "0.2.1"
