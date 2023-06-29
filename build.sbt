@@ -68,11 +68,9 @@ lazy val root = project
     testsJS,
     zioSchemaZioTestJVM,
     zioSchemaZioTestJS,
-    zioSchemaThriftJS,
-    zioSchemaThriftJVM,
-    zioSchemaAvroJS,
-    zioSchemaAvroJVM,
-    zioSchemaBsonJVM,
+    zioSchemaThrift,
+    zioSchemaAvro,
+    zioSchemaBson,
     zioSchemaMsgPack,
     docs
   )
@@ -184,23 +182,17 @@ lazy val zioSchemaProtobufJS = zioSchemaProtobuf.js
 
 lazy val zioSchemaProtobufJVM = zioSchemaProtobuf.jvm
 
-lazy val zioSchemaThrift = crossProject(JSPlatform, JVMPlatform)
+lazy val zioSchemaThrift = project
   .in(file("zio-schema-thrift"))
-  .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
+  .dependsOn(zioSchema.jvm, zioSchemaDerivation.jvm, tests.jvm % "test->test")
   .settings(stdSettings("zio-schema-thrift"))
   .settings(dottySettings)
-  .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema.thrift"))
   .settings(
     libraryDependencies ++= Seq(
       "org.apache.thrift" % "libthrift" % "0.16.0"
     )
   )
-
-lazy val zioSchemaThriftJS = zioSchemaThrift.js
-  .settings(scalaJSUseMainModuleInitializer := true)
-
-lazy val zioSchemaThriftJVM = zioSchemaThrift.jvm
 
 lazy val zioSchemaMsgPack = project
   .in(file("zio-schema-msg-pack"))
@@ -216,12 +208,11 @@ lazy val zioSchemaMsgPack = project
     )
   )
 
-lazy val zioSchemaAvro = crossProject(JSPlatform, JVMPlatform)
+lazy val zioSchemaAvro = project
   .in(file("zio-schema-avro"))
-  .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
+  .dependsOn(zioSchema.jvm, zioSchemaDerivation.jvm, tests.jvm % "test->test")
   .settings(stdSettings("zio-schema-avro"))
   .settings(dottySettings)
-  .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema.avro"))
   .settings(
     libraryDependencies ++= Seq(
@@ -230,16 +221,10 @@ lazy val zioSchemaAvro = crossProject(JSPlatform, JVMPlatform)
     )
   )
 
-lazy val zioSchemaAvroJS = zioSchemaAvro.js
-  .settings(scalaJSUseMainModuleInitializer := true)
-
-lazy val zioSchemaAvroJVM = zioSchemaAvro.jvm
-
-lazy val zioSchemaBson = crossProject(JVMPlatform)
+lazy val zioSchemaBson = project
   .in(file("zio-schema-bson"))
-  .dependsOn(zioSchema, zioSchemaDerivation, zioSchemaZioTest % Test, tests % "test->test")
+  .dependsOn(zioSchema.jvm, zioSchemaDerivation.jvm, zioSchemaZioTest.jvm % Test, tests.jvm % "test->test")
   .settings(stdSettings("zio-schema-bson"))
-  .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema.bson"))
   .settings(
     libraryDependencies ++= Seq(
@@ -251,8 +236,6 @@ lazy val zioSchemaBson = crossProject(JVMPlatform)
     ),
     scalacOptions -= "-Xfatal-warnings" // cross-version imports
   )
-
-lazy val zioSchemaBsonJVM = zioSchemaBson.jvm
 
 lazy val zioSchemaOptics = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-optics"))
