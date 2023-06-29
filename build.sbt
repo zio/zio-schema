@@ -203,7 +203,6 @@ lazy val zioSchemaMsgPack = project
   .dependsOn(zioSchema.jvm, zioSchemaDerivation.jvm, tests.jvm % "test->test")
   .settings(stdSettings("zio-schema-msg-pack"))
   .settings(dottySettings)
-  .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema.msgpack"))
   .settings(
     libraryDependencies ++= Seq(
