@@ -73,8 +73,7 @@ lazy val root = project
     zioSchemaAvroJS,
     zioSchemaAvroJVM,
     zioSchemaBsonJVM,
-    zioSchemaMsgPackJS,
-    zioSchemaMsgPackJVM,
+    zioSchemaMsgPack,
     docs
   )
 
@@ -199,7 +198,7 @@ lazy val zioSchemaThriftJS = zioSchemaThrift.js
 
 lazy val zioSchemaThriftJVM = zioSchemaThrift.jvm
 
-lazy val zioSchemaMsgPack = crossProject(JSPlatform, JVMPlatform)
+lazy val zioSchemaMsgPack = project
   .in(file("zio-schema-msg-pack"))
   .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
   .settings(stdSettings("zio-schema-msg-pack"))
@@ -210,14 +209,9 @@ lazy val zioSchemaMsgPack = crossProject(JSPlatform, JVMPlatform)
     libraryDependencies ++= Seq(
       "org.msgpack"                  % "msgpack-core"               % "0.9.3",
       "org.msgpack"                  % "jackson-dataformat-msgpack" % "0.9.3" % Test,
-      "com.fasterxml.jackson.module" %%% "jackson-module-scala"     % "2.13.2" % Test
+      "com.fasterxml.jackson.module" %% "jackson-module-scala"      % "2.13.2" % Test
     )
   )
-
-lazy val zioSchemaMsgPackJS = zioSchemaMsgPack.js
-  .settings(scalaJSUseMainModuleInitializer := true)
-
-lazy val zioSchemaMsgPackJVM = zioSchemaMsgPack.jvm
 
 lazy val zioSchemaAvro = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-avro"))
