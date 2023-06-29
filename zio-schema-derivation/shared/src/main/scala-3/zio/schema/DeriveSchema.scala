@@ -288,8 +288,12 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
                 .declaredMethod(s"$$apply$$default$$$i")
                 .headOption
             )
-            .map(Select(Ref(from.companionModule), _).asExpr)
-      ).zip(from.primaryConstructor.paramSymss.flatten.map(_.name)).collect{case (Some(expr), name) => name -> expr}.toMap
+            .map { s =>
+              val select = Select(Ref(from.companionModule), s)
+              if (select.isExpr) select.asExpr
+              else select.appliedToType(TypeRepr.of[Any]).asExpr
+            }
+      ).zip(from.primaryConstructor.paramSymss.flatten.filter(!_.isTypeParam).map(_.name)).collect{ case (Some(expr), name) => name -> expr }.toMap
 
   private def fromConstructor(from: Symbol): scala.collection.Map[String, List[Expr[Any]]] = {
       val defaults = defaultValues(from)

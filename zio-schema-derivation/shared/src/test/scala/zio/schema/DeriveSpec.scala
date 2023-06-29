@@ -2,7 +2,6 @@ package zio.schema
 
 import scala.annotation.nowarn
 import scala.reflect.ClassTag
-
 import zio.schema.Deriver.WrappedF
 import zio.schema.Schema.Field
 import zio.schema.annotation.fieldDefaultValue
@@ -174,6 +173,19 @@ object DeriveSpec extends ZIOSpecDefault with VersionSpecificDeriveSpec {
               .exists(a => a.isInstanceOf[fieldDefaultValue[_]] && a.asInstanceOf[fieldDefaultValue[Int]].value == 42)
           )
         },
+        test("use case class default values of generic class") {
+          val capturedSchema = Derive.derive[CapturedSchema, GenericRecordWithDefaultValue[Int]](schemaCapturer)
+          val annotations = capturedSchema.schema
+            .asInstanceOf[Schema.Record[GenericRecordWithDefaultValue[Int]]]
+            .fields(0)
+            .annotations
+          assertTrue {
+            annotations.exists { a =>
+              a.isInstanceOf[fieldDefaultValue[_]] &&
+              a.asInstanceOf[fieldDefaultValue[Option[Int]]].value == None
+            }
+          }
+        },
         test("prefer field annotations over case class default values") {
           val capturedSchema = Derive.derive[CapturedSchema, RecordWithDefaultValue](schemaCapturer)
           val annotations = capturedSchema.schema
@@ -302,6 +314,14 @@ object DeriveSpec extends ZIOSpecDefault with VersionSpecificDeriveSpec {
 
   object RecordWithDefaultValue {
     implicit val schema: Schema[RecordWithDefaultValue] = DeriveSchema.gen[RecordWithDefaultValue]
+  }
+
+  case class GenericRecordWithDefaultValue[T](int: Option[T] = None, @fieldDefaultValue(52) int2: Int = 42)
+
+  object GenericRecordWithDefaultValue {
+    //explicitly Int, because generic implicit definition leads to "Schema derivation exceeded" error
+    implicit def schema: Schema[GenericRecordWithDefaultValue[Int]] =
+      DeriveSchema.gen[GenericRecordWithDefaultValue[Int]]
   }
 
   sealed trait Enum1

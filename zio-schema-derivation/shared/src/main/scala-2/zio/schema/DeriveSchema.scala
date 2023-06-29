@@ -233,8 +233,7 @@ object DeriveSchema {
                   val defaultApply = tpe.companion.member(TermName(s"apply$$default$$${i + 1}"))
                   Some(i -> defaultInit)
                     .filter(_ => defaultInit != NoSymbol)
-                    .orElse(Some(i -> defaultApply))
-                    .filter(_ => defaultApply != NoSymbol)
+                    .orElse(Some(i -> defaultApply).filter(_ => defaultApply != NoSymbol))
                 } else None
             }
             .toMap
