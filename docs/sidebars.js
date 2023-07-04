@@ -6,9 +6,14 @@ const sidebars = {
       collapsed: false,
       link: { type: "doc", id: "index" },
       items: [ 
-        'use-cases',
-        'our-first-schema',
-        'understanding-zio-schema',
+        "use-cases",
+        "our-first-schema",
+        "motivation",
+        "getting-started",
+        "transforming-schemas",
+        "codecs",
+        "protobuf-example",
+        "combining-different-encoders"
       ]
     }
   ]

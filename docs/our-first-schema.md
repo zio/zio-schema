@@ -3,12 +3,11 @@ id: our-first-schema
 title: "Our First Schema"
 ---
 
-ZIO Schema provides macros to help you create `Schema`s out of your data types. But before using the macros,
-we should take a look at how to do this the manual way.
+ZIO Schema provides macros to help you create `Schema`s out of our data types. But before using the macros, we should take a look at how to do this the manual way.
 
-### The Domain
+## The Domain
 
-Like in [Overview](index.md), we define our example domain like this:
+As described in the [Overview](index.md) section, we define the example domain as follows:
 
 ```scala
 object Domain {
@@ -28,11 +27,9 @@ object Domain {
 
 ### Manual construction of a Schema
 
-This part is similar to other libraries that you might know, e.g. for JSON processing.
-Basically, you create a `Schema` for every data type in your domain:
+This part is similar to other libraries that we might know, e.g. for JSON processing. Basically, we create a `Schema` for every data type in our domain:
 
 ```scala
-
 object ManualConstruction {
   import zio.schema.Schema._
   import Domain._
@@ -85,7 +82,6 @@ object ManualConstruction {
     extractField2 = c => c.paymentMethod
   )
 }
-
 ```
 
 ### Macro derivation
@@ -104,11 +100,9 @@ object MacroConstruction  {
 }
 ```
 
-## Applying it to our domain
+## Applying it to Our Domain
 
-### Json example
-
-Lets put this all together in a small sample:
+Let's put this all together in a small sample:
 
 ```scala
 object JsonSample extends zio.App {
@@ -129,77 +123,7 @@ object JsonSample extends zio.App {
 ```
 
 When we run this, we get our expected result printed out:
+
 ```json
 {"name":"Michelle","age":32}
-```
-
-### Protobuf example
-
-```scala
-object ProtobufExample extends zio.App {
-  import zio.schema.codec.ProtobufCodec
-  import ManualConstruction._
-  import zio.stream.ZStream
-
-  override def run(args: List[String]): UIO[ExitCode] = for {
-    _ <- ZIO.unit
-    _ <- ZIO.debug("protobuf roundtrip")
-    person = Person("Michelle", 32)
-
-    personToProto = ProtobufCodec.encoder[Person](schemaPerson)
-    protoToPerson = ProtobufCodec.decoder[Person](schemaPerson)
-
-    newPerson <- ZStream(person)
-      .transduce(personToProto)
-      .transduce(protoToPerson)
-      .runHead
-      .some
-      .catchAll(error => ZIO.debug(error))
-    _ <- ZIO.debug("is old person the new person? " + (person == newPerson).toString)
-    _ <- ZIO.debug("old person: " + person)
-    _ <- ZIO.debug("new person: " + newPerson)
-  } yield ExitCode.success
-}
-```
-
-
-### Combining different encoders
-
-Let's take a look at a roundtrip converting an object to JSON and back, then converting it to a protobuf and back.
-This is a simple example, but it shows how to combine different encoders to achieve a roundtrip.
-
-```scala
-object CombiningExample extends zio.App {
-  import zio.schema.codec.JsonCodec
-  import zio.schema.codec.ProtobufCodec
-  import ManualConstruction._
-  import zio.stream.ZStream
-
-  override def run(args: List[String]): UIO[ExitCode] = for {
-    _ <- ZIO.unit
-    _ <- ZIO.debug("combining roundtrip")
-    person = Person("Michelle", 32)
-
-    personToJson = JsonCodec.encoder[Person](schemaPerson)
-    jsonToPerson = JsonCodec.decoder[Person](schemaPerson)
-
-    personToProto = ProtobufCodec.encoder[Person](schemaPerson)
-    protoToPerson = ProtobufCodec.decoder[Person](schemaPerson)
-
-    newPerson <- ZStream(person)
-      .tap(v => ZIO.debug("input object is: " + v))
-      .transduce(personToJson)
-      .transduce(jsonToPerson)
-      .tap(v => ZIO.debug("object after json roundtrip: " + v))
-      .transduce(personToProto)
-      .transduce(protoToPerson)
-      .tap(v => ZIO.debug("person after protobuf roundtrip: " + v))
-      .runHead
-      .some
-      .catchAll(error => ZIO.debug(error))
-    _ <- ZIO.debug("is old person the new person? " + (person == newPerson).toString)
-    _ <- ZIO.debug("old person: " + person)
-    _ <- ZIO.debug("new person: " + newPerson)
-  } yield ExitCode.success
-}
 ```
