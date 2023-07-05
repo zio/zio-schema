@@ -5,18 +5,27 @@ const sidebars = {
       label: "ZIO Schema",
       collapsed: false,
       link: { type: "doc", id: "index" },
-      items: [ 
+      items: [
         "use-cases",
-        "our-first-schema",
+        {
+          type: "category",
+          label: "Writing Schema",
+          collapsed: true,
+          link: { type: "doc", id: "index" },
+          items: [
+            "manual-schema-construction",
+            "automatic-schema-derivation"
+          ],
+        },
         "motivation",
         "getting-started",
         "transforming-schemas",
         "codecs",
         "protobuf-example",
-        "combining-different-encoders"
-      ]
-    }
-  ]
+        "combining-different-encoders",
+      ],
+    },
+  ],
 };
 
 module.exports = sidebars;

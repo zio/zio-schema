@@ -341,4 +341,5 @@ lazy val docs = project
          |sbt test
          |```""".stripMargin
   )
+  .dependsOn(zioSchemaJVM, zioSchemaProtobufJVM)
   .enablePlugins(WebsitePlugin)
