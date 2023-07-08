@@ -31,12 +31,15 @@ In order to use this library, we need to add the following lines in our `build.s
 
 ```scala
 libraryDependencies += "dev.zio" %% "zio-schema"          % "@VERSION@"
+libraryDependencies += "dev.zio" %% "zio-schema-avro"     % "@VERSION@"
 libraryDependencies += "dev.zio" %% "zio-schema-bson"     % "@VERSION@"
 libraryDependencies += "dev.zio" %% "zio-schema-json"     % "@VERSION@"
+libraryDependencies += "dev.zio" %% "zio-schema-msg-pack" % "@VERSION@"
 libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "@VERSION@"
+libraryDependencies += "dev.zio" %% "zio-schema-thrift"   % "@VERSION@"
 
 // Required for automatic generic derivation of schemas
-libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "@VERSION@",
+libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "@VERSION@"
 libraryDependencies += "org.scala-lang" % "scala-reflect"  % scalaVersion.value % "provided"
 ```
 
