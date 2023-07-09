@@ -115,22 +115,45 @@ object Schema extends SchemaEquality {
 
 ### Sequence
 
-Often you have a type that is a collection of elements. For example, you might have a `List[User]`. This is called a `Sequence` and is represented using the `Sequence[Col, Elem]` type class:
+Often we have a type that is a collection of elements. For example, we might have a `List[User]`. This is called a `Sequence` and is represented using the `Sequence[Col, Elem, I]` type class:
 
 ```scala
-object Schema extends SchemaEquality {
-
-  final case class Sequence[Col, Elem](
+object Schema {
+  sealed trait Collection[Col, Elem] extends Schema[Col]
+  
+  final case class Sequence[Col, Elem, I](
       elementSchema: Schema[Elem],
       fromChunk: Chunk[Elem] => Col,
-      toChunk: Col => Chunk[Elem]
-    ) extends Schema[Col] {
-    self =>
-    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Traversal[Col, Elem]
-    override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, schemaA)
-    override def toString: String = s"Sequence($elementSchema)"
-  }
+      toChunk: Col => Chunk[Elem],
+      override val annotations: Chunk[Any] = Chunk.empty,
+      identity: I
+    ) extends Collection[Col, Elem]
 }
+```
+
+The `Sequence` can be anything that can be isomorphic to a list. 
+
+Here is an example schema for list of `Person`s:
+
+```scala mdoc:compile-only
+import zio._
+import zio.schema._
+import zio.schema.Schema._
+  
+case class Person(name: String, age: Int)
+
+object Person {
+  implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+}
+
+val personListSchema: Schema[List[Person]] =
+  Sequence[List[Person], Person, String](
+    elementSchema = Schema[Person],
+    fromChunk = _.toList,
+    toChunk = i => Chunk.fromIterable(i),
+    annotations = Chunk.empty,
+    identity = "List"
+  )
 ```
 
 ### Optionals
