@@ -24,6 +24,43 @@ sealed trait Schema[A] { self =>
 }
 ```
 
+### Primitives
+
+To describe scalar data type `A`, we use the `Primitive[A]` data type which basically is a wrapper around `StandardType`:
+
+```scala
+case class Primitive[A](standardType: StandardType[A]) extends Schema[A]
+```
+
+Primitive values are represented using the `Primitive[A]` type class and represent the elements, that we cannot further define through other means. If we visualize our data structure as a tree, primitives are the leaves.
+
+ZIO Schema provides a number of built-in primitive types, that we can use to represent our data. These can be found in the [`StandardType`](https://github.com/zio/zio-schema/blob/main/zio-schema/shared/src/main/scala/zio/schema/StandardType.scala) companion-object:
+
+```scala
+sealed trait StandardType[A]
+object StandardType {
+  implicit object UnitType   extends StandardType[Unit]
+  implicit object StringType extends StandardType[String]
+  implicit object BoolType   extends StandardType[Boolean]
+  // ...
+}
+```
+
+Inside `Schema`'s companion object, we have an implicit conversion from `StandardType[A]` to `Schema[A]`:
+
+```scala
+object Schema {
+   implicit def primitive[A](implicit standardType: StandardType[A]): Schema[A] = ???
+}
+```
+
+So we can easily create a `Schema` for a primitive type `A` either by calling `Schema.primitive[A]` or by calling `Schema.apply[A]`:
+
+```scala
+val intSchema1: Schema[Int] = Schema[Int]
+val intSchema2: Schema[Int] = Schema.primitive[Int] 
+```
+
 ### Records
 
 Our data structures usually are composed of a lot of types. For example, we might have a `User`
@@ -124,23 +161,4 @@ object Schema extends SchemaEquality {
 }
 ```
 
-### Primitives
-
-Last but not least, we have primitive values.
-
-```scala
-object Schema extends SchemaEquality {
-  final case class Primitive[A](standardType: StandardType[A]) extends Schema[A] {
-    type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] = Unit
-
-    override def makeAccessors(b: AccessorBuilder): Unit = ()
-  }
-}
-```
-
-Primitive values are represented using the `Primitive[A]` type class and represent the elements,
-that we cannot further define through other means. If we visualize our data structure as a tree, primitives are the leaves.
-
-ZIO Schema provides a number of built-in primitive types, that we can use to represent our data.
-These can be found in the `StandardType` companion-object.
 
