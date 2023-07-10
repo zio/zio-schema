@@ -150,7 +150,8 @@ case class Person(name: String, age: Int)
 object Person {
   implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
   
-  implicit val mapSchema: Schema[Map[String, Person]] = Schema.map[String, Person]
+  implicit val mapSchema: Schema[scala.collection.immutable.Map[String, Person]] = 
+    Schema.map[String, Person]
 }
 ```
 
@@ -181,7 +182,8 @@ case class Person(name: String, age: Int)
 object Person {
   implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
   
-  implicit val setSchema: Schema[Set[Person]] = Schema.set[Person]
+  implicit val setSchema: Schema[scala.collection.immutable.Set[Person]] = 
+    Schema.set[Person]
 }
 ```
 
@@ -199,13 +201,63 @@ In ZIO Schema such a record would be represented using the `Record[R]` typeclass
 
 ```scala
 object Schema {
+  sealed trait Field[R, A] {
+    type Field <: Singleton with String
+    def name: Field
+    def schema: Schema[A]
+  }
+
   sealed trait Record[R] extends Schema[R] {
     def id: TypeId
     def fields: Chunk[Field[_]]
     def construct(fieldValues: Chunk[Any]): Either[String, R]
   }
 }
+```
 
+ZIO Schema has specialized record types for case classes, called `CaseClass1[A, Z]`, `CaseClass2[A1, A2, Z]`, and so on. Here is the definition of `apply` method of `CaseClass1` and `CaseClass2`:
+
+```scala
+sealed trait CaseClass1[A, Z] extends Record[Z]
+
+object CaseClass1 {
+  def apply[A, Z](
+    id0: TypeId,
+    field0: Field[Z, A],
+    defaultConstruct0: A => Z,
+    annotations0: Chunk[Any] = Chunk.empty
+  ): CaseClass1[A, Z] = ???
+}
+
+object CaseClass2 {
+  def apply[A1, A2, Z](
+    id0: TypeId,
+    field01: Field[Z, A1],
+    field02: Field[Z, A2],
+    construct0: (A1, A2) => Z,
+    annotations0: Chunk[Any] = Chunk.empty
+  ): CaseClass2[A1, A2, Z] = ???
+}
+```
+
+As we can see, they take a `TypeId`, a number of fields of type `Field`, and a construct function. The `TypeId` is used to uniquely identify the type. The `Field` is used to store the name of the field and the schema of the field. The `construct` is used to construct the type from the field values.
+
+Here is an example of defining schema for `Person` data type:
+
+```scala mdoc:compile-only
+import zio.schema._
+
+final case class Person(name: String, age: Int)
+
+object Person {
+  implicit val schema: Schema[Person] =
+    Schema.CaseClass2[String, Int, Person](
+      id0 = TypeId.fromTypeName("Person"),
+      field01 = Schema.Field(name0 = "name", schema0 = Schema[String], get0 = _.name, set0 = (p, x) => p.copy(name = x)),
+      field02 = Schema.Field(name0 = "age", schema0 = Schema[Int], get0 = _.age, set0 = (person, age) => person.copy(age = age)),
+      construct0 = (name, age) => Person(name, age),
+    )
+}
 ```
 
 ### Enumerations
