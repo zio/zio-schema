@@ -120,7 +120,6 @@ object Person {
   
   implicit val listSchema: Schema[List[Person]] = Schema.list[Person]
 }
-
 ```
 
 #### Map
@@ -152,6 +151,37 @@ object Person {
   implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
   
   implicit val mapSchema: Schema[Map[String, Person]] = Schema.map[String, Person]
+}
+```
+
+#### Set
+
+The `Set` type class is similar to `Sequence` and `Map`. It is used to represent a schema for a set of elements:
+
+```scala
+object Schema {
+  sealed trait Collection[Col, Elem] extends Schema[Col]
+
+  case class Set[A](
+    elementSchema: Schema[A],
+    override val annotations: Chunk[Any] = Chunk.empty
+  ) extends Collection[scala.collection.immutable.Set[A], A]
+}
+```
+
+To create a `Schema` for a `Set[A]`, we can use the above type class directly or use the helper method `Schema.set[A]`:
+
+```scala mdoc:compile-only
+import zio._
+import zio.schema._
+import zio.schema.Schema._
+  
+case class Person(name: String, age: Int)
+
+object Person {
+  implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+  
+  implicit val setSchema: Schema[Set[Person]] = Schema.set[Person]
 }
 ```
 
