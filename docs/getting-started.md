@@ -403,3 +403,51 @@ We can use `Schema.either[A, B]` to create a `Schema` for `scala.util.Either[A, 
 val eitherPersonSchema: Schema[scala.util.Either[String, Person]] = 
   Schema.either[String, Person]
 ```
+
+### Tuple
+
+Each schema has a `Schema#zip` operator that allows us to combine two schemas and create a schema for a tuple of the two types:
+
+```scala
+object Schema {
+  def zip[B](that: Schema[B]): Schema[(A, B)] = 
+    Schema.Tuple2(self, that)
+}
+```
+
+It is implemented using the `Schema.Tuple2` type class:
+
+```scala
+object Schema {
+  final case class Tuple2[A, B](
+    left: Schema[A],
+    right: Schema[B], 
+    annotations: Chunk[Any] = Chunk.em
+    pty
+  ) extends Schema[(A, B)] 
+}
+```
+
+ZIO Schema also provides implicit conversions for tuples of arity 2, 3, ..., 22:
+
+```scala
+object Schema {
+  implicit def tuple2[A, B](implicit c1: Schema[A], c2: Schema[B]): Schema[(A, B)] =
+    c1.zip(c2)
+
+  implicit def tuple3[A, B, C](implicit c1: Schema[A], c2: Schema[B], c3: Schema[C]): Schema[(A, B, C)] =
+    c1.zip(c2).zip(c3).transform({ case ((a, b), c) => (a, b, c) }, { case (a, b, c) => ((a, b), c) })
+
+  // tuple3, tuple4, ..., tuple22
+}
+```
+
+So we can easily create a `Schema` for a tuple of n elements, just by calling `Schema[(A1, A2, ..., An)]`:
+
+```scala mdoc:compile-only
+import zio.schema._
+
+val tuple2: Schema[(String, Int)]          = Schema[(String, Int)]
+val tuple3: Schema[(String, Int, Boolean)] = Schema[(String, Int, Boolean)]
+// ...
+```
