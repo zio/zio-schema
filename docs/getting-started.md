@@ -253,8 +253,20 @@ object Person {
   implicit val schema: Schema[Person] =
     Schema.CaseClass2[String, Int, Person](
       id0 = TypeId.fromTypeName("Person"),
-      field01 = Schema.Field(name0 = "name", schema0 = Schema[String], get0 = _.name, set0 = (p, x) => p.copy(name = x)),
-      field02 = Schema.Field(name0 = "age", schema0 = Schema[Int], get0 = _.age, set0 = (person, age) => person.copy(age = age)),
+      field01 = 
+        Schema.Field(
+          name0 = "name",
+          schema0 = Schema[String],
+          get0 = _.name,
+          set0 = (p, x) => p.copy(name = x)
+        ),
+      field02 = 
+        Schema.Field(
+          name0 = "age",
+          schema0 = Schema[Int],
+          get0 = _.age,
+          set0 = (person, age) => person.copy(age = age)
+        ),
       construct0 = (name, age) => Person(name, age),
     )
 }
