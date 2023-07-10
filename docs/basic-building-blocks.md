@@ -1,16 +1,10 @@
 ---
-id: getting-started 
-title: "Getting Started"
+id: basic-building-blocks
+title: "Basic Building Blocks"
 ---
 
 To get started, first we need to understand that a ZIO Schema is basically built-up from these three
 sealed traits: `Record[R]`, `Enum[A]` and `Sequence[Col, Elem]`, along with the case class `Primitive[A]`. Every other type is just a specialisation of one of these (or not relevant to get you started).
-
-We will take a look at them now.
-
-## Basic Building Blocks
-
-### Schema
 
 The core data type of ZIO Schema is a `Schema[A]` which is **invariant in `A`** by necessity, because a Schema allows us to derive operations that produce an `A` but also operations that consume an `A` and that imposes limitations on the types of **transformation operators** and **composition operators** that we can provide based on a `Schema`.
 
@@ -24,7 +18,7 @@ sealed trait Schema[A] { self =>
 }
 ```
 
-### Primitives
+## Primitives
 
 To describe scalar data type `A`, we use the `Primitive[A]` data type which basically is a wrapper around `StandardType`:
 
@@ -61,7 +55,7 @@ val intSchema1: Schema[Int] = Schema[Int]
 val intSchema2: Schema[Int] = Schema.primitive[Int] 
 ```
 
-### Fail
+## Fail
 
 To represents the absence of schema information for the given `A` type, we can use `Schema.fail` constructor, which creates the following schema:
 
@@ -74,9 +68,9 @@ object Schema {
 }
 ```
 
-### Collections
+## Collections
 
-#### Sequence
+### Sequence
 
 Often we have a type that is a collection of elements. For example, we might have a `List[User]`. This is called a `Sequence` and is represented using the `Sequence[Col, Elem, I]` type class:
 
@@ -137,7 +131,7 @@ object Person {
 }
 ```
 
-#### Map
+### Map
 
 Likewise, we can have a type that is a map of keys to values. ZIO Schema represents this using the following type class:
 
@@ -170,7 +164,7 @@ object Person {
 }
 ```
 
-#### Set
+### Set
 
 The `Set` type class is similar to `Sequence` and `Map`. It is used to represent a schema for a set of elements:
 
@@ -202,7 +196,7 @@ object Person {
 }
 ```
 
-### Records
+## Records
 
 Our data structures usually are composed of a lot of types. For example, we might have a `User` type that has a `name` field, an `age` field, an `address` field, and a `friends` field.
 
@@ -299,7 +293,7 @@ object Schema {
 }
 ```
 
-### Enumerations
+## Enumerations
 
 Other times, you might have a type that represents a list of different types. For example, we might have a type, like this:
 
@@ -364,7 +358,7 @@ object Schema {
 }
 ```
 
-### Optionals
+## Optionals
 
 To create a `Schema` for optional values, we can use the `Optional` type class:
 
@@ -383,7 +377,7 @@ Using the `Schema.option[A]` constructor, makes it easier to do so:
 val option: Schema[Option[Person]] = Schema.option[Person]
 ```
 
-### Either
+## Either
 
 Here is the same but for `Either`:
 
@@ -404,7 +398,7 @@ val eitherPersonSchema: Schema[scala.util.Either[String, Person]] =
   Schema.either[String, Person]
 ```
 
-### Tuple
+## Tuple
 
 Each schema has a `Schema#zip` operator that allows us to combine two schemas and create a schema for a tuple of the two types:
 

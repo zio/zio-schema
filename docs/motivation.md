@@ -1,6 +1,7 @@
 ---
 id: motivation
-title: "Understanding The Motivation Behind ZIO Schema"
+title: "The Motivation Behind ZIO Schema"
+sidebar_label: "Motivation"
 ---
 
 ZIO Schema is a library used in many ZIO projects such as _ZIO Flow_, _ZIO Redis_, _ZIO Web_, _ZIO SQL_ and _ZIO DynamoDB_. It is all about reification of our types. Reification means transforming something abstract (e.g. side effects, accessing fields, structure)  into something "real" (values).
