@@ -106,7 +106,7 @@ val personListSchema: Schema[List[Person]] =
   )
 ```
 
-ZIO Schema has a helper method `Schema.list[A]` that creates a `Schema[List[A]]` for us:
+ZIO Schema has a `Schema.list[A]` constructor that creates a `Schema[List[A]]` for us:
 
 ```scala mdoc:compile-only
 import zio._
@@ -138,7 +138,7 @@ object Schema {
 }
 ```
 
-It stores the key and value schemas. Like `Sequence`, instead of using `Map` directly, we can use the helper method `Schema.map[K, V]`:
+It stores the key and value schemas. Like `Sequence`, instead of using `Map` directly, we can use the `Schema.map[K, V]` constructor:
 
 ```scala mdoc:compile-only
 import zio._
@@ -170,7 +170,7 @@ object Schema {
 }
 ```
 
-To create a `Schema` for a `Set[A]`, we can use the above type class directly or use the helper method `Schema.set[A]`:
+To create a `Schema` for a `Set[A]`, we can use the above type class directly or use the `Schema.set[A]` constructor:
 
 ```scala mdoc:compile-only
 import zio._
@@ -312,33 +312,42 @@ object Schema {
 }
 ```
 
-
 ### Optionals
 
-A special variant of a collection type is the `Optional[A]` type:
+To create a `Schema` for optional values, we can use the `Optional` type class:
 
 ```scala
-object Schema extends SchemaEquality {
-
-  final case class Optional[A](codec: Schema[A]) extends Schema[Option[A]] {
-    self =>
-
-    private[schema] val someCodec: Schema[Some[A]] = codec.transform(a => Some(a), _.get)
-
-    override type Accessors[Lens[_, _], Prism[_, _], Traversal[_, _]] =
-      (Prism[Option[A], Some[A]], Prism[Option[A], None.type])
-
-    val toEnum: Enum2[Some[A], None.type, Option[A]] = Enum2(
-      Case[Some[A], Option[A]]("Some", someCodec, _.asInstanceOf[Some[A]], Chunk.empty),
-      Case[None.type, Option[A]]("None", singleton(None), _.asInstanceOf[None.type], Chunk.empty),
-      Chunk.empty
-    )
-
-    override def makeAccessors(b: AccessorBuilder): (b.Prism[Option[A], Some[A]], b.Prism[Option[A], None.type]) =
-      b.makePrism(toEnum, toEnum.case1) -> b.makePrism(toEnum, toEnum.case2)
-  }
-
+object Schema {
+  case class Optional[A](
+    schema: Schema[A],
+    annotations: Chunk[Any] = Chunk.empty
+  ) extends Schema[Option[A]]
 }
 ```
 
+Using the `Schema.option[A]` constructor, makes it easier to do so:
 
+```scala
+val option: Schema[Option[Person]] = Schema.option[Person]
+```
+
+### Either
+
+Here is the same but for `Either`:
+
+```scala
+object Schema {
+  case class Either[A, B](
+    left: Schema[A],
+    right: Schema[B],
+    annotations: Chunk[Any] = Chunk.empty
+  ) extends Schema[scala.util.Either[A, B]]
+}
+```
+
+We can use `Schema.either[A, B]` to create a `Schema` for `scala.util.Either[A, B]`:
+
+```scala
+val eitherPersonSchema: Schema[scala.util.Either[String, Person]] = 
+  Schema.either[String, Person]
+```
