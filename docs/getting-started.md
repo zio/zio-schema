@@ -106,7 +106,7 @@ val personListSchema: Schema[List[Person]] =
   )
 ```
 
-ZIO Schema has a `Schema.list[A]` constructor that creates a `Schema[List[A]]` for us:
+ZIO Schema has `Schema.list[A]`, `Schema.chunk[A]` and `Schema.vector[A]` constructors that create `Schema[List[A]]`, `Schema[Chunk[A]]` and `Schema[Vector[A]]` for us:
 
 ```scala mdoc:compile-only
 import zio._
@@ -118,7 +118,9 @@ case class Person(name: String, age: Int)
 object Person {
   implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
   
-  implicit val listSchema: Schema[List[Person]] = Schema.list[Person]
+  implicit val listSchema:   Schema[List[Person]]   = Schema.list[Person]
+  implicit val chunkSchema:  Schema[Chunk[Person]]  = Schema.chunk[Person]
+  implicit val vectorSchema: Schema[Vector[Person]] = Schema.vector[Person]
 }
 ```
 
