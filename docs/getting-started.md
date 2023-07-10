@@ -215,7 +215,7 @@ object Schema {
 }
 ```
 
-ZIO Schema has specialized record types for case classes, called `CaseClass1[A, Z]`, `CaseClass2[A1, A2, Z]`, and so on. Here is the definition of `apply` method of `CaseClass1` and `CaseClass2`:
+ZIO Schema has specialized record types for case classes, called `CaseClass1[A, Z]`, `CaseClass2[A1, A2, Z]`, ..., `CaseClass22`. Here is the definition of `apply` method of `CaseClass1` and `CaseClass2`:
 
 ```scala
 sealed trait CaseClass1[A, Z] extends Record[Z]
@@ -269,6 +269,18 @@ object Person {
         ),
       construct0 = (name, age) => Person(name, age),
     )
+}
+```
+
+There is also the `GenericRecord` which is used to either ad-hoc records or records that have more than 22 fields:
+
+```scala
+object Schema {
+  sealed case class GenericRecord(
+    id: TypeId,
+    fieldSet: FieldSet,
+    override val annotations: Chunk[Any] = Chunk.empty
+  ) extends Record[ListMap[String, _]]
 }
 ```
 
