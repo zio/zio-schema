@@ -305,10 +305,47 @@ In ZIO Schema we call these types `enumeration` types, and they are represented 
 
 ```scala
 object Schema {
-  sealed trait Enum[A] extends Schema[A] {
-    def annotations: Chunk[Any]
-    def structure: ListMap[String, Schema[_]]
-  }
+  sealed trait Enum[Z] extends Schema[Z]
+}
+```
+
+It has specialized types `Enum1[A, Z]`, `Enum2[A1, A2, Z]`, ..., `Enum22[A1, A2, ..., A22, Z]` for enumerations with 1, 2, ..., 22 cases. Here is the definition of `Enum1` and `Enum2`:
+
+```scala 
+  sealed case class Enum1[A, Z](
+    id: TypeId,
+    case1: Case[Z, A],
+    annotations: Chunk[Any] = Chunk.empty
+  ) extends Enum[Z]
+
+  sealed case class Enum2[A1, A2, Z](
+    id: TypeId,
+    case1: Case[Z, A1],
+    case2: Case[Z, A2],
+    annotations: Chunk[Any] = Chunk.empty
+  ) extends Enum[Z]
+
+  // Enum3, Enum4, ..., Enum22
+}
+```
+
+If the enumeration has more than 22 cases, we can use the `EnumN` type class:
+
+```scala
+object Schema {
+  sealed case class EnumN[Z, C <: CaseSet.Aux[Z]](
+    id: TypeId,
+    caseSet: C,
+    annotations: Chunk[Any] = Chunk.empty
+  ) extends Enum[Z]
+}
+```
+
+It has a simple constructor called `Schema.enumeration`:
+
+```scala
+object Schema {
+  def enumeration[A, C <: CaseSet.Aux[A]](id: TypeId, caseSet: C): Schema[A] = ???
 }
 ```
 
