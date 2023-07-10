@@ -10,6 +10,31 @@
 
 ## Introduction
 
+ZIO Schema helps us to solve some of the most common problems in distributed computing, such as serialization, deserialization, and data migration.
+
+```scala
+trait Schema[A] {
+  def schema: Schema[A]
+}
+```
+
+The trait `Schema[A]` is the core data type of this library. The `Schema[A]` is a description of the structure of a data type `A`, it is a data type that describes other data types. It is a first-class value that can be passed around, composed, and manipulated.
+
+It turns a compiled-time construct (the type of a data structure) into a runtime construct (a value that can be read, manipulated, and composed at runtime).
+
+## What Problems Does ZIO Schema Solve?
+
+1. Metaprogramming without macros, reflection or complicated implicit derivations.
+   1. Creating serialization and deserialization codecs for any supported protocol (JSON, protobuf, etc.)
+   2. Deriving standard type classes (`Eq`, `Show`, `Ordering`, etc.) from the structure of the data
+   4. Default values for data types
+2. Automate ETL (Extract, Transform, Load) pipelines
+   1. Diffing: diffing between two values of the same type
+   2. Patching: applying a diff to a value to update it
+   3. Migration: migrating values from one type to another
+3. Computations as data: Not only we can turn types into values, but we can also turn computations into values. This opens up a whole new world of possibilities in respect to distributed computing.
+   1. Optics
+
 Schema is a structure of a data type. ZIO Schema reifies the concept of structure for data types. It makes a high-level description of any data type and makes them as first-class values.
 
 Creating a schema for a data type helps us to write codecs for that data type. So this library can be a host of functionalities useful for writing codecs and protocols like JSON, Protobuf, CSV, and so forth.
@@ -30,13 +55,16 @@ _ZIO Schema_ is used by a growing number of ZIO libraries, including _ZIO Flow_,
 In order to use this library, we need to add the following lines in our `build.sbt` file:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema"          % "0.4.11"
-libraryDependencies += "dev.zio" %% "zio-schema-bson"     % "0.4.11"
-libraryDependencies += "dev.zio" %% "zio-schema-json"     % "0.4.11"
-libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "0.4.11"
+libraryDependencies += "dev.zio" %% "zio-schema"          % "0.4.12"
+libraryDependencies += "dev.zio" %% "zio-schema-avro"     % "0.4.12"
+libraryDependencies += "dev.zio" %% "zio-schema-bson"     % "0.4.12"
+libraryDependencies += "dev.zio" %% "zio-schema-json"     % "0.4.12"
+libraryDependencies += "dev.zio" %% "zio-schema-msg-pack" % "0.4.12"
+libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "0.4.12"
+libraryDependencies += "dev.zio" %% "zio-schema-thrift"   % "0.4.12"
 
 // Required for automatic generic derivation of schemas
-libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "0.4.11",
+libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "0.4.12"
 libraryDependencies += "org.scala-lang" % "scala-reflect"  % scalaVersion.value % "provided"
 ```
 
