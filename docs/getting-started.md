@@ -187,8 +187,7 @@ object Person {
 
 ### Records
 
-Our data structures usually are composed of a lot of types. For example, we might have a `User`
-type that has a `name` field, an `age` field, an `address` field, and a `friends` field.
+Our data structures usually are composed of a lot of types. For example, we might have a `User` type that has a `name` field, an `age` field, an `address` field, and a `friends` field.
 
 ```scala
 case class User(name: String, age: Int, address: Address, friends: List[User])
@@ -201,9 +200,9 @@ In ZIO Schema such a record would be represented using the `Record[R]` typeclass
 ```scala
 object Schema {
   sealed trait Record[R] extends Schema[R] {
+    def id: TypeId
     def fields: Chunk[Field[_]]
-    def construct(value: R): Chunk[Any]
-    def defaultValue: Either[String, R]
+    def construct(fieldValues: Chunk[Any]): Either[String, R]
   }
 }
 
@@ -229,7 +228,7 @@ In functional programming, this kind of type is called a **sum type**:
 In ZIO Schema we call these types `enumeration` types, and they are represented using the `Enum[A]` type class.
 
 ```scala
-object Schema extends SchemaEquality {
+object Schema {
   sealed trait Enum[A] extends Schema[A] {
     def annotations: Chunk[Any]
     def structure: ListMap[String, Schema[_]]
