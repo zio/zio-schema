@@ -61,6 +61,100 @@ val intSchema1: Schema[Int] = Schema[Int]
 val intSchema2: Schema[Int] = Schema.primitive[Int] 
 ```
 
+### Collections
+
+#### Sequence
+
+Often we have a type that is a collection of elements. For example, we might have a `List[User]`. This is called a `Sequence` and is represented using the `Sequence[Col, Elem, I]` type class:
+
+```scala
+object Schema {
+  sealed trait Collection[Col, Elem] extends Schema[Col]
+  
+  final case class Sequence[Col, Elem, I](
+      elementSchema: Schema[Elem],
+      fromChunk: Chunk[Elem] => Col,
+      toChunk: Col => Chunk[Elem],
+      override val annotations: Chunk[Any] = Chunk.empty,
+      identity: I
+    ) extends Collection[Col, Elem]
+}
+```
+
+The `Sequence` can be anything that can be isomorphic to a list. 
+
+Here is an example schema for list of `Person`s:
+
+```scala mdoc:compile-only
+import zio._
+import zio.schema._
+import zio.schema.Schema._
+  
+case class Person(name: String, age: Int)
+
+object Person {
+  implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+}
+
+val personListSchema: Schema[List[Person]] =
+  Sequence[List[Person], Person, String](
+    elementSchema = Schema[Person],
+    fromChunk = _.toList,
+    toChunk = i => Chunk.fromIterable(i),
+    annotations = Chunk.empty,
+    identity = "List"
+  )
+```
+
+ZIO Schema has a helper method `Schema.list[A]` that creates a `Schema[List[A]]` for us:
+
+```scala mdoc:compile-only
+import zio._
+import zio.schema._
+import zio.schema.Schema._
+  
+case class Person(name: String, age: Int)
+
+object Person {
+  implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+  
+  implicit val listSchema: Schema[List[Person]] = Schema.list[Person]
+}
+
+```
+
+#### Map
+
+Likewise, we can have a type that is a map of keys to values. ZIO Schema represents this using the following type class:
+
+```scala
+object Schema {
+  sealed trait Collection[Col, Elem] extends Schema[Col]
+
+  case class Map[K, V](
+    keySchema: Schema[K],
+    valueSchema: Schema[V],
+    override val annotations: Chunk[Any] = Chunk.empty
+  ) extends Collection[scala.collection.immutable.Map[K, V], (K, V)]
+}
+```
+
+It stores the key and value schemas. Like `Sequence`, instead of using `Map` directly, we can use the helper method `Schema.map[K, V]`:
+
+```scala mdoc:compile-only
+import zio._
+import zio.schema._
+import zio.schema.Schema._
+  
+case class Person(name: String, age: Int)
+
+object Person {
+  implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+  
+  implicit val mapSchema: Schema[Map[String, Person]] = Schema.map[String, Person]
+}
+```
+
 ### Records
 
 Our data structures usually are composed of a lot of types. For example, we might have a `User`
@@ -113,48 +207,6 @@ object Schema extends SchemaEquality {
 }
 ```
 
-### Sequence
-
-Often we have a type that is a collection of elements. For example, we might have a `List[User]`. This is called a `Sequence` and is represented using the `Sequence[Col, Elem, I]` type class:
-
-```scala
-object Schema {
-  sealed trait Collection[Col, Elem] extends Schema[Col]
-  
-  final case class Sequence[Col, Elem, I](
-      elementSchema: Schema[Elem],
-      fromChunk: Chunk[Elem] => Col,
-      toChunk: Col => Chunk[Elem],
-      override val annotations: Chunk[Any] = Chunk.empty,
-      identity: I
-    ) extends Collection[Col, Elem]
-}
-```
-
-The `Sequence` can be anything that can be isomorphic to a list. 
-
-Here is an example schema for list of `Person`s:
-
-```scala mdoc:compile-only
-import zio._
-import zio.schema._
-import zio.schema.Schema._
-  
-case class Person(name: String, age: Int)
-
-object Person {
-  implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
-}
-
-val personListSchema: Schema[List[Person]] =
-  Sequence[List[Person], Person, String](
-    elementSchema = Schema[Person],
-    fromChunk = _.toList,
-    toChunk = i => Chunk.fromIterable(i),
-    annotations = Chunk.empty,
-    identity = "List"
-  )
-```
 
 ### Optionals
 
