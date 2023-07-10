@@ -61,6 +61,19 @@ val intSchema1: Schema[Int] = Schema[Int]
 val intSchema2: Schema[Int] = Schema.primitive[Int] 
 ```
 
+### Fail
+
+To represents the absence of schema information for the given `A` type, we can use `Schema.fail` constructor, which creates the following schema:
+
+```scala
+object Schema {
+  case class Fail[A](
+    message: String,
+    annotations: Chunk[Any] = Chunk.empty
+  ) extends Schema[A]
+}
+```
+
 ### Collections
 
 #### Sequence
