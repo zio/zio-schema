@@ -1,4 +1,4 @@
 -J-XX:+PrintCommandLineFlags
--J-Xmx5G
+-J-Xmx6G
 -J-Xss4M
 -J-XX:+UseG1GC
