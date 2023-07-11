@@ -81,3 +81,21 @@ assert(
   Person.schema.patch(oldValue, patch) == Right(newValue)
 )
 ```
+
+## Automatic Migrations
+
+With ZIO Schema, we can automatically migrate data from one version of a schema to another. As software evolves, we often need to add, change or remove old fields. ZIO Schema provides two methods called `migrate` and `coerce` which help migrate the old schema to the new one:
+
+```scala
+selaed trait Schema[A] {
+  def migrate[B](newSchema: Schema[B]): Either[String, A => scala.util.Either[String, B]]
+
+  def coerce[B](newSchema: Schema[B]): Either[String, Schema[B]] =
+    for {
+      f <- self.migrate(newSchema)
+      g <- newSchema.migrate(self)
+    } yield self.transformOrFail(f, g)
+}
+```
+
+The `migrate` method takes a new schema and returns a function that can migrate values of the old schema to values of the new schema as a `Right` value of `Either`. If the schemas have unambiguous transformations or are incompatible, the method returns a `Left` value containing an error message.
