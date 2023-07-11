@@ -9,6 +9,7 @@ const sidebars = {
         "motivation",
         "use-cases",
         "basic-building-blocks",
+        "operations",
         {
           type: "category",
           label: "Writing Schema",
