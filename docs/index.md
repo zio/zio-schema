@@ -79,7 +79,6 @@ zio.Runtime.default.unsafe.run(
 ).getOrThrowFiberFailure()
 ```
 
-
 ## Resources
 
 - [Zymposium - ZIO Schema](https://www.youtube.com/watch?v=GfNiDaL5aIM) by John A. De Goes, Adam Fraser and Kit Langton (May 2021)
