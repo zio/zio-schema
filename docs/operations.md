@@ -87,7 +87,7 @@ assert(
 With ZIO Schema, we can automatically migrate data from one version of a schema to another. As software evolves, we often need to add, change or remove old fields. ZIO Schema provides two methods called `migrate` and `coerce` which help migrate the old schema to the new one:
 
 ```scala
-selaed trait Schema[A] {
+sealed trait Schema[A] {
   def migrate[B](newSchema: Schema[B]): Either[String, A => scala.util.Either[String, B]]
 
   def coerce[B](newSchema: Schema[B]): Either[String, Schema[B]] =
@@ -107,7 +107,7 @@ In distributed systems, we often need to move computations to data instead of mo
 So we need a way to serialize our computations and send them through the network. In ZIO Schema, each schema itself has a schema, so we can treat the structure as pure data! we can serialize our schemas by calling the `serializable` method:
 
 ```scala
-selead trait Schema[A] {
+sealed trait Schema[A] {
   def serializable: Schema[Schema[A]]
 }
 ```
