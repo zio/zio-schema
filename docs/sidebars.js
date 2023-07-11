@@ -9,7 +9,6 @@ const sidebars = {
         "motivation",
         "use-cases",
         "basic-building-blocks",
-        "operations",
         {
           type: "category",
           label: "Writing Schema",
@@ -19,6 +18,7 @@ const sidebars = {
             "automatic-schema-derivation"
           ],
         },
+        "operations",
         "transforming-schemas",
         "codecs",
         "protobuf-example",
