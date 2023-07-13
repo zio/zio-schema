@@ -23,6 +23,14 @@ const sidebars = {
         "codecs",
         "protobuf-example",
         "combining-different-encoders",
+        {
+            type: "category",
+            label: "Examples",
+            collapsed: true,
+            items: [
+                "mapping-dto-to-domain-object" 
+            ],
+        }
       ],
     },
   ],
