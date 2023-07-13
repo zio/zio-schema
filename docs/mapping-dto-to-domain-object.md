@@ -93,3 +93,75 @@ object MainApp extends ZIOAppDefault {
   } yield assert(person1 == person2)
 }
 ```
+
+As we can see in the example above, the second approach is much simpler and more convenient than the first one.
+
+The problem we solved in previous example is common in microservices architecture, where we transfer DTOs across the network. So we need to serialize and deserialize the data transfer objects.
+
+In the next example, we will see how we can use schema migration, when we need to map data transfer object to domain object and vice versa. In this example, we do not require to serialize/deserialize any object, but the problem of mapping DTO to domain object persists.
+
+In this example, as the same as in the previous one, we will define the schema for `Person` in terms of schema transformation from `PersonDTO` to `Person` and vice versa. The only difference is that to map `PersonDTO` to `Person` we will use `Schema#migrate` method which returns `Either[String, PersonDTO => Either[String, Person]]`. If the migration is successful, we will get `Right` with a function that converts `PersonDTO` to `Either[String, Person]`, otherwise we will get `Left` with an error message:
+
+```scala mdoc:compile-only
+import zio._
+import zio.schema.{DeriveSchema, Schema}
+
+import java.time.LocalDate
+
+object MainApp extends ZIOAppDefault {
+
+  case class PersonDTO(
+      firstName: String,
+      lastName: String,
+      birthday: (Int, Int, Int)
+  )
+
+  object PersonDTO {
+    implicit val schema: Schema[PersonDTO] = DeriveSchema.gen[PersonDTO]
+  }
+
+  case class Person(name: String, birthdate: LocalDate)
+
+  object Person {
+    implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+
+    val personDTOMapperSchema: Schema[Person] =
+      PersonDTO.schema.transform(
+        f = dto => {
+          val (year, month, day) = dto.birthday
+          Person(
+            dto.firstName + " " + dto.lastName,
+            birthdate = LocalDate.of(year, month, day)
+          )
+        },
+        g = (person: Person) => {
+          val fullNameArray = person.name.split(" ")
+          PersonDTO(
+            fullNameArray.head,
+            fullNameArray.last,
+            (
+              person.birthdate.getYear,
+              person.birthdate.getMonthValue,
+              person.birthdate.getDayOfMonth
+            )
+          )
+        }
+      )
+
+    def fromPersonDTO(p: PersonDTO): IO[String, Person] =
+      ZIO.fromEither(
+        PersonDTO.schema
+          .migrate(personDTOMapperSchema)
+          .flatMap(_ (p))
+      )
+  }
+
+
+  def run = for {
+    personDTO <- ZIO.succeed(PersonDTO("John", "Doe", (1981, 7, 13)))
+    person    <- Person.fromPersonDTO(personDTO)
+    _         <- ZIO.debug(s"person: $person")
+  } yield ()
+
+}
+```
