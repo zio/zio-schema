@@ -100,7 +100,7 @@ The problem we solved in previous example is common in microservices architectur
 
 In the next example, we will see how we can use schema migration, when we need to map data transfer object to domain object and vice versa. In this example, we do not require to serialize/deserialize any object, but the problem of mapping DTO to domain object persists.
 
-In this example, as the same as in the previous one, we will define the schema for `Person` in terms of schema transformation from `PersonDTO` to `Person` and vice versa. The only difference is that to map `PersonDTO` to `Person` we will use `Schema#migrate` method which returns `Either[String, PersonDTO => Either[String, Person]]`. If the migration is successful, we will get `Right` with a function that converts `PersonDTO` to `Either[String, Person]`, otherwise we will get `Left` with an error message:
+In this example, similar to the previous one, we will define the schema for `Person` in terms of schema transformation from `PersonDTO` to `Person` and vice versa. The only difference is that we will utilize the `Schema#migrate` method to map `PersonDTO` to `Person`. This method returns `Either[String, PersonDTO => Either[String, Person]]`. If the migration is successful, we will receive `Right` with a function that converts `PersonDTO` to `Either[String, Person]`. Otherwise, if there is an error, we will receive `Left` along with an error message:
 
 ```scala mdoc:compile-only
 import zio._
