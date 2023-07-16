@@ -21,6 +21,7 @@ const sidebars = {
         "operations",
         "transforming-schemas",
         "codecs",
+        "dynamic-data-representation",
         "protobuf-example",
         "combining-different-encoders",
         {
