@@ -53,3 +53,15 @@ sealed trait Schema[A] {
 ```
 
 The `toDynamic` operation erases the type information of the value and places it into the value (the dynamic value) itself. The `fromDynamic` operation does the opposite: it takes the type information from the dynamic value and uses it to reconstruct the original value.
+
+## DynamicValue Migration
+
+By having the type information embedded in the data itself, we can perform migrations of the data easily by applying sequence of migration steps to the data.
+
+```scala
+trait DynamicValue {
+  def transform(transforms: Chunk[Migration]): Either[String, DynamicValue]
+}
+```
+
+We will discuss migrations in more detail in the next section.
