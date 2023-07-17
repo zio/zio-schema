@@ -25,6 +25,7 @@ const sidebars = {
         "schema-migration",
         "schema-serialization",
         "transforming-schemas",
+        "validation",
         "codecs",
         "dynamic-data-representation",
         "protobuf-example",
