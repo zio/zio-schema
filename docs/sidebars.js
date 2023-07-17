@@ -19,6 +19,7 @@ const sidebars = {
           ],
         },
         "operations",
+        "schema-migration",
         "transforming-schemas",
         "codecs",
         "dynamic-data-representation",
