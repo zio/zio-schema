@@ -1,6 +1,7 @@
 ---
-id: getting-the-default-value
+id: the-default-value
 title: "Getting The Default Value"
+sidebar_label: "The Default Value"
 ---
 
 ZIO Schema provides a method called `defaultValue` that returns the default value of the underlying type described by the schema. This method returns a `scala.util.Either[String, A]` value, where `A` is the type described by the schema. If the schema does not have a default value, the method returns a `Left` value containing an error message. Otherwise, it returns a `Right` value containing the default value:
