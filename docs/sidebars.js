@@ -19,6 +19,7 @@ const sidebars = {
           ],
         },
         "operations",
+        "getting-the-default-value",
         "deriving-ordering",
         "schema-migration",
         "transforming-schemas",
