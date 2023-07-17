@@ -20,6 +20,7 @@ const sidebars = {
         },
         "operations",
         "getting-the-default-value",
+        "diffing-and-patching",
         "deriving-ordering",
         "schema-migration",
         "transforming-schemas",
