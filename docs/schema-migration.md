@@ -79,7 +79,7 @@ assert(person2 == Right(Person2("John Doe")))
 
 ZIO Schema provides a way to derive migrations automatically using the `Migration.derive` operation:
 
-```scala mdoc:compile-only
+```scala
 object Migration {
   def derive(from: MetaSchema, to: MetaSchema): Either[String, Chunk[Migration]]
 }

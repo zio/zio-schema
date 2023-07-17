@@ -18,33 +18,6 @@ sealed trait Schema[A] {
 
 ZIO Schema have out of the box default values for all standard types, such as `String`, `Int`, `Boolean`, ..., `LocalDateTime` and `UUID`. For example, the default value of a schema for `String` is the empty string, and the default value of a schema for `Int` is `0`.
 
-## Generate Orderings for Schemas
-
-Standard Scala library provides a type class called `Ordering[A]` that allows us to compare values of type `A`. ZIO Schema provides a method called `ordering` that generates an `Ordering[A]` instance for the underlying type described by the schema:
-
-```scala
-sealed trait Schema[A] {
-  def ordering: Ordering[A]
-}
-```
-
-Here is an example, where it helps us to sort the list of `Person`:
-
-```scala mdoc:compile-only
-import zio.schema._
-
-case class Person(name: String, age: Int)
-
-object Person {
-  implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
-}
-
-val sortedList: Seq[Person] =
-  List(
-    Person("John", 42),
-    Person("Jane", 34)
-  ).sorted(Person.schema.ordering)
-```
 
 ## Diffing and Patching
 

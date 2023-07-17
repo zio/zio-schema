@@ -19,6 +19,7 @@ const sidebars = {
           ],
         },
         "operations",
+        "deriving-ordering",
         "schema-migration",
         "transforming-schemas",
         "codecs",
