@@ -28,6 +28,7 @@ const sidebars = {
         "validation",
         "codecs",
         "dynamic-data-representation",
+        "reified-optics",
         "protobuf-example",
         "combining-different-encoders",
         {
