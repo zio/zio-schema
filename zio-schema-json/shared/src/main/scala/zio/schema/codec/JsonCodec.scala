@@ -273,6 +273,7 @@ object JsonCodec {
         case Schema.Primitive(StandardType.StringType, _) => Option(JsonFieldEncoder.string)
         case Schema.Primitive(StandardType.LongType, _)   => Option(JsonFieldEncoder.long)
         case Schema.Primitive(StandardType.IntType, _)    => Option(JsonFieldEncoder.int)
+        case Schema.Lazy(inner)                           => jsonFieldEncoder(inner())
         case _                                            => None
       }
 
@@ -598,6 +599,7 @@ object JsonCodec {
         case Schema.Primitive(StandardType.StringType, _) => Option(JsonFieldDecoder.string)
         case Schema.Primitive(StandardType.LongType, _)   => Option(JsonFieldDecoder.long)
         case Schema.Primitive(StandardType.IntType, _)    => Option(JsonFieldDecoder.int)
+        case Schema.Lazy(inner)                           => jsonFieldDecoder(inner())
         case _                                            => None
       }
 
