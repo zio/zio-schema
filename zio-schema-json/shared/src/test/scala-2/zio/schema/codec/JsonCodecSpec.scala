@@ -96,6 +96,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
             """{"0":{"first":0,"second":true},"1":{"first":1,"second":false}}"""
           )
         )
+      },
+      test("of simple keys and values where the key's schema is lazy") {
+        assertEncodes(
+          Schema.map[Int, Value](Schema.defer(Schema[Int]), Schema[Value]),
+          Map(0 -> Value(0, true), 1 -> Value(1, false)),
+          charSequenceToByteChunk(
+            """{"0":{"first":0,"second":true},"1":{"first":1,"second":false}}"""
+          )
+        )
       }
     ),
     suite("Set")(
@@ -464,6 +473,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
       test("of simple keys and values") {
         assertDecodes(
           Schema.map[Int, Value],
+          Map(0 -> Value(0, true), 1 -> Value(1, false)),
+          charSequenceToByteChunk(
+            """{"0":{"first":0,"second":true},"1":{"first":1,"second":false}}"""
+          )
+        )
+      },
+      test("of simple keys and values where the key schema is lazy") {
+        assertDecodes(
+          Schema.map[Int, Value](Schema.defer(Schema[Int]), Schema[Value]),
           Map(0 -> Value(0, true), 1 -> Value(1, false)),
           charSequenceToByteChunk(
             """{"0":{"first":0,"second":true},"1":{"first":1,"second":false}}"""
