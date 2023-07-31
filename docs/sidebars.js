@@ -34,7 +34,8 @@ const sidebars = {
           items: [
             "codecs/apache-avro",
             "codecs/bson",
-            "codecs/json"
+            "codecs/json",
+            "codecs/message-pack"
           ],
         },
         "dynamic-data-representation",
