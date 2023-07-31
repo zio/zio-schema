@@ -1,7 +1,7 @@
 ---
 id: message-pack
 title: "MessagePack Codecs"
-sidebar_label: "Message Pack"
+sidebar_label: "MessagePack"
 ---
 
 ## Introduction
