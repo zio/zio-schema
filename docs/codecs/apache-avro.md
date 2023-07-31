@@ -4,6 +4,10 @@ title: "Apache Avro Codecs"
 sidebar_label: "Apache Avro"
 ---
 
+## Introduction
+
+Apache Avro is a popular data serialization format used in distributed systems, particularly in the Apache Hadoop ecosystem. In this article, we will explore how to work with Apache Avro codecs in Scala using the ZIO Schema. Avro codecs allow us to easily serialize and deserialize data in Avro's binary and JSON formats.
+
 ## Installation
 
 To use the Avro codecs, we need to add the following dependency to our `build.sbt` file:
@@ -21,7 +25,7 @@ It has two codecs:
 
 ### AvroSchemaCodec
 
-Here is the definition of the `AvroSchemaCodec`:
+The `AvroSchemaCodec` provides methods to encode a `Schema[_]` to Avro JSON schema and decode an Avro JSON schema to a `Schema[_]` ([`Schema.GenericRecord`](../dynamic-data-representation.md)):
 
 ```scala
 trait AvroSchemaCodec {
@@ -128,18 +132,18 @@ The Apache Avro specification supports some attributes for describing the data w
 
 There tons of annotations that we can use. Let's introduce some of them:
 
-- `name(name: String)`: To change the name of a field or a record.
-- `namespace(namespace: String)`: To add the namespace for a field or a record.
-- `doc(doc: String)`: To add documentation to a field or a record.
-- `aliases(aliases: Set[String])`: To add aliases to a field or a record.
-- `avroEnum`: To treat a sealed trait as an Avro enum.
-- `scale(scale: Int = 24)` and `precision(precision: Int = 48)`: To describe the scale and precision of a decimal field.
-- `decimal(decimalType: DecimalType)`: Used to annotate a `BigInteger` or `BigDecimal` type to indicate the logical type encoding (avro bytes or avro fixed).
-- `bytes(bytesType: BytesType)`: Used to annotate a Byte type to indicate the avro type encoding (avro bytes or avro fixed).
-- `formatToString`: Used to annotate fields of type `LocalDate`, `LocalTime`, `LocalDateTime` or `Instant` in order to render them as a string using the given formatter instead of rendering them as avro logical types.
-- `timeprecision(timeprecisionType: TimePrecisionType)`: Used to indicate the precision (millisecond precision or microsecond precision) of avro logical types `Time`, `Timestamp` and `Local timestamp`
-- `error`: Used to annotate a record in order to render it as a avro error record
-- `fieldOrder(fieldOrderType: FieldOrderType)`: Used to indicate the avro field order of a record
+- `@AvroAnnotations.name(name: String)`: To change the name of a field or a record.
+- `@AvroAnnotations.namespace(namespace: String)`: To add the namespace for a field or a record.
+- `@AvroAnnotations.doc(doc: String)`: To add documentation to a field or a record.
+- `@AvroAnnotations.aliases(aliases: Set[String])`: To add aliases to a field or a record.
+- `@AvroAnnotations.avroEnum`: To treat a sealed trait as an Avro enum.
+- `@AvroAnnotations.scale(scale: Int = 24)` and `@AvroAnnotations.precision(precision: Int = 48)`: To describe the scale and precision of a decimal field.
+- `@AvroAnnotations.decimal(decimalType: DecimalType)`: Used to annotate a `BigInteger` or `BigDecimal` type to indicate the logical type encoding (avro bytes or avro fixed).
+- `@AvroAnnotations.bytes(bytesType: BytesType)`: Used to annotate a Byte type to indicate the avro type encoding (avro bytes or avro fixed).
+- `@AvroAnnotations.formatToString`: Used to annotate fields of type `LocalDate`, `LocalTime`, `LocalDateTime` or `Instant` in order to render them as a string using the given formatter instead of rendering them as avro logical types.
+- `@AvroAnnotations.timeprecision(timeprecisionType: TimePrecisionType)`: Used to indicate the precision (millisecond precision or microsecond precision) of avro logical types `Time`, `Timestamp` and `Local timestamp`
+- `@AvroAnnotations.error`: Used to annotate a record in order to render it as a avro error record
+- `@AvroAnnotations.fieldOrder(fieldOrderType: FieldOrderType)`: Used to indicate the avro field order of a record
 
 For example, to change the name of a field in the Avro schema, we can use the `AvroAnnotations.name` annotation:
 
@@ -179,3 +183,7 @@ The output:
 ```scala
 The person schema in Avro Schema JSON format: {"type":"record","name":"User","fields":[{"name":"name","type":"string"},{"name":"age","type":{"type":"bytes","logicalType":"decimal","precision":48,"scale":24}}]}
 ```
+
+## Conclusion
+
+In this article, we explored how to work with Apache Avro codecs in Scala using the ZIO Schema library. We saw how to use `AvroSchemaCodec` to encode and decode Avro JSON schemas to and from ZIO Schemas. Additionally, we created a binary codec using `AvroCodec.schemaBasedBinaryCodec` to encode and decode various data types to and from Avro binary format. We learned about using annotations to extend the default behavior of ZIO Schema for Apache Avro serialization.
