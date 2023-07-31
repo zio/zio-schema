@@ -1,81 +1,18 @@
 ---
-id: codecs
-title: "Codecs"
+id: apache-avro
+title: "Apache Avro Codecs"
+sidebar_label: "Apache Avro"
 ---
 
-Once we have our schema, we can combine it with a codec. A codec is a combination of a schema and a serializer. Unlike codecs in other libraries, a codec in ZIO Schema has no type parameter:
-
-```scala
-trait Codec {
-  def encoder[A](schema: Schema[A]): ZTransducer[Any, Nothing, A, Byte]
-  def decoder[A](schema: Schema[A]): ZTransducer[Any, String, Byte, A]
-
-  def encode[A](schema: Schema[A]): A => Chunk[Byte]
-  def decode[A](schema: Schema[A]): Chunk[Byte] => Either[String, A]
-}
-```
-
-It basically says:
-- `encoder[A]`: Given a `Schema[A]` it is capable of generating an `Encoder[A]` ( `A => Chunk[Byte]`) for any Schema.
-- `decoder[A]`: Given a `Schema[A]` it is capable of generating a `Decoder[A]` ( `Chunk[Byte] => Either[String, A]`) for any Schema.
-
-## Binary Codecs
-
-The binary codecs are codecs that can encode/decode a value of some type `A` to/from binary format (e.g. `Chunk[Byte]`).  In ZIO Schema, by having a `BinaryCodec[A]` instance, other than being able to encode/decode a value of type `A` to/from binary format, we can also encode/decode a stream of values of type `A` to/from a stream of binary format.
-
-```scala
-import zio.Chunk
-import zio.stream.ZPipeline
-
-trait Decoder[Whole, Element, +A] {
-  def decode(whole: Whole): Either[DecodeError, A]
-  def streamDecoder: ZPipeline[Any, DecodeError, Element, A]
-}
-
-trait Encoder[Whole, Element, -A] {
-  def encode(value: A): Whole
-  def streamEncoder: ZPipeline[Any, Nothing, A, Element]
-}
-
-trait Codec[Whole, Element, A] extends Encoder[Whole, Element, A] with Decoder[Whole, Element, A]
-
-trait BinaryCodec[A] extends Codec[Chunk[Byte], Byte, A]
-```
-
-To make it simpler, we can think of a `BinaryCodec[A]` as the following trait:
-
-```scala
-import zio.Chunk
-import zio.stream.ZPipeline
-
-trait BinaryCodec[A] {
-  def encode(value: A): Chunk[Byte]
-  def decode(whole: Chunk[Byte]): Either[DecodeError, A]
-
-  def streamEncoder: ZPipeline[Any, Nothing, A, Byte]
-  def streamDecoder: ZPipeline[Any, DecodeError, Byte, A]
-}
-```
-
-Example of possible codecs are:
-
-- CSV Codec
-- JSON Codec (already available)
-- Apache Avro Codec (in progress)
-- Apache Thrift Codec (in progress)
-- XML Codec
-- YAML Codec
-- Protobuf Codec (already available)
-- QueryString Codec
-- etc.
-
-## Avro
+## Installation
 
 To use the Avro codecs, we need to add the following dependency to our `build.sbt` file:
 
 ```scala
 libraryDependencies += "dev.zio" %% "zio-schema-avro" % @VERSION@
 ```
+
+## Codecs
 
 It has two codecs:
 
@@ -185,7 +122,7 @@ encoded person object: 08 4a 6f 68 6e 54
 decoded person object: Person(John,42)
 ```
 
-### Annotations
+## Annotations
 
 The Apache Avro specification supports some attributes for describing the data which are not part of the default ZIO Schema. To support these extra metadata, we can use annotations defined in the `zio.schema.codec.AvroAnnotations` object.
 

@@ -26,7 +26,16 @@ const sidebars = {
         "schema-serialization",
         "transforming-schemas",
         "validation",
-        "codecs",
+        {
+          type: "category",
+          label: "Codecs",
+          collapsed: true,
+          link: { type: "doc", id: "codecs/index" },
+          items: [
+            "codecs/apache-avro",
+            "codecs/bson" 
+          ],
+        },
         "dynamic-data-representation",
         "reified-optics",
         "protobuf-example",
