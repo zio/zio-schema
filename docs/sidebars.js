@@ -33,7 +33,8 @@ const sidebars = {
           link: { type: "doc", id: "codecs/index" },
           items: [
             "codecs/apache-avro",
-            "codecs/bson" 
+            "codecs/bson",
+            "codecs/json"
           ],
         },
         "dynamic-data-representation",

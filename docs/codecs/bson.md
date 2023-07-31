@@ -1,6 +1,7 @@
 ---
 id: bson
 title: "Bson Codecs"
+sidebar_label: "BSON"
 ---
 
 ## Introduction
