@@ -104,7 +104,3 @@ JSON object decoded to Person class: Person(John,42)
 ```
 
 By utilizing JSON codecs derived from ZIO Schema, developers can easily serialize and deserialize data in JSON format without writing boilerplate code. This enhances productivity and simplifies data handling in Scala applications.
-
-
-
-
