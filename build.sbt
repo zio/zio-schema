@@ -348,6 +348,7 @@ lazy val docs = project
     zioSchemaOpticsJVM,
     zioSchemaAvroJVM,
     zioSchemaBsonJVM,
-    zioSchemaMsgPackJVM
+    zioSchemaMsgPackJVM,
+    zioSchemaThriftJVM
   )
   .enablePlugins(WebsitePlugin)

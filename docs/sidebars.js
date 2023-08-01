@@ -36,7 +36,8 @@ const sidebars = {
             "codecs/bson",
             "codecs/json",
             "codecs/message-pack",
-            "codecs/protobuf"
+            "codecs/protobuf",
+            "codecs/thrift"
           ],
         },
         "dynamic-data-representation",
