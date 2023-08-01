@@ -26,6 +26,8 @@ object MessagePackCodec {
 }
 ```
 
+## Example
+
 Let's try an example to see how it works:
 
 ```scala mdoc:compile-only

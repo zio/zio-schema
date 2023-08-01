@@ -1,5 +1,5 @@
 ---
-id: apache-avro
+id: avro
 title: "Apache Avro Codecs"
 sidebar_label: "Apache Avro"
 ---
@@ -183,7 +183,3 @@ The output:
 ```scala
 The person schema in Avro Schema JSON format: {"type":"record","name":"User","fields":[{"name":"name","type":"string"},{"name":"age","type":{"type":"bytes","logicalType":"decimal","precision":48,"scale":24}}]}
 ```
-
-## Conclusion
-
-In this article, we explored how to work with Apache Avro codecs in Scala using the ZIO Schema library. We saw how to use `AvroSchemaCodec` to encode and decode Avro JSON schemas to and from ZIO Schemas. Additionally, we created a binary codec using `AvroCodec.schemaBasedBinaryCodec` to encode and decode various data types to and from Avro binary format. We learned about using annotations to extend the default behavior of ZIO Schema for Apache Avro serialization.

@@ -26,6 +26,8 @@ object ProtobufCodec {
 }
 ```
 
+## Example: BinaryCodec
+
 Let's try an example:
 
 ```scala mdoc:compile-only
@@ -65,4 +67,56 @@ Here is the output of running the above program:
 Protobuf Codec Example:
 person object encoded to Protobuf's binary format: 0a 04 4a 6f 68 6e 10 2a
 Protobuf object decoded to Person class: Person(John,42)
+```
+
+## Example: Streaming Codecs
+
+The following example shows how to use Protobuf codecs to encode and decode streams of data:
+
+```scala mdoc:compile-only
+import zio._
+import zio.schema.codec.{BinaryCodec, ProtobufCodec}
+import zio.schema.{DeriveSchema, Schema}
+import zio.stream.ZStream
+
+case class Person(name: String, age: Int)
+
+object Person {
+  implicit val schema: Schema[Person] =
+    DeriveSchema.gen
+  implicit val protobufCodec: BinaryCodec[Person] =
+    ProtobufCodec.protobufCodec(schema)
+}
+
+object Main extends ZIOAppDefault {
+
+  def run = for {
+    _ <- ZIO.debug("Protobuf Stream Codecs Example:")
+    person = Person("John", 42)
+
+    personToProto = Person.protobufCodec.streamEncoder
+    protoToPerson = Person.protobufCodec.streamDecoder
+
+    newPerson <- ZStream(person)
+      .via(personToProto)
+      .via(protoToPerson)
+      .runHead
+      .some
+      .catchAll(error => ZIO.debug(error))
+    _ <- ZIO.debug(
+      "is old person the new person? " + (person == newPerson).toString
+    )
+    _ <- ZIO.debug("old person: " + person)
+    _ <- ZIO.debug("new person: " + newPerson)
+  } yield ()
+}
+```
+
+The output of running the above program is:
+
+```scala
+Protobuf Stream Codecs Example:
+is old person the new person? true
+old person: Person(John,42)
+new person: Person(John,42)
 ```

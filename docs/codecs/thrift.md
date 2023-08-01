@@ -38,8 +38,9 @@ import zio.schema.{DeriveSchema, Schema}
 case class Person(name: String, age: Int)
 
 object Person {
-  implicit val schema     : Schema[Person]      =
+  implicit val schema: Schema[Person] =
     DeriveSchema.gen
+    
   implicit val thriftCodec: BinaryCodec[Person] =
     ThriftCodec.thriftCodec(schema)
 }

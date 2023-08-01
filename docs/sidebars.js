@@ -32,17 +32,16 @@ const sidebars = {
           collapsed: true,
           link: { type: "doc", id: "codecs/index" },
           items: [
-            "codecs/apache-avro",
+            "codecs/avro",
+            "codecs/thrift",
             "codecs/bson",
             "codecs/json",
             "codecs/message-pack",
-            "codecs/protobuf",
-            "codecs/thrift"
+            "codecs/protobuf"
           ],
         },
         "dynamic-data-representation",
         "reified-optics",
-        "protobuf-example",
         "combining-different-encoders",
         {
             type: "category",

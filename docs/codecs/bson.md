@@ -18,50 +18,15 @@ libraryDependencies += "dev.zio" %% "zio-schema-bson" % @VERSION@
 
 ## BsonSchemaCodec
 
-The ZIO Schema library provides the `BsonSchemaCodec` object in the `zio.schema.codec` package. This object offers three methods that allow us to derive BSON encoders, decoders, and codecs from ZIO Schemas:
+The `BsonSchemaCodec` object inside the `zio.schema.codec` package provides the `bsonCodec` operator which allows us to derive Protobuf codecs from a ZIO Schema:
 
 ```scala
 object BsonSchemaCodec {
-  def bsonEncoder[A](schema: Schema[A]): BsonEncoder[A]
-  def bsonDecoder[A](schema: Schema[A]): BsonDecoder[A]
   def bsonCodec[A](schema: Schema[A]): BsonCodec[A]
 }
 ```
 
-It has three methods, by calling each of them, we can get a `BsonEncoder[A]`, `BsonDecoder[A]`, or `BsonCodec[A]` from a `Schema[A]`. Let's see a simplified version of each of these traits:
-
-### 1. BsonEncoder
-
-The `BsonEncoder` trait defines a type class for encoding a value of type `A` into a BSON value. The `toBsonValue` method accomplishes this conversion:
-
-```scala
-trait BsonEncoder[A] {
-  def toBsonValue(value: A): BsonValue
-}
-```
-
-### 2. BsonDecoder
-
-The BsonDecoder trait defines a type class for decoding a BSON value into a value of type A. The fromBsonValue method handles this conversion and returns an Either indicating success or an error:
-
-```scala
-trait BsonDecoder[A] {
-  def fromBsonValue(value: BsonValue): Either[BsonDecoder.Error, A]
-}
-```
-
-### 3. BsonCodec
-
-The `BsonCodec` case class combines both the BSON encoder and decoder for a specific type `A`:
-
-```scala
-final case class BsonCodec[A](
-  encoder: BsonEncoder[A],
-  decoder: BsonDecoder[A]
-)
-```
-
-## Example: Deriving a Bson Codec for a Case Class
+## Example
 
 Let's see an example of how to derive a BSON codec for a case class using ZIO Schema:
 
