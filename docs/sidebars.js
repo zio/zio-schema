@@ -25,6 +25,7 @@ const sidebars = {
         "schema-migration",
         "schema-serialization",
         "transforming-schemas",
+        "dynamic-data-representation",
         "validation",
         {
           type: "category",
@@ -40,15 +41,14 @@ const sidebars = {
             "codecs/protobuf"
           ],
         },
-        "dynamic-data-representation",
-        "reified-optics",
-        "combining-different-encoders",
+        "optics",
         {
             type: "category",
             label: "Examples",
             collapsed: true,
             items: [
-                "mapping-dto-to-domain-object" 
+                "examples/mapping-dto-to-domain-object",
+                "examples/combining-different-encoders",
             ],
         }
       ],

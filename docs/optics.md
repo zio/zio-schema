@@ -1,20 +1,18 @@
 ---
-id: reified-optics
-title: "Reified Optics"
+id: optics
+title: "Optics"
 ---
-
-Reified optics is a technique in functional programming that allows you to treat optics as first-class values. This means that we can pass them around, compose them, and store optics in data structures. Reified optics is one of the solutions to the problem of making computations as first-class values.
 
 Optics are a way of accessing and manipulating data in a functional way. They can be used to get, set, and update values in data structures, as well as to traverse and explore data.
 
-## Pure Optics (Manual Derivation)
+## Manual Derivation of Optics
 
-Before we dive into reified optics and how we can have an automatic derivation of optics, let's take a look at the pure optics and how should we create them manually.
+Before we dive into auto-derivation of optics and how we can derive optics from a ZIO Schema, let's take a look at the pure optics and how we can create them manually using [ZIO Optics](https://zio.dev/zio-optics) library.
 
-First, we should add `zio-schema-optics` to our `build.sbt` file:
+First, we should add `zio-optics` to our `build.sbt` file:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema-optics" % @VERSION@
+libraryDependencies += "dev.zio" %% "zio-optics" % "<version>"
 ```
 
 Now let's define a simple data type called `User` and create two optics for its `name` and `age` fields:
@@ -62,9 +60,12 @@ object Main extends ZIOAppDefault {
 }
 ```
 
-## Reified Optics (Automatic Derivation)
+## Automatic Derivation of Optics
 
-With reified optics, we can derive optics automatically from a schema. This means that we don't have to write the optics manually, but instead, we can use the `Schema#makeAccessors` method which will derive the optics for us:
+ZIO Schema has a module called `zio-schema-optics` which provides functionalities to derive various optics from a ZIO Schema.
+
+
+By having a `Schema[A]`, we can derive optics automatically from a schema. This means that we don't have to write the optics manually, but instead, we can use the `Schema#makeAccessors` method which will derive the optics for us:
 
 ```scala
 trait Schema[A] {
@@ -99,13 +100,15 @@ trait AccessorBuilder {
 
 It has three methods for creating three types of optics:
 
-- Lens is an optic used to get and update values in a product type.
-- Prism is an optic used to get and update values in a sum type.
-- Traversal is an optic used to get and update values in a collection type.
+- **Lens** is an optic used to get and update values in a product type.
+- **Prism** is an optic used to get and update values in a sum type.
+- **Traversal** is an optic used to get and update values in a collection type.
 
-Let's take a look at how we can derive optics using ZIO Schema.
+Let's take a look at how we can derive optics using ZIO Schema Optics.
 
-First we should add `zio-schema-optics` to our `build.sbt` file:
+### Installation
+
+To be able to derive optics from a ZIO Schema, we need to add the following line to our `build.sbt` file:
 
 ```scala
 libraryDependencies += "dev.zio" %% "zio-schema-optics" % @VERSION@
@@ -115,7 +118,9 @@ This package contains a `ZioOpticsBuilder` which is an implementation of the `Ac
 
 Now we are ready to try any of the following examples:
 
-### Lens
+### Examples
+
+#### Lens
 
 Now we can derive the schema for our `User` data type in its companion object, and then derive optics using `Schema#makeAccessors` method:
 
@@ -167,7 +172,7 @@ Age of user updated: Right(User(John,32))
 Name and age of the user updated: Right(User(Jane,32))
 ```
 
-### Prism
+#### Prism
 
 ```scala mdoc:compile-only
 import zio._
@@ -215,7 +220,7 @@ Original shape: Circle(1.2)
 Updated shape: Rectangle(2.0,3.0)
 ```
 
-### Traversal
+#### Traversal
 
 ```scala mdoc:compile-only
 import zio._
