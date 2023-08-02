@@ -1,6 +1,6 @@
 ---
-id: deriving-ordering
-title: "Deriving Ordering"
+id: ordering-derivation
+title: "Ordering Derivation"
 ---
 
 Standard Scala library provides a type class called `Ordering[A]` that allows us to compare values of type `A`. ZIO Schema provides a method called `ordering` that generates an `Ordering[A]` instance for the underlying type described by the schema:

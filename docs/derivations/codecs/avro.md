@@ -25,7 +25,7 @@ It has two codecs:
 
 ### AvroSchemaCodec
 
-The `AvroSchemaCodec` provides methods to encode a `Schema[_]` to Avro JSON schema and decode an Avro JSON schema to a `Schema[_]` ([`Schema.GenericRecord`](../dynamic-data-representation.md)):
+The `AvroSchemaCodec` provides methods to encode a `Schema[_]` to Avro JSON schema and decode an Avro JSON schema to a `Schema[_]` ([`Schema.GenericRecord`](../../operations/dynamic-data-representation.md)):
 
 ```scala
 trait AvroSchemaCodec {

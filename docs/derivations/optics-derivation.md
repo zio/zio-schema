@@ -1,6 +1,6 @@
 ---
-id: optics
-title: "Optics"
+id: optics-derivation
+title: "Optics Derivation"
 ---
 
 Optics are a way of accessing and manipulating data in a functional way. They can be used to get, set, and update values in data structures, as well as to traverse and explore data.
