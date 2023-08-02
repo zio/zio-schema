@@ -18,9 +18,11 @@ object DeriveSchema {
     DeriveSchema().deriveSchema[T](top = true)
 }
 
-private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils(ctx) {
+private case class DeriveSchema()(using val ctx: Quotes) {
+  val reflectionUtils = ReflectionUtils(ctx)
+  import reflectionUtils.{MirrorType, Mirror}
   import ctx.reflect._
-   
+
   case class Frame(ref: Term, tpe: TypeRepr)
   case class Stack(frames: List[Frame]) {
     def find(tpe: TypeRepr): Option[Term] = frames.find(_.tpe =:= tpe).map(_.ref)
