@@ -23,9 +23,9 @@ import java.util.UUID
 import org.apache.avro.generic.GenericData
 
 import zio._
+import zio.schema.codec.AvroAnnotations.avroEnum
 import zio.schema.{ DeriveSchema, Schema }
 import zio.stream.ZStream
-import zio.test.TestAspect.failing
 import zio.test._
 
 object AvroCodecSpec extends ZIOSpecDefault {
@@ -108,10 +108,12 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
     case class BooleanValue(value: Boolean) extends OneOf
 
+    case object NullValue extends OneOf
+
     implicit val schemaOneOf: Schema[OneOf] = DeriveSchema.gen[OneOf]
   }
 
-  sealed trait Enums
+  @avroEnum() sealed trait Enums
 
   object Enums {
     case object A extends Enums
@@ -652,12 +654,18 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val result = codec.decode(bytes)
       assertTrue(result == Right(OneOf.BooleanValue(true)))
     },
+    test("Decode Enum3 - case object") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[OneOf]
+      val bytes  = codec.encode(OneOf.NullValue)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(OneOf.NullValue))
+    },
     test("Decode Enum5") {
       val codec  = AvroCodec.schemaBasedBinaryCodec[Enums]
       val bytes  = codec.encode(Enums.A)
       val result = codec.decode(bytes)
       assertTrue(result == Right(Enums.A))
-    } @@ failing, // TODO: the case object from a sealed trait are not properly encoded and decoded.
+    },
     test("Decode Person") {
       val codec  = AvroCodec.schemaBasedBinaryCodec[Person]
       val bytes  = codec.encode(Person("John", 42))

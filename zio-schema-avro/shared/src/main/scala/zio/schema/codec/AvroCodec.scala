@@ -220,16 +220,31 @@ object AvroCodec {
   private def decodeCaseClass1[A, Z](raw: Any, schema: Schema.CaseClass1[A, Z]) =
     decodeValue(raw, schema.field.schema).map(schema.defaultConstruct)
 
-  private def decodeEnum[Z](raw: Any, cases: Schema.Case[Z, _]*): Either[DecodeError, Any] = {
-    val generic       = raw.asInstanceOf[GenericData.Record]
-    val enumCaseName  = generic.getSchema.getFullName
-    val enumCaseValue = generic.get("value")
+  private def decodeEnum[Z](raw: Any, cases: Schema.Case[Z, _]*): Either[DecodeError, Any] =
+    raw match {
+      case enums: GenericData.EnumSymbol =>
+        decodeGenericEnum(enums.toString, None, cases: _*)
+      case gr: GenericData.Record =>
+        val enumCaseName = gr.getSchema.getFullName
+        if (gr.hasField("value")) {
+          val enumCaseValue = gr.get("value")
+          decodeGenericEnum[Z](enumCaseName, Some(enumCaseValue), cases: _*)
+        } else {
+          decodeGenericEnum[Z](enumCaseName, None, cases: _*)
+        }
+      case _ => Left(DecodeError.MalformedFieldWithPath(Chunk.single("Error"), s"Unknown enum: $raw"))
+    }
+
+  private def decodeGenericEnum[Z](
+    enumCaseName: String,
+    enumCaseValue: Option[AnyRef],
+    cases: Schema.Case[Z, _]*
+  ): Either[DecodeError, Any] =
     cases
       .find(_.id == enumCaseName)
-      .map(s => decodeValue(enumCaseValue, s.schema))
+      .map(s => decodeValue(enumCaseValue.getOrElse(s), s.schema))
       .toRight(DecodeError.MalformedFieldWithPath(Chunk.single("Error"), s"Unknown enum value: $enumCaseName"))
       .flatMap(identity)
-  }
 
   private def decodeRecord[A](value: A, schema: Schema.Record[_]) = {
     val record = value.asInstanceOf[GenericRecord]
@@ -465,41 +480,41 @@ object AvroCodec {
     else decodeValue(value, schema).map(Some(_))
 
   private def encodeValue[A](a: A, schema: Schema[A]): Any = schema match {
-    case Schema.Enum1(_, c1, _)                     => encodeEnum(a, c1)
-    case Schema.Enum2(_, c1, c2, _)                 => encodeEnum(a, c1, c2)
-    case Schema.Enum3(_, c1, c2, c3, _)             => encodeEnum(a, c1, c2, c3)
-    case Schema.Enum4(_, c1, c2, c3, c4, _)         => encodeEnum(a, c1, c2, c3, c4)
-    case Schema.Enum5(_, c1, c2, c3, c4, c5, _)     => encodeEnum(a, c1, c2, c3, c4, c5)
-    case Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _) => encodeEnum(a, c1, c2, c3, c4, c5, c6)
+    case Schema.Enum1(_, c1, _)                     => encodeEnum(schema, a, c1)
+    case Schema.Enum2(_, c1, c2, _)                 => encodeEnum(schema, a, c1, c2)
+    case Schema.Enum3(_, c1, c2, c3, _)             => encodeEnum(schema, a, c1, c2, c3)
+    case Schema.Enum4(_, c1, c2, c3, c4, _)         => encodeEnum(schema, a, c1, c2, c3, c4)
+    case Schema.Enum5(_, c1, c2, c3, c4, c5, _)     => encodeEnum(schema, a, c1, c2, c3, c4, c5)
+    case Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _) => encodeEnum(schema, a, c1, c2, c3, c4, c5, c6)
     case Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _) =>
-      encodeEnum(a, c1, c2, c3, c4, c5, c6, c7)
+      encodeEnum(schema, a, c1, c2, c3, c4, c5, c6, c7)
     case Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _) =>
-      encodeEnum(a, c1, c2, c3, c4, c5, c6, c7, c8)
+      encodeEnum(schema, a, c1, c2, c3, c4, c5, c6, c7, c8)
     case Schema.Enum9(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, _) =>
-      encodeEnum(a, c1, c2, c3, c4, c5, c6, c7, c8, c9)
+      encodeEnum(schema, a, c1, c2, c3, c4, c5, c6, c7, c8, c9)
     case Schema.Enum10(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _) =>
-      encodeEnum(a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
+      encodeEnum(schema, a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
     case Schema.Enum11(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _) =>
-      encodeEnum(a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
+      encodeEnum(schema, a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
     case Schema.Enum12(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _) =>
-      encodeEnum(a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
+      encodeEnum(schema, a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
     case Schema.Enum13(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _) =>
-      encodeEnum(a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
+      encodeEnum(schema, a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
     case Schema.Enum14(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _) =>
-      encodeEnum(a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
+      encodeEnum(schema, a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
     case Schema.Enum15(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _) =>
-      encodeEnum(a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+      encodeEnum(schema, a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
     case Schema.Enum16(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _) =>
-      encodeEnum(a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
+      encodeEnum(schema, a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
     case Schema.Enum17(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _) =>
-      encodeEnum(a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
+      encodeEnum(schema, a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
     case Schema.Enum18(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _) =>
-      encodeEnum(a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
+      encodeEnum(schema, a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
     case Schema.Enum19(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _) =>
-      encodeEnum(a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
+      encodeEnum(schema, a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
     case Schema
           .Enum20(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _) =>
-      encodeEnum(a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
+      encodeEnum(schema, a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
     case Schema.Enum21(
         _,
         c1,
@@ -525,7 +540,31 @@ object AvroCodec {
         c21,
         _
         ) =>
-      encodeEnum(a, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
+      encodeEnum(
+        schema,
+        a,
+        c1,
+        c2,
+        c3,
+        c4,
+        c5,
+        c6,
+        c7,
+        c8,
+        c9,
+        c10,
+        c11,
+        c12,
+        c13,
+        c14,
+        c15,
+        c16,
+        c17,
+        c18,
+        c19,
+        c20,
+        c21
+      )
     case Schema.Enum22(
         _,
         c1,
@@ -553,6 +592,7 @@ object AvroCodec {
         _
         ) =>
       encodeEnum(
+        schema,
         a,
         c1,
         c2,
@@ -591,9 +631,10 @@ object AvroCodec {
     case Schema.Optional(schema, _) => encodeOption(schema, a)
     case Schema.Tuple2(left, right, _) =>
       encodeTuple2(left.asInstanceOf[Schema[Any]], right.asInstanceOf[Schema[Any]], a)
-    case Schema.Either(left, right, _)                      => encodeEither(left, right, a)
-    case Schema.Lazy(schema0)                               => encodeValue(a, schema0())
-    case Schema.CaseClass0(_, _, _)                         => encodePrimitive((), StandardType.UnitType)
+    case Schema.Either(left, right, _) => encodeEither(left, right, a)
+    case Schema.Lazy(schema0)          => encodeValue(a, schema0())
+    case Schema.CaseClass0(_, _, _) =>
+      encodeCaseClass(schema, a, Seq.empty: _*) //encodePrimitive((), StandardType.UnitType)
     case Schema.CaseClass1(_, f, _, _)                      => encodeCaseClass(schema, a, f)
     case Schema.CaseClass2(_, f0, f1, _, _)                 => encodeCaseClass(schema, a, f0, f1)
     case Schema.CaseClass3(_, f0, f1, f2, _, _)             => encodeCaseClass(schema, a, f0, f1, f2)
@@ -937,11 +978,20 @@ object AvroCodec {
     record
   }
 
-  private def encodeEnum[Z](value: Z, cases: Schema.Case[Z, _]*): Any = {
+  private def encodeEnum[Z](schemaRaw: Schema[Z], value: Z, cases: Schema.Case[Z, _]*): Any = {
+    val schema = AvroSchemaCodec
+      .encodeToApacheAvro(schemaRaw)
+      .getOrElse(throw new Exception("Avro schema could not be generated for Enum."))
     val fieldIndex = cases.indexWhere(c => c.deconstructOption(value).isDefined)
     if (fieldIndex >= 0) {
       val subtypeCase = cases(fieldIndex)
-      encodeValue(subtypeCase.deconstruct(value), subtypeCase.schema.asInstanceOf[Schema[Any]])
+      if (schema.getType == SchemaAvro.Type.ENUM) {
+        GenericData.get.createEnum(schema.getEnumSymbols.get(fieldIndex), schema)
+      } else {
+
+        encodeValue(subtypeCase.deconstruct(value), subtypeCase.schema.asInstanceOf[Schema[Any]])
+
+      }
     } else {
       throw new Exception("Could not find matching case for enum value.")
     }

@@ -60,7 +60,7 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
           },
           test("encodes sealed trait objects only as enum when avroEnum annotation is present") {
 
-            val schema = DeriveSchema.gen[SpecTestData.CaseObjectsOnlyAdt].annotate(AvroAnnotations.avroEnum)
+            val schema = DeriveSchema.gen[SpecTestData.CaseObjectsOnlyAdt].annotate(AvroAnnotations.avroEnum())
             val result = AvroSchemaCodec.encode(schema)
 
             val expected = """{"type":"enum","name":"MyEnum","symbols":["A","B","MyC"]}"""
