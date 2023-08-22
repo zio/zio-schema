@@ -26,7 +26,7 @@ object BuildHelper {
   val Scala3: String   = versions("3.2") //versions.getOrElse("3.0", versions("3.1"))
 
   val zioVersion                   = "2.0.10"
-  val zioJsonVersion               = "0.5.0"
+  val zioJsonVersion               = "0.6.1"
   val zioPreludeVersion            = "1.0.0-RC18"
   val zioOpticsVersion             = "0.2.1"
   val zioBsonVersion               = "1.0.2"
