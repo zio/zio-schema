@@ -523,8 +523,8 @@ object AvroSchemaCodec extends AvroSchemaCodec {
     }
 
   def hasAvroEnumAnnotation(annotations: Chunk[Any]): Boolean = annotations.exists {
-    case AvroAnnotations.avroEnum => true
-    case _                        => false
+    case AvroAnnotations.avroEnum() => true
+    case _                          => false
   }
 
   def wrapAvro(schemaAvro: SchemaAvro, name: String, marker: AvroPropMarker): SchemaAvro = {
