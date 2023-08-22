@@ -25,8 +25,13 @@ import zio.{ Chunk, Unsafe, ZIO }
 
 object AvroCodec {
 
-  implicit def schemaBasedBinaryCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
-    new BinaryCodec[A] {
+  trait ExtendedBinaryCodec[A] extends BinaryCodec[A] {
+    def encodeGenericRecord(value: A)(implicit schema: Schema[A]): GenericData.Record
+    def decodeGenericRecord(value: GenericRecord)(implicit schema: Schema[A]): Either[DecodeError, A]
+  }
+
+  implicit def schemaBasedBinaryCodec[A](implicit schema: Schema[A]): ExtendedBinaryCodec[A] =
+    new ExtendedBinaryCodec[A] {
 
       val avroSchema: SchemaAvro =
         AvroSchemaCodec.encodeToApacheAvro(schema).getOrElse(throw new Exception("Avro schema could not be generated."))
@@ -59,6 +64,12 @@ object AvroCodec {
           decode(chunk).map(Chunk(_))
         )
       }
+
+      override def encodeGenericRecord(value: A)(implicit schema: Schema[A]): GenericData.Record =
+        encodeValue(value, schema).asInstanceOf[GenericData.Record]
+
+      override def decodeGenericRecord(value: GenericRecord)(implicit schema: Schema[A]): Either[DecodeError, A] =
+        decodeValue(value, schema)
     }
 
   private def decodeValue[A](raw: Any, schema: Schema[A]): Either[DecodeError, A] = schema match {

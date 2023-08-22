@@ -20,6 +20,8 @@ import java.time.{
 }
 import java.util.UUID
 
+import org.apache.avro.generic.GenericData
+
 import zio._
 import zio.schema.codec.AvroAnnotations.avroEnum
 import zio.schema.{ DeriveSchema, Schema }
@@ -140,7 +142,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
     sequenceDecoderSpec,
     genericRecordDecoderSpec,
     enumDecoderSpec,
-    streamEncodingDecodingSpec
+    streamEncodingDecodingSpec,
+    genericRecordEncodeDecodeSpec
   )
 
   private val primitiveEncoderSpec = suite("Avro Codec - Encoder primitive spec")(
@@ -694,5 +697,14 @@ object AvroCodecSpec extends ZIOSpecDefault {
       } yield assertTrue(result == Chunk(pepperoni))
 
     })
+
+  private val genericRecordEncodeDecodeSpec = suite("AvroCodec - encode/decode Generic Record")(
+    test("Encode/Decode") {
+      val codec                       = AvroCodec.schemaBasedBinaryCodec[Record]
+      val generic: GenericData.Record = codec.encodeGenericRecord(Record("John", 42))
+      val result                      = codec.decodeGenericRecord(generic)
+      assertTrue(result == Right(Record("John", 42)))
+    }
+  )
 
 }
