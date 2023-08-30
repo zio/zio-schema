@@ -7,6 +7,7 @@ import scala.collection.immutable.ListMap
 import zio.Console._
 import zio._
 import zio.json.JsonDecoder.JsonError
+import zio.json.ast.Json
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
@@ -251,6 +252,64 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"foo":"s","bar":1}""")
         )
       }
+    ),
+    suite("zio.json.ast.Json encoding")(
+      test("Json.Obj") {
+        assertEncodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Obj("foo" -> Json.Str("bar"), "null" -> Json.Null),
+          charSequenceToByteChunk("""{"foo":"bar","null":null}""")
+        )
+      },
+      test("Json.Arr") {
+        assertEncodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Arr(Json.Str("foo"), Json.Num(1)),
+          charSequenceToByteChunk("""["foo",1]""")
+        )
+      },
+      test("Json.Num Int") {
+        assertEncodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Num(1),
+          charSequenceToByteChunk("""1""")
+        )
+      },
+      test("Json.Num Long") {
+        assertEncodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Num(1L),
+          charSequenceToByteChunk("""1""")
+        )
+      },
+      test("Json.Num Double") {
+        assertEncodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Num(1.1),
+          charSequenceToByteChunk("""1.1""")
+        )
+      },
+      test("Json.Str") {
+        assertEncodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Str("foo"),
+          charSequenceToByteChunk(""""foo"""")
+        )
+      },
+      test("Json.Bool") {
+        assertEncodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Bool(true),
+          charSequenceToByteChunk("""true""")
+        )
+      },
+      test("Json.Null") {
+        assertEncodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Null,
+          charSequenceToByteChunk("""null""")
+        )
+      }
     )
   )
 
@@ -486,6 +545,64 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk(
             """{"0":{"first":0,"second":true},"1":{"first":1,"second":false}}"""
           )
+        )
+      }
+    ),
+    suite("zio.json.ast.Json decoding")(
+      test("Json.Obj") {
+        assertDecodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Obj("foo" -> Json.Str("bar"), "null" -> Json.Null),
+          charSequenceToByteChunk("""{"foo":"bar","null":null}""")
+        )
+      },
+      test("Json.Arr") {
+        assertDecodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Arr(Json.Str("foo"), Json.Num(1)),
+          charSequenceToByteChunk("""["foo",1]""")
+        )
+      },
+      test("Json.Num Int") {
+        assertDecodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Num(1),
+          charSequenceToByteChunk("""1""")
+        )
+      },
+      test("Json.Num Long") {
+        assertDecodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Num(1L),
+          charSequenceToByteChunk("""1""")
+        )
+      },
+      test("Json.Num Double") {
+        assertDecodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Num(1.1),
+          charSequenceToByteChunk("""1.1""")
+        )
+      },
+      test("Json.Str") {
+        assertDecodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Str("foo"),
+          charSequenceToByteChunk(""""foo"""")
+        )
+      },
+      test("Json.Bool") {
+        assertDecodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Bool(true),
+          charSequenceToByteChunk("""true""")
+        )
+      },
+      test("Json.Null") {
+        assertDecodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Null,
+          charSequenceToByteChunk("""null""")
         )
       }
     )
