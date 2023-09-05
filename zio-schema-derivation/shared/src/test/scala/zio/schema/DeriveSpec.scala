@@ -2,6 +2,7 @@ package zio.schema
 
 import scala.annotation.nowarn
 import scala.reflect.ClassTag
+
 import zio.schema.Deriver.WrappedF
 import zio.schema.Schema.Field
 import zio.schema.annotation.fieldDefaultValue
