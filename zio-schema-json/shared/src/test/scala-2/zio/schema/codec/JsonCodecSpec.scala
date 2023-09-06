@@ -60,6 +60,63 @@ object JsonCodecSpec extends ZIOSpecDefault {
           )
       }
     ),
+    suite("optional field annotation")(
+      test("list empty") {
+        assertEncodesJson(
+          Schema[WithOptField],
+          WithOptField(Nil, Map("foo" -> 1)),
+          """{"map":{"foo":1}}"""
+        )
+      },
+      test("map empty") {
+        assertEncodesJson(
+          Schema[WithOptField],
+          WithOptField(List("foo"), Map.empty),
+          """{"list":["foo"]}"""
+        )
+      },
+      test("all empty") {
+        assertEncodesJson(
+          Schema[WithOptField],
+          WithOptField(Nil, Map.empty),
+          """{}"""
+        )
+      }
+    ),
+    suite("empty collections config")(
+      test("list empty") {
+        assertEncodesJson(
+          Schema[ListAndMap],
+          ListAndMap(Nil, Map("foo" -> 1)),
+          """{"map":{"foo":1}}""",
+          JsonCodec.Config(ignoreEmptyCollections = true)
+        )
+      },
+      test("map empty") {
+        assertEncodesJson(
+          Schema[ListAndMap],
+          ListAndMap(List("foo"), Map.empty),
+          """{"list":["foo"]}""",
+          JsonCodec.Config(ignoreEmptyCollections = true)
+        )
+      },
+      test("all empty") {
+        assertEncodesJson(
+          Schema[ListAndMap],
+          ListAndMap(Nil, Map.empty),
+          """{}""",
+          JsonCodec.Config(ignoreEmptyCollections = true)
+        )
+      },
+      test("all empty, but don't ignore empty collections") {
+        assertEncodesJson(
+          Schema[ListAndMap],
+          ListAndMap(Nil, Map.empty),
+          """{"list":[],"map":{}}""",
+          JsonCodec.Config(ignoreEmptyCollections = false)
+        )
+      }
+    ),
     suite("tuple")(
       test("of primitives") {
         assertEncodesJson(
@@ -1114,8 +1171,8 @@ object JsonCodecSpec extends ZIOSpecDefault {
             val dyn = DynamicValue.fromSchemaAndValue(schema, value)
             ZStream
               .succeed(dyn)
-              .via(JsonCodec.schemaBasedBinaryCodec(Schema.dynamicValue).streamEncoder)
-              .via(JsonCodec.schemaBasedBinaryCodec(Schema.dynamicValue).streamDecoder)
+              .via(JsonCodec.schemaBasedBinaryCodec(Schema.dynamicValue, JsonCodec.Config.default).streamEncoder)
+              .via(JsonCodec.schemaBasedBinaryCodec(Schema.dynamicValue, JsonCodec.Config.default).streamDecoder)
               .map(_.toTypedValue(schema))
               .runHead
               .map { result =>
@@ -1149,10 +1206,16 @@ object JsonCodecSpec extends ZIOSpecDefault {
     )
   )
 
-  private def assertEncodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte], print: Boolean = false) = {
+  private def assertEncodes[A](
+    schema: Schema[A],
+    value: A,
+    chunk: Chunk[Byte],
+    cfg: JsonCodec.Config = JsonCodec.Config.default,
+    print: Boolean = false
+  ) = {
     val stream = ZStream
       .succeed(value)
-      .via(JsonCodec.schemaBasedBinaryCodec(schema).streamEncoder)
+      .via(JsonCodec.schemaBasedBinaryCodec(schema, cfg).streamEncoder)
       .runCollect
       .tap { chunk =>
         printLine(s"${new String(chunk.toArray)}").when(print).ignore
@@ -1160,10 +1223,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
     assertZIO(stream)(equalTo(chunk))
   }
 
-  private def assertEncodesJson[A](schema: Schema[A], value: A, json: String) = {
+  private def assertEncodesJson[A](
+    schema: Schema[A],
+    value: A,
+    json: String,
+    cfg: JsonCodec.Config = JsonCodec.Config.default
+  ) = {
     val stream = ZStream
       .succeed(value)
-      .via(JsonCodec.schemaBasedBinaryCodec[A](schema).streamEncoder)
+      .via(JsonCodec.schemaBasedBinaryCodec[A](schema, cfg).streamEncoder)
       .runCollect
       .map(chunk => new String(chunk.toArray))
     assertZIO(stream)(equalTo(json))
@@ -1172,22 +1240,32 @@ object JsonCodecSpec extends ZIOSpecDefault {
   private def assertEncodesJson[A](schema: Schema[A], value: A)(implicit enc: JsonEncoder[A]) = {
     val stream = ZStream
       .succeed(value)
-      .via(JsonCodec.schemaBasedBinaryCodec[A](schema).streamEncoder)
+      .via(JsonCodec.schemaBasedBinaryCodec[A](schema, JsonCodec.Config.default).streamEncoder)
       .runCollect
     assertZIO(stream)(equalTo(jsonEncoded(value)))
   }
 
-  private def assertDecodesToError[A](schema: Schema[A], json: CharSequence, errors: List[JsonError]) = {
+  private def assertDecodesToError[A](
+    schema: Schema[A],
+    json: CharSequence,
+    errors: List[JsonError],
+    cfg: JsonCodec.Config = JsonCodec.Config.default
+  ) = {
     val stream = ZStream
       .fromChunk(charSequenceToByteChunk(json))
-      .via(JsonCodec.schemaBasedBinaryCodec[A](schema).streamDecoder)
+      .via(JsonCodec.schemaBasedBinaryCodec[A](schema, cfg).streamDecoder)
       .catchAll(ZStream.succeed[DecodeError](_))
       .runHead
     assertZIO(stream)(isSome(equalTo(ReadError(Cause.empty, JsonError.render(errors)))))
   }
 
-  private def assertDecodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {
-    val result = ZStream.fromChunk(chunk).via(JsonCodec.schemaBasedBinaryCodec[A](schema).streamDecoder).runCollect
+  private def assertDecodes[A](
+    schema: Schema[A],
+    value: A,
+    chunk: Chunk[Byte],
+    cfg: JsonCodec.Config = JsonCodec.Config.default
+  ) = {
+    val result = ZStream.fromChunk(chunk).via(JsonCodec.schemaBasedBinaryCodec[A](schema, cfg).streamDecoder).runCollect
     assertZIO(result)(equalTo(Chunk(value)))
   }
 
@@ -1199,18 +1277,19 @@ object JsonCodecSpec extends ZIOSpecDefault {
     decodingSchema: Schema[A2],
     value: A1,
     compare: (A1, A2) => Boolean,
-    print: Boolean
+    print: Boolean,
+    cfg: JsonCodec.Config = JsonCodec.Config.default
   ) =
     ZStream
       .succeed(value)
       .tap(value => printLine(s"Input Value: $value").when(print).ignore)
-      .via(JsonCodec.schemaBasedBinaryCodec[A1](encodingSchema).streamEncoder)
+      .via(JsonCodec.schemaBasedBinaryCodec[A1](encodingSchema, cfg).streamEncoder)
       .runCollect
       .tap(encoded => printLine(s"Encoded: ${new String(encoded.toArray)}").when(print).ignore)
       .flatMap { encoded =>
         ZStream
           .fromChunk(encoded)
-          .via(JsonCodec.schemaBasedBinaryCodec[A2](decodingSchema).streamDecoder)
+          .via(JsonCodec.schemaBasedBinaryCodec[A2](decodingSchema, cfg).streamDecoder)
           .runCollect
           .tapError { err =>
             printLineError(s"Decoding failed for input ${new String(encoded.toArray)}\nError Message: $err")
@@ -1485,5 +1564,17 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object WithOptionFields {
     implicit lazy val schema: Schema[WithOptionFields] = DeriveSchema.gen[WithOptionFields]
+  }
+
+  final case class WithOptField(@optionalField list: List[String], @optionalField map: Map[String, Int])
+
+  object WithOptField {
+    implicit lazy val schema: Schema[WithOptField] = DeriveSchema.gen[WithOptField]
+  }
+
+  final case class ListAndMap(list: List[String], map: Map[String, Int])
+
+  object ListAndMap {
+    implicit lazy val schema: Schema[ListAndMap] = DeriveSchema.gen[ListAndMap]
   }
 }

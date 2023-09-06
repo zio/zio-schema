@@ -145,9 +145,11 @@ object JsonSample extends zio.ZIOAppDefault {
 
   override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
-      _                      <- ZIO.unit
-      person                 = Person("Michelle", 32)
-      personToJsonTransducer = JsonCodec.schemaBasedBinaryCodec[Person](schemaPerson).streamEncoder
+      _      <- ZIO.unit
+      person = Person("Michelle", 32)
+      personToJsonTransducer = JsonCodec
+        .schemaBasedBinaryCodec[Person](schemaPerson, JsonCodec.Config.default)
+        .streamEncoder
       _ <- ZStream(person)
             .via(personToJsonTransducer)
             .via(ZPipeline.utf8Decode)
@@ -192,8 +194,8 @@ object CombiningExample extends ZIOAppDefault {
       _      <- ZIO.debug("combining roundtrip")
       person = Person("Michelle", 32)
 
-      personToJson = JsonCodec.schemaBasedBinaryCodec[Person](schemaPerson).streamEncoder
-      jsonToPerson = JsonCodec.schemaBasedBinaryCodec[Person](schemaPerson).streamDecoder
+      personToJson = JsonCodec.schemaBasedBinaryCodec[Person](schemaPerson, JsonCodec.Config.default).streamEncoder
+      jsonToPerson = JsonCodec.schemaBasedBinaryCodec[Person](schemaPerson, JsonCodec.Config.default).streamDecoder
 
       personToProto = ProtobufCodec.protobufCodec[Person](schemaPerson).streamEncoder
       protoToPerson = ProtobufCodec.protobufCodec[Person](schemaPerson).streamDecoder
@@ -226,10 +228,16 @@ object DictionaryExample extends ZIOAppDefault {
       person     = Person("Mike", 32)
       dictionary = Map("m" -> person)
       dictionaryToJson = JsonCodec
-        .schemaBasedBinaryCodec[scala.collection.immutable.Map[String, Person]](schemaPersonDictionaryFromMacro)
+        .schemaBasedBinaryCodec[scala.collection.immutable.Map[String, Person]](
+          schemaPersonDictionaryFromMacro,
+          JsonCodec.Config.default
+        )
         .streamEncoder
       jsonToDictionary = JsonCodec
-        .schemaBasedBinaryCodec[scala.collection.immutable.Map[String, Person]](schemaPersonDictionaryFromMacro)
+        .schemaBasedBinaryCodec[scala.collection.immutable.Map[String, Person]](
+          schemaPersonDictionaryFromMacro,
+          JsonCodec.Config.default
+        )
         .streamDecoder
       newPersonDictionary <- ZStream(dictionary)
                               .via(dictionaryToJson)
