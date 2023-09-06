@@ -275,13 +275,44 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
         field.name -> field.annotations.filter(filterAnnotation).map(_.asExpr)
     }
 
-  private def fromConstructor(from: Symbol): scala.collection.Map[String, List[Expr[Any]]] =
+  private def defaultValues(from: Symbol): Predef.Map[String, Expr[Any]] =
+    (1 to from.primaryConstructor.paramSymss.size).toList.map(
+      i =>
+          from
+            .companionClass
+            .declaredMethod(s"$$lessinit$$greater$$default$$$i")
+            .headOption
+            .orElse(
+              from
+                .companionClass
+                .declaredMethod(s"$$apply$$default$$$i")
+                .headOption
+            )
+            .map { s =>
+              val select = Select(Ref(from.companionModule), s)
+              if (select.isExpr) select.asExpr
+              else select.appliedToType(TypeRepr.of[Any]).asExpr
+            }
+      ).zip(from.primaryConstructor.paramSymss.flatten.filter(!_.isTypeParam).map(_.name)).collect{ case (Some(expr), name) => name -> expr }.toMap
+
+  private def fromConstructor(from: Symbol): scala.collection.Map[String, List[Expr[Any]]] = {
+      val defaults = defaultValues(from)
       from.primaryConstructor.paramSymss.flatten.map { field =>
-        field.name -> field.annotations
-          .filter(filterAnnotation)
-          .map(_.asExpr.asInstanceOf[Expr[Any]])
+        field.name -> {
+          val annos = field.annotations
+            .filter(filterAnnotation)
+            .map(_.asExpr.asInstanceOf[Expr[Any]])
+          val hasDefaultAnnotation =
+            field.annotations.exists(_.tpe <:< TypeRepr.of[zio.schema.annotation.fieldDefaultValue[_]])
+          if (hasDefaultAnnotation || defaults.get(field.name).isEmpty) {
+            annos
+          } else {
+            annos :+ '{zio.schema.annotation.fieldDefaultValue(${defaults(field.name)})}.asExprOf[Any]
+          }
+        }
       }.toMap
-  
+  }
+
   def deriveEnum[T: Type](mirror: Mirror, stack: Stack)(using Quotes) = {
     val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.noSymbol)
     val selfRef = Ref(selfRefSymbol)
