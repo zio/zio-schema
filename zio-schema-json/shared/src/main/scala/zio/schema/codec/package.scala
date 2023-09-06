@@ -11,7 +11,7 @@ import zio.schema.{ DynamicValue, Schema, StandardType, TypeId }
 
 package object json {
   implicit val schemaJson: Schema[Json] =
-    Schema.dynamicValue.annotate(directDynamicMapping()).transform(toJson, fromJson)
+    Schema.dynamicValue.transform(toJson, fromJson).annotate(directDynamicMapping())
 
   private def toJson(dv: DynamicValue): Json =
     dv match {

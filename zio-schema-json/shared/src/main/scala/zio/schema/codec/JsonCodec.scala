@@ -171,7 +171,7 @@ object JsonCodec {
         case Schema.Map(ks, vs, _)               => mapEncoder(ks, vs, discriminatorTuple)
         case Schema.Set(s, _) =>
           ZJsonEncoder.chunk(schemaEncoder(s, discriminatorTuple)).contramap(m => Chunk.fromIterable(m))
-        case Schema.Transform(c, _, g, _, _)        => transformEncoder(c, g)
+        case Schema.Transform(c, _, g, a, _)        => transformEncoder(a.foldLeft(c)((s, a) => s.annotate(a)), g)
         case Schema.Tuple2(l, r, _)                 => ZJsonEncoder.tuple2(schemaEncoder(l, discriminatorTuple), schemaEncoder(r, discriminatorTuple))
         case Schema.Optional(schema, _)             => ZJsonEncoder.option(schemaEncoder(schema, discriminatorTuple))
         case Schema.Fail(_, _)                      => unitEncoder.contramap(_ => ())
@@ -490,7 +490,7 @@ object JsonCodec {
       case Schema.Primitive(standardType, _)     => primitiveCodec(standardType).decoder
       case Schema.Optional(codec, _)             => ZJsonDecoder.option(schemaDecoder(codec, hasDiscriminator))
       case Schema.Tuple2(left, right, _)         => ZJsonDecoder.tuple2(schemaDecoder(left, hasDiscriminator), schemaDecoder(right, hasDiscriminator))
-      case Schema.Transform(codec, f, _, _, _)   => schemaDecoder(codec, hasDiscriminator).mapOrFail(f)
+      case Schema.Transform(c, f, _, a, _)       => schemaDecoder(a.foldLeft(c)((s, a) => s.annotate(a)), hasDiscriminator).mapOrFail(f)
       case Schema.Sequence(codec, f, _, _, _)    => ZJsonDecoder.chunk(schemaDecoder(codec, hasDiscriminator)).map(f)
       case Schema.Map(ks, vs, _)                 => mapDecoder(ks, vs, hasDiscriminator)
       case Schema.Set(s, _)                      => ZJsonDecoder.chunk(schemaDecoder(s, hasDiscriminator)).map(entries => entries.toSet)
