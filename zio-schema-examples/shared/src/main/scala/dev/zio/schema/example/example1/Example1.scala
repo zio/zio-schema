@@ -148,7 +148,7 @@ object JsonSample extends zio.ZIOAppDefault {
       _      <- ZIO.unit
       person = Person("Michelle", 32)
       personToJsonTransducer = JsonCodec
-        .schemaBasedBinaryCodec[Person](schemaPerson, JsonCodec.Config.default)
+        .schemaBasedBinaryCodec[Person](schemaPerson)
         .streamEncoder
       _ <- ZStream(person)
             .via(personToJsonTransducer)
@@ -194,8 +194,8 @@ object CombiningExample extends ZIOAppDefault {
       _      <- ZIO.debug("combining roundtrip")
       person = Person("Michelle", 32)
 
-      personToJson = JsonCodec.schemaBasedBinaryCodec[Person](schemaPerson, JsonCodec.Config.default).streamEncoder
-      jsonToPerson = JsonCodec.schemaBasedBinaryCodec[Person](schemaPerson, JsonCodec.Config.default).streamDecoder
+      personToJson = JsonCodec.schemaBasedBinaryCodec[Person](schemaPerson).streamEncoder
+      jsonToPerson = JsonCodec.schemaBasedBinaryCodec[Person](schemaPerson).streamDecoder
 
       personToProto = ProtobufCodec.protobufCodec[Person](schemaPerson).streamEncoder
       protoToPerson = ProtobufCodec.protobufCodec[Person](schemaPerson).streamDecoder
@@ -229,14 +229,12 @@ object DictionaryExample extends ZIOAppDefault {
       dictionary = Map("m" -> person)
       dictionaryToJson = JsonCodec
         .schemaBasedBinaryCodec[scala.collection.immutable.Map[String, Person]](
-          schemaPersonDictionaryFromMacro,
-          JsonCodec.Config.default
+          schemaPersonDictionaryFromMacro
         )
         .streamEncoder
       jsonToDictionary = JsonCodec
         .schemaBasedBinaryCodec[scala.collection.immutable.Map[String, Person]](
-          schemaPersonDictionaryFromMacro,
-          JsonCodec.Config.default
+          schemaPersonDictionaryFromMacro
         )
         .streamDecoder
       newPersonDictionary <- ZStream(dictionary)
