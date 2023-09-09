@@ -164,6 +164,9 @@ object Schema extends SchemaEquality {
   def enumeration[A, C <: CaseSet.Aux[A]](id: TypeId, caseSet: C, annotations: Chunk[Any] = Chunk.empty): Schema[A] =
     EnumN(id, caseSet, annotations)
 
+  /**
+   * Represents the absence of schema information for the given `A` type.
+   */
   def fail[A](message: String): Schema[A] = Fail(message)
 
   def first[A](schema: Schema[(A, Unit)]): Schema[A] =
