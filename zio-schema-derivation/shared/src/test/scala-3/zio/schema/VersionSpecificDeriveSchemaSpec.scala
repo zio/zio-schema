@@ -35,6 +35,16 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
           AutoDerives.apply
         )
         assert(Schema[AutoDerives])(hasSameSchema(expected))
+      },
+      test("correctly assign simpleEnum to enum"){
+        enum Colour(val rgb: Int):
+          case Red extends Colour(0xff0000)
+          case Green extends Colour(0x00ff00)
+          case Blue extends Colour(0x0000ff)
+        
+
+        val derived = DeriveSchema.gen[Colour]
+        assertTrue(derived.annotations == Chunk(simpleEnum(true)))
       }
     )
   )
