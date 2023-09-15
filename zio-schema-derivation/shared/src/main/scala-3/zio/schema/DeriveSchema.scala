@@ -324,11 +324,12 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
 
     val cases = typesAndLabels.map { case (tpe, label) => deriveCase[T](tpe, label, newStack) }
 
-    val isSimpleEnum: Boolean = !TypeRepr.of[T].typeSymbol.children.map(_.declaredFields.length).exists( _ > 0 )
+    val numParentFields: Int = TypeRepr.of[T].typeSymbol.declaredFields.length
+    val isSimpleEnum: Boolean = !TypeRepr.of[T].typeSymbol.children.map(_.declaredFields.length).exists( _ > numParentFields )
     val hasSimpleEnumAnn: Boolean = TypeRepr.of[T].typeSymbol.hasAnnotation(TypeRepr.of[_root_.zio.schema.annotation.simpleEnum].typeSymbol)
 
     val annotationExprs = (isSimpleEnum, hasSimpleEnumAnn) match {
-      case (true, false) => TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr).+:('{_root_.zio.schema.annotation.simpleEnum(true)})
+      case (true, false) => TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr).+:('{zio.schema.annotation.simpleEnum(true)})
       case (false, true) => throw new Exception(s"${TypeRepr.of[T].typeSymbol.name} must be a simple Enum")
       case _             => TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
     }
