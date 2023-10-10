@@ -243,7 +243,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"oneOf":{"_type":"StringValue2","value":"foo2"}}""")
         )
       },
-      test("case class ") {
+      test("case class") {
         assertEncodes(
           searchRequestWithTransientFieldSchema,
           SearchRequestWithTransientField("foo", 10, 20, "bar"),
@@ -1027,6 +1027,10 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Enumeration2(BooleanValue2(false))
         )
       },
+      test("of case classes with discriminator") {
+        assertEncodesThenDecodes(Schema[Command], Command.Cash) &>
+          assertEncodesThenDecodes(Schema[Command], Command.Buy(100))
+      },
       suite("of case objects")(
         test("without annotation")(
           assertEncodesThenDecodes(Schema[Color], Color.Red)
@@ -1494,6 +1498,16 @@ object JsonCodecSpec extends ZIOSpecDefault {
     case object Blue extends Color
 
     implicit val schema: Schema[Color] = DeriveSchema.gen[Color]
+  }
+
+  @annotation.discriminatorName("type")
+  sealed trait Command
+
+  object Command {
+    case class Buy(credits: Int) extends Command
+    case object Cash             extends Command
+
+    implicit val schema: Schema[Command] = DeriveSchema.gen[Command]
   }
 
   case object Singleton
