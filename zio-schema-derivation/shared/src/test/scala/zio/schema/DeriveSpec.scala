@@ -321,8 +321,8 @@ object DeriveSpec extends ZIOSpecDefault with VersionSpecificDeriveSpec {
 
   object GenericRecordWithDefaultValue {
     //explicitly Int, because generic implicit definition leads to "Schema derivation exceeded" error
-    implicit def schema: Schema[GenericRecordWithDefaultValue[Int]] =
-      DeriveSchema.gen[GenericRecordWithDefaultValue[Int]]
+    implicit def schema[T: Schema]: Schema[GenericRecordWithDefaultValue[T]] =
+      DeriveSchema.gen[GenericRecordWithDefaultValue[T]]
   }
 
   sealed trait Enum1
