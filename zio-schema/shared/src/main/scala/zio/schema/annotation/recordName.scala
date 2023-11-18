@@ -1,3 +1,5 @@
 package zio.schema.annotation
 
-final case class recordName(name: String) extends scala.annotation.StaticAnnotation
+import scala.annotation.StaticAnnotation
+
+final case class recordName(name: String) extends StaticAnnotation

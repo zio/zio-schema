@@ -4,15 +4,15 @@ title: "ZIO Schema Use cases"
 sidebar_label: "Use cases"
 ---
 
-ZIO Schema allows you to create representations of your data types as values.
+ZIO Schema allows us to create representations of our data types as values.
 
-Once you have a representation of your data types, you can use it to
-  - serialize and deserialize your types
-  - validate your types
-  - transform your types
-  - create instances of your types
+Once we have a representation of our data types, we can use it to
+  - Serialize and deserialize our types
+  - Validate our types
+  - Transform our types
+  - Create instances of your types
 
-You can then use one of the various codecs (or create your own) to serialize and deserialize your types.
+We can then use one of the various codecs (or create our own) to serialize and deserialize your types.
 
 Example of possible codecs are:
 
@@ -39,8 +39,8 @@ Example use cases that are possible:
   - Creating diffs from arbitrary data structures
   - Creating migrations / evolutions e.g. of Events used in Event-Sourcing
   - Transformation pipelines, e.g.
-      1. convert from protobuf to object, e.g. `PersonDTO`,
-      2. transform to another representation, e.g. `Person`,
-      3. validate
-      4. transform to JSON `JsonObject`
-      5. serialize to `String`
+      1. Convert from protobuf to object, e.g. `PersonDTO`,
+      2. Transform to another representation, e.g. `Person`,
+      3. Validate
+      4. Transform to JSON `JsonObject`
+      5. Serialize to `String`

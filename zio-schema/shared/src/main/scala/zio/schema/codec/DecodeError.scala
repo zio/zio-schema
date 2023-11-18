@@ -59,4 +59,8 @@ object DecodeError {
     def message: String = s"Value $values and $structure have incompatible shape"
   }
 
+  final case class UnsupportedSchema(schema: Schema[_], decoderName: String) extends DecodeError {
+    def message: String = s"Schema $schema is not supported by $decoderName"
+  }
+
 }
