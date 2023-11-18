@@ -3,7 +3,7 @@ package zio.schema
 import scala.annotation.Annotation
 
 import zio.Chunk
-import zio.schema.annotation.{ fieldName, optionalField }
+import zio.schema.annotation.{ fieldName, optionalField, simpleEnum }
 import zio.test._
 
 object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaSpec {
@@ -179,6 +179,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     implicit def schema[A: Schema, B: Schema]: Schema[RBTree[A, B]] = DeriveSchema.gen[RBTree[A, B]]
   }
 
+  sealed trait AdtWithTypeParameters[+Param1, +Param2]
+
+  object AdtWithTypeParameters {
+    case class A[Param1, Param2](fieldWithParam1: Param1) extends AdtWithTypeParameters[Param1, Param2]
+    case class B[Param1, Param2](fieldWithParam2: Param2) extends AdtWithTypeParameters[Param1, Param2]
+  }
   @annotation1("enum") sealed trait AnnotatedEnum
 
   object AnnotatedEnum {
@@ -246,6 +252,13 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
   object OptionalField {
     implicit val schema: Schema[OptionalField] = DeriveSchema.gen[OptionalField]
   }
+
+  @simpleEnum
+  sealed trait SimpleEnum1
+  case class SimpleClass1() extends SimpleEnum1
+
+  sealed trait SimpleEnum2
+  case class SimpleClass2() extends SimpleEnum2
 
   override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
@@ -401,6 +414,10 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
       test("correctly derives generic recursive Enum with multiple type parameters") {
         assert(Schema[RBTree[String, Int]].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
+      test("correctly derives schema with unused type parameters") {
+        val derived: Schema[AdtWithTypeParameters[Int, Int]] = DeriveSchema.gen[AdtWithTypeParameters[Int, Int]]
+        assert(derived)(anything)
+      },
       test("correctly derives recursive Enum") {
         assert(Schema[RecursiveEnum].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
@@ -459,6 +476,14 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
           )
         }
         assert(derived)(hasSameSchema(expected))
+      },
+      test("correctly derives simpleEnum with annotation") {
+        val derived = DeriveSchema.gen[SimpleEnum1]
+        assertTrue(derived.annotations == Chunk(simpleEnum(false)))
+      },
+      test("correctly derives simpleEnum without annotation") {
+        val derived = DeriveSchema.gen[SimpleEnum2]
+        assertTrue(derived.annotations == Chunk(simpleEnum(true)))
       }
     ),
     versionSpecificSuite

@@ -20,10 +20,12 @@ import java.time.{
 }
 import java.util.UUID
 
+import org.apache.avro.generic.GenericData
+
 import zio._
+import zio.schema.codec.AvroAnnotations.avroEnum
 import zio.schema.{ DeriveSchema, Schema }
 import zio.stream.ZStream
-import zio.test.TestAspect.failing
 import zio.test._
 
 object AvroCodecSpec extends ZIOSpecDefault {
@@ -106,10 +108,12 @@ object AvroCodecSpec extends ZIOSpecDefault {
 
     case class BooleanValue(value: Boolean) extends OneOf
 
+    case object NullValue extends OneOf
+
     implicit val schemaOneOf: Schema[OneOf] = DeriveSchema.gen[OneOf]
   }
 
-  sealed trait Enums
+  @avroEnum() sealed trait Enums
 
   object Enums {
     case object A extends Enums
@@ -138,7 +142,8 @@ object AvroCodecSpec extends ZIOSpecDefault {
     sequenceDecoderSpec,
     genericRecordDecoderSpec,
     enumDecoderSpec,
-    streamEncodingDecodingSpec
+    streamEncodingDecodingSpec,
+    genericRecordEncodeDecodeSpec
   )
 
   private val primitiveEncoderSpec = suite("Avro Codec - Encoder primitive spec")(
@@ -649,12 +654,18 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val result = codec.decode(bytes)
       assertTrue(result == Right(OneOf.BooleanValue(true)))
     },
+    test("Decode Enum3 - case object") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[OneOf]
+      val bytes  = codec.encode(OneOf.NullValue)
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(OneOf.NullValue))
+    },
     test("Decode Enum5") {
       val codec  = AvroCodec.schemaBasedBinaryCodec[Enums]
       val bytes  = codec.encode(Enums.A)
       val result = codec.decode(bytes)
       assertTrue(result == Right(Enums.A))
-    } @@ failing, // TODO: the case object from a sealed trait are not properly encoded and decoded.
+    },
     test("Decode Person") {
       val codec  = AvroCodec.schemaBasedBinaryCodec[Person]
       val bytes  = codec.encode(Person("John", 42))
@@ -686,5 +697,14 @@ object AvroCodecSpec extends ZIOSpecDefault {
       } yield assertTrue(result == Chunk(pepperoni))
 
     })
+
+  private val genericRecordEncodeDecodeSpec = suite("AvroCodec - encode/decode Generic Record")(
+    test("Encode/Decode") {
+      val codec                       = AvroCodec.schemaBasedBinaryCodec[Record]
+      val generic: GenericData.Record = codec.encodeGenericRecord(Record("John", 42))
+      val result                      = codec.decodeGenericRecord(generic)
+      assertTrue(result == Right(Record("John", 42)))
+    }
+  )
 
 }

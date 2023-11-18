@@ -1,3 +1,10 @@
 package zio.schema.annotation
 
-final case class recordName(name: String) extends scala.annotation.StaticAnnotation
+import scala.annotation.StaticAnnotation
+
+/**
+ * Annotation for specifying an alternate name for a record.
+ *
+ * @param name The alternate name to use for the record.
+ */
+final case class recordName(name: String) extends StaticAnnotation

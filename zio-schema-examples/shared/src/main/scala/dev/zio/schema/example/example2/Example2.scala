@@ -156,9 +156,11 @@ object JsonSample extends zio.ZIOAppDefault {
 
   override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
-      _                    <- ZIO.unit
-      person               = Person("Michelle", 32)
-      personToJsonPipeline = JsonCodec.schemaBasedBinaryCodec[Person](Person.schema).streamEncoder
+      _      <- ZIO.unit
+      person = Person("Michelle", 32)
+      personToJsonPipeline = JsonCodec
+        .schemaBasedBinaryCodec[Person](Person.schema)
+        .streamEncoder
       _ <- ZStream(person)
             .via(personToJsonPipeline)
             .via(ZPipeline.utf8Decode)

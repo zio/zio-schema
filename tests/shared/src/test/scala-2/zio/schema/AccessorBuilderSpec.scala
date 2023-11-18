@@ -37,8 +37,8 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
       check(SchemaGen.anyPrimitive) { schema =>
         val transform = schema.transformOrFail[Unit](_ => Left("error"), _ => Left("error"))
 
-        val transformAccessor: Any = transform.makeAccessors(builder).asInstanceOf[Any]
-        val schemaAccessor: Any    = schema.makeAccessors(builder).asInstanceOf[Any]
+        val transformAccessor = transform.makeAccessors(builder)
+        val schemaAccessor    = schema.makeAccessors(builder)
 
         assert(
           transformAccessor == schemaAccessor
