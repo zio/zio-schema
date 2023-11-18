@@ -22,7 +22,6 @@ import java.time.{
 }
 import java.util.UUID
 
-import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
 
 import zio.schema.diff.Edit
@@ -330,10 +329,10 @@ object Differ {
     (thisBool: Boolean, thatBool: Boolean) =>
       if (thisBool ^ thatBool) Patch.Bool(thisBool ^ thatBool) else Patch.identical
 
-  @nowarn def map[K, V](keySchema: Schema[K], valueSchema: Schema[V]): Differ[Map[K, V]] =
+  def map[K, V](keySchema: Schema[K], valueSchema: Schema[V]): Differ[Map[K, V]] =
     LCSDiff.map[K, V]
 
-  @nowarn def set[A](schema: Schema[A]): Differ[Set[A]] =
+  def set[A](schema: Schema[A]): Differ[Set[A]] =
     LCSDiff.set[A]
 
   def numeric[A](implicit numeric: Numeric[A]): Differ[A] =

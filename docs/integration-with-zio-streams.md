@@ -22,7 +22,7 @@ object Main extends ZIOAppDefault {
     implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
   }
 
-  def run =
+  def run: ZIO[Any, Exception, Unit] =
     ZStream
       .fromIterable(Seq(Person("John", 42)))
       .debug("the input object is")
