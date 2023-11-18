@@ -204,7 +204,7 @@ object BuildHelper {
       name := s"$prjName",
       crossScalaVersions := Seq(Scala213, Scala212, Scala3),
       ThisBuild / scalaVersion := Scala213, //crossScalaVersions.value.head, //Scala3,
-      scalacOptions := compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
+      scalacOptions ++= compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ testDeps,
       ThisBuild / semanticdbEnabled := scalaVersion.value != Scala3, // enable SemanticDB,
       ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
