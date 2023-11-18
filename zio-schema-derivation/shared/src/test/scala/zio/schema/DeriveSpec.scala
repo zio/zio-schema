@@ -9,7 +9,7 @@ import zio.schema.annotation.fieldDefaultValue
 import zio.test.{ Spec, TestEnvironment, ZIOSpecDefault, assertTrue }
 import zio.{ Chunk, Scope }
 
-object DeriveSpec extends ZIOSpecDefault with VersionSpecificDeriveSpec {
+@nowarn object DeriveSpec extends ZIOSpecDefault with VersionSpecificDeriveSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Derive")(
       suite("case object")(
@@ -368,7 +368,7 @@ object DeriveSpec extends ZIOSpecDefault with VersionSpecificDeriveSpec {
 
   @SuppressWarnings(Array("all"))
   object UnsupportedField1 {
-    @nowarn implicit private val openTraitPlaceholderSchema: Schema[OpenTrait] = Schema.fail("OpenTrait")
+    implicit private val openTraitPlaceholderSchema: Schema[OpenTrait] = Schema.fail("OpenTrait")
 
     implicit val schema: Schema[UnsupportedField1] = DeriveSchema.gen[UnsupportedField1]
   }
