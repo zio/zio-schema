@@ -25,7 +25,7 @@ import zio.schema._
 case class Person(name: String, age: Int)
 
 object Person {
-  implicit val schema = DeriveSchema.gen[Person]
+  implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
 }
 
 val person        = Person("John Doe", 42)

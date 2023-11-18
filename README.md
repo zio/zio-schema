@@ -63,6 +63,8 @@ import zio.stream._
 import zio.schema.codec.{BinaryCodec, ProtobufCodec}
 import zio.schema.{DeriveSchema, Schema}
 
+import java.io.IOException
+
 final case class Person(name: String, age: Int)
 
 object Person {
@@ -71,7 +73,7 @@ object Person {
 }
 
 object Main extends ZIOAppDefault {
-  def run =
+  def run: ZIO[Any, IOException, Unit] =
     ZStream
       .succeed(Person("John", 43))
       .via(Person.protobufCodec.streamEncoder)

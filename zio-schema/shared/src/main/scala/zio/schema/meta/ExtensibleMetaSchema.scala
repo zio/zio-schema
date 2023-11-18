@@ -616,9 +616,9 @@ object ExtensibleMetaSchema {
         Schema.Primitive(typ, Chunk.empty)
       case ExtensibleMetaSchema.FailNode(msg, _, _) => Schema.Fail(msg)
       case ExtensibleMetaSchema.Ref(refPath, _, _) =>
-        Schema.defer(
-          refs.getOrElse(refPath, Schema.Fail(s"invalid ref path $refPath"))
-        )
+        def resolve[A](): Schema[A] =
+          refs.getOrElse(refPath, Schema.Fail(s"invalid ref path $refPath")).asInstanceOf[Schema[A]]
+        Schema.defer(resolve())
       case ExtensibleMetaSchema.Product(id, _, elems, _) =>
         Schema.record(
           id,
