@@ -229,7 +229,7 @@ import zio.schema.Schema._
 import zio.schema._
 
 object IntList {
-  implicit val listschema =
+  implicit val listschema: Schema.Sequence[List[Int], Int, String] =
     Sequence[List[Int], Int, String](
       elementSchema = Schema[Int],
       fromChunk = _.toList,

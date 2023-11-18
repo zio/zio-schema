@@ -18,10 +18,10 @@ import java.time.LocalDate
 object MainApp extends ZIOAppDefault {
 
   case class PersonDTO(
-      firstName: String,
-      lastName: String,
-      birthday: (Int, Int, Int)
-  )
+                        firstName: String,
+                        lastName: String,
+                        birthday: (Int, Int, Int)
+                      )
 
   object PersonDTO {
     implicit val schema: Schema[PersonDTO] = DeriveSchema.gen[PersonDTO]
@@ -71,27 +71,29 @@ object MainApp extends ZIOAppDefault {
       |}
       |""".stripMargin
 
-  def run = for {
-    // Approach 1: Decode JSON String to PersonDTO and then Transform it into the Person object
-    personDTO <- ZIO.fromEither(JsonCodec[PersonDTO].decodeJson(json))
-    (year, month, day) = personDTO.birthday
-    person1 = Person(
-      name = personDTO.firstName + " " + personDTO.lastName,
-      LocalDate.of(year, month, day)
-    )
-    _ <- ZIO.debug(
-      s"person: $person1"
-    )
+  def run: zio.ZIO[Any, String, Any] =
+    for {
+      // Approach 1: Decode JSON String to PersonDTO and then Transform it into the Person object
+      personDTO <- ZIO.fromEither(JsonCodec[PersonDTO].decodeJson(json))
+      (year, month, day) = personDTO.birthday
+      person1 = Person(
+        name = personDTO.firstName + " " + personDTO.lastName,
+        LocalDate.of(year, month, day)
+      )
+      _ <- ZIO.debug(
+        s"person: $person1"
+      )
 
-    // Approach 2: Decode JSON string in one step into the Person object
-    person2 <- ZIO.fromEither(
-      JsonCodec[Person](Person.personDTOJsonMapperCodec).decodeJson(json)
-    )
-    _ <- ZIO.debug(
-      s"person: $person2"
-    )
-  } yield assert(person1 == person2)
+      // Approach 2: Decode JSON string in one step into the Person object
+      person2 <- ZIO.fromEither(
+        JsonCodec[Person](Person.personDTOJsonMapperCodec).decodeJson(json)
+      )
+      _ <- ZIO.debug(
+        s"person: $person2"
+          )
+    } yield assert(person1 == person2)
 }
+
 ```
 
 As we can see in the example above, the second approach is much simpler and more convenient than the first one.
@@ -111,10 +113,10 @@ import java.time.LocalDate
 object MainApp extends ZIOAppDefault {
 
   case class PersonDTO(
-      firstName: String,
-      lastName: String,
-      birthday: (Int, Int, Int)
-  )
+                        firstName: String,
+                        lastName: String,
+                        birthday: (Int, Int, Int)
+                      )
 
   object PersonDTO {
     implicit val schema: Schema[PersonDTO] = DeriveSchema.gen[PersonDTO]
@@ -152,16 +154,17 @@ object MainApp extends ZIOAppDefault {
       ZIO.fromEither(
         PersonDTO.schema
           .migrate(personDTOMapperSchema)
-          .flatMap(_ (p))
+          .flatMap(_(p))
       )
   }
 
-
-  def run = for {
-    personDTO <- ZIO.succeed(PersonDTO("John", "Doe", (1981, 7, 13)))
-    person    <- Person.fromPersonDTO(personDTO)
-    _         <- ZIO.debug(s"person: $person")
-  } yield ()
+  def run: zio.ZIO[Any, String, Any] =
+    for {
+      personDTO <- ZIO.succeed(PersonDTO("John", "Doe", (1981, 7, 13)))
+      person <- Person.fromPersonDTO(personDTO)
+      _ <- ZIO.debug(s"person: $person")
+    } yield ()
 
 }
+
 ```
