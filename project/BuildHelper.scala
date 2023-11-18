@@ -36,7 +36,7 @@ object BuildHelper {
   val zioConstraintlessVersion     = "0.3.2"
   val scalaCollectionCompatVersion = "2.10.0"
   val msgpackVersion               = "0.9.6"
-  val jacksonScalaVersion          = "2.14.2"
+  val jacksonScalaVersion          = "2.15.2"
   val thriftVersion                = "0.16.0"
   val javaxAnnotationApiVersion    = "1.3.2"
 
@@ -210,8 +210,7 @@ object BuildHelper {
       ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
       ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
       ThisBuild / scalafixDependencies ++= List(
-        "com.github.liancheng" %% "organize-imports" % "0.6.0",
-        "com.github.vovapolu"  %% "scaluzzi"         % "0.1.21"
+        "com.github.vovapolu" %% "scaluzzi" % "0.1.23"
       ),
       Test / parallelExecution := !sys.env.contains("CI"),
       incOptions ~= (_.withLogRecompileOnMacro(true)),
