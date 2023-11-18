@@ -130,7 +130,6 @@ object BuildHelper {
           "-Ypartial-unification",
           "-opt-warnings",
           "-Ywarn-extra-implicit",
-          "-Ywarn-unused",
           "-Yno-adapted-args",
           "-Ywarn-inaccessible",
           "-Ywarn-nullary-override",
