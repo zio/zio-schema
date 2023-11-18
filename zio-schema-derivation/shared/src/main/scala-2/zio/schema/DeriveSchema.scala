@@ -258,7 +258,7 @@ object DeriveSchema {
                 val hasDefaultAnnotation =
                   annotations.exists {
                     case q"new _root_.zio.schema.annotation.fieldDefaultValue(..$_)" => true
-                    case _                                                              => false
+                    case _                                                           => false
                   }
                 if (hasDefaultAnnotation || defaultConstructorValues.get(i).isEmpty) {
                   annotations
