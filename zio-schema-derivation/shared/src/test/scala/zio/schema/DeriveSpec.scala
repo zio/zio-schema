@@ -1,6 +1,5 @@
 package zio.schema
 
-import scala.annotation.nowarn
 import scala.reflect.ClassTag
 
 import zio.schema.Deriver.WrappedF
@@ -368,7 +367,7 @@ object DeriveSpec extends ZIOSpecDefault with VersionSpecificDeriveSpec {
 
   @SuppressWarnings(Array("all"))
   object UnsupportedField1 {
-    @nowarn implicit private val openTraitPlaceholderSchema: Schema[OpenTrait] = Schema.fail("OpenTrait")
+    implicit private val openTraitPlaceholderSchema: Schema[OpenTrait] = Schema.fail("OpenTrait")
 
     implicit val schema: Schema[UnsupportedField1] = DeriveSchema.gen[UnsupportedField1]
   }

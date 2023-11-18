@@ -4,12 +4,10 @@ import java.math.{ BigInteger, MathContext }
 import java.time.temporal.{ ChronoField, ChronoUnit }
 import java.time.{
   DayOfWeek,
-  Duration => JDuration,
   Instant,
   LocalDate,
   LocalDateTime,
   LocalTime,
-  Month => JMonth,
   MonthDay,
   OffsetDateTime,
   OffsetTime,
@@ -18,14 +16,16 @@ import java.time.{
   YearMonth,
   ZoneId,
   ZoneOffset,
+  Duration => JDuration,
+  Month => JMonth,
   ZonedDateTime => JZonedDateTime
 }
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
-
 import zio.schema.diff.Edit
 import zio.{ Chunk, ChunkBuilder }
+
+import scala.annotation.nowarn
 
 trait Differ[A] { self =>
 
@@ -329,10 +329,10 @@ object Differ {
     (thisBool: Boolean, thatBool: Boolean) =>
       if (thisBool ^ thatBool) Patch.Bool(thisBool ^ thatBool) else Patch.identical
 
-  def map[K, V](keySchema: Schema[K], valueSchema: Schema[V]): Differ[Map[K, V]] =
+  @nowarn def map[K, V](keySchema: Schema[K], valueSchema: Schema[V]): Differ[Map[K, V]] =
     LCSDiff.map[K, V]
 
-  def set[A](schema: Schema[A]): Differ[Set[A]] =
+  @nowarn def set[A](schema: Schema[A]): Differ[Set[A]] =
     LCSDiff.set[A]
 
   def numeric[A](implicit numeric: Numeric[A]): Differ[A] =

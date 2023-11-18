@@ -123,7 +123,8 @@ object BuildHelper {
           "-opt-warnings",
           "-Ywarn-extra-implicit",
           "-Ywarn-unused",
-          "-Ymacro-annotations"
+          "-Ymacro-annotations",
+          "-Ywarn-macros:after"
         ) ++ std2xOptions ++ optimizerOptions
       case Some((2, 12)) =>
         Seq(
@@ -133,7 +134,8 @@ object BuildHelper {
           "-Yno-adapted-args",
           "-Ywarn-inaccessible",
           "-Ywarn-nullary-override",
-          "-Ywarn-nullary-unit"
+          "-Ywarn-nullary-unit",
+          "-Wconf:cat=unused-nowarn:s"
         ) ++ std2xOptions ++ optimizerOptions
       case _ => Seq.empty
     }
