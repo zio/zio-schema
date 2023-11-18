@@ -175,6 +175,12 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     case class BLeaf[B](value: B)                                    extends RBTree[Nothing, B]
   }
 
+  sealed trait AdtWithTypeParameters[+Param1, +Param2]
+
+  object AdtWithTypeParameters {
+    case class A[Param1, Param2](fieldWithParam1: Param1) extends AdtWithTypeParameters[Param1, Param2]
+    case class B[Param1, Param2](fieldWithParam2: Param2) extends AdtWithTypeParameters[Param1, Param2]
+  }
   @annotation1("enum") sealed trait AnnotatedEnum
 
   object AnnotatedEnum {
@@ -396,6 +402,10 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
       },
       test("correctly derives recursive Enum with multiple type parameters") {
         val derived: Schema[RBTree[String, Int]] = DeriveSchema.gen[RBTree[String, Int]]
+        assert(derived)(anything)
+      },
+      test("correctly derives schema with unused type parameters") {
+        val derived: Schema[AdtWithTypeParameters[Int, Int]] = DeriveSchema.gen[AdtWithTypeParameters[Int, Int]]
         assert(derived)(anything)
       },
       test("correctly derives recursive Enum") {

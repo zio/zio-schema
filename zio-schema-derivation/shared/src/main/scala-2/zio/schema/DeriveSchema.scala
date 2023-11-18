@@ -379,7 +379,7 @@ object DeriveSchema {
               val getArg     = TermName(fieldLabel)
 
               val getFunc = q" (z: $tpe) => z.$getArg"
-              val setFunc = q" (z: $tpe, v: ${fieldType}) => z.copy($getArg = v)"
+              val setFunc = q" (z: $tpe, v: $fieldType) => z.copy[..${tpe.typeArgs}]($getArg = v)"
 
               if (annotations.nonEmpty) {
                 val newName       = getFieldName(annotations).getOrElse(fieldLabel)
@@ -404,9 +404,9 @@ object DeriveSchema {
 
           val constructExpr =
             if (arity < 2)
-              q"defaultConstruct0 = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
+              q"defaultConstruct0 = (..$constructArgs) => $tpeCompanion[..${tpe.typeArgs}](..$constructApplyArgs)"
             else
-              q"construct0 = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
+              q"construct0 = (..$constructArgs) => $tpeCompanion[..${tpe.typeArgs}](..$constructApplyArgs)"
 
           val applyArgs =
             if (typeAnnotations.isEmpty)
