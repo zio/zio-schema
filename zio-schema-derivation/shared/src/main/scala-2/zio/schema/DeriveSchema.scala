@@ -589,7 +589,7 @@ object DeriveSchema {
 
       val typeArgs = subtypes ++ Iterable(tpe)
 
-      val cases = subtypes.map { subtype: Type =>
+      val cases = subtypes.map { (subtype: Type) =>
         @nowarn
         val typeAnnotations: List[Tree] =
           subtype.typeSymbol.annotations.collect {

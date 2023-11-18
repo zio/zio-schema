@@ -38,6 +38,7 @@ object BuildHelper {
   val msgpackVersion               = "0.9.6"
   val jacksonScalaVersion          = "2.14.2"
   val thriftVersion                = "0.18.1"
+  val javaxAnnotationApiVersion    = "1.3.2"
 
   private val testDeps = Seq(
     "dev.zio" %% "zio-test"     % zioVersion % Test,
