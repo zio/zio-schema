@@ -165,6 +165,8 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     case class Branch[A](left: Tree[A], right: Tree[A]) extends Tree[A]
     case class Leaf[A](value: A)                        extends Tree[A]
     case object Root                                    extends Tree[Nothing]
+
+    implicit def schema[A: Schema]: Schema[Tree[A]] = DeriveSchema.gen[Tree[A]]
   }
 
   sealed trait RBTree[+A, +B]
@@ -173,6 +175,8 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     case class Branch[A, B](left: RBTree[A, B], right: RBTree[A, B]) extends RBTree[A, B]
     case class RLeaf[A](value: A)                                    extends RBTree[A, Nothing]
     case class BLeaf[B](value: B)                                    extends RBTree[Nothing, B]
+
+    implicit def schema[A: Schema, B: Schema]: Schema[RBTree[A, B]] = DeriveSchema.gen[RBTree[A, B]]
   }
 
   sealed trait AdtWithTypeParameters[+Param1, +Param2]
@@ -400,9 +404,15 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
         val derived: Schema[Tree[Recursive]] = DeriveSchema.gen[Tree[Recursive]]
         assert(derived)(anything)
       },
+      test("correctly derives generic recursive Enum") {
+        assert(Schema[Tree[Recursive]].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+      },
       test("correctly derives recursive Enum with multiple type parameters") {
         val derived: Schema[RBTree[String, Int]] = DeriveSchema.gen[RBTree[String, Int]]
         assert(derived)(anything)
+      },
+      test("correctly derives generic recursive Enum with multiple type parameters") {
+        assert(Schema[RBTree[String, Int]].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
       test("correctly derives schema with unused type parameters") {
         val derived: Schema[AdtWithTypeParameters[Int, Int]] = DeriveSchema.gen[AdtWithTypeParameters[Int, Int]]

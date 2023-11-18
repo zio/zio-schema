@@ -52,62 +52,57 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     val result = stack.find(typeRepr) match {
       case Some(ref) =>
         '{ Schema.defer(${ref.asExprOf[Schema[T]]}) }
-      case None =>
-        val summoned = Expr.summon[Schema[T]]
+      case None => 
+        val summoned = if (!top) Expr.summon[Schema[T]] else None
         if (!top && summoned.isDefined) {
-          '{ Schema.defer(${summoned.get}) }.asExprOf[Schema[T]]
+          '{
+            Schema.defer(${
+              summoned.get
+            })
+          }.asExprOf[Schema[T]]
         } else {
-          typeRepr.asType match {
-            case '[List[a]] =>
-              val schema = deriveSchema[a](stack)
-              '{ Schema.list(Schema.defer(${schema})) }.asExprOf[Schema[T]]
-            case '[scala.util.Either[a, b]] =>
-              val schemaA = deriveSchema[a](stack)
-              val schemaB = deriveSchema[b](stack)
-              '{ Schema.either(Schema.defer(${schemaA}), Schema.defer(${schemaB})) }.asExprOf[Schema[T]]
-            case '[Option[a]] =>
-              val schema = deriveSchema[a](stack)
-              // throw new Error(s"OPITOS ${schema.show}")
-              '{ Schema.option(Schema.defer($schema)) }.asExprOf[Schema[T]]
-            case '[scala.collection.Set[a]] =>
-              val schema = deriveSchema[a](stack)
-              '{ Schema.set(Schema.defer(${schema})) }.asExprOf[Schema[T]]
-            case '[Vector[a]] =>
-              val schema = deriveSchema[a](stack)
-              '{ Schema.vector(Schema.defer(${schema})) }.asExprOf[Schema[T]]
-            case '[scala.collection.Map[a, b]] =>
-              val schemaA = deriveSchema[a](stack)
-              val schemaB = deriveSchema[b](stack)
-              '{ Schema.map(Schema.defer(${schemaA}), Schema.defer(${schemaB})) }.asExprOf[Schema[T]]
-            case '[zio.Chunk[a]] =>
-              val schema = deriveSchema[a](stack)
-              '{ Schema.chunk(Schema.defer(${schema})) }.asExprOf[Schema[T]]
-            case _ =>
-              val summoned = if (!top) Expr.summon[Schema[T]] else None
-              summoned match {
-                case Some(schema) =>
-                  // println(s"FOR TYPE ${typeRepr.show}")
-                  // println(s"STACK ${stack.find(typeRepr)}")
-                  // println(s"Found schema ${schema.show}")
-                  schema
-                case _ =>
-                  Mirror(typeRepr) match {
-                    case Some(mirror) =>
-                      mirror.mirrorType match {
-                        case MirrorType.Sum =>
-                          deriveEnum[T](mirror, stack)
-                        case MirrorType.Product =>
-                          deriveCaseClass[T](mirror, stack, top)
-                      }
-                    case None =>
-                      val sym = typeRepr.typeSymbol
-                      if (sym.isClassDef && sym.flags.is(Flags.Module)) {
-                        deriveCaseObject[T](stack, top)
-                      }
-                      else {
-                        report.errorAndAbort(s"Deriving schema for ${typeRepr.show} is not supported")
-                      }
-                  }
+        typeRepr.asType match {
+          case '[List[a]] =>
+            val schema = deriveSchema[a](stack)
+            '{ Schema.list(Schema.defer(${schema})) }.asExprOf[Schema[T]]
+          case '[scala.util.Either[a, b]] =>
+            val schemaA = deriveSchema[a](stack)
+            val schemaB = deriveSchema[b](stack)
+            '{ Schema.either(Schema.defer(${schemaA}), Schema.defer(${schemaB})) }.asExprOf[Schema[T]]
+          case '[Option[a]] =>
+            val schema = deriveSchema[a](stack)
+            // throw new Error(s"OPITOS ${schema.show}")
+            '{ Schema.option(Schema.defer($schema)) }.asExprOf[Schema[T]]
+          case '[scala.collection.Set[a]] =>
+            val schema = deriveSchema[a](stack)
+            '{ Schema.set(Schema.defer(${schema})) }.asExprOf[Schema[T]]
+          case '[Vector[a]] =>
+            val schema = deriveSchema[a](stack)
+            '{ Schema.vector(Schema.defer(${schema})) }.asExprOf[Schema[T]]
+          case '[scala.collection.Map[a, b]] =>
+            val schemaA = deriveSchema[a](stack)
+            val schemaB = deriveSchema[b](stack)
+            '{ Schema.map(Schema.defer(${schemaA}), Schema.defer(${schemaB})) }.asExprOf[Schema[T]]
+          case '[zio.Chunk[a]] =>
+            val schema = deriveSchema[a](stack)
+            '{ Schema.chunk(Schema.defer(${schema})) }.asExprOf[Schema[T]]
+          case _ =>
+                Mirror(typeRepr) match {
+                  case Some(mirror) =>
+                    mirror.mirrorType match {
+                      case MirrorType.Sum =>
+                        deriveEnum[T](mirror, stack)
+                      case MirrorType.Product =>
+                       deriveCaseClass[T](mirror, stack, top)
+                    }
+                  case None =>
+                    val sym = typeRepr.typeSymbol
+                    if (sym.isClassDef && sym.flags.is(Flags.Module)) {
+                      deriveCaseObject[T](stack, top)
+                    }
+                    else {
+                      report.errorAndAbort(s"Deriving schema for ${typeRepr.show} is not supported")
+                    }
               }
           }
         }
