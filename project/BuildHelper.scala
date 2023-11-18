@@ -37,7 +37,7 @@ object BuildHelper {
   val scalaCollectionCompatVersion = "2.10.0"
   val msgpackVersion               = "0.9.6"
   val jacksonScalaVersion          = "2.14.2"
-  val thriftVersion                = "0.18.1"
+  val thriftVersion                = "0.16.0"
   val javaxAnnotationApiVersion    = "1.3.2"
 
   private val testDeps = Seq(
