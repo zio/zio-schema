@@ -517,7 +517,7 @@ object JsonCodec {
       case Schema.Either(left, right, _)         => ZJsonDecoder.either(schemaDecoder(left, hasDiscriminator), schemaDecoder(right, hasDiscriminator))
       case l @ Schema.Lazy(_)                    => schemaDecoder(l.schema, hasDiscriminator)
       //case Schema.Meta(_, _)                                                                           => astDecoder
-      case s @ Schema.CaseClass0(_, _, _)                                => caseClass0Decoder(s)
+      case s @ Schema.CaseClass0(_, _, _)                                => caseClass0Decoder(hasDiscriminator, s)
       case s @ Schema.CaseClass1(_, _, _, _)                             => caseClass1Decoder(hasDiscriminator, s)
       case s @ Schema.CaseClass2(_, _, _, _, _)                          => caseClass2Decoder(hasDiscriminator, s)
       case s @ Schema.CaseClass3(_, _, _, _, _, _)                       => caseClass3Decoder(hasDiscriminator, s)
@@ -833,8 +833,8 @@ object JsonCodec {
   private[codec] object ProductDecoder {
     import zio.schema.codec.JsonCodec.JsonDecoder.schemaDecoder
 
-    private[codec] def caseClass0Decoder[Z](schema: Schema.CaseClass0[Z]): ZJsonDecoder[Z] = { (trace: List[JsonError], in: RetractReader) =>
-      val _ = Codecs.unitDecoder.unsafeDecode(trace, in)
+    private[codec] def caseClass0Decoder[Z](hasDiscriminator: Boolean, schema: Schema.CaseClass0[Z]): ZJsonDecoder[Z] = { (trace: List[JsonError], in: RetractReader) =>
+      if (!hasDiscriminator) Codecs.unitDecoder.unsafeDecode(trace, in)
       schema.defaultConstruct()
     }
 
