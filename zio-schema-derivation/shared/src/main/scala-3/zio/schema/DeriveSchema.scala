@@ -106,7 +106,6 @@ private case class DeriveSchema()(using val ctx: Quotes) {
               }
           }
         }
-        )
     }
 
     //println()
