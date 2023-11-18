@@ -23,22 +23,26 @@ object BuildHelper {
 
   val Scala212: String = versions("2.12")
   val Scala213: String = versions("2.13")
-  val Scala3: String   = versions("3.2") //versions.getOrElse("3.0", versions("3.1"))
+  val Scala3: String   = versions("3.3")
 
-  val zioVersion                   = "2.0.10"
-  val zioJsonVersion               = "0.5.0"
-  val zioPreludeVersion            = "1.0.0-RC18"
+  val zioVersion                   = "2.0.19"
+  val zioJsonVersion               = "0.6.2"
+  val zioPreludeVersion            = "1.0.0-RC21"
   val zioOpticsVersion             = "0.2.1"
-  val zioBsonVersion               = "1.0.2"
-  val silencerVersion              = "1.7.11"
-  val avroVersion                  = "1.11.0"
-  val bsonVersion                  = "4.9.1"
+  val zioBsonVersion               = "1.0.5"
+  val silencerVersion              = "1.7.14"
+  val avroVersion                  = "1.11.3"
+  val bsonVersion                  = "4.11.1"
   val zioConstraintlessVersion     = "0.3.2"
   val scalaCollectionCompatVersion = "2.10.0"
+  val msgpackVersion               = "0.9.6"
+  val jacksonScalaVersion          = "2.15.2"
+  val thriftVersion                = "0.16.0"
+  val javaxAnnotationApiVersion    = "1.3.2"
 
   private val testDeps = Seq(
-    "dev.zio" %% "zio-test"     % zioVersion % "test",
-    "dev.zio" %% "zio-test-sbt" % zioVersion % "test"
+    "dev.zio" %% "zio-test"     % zioVersion % Test,
+    "dev.zio" %% "zio-test-sbt" % zioVersion % Test
   )
 
   def macroDefinitionSettings = Seq(
@@ -47,8 +51,8 @@ object BuildHelper {
       if (scalaVersion.value == Scala3) Seq()
       else
         Seq(
-          "org.scala-lang" % "scala-reflect"  % scalaVersion.value % "provided",
-          "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided"
+          "org.scala-lang" % "scala-reflect"  % scalaVersion.value % Provided,
+          "org.scala-lang" % "scala-compiler" % scalaVersion.value % Provided
         )
     }
   )
@@ -119,18 +123,19 @@ object BuildHelper {
           "-opt-warnings",
           "-Ywarn-extra-implicit",
           "-Ywarn-unused",
-          "-Ymacro-annotations"
+          "-Ymacro-annotations",
+          "-Ywarn-macros:after"
         ) ++ std2xOptions ++ optimizerOptions
       case Some((2, 12)) =>
         Seq(
           "-Ypartial-unification",
           "-opt-warnings",
           "-Ywarn-extra-implicit",
-          "-Ywarn-unused",
           "-Yno-adapted-args",
           "-Ywarn-inaccessible",
           "-Ywarn-nullary-override",
-          "-Ywarn-nullary-unit"
+          "-Ywarn-nullary-unit",
+          "-Wconf:cat=unused-nowarn:s"
         ) ++ std2xOptions ++ optimizerOptions
       case _ => Seq.empty
     }
@@ -205,8 +210,7 @@ object BuildHelper {
       ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
       ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value),
       ThisBuild / scalafixDependencies ++= List(
-        "com.github.liancheng" %% "organize-imports" % "0.6.0",
-        "com.github.vovapolu"  %% "scaluzzi"         % "0.1.21"
+        "com.github.vovapolu" %% "scaluzzi" % "0.1.23"
       ),
       Test / parallelExecution := !sys.env.contains("CI"),
       incOptions ~= (_.withLogRecompileOnMacro(true)),

@@ -1,5 +1,6 @@
 package zio.schema
 
+import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
 
 import zio.Chunk
@@ -64,7 +65,7 @@ object SchemaSpec extends ZIOSpecDefault {
       )
     )
 
-  def schemaEnum(key: String): Schema[Any] =
+  @nowarn def schemaEnum(key: String): Schema[Any] =
     Schema.enumeration[Any, CaseSet.Aux[Any]](
       TypeId.Structural,
       caseOf[Unit, Any](key)(_ => ())(_.asInstanceOf[CaseSet.Aux[Any]])(

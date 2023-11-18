@@ -1,6 +1,5 @@
 package zio.schema
 
-import scala.annotation.nowarn
 import scala.reflect.macros.whitebox
 
 import zio.Chunk
@@ -28,7 +27,7 @@ object DeriveSchema {
 
     def isMap(tpe: Type): Boolean = tpe.typeSymbol.fullName == "scala.collection.immutable.Map"
 
-    @nowarn def collectTypeAnnotations(tpe: Type): List[Tree] =
+    def collectTypeAnnotations(tpe: Type): List[Tree] =
       tpe.typeSymbol.annotations.collect {
         case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
           annotation.tree match {
@@ -185,7 +184,6 @@ object DeriveSchema {
           }
         }
 
-    @nowarn
     def getFieldName(annotations: List[Tree]): Option[String] =
       annotations.collectFirst {
         case q"new fieldName($name1)" => name1.toString
@@ -238,7 +236,6 @@ object DeriveSchema {
             }
             .toMap
 
-        @nowarn
         val fieldAnnotations: List[List[Tree]] = //List.fill(arity)(Nil)
           tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
             symbols.zipWithIndex.map {
@@ -260,8 +257,8 @@ object DeriveSchema {
                 }
                 val hasDefaultAnnotation =
                   annotations.exists {
-                    case q"new _root_.zio.schema.annotation.fieldDefaultValue(..$args)" => true
-                    case _                                                              => false
+                    case q"new _root_.zio.schema.annotation.fieldDefaultValue(..$_)" => true
+                    case _                                                           => false
                   }
                 if (hasDefaultAnnotation || defaultConstructorValues.get(i).isEmpty) {
                   annotations
@@ -274,14 +271,13 @@ object DeriveSchema {
             }.filter(_ != EmptyTree)
           }.getOrElse(Nil)
 
-        @nowarn
         val fieldValidations: List[Tree] =
           tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
             symbols.map { symbol =>
               symbol.annotations.collect {
                 case annotation if (annotation.tree.tpe.toString.startsWith("zio.schema.annotation.validate")) =>
                   annotation.tree match {
-                    case q"new $annConstructor(..$annotationArgs)" =>
+                    case q"new $_(..$annotationArgs)" =>
                       q"..$annotationArgs"
                     case tree =>
                       c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
@@ -541,7 +537,6 @@ object DeriveSchema {
       val hasSimpleEnum: Boolean =
         tpe.typeSymbol.annotations.exists(_.tree.tpe =:= typeOf[_root_.zio.schema.annotation.simpleEnum])
 
-      @nowarn
       val typeAnnotations: List[Tree] = (isSimpleEnum, hasSimpleEnum) match {
         case (true, false) =>
           tpe.typeSymbol.annotations.collect {
@@ -589,8 +584,7 @@ object DeriveSchema {
 
       val typeArgs = subtypes ++ Iterable(tpe)
 
-      val cases = subtypes.map { subtype: Type =>
-        @nowarn
+      val cases = subtypes.map { (subtype: Type) =>
         val typeAnnotations: List[Tree] =
           subtype.typeSymbol.annotations.collect {
             case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
