@@ -1,13 +1,13 @@
 package zio.schema
 
+import scala.annotation.nowarn
 import scala.reflect.ClassTag
+
 import zio.schema.Deriver.WrappedF
 import zio.schema.Schema.Field
 import zio.schema.annotation.fieldDefaultValue
-import zio.test.{Spec, TestEnvironment, ZIOSpecDefault, assertTrue}
-import zio.{Chunk, Scope}
-
-import scala.annotation.nowarn
+import zio.test.{ Spec, TestEnvironment, ZIOSpecDefault, assertTrue }
+import zio.{ Chunk, Scope }
 
 @nowarn object DeriveSpec extends ZIOSpecDefault with VersionSpecificDeriveSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] =

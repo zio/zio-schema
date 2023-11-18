@@ -4,10 +4,12 @@ import java.math.{ BigInteger, MathContext }
 import java.time.temporal.{ ChronoField, ChronoUnit }
 import java.time.{
   DayOfWeek,
+  Duration => JDuration,
   Instant,
   LocalDate,
   LocalDateTime,
   LocalTime,
+  Month => JMonth,
   MonthDay,
   OffsetDateTime,
   OffsetTime,
@@ -16,16 +18,15 @@ import java.time.{
   YearMonth,
   ZoneId,
   ZoneOffset,
-  Duration => JDuration,
-  Month => JMonth,
   ZonedDateTime => JZonedDateTime
 }
 import java.util.UUID
-import scala.collection.immutable.ListMap
-import zio.schema.diff.Edit
-import zio.{ Chunk, ChunkBuilder }
 
 import scala.annotation.nowarn
+import scala.collection.immutable.ListMap
+
+import zio.schema.diff.Edit
+import zio.{ Chunk, ChunkBuilder }
 
 trait Differ[A] { self =>
 
