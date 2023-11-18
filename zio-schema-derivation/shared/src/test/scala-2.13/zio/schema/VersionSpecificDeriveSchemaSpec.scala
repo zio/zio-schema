@@ -1,7 +1,5 @@
 package zio.schema
 
-import scala.annotation.nowarn
-
 import zio.test._
 
 trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
@@ -15,7 +13,7 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
   def verifyFieldName[F]: FieldNameVerifier[F] = new FieldNameVerifier[F]
 
   class FieldNameVerifier[F] {
-    @nowarn def apply[S <: String & scala.Singleton](name: S)(implicit ev: F =:= S): Boolean = true
+    def apply[S <: String & scala.Singleton](name: S)(implicit ev: F =:= S): Boolean = true
   }
 
   def versionSpecificSuite: Spec[Any, Nothing] = Spec.labeled("Scala 2.13 specific tests", Spec.empty)

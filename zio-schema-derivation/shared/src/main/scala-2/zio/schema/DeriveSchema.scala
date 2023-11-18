@@ -1,6 +1,5 @@
 package zio.schema
 
-import scala.annotation.nowarn
 import scala.reflect.macros.whitebox
 
 import zio.Chunk
@@ -15,6 +14,16 @@ object DeriveSchema {
 
     val JavaAnnotationTpe = typeOf[java.lang.annotation.Annotation]
 
+    lazy val optionType = typeOf[Option[_]]
+    lazy val listType   = typeOf[List[_]]
+    lazy val setType    = typeOf[Set[_]]
+    lazy val vectorType = typeOf[Vector[_]]
+    lazy val chunkType  = typeOf[Chunk[_]]
+    lazy val eitherType = typeOf[Either[_, _]]
+    lazy val tuple2Type = typeOf[(_, _)]
+    lazy val tuple3Type = typeOf[(_, _, _)]
+    lazy val tuple4Type = typeOf[(_, _, _, _)]
+
     val tpe = weakTypeOf[T]
 
     def concreteType(seenFrom: Type, tpe: Type): Type =
@@ -28,7 +37,7 @@ object DeriveSchema {
 
     def isMap(tpe: Type): Boolean = tpe.typeSymbol.fullName == "scala.collection.immutable.Map"
 
-    @nowarn def collectTypeAnnotations(tpe: Type): List[Tree] =
+    def collectTypeAnnotations(tpe: Type): List[Tree] =
       tpe.typeSymbol.annotations.collect {
         case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
           annotation.tree match {
@@ -63,7 +72,7 @@ object DeriveSchema {
           s"Failed to derive schema for $tpe. Can only derive Schema for case class or sealed trait"
         )
 
-    def directInferSchema(parentType: Type, schemaType: Type, stack: List[Frame[c.type]]): Tree =
+    def directInferSchema(parentType: Type, schemaType: Type, stack: List[Frame[c.type]]): Tree = {
       stack
         .find(_.tpe =:= schemaType)
         .map {
@@ -84,20 +93,20 @@ object DeriveSchema {
                   case Nil =>
                     recurse(schemaType, stack)
                   case typeArg1 :: Nil =>
-                    if (schemaType <:< c.typeOf[Option[_]])
+                    if (schemaType <:< optionType)
                       q"_root_.zio.schema.Schema.option(_root_.zio.schema.Schema.defer(${directInferSchema(parentType, concreteType(parentType, typeArg1), stack)}))"
-                    else if (schemaType <:< typeOf[List[_]])
+                    else if (schemaType <:< listType)
                       q"_root_.zio.schema.Schema.list(_root_.zio.schema.Schema.defer(${directInferSchema(parentType, concreteType(parentType, typeArg1), stack)}))"
-                    else if (schemaType <:< typeOf[Set[_]])
+                    else if (schemaType <:< setType)
                       q"_root_.zio.schema.Schema.set(_root_.zio.schema.Schema.defer(${directInferSchema(parentType, concreteType(parentType, typeArg1), stack)}))"
-                    else if (schemaType <:< typeOf[Vector[_]])
+                    else if (schemaType <:< vectorType)
                       q"_root_.zio.schema.Schema.vector(_root_.zio.schema.Schema.defer(${directInferSchema(parentType, concreteType(parentType, typeArg1), stack)}))"
-                    else if (schemaType <:< typeOf[Chunk[_]])
+                    else if (schemaType <:< chunkType)
                       q"_root_.zio.schema.Schema.chunk(_root_.zio.schema.Schema.defer(${directInferSchema(parentType, concreteType(parentType, typeArg1), stack)}))"
                     else
                       recurse(schemaType, stack)
                   case typeArg1 :: typeArg2 :: Nil =>
-                    if (schemaType <:< typeOf[Either[_, _]])
+                    if (schemaType <:< eitherType)
                       q"""_root_.zio.schema.Schema.either(
                         _root_.zio.schema.Schema.defer(${directInferSchema(
                         parentType,
@@ -111,7 +120,7 @@ object DeriveSchema {
                       )})
                       )
                    """
-                    else if (schemaType <:< typeOf[(_, _)])
+                    else if (schemaType <:< tuple2Type)
                       q"""_root_.zio.schema.Schema.tuple2(
                         _root_.zio.schema.Schema.defer(${directInferSchema(
                         parentType,
@@ -128,7 +137,7 @@ object DeriveSchema {
                     else
                       recurse(schemaType, stack)
                   case typeArg1 :: typeArg2 :: typeArg3 :: Nil =>
-                    if (schemaType <:< typeOf[(_, _, _)])
+                    if (schemaType <:< tuple3Type)
                       q"""_root_.zio.schema.Schema.tuple3(
                         _root_.zio.schema.Schema.defer(${directInferSchema(
                         parentType,
@@ -151,7 +160,7 @@ object DeriveSchema {
                     else
                       recurse(schemaType, stack)
                   case typeArg1 :: typeArg2 :: typeArg3 :: typeArg4 :: Nil =>
-                    if (schemaType <:< typeOf[(_, _, _)])
+                    if (schemaType <:< tuple4Type)
                       q"""_root_.zio.schema.Schema.tuple4(
                         _root_.zio.schema.Schema.defer(${directInferSchema(
                         parentType,
@@ -184,8 +193,8 @@ object DeriveSchema {
             }
           }
         }
+    }
 
-    @nowarn
     def getFieldName(annotations: List[Tree]): Option[String] =
       annotations.collectFirst {
         case q"new fieldName($name1)" => name1.toString
@@ -222,36 +231,64 @@ object DeriveSchema {
 
         val typeAnnotations: List[Tree] = collectTypeAnnotations(tpe)
 
-        @nowarn
+        val defaultConstructorValues =
+          tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.head
+            .map(_.asTerm)
+            .zipWithIndex
+            .flatMap {
+              case (symbol, i) =>
+                if (symbol.isParamWithDefault) {
+                  val defaultInit  = tpe.companion.member(TermName(s"$$lessinit$$greater$$default$$${i + 1}"))
+                  val defaultApply = tpe.companion.member(TermName(s"apply$$default$$${i + 1}"))
+                  Some(i -> defaultInit)
+                    .filter(_ => defaultInit != NoSymbol)
+                    .orElse(Some(i -> defaultApply).filter(_ => defaultApply != NoSymbol))
+                } else None
+            }
+            .toMap
+
         val fieldAnnotations: List[List[Tree]] = //List.fill(arity)(Nil)
           tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
-            symbols
-              .map(_.annotations.collect {
-                case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
-                  annotation.tree match {
-                    case q"new $annConstructor(..$annotationArgs)" =>
-                      q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
-                    case q"new $annConstructor()" =>
-                      q"new ${annConstructor.tpe.typeSymbol}()"
-                    case tree =>
-                      c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
-                      EmptyTree
+            symbols.zipWithIndex.map {
+              case (symbol, i) =>
+                val annotations = symbol.annotations.collect {
+                  case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
+                    annotation.tree match {
+                      case q"new $annConstructor(..$annotationArgs)" =>
+                        q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
+                      case q"new $annConstructor()" =>
+                        q"new ${annConstructor.tpe.typeSymbol}()"
+                      case tree =>
+                        c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
+                        EmptyTree
+                    }
+                  case annotation =>
+                    c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
+                    EmptyTree
+                }
+                val hasDefaultAnnotation =
+                  annotations.exists {
+                    case q"new _root_.zio.schema.annotation.fieldDefaultValue(..$_)" => true
+                    case _                                                           => false
                   }
-                case annotation =>
-                  c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
-                  EmptyTree
-              })
-              .filter(_ != EmptyTree)
+                if (hasDefaultAnnotation || defaultConstructorValues.get(i).isEmpty) {
+                  annotations
+                } else {
+                  annotations :+
+                    q"new _root_.zio.schema.annotation.fieldDefaultValue[${symbol.typeSignature}](${defaultConstructorValues(i)})"
+
+                }
+
+            }.filter(_ != EmptyTree)
           }.getOrElse(Nil)
 
-        @nowarn
         val fieldValidations: List[Tree] =
           tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
             symbols.map { symbol =>
               symbol.annotations.collect {
                 case annotation if (annotation.tree.tpe.toString.startsWith("zio.schema.annotation.validate")) =>
                   annotation.tree match {
-                    case q"new $annConstructor(..$annotationArgs)" =>
+                    case q"new $_(..$annotationArgs)" =>
                       q"..$annotationArgs"
                     case tree =>
                       c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
@@ -353,7 +390,7 @@ object DeriveSchema {
               val getArg     = TermName(fieldLabel)
 
               val getFunc = q" (z: $tpe) => z.$getArg"
-              val setFunc = q" (z: $tpe, v: ${fieldType}) => z.copy($getArg = v)"
+              val setFunc = q" (z: $tpe, v: $fieldType) => z.copy[..${tpe.typeArgs}]($getArg = v)"
 
               if (annotations.nonEmpty) {
                 val newName       = getFieldName(annotations).getOrElse(fieldLabel)
@@ -378,9 +415,9 @@ object DeriveSchema {
 
           val constructExpr =
             if (arity < 2)
-              q"defaultConstruct0 = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
+              q"defaultConstruct0 = (..$constructArgs) => $tpeCompanion[..${tpe.typeArgs}](..$constructApplyArgs)"
             else
-              q"construct0 = (..$constructArgs) => $tpeCompanion(..$constructApplyArgs)"
+              q"construct0 = (..$constructArgs) => $tpeCompanion[..${tpe.typeArgs}](..$constructApplyArgs)"
 
           val applyArgs =
             if (typeAnnotations.isEmpty)
@@ -501,23 +538,52 @@ object DeriveSchema {
         }
       }
 
-      @nowarn
-      val typeAnnotations: List[Tree] =
-        tpe.typeSymbol.annotations.collect {
-          case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
-            annotation.tree match {
-              case q"new $annConstructor(..$annotationArgs)" =>
-                q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
-              case q"new $annConstructor()" =>
-                q"new ${annConstructor.tpe.typeSymbol}()"
-              case tree =>
-                c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
-                EmptyTree
-            }
-          case annotation =>
-            c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
-            EmptyTree
-        }.filter(_ != EmptyTree)
+      val isSimpleEnum: Boolean =
+        !tpe.typeSymbol.asClass.knownDirectSubclasses.map { subtype =>
+          subtype.typeSignature.decls.sorted.collect {
+            case p: TermSymbol if p.isCaseAccessor && !p.isMethod => p
+          }.size
+        }.exists(_ > 0)
+
+      val hasSimpleEnum: Boolean =
+        tpe.typeSymbol.annotations.exists(_.tree.tpe =:= typeOf[_root_.zio.schema.annotation.simpleEnum])
+
+      val typeAnnotations: List[Tree] = (isSimpleEnum, hasSimpleEnum) match {
+        case (true, false) =>
+          tpe.typeSymbol.annotations.collect {
+            case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
+              annotation.tree match {
+                case q"new $annConstructor(..$annotationArgs)" =>
+                  q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
+                case q"new $annConstructor()" =>
+                  q"new ${annConstructor.tpe.typeSymbol}()"
+                case tree =>
+                  c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
+                  EmptyTree
+              }
+            case annotation =>
+              c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
+              EmptyTree
+          }.filter(_ != EmptyTree).+:(q"new _root_.zio.schema.annotation.simpleEnum(true)")
+        case (false, true) =>
+          c.abort(c.enclosingPosition, s"${show(tpe)} must be a simple Enum")
+        case _ =>
+          tpe.typeSymbol.annotations.collect {
+            case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
+              annotation.tree match {
+                case q"new $annConstructor(..$annotationArgs)" =>
+                  q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
+                case q"new $annConstructor()" =>
+                  q"new ${annConstructor.tpe.typeSymbol}()"
+                case tree =>
+                  c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
+                  EmptyTree
+              }
+            case annotation =>
+              c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
+              EmptyTree
+          }.filter(_ != EmptyTree)
+      }
 
       val selfRefName  = c.freshName("ref")
       val selfRefIdent = Ident(TermName(selfRefName))
@@ -529,8 +595,7 @@ object DeriveSchema {
 
       val typeArgs = subtypes ++ Iterable(tpe)
 
-      val cases = subtypes.map { subtype: Type =>
-        @nowarn
+      val cases = subtypes.map { (subtype: Type) =>
         val typeAnnotations: List[Tree] =
           subtype.typeSymbol.annotations.collect {
             case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>

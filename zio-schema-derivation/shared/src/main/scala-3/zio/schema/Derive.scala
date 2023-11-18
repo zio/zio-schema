@@ -14,7 +14,9 @@ object Derive {
     DeriveInstance().deriveInstance[F, A](deriver, schema, top = true)
 }
 
-private case class DeriveInstance()(using val ctx: Quotes) extends ReflectionUtils(ctx) {
+private case class DeriveInstance()(using val ctx: Quotes) {
+  val reflectionUtils = ReflectionUtils(ctx)
+  import reflectionUtils.{MirrorType, Mirror, summonOptional}
   import ctx.reflect._
    
   case class Frame(ref: Term, tpe: TypeRepr)

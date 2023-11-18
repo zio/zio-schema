@@ -1,6 +1,8 @@
 package zio.schema
 
+import zio.Chunk
 import zio.test.*
+import zio.schema.annotation.simpleEnum
 
 trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
   case class ContainerFields(field1: Option[String])
@@ -20,6 +22,12 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
 
   final case class AutoDerives(i: Int) derives Schema
 
+  enum Colour(val rgb: Int) {
+    case Red extends Colour(0xff0000)
+    case Green extends Colour(0x00ff00)
+    case Blue extends Colour(0x0000ff)
+  }
+
   def versionSpecificSuite = Spec.labeled(
     "Scala 3 specific tests", 
     suite("Derivation")(
@@ -35,6 +43,10 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
           AutoDerives.apply
         )
         assert(Schema[AutoDerives])(hasSameSchema(expected))
+      },
+      test("correctly assigns simpleEnum to enum") {
+        val derived: Schema[Colour] = DeriveSchema.gen[Colour]
+        assertTrue(derived.annotations == Chunk(simpleEnum(true)))
       }
     )
   )

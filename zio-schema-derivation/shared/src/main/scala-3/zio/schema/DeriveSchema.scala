@@ -18,7 +18,9 @@ object DeriveSchema {
     DeriveSchema().deriveSchema[T](top = true)
 }
 
-private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils(ctx) {
+private case class DeriveSchema()(using val ctx: Quotes) {
+  val reflectionUtils = ReflectionUtils(ctx)
+  import reflectionUtils.{MirrorType, Mirror, summonOptional}
   import ctx.reflect._
    
   case class Frame(ref: Term, tpe: TypeRepr)
@@ -51,6 +53,14 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
       case Some(ref) =>
         '{ Schema.defer(${ref.asExprOf[Schema[T]]}) }
       case None => 
+        val summoned = if (!top) Expr.summon[Schema[T]] else None
+        if (!top && summoned.isDefined) {
+          '{
+            Schema.defer(${
+              summoned.get
+            })
+          }.asExprOf[Schema[T]]
+        } else {
         typeRepr.asType match {
           case '[List[a]] =>
             val schema = deriveSchema[a](stack)
@@ -76,15 +86,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
           case '[zio.Chunk[a]] =>
             val schema = deriveSchema[a](stack)
             '{ Schema.chunk(Schema.defer(${schema})) }.asExprOf[Schema[T]]
-          case _ => 
-            val summoned = if (!top) Expr.summon[Schema[T]] else None
-            summoned match {
-              case Some(schema) =>
-                // println(s"FOR TYPE ${typeRepr.show}")
-                // println(s"STACK ${stack.find(typeRepr)}")
-                // println(s"Found schema ${schema.show}")
-                schema
-              case _ =>
+          case _ =>
                 Mirror(typeRepr) match {
                   case Some(mirror) =>
                     mirror.mirrorType match {
@@ -102,7 +104,7 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
                       report.errorAndAbort(s"Deriving schema for ${typeRepr.show} is not supported")
                     }
               }
-            }
+          }
         }
     }
 
@@ -275,13 +277,44 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
         field.name -> field.annotations.filter(filterAnnotation).map(_.asExpr)
     }
 
-  private def fromConstructor(from: Symbol): scala.collection.Map[String, List[Expr[Any]]] =
+  private def defaultValues(from: Symbol): Predef.Map[String, Expr[Any]] =
+    (1 to from.primaryConstructor.paramSymss.size).toList.map(
+      i =>
+          from
+            .companionClass
+            .declaredMethod(s"$$lessinit$$greater$$default$$$i")
+            .headOption
+            .orElse(
+              from
+                .companionClass
+                .declaredMethod(s"$$apply$$default$$$i")
+                .headOption
+            )
+            .map { s =>
+              val select = Select(Ref(from.companionModule), s)
+              if (select.isExpr) select.asExpr
+              else select.appliedToType(TypeRepr.of[Any]).asExpr
+            }
+      ).zip(from.primaryConstructor.paramSymss.flatten.filter(!_.isTypeParam).map(_.name)).collect{ case (Some(expr), name) => name -> expr }.toMap
+
+  private def fromConstructor(from: Symbol): scala.collection.Map[String, List[Expr[Any]]] = {
+      val defaults = defaultValues(from)
       from.primaryConstructor.paramSymss.flatten.map { field =>
-        field.name -> field.annotations
-          .filter(filterAnnotation)
-          .map(_.asExpr.asInstanceOf[Expr[Any]])
+        field.name -> {
+          val annos = field.annotations
+            .filter(filterAnnotation)
+            .map(_.asExpr.asInstanceOf[Expr[Any]])
+          val hasDefaultAnnotation =
+            field.annotations.exists(_.tpe <:< TypeRepr.of[zio.schema.annotation.fieldDefaultValue[_]])
+          if (hasDefaultAnnotation || defaults.get(field.name).isEmpty) {
+            annos
+          } else {
+            annos :+ '{zio.schema.annotation.fieldDefaultValue(${defaults(field.name)})}.asExprOf[Any]
+          }
+        }
       }.toMap
-  
+  }
+
   def deriveEnum[T: Type](mirror: Mirror, stack: Stack)(using Quotes) = {
     val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.noSymbol)
     val selfRef = Ref(selfRefSymbol)
@@ -293,7 +326,15 @@ private case class DeriveSchema()(using val ctx: Quotes) extends ReflectionUtils
 
     val cases = typesAndLabels.map { case (tpe, label) => deriveCase[T](tpe, label, newStack) }
 
-    val annotationExprs = TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
+    val numParentFields: Int = TypeRepr.of[T].typeSymbol.declaredFields.length
+    val isSimpleEnum: Boolean = !TypeRepr.of[T].typeSymbol.children.map(_.declaredFields.length).exists( _ > numParentFields )
+    val hasSimpleEnumAnn: Boolean = TypeRepr.of[T].typeSymbol.hasAnnotation(TypeRepr.of[_root_.zio.schema.annotation.simpleEnum].typeSymbol)
+
+    val annotationExprs = (isSimpleEnum, hasSimpleEnumAnn) match {
+      case (true, false) => TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr).+:('{zio.schema.annotation.simpleEnum(true)})
+      case (false, true) => throw new Exception(s"${TypeRepr.of[T].typeSymbol.name} must be a simple Enum")
+      case _             => TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
+    }
     val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) }
 
     val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
