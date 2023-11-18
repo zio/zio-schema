@@ -5,6 +5,7 @@ import scala.reflect.ClassTag
 
 import zio.schema.Deriver.WrappedF
 import zio.schema.Schema.Field
+import zio.schema.annotation.fieldDefaultValue
 import zio.test.{ Spec, TestEnvironment, ZIOSpecDefault, assertTrue }
 import zio.{ Chunk, Scope }
 
@@ -161,6 +162,43 @@ object DeriveSpec extends ZIOSpecDefault with VersionSpecificDeriveSpec {
           assertTrue(refEquals)
         }
       ),
+      suite("default field values")(
+        test("use case class default values") {
+          val capturedSchema = Derive.derive[CapturedSchema, RecordWithDefaultValue](schemaCapturer)
+          val annotations = capturedSchema.schema
+            .asInstanceOf[Schema.Record[RecordWithDefaultValue]]
+            .fields(0)
+            .annotations
+          assertTrue(
+            annotations
+              .exists(a => a.isInstanceOf[fieldDefaultValue[_]] && a.asInstanceOf[fieldDefaultValue[Int]].value == 42)
+          )
+        },
+        test("use case class default values of generic class") {
+          val capturedSchema = Derive.derive[CapturedSchema, GenericRecordWithDefaultValue[Int]](schemaCapturer)
+          val annotations = capturedSchema.schema
+            .asInstanceOf[Schema.Record[GenericRecordWithDefaultValue[Int]]]
+            .fields(0)
+            .annotations
+          assertTrue {
+            annotations.exists { a =>
+              a.isInstanceOf[fieldDefaultValue[_]] &&
+              a.asInstanceOf[fieldDefaultValue[Option[Int]]].value == None
+            }
+          }
+        },
+        test("prefer field annotations over case class default values") {
+          val capturedSchema = Derive.derive[CapturedSchema, RecordWithDefaultValue](schemaCapturer)
+          val annotations = capturedSchema.schema
+            .asInstanceOf[Schema.Record[RecordWithDefaultValue]]
+            .fields(1)
+            .annotations
+          assertTrue(
+            annotations
+              .exists(a => a.isInstanceOf[fieldDefaultValue[_]] && a.asInstanceOf[fieldDefaultValue[Int]].value == 52)
+          )
+        }
+      ),
       versionSpecificSuite
     )
 
@@ -271,6 +309,20 @@ object DeriveSpec extends ZIOSpecDefault with VersionSpecificDeriveSpec {
 
   object RecordWithBigTuple {
     implicit val schema: Schema[RecordWithBigTuple] = DeriveSchema.gen[RecordWithBigTuple]
+  }
+
+  case class RecordWithDefaultValue(int: Int = 42, @fieldDefaultValue(52) int2: Int = 42)
+
+  object RecordWithDefaultValue {
+    implicit val schema: Schema[RecordWithDefaultValue] = DeriveSchema.gen[RecordWithDefaultValue]
+  }
+
+  case class GenericRecordWithDefaultValue[T](int: Option[T] = None, @fieldDefaultValue(52) int2: Int = 42)
+
+  object GenericRecordWithDefaultValue {
+    //explicitly Int, because generic implicit definition leads to "Schema derivation exceeded" error
+    implicit def schema: Schema[GenericRecordWithDefaultValue[Int]] =
+      DeriveSchema.gen[GenericRecordWithDefaultValue[Int]]
   }
 
   sealed trait Enum1

@@ -3,7 +3,7 @@ package zio.schema
 import scala.annotation.Annotation
 
 import zio.Chunk
-import zio.schema.annotation.{ fieldName, optionalField }
+import zio.schema.annotation.{ fieldName, optionalField, simpleEnum }
 import zio.test._
 
 object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaSpec {
@@ -249,6 +249,13 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     implicit val schema: Schema[OptionalField] = DeriveSchema.gen[OptionalField]
   }
 
+  @simpleEnum
+  sealed trait SimpleEnum1
+  case class SimpleClass1() extends SimpleEnum1
+
+  sealed trait SimpleEnum2
+  case class SimpleClass2() extends SimpleEnum2
+
   override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("correctly derives case class 0") {
@@ -459,6 +466,14 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
           )
         }
         assert(derived)(hasSameSchema(expected))
+      },
+      test("correctly derives simpleEnum with annotation") {
+        val derived = DeriveSchema.gen[SimpleEnum1]
+        assertTrue(derived.annotations == Chunk(simpleEnum(false)))
+      },
+      test("correctly derives simpleEnum without annotation") {
+        val derived = DeriveSchema.gen[SimpleEnum2]
+        assertTrue(derived.annotations == Chunk(simpleEnum(true)))
       }
     ),
     versionSpecificSuite

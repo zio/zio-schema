@@ -7,6 +7,7 @@ import scala.collection.immutable.ListMap
 import zio.Console._
 import zio._
 import zio.json.JsonDecoder.JsonError
+import zio.json.ast.Json
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
@@ -57,6 +58,63 @@ object JsonCodecSpec extends ZIOSpecDefault {
             Schema.Optional(Schema.Primitive(StandardType.StringType)),
             None
           )
+      }
+    ),
+    suite("optional field annotation")(
+      test("list empty") {
+        assertEncodesJson(
+          Schema[WithOptField],
+          WithOptField(Nil, Map("foo" -> 1)),
+          """{"map":{"foo":1}}"""
+        )
+      },
+      test("map empty") {
+        assertEncodesJson(
+          Schema[WithOptField],
+          WithOptField(List("foo"), Map.empty),
+          """{"list":["foo"]}"""
+        )
+      },
+      test("all empty") {
+        assertEncodesJson(
+          Schema[WithOptField],
+          WithOptField(Nil, Map.empty),
+          """{}"""
+        )
+      }
+    ),
+    suite("empty collections config")(
+      test("list empty") {
+        assertEncodesJson(
+          Schema[ListAndMap],
+          ListAndMap(Nil, Map("foo" -> 1)),
+          """{"map":{"foo":1}}""",
+          JsonCodec.Config(ignoreEmptyCollections = true)
+        )
+      },
+      test("map empty") {
+        assertEncodesJson(
+          Schema[ListAndMap],
+          ListAndMap(List("foo"), Map.empty),
+          """{"list":["foo"]}""",
+          JsonCodec.Config(ignoreEmptyCollections = true)
+        )
+      },
+      test("all empty") {
+        assertEncodesJson(
+          Schema[ListAndMap],
+          ListAndMap(Nil, Map.empty),
+          """{}""",
+          JsonCodec.Config(ignoreEmptyCollections = true)
+        )
+      },
+      test("all empty, but don't ignore empty collections") {
+        assertEncodesJson(
+          Schema[ListAndMap],
+          ListAndMap(Nil, Map.empty),
+          """{"list":[],"map":{}}""",
+          JsonCodec.Config(ignoreEmptyCollections = false)
+        )
       }
     ),
     suite("tuple")(
@@ -249,6 +307,64 @@ object JsonCodecSpec extends ZIOSpecDefault {
             )
           ),
           charSequenceToByteChunk("""{"foo":"s","bar":1}""")
+        )
+      }
+    ),
+    suite("zio.json.ast.Json encoding")(
+      test("Json.Obj") {
+        assertEncodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Obj("foo" -> Json.Str("bar"), "null" -> Json.Null),
+          charSequenceToByteChunk("""{"foo":"bar","null":null}""")
+        )
+      },
+      test("Json.Arr") {
+        assertEncodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Arr(Json.Str("foo"), Json.Num(1)),
+          charSequenceToByteChunk("""["foo",1]""")
+        )
+      },
+      test("Json.Num Int") {
+        assertEncodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Num(1),
+          charSequenceToByteChunk("""1""")
+        )
+      },
+      test("Json.Num Long") {
+        assertEncodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Num(1L),
+          charSequenceToByteChunk("""1""")
+        )
+      },
+      test("Json.Num Double") {
+        assertEncodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Num(1.1),
+          charSequenceToByteChunk("""1.1""")
+        )
+      },
+      test("Json.Str") {
+        assertEncodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Str("foo"),
+          charSequenceToByteChunk(""""foo"""")
+        )
+      },
+      test("Json.Bool") {
+        assertEncodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Bool(true),
+          charSequenceToByteChunk("""true""")
+        )
+      },
+      test("Json.Null") {
+        assertEncodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Null,
+          charSequenceToByteChunk("""null""")
         )
       }
     )
@@ -486,6 +602,64 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk(
             """{"0":{"first":0,"second":true},"1":{"first":1,"second":false}}"""
           )
+        )
+      }
+    ),
+    suite("zio.json.ast.Json decoding")(
+      test("Json.Obj") {
+        assertDecodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Obj("foo" -> Json.Str("bar"), "null" -> Json.Null),
+          charSequenceToByteChunk("""{"foo":"bar","null":null}""")
+        )
+      },
+      test("Json.Arr") {
+        assertDecodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Arr(Json.Str("foo"), Json.Num(1)),
+          charSequenceToByteChunk("""["foo",1]""")
+        )
+      },
+      test("Json.Num Int") {
+        assertDecodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Num(1),
+          charSequenceToByteChunk("""1""")
+        )
+      },
+      test("Json.Num Long") {
+        assertDecodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Num(1L),
+          charSequenceToByteChunk("""1""")
+        )
+      },
+      test("Json.Num Double") {
+        assertDecodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Num(1.1),
+          charSequenceToByteChunk("""1.1""")
+        )
+      },
+      test("Json.Str") {
+        assertDecodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Str("foo"),
+          charSequenceToByteChunk(""""foo"""")
+        )
+      },
+      test("Json.Bool") {
+        assertDecodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Bool(true),
+          charSequenceToByteChunk("""true""")
+        )
+      },
+      test("Json.Null") {
+        assertDecodes(
+          zio.schema.codec.json.schemaJson,
+          Json.Null,
+          charSequenceToByteChunk("""null""")
         )
       }
     )
@@ -1032,10 +1206,16 @@ object JsonCodecSpec extends ZIOSpecDefault {
     )
   )
 
-  private def assertEncodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte], print: Boolean = false) = {
+  private def assertEncodes[A](
+    schema: Schema[A],
+    value: A,
+    chunk: Chunk[Byte],
+    cfg: JsonCodec.Config = JsonCodec.Config.default,
+    print: Boolean = false
+  ) = {
     val stream = ZStream
       .succeed(value)
-      .via(JsonCodec.schemaBasedBinaryCodec(schema).streamEncoder)
+      .via(JsonCodec.schemaBasedBinaryCodec(cfg)(schema).streamEncoder)
       .runCollect
       .tap { chunk =>
         printLine(s"${new String(chunk.toArray)}").when(print).ignore
@@ -1043,10 +1223,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
     assertZIO(stream)(equalTo(chunk))
   }
 
-  private def assertEncodesJson[A](schema: Schema[A], value: A, json: String) = {
+  private def assertEncodesJson[A](
+    schema: Schema[A],
+    value: A,
+    json: String,
+    cfg: JsonCodec.Config = JsonCodec.Config.default
+  ) = {
     val stream = ZStream
       .succeed(value)
-      .via(JsonCodec.schemaBasedBinaryCodec[A](schema).streamEncoder)
+      .via(JsonCodec.schemaBasedBinaryCodec[A](cfg)(schema).streamEncoder)
       .runCollect
       .map(chunk => new String(chunk.toArray))
     assertZIO(stream)(equalTo(json))
@@ -1060,17 +1245,27 @@ object JsonCodecSpec extends ZIOSpecDefault {
     assertZIO(stream)(equalTo(jsonEncoded(value)))
   }
 
-  private def assertDecodesToError[A](schema: Schema[A], json: CharSequence, errors: List[JsonError]) = {
+  private def assertDecodesToError[A](
+    schema: Schema[A],
+    json: CharSequence,
+    errors: List[JsonError],
+    cfg: JsonCodec.Config = JsonCodec.Config.default
+  ) = {
     val stream = ZStream
       .fromChunk(charSequenceToByteChunk(json))
-      .via(JsonCodec.schemaBasedBinaryCodec[A](schema).streamDecoder)
+      .via(JsonCodec.schemaBasedBinaryCodec[A](cfg)(schema).streamDecoder)
       .catchAll(ZStream.succeed[DecodeError](_))
       .runHead
     assertZIO(stream)(isSome(equalTo(ReadError(Cause.empty, JsonError.render(errors)))))
   }
 
-  private def assertDecodes[A](schema: Schema[A], value: A, chunk: Chunk[Byte]) = {
-    val result = ZStream.fromChunk(chunk).via(JsonCodec.schemaBasedBinaryCodec[A](schema).streamDecoder).runCollect
+  private def assertDecodes[A](
+    schema: Schema[A],
+    value: A,
+    chunk: Chunk[Byte],
+    cfg: JsonCodec.Config = JsonCodec.Config.default
+  ) = {
+    val result = ZStream.fromChunk(chunk).via(JsonCodec.schemaBasedBinaryCodec[A](cfg)(schema).streamDecoder).runCollect
     assertZIO(result)(equalTo(Chunk(value)))
   }
 
@@ -1082,18 +1277,19 @@ object JsonCodecSpec extends ZIOSpecDefault {
     decodingSchema: Schema[A2],
     value: A1,
     compare: (A1, A2) => Boolean,
-    print: Boolean
+    print: Boolean,
+    cfg: JsonCodec.Config = JsonCodec.Config.default
   ) =
     ZStream
       .succeed(value)
       .tap(value => printLine(s"Input Value: $value").when(print).ignore)
-      .via(JsonCodec.schemaBasedBinaryCodec[A1](encodingSchema).streamEncoder)
+      .via(JsonCodec.schemaBasedBinaryCodec[A1](cfg)(encodingSchema).streamEncoder)
       .runCollect
       .tap(encoded => printLine(s"Encoded: ${new String(encoded.toArray)}").when(print).ignore)
       .flatMap { encoded =>
         ZStream
           .fromChunk(encoded)
-          .via(JsonCodec.schemaBasedBinaryCodec[A2](decodingSchema).streamDecoder)
+          .via(JsonCodec.schemaBasedBinaryCodec[A2](cfg)(decodingSchema).streamDecoder)
           .runCollect
           .tapError { err =>
             printLineError(s"Decoding failed for input ${new String(encoded.toArray)}\nError Message: $err")
@@ -1368,5 +1564,17 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object WithOptionFields {
     implicit lazy val schema: Schema[WithOptionFields] = DeriveSchema.gen[WithOptionFields]
+  }
+
+  final case class WithOptField(@optionalField list: List[String], @optionalField map: Map[String, Int])
+
+  object WithOptField {
+    implicit lazy val schema: Schema[WithOptField] = DeriveSchema.gen[WithOptField]
+  }
+
+  final case class ListAndMap(list: List[String], map: Map[String, Int])
+
+  object ListAndMap {
+    implicit lazy val schema: Schema[ListAndMap] = DeriveSchema.gen[ListAndMap]
   }
 }
