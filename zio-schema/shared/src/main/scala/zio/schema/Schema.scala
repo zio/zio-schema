@@ -1,6 +1,6 @@
 package zio.schema
 
-import java.net.{ URI, URL }
+import java.net.URI
 import java.time.temporal.ChronoUnit
 
 import scala.annotation.tailrec
@@ -322,7 +322,7 @@ object Schema extends SchemaEquality {
     Schema[String].transformOrFail(
       string =>
         try {
-          Right(new URL(string))
+          Right(new URI(string).toURL)
         } catch { case _: Exception => Left(s"Invalid URL: $string") },
       url => Right(url.toString)
     )

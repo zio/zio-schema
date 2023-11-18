@@ -24,7 +24,7 @@ import zio.schema.validation.Validation
 case class Person(name: String, age: Int)
 
 object Person {
-  implicit val schema = CaseClass2(
+  implicit val schema: Schema[Person] = CaseClass2(
     id0 = TypeId.fromTypeName("Person"),
     field01 = Schema.Field(
       name0 = "name",
