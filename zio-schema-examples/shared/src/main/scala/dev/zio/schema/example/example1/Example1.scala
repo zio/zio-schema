@@ -145,9 +145,11 @@ object JsonSample extends zio.ZIOAppDefault {
 
   override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
-      _                      <- ZIO.unit
-      person                 = Person("Michelle", 32)
-      personToJsonTransducer = JsonCodec.schemaBasedBinaryCodec[Person](schemaPerson).streamEncoder
+      _      <- ZIO.unit
+      person = Person("Michelle", 32)
+      personToJsonTransducer = JsonCodec
+        .schemaBasedBinaryCodec[Person](schemaPerson)
+        .streamEncoder
       _ <- ZStream(person)
             .via(personToJsonTransducer)
             .via(ZPipeline.utf8Decode)
@@ -226,10 +228,14 @@ object DictionaryExample extends ZIOAppDefault {
       person     = Person("Mike", 32)
       dictionary = Map("m" -> person)
       dictionaryToJson = JsonCodec
-        .schemaBasedBinaryCodec[scala.collection.immutable.Map[String, Person]](schemaPersonDictionaryFromMacro)
+        .schemaBasedBinaryCodec[scala.collection.immutable.Map[String, Person]](
+          schemaPersonDictionaryFromMacro
+        )
         .streamEncoder
       jsonToDictionary = JsonCodec
-        .schemaBasedBinaryCodec[scala.collection.immutable.Map[String, Person]](schemaPersonDictionaryFromMacro)
+        .schemaBasedBinaryCodec[scala.collection.immutable.Map[String, Person]](
+          schemaPersonDictionaryFromMacro
+        )
         .streamDecoder
       newPersonDictionary <- ZStream(dictionary)
                               .via(dictionaryToJson)

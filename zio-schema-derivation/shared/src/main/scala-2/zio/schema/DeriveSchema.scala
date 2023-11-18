@@ -222,26 +222,56 @@ object DeriveSchema {
 
         val typeAnnotations: List[Tree] = collectTypeAnnotations(tpe)
 
+        val defaultConstructorValues =
+          tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.head
+            .map(_.asTerm)
+            .zipWithIndex
+            .flatMap {
+              case (symbol, i) =>
+                if (symbol.isParamWithDefault) {
+                  val defaultInit  = tpe.companion.member(TermName(s"$$lessinit$$greater$$default$$${i + 1}"))
+                  val defaultApply = tpe.companion.member(TermName(s"apply$$default$$${i + 1}"))
+                  Some(i -> defaultInit)
+                    .filter(_ => defaultInit != NoSymbol)
+                    .orElse(Some(i -> defaultApply).filter(_ => defaultApply != NoSymbol))
+                } else None
+            }
+            .toMap
+
         @nowarn
         val fieldAnnotations: List[List[Tree]] = //List.fill(arity)(Nil)
           tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
-            symbols
-              .map(_.annotations.collect {
-                case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
-                  annotation.tree match {
-                    case q"new $annConstructor(..$annotationArgs)" =>
-                      q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
-                    case q"new $annConstructor()" =>
-                      q"new ${annConstructor.tpe.typeSymbol}()"
-                    case tree =>
-                      c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
-                      EmptyTree
+            symbols.zipWithIndex.map {
+              case (symbol, i) =>
+                val annotations = symbol.annotations.collect {
+                  case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
+                    annotation.tree match {
+                      case q"new $annConstructor(..$annotationArgs)" =>
+                        q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
+                      case q"new $annConstructor()" =>
+                        q"new ${annConstructor.tpe.typeSymbol}()"
+                      case tree =>
+                        c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
+                        EmptyTree
+                    }
+                  case annotation =>
+                    c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
+                    EmptyTree
+                }
+                val hasDefaultAnnotation =
+                  annotations.exists {
+                    case q"new _root_.zio.schema.annotation.fieldDefaultValue(..$args)" => true
+                    case _                                                              => false
                   }
-                case annotation =>
-                  c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
-                  EmptyTree
-              })
-              .filter(_ != EmptyTree)
+                if (hasDefaultAnnotation || defaultConstructorValues.get(i).isEmpty) {
+                  annotations
+                } else {
+                  annotations :+
+                    q"new _root_.zio.schema.annotation.fieldDefaultValue[${symbol.typeSignature}](${defaultConstructorValues(i)})"
+
+                }
+
+            }.filter(_ != EmptyTree)
           }.getOrElse(Nil)
 
         @nowarn
@@ -501,23 +531,53 @@ object DeriveSchema {
         }
       }
 
+      val isSimpleEnum: Boolean =
+        !tpe.typeSymbol.asClass.knownDirectSubclasses.map { subtype =>
+          subtype.typeSignature.decls.sorted.collect {
+            case p: TermSymbol if p.isCaseAccessor && !p.isMethod => p
+          }.size
+        }.exists(_ > 0)
+
+      val hasSimpleEnum: Boolean =
+        tpe.typeSymbol.annotations.exists(_.tree.tpe =:= typeOf[_root_.zio.schema.annotation.simpleEnum])
+
       @nowarn
-      val typeAnnotations: List[Tree] =
-        tpe.typeSymbol.annotations.collect {
-          case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
-            annotation.tree match {
-              case q"new $annConstructor(..$annotationArgs)" =>
-                q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
-              case q"new $annConstructor()" =>
-                q"new ${annConstructor.tpe.typeSymbol}()"
-              case tree =>
-                c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
-                EmptyTree
-            }
-          case annotation =>
-            c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
-            EmptyTree
-        }.filter(_ != EmptyTree)
+      val typeAnnotations: List[Tree] = (isSimpleEnum, hasSimpleEnum) match {
+        case (true, false) =>
+          tpe.typeSymbol.annotations.collect {
+            case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
+              annotation.tree match {
+                case q"new $annConstructor(..$annotationArgs)" =>
+                  q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
+                case q"new $annConstructor()" =>
+                  q"new ${annConstructor.tpe.typeSymbol}()"
+                case tree =>
+                  c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
+                  EmptyTree
+              }
+            case annotation =>
+              c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
+              EmptyTree
+          }.filter(_ != EmptyTree).+:(q"new _root_.zio.schema.annotation.simpleEnum(true)")
+        case (false, true) =>
+          c.abort(c.enclosingPosition, s"${show(tpe)} must be a simple Enum")
+        case _ =>
+          tpe.typeSymbol.annotations.collect {
+            case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
+              annotation.tree match {
+                case q"new $annConstructor(..$annotationArgs)" =>
+                  q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
+                case q"new $annConstructor()" =>
+                  q"new ${annConstructor.tpe.typeSymbol}()"
+                case tree =>
+                  c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
+                  EmptyTree
+              }
+            case annotation =>
+              c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
+              EmptyTree
+          }.filter(_ != EmptyTree)
+      }
 
       val selfRefName  = c.freshName("ref")
       val selfRefIdent = Ident(TermName(selfRefName))
