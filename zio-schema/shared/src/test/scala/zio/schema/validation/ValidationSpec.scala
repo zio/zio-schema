@@ -3,17 +3,19 @@ package zio.schema.validation
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+import scala.collection.immutable.ListMap
 import scala.util.Try
 
-import zio.Scope
+import zio.schema.{ FieldSet, Schema, TypeId }
 import zio.test._
+import zio.{ Chunk, Scope }
 
 object ValidationSpec extends ZIOSpecDefault {
+  import zio.schema.validation.ValidationSpec.AmPm._
+  import zio.schema.validation.ValidationSpec.Fraction._
   import zio.schema.validation.ValidationSpec.Hour._
   import zio.schema.validation.ValidationSpec.Minute._
   import zio.schema.validation.ValidationSpec.Second._
-  import zio.schema.validation.ValidationSpec.Fraction._
-  import zio.schema.validation.ValidationSpec.AmPm._
 
   def spec: Spec[Environment with TestEnvironment with Scope, Any] = suite("ValidationSpec")(
     test("Greater than") {
@@ -330,6 +332,22 @@ object ValidationSpec extends ZIOSpecDefault {
       check(Gen.finiteDuration) { duration =>
         assertTrue(Validation.duration.validate(duration.toString).isRight)
       }
+    },
+    test("Generic record should validate object with missing keys") {
+      val genericRecord = Schema.GenericRecord(
+        TypeId.parse("Person"),
+        FieldSet(
+          Schema
+            .Field[ListMap[String, _], String](
+              "name",
+              Schema.primitive[String],
+              get0 = _("name").asInstanceOf[String],
+              set0 = (p, v) => p + ("name" -> v)
+            )
+        )
+      )
+      val validation = genericRecord.validate(ListMap())(genericRecord)
+      assertTrue(validation.map(_.message) == Chunk("Missing field name"))
     }
   )
 

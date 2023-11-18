@@ -228,7 +228,9 @@ object Schema extends SchemaEquality {
           record.fields
             .zip(fieldValues)
             .foldLeft[Chunk[ValidationError]](Chunk.empty) {
-              case (acc, (field, fieldValue)) =>
+              case (acc, (field, None)) =>
+                Chunk(ValidationError.MissingField(field)) ++ acc
+              case (acc, (field, Some(fieldValue))) =>
                 val validation = field.validation.asInstanceOf[Validation[Any]]
                 validation.validate(fieldValue).swap.getOrElse(Chunk.empty) ++ acc ++ loop(
                   fieldValue,
@@ -416,7 +418,7 @@ object Schema extends SchemaEquality {
 
     def construct(fieldValues: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, R]
 
-    def deconstruct(value: R)(implicit unsafe: Unsafe): Chunk[Any]
+    def deconstruct(value: R)(implicit unsafe: Unsafe): Chunk[Option[Any]]
 
     def id: TypeId
 
@@ -3320,8 +3322,8 @@ object Schema extends SchemaEquality {
       else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(values: ListMap[String, _])(implicit unsafe: Unsafe): Chunk[Any] =
-      Chunk.fromIterable(fields.map(f => values(f.name)))
+    override def deconstruct(values: ListMap[String, _])(implicit unsafe: Unsafe): Chunk[Option[Any]] =
+      Chunk.fromIterable(fields.map(f => values.get(f.name)))
 
     /**
      * Returns a new schema that with `annotation`
@@ -3352,7 +3354,7 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(Some(value))
 
     override def toString: String = s"CaseClass0($id, ${fields.mkString(",")})"
   }
@@ -3403,8 +3405,8 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(field.get(value))
-    override def toString: String                                           = s"CaseClass1(${fields.mkString(",")})"
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(Some(field.get(value)))
+    override def toString: String                                                   = s"CaseClass1(${fields.mkString(",")})"
   }
 
   object CaseClass1 {
@@ -3470,8 +3472,8 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
-      Chunk(field1.get(value), field2.get(value))
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] =
+      Chunk(Some(field1.get(value)), Some(field2.get(value)))
 
     override def toString: String = s"CaseClass2($id, ${fields.mkString(",")})"
   }
@@ -3550,8 +3552,8 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
-      Chunk(field1.get(value), field2.get(value), field3.get(value))
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] =
+      Chunk(Some(field1.get(value)), Some(field2.get(value)), Some(field3.get(value)))
     override def toString: String = s"CaseClass3($id, ${fields.mkString(",")})"
   }
 
@@ -3652,8 +3654,8 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] =
-      Chunk(field1.get(value), field2.get(value), field3.get(value), field4.get(value))
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] =
+      Chunk(Some(field1.get(value)), Some(field2.get(value)), Some(field3.get(value)), Some(field4.get(value)))
     override def toString: String = s"CaseClass4($id, ${fields.mkString(",")})"
   }
 
@@ -3773,12 +3775,12 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value))
     )
     override def toString: String = s"CaseClass5($id, ${fields.mkString(",")})"
   }
@@ -3927,13 +3929,13 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value)),
+      Some(field6.get(value))
     )
 
     override def toString: String = s"CaseClass6($id, ${fields.mkString(",")})"
@@ -4101,14 +4103,14 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value),
-      field7.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value)),
+      Some(field6.get(value)),
+      Some(field7.get(value))
     )
 
     override def toString: String = s"CaseClass7($id, ${fields.mkString(",")})"
@@ -4308,15 +4310,15 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value),
-      field7.get(value),
-      field8.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value)),
+      Some(field6.get(value)),
+      Some(field7.get(value)),
+      Some(field8.get(value))
     )
 
     override def toString: String = s"CaseClass8($id, ${fields.mkString(",")})"
@@ -4532,16 +4534,16 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value),
-      field7.get(value),
-      field8.get(value),
-      field9.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value)),
+      Some(field6.get(value)),
+      Some(field7.get(value)),
+      Some(field8.get(value)),
+      Some(field9.get(value))
     )
     override def toString: String = s"CaseClass9($id, ${fields.mkString(",")})"
   }
@@ -4794,17 +4796,17 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value),
-      field7.get(value),
-      field8.get(value),
-      field9.get(value),
-      field10.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(Some(field1.get(value))),
+      Some(Some(field2.get(value))),
+      Some(Some(field3.get(value))),
+      Some(Some(field4.get(value))),
+      Some(Some(field5.get(value))),
+      Some(Some(field6.get(value))),
+      Some(Some(field7.get(value))),
+      Some(Some(field8.get(value))),
+      Some(Some(field9.get(value))),
+      Some(Some(field10.get(value)))
     )
 
     override def toString: String = s"CaseClass10($id, ${fields.mkString(",")})"
@@ -5078,18 +5080,18 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value),
-      field7.get(value),
-      field8.get(value),
-      field9.get(value),
-      field10.get(value),
-      field11.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value)),
+      Some(field6.get(value)),
+      Some(field7.get(value)),
+      Some(field8.get(value)),
+      Some(field9.get(value)),
+      Some(field10.get(value)),
+      Some(field11.get(value))
     )
 
     override def toString: String = s"CaseClass11($id, ${fields.mkString(",")})"
@@ -5381,19 +5383,19 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value),
-      field7.get(value),
-      field8.get(value),
-      field9.get(value),
-      field10.get(value),
-      field11.get(value),
-      field12.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value)),
+      Some(field6.get(value)),
+      Some(field7.get(value)),
+      Some(field8.get(value)),
+      Some(field9.get(value)),
+      Some(field10.get(value)),
+      Some(field11.get(value)),
+      Some(field12.get(value))
     )
 
     override def toString: String = s"CaseClass12($id, ${fields.mkString(",")})"
@@ -5703,20 +5705,20 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value),
-      field7.get(value),
-      field8.get(value),
-      field9.get(value),
-      field10.get(value),
-      field11.get(value),
-      field12.get(value),
-      field13.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value)),
+      Some(field6.get(value)),
+      Some(field7.get(value)),
+      Some(field8.get(value)),
+      Some(field9.get(value)),
+      Some(field10.get(value)),
+      Some(field11.get(value)),
+      Some(field12.get(value)),
+      Some(field13.get(value))
     )
 
     override def toString: String = s"CaseClass13($id, ${fields.mkString(",")})"
@@ -6044,21 +6046,21 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value),
-      field7.get(value),
-      field8.get(value),
-      field9.get(value),
-      field10.get(value),
-      field11.get(value),
-      field12.get(value),
-      field13.get(value),
-      field14.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value)),
+      Some(field6.get(value)),
+      Some(field7.get(value)),
+      Some(field8.get(value)),
+      Some(field9.get(value)),
+      Some(field10.get(value)),
+      Some(field11.get(value)),
+      Some(field12.get(value)),
+      Some(field13.get(value)),
+      Some(field14.get(value))
     )
 
     override def toString: String = s"CaseClass14($id, ${fields.mkString(",")})"
@@ -6405,22 +6407,22 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value),
-      field7.get(value),
-      field8.get(value),
-      field9.get(value),
-      field10.get(value),
-      field11.get(value),
-      field12.get(value),
-      field13.get(value),
-      field14.get(value),
-      field15.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value)),
+      Some(field6.get(value)),
+      Some(field7.get(value)),
+      Some(field8.get(value)),
+      Some(field9.get(value)),
+      Some(field10.get(value)),
+      Some(field11.get(value)),
+      Some(field12.get(value)),
+      Some(field13.get(value)),
+      Some(field14.get(value)),
+      Some(field15.get(value))
     )
 
     override def toString: String = s"CaseClass15($id, ${fields.mkString(",")})"
@@ -6787,23 +6789,23 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value),
-      field7.get(value),
-      field8.get(value),
-      field9.get(value),
-      field10.get(value),
-      field11.get(value),
-      field12.get(value),
-      field13.get(value),
-      field14.get(value),
-      field15.get(value),
-      field16.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value)),
+      Some(field6.get(value)),
+      Some(field7.get(value)),
+      Some(field8.get(value)),
+      Some(field9.get(value)),
+      Some(field10.get(value)),
+      Some(field11.get(value)),
+      Some(field12.get(value)),
+      Some(field13.get(value)),
+      Some(field14.get(value)),
+      Some(field15.get(value)),
+      Some(field16.get(value))
     )
 
     override def toString: String = s"CaseClass16($id, ${fields.mkString(",")})"
@@ -7188,24 +7190,24 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value),
-      field7.get(value),
-      field8.get(value),
-      field9.get(value),
-      field10.get(value),
-      field11.get(value),
-      field12.get(value),
-      field13.get(value),
-      field14.get(value),
-      field15.get(value),
-      field16.get(value),
-      field17.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value)),
+      Some(field6.get(value)),
+      Some(field7.get(value)),
+      Some(field8.get(value)),
+      Some(field9.get(value)),
+      Some(field10.get(value)),
+      Some(field11.get(value)),
+      Some(field12.get(value)),
+      Some(field13.get(value)),
+      Some(field14.get(value)),
+      Some(field15.get(value)),
+      Some(field16.get(value)),
+      Some(field17.get(value))
     )
 
     override def toString: String = s"CaseClass17($id, ${fields.mkString(",")})"
@@ -7608,25 +7610,25 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value),
-      field7.get(value),
-      field8.get(value),
-      field9.get(value),
-      field10.get(value),
-      field11.get(value),
-      field12.get(value),
-      field13.get(value),
-      field14.get(value),
-      field15.get(value),
-      field16.get(value),
-      field17.get(value),
-      field18.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value)),
+      Some(field6.get(value)),
+      Some(field7.get(value)),
+      Some(field8.get(value)),
+      Some(field9.get(value)),
+      Some(field10.get(value)),
+      Some(field11.get(value)),
+      Some(field12.get(value)),
+      Some(field13.get(value)),
+      Some(field14.get(value)),
+      Some(field15.get(value)),
+      Some(field16.get(value)),
+      Some(field17.get(value)),
+      Some(field18.get(value))
     )
 
     override def toString: String = s"CaseClass18($id, ${fields.mkString(",")})"
@@ -8049,26 +8051,26 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value),
-      field7.get(value),
-      field8.get(value),
-      field9.get(value),
-      field10.get(value),
-      field11.get(value),
-      field12.get(value),
-      field13.get(value),
-      field14.get(value),
-      field15.get(value),
-      field16.get(value),
-      field17.get(value),
-      field18.get(value),
-      field19.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value)),
+      Some(field6.get(value)),
+      Some(field7.get(value)),
+      Some(field8.get(value)),
+      Some(field9.get(value)),
+      Some(field10.get(value)),
+      Some(field11.get(value)),
+      Some(field12.get(value)),
+      Some(field13.get(value)),
+      Some(field14.get(value)),
+      Some(field15.get(value)),
+      Some(field16.get(value)),
+      Some(field17.get(value)),
+      Some(field18.get(value)),
+      Some(field19.get(value))
     )
 
     override def toString: String = s"CaseClass19($id, ${fields.mkString(",")})"
@@ -8509,27 +8511,27 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value),
-      field7.get(value),
-      field8.get(value),
-      field9.get(value),
-      field10.get(value),
-      field11.get(value),
-      field12.get(value),
-      field13.get(value),
-      field14.get(value),
-      field15.get(value),
-      field16.get(value),
-      field17.get(value),
-      field18.get(value),
-      field19.get(value),
-      field20.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value)),
+      Some(field6.get(value)),
+      Some(field7.get(value)),
+      Some(field8.get(value)),
+      Some(field9.get(value)),
+      Some(field10.get(value)),
+      Some(field11.get(value)),
+      Some(field12.get(value)),
+      Some(field13.get(value)),
+      Some(field14.get(value)),
+      Some(field15.get(value)),
+      Some(field16.get(value)),
+      Some(field17.get(value)),
+      Some(field18.get(value)),
+      Some(field19.get(value)),
+      Some(field20.get(value))
     )
 
     override def toString: String = s"CaseClass20($id, ${fields.mkString(",")})"
@@ -9009,28 +9011,28 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value),
-      field7.get(value),
-      field8.get(value),
-      field9.get(value),
-      field10.get(value),
-      field11.get(value),
-      field12.get(value),
-      field13.get(value),
-      field14.get(value),
-      field15.get(value),
-      field16.get(value),
-      field17.get(value),
-      field18.get(value),
-      field19.get(value),
-      field20.get(value),
-      field21.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value)),
+      Some(field6.get(value)),
+      Some(field7.get(value)),
+      Some(field8.get(value)),
+      Some(field9.get(value)),
+      Some(field10.get(value)),
+      Some(field11.get(value)),
+      Some(field12.get(value)),
+      Some(field13.get(value)),
+      Some(field14.get(value)),
+      Some(field15.get(value)),
+      Some(field16.get(value)),
+      Some(field17.get(value)),
+      Some(field18.get(value)),
+      Some(field19.get(value)),
+      Some(field20.get(value)),
+      Some(field21.get(value))
     )
 
     override def toString: String = s"CaseClass21($id, ${fields.mkString(",")})"
@@ -9575,29 +9577,29 @@ object Schema extends SchemaEquality {
         } else
         Left(s"wrong number of values for $fields")
 
-    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Any] = Chunk(
-      field1.get(value),
-      field2.get(value),
-      field3.get(value),
-      field4.get(value),
-      field5.get(value),
-      field6.get(value),
-      field7.get(value),
-      field8.get(value),
-      field9.get(value),
-      field10.get(value),
-      field11.get(value),
-      field12.get(value),
-      field13.get(value),
-      field14.get(value),
-      field15.get(value),
-      field16.get(value),
-      field17.get(value),
-      field18.get(value),
-      field19.get(value),
-      field20.get(value),
-      field21.get(value),
-      field22.get(value)
+    override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(
+      Some(field1.get(value)),
+      Some(field2.get(value)),
+      Some(field3.get(value)),
+      Some(field4.get(value)),
+      Some(field5.get(value)),
+      Some(field6.get(value)),
+      Some(field7.get(value)),
+      Some(field8.get(value)),
+      Some(field9.get(value)),
+      Some(field10.get(value)),
+      Some(field11.get(value)),
+      Some(field12.get(value)),
+      Some(field13.get(value)),
+      Some(field14.get(value)),
+      Some(field15.get(value)),
+      Some(field16.get(value)),
+      Some(field17.get(value)),
+      Some(field18.get(value)),
+      Some(field19.get(value)),
+      Some(field20.get(value)),
+      Some(field21.get(value)),
+      Some(field22.get(value))
     )
 
     override def toString: String = s"CaseClass22($id, ${fields.mkString(",")})"
