@@ -41,11 +41,6 @@ object BuildHelper {
   val thriftVersion                = "0.16.0"
   val javaxAnnotationApiVersion    = "1.3.2"
 
-  private val testDeps = Seq(
-    "dev.zio" %% "zio-test"     % zioVersion % Test,
-    "dev.zio" %% "zio-test-sbt" % zioVersion % Test
-  )
-
   def macroDefinitionSettings = Seq(
     scalacOptions += "-language:experimental.macros",
     libraryDependencies ++= {
@@ -205,7 +200,10 @@ object BuildHelper {
       crossScalaVersions := Seq(Scala213, Scala212, Scala3),
       ThisBuild / scalaVersion := Scala213, //crossScalaVersions.value.head, //Scala3,
       scalacOptions ++= compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
-      libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ testDeps,
+      libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ List(
+        "dev.zio" %%% "zio-test"     % zioVersion % Test,
+        "dev.zio" %%% "zio-test-sbt" % zioVersion % Test
+      ),
       ThisBuild / semanticdbEnabled := scalaVersion.value != Scala3, // enable SemanticDB,
       ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
       ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
