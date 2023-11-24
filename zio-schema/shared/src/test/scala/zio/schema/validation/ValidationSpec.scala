@@ -2,11 +2,10 @@ package zio.schema.validation
 
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-
 import scala.collection.immutable.ListMap
 import scala.util.Try
-
 import zio.schema.{ FieldSet, Schema, TypeId }
+import zio.test.TestAspect.jvmOnly
 import zio.test._
 import zio.{ Chunk, Scope }
 
@@ -247,12 +246,12 @@ object ValidationSpec extends ZIOSpecDefault {
       val parsedTimes =
         parseTimes(CreateTimesConfig(NoHour, "", HasMinute, "", NoSecond, "", NoFraction, "", NoAmPm), "mm")
       assertParsedTimes(parsedTimes)
-    },
+    } @@ jvmOnly, // Accepts invalid cases with scala-java-time 2.5.0 on ScalaJS,
     test("Time Validation m") {
       val parsedTimes =
         parseTimes(CreateTimesConfig(NoHour, "", HasMinute, "", NoSecond, "", NoFraction, "", NoAmPm), "m")
       assertParsedTimes(parsedTimes)
-    },
+    } @@ jvmOnly, // Accepts invalid cases with scala-java-time 2.5.0 on ScalaJS,
     test("Time Validation HHmm") {
       val parsedTimes =
         parseTimes(CreateTimesConfig(HasHour, "", HasMinute, "", NoSecond, "", NoFraction, "", NoAmPm), "HHmm")
@@ -274,7 +273,7 @@ object ValidationSpec extends ZIOSpecDefault {
         "HH:mm:ss a"
       )
       assertParsedTimes(parsedTimes)
-    },
+    } @@ jvmOnly, // Parse error with scala-java-time 2.5.0 on ScalaJS
     test("Time Validation H:m:s") {
       val parsedTimes =
         parseTimes(CreateTimesConfig(HasHour, ":", HasMinute, ":", HasSecond, "", NoFraction, "", NoAmPm), "H:m:s")
@@ -284,7 +283,7 @@ object ValidationSpec extends ZIOSpecDefault {
       val parsedTimes =
         parseTimes(CreateTimesConfig(HasHour, ":", HasMinute, ":", HasSecond, "", NoFraction, " ", HasAmPm), "H:m:s a")
       assertParsedTimes(parsedTimes)
-    },
+    } @@ jvmOnly, // Parse error with scala-java-time 2.5.0 on ScalaJS
     test("Time Validation hh:mm:ss") {
       val parsedTimes =
         parseTimes(CreateTimesConfig(HasHour, ":", HasMinute, ":", HasSecond, "", NoFraction, "", NoAmPm), "hh:mm:ss")
@@ -296,7 +295,7 @@ object ValidationSpec extends ZIOSpecDefault {
         "hh:mm:ss a"
       )
       assertParsedTimes(parsedTimes)
-    },
+    } @@ jvmOnly, // Parse error with scala-java-time 2.5.0 on ScalaJS
     test("Time Validation h:m:s") {
       val parsedTimes =
         parseTimes(CreateTimesConfig(HasHour, ":", HasMinute, ":", HasSecond, "", NoFraction, "", NoAmPm), "h:m:s")
@@ -306,7 +305,7 @@ object ValidationSpec extends ZIOSpecDefault {
       val parsedTimes =
         parseTimes(CreateTimesConfig(HasHour, ":", HasMinute, ":", HasSecond, "", NoFraction, " ", HasAmPm), "h:m:s a")
       assertParsedTimes(parsedTimes)
-    },
+    } @@ jvmOnly, // Parse error with scala-java-time 2.5.0 on ScalaJS
     test("Time Validation HH:mm:ss S") {
       val parsedTimes = parseTimes(
         CreateTimesConfig(HasHour, ":", HasMinute, ":", HasSecond, " ", HasFraction, "", NoAmPm),
@@ -327,7 +326,7 @@ object ValidationSpec extends ZIOSpecDefault {
         "HH:mm:ss SSSSSSSSS a"
       )
       assertParsedTimes(parsedTimes)
-    },
+    } @@ jvmOnly, // Parse error with scala-java-time 2.5.0 on ScalaJS
     test("Regex duration Validation") {
       check(Gen.finiteDuration) { duration =>
         assertTrue(Validation.duration.validate(duration.toString).isRight)
@@ -377,8 +376,19 @@ object ValidationSpec extends ZIOSpecDefault {
 
     def innerParse(times: Seq[String]) =
       times.map { time =>
-        val valid  = validation.validate(time).isRight
-        val parsed = Try(formatter.parse(time)).isSuccess
+        val valid = validation.validate(time).isRight
+        val parsed = Try(formatter.parse(time)) match {
+          case scala.util.Success(_) =>
+            if (!valid) {
+              println(s"Time $time with format $format should be invalid")
+            }
+            true
+          case scala.util.Failure(err) =>
+            if (valid) {
+              println(s"Error parsing time $time with format $format: $err")
+            }
+            false
+        }
         ParsedTime(time, valid, parsed)
       }
 
