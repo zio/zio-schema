@@ -2,6 +2,7 @@ package zio.schema
 
 import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
+
 import zio.Chunk
 import zio.schema.CaseSet._
 import zio.schema.SchemaAssertions.hasSameSchema
