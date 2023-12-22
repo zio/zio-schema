@@ -46,7 +46,7 @@ object StandardType {
     final val INSTANT          = "instant"
     final val LOCAL_DATE       = "localDate"
     final val LOCAL_TIME       = "localTime"
-    final val LOCAL_DATE_TIME  = "localDateTIme"
+    final val LOCAL_DATE_TIME  = "localDateTime"
     final val OFFSET_TIME      = "offsetTime"
     final val OFFSET_DATE_TIME = "offsetDateTime"
     final val ZONED_DATE_TIME  = "zonedDateTime"
