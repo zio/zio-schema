@@ -26,7 +26,18 @@ object ValidationError {
     override def message: String =
       s"$value should be equal to $expected"
   }
-
+  final case class EqualToNone() extends ValidationError {
+    override def message: String =
+      s"Value should not be None"
+  }
+  final case class EqualToLeft[A](value: A) extends ValidationError {
+    override def message: String =
+      s"$value should not be Left"
+  }
+  final case class EqualToRight[A](value: A) extends ValidationError {
+    override def message: String =
+      s"$value should not be Right"
+  }
   final case class NotEqualTo[A](value: A, expected: A) extends ValidationError {
     override def message: String =
       s"$value should not be equal to $expected"

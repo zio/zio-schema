@@ -18,6 +18,47 @@ object ValidationSpec extends ZIOSpecDefault {
   import zio.schema.validation.ValidationSpec.Second._
 
   def spec: Spec[Environment with TestEnvironment with Scope, Any] = suite("ValidationSpec")(
+    test("Optional") {
+      val validationDefault = Validation.greaterThan(4).optional(true)
+      val validationTrue    = Validation.greaterThan(4).optional(true)
+      val validationFalse   = Validation.greaterThan(4).optional(false)
+
+      assertTrue(validationDefault.validate(Some(4)).isLeft) &&
+      assertTrue(validationDefault.validate(Some(5)).isRight) &&
+      assertTrue(validationDefault.validate(None).isRight) &&
+      assertTrue(validationTrue.validate(Some(4)).isLeft) &&
+      assertTrue(validationTrue.validate(Some(5)).isRight) &&
+      assertTrue(validationTrue.validate(None).isRight) &&
+      assertTrue(validationFalse.validate(Some(4)).isLeft) &&
+      assertTrue(validationFalse.validate(Some(5)).isRight) &&
+      assertTrue(validationFalse.validate(None).isLeft)
+
+    },
+    test("Premap") {
+      val validation = Validation.greaterThan(4).premap[Int](x => x - 10)
+
+      assertTrue(validation.validate(14).isLeft) &&
+      assertTrue(validation.validate(15).isRight)
+
+    },
+    test("Either") {
+      val validation      = Validation.greaterThan(4)
+      val validationLeft  = validation.left[String]()
+      val validationRight = validation.right[String]()
+      val validationBoth  = Validation.either(Validation.greaterThan(4), Validation.greaterThan(5))
+
+      assertTrue(validationLeft.validate(Left(4)).isLeft) &&
+      assertTrue(validationLeft.validate(Left(5)).isRight) &&
+      assertTrue(validationLeft.validate(Right("a")).isLeft) &&
+      assertTrue(validationRight.validate(Right(4)).isLeft) &&
+      assertTrue(validationRight.validate(Left("a")).isLeft) &&
+      assertTrue(validationRight.validate(Right(5)).isRight) &&
+      assertTrue(validationBoth.validate(Left(4)).isLeft) &&
+      assertTrue(validationBoth.validate(Left(5)).isRight) &&
+      assertTrue(validationBoth.validate(Right(5)).isLeft) &&
+      assertTrue(validationBoth.validate(Right(6)).isRight)
+
+    },
     test("Greater than") {
       val validation = Validation.greaterThan(4)
 
