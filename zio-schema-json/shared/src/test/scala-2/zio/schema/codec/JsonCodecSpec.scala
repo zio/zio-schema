@@ -163,6 +163,19 @@ object JsonCodecSpec extends ZIOSpecDefault {
             """{"0":{"first":0,"second":true},"1":{"first":1,"second":false}}"""
           )
         )
+      },
+      test("of complex keys with transformation to primitive keys") {
+        assertEncodes(
+          Schema
+            .map[KeyWrapper, ValueWrapper],
+          Map(
+            KeyWrapper("wrapped_key_1") -> ValueWrapper(value = "some_value"),
+            KeyWrapper("wrapped_key_2") -> ValueWrapper(value = "some_other_value")
+          ),
+          charSequenceToByteChunk(
+            """{"wrapped_key_1":{"value":"some_value"},"wrapped_key_2":{"value":"some_other_value"}}"""
+          )
+        )
       }
     ),
     suite("Set")(
@@ -615,6 +628,19 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Map(0 -> Value(0, true), 1 -> Value(1, false)),
           charSequenceToByteChunk(
             """{"0":{"first":0,"second":true},"1":{"first":1,"second":false}}"""
+          )
+        )
+      },
+      test("of primitive keys with transformation to complex keys") {
+        assertDecodes(
+          Schema
+            .map[KeyWrapper, ValueWrapper],
+          Map(
+            KeyWrapper("wrapped_key_1") -> ValueWrapper(value = "some_value"),
+            KeyWrapper("wrapped_key_2") -> ValueWrapper(value = "some_other_value")
+          ),
+          charSequenceToByteChunk(
+            """{"wrapped_key_1":{"value":"some_value"},"wrapped_key_2":{"value":"some_other_value"}}"""
           )
         )
       }
@@ -1604,5 +1630,24 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object ListAndMap {
     implicit lazy val schema: Schema[ListAndMap] = DeriveSchema.gen[ListAndMap]
+  }
+
+  final case class KeyWrapper(key: String)
+
+  object KeyWrapper {
+    implicit lazy val schema: Schema[KeyWrapper] = Schema[String].transform(KeyWrapper.apply, _.key)
+  }
+
+  final case class ValueWrapper(value: String)
+
+  object ValueWrapper {
+    implicit lazy val schema: Schema[ValueWrapper] = DeriveSchema.gen[ValueWrapper]
+  }
+
+  final case class MapOfComplexKeysAndValues(map: Map[KeyWrapper, ValueWrapper])
+
+  object MapOfComplexKeysAndValues {
+    implicit lazy val mapSchema: Schema[Map[KeyWrapper, ValueWrapper]] = Schema.map[KeyWrapper, ValueWrapper]
+    implicit lazy val schema: Schema[MapOfComplexKeysAndValues]        = DeriveSchema.gen[MapOfComplexKeysAndValues]
   }
 }

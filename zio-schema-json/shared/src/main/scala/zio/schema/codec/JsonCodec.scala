@@ -10,13 +10,7 @@ import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.ast.Json
 import zio.json.internal.{ Lexer, RecordingReader, RetractReader, StringMatrix, Write }
-import zio.json.{
-  JsonCodec => ZJsonCodec,
-  JsonDecoder => ZJsonDecoder,
-  JsonEncoder => ZJsonEncoder,
-  JsonFieldDecoder,
-  JsonFieldEncoder
-}
+import zio.json.{JsonCodec => ZJsonCodec, JsonDecoder => ZJsonDecoder, JsonEncoder => ZJsonEncoder, JsonFieldDecoder, JsonFieldEncoder}
 import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
@@ -283,23 +277,29 @@ object JsonCodec {
           else
             throw new Exception(s"Missing a handler for encoding of schema ${schema.toString()}.")
       }
-    //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
+
+    private[codec] def transformFieldEncoder[A, B](schema: Schema[A], g: B => Either[String, A]): Option[JsonFieldEncoder[B]] =
+      jsonFieldEncoder(schema).map { jsonFieldEncoder =>
+        new JsonFieldEncoder[B] {
+          override def unsafeEncodeField(b: B): String =
+            g(b) match {
+              case Left(_)  => throw new RuntimeException(s"Failed to encode field $b")
+              case Right(a) => jsonFieldEncoder.unsafeEncodeField(a)
+            }
+        }
+      }
 
     private[codec] def jsonFieldEncoder[A](schema: Schema[A]): Option[JsonFieldEncoder[A]] =
       schema match {
         case Schema.Primitive(StandardType.StringType, _) => Option(JsonFieldEncoder.string)
         case Schema.Primitive(StandardType.LongType, _)   => Option(JsonFieldEncoder.long)
         case Schema.Primitive(StandardType.IntType, _)    => Option(JsonFieldEncoder.int)
+        case Schema.Transform(c, _, g, a, _)              => transformFieldEncoder(a.foldLeft(c)((s, a) => s.annotate(a)), g)
         case Schema.Lazy(inner)                           => jsonFieldEncoder(inner())
         case _                                            => None
       }
 
-    private[codec] def mapEncoder[K, V](
-      ks: Schema[K],
-      vs: Schema[V],
-      discriminatorTuple: DiscriminatorTuple,
-      cfg: Config
-    ): ZJsonEncoder[Map[K, V]] = {
+    private[codec] def mapEncoder[K, V](ks: Schema[K], vs: Schema[V], discriminatorTuple: DiscriminatorTuple, cfg: Config): ZJsonEncoder[Map[K, V]] = {
       val valueEncoder = JsonEncoder.schemaEncoder(vs, cfg)
       jsonFieldEncoder(ks) match {
         case Some(jsonFieldEncoder) =>
@@ -444,11 +444,7 @@ object JsonCodec {
                 else out.write(" : ")
               }
 
-              schemaEncoder(
-                case_.schema.asInstanceOf[Schema[Any]],
-                cfg,
-                discriminatorTuple = if (noDiscriminators) Chunk.empty else discriminatorChunk
-              ).unsafeEncode(case_.deconstruct(value), indent, out)
+              schemaEncoder(case_.schema.asInstanceOf[Schema[Any]], cfg, discriminatorTuple = if (noDiscriminators) Chunk.empty else discriminatorChunk).unsafeEncode(case_.deconstruct(value), indent, out)
 
               if (discriminatorChunk.isEmpty && !noDiscriminators) out.write('}')
             case None =>
@@ -457,35 +453,34 @@ object JsonCodec {
         }
       }
 
-    private def recordEncoder[Z](structure: Seq[Schema.Field[Z, _]], cfg: Config): ZJsonEncoder[ListMap[String, _]] = {
-      (value: ListMap[String, _], indent: Option[Int], out: Write) =>
-        {
-          if (structure.isEmpty) {
-            out.write("{}")
-          } else {
-            out.write('{')
-            val indent_ = bump(indent)
-            pad(indent_, out)
-            var first = true
-            structure.foreach {
-              case Schema.Field(k, a, _, _, _, _) =>
-                val enc = schemaEncoder(a.asInstanceOf[Schema[Any]], cfg)
-                if (first)
-                  first = false
-                else {
-                  out.write(',')
-                  if (indent.isDefined)
-                    ZJsonEncoder.pad(indent_, out)
-                }
-                string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(k), indent_, out)
-                if (indent.isEmpty) out.write(':')
-                else out.write(" : ")
-                enc.unsafeEncode(value(k), indent_, out)
-            }
-            pad(indent, out)
-            out.write('}')
+    private def recordEncoder[Z](structure: Seq[Schema.Field[Z, _]], cfg: Config): ZJsonEncoder[ListMap[String, _]] = { (value: ListMap[String, _], indent: Option[Int], out: Write) =>
+      {
+        if (structure.isEmpty) {
+          out.write("{}")
+        } else {
+          out.write('{')
+          val indent_ = bump(indent)
+          pad(indent_, out)
+          var first = true
+          structure.foreach {
+            case Schema.Field(k, a, _, _, _, _) =>
+              val enc = schemaEncoder(a.asInstanceOf[Schema[Any]], cfg)
+              if (first)
+                first = false
+              else {
+                out.write(',')
+                if (indent.isDefined)
+                  ZJsonEncoder.pad(indent_, out)
+              }
+              string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(k), indent_, out)
+              if (indent.isEmpty) out.write(':')
+              else out.write(" : ")
+              enc.unsafeEncode(value(k), indent_, out)
           }
+          pad(indent, out)
+          out.write('}')
         }
+      }
     }
   }
 
@@ -617,8 +612,10 @@ object JsonCodec {
         case Schema.Primitive(StandardType.StringType, _) => Option(JsonFieldDecoder.string)
         case Schema.Primitive(StandardType.LongType, _)   => Option(JsonFieldDecoder.long)
         case Schema.Primitive(StandardType.IntType, _)    => Option(JsonFieldDecoder.int)
-        case Schema.Lazy(inner)                           => jsonFieldDecoder(inner())
-        case _                                            => None
+        case Schema.Transform(c, f, _, a, _) =>
+          jsonFieldDecoder(a.foldLeft(c)((s, a) => s.annotate(a))).map(_.mapOrFail(f))
+        case Schema.Lazy(inner) => jsonFieldDecoder(inner())
+        case _                  => None
       }
 
     private def dynamicDecoder(schema: Schema.Dynamic): ZJsonDecoder[DynamicValue] = {
