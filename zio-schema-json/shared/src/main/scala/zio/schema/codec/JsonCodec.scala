@@ -289,12 +289,12 @@ object JsonCodec {
       schema: Schema[A],
       g: B => Either[String, A]
     ): Option[JsonFieldEncoder[B]] =
-      jsonFieldEncoder(schema).map { jsonFieldEncoder =>
+      jsonFieldEncoder(schema).map { fieldEncoder =>
         new JsonFieldEncoder[B] {
           override def unsafeEncodeField(b: B): String =
             g(b) match {
               case Left(_)  => throw new RuntimeException(s"Failed to encode field $b")
-              case Right(a) => jsonFieldEncoder.unsafeEncodeField(a)
+              case Right(a) => fieldEncoder.unsafeEncodeField(a)
             }
         }
       }
