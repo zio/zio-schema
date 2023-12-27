@@ -285,11 +285,26 @@ object JsonCodec {
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
+    private[codec] def transformFieldEncoder[A, B](
+      schema: Schema[A],
+      g: B => Either[String, A]
+    ): Option[JsonFieldEncoder[B]] =
+      jsonFieldEncoder(schema).map { fieldEncoder =>
+        new JsonFieldEncoder[B] {
+          override def unsafeEncodeField(b: B): String =
+            g(b) match {
+              case Left(_)  => throw new RuntimeException(s"Failed to encode field $b")
+              case Right(a) => fieldEncoder.unsafeEncodeField(a)
+            }
+        }
+      }
+
     private[codec] def jsonFieldEncoder[A](schema: Schema[A]): Option[JsonFieldEncoder[A]] =
       schema match {
         case Schema.Primitive(StandardType.StringType, _) => Option(JsonFieldEncoder.string)
         case Schema.Primitive(StandardType.LongType, _)   => Option(JsonFieldEncoder.long)
         case Schema.Primitive(StandardType.IntType, _)    => Option(JsonFieldEncoder.int)
+        case Schema.Transform(c, _, g, a, _)              => transformFieldEncoder(a.foldLeft(c)((s, a) => s.annotate(a)), g)
         case Schema.Lazy(inner)                           => jsonFieldEncoder(inner())
         case _                                            => None
       }
@@ -617,8 +632,10 @@ object JsonCodec {
         case Schema.Primitive(StandardType.StringType, _) => Option(JsonFieldDecoder.string)
         case Schema.Primitive(StandardType.LongType, _)   => Option(JsonFieldDecoder.long)
         case Schema.Primitive(StandardType.IntType, _)    => Option(JsonFieldDecoder.int)
-        case Schema.Lazy(inner)                           => jsonFieldDecoder(inner())
-        case _                                            => None
+        case Schema.Transform(c, f, _, a, _) =>
+          jsonFieldDecoder(a.foldLeft(c)((s, a) => s.annotate(a))).map(_.mapOrFail(f))
+        case Schema.Lazy(inner) => jsonFieldDecoder(inner())
+        case _                  => None
       }
 
     private def dynamicDecoder(schema: Schema.Dynamic): ZJsonDecoder[DynamicValue] = {

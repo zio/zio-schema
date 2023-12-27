@@ -278,7 +278,8 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     }
 
   private def defaultValues(from: Symbol): Predef.Map[String, Expr[Any]] =
-    (1 to from.primaryConstructor.paramSymss.size).toList.map(
+    val params = from.primaryConstructor.paramSymss.flatten.filter(!_.isTypeParam)
+    val result = (1 to params.size).toList.map(
       i =>
           from
             .companionClass
@@ -295,7 +296,8 @@ private case class DeriveSchema()(using val ctx: Quotes) {
               if (select.isExpr) select.asExpr
               else select.appliedToType(TypeRepr.of[Any]).asExpr
             }
-      ).zip(from.primaryConstructor.paramSymss.flatten.filter(!_.isTypeParam).map(_.name)).collect{ case (Some(expr), name) => name -> expr }.toMap
+      ).zip(params.map(_.name))
+    result.collect{ case (Some(expr), name) => name -> expr }.toMap
 
   private def fromConstructor(from: Symbol): scala.collection.Map[String, List[Expr[Any]]] = {
       val defaults = defaultValues(from)
