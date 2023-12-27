@@ -283,8 +283,12 @@ object JsonCodec {
           else
             throw new Exception(s"Missing a handler for encoding of schema ${schema.toString()}.")
       }
+    //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
-    private[codec] def transformFieldEncoder[A, B](schema: Schema[A], g: B => Either[String, A]): Option[JsonFieldEncoder[B]] =
+    private[codec] def transformFieldEncoder[A, B](
+      schema: Schema[A],
+      g: B => Either[String, A]
+    ): Option[JsonFieldEncoder[B]] =
       jsonFieldEncoder(schema).map { jsonFieldEncoder =>
         new JsonFieldEncoder[B] {
           override def unsafeEncodeField(b: B): String =
@@ -305,7 +309,12 @@ object JsonCodec {
         case _                                            => None
       }
 
-    private[codec] def mapEncoder[K, V](ks: Schema[K], vs: Schema[V], discriminatorTuple: DiscriminatorTuple, cfg: Config): ZJsonEncoder[Map[K, V]] = {
+    private[codec] def mapEncoder[K, V](
+      ks: Schema[K],
+      vs: Schema[V],
+      discriminatorTuple: DiscriminatorTuple,
+      cfg: Config
+    ): ZJsonEncoder[Map[K, V]] = {
       val valueEncoder = JsonEncoder.schemaEncoder(vs, cfg)
       jsonFieldEncoder(ks) match {
         case Some(jsonFieldEncoder) =>
@@ -450,7 +459,11 @@ object JsonCodec {
                 else out.write(" : ")
               }
 
-              schemaEncoder(case_.schema.asInstanceOf[Schema[Any]], cfg, discriminatorTuple = if (noDiscriminators) Chunk.empty else discriminatorChunk).unsafeEncode(case_.deconstruct(value), indent, out)
+              schemaEncoder(
+                case_.schema.asInstanceOf[Schema[Any]],
+                cfg,
+                discriminatorTuple = if (noDiscriminators) Chunk.empty else discriminatorChunk
+              ).unsafeEncode(case_.deconstruct(value), indent, out)
 
               if (discriminatorChunk.isEmpty && !noDiscriminators) out.write('}')
             case None =>
@@ -459,34 +472,35 @@ object JsonCodec {
         }
       }
 
-    private def recordEncoder[Z](structure: Seq[Schema.Field[Z, _]], cfg: Config): ZJsonEncoder[ListMap[String, _]] = { (value: ListMap[String, _], indent: Option[Int], out: Write) =>
-      {
-        if (structure.isEmpty) {
-          out.write("{}")
-        } else {
-          out.write('{')
-          val indent_ = bump(indent)
-          pad(indent_, out)
-          var first = true
-          structure.foreach {
-            case Schema.Field(k, a, _, _, _, _) =>
-              val enc = schemaEncoder(a.asInstanceOf[Schema[Any]], cfg)
-              if (first)
-                first = false
-              else {
-                out.write(',')
-                if (indent.isDefined)
-                  ZJsonEncoder.pad(indent_, out)
-              }
-              string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(k), indent_, out)
-              if (indent.isEmpty) out.write(':')
-              else out.write(" : ")
-              enc.unsafeEncode(value(k), indent_, out)
+    private def recordEncoder[Z](structure: Seq[Schema.Field[Z, _]], cfg: Config): ZJsonEncoder[ListMap[String, _]] = {
+      (value: ListMap[String, _], indent: Option[Int], out: Write) =>
+        {
+          if (structure.isEmpty) {
+            out.write("{}")
+          } else {
+            out.write('{')
+            val indent_ = bump(indent)
+            pad(indent_, out)
+            var first = true
+            structure.foreach {
+              case Schema.Field(k, a, _, _, _, _) =>
+                val enc = schemaEncoder(a.asInstanceOf[Schema[Any]], cfg)
+                if (first)
+                  first = false
+                else {
+                  out.write(',')
+                  if (indent.isDefined)
+                    ZJsonEncoder.pad(indent_, out)
+                }
+                string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(k), indent_, out)
+                if (indent.isEmpty) out.write(':')
+                else out.write(" : ")
+                enc.unsafeEncode(value(k), indent_, out)
+            }
+            pad(indent, out)
+            out.write('}')
           }
-          pad(indent, out)
-          out.write('}')
         }
-      }
     }
   }
 
