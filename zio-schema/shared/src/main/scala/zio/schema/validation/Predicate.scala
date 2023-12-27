@@ -6,7 +6,7 @@ sealed trait Predicate[A] { self =>
   type Errors = Chunk[ValidationError]
   type Result = Either[Errors, Errors]
   def validate(value: A): Result
-  def premap[B](f: B => A): Predicate[B] = Predicate.Premap(Bool.Leaf(self), f)
+  def contramap[B](f: B => A): Predicate[B] = Predicate.Contramap(Bool.Leaf(self), f)
 }
 
 object Predicate {
@@ -80,7 +80,7 @@ object Predicate {
     }
   }
 
-  final case class Premap[B, A](pred: Bool[Predicate[A]], f: (B => A)) extends Predicate[B] {
+  final case class Contramap[B, A](pred: Bool[Predicate[A]], f: (B => A)) extends Predicate[B] {
     def validate(value: B): Result = Validation(pred).validate(f(value)).map(_ => Chunk.empty)
   }
 

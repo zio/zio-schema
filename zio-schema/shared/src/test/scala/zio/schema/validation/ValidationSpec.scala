@@ -34,8 +34,8 @@ object ValidationSpec extends ZIOSpecDefault {
       assertTrue(validationFalse.validate(None).isLeft)
 
     },
-    test("Premap") {
-      val validation = Validation.greaterThan(4).premap[Int](x => x - 10)
+    test("Contramap") {
+      val validation = Validation.greaterThan(4).contramap[Int](x => x - 10)
 
       assertTrue(validation.validate(14).isLeft) &&
       assertTrue(validation.validate(15).isRight)

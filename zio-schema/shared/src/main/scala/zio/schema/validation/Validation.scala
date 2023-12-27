@@ -16,7 +16,7 @@ final case class Validation[A](bool: Bool[Predicate[A]]) { self =>
   /*
     Returns a new `Validation` transforming a `B` value using `f` and then validating.
    */
-  def premap[B](f: B => A): Validation[B] = Validation(bool.map(_.premap(f)))
+  def contramap[B](f: B => A): Validation[B] = Validation(bool.map(_.contramap(f)))
 
   /*
     Returns a new `Validation` for `Either[B, A]`. With default `onLeft` fails on `Left` and applies current validation on `Right`.
