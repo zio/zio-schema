@@ -40,13 +40,13 @@ In order to use this library, we need to add the following lines in our `build.s
 
 ```scala
 libraryDependencies += "dev.zio" %% "zio-schema"          % "@VERSION@"
-libraryDependencies += "dev.zio" %% "zio-schema-avro"     % "@VERSION@"
-libraryDependencies += "dev.zio" %% "zio-schema-bson"     % "@VERSION@"
-libraryDependencies += "dev.zio" %% "zio-schema-json"     % "@VERSION@"
-libraryDependencies += "dev.zio" %% "zio-schema-msg-pack" % "@VERSION@"
-libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "@VERSION@"
-libraryDependencies += "dev.zio" %% "zio-schema-thrift"   % "@VERSION@"
-libraryDependencies += "dev.zio" %% "zio-schema-zio-test" % "@VERSION@"
+libraryDependencies += "dev.zio" %% "zio-schema-avro"     % "o.4.17"
+libraryDependencies += "dev.zio" %% "zio-schema-bson"     % "o.4.17"
+libraryDependencies += "dev.zio" %% "zio-schema-json"     % "o.4.17"
+libraryDependencies += "dev.zio" %% "zio-schema-msg-pack" % "o.4.17"
+libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "o.4.17"
+libraryDependencies += "dev.zio" %% "zio-schema-thrift"   % "o.4.17"
+libraryDependencies += "dev.zio" %% "zio-schema-zio-test" % "o.4.17"
 
 // Required for the automatic generic derivation of schemas
 libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "@VERSION@"
