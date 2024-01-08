@@ -6,7 +6,8 @@
 
 [ZIO Schema](https://github.com/zio/zio-schema) is a [ZIO](https://zio.dev)-based library for modeling the schema of data structures as first-class values.
 
-[![Development](https://img.shields.io/badge/Project%20Stage-Development-green.svg)](https://github.com/zio/zio/wiki/Project-Stages) ![CI Badge](https://github.com/zio/zio-schema/workflows/CI/badge.svg) [![Sonatype Releases](https://img.shields.io/nexus/r/https/oss.sonatype.org/dev.zio/zio-schema_2.13.svg?label=Sonatype%20Release)](https://oss.sonatype.org/content/repositories/releases/dev/zio/zio-schema_2.13/) [![Sonatype Snapshots](https://img.shields.io/nexus/s/https/oss.sonatype.org/dev.zio/zio-schema_2.13.svg?label=Sonatype%20Snapshot)](https://oss.sonatype.org/content/repositories/snapshots/dev/zio/zio-schema_2.13/) [![javadoc](https://javadoc.io/badge2/dev.zio/zio-schema-docs_2.13/javadoc.svg)](https://javadoc.io/doc/dev.zio/zio-schema-docs_2.13) [![ZIO Schema](https://img.shields.io/github/stars/zio/zio-schema?style=social)](https://github.com/zio/zio-schema)
+[![Development](https://img.shields.io/badge/Project%20Stage-Development-green.svg)](https://github.com/zio/zio/wiki/Project-Stages) ![CI Badge](https://github.com/zio/zio-schema/workflows/CI/badge.svg) [![Sonatype Snapshots](https://img.shields.io/nexus/s/https/oss.sonatype.org/dev.zio/zio-schema_2.13.svg?label=Sonatype%20Snapshot)](https://oss.sonatype.org/content/repositories/snapshots/dev/zio/zio-schema_2.13/) [![ZIO Schema](https://img.shields.io/github/stars/zio/zio-schema?style=social)](https://github.com/zio/zio-schema)
+
 ## Introduction
 
 ZIO Schema helps us to solve some of the most common problems in distributed computing, such as serialization, deserialization, and data migration.
@@ -39,13 +40,13 @@ In order to use this library, we need to add the following lines in our `build.s
 
 ```scala
 libraryDependencies += "dev.zio" %% "zio-schema"          % "<version>"
-libraryDependencies += "dev.zio" %% "zio-schema-avro"     % "<version>"
-libraryDependencies += "dev.zio" %% "zio-schema-bson"     % "<version>"
-libraryDependencies += "dev.zio" %% "zio-schema-json"     % "<version>"
-libraryDependencies += "dev.zio" %% "zio-schema-msg-pack" % "<version>"
-libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "<version>"
-libraryDependencies += "dev.zio" %% "zio-schema-thrift"   % "<version>"
-libraryDependencies += "dev.zio" %% "zio-schema-zio-test" % "<version>"
+libraryDependencies += "dev.zio" %% "zio-schema-avro"     % "o.4.17"
+libraryDependencies += "dev.zio" %% "zio-schema-bson"     % "o.4.17"
+libraryDependencies += "dev.zio" %% "zio-schema-json"     % "o.4.17"
+libraryDependencies += "dev.zio" %% "zio-schema-msg-pack" % "o.4.17"
+libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "o.4.17"
+libraryDependencies += "dev.zio" %% "zio-schema-thrift"   % "o.4.17"
+libraryDependencies += "dev.zio" %% "zio-schema-zio-test" % "o.4.17"
 
 // Required for the automatic generic derivation of schemas
 libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "<version>"
