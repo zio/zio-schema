@@ -12,8 +12,7 @@ import zio.schema._
  * To do this, we'll transform the Schema of the PersonDTO into a Schema of the Person.
  **/
 private[example3] object Domain {
-  final case class Person(name: String, age: Int)
-
+  final case class Person(name: String = "John Doe", age: Int = 42)
   object Person {
 
     val name: Field[Person, String] =

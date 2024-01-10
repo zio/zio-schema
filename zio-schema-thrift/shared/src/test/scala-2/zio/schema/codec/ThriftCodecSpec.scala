@@ -1035,7 +1035,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
   sealed trait RichSum
 
   object RichSum {
-    case class Person(name: String, age: Int) extends RichSum
+    case class Person(name: String = "John Doe", age: Int = 42) extends RichSum
 
     case class AnotherSum(oneOf: OneOf) extends RichSum
 

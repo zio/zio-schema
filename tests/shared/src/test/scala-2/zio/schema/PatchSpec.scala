@@ -222,7 +222,7 @@ object PatchSpec extends ZIOSpecDefault {
     implicit lazy val schema: Schema[Pet] = DeriveSchema.gen
   }
 
-  case class Person(name: String, age: Int)
+  case class Person(name: String = "John Doe", age: Int = 42)
 
   object Person {
     implicit lazy val schema: Schema[Person] = DeriveSchema.gen

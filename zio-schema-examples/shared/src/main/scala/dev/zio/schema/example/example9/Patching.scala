@@ -4,7 +4,7 @@ import zio.schema.{ DeriveSchema, Patch, Schema }
 
 object Patching extends App {
 
-  final case class Person(name: String, age: Int)
+  final case class Person(name: String = "John Doe", age: Int = 42)
 
   object Person {
     implicit lazy val schema: Schema[Person] = DeriveSchema.gen

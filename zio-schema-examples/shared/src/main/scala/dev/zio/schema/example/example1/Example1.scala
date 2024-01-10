@@ -17,7 +17,7 @@ import zio.stream.ZPipeline
 object Domain {
   sealed trait PaymentMethod
 
-  final case class Person(name: String, age: Int)
+  final case class Person(name: String = "John Doe", age: Int = 42)
 
   final case class Customer(person: Person, paymentMethod: PaymentMethod)
 

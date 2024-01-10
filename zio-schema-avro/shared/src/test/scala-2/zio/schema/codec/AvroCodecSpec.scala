@@ -30,7 +30,7 @@ import zio.test._
 
 object AvroCodecSpec extends ZIOSpecDefault {
 
-  final case class Person(name: String, age: Int)
+  final case class Person(name: String = "John Doe", age: Int = 42)
 
   object Person {
     implicit lazy val schema: Schema[Person] = DeriveSchema.gen[Person]
