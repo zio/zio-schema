@@ -13,7 +13,7 @@ import zio.schema._
  **/
 private[example3] object Domain {
   final case class Person(name: String = "John Doe", age: Int = 42)
-  
+
   object Person {
 
     val name: Field[Person, String] =
