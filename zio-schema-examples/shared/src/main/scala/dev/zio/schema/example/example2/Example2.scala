@@ -18,6 +18,7 @@ object Domain {
   sealed trait PaymentMethod
 
   final case class Person(name: String = "John Doe", age: Int = 42)
+  
   object Person {
 
     val name: Field[Person, String] =
