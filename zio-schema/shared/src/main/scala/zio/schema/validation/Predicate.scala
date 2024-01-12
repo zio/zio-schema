@@ -2,10 +2,11 @@ package zio.schema.validation
 
 import zio.Chunk
 
-sealed trait Predicate[A] {
+sealed trait Predicate[A] { self =>
   type Errors = Chunk[ValidationError]
   type Result = Either[Errors, Errors]
   def validate(value: A): Result
+  def contramap[B](f: B => A): Predicate[B] = Predicate.Contramap(Bool.Leaf(self), f)
 }
 
 object Predicate {
@@ -69,4 +70,27 @@ object Predicate {
   final case class True[A]() extends Predicate[A] { // A => True
     def validate(value: A): Result = Right(Chunk.empty)
   }
+
+  final case class Optional[A](pred: Bool[Predicate[A]], validNone: Boolean) extends Predicate[Option[A]] {
+
+    def validate(value: Option[A]): Result = value match {
+      case None =>
+        if (validNone) Right(Chunk(ValidationError.EqualToNone())) else Left(Chunk(ValidationError.EqualToNone()))
+      case Some(v) => Validation(pred).validate(v).map(_ => Chunk.empty)
+    }
+  }
+
+  final case class Contramap[B, A](pred: Bool[Predicate[A]], f: (B => A)) extends Predicate[B] {
+    def validate(value: B): Result = Validation(pred).validate(f(value)).map(_ => Chunk.empty)
+  }
+
+  final case class Either[L, R](left: Bool[Predicate[L]], right: Bool[Predicate[R]])
+      extends Predicate[scala.util.Either[L, R]] {
+
+    def validate(value: scala.util.Either[L, R]): Result = value match {
+      case scala.util.Left(l)  => Validation(left).validate(l).map(_ => Chunk.empty)
+      case scala.util.Right(r) => Validation(right).validate(r).map(_ => Chunk.empty)
+    }
+  }
+
 }

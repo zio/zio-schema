@@ -7,6 +7,27 @@ final case class Validation[A](bool: Bool[Predicate[A]]) { self =>
   def ||(that: Validation[A]): Validation[A] = Validation(self.bool || that.bool)
   def unary_! : Validation[A]                = Validation(!self.bool)
 
+  /*
+    Returns a `Validation` for `Option[A]` applying current `Validation` if found value is `Some(_)` and accepts `None` depending on `validNone`.
+   */
+  def optional(validNone: Boolean = true): Validation[Option[A]] =
+    Validation(Bool.Leaf(Predicate.Optional(bool, validNone)))
+
+  /*
+    Returns a new `Validation` transforming a `B` value using `f` and then validating.
+   */
+  def contramap[B](f: B => A): Validation[B] = Validation(bool.map(_.contramap(f)))
+
+  /*
+    Returns a new `Validation` for `Either[B, A]`. With default `onLeft` fails on `Left` and applies current validation on `Right`.
+   */
+  def right[B](onLeft: Validation[B] = Validation.fail[B]): Validation[Either[B, A]] = Validation.either(onLeft, self)
+
+  /*
+    Returns a new `Validation` for `Either[A, B]`. With default `onRight` fails on `Right` and applies current validation on `Left`.
+   */
+  def left[B](onRight: Validation[B] = Validation.fail[B]): Validation[Either[A, B]] = Validation.either(self, onRight)
+
   def validate(value: A): Either[Chunk[ValidationError], Unit] = {
     type Errors = Chunk[ValidationError]
     type Result = Either[Errors, Errors]
@@ -76,4 +97,7 @@ object Validation extends Regexs with Time {
 
   def anyOf[A](vs: Validation[A]*): Validation[A]          = vs.foldLeft(fail[A])(_ || _)
   def anyOf[A](vl: Iterable[Validation[A]]): Validation[A] = anyOf(vl.toSeq: _*)
+
+  def either[L, R](left: Validation[L], right: Validation[R]): Validation[scala.util.Either[L, R]] =
+    Validation(Bool.Leaf(Predicate.Either(left.bool, right.bool)))
 }
