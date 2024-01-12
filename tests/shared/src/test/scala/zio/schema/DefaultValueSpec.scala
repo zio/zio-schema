@@ -274,7 +274,7 @@ object DefaultValueSpec extends ZIOSpecDefault {
               (s: Status) => s.isInstanceOf[Pending.type]
             )
           )
-        assert(schema.defaultValue)(isRight(equalTo(Failed(0, "", None, ""))))
+        assert(schema.defaultValue)(isRight(equalTo(Failed(0, "", None, "oops"))))
       }
     ),
     suite("EitherSchema")(
