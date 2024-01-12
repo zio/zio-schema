@@ -170,8 +170,11 @@ import zio.{ Chunk, Scope }
             .fields(0)
             .annotations
           assertTrue(
-            annotations
-              .exists(a => a.isInstanceOf[fieldDefaultValue[_]] && a.asInstanceOf[fieldDefaultValue[Int]].value == 42)
+            annotations.exists { a =>
+              a.isInstanceOf[fieldDefaultValue[_]] &&
+              a.asInstanceOf[fieldDefaultValue[Int]].value == 42
+            },
+            capturedSchema.schema.defaultValue == Right(RecordWithDefaultValue(42, 52))
           )
         },
         test("use case class default values of generic class") {
@@ -180,12 +183,13 @@ import zio.{ Chunk, Scope }
             .asInstanceOf[Schema.Record[GenericRecordWithDefaultValue[Int]]]
             .fields(0)
             .annotations
-          assertTrue {
+          assertTrue(
             annotations.exists { a =>
               a.isInstanceOf[fieldDefaultValue[_]] &&
               a.asInstanceOf[fieldDefaultValue[Option[Int]]].value == None
-            }
-          }
+            },
+            capturedSchema.schema.defaultValue == Right(GenericRecordWithDefaultValue[Int](None, 52))
+          )
         },
         test("prefer field annotations over case class default values") {
           val capturedSchema = Derive.derive[CapturedSchema, RecordWithDefaultValue](schemaCapturer)
@@ -195,7 +199,8 @@ import zio.{ Chunk, Scope }
             .annotations
           assertTrue(
             annotations
-              .exists(a => a.isInstanceOf[fieldDefaultValue[_]] && a.asInstanceOf[fieldDefaultValue[Int]].value == 52)
+              .exists(a => a.isInstanceOf[fieldDefaultValue[_]] && a.asInstanceOf[fieldDefaultValue[Int]].value == 52),
+            capturedSchema.schema.defaultValue == Right(RecordWithDefaultValue(42, 52))
           )
         }
       ),

@@ -6,6 +6,7 @@ import java.time.temporal.ChronoUnit
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 
+import zio.schema.annotation.fieldDefaultValue
 import zio.schema.internal.SourceLocation
 import zio.schema.meta._
 import zio.schema.validation._
@@ -424,9 +425,12 @@ object Schema extends SchemaEquality {
 
     def defaultValue: scala.util.Either[String, R] =
       Unsafe.unsafe { implicit unsafe =>
-        self.fields
-          .map(_.schema.defaultValue)
-          .foldLeft[scala.util.Either[String, Chunk[R]]](Right(Chunk.empty)) {
+        self.fields.map { field =>
+          field.annotations.collectFirst { case fieldDefaultValue(value) => value } match {
+            case Some(value) => Right(value)
+            case None        => field.schema.defaultValue
+          }
+        }.foldLeft[scala.util.Either[String, Chunk[R]]](Right(Chunk.empty)) {
             case (e @ Left(_), _)              => e
             case (_, Left(e))                  => Left[String, Chunk[R]](e)
             case (Right(values), Right(value)) => Right[String, Chunk[R]](values :+ value.asInstanceOf[R])
