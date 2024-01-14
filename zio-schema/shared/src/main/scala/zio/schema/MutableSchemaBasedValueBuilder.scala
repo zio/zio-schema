@@ -1,6 +1,7 @@
 package zio.schema
 
 import scala.util.control.NonFatal
+
 import zio.schema.MutableSchemaBasedValueBuilder.{ CreateValueFromSchemaError, ReadingFieldResult }
 import zio.{ Chunk, ChunkBuilder }
 

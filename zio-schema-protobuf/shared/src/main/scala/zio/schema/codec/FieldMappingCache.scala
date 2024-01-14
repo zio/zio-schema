@@ -1,8 +1,8 @@
 package zio.schema.codec
 
-import zio.schema.Schema
-
 import scala.collection.mutable
+
+import zio.schema.Schema
 
 /**
  * A per-encooding/decoding cache for field mappings. No need for thread safety as a single encoding/decoding

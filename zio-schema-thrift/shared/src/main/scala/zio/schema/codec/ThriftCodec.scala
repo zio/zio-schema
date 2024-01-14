@@ -3,10 +3,13 @@ package zio.schema.codec
 import java.nio.ByteBuffer
 import java.time._
 import java.util.UUID
+
 import scala.annotation.{ nowarn, tailrec }
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
+
 import org.apache.thrift.protocol._
+
 import zio.schema.MutableSchemaBasedValueBuilder.{ CreateValueFromSchemaError, ReadingFieldResult }
 import zio.schema._
 import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
