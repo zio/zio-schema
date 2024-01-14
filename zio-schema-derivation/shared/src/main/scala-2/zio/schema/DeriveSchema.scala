@@ -91,7 +91,7 @@ object DeriveSchema {
           else {
             c.inferImplicitValue(
               c.typecheck(tq"_root_.zio.schema.Schema[$schemaType]", c.TYPEmode).tpe,
-              withMacrosDisabled = false
+              withMacrosDisabled = true
             ) match {
               case EmptyTree =>
                 schemaType.typeArgs match {
