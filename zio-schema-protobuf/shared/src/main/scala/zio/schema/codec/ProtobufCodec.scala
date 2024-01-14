@@ -24,7 +24,7 @@ object ProtobufCodec {
         new Decoder(whole).decode(schema)
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
-        ZPipeline.mapChunksZIO(chunk => ZIO.fromEither(new Decoder(chunk).decode(schema).map(res => Chunk(res))))
+        ZPipeline.mapChunksZIO(chunk => ZIO.fromEither(new Decoder(chunk).decode(schema).map(Chunk(_))))
 
       override def encode(value: A): Chunk[Byte] =
         Encoder.process(schema, value)

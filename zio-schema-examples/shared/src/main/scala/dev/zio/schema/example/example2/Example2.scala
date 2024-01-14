@@ -194,8 +194,7 @@ object ProtobufExample extends ZIOAppDefault {
 }
 
 object CombiningExample extends zio.ZIOAppDefault {
-  import zio.schema.codec.{ ProtobufCodec }
-  import zio.schema.codec.JsonCodec
+  import zio.schema.codec.{ JsonCodec, ProtobufCodec }
   import zio.stream.ZStream
 
   override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =

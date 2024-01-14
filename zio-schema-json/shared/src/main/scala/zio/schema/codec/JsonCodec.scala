@@ -129,7 +129,7 @@ object JsonCodec {
     protected[codec] def failDecoder[A](message: String): ZJsonDecoder[A] =
       (trace: List[ZJsonDecoder.JsonError], _: RetractReader) => throw UnsafeJson(JsonError.Message(message) :: trace)
 
-    def primitiveCodec[A](standardType: StandardType[A]): ZJsonCodec[A] =
+    private[codec] def primitiveCodec[A](standardType: StandardType[A]): ZJsonCodec[A] =
       standardType match {
         case StandardType.UnitType           => unitCodec
         case StandardType.StringType         => ZJsonCodec.string
@@ -329,7 +329,7 @@ object JsonCodec {
     private[codec] def dynamicEncoder(schema: Schema.Dynamic, cfg: JsonCodec.Config): ZJsonEncoder[DynamicValue] = {
       val directMapping = schema.annotations.exists {
         case directDynamicMapping() => true
-        case _                      => true
+        case _                      => false
       }
 
       if (directMapping) {
