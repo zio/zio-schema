@@ -1,8 +1,7 @@
 package zio.schema
 
 import scala.util.control.NonFatal
-
-import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
+import zio.schema.MutableSchemaBasedValueBuilder.{ CreateValueFromSchemaError, ReadingFieldResult }
 import zio.{ Chunk, ChunkBuilder }
 
 /**
@@ -29,13 +28,15 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
   /** The next value to build is a record with the given schema */
   protected def startCreatingRecord(context: Context, record: Schema.Record[_]): Context
 
-  /** Called for each field of a record. The resulting tuple is either None indicating there are no more fields to read,
+  /** Called for each field of a record. The result is either Finished indicating there are no more fields to read,
    * or it contains an updated context belonging to the field and the next field's index in the schema. This allows
    * the implementation to instantiate fields in a different order than what the schema defines.
+   * A third option is to just update the context without reading any field - this can be used to skip data,
+   * for example when reading a newer format of a record that has more fields than the older one.
    *
    * The index parameter is a 0-based index, incremented by one for each field read within a record.
    */
-  protected def startReadingField(context: Context, record: Schema.Record[_], index: Int): Option[(Context, Int)]
+  protected def startReadingField(context: Context, record: Schema.Record[_], index: Int): ReadingFieldResult[Context]
 
   /** Creates a record value from the gathered field values */
   protected def createRecord(context: Context, record: Schema.Record[_], values: Chunk[(Int, Target)]): Target
@@ -183,7 +184,7 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
       def readField(index: Int): Unit = {
         contextStack = contextStack.tail
         startReadingField(contextStack.head, record, index) match {
-          case Some((updatedState, idx)) =>
+          case ReadingFieldResult.ReadField(updatedState, idx) =>
             pushContext(updatedState)
             currentSchema = record.fields(idx).schema
             push { field =>
@@ -191,7 +192,10 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
               values += elem
               readField(index + 1)
             }
-          case None =>
+          case ReadingFieldResult.UpdateContext(updatedState) =>
+            pushContext(updatedState)
+            readField(index)
+          case ReadingFieldResult.Finished() =>
             finishWith(createRecord(contextStack.head, record, values.result()))
         }
       }
@@ -1013,6 +1017,14 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
 
 object MutableSchemaBasedValueBuilder {
   case class CreateValueFromSchemaError[Context](context: Context, cause: Throwable) extends RuntimeException
+
+  sealed trait ReadingFieldResult[Context]
+
+  object ReadingFieldResult {
+    final case class Finished[Context]()                              extends ReadingFieldResult[Context]
+    final case class ReadField[Context](context: Context, index: Int) extends ReadingFieldResult[Context]
+    final case class UpdateContext[Context](context: Context)         extends ReadingFieldResult[Context]
+  }
 }
 
 /** A simpler version of SimpleMutableSchemaBasedValueBuilder without using any Context */
@@ -1025,8 +1037,15 @@ trait SimpleMutableSchemaBasedValueBuilder[Target] extends MutableSchemaBasedVal
     startCreatingRecord(record)
   protected def startCreatingRecord(record: Schema.Record[_]): Unit
 
-  override protected def startReadingField(context: Unit, record: Schema.Record[_], index: Int): Option[(Unit, Int)] =
-    startReadingField(record, index).map(((), _))
+  override protected def startReadingField(
+    context: Unit,
+    record: Schema.Record[_],
+    index: Int
+  ): ReadingFieldResult[Unit] =
+    startReadingField(record, index) match {
+      case Some(idx) => ReadingFieldResult.ReadField((), idx)
+      case None      => ReadingFieldResult.Finished()
+    }
   protected def startReadingField(record: Schema.Record[_], index: Int): Option[Int]
 
   override protected def createRecord(context: Unit, record: Schema.Record[_], values: Chunk[(Int, Target)]): Target =
