@@ -66,9 +66,7 @@ object DeriveSchema {
           else q"_root_.zio.Chunk.apply(..$typeAnnotations)"
         q"_root_.zio.schema.Schema.CaseClass0($typeId, () => ${tpe.typeSymbol.asClass.module}, $annotations)"
       } else if (isCaseClass(tpe)) deriveRecord(tpe, stack)
-      else if (isSealedTrait(tpe))
-        deriveEnum(tpe, stack)
-      else if (isSealedAbstractClass(tpe))
+      else if (isSealedTrait(tpe) || isSealedAbstractClass(tpe))
         deriveEnum(tpe, stack)
       else if (isMap(tpe)) deriveMap(tpe)
       else
