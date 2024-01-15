@@ -35,6 +35,9 @@ object DeriveSchema {
 
     def isSealedTrait(tpe: Type): Boolean = tpe.typeSymbol.asClass.isTrait && tpe.typeSymbol.asClass.isSealed
 
+    def isSealedAbstractClass(tpe: Type): Boolean =
+      tpe.typeSymbol.asClass.isClass && tpe.typeSymbol.asClass.isSealed && tpe.typeSymbol.asClass.isAbstract
+
     def isMap(tpe: Type): Boolean = tpe.typeSymbol.fullName == "scala.collection.immutable.Map"
 
     def collectTypeAnnotations(tpe: Type): List[Tree] =
@@ -63,13 +66,13 @@ object DeriveSchema {
           else q"_root_.zio.Chunk.apply(..$typeAnnotations)"
         q"_root_.zio.schema.Schema.CaseClass0($typeId, () => ${tpe.typeSymbol.asClass.module}, $annotations)"
       } else if (isCaseClass(tpe)) deriveRecord(tpe, stack)
-      else if (isSealedTrait(tpe))
+      else if (isSealedTrait(tpe) || isSealedAbstractClass(tpe))
         deriveEnum(tpe, stack)
       else if (isMap(tpe)) deriveMap(tpe)
       else
         c.abort(
           c.enclosingPosition,
-          s"Failed to derive schema for $tpe. Can only derive Schema for case class or sealed trait"
+          s"Failed to derive schema for $tpe. Can only derive Schema for case class or sealed trait or sealed abstract class with case class children."
         )
 
     def directInferSchema(parentType: Type, schemaType: Type, stack: List[Frame[c.type]]): Tree = {
@@ -86,7 +89,7 @@ object DeriveSchema {
           else {
             c.inferImplicitValue(
               c.typecheck(tq"_root_.zio.schema.Schema[$schemaType]", c.TYPEmode).tpe,
-              withMacrosDisabled = false
+              withMacrosDisabled = true
             ) match {
               case EmptyTree =>
                 schemaType.typeArgs match {
@@ -530,20 +533,24 @@ object DeriveSchema {
         sortedKnownSubclasses.flatMap { child =>
           child.typeSignature
           val childClass = child.asClass
-          if (childClass.isSealed && childClass.isTrait) knownSubclassesOf(childClass)
-          else if (childClass.isCaseClass) {
+          if (childClass.isSealed && childClass.isTrait)
+            knownSubclassesOf(childClass)
+          else if (childClass.isCaseClass || (childClass.isClass && childClass.isAbstract)) {
             val st = concreteType(concreteType(tpe, parent.asType.toType), child.asType.toType)
             Set(appliedSubtype(st))
           } else c.abort(c.enclosingPosition, s"child $child of $parent is not a sealed trait or case class")
         }
       }
 
+      val subtypes = knownSubclassesOf(tpe.typeSymbol.asClass)
+        .map(concreteType(tpe, _))
+
       val isSimpleEnum: Boolean =
-        !tpe.typeSymbol.asClass.knownDirectSubclasses.map { subtype =>
-          subtype.typeSignature.decls.sorted.collect {
+        !subtypes.map { subtype =>
+          subtype.typeSymbol.typeSignature.decls.sorted.collect {
             case p: TermSymbol if p.isCaseAccessor && !p.isMethod => p
           }.size
-        }.exists(_ > 0)
+        }.exists(_ > 0) && subtypes.forall(subtype => subtype.typeSymbol.asClass.isCaseClass)
 
       val hasSimpleEnum: Boolean =
         tpe.typeSymbol.annotations.exists(_.tree.tpe =:= typeOf[_root_.zio.schema.annotation.simpleEnum])
@@ -589,9 +596,6 @@ object DeriveSchema {
       val selfRefIdent = Ident(TermName(selfRefName))
 
       val currentFrame = Frame[c.type](c, selfRefName, tpe)
-
-      val subtypes = knownSubclassesOf(tpe.typeSymbol.asClass)
-        .map(concreteType(tpe, _))
 
       val typeArgs = subtypes ++ Iterable(tpe)
 

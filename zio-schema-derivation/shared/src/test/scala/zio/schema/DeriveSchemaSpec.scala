@@ -260,6 +260,14 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
   sealed trait SimpleEnum2
   case class SimpleClass2() extends SimpleEnum2
 
+  sealed abstract class AbstractBaseClass(val x: Int)
+  final case class ConcreteClass1(override val x: Int, y: Int)    extends AbstractBaseClass(x)
+  final case class ConcreteClass2(override val x: Int, s: String) extends AbstractBaseClass(x)
+
+  sealed abstract class AbstractBaseClass2(val x: Int)
+  sealed abstract class MiddleClass(override val x: Int, val y: Int)                   extends AbstractBaseClass2(x)
+  final case class ConcreteClass3(override val x: Int, override val y: Int, s: String) extends MiddleClass(x, y)
+
   override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
       test("correctly derives case class 0") {
@@ -484,6 +492,109 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
       test("correctly derives simpleEnum without annotation") {
         val derived = DeriveSchema.gen[SimpleEnum2]
         assertTrue(derived.annotations == Chunk(simpleEnum(true)))
+      },
+      test("correctly derives schema for abstract sealed class with case class subclasses") {
+        val derived = DeriveSchema.gen[AbstractBaseClass]
+        val expected: Schema[AbstractBaseClass] =
+          Schema.Enum2(
+            TypeId.parse("zio.schema.DeriveSchemaSpec.AbstractBaseClass"),
+            Schema.Case(
+              "ConcreteClass1",
+              Schema.CaseClass2(
+                TypeId.parse("zio.schema.DeriveSchemaSpec.ConcreteClass1"),
+                field01 = Schema.Field[ConcreteClass1, Int](
+                  "x",
+                  Schema.Primitive(StandardType.IntType),
+                  get0 = _.x,
+                  set0 = (a, b: Int) => a.copy(x = b)
+                ),
+                field02 = Schema.Field[ConcreteClass1, Int](
+                  "y",
+                  Schema.Primitive(StandardType.IntType),
+                  get0 = _.y,
+                  set0 = (a, b: Int) => a.copy(y = b)
+                ),
+                ConcreteClass1.apply
+              ),
+              (a: AbstractBaseClass) => a.asInstanceOf[ConcreteClass1],
+              (a: ConcreteClass1) => a.asInstanceOf[AbstractBaseClass],
+              (a: AbstractBaseClass) => a.isInstanceOf[ConcreteClass1]
+            ),
+            Schema.Case(
+              "ConcreteClass2",
+              Schema.CaseClass2(
+                TypeId.parse("zio.schema.DeriveSchemaSpec.ConcreteClass2"),
+                field01 = Schema.Field[ConcreteClass2, Int](
+                  "x",
+                  Schema.Primitive(StandardType.IntType),
+                  get0 = _.x,
+                  set0 = (a, b: Int) => a.copy(x = b)
+                ),
+                field02 = Schema.Field[ConcreteClass2, String](
+                  "s",
+                  Schema.Primitive(StandardType.StringType),
+                  get0 = _.s,
+                  set0 = (a, b: String) => a.copy(s = b)
+                ),
+                ConcreteClass2.apply
+              ),
+              (a: AbstractBaseClass) => a.asInstanceOf[ConcreteClass2],
+              (a: ConcreteClass2) => a.asInstanceOf[AbstractBaseClass],
+              (a: AbstractBaseClass) => a.isInstanceOf[ConcreteClass2]
+            ),
+            Chunk.empty
+          )
+        assert(derived)(hasSameSchema(expected))
+      },
+      test(
+        "correctly derives schema for abstract sealed class with intermediate subclasses, having case class leaf classes"
+      ) {
+        val derived = DeriveSchema.gen[AbstractBaseClass2]
+        val expected: Schema[AbstractBaseClass2] =
+          Schema.Enum1[MiddleClass, AbstractBaseClass2](
+            TypeId.parse("zio.schema.DeriveSchemaSpec.AbstractBaseClass2"),
+            Schema.Case[AbstractBaseClass2, MiddleClass](
+              "MiddleClass",
+              Schema.Enum1[ConcreteClass3, MiddleClass](
+                TypeId.parse("zio.schema.DeriveSchemaSpec.MiddleClass"),
+                Schema.Case[MiddleClass, ConcreteClass3](
+                  "ConcreteClass3",
+                  Schema.CaseClass3(
+                    TypeId.parse("zio.schema.DeriveSchemaSpec.ConcreteClass3"),
+                    field01 = Schema.Field[ConcreteClass3, Int](
+                      "x",
+                      Schema.Primitive(StandardType.IntType),
+                      get0 = _.x,
+                      set0 = (a, b: Int) => a.copy(x = b)
+                    ),
+                    field02 = Schema.Field[ConcreteClass3, Int](
+                      "y",
+                      Schema.Primitive(StandardType.IntType),
+                      get0 = _.y,
+                      set0 = (a, b: Int) => a.copy(y = b)
+                    ),
+                    field03 = Schema.Field[ConcreteClass3, String](
+                      "s",
+                      Schema.Primitive(StandardType.StringType),
+                      get0 = _.s,
+                      set0 = (a, b: String) => a.copy(s = b)
+                    ),
+                    ConcreteClass3.apply
+                  ),
+                  (a: MiddleClass) => a.asInstanceOf[ConcreteClass3],
+                  (a: ConcreteClass3) => a.asInstanceOf[MiddleClass],
+                  (a: MiddleClass) => a.isInstanceOf[ConcreteClass3],
+                  Chunk.empty
+                ),
+                Chunk.empty
+              ),
+              (a: AbstractBaseClass2) => a.asInstanceOf[MiddleClass],
+              (a: MiddleClass) => a.asInstanceOf[AbstractBaseClass2],
+              (a: AbstractBaseClass2) => a.isInstanceOf[MiddleClass],
+              Chunk.empty
+            )
+          )
+        assert(derived)(hasSameSchema(expected))
       }
     ),
     versionSpecificSuite
