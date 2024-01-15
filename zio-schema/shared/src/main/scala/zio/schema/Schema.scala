@@ -157,7 +157,7 @@ sealed trait Schema[A] {
   def zip[B](that: Schema[B]): Schema[(A, B)] = Schema.Tuple2(self, that)
 }
 
-object Schema extends SchemaEquality {
+object Schema extends SchemaPlatformSpecific with SchemaEquality {
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
   def defer[A](schema: => Schema[A]): Schema[A] = Lazy(() => schema)
@@ -318,15 +318,6 @@ object Schema extends SchemaEquality {
 
   implicit def vector[A](implicit element: Schema[A]): Schema[Vector[A]] =
     Schema.Sequence[Vector[A], A, String](element, _.toVector, Chunk.fromIterable(_), Chunk.empty, "Vector")
-
-  implicit val url: Schema[java.net.URL] =
-    Schema[String].transformOrFail(
-      string =>
-        try {
-          Right(new URI(string).toURL)
-        } catch { case _: Exception => Left(s"Invalid URL: $string") },
-      url => Right(url.toString)
-    )
 
   implicit def schemaSchema[A]: Schema[Schema[A]] = Schema[MetaSchema].transform(
     _.toSchema.asInstanceOf[Schema[A]],

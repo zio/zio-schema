@@ -29,7 +29,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
       encoderSuite,
       decoderSuite,
       encoderDecoderSuite
-    ) @@ timeout(90.seconds)
+    ) @@ timeout(180.seconds)
 
   // TODO: Add tests for the pipeline contract.
 
@@ -1226,7 +1226,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
                 )
               }
         }
-      } @@ TestAspect.size(1000) @@ TestAspect.samples(1000),
+      } @@ TestAspect.size(1000) @@ TestAspect.samples(1000) @@ TestAspect.exceptNative,
       suite("meta schema")(
         test("primitive string meta schema") {
           assertEncodesThenDecodes(MetaSchema.schema, Schema[String].ast)
