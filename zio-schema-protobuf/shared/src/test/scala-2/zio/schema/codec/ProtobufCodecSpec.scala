@@ -692,6 +692,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
             d  <- decode(schemaFail, "0F").exit
             d2 <- decodeNS(schemaFail, "0F").exit
           } yield assert(d)(failsWithA[DecodeError]) && assert(d2)(failsWithA[DecodeError])
+
         }
       ),
       suite("dynamic")(
@@ -1010,12 +1011,27 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
   lazy val schemaChunkOfBytes: Schema[ChunkOfBytes] = DeriveSchema.gen[ChunkOfBytes]
 
+  // "%02X".format doesn't work the same in ScalaJS
   def toHex(chunk: Chunk[Byte]): String =
-    chunk.toArray.map("%02X".format(_)).mkString
+    chunk.toArray.map { byte =>
+      val intToHex: (Int => Char) = { int =>
+        ('A' - 0xA + int + (((int - 10) >> 31) & ('0' - 55))).toChar
+      }
+      val left  = (byte >> 4) & 0xF
+      val right = byte & 0xF
+      s"${intToHex(left)}${intToHex(right)}"
+    }.mkString
+
+  private def split(str: String): List[String] =
+    if (str.isEmpty) {
+      List.empty
+    } else {
+      str.take(2) :: split(str.drop(2))
+    }
 
   def fromHex(hex: String): Chunk[Byte] =
-    Try(hex.split("(?<=\\G.{2})").map(Integer.parseInt(_, 16).toByte))
-      .map(Chunk.fromArray)
+    Try(split(hex).map(Integer.parseInt(_, 16).toByte))
+      .map(Chunk.fromIterable)
       .getOrElse(Chunk.empty)
 
   def encode[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
@@ -1040,7 +1056,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         ZStream
           .fromChunk(fromHex(hex))
       )
-      .run(ZSink.collectAll)
+      .runCollect
 
   //NS == non streaming variant of decode
   def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =

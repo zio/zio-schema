@@ -528,6 +528,12 @@ object DynamicValue {
       (d: DynamicValue) => d.isInstanceOf[DynamicValue.Singleton[_]]
     )
 
+  private def hasStandardType(value: DynamicValue, standardType: StandardType[_]): Boolean =
+    value match {
+      case DynamicValue.Primitive(_, tpe) => tpe == standardType
+      case _                              => false
+    }
+
   private val primitiveUnitCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Unit]] =
     Schema.Case(
       "Unit",
@@ -587,10 +593,8 @@ object DynamicValue {
         case dv @ DynamicValue.Primitive(_: Int, _) => dv.asInstanceOf[DynamicValue.Primitive[Int]]
         case _                                      => throw new IllegalArgumentException
       },
-      (dv: DynamicValue.Primitive[Int]) => dv.asInstanceOf[DynamicValue], {
-        case DynamicValue.Primitive(_: Int, _) => true
-        case _                                 => false
-      }
+      (dv: DynamicValue.Primitive[Int]) => dv.asInstanceOf[DynamicValue],
+      hasStandardType(_, StandardType.IntType)
     )
 
   private val primitiveLongCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Long]] =
@@ -600,10 +604,8 @@ object DynamicValue {
         case dv @ DynamicValue.Primitive(_: Long, _) => dv.asInstanceOf[DynamicValue.Primitive[Long]]
         case _                                       => throw new IllegalArgumentException
       },
-      (dv: DynamicValue.Primitive[Long]) => dv.asInstanceOf[DynamicValue], {
-        case DynamicValue.Primitive(_: Long, _) => true
-        case _                                  => false
-      }
+      (dv: DynamicValue.Primitive[Long]) => dv.asInstanceOf[DynamicValue],
+      hasStandardType(_, StandardType.LongType)
     )
 
   private val primitiveFloatCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Float]] =
@@ -613,10 +615,8 @@ object DynamicValue {
         case dv @ DynamicValue.Primitive(_: Float, _) => dv.asInstanceOf[DynamicValue.Primitive[Float]]
         case _                                        => throw new IllegalArgumentException
       },
-      (dv: DynamicValue.Primitive[Float]) => dv.asInstanceOf[DynamicValue], {
-        case DynamicValue.Primitive(_: Float, _) => true
-        case _                                   => false
-      }
+      (dv: DynamicValue.Primitive[Float]) => dv.asInstanceOf[DynamicValue],
+      hasStandardType(_, StandardType.FloatType)
     )
 
   private val primitiveDoubleCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Double]] =
@@ -626,10 +626,8 @@ object DynamicValue {
         case dv @ DynamicValue.Primitive(_: Double, _) => dv.asInstanceOf[DynamicValue.Primitive[Double]]
         case _                                         => throw new IllegalArgumentException
       },
-      (dv: DynamicValue.Primitive[Double]) => dv.asInstanceOf[DynamicValue], {
-        case DynamicValue.Primitive(_: Double, _) => true
-        case _                                    => false
-      }
+      (dv: DynamicValue.Primitive[Double]) => dv.asInstanceOf[DynamicValue],
+      hasStandardType(_, StandardType.DoubleType)
     )
 
   private val primitiveBinaryCase: Schema.Case[DynamicValue, DynamicValue.Primitive[Chunk[Byte]]] =

@@ -1,10 +1,11 @@
 import sbt._
 import Keys._
 
-import sbtcrossproject.CrossPlugin.autoImport.crossProjectPlatform
+import sbtcrossproject.CrossPlugin.autoImport._
 import sbtbuildinfo._
 import BuildInfoKeys._
 import scalafix.sbt.ScalafixPlugin.autoImport._
+import scalanativecrossproject.NativePlatform
 
 object BuildHelper {
 
@@ -39,11 +40,6 @@ object BuildHelper {
   val jacksonScalaVersion          = "2.15.2"
   val thriftVersion                = "0.16.0"
   val javaxAnnotationApiVersion    = "1.3.2"
-
-  private val testDeps = Seq(
-    "dev.zio" %% "zio-test"     % zioVersion % Test,
-    "dev.zio" %% "zio-test-sbt" % zioVersion % Test
-  )
 
   def macroDefinitionSettings = Seq(
     scalacOptions += "-language:experimental.macros",
@@ -203,8 +199,8 @@ object BuildHelper {
       name := s"$prjName",
       crossScalaVersions := Seq(Scala213, Scala212, Scala3),
       ThisBuild / scalaVersion := Scala213, //crossScalaVersions.value.head, //Scala3,
-      scalacOptions := compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
-      libraryDependencies ++= compileOnlyDeps(scalaVersion.value) ++ testDeps,
+      scalacOptions ++= compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
+      libraryDependencies ++= compileOnlyDeps(scalaVersion.value),
       ThisBuild / semanticdbEnabled := scalaVersion.value != Scala3, // enable SemanticDB,
       ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
       ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
