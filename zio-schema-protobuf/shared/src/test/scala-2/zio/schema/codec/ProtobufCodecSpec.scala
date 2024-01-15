@@ -793,6 +793,52 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
             assertZIO(encodeAndDecode(MetaSchema.schema, metaSchema))(equalTo(Chunk(metaSchema)))
           }
         }
+      ),
+      suite("custom field numbers")(
+        test("V2 decoder can read encoded V3") {
+          val recordV3 = RecordV3(y = 200, extra = "hello", z = -10)
+          for {
+            encoded <- encode(schemaRecordV3, recordV3)
+            decoded <- decodeChunkNS(schemaRecordV2, encoded)
+          } yield assertTrue(decoded == RecordV2(100, 200, -10))
+        },
+        test("nested V2 decoder can read encoded V3") {
+          val v3 = NestedV3(
+            RecordV3(y = 200, extra = "hello", z = -10),
+            RecordV3(y = 2, extra = "world", z = 3)
+          )
+          for {
+            encoded <- encode(schemaNestedV3, v3)
+            decoded <- decodeChunkNS(schemaNestedV2, encoded)
+          } yield assertTrue(
+            decoded == NestedV2(
+              RecordV2(100, 200, -10),
+              RecordV2(100, 2, 3)
+            )
+          )
+        },
+        test("V3 decoder cannot read encoded V2") {
+          val recordV2 = RecordV2(150, 200, -10)
+          for {
+            encoded <- encode(schemaRecordV2, recordV2)
+            decoded <- decodeChunkNS(schemaRecordV3, encoded)
+          } yield assertTrue(decoded == RecordV3(200, "unknown", -10))
+        },
+        test("V1 decoder can read encoded V2") {
+          val recordV2 = RecordV2(150, 200, -10)
+          for {
+            encoded <- encode(schemaRecordV2, recordV2)
+            decoded <- decodeChunkNS(schemaRecordV1, encoded)
+          } yield assertTrue(decoded == RecordV1(150, 200))
+        },
+        test("V2 decoder cannot read encoded V1") {
+          // because there is no default value for 'z'
+          val recordV1 = RecordV1(150, 200)
+          for {
+            encoded <- encode(schemaRecordV1, recordV1)
+            decoded <- decodeChunkNS(schemaRecordV2, encoded).exit
+          } yield assertTrue(decoded.isFailure)
+        }
       )
     )
 
@@ -1011,6 +1057,18 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
 
   lazy val schemaChunkOfBytes: Schema[ChunkOfBytes] = DeriveSchema.gen[ChunkOfBytes]
 
+  final case class RecordV1(x: Int, y: Int)
+  final case class RecordV2(x: Int = 100, y: Int, z: Int)
+  final case class RecordV3(@fieldNumber(2) y: Int, @fieldNumber(4) extra: String = "unknown", @fieldNumber(3) z: Int)
+  final case class NestedV2(a: RecordV2, b: RecordV2)
+  final case class NestedV3(a: RecordV3, b: RecordV3)
+
+  implicit val schemaRecordV1: Schema[RecordV1] = DeriveSchema.gen[RecordV1]
+  implicit val schemaRecordV2: Schema[RecordV2] = DeriveSchema.gen[RecordV2]
+  implicit val schemaRecordV3: Schema[RecordV3] = DeriveSchema.gen[RecordV3]
+  implicit val schemaNestedV2: Schema[NestedV2] = DeriveSchema.gen[NestedV2]
+  implicit val schemaNestedV3: Schema[NestedV3] = DeriveSchema.gen[NestedV3]
+
   // "%02X".format doesn't work the same in ScalaJS
   def toHex(chunk: Chunk[Byte]): String =
     chunk.toArray.map { byte =>
@@ -1056,11 +1114,24 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         ZStream
           .fromChunk(fromHex(hex))
       )
-      .runCollect
+      .run(ZSink.collectAll)
+
+  def decodeChunk[A](schema: Schema[A], bytes: Chunk[Byte]): ZIO[Any, DecodeError, Chunk[A]] =
+    ProtobufCodec
+      .protobufCodec(schema)
+      .streamDecoder
+      .apply(
+        ZStream
+          .fromChunk(bytes)
+      )
+      .run(ZSink.collectAll)
 
   //NS == non streaming variant of decode
   def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
     ZIO.succeed(ProtobufCodec.protobufCodec(schema).decode(fromHex(hex))).absolve[DecodeError, A]
+
+  def decodeChunkNS[A](schema: Schema[A], bytes: Chunk[Byte]): ZIO[Any, DecodeError, A] =
+    ZIO.succeed(ProtobufCodec.protobufCodec(schema).decode(bytes)).absolve[DecodeError, A]
 
   def encodeAndDecode[A](schema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
     ProtobufCodec

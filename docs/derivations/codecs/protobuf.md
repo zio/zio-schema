@@ -26,6 +26,25 @@ object ProtobufCodec {
 }
 ```
 
+Optionally the `@fieldNumber(1)` annotation can be used on fields to specify the field number for a case class field. This together with default values
+can be used to keep binary compatibility when evolving schemas. Default field numbers are indexed starting from 1.
+
+For example considering the following three versions of a record:
+
+```scala
+final case class RecordV1(x: Int, y: Int)
+final case class RecordV2(x: Int = 100, y: Int, z: Int)
+final case class RecordV3(@fieldNumber(2) y: Int, @fieldNumber(4) extra: String = "unknown", @fieldNumber(3) z: Int)
+```
+
+The decoder of V1 can decode a binary encoded by V2, but cannot decode a binary encoded by V3 because it does not have a field number 1 (x).
+The decoder of V2 can decode a binary encoded by V3 because it has a default value for field number 1 (x), 100. The decoder of V3 can read V2 but
+cannot read V1 (as it does not have field number 3 (z)). As demonstrated, using explicit field numbers also allows reordering the fields without 
+breaking the format. 
+
+
+```scala
+
 ## Example: BinaryCodec
 
 Let's try an example:

@@ -10,7 +10,7 @@ import scala.util.control.NonFatal
 
 import org.apache.thrift.protocol._
 
-import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
+import zio.schema.MutableSchemaBasedValueBuilder.{ CreateValueFromSchemaError, ReadingFieldResult }
 import zio.schema._
 import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
 import zio.schema.codec.DecodeError.{ EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath }
@@ -582,14 +582,14 @@ object ThriftCodec {
       context: DecoderContext,
       record: Schema.Record[_],
       index: Int
-    ): Option[(DecoderContext, Int)] =
+    ): ReadingFieldResult[DecoderContext] =
       if (record.fields.nonEmpty) {
         val tfield = p.readFieldBegin()
-        if (tfield.`type` == TType.STOP) None
-        else Some((context.copy(path = context.path :+ s"fieldId:${tfield.id}"), tfield.id - 1))
+        if (tfield.`type` == TType.STOP) ReadingFieldResult.Finished()
+        else ReadingFieldResult.ReadField(context.copy(path = context.path :+ s"fieldId:${tfield.id}"), tfield.id - 1)
       } else {
         val _ = p.readByte()
-        None
+        ReadingFieldResult.Finished()
       }
 
     override protected def createRecord(

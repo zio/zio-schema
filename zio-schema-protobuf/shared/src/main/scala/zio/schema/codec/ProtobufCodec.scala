@@ -9,8 +9,9 @@ import java.util.UUID
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 
-import zio.schema.MutableSchemaBasedValueBuilder.CreateValueFromSchemaError
+import zio.schema.MutableSchemaBasedValueBuilder.{ CreateValueFromSchemaError, ReadingFieldResult }
 import zio.schema._
+import zio.schema.annotation.fieldDefaultValue
 import zio.schema.codec.DecodeError.{ ExtraFields, MalformedField, MissingField }
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZPipeline
@@ -256,8 +257,10 @@ object ProtobufCodec {
       context: EncoderContext,
       index: Int,
       field: Schema.Field[_, _]
-    ): EncoderContext =
-      context.copy(fieldNumber = Some(index + 1))
+    ): EncoderContext = {
+      val fieldNumber = FieldMapping.getFieldNumber(field).getOrElse(index + 1)
+      context.copy(fieldNumber = Some(fieldNumber))
+    }
 
     override protected def contextForTuple(context: EncoderContext, index: Int): EncoderContext =
       context.copy(fieldNumber = Some(index))
@@ -492,6 +495,7 @@ object ProtobufCodec {
     import Protobuf._
 
     private val state: DecoderState = new DecoderState(chunk, 0)
+    private val fieldMappingCache   = new FieldMappingCache()
 
     def decode[A](schema: Schema[A]): scala.util.Either[DecodeError, A] =
       try {
@@ -595,24 +599,53 @@ object ProtobufCodec {
       context: DecoderContext,
       record: Schema.Record[_],
       index: Int
-    ): Option[(DecoderContext, Int)] =
-      if (index == record.fields.size) {
-        None
+    ): ReadingFieldResult[DecoderContext] =
+      if (state.length(context) <= 0) {
+        ReadingFieldResult.Finished()
       } else {
         keyDecoder(context) match {
           case (wt, fieldNumber) =>
-            if (record.fields.isDefinedAt(fieldNumber - 1)) {
-              Some(wt match {
-                case LengthDelimited(width) =>
-                  (context.limitedTo(state, width), fieldNumber - 1)
-                case _ =>
-                  (context, fieldNumber - 1)
-              })
-            } else {
-              throw ExtraFields(
-                "Unknown",
-                s"Failed to decode record. Schema does not contain field number $fieldNumber."
-              )
+            val fieldMapping = fieldMappingCache.get(record)
+            fieldMapping.fieldNumberToIndex.get(fieldNumber) match {
+              case Some(index) => {
+                if (record.fields.isDefinedAt(index)) {
+                  ReadingFieldResult.ReadField(wt match {
+                    case LengthDelimited(width) =>
+                      context.limitedTo(state, width)
+                    case _ =>
+                      context
+                  }, index)
+                } else {
+                  throw ExtraFields(
+                    "Unknown",
+                    s"Failed to decode record. Schema does not contain field number $fieldNumber."
+                  )
+                }
+              }
+              case None =>
+                wt match {
+                  case WireType.VarInt => {
+                    varIntDecoder(context)
+                    ReadingFieldResult.UpdateContext(context)
+                  }
+                  case WireType.Bit64 => {
+                    state.move(8)
+                    ReadingFieldResult.UpdateContext(context)
+                  }
+                  case LengthDelimited(width) => {
+                    state.move(width)
+                    ReadingFieldResult.UpdateContext(context)
+                  }
+                  case WireType.Bit32 => {
+                    state.move(4)
+                    ReadingFieldResult.UpdateContext(context)
+                  }
+                  case _ =>
+                    throw ExtraFields(
+                      "Unknown",
+                      s"Failed to decode record. Schema does not contain field number $fieldNumber and it's length is unknown"
+                    )
+                }
             }
         }
       }
@@ -623,9 +656,39 @@ object ProtobufCodec {
       values: Chunk[(Int, Any)]
     ): Any =
       Unsafe.unsafe { implicit u =>
-        record.construct(values.map(_._2)) match {
-          case Right(result) => result
-          case Left(message) => throw DecodeError.ReadError(Cause.empty, message)
+        val array = new Array[Any](record.fields.length)
+        val mask  = Array.fill(record.fields.length)(false)
+
+        for ((field, index) <- record.fields.zipWithIndex) {
+          val defaultValue = field.annotations.collectFirst {
+            case fieldDefaultValue(defaultValue) => defaultValue
+          }
+
+          defaultValue match {
+            case Some(defaultValue) =>
+              array(index) = defaultValue
+              mask(index) = true
+            case None =>
+          }
+        }
+
+        for ((index, value) <- values) {
+          if (index < array.length) {
+            array(index) = value
+            mask(index) = true;
+          }
+        }
+
+        if (mask.forall(set => set)) {
+          record.construct(Chunk.fromArray(array)) match {
+            case Right(result) => result
+            case Left(message) => throw DecodeError.ReadError(Cause.empty, message)
+          }
+        } else {
+          throw DecodeError.ReadError(
+            Cause.empty,
+            s"Failed to decode record. Missing fields: ${mask.zip(record.fields).filter(!_._1).map(_._2).mkString(", ")}"
+          )
         }
       }
 
