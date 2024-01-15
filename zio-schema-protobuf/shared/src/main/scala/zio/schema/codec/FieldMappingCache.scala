@@ -8,7 +8,7 @@ import zio.schema.Schema
  * A per-encooding/decoding cache for field mappings. No need for thread safety as a single encoding/decoding
  * is sequential.
  */
-class FieldMappingCache {
+private class FieldMappingCache {
   private val mapping: mutable.Map[Schema[_], FieldMapping] = mutable.Map.empty
 
   def get(schema: Schema.Record[_]): FieldMapping =

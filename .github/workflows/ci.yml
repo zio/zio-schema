@@ -39,6 +39,7 @@ jobs:
       matrix:
         java: ['adopt@1.8', 'adopt@1.11']
         scala: ['2.12.18', '2.13.12', '3.3.1']
+        platform: ['JVM', 'Native', 'JS']
     steps:
     - uses: actions/checkout@v3.0.0
       with:
@@ -48,8 +49,11 @@ jobs:
         java-version: ${{ matrix.java }}
     - name: Cache scala dependencies
       uses: coursier/cache-action@v6
+    - name: Install libuv
+      if: matrix.platform == 'Native'
+      run: sudo apt-get update && sudo apt-get install -y libuv1-dev
     - name: Run tests
-      run: sbt ++${{ matrix.scala }}! test
+      run: sbt ++${{ matrix.scala }}! test${{ matrix.platform }}
 
   publish:
     runs-on: ubuntu-20.04

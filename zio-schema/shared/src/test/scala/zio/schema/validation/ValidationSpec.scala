@@ -288,12 +288,12 @@ object ValidationSpec extends ZIOSpecDefault {
       val parsedTimes =
         parseTimes(CreateTimesConfig(NoHour, "", HasMinute, "", NoSecond, "", NoFraction, "", NoAmPm), "mm")
       assertParsedTimes(parsedTimes)
-    },
+    } @@ TestAspect.jvmOnly,
     test("Time Validation m") {
       val parsedTimes =
         parseTimes(CreateTimesConfig(NoHour, "", HasMinute, "", NoSecond, "", NoFraction, "", NoAmPm), "m")
       assertParsedTimes(parsedTimes)
-    },
+    } @@ TestAspect.jvmOnly,
     test("Time Validation HHmm") {
       val parsedTimes =
         parseTimes(CreateTimesConfig(HasHour, "", HasMinute, "", NoSecond, "", NoFraction, "", NoAmPm), "HHmm")
@@ -315,7 +315,7 @@ object ValidationSpec extends ZIOSpecDefault {
         "HH:mm:ss a"
       )
       assertParsedTimes(parsedTimes)
-    },
+    } @@ TestAspect.jvmOnly,
     test("Time Validation H:m:s") {
       val parsedTimes =
         parseTimes(CreateTimesConfig(HasHour, ":", HasMinute, ":", HasSecond, "", NoFraction, "", NoAmPm), "H:m:s")
@@ -325,7 +325,7 @@ object ValidationSpec extends ZIOSpecDefault {
       val parsedTimes =
         parseTimes(CreateTimesConfig(HasHour, ":", HasMinute, ":", HasSecond, "", NoFraction, " ", HasAmPm), "H:m:s a")
       assertParsedTimes(parsedTimes)
-    },
+    } @@ TestAspect.jvmOnly,
     test("Time Validation hh:mm:ss") {
       val parsedTimes =
         parseTimes(CreateTimesConfig(HasHour, ":", HasMinute, ":", HasSecond, "", NoFraction, "", NoAmPm), "hh:mm:ss")
@@ -337,7 +337,7 @@ object ValidationSpec extends ZIOSpecDefault {
         "hh:mm:ss a"
       )
       assertParsedTimes(parsedTimes)
-    },
+    } @@ TestAspect.jvmOnly,
     test("Time Validation h:m:s") {
       val parsedTimes =
         parseTimes(CreateTimesConfig(HasHour, ":", HasMinute, ":", HasSecond, "", NoFraction, "", NoAmPm), "h:m:s")
@@ -347,7 +347,7 @@ object ValidationSpec extends ZIOSpecDefault {
       val parsedTimes =
         parseTimes(CreateTimesConfig(HasHour, ":", HasMinute, ":", HasSecond, "", NoFraction, " ", HasAmPm), "h:m:s a")
       assertParsedTimes(parsedTimes)
-    },
+    } @@ TestAspect.jvmOnly,
     test("Time Validation HH:mm:ss S") {
       val parsedTimes = parseTimes(
         CreateTimesConfig(HasHour, ":", HasMinute, ":", HasSecond, " ", HasFraction, "", NoAmPm),
@@ -368,7 +368,7 @@ object ValidationSpec extends ZIOSpecDefault {
         "HH:mm:ss SSSSSSSSS a"
       )
       assertParsedTimes(parsedTimes)
-    },
+    } @@ TestAspect.jvmOnly,
     test("Regex duration Validation") {
       check(Gen.finiteDuration) { duration =>
         assertTrue(Validation.duration.validate(duration.toString).isRight)

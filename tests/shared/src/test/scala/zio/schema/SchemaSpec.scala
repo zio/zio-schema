@@ -5,6 +5,7 @@ import scala.collection.immutable.ListMap
 
 import zio.Chunk
 import zio.schema.CaseSet._
+import zio.schema.SchemaAssertions.hasSameSchema
 import zio.test.Assertion._
 import zio.test._
 
@@ -13,32 +14,31 @@ object SchemaSpec extends ZIOSpecDefault {
   def spec: Spec[Environment, Any] = suite("Schema Spec")(
     suite("Should have valid equals")(
       test("primitive") {
-        assert(schemaUnit)(equalTo(schemaUnit))
+        assert(schemaUnit)(hasSameSchema(schemaUnit))
       },
       test("sequence") {
-        assert(Schema.chunk(schemaUnit))(equalTo(Schema.chunk(schemaUnit)))
+        assert(Schema.chunk(schemaUnit))(hasSameSchema(Schema.chunk(schemaUnit)))
       } @@ TestAspect.scala2Only,
       test("tuple") {
-        assert(Schema.Tuple2(schemaUnit, schemaUnit))(equalTo(Schema.Tuple2(schemaUnit, schemaUnit))) &&
+        assert(Schema.Tuple2(schemaUnit, schemaUnit))(hasSameSchema(Schema.Tuple2(schemaUnit, schemaUnit))) &&
         assert(Schema.Tuple2(schemaTransform, schemaTransform))(
-          equalTo(Schema.Tuple2(schemaTransform, schemaTransform))
+          hasSameSchema(Schema.Tuple2(schemaTransform, schemaTransform))
         )
       },
-      // TODO: disabled due to the fact that get operation is a different lambda instance
-//      test("record") {
-//        assert(schemaRecord("key"))(equalTo(schemaRecord("key"))) &&
-//        assert(schemaRecord("key1"))(not(equalTo(schemaRecord("key2"))))
-//      },
+      test("record") {
+        assert(schemaRecord("key"))(hasSameSchema(schemaRecord("key"))) &&
+        assert(schemaRecord("key1"))(not(hasSameSchema(schemaRecord("key2"))))
+      },
       test("transform") {
-        assert(schemaTransform)(equalTo(schemaTransform)) &&
-        assert(schemaTransformMethod)(equalTo(schemaTransformMethod))
+        assert(schemaTransform)(hasSameSchema(schemaTransform)) &&
+        assert(schemaTransformMethod)(hasSameSchema(schemaTransformMethod))
       } @@ TestAspect.scala2Only,
       test("optional") {
-        assert(Schema.Optional(schemaUnit))(equalTo(Schema.Optional(schemaUnit)))
+        assert(Schema.Optional(schemaUnit))(hasSameSchema(Schema.Optional(schemaUnit)))
       },
       test("enumeration") {
-        assert(schemaEnum("key"))(equalTo(schemaEnum("key"))) &&
-        assert(schemaEnum("key1"))(not(equalTo(schemaEnum("key2"))))
+        assert(schemaEnum("key"))(hasSameSchema(schemaEnum("key"))) &&
+        assert(schemaEnum("key1"))(not(hasSameSchema(schemaEnum("key2"))))
 
       } @@ TestAspect.scala2Only
     ),
