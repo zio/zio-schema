@@ -8,6 +8,6 @@ addSbtPlugin("com.github.sbt"     % "sbt-ci-release"                % "1.5.12")
 addSbtPlugin("org.portable-scala" % "sbt-scala-native-crossproject" % "1.3.2")
 addSbtPlugin("org.scala-native"   % "sbt-scala-native"              % "0.4.16")
 addSbtPlugin("pl.project13.scala" % "sbt-jmh"                       % "0.4.6")
-addSbtPlugin("dev.zio"            % "zio-sbt-website"               % "0.3.10")
+addSbtPlugin("dev.zio"            % "zio-sbt-website"               % "0.4.0-alpha.22")
 
 libraryDependencies += "org.snakeyaml" % "snakeyaml-engine" % "2.7"
