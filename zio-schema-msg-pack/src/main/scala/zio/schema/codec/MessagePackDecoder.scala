@@ -12,7 +12,7 @@ import org.msgpack.core.{ MessagePack, MessageUnpacker }
 
 import zio.schema.codec.DecodeError.MalformedFieldWithPath
 import zio.schema.codec.MessagePackDecoder._
-import zio.schema.{ DynamicValue, Schema, StandardType }
+import zio.schema.{ DynamicValue, Fallback, Schema, StandardType }
 import zio.{ Chunk, ChunkBuilder }
 
 private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
@@ -27,16 +27,17 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
       case Schema.GenericRecord(_, structure, _) =>
         val fields = structure.toChunk
         decodeRecord(path, fields)
-      case seqSchema @ Schema.Sequence(_, _, _, _, _) => decodeSequence(path, seqSchema)
-      case mapSchema @ Schema.Map(_, _, _)            => decodeMap(path, mapSchema)
-      case setSchema @ Schema.Set(_, _)               => decodeSet(path, setSchema)
-      case Schema.Transform(schema, f, _, _, _)       => decodeTransform(path, schema, f)
-      case Schema.Primitive(standardType, _)          => decodePrimitive(path, standardType)
-      case Schema.Tuple2(left, right, _)              => decodeTuple(path, left, right)
-      case optionalSchema @ Schema.Optional(_, _)     => decodeOptional(path, optionalSchema)
-      case Schema.Fail(message, _)                    => fail(path, message)
-      case Schema.Either(left, right, _)              => decodeEither(path, left, right)
-      case lzy @ Schema.Lazy(_)                       => decodeValue(path, lzy.schema)
+      case seqSchema @ Schema.Sequence(_, _, _, _, _)  => decodeSequence(path, seqSchema)
+      case mapSchema @ Schema.Map(_, _, _)             => decodeMap(path, mapSchema)
+      case setSchema @ Schema.Set(_, _)                => decodeSet(path, setSchema)
+      case Schema.Transform(schema, f, _, _, _)        => decodeTransform(path, schema, f)
+      case Schema.Primitive(standardType, _)           => decodePrimitive(path, standardType)
+      case Schema.Tuple2(left, right, _)               => decodeTuple(path, left, right)
+      case optionalSchema @ Schema.Optional(_, _)      => decodeOptional(path, optionalSchema)
+      case Schema.Fail(message, _)                     => fail(path, message)
+      case Schema.Either(left, right, _)               => decodeEither(path, left, right)
+      case Schema.Fallback(left, right, fullDecode, _) => decodeFallback(path, left, right, fullDecode)
+      case lzy @ Schema.Lazy(_)                        => decodeValue(path, lzy.schema)
       //case Schema.Meta(_, _)                                                                                                        => decode(path, Schema[MetaSchema]).map(_.toSchema)
       case s: Schema.CaseClass0[A]                                                           => caseClass0Decoder(path, s)
       case s: Schema.CaseClass1[_, A]                                                        => caseClass1Decoder(path, s)
@@ -309,6 +310,30 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
             case "right" => decodeValue(path :+ "either:right", right).map(Right(_))
             case str     => fail(path :+ "either", s"Unexpected field name: $str")
           }
+        }
+    )
+
+  private def decodeFallback[A, B](path: Path, left: Schema[A], right: Schema[B], fullDecode: Boolean): Result[Fallback[A, B]] =
+    Try(unpacker.unpackArrayHeader()).fold(
+      err => fail(path, s"Error parsing Fallback structure: ${err.getMessage}"),
+      size =>
+        if (size == 2) {
+          decodeString(path :+ "fallback").flatMap {
+            case "left"  => decodeValue(path :+ "fallback:left", left).map(Fallback.Left(_))
+            case "right" => decodeValue(path :+ "fallback:right", right).map(Fallback.Right(_))
+            case str     => fail(path :+ "either", s"Unexpected field name: $str")
+          }
+        } else if (size == 3) {
+          unpacker.skipValue()
+          if (fullDecode)
+            decodeValue(path :+ "fallback:left", left).flatMap(l => decodeValue(path :+ "fallback:right", right).map(r => Fallback.Both(l, r)))
+          else {
+            val res = decodeValue(path :+ "fallback:left", left).map(Fallback.Left(_))
+            unpacker.skipValue()
+            res
+          }
+        } else {
+          fail(path :+ "fallback", s"Expected 1 or 2 elements but received $size.")
         }
     )
 

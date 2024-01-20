@@ -24,7 +24,7 @@ import org.apache.avro.generic.GenericData
 
 import zio._
 import zio.schema.codec.AvroAnnotations.avroEnum
-import zio.schema.{ DeriveSchema, Schema }
+import zio.schema.{ DeriveSchema, Fallback, Schema }
 import zio.stream.ZStream
 import zio.test._
 
@@ -131,6 +131,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
     collectionsEncoderSpec,
     optionEncoderSpec,
     eitherEncoderSpec,
+    fallbackEncoderSpec,
     tupleEncoderSpec,
     genericRecordEncoderSpec,
     caseClassEncoderSpec,
@@ -138,6 +139,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
     primitiveDecoderSpec,
     optionDecoderSpec,
     eitherDecoderSpec,
+    fallbackDecoderSpec,
     tupleDecoderSpec,
     sequenceDecoderSpec,
     genericRecordDecoderSpec,
@@ -305,6 +307,24 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val codec = AvroCodec.schemaBasedBinaryCodec[Either[List[String], Int]]
       val bytes = codec.encode(Left(List("John", "Adam", "Daniel")))
       assertTrue(bytes.length == 20)
+    }
+  )
+
+  private val fallbackEncoderSpec = suite("Avro Codec - Encoder Fallback spec")(
+    test("Encode Fallback.Right") {
+      val codec = AvroCodec.schemaBasedBinaryCodec[Fallback[Int, String]]
+      val bytes = codec.encode(Fallback.Right("John"))
+      assertTrue(bytes.length == 7)
+    },
+    test("Encode Fallback.Left") {
+      val codec = AvroCodec.schemaBasedBinaryCodec[Fallback[Int, String]]
+      val bytes = codec.encode(Fallback.Left(42))
+      assertTrue(bytes.length == 3)
+    },
+    test("Encode Fallback.Both") {
+      val codec = AvroCodec.schemaBasedBinaryCodec[Fallback[Int, String]]
+      val bytes = codec.encode(Fallback.Both(42, "John"))
+      assertTrue(bytes.length == 8)
     }
   )
 
@@ -587,6 +607,33 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val bytes  = codec.encode(Left(List("John", "Adam", "Daniel")))
       val result = codec.decode(bytes)
       assertTrue(result == Right(Left(List("John", "Adam", "Daniel"))))
+    }
+  )
+
+  private val fallbackDecoderSpec = suite("Avro Codec - Fallback Decoder spec")(
+    test("Decode Fallback") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Fallback[String, Int]]
+      val bytes  = codec.encode(Fallback.Right(42))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Fallback.Right(42)))
+    },
+    test("Decode Fallback[List[String], Int]") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Fallback[List[String], Int]]
+      val bytes  = codec.encode(Fallback.Left(List("John", "Adam", "Daniel")))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Fallback.Left(List("John", "Adam", "Daniel"))))
+    },
+    test("Decode Fallback.Both full decode") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec(Schema.Fallback[String, Int](Schema[String], Schema[Int], true))
+      val bytes  = codec.encode(Fallback.Both("hello", 42))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Fallback.Both("hello", 42)))
+    },
+    test("Decode Fallback.Both non full decode") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Fallback[String, Int]]
+      val bytes  = codec.encode(Fallback.Both("hello", 42))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Fallback.Left("hello")))
     }
   )
 

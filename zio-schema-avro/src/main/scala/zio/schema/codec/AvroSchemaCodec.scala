@@ -415,6 +415,9 @@ object AvroSchemaCodec extends AvroSchemaCodec {
           name  <- getName(e)
         } yield wrapAvro(union, name, EitherWrapper)
 
+      case Schema.Fallback(left, right, _, _) =>
+        toAvroSchema(Schema.Tuple2(Schema.Optional(left), Schema.Optional(right)))
+
       case Lazy(schema0) => toAvroSchema(schema0())
       case Dynamic(_)    => toAvroSchema(Schema[MetaSchema])
     }
@@ -784,6 +787,7 @@ object AvroSchemaCodec extends AvroSchemaCodec {
                 case _                      => Left("ZIO schema wrapped either must have exactly two cases")
               }
             case e: Schema.Either[_, _]                                                              => Right(e)
+            case f: Schema.Fallback[_, _]                                                            => Right(f)
             case c: CaseClass0[_]                                                                    => Right(c)
             case c: CaseClass1[_, _]                                                                 => Right(c)
             case c: CaseClass2[_, _, _]                                                              => Right(c)

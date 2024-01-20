@@ -70,6 +70,10 @@ trait SchemaEquality {
             lEither.annotations == rEither.annotations &&
               lEither.left === rEither.left &&
               lEither.right === rEither.right
+          case (lEither: Schema.Fallback[_, _], rEither: Schema.Fallback[_, _]) =>
+            lEither.annotations == rEither.annotations &&
+              lEither.left === rEither.left &&
+              lEither.right === rEither.right
           case (lLazy: Schema.Lazy[_], rLazy: Schema.Lazy[_]) =>
             if (lLazy.schema eq rLazy.schema)
               true

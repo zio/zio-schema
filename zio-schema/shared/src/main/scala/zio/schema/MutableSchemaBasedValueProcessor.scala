@@ -54,11 +54,21 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
   /** Process a set using its already processed elements */
   protected def processSet(context: Context, schema: Schema.Set[_], value: Set[Target]): Target
 
-  /** Called before processing and either value */
+  /** Called before processing an either value */
   protected def startProcessingEither(context: Context, schema: Schema.Either[_, _]): Unit = {}
 
   /** Process an either value using its already processed left or right value */
   protected def processEither(context: Context, schema: Schema.Either[_, _], value: Either[Target, Target]): Target
+
+  /** Called before processing a fallback value */
+  protected def startProcessingFallback(context: Context, schema: Schema.Fallback[_, _]): Unit = {}
+
+  /** Process a fallback value using its already processed left or right value */
+  protected def processFallback(
+    context: Context,
+    schema: Schema.Fallback[_, _],
+    value: zio.schema.Fallback[Target, Target]
+  ): Target
 
   /** Called before processing an option value */
   protected def startProcessingOption(context: Context, schema: Schema.Optional[_]): Unit = {}
@@ -93,6 +103,9 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
 
   /** Gets the context for an either's left or right value within the parent context */
   protected def contextForEither(context: Context, e: Either[Unit, Unit]): Context
+
+  /** Gets the context for a fallback's left or right value within the parent context */
+  protected def contextForFallback(context: Context, e: zio.schema.Fallback[Unit, Unit]): Context
 
   /** Gets the context for an option's inner value within the parent context */
   protected def contextForOption(context: Context, o: Option[Unit]): Context
@@ -834,6 +847,41 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
               }
           }
 
+        case s: Schema.Fallback[l, r] =>
+          startProcessingFallback(currentContext, s)
+          currentValue.asInstanceOf[zio.schema.Fallback[l, r]] match {
+            case zio.schema.Fallback.Left(value: l) =>
+              currentValue = value
+              currentSchema = s.left
+              pushContext(contextForFallback(currentContext, zio.schema.Fallback.Left(())))
+              push { dyn =>
+                contextStack = contextStack.tail
+                finishWith(processFallback(currentContext, s, zio.schema.Fallback.Left(dyn)))
+              }
+            case zio.schema.Fallback.Right(value: r) =>
+              currentValue = value
+              currentSchema = s.right
+              pushContext(contextForFallback(currentContext, zio.schema.Fallback.Right(())))
+              push { dyn =>
+                contextStack = contextStack.tail
+                finishWith(processFallback(currentContext, s, zio.schema.Fallback.Right(dyn)))
+              }
+            case zio.schema.Fallback.Both(left, right) =>
+              currentValue = left
+              currentSchema = s.left
+              pushContext(contextForFallback(currentContext, zio.schema.Fallback.Both((), ())))
+              push { dynLeft =>
+                contextStack = contextStack.tail
+                currentValue = right
+                currentSchema = s.right
+                pushContext(contextForFallback(currentContext, zio.schema.Fallback.Right(())))
+                push { dynRight =>
+                  contextStack = contextStack.tail
+                  finishWith(processFallback(currentContext, s, zio.schema.Fallback.Both(dynLeft, dynRight)))
+                }
+              }
+          }
+
         case s: Schema.Tuple2[a, b] =>
           startProcessingTuple(currentContext, s)
           val (a: a, b: b) = currentValue.asInstanceOf[(a, b)]
@@ -1348,6 +1396,8 @@ trait SimpleMutableSchemaBasedValueProcessor[Target] extends MutableSchemaBasedV
 
   protected def processEither(schema: Schema.Either[_, _], value: Either[Target, Target]): Target
 
+  protected def processFallback(schema: Schema.Fallback[_, _], value: zio.schema.Fallback[Target, Target]): Target
+
   protected def processOption(schema: Schema.Optional[_], value: Option[Target]): Target
 
   protected def processTuple(schema: Schema.Tuple2[_, _], left: Target, right: Target): Target
@@ -1393,6 +1443,13 @@ trait SimpleMutableSchemaBasedValueProcessor[Target] extends MutableSchemaBasedV
   ): Target =
     processEither(schema, value)
 
+  override protected def processFallback(
+    context: Unit,
+    schema: Schema.Fallback[_, _],
+    value: zio.schema.Fallback[Target, Target]
+  ): Target =
+    processFallback(schema, value)
+
   override protected def processOption(context: Unit, schema: Schema.Optional[_], value: Option[Target]): Target =
     processOption(schema, value)
 
@@ -1414,6 +1471,9 @@ trait SimpleMutableSchemaBasedValueProcessor[Target] extends MutableSchemaBasedV
     ()
 
   override protected def contextForEither(context: Unit, e: Either[Unit, Unit]): Unit =
+    ()
+
+  override protected def contextForFallback(context: Unit, e: zio.schema.Fallback[Unit, Unit]): Unit =
     ()
 
   override protected def contextForOption(context: Unit, o: Option[Unit]): Unit =

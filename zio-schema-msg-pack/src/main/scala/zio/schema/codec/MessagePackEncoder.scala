@@ -8,7 +8,7 @@ import scala.collection.immutable.ListMap
 import org.msgpack.core.MessagePack
 
 import zio.Chunk
-import zio.schema.{ DynamicValue, Schema, StandardType }
+import zio.schema.{ DynamicValue, Fallback, Schema, StandardType }
 
 private[codec] class MessagePackEncoder {
   private val packer = MessagePack.newDefaultBufferPacker()
@@ -32,6 +32,7 @@ private[codec] class MessagePackEncoder {
       case (Schema.Tuple2(left, right, _), v @ (_, _))                     => encodeTuple(left, right, v)
       case (optSchema: Schema.Optional[_], v: Option[_])                   => encodeOptional(optSchema.asInstanceOf[Schema.Optional[Any]].schema, v.asInstanceOf[Option[Any]])
       case (eitherSchema: Schema.Either[_, _], v: scala.util.Either[_, _]) => encodeEither(eitherSchema.asInstanceOf[Schema.Either[Any, Any]].left, eitherSchema.asInstanceOf[Schema.Either[Any, Any]].right, v.asInstanceOf[scala.util.Either[Any, Any]])
+      case (fallbackSchema: Schema.Fallback[_, _], v: Fallback[_, _])      => encodeFallback(fallbackSchema.asInstanceOf[Schema.Fallback[Any, Any]].left, fallbackSchema.asInstanceOf[Schema.Fallback[Any, Any]].right, v.asInstanceOf[Fallback[Any, Any]])
       case (lzy @ Schema.Lazy(_), v)                                       => encodeValue(lzy.schema, v)
       //  case (Schema.Meta(ast, _), _)                                        => encodeValue(fieldNumber, Schema[MetaSchema], ast)
       case (Schema.CaseClass0(_, _, _), _)         => encodePrimitive(StandardType.UnitType, ())
@@ -139,6 +140,23 @@ private[codec] class MessagePackEncoder {
         encodeValue(right, value)
     }
   }
+
+  private def encodeFallback[A, B](left: Schema[A], right: Schema[B], fallback: Fallback[A, B]): Unit =
+    fallback match {
+      case Fallback.Left(value) =>
+        packer.packArrayHeader(2)
+        packer.packString("left")
+        encodeValue(left, value)
+      case Fallback.Right(value) =>
+        packer.packArrayHeader(2)
+        packer.packString("right")
+        encodeValue(right, value)
+      case Fallback.Both(valueLeft, valueRight) =>
+        packer.packArrayHeader(3)
+        packer.packString("both")
+        encodeValue(left, valueLeft)
+        encodeValue(right, valueRight)
+    }
 
   private def encodeCaseClass[Z](value: Z, fields: (Schema.Field[Z, _])*): Unit =
     writeStructure(fields.map { field =>

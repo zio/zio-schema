@@ -48,6 +48,29 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodesJson(Schema.Primitive(StandardType.ZoneIdType), ZoneId.systemDefault())
       }
     ),
+    suite("fallback")(
+      test("left") {
+        assertEncodesJson(
+          Schema.Fallback(Schema[Int], Schema[String]),
+          Fallback.Left(3),
+          "3"
+        )
+      },
+      test("right") {
+        assertEncodesJson(
+          Schema.Fallback(Schema[Int], Schema[String]),
+          Fallback.Right("hello"),
+          """"hello""""
+        )
+      },
+      test("both") {
+        assertEncodesJson(
+          Schema.Fallback(Schema[Int], Schema[String]),
+          Fallback.Both(3, "hello"),
+          """[3,"hello"]"""
+        )
+      }
+    ),
     suite("optional")(
       test("of primitives") {
         assertEncodesJson(
@@ -421,6 +444,43 @@ object JsonCodecSpec extends ZIOSpecDefault {
             JsonError.Message(errorMessage) :: Nil
           )
         }
+      }
+    ),
+    suite("fallback")(
+      test("correctly fallbacks to right") {
+        assertDecodes(
+          Schema.Fallback(Schema[Int], Schema[String]),
+          Fallback.Right("hello"),
+          charSequenceToByteChunk("""["wrong","hello"]""")
+        )
+      },
+      test("correctly fallbacks to left") {
+        assertDecodes(
+          Schema.Fallback(Schema[Int], Schema[String]),
+          Fallback.Left(30),
+          charSequenceToByteChunk("""[30,"hello"]""")
+        )
+      },
+      test("correctly fallbacks to right with full decode") {
+        assertDecodes(
+          Schema.Fallback(Schema[Int], Schema[String], true),
+          Fallback.Right("hello"),
+          charSequenceToByteChunk("""[ "wrong", "hello"]""")
+        )
+      },
+      test("correctly fallbacks to both with full decode") {
+        assertDecodes(
+          Schema.Fallback(Schema[Int], Schema[String], true),
+          Fallback.Both(30, "hello"),
+          charSequenceToByteChunk("""[ 30, "hello"]""")
+        )
+      },
+      test("correctly fallbacks to left with full decode") {
+        assertDecodes(
+          Schema.Fallback(Schema[Int], Schema[String], true),
+          Fallback.Left(30),
+          charSequenceToByteChunk("""[30,30]""")
+        )
       }
     ),
     suite("case class")(
@@ -831,6 +891,42 @@ object JsonCodecSpec extends ZIOSpecDefault {
           (right, value) <- SchemaGen.anySequenceAndValue
         } yield (Schema.Either(left, right), Right(value))) {
           case (schema, value) => assertEncodesThenDecodes(schema, value)
+        }
+      }
+    ),
+    suite("fallback")(
+      test("of enums") {
+        check(for {
+          (left, value) <- SchemaGen.anyEnumerationAndValue
+          (right, _)    <- SchemaGen.anyEnumerationAndValue
+        } yield (Schema.Fallback(left, right), Fallback.Left(value))) {
+          case (schema, value) => assertEncodesThenDecodesFallback(schema, value)
+        }
+      },
+      test("of map") {
+        check(
+          for {
+            left  <- SchemaGen.anyMapAndValue
+            right <- SchemaGen.anyMapAndValue
+          } yield (
+            Schema
+              .Fallback(left._1.asInstanceOf[Schema[Map[Any, Any]]], right._1.asInstanceOf[Schema[Map[Any, Any]]]),
+            Fallback.Left(left._2)
+          )
+        ) {
+          case (schema, value) =>
+            assertEncodesThenDecodesFallback[Map[Any, Any], Map[Any, Any]](
+              schema,
+              value.asInstanceOf[Fallback[Map[Any, Any], Map[Any, Any]]]
+            )
+        }
+      },
+      test("of records") {
+        check(for {
+          (left, a)       <- SchemaGen.anyRecordAndValue()
+          primitiveSchema <- SchemaGen.anyPrimitive
+        } yield (Schema.Fallback(left, primitiveSchema), Fallback.Left(a))) {
+          case (schema, value) => assertEncodesThenDecodesFallback(schema, value)
         }
       }
     ),
@@ -1312,6 +1408,36 @@ object JsonCodecSpec extends ZIOSpecDefault {
     val result = ZStream.fromChunk(chunk).via(JsonCodec.schemaBasedBinaryCodec[A](cfg)(schema).streamDecoder).runCollect
     assertZIO(result)(equalTo(Chunk(value)))
   }
+
+  private def assertEncodesThenDecodesFallback[A, B](
+    schema: Schema.Fallback[A, B],
+    value: Fallback[A, B]
+  ): ZIO[Any, Nothing, TestResult] =
+    ZStream
+      .succeed(value)
+      .via(JsonCodec.schemaBasedBinaryCodec[zio.schema.Fallback[A, B]](JsonCodec.Config.default)(schema).streamEncoder)
+      .runCollect
+      .flatMap { encoded =>
+        ZStream
+          .fromChunk(encoded)
+          .via(
+            JsonCodec.schemaBasedBinaryCodec[zio.schema.Fallback[A, B]](JsonCodec.Config.default)(schema).streamDecoder
+          )
+          .runCollect
+      }
+      .either
+      .flatMap { result =>
+        val expected = if (schema.fullDecode) value else value.simplify
+        result.map(_.headOption.getOrElse(expected)) match {
+          case Right(obtained) =>
+            if (expected == obtained)
+              ZIO.succeed(assertTrue(expected == obtained))
+            else
+              assertEncodesThenDecodesFallback(schema, obtained)
+          case Left(_) => ZIO.succeed(assertTrue(false))
+        }
+
+      }
 
   private def assertEncodesThenDecodes[A](schema: Schema[A], value: A, print: Boolean = false) =
     assertEncodesThenDecodesWithDifferentSchemas(schema, schema, value, (x: A, y: A) => x == y, print)

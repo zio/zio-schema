@@ -244,6 +244,12 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             case Left(value)  => loop(value, left)
             case Right(value) => loop(value, right)
           }
+        case fallback @ Schema.Fallback(left, right, _, _) =>
+          value.asInstanceOf[zio.schema.Fallback[fallback.LeftType, fallback.RightType]] match {
+            case zio.schema.Fallback.Left(value)                 => loop(value, left)
+            case zio.schema.Fallback.Right(value)                => loop(value, right)
+            case zio.schema.Fallback.Both(valueLeft, valueRight) => loop(valueLeft, left) ++ loop(valueRight, right)
+          }
         case Dynamic(_) => Chunk.empty
         case Fail(_, _) => Chunk.empty
       }
@@ -304,6 +310,9 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
 
   implicit def either[A, B](implicit left: Schema[A], right: Schema[B]): Schema[scala.util.Either[A, B]] =
     Schema.Either(left, right)
+
+  implicit def fallback[A, B](implicit left: Schema[A], right: Schema[B]): Schema[zio.schema.Fallback[A, B]] =
+    Schema.Fallback(left, right)
 
   implicit def list[A](implicit schemaA: Schema[A]): Schema[List[A]] =
     Schema.Sequence[List[A], A, String](schemaA, _.toList, Chunk.fromIterable(_), Chunk.empty, "List")
@@ -625,6 +634,74 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             case Right(b) => Right(Right(b))
             case _        => Left("unable to extract default value for Either")
           }
+      }
+
+    override def makeAccessors(
+      b: AccessorBuilder
+    ): (
+      b.Prism[rightSingleton.type, scala.util.Either[A, B], Right[Nothing, B]],
+      b.Prism[leftSingleton.type, scala.util.Either[A, B], Left[A, Nothing]]
+    ) =
+      b.makePrism(toEnum, toEnum.case1) -> b.makePrism(toEnum, toEnum.case2)
+
+  }
+
+  /**
+   * Schema for `zio.schema.Fallback` type. If `fullDecode` is set to `true`, it will decode `Fallback.Both` from `Fallback.Both`.
+   * If set to `false`, it will decode `Fallback.Left` when possible and `Fallback.Right` as second option from a `Fallback.Both`.
+   */
+  final case class Fallback[A, B](
+    left: Schema[A],
+    right: Schema[B],
+    fullDecode: Boolean = false,
+    annotations: Chunk[Any] = Chunk.empty
+  ) extends Schema[zio.schema.Fallback[A, B]] {
+    self =>
+    type LeftType  = A
+    type RightType = B
+
+    val leftSingleton  = "Left"
+    val rightSingleton = "Right"
+    override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
+      (
+        Prism[rightSingleton.type, scala.util.Either[A, B], Right[Nothing, B]],
+        Prism[leftSingleton.type, scala.util.Either[A, B], Left[A, Nothing]]
+      )
+
+    override def annotate(annotation: Any): Schema.Fallback[A, B] = copy(annotations = annotations :+ annotation)
+
+    val rightSchema: Schema[Right[Nothing, B]] = right.transform(b => Right(b), _.value)
+    val leftSchema: Schema[Left[A, Nothing]]   = left.transform(a => Left(a), _.value)
+
+    val toEnum: Enum2[Right[Nothing, B], Left[A, Nothing], scala.util.Either[A, B]] = Enum2(
+      TypeId.parse("zio.schema.Schema.Either"),
+      Case(
+        "Right",
+        rightSchema,
+        _.asInstanceOf[Right[Nothing, B]],
+        _.asInstanceOf[scala.util.Either[A, B]],
+        (e: scala.util.Either[A, B]) => e.isRight,
+        Chunk.empty
+      ),
+      Case(
+        "Left",
+        leftSchema,
+        _.asInstanceOf[Left[A, Nothing]],
+        _.asInstanceOf[scala.util.Either[A, B]],
+        (e: scala.util.Either[A, B]) => e.isLeft,
+        Chunk.empty
+      ),
+      Chunk.empty
+    )
+
+    val toEither: Either[A, B] = Either[A, B](left, right, annotations)
+
+    override def defaultValue: scala.util.Either[String, zio.schema.Fallback[A, B]] =
+      (left.defaultValue, right.defaultValue) match {
+        case (Right(a), Right(b)) => Right(zio.schema.Fallback.Both(a, b))
+        case (Right(a), _)        => Right(zio.schema.Fallback.Left(a))
+        case (_, Right(b))        => Right(zio.schema.Fallback.Right(b))
+        case _                    => Left("unable to extract default value for Fallback")
       }
 
     override def makeAccessors(

@@ -143,6 +143,16 @@ object ThriftCodec {
     ): Unit =
       writeFieldEnd()
 
+    override protected def startProcessingFallback(context: Context, schema: Schema.Fallback[_, _]): Unit =
+      writeFieldBegin(context.fieldNumber, TType.STRUCT)
+
+    override protected def processFallback(
+      context: Context,
+      schema: Schema.Fallback[_, _],
+      value: Fallback[Unit, Unit]
+    ): Unit =
+      writeFieldEnd()
+
     override def startProcessingOption(context: Context, schema: Schema.Optional[_]): Unit =
       writeFieldBegin(context.fieldNumber, TType.STRUCT)
 
@@ -188,6 +198,13 @@ object ThriftCodec {
       e match {
         case Left(_)  => context.copy(fieldNumber = Some(1))
         case Right(_) => context.copy(fieldNumber = Some(2))
+      }
+
+    override protected def contextForFallback(context: Context, f: Fallback[Unit, Unit]): Context =
+      f match {
+        case Fallback.Left(_)    => context.copy(fieldNumber = Some(1))
+        case Fallback.Right(_)   => context.copy(fieldNumber = Some(2))
+        case Fallback.Both(_, _) => context.copy(fieldNumber = Some(3))
       }
 
     override protected def contextForOption(context: Context, o: Option[Unit]): Context =
@@ -788,6 +805,39 @@ object ThriftCodec {
       value: Either[Any, Any]
     ): Any =
       value
+
+    override protected def startCreatingFallback(
+      context: DecoderContext,
+      schema: Schema.Fallback[_, _]
+    ): Fallback[DecoderContext, DecoderContext] = {
+      val readField = p.readFieldBegin()
+      readField.id match {
+        case 1 => Fallback.Left(context.copy(path = context.path :+ "fallback:left"))
+        case 2 => Fallback.Right(context.copy(path = context.path :+ "fallback:right"))
+        case 3 =>
+          Fallback.Both(
+            context.copy(path = context.path :+ "fallback:left"),
+            context.copy(path = context.path :+ "fallback:right")
+          )
+        case _ => fail(context, "Failed to decode fallback.").asInstanceOf[Fallback[DecoderContext, DecoderContext]]
+      }
+    }
+
+    override protected def startReadingRightFallback(
+      context: DecoderContext,
+      schema: Schema.Fallback[_, _]
+    ): DecoderContext = {
+      p.readFieldBegin()
+      context
+    }
+
+    override protected def createFallback(
+      context: DecoderContext,
+      schema: Schema.Fallback[_, _],
+      value: Fallback[Any, Any]
+    ): Any =
+      value
+    //if (schema.fullDecode) value else value.simplify
 
     override protected def startCreatingTuple(context: DecoderContext, schema: Schema.Tuple2[_, _]): DecoderContext = {
       p.readFieldBegin()

@@ -262,6 +262,7 @@ object Differ {
     case Schema.Set(s, _)                                                                        => set(s)
     case Schema.Map(k, v, _)                                                                     => map(k, v)
     case Schema.Either(leftSchema, rightSchema, _)                                               => either(fromSchema(leftSchema), fromSchema(rightSchema))
+    case Schema.Fallback(leftSchema, rightSchema, _, _)                                          => fallback(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                                                                      => fromSchema(s.schema)
     case Schema.Transform(schema, g, f, _, _)                                                    => fromSchema(schema).transformOrFail(f, g)
     case Schema.Fail(_, _)                                                                       => fail
@@ -533,6 +534,13 @@ object Differ {
     instancePartial[Either[A, B]] {
       case (Left(l), Left(r))   => Patch.EitherDiff(Left(left(l, r)))
       case (Right(l), Right(r)) => Patch.EitherDiff(Right(right(l, r)))
+    }
+
+  def fallback[A, B](left: Differ[A], right: Differ[B]): Differ[Fallback[A, B]] =
+    instancePartial[Fallback[A, B]] {
+      case (Fallback.Left(l), Fallback.Left(r))           => Patch.Fallback(Fallback.Left(left(l, r)))
+      case (Fallback.Right(l), Fallback.Right(r))         => Patch.Fallback(Fallback.Right(right(l, r)))
+      case (Fallback.Both(l1, r1), Fallback.Both(l2, r2)) => Patch.Fallback(Fallback.Both(left(l1, l2), right(r1, r2)))
     }
 
   def identical[A]: Differ[A] = (_: A, _: A) => Patch.identical
