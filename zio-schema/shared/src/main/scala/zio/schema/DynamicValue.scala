@@ -154,6 +154,16 @@ object DynamicValue {
         case Right(value) => DynamicValue.RightValue(value)
       }
 
+    override protected def processFallback(
+      schema: Schema.Fallback[_, _],
+      value: Fallback[DynamicValue, DynamicValue]
+    ): DynamicValue =
+      value match {
+        case Fallback.Left(value)       => DynamicValue.LeftValue(value)
+        case Fallback.Right(value)      => DynamicValue.RightValue(value)
+        case Fallback.Both(left, right) => DynamicValue.BothValue(left, right)
+      }
+
     override protected def processOption(schema: Schema.Optional[_], value: Option[DynamicValue]): DynamicValue =
       value match {
         case Some(value) => DynamicValue.SomeValue(value)
@@ -220,6 +230,8 @@ object DynamicValue {
   final case class LeftValue(value: DynamicValue) extends DynamicValue
 
   final case class RightValue(value: DynamicValue) extends DynamicValue
+
+  final case class BothValue(left: DynamicValue, right: DynamicValue) extends DynamicValue
 
   final case class DynamicAst(ast: MetaSchema) extends DynamicValue
 

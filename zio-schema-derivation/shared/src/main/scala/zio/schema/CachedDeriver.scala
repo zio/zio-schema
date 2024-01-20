@@ -122,6 +122,7 @@ private[schema] object CachedDeriver {
     final case class WithIdentityObject[A](inner: CacheKey[_], id: Any)                         extends CacheKey[A]
     final case class Optional[A](key: CacheKey[A])                                              extends CacheKey[A]
     final case class Either[A, B](leftKey: CacheKey[A], rightKey: CacheKey[B])                  extends CacheKey[Either[A, B]]
+    final case class Fallback[A, B](leftKey: CacheKey[A], rightKey: CacheKey[B])                extends CacheKey[Fallback[A, B]]
     final case class Tuple2[A, B](leftKey: CacheKey[A], rightKey: CacheKey[B])                  extends CacheKey[(A, B)]
     final case class Set[A](element: CacheKey[A])                                               extends CacheKey[Set[A]]
     final case class Map[K, V](key: CacheKey[K], valuew: CacheKey[V])                           extends CacheKey[Map[K, V]]
@@ -144,6 +145,8 @@ private[schema] object CachedDeriver {
           Tuple2(fromSchema(tuple.left), fromSchema(tuple.right)).asInstanceOf[CacheKey[A]]
         case either: Schema.Either[_, _] =>
           Either(fromSchema(either.leftSchema), fromSchema(either.rightSchema)).asInstanceOf[CacheKey[A]]
+        case fallback: Schema.Fallback[_, _] =>
+          Fallback(fromSchema(fallback.left), fromSchema(fallback.right)).asInstanceOf[CacheKey[A]]
         case Schema.Lazy(schema0) => fromSchema(schema0())
         case Schema.Dynamic(_)    => Misc(schema)
         case Schema.Fail(_, _)    => Misc(schema)

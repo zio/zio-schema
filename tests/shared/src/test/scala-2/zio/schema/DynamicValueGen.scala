@@ -79,6 +79,8 @@ object DynamicValueGen {
       case Schema.Tuple2(left, right, _)                                                                                                                                                              => anyDynamicTupleValue(left, right)
       case Schema.Either(left, right, _) =>
         Gen.oneOf(anyDynamicLeftValueOfSchema(left), anyDynamicRightValueOfSchema(right))
+      case Schema.Fallback(left, right, _, _) =>
+        Gen.oneOf(anyDynamicLeftValueOfSchema(left), anyDynamicRightValueOfSchema(right), anyDynamicBothValueOfSchema(left, right))
       case Schema.Transform(schema, _, _, _, _) => anyDynamicValueOfSchema(schema)
       case Schema.Fail(message, _)              => Gen.const(DynamicValue.Error(message))
       case l @ Schema.Lazy(_)                   => anyDynamicValueOfSchema(l.schema)
@@ -91,6 +93,11 @@ object DynamicValueGen {
 
   def anyDynamicRightValueOfSchema[A](schema: Schema[A]): Gen[Sized, DynamicValue.RightValue] =
     anyDynamicValueOfSchema(schema).map(DynamicValue.RightValue(_))
+
+  def anyDynamicBothValueOfSchema[A, B](left: Schema[A], right: Schema[A]): Gen[Sized, DynamicValue.BothValue] =
+    anyDynamicValueOfSchema(left).zip(anyDynamicValueOfSchema(right)).map {
+      case (l, r) => DynamicValue.BothValue(l, r)
+    }
 
   def anyDynamicSomeValueOfSchema[A](schema: Schema[A]): Gen[Sized, DynamicValue.SomeValue] =
     anyDynamicValueOfSchema(schema).map(DynamicValue.SomeValue(_))

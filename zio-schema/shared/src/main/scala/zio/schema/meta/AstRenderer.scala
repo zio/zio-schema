@@ -36,6 +36,14 @@ private[schema] object AstRenderer {
         .append("\n")
         .append(Chunk(Labelled("left", left), Labelled("right", right)).map(renderField(_, INDENT_STEP)).mkString("\n"))
         .toString
+    case ExtensibleMetaSchema.Fallback(_, left, right, optional) =>
+      val buffer = new StringBuffer()
+      buffer.append(s"fallback")
+      if (optional) buffer.append("?")
+      buffer
+        .append("\n")
+        .append(Chunk(Labelled("left", left), Labelled("right", right)).map(renderField(_, INDENT_STEP)).mkString("\n"))
+        .toString
     case ExtensibleMetaSchema.ListNode(items, _, optional) =>
       val buffer = new StringBuffer()
       buffer.append(s"list")
@@ -98,6 +106,18 @@ private[schema] object AstRenderer {
       case ExtensibleMetaSchema.Either(_, left, right, optional) =>
         pad(buffer, indent)
         buffer.append(s"${labelled.label}: either")
+        if (optional) buffer.append("?")
+        buffer
+          .append("\n")
+          .append(
+            Chunk(Labelled("left", left), Labelled("right", right))
+              .map(renderField(_, indent + INDENT_STEP))
+              .mkString("\n")
+          )
+          .toString
+      case ExtensibleMetaSchema.Fallback(_, left, right, optional) =>
+        pad(buffer, indent)
+        buffer.append(s"${labelled.label}: fallback")
         if (optional) buffer.append("?")
         buffer
           .append("\n")

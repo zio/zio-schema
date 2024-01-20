@@ -194,6 +194,7 @@ object JsonCodec {
         case Schema.Fail(_, _)                      => unitEncoder.contramap(_ => ())
         case Schema.GenericRecord(_, structure, _)  => recordEncoder(structure.toChunk, cfg)
         case Schema.Either(left, right, _)          => ZJsonEncoder.either(schemaEncoder(left, cfg, discriminatorTuple), schemaEncoder(right, cfg, discriminatorTuple))
+        case Schema.Fallback(left, right, _, _)     => fallbackEncoder(schemaEncoder(left, cfg, discriminatorTuple), schemaEncoder(right, cfg, discriminatorTuple))
         case l @ Schema.Lazy(_)                     => schemaEncoder(l.schema, cfg, discriminatorTuple)
         case Schema.CaseClass0(_, _, _)             => caseClassEncoder(schema, discriminatorTuple, cfg)
         case Schema.CaseClass1(_, f, _, _)          => caseClassEncoder(schema, discriminatorTuple, cfg, f)
@@ -383,6 +384,16 @@ object JsonCodec {
                 throw new Exception(s"DynamicValue.LeftValue is not supported in directDynamicMapping mode")
               case DynamicValue.RightValue(_) =>
                 throw new Exception(s"DynamicValue.RightValue is not supported in directDynamicMapping mode")
+              case DynamicValue.BothValue(left, right) =>
+                out.write('[')
+                val indent_ = bump(indent)
+                pad(indent_, out)
+                directEncoder.unsafeEncode(left, indent_, out)
+                out.write(',')
+                if (indent.isDefined) ZJsonEncoder.pad(indent_, out)
+                directEncoder.unsafeEncode(right, indent_, out)
+                pad(indent, out)
+                out.write(']')
               case DynamicValue.DynamicAst(_) =>
                 throw new Exception(s"DynamicValue.DynamicAst is not supported in directDynamicMapping mode")
               case DynamicValue.Error(message) =>
@@ -472,6 +483,25 @@ object JsonCodec {
         }
       }
 
+    private def fallbackEncoder[A, B](left: ZJsonEncoder[A], right: ZJsonEncoder[B]): ZJsonEncoder[Fallback[A, B]] =
+      new ZJsonEncoder[Fallback[A, B]] {
+
+        def unsafeEncode(f: Fallback[A, B], indent: Option[Int], out: Write): Unit =
+          f match {
+            case Fallback.Left(a)  => left.unsafeEncode(a, indent, out)
+            case Fallback.Right(b) => right.unsafeEncode(b, indent, out)
+            case Fallback.Both(a, b) =>
+              out.write('[')
+              if (indent.isDefined) pad(bump(indent), out)
+              left.unsafeEncode(a, indent, out)
+              out.write(',')
+              if (indent.isDefined) pad(bump(indent), out)
+              right.unsafeEncode(b, indent, out)
+              if (indent.isDefined) pad(indent, out)
+              out.write(']')
+          }
+      }
+
     private def recordEncoder[Z](structure: Seq[Schema.Field[Z, _]], cfg: Config): ZJsonEncoder[ListMap[String, _]] = {
       (value: ListMap[String, _], indent: Option[Int], out: Write) =>
         {
@@ -531,6 +561,7 @@ object JsonCodec {
       case Schema.Fail(message, _)               => failDecoder(message)
       case Schema.GenericRecord(_, structure, _) => recordDecoder(structure.toChunk)
       case Schema.Either(left, right, _)         => ZJsonDecoder.either(schemaDecoder(left, -1), schemaDecoder(right, -1))
+      case s @ Schema.Fallback(_, _, _, _)       => fallbackDecoder(s)
       case l @ Schema.Lazy(_)                    => schemaDecoder(l.schema, discriminator)
       //case Schema.Meta(_, _)                                                                           => astDecoder
       case s @ Schema.CaseClass0(_, _, _)                                => caseClass0Decoder(discriminator, s)
@@ -809,6 +840,84 @@ object JsonCodec {
           (ListMap.newBuilder[String, Any] ++= builder.result()).result()
         }
     }
+
+    private def fallbackDecoder[A, B](schema: Schema.Fallback[A, B]): ZJsonDecoder[Fallback[A, B]] =
+      new ZJsonDecoder[Fallback[A, B]] {
+
+        def unsafeDecode(trace: List[JsonError], in: RetractReader): Fallback[A, B] = {
+          var left: Option[A]  = None
+          var right: Option[B] = None
+
+          case class BadEnd() extends Throwable
+
+          try {
+            // If this doesn't throw exception, it is an array, so it encodes a `Fallback.Both`
+            zio.json.internal.Lexer.char(trace, in, '[')
+
+            // get left element
+            if (Lexer.firstArrayElement(in)) {
+              val trace_ = JsonError.ArrayAccess(0) :: trace
+              try left = Some(schemaDecoder(schema.left).unsafeDecode(trace_, in))
+              catch {
+                case _: UnsafeJson => ()
+              }
+
+              // read until ',' if left wasn't decoded
+              var continue = false
+              while (!continue) {
+                try {
+                  Lexer.nextArrayElement(trace, in)
+                  continue = true
+                } catch {
+                  case _: UnsafeJson => ()
+                }
+              }
+            }
+
+            // get right element
+            if ((left == None || schema.fullDecode) && Lexer.firstArrayElement(in)) {
+              val trace_ = JsonError.ArrayAccess(1) :: trace
+
+              try right = Some(schemaDecoder(schema.right).unsafeDecode(trace_, in))
+              catch {
+                case _: UnsafeJson => ()
+              }
+
+              try Lexer.nextArrayElement(trace, in)
+              catch {
+                case _: UnsafeJson => throw BadEnd()
+              }
+            }
+
+          } catch {
+            // It's not an array, so it is of type A or B
+            case BadEnd() => ()
+            case _: UnsafeJson => {
+              in.retract()
+              val in2 = new zio.json.internal.WithRecordingReader(in, 64)
+              try {
+                left = Some(schemaDecoder(schema.left).unsafeDecode(trace, in2))
+              } catch {
+                case UnsafeJson(_) =>
+                  in2.rewind()
+                  right = Some(schemaDecoder(schema.right).unsafeDecode(trace, in2))
+              }
+            }
+          }
+
+          (left, right) match {
+            case (Some(a), Some(b)) => Fallback.Both(a, b)
+            case (Some(a), _)       => Fallback.Left(a)
+            case (_, Some(b))       => Fallback.Right(b)
+            case _ =>
+              throw UnsafeJson(
+                JsonError.Message("Fallback decoder was unable to decode both left and right sides") :: trace
+              )
+          }
+
+        }
+      }
+
   }
 
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }

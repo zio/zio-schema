@@ -61,6 +61,7 @@ object ProtobufCodec {
       case _: Schema.Optional[_]                => false
       case _: Schema.Fail[_]                    => false
       case _: Schema.Either[_, _]               => false
+      case _: Schema.Fallback[_, _]             => false
       case lzy @ Schema.Lazy(_)                 => canBePacked(lzy.schema)
       case _                                    => false
     }
@@ -221,6 +222,19 @@ object ProtobufCodec {
       encodeKey(WireType.LengthDelimited(encodedEither.size), context.fieldNumber) ++ encodedEither
     }
 
+    override protected def processFallback(
+      context: EncoderContext,
+      schema: Schema.Fallback[_, _],
+      value: Fallback[Chunk[Byte], Chunk[Byte]]
+    ): Chunk[Byte] = {
+      val encodedEither = value match {
+        case Fallback.Left(left)        => left
+        case Fallback.Right(right)      => right
+        case Fallback.Both(left, right) => left ++ right
+      }
+      encodeKey(WireType.LengthDelimited(encodedEither.size), context.fieldNumber) ++ encodedEither
+    }
+
     override protected def processOption(
       context: EncoderContext,
       schema: Schema.Optional[_],
@@ -276,6 +290,13 @@ object ProtobufCodec {
       e match {
         case Left(_)  => context.copy(fieldNumber = Some(1))
         case Right(_) => context.copy(fieldNumber = Some(2))
+      }
+
+    override protected def contextForFallback(context: EncoderContext, f: Fallback[Unit, Unit]): EncoderContext =
+      f match {
+        case Fallback.Left(_)    => context.copy(fieldNumber = Some(1))
+        case Fallback.Right(_)   => context.copy(fieldNumber = Some(2))
+        case Fallback.Both(_, _) => context.copy(fieldNumber = Some(3))
       }
 
     override protected def contextForOption(context: EncoderContext, o: Option[Unit]): EncoderContext =
@@ -892,6 +913,39 @@ object ProtobufCodec {
       value: Either[Any, Any]
     ): Any =
       value
+
+    override protected def startCreatingFallback(
+      context: DecoderContext,
+      schema: Schema.Fallback[_, _]
+    ): Fallback[DecoderContext, DecoderContext] =
+      keyDecoder(context) match {
+        case (_, fieldNumber) if fieldNumber == 1 => Fallback.Left(context)
+        case (_, fieldNumber) if fieldNumber == 2 => Fallback.Right(context)
+        case (_, fieldNumber) if fieldNumber == 3 => Fallback.Both(context, context)
+        case _ =>
+          throw ExtraFields(fieldNumber.toString, s"Invalid field number ($fieldNumber) for fallback")
+      }
+
+    override protected def startReadingRightFallback(
+      context: DecoderContext,
+      schema: Schema.Fallback[_, _]
+    ): DecoderContext =
+      keyDecoder(context) match {
+        case (wt, 2) =>
+          wt match {
+            case LengthDelimited(width) => context.limitedTo(state, width)
+            case _                      => context
+          }
+        case (_, fieldNumber) =>
+          throw MalformedField(schema, s"Invalid field number $fieldNumber for fallback's right field")
+      }
+
+    override protected def createFallback(
+      context: DecoderContext,
+      schema: Schema.Fallback[_, _],
+      value: Fallback[Any, Any]
+    ): Any =
+      if (schema.fullDecode) value else value.simplify
 
     override protected def startCreatingTuple(context: DecoderContext, schema: Schema.Tuple2[_, _]): DecoderContext =
       enterFirstTupleElement(context, schema)

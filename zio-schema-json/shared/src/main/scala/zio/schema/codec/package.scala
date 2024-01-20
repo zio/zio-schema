@@ -65,6 +65,7 @@ package object json {
       case DynamicValue.Tuple(left, right) => Json.Arr(Chunk(toJson(left), toJson(right)))
       case DynamicValue.LeftValue(value)   => Json.Obj("Left" -> toJson(value))
       case DynamicValue.RightValue(value)  => Json.Obj("Right" -> toJson(value))
+      case DynamicValue.BothValue(_, _)    => throw new Exception("DynamicValue.BothValue is unsupported")
       case DynamicValue.DynamicAst(_)      => throw new Exception("DynamicValue.DynamicAst is unsupported")
       case DynamicValue.Error(_)           => throw new Exception("DynamicValue.Error is unsupported")
     }

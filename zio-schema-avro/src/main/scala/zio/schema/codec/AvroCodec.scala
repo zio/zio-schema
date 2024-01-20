@@ -19,7 +19,7 @@ import org.apache.avro.io.{ DecoderFactory, EncoderFactory }
 import org.apache.avro.util.Utf8
 import org.apache.avro.{ Conversions, LogicalTypes, Schema => SchemaAvro }
 
-import zio.schema.{ FieldSet, Schema, StandardType, TypeId }
+import zio.schema.{ Fallback, FieldSet, Schema, StandardType, TypeId }
 import zio.stream.ZPipeline
 import zio.{ Chunk, Unsafe, ZIO }
 
@@ -213,6 +213,7 @@ object AvroCodec {
     case Schema.Fail(message, _)           => Left(DecodeError.MalformedFieldWithPath(Chunk.empty, message))
     case Schema.Tuple2(left, right, _)     => decodeTuple2(raw, left, right).map(_.asInstanceOf[A])
     case Schema.Either(left, right, _)     => decodeEitherValue(raw, left, right)
+    case s @ Schema.Fallback(_, _, _, _)   => decodeFallbackValue(raw, s)
     case lzy @ Schema.Lazy(_)              => decodeValue(raw, lzy.schema)
     case unknown                           => Left(DecodeError.MalformedFieldWithPath(Chunk.empty, s"Unknown schema: $unknown"))
   }
@@ -468,11 +469,40 @@ object AvroCodec {
     val result2 = decodeValue(record.get("_2"), schemaRight)
     result1.flatMap(a => result2.map(b => (a, b)))
   }
+
   private def decodeEitherValue[A, B](value: Any, schemaLeft: Schema[A], schemaRight: Schema[B]) = {
     val record = value.asInstanceOf[GenericRecord]
     val result = decodeValue(record.get("value"), schemaLeft)
     if (result.isRight) result.map(Left(_))
     else decodeValue(record.get("value"), schemaRight).map(Right(_))
+  }
+
+  private def decodeFallbackValue[A, B](value: Any, schema: Schema.Fallback[A, B]) = {
+    var error: Option[DecodeError] = None
+
+    val record = value.asInstanceOf[GenericRecord]
+    val left: Option[A] = decodeValue(record.get("_1"), Schema.Optional(schema.left)) match {
+      case Right(value) => value
+      case Left(err) => {
+        error = Some(err)
+        None
+      }
+    }
+
+    val right = left match {
+      case Some(_) =>
+        if (schema.fullDecode) decodeValue(record.get("_2"), Schema.Optional(schema.right)).getOrElse(None)
+        else None
+      case _ =>
+        decodeValue(record.get("_2"), Schema.Optional(schema.right)).getOrElse(None)
+    }
+
+    (left, right) match {
+      case (Some(a), Some(b)) => Right(Fallback.Both(a, b))
+      case (_, Some(b))       => Right(Fallback.Right(b))
+      case (Some(a), _)       => Right(Fallback.Left(a))
+      case _                  => Left(error.get)
+    }
   }
 
   private def decodeOptionalValue[A](value: Any, schema: Schema[A]) =
@@ -631,8 +661,9 @@ object AvroCodec {
     case Schema.Optional(schema, _) => encodeOption(schema, a)
     case Schema.Tuple2(left, right, _) =>
       encodeTuple2(left.asInstanceOf[Schema[Any]], right.asInstanceOf[Schema[Any]], a)
-    case Schema.Either(left, right, _) => encodeEither(left, right, a)
-    case Schema.Lazy(schema0)          => encodeValue(a, schema0())
+    case Schema.Either(left, right, _)   => encodeEither(left, right, a)
+    case s @ Schema.Fallback(_, _, _, _) => encodeFallback(s, a)
+    case Schema.Lazy(schema0)            => encodeValue(a, schema0())
     case Schema.CaseClass0(_, _, _) =>
       encodeCaseClass(schema, a, Seq.empty: _*) //encodePrimitive((), StandardType.UnitType)
     case Schema.CaseClass1(_, f, _, _)                      => encodeCaseClass(schema, a, f)
@@ -940,6 +971,26 @@ object AvroCodec {
     }
 
     result.build()
+  }
+
+  private def encodeFallback[A, B](s: Schema.Fallback[A, B], f: zio.schema.Fallback[A, B]): Any = {
+    val schema = AvroSchemaCodec
+      .encodeToApacheAvro(s)
+      .getOrElse(throw new Exception("Avro schema could not be generated for Fallback."))
+
+    val value: (Option[A], Option[B]) = f match {
+      case zio.schema.Fallback.Left(a)    => (Some(a), None)
+      case zio.schema.Fallback.Right(b)   => (None, Some(b))
+      case zio.schema.Fallback.Both(a, b) => (Some(a), Some(b))
+    }
+
+    val left  = encodeOption[A](s.left, value._1)
+    val right = encodeOption[B](s.right, value._2)
+
+    val record = new GenericData.Record(schema)
+    record.put("_1", left)
+    record.put("_2", right)
+    record
   }
 
   private def encodeTuple2[A](schema1: Schema[Any], schema2: Schema[Any], a: A) = {

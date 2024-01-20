@@ -130,6 +130,18 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
   /** Create the either value from an inner value */
   protected def createEither(context: Context, schema: Schema.Either[_, _], value: Either[Target, Target]): Target
 
+  /** The next value to be created is a fallback value with the given Fallback schema. Similarly to optional values,
+   * this method is responsible for gathering enough information to decide whether the created value will
+   * be a Left, a Right or a Both. The result value represents this, and for each case allows specifying a context
+   * that will be used to create the inner value. */
+  protected def startCreatingFallback(context: Context, schema: Schema.Fallback[_, _]): Fallback[Context, Context]
+
+  /** Create the fallback value from an inner value */
+  protected def createFallback(context: Context, schema: Schema.Fallback[_, _], value: Fallback[Target, Target]): Target
+
+  /** Called for reading right element of a `Fallback.Both` */
+  protected def startReadingRightFallback(context: Context, schema: Schema.Fallback[_, _]): Context
+
   /** The next value to be created is a tuple with the given schema. The returned context is used to
    * construct the first element of the tuple. */
   protected def startCreatingTuple(context: Context, schema: Schema.Tuple2[_, _]): Context
@@ -638,6 +650,43 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
                 }
             }
 
+          case s: Schema.Fallback[l, r] =>
+            startCreatingFallback(currentContext, s) match {
+              case Fallback.Left(newState) =>
+                currentSchema = s.left
+                pushContext(newState)
+                push { value =>
+                  contextStack = contextStack.tail
+                  finishWith(createFallback(contextStack.head, s, Fallback.Left(value)))
+                }
+              case Fallback.Right(newState) =>
+                currentSchema = s.right
+                pushContext(newState)
+                push { value =>
+                  contextStack = contextStack.tail
+                  finishWith(createFallback(contextStack.head, s, Fallback.Right(value)))
+                }
+              case Fallback.Both(leftState, rightState) =>
+                currentSchema = s.left
+                pushContext(leftState)
+                push { left =>
+                  contextStack = contextStack.tail
+                  currentSchema = s.right
+                  pushContext(startReadingRightFallback(rightState, s))
+                  push { right =>
+                    contextStack = contextStack.tail
+                    finishWith(
+                      createFallback(
+                        contextStack.head,
+                        s,
+                        if (s.fullDecode) Fallback.Both(left, right)
+                        else Fallback.Left(left)
+                      )
+                    )
+                  }
+                }
+            }
+
           case s: Schema.Tuple2[a, b] =>
             currentSchema = s.left
             pushContext(startCreatingTuple(currentContext, s))
@@ -1143,6 +1192,25 @@ trait SimpleMutableSchemaBasedValueBuilder[Target] extends MutableSchemaBasedVal
     createEither(schema, value)
 
   protected def createEither(schema: Schema.Either[_, _], value: Either[Target, Target]): Target
+
+  override protected def startCreatingFallback(context: Unit, schema: Schema.Fallback[_, _]): Fallback[Unit, Unit] =
+    startCreatingFallback(schema)
+
+  protected def startCreatingFallback(schema: Schema.Fallback[_, _]): Fallback[Unit, Unit]
+
+  override protected def startReadingRightFallback(context: Unit, schema: Schema.Fallback[_, _]): Unit =
+    startReadingRightFallback(schema)
+
+  protected def startReadingRightFallback(schema: Schema.Fallback[_, _]): Unit
+
+  override protected def createFallback(
+    context: Unit,
+    schema: Schema.Fallback[_, _],
+    value: zio.schema.Fallback[Target, Target]
+  ): Target =
+    createFallback(schema, value)
+
+  protected def createFallback(schema: Schema.Fallback[_, _], value: zio.schema.Fallback[Target, Target]): Target
 
   override protected def startCreatingTuple(context: Unit, schema: Schema.Tuple2[_, _]): Unit =
     startCreatingTuple(schema)

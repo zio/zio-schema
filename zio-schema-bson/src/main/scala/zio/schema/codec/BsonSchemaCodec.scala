@@ -37,7 +37,7 @@ import zio.schema.annotation.{
   transientCase,
   transientField
 }
-import zio.schema.{ DynamicValue, Schema, StandardType, TypeId }
+import zio.schema.{ DynamicValue, Fallback, Schema, StandardType, TypeId }
 import zio.{ Chunk, ChunkBuilder, Unsafe }
 
 object BsonSchemaCodec {
@@ -312,6 +312,78 @@ object BsonSchemaCodec {
           }
       }
 
+    protected[codec] def fallbackEncoder[A: BsonEncoder, B: BsonEncoder]: BsonEncoder[Fallback[A, B]] =
+      new BsonEncoder[Fallback[A, B]] {
+        override def encode(writer: BsonWriter, value: Fallback[A, B], ctx: BsonEncoder.EncoderContext): Unit = {
+          val nextCtx = BsonEncoder.EncoderContext.default
+
+          if (!ctx.inlineNextObject) writer.writeStartDocument()
+
+          value match {
+            case Fallback.Left(value) =>
+              BsonEncoder[A].encode(writer, value, nextCtx)
+            case Fallback.Right(value) =>
+              BsonEncoder[B].encode(writer, value, nextCtx)
+            case Fallback.Both(left, right) =>
+              writer.writeStartArray()
+              BsonEncoder[A].encode(writer, left, nextCtx)
+              BsonEncoder[B].encode(writer, right, nextCtx)
+              writer.writeEndArray()
+          }
+
+          if (!ctx.inlineNextObject) writer.writeEndDocument()
+        }
+
+        override def toBsonValue(value: Fallback[A, B]): BsonValue = value match {
+          case Fallback.Left(value)       => array(value.toBsonValue)
+          case Fallback.Right(value)      => array(value.toBsonValue)
+          case Fallback.Both(left, right) => array(left.toBsonValue, right.toBsonValue)
+        }
+      }
+
+    protected[codec] def fallbackDecoder[A: BsonDecoder, B: BsonDecoder]: BsonDecoder[Fallback[A, B]] =
+      new BsonDecoder[Fallback[A, B]] {
+
+        override def decodeUnsafe(
+          reader: BsonReader,
+          trace: List[BsonTrace],
+          ctx: BsonDecoder.BsonDecoderContext
+        ): Fallback[A, B] = unsafeCall(trace) {
+          val nextCtx = BsonDecoder.BsonDecoderContext.default
+
+          try {
+            Fallback.Left(BsonDecoder[A].decodeUnsafe(reader, trace, nextCtx))
+          } catch {
+            case _: BsonDecoder.Error =>
+              try {
+                Fallback.Right(BsonDecoder[B].decodeUnsafe(reader, trace, nextCtx))
+              } catch {
+                case _: BsonDecoder.Error => throw BsonDecoder.Error(trace, "Both `left` and `right` cases missing.")
+              }
+          }
+        }
+
+        override def fromBsonValueUnsafe(
+          value: BsonValue,
+          trace: List[BsonTrace],
+          ctx: BsonDecoder.BsonDecoderContext
+        ): Fallback[A, B] =
+          assumeType(trace)(BsonType.DOCUMENT, value) { value =>
+            val nextCtx = BsonDecoder.BsonDecoderContext.default
+
+            try {
+              Fallback.Left(BsonDecoder[A].fromBsonValueUnsafe(value, trace, nextCtx))
+            } catch {
+              case _: BsonDecoder.Error =>
+                try {
+                  Fallback.Right(BsonDecoder[B].fromBsonValueUnsafe(value, trace, nextCtx))
+                } catch {
+                  case _: BsonDecoder.Error => throw BsonDecoder.Error(trace, "Both `left` and `right` cases missing.")
+                }
+            }
+          }
+      }
+
     protected[codec] def failDecoder[A](message: String): BsonDecoder[A] =
       new BsonDecoder[A] {
         override def decodeUnsafe(reader: BsonReader, trace: List[BsonTrace], ctx: BsonDecoder.BsonDecoderContext): A =
@@ -394,6 +466,7 @@ object BsonSchemaCodec {
         case Schema.Fail(_, _)                     => unitEncoder.contramap(_ => ())
         case Schema.GenericRecord(_, structure, _) => genericRecordEncoder(structure.toChunk)
         case Schema.Either(left, right, _)         => eitherEncoder(schemaEncoder(left), schemaEncoder(right))
+        case Schema.Fallback(left, right, _, _)    => fallbackEncoder(schemaEncoder(left), schemaEncoder(right))
         case l @ Schema.Lazy(_)                    => schemaEncoder(l.schema)
         case r: Schema.Record[A]                   => caseClassEncoder(r)
         case e: Schema.Enum[A]                     => enumEncoder(e, e.cases)
@@ -464,6 +537,8 @@ object BsonSchemaCodec {
                 throw new Exception(s"DynamicValue.LeftValue is not supported in directDynamicMapping mode")
               case DynamicValue.RightValue(_) =>
                 throw new Exception(s"DynamicValue.RightValue is not supported in directDynamicMapping mode")
+              case DynamicValue.BothValue(_, _) =>
+                throw new Exception(s"DynamicValue.BothValue is not supported in directDynamicMapping mode")
               case DynamicValue.DynamicAst(_) =>
                 throw new Exception(s"DynamicValue.DynamicAst is not supported in directDynamicMapping mode")
               case DynamicValue.Error(message) =>
@@ -496,6 +571,8 @@ object BsonSchemaCodec {
                 throw new Exception(s"DynamicValue.LeftValue is not supported in directDynamicMapping mode")
               case DynamicValue.RightValue(_) =>
                 throw new Exception(s"DynamicValue.RightValue is not supported in directDynamicMapping mode")
+              case DynamicValue.BothValue(_, _) =>
+                throw new Exception(s"DynamicValue.BothValue is not supported in directDynamicMapping mode")
               case DynamicValue.DynamicAst(_) =>
                 throw new Exception(s"DynamicValue.DynamicAst is not supported in directDynamicMapping mode")
               case DynamicValue.Error(message) =>
@@ -696,6 +773,7 @@ object BsonSchemaCodec {
       case Schema.Fail(message, _)               => failDecoder(message)
       case Schema.GenericRecord(_, structure, _) => recordDecoder(structure.toChunk)
       case Schema.Either(left, right, _)         => eitherDecoder(schemaDecoder(left), schemaDecoder(right))
+      case Schema.Fallback(left, right, _, _)    => fallbackDecoder(schemaDecoder(left), schemaDecoder(right))
       case l @ Schema.Lazy(_)                    => schemaDecoder(l.schema)
       case s: Schema.Record[A]                   => caseClassDecoder(s)
       case e: Schema.Enum[A]                     => enumDecoder(e)

@@ -240,6 +240,58 @@ object ExtensibleMetaSchema {
 
   }
 
+  final case class Fallback[BuiltIn <: TypeList](
+    override val path: NodePath,
+    left: ExtensibleMetaSchema[BuiltIn],
+    right: ExtensibleMetaSchema[BuiltIn],
+    override val optional: Boolean = false
+  )(implicit val builtInInstances: SchemaInstances[BuiltIn])
+      extends ExtensibleMetaSchema[BuiltIn]
+
+  object Fallback {
+    implicit def schema[BuiltIn <: TypeList](
+      implicit builtInInstances: SchemaInstances[BuiltIn]
+    ): Schema[Fallback[BuiltIn]] =
+      Schema.CaseClass4(
+        TypeId.parse("zio.schema.meta.MetaSchema.Fallback"),
+        field01 = Schema
+          .Field(
+            "path",
+            Schema[String].repeated,
+            get0 = _.path,
+            set0 = (a, value: Chunk[String]) => a.copy(path = NodePath(value))
+          ),
+        field02 = Schema
+          .Field(
+            "left",
+            Schema[ExtensibleMetaSchema[BuiltIn]],
+            get0 = _.left,
+            set0 = (a, value: ExtensibleMetaSchema[BuiltIn]) => a.copy(left = value)
+          ),
+        field03 = Schema
+          .Field(
+            "right",
+            Schema[ExtensibleMetaSchema[BuiltIn]],
+            get0 = _.right,
+            set0 = (a, value: ExtensibleMetaSchema[BuiltIn]) => a.copy(right = value)
+          ),
+        field04 = Schema
+          .Field(
+            "optional",
+            Schema[Boolean],
+            get0 = _.optional,
+            set0 = (a, value: Boolean) => a.copy(optional = value)
+          ),
+        (
+          path: Chunk[String],
+          left: ExtensibleMetaSchema[BuiltIn],
+          right: ExtensibleMetaSchema[BuiltIn],
+          optional: Boolean
+        ) => Fallback(NodePath(path), left, right, optional)
+      )
+
+  }
+
   final case class FailNode[BuiltIn <: TypeList](
     message: String,
     override val path: NodePath,
@@ -507,6 +559,12 @@ object ExtensibleMetaSchema {
               subtree(NodePath.root / "left", Lineage.empty, left),
               subtree(NodePath.root / "right", Lineage.empty, right)
             )
+          case Schema.Fallback(left, right, _, _) =>
+            Fallback(
+              NodePath.root,
+              subtree(NodePath.root / "left", Lineage.empty, left),
+              subtree(NodePath.root / "right", Lineage.empty, right)
+            )
           case Schema.Tuple2(left, right, _) =>
             Tuple(
               NodePath.root,
@@ -562,6 +620,13 @@ object ExtensibleMetaSchema {
               case Schema.Primitive(typ, _)   => Value(typ, path, optional)
               case Schema.Optional(schema, _) => subtree(path, lineage, schema, optional = true)
               case Schema.Either(left, right, _) =>
+                Either(
+                  path,
+                  subtree(path / "left", lineage, left, optional = false),
+                  subtree(path / "right", lineage, right, optional = false),
+                  optional
+                )
+              case Schema.Fallback(left, right, _, _) =>
                 Either(
                   path,
                   subtree(path / "left", lineage, left, optional = false),
@@ -664,6 +729,11 @@ object ExtensibleMetaSchema {
       }
       case ExtensibleMetaSchema.Either(_, left, right, _) =>
         Schema.either(
+          materialize(left, refs),
+          materialize(right, refs)
+        )
+      case ExtensibleMetaSchema.Fallback(_, left, right, _) =>
+        Schema.Fallback(
           materialize(left, refs),
           materialize(right, refs)
         )

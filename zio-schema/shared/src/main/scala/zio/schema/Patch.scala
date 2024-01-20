@@ -266,6 +266,49 @@ object Patch {
     }
   }
 
+  final case class Fallback[A, B](diff: zio.schema.Fallback[Patch[A], Patch[B]])
+      extends Patch[zio.schema.Fallback[A, B]] {
+    override def isIdentical: Boolean = diff.fold(_.isIdentical, _.isIdentical)
+
+    override def isComparable: Boolean = diff.fold(_.isComparable, _.isComparable)
+
+    override def patch(input: zio.schema.Fallback[A, B]): Either[String, zio.schema.Fallback[A, B]] =
+      (input, diff) match {
+        case (zio.schema.Fallback.Left(_), zio.schema.Fallback.Right(_)) =>
+          Left(s"Cannot apply a right diff to a left value")
+        case (zio.schema.Fallback.Right(_), zio.schema.Fallback.Left(_)) =>
+          Left(s"Cannot apply a left diff to a right value")
+        case (zio.schema.Fallback.Left(in), zio.schema.Fallback.Left(diff)) =>
+          diff.patch(in).map(zio.schema.Fallback.Left(_))
+        case (zio.schema.Fallback.Right(in), zio.schema.Fallback.Right(diff)) =>
+          diff.patch(in).map(zio.schema.Fallback.Right(_))
+
+        case (zio.schema.Fallback.Both(in, _), zio.schema.Fallback.Left(diff)) =>
+          diff.patch(in).map(zio.schema.Fallback.Left(_))
+        case (zio.schema.Fallback.Both(_, in), zio.schema.Fallback.Right(diff)) =>
+          diff.patch(in).map(zio.schema.Fallback.Right(_))
+        case (zio.schema.Fallback.Left(in), zio.schema.Fallback.Both(diff, _)) =>
+          diff.patch(in).map(zio.schema.Fallback.Left(_))
+        case (zio.schema.Fallback.Right(in), zio.schema.Fallback.Both(_, diff)) =>
+          diff.patch(in).map(zio.schema.Fallback.Right(_))
+        case (zio.schema.Fallback.Both(inLeft, inRight), zio.schema.Fallback.Both(diffLeft, diffRight)) =>
+          (diffLeft.patch(inLeft), diffRight.patch(inRight)) match {
+            case (Right(a), Right(b)) => Right(zio.schema.Fallback.Both(a, b))
+            case (Left(_), Right(b))  => Right(zio.schema.Fallback.Right(b))
+            case (Right(a), Left(_))  => Right(zio.schema.Fallback.Left(a))
+            case (Left(_), Left(_))   => Left(s"Diff wasn't appliable neither in left or right fallback")
+
+          }
+
+      }
+
+    override def invert: Patch[zio.schema.Fallback[A, B]] = diff match {
+      case zio.schema.Fallback.Left(value)       => Fallback(zio.schema.Fallback.Left(value.invert))
+      case zio.schema.Fallback.Right(value)      => Fallback(zio.schema.Fallback.Right(value.invert))
+      case zio.schema.Fallback.Both(left, right) => Fallback(zio.schema.Fallback.Both(left.invert, right.invert))
+    }
+  }
+
   final case class Transform[A, B](patch: Patch[A], f: A => Either[String, B], g: B => Either[String, A])
       extends Patch[B] {
     override def isIdentical: Boolean = patch.isIdentical

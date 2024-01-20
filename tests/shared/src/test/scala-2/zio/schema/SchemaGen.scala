@@ -120,6 +120,33 @@ object SchemaGen {
       value         <- gen
     } yield (schema, value)
 
+  def anyFallback(fullDecode: Boolean): Gen[Sized, Schema.Fallback[_, _]] =
+    for {
+      left  <- anyPrimitive
+      right <- anyPrimitive
+    } yield Schema.Fallback(left, right, fullDecode)
+
+  type FallbackAndGen[A, B] = (Schema.Fallback[A, B], Gen[Sized, Fallback[A, B]])
+
+  def anyFallbackAndGen(fullDecode: Boolean): Gen[Sized, FallbackAndGen[_, _]] =
+    for {
+      (leftSchema, leftGen)   <- anyPrimitiveAndGen
+      (rightSchema, rightGen) <- anyPrimitiveAndGen
+    } yield (
+      Schema.Fallback(leftSchema, rightSchema, fullDecode),
+      Gen.oneOf(leftGen.map(Fallback.Left(_)), rightGen.map(Fallback.Right(_)), leftGen.zip(rightGen).map {
+        case (l, r) => Fallback.Both(l, r)
+      })
+    )
+
+  type FallbackAndValue[A, B] = (Schema.Fallback[A, B], Fallback[A, B])
+
+  def anyFallbackAndValue(fullDecode: Boolean): Gen[Sized, FallbackAndValue[_, _]] =
+    for {
+      (schema, gen) <- anyFallbackAndGen(fullDecode)
+      value         <- gen
+    } yield (schema, value)
+
   lazy val anyTuple: Gen[Sized, Schema.Tuple2[_, _]] =
     anySchema.zipWith(anySchema) { (a, b) =>
       Schema.Tuple2(a, b)

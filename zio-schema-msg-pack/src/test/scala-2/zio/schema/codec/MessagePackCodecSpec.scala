@@ -25,7 +25,7 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
   val objectMapper = new ObjectMapper(new MessagePackFactory())
   objectMapper.registerModule(DefaultScalaModule)
 
-  def spec: Spec[TestEnvironment with Scope, Any] = suite("ThriftCodec Spec")(
+  def spec: Spec[TestEnvironment with Scope, Any] = suite("MessagePackCodec Spec")(
     suite("Should correctly encode")(
       test("integers") {
         for {
@@ -433,6 +433,63 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
           ed  <- encodeAndDecode(complexEitherSchema, eitherRight2)
           ed2 <- encodeAndDecodeNS(complexEitherSchema, eitherRight)
         } yield assert(ed)(equalTo(Chunk(eitherRight2))) && assert(ed2)(equalTo(eitherRight))
+      },
+      test("fallback left full decode") {
+        val fallback = zio.schema.Fallback.Left(9)
+        for {
+          ed  <- encodeAndDecode(fallbackSchema1, fallback)
+          ed2 <- encodeAndDecodeNS(fallbackSchema1, fallback)
+        } yield assert(ed)(equalTo(Chunk(fallback))) && assert(ed2)(equalTo(fallback))
+      },
+      test("fallback left non full decode") {
+        val fallback = zio.schema.Fallback.Left(9)
+        for {
+          ed  <- encodeAndDecode(fallbackSchema2, fallback)
+          ed2 <- encodeAndDecodeNS(fallbackSchema2, fallback)
+        } yield assert(ed)(equalTo(Chunk(fallback))) && assert(ed2)(equalTo(fallback))
+      },
+      test("fallback right full decode") {
+        val fallback = zio.schema.Fallback.Right("hello")
+        for {
+          ed  <- encodeAndDecode(fallbackSchema1, fallback)
+          ed2 <- encodeAndDecodeNS(fallbackSchema1, fallback)
+        } yield assert(ed)(equalTo(Chunk(fallback))) && assert(ed2)(equalTo(fallback))
+      },
+      test("fallback right non full decode") {
+        val fallback = zio.schema.Fallback.Right("hello")
+        for {
+          ed  <- encodeAndDecode(fallbackSchema2, fallback)
+          ed2 <- encodeAndDecodeNS(fallbackSchema2, fallback)
+        } yield assert(ed)(equalTo(Chunk(fallback))) && assert(ed2)(equalTo(fallback))
+      },
+      test("fallback both full decode") {
+        val fallback = zio.schema.Fallback.Both(2, "hello")
+        for {
+          ed  <- encodeAndDecode(fallbackSchema1, fallback)
+          ed2 <- encodeAndDecodeNS(fallbackSchema1, fallback)
+        } yield assert(ed)(equalTo(Chunk(fallback))) && assert(ed2)(equalTo(fallback))
+      },
+      test("fallback both non full decode") {
+        val fallback = zio.schema.Fallback.Both(2, "hello")
+        for {
+          ed  <- encodeAndDecode(fallbackSchema2, fallback)
+          ed2 <- encodeAndDecodeNS(fallbackSchema2, fallback)
+        } yield assert(ed)(equalTo(Chunk(fallback.simplify))) && assert(ed2)(equalTo(fallback.simplify))
+      },
+      test("fallback with product type") {
+        val fallbackLeft = zio.schema.Fallback.Left(MyRecord(150))
+        for {
+          ed  <- encodeAndDecode(complexFallbackSchema2, fallbackLeft)
+          ed2 <- encodeAndDecodeNS(complexFallbackSchema2, fallbackLeft)
+        } yield assert(ed)(equalTo(Chunk(fallbackLeft))) && assert(ed2)(equalTo(fallbackLeft))
+      },
+      test("fallback with sum type") {
+        val fallbackRight  = zio.schema.Fallback.Right(BooleanValue(true))
+        val fallbackRight2 = zio.schema.Fallback.Right(StringValue("hello"))
+        for {
+          ed  <- encodeAndDecode(complexFallbackSchema, fallbackRight2)
+          ed2 <- encodeAndDecodeNS(complexFallbackSchema, fallbackRight)
+        } yield assert(ed)(equalTo(Chunk(fallbackRight2))) && assert(ed2)(equalTo(fallbackRight))
       },
       test("optionals") {
         val value = Some(123)
@@ -901,6 +958,16 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
 
   val complexEitherSchema2: Schema.Either[MyRecord, MyRecord] =
     Schema.Either(myRecord, myRecord)
+
+  val fallbackSchema1: Schema.Fallback[Int, String] = Schema.Fallback(Schema[Int], Schema[String], true)
+
+  val fallbackSchema2: Schema.Fallback[Int, String] = Schema.Fallback(Schema[Int], Schema[String], false)
+
+  val complexFallbackSchema: Schema.Fallback[Record, OneOf] =
+    Schema.Fallback(Record.schemaRecord, schemaOneOf)
+
+  val complexFallbackSchema2: Schema.Fallback[MyRecord, MyRecord] =
+    Schema.Fallback(myRecord, myRecord)
 
   case class RichProduct(stringOneOf: OneOf, basicString: BasicString, record: Record)
 
