@@ -143,35 +143,30 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
       }
 
     def fields(s: Schema.Record[_], record: Any, fs: Schema.Field[_, _]*): Unit = {
-      val nonTransientFields = fs.filter {
-        case Schema.Field(_, _, annotations, _, _, _)
-            if annotations.collectFirst { case a: transientField => a }.isDefined =>
-          false
-        case _ => true
-      }
-      val values = ChunkBuilder.make[Target](nonTransientFields.size)
+      val nonTransientFields = fs.filterNot(_.annotations.exists(_.isInstanceOf[transientField]))
+      val values             = ChunkBuilder.make[Target](nonTransientFields.size)
 
-      def processNext(index: Int, remaining: List[Schema.Field[_, _]]): Unit =
-        remaining match {
-          case next :: _ =>
-            currentSchema = next.schema
-            currentValue = next.asInstanceOf[Schema.Field[Any, Any]].get(record)
-            pushContext(contextForRecordField(contextStack.head, index, next))
-            push(processField(index, remaining, _))
-          case Nil =>
-            finishWith(
-              processRecord(
-                contextStack.head,
-                s,
-                nonTransientFields.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, Target]) {
-                  case (lm, pair) =>
-                    lm.updated(pair._1, pair._2)
-                }
-              )
+      def processNext(index: Int, remaining: Seq[Schema.Field[_, _]]): Unit =
+        if (remaining.isEmpty) {
+          finishWith(
+            processRecord(
+              contextStack.head,
+              s,
+              nonTransientFields.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, Target]) {
+                case (lm, pair) =>
+                  lm.updated(pair._1, pair._2)
+              }
             )
+          )
+        } else {
+          val next = remaining.head
+          currentSchema = next.schema
+          currentValue = next.asInstanceOf[Schema.Field[Any, Any]].get(record)
+          pushContext(contextForRecordField(contextStack.head, index, next))
+          push(processField(index, remaining, _))
         }
 
-      def processField(index: Int, currentStructure: List[Schema.Field[_, _]], fieldResult: Target): Unit = {
+      def processField(index: Int, currentStructure: Seq[Schema.Field[_, _]], fieldResult: Target): Unit = {
         contextStack = contextStack.tail
         values += fieldResult
         val remaining = currentStructure.tail
@@ -179,7 +174,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
       }
 
       startProcessingRecord(contextStack.head, s)
-      processNext(0, nonTransientFields.toList)
+      processNext(0, nonTransientFields)
     }
 
     def enumCases(s: Schema.Enum[_], cs: Schema.Case[_, _]*): Unit = {
@@ -223,33 +218,33 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
           finishWith(processPrimitive(currentContext, currentValue, p.asInstanceOf[StandardType[Any]]))
 
         case s @ Schema.GenericRecord(_, structure, _) =>
-          val map            = currentValue.asInstanceOf[ListMap[String, _]]
-          val structureChunk = structure.toChunk
-          val values         = ChunkBuilder.make[Target](structureChunk.size)
+          val map                = currentValue.asInstanceOf[ListMap[String, _]]
+          val nonTransientFields = structure.toChunk.filterNot(_.annotations.exists(_.isInstanceOf[transientField]))
+          val values             = ChunkBuilder.make[Target](nonTransientFields.size)
 
-          def processNext(index: Int, remaining: List[Schema.Field[ListMap[String, _], _]]): Unit =
-            remaining match {
-              case next :: _ =>
-                currentSchema = next.schema
-                currentValue = map(next.name)
-                pushContext(contextForRecordField(currentContext, index, next))
-                push(processField(index, remaining, _))
-              case Nil =>
-                finishWith(
-                  processRecord(
-                    currentContext,
-                    s,
-                    structureChunk.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, Target]) {
-                      case (lm, pair) =>
-                        lm.updated(pair._1, pair._2)
-                    }
-                  )
+          def processNext(index: Int, remaining: Seq[Schema.Field[ListMap[String, _], _]]): Unit =
+            if (remaining.isEmpty) {
+              finishWith(
+                processRecord(
+                  currentContext,
+                  s,
+                  nonTransientFields.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, Target]) {
+                    case (lm, pair) =>
+                      lm.updated(pair._1, pair._2)
+                  }
                 )
+              )
+            } else {
+              val next = remaining.head
+              currentSchema = next.schema
+              currentValue = map(next.name)
+              pushContext(contextForRecordField(currentContext, index, next))
+              push(processField(index, remaining, _))
             }
 
           def processField(
             index: Int,
-            currentStructure: List[Schema.Field[ListMap[String, _], _]],
+            currentStructure: Seq[Schema.Field[ListMap[String, _], _]],
             fieldResult: Target
           ): Unit = {
             contextStack = contextStack.tail
@@ -259,7 +254,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
           }
 
           startProcessingRecord(currentContext, s)
-          processNext(0, structureChunk.toList)
+          processNext(0, nonTransientFields)
 
         case s @ Schema.Enum1(_, case1, _) =>
           enumCases(s, case1)
