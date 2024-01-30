@@ -6,7 +6,7 @@ import java.time.temporal.ChronoUnit
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 
-import zio.schema.annotation.fieldDefaultValue
+import zio.schema.annotation._
 import zio.schema.internal.SourceLocation
 import zio.schema.meta._
 import zio.schema.validation._
@@ -352,7 +352,9 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
   )
 
   sealed trait Enum[Z] extends Schema[Z] {
-    private lazy val casesMap: scala.collection.immutable.Map[String, Case[Z, _]] = cases.map(c => c.id -> c).toMap
+    private lazy val casesMap: scala.collection.immutable.Map[String, Case[Z, _]] =
+      cases.map(c => c.caseName -> c).toMap
+
     def id: TypeId
 
     def cases: Chunk[Case[Z, _]]
@@ -361,6 +363,12 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
       casesMap.get(id)
 
     def caseOf(z: Z): Option[Case[Z, _]] = cases.find(_.isCase(z))
+
+    val noDiscriminator: Boolean =
+      annotations.exists(_.isInstanceOf[noDiscriminator])
+
+    lazy val nonTransientCases: Chunk[Case[Z, _]] =
+      cases.filterNot(_.transient)
 
     override def toString: String = s"${this.getClass.getSimpleName}($id)"
   }
@@ -374,6 +382,17 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     def validation: Validation[A]
     def get: R => A
     def set: (R, A) => R
+
+    lazy val defaultValue: Option[A] =
+      annotations.collectFirst {
+        case a if a.isInstanceOf[fieldDefaultValue[_]] => a.asInstanceOf[fieldDefaultValue[A]].value
+      }.orElse(schema.defaultValue.toOption)
+
+    val optional: Boolean =
+      annotations.exists(a => a.isInstanceOf[optionalField] || a.isInstanceOf[fieldDefaultValue[_]])
+
+    val transient: Boolean =
+      annotations.exists(_.isInstanceOf[transientField])
 
     override def toString: String = s"Field($name,$schema)"
   }
@@ -416,6 +435,9 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     type FieldNames
 
     val fields: Chunk[Field[R, _]]
+
+    lazy val nonTransientFields: Chunk[Field[R, _]] =
+      fields.filterNot(_.transient)
 
     def construct(fieldValues: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, R]
 
@@ -801,10 +823,19 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     annotations: Chunk[Any] = Chunk.empty
   ) { self =>
 
+    val caseName: String =
+      annotations.collectFirst { case name: caseName => name.name }.getOrElse(id)
+
+    val caseNameAliases: Seq[String] =
+      annotations.collect { case aliases: caseNameAliases => aliases.aliases }.flatten
+
     def deconstruct(r: R): A = unsafeDeconstruct(r)
 
     def deconstructOption(r: R): Option[A] =
       if (isCase(r)) Some(unsafeDeconstruct(r)) else None
+
+    val transient: Boolean =
+      annotations.exists(_.isInstanceOf[transientCase])
 
     override def toString: String = s"Case($id,$schema,$annotations)"
   }
