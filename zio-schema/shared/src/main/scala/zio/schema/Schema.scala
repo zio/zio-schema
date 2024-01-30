@@ -415,7 +415,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     type Terms
     type FieldNames
 
-    def fields: Chunk[Field[R, _]]
+    val fields: Chunk[Field[R, _]]
 
     def construct(fieldValues: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, R]
 
@@ -3386,7 +3386,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): Accessors[b.Lens, b.Prism, b.Traversal] =
       fieldSet.makeAccessors(self, b)
 
-    override def fields: Chunk[Schema.Field[ListMap[String, _], _]] = fieldSet.toChunk
+    override val fields: Chunk[Schema.Field[ListMap[String, _], _]] = fieldSet.toChunk
 
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, ListMap[String, _]] =
       if (values.size == fields.size)
@@ -3415,7 +3415,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
 
     override def makeAccessors(b: AccessorBuilder): Nothing = ???
 
-    override def fields: Chunk[Field[Z, _]] = Chunk.empty
+    override val fields: Chunk[Field[Z, _]] = Chunk.empty
 
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.isEmpty)
@@ -3466,7 +3466,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
 
     override def makeAccessors(b: AccessorBuilder): b.Lens[Field1, Z, A] = b.makeLens(self, field)
 
-    override def fields: Chunk[Field[Z, _]] = Chunk(field)
+    override val fields: Chunk[Field[Z, _]] = Chunk(field)
 
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 1)
@@ -3533,7 +3533,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     ): (b.Lens[Field1, Z, A1], b.Lens[Field2, Z, A2]) =
       (b.makeLens(self, field1), b.makeLens(self, field2))
 
-    override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2)
+    override val fields: Chunk[Field[Z, _]] = Chunk(field1, field2)
 
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 2)
@@ -3613,7 +3613,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     ): (b.Lens[Field1, Z, A1], b.Lens[Field2, Z, A2], b.Lens[Field3, Z, A3]) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3))
 
-    override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3)
+    override val fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3)
 
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 3)
@@ -3708,7 +3708,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     ) =
       (b.makeLens(self, field1), b.makeLens(self, field2), b.makeLens(self, field3), b.makeLens(self, field4))
 
-    override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4)
+    override val fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4)
 
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 4)
@@ -3828,7 +3828,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field5)
       )
 
-    override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5)
+    override val fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5)
 
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 5)
@@ -3981,7 +3981,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field6)
       )
 
-    override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6)
+    override val fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6)
 
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 6)
@@ -4154,7 +4154,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field7)
       )
 
-    override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6, field7)
+    override val fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6, field7)
 
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 7)
@@ -4360,7 +4360,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field8)
       )
 
-    override def fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6, field7, field8)
+    override val fields: Chunk[Field[Z, _]] = Chunk(field1, field2, field3, field4, field5, field6, field7, field8)
 
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
       if (values.size == 8)
@@ -4582,7 +4582,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field8),
         b.makeLens(self, field9)
       )
-    override def fields: Chunk[Field[Z, _]] =
+    override val fields: Chunk[Field[Z, _]] =
       Chunk(field1, field2, field3, field4, field5, field6, field7, field8, field9)
 
     override def construct(values: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, Z] =
@@ -4832,7 +4832,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field10)
       )
 
-    override def fields: Chunk[Field[Z, _]] =
+    override val fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -5114,7 +5114,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field11)
       )
 
-    override def fields: Chunk[Field[Z, _]] =
+    override val fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -5415,7 +5415,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field12)
       )
 
-    override def fields: Chunk[Field[Z, _]] =
+    override val fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -5735,7 +5735,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field13)
       )
 
-    override def fields: Chunk[Field[Z, _]] =
+    override val fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -6074,7 +6074,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field14)
       )
 
-    override def fields: Chunk[Field[Z, _]] =
+    override val fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -6433,7 +6433,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field15)
       )
 
-    override def fields: Chunk[Field[Z, _]] =
+    override val fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -6813,7 +6813,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field16)
       )
 
-    override def fields: Chunk[Field[Z, _]] =
+    override val fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -7212,7 +7212,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field17)
       )
 
-    override def fields: Chunk[Field[Z, _]] =
+    override val fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -7630,7 +7630,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field18)
       )
 
-    override def fields: Chunk[Field[Z, _]] =
+    override val fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -8069,7 +8069,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field19)
       )
 
-    override def fields: Chunk[Field[Z, _]] =
+    override val fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -8527,7 +8527,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field20)
       )
 
-    override def fields: Chunk[Field[Z, _]] =
+    override val fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -9025,7 +9025,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field21)
       )
 
-    override def fields: Chunk[Field[Z, _]] =
+    override val fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
@@ -9589,7 +9589,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         b.makeLens(self, field22)
       )
 
-    override def fields: Chunk[Field[Z, _]] =
+    override val fields: Chunk[Field[Z, _]] =
       Chunk(
         field1,
         field2,
