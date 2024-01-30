@@ -556,6 +556,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           WithOptionFields(Some("s"), None),
           charSequenceToByteChunk("""{"a":"s"}""")
         )
+      },
+      test("case class with option fields accept empty json object as value") {
+        assertDecodes(
+          WithOptionFields.schema,
+          WithOptionFields(Some("s"), None),
+          charSequenceToByteChunk("""{"a":"s", "b":{}}""")
+        )
       }
     ),
     suite("enums")(
