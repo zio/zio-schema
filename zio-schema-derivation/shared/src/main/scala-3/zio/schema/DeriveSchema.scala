@@ -22,7 +22,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
   val reflectionUtils = ReflectionUtils(ctx)
   import reflectionUtils.{MirrorType, Mirror, summonOptional}
   import ctx.reflect._
-   
+
   case class Frame(ref: Term, tpe: TypeRepr)
   case class Stack(frames: List[Frame]) {
     def find(tpe: TypeRepr): Option[Term] = frames.find(_.tpe =:= tpe).map(_.ref)
@@ -33,7 +33,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
 
     def size = frames.size
 
-    override def toString = 
+    override def toString =
       frames.map(f => s"${f.ref.show} : ${f.tpe.show}").mkString("Stack(", ", ", ")")
   }
 
@@ -52,7 +52,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     val result = stack.find(typeRepr) match {
       case Some(ref) =>
         '{ Schema.defer(${ref.asExprOf[Schema[T]]}) }
-      case None => 
+      case None =>
         val summoned = if (!top) Expr.summon[Schema[T]] else None
         if (!top && summoned.isDefined) {
           '{
@@ -121,9 +121,13 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.noSymbol)
     val selfRef = Ref(selfRefSymbol)
 
+    val docAnnotationExpr = TypeRepr.of[T].typeSymbol.docstring.map { docstring =>
+      val docstringExpr = Expr(docstring)
+      '{zio.schema.annotation.description(${docstringExpr})}
+    }
     val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
     val annotationExprs = TypeRepr.of[T].typeSymbol.annotations.filter (filterAnnotation).map (_.asExpr)
-    val annotations = '{zio.Chunk.fromIterable (${Expr.ofSeq (annotationExprs)})}
+    val annotations = '{zio.Chunk.fromIterable (${Expr.ofSeq (annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr.toList)}) }
 
     val constructor = '{() => ${Ref(TypeRepr.of[T].typeSymbol.companionModule).asExprOf[T]}}
     val ctor = typeRprOf[T](0).typeSymbol.companionModule
@@ -163,8 +167,12 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     val paramAnns = fromConstructor(TypeRepr.of[T].typeSymbol)
     val constructor = caseClassConstructor[T](mirror).asExpr
 
+    val docAnnotationExpr = TypeRepr.of[T].typeSymbol.docstring.map { docstring =>
+      val docstringExpr = Expr(docstring)
+      '{zio.schema.annotation.description(${docstringExpr})}
+    }
     val annotationExprs = TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
-    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) }
+    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr.toList)}) }
     val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
 
     val applied = if (labels.length <= 22) {
@@ -182,7 +190,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
           )
 
       val fieldsAndFieldTypes = typesAndLabels.map { case (tpe, label) => deriveField[T](tpe, label, paramAnns.getOrElse(label, List.empty), newStack) }
-      val (fields, fieldTypes) = fieldsAndFieldTypes.unzip      
+      val (fields, fieldTypes) = fieldsAndFieldTypes.unzip
       val args = List(typeInfo) ++ fields ++ Seq(constructor) ++  Seq(annotations)
       val terms = Expr.ofTupleFromSeq(args)
 
@@ -271,7 +279,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
   }
 
 
-  private def fromDeclarations(from: Symbol): List[(String, List[Expr[Any]])] = 
+  private def fromDeclarations(from: Symbol): List[(String, List[Expr[Any]])] =
     from.declaredFields.map {
       field =>
         field.name -> field.annotations.filter(filterAnnotation).map(_.asExpr)
@@ -332,12 +340,16 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     val isSimpleEnum: Boolean = !TypeRepr.of[T].typeSymbol.children.map(_.declaredFields.length).exists( _ > numParentFields )
     val hasSimpleEnumAnn: Boolean = TypeRepr.of[T].typeSymbol.hasAnnotation(TypeRepr.of[_root_.zio.schema.annotation.simpleEnum].typeSymbol)
 
+    val docAnnotationExpr = TypeRepr.of[T].typeSymbol.docstring.map { docstring =>
+      val docstringExpr = Expr(docstring)
+      '{zio.schema.annotation.description(${docstringExpr})}
+    }
     val annotationExprs = (isSimpleEnum, hasSimpleEnumAnn) match {
       case (true, false) => TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr).+:('{zio.schema.annotation.simpleEnum(true)})
       case (false, true) => throw new Exception(s"${TypeRepr.of[T].typeSymbol.name} must be a simple Enum")
       case _             => TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
     }
-    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) }
+    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr.toList)}) }
 
     val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
 
@@ -346,12 +358,12 @@ private case class DeriveSchema()(using val ctx: Quotes) {
       val terms = Expr.ofTupleFromSeq(args)
       val ctor = TypeRepr.of[Enum2[_, _, _]].typeSymbol.primaryConstructor
 
-      val typeArgs = 
+      val typeArgs =
         (types.appended(TypeRepr.of[T])).map { tpe =>
           tpe.asType match
             case '[tt] => TypeTree.of[tt]
         }
-        
+
       val typeTree = enumTypeTree[T](labels.length)
 
       Apply(
@@ -371,7 +383,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
       case '{ type tt <: Schema[T]; $ex : `tt` } =>
         '{
           ${Block(
-            List(lazyValDef), 
+            List(lazyValDef),
             selfRef
           ).asExpr}.asInstanceOf[tt]
         }
@@ -416,16 +428,16 @@ private case class DeriveSchema()(using val ctx: Quotes) {
 
       if (anns.nonEmpty) {
         val (newName, newNameValue) = anns.collectFirst {
-          case ann if ann.isExprOf[fieldName] => 
+          case ann if ann.isExprOf[fieldName] =>
             val fieldNameAnn = ann.asExprOf[fieldName]
             ('{${fieldNameAnn}.name}, extractFieldNameValue(fieldNameAnn))
         }.getOrElse((Expr(name), name))
-              
+
         val f = '{ Field($newName, $schema, $chunk, $validator, $get, $set)}
         addFieldName(newNameValue)(f) // TODO: we need to pass the evaluated annotation value instead of name
       } else {
-        val f = '{ Field(${Expr(name)}, $schema, $chunk, $validator, $get, $set) }        
-        addFieldName(name)(f)        
+        val f = '{ Field(${Expr(name)}, $schema, $chunk, $validator, $get, $set) }
+        addFieldName(name)(f)
       }
     }
   }
@@ -484,21 +496,25 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     val r = TypeRepr.of[R]
     val t = TypeRepr.of[T]
     val nameT = ConstantType(StringConstant(name))
-    val fieldWithName = withFieldName.appliedTo(List(r, nameT, t))    
+    val fieldWithName = withFieldName.appliedTo(List(r, nameT, t))
     (Select.unique(f.asTerm, "asInstanceOf").appliedToType(fieldWithName).asExprOf[F], nameT)
   }
 
 
   // sealed case class Case[A, Z](id: String, codec: Schema[A], unsafeDeconstruct: Z => A, annotations: Chunk[Any] = Chunk.empty) {
   def deriveCase[T: Type](repr: TypeRepr, label: String, stack: Stack)(using Quotes) = {
-    repr.asType match { case '[t] => 
+    repr.asType match { case '[t] =>
       val schema = deriveSchema[t](stack)
       val stringExpr = Expr(label)
 
+      val docAnnotationExpr = TypeRepr.of[t].typeSymbol.docstring.map { docstring =>
+      val docstringExpr = Expr(docstring)
+      '{zio.schema.annotation.description(${docstringExpr})}
+      }
       val annotationExprs = TypeRepr.of[t].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
-      val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) }
+      val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr.toList)}) }
 
-      val unsafeDeconstruct = '{ 
+      val unsafeDeconstruct = '{
         (z: T) => z.asInstanceOf[t]
       }
       val construct = '{
@@ -525,14 +541,14 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     a.tpe.typeSymbol.maybeOwner.isNoSymbol ||
       a.tpe.typeSymbol.owner.fullName != "scala.annotation.internal"
 
-  def extractFieldNameValue(attribute: Expr[fieldName]): String = 
+  def extractFieldNameValue(attribute: Expr[fieldName]): String =
     attribute.asTerm match {
       // Apply(Select(New(Ident(fieldName)),<init>),List(Literal(Constant(renamed))))
       case Apply(_, List(Literal(StringConstant(name)))) =>
         name
-    }    
+    }
 
-  def caseClassTypeTree[T: Type](arity: Int): TypeTree = 
+  def caseClassTypeTree[T: Type](arity: Int): TypeTree =
     arity match {
       case 0 => TypeTree.of[CaseClass0[T]]
       case 1 => TypeTree.of[CaseClass1[_, T]]
@@ -559,7 +575,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
       case 22 => TypeTree.of[CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
     }
 
-  def typeRprOf[T: Type](arity: Int): TypeRepr = 
+  def typeRprOf[T: Type](arity: Int): TypeRepr =
     arity match {
       case 0 => TypeRepr.of[CaseClass0[T]]
       case 1 => TypeRepr.of[CaseClass1[_, T]]
@@ -586,7 +602,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
       case 22 => TypeRepr.of[CaseClass22[_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, T]]
     }
 
-  def caseClassWithFieldsType(arity: Int): TypeRepr = 
+  def caseClassWithFieldsType(arity: Int): TypeRepr =
     arity match {
       case 1 => TypeRepr.of[CaseClass1.WithFields]
       case 2 => TypeRepr.of[CaseClass2.WithFields]
@@ -612,7 +628,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
       case 22 => TypeRepr.of[CaseClass22.WithFields]
     }
 
-  def enumTypeTree[T: Type](arity: Int): TypeTree = 
+  def enumTypeTree[T: Type](arity: Int): TypeTree =
     arity match {
       case 0 => TypeTree.of[CaseClass0[T]]
       case 1 => TypeTree.of[Enum1[_, T]]
