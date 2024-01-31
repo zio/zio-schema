@@ -43,6 +43,11 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
     case Blue extends ColourWithDoc(0x0000ff)
   }
 
+  @description("Colour Enum")
+  enum ColourAnnotations:
+    @description("Red")
+    case Red
+
   def versionSpecificSuite = Spec.labeled(
     "Scala 3 specific tests",
     suite("Derivation")(
@@ -62,6 +67,18 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
       test("correctly assigns simpleEnum to enum") {
         val derived: Schema[Colour] = DeriveSchema.gen[Colour]
         assertTrue(derived.annotations == Chunk(simpleEnum(true)))
+      },
+      test("derive different annotations for parent and child in enum") {
+        val parent = DeriveSchema.gen[ColourAnnotations]
+        val child = parent match {
+          case Schema.Enum1(_, c, _) => c
+        }
+        assertTrue(child.annotations == Chunk(description("Red"))) &&
+        assertTrue(parent.annotations == Chunk(simpleEnum(true), description("Colour Enum")))
+      },
+      test("correctly derive annotations for child in enum") {
+        val child: Schema[ColourAnnotations.Red.type] = DeriveSchema.gen[ColourAnnotations.Red.type]
+        assertTrue(child.annotations == Chunk(description("Red")))
       },
       test("correctly adds scaladoc as description"){
         val colourWithDoc: Schema[ColourWithDoc] = DeriveSchema.gen[ColourWithDoc]
