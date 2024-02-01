@@ -37,11 +37,16 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
   /** Colour scaladoc */
   @caseName("Red")
   enum ColourWithDoc(val rgb: Int) {
-    /**  Red scaladoc */
+    /** Red scaladoc */
     case Red extends ColourWithDoc(0xff0000)
     case Green extends ColourWithDoc(0x00ff00)
     case Blue extends ColourWithDoc(0x0000ff)
   }
+
+  @description("Colour Enum")
+  enum ColourAnnotations:
+    @description("Red")
+    case Red
 
   def versionSpecificSuite = Spec.labeled(
     "Scala 3 specific tests",
@@ -63,6 +68,18 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
         val derived: Schema[Colour] = DeriveSchema.gen[Colour]
         assertTrue(derived.annotations == Chunk(simpleEnum(true)))
       },
+      test("derive different annotations for parent and child in enum") {
+        val parent = DeriveSchema.gen[ColourAnnotations]
+        val child = parent match {
+          case Schema.Enum1(_, c, _) => c
+        }
+        assertTrue(child.annotations == Chunk(description("Red"))) &&
+        assertTrue(parent.annotations == Chunk(simpleEnum(true), description("Colour Enum")))
+      },
+      test("correctly derive annotations for child in enum") {
+        val child: Schema[ColourAnnotations.Red.type] = DeriveSchema.gen[ColourAnnotations.Red.type]
+        assertTrue(child.annotations == Chunk(description("Red")))
+      },
       test("correctly adds scaladoc as description"){
         val colourWithDoc: Schema[ColourWithDoc] = DeriveSchema.gen[ColourWithDoc]
         val autoDerivesWithDoc: Schema[AutoDerivesWithDoc] = Schema[AutoDerivesWithDoc]
@@ -70,7 +87,7 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
         val redAnnotations = colourWithDoc.asInstanceOf[Schema.Enum[ColourWithDoc]].cases.find(_.id == "Red").get.schema.annotations.find(_.isInstanceOf[description])
         assertTrue(
           colourWithDoc.annotations.find(_.isInstanceOf[description]) == Some(description("/** Colour scaladoc */")),
-          //redAnnotations == Some(description("/** Red scaladoc */")), fix #651 to make this work
+          redAnnotations == Some(description("/** Red scaladoc */")),
           autoDerivesWithDoc.annotations.find(_.isInstanceOf[description]) == Some(description("/** AutoDerives scaladoc */")),
           objectWithDoc.annotations.find(_.isInstanceOf[description]) == Some(description("/** ObjectWithDoc doc */")),
           )

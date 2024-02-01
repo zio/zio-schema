@@ -121,13 +121,24 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.noSymbol)
     val selfRef = Ref(selfRefSymbol)
 
-    val docAnnotationExpr = TypeRepr.of[T].typeSymbol.docstring.map { docstring =>
-      val docstringExpr = Expr(docstring)
-      '{zio.schema.annotation.description(${docstringExpr})}
-    }
     val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
-    val annotationExprs = TypeRepr.of[T].typeSymbol.annotations.filter (filterAnnotation).map (_.asExpr)
-    val annotations = '{zio.Chunk.fromIterable (${Expr.ofSeq (annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr.toList)}) }
+    val isEnumCase = Type.of[T] match {
+      case '[reflect.Enum] => true
+      case _ => false
+    }
+    val docAnnotationExpr = if (isEnumCase)
+      then TypeRepr.of[T].typeSymbol.children.map(_.docstring.toList).flatten.map { docstring =>
+        val docstringExpr = Expr(docstring)
+        '{zio.schema.annotation.description(${docstringExpr})}
+      }
+      else TypeRepr.of[T].typeSymbol.docstring.map { docstring =>
+        val docstringExpr = Expr(docstring)
+        '{zio.schema.annotation.description(${docstringExpr})}
+      }.toList
+    val annotationExprs = if isEnumCase
+      then TypeRepr.of[T].typeSymbol.children.map(_.annotations).flatten.filter (filterAnnotation).map (_.asExpr)
+      else TypeRepr.of[T].typeSymbol.annotations.filter (filterAnnotation).map (_.asExpr)
+    val annotations = '{zio.Chunk.fromIterable (${Expr.ofSeq (annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr)}) }
 
     val constructor = '{() => ${Ref(TypeRepr.of[T].typeSymbol.companionModule).asExprOf[T]}}
     val ctor = typeRprOf[T](0).typeSymbol.companionModule
@@ -167,12 +178,24 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     val paramAnns = fromConstructor(TypeRepr.of[T].typeSymbol)
     val constructor = caseClassConstructor[T](mirror).asExpr
 
-    val docAnnotationExpr = TypeRepr.of[T].typeSymbol.docstring.map { docstring =>
-      val docstringExpr = Expr(docstring)
-      '{zio.schema.annotation.description(${docstringExpr})}
+    val isEnumCase = Type.of[T] match {
+      case '[reflect.Enum] => true
+      case _ => false
     }
-    val annotationExprs = TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
-    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr.toList)}) }
+    val docAnnotationExpr = if (isEnumCase)
+      then TypeRepr.of[T].typeSymbol.children.map(_.docstring.toList).flatten.map { docstring =>
+        val docstringExpr = Expr(docstring)
+        '{zio.schema.annotation.description(${docstringExpr})}
+      }
+      else TypeRepr.of[T].typeSymbol.docstring.map { docstring =>
+        val docstringExpr = Expr(docstring)
+        '{zio.schema.annotation.description(${docstringExpr})}
+      }.toList
+    val annotationExprs = if isEnumCase
+      then TypeRepr.of[T].typeSymbol.children.map(_.annotations).flatten.filter (filterAnnotation).map (_.asExpr)
+      else TypeRepr.of[T].typeSymbol.annotations.filter (filterAnnotation).map (_.asExpr)
+
+    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr)}) }
     val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
 
     val applied = if (labels.length <= 22) {
@@ -507,13 +530,23 @@ private case class DeriveSchema()(using val ctx: Quotes) {
       val schema = deriveSchema[t](stack)
       val stringExpr = Expr(label)
 
-      val docAnnotationExpr = TypeRepr.of[t].typeSymbol.docstring.map { docstring =>
-      val docstringExpr = Expr(docstring)
-      '{zio.schema.annotation.description(${docstringExpr})}
+      val isEnumCase = Type.of[T] match {
+        case '[reflect.Enum] => true
+        case _ => false
       }
-      val annotationExprs = TypeRepr.of[t].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
-      val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr.toList)}) }
-
+      val docAnnotationExpr = if (isEnumCase)
+        then TypeRepr.of[t].typeSymbol.children.map(_.docstring.toList).flatten.map { docstring =>
+          val docstringExpr = Expr(docstring)
+          '{zio.schema.annotation.description(${docstringExpr})}
+        }
+        else TypeRepr.of[t].typeSymbol.docstring.map { docstring =>
+          val docstringExpr = Expr(docstring)
+          '{zio.schema.annotation.description(${docstringExpr})}
+        }.toList
+      val annotationExprs = if isEnumCase
+        then TypeRepr.of[t].typeSymbol.children.map(_.annotations).flatten.filter (filterAnnotation).map (_.asExpr)
+        else TypeRepr.of[t].typeSymbol.annotations.filter (filterAnnotation).map (_.asExpr)
+      val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr)}) }
       val unsafeDeconstruct = '{
         (z: T) => z.asInstanceOf[t]
       }
