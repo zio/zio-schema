@@ -12,7 +12,6 @@ import org.apache.thrift.protocol._
 
 import zio.schema.MutableSchemaBasedValueBuilder.{ CreateValueFromSchemaError, ReadingFieldResult }
 import zio.schema._
-import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
 import zio.schema.codec.DecodeError.{ EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath }
 import zio.stream.ZPipeline
 import zio.{ Cause, Chunk, Unsafe, ZIO }
@@ -626,15 +625,8 @@ object ThriftCodec {
                     case Some(value) =>
                       value
                     case None =>
-                      val optionalFieldAnnotation  = field.annotations.collectFirst({ case a: optionalField  => a })
-                      val transientFieldAnnotation = field.annotations.collectFirst({ case a: transientField => a })
-                      val fieldDefaultValueAnnotation = field.annotations.collectFirst {
-                        case a: fieldDefaultValue[_] => a
-                      }
-                      if (optionalFieldAnnotation.isDefined || transientFieldAnnotation.isDefined) {
-                        field.schema.defaultValue.toOption.get
-                      } else if (fieldDefaultValueAnnotation.isDefined) {
-                        fieldDefaultValueAnnotation.get.value
+                      if ((field.optional || field.transient) && field.defaultValue.isDefined) {
+                        field.defaultValue.get
                       } else {
                         fail(context.copy(path = context.path :+ field.name), s"Missing value")
                       }
