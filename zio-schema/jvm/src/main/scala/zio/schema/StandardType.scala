@@ -92,61 +92,61 @@ object StandardType {
   implicit object UnitType extends StandardType[Unit] {
     override def tag: String                        = Tags.UNIT
     override def compare(x: Unit, y: Unit): Int     = 0
-    override def defaultValue: Either[String, Unit] = Right(())
+    override val defaultValue: Either[String, Unit] = Right(())
   }
 
   implicit object StringType extends StandardType[String] {
     override def tag: String                          = Tags.STRING
     override def compare(x: String, y: String): Int   = x.compareTo(y)
-    override def defaultValue: Either[String, String] = Right("")
+    override val defaultValue: Either[String, String] = Right("")
   }
 
   implicit object BoolType extends StandardType[Boolean] {
     override def tag: String                           = Tags.BOOL
     override def compare(x: Boolean, y: Boolean): Int  = x.compareTo(y)
-    override def defaultValue: Either[String, Boolean] = Right(false)
+    override val defaultValue: Either[String, Boolean] = Right(false)
   }
 
   implicit object ByteType extends StandardType[Byte] {
     override def tag: String                        = Tags.BYTE
     override def compare(x: Byte, y: Byte): Int     = x.compareTo(y)
-    override def defaultValue: Either[String, Byte] = Right(0.toByte)
+    override val defaultValue: Either[String, Byte] = Right(0.toByte)
   }
 
   implicit object ShortType extends StandardType[Short] {
     override def tag: String                         = Tags.SHORT
     override def compare(x: Short, y: Short): Int    = x.compareTo(y)
-    override def defaultValue: Either[String, Short] = Right(0.asInstanceOf[Short])
+    override val defaultValue: Either[String, Short] = Right(0.asInstanceOf[Short])
   }
 
   implicit object IntType extends StandardType[Int] {
     override def tag: String                       = Tags.INT
     override def compare(x: Int, y: Int): Int      = x.compareTo(y)
-    override def defaultValue: Either[String, Int] = Right(0)
+    override val defaultValue: Either[String, Int] = Right(0)
   }
 
   implicit object LongType extends StandardType[Long] {
     override def tag: String                        = Tags.LONG
     override def compare(x: Long, y: Long): Int     = x.compareTo(y)
-    override def defaultValue: Either[String, Long] = Right(0.asInstanceOf[Long])
+    override val defaultValue: Either[String, Long] = Right(0L)
   }
 
   implicit object FloatType extends StandardType[Float] {
     override def tag: String                         = Tags.FLOAT
     override def compare(x: Float, y: Float): Int    = x.compareTo(y)
-    override def defaultValue: Either[String, Float] = Right(0.0.asInstanceOf[Float])
+    override val defaultValue: Either[String, Float] = Right(0.0f)
   }
 
   implicit object DoubleType extends StandardType[Double] {
     override def tag: String                          = Tags.DOUBLE
     override def compare(x: Double, y: Double): Int   = x.compareTo(y)
-    override def defaultValue: Either[String, Double] = Right(0.0)
+    override val defaultValue: Either[String, Double] = Right(0.0)
   }
 
   implicit object BinaryType extends StandardType[Chunk[Byte]] {
     override def tag: String                                  = Tags.BINARY
     override def compare(x: Chunk[Byte], y: Chunk[Byte]): Int = x.sum.compare(y.sum)
-    override def defaultValue: Either[String, Chunk[Byte]]    = Right(Chunk.empty)
+    override val defaultValue: Either[String, Chunk[Byte]]    = Right(Chunk.empty)
   }
 
   implicit object CharType extends StandardType[Char] {
@@ -154,7 +154,7 @@ object StandardType {
     override def compare(x: Char, y: Char): Int = x.compareTo(y)
     // The NUL Unicode character is used as the default value for
     // `StandardType[Char]` because the empty Char '' does not compile
-    override def defaultValue: Either[String, Char] = Right('\u0000')
+    override val defaultValue: Either[String, Char] = Right('\u0000')
   }
 
   implicit object UUIDType extends StandardType[java.util.UUID] {
@@ -166,13 +166,13 @@ object StandardType {
   implicit object BigDecimalType extends StandardType[java.math.BigDecimal] {
     override def tag: String                                                    = Tags.BIG_DECIMAL
     override def compare(x: java.math.BigDecimal, y: java.math.BigDecimal): Int = x.compareTo(y)
-    override def defaultValue: Either[String, java.math.BigDecimal]             = Right(java.math.BigDecimal.ZERO)
+    override val defaultValue: Either[String, java.math.BigDecimal]             = Right(java.math.BigDecimal.ZERO)
   }
 
   implicit object BigIntegerType extends StandardType[java.math.BigInteger] {
     override def tag: String                                        = Tags.BIG_INTEGER
     override def compare(x: BigInteger, y: BigInteger): Int         = x.compareTo(y)
-    override def defaultValue: Either[String, java.math.BigInteger] = Right(java.math.BigInteger.ZERO)
+    override val defaultValue: Either[String, java.math.BigInteger] = Right(java.math.BigInteger.ZERO)
   }
 
   //java.time specific types
@@ -186,13 +186,13 @@ object StandardType {
   implicit object MonthType extends StandardType[java.time.Month] {
     override def tag: String                                   = Tags.MONTH
     override def compare(x: Month, y: Month): Int              = x.getValue.compareTo(y.getValue)
-    override def defaultValue: Either[String, java.time.Month] = Right(java.time.Month.JANUARY)
+    override val defaultValue: Either[String, java.time.Month] = Right(java.time.Month.JANUARY)
   }
 
   implicit object MonthDayType extends StandardType[java.time.MonthDay] {
     override def tag: String                            = Tags.MONTH_DAY
     override def compare(x: MonthDay, y: MonthDay): Int = x.compareTo(y)
-    override def defaultValue: Either[String, java.time.MonthDay] =
+    override val defaultValue: Either[String, java.time.MonthDay] =
       Right(java.time.MonthDay.of(java.time.Month.JANUARY, 1))
   }
 
@@ -202,7 +202,7 @@ object StandardType {
       val startDate = time.LocalDate.of(0, 1, 1)
       startDate.plus(x).compareTo(startDate.plus(y))
     }
-    override def defaultValue: Either[String, java.time.Period] = Right(java.time.Period.ZERO)
+    override val defaultValue: Either[String, java.time.Period] = Right(java.time.Period.ZERO)
   }
 
   implicit object YearType extends StandardType[java.time.Year] {
@@ -226,19 +226,19 @@ object StandardType {
   implicit object ZoneOffsetType extends StandardType[java.time.ZoneOffset] {
     override def tag: String                                        = Tags.ZONE_OFFSET
     override def compare(x: ZoneOffset, y: ZoneOffset): Int         = x.compareTo(y)
-    override def defaultValue: Either[String, java.time.ZoneOffset] = Right(java.time.ZoneOffset.UTC)
+    override val defaultValue: Either[String, java.time.ZoneOffset] = Right(java.time.ZoneOffset.UTC)
   }
 
   implicit object DurationType extends StandardType[java.time.Duration] {
     override def tag: String                                      = Tags.DURATION
     override def compare(x: time.Duration, y: time.Duration): Int = x.compareTo(y)
-    override def defaultValue: Either[String, java.time.Duration] = Right(java.time.Duration.ZERO)
+    override val defaultValue: Either[String, java.time.Duration] = Right(java.time.Duration.ZERO)
   }
 
   implicit object InstantType extends StandardType[java.time.Instant] {
     override def tag: String = Tags.INSTANT
 
-    override def defaultValue: Either[String, Instant] = Right(java.time.Instant.EPOCH)
+    override val defaultValue: Either[String, Instant] = Right(java.time.Instant.EPOCH)
 
     override def compare(x: Instant, y: Instant): Int = x.compareTo(y)
   }
@@ -254,7 +254,7 @@ object StandardType {
   implicit object LocalTimeType extends StandardType[java.time.LocalTime] {
     override def tag: String = Tags.LOCAL_TIME
 
-    override def defaultValue: Either[String, LocalTime] = Right(java.time.LocalTime.MIDNIGHT)
+    override val defaultValue: Either[String, LocalTime] = Right(java.time.LocalTime.MIDNIGHT)
 
     override def compare(x: LocalTime, y: LocalTime): Int = x.compareTo(y)
   }
