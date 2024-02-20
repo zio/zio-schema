@@ -372,9 +372,8 @@ object Derive {
             q"""$deriver.deriveUnknown[$tpe]($summoned)"""
       }
 
-    val tree = recurse(weakTypeOf[A], schema.tree, List.empty[Frame[c.type]], top = true)
-    //println(tree)
-    tree
+    recurse(weakTypeOf[A], schema.tree, List.empty[Frame[c.type]], top = true)
+
   }
 
   final case class Frame[C <: whitebox.Context](ctx: C, ref: String, tpe: C#Type)
