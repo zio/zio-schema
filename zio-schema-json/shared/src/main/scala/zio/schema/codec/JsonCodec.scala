@@ -511,9 +511,6 @@ object JsonCodec {
             case 'n' =>
               Lexer.readChars(trace, in, ull, "null")
               None
-            case '{' =>
-              Lexer.readChars(trace, in, "}".toCharArray, "{}")
-              None
             case _ =>
               in.retract()
               Some(A.unsafeDecode(trace, in))
