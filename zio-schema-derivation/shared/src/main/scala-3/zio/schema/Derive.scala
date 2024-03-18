@@ -8,6 +8,7 @@ import zio.Chunk
 import Schema._
 
 object Derive {
+
   inline def derive[F[_], A](deriver: Deriver[F])(implicit schema: Schema[A]): F[A] = ${ deriveInstance[F, A]('deriver, 'schema) }
 
   private def deriveInstance[F[_]: Type, A: Type](deriver: Expr[Deriver[F]], schema: Expr[Schema[A]])(using ctx: Quotes): Expr[F[A]] =
