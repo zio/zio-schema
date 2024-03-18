@@ -204,6 +204,19 @@ import zio.{ Chunk, Scope }
           )
         }
       ),
+      suite("support factory")(
+        test("factory") {
+          import zio.schema.Factory
+          import zio.schema.Factory._
+          def createSomeTrait[A: Factory](deriver: Deriver[TC])(implicit schema: Schema[A]): TC[A] =
+            implicitly[Factory[A]].derive[TC](deriver)
+
+          implicit val im: Factory[Enum1] = factory[Enum1]
+
+          val tc = createSomeTrait[Enum1](deriver)
+          assertTrue(tc.isDerived == true)
+        }
+      ),
       versionSpecificSuite
     )
 
