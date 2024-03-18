@@ -289,6 +289,11 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val codec = AvroCodec.schemaBasedBinaryCodec[Chunk[Option[Int]]]
       val bytes = codec.encode(Chunk(Some(42), Some(53), None, Some(64)))
       assertTrue(bytes.length == 10)
+    },
+    test("Encode Option[Option[Int]]") {
+      val codec = AvroCodec.schemaBasedBinaryCodec[Option[Option[Int]]]
+      val bytes = codec.encode(Some(Some(42)))
+      assertTrue(bytes.length == 3)
     }
   )
 
@@ -307,6 +312,11 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val codec = AvroCodec.schemaBasedBinaryCodec[Either[List[String], Int]]
       val bytes = codec.encode(Left(List("John", "Adam", "Daniel")))
       assertTrue(bytes.length == 20)
+    },
+    test("Encode Either[String, Option[Int]]") {
+      val codec = AvroCodec.schemaBasedBinaryCodec[Either[String, Option[Int]]]
+      val bytes = codec.encode(Right(Some(42)))
+      assertTrue(bytes.length == 3)
     }
   )
 
@@ -592,6 +602,26 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val bytes  = codec.encode(Some(42))
       val result = codec.decode(bytes)
       assertTrue(result == Right(Some(42)))
+    },
+    test("Decode Option[Option[_]]") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Option[Option[Int]]]
+      val bytes  = codec.encode(Some(Some(42)))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Some(Some(42))))
+    },
+    test("Decode Option[Enum]") {
+      sealed trait Enum
+
+      object Enum {
+        case class Case1() extends Enum
+        case class Case2() extends Enum
+        implicit val schemaEnum: Schema[Enum] = DeriveSchema.gen[Enum]
+      }
+
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Option[Enum]]
+      val bytes  = codec.encode(Some(Enum.Case1()))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Some(Enum.Case1())))
     }
   )
 
@@ -607,6 +637,12 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val bytes  = codec.encode(Left(List("John", "Adam", "Daniel")))
       val result = codec.decode(bytes)
       assertTrue(result == Right(Left(List("John", "Adam", "Daniel"))))
+    },
+    test("Decode Either[String, Option[Int]]") {
+      val codec  = AvroCodec.schemaBasedBinaryCodec[Either[String, Option[Int]]]
+      val bytes  = codec.encode(Right(Some(42)))
+      val result = codec.decode(bytes)
+      assertTrue(result == Right(Right(Some(42))))
     }
   )
 

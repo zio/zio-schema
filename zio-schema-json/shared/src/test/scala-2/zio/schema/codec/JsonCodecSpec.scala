@@ -556,6 +556,27 @@ object JsonCodecSpec extends ZIOSpecDefault {
           WithOptionFields(Some("s"), None),
           charSequenceToByteChunk("""{"a":"s"}""")
         )
+      },
+      test("case class with option fields accept empty json object as value") {
+        assertDecodes(
+          WithOptionFields.schema,
+          WithOptionFields(Some("s"), None),
+          charSequenceToByteChunk("""{"a":"s", "b":{}}""")
+        )
+      },
+      test("case class with complex option field accept empty json object as value") {
+        assertDecodes(
+          WithComplexOptionField.schema,
+          WithComplexOptionField(None),
+          charSequenceToByteChunk("""{"order":{}}""")
+        )
+      },
+      test("case class with complex option field correctly decodes") {
+        assertDecodes(
+          WithComplexOptionField.schema,
+          WithComplexOptionField(Some(Order(1, BigDecimal.valueOf(10), "test"))),
+          charSequenceToByteChunk("""{"order":{"id":1,"value":10,"description":"test"}}""")
+        )
       }
     ),
     suite("enums")(
@@ -1744,6 +1765,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object WithOptionFields {
     implicit lazy val schema: Schema[WithOptionFields] = DeriveSchema.gen[WithOptionFields]
+  }
+
+  final case class WithComplexOptionField(order: Option[Order])
+
+  object WithComplexOptionField {
+    implicit lazy val schema: Schema[WithComplexOptionField] = DeriveSchema.gen[WithComplexOptionField]
   }
 
   final case class WithOptField(@optionalField list: List[String], @optionalField map: Map[String, Int])

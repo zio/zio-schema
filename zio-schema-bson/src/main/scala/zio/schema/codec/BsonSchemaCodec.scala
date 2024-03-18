@@ -30,7 +30,6 @@ import zio.schema.annotation.{
   caseNameAliases,
   directDynamicMapping,
   discriminatorName,
-  fieldDefaultValue,
   fieldNameAliases,
   noDiscriminator,
   rejectExtraFields,
@@ -605,12 +604,12 @@ object BsonSchemaCodec {
       // if all cases are CaseClass0, encode as a String
       if (cases.forall(_.schema.isInstanceOf[Schema.CaseClass0[_]])) {
         val caseMap: Map[Z, String] = cases
-          .filterNot(_.annotations.exists(_.isInstanceOf[transientCase]))
+          .filterNot(_.transient)
           .map { case_ =>
             val manualBsonHint = case_.annotations.collectFirst { case bsonHint(name) => name }
-            val manualCaseName = case_.annotations.collectFirst { case caseName(name) => name }
+            val caseName       = case_.caseName
             case_.schema.asInstanceOf[Schema.CaseClass0[Z]].defaultConstruct() ->
-              manualBsonHint.orElse(manualCaseName).getOrElse(case_.id)
+              manualBsonHint.getOrElse(caseName)
           }
           .toMap
         BsonEncoder.string.contramap(caseMap(_))
@@ -621,8 +620,8 @@ object BsonSchemaCodec {
 
         def getCaseName(case_ : Schema.Case[Z, _]) = {
           val manualBsonHint = case_.annotations.collectFirst { case bsonHint(name) => name }
-          val manualCaseName = case_.annotations.collectFirst { case caseName(name) => name }
-          manualBsonHint.orElse(manualCaseName).getOrElse(case_.id)
+          val caseName       = case_.caseName
+          manualBsonHint.getOrElse(caseName)
         }
 
         val noDiscriminators = parentSchema.annotations.exists {
@@ -1208,7 +1207,6 @@ object BsonSchemaCodec {
           case _: bsonNoExtraFields => ()
         }.isDefined
       lazy val tcs: Array[BsonDecoder[Any]] = schemas.map(s => schemaDecoder(s).asInstanceOf[BsonDecoder[Any]])
-      lazy val defaults: Array[Option[Any]] = fields.map(_.annotations.collectFirst { case a: fieldDefaultValue[_] => a.value }).toArray
 
       new BsonDecoder[Z] {
         def decodeUnsafe(reader: BsonReader, trace: List[BsonTrace], ctx: BsonDecoder.BsonDecoderContext): Z = unsafeCall(trace) {
@@ -1225,12 +1223,11 @@ object BsonSchemaCodec {
               val nextTrace = spans(idx) :: trace
               val tc        = tcs(idx)
               if (ps(idx) != null) throw BsonDecoder.Error(nextTrace, "duplicate")
-              ps(idx) = defaults(idx) match {
-                case Some(default) =>
-                  val opt = BsonDecoder.option(tc).decodeUnsafe(reader, nextTrace, nextCtx)
-                  opt.getOrElse(default)
-                case None =>
-                  tc.decodeUnsafe(reader, nextTrace, nextCtx)
+              ps(idx) = if ((fields(idx).optional || fields(idx).transient) && fields(idx).defaultValue.isDefined) {
+                val opt = BsonDecoder.option(tc).decodeUnsafe(reader, nextTrace, nextCtx)
+                opt.getOrElse(fields(idx).defaultValue.get)
+              } else {
+                tc.decodeUnsafe(reader, nextTrace, nextCtx)
               }
             } else if (noExtra && !ctx.ignoreExtraField.contains(name)) {
               throw BsonDecoder.Error(BsonTrace.Field(name) :: trace, "Invalid extra field.")
@@ -1240,9 +1237,10 @@ object BsonSchemaCodec {
           var i = 0
           while (i < len) {
             if (ps(i) == null) {
-              ps(i) = defaults(i) match {
-                case Some(default) => default
-                case None          => tcs(i).decodeMissingUnsafe(spans(i) :: trace)
+              if ((fields(i).optional || fields(i).transient) && fields(i).defaultValue.isDefined) {
+                ps(i) = fields(i).defaultValue.get
+              } else {
+                ps(i) = tcs(i).decodeMissingUnsafe(spans(i) :: trace)
               }
             }
             i += 1
@@ -1270,12 +1268,11 @@ object BsonSchemaCodec {
                 val nextTrace = spans(idx) :: trace
                 val tc        = tcs(idx)
                 if (ps(idx) != null) throw BsonDecoder.Error(nextTrace, "duplicate")
-                ps(idx) = defaults(idx) match {
-                  case Some(default) =>
-                    val opt = BsonDecoder.option(tc).fromBsonValueUnsafe(value, nextTrace, nextCtx)
-                    opt.getOrElse(default)
-                  case None =>
-                    tc.fromBsonValueUnsafe(value, nextTrace, nextCtx)
+                ps(idx) = if ((fields(idx).optional || fields(idx).transient) && fields(idx).defaultValue.isDefined) {
+                  val opt = BsonDecoder.option(tc).fromBsonValueUnsafe(value, nextTrace, nextCtx)
+                  opt.getOrElse(fields(idx).defaultValue.get)
+                } else {
+                  tc.fromBsonValueUnsafe(value, nextTrace, nextCtx)
                 }
               } else if (noExtra && !ctx.ignoreExtraField.contains(name))
                 throw BsonDecoder.Error(BsonTrace.Field(name) :: trace, "Invalid extra field.")
@@ -1284,9 +1281,10 @@ object BsonSchemaCodec {
             var i = 0
             while (i < len) {
               if (ps(i) == null) {
-                ps(i) = defaults(i) match {
-                  case Some(default) => default
-                  case None          => tcs(i).decodeMissingUnsafe(spans(i) :: trace)
+                ps(i) = if ((fields(i).optional || fields(i).transient) && fields(i).defaultValue.isDefined) {
+                  fields(i).defaultValue.get
+                } else {
+                  tcs(i).decodeMissingUnsafe(spans(i) :: trace)
                 }
               }
               i += 1

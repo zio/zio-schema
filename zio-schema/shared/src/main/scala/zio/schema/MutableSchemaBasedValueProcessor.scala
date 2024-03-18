@@ -2,7 +2,6 @@ package zio.schema
 
 import scala.collection.immutable.ListMap
 
-import zio.schema.annotation.transientField
 import zio.{ Chunk, ChunkBuilder }
 
 /** Base trait for mutable value processors, processing a value with a known schema. An example
@@ -142,9 +141,8 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
         result = Some(resultValue)
       }
 
-    def fields(s: Schema.Record[_], record: Any, fs: Schema.Field[_, _]*): Unit = {
-      val nonTransientFields = fs.filterNot(_.annotations.exists(_.isInstanceOf[transientField]))
-      val values             = ChunkBuilder.make[Target](nonTransientFields.size)
+    def fields(s: Schema.Record[_], record: Any): Unit = {
+      val values = ChunkBuilder.make[Target](s.nonTransientFields.size)
 
       def processNext(index: Int, remaining: Seq[Schema.Field[_, _]]): Unit =
         if (remaining.isEmpty) {
@@ -152,7 +150,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
             processRecord(
               contextStack.head,
               s,
-              nonTransientFields.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, Target]) {
+              s.nonTransientFields.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, Target]) {
                 case (lm, pair) =>
                   lm.updated(pair._1, pair._2)
               }
@@ -174,7 +172,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
       }
 
       startProcessingRecord(contextStack.head, s)
-      processNext(0, nonTransientFields)
+      processNext(0, s.nonTransientFields)
     }
 
     def enumCases(s: Schema.Enum[_], cs: Schema.Case[_, _]*): Unit = {
@@ -217,10 +215,9 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
         case Schema.Primitive(p, _) =>
           finishWith(processPrimitive(currentContext, currentValue, p.asInstanceOf[StandardType[Any]]))
 
-        case s @ Schema.GenericRecord(_, structure, _) =>
-          val map                = currentValue.asInstanceOf[ListMap[String, _]]
-          val nonTransientFields = structure.toChunk.filterNot(_.annotations.exists(_.isInstanceOf[transientField]))
-          val values             = ChunkBuilder.make[Target](nonTransientFields.size)
+        case s @ Schema.GenericRecord(_, _, _) =>
+          val map    = currentValue.asInstanceOf[ListMap[String, _]]
+          val values = ChunkBuilder.make[Target](s.nonTransientFields.size)
 
           def processNext(index: Int, remaining: Seq[Schema.Field[ListMap[String, _], _]]): Unit =
             if (remaining.isEmpty) {
@@ -228,7 +225,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
                 processRecord(
                   currentContext,
                   s,
-                  nonTransientFields.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, Target]) {
+                  s.nonTransientFields.map(_.name).zip(values.result()).foldLeft(ListMap.empty[String, Target]) {
                     case (lm, pair) =>
                       lm.updated(pair._1, pair._2)
                   }
@@ -254,7 +251,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
           }
 
           startProcessingRecord(currentContext, s)
-          processNext(0, nonTransientFields)
+          processNext(0, s.nonTransientFields)
 
         case s @ Schema.Enum1(_, case1, _) =>
           enumCases(s, case1)
@@ -918,456 +915,14 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
               currentSchema = schema
           }
 
-        case s @ Schema.CaseClass0(_, _, _) =>
+        case s: Schema.Record[_] =>
           fields(s, currentValue)
-
-        case s @ Schema.CaseClass1(_, f, _, _) =>
-          fields(s, currentValue, f)
-
-        case s @ Schema.CaseClass2(_, f1, f2, _, _) =>
-          fields(s, currentValue, f1, f2)
-        case s @ Schema.CaseClass3(_, f1, f2, f3, _, _) =>
-          fields(s, currentValue, f1, f2, f3)
-        case s @ Schema.CaseClass4(_, f1, f2, f3, f4, _, _) =>
-          fields(s, currentValue, f1, f2, f3, f4)
-        case s @ Schema.CaseClass5(_, f1, f2, f3, f4, f5, _, _) =>
-          fields(s, currentValue, f1, f2, f3, f4, f5)
-        case s @ Schema.CaseClass6(_, f1, f2, f3, f4, f5, f6, _, _) =>
-          fields(s, currentValue, f1, f2, f3, f4, f5, f6)
-        case s @ Schema.CaseClass7(_, f1, f2, f3, f4, f5, f6, f7, _, _) =>
-          fields(s, currentValue, f1, f2, f3, f4, f5, f6, f7)
-        case s @ Schema.CaseClass8(
-              _,
-              f1,
-              f2,
-              f3,
-              f4,
-              f5,
-              f6,
-              f7,
-              f8,
-              _,
-              _
-            ) =>
-          fields(s, currentValue, f1, f2, f3, f4, f5, f6, f7, f8)
-        case s @ Schema.CaseClass9(
-              _,
-              f1,
-              f2,
-              f3,
-              f4,
-              f5,
-              f6,
-              f7,
-              f8,
-              f9,
-              _,
-              _
-            ) =>
-          fields(s, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9)
-        case s @ Schema.CaseClass10(
-              _,
-              f1,
-              f2,
-              f3,
-              f4,
-              f5,
-              f6,
-              f7,
-              f8,
-              f9,
-              f10,
-              _,
-              _
-            ) =>
-          fields(s, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10)
-        case s @ Schema.CaseClass11(
-              _,
-              f1,
-              f2,
-              f3,
-              f4,
-              f5,
-              f6,
-              f7,
-              f8,
-              f9,
-              f10,
-              f11,
-              _,
-              _
-            ) =>
-          fields(s, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11)
-        case s @ Schema.CaseClass12(
-              _,
-              f1,
-              f2,
-              f3,
-              f4,
-              f5,
-              f6,
-              f7,
-              f8,
-              f9,
-              f10,
-              f11,
-              f12,
-              _,
-              _
-            ) =>
-          fields(s, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12)
-        case s @ Schema.CaseClass13(
-              _,
-              f1,
-              f2,
-              f3,
-              f4,
-              f5,
-              f6,
-              f7,
-              f8,
-              f9,
-              f10,
-              f11,
-              f12,
-              f13,
-              _,
-              _
-            ) =>
-          fields(s, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13)
-        case s @ Schema.CaseClass14(
-              _,
-              f1,
-              f2,
-              f3,
-              f4,
-              f5,
-              f6,
-              f7,
-              f8,
-              f9,
-              f10,
-              f11,
-              f12,
-              f13,
-              f14,
-              _,
-              _
-            ) =>
-          fields(s, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14)
-        case s @ Schema.CaseClass15(
-              _,
-              f1,
-              f2,
-              f3,
-              f4,
-              f5,
-              f6,
-              f7,
-              f8,
-              f9,
-              f10,
-              f11,
-              f12,
-              f13,
-              f14,
-              f15,
-              _,
-              _
-            ) =>
-          fields(s, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15)
-        case s @ Schema.CaseClass16(
-              _,
-              f1,
-              f2,
-              f3,
-              f4,
-              f5,
-              f6,
-              f7,
-              f8,
-              f9,
-              f10,
-              f11,
-              f12,
-              f13,
-              f14,
-              f15,
-              f16,
-              _,
-              _
-            ) =>
-          fields(s, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16)
-        case s @ Schema.CaseClass17(
-              _,
-              f1,
-              f2,
-              f3,
-              f4,
-              f5,
-              f6,
-              f7,
-              f8,
-              f9,
-              f10,
-              f11,
-              f12,
-              f13,
-              f14,
-              f15,
-              f16,
-              f17,
-              _,
-              _
-            ) =>
-          fields(s, currentValue, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17)
-        case s @ Schema.CaseClass18(
-              _,
-              f1,
-              f2,
-              f3,
-              f4,
-              f5,
-              f6,
-              f7,
-              f8,
-              f9,
-              f10,
-              f11,
-              f12,
-              f13,
-              f14,
-              f15,
-              f16,
-              f17,
-              f18,
-              _,
-              _
-            ) =>
-          fields(
-            s,
-            currentValue,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            f15,
-            f16,
-            f17,
-            f18
-          )
-        case s @ Schema.CaseClass19(
-              _,
-              f1,
-              f2,
-              f3,
-              f4,
-              f5,
-              f6,
-              f7,
-              f8,
-              f9,
-              f10,
-              f11,
-              f12,
-              f13,
-              f14,
-              f15,
-              f16,
-              f17,
-              f18,
-              f19,
-              _,
-              _
-            ) =>
-          fields(
-            s,
-            currentValue,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            f15,
-            f16,
-            f17,
-            f18,
-            f19
-          )
-        case s @ Schema.CaseClass20(
-              _,
-              f1,
-              f2,
-              f3,
-              f4,
-              f5,
-              f6,
-              f7,
-              f8,
-              f9,
-              f10,
-              f11,
-              f12,
-              f13,
-              f14,
-              f15,
-              f16,
-              f17,
-              f18,
-              f19,
-              f20,
-              _
-            ) =>
-          fields(
-            s,
-            currentValue,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            f15,
-            f16,
-            f17,
-            f18,
-            f19,
-            f20
-          )
-        case s @ Schema.CaseClass21(
-              _,
-              f1,
-              f2,
-              f3,
-              f4,
-              f5,
-              f6,
-              f7,
-              f8,
-              f9,
-              f10,
-              f11,
-              f12,
-              f13,
-              f14,
-              f15,
-              f16,
-              f17,
-              f18,
-              f19,
-              f20,
-              tail
-            ) =>
-          fields(
-            s,
-            currentValue,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            f15,
-            f16,
-            f17,
-            f18,
-            f19,
-            f20,
-            tail._1
-          )
-        case s @ Schema.CaseClass22(
-              _,
-              f1,
-              f2,
-              f3,
-              f4,
-              f5,
-              f6,
-              f7,
-              f8,
-              f9,
-              f10,
-              f11,
-              f12,
-              f13,
-              f14,
-              f15,
-              f16,
-              f17,
-              f18,
-              f19,
-              f20,
-              tail
-            ) =>
-          fields(
-            s,
-            currentValue,
-            f1,
-            f2,
-            f3,
-            f4,
-            f5,
-            f6,
-            f7,
-            f8,
-            f9,
-            f10,
-            f11,
-            f12,
-            f13,
-            f14,
-            f15,
-            f16,
-            f17,
-            f18,
-            f19,
-            f20,
-            tail._1,
-            tail._2
-          )
         case Schema.Dynamic(_) =>
           processDynamic(currentContext, currentValue.asInstanceOf[DynamicValue]) match {
             case Some(target) => finishWith(target)
             case None =>
               currentSchema = DynamicValue.schema
           }
-
-        case _ => throw new Exception(s"Missing a handler for schema ${currentSchema.toString()}.")
       }
     }
     result.get
