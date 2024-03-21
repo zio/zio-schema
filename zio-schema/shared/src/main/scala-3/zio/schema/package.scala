@@ -1,23 +1,22 @@
 package zio
 
-import scala.reflect.ClassTag
-
 package object schema {
   type Singleton = scala.Singleton
 
-  extension [A: ClassTag, B: ClassTag] (s: Schema.Fallback[A, B])
-    def merge: Schema[A | B] =
-      s.transform(_.merge, {
-        case left: A  => Fallback.Left(left.asInstanceOf[A])
-        case right: B => Fallback.Right(right.asInstanceOf[B])
-      })
+  extension [A <: C, B <: C, C](s: Schema.Fallback[A, B])
+    transparent inline def merge: Schema[C] =
+      s.transform(
+        _.merge, {
+          case left: A => Fallback.Left(left)
+          case right: B => Fallback.Right(right)
+        })
 
-  extension [A: ClassTag] (s: Schema[A])
-    def orElse[B: ClassTag](s0: Schema[B]): Schema[A | B] =
+  extension [A <: C, C](s: Schema[A])
+    transparent inline def orElse[B <: C](s0: Schema[B]): Schema[C] =
       Schema.Fallback(s, s0).merge
 
-  extension [A: ClassTag, B: ClassTag] (fallback: Fallback[A, B])
-    def merge: A | B =
+  extension [A <: C, B <: C, C](fallback: Fallback[A, B])
+    transparent inline def merge: C =
       fallback match {
         case Fallback.Left(left) => left
         case Fallback.Right(right) => right
