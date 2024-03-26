@@ -3,7 +3,7 @@ package zio.schema.codec
 import java.nio.CharBuffer
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.{ switch, tailrec }
+import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 
 import zio.json.JsonCodec._
@@ -499,22 +499,32 @@ object JsonCodec {
       case _: ZJsonDecoder[_] =>
     }
 
-    private[schema] def option[A](implicit A: ZJsonDecoder[A]): ZJsonDecoder[Option[A]] =
+    private val emptyObjectDecoder: ZJsonDecoder[Boolean] =
+      (_: List[JsonError], in: RetractReader) => {
+        val c1 = in.nextNonWhitespace()
+        val c2 = in.nextNonWhitespace()
+        if (c1 == '{' && c2 == '}') {
+          true
+        } else {
+          false
+        }
+      }
+
+    private[schema] def option[A](A: ZJsonDecoder[A]): ZJsonDecoder[Option[A]] =
       new ZJsonDecoder[Option[A]] { self =>
-        private[this] val ull: Array[Char] = "ull".toCharArray
+
+        def unsafeDecode(trace: List[JsonError], in: RetractReader): Option[A] = {
+          val in2 = new zio.json.internal.WithRecordingReader(in, 2)
+          if (emptyObjectDecoder.unsafeDecode(trace, in2)) {
+            None
+          } else {
+            in2.rewind()
+            zio.json.JsonDecoder.option(A).unsafeDecode(trace, in2)
+          }
+        }
 
         override def unsafeDecodeMissing(trace: List[JsonError]): Option[A] =
-          Option.empty
-
-        def unsafeDecode(trace: List[JsonError], in: RetractReader): Option[A] =
-          (in.nextNonWhitespace(): @switch) match {
-            case 'n' =>
-              Lexer.readChars(trace, in, ull, "null")
-              None
-            case _ =>
-              in.retract()
-              Some(A.unsafeDecode(trace, in))
-          }
+          None
 
         final override def unsafeFromJsonAST(trace: List[JsonError], json: Json): Option[A] =
           json match {
@@ -527,7 +537,7 @@ object JsonCodec {
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[codec] def schemaDecoder[A](schema: Schema[A], discriminator: Int = -1): ZJsonDecoder[A] = schema match {
       case Schema.Primitive(standardType, _)     => primitiveCodec(standardType).decoder
-      case Schema.Optional(codec, _)             => option(schemaDecoder(codec, discriminator)).orElse(Json.decoder.mapOrFail(ast => if (ast.asObject.exists(_.isEmpty)) Right(None) else Left("None empty object")))
+      case Schema.Optional(codec, _)             => option(schemaDecoder(codec, discriminator))
       case Schema.Tuple2(left, right, _)         => ZJsonDecoder.tuple2(schemaDecoder(left, -1), schemaDecoder(right, -1))
       case Schema.Transform(c, f, _, a, _)       => schemaDecoder(a.foldLeft(c)((s, a) => s.annotate(a)), discriminator).mapOrFail(f)
       case Schema.Sequence(codec, f, _, _, _)    => ZJsonDecoder.chunk(schemaDecoder(codec, -1)).map(f)
