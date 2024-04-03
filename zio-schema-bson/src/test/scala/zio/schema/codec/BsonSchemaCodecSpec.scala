@@ -7,6 +7,7 @@ import org.bson.codecs.configuration.CodecRegistry
 import org.bson.codecs.{ Codec => BCodec, DecoderContext, EncoderContext }
 import org.bson.conversions.Bson
 import org.bson.io.BasicOutputBuffer
+import org.bson.types.ObjectId
 
 import zio.bson.BsonBuilder._
 import zio.bson._
@@ -50,6 +51,34 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
     implicit lazy val codec: BsonCodec[EnumLike] = BsonSchemaCodec.bsonCodec(schema)
   }
 
+  case class CustomerId(value: ObjectId) extends AnyVal
+  case class Customer(id: CustomerId, name: String, age: Int, invitedFriends: List[CustomerId])
+
+  object Customer {
+    implicit lazy val customerIdSchema: Schema[CustomerId] = bson.ObjectIdSchema.transform(CustomerId(_), _.value)
+
+    implicit lazy val customerSchema: Schema[Customer]   = DeriveSchema.gen[Customer]
+    implicit lazy val customerCodec: BsonCodec[Customer] = BsonSchemaCodec.bsonCodec(customerSchema)
+
+    val example: Customer = Customer(
+      id = CustomerId(ObjectId.get),
+      name = "Joseph",
+      age = 18,
+      invitedFriends = List(CustomerId(ObjectId.get), CustomerId(ObjectId.get))
+    )
+
+    lazy val genCustomerId: Gen[Any, CustomerId] =
+      Gen.vectorOfN(12)(Gen.byte).map(bs => new ObjectId(bs.toArray)).map(CustomerId.apply)
+
+    def gen: Gen[Sized, Customer] =
+      for {
+        id      <- genCustomerId
+        name    <- Gen.string
+        age     <- Gen.int
+        friends <- Gen.listOf(genCustomerId)
+      } yield Customer(id, name, age, friends)
+  }
+
   def spec: Spec[TestEnvironment with Scope, Any] = suite("BsonSchemaCodecSpec")(
     suite("round trip")(
       roundTripTest("SimpleClass")(
@@ -66,6 +95,18 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
         Gen.fromIterable(Chunk(EnumLike.A, EnumLike.B)),
         EnumLike.A,
         str("A")
+      ),
+      roundTripTest("Customer")(
+        Customer.gen,
+        Customer.example,
+        doc(
+          "id"   -> Customer.example.id.value.toBsonValue,
+          "name" -> str(Customer.example.name),
+          "age"  -> int(Customer.example.age),
+          "invitedFriends" -> array(
+            Customer.example.invitedFriends.map(_.value.toBsonValue): _*
+          )
+        )
       )
     ),
     suite("configuration")(
