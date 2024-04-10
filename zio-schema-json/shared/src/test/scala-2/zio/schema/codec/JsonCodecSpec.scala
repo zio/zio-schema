@@ -550,6 +550,20 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"a":"s","b":null}""")
         )
       },
+      test("case class with int option field present (at end) from pretty printed json") {
+        assertDecodes(
+          WithOptionFields.schema,
+          WithOptionFields(Some("s"), Some(1)),
+          charSequenceToByteChunk(
+            """
+              |{
+              |  "a": "s",
+              |  "b": 1
+              |}
+              |""".stripMargin
+          )
+        )
+      },
       test("case class with option fields omitted when empty") {
         assertDecodes(
           WithOptionFields.schema,
