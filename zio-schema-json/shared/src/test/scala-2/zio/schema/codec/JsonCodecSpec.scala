@@ -1096,6 +1096,9 @@ object JsonCodecSpec extends ZIOSpecDefault {
       },
       test("object") {
         assertEncodesThenDecodes(schemaObject, Singleton)
+      },
+      test("all optional fields empty") {
+        assertEncodesThenDecodes(AllOptionalFields.schema, AllOptionalFields(None, None, None))
       }
     ),
     suite("record")(
@@ -1802,5 +1805,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
   object MapOfComplexKeysAndValues {
     implicit lazy val mapSchema: Schema[Map[KeyWrapper, ValueWrapper]] = Schema.map[KeyWrapper, ValueWrapper]
     implicit lazy val schema: Schema[MapOfComplexKeysAndValues]        = DeriveSchema.gen[MapOfComplexKeysAndValues]
+  }
+
+  final case class AllOptionalFields(
+    name: Option[String],
+    mode: Option[Int],
+    active: Option[Boolean]
+  )
+
+  object AllOptionalFields {
+    implicit lazy val schema: Schema[AllOptionalFields] = DeriveSchema.gen[AllOptionalFields]
   }
 }

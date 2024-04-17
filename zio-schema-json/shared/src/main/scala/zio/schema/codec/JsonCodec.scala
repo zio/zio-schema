@@ -1341,7 +1341,7 @@ object JsonCodec {
 
       if (discriminator == -1) {
         Lexer.char(trace, in, '{')
-        loop(0, in)
+        if (Lexer.firstField(trace, in)) loop(0, in)
       } else if (discriminator == -2) {
         if (Lexer.nextField(trace, in)) loop(0, in)
       } else {
