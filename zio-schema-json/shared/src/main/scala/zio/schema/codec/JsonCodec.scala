@@ -712,7 +712,7 @@ object JsonCodec {
 
         (trace: List[JsonError], in: RetractReader) => {
           if (noDiscriminators) {
-            val rr                = RecordingReader(in)
+            var rr                = RecordingReader(in)
             val it                = cases.iterator
             var result: Option[Z] = None
 
@@ -724,6 +724,7 @@ object JsonCodec {
               } catch {
                 case _: Exception =>
                   rr.rewind()
+                  if (result.isEmpty && it.hasNext) rr = RecordingReader(rr)
               }
             }
 
