@@ -2,21 +2,19 @@ package zio.schema.codec
 
 import java.time._
 import java.util.UUID
-
 import scala.collection.immutable.ListMap
 import scala.util.Try
-
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import org.msgpack.core.{ MessagePack, MessagePacker }
+import org.msgpack.core.{MessagePack, MessagePacker}
 import org.msgpack.jackson.dataformat.MessagePackFactory
-
 import zio.schema.CaseSet.caseOf
+import zio.schema.Patch.Currency
 import zio.schema._
-import zio.stream.{ ZSink, ZStream }
+import zio.stream.{ZSink, ZStream}
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, Console, Scope, Task, ZIO }
+import zio.{Chunk, Console, Scope, Task, ZIO}
 
 object MessagePackCodecSpec extends ZIOSpecDefault {
 
@@ -219,6 +217,13 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
         for {
           ed  <- encodeAndDecode(Schema[UUID], value)
           ed2 <- encodeAndDecodeNS(Schema[UUID], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+      },
+      test("currencies") {
+        val value = java.util.Currency.getInstance(java.util.Locale.getDefault)
+        for {
+          ed  <- encodeAndDecode(Schema[java.util.Currency], value)
+          ed2 <- encodeAndDecodeNS(Schema[java.util.Currency], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       test("day of weeks") {

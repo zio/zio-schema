@@ -34,7 +34,8 @@ object StandardTypeGen {
       (StandardType.YearType),
       (StandardType.YearMonthType),
       (StandardType.ZonedDateTimeType),
-      (StandardType.ZoneIdType)
+      (StandardType.ZoneIdType),
+      (StandardType.CurrencyType)
     )
     //FIXME For some reason adding this causes other unrelated tests to break.
 //    Gen.const(StandardType.ZoneOffset)
@@ -80,6 +81,7 @@ object StandardTypeGen {
       case typ: StandardType.ZonedDateTimeType.type  => typ -> JavaTimeGen.anyZonedDateTime
       case typ: StandardType.ZoneIdType.type         => typ -> JavaTimeGen.anyZoneId
       case typ: StandardType.ZoneOffsetType.type     => typ -> JavaTimeGen.anyZoneOffset
+      case typ: StandardType.CurrencyType.type       => typ -> Gen.currency
       case _                                         => StandardType.UnitType -> Gen.unit: StandardTypeAndGen[_]
     }
   }

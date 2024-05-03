@@ -1,8 +1,8 @@
 package zio.schema
 
 import scala.collection.immutable.ListMap
-
 import zio.Chunk
+import zio.schema.SchemaGen.SchemaTest
 import zio.test.{ Gen, Sized }
 
 object SchemaGen {
@@ -749,7 +749,8 @@ object SchemaGen {
     ),
     SchemaTest("ZoneId", StandardType.ZoneIdType, JavaTimeGen.anyZoneId),
     SchemaTest("ZoneOffset", StandardType.ZoneOffsetType, JavaTimeGen.anyZoneOffset),
-    SchemaTest("UnitType", StandardType.UnitType, Gen.unit)
+    SchemaTest("UnitType", StandardType.UnitType, Gen.unit),
+    SchemaTest("Currency", StandardType.CurrencyType, Gen.currency)
   )
 
 }
