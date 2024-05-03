@@ -440,6 +440,7 @@ object BsonSchemaCodec {
         case StandardType.ZoneIdType => BsonCodec.zoneId.asInstanceOf[BsonCodec[A]] //BsonCodec[java.time.ZoneId]
         case StandardType.ZoneOffsetType =>
           BsonCodec.zoneOffset.asInstanceOf[BsonCodec[A]] //BsonCodec[java.time.ZoneOffset]
+        case StandardType.CurrencyType => BsonCodec.currency.asInstanceOf[BsonCodec[A]] //BsonCodec[java.util.Currency]
       }
   }
 

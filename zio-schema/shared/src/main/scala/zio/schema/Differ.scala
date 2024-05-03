@@ -20,7 +20,7 @@ import java.time.{
   ZoneOffset,
   ZonedDateTime => JZonedDateTime
 }
-import java.util.UUID
+import java.util.{ Currency, UUID }
 
 import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
@@ -255,6 +255,7 @@ object Differ {
     case Schema.Primitive(StandardType.OffsetDateTimeType, _) => offsetDateTime
     case Schema.Primitive(StandardType.ZonedDateTimeType, _)  => zonedDateTime
     case Schema.Primitive(StandardType.ZoneOffsetType, _)     => zoneOffset
+    case Schema.Primitive(StandardType.CurrencyType, _)       => currency
     case Schema.Tuple2(leftSchema, rightSchema, _)            => fromSchema(leftSchema) <*> fromSchema(rightSchema)
     case Schema.Optional(schema, _)                           => fromSchema(schema).optional
     case Schema.Sequence(schema, g, f, _, _) =>
@@ -522,6 +523,13 @@ object Differ {
         case distance                                         => Patch.BigDecimal(distance, thatValue.precision())
       }
     }
+
+  val currency: Differ[Currency] =
+    (thisValue: Currency, thatValue: Currency) =>
+      if (thisValue == thatValue)
+        Patch.identical
+      else
+        Patch.Currency(thatValue)
 
   def tuple[A, B](left: Differ[A], right: Differ[B]): Differ[(A, B)] =
     (thisValue: (A, B), thatValue: (A, B)) =>

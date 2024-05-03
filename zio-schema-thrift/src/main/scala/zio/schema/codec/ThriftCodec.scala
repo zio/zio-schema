@@ -371,6 +371,8 @@ object ThriftCodec {
           p.writeString(v.toString)
         case (StandardType.ZonedDateTimeType, v: ZonedDateTime) =>
           p.writeString(v.toString)
+        case (StandardType.CurrencyType, v: java.util.Currency) =>
+          p.writeString(v.getCurrencyCode)
         case (_, _) =>
           fail(s"No encoder for $standardType")
       }
@@ -424,6 +426,7 @@ object ThriftCodec {
         case StandardType.OffsetTimeType     => TType.STRING
         case StandardType.OffsetDateTimeType => TType.STRING
         case StandardType.ZonedDateTimeType  => TType.STRING
+        case StandardType.CurrencyType       => TType.STRING
         case _                               => TType.VOID
       }
 
@@ -588,6 +591,8 @@ object ThriftCodec {
           OffsetDateTime.parse(decodeString(context.path))
         case StandardType.ZonedDateTimeType =>
           ZonedDateTime.parse(decodeString(context.path))
+        case StandardType.CurrencyType =>
+          java.util.Currency.getInstance(decodeString(context.path))
         case _ => fail(context, s"Unsupported primitive type $typ")
       }
 

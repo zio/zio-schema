@@ -58,6 +58,7 @@ package object json {
           case StandardType.OffsetTimeType     => Json.Str(value.asInstanceOf[java.time.OffsetTime].toString)
           case StandardType.OffsetDateTimeType => Json.Str(value.asInstanceOf[java.time.OffsetDateTime].toString)
           case StandardType.ZonedDateTimeType  => Json.Str(value.asInstanceOf[java.time.ZonedDateTime].toString)
+          case StandardType.CurrencyType       => Json.Str(value.asInstanceOf[java.util.Currency].toString)
         }
       case DynamicValue.Singleton(_)       => Json.Obj()
       case DynamicValue.SomeValue(value)   => toJson(value)
