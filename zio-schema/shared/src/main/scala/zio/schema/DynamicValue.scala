@@ -239,6 +239,7 @@ object DynamicValue {
 
   lazy val typeId: TypeId = TypeId.parse("zio.schema.DynamicValue")
 
+  //TODO: Refactor case set so that adding a new type to StandardType without updating the below list will trigger a compile error
   lazy val schema: Schema[DynamicValue] =
     Schema.EnumN(
       typeId,

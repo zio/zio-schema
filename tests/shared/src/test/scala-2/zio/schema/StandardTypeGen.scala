@@ -6,39 +6,39 @@ import zio.test.{ Gen, Sized }
 
 object StandardTypeGen {
 
+  //IMPORTANT! - Updating the following list without updating the schema primitive case set in zio.schema.DynamicValue.schema will trigger a set of very obscure test failures
   val anyStandardType: Gen[Any, StandardType[_]] = Gen.fromIterable(
     List(
-      (StandardType.StringType),
-      (StandardType.BoolType),
-      (StandardType.ShortType),
-      (StandardType.IntType),
-      (StandardType.LongType),
-      (StandardType.FloatType),
-      (StandardType.DoubleType),
-      (StandardType.BinaryType),
-      (StandardType.BigDecimalType),
-      (StandardType.BigIntegerType),
-      (StandardType.CharType),
-      (StandardType.UUIDType),
-      (StandardType.DayOfWeekType),
-      (StandardType.DurationType),
-      (StandardType.InstantType),
-      (StandardType.LocalDateType),
-      (StandardType.LocalDateTimeType),
-      (StandardType.LocalTimeType),
-      (StandardType.MonthType),
-      (StandardType.MonthDayType),
-      (StandardType.OffsetDateTimeType),
-      (StandardType.OffsetTimeType),
-      (StandardType.PeriodType),
-      (StandardType.YearType),
-      (StandardType.YearMonthType),
-      (StandardType.ZonedDateTimeType),
-      (StandardType.ZoneIdType),
-      (StandardType.CurrencyType)
+      StandardType.StringType,
+      StandardType.BoolType,
+      StandardType.ShortType,
+      StandardType.IntType,
+      StandardType.LongType,
+      StandardType.FloatType,
+      StandardType.DoubleType,
+      StandardType.BinaryType,
+      StandardType.BigDecimalType,
+      StandardType.BigIntegerType,
+      StandardType.CharType,
+      StandardType.UUIDType,
+      StandardType.DayOfWeekType,
+      StandardType.DurationType,
+      StandardType.InstantType,
+      StandardType.LocalDateType,
+      StandardType.LocalDateTimeType,
+      StandardType.LocalTimeType,
+      StandardType.MonthType,
+      StandardType.MonthDayType,
+      StandardType.OffsetDateTimeType,
+      StandardType.OffsetTimeType,
+      StandardType.PeriodType,
+      StandardType.YearType,
+      StandardType.YearMonthType,
+      StandardType.ZonedDateTimeType,
+      StandardType.ZoneIdType,
+      StandardType.CurrencyType,
+      StandardType.ZoneOffsetType
     )
-    //FIXME For some reason adding this causes other unrelated tests to break.
-//    Gen.const(StandardType.ZoneOffset)
   )
 
   val javaBigInt: Gen[Any, JBigInt] =

@@ -264,6 +264,14 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
             } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
           }
         },
+        test("currencies") {
+          check(Gen.currency) { value =>
+            for {
+              ed  <- encodeAndDecode(Schema[java.util.Currency], value)
+              ed2 <- encodeAndDecodeNS(Schema[java.util.Currency], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
         test("day of weeks") {
           check(Gen.dayOfWeek) { value =>
             for {

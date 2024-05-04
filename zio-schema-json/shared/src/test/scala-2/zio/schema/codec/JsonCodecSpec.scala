@@ -1,6 +1,7 @@
 package zio.schema.codec
 
 import java.time.{ ZoneId, ZoneOffset }
+import java.util.UUID
 
 import scala.collection.immutable.ListMap
 
@@ -46,6 +47,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
       },
       test("ZoneId") {
         assertEncodesJson(Schema.Primitive(StandardType.ZoneIdType), ZoneId.systemDefault())
+      },
+      test("UUID") {
+        assertEncodesJson(Schema.Primitive(StandardType.UUIDType), UUID.randomUUID())
+      },
+      test("Currency") {
+        assertEncodesJson(
+          Schema.Primitive(StandardType.CurrencyType),
+          java.util.Currency.getInstance(java.util.Locale.getDefault)
+        )
       }
     ),
     suite("fallback")(
@@ -415,7 +425,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
         test("any") {
           check(Gen.string)(s => assertDecodes(Schema[String], s, stringify(s)))
         }
-      )
+      ),
+      test("UUID") {
+        check(Gen.uuid)(uuid => assertDecodes(Schema[UUID], uuid, stringify(uuid.toString)))
+      },
+      test("Currency") {
+        check(Gen.currency)(
+          currency => assertDecodes(Schema[java.util.Currency], currency, stringify(currency.getCurrencyCode))
+        )
+      }
     ),
     suite("generic record")(
       test("with extra fields") {

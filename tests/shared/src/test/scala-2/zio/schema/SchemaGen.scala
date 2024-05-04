@@ -2,7 +2,6 @@ package zio.schema
 
 import scala.collection.immutable.ListMap
 import zio.Chunk
-import zio.schema.SchemaGen.SchemaTest
 import zio.test.{ Gen, Sized }
 
 object SchemaGen {
