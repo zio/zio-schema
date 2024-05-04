@@ -284,6 +284,7 @@ object DynamicValue {
         .:+:(primitiveOffsetDateTimeCase)
         .:+:(primitiveZonedDateTimeCase)
         .:+:(primitiveUUIDCase)
+        .:+:(primitiveCurrencyCase)
         .:+:(singletonCase)
     )
 
@@ -922,4 +923,16 @@ object DynamicValue {
       }
     )
 
+  private val primitiveCurrencyCase: Schema.Case[DynamicValue, DynamicValue.Primitive[java.util.Currency]] =
+    Schema.Case(
+      "Currency",
+      Schema.primitive[java.util.Currency].transform(currency => DynamicValue.Primitive(currency, StandardType[java.util.Currency]), _.value), {
+        case dv @ DynamicValue.Primitive(_: java.util.Currency, _) => dv.asInstanceOf[DynamicValue.Primitive[java.util.Currency]]
+        case _                                                     => throw new IllegalArgumentException
+      },
+      (dv: DynamicValue.Primitive[java.util.Currency]) => dv.asInstanceOf[DynamicValue], {
+        case DynamicValue.Primitive(_: java.util.Currency, _) => true
+        case _                                                => false
+      }
+    )
 }

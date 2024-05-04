@@ -698,7 +698,7 @@ object JsonCodec {
           cases.map(case_ => case_.id -> case_.schema.asInstanceOf[Schema.CaseClass0[Z]].defaultConstruct()).toMap
         ZJsonDecoder.string.mapOrFail(
           s =>
-            caseMap.get(caseNameAliases.get(s).getOrElse(s)) match {
+            caseMap.get(caseNameAliases.getOrElse(s, s)) match {
               case Some(z) => Right(z)
               case None    => Left("unrecognized string")
             }
