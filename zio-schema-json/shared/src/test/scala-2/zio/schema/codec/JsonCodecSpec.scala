@@ -424,7 +424,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
       ),
       test("Currency") {
         check(Gen.currency)(
-          currency => assertDecodes(Schema[java.util.Currency], currency, stringify(currency.getCurrencyCode))
+          currency => assertDecodes(Schema[java.util.Currency], currency, stringify(currency.getCurrencyCode()))
         )
       }
     ),
