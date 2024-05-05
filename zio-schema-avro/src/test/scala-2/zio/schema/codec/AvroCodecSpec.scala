@@ -475,7 +475,7 @@ object AvroCodecSpec extends ZIOSpecDefault {
     },
     test("Decode Currency") {
       val codec    = AvroCodec.schemaBasedBinaryCodec[java.util.Currency]
-      val currency = java.util.Currency.getInstance(java.util.Locale.getDefault)
+      val currency = java.util.Currency.getInstance("USD")
       val bytes    = codec.encode(currency)
       val result   = codec.decode(bytes)
       assertTrue(result == Right(currency))

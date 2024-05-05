@@ -274,7 +274,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       test("currencies") {
-        val value = java.util.Currency.getInstance(java.util.Locale.getDefault)
+        val value = java.util.Currency.getInstance("USD")
         for {
           ed  <- encodeAndDecode(Schema[java.util.Currency], value)
           ed2 <- encodeAndDecodeNS(Schema[java.util.Currency], value)
