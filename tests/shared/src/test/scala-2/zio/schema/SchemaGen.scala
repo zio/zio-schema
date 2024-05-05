@@ -1,8 +1,8 @@
 package zio.schema
 
 import scala.collection.immutable.ListMap
-
 import zio.Chunk
+import zio.schema.PlatformSpecificGen.platformSpecificSchemasAndGens
 import zio.test.{ Gen, Sized }
 
 object SchemaGen {
@@ -692,65 +692,64 @@ object SchemaGen {
 
   case class SchemaTest[A](name: String, schema: StandardType[A], gen: Gen[Sized, A])
 
-  def schemasAndGens: List[SchemaTest[_]] = List(
-    SchemaTest("String", StandardType.StringType, Gen.string),
-    SchemaTest("Bool", StandardType.BoolType, Gen.boolean),
-    SchemaTest("Short", StandardType.ShortType, Gen.short),
-    SchemaTest("Int", StandardType.IntType, Gen.int),
-    SchemaTest("Long", StandardType.LongType, Gen.long),
-    SchemaTest("Float", StandardType.FloatType, Gen.float),
-    SchemaTest("Double", StandardType.DoubleType, Gen.double),
-    SchemaTest("Binary", StandardType.BinaryType, Gen.chunkOf(Gen.byte)),
-    SchemaTest("Char", StandardType.CharType, Gen.asciiChar),
-    SchemaTest("UUID", StandardType.UUIDType, Gen.uuid),
-    SchemaTest(
-      "BigDecimal",
-      StandardType.BigDecimalType,
-      Gen.double.map(d => java.math.BigDecimal.valueOf(d))
-    ),
-    SchemaTest(
-      "BigInteger",
-      StandardType.BigIntegerType,
-      Gen.long.map(n => java.math.BigInteger.valueOf(n))
-    ),
-    SchemaTest("DayOfWeek", StandardType.DayOfWeekType, JavaTimeGen.anyDayOfWeek),
-    SchemaTest("Duration", StandardType.DurationType, JavaTimeGen.anyDuration),
-    SchemaTest("Instant", StandardType.InstantType, JavaTimeGen.anyInstant),
-    SchemaTest("LocalDate", StandardType.LocalDateType, JavaTimeGen.anyLocalDate),
-    SchemaTest(
-      "LocalDateTime",
-      StandardType.LocalDateTimeType,
-      JavaTimeGen.anyLocalDateTime
-    ),
-    SchemaTest(
-      "LocalTime",
-      StandardType.LocalTimeType,
-      JavaTimeGen.anyLocalTime
-    ),
-    SchemaTest("Month", StandardType.MonthType, JavaTimeGen.anyMonth),
-    SchemaTest("MonthDay", StandardType.MonthDayType, JavaTimeGen.anyMonthDay),
-    SchemaTest(
-      "OffsetDateTime",
-      StandardType.OffsetDateTimeType,
-      JavaTimeGen.anyOffsetDateTime
-    ),
-    SchemaTest(
-      "OffsetTime",
-      StandardType.OffsetTimeType,
-      JavaTimeGen.anyOffsetTime
-    ),
-    SchemaTest("Period", StandardType.PeriodType, JavaTimeGen.anyPeriod),
-    SchemaTest("Year", StandardType.YearType, JavaTimeGen.anyYear),
-    SchemaTest("YearMonth", StandardType.YearMonthType, JavaTimeGen.anyYearMonth),
-    SchemaTest(
-      "ZonedDateTime",
-      StandardType.ZonedDateTimeType,
-      JavaTimeGen.anyZonedDateTime
-    ),
-    SchemaTest("ZoneId", StandardType.ZoneIdType, JavaTimeGen.anyZoneId),
-    SchemaTest("ZoneOffset", StandardType.ZoneOffsetType, JavaTimeGen.anyZoneOffset),
-    SchemaTest("UnitType", StandardType.UnitType, Gen.unit),
-    SchemaTest("Currency", StandardType.CurrencyType, Gen.currency)
-  )
-
+  def schemasAndGens: List[SchemaTest[_]] =
+    List(
+      SchemaTest("String", StandardType.StringType, Gen.string),
+      SchemaTest("Bool", StandardType.BoolType, Gen.boolean),
+      SchemaTest("Short", StandardType.ShortType, Gen.short),
+      SchemaTest("Int", StandardType.IntType, Gen.int),
+      SchemaTest("Long", StandardType.LongType, Gen.long),
+      SchemaTest("Float", StandardType.FloatType, Gen.float),
+      SchemaTest("Double", StandardType.DoubleType, Gen.double),
+      SchemaTest("Binary", StandardType.BinaryType, Gen.chunkOf(Gen.byte)),
+      SchemaTest("Char", StandardType.CharType, Gen.asciiChar),
+      SchemaTest("UUID", StandardType.UUIDType, Gen.uuid),
+      SchemaTest(
+        "BigDecimal",
+        StandardType.BigDecimalType,
+        Gen.double.map(d => java.math.BigDecimal.valueOf(d))
+      ),
+      SchemaTest(
+        "BigInteger",
+        StandardType.BigIntegerType,
+        Gen.long.map(n => java.math.BigInteger.valueOf(n))
+      ),
+      SchemaTest("DayOfWeek", StandardType.DayOfWeekType, JavaTimeGen.anyDayOfWeek),
+      SchemaTest("Duration", StandardType.DurationType, JavaTimeGen.anyDuration),
+      SchemaTest("Instant", StandardType.InstantType, JavaTimeGen.anyInstant),
+      SchemaTest("LocalDate", StandardType.LocalDateType, JavaTimeGen.anyLocalDate),
+      SchemaTest(
+        "LocalDateTime",
+        StandardType.LocalDateTimeType,
+        JavaTimeGen.anyLocalDateTime
+      ),
+      SchemaTest(
+        "LocalTime",
+        StandardType.LocalTimeType,
+        JavaTimeGen.anyLocalTime
+      ),
+      SchemaTest("Month", StandardType.MonthType, JavaTimeGen.anyMonth),
+      SchemaTest("MonthDay", StandardType.MonthDayType, JavaTimeGen.anyMonthDay),
+      SchemaTest(
+        "OffsetDateTime",
+        StandardType.OffsetDateTimeType,
+        JavaTimeGen.anyOffsetDateTime
+      ),
+      SchemaTest(
+        "OffsetTime",
+        StandardType.OffsetTimeType,
+        JavaTimeGen.anyOffsetTime
+      ),
+      SchemaTest("Period", StandardType.PeriodType, JavaTimeGen.anyPeriod),
+      SchemaTest("Year", StandardType.YearType, JavaTimeGen.anyYear),
+      SchemaTest("YearMonth", StandardType.YearMonthType, JavaTimeGen.anyYearMonth),
+      SchemaTest(
+        "ZonedDateTime",
+        StandardType.ZonedDateTimeType,
+        JavaTimeGen.anyZonedDateTime
+      ),
+      SchemaTest("ZoneId", StandardType.ZoneIdType, JavaTimeGen.anyZoneId),
+      SchemaTest("ZoneOffset", StandardType.ZoneOffsetType, JavaTimeGen.anyZoneOffset),
+      SchemaTest("UnitType", StandardType.UnitType, Gen.unit)
+    ) ++ platformSpecificSchemasAndGens
 }

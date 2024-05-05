@@ -1,9 +1,7 @@
 package zio.schema.codec
 
 import java.time.{ ZoneId, ZoneOffset }
-
 import scala.collection.immutable.ListMap
-
 import zio.Console._
 import zio._
 import zio.json.JsonDecoder.JsonError
@@ -16,6 +14,7 @@ import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.schema.codec.JsonCodecSpec.PaymentMethod.{ CreditCard, PayPal, WireTransfer }
 import zio.schema.codec.JsonCodecSpec.Subscription.{ OneTime, Recurring }
+import zio.schema.codec.JsonPlatformSpecific.{ platformSpecificDecoderTests, platformSpecificEncoderTests }
 import zio.schema.meta.MetaSchema
 import zio.stream.ZStream
 import zio.test.Assertion._
@@ -35,18 +34,20 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   private val encoderSuite = suite("encoding")(
     suite("primitive")(
-      test("unit") {
-        assertEncodesJson(Schema[Unit], (), "{}")
-      },
-      test("string")(
-        check(Gen.string)(s => assertEncodes(Schema[String], s, stringify(s)))
-      ),
-      test("ZoneOffset") {
-        assertEncodesJson(Schema.Primitive(StandardType.ZoneOffsetType), ZoneOffset.UTC)
-      },
-      test("ZoneId") {
-        assertEncodesJson(Schema.Primitive(StandardType.ZoneIdType), ZoneId.systemDefault())
-      },
+      Seq(
+        test("unit") {
+          assertEncodesJson(Schema[Unit], (), "{}")
+        },
+        test("string")(
+          check(Gen.string)(s => assertEncodes(Schema[String], s, stringify(s)))
+        ),
+        test("ZoneOffset") {
+          assertEncodesJson(Schema.Primitive(StandardType.ZoneOffsetType), ZoneOffset.UTC)
+        },
+        test("ZoneId") {
+          assertEncodesJson(Schema.Primitive(StandardType.ZoneIdType), ZoneId.systemDefault())
+        }
+      ) ++ platformSpecificEncoderTests: _*
     ),
     suite("fallback")(
       test("left") {
@@ -408,14 +409,16 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   private val decoderSuite = suite("decoding")(
     suite("primitive")(
-      test("unit") {
-        assertEncodesJson(Schema[Unit], (), "{}")
-      },
-      suite("string")(
-        test("any") {
-          check(Gen.string)(s => assertDecodes(Schema[String], s, stringify(s)))
-        }
-      ),
+      Seq(
+        test("unit") {
+          assertEncodesJson(Schema[Unit], (), "{}")
+        },
+        suite("string")(
+          test("any") {
+            check(Gen.string)(s => assertDecodes(Schema[String], s, stringify(s)))
+          }
+        )
+      ) ++ platformSpecificDecoderTests: _*
     ),
     suite("generic record")(
       test("with extra fields") {
@@ -1410,7 +1413,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     assertZIO(stream)(equalTo(json))
   }
 
-  private def assertEncodesJson[A](schema: Schema[A], value: A)(implicit enc: JsonEncoder[A]) = {
+  def assertEncodesJson[A](schema: Schema[A], value: A)(implicit enc: JsonEncoder[A]) = {
     val stream = ZStream
       .succeed(value)
       .via(JsonCodec.schemaBasedBinaryCodec[A](schema).streamEncoder)
@@ -1432,7 +1435,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     assertZIO(stream)(isSome(equalTo(ReadError(Cause.empty, JsonError.render(errors)))))
   }
 
-  private def assertDecodes[A](
+  def assertDecodes[A](
     schema: Schema[A],
     value: A,
     chunk: Chunk[Byte],
@@ -1521,7 +1524,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
   private def jsonEncoded[A](value: A)(implicit enc: JsonEncoder[A]): Chunk[Byte] =
     charSequenceToByteChunk(enc.encodeJson(value, None))
 
-  private def stringify(s: String): Chunk[Byte] = {
+  def stringify(s: String): Chunk[Byte] = {
     val encoded = JsonEncoder.string.encodeJson(s, None)
     charSequenceToByteChunk(encoded)
   }
