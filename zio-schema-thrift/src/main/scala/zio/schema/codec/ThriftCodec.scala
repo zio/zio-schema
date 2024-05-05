@@ -372,7 +372,7 @@ object ThriftCodec {
         case (StandardType.ZonedDateTimeType, v: ZonedDateTime) =>
           p.writeString(v.toString)
         case (StandardType.CurrencyType, v: java.util.Currency) =>
-          p.writeString(v.getCurrencyCode)
+          p.writeString(v.getCurrencyCode())
         case (_, _) =>
           fail(s"No encoder for $standardType")
       }

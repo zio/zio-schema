@@ -426,7 +426,7 @@ object ProtobufCodec {
         case (StandardType.ZonedDateTimeType, v: ZonedDateTime) =>
           encodePrimitive(fieldNumber, StandardType.StringType, v.format(DateTimeFormatter.ISO_ZONED_DATE_TIME))
         case (StandardType.CurrencyType, v: java.util.Currency) =>
-          encodePrimitive(fieldNumber, StandardType.StringType, v.getCurrencyCode)
+          encodePrimitive(fieldNumber, StandardType.StringType, v.getCurrencyCode())
         case (_, _) =>
           throw new NotImplementedError(s"No encoder for $standardType")
       }
