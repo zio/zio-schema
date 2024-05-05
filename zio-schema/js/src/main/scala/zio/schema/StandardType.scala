@@ -166,9 +166,10 @@ object StandardType {
   }
 
   implicit object CurrencyType extends StandardType[java.util.Currency] {
-    override def tag: String                                                = Tags.CURRENCY
-    override def defaultValue: Either[String, java.util.Currency]           = Left("Currency generation not available in ScalaJS")
-    override def compare(x: java.util.Currency, y: java.util.Currency): Int = 0
+    override def tag: String                                      = Tags.CURRENCY
+    override def defaultValue: Either[String, java.util.Currency] = Left("Currency generation not available in ScalaJS")
+    override def compare(x: java.util.Currency, y: java.util.Currency): Int =
+      x.getCurrencyCode().compareTo(y.getCurrencyCode())
   }
 
   implicit object BigDecimalType extends StandardType[java.math.BigDecimal] {
