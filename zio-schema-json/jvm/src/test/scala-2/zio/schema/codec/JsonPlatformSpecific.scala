@@ -6,9 +6,7 @@ import zio.test.{ Gen, check }
 
 object JsonPlatformSpecific {
 
-  @SuppressWarnings(Array(
-    "scalafix:ExplicitResultTypes"
-  ))
+  @SuppressWarnings(Array("scalafix:ExplicitResultTypes"))
   val platformSpecificEncoderTests = Seq(
     test("Currency") {
       assertEncodesJson(
@@ -18,9 +16,7 @@ object JsonPlatformSpecific {
     }
   )
 
-  @SuppressWarnings(Array(
-    "scalafix:ExplicitResultTypes"
-  ))
+  @SuppressWarnings(Array("scalafix:ExplicitResultTypes"))
   val platformSpecificDecoderTests = Seq(
     test("Currency") {
       check(Gen.currency)(
