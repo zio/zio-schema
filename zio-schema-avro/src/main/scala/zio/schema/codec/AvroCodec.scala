@@ -937,7 +937,7 @@ object AvroCodec {
         val zonedDateTime = a.asInstanceOf[java.time.ZonedDateTime]
         zonedDateTime.toString
       case StandardType.CurrencyType =>
-        a.asInstanceOf[java.util.Currency].getCurrencyCode()
+        a.asInstanceOf[java.util.Currency].getCurrencyCode
     }
 
   private def encodeSequence[A](schema: Schema[A], v: Chunk[A]): Any = {

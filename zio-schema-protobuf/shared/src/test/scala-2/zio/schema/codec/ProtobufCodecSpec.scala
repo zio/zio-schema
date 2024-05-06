@@ -2,8 +2,10 @@ package zio.schema.codec
 
 import java.time._
 import java.util.UUID
+
 import scala.collection.immutable.ListMap
 import scala.util.Try
+
 import zio.Console._
 import zio._
 import zio.schema.CaseSet._

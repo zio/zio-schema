@@ -173,7 +173,7 @@ object StandardType {
       Left("Currency generation not available in Scala Native")
 
     override def compare(x: java.util.Currency, y: java.util.Currency): Int =
-      x.getCurrencyCode().compareTo(y.getCurrencyCode())
+      x.getCurrencyCode.compareTo(y.getCurrencyCode)
   }
 
   implicit object BigDecimalType extends StandardType[java.math.BigDecimal] {

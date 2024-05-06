@@ -1,9 +1,9 @@
 package zio.schema
 
+import java.math.{ BigDecimal => JBigDecimal, BigInteger => JBigInt }
+
 import zio.schema.PlatformSpecificGen.{ platformSpecificStandardTypeAndGen, platformSpecificStandardTypes }
 import zio.test.{ Gen, Sized }
-
-import java.math.{ BigDecimal => JBigDecimal, BigInteger => JBigInt }
 
 object StandardTypeGen {
 
@@ -36,9 +36,8 @@ object StandardTypeGen {
       StandardType.YearType,
       StandardType.YearMonthType,
       StandardType.ZonedDateTimeType,
-      StandardType.ZoneIdType
-      //FIXME For some reason adding this causes other unrelated tests to break.
-//      StandardType.ZoneOffsetType
+      StandardType.ZoneIdType,
+      StandardType.ZoneOffsetType
     )
   ) ++ platformSpecificStandardTypes
 

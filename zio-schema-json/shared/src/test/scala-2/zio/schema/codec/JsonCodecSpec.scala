@@ -1,15 +1,17 @@
 package zio.schema.codec
 
 import java.time.{ ZoneId, ZoneOffset }
+
 import scala.collection.immutable.ListMap
+
 import zio.Console._
-import zio._
 import zio.json.JsonDecoder.JsonError
 import zio.json.ast.Json
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
 import zio.schema.annotation._
+import zio.schema.codec.DecodeError
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.schema.codec.JsonCodecSpec.PaymentMethod.{ CreditCard, PayPal, WireTransfer }
@@ -19,7 +21,8 @@ import zio.schema.meta.MetaSchema
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
-import zio.test._
+import zio.test.{ TestResult, _ }
+import zio.{ ZIO, _ }
 
 object JsonCodecSpec extends ZIOSpecDefault {
 
@@ -1413,7 +1416,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     assertZIO(stream)(equalTo(json))
   }
 
-  def assertEncodesJson[A](schema: Schema[A], value: A)(implicit enc: JsonEncoder[A]) = {
+  def assertEncodesJson[A](schema: Schema[A], value: A)(implicit enc: JsonEncoder[A]): ZIO[Any, Nothing, TestResult] = {
     val stream = ZStream
       .succeed(value)
       .via(JsonCodec.schemaBasedBinaryCodec[A](schema).streamEncoder)
@@ -1440,7 +1443,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     value: A,
     chunk: Chunk[Byte],
     cfg: JsonCodec.Config = JsonCodec.Config.default
-  ) = {
+  ): ZIO[Any, DecodeError, TestResult] = {
     val result = ZStream.fromChunk(chunk).via(JsonCodec.schemaBasedBinaryCodec[A](cfg)(schema).streamDecoder).runCollect
     assertZIO(result)(equalTo(Chunk(value)))
   }

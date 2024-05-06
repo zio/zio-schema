@@ -8,6 +8,9 @@ import zio.test.{ Gen, assert, check }
 
 object ProtobufPlatformSpecific {
 
+  @SuppressWarnings(Array(
+    "scalafix:ExplicitResultTypes"
+  ))
   val platformSpecificEncodeAndDecode = Seq(
     test("currencies") {
       check(Gen.currency) { value =>
