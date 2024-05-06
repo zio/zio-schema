@@ -11,7 +11,7 @@ object JsonPlatformSpecific {
     test("Currency") {
       assertEncodesJson(
         Schema.Primitive(StandardType.CurrencyType),
-        java.util.Currency.getInstance(java.util.Locale.getDefault())
+        java.util.Currency.getInstance("USD")
       )
     }
   )
