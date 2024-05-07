@@ -255,9 +255,16 @@ object Differ {
     case Schema.Primitive(StandardType.OffsetDateTimeType, _) => offsetDateTime
     case Schema.Primitive(StandardType.ZonedDateTimeType, _)  => zonedDateTime
     case Schema.Primitive(StandardType.ZoneOffsetType, _)     => zoneOffset
-    case Schema.Primitive(StandardType.CurrencyType, _)       => currency
-    case Schema.Tuple2(leftSchema, rightSchema, _)            => fromSchema(leftSchema) <*> fromSchema(rightSchema)
-    case Schema.Optional(schema, _)                           => fromSchema(schema).optional
+    case Schema.Primitive(StandardType.CurrencyType, _) =>
+      string.transformOrFail[Currency](
+        (currency: Currency) => Right(currency.toString),
+        (s: String) =>
+          try {
+            Right(Currency.getInstance(s))
+          } catch { case e: Throwable => Left(s"$s is not a valid Currency: ${e.getMessage}") }
+      )
+    case Schema.Tuple2(leftSchema, rightSchema, _) => fromSchema(leftSchema) <*> fromSchema(rightSchema)
+    case Schema.Optional(schema, _)                => fromSchema(schema).optional
     case Schema.Sequence(schema, g, f, _, _) =>
       fromSchema(schema).chunk.transform(f, g)
     case Schema.Set(s, _)                                                                        => set(s)

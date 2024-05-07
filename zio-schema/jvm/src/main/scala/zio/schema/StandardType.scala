@@ -167,7 +167,7 @@ object StandardType {
 
   implicit object CurrencyType extends StandardType[java.util.Currency] {
     override def tag: String = Tags.CURRENCY
-    override def defaultValue: Either[String, java.util.Currency] =
+    override val defaultValue: Either[String, java.util.Currency] =
       try {
         Right(java.util.Currency.getInstance(java.util.Locale.getDefault()))
       } catch {
