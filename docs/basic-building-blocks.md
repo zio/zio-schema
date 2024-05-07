@@ -28,18 +28,12 @@ case class Primitive[A](standardType: StandardType[A]) extends Schema[A]
 
 Primitive values are represented using the `Primitive[A]` type class and represent the elements, that we cannot further define through other means. If we visualize our data structure as a tree, primitives are the leaves.
 
-ZIO Schema provides a number of built-in primitive types, that we can use to represent our data. These can be found in the [`StandardType`](https://github.com/zio/zio-schema/blob/main/zio-schema/jvm/src/main/scala/zio/schema/StandardType.scala) companion-object:
+### Standard Type Reference
+ZIO Schema provides a number of built-in primitive types, that we can use to represent our data. These can be seen in the following table:
 
-```scala
-sealed trait StandardType[A]
-object StandardType {
-  implicit object UnitType   extends StandardType[Unit]
-  implicit object StringType extends StandardType[String]
-  implicit object BoolType   extends StandardType[Boolean]
-  // ...
-}
-```
+@STANDARD_TYPE_TABLE@
 
+### Primitive Schemas
 Inside `Schema`'s companion object, we have an implicit conversion from `StandardType[A]` to `Schema[A]`:
 
 ```scala
