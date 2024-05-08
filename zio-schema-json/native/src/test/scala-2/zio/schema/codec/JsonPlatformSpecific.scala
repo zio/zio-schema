@@ -1,10 +1,8 @@
 package zio.schema.codec
 
+import zio.test.{ Spec, TestEnvironment }
+
 object JsonPlatformSpecific {
-
-  @SuppressWarnings(Array("scalafix:ExplicitResultTypes"))
-  val platformSpecificEncoderTests = Seq.empty
-
-  @SuppressWarnings(Array("scalafix:ExplicitResultTypes"))
-  val platformSpecificDecoderTests = Seq.empty
+  val platformSpecificEncoderTests: List[Spec[TestEnvironment, Nothing]]     = List.empty
+  val platformSpecificDecoderTests: List[Spec[TestEnvironment, DecodeError]] = List.empty
 }

@@ -4,12 +4,11 @@ import zio.Chunk
 import zio.schema.Schema
 import zio.schema.codec.ProtobufCodecSpec.{ encodeAndDecode, encodeAndDecodeNS, test }
 import zio.test.Assertion.equalTo
-import zio.test.{ Gen, assert, check }
+import zio.test.{ Gen, Sized, Spec, assert, check }
 
 object ProtobufPlatformSpecific {
 
-  @SuppressWarnings(Array("scalafix:ExplicitResultTypes"))
-  val platformSpecificEncodeAndDecode = Seq(
+  val platformSpecificEncodeAndDecode: List[Spec[Sized, DecodeError]] = List(
     test("currencies") {
       check(Gen.currency) { value =>
         for {

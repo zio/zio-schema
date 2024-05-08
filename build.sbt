@@ -442,14 +442,10 @@ lazy val docs = project
     mainModuleName := (zioSchemaJVM / moduleName).value,
     projectStage := ProjectStage.Development,
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(),
-    mdocVariables ++= Map(
-      "STANDARD_TYPE_TABLE" -> {
-        val docGen = DocGenerator.generateStandardTypeTable(
-          (ThisBuild / baseDirectory).value / "zio-schema" / "jvm" / "src" / "main" / "scala" / "zio" / "schema" / "StandardType.scala"
-        )
-        docGen
-      }
-    ),
+    mdoc := {
+      (Compile / run).evaluated
+      mdoc.evaluated
+    },
     readmeContribution +=
       """|
          |#### TL;DR

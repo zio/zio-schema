@@ -1,7 +1,7 @@
 package zio.schema.codec
 
-object ProtobufPlatformSpecific {
+import zio.test.{ Sized, Spec }
 
-  @SuppressWarnings(Array("scalafix:ExplicitResultTypes"))
-  val platformSpecificEncodeAndDecode = Seq.empty
+object ProtobufPlatformSpecific {
+  val platformSpecificEncodeAndDecode: List[Spec[Sized, DecodeError]] = List.empty
 }
