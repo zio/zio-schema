@@ -26,9 +26,9 @@ To describe scalar data type `A`, we use the `Primitive[A]` data type which basi
 case class Primitive[A](standardType: StandardType[A]) extends Schema[A]
 ```
 
-Primitive values are represented using the `Primitive[A]` type class and represent the elements, that we cannot further define through other means. If we visualize our data structure as a tree, primitives are the leaves.
+Primitive values are represented using the `Primitive[A]` type class and represent the elements that we cannot further define through other means. If we visualize our data structure as a tree, primitives are the leaves.
 
-For a list of primitive types with built-in support, please see the [standard type reference](standard-type-reference.md)
+For a list of all standard types (and therefore primitive types) with built-in support, please see the [standard type reference](standard-type-reference.md)
 
 
 Inside `Schema`'s companion object, we have an implicit conversion from `StandardType[A]` to `Schema[A]`:
