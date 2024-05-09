@@ -1187,6 +1187,18 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Enumeration2(BooleanValue2(false))
         )
       },
+      test("ADT with noDiscriminator") {
+        assertEncodesThenDecodes(
+          Schema[Enumeration3],
+          Enumeration3(StringValue3("foo"))
+        ) &> assertEncodesThenDecodes(
+          Schema[Enumeration3],
+          Enumeration3(StringValue3Multi("foo", "bar"))
+        ) &> assertEncodesThenDecodes(Schema[Enumeration3], Enumeration3(IntValue3(-1))) &> assertEncodesThenDecodes(
+          Schema[Enumeration3],
+          Enumeration3(BooleanValue3(false))
+        ) &> assertEncodesThenDecodes(Schema[Enumeration3], Enumeration3(Nested(StringValue3("foo"))))
+      },
       test("of case classes with discriminator") {
         assertEncodesThenDecodes(Schema[Command], Command.Cash) &>
           assertEncodesThenDecodes(Schema[Command], Command.Buy(100))
@@ -1674,6 +1686,20 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object Enumeration2 {
     implicit val schema: Schema[Enumeration2] = DeriveSchema.gen[Enumeration2]
+  }
+
+  @noDiscriminator
+  sealed trait OneOf3
+  case class StringValue3(value: String)                       extends OneOf3
+  case class IntValue3(value: Int)                             extends OneOf3
+  case class BooleanValue3(value: Boolean)                     extends OneOf3
+  case class StringValue3Multi(value1: String, value2: String) extends OneOf3
+  case class Nested(oneOf: OneOf3)                             extends OneOf3
+
+  case class Enumeration3(oneOf: OneOf3)
+
+  object Enumeration3 {
+    implicit val schema: Schema[Enumeration3] = DeriveSchema.gen[Enumeration3]
   }
 
   sealed trait Color
