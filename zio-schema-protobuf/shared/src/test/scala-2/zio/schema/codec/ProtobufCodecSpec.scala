@@ -10,7 +10,6 @@ import zio.Console._
 import zio._
 import zio.schema.CaseSet._
 import zio.schema.annotation.transientField
-import zio.schema.codec.ProtobufPlatformSpecific.platformSpecificEncodeAndDecode
 import zio.schema.meta.MetaSchema
 import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
 import zio.stream.{ ZSink, ZStream }
@@ -102,615 +101,621 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         }
       ),
       suite("Should successfully encode and decode")(
-        Seq(
-          test("empty list") {
+        test("empty list") {
+          for {
+            ed <- encodeAndDecodeNS(Schema[List[List[Int]]], List.empty)
+          } yield assert(ed)(equalTo(List.empty))
+        },
+        test("list of an empty list") {
+          for {
+            ed <- encodeAndDecodeNS(Schema[List[List[Int]]], List(List.empty))
+          } yield assert(ed)(equalTo(List(List.empty)))
+        },
+        test("case class containing empty list & case class containing list of an empty list") {
+          val value2 = Lists(1, List.empty, "second string", List(List.empty))
+          for {
+            ed2 <- encodeAndDecodeNS(Schema[Lists], value2)
+          } yield assert(ed2)(equalTo(value2))
+        },
+        test("records") {
+          for {
+            ed2 <- encodeAndDecodeNS(Record.schemaRecord, Record("hello", 150))
+          } yield assert(ed2)(equalTo(Record("hello", 150)))
+        },
+        test("records with arity greater than 22") {
+          for {
+            ed <- encodeAndDecodeNS(schemaHighArityRecord, HighArity())
+          } yield assertTrue(ed == HighArity())
+        },
+        test("records with arity greater than 22 and transient field") {
+          for {
+            ed <- encodeAndDecodeNS(schemaHighArityRecordTransient, HighArityTransient(f24 = 10))
+          } yield assertTrue(ed == HighArityTransient())
+        },
+        test("integer") {
+          check(Gen.int) { value =>
             for {
-              ed <- encodeAndDecodeNS(Schema[List[List[Int]]], List.empty)
-            } yield assert(ed)(equalTo(List.empty))
-          },
-          test("list of an empty list") {
+              ed2 <- encodeAndDecodeNS(schemaBasicInt, BasicInt(value))
+            } yield assert(ed2)(equalTo(BasicInt(value)))
+          }
+        },
+        test("integer inside wrapper class") {
+          check(Gen.int) { value =>
             for {
-              ed <- encodeAndDecodeNS(Schema[List[List[Int]]], List(List.empty))
-            } yield assert(ed)(equalTo(List(List.empty)))
-          },
-          test("case class containing empty list & case class containing list of an empty list") {
-            val value2 = Lists(1, List.empty, "second string", List(List.empty))
+              ed2 <- encodeAndDecodeNS(basicIntWrapperSchema, BasicIntWrapper(BasicInt(value)))
+            } yield assert(ed2)(equalTo(BasicIntWrapper(BasicInt(value))))
+          }
+        },
+        test("string") {
+          check(Gen.string) { value =>
             for {
-              ed2 <- encodeAndDecodeNS(Schema[Lists], value2)
-            } yield assert(ed2)(equalTo(value2))
-          },
-          test("records") {
-            for {
-              ed2 <- encodeAndDecodeNS(Record.schemaRecord, Record("hello", 150))
-            } yield assert(ed2)(equalTo(Record("hello", 150)))
-          },
-          test("records with arity greater than 22") {
-            for {
-              ed <- encodeAndDecodeNS(schemaHighArityRecord, HighArity())
-            } yield assertTrue(ed == HighArity())
-          },
-          test("records with arity greater than 22 and transient field") {
-            for {
-              ed <- encodeAndDecodeNS(schemaHighArityRecordTransient, HighArityTransient(f24 = 10))
-            } yield assertTrue(ed == HighArityTransient())
-          },
-          test("integer") {
-            check(Gen.int) { value =>
+              ed2 <- encodeAndDecodeNS(Schema[String], value)
+            } yield assert(ed2)(equalTo(value))
+          }
+        },
+        test("empty string") {
+          for {
+            ed2 <- encodeAndDecodeNS(Schema[String], "")
+          } yield assert(ed2)(equalTo(""))
+        },
+        test("empty string in wrapper class") {
+          for {
+            ed2 <- encodeAndDecodeNS(schemaBasicString, BasicString(""))
+          } yield assert(ed2)(equalTo(BasicString("")))
+        },
+        test("empty dynamic string") {
+          for {
+            ed2 <- encodeAndDecodeNS(
+                    Schema.dynamicValue,
+                    DynamicValue.Primitive("", StandardType.StringType)
+                  )
+          } yield assert(ed2)(equalTo(DynamicValue.Primitive("", StandardType.StringType)))
+        },
+        test("two integers") {
+          check(Gen.int, Gen.int) {
+            case (a, b) =>
               for {
-                ed2 <- encodeAndDecodeNS(schemaBasicInt, BasicInt(value))
-              } yield assert(ed2)(equalTo(BasicInt(value)))
-            }
-          },
-          test("integer inside wrapper class") {
-            check(Gen.int) { value =>
+                ed2 <- encodeAndDecodeNS(schemaBasicTwoInts, BasicTwoInts(a, b))
+              } yield assert(ed2)(equalTo(BasicTwoInts(a, b)))
+          }
+        },
+        test("two integers inside wrapper class") {
+          check(Gen.int, Gen.int) {
+            case (a, b) =>
               for {
-                ed2 <- encodeAndDecodeNS(basicIntWrapperSchema, BasicIntWrapper(BasicInt(value)))
-              } yield assert(ed2)(equalTo(BasicIntWrapper(BasicInt(value))))
-            }
-          },
-          test("string") {
-            check(Gen.string) { value =>
+                ed2 <- encodeAndDecodeNS(basicTwoIntWrapperSchema, BasicTwoIntWrapper(BasicTwoInts(a, b)))
+              } yield assert(ed2)(equalTo(BasicTwoIntWrapper(BasicTwoInts(a, b))))
+          }
+        },
+        test("two wrapped integers inside wrapper class") {
+          check(Gen.int, Gen.int) {
+            case (a, b) =>
               for {
-                ed2 <- encodeAndDecodeNS(Schema[String], value)
-              } yield assert(ed2)(equalTo(value))
-            }
-          },
-          test("empty string") {
+                e2 <- encodeAndDecodeNS(separateWrapper, SeparateWrapper(BasicInt(a), BasicInt(b)))
+              } yield assert(e2)(equalTo(SeparateWrapper(BasicInt(a), BasicInt(b))))
+          }
+        },
+        test("complex product and string and integer") {
+          for {
+            ed2 <- encodeAndDecodeNS(SearchRequest.schema, message)
+          } yield assert(ed2)(equalTo(message))
+        },
+        test("booleans") {
+          check(Gen.boolean) { value =>
             for {
-              ed2 <- encodeAndDecodeNS(Schema[String], "")
-            } yield assert(ed2)(equalTo(""))
-          },
-          test("empty string in wrapper class") {
+              ed  <- encodeAndDecode(Schema[Boolean], value)
+              ed2 <- encodeAndDecodeNS(Schema[Boolean], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("shorts") {
+          check(Gen.short) { value =>
             for {
-              ed2 <- encodeAndDecodeNS(schemaBasicString, BasicString(""))
-            } yield assert(ed2)(equalTo(BasicString("")))
-          },
-          test("empty dynamic string") {
+              ed  <- encodeAndDecode(Schema[Short], value)
+              ed2 <- encodeAndDecodeNS(Schema[Short], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("longs") {
+          check(Gen.long) { value =>
             for {
+              ed  <- encodeAndDecode(Schema[Long], value)
+              ed2 <- encodeAndDecodeNS(Schema[Long], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("floats") {
+          check(Gen.float) { value =>
+            for {
+              ed  <- encodeAndDecode(Schema[Float], value)
+              ed2 <- encodeAndDecodeNS(Schema[Float], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("doubles") {
+          check(Gen.double) { value =>
+            for {
+              ed  <- encodeAndDecode(Schema[Double], value)
+              ed2 <- encodeAndDecodeNS(Schema[Double], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("bytes") {
+          check(Gen.chunkOf(Gen.byte)) { value =>
+            for {
+              ed  <- encodeAndDecode(Schema[Chunk[Byte]], value)
+              ed2 <- encodeAndDecodeNS(Schema[Chunk[Byte]], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("chars") {
+          check(Gen.printableChar) { value =>
+            for {
+              ed  <- encodeAndDecode(Schema[Char], value)
+              ed2 <- encodeAndDecodeNS(Schema[Char], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("uuids") {
+          check(Gen.uuid) { value =>
+            for {
+              ed  <- encodeAndDecode(Schema[UUID], value)
+              ed2 <- encodeAndDecodeNS(Schema[UUID], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("day of weeks") {
+          check(Gen.dayOfWeek) { value =>
+            for {
+              ed  <- encodeAndDecode(Schema[DayOfWeek], value)
+              ed2 <- encodeAndDecodeNS(Schema[DayOfWeek], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("months") {
+          check(Gen.month) { value =>
+            for {
+              ed  <- encodeAndDecode(Schema[Month], value)
+              ed2 <- encodeAndDecodeNS(Schema[Month], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("month days") {
+          check(Gen.monthDay) { value =>
+            for {
+              ed  <- encodeAndDecode(Schema[MonthDay], value)
+              ed2 <- encodeAndDecodeNS(Schema[MonthDay], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("periods") {
+          check(Gen.period) { value =>
+            for {
+              ed  <- encodeAndDecode(Schema[Period], value)
+              ed2 <- encodeAndDecodeNS(Schema[Period], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("years") {
+          check(Gen.year) { value =>
+            for {
+              ed  <- encodeAndDecode(Schema[Year], value)
+              ed2 <- encodeAndDecodeNS(Schema[Year], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("year months") {
+          check(Gen.yearMonth) { value =>
+            for {
+              ed  <- encodeAndDecode(Schema[YearMonth], value)
+              ed2 <- encodeAndDecodeNS(Schema[YearMonth], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("zone ids") {
+          check(Gen.zoneId) { value =>
+            for {
+              ed  <- encodeAndDecode(Schema[ZoneId], value)
+              ed2 <- encodeAndDecodeNS(Schema[ZoneId], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("zone offsets") {
+          check(Gen.zoneOffset) { value =>
+            for {
+              ed  <- encodeAndDecode(Schema[ZoneOffset], value)
+              ed2 <- encodeAndDecodeNS(Schema[ZoneOffset], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("durations") {
+          check(Gen.finiteDuration) { value =>
+            for {
+              ed  <- encodeAndDecode(Primitive(StandardType.DurationType), value)
+              ed2 <- encodeAndDecodeNS(Primitive(StandardType.DurationType), value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("instants") {
+          check(Gen.instant) { value =>
+            for {
+              ed  <- encodeAndDecode(Primitive(StandardType.InstantType), value)
+              ed2 <- encodeAndDecodeNS(Primitive(StandardType.InstantType), value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("local dates") {
+          check(Gen.localDate) { value =>
+            for {
+              ed  <- encodeAndDecode(Primitive(StandardType.LocalDateType), value)
+              ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalDateType), value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("local times") {
+          check(Gen.localTime) { value =>
+            for {
+              ed  <- encodeAndDecode(Primitive(StandardType.LocalTimeType), value)
+              ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalTimeType), value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("local date times") {
+          check(Gen.localDateTime) { value =>
+            for {
+              ed <- encodeAndDecode(
+                     Primitive(StandardType.LocalDateTimeType),
+                     value
+                   )
               ed2 <- encodeAndDecodeNS(
-                      Schema.dynamicValue,
-                      DynamicValue.Primitive("", StandardType.StringType)
+                      Primitive(StandardType.LocalDateTimeType),
+                      value
                     )
-            } yield assert(ed2)(equalTo(DynamicValue.Primitive("", StandardType.StringType)))
-          },
-          test("two integers") {
-            check(Gen.int, Gen.int) {
-              case (a, b) =>
-                for {
-                  ed2 <- encodeAndDecodeNS(schemaBasicTwoInts, BasicTwoInts(a, b))
-                } yield assert(ed2)(equalTo(BasicTwoInts(a, b)))
-            }
-          },
-          test("two integers inside wrapper class") {
-            check(Gen.int, Gen.int) {
-              case (a, b) =>
-                for {
-                  ed2 <- encodeAndDecodeNS(basicTwoIntWrapperSchema, BasicTwoIntWrapper(BasicTwoInts(a, b)))
-                } yield assert(ed2)(equalTo(BasicTwoIntWrapper(BasicTwoInts(a, b))))
-            }
-          },
-          test("two wrapped integers inside wrapper class") {
-            check(Gen.int, Gen.int) {
-              case (a, b) =>
-                for {
-                  e2 <- encodeAndDecodeNS(separateWrapper, SeparateWrapper(BasicInt(a), BasicInt(b)))
-                } yield assert(e2)(equalTo(SeparateWrapper(BasicInt(a), BasicInt(b))))
-            }
-          },
-          test("complex product and string and integer") {
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("offset times") {
+          check(Gen.offsetTime) { value =>
             for {
-              ed2 <- encodeAndDecodeNS(SearchRequest.schema, message)
-            } yield assert(ed2)(equalTo(message))
-          },
-          test("booleans") {
-            check(Gen.boolean) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema[Boolean], value)
-                ed2 <- encodeAndDecodeNS(Schema[Boolean], value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("shorts") {
-            check(Gen.short) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema[Short], value)
-                ed2 <- encodeAndDecodeNS(Schema[Short], value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("longs") {
-            check(Gen.long) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema[Long], value)
-                ed2 <- encodeAndDecodeNS(Schema[Long], value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("floats") {
-            check(Gen.float) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema[Float], value)
-                ed2 <- encodeAndDecodeNS(Schema[Float], value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("doubles") {
-            check(Gen.double) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema[Double], value)
-                ed2 <- encodeAndDecodeNS(Schema[Double], value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("bytes") {
-            check(Gen.chunkOf(Gen.byte)) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema[Chunk[Byte]], value)
-                ed2 <- encodeAndDecodeNS(Schema[Chunk[Byte]], value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("chars") {
-            check(Gen.printableChar) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema[Char], value)
-                ed2 <- encodeAndDecodeNS(Schema[Char], value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("uuids") {
-            check(Gen.uuid) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema[UUID], value)
-                ed2 <- encodeAndDecodeNS(Schema[UUID], value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("day of weeks") {
-            check(Gen.dayOfWeek) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema[DayOfWeek], value)
-                ed2 <- encodeAndDecodeNS(Schema[DayOfWeek], value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("months") {
-            check(Gen.month) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema[Month], value)
-                ed2 <- encodeAndDecodeNS(Schema[Month], value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("month days") {
-            check(Gen.monthDay) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema[MonthDay], value)
-                ed2 <- encodeAndDecodeNS(Schema[MonthDay], value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("periods") {
-            check(Gen.period) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema[Period], value)
-                ed2 <- encodeAndDecodeNS(Schema[Period], value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("years") {
-            check(Gen.year) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema[Year], value)
-                ed2 <- encodeAndDecodeNS(Schema[Year], value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("year months") {
-            check(Gen.yearMonth) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema[YearMonth], value)
-                ed2 <- encodeAndDecodeNS(Schema[YearMonth], value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("zone ids") {
-            check(Gen.zoneId) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema[ZoneId], value)
-                ed2 <- encodeAndDecodeNS(Schema[ZoneId], value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("zone offsets") {
-            check(Gen.zoneOffset) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema[ZoneOffset], value)
-                ed2 <- encodeAndDecodeNS(Schema[ZoneOffset], value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("durations") {
-            check(Gen.finiteDuration) { value =>
-              for {
-                ed  <- encodeAndDecode(Primitive(StandardType.DurationType), value)
-                ed2 <- encodeAndDecodeNS(Primitive(StandardType.DurationType), value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("instants") {
-            check(Gen.instant) { value =>
-              for {
-                ed  <- encodeAndDecode(Primitive(StandardType.InstantType), value)
-                ed2 <- encodeAndDecodeNS(Primitive(StandardType.InstantType), value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("local dates") {
-            check(Gen.localDate) { value =>
-              for {
-                ed  <- encodeAndDecode(Primitive(StandardType.LocalDateType), value)
-                ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalDateType), value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("local times") {
-            check(Gen.localTime) { value =>
-              for {
-                ed  <- encodeAndDecode(Primitive(StandardType.LocalTimeType), value)
-                ed2 <- encodeAndDecodeNS(Primitive(StandardType.LocalTimeType), value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("local date times") {
-            check(Gen.localDateTime) { value =>
-              for {
-                ed <- encodeAndDecode(
-                       Primitive(StandardType.LocalDateTimeType),
-                       value
-                     )
-                ed2 <- encodeAndDecodeNS(
-                        Primitive(StandardType.LocalDateTimeType),
-                        value
-                      )
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("offset times") {
-            check(Gen.offsetTime) { value =>
-              for {
-                ed  <- encodeAndDecode(Primitive(StandardType.OffsetTimeType), value)
-                ed2 <- encodeAndDecodeNS(Primitive(StandardType.OffsetTimeType), value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("offset date times") {
-            check(Gen.offsetDateTime) { value =>
-              val offsetDateSchema = Primitive(StandardType.OffsetDateTimeType)
-              for {
-                ed  <- encodeAndDecode(offsetDateSchema, value)
-                ed2 <- encodeAndDecodeNS(offsetDateSchema, value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("zoned date times") {
-            check(Gen.zonedDateTime.filter(_.getZone != ZoneId.of("GMT0"))) { value => // https://bugs.openjdk.org/browse/JDK-8138664
-              val zoneSchema = Primitive(StandardType.ZonedDateTimeType)
-              for {
-                ed  <- encodeAndDecode(zoneSchema, value)
-                ed2 <- encodeAndDecodeNS(zoneSchema, value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("packed sequences") {
-            check(Gen.listOf(Gen.int)) { ints =>
-              val list = PackedList(ints)
-              for {
-                ed  <- encodeAndDecode(schemaPackedList, list)
-                ed2 <- encodeAndDecodeNS(schemaPackedList, list)
-              } yield assert(ed)(equalTo(Chunk(list))) && assert(ed2)(equalTo(list))
-            }
-          },
-          test("empty packed sequence") {
-            val list = PackedList(List.empty)
+              ed  <- encodeAndDecode(Primitive(StandardType.OffsetTimeType), value)
+              ed2 <- encodeAndDecodeNS(Primitive(StandardType.OffsetTimeType), value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("offset date times") {
+          check(Gen.offsetDateTime) { value =>
+            val offsetDateSchema = Primitive(StandardType.OffsetDateTimeType)
+            for {
+              ed  <- encodeAndDecode(offsetDateSchema, value)
+              ed2 <- encodeAndDecodeNS(offsetDateSchema, value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("zoned date times") {
+          check(Gen.zonedDateTime.filter(_.getZone != ZoneId.of("GMT0"))) { value => // https://bugs.openjdk.org/browse/JDK-8138664
+            val zoneSchema = Primitive(StandardType.ZonedDateTimeType)
+            for {
+              ed  <- encodeAndDecode(zoneSchema, value)
+              ed2 <- encodeAndDecodeNS(zoneSchema, value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        },
+        test("currencies") {
+          check(Gen.currency) { value =>
+            for {
+              ed  <- encodeAndDecode(Schema[java.util.Currency], value)
+              ed2 <- encodeAndDecodeNS(Schema[java.util.Currency], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        } @@ TestAspect.jvmOnly,
+        test("packed sequences") {
+          check(Gen.listOf(Gen.int)) { ints =>
+            val list = PackedList(ints)
             for {
               ed  <- encodeAndDecode(schemaPackedList, list)
               ed2 <- encodeAndDecodeNS(schemaPackedList, list)
             } yield assert(ed)(equalTo(Chunk(list))) && assert(ed2)(equalTo(list))
-          },
-          test("non-packed sequences") {
-            check(Gen.listOf(Gen.string)) { strings =>
-              val list = UnpackedList(strings)
-              for {
-                ed  <- encodeAndDecode(schemaUnpackedList, list)
-                ed2 <- encodeAndDecodeNS(schemaUnpackedList, list)
-              } yield assert(ed)(equalTo(Chunk(list))) && assert(ed2)(equalTo(list))
-            }
-          },
-          test("empty non-packed sequence") {
-            val list = UnpackedList(List.empty)
+          }
+        },
+        test("empty packed sequence") {
+          val list = PackedList(List.empty)
+          for {
+            ed  <- encodeAndDecode(schemaPackedList, list)
+            ed2 <- encodeAndDecodeNS(schemaPackedList, list)
+          } yield assert(ed)(equalTo(Chunk(list))) && assert(ed2)(equalTo(list))
+        },
+        test("non-packed sequences") {
+          check(Gen.listOf(Gen.string)) { strings =>
+            val list = UnpackedList(strings)
             for {
               ed  <- encodeAndDecode(schemaUnpackedList, list)
               ed2 <- encodeAndDecodeNS(schemaUnpackedList, list)
             } yield assert(ed)(equalTo(Chunk(list))) && assert(ed2)(equalTo(list))
-          },
-          test("enumerations") {
+          }
+        },
+        test("empty non-packed sequence") {
+          val list = UnpackedList(List.empty)
+          for {
+            ed  <- encodeAndDecode(schemaUnpackedList, list)
+            ed2 <- encodeAndDecodeNS(schemaUnpackedList, list)
+          } yield assert(ed)(equalTo(Chunk(list))) && assert(ed2)(equalTo(list))
+        },
+        test("enumerations") {
+          for {
+            ed  <- encodeAndDecode(schemaEnumeration, Enumeration(BooleanValue(true)))
+            ed2 <- encodeAndDecodeNS(schemaEnumeration, Enumeration(IntValue(482)))
+          } yield assert(ed)(equalTo(Chunk(Enumeration(BooleanValue(true))))) && assert(ed2)(
+            equalTo(Enumeration(IntValue(482)))
+          )
+        },
+        test("enumerations preserving type order") {
+          for {
+            s1 <- encodeAndDecode(schemaGenericEnumeration, "s")
+            i1 <- encodeAndDecode(schemaGenericEnumeration, 1)
+            s2 <- encodeAndDecode(schemaGenericEnumerationSorted, "s")
+            i2 <- encodeAndDecode(schemaGenericEnumerationSorted, 1)
+          } yield assert(s1)(equalTo(s2)) && assert(i1)(equalTo(i2))
+        },
+        test("enums unwrapped") {
+          for {
+            ed  <- encodeAndDecode(schemaOneOf, BooleanValue(true))
+            ed2 <- encodeAndDecodeNS(schemaOneOf, BooleanValue(true))
+          } yield assert(ed)(equalTo(Chunk(BooleanValue(true)))) && assert(ed2)(
+            equalTo(BooleanValue(true))
+          )
+        },
+        test("enumN within enumN") {
+          val oneOf   = RichSum.AnotherSum(BooleanValue(false))
+          val wrapper = RichSum.LongWrapper(150L)
+          for {
+            ed  <- encodeAndDecode(RichSum.richSumSchema, wrapper)
+            ed2 <- encodeAndDecodeNS(RichSum.richSumSchema, oneOf)
+          } yield assert(ed)(equalTo(Chunk(wrapper))) && assert(ed2)(equalTo(oneOf))
+        },
+        test("tuples") {
+          check(Gen.int, Gen.string) { (a, b) =>
+            val value = (a, b)
             for {
-              ed  <- encodeAndDecode(schemaEnumeration, Enumeration(BooleanValue(true)))
-              ed2 <- encodeAndDecodeNS(schemaEnumeration, Enumeration(IntValue(482)))
-            } yield assert(ed)(equalTo(Chunk(Enumeration(BooleanValue(true))))) && assert(ed2)(
-              equalTo(Enumeration(IntValue(482)))
-            )
-          },
-          test("enumerations preserving type order") {
-            for {
-              s1 <- encodeAndDecode(schemaGenericEnumeration, "s")
-              i1 <- encodeAndDecode(schemaGenericEnumeration, 1)
-              s2 <- encodeAndDecode(schemaGenericEnumerationSorted, "s")
-              i2 <- encodeAndDecode(schemaGenericEnumerationSorted, 1)
-            } yield assert(s1)(equalTo(s2)) && assert(i1)(equalTo(i2))
-          },
-          test("enums unwrapped") {
-            for {
-              ed  <- encodeAndDecode(schemaOneOf, BooleanValue(true))
-              ed2 <- encodeAndDecodeNS(schemaOneOf, BooleanValue(true))
-            } yield assert(ed)(equalTo(Chunk(BooleanValue(true)))) && assert(ed2)(
-              equalTo(BooleanValue(true))
-            )
-          },
-          test("enumN within enumN") {
-            val oneOf   = RichSum.AnotherSum(BooleanValue(false))
-            val wrapper = RichSum.LongWrapper(150L)
-            for {
-              ed  <- encodeAndDecode(RichSum.richSumSchema, wrapper)
-              ed2 <- encodeAndDecodeNS(RichSum.richSumSchema, oneOf)
-            } yield assert(ed)(equalTo(Chunk(wrapper))) && assert(ed2)(equalTo(oneOf))
-          },
-          test("tuples") {
-            check(Gen.int, Gen.string) { (a, b) =>
-              val value = (a, b)
-              for {
-                ed  <- encodeAndDecode(schemaTuple, value)
-                ed2 <- encodeAndDecodeNS(schemaTuple, value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("either left") {
-            val either = Left(9)
-            for {
-              ed  <- encodeAndDecode(eitherSchema, either)
-              ed2 <- encodeAndDecodeNS(eitherSchema, either)
-            } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
-          },
-          test("either right") {
-            val either = Right("hello")
-            for {
-              ed  <- encodeAndDecode(eitherSchema, either)
-              ed2 <- encodeAndDecodeNS(eitherSchema, either)
-            } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
-          },
-          test("either with product type") {
-            val eitherLeft = Left(MyRecord(150))
-            for {
-              ed  <- encodeAndDecode(complexEitherSchema2, eitherLeft)
-              ed2 <- encodeAndDecodeNS(complexEitherSchema2, eitherLeft)
-            } yield assert(ed)(equalTo(Chunk(eitherLeft))) && assert(ed2)(equalTo(eitherLeft))
-          },
-          test("either with sum type") {
-            val eitherRight  = Right(BooleanValue(true))
-            val eitherRight2 = Right(StringValue("hello"))
-            for {
-              ed  <- encodeAndDecode(complexEitherSchema, eitherRight2)
-              ed2 <- encodeAndDecodeNS(complexEitherSchema, eitherRight)
-            } yield assert(ed)(equalTo(Chunk(eitherRight2))) && assert(ed2)(equalTo(eitherRight))
-          },
-          test("fallback left full decode") {
-            val fallback = zio.schema.Fallback.Left(9)
-            for {
-              ed  <- encodeAndDecode(fallbackSchema1, fallback)
-              ed2 <- encodeAndDecodeNS(fallbackSchema1, fallback)
-            } yield assert(ed)(equalTo(Chunk(fallback))) && assert(ed2)(equalTo(fallback))
-          },
-          test("fallback left non full decode") {
-            val fallback = zio.schema.Fallback.Left(9)
-            for {
-              ed  <- encodeAndDecode(fallbackSchema2, fallback)
-              ed2 <- encodeAndDecodeNS(fallbackSchema2, fallback)
-            } yield assert(ed)(equalTo(Chunk(fallback))) && assert(ed2)(equalTo(fallback))
-          },
-          test("fallback right full decode") {
-            val fallback = zio.schema.Fallback.Right("hello")
-            for {
-              ed  <- encodeAndDecode(fallbackSchema1, fallback)
-              ed2 <- encodeAndDecodeNS(fallbackSchema1, fallback)
-            } yield assert(ed)(equalTo(Chunk(fallback))) && assert(ed2)(equalTo(fallback))
-          },
-          test("fallback right non full decode") {
-            val fallback = zio.schema.Fallback.Right("hello")
-            for {
-              ed  <- encodeAndDecode(fallbackSchema2, fallback)
-              ed2 <- encodeAndDecodeNS(fallbackSchema2, fallback)
-            } yield assert(ed)(equalTo(Chunk(fallback))) && assert(ed2)(equalTo(fallback))
-          },
-          test("fallback both full decode") {
-            val fallback = zio.schema.Fallback.Both(2, "hello")
-            for {
-              ed  <- encodeAndDecode(fallbackSchema1, fallback)
-              ed2 <- encodeAndDecodeNS(fallbackSchema1, fallback)
-            } yield assert(ed)(equalTo(Chunk(fallback))) && assert(ed2)(equalTo(fallback))
-          },
-          test("fallback both non full decode") {
-            val fallback = zio.schema.Fallback.Both(2, "hello")
-            for {
-              ed  <- encodeAndDecode(fallbackSchema2, fallback)
-              ed2 <- encodeAndDecodeNS(fallbackSchema2, fallback)
-            } yield assert(ed)(equalTo(Chunk(fallback.simplify))) && assert(ed2)(equalTo(fallback.simplify))
-          },
-          test("fallback with product type") {
-            val fallbackLeft = zio.schema.Fallback.Left(MyRecord(150))
-            for {
-              ed  <- encodeAndDecode(complexFallbackSchema2, fallbackLeft)
-              ed2 <- encodeAndDecodeNS(complexFallbackSchema2, fallbackLeft)
-            } yield assert(ed)(equalTo(Chunk(fallbackLeft))) && assert(ed2)(equalTo(fallbackLeft))
-          },
-          test("fallback with sum type") {
-            val fallbackRight  = zio.schema.Fallback.Right(BooleanValue(true))
-            val fallbackRight2 = zio.schema.Fallback.Right(StringValue("hello"))
-            for {
-              ed  <- encodeAndDecode(complexFallbackSchema, fallbackRight2)
-              ed2 <- encodeAndDecodeNS(complexFallbackSchema, fallbackRight)
-            } yield assert(ed)(equalTo(Chunk(fallbackRight2))) && assert(ed2)(equalTo(fallbackRight))
-          },
-          test("optionals") {
-            check(Gen.option(Gen.int(Int.MinValue, Int.MaxValue))) { value =>
-              for {
-                ed  <- encodeAndDecode(Schema.Optional(Schema[Int]), value)
-                ed2 <- encodeAndDecodeNS(Schema.Optional(Schema[Int]), value)
-              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-            }
-          },
-          test("complex optionals with sum type") {
-            val value = Some(BooleanValue(true))
-            for {
-              ed  <- encodeAndDecode(Schema.Optional(schemaOneOf), value)
-              ed2 <- encodeAndDecodeNS(Schema.Optional(schemaOneOf), value)
+              ed  <- encodeAndDecode(schemaTuple, value)
+              ed2 <- encodeAndDecodeNS(schemaTuple, value)
             } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-          },
-          test("option within option") {
-            val value = Some(Some(true))
+          }
+        },
+        test("either left") {
+          val either = Left(9)
+          for {
+            ed  <- encodeAndDecode(eitherSchema, either)
+            ed2 <- encodeAndDecodeNS(eitherSchema, either)
+          } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
+        },
+        test("either right") {
+          val either = Right("hello")
+          for {
+            ed  <- encodeAndDecode(eitherSchema, either)
+            ed2 <- encodeAndDecodeNS(eitherSchema, either)
+          } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
+        },
+        test("either with product type") {
+          val eitherLeft = Left(MyRecord(150))
+          for {
+            ed  <- encodeAndDecode(complexEitherSchema2, eitherLeft)
+            ed2 <- encodeAndDecodeNS(complexEitherSchema2, eitherLeft)
+          } yield assert(ed)(equalTo(Chunk(eitherLeft))) && assert(ed2)(equalTo(eitherLeft))
+        },
+        test("either with sum type") {
+          val eitherRight  = Right(BooleanValue(true))
+          val eitherRight2 = Right(StringValue("hello"))
+          for {
+            ed  <- encodeAndDecode(complexEitherSchema, eitherRight2)
+            ed2 <- encodeAndDecodeNS(complexEitherSchema, eitherRight)
+          } yield assert(ed)(equalTo(Chunk(eitherRight2))) && assert(ed2)(equalTo(eitherRight))
+        },
+        test("fallback left full decode") {
+          val fallback = zio.schema.Fallback.Left(9)
+          for {
+            ed  <- encodeAndDecode(fallbackSchema1, fallback)
+            ed2 <- encodeAndDecodeNS(fallbackSchema1, fallback)
+          } yield assert(ed)(equalTo(Chunk(fallback))) && assert(ed2)(equalTo(fallback))
+        },
+        test("fallback left non full decode") {
+          val fallback = zio.schema.Fallback.Left(9)
+          for {
+            ed  <- encodeAndDecode(fallbackSchema2, fallback)
+            ed2 <- encodeAndDecodeNS(fallbackSchema2, fallback)
+          } yield assert(ed)(equalTo(Chunk(fallback))) && assert(ed2)(equalTo(fallback))
+        },
+        test("fallback right full decode") {
+          val fallback = zio.schema.Fallback.Right("hello")
+          for {
+            ed  <- encodeAndDecode(fallbackSchema1, fallback)
+            ed2 <- encodeAndDecodeNS(fallbackSchema1, fallback)
+          } yield assert(ed)(equalTo(Chunk(fallback))) && assert(ed2)(equalTo(fallback))
+        },
+        test("fallback right non full decode") {
+          val fallback = zio.schema.Fallback.Right("hello")
+          for {
+            ed  <- encodeAndDecode(fallbackSchema2, fallback)
+            ed2 <- encodeAndDecodeNS(fallbackSchema2, fallback)
+          } yield assert(ed)(equalTo(Chunk(fallback))) && assert(ed2)(equalTo(fallback))
+        },
+        test("fallback both full decode") {
+          val fallback = zio.schema.Fallback.Both(2, "hello")
+          for {
+            ed  <- encodeAndDecode(fallbackSchema1, fallback)
+            ed2 <- encodeAndDecodeNS(fallbackSchema1, fallback)
+          } yield assert(ed)(equalTo(Chunk(fallback))) && assert(ed2)(equalTo(fallback))
+        },
+        test("fallback both non full decode") {
+          val fallback = zio.schema.Fallback.Both(2, "hello")
+          for {
+            ed  <- encodeAndDecode(fallbackSchema2, fallback)
+            ed2 <- encodeAndDecodeNS(fallbackSchema2, fallback)
+          } yield assert(ed)(equalTo(Chunk(fallback.simplify))) && assert(ed2)(equalTo(fallback.simplify))
+        },
+        test("fallback with product type") {
+          val fallbackLeft = zio.schema.Fallback.Left(MyRecord(150))
+          for {
+            ed  <- encodeAndDecode(complexFallbackSchema2, fallbackLeft)
+            ed2 <- encodeAndDecodeNS(complexFallbackSchema2, fallbackLeft)
+          } yield assert(ed)(equalTo(Chunk(fallbackLeft))) && assert(ed2)(equalTo(fallbackLeft))
+        },
+        test("fallback with sum type") {
+          val fallbackRight  = zio.schema.Fallback.Right(BooleanValue(true))
+          val fallbackRight2 = zio.schema.Fallback.Right(StringValue("hello"))
+          for {
+            ed  <- encodeAndDecode(complexFallbackSchema, fallbackRight2)
+            ed2 <- encodeAndDecodeNS(complexFallbackSchema, fallbackRight)
+          } yield assert(ed)(equalTo(Chunk(fallbackRight2))) && assert(ed2)(equalTo(fallbackRight))
+        },
+        test("optionals") {
+          check(Gen.option(Gen.int(Int.MinValue, Int.MaxValue))) { value =>
             for {
-              ed  <- encodeAndDecode(Schema.option(Schema.option(Schema[Boolean])), value)
-              ed2 <- encodeAndDecodeNS(Schema.option(Schema.option(Schema[Boolean])), value)
+              ed  <- encodeAndDecode(Schema.Optional(Schema[Int]), value)
+              ed2 <- encodeAndDecodeNS(Schema.Optional(Schema[Int]), value)
             } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-          },
-          test("product type with inner product type") {
-            val richProduct = RichProduct(StringValue("sum_type"), BasicString("string"), Record("value", 47))
-            for {
-              ed  <- encodeAndDecode(richProductSchema, richProduct)
-              ed2 <- encodeAndDecodeNS(richProductSchema, richProduct)
-            } yield assert(ed)(equalTo(Chunk(richProduct))) && assert(ed2)(equalTo(richProduct))
-          },
-          test("complex sum type with nested product") {
-            val richSum = RichSum.Person("hello", 10)
-            for {
-              ed  <- encodeAndDecode(RichSum.richSumSchema, richSum)
-              ed2 <- encodeAndDecodeNS(RichSum.richSumSchema, richSum)
-            } yield assert(ed)(equalTo(Chunk(richSum))) && assert(ed2)(equalTo(richSum))
-          },
-          test("complex sum type with nested long primitive") {
-            val long = RichSum.LongWrapper(100L)
-            for {
-              ed  <- encodeAndDecode(RichSum.richSumSchema, long)
-              ed2 <- encodeAndDecodeNS(RichSum.richSumSchema, long)
-            } yield assert(ed)(equalTo(Chunk(long))) && assert(ed2)(equalTo(long))
-          },
-          test("complex either with product type") {
-            val either = Left(Record("hello world", 100))
-            for {
-              ed  <- encodeAndDecode(complexEitherSchema, either)
-              ed2 <- encodeAndDecodeNS(complexEitherSchema, either)
-            } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
-          },
-          test("complex tuples") {
-            val value = (Record("hello world", 100), BooleanValue(true))
-            for {
-              ed  <- encodeAndDecode(complexTupleSchema, value)
-              ed2 <- encodeAndDecodeNS(complexTupleSchema, value)
-            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-          },
-          test("complex optionals with product type") {
-            val value = Some(Record("hello earth", 21))
-            for {
-              ed  <- encodeAndDecode(Schema.Optional(Record.schemaRecord), value)
-              ed2 <- encodeAndDecodeNS(Schema.Optional(Record.schemaRecord), value)
-            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-          },
-          test("optional of product type within optional") {
-            val value = Some(Some(Record("hello", 10)))
-            for {
-              ed  <- encodeAndDecode(Schema.Optional(Schema.Optional(Record.schemaRecord)), value)
-              ed2 <- encodeAndDecodeNS(Schema.Optional(Schema.Optional(Record.schemaRecord)), value)
-            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-          },
-          test("optional of sum type within optional") {
-            val value = Some(Some(BooleanValue(true)))
-            for {
-              ed  <- encodeAndDecode(Schema.Optional(Schema.Optional(schemaOneOf)), value)
-              ed2 <- encodeAndDecodeNS(Schema.Optional(Schema.Optional(schemaOneOf)), value)
-            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
-          },
-          test("either within either") {
-            val either = Right(Left(BooleanValue(true)))
-            val schema = Schema.either(Schema[Int], Schema.either(schemaOneOf, Schema[String]))
-            for {
-              ed  <- encodeAndDecode(schema, either)
-              ed2 <- encodeAndDecodeNS(schema, either)
-            } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
-          },
-          test("sequence of tuples") {
-            for {
-              ed <- encodeAndDecodeNS2(Schema[List[(String, Int)]], List("foo" -> 1, "bar" -> 2))
-            } yield assertTrue(ed == Right(List("foo" -> 1, "bar" -> 2)))
-          },
-          test("sequence of products") {
-            val richSequence = SequenceOfProduct(
-              "hello",
-              List(Record("Jan", 30), Record("xxx", 40), Record("Peter", 22)),
-              RichSum.LongWrapper(150L)
-            )
-            for {
-              ed  <- encodeAndDecode(sequenceOfProductSchema, richSequence)
-              ed2 <- encodeAndDecodeNS(sequenceOfProductSchema, richSequence)
-            } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
-          },
-          test("sequence of sums") {
-            val richSequence = SequenceOfSum("hello", List(RichSum.LongWrapper(150L), RichSum.LongWrapper(150L)))
-            for {
-              ed  <- encodeAndDecode(sequenceOfSumSchema, richSequence)
-              ed2 <- encodeAndDecodeNS(sequenceOfSumSchema, richSequence)
-            } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
-          },
-          test("map of products") {
-            val m: scala.collection.immutable.Map[Record, MyRecord] = scala.collection.immutable.Map(
-              Record("AAA", 1) -> MyRecord(1),
-              Record("BBB", 2) -> MyRecord(2)
-            )
+          }
+        },
+        test("complex optionals with sum type") {
+          val value = Some(BooleanValue(true))
+          for {
+            ed  <- encodeAndDecode(Schema.Optional(schemaOneOf), value)
+            ed2 <- encodeAndDecodeNS(Schema.Optional(schemaOneOf), value)
+          } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+        },
+        test("option within option") {
+          val value = Some(Some(true))
+          for {
+            ed  <- encodeAndDecode(Schema.option(Schema.option(Schema[Boolean])), value)
+            ed2 <- encodeAndDecodeNS(Schema.option(Schema.option(Schema[Boolean])), value)
+          } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+        },
+        test("product type with inner product type") {
+          val richProduct = RichProduct(StringValue("sum_type"), BasicString("string"), Record("value", 47))
+          for {
+            ed  <- encodeAndDecode(richProductSchema, richProduct)
+            ed2 <- encodeAndDecodeNS(richProductSchema, richProduct)
+          } yield assert(ed)(equalTo(Chunk(richProduct))) && assert(ed2)(equalTo(richProduct))
+        },
+        test("complex sum type with nested product") {
+          val richSum = RichSum.Person("hello", 10)
+          for {
+            ed  <- encodeAndDecode(RichSum.richSumSchema, richSum)
+            ed2 <- encodeAndDecodeNS(RichSum.richSumSchema, richSum)
+          } yield assert(ed)(equalTo(Chunk(richSum))) && assert(ed2)(equalTo(richSum))
+        },
+        test("complex sum type with nested long primitive") {
+          val long = RichSum.LongWrapper(100L)
+          for {
+            ed  <- encodeAndDecode(RichSum.richSumSchema, long)
+            ed2 <- encodeAndDecodeNS(RichSum.richSumSchema, long)
+          } yield assert(ed)(equalTo(Chunk(long))) && assert(ed2)(equalTo(long))
+        },
+        test("complex either with product type") {
+          val either = Left(Record("hello world", 100))
+          for {
+            ed  <- encodeAndDecode(complexEitherSchema, either)
+            ed2 <- encodeAndDecodeNS(complexEitherSchema, either)
+          } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
+        },
+        test("complex tuples") {
+          val value = (Record("hello world", 100), BooleanValue(true))
+          for {
+            ed  <- encodeAndDecode(complexTupleSchema, value)
+            ed2 <- encodeAndDecodeNS(complexTupleSchema, value)
+          } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+        },
+        test("complex optionals with product type") {
+          val value = Some(Record("hello earth", 21))
+          for {
+            ed  <- encodeAndDecode(Schema.Optional(Record.schemaRecord), value)
+            ed2 <- encodeAndDecodeNS(Schema.Optional(Record.schemaRecord), value)
+          } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+        },
+        test("optional of product type within optional") {
+          val value = Some(Some(Record("hello", 10)))
+          for {
+            ed  <- encodeAndDecode(Schema.Optional(Schema.Optional(Record.schemaRecord)), value)
+            ed2 <- encodeAndDecodeNS(Schema.Optional(Schema.Optional(Record.schemaRecord)), value)
+          } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+        },
+        test("optional of sum type within optional") {
+          val value = Some(Some(BooleanValue(true)))
+          for {
+            ed  <- encodeAndDecode(Schema.Optional(Schema.Optional(schemaOneOf)), value)
+            ed2 <- encodeAndDecodeNS(Schema.Optional(Schema.Optional(schemaOneOf)), value)
+          } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+        },
+        test("either within either") {
+          val either = Right(Left(BooleanValue(true)))
+          val schema = Schema.either(Schema[Int], Schema.either(schemaOneOf, Schema[String]))
+          for {
+            ed  <- encodeAndDecode(schema, either)
+            ed2 <- encodeAndDecodeNS(schema, either)
+          } yield assert(ed)(equalTo(Chunk(either))) && assert(ed2)(equalTo(either))
+        },
+        test("sequence of tuples") {
+          for {
+            ed <- encodeAndDecodeNS2(Schema[List[(String, Int)]], List("foo" -> 1, "bar" -> 2))
+          } yield assertTrue(ed == Right(List("foo" -> 1, "bar" -> 2)))
+        },
+        test("sequence of products") {
+          val richSequence = SequenceOfProduct(
+            "hello",
+            List(Record("Jan", 30), Record("xxx", 40), Record("Peter", 22)),
+            RichSum.LongWrapper(150L)
+          )
+          for {
+            ed  <- encodeAndDecode(sequenceOfProductSchema, richSequence)
+            ed2 <- encodeAndDecodeNS(sequenceOfProductSchema, richSequence)
+          } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
+        },
+        test("sequence of sums") {
+          val richSequence = SequenceOfSum("hello", List(RichSum.LongWrapper(150L), RichSum.LongWrapper(150L)))
+          for {
+            ed  <- encodeAndDecode(sequenceOfSumSchema, richSequence)
+            ed2 <- encodeAndDecodeNS(sequenceOfSumSchema, richSequence)
+          } yield assert(ed)(equalTo(Chunk(richSequence))) && assert(ed2)(equalTo(richSequence))
+        },
+        test("map of products") {
+          val m: scala.collection.immutable.Map[Record, MyRecord] = scala.collection.immutable.Map(
+            Record("AAA", 1) -> MyRecord(1),
+            Record("BBB", 2) -> MyRecord(2)
+          )
 
-            val mSchema = Schema.map(Record.schemaRecord, myRecord)
-            for {
-              ed  <- encodeAndDecode(mSchema, m)
-              ed2 <- encodeAndDecodeNS(mSchema, m)
-            } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
-          },
-          test("set of products") {
-            val set: scala.collection.immutable.Set[Record] =
-              scala.collection.immutable.Set(Record("AAA", 1), Record("BBB", 2))
-            val setSchema = Schema.set(Record.schemaRecord)
+          val mSchema = Schema.map(Record.schemaRecord, myRecord)
+          for {
+            ed  <- encodeAndDecode(mSchema, m)
+            ed2 <- encodeAndDecodeNS(mSchema, m)
+          } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
+        },
+        test("set of products") {
+          val set: scala.collection.immutable.Set[Record] =
+            scala.collection.immutable.Set(Record("AAA", 1), Record("BBB", 2))
+          val setSchema = Schema.set(Record.schemaRecord)
 
-            for {
-              ed2 <- encodeAndDecodeNS(setSchema, set)
-              ed  <- encodeAndDecode(setSchema, set)
-            } yield assert(ed)(equalTo(Chunk.succeed(set))) && assert(ed2)(equalTo(set))
-          },
-          test("recursive data types") {
-            check(SchemaGen.anyRecursiveTypeAndValue) {
-              case (schema, value) =>
-                for {
-                  ed <- encodeAndDecode2(schema, value)
+          for {
+            ed2 <- encodeAndDecodeNS(setSchema, set)
+            ed  <- encodeAndDecode(setSchema, set)
+          } yield assert(ed)(equalTo(Chunk.succeed(set))) && assert(ed2)(equalTo(set))
+        },
+        test("recursive data types") {
+          check(SchemaGen.anyRecursiveTypeAndValue) {
+            case (schema, value) =>
+              for {
+                ed <- encodeAndDecode2(schema, value)
 //              ed2 <- encodeAndDecodeNS(schema, value)
-                } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
-            }
-          },
-          test("deep recursive data types") {
-            check(SchemaGen.anyDeepRecursiveTypeAndValue) {
-              case (schema, value) =>
-                for {
-                  ed <- encodeAndDecode2(schema, value)
-                  //              ed2 <- encodeAndDecodeNS(schema, value)
-                } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
-            }
-          } @@ TestAspect.size(200)
-        ) ++ platformSpecificEncodeAndDecode: _*
+              } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
+          }
+        },
+        test("deep recursive data types") {
+          check(SchemaGen.anyDeepRecursiveTypeAndValue) {
+            case (schema, value) =>
+              for {
+                ed <- encodeAndDecode2(schema, value)
+                //              ed2 <- encodeAndDecodeNS(schema, value)
+              } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
+          }
+        } @@ TestAspect.size(200)
       ),
       suite("Should successfully decode")(
         test("empty input") {

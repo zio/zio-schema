@@ -5,6 +5,7 @@ import java.time.{ ZoneId, ZoneOffset }
 import scala.collection.immutable.ListMap
 
 import zio.Console._
+import zio._
 import zio.json.JsonDecoder.JsonError
 import zio.json.ast.Json
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
@@ -15,13 +16,11 @@ import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.schema.codec.JsonCodecSpec.PaymentMethod.{ CreditCard, PayPal, WireTransfer }
 import zio.schema.codec.JsonCodecSpec.Subscription.{ OneTime, Recurring }
-import zio.schema.codec.JsonPlatformSpecific.{ platformSpecificDecoderTests, platformSpecificEncoderTests }
 import zio.schema.meta.MetaSchema
 import zio.stream.ZStream
 import zio.test.Assertion._
 import zio.test.TestAspect._
-import zio.test.{ TestResult, _ }
-import zio.{ ZIO, _ }
+import zio.test._
 
 object JsonCodecSpec extends ZIOSpecDefault {
 
@@ -36,20 +35,24 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   private val encoderSuite = suite("encoding")(
     suite("primitive")(
-      Seq(
-        test("unit") {
-          assertEncodesJson(Schema[Unit], (), "{}")
-        },
-        test("string")(
-          check(Gen.string)(s => assertEncodes(Schema[String], s, stringify(s)))
-        ),
-        test("ZoneOffset") {
-          assertEncodesJson(Schema.Primitive(StandardType.ZoneOffsetType), ZoneOffset.UTC)
-        },
-        test("ZoneId") {
-          assertEncodesJson(Schema.Primitive(StandardType.ZoneIdType), ZoneId.systemDefault())
-        }
-      ) ++ platformSpecificEncoderTests: _*
+      test("unit") {
+        assertEncodesJson(Schema[Unit], (), "{}")
+      },
+      test("string")(
+        check(Gen.string)(s => assertEncodes(Schema[String], s, stringify(s)))
+      ),
+      test("ZoneOffset") {
+        assertEncodesJson(Schema.Primitive(StandardType.ZoneOffsetType), ZoneOffset.UTC)
+      },
+      test("ZoneId") {
+        assertEncodesJson(Schema.Primitive(StandardType.ZoneIdType), ZoneId.systemDefault())
+      },
+      test("Currency") {
+        assertEncodesJson(
+          Schema.Primitive(StandardType.CurrencyType),
+          java.util.Currency.getInstance("USD")
+        )
+      } @@ TestAspect.jvmOnly
     ),
     suite("fallback")(
       test("left") {
@@ -411,16 +414,19 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   private val decoderSuite = suite("decoding")(
     suite("primitive")(
-      Seq(
-        test("unit") {
-          assertEncodesJson(Schema[Unit], (), "{}")
-        },
-        suite("string")(
-          test("any") {
-            check(Gen.string)(s => assertDecodes(Schema[String], s, stringify(s)))
-          }
+      test("unit") {
+        assertEncodesJson(Schema[Unit], (), "{}")
+      },
+      suite("string")(
+        test("any") {
+          check(Gen.string)(s => assertDecodes(Schema[String], s, stringify(s)))
+        }
+      ),
+      test("Currency") {
+        check(Gen.currency)(
+          currency => assertDecodes(Schema[java.util.Currency], currency, stringify(currency.getCurrencyCode))
         )
-      ) ++ platformSpecificDecoderTests: _*
+      } @@ TestAspect.jvmOnly
     ),
     suite("generic record")(
       test("with extra fields") {
@@ -1437,12 +1443,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
     assertZIO(stream)(isSome(equalTo(ReadError(Cause.empty, JsonError.render(errors)))))
   }
 
-  def assertDecodes[A](
+  private def assertDecodes[A](
     schema: Schema[A],
     value: A,
     chunk: Chunk[Byte],
     cfg: JsonCodec.Config = JsonCodec.Config.default
-  ): ZIO[Any, DecodeError, TestResult] = {
+  ) = {
     val result = ZStream.fromChunk(chunk).via(JsonCodec.schemaBasedBinaryCodec[A](cfg)(schema).streamDecoder).runCollect
     assertZIO(result)(equalTo(Chunk(value)))
   }
@@ -1526,7 +1532,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
   private def jsonEncoded[A](value: A)(implicit enc: JsonEncoder[A]): Chunk[Byte] =
     charSequenceToByteChunk(enc.encodeJson(value, None))
 
-  def stringify(s: String): Chunk[Byte] = {
+  private def stringify(s: String): Chunk[Byte] = {
     val encoded = JsonEncoder.string.encodeJson(s, None)
     charSequenceToByteChunk(encoded)
   }
