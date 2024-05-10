@@ -143,6 +143,8 @@ object DefaultValueSpec extends ZIOSpecDefault {
         )
       },
       test("Currency default value") {
+        java.util.Locale
+          .setDefault(java.util.Locale.US) //This is a workaround for the default locale not being set in the JVM in Github actions as of May, 2024.
         assert(Primitive(StandardType.CurrencyType).defaultValue)(
           isRight(isSubtype[java.util.Currency](anything))
         )

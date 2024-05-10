@@ -169,10 +169,20 @@ object StandardType {
     override def tag: String = Tags.CURRENCY
     override def defaultValue: Either[String, java.util.Currency] =
       try {
-        Right(java.util.Currency.getInstance(java.util.Locale.getDefault()))
+        val currency = java.util.Currency.getInstance(java.util.Locale.getDefault())
+        if (currency == null) {
+          Left(
+            "Could not get default currency. In most cases, this is because a currency could not be determined from the provided locale (e.g. when the locale is set to Antarctica). Please inspect the default locale to ensure that it is properly set and try again."
+          )
+        } else {
+          Right(currency)
+        }
+
       } catch {
-        case _: NullPointerException => throw new Exception("Could not get default currency. Default locale was null.")
-        case ex: Throwable           => throw new Exception(s"Could not get default currency. ${ex.getMessage}")
+        case ex: Throwable =>
+          Left(
+            s"Could not get default currency. In most cases, this is because the default locale was not set on the JVM. If this is the case, running java.util.Locale.setDefault() before getting the default currency should fix this. Error message: ${ex.getMessage}."
+          )
       }
 
     override def compare(x: java.util.Currency, y: java.util.Currency): Int =
