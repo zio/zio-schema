@@ -400,6 +400,14 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
             } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
           }
         },
+        test("currencies") {
+          check(Gen.currency) { value =>
+            for {
+              ed  <- encodeAndDecode(Schema[java.util.Currency], value)
+              ed2 <- encodeAndDecodeNS(Schema[java.util.Currency], value)
+            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          }
+        } @@ TestAspect.jvmOnly,
         test("packed sequences") {
           check(Gen.listOf(Gen.int)) { ints =>
             val list = PackedList(ints)

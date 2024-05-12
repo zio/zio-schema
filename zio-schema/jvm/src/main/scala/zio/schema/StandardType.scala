@@ -51,6 +51,7 @@ object StandardType {
     final val OFFSET_DATE_TIME = "offsetDateTime"
     final val ZONED_DATE_TIME  = "zonedDateTime"
     final val UUID             = "uuid"
+    final val CURRENCY         = "currency"
   }
 
   def fromString(tag: String): Option[StandardType[_]] =
@@ -85,6 +86,7 @@ object StandardType {
       case Tags.OFFSET_DATE_TIME => Some(OffsetDateTimeType)
       case Tags.ZONED_DATE_TIME  => Some(ZonedDateTimeType)
       case Tags.UUID             => Some(UUIDType)
+      case Tags.CURRENCY         => Some(CurrencyType)
     }
 
   def apply[A](implicit standardType: StandardType[A]): StandardType[A] = standardType
@@ -163,6 +165,30 @@ object StandardType {
     override def defaultValue: Either[String, java.util.UUID]       = Right(java.util.UUID.randomUUID())
   }
 
+  implicit object CurrencyType extends StandardType[java.util.Currency] {
+    override def tag: String = Tags.CURRENCY
+    override def defaultValue: Either[String, java.util.Currency] =
+      try {
+        val currency = java.util.Currency.getInstance(java.util.Locale.getDefault())
+        if (currency == null) {
+          Left(
+            "Could not get default currency. In most cases, this is because a currency could not be determined from the provided locale (e.g. when the locale is set to Antarctica). Please inspect the default locale to ensure that it is properly set and try again."
+          )
+        } else {
+          Right(currency)
+        }
+
+      } catch {
+        case ex: Throwable =>
+          Left(
+            s"Could not get default currency. In most cases, this is because the default locale was not set on the JVM. If this is the case, running java.util.Locale.setDefault() before getting the default currency should fix this. Error message: ${ex.getMessage}."
+          )
+      }
+
+    override def compare(x: java.util.Currency, y: java.util.Currency): Int =
+      x.getCurrencyCode.compareTo(y.getCurrencyCode)
+  }
+
   implicit object BigDecimalType extends StandardType[java.math.BigDecimal] {
     override def tag: String                                                    = Tags.BIG_DECIMAL
     override def compare(x: java.math.BigDecimal, y: java.math.BigDecimal): Int = x.compareTo(y)
@@ -176,7 +202,7 @@ object StandardType {
   }
 
   //java.time specific types
-  implicit object DayOfWeekType extends StandardType[DayOfWeek] {
+  implicit object DayOfWeekType extends StandardType[java.time.DayOfWeek] {
     override def tag: String                              = Tags.DAY_OF_WEEK
     override def compare(x: DayOfWeek, y: DayOfWeek): Int = x.getValue.compareTo(y.getValue)
     override def defaultValue: Either[String, DayOfWeek] =
