@@ -4,7 +4,7 @@ import zio.Chunk
 import zio.schema.CaseSet.caseOf
 import zio.schema.Schema.{ Lazy, Primitive }
 import zio.test.Assertion._
-import zio.test.{ Spec, ZIOSpecDefault, assert }
+import zio.test.{ Spec, TestAspect, ZIOSpecDefault, assert }
 
 object DefaultValueSpec extends ZIOSpecDefault {
   // Record Tests
@@ -141,7 +141,14 @@ object DefaultValueSpec extends ZIOSpecDefault {
         assert(Primitive(StandardType.ZonedDateTimeType).defaultValue)(
           isRight(isSubtype[java.time.ZonedDateTime](anything))
         )
-      }
+      },
+      test("Currency default value") {
+        java.util.Locale
+          .setDefault(java.util.Locale.US) //This is a workaround for the default locale not being set in the JVM in Github actions as of May, 2024.
+        assert(Primitive(StandardType.CurrencyType).defaultValue)(
+          isRight(isSubtype[java.util.Currency](anything))
+        )
+      } @@ TestAspect.jvmOnly
     ),
     suite("Record")(
       test("basic") {

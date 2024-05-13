@@ -7,9 +7,6 @@ import zio.schema.codec.BsonSchemaCodecSpec.roundTripTest
 import zio.schema.{ DeriveGen, DeriveSchema, Schema }
 import zio.test._
 
-/**
- * Not supported in scala 3 yet
- */
 object BsonSchemaCodecGenericSpec extends ZIOSpecDefault {
   case class SimpleGeneric[T](value: T)
 
@@ -51,7 +48,7 @@ object BsonSchemaCodecGenericSpec extends ZIOSpecDefault {
     implicit def codec[T: Schema]: BsonCodec[GenericRec[T]] = BsonSchemaCodec.bsonCodec(schema)
   }
 
-  def spec: Spec[TestEnvironment with Scope, Any] = suite("BsonSchemaCodecSpec")(
+  def spec: Spec[TestEnvironment with Scope, Any] = suite("BsonSchemaCodecGenericSpec")(
     suite("round trip")(
       roundTripTest("SimpleGeneric[String]")(
         DeriveGen.gen[SimpleGeneric[String]],

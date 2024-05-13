@@ -378,6 +378,12 @@ object AvroSchemaCodec extends AvroSchemaCodec {
                 .create(SchemaAvro.Type.STRING)
                 .addMarkerProp(StringDiscriminator(StringType.ZoneDateTime))
             )
+          case StandardType.CurrencyType =>
+            Right(
+              SchemaAvro
+                .create(SchemaAvro.Type.STRING)
+                .addMarkerProp(CurrencyWrapper)
+            )
         }
       case Optional(codec, _) =>
         for {

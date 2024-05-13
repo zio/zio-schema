@@ -221,6 +221,13 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
           ed2 <- encodeAndDecodeNS(Schema[UUID], value)
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
+      test("currencies") {
+        val value = java.util.Currency.getInstance("USD")
+        for {
+          ed  <- encodeAndDecode(Schema[java.util.Currency], value)
+          ed2 <- encodeAndDecodeNS(Schema[java.util.Currency], value)
+        } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+      },
       test("day of weeks") {
         val value = DayOfWeek.of(3)
         for {

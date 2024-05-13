@@ -161,6 +161,7 @@ object JsonCodec {
         case StandardType.ZonedDateTimeType  => ZJsonCodec.zonedDateTime //ZJsonCodec[java.time.ZonedDateTime]
         case StandardType.ZoneIdType         => ZJsonCodec.zoneId //ZJsonCodec[java.time.ZoneId]
         case StandardType.ZoneOffsetType     => ZJsonCodec.zoneOffset //ZJsonCodec[java.time.ZoneOffset]
+        case StandardType.CurrencyType       => ZJsonCodec.currency //ZJsonCodec[java.util.Currency]
       }
   }
 
@@ -698,7 +699,7 @@ object JsonCodec {
           cases.map(case_ => case_.id -> case_.schema.asInstanceOf[Schema.CaseClass0[Z]].defaultConstruct()).toMap
         ZJsonDecoder.string.mapOrFail(
           s =>
-            caseMap.get(caseNameAliases.get(s).getOrElse(s)) match {
+            caseMap.get(caseNameAliases.getOrElse(s, s)) match {
               case Some(z) => Right(z)
               case None    => Left("unrecognized string")
             }

@@ -46,7 +46,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
       },
       test("ZoneId") {
         assertEncodesJson(Schema.Primitive(StandardType.ZoneIdType), ZoneId.systemDefault())
-      }
+      },
+      test("Currency") {
+        assertEncodesJson(
+          Schema.Primitive(StandardType.CurrencyType),
+          java.util.Currency.getInstance("USD")
+        )
+      } @@ TestAspect.jvmOnly
     ),
     suite("fallback")(
       test("left") {
@@ -415,7 +421,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
         test("any") {
           check(Gen.string)(s => assertDecodes(Schema[String], s, stringify(s)))
         }
-      )
+      ),
+      test("Currency") {
+        check(Gen.currency)(
+          currency => assertDecodes(Schema[java.util.Currency], currency, stringify(currency.getCurrencyCode))
+        )
+      } @@ TestAspect.jvmOnly
     ),
     suite("generic record")(
       test("with extra fields") {
@@ -1424,7 +1435,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     assertZIO(stream)(equalTo(json))
   }
 
-  private def assertEncodesJson[A](schema: Schema[A], value: A)(implicit enc: JsonEncoder[A]) = {
+  def assertEncodesJson[A](schema: Schema[A], value: A)(implicit enc: JsonEncoder[A]): ZIO[Any, Nothing, TestResult] = {
     val stream = ZStream
       .succeed(value)
       .via(JsonCodec.schemaBasedBinaryCodec[A](schema).streamEncoder)

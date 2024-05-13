@@ -2,43 +2,44 @@ package zio.schema
 
 import java.math.{ BigDecimal => JBigDecimal, BigInteger => JBigInt }
 
+import zio.schema.PlatformSpecificGen.{ platformSpecificStandardTypeAndGen, platformSpecificStandardTypes }
 import zio.test.{ Gen, Sized }
 
 object StandardTypeGen {
 
+  //IMPORTANT! - Updating the following list without updating the schema primitive case set in zio.schema.DynamicValue.schema will trigger a set of very obscure test failures
   val anyStandardType: Gen[Any, StandardType[_]] = Gen.fromIterable(
     List(
-      (StandardType.StringType),
-      (StandardType.BoolType),
-      (StandardType.ShortType),
-      (StandardType.IntType),
-      (StandardType.LongType),
-      (StandardType.FloatType),
-      (StandardType.DoubleType),
-      (StandardType.BinaryType),
-      (StandardType.BigDecimalType),
-      (StandardType.BigIntegerType),
-      (StandardType.CharType),
-      (StandardType.UUIDType),
-      (StandardType.DayOfWeekType),
-      (StandardType.DurationType),
-      (StandardType.InstantType),
-      (StandardType.LocalDateType),
-      (StandardType.LocalDateTimeType),
-      (StandardType.LocalTimeType),
-      (StandardType.MonthType),
-      (StandardType.MonthDayType),
-      (StandardType.OffsetDateTimeType),
-      (StandardType.OffsetTimeType),
-      (StandardType.PeriodType),
-      (StandardType.YearType),
-      (StandardType.YearMonthType),
-      (StandardType.ZonedDateTimeType),
-      (StandardType.ZoneIdType)
+      StandardType.StringType,
+      StandardType.BoolType,
+      StandardType.ShortType,
+      StandardType.IntType,
+      StandardType.LongType,
+      StandardType.FloatType,
+      StandardType.DoubleType,
+      StandardType.BinaryType,
+      StandardType.BigDecimalType,
+      StandardType.BigIntegerType,
+      StandardType.CharType,
+      StandardType.UUIDType,
+      StandardType.DayOfWeekType,
+      StandardType.DurationType,
+      StandardType.InstantType,
+      StandardType.LocalDateType,
+      StandardType.LocalDateTimeType,
+      StandardType.LocalTimeType,
+      StandardType.MonthType,
+      StandardType.MonthDayType,
+      StandardType.OffsetDateTimeType,
+      StandardType.OffsetTimeType,
+      StandardType.PeriodType,
+      StandardType.YearType,
+      StandardType.YearMonthType,
+      StandardType.ZonedDateTimeType,
+      StandardType.ZoneIdType,
+      StandardType.ZoneOffsetType
     )
-    //FIXME For some reason adding this causes other unrelated tests to break.
-//    Gen.const(StandardType.ZoneOffset)
-  )
+  ) ++ platformSpecificStandardTypes
 
   val javaBigInt: Gen[Any, JBigInt] =
     Gen.bigInt(JBigInt.valueOf(Long.MinValue), JBigInt.valueOf(Long.MaxValue)).map { sBigInt =>
@@ -80,7 +81,7 @@ object StandardTypeGen {
       case typ: StandardType.ZonedDateTimeType.type  => typ -> JavaTimeGen.anyZonedDateTime
       case typ: StandardType.ZoneIdType.type         => typ -> JavaTimeGen.anyZoneId
       case typ: StandardType.ZoneOffsetType.type     => typ -> JavaTimeGen.anyZoneOffset
-      case _                                         => StandardType.UnitType -> Gen.unit: StandardTypeAndGen[_]
+      case typ                                       => platformSpecificStandardTypeAndGen(typ)
     }
   }
 }
