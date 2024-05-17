@@ -279,6 +279,16 @@ private[codec] class MessagePackDecoder(bytes: Chunk[Byte]) {
         decodeString(path).map(OffsetDateTime.parse(_))
       case StandardType.ZonedDateTimeType =>
         decodeString(path).map(ZonedDateTime.parse(_))
+      case StandardType.CurrencyType =>
+        decodeString(path).flatMap { rawCurrencyCode =>
+          try {
+            Right {
+              java.util.Currency.getInstance(rawCurrencyCode)
+            }
+          } catch {
+            case NonFatal(err) => fail(path, s"Invalid currency code: ${err.getMessage}")
+          }
+        }
       case _ => fail(path, s"Unsupported primitive type $standardType")
     }
 

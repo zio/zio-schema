@@ -194,6 +194,11 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val bytes = codec.encode(UUID.randomUUID())
       assertTrue(bytes.length == 37)
     },
+    test("Encode Currency") {
+      val codec = AvroCodec.schemaBasedBinaryCodec[java.util.Currency]
+      val bytes = codec.encode(java.util.Currency.getInstance("USD"))
+      assertTrue(bytes.length == 4)
+    },
     test("Encode BigDecimal") {
       val codec = AvroCodec.schemaBasedBinaryCodec[BigDecimal]
       val bytes = codec.encode(BigDecimal.valueOf(42.0))
@@ -467,6 +472,13 @@ object AvroCodecSpec extends ZIOSpecDefault {
       val bytes  = codec.encode(uuid)
       val result = codec.decode(bytes)
       assertTrue(result == Right(uuid))
+    },
+    test("Decode Currency") {
+      val codec    = AvroCodec.schemaBasedBinaryCodec[java.util.Currency]
+      val currency = java.util.Currency.getInstance("USD")
+      val bytes    = codec.encode(currency)
+      val result   = codec.decode(bytes)
+      assertTrue(result == Right(currency))
     },
     test("Decode BigDecimal") {
       val codec      = AvroCodec.schemaBasedBinaryCodec[BigDecimal]

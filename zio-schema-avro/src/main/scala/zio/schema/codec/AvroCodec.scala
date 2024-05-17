@@ -424,6 +424,12 @@ object AvroCodec {
           .toEither
           .left
           .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
+      case StandardType.CurrencyType =>
+        Try(value.asInstanceOf[Utf8])
+          .flatMap(c => Try(java.util.Currency.getInstance(c.toString)))
+          .toEither
+          .left
+          .map(e => DecodeError.MalformedFieldWithPath(Chunk.empty, e.getMessage))
     }
 
   private def decodeMap(value: Any, schema: Schema.Map[Any, Any]) = {
@@ -930,6 +936,8 @@ object AvroCodec {
       case StandardType.ZonedDateTimeType =>
         val zonedDateTime = a.asInstanceOf[java.time.ZonedDateTime]
         zonedDateTime.toString
+      case StandardType.CurrencyType =>
+        a.asInstanceOf[java.util.Currency].getCurrencyCode
     }
 
   private def encodeSequence[A](schema: Schema[A], v: Chunk[A]): Any = {
