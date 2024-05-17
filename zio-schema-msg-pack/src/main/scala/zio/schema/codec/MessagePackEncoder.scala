@@ -260,6 +260,9 @@ private[codec] class MessagePackEncoder {
       case (StandardType.ZonedDateTimeType, v: ZonedDateTime) =>
         packer.packString(v.toString)
         ()
+      case (StandardType.CurrencyType, v: java.util.Currency) =>
+        packer.packString(v.getCurrencyCode)
+        ()
       case (_, _) =>
         throw new NotImplementedError(s"No encoder for $standardType")
     }

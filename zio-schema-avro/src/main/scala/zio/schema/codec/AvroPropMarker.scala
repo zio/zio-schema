@@ -25,6 +25,10 @@ object AvroPropMarker {
     override def propName: String = "zio.schema.codec.avro.either"
   }
 
+  case object CurrencyWrapper extends AvroPropMarker {
+    override def propName: String = "zio.schema.codec.avro.currency"
+  }
+
   final case class DurationChronoUnit(chronoUnit: ChronoUnit) extends AvroPropMarker {
     override def propName: String = DurationChronoUnit.propName
     override def value: Any       = chronoUnit.name()

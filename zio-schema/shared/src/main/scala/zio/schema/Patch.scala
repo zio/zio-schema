@@ -206,6 +206,13 @@ object Patch {
     override def invert: Patch[JZonedDateTime] = ZonedDateTime(localDateTimeDiff.invert, zoneIdDiff.invert)
   }
 
+  final case class Currency(currencyCodeDiff: java.util.Currency) extends Patch[java.util.Currency] {
+    override def patch(input: java.util.Currency): scala.Either[String, java.util.Currency] =
+      Right(input)
+
+    override def invert: Patch[java.util.Currency] = Currency(currencyCodeDiff)
+  }
+
   final case class Tuple[A, B](leftDifference: Patch[A], rightDifference: Patch[B]) extends Patch[(A, B)] {
 
     override def isIdentical: Boolean = leftDifference.isIdentical && rightDifference.isIdentical

@@ -1,29 +1,25 @@
 package zio.schema
 
-import zio.schema.StandardType._
+import zio.schema.DeriveSchema.gen
+import zio.schema.SchemaGen.{ SchemaTest, schemasAndGens }
 import zio.schema.types.Arities._
 import zio.schema.types.{ Arities, Recursive }
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, Scope, URIO }
+import zio.{ Scope, URIO }
 
 object PatchSpec extends ZIOSpecDefault {
 
   def spec: Spec[TestEnvironment with Scope, Any] = suite("PatchSpec")(
     suite("identity law")(
       suite("standard types")(
-        test("Int")(patchIdentityLaw[Int]),
-        test("Long")(patchIdentityLaw[Long]),
-        test("Float")(patchIdentityLaw[Float]),
-        test("Double")(patchIdentityLaw[Double]),
-        test("Boolean")(patchIdentityLaw[Boolean]),
-        test("Bytes")(patchIdentityLaw[Chunk[Byte]]),
-        suite("Either") {
-          test("primitive")(patchIdentityLaw[Either[String, String]])
-        },
-        suite("Option") {
-          test("primitive")(patchIdentityLaw[Option[String]])
-        }
+        schemaPatchIdentityLawTests()
+      ),
+      suite("option")(
+        schemaPatchIdentityLawTests(Some(schema => Schema.option(schema)))
+      ),
+      suite("either")(
+        schemaPatchIdentityLawTests(Some(schema => Schema.either(schema, schema)), Some(name => s"Either[$name,$name]"))
       ),
       suite("records")(
         test("singleton")(patchIdentityLaw[Singleton.type]),
@@ -39,56 +35,17 @@ object PatchSpec extends ZIOSpecDefault {
     ),
     suite("patch law")(
       suite("standard types")(
-        test("Int")(patchLaw[Int]),
-        test("Long")(patchLaw[Long]),
-        test("Float")(patchLaw[Float]),
-        test("Double")(patchLaw[Double]),
-        test("Boolean")(patchLaw[Boolean]),
-        test("String")(patchLaw[String]),
-        test("ZonedDateTime")(patchLaw[java.time.ZonedDateTime]),
-        test("OffsetDateTime")(patchLaw[java.time.OffsetDateTime]),
-        test("OffsetTime")(patchLaw[java.time.OffsetTime]),
-        test("LocalTime")(patchLaw[java.time.LocalTime]),
-        test("LocalDate")(patchLaw[java.time.LocalDate]),
-        test("Instant")(patchLaw[java.time.Instant]),
-        test("Duration")(patchLaw[java.time.Duration]),
-        test("ZoneOffset")(patchLaw[java.time.ZoneOffset]),
-        test("ZoneId")(patchLaw[java.time.ZoneId]),
-        test("YearMonth")(patchLaw[java.time.YearMonth]),
-        test("Year")(patchLaw[java.time.Year]),
-        test("Period")(patchLaw[java.time.Period]),
-        test("MonthDay")(patchLaw[java.time.MonthDay]) @@ TestAspect.ignore, // TODO Leap years!
-        test("Month")(patchLaw[java.time.Month]),
-        test("DayOfWeek")(patchLaw[java.time.DayOfWeek]),
-        test("BigInteger")(patchLaw[java.math.BigInteger]),
-        test("BigDecimal")(patchLaw[java.math.BigDecimal]),
-        test("Bytes")(patchLaw[Chunk[Byte]])
+        schemaPatchLawTests()
       ),
-      suite("sequences")(
+      suite("option")(
+        schemaPatchLawTests(Some(schema => Schema.option(schema)))
+      ),
+      suite("either")(
+        schemaPatchLawTests(Some(schema => Schema.either(schema, schema)), Some(name => s"Either[$name,$name]"))
+      ),
+      suite("lists")(
         suite("of standard types")(
-          test("Int")(patchLaw[List[Int]]),
-          test("Long")(patchLaw[List[Long]]),
-          test("Float")(patchLaw[List[Float]]),
-          test("Double")(patchLaw[List[Double]]),
-          test("Boolean")(patchLaw[List[Boolean]]),
-          test("String")(patchLaw[List[String]]),
-          test("ZonedDateTime")(patchLaw[List[java.time.ZonedDateTime]]),
-          test("OffsetDateTime")(patchLaw[List[java.time.OffsetDateTime]]),
-          test("OffsetTime")(patchLaw[List[java.time.OffsetTime]]),
-          test("LocalTime")(patchLaw[List[java.time.LocalTime]]),
-          test("LocalDate")(patchLaw[List[java.time.LocalDate]]),
-          test("Instant")(patchLaw[List[java.time.Instant]]),
-          test("Duration")(patchLaw[List[java.time.Duration]]),
-          test("ZoneOffset")(patchLaw[List[java.time.ZoneOffset]]),
-          test("ZoneId")(patchLaw[List[java.time.ZoneId]]),
-          test("YearMonth")(patchLaw[List[java.time.YearMonth]]),
-          test("Year")(patchLaw[List[java.time.Year]]),
-          test("Period")(patchLaw[List[java.time.Period]]),
-          test("MonthDay")(patchLaw[List[java.time.MonthDay]]) @@ TestAspect.ignore, // TODO Leap years!
-          test("Month")(patchLaw[List[java.time.Month]]),
-          test("DayOfWeek")(patchLaw[List[java.time.DayOfWeek]]),
-          test("BigInteger")(patchLaw[List[java.math.BigInteger]]),
-          test("BigDecimal")(patchLaw[List[java.math.BigDecimal]])
+          schemaPatchLawTests(Some((primitiveSchema => Schema.list(primitiveSchema))))
         ),
         suite("of records")(
           test("Dog")(patchLaw[List[Pet.Dog]])
@@ -98,31 +55,21 @@ object PatchSpec extends ZIOSpecDefault {
           test("recursive")(patchLaw[List[Recursive]])
         )
       ),
+      suite("vectors")(
+        suite("of standard types")(
+          schemaPatchLawTests(Some((primitiveSchema => Schema.vector(primitiveSchema))))
+        ),
+        suite("of records")(
+          test("Dog")(patchLaw[Vector[Pet.Dog]])
+        ),
+        suite("of enumerations")(
+          test("Pet")(patchLaw[Vector[Pet]]),
+          test("recursive")(patchLaw[Vector[Recursive]])
+        )
+      ),
       suite("sets")(
         suite("of standard types")(
-          test("Int")(patchLaw[Set[Int]]),
-          test("Long")(patchLaw[Set[Long]]),
-          test("Float")(patchLaw[Set[Float]]),
-          test("Double")(patchLaw[Set[Double]]),
-          test("Boolean")(patchLaw[Set[Boolean]]),
-          test("String")(patchLaw[Set[String]]),
-          test("ZonedDateTime")(patchLaw[Set[java.time.ZonedDateTime]]),
-          test("OffsetDateTime")(patchLaw[Set[java.time.OffsetDateTime]]),
-          test("OffsetTime")(patchLaw[Set[java.time.OffsetTime]]),
-          test("LocalTime")(patchLaw[Set[java.time.LocalTime]]),
-          test("LocalDate")(patchLaw[Set[java.time.LocalDate]]),
-          test("Instant")(patchLaw[Set[java.time.Instant]]),
-          test("Duration")(patchLaw[Set[java.time.Duration]]),
-          test("ZoneOffset")(patchLaw[Set[java.time.ZoneOffset]]),
-          test("ZoneId")(patchLaw[Set[java.time.ZoneId]]),
-          test("YearMonth")(patchLaw[Set[java.time.YearMonth]]),
-          test("Year")(patchLaw[Set[java.time.Year]]),
-          test("Period")(patchLaw[Set[java.time.Period]]),
-          test("MonthDay")(patchLaw[Set[java.time.MonthDay]]) @@ TestAspect.ignore, // TODO Leap years!
-          test("Month")(patchLaw[Set[java.time.Month]]),
-          test("DayOfWeek")(patchLaw[Set[java.time.DayOfWeek]]),
-          test("BigInteger")(patchLaw[Set[java.math.BigInteger]]),
-          test("BigDecimal")(patchLaw[Set[java.math.BigDecimal]])
+          schemaPatchLawTests(Some((primitiveSchema => Schema.set(primitiveSchema))))
         ),
         suite("of records")(
           test("Dog")(patchLaw[Set[Pet.Dog]])
@@ -134,7 +81,10 @@ object PatchSpec extends ZIOSpecDefault {
       ),
       suite("maps")(
         suite("of standard types")(
-          test("Int -> Int")(patchLaw[Map[Int, Int]])
+          schemaPatchLawTests(
+            Some((primitiveSchema => Schema.map(primitiveSchema, primitiveSchema))),
+            Some(name => (s"$name -> $name"))
+          )
         ),
         suite("of records")(
           test("Int -> Dog")(patchLaw[Map[Int, Pet.Dog]]),
@@ -171,6 +121,42 @@ object PatchSpec extends ZIOSpecDefault {
   private def patchIdentityLaw[A](implicit schema: Schema[A]): URIO[Sized with TestConfig, TestResult] =
     check(DeriveGen.gen[A]) { a =>
       assertTrue(schema.diff(a, a).isIdentical)
+    }
+
+  private def schemaPatchIdentityLawTests(
+    schemaConversionFuncOption: Option[Schema[_] => Schema[_]] = None,
+    renamingFuncOption: Option[String => String] = None
+  ): List[Spec[Sized with TestConfig, Nothing]] =
+    schemaPatchTests(schema => patchIdentityLaw(schema), schemaConversionFuncOption, renamingFuncOption)
+
+  private def schemaPatchLawTests(
+    schemaConversionFuncOption: Option[Schema[_] => Schema[_]] = None,
+    renamingFuncOption: Option[String => String] = None
+  ): List[Spec[Sized with TestConfig, Nothing]] =
+    schemaPatchTests(schema => patchLaw(schema), schemaConversionFuncOption, renamingFuncOption)
+
+  private def schemaPatchTests(
+    patchingFunc: Schema[_] => URIO[Sized with TestConfig, TestResult],
+    schemaConversionFuncOption: Option[Schema[_] => Schema[_]],
+    renamingFuncOption: Option[String => String]
+  ): List[Spec[Sized with TestConfig, Nothing]] =
+    schemasAndGens.map {
+      case SchemaTest(name, standardType, _) =>
+        val primitiveSchema = Schema.primitive(standardType)
+        val finalSchema = schemaConversionFuncOption.fold[Schema[_]](primitiveSchema) { schemaConversionFunc =>
+          schemaConversionFunc(primitiveSchema)
+        }
+        val finalTestName = renamingFuncOption.fold(name)(renamingFunc => renamingFunc(name))
+        standardType match {
+          case _ @StandardType.MonthDayType =>
+            test(finalTestName) {
+              patchingFunc(finalSchema)
+            } @@ TestAspect.ignore // TODO Leap years!
+          case _ =>
+            test(finalTestName) {
+              patchingFunc(finalSchema)
+            }
+        }
     }
 
   private def patchLaw[A](implicit schema: Schema[A]): URIO[Sized with TestConfig, TestResult] = {

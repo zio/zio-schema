@@ -51,6 +51,7 @@ object StandardType {
     final val OFFSET_DATE_TIME = "offsetDateTime"
     final val ZONED_DATE_TIME  = "zonedDateTime"
     final val UUID             = "uuid"
+    final val CURRENCY         = "currency"
   }
 
   def fromString(tag: String): Option[StandardType[_]] =
@@ -85,6 +86,7 @@ object StandardType {
       case Tags.OFFSET_DATE_TIME => Some(OffsetDateTimeType)
       case Tags.ZONED_DATE_TIME  => Some(ZonedDateTimeType)
       case Tags.UUID             => Some(UUIDType)
+      case Tags.CURRENCY         => Some(CurrencyType)
     }
 
   def apply[A](implicit standardType: StandardType[A]): StandardType[A] = standardType
@@ -161,6 +163,17 @@ object StandardType {
     override def tag: String                                        = Tags.UUID
     override def compare(x: java.util.UUID, y: java.util.UUID): Int = x.compareTo(y)
     override def defaultValue: Either[String, java.util.UUID]       = Right(java.util.UUID.randomUUID())
+  }
+
+  implicit object CurrencyType extends StandardType[java.util.Currency] {
+
+    override def tag: String = Tags.CURRENCY
+
+    override def defaultValue: Either[String, java.util.Currency] =
+      Left("Currency generation not available in Scala Native")
+
+    override def compare(x: java.util.Currency, y: java.util.Currency): Int =
+      x.getCurrencyCode.compareTo(y.getCurrencyCode)
   }
 
   implicit object BigDecimalType extends StandardType[java.math.BigDecimal] {
