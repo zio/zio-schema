@@ -519,6 +519,7 @@ object JsonCodec {
           if (emptyObjectDecoder.unsafeDecode(trace, in2)) {
             None
           } else {
+            in2.retract()
             in2.rewind()
             zio.json.JsonDecoder.option(A).unsafeDecode(trace, in2)
           }
