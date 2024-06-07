@@ -473,7 +473,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Traversal[Col, Elem]
 
-    override def annotate(annotation: Any): Sequence[Col, Elem, I] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Sequence[Col, Elem, I] =
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Col] =
       elementSchema.defaultValue.map(fromChunk.compose(Chunk(_)))
@@ -498,7 +499,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): schema.Accessors[b.Lens, b.Prism, b.Traversal] =
       schema.makeAccessors(b)
 
-    override def annotate(annotation: Any): Transform[A, B, I] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Transform[A, B, I] =
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def serializable: Schema[Schema[B]] =
       MetaSchema
@@ -517,7 +519,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
       extends Schema[A] {
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Unit
 
-    override def annotate(annotation: Any): Primitive[A] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Primitive[A] = copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, A] = standardType.defaultValue
 
@@ -534,7 +536,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     private[schema] lazy val someCodec: Schema[Some[A]] =
       schema.transform(a => Some(a), _.get)
 
-    override def annotate(annotation: Any): Optional[A] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Optional[A] = copy(annotations = (annotations :+ annotation).distinct)
 
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (Prism[some.type, Option[A], Some[A]], Prism[none.type, Option[A], None.type])
@@ -572,7 +574,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
   final case class Fail[A](message: String, annotations: Chunk[Any] = Chunk.empty) extends Schema[A] {
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Unit
 
-    override def annotate(annotation: Any): Fail[A] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Fail[A] = copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, A] = Left(message)
 
@@ -588,7 +590,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (Lens[first.type, (A, B), A], Lens[second.type, (A, B), B])
 
-    override def annotate(annotation: Any): Tuple2[A, B] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Tuple2[A, B] = copy(annotations = (annotations :+ annotation).distinct)
 
     val toRecord: CaseClass2[A, B, (A, B)] = CaseClass2[A, B, (A, B)](
       id0 = TypeId.parse("zio.schema.Schema.CaseClass2"),
@@ -622,7 +624,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         Prism[leftSingleton.type, scala.util.Either[A, B], Left[A, Nothing]]
       )
 
-    override def annotate(annotation: Any): Schema.Either[A, B] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Schema.Either[A, B] =
+      copy(annotations = (annotations :+ annotation).distinct)
 
     val rightSchema: Schema[Right[Nothing, B]] = right.transform(b => Right(b), _.value)
     val leftSchema: Schema[Left[A, Nothing]]   = left.transform(a => Left(a), _.value)
@@ -690,7 +693,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         Prism[leftSingleton.type, scala.util.Either[A, B], Left[A, Nothing]]
       )
 
-    override def annotate(annotation: Any): Schema.Fallback[A, B] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Schema.Fallback[A, B] =
+      copy(annotations = (annotations :+ annotation).distinct)
 
     val rightSchema: Schema[Right[Nothing, B]] = right.transform(b => Right(b), _.value)
     val leftSchema: Schema[Left[A, Nothing]]   = left.transform(a => Left(a), _.value)
@@ -762,7 +766,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       Traversal[scala.collection.immutable.Map[K, V], (K, V)]
 
-    override def annotate(annotation: Any): Map[K, V] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Map[K, V] = copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, scala.collection.immutable.Map[K, V]] =
       keySchema.defaultValue.flatMap(
@@ -783,7 +787,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
       Traversal[scala.collection.immutable.Set[A], A]
 
     override def annotate(annotation: Any): Set[A] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, scala.collection.immutable.Set[A]] =
       elementSchema.defaultValue.map(scala.collection.immutable.Set(_))
@@ -807,7 +811,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
      * Returns a new schema that with `annotation`
      */
     override def annotate(annotation: Any): Schema[DynamicValue] =
-      this.copy(annotations = annotations :+ annotation)
+      this.copy(annotations = (annotations :+ annotation).distinct)
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }
@@ -844,7 +848,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Prism[case1.id.type, Z, A]
 
-    override def annotate(annotation: Any): Enum1[A, Z] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Enum1[A, Z] = copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -864,7 +868,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (Prism[case1.id.type, Z, A1], Prism[case2.id.type, Z, A2])
 
-    override def annotate(annotation: Any): Enum2[A1, A2, Z] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Enum2[A1, A2, Z] = copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -885,7 +889,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       (Prism[case1.id.type, Z, A1], Prism[case2.id.type, Z, A2], Prism[case3.id.type, Z, A3])
 
-    override def annotate(annotation: Any): Enum3[A1, A2, A3, Z] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Enum3[A1, A2, A3, Z] =
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -914,7 +919,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         Prism[case4.id.type, Z, A4]
       )
 
-    override def annotate(annotation: Any): Enum4[A1, A2, A3, A4, Z] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Enum4[A1, A2, A3, A4, Z] =
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -948,7 +954,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         Prism[case5.id.type, Z, A5]
       )
 
-    override def annotate(annotation: Any): Enum5[A1, A2, A3, A4, A5, Z] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): Enum5[A1, A2, A3, A4, A5, Z] =
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -994,7 +1001,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
       )
 
     override def annotate(annotation: Any): Enum6[A1, A2, A3, A4, A5, A6, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -1044,7 +1051,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
       )
 
     override def annotate(annotation: Any): Enum7[A1, A2, A3, A4, A5, A6, A7, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -1096,7 +1103,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
       )
 
     override def annotate(annotation: Any): Enum8[A1, A2, A3, A4, A5, A6, A7, A8, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -1151,7 +1158,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     )
 
     override def annotate(annotation: Any): Enum9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -1210,7 +1217,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     )
 
     override def annotate(annotation: Any): Enum10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -1286,7 +1293,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     )
 
     override def annotate(annotation: Any): Enum11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -1368,7 +1375,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     )
 
     override def annotate(annotation: Any): Enum12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -1467,7 +1474,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     )
 
     override def annotate(annotation: Any): Enum13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -1572,7 +1579,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     )
 
     override def annotate(annotation: Any): Enum14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -1685,7 +1692,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def annotate(
       annotation: Any
     ): Enum15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -1804,7 +1811,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def annotate(
       annotation: Any
     ): Enum16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -1929,7 +1936,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def annotate(
       annotation: Any
     ): Enum17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -2060,7 +2067,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def annotate(
       annotation: Any
     ): Enum18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -2197,7 +2204,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def annotate(
       annotation: Any
     ): Enum19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -2340,7 +2347,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def annotate(
       annotation: Any
     ): Enum20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -2489,7 +2496,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def annotate(
       annotation: Any
     ): Enum21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -2646,7 +2653,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def annotate(
       annotation: Any
     ): Enum22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z] =
-      copy(annotations = annotations :+ annotation)
+      copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Z] = case1.schema.defaultValue.map(case1.construct)
 
@@ -2733,7 +2740,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       caseSet.Accessors[Z, Lens, Prism, Traversal]
 
-    override def annotate(annotation: Any): EnumN[Z, C] = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): EnumN[Z, C] = copy(annotations = (annotations :+ annotation).distinct)
 
     override def cases: Chunk[Case[Z, _]] = Chunk(caseSet.toSeq: _*)
 
@@ -3431,7 +3438,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     /**
      * Returns a new schema that with `annotation`
      */
-    override def annotate(annotation: Any): GenericRecord = copy(annotations = annotations :+ annotation)
+    override def annotate(annotation: Any): GenericRecord = copy(annotations = (annotations :+ annotation).distinct)
   }
 
   sealed trait CaseClass0[Z] extends Record[Z] { self =>
@@ -3474,7 +3481,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
       override def annotations: Chunk[Any]   = annotations0
 
       override def annotate(annotation: Any): CaseClass0[Z] =
-        CaseClass0(id, defaultConstruct0, annotations :+ annotation)
+        CaseClass0(id, defaultConstruct0, ((annotations :+ annotation).distinct).distinct)
     }
 
     def unapply[Z](schema: CaseClass0[Z]): Some[(TypeId, () => Z, Chunk[Any])] =
@@ -3528,7 +3535,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         override def annotations: Chunk[Any]                  = annotations0
 
         override def annotate(annotation: Any): CaseClass1[A, Z] =
-          CaseClass1(id0, field0, defaultConstruct0, annotations0 :+ annotation)
+          CaseClass1(id0, field0, defaultConstruct0, ((annotations0 :+ annotation).distinct).distinct)
       }
 
     def unapply[A, Z](
@@ -3598,7 +3605,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         def annotations: Chunk[Any]                    = annotations0
 
         def annotate(annotation: Any): CaseClass2[A1, A2, Z] =
-          CaseClass2(id0, field01, field02, construct0, annotations0 :+ annotation)
+          CaseClass2(id0, field01, field02, construct0, (annotations0 :+ annotation).distinct)
       }
 
     def unapply[A1, A2, Z](schema: CaseClass2[A1, A2, Z]): Some[
@@ -3679,7 +3686,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         def annotations: Chunk[Any]                    = annotations0
 
         def annotate(annotation: Any): CaseClass3[A1, A2, A3, Z] =
-          CaseClass3(id0, field01, field02, field03, construct0, annotations0 :+ annotation)
+          CaseClass3(id0, field01, field02, field03, construct0, (annotations0 :+ annotation).distinct)
       }
 
     def unapply[A1, A2, A3, Z](schema: CaseClass3[A1, A2, A3, Z]): Some[
@@ -3783,7 +3790,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         def annotations: Chunk[Any]                    = annotations0
 
         def annotate(annotation: Any): CaseClass4[A1, A2, A3, A4, Z] =
-          CaseClass4(id0, field01, field02, field03, field04, construct0, annotations0 :+ annotation)
+          CaseClass4(id0, field01, field02, field03, field04, construct0, (annotations0 :+ annotation).distinct)
       }
 
     def unapply[A1, A2, A3, A4, Z](schema: CaseClass4[A1, A2, A3, A4, Z]): Some[
@@ -3911,7 +3918,16 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         def annotations: Chunk[Any]                    = annotations0
 
         def annotate(annotation: Any): CaseClass5[A1, A2, A3, A4, A5, Z] =
-          CaseClass5(id0, field01, field02, field03, field04, field05, construct0, annotations0 :+ annotation)
+          CaseClass5(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            construct0,
+            (annotations0 :+ annotation).distinct
+          )
       }
 
     def unapply[A1, A2, A3, A4, A5, Z](schema: CaseClass5[A1, A2, A3, A4, A5, Z]): Some[
@@ -4069,7 +4085,17 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         def annotations: Chunk[Any]                    = annotations0
 
         def annotate(annotation: Any): CaseClass6[A1, A2, A3, A4, A5, A6, Z] =
-          CaseClass6(id0, field01, field02, field03, field04, field05, field06, construct0, annotations0 :+ annotation)
+          CaseClass6(
+            id0,
+            field01,
+            field02,
+            field03,
+            field04,
+            field05,
+            field06,
+            construct0,
+            (annotations0 :+ annotation).distinct
+          )
       }
 
     def unapply[A1, A2, A3, A4, A5, A6, Z](schema: CaseClass6[A1, A2, A3, A4, A5, A6, Z]): Some[
@@ -4256,7 +4282,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             field06,
             field07,
             construct0,
-            annotations0 :+ annotation
+            (annotations0 :+ annotation).distinct
           )
       }
 
@@ -4467,7 +4493,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             field07,
             field08,
             construct0,
-            annotations0 :+ annotation
+            (annotations0 :+ annotation).distinct
           )
       }
 
@@ -4694,7 +4720,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             field08,
             field09,
             construct0,
-            annotations0 :+ annotation
+            (annotations0 :+ annotation).distinct
           )
       }
 
@@ -4962,7 +4988,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             field09,
             field010,
             construct0,
-            annotations0 :+ annotation
+            (annotations0 :+ annotation).distinct
           )
       }
 
@@ -5251,7 +5277,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             field010,
             field011,
             construct0,
-            annotations0 :+ annotation
+            (annotations0 :+ annotation).distinct
           )
       }
 
@@ -5559,7 +5585,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             field011,
             field012,
             construct0,
-            annotations0 :+ annotation
+            (annotations0 :+ annotation).distinct
           )
       }
 
@@ -5886,7 +5912,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             field012,
             field013,
             construct0,
-            annotations0 :+ annotation
+            (annotations0 :+ annotation).distinct
           )
       }
 
@@ -6232,7 +6258,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             field013,
             field014,
             construct0,
-            annotations0 :+ annotation
+            (annotations0 :+ annotation).distinct
           )
       }
 
@@ -6600,7 +6626,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             field014,
             field015,
             construct0,
-            annotations0 :+ annotation
+            (annotations0 :+ annotation).distinct
           )
       }
 
@@ -6987,7 +7013,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             field015,
             field016,
             construct0,
-            annotations0 :+ annotation
+            (annotations0 :+ annotation).distinct
           )
       }
 
@@ -7393,7 +7419,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             field016,
             field017,
             construct0,
-            annotations0 :+ annotation
+            (annotations0 :+ annotation).distinct
           )
       }
 
@@ -7820,7 +7846,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             field017,
             field018,
             construct0,
-            annotations0 :+ annotation
+            (annotations0 :+ annotation).distinct
           )
       }
 
@@ -8266,7 +8292,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             field018,
             field019,
             construct0,
-            annotations0 :+ annotation
+            (annotations0 :+ annotation).distinct
           )
       }
 
@@ -8732,7 +8758,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             field019,
             field020,
             construct0,
-            annotations0 :+ annotation
+            (annotations0 :+ annotation).distinct
           )
       }
 
@@ -9258,7 +9284,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             field020,
             field021,
             construct0,
-            annotations0 :+ annotation
+            (annotations0 :+ annotation).distinct
           )
       }
 
@@ -9901,7 +9927,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
             field021,
             field022,
             construct0,
-            annotations0 :+ annotation
+            (annotations0 :+ annotation).distinct
           )
       }
 
