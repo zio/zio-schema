@@ -412,7 +412,7 @@ object BsonSchemaCodec {
         case StandardType.BinaryType     => BsonCodec.byteIterable[Chunk].asInstanceOf[BsonCodec[A]]
         case StandardType.CharType       => BsonCodec.char.asInstanceOf[BsonCodec[A]]
         case StandardType.BigIntegerType => BsonCodec.bigInteger.asInstanceOf[BsonCodec[A]]
-        case StandardType.BigDecimalType => BsonCodec.bigDecimal.asInstanceOf[BsonCodec[A]]
+        case StandardType.BigDecimalType => BsonCodec.javaBigDecimal.asInstanceOf[BsonCodec[A]]
         case StandardType.UUIDType       => BsonCodec.uuid.asInstanceOf[BsonCodec[A]]
         case StandardType.DayOfWeekType =>
           BsonCodec.dayOfWeek.asInstanceOf[BsonCodec[A]] // BsonCodec[java.time.DayOfWeek]
