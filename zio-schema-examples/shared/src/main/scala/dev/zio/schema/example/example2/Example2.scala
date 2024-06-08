@@ -153,13 +153,15 @@ import dev.zio.schema.example.example2.Domain._
 object JsonSample extends zio.ZIOAppDefault {
   import zio.schema.codec.JsonCodec
   import zio.stream.ZStream
+    implicit val defaultConfig: JsonCodec.Config = JsonCodec.Config.default
+
 
   override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
       _      <- ZIO.unit
       person = Person("Michelle", 32)
       personToJsonPipeline = JsonCodec
-        .schemaBasedBinaryCodec[Person](Person.schema)
+        .schemaBasedBinaryCodec[Person](Person.schema, defaultConfig)
         .streamEncoder
       _ <- ZStream(person)
             .via(personToJsonPipeline)
@@ -196,6 +198,8 @@ object ProtobufExample extends ZIOAppDefault {
 object CombiningExample extends zio.ZIOAppDefault {
   import zio.schema.codec.{ JsonCodec, ProtobufCodec }
   import zio.stream.ZStream
+    implicit val defaultConfig: JsonCodec.Config = JsonCodec.Config.default
+
 
   override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
@@ -203,8 +207,8 @@ object CombiningExample extends zio.ZIOAppDefault {
       _      <- ZIO.debug("combining roundtrip")
       person = Person("Michelle", 32)
 
-      personToJson = JsonCodec.schemaBasedBinaryCodec[Person](Person.schema).streamEncoder
-      jsonToPerson = JsonCodec.schemaBasedBinaryCodec[Person](Person.schema).streamDecoder
+      personToJson = JsonCodec.schemaBasedBinaryCodec[Person](Person.schema, defaultConfig).streamEncoder
+      jsonToPerson = JsonCodec.schemaBasedBinaryCodec[Person](Person.schema, defaultConfig).streamDecoder
 
       personToProto = ProtobufCodec.protobufCodec[Person](Person.schema).streamEncoder
       protoToPerson = ProtobufCodec.protobufCodec[Person](Person.schema).streamDecoder

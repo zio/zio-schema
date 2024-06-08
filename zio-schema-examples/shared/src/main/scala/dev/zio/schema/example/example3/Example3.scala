@@ -57,6 +57,8 @@ private[example3] object Domain {
 object Example3 extends ZIOAppDefault {
   import dev.zio.schema.example.example3.Domain._
   import zio.schema.codec.JsonCodec
+    implicit val defaultConfig: JsonCodec.Config = JsonCodec.Config.default
+
 
   val personTransformation: Schema[Person] = PersonDTO.schema.transform[Person](
     (dto: PersonDTO) => Person(dto.firstname + " " + dto.lastname, dto.years),
@@ -74,20 +76,20 @@ object Example3 extends ZIOAppDefault {
 
     // get objects from JSON
     personDTO <- ZIO.fromEither(
-                  JsonCodec.schemaBasedBinaryCodec[PersonDTO](PersonDTO.schema).decode(chunks)
+                  JsonCodec.schemaBasedBinaryCodec[PersonDTO](PersonDTO.schema, defaultConfig).decode(chunks)
                 )
     person <- ZIO.fromEither(
-               JsonCodec.schemaBasedBinaryCodec[Person](personTransformation).decode(chunks)
+               JsonCodec.schemaBasedBinaryCodec[Person](personTransformation, defaultConfig).decode(chunks)
              )
     _ <- ZIO.debug("PersonDTO     : " + personDTO)
     _ <- ZIO.debug("Person        : " + person)
 
     // get JSON from Objects
     personJson = new String(
-      JsonCodec.schemaBasedBinaryCodec[Person](Person.schema).encode(person).toArray
+      JsonCodec.schemaBasedBinaryCodec[Person](Person.schema, defaultConfig).encode(person).toArray
     )
     personDTOJson = new String(
-      JsonCodec.schemaBasedBinaryCodec[Person](personTransformation).encode(person).toArray
+      JsonCodec.schemaBasedBinaryCodec[Person](personTransformation, defaultConfig).encode(person).toArray
     )
     _ <- ZIO.debug("Person    JSON: " + personJson)
     _ <- ZIO.debug("PersonDTO JSON: " + personDTOJson)
