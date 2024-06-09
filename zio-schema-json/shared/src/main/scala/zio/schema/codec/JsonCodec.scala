@@ -656,7 +656,9 @@ object JsonCodec {
         case _                  => None
       }
 
-    private def dynamicDecoder(schema: Schema.Dynamic)(implicit config: JsonCodec.Config): ZJsonDecoder[DynamicValue] = {
+    private def dynamicDecoder(
+      schema: Schema.Dynamic
+    )(implicit config: JsonCodec.Config): ZJsonDecoder[DynamicValue] = {
       val directMapping = schema.annotations.exists {
         case directDynamicMapping() => true
         case _                      => false
@@ -683,7 +685,9 @@ object JsonCodec {
         case Json.Null          => DynamicValue.NoneValue
       }
 
-    private def enumDecoder[Z](parentSchema: Schema.Enum[Z], cases: Schema.Case[Z, _]*)(implicit config: JsonCodec.Config): ZJsonDecoder[Z] = {
+    private def enumDecoder[Z](parentSchema: Schema.Enum[Z], cases: Schema.Case[Z, _]*)(
+      implicit config: JsonCodec.Config
+    ): ZJsonDecoder[Z] = {
       val caseNameAliases = cases.flatMap {
         case Schema.Case(name, _, _, _, _, annotations) =>
           annotations.flatMap {
@@ -801,35 +805,38 @@ object JsonCodec {
     private def deAliasCaseName(alias: String, caseNameAliases: Map[String, String]): String =
       caseNameAliases.getOrElse(alias, alias)
 
-    private def recordDecoder[Z](structure: Seq[Schema.Field[Z, _]])(implicit config: JsonCodec.Config): ZJsonDecoder[ListMap[String, Any]] = {
-      (trace: List[JsonError], in: RetractReader) =>
-        {
-          val builder: ChunkBuilder[(String, Any)] = zio.ChunkBuilder.make[(String, Any)](structure.size)
-          Lexer.char(trace, in, '{')
-          if (Lexer.firstField(trace, in)) {
-            while ({
-              val field = Lexer.string(trace, in).toString
-              structure.find(_.name == field) match {
-                case Some(Schema.Field(label, schema, _, _, _, _)) =>
-                  val trace_ = JsonError.ObjectAccess(label) :: trace
-                  Lexer.char(trace_, in, ':')
-                  val value = schemaDecoder(schema).unsafeDecode(trace_, in)
-                  builder += ((JsonFieldDecoder.string.unsafeDecodeField(trace_, label), value))
-                case None =>
-                  Lexer.char(trace, in, ':')
-                  Lexer.skipValue(trace, in)
+    private def recordDecoder[Z](structure: Seq[Schema.Field[Z, _]])(
+      implicit config: JsonCodec.Config
+    ): ZJsonDecoder[ListMap[String, Any]] = { (trace: List[JsonError], in: RetractReader) =>
+      {
+        val builder: ChunkBuilder[(String, Any)] = zio.ChunkBuilder.make[(String, Any)](structure.size)
+        Lexer.char(trace, in, '{')
+        if (Lexer.firstField(trace, in)) {
+          while ({
+            val field = Lexer.string(trace, in).toString
+            structure.find(_.name == field) match {
+              case Some(Schema.Field(label, schema, _, _, _, _)) =>
+                val trace_ = JsonError.ObjectAccess(label) :: trace
+                Lexer.char(trace_, in, ':')
+                val value = schemaDecoder(schema).unsafeDecode(trace_, in)
+                builder += ((JsonFieldDecoder.string.unsafeDecodeField(trace_, label), value))
+              case None =>
+                Lexer.char(trace, in, ':')
+                Lexer.skipValue(trace, in)
 
-              }
-              (Lexer.nextField(trace, in))
-            }) {
-              ()
             }
+            (Lexer.nextField(trace, in))
+          }) {
+            ()
           }
-          (ListMap.newBuilder[String, Any] ++= builder.result()).result()
         }
+        (ListMap.newBuilder[String, Any] ++= builder.result()).result()
+      }
     }
 
-    private def fallbackDecoder[A, B](schema: Schema.Fallback[A, B])(implicit config: JsonCodec.Config): ZJsonDecoder[Fallback[A, B]] =
+    private def fallbackDecoder[A, B](
+      schema: Schema.Fallback[A, B]
+    )(implicit config: JsonCodec.Config): ZJsonDecoder[Fallback[A, B]] =
       new ZJsonDecoder[Fallback[A, B]] {
 
         def unsafeDecode(trace: List[JsonError], in: RetractReader): Fallback[A, B] = {
@@ -1275,7 +1282,7 @@ object JsonCodec {
       }
     }
 
-private[codec] def caseClass22Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](discriminator: Int, schema: Schema.CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z])(implicit config: JsonCodec.Config): ZJsonDecoder[Z] = { (trace: List[JsonError], in: RetractReader) =>
+    private[codec] def caseClass22Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](discriminator: Int, schema: Schema.CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z])(implicit config: JsonCodec.Config): ZJsonDecoder[Z] = { (trace: List[JsonError], in: RetractReader) =>
       {
         val buffer: Array[Any] =
           unsafeDecodeFields(discriminator, trace, in, schema)
@@ -1306,148 +1313,85 @@ private[codec] def caseClass22Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A
       }
     }
 
-    // private def unsafeDecodeFields[Z](discriminator: Int, trace: List[JsonError], in: RetractReader, caseClassSchema: Schema.Record[Z]) = {
-    //   val fields                    = caseClassSchema.fields
-    //   val len: Int                  = fields.length
-    //   val buffer                    = Array.ofDim[Any](len)
-    //   val fieldNames                = fields.map(_.name.asInstanceOf[String]).toArray
-    //   val spans: Array[JsonError]   = fields.map(_.name.asInstanceOf[String]).toArray.map(JsonError.ObjectAccess(_))
-    //   val schemas: Array[Schema[_]] = fields.map(_.schema).toArray
-    //   val fieldAliases = fields.flatMap {
-    //     case Schema.Field(name, _, annotations, _, _, _) =>
-    //       val aliases = annotations.collectFirst { case a: fieldNameAliases => a.aliases }.getOrElse(Nil)
-    //       aliases.map(_ -> fieldNames.indexOf(name)) :+ (name -> fieldNames.indexOf(name))
-    //   }.toMap
-    //   val aliasesMatrix     = fieldAliases.keys.toArray ++ fieldNames
-    //   val rejectExtraFields = caseClassSchema.annotations.collectFirst({ case _: rejectExtraFields => () }).isDefined
-
-    //   @tailrec
-    //   def loop(index: Int, in: RetractReader): Unit = {
-    //     val fieldRaw = Lexer.field(trace, in, new StringMatrix(aliasesMatrix))
-    //     if (index == discriminator) {
-    //       Lexer.skipValue(trace, in)
-    //     } else {
-    //       fieldRaw match {
-    //         case -1 if index == discriminator => Lexer.skipValue(trace, in)
-    //         case -1 if rejectExtraFields      => throw UnsafeJson(JsonError.Message("extra field") :: trace)
-    //         case -1                           => Lexer.skipValue(trace, in)
-    //         case idx =>
-    //           val field = fieldAliases.getOrElse(aliasesMatrix(idx), -1)
-    //           if (buffer(field) != null)
-    //             throw UnsafeJson(JsonError.Message("duplicate") :: trace)
-    //           else
-    //             buffer(field) = schemaDecoder(schemas(field)).unsafeDecode(spans(field) :: trace, in)
-    //       }
-    //     }
-    //     if (Lexer.nextField(trace, in)) loop(index + 1, in)
-    //   }
-
-    //   if (discriminator == -1) {
-    //     Lexer.char(trace, in, '{')
-    //     if (Lexer.firstField(trace, in)) loop(0, in)
-    //   } else if (discriminator == -2) {
-    //     if (Lexer.nextField(trace, in)) loop(0, in)
-    //   } else {
-    //     val rr = RecordingReader(in)
-    //     if (Lexer.firstField(trace, rr)) loop(0, rr)
-    //   }
-
-    //   var i = 0
-    //   while (i < len) {
-    //     if (buffer(i) == null) {
-
-    //       if ((fields(i).optional || fields(i).transient) && fields(i).defaultValue.isDefined)
-    //         buffer(i) = fields(i).defaultValue.get
-    //       else
-    //         buffer(i) = schemaDecoder(schemas(i)).unsafeDecodeMissing(spans(i) :: trace)
-
-    //     }
-    //     i += 1
-    //   }
-    //   buffer
-    // }
     private def unsafeDecodeFields[Z](discriminator: Int, trace: List[JsonError], in: RetractReader, caseClassSchema: Schema.Record[Z])(implicit config: JsonCodec.Config) = {
-  val fields                    = caseClassSchema.fields
-  val len: Int                  = fields.length
-  val buffer                    = Array.ofDim[Any](len)
-  val fieldNames                = fields.map(_.name.asInstanceOf[String]).toArray
-  val spans: Array[JsonError]   = fields.map(_.name.asInstanceOf[String]).toArray.map(JsonError.ObjectAccess(_))
-  val schemas: Array[Schema[_]] = fields.map(_.schema).toArray
-  val fieldAliases = fields.flatMap {
-    case Schema.Field(name, _, annotations, _, _, _) =>
-      val aliases = annotations.collectFirst { case a: fieldNameAliases => a.aliases }.getOrElse(Nil)
-      aliases.map(_ -> fieldNames.indexOf(name)) :+ (name -> fieldNames.indexOf(name))
-  }.toMap
-  val aliasesMatrix     = fieldAliases.keys.toArray ++ fieldNames
-  val rejectExtraFields = caseClassSchema.annotations.collectFirst({ case _: rejectExtraFields => () }).isDefined
+      val fields                    = caseClassSchema.fields
+      val len: Int                  = fields.length
+      val buffer                    = Array.ofDim[Any](len)
+      val fieldNames                = fields.map(_.name.asInstanceOf[String]).toArray
+      val spans: Array[JsonError]   = fields.map(_.name.asInstanceOf[String]).toArray.map(JsonError.ObjectAccess(_))
+      val schemas: Array[Schema[_]] = fields.map(_.schema).toArray
+      val fieldAliases = fields.flatMap {
+        case Schema.Field(name, _, annotations, _, _, _) =>
+          val aliases = annotations.collectFirst { case a: fieldNameAliases => a.aliases }.getOrElse(Nil)
+          aliases.map(_ -> fieldNames.indexOf(name)) :+ (name -> fieldNames.indexOf(name))
+      }.toMap
+      val aliasesMatrix     = fieldAliases.keys.toArray ++ fieldNames
+      val rejectExtraFields = caseClassSchema.annotations.collectFirst({ case _: rejectExtraFields => () }).isDefined
 
-  @tailrec
-  def loop(index: Int, in: RetractReader): Unit = {
-    val fieldRaw = Lexer.field(trace, in, new StringMatrix(aliasesMatrix))
-    if (index == discriminator) {
-      Lexer.skipValue(trace, in)
-    } else {
-      fieldRaw match {
-        case -1 if index == discriminator => Lexer.skipValue(trace, in)
-        case -1 if rejectExtraFields      => throw UnsafeJson(JsonError.Message("extra field") :: trace)
-        case -1                           => Lexer.skipValue(trace, in)
-        case idx =>
-          val field = fieldAliases.getOrElse(aliasesMatrix(idx), -1)
-          if (buffer(field) != null)
-            throw UnsafeJson(JsonError.Message("duplicate") :: trace)
-          else
-            buffer(field) = schemaDecoder(schemas(field)).unsafeDecode(spans(field) :: trace, in)
+      @tailrec
+      def loop(index: Int, in: RetractReader): Unit = {
+        val fieldRaw = Lexer.field(trace, in, new StringMatrix(aliasesMatrix))
+        if (index == discriminator) {
+          Lexer.skipValue(trace, in)
+        } else {
+          fieldRaw match {
+            case -1 if index == discriminator => Lexer.skipValue(trace, in)
+            case -1 if rejectExtraFields      => throw UnsafeJson(JsonError.Message("extra field") :: trace)
+            case -1                           => Lexer.skipValue(trace, in)
+            case idx =>
+              val field = fieldAliases.getOrElse(aliasesMatrix(idx), -1)
+              if (buffer(field) != null)
+                throw UnsafeJson(JsonError.Message("duplicate") :: trace)
+              else
+                buffer(field) = schemaDecoder(schemas(field)).unsafeDecode(spans(field) :: trace, in)
+          }
+        }
+        if (Lexer.nextField(trace, in)) loop(index + 1, in)
       }
-    }
-    if (Lexer.nextField(trace, in)) loop(index + 1, in)
-  }
 
-  if (discriminator == -1) {
-    Lexer.char(trace, in, '{')
-    if (Lexer.firstField(trace, in)) loop(0, in)
-  } else if (discriminator == -2) {
-    if (Lexer.nextField(trace, in)) loop(0, in)
-  } else {
-    val rr = RecordingReader(in)
-    if (Lexer.firstField(trace, rr)) loop(0, rr)
-  }
-
-  var i = 0
-  while (i < len) {
-    if (buffer(i) == null) {
-      if ((fields(i).optional || fields(i).transient) && fields(i).defaultValue.isDefined) {
-        buffer(i) = fields(i).defaultValue.get
-      } else if (config.ignoreEmptyCollections && isCollectionSchema(schemas(i))) {
-        buffer(i) = createEmptyCollection(schemas(i))
+      if (discriminator == -1) {
+        Lexer.char(trace, in, '{')
+        if (Lexer.firstField(trace, in)) loop(0, in)
+      } else if (discriminator == -2) {
+        if (Lexer.nextField(trace, in)) loop(0, in)
       } else {
-        buffer(i) = schemaDecoder(schemas(i)).unsafeDecodeMissing(spans(i) :: trace)
+        val rr = RecordingReader(in)
+        if (Lexer.firstField(trace, rr)) loop(0, rr)
       }
+
+      var i = 0
+      while (i < len) {
+        if (buffer(i) == null) {
+          if ((fields(i).optional || fields(i).transient) && fields(i).defaultValue.isDefined) {
+            buffer(i) = fields(i).defaultValue.get
+          } else if (config.ignoreEmptyCollections && isCollectionSchema(schemas(i))) {
+            buffer(i) = createEmptyCollection(schemas(i))
+          } else {
+            buffer(i) = schemaDecoder(schemas(i)).unsafeDecodeMissing(spans(i) :: trace)
+          }
+        }
+        i += 1
+      }
+      buffer
     }
-    i += 1
-  }
-  buffer
-}
 
 // Helper method to check if a schema represents a collection type
-private def isCollectionSchema(schema: Schema[_]): Boolean = {
-  schema match {
-    case Schema.Sequence(_, _, _, _, _) => true
-    case Schema.Set(_, _)            => true
-    case Schema.Map(_, _, _)            => true
-    case _                              => false
-  }
-}
-
+    private def isCollectionSchema(schema: Schema[_]): Boolean =
+      schema match {
+        case Schema.Sequence(_, _, _, _, _) => true
+        case Schema.Set(_, _)               => true
+        case Schema.Map(_, _, _)            => true
+        case _                              => false
+      }
 
 // Helper method to create an empty collection based on the schema
-private def createEmptyCollection(schema: Schema[_]): Any = {
-  schema match {
-    case Schema.Sequence(_, _, _,_,_) => List.empty
-    case Schema.Set(_, _)         => Set.empty
-    case Schema.Map(_, _,_)         => Map.empty
-    case _                        => throw new IllegalArgumentException("Unsupported collection schema")
-  }
-}
+    private def createEmptyCollection(schema: Schema[_]): Any =
+      schema match {
+        case Schema.Sequence(_, _, _, _, _) => List.empty
+        case Schema.Set(_, _)               => Set.empty
+        case Schema.Map(_, _, _)            => Map.empty
+        case _                              => throw new IllegalArgumentException("Unsupported collection schema")
+      }
 
   }
 

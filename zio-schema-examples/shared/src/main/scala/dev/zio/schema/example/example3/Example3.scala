@@ -57,8 +57,7 @@ private[example3] object Domain {
 object Example3 extends ZIOAppDefault {
   import dev.zio.schema.example.example3.Domain._
   import zio.schema.codec.JsonCodec
-    implicit val defaultConfig: JsonCodec.Config = JsonCodec.Config.default
-
+  implicit val defaultConfig: JsonCodec.Config = JsonCodec.Config.default
 
   val personTransformation: Schema[Person] = PersonDTO.schema.transform[Person](
     (dto: PersonDTO) => Person(dto.firstname + " " + dto.lastname, dto.years),

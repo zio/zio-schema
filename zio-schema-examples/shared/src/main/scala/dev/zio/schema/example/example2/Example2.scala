@@ -153,8 +153,7 @@ import dev.zio.schema.example.example2.Domain._
 object JsonSample extends zio.ZIOAppDefault {
   import zio.schema.codec.JsonCodec
   import zio.stream.ZStream
-    implicit val defaultConfig: JsonCodec.Config = JsonCodec.Config.default
-
+  implicit val defaultConfig: JsonCodec.Config = JsonCodec.Config.default
 
   override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
@@ -198,8 +197,7 @@ object ProtobufExample extends ZIOAppDefault {
 object CombiningExample extends zio.ZIOAppDefault {
   import zio.schema.codec.{ JsonCodec, ProtobufCodec }
   import zio.stream.ZStream
-    implicit val defaultConfig: JsonCodec.Config = JsonCodec.Config.default
-
+  implicit val defaultConfig: JsonCodec.Config = JsonCodec.Config.default
 
   override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {

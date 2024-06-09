@@ -130,7 +130,6 @@ object MacroConstruction {
 
   implicit val schemaPerson: Schema[Person] = DeriveSchema.gen[Person]
 
-
   val schemaPaymentMethod: Schema[PaymentMethod] = DeriveSchema.gen[PaymentMethod]
 
   val schemaCustomer: Schema[Customer] = DeriveSchema.gen[Customer]
@@ -144,8 +143,7 @@ object JsonSample extends zio.ZIOAppDefault {
   import ManualConstruction._
   import zio.schema.codec.JsonCodec
   import zio.stream.ZStream
-    implicit val defaultConfig: JsonCodec.Config = JsonCodec.Config.default
-
+  implicit val defaultConfig: JsonCodec.Config = JsonCodec.Config.default
 
   override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
@@ -191,9 +189,7 @@ object CombiningExample extends ZIOAppDefault {
   import ManualConstruction._
   import zio.schema.codec.{ JsonCodec, ProtobufCodec }
   import zio.stream.ZStream
-    implicit val defaultConfig: JsonCodec.Config = JsonCodec.Config.default
-
-  
+  implicit val defaultConfig: JsonCodec.Config = JsonCodec.Config.default
 
   override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
@@ -229,7 +225,7 @@ object DictionaryExample extends ZIOAppDefault {
   import MacroConstruction._
   import zio.schema.codec.JsonCodec
   import zio.stream.ZStream
-    implicit val defaultConfig: JsonCodec.Config = JsonCodec.Config.default
+  implicit val defaultConfig: JsonCodec.Config = JsonCodec.Config.default
 
   override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
@@ -238,12 +234,14 @@ object DictionaryExample extends ZIOAppDefault {
       dictionary = Map("m" -> person)
       dictionaryToJson = JsonCodec
         .schemaBasedBinaryCodec[scala.collection.immutable.Map[String, Person]](
-          schemaPersonDictionaryFromMacro, defaultConfig
+          schemaPersonDictionaryFromMacro,
+          defaultConfig
         )
         .streamEncoder
       jsonToDictionary = JsonCodec
         .schemaBasedBinaryCodec[scala.collection.immutable.Map[String, Person]](
-          schemaPersonDictionaryFromMacro, defaultConfig
+          schemaPersonDictionaryFromMacro,
+          defaultConfig
         )
         .streamDecoder
       newPersonDictionary <- ZStream(dictionary)

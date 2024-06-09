@@ -1466,7 +1466,10 @@ object JsonCodecSpec extends ZIOSpecDefault {
     chunk: Chunk[Byte],
     cfg: JsonCodec.Config = JsonCodec.Config.default
   ) = {
-    val result = ZStream.fromChunk(chunk).via(JsonCodec.schemaBasedBinaryCodec[A](cfg)(schema, JsonCodec.Config.default).streamDecoder).runCollect
+    val result = ZStream
+      .fromChunk(chunk)
+      .via(JsonCodec.schemaBasedBinaryCodec[A](cfg)(schema, JsonCodec.Config.default).streamDecoder)
+      .runCollect
     assertZIO(result)(equalTo(Chunk(value)))
   }
 
@@ -1476,13 +1479,22 @@ object JsonCodecSpec extends ZIOSpecDefault {
   ): ZIO[Any, Nothing, TestResult] =
     ZStream
       .succeed(value)
-      .via(JsonCodec.schemaBasedBinaryCodec[zio.schema.Fallback[A, B]](JsonCodec.Config.default)(schema, JsonCodec.Config.default).streamEncoder)
+      .via(
+        JsonCodec
+          .schemaBasedBinaryCodec[zio.schema.Fallback[A, B]](JsonCodec.Config.default)(schema, JsonCodec.Config.default)
+          .streamEncoder
+      )
       .runCollect
       .flatMap { encoded =>
         ZStream
           .fromChunk(encoded)
           .via(
-            JsonCodec.schemaBasedBinaryCodec[zio.schema.Fallback[A, B]](JsonCodec.Config.default)(schema, JsonCodec.Config.default).streamDecoder
+            JsonCodec
+              .schemaBasedBinaryCodec[zio.schema.Fallback[A, B]](JsonCodec.Config.default)(
+                schema,
+                JsonCodec.Config.default
+              )
+              .streamDecoder
           )
           .runCollect
       }
