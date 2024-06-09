@@ -1,14 +1,12 @@
 package zio.schema.codec
 
 import java.time.{ ZoneId, ZoneOffset }
-
 import scala.collection.immutable.ListMap
-
 import zio.Console._
 import zio._
 import zio.json.JsonDecoder.JsonError
 import zio.json.ast.Json
-import zio.json.{ DeriveJsonEncoder, JsonEncoder }
+import zio.json.{ DeriveJsonEncoder, JsonEncoder, JsonStreamDelimiter }
 import zio.schema.CaseSet._
 import zio.schema._
 import zio.schema.annotation._
@@ -17,10 +15,12 @@ import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.schema.codec.JsonCodecSpec.PaymentMethod.{ CreditCard, PayPal, WireTransfer }
 import zio.schema.codec.JsonCodecSpec.Subscription.{ OneTime, Recurring }
 import zio.schema.meta.MetaSchema
-import zio.stream.ZStream
+import zio.stream.{ ZPipeline, ZStream }
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
+
+import java.nio.charset.StandardCharsets
 
 object JsonCodecSpec extends ZIOSpecDefault {
 
@@ -574,7 +574,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
               |""".stripMargin
           )
         )
-      },
+      } @@ TestAspect.tag("stream", "decoding"),
       test("case class with option fields omitted when empty") {
         assertDecodes(
           WithOptionFields.schema,
@@ -602,7 +602,16 @@ object JsonCodecSpec extends ZIOSpecDefault {
           WithComplexOptionField(Some(Order(1, BigDecimal.valueOf(10), "test"))),
           charSequenceToByteChunk("""{"order":{"id":1,"value":10,"description":"test"}}""")
         )
-      }
+      },
+      test("case class with empty option field is decoded by stream") {
+        ZStream
+          .fromChunk(charSequenceToByteChunk("[{\"name\":\"John\"}]"))
+          .via(ZPipeline.decodeCharsWith(StandardCharsets.UTF_8))
+          .via(JsonCodec.jsonDecoder(AllOptionalFields.schema).decodeJsonPipeline(JsonStreamDelimiter.Array))
+          .runCollect
+          .either
+          .map(results => assertTrue(results.isRight))
+      } // @@ TestAspect.tag("stream", "decoding")
     ),
     suite("enums")(
       test("case name aliases - default") {

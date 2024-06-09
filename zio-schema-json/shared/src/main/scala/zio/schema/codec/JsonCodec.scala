@@ -2,20 +2,18 @@ package zio.schema.codec
 
 import java.nio.CharBuffer
 import java.nio.charset.StandardCharsets
-
-import scala.annotation.tailrec
+import scala.annotation.{ switch, tailrec }
 import scala.collection.immutable.ListMap
-
 import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.ast.Json
-import zio.json.internal.{ Lexer, RecordingReader, RetractReader, StringMatrix, Write }
+import zio.json.internal.{ Lexer, RecordingReader, RetractReader, StringMatrix, WithRecordingReader, Write }
 import zio.json.{
+  JsonFieldDecoder,
+  JsonFieldEncoder,
   JsonCodec => ZJsonCodec,
   JsonDecoder => ZJsonDecoder,
-  JsonEncoder => ZJsonEncoder,
-  JsonFieldDecoder,
-  JsonFieldEncoder
+  JsonEncoder => ZJsonEncoder
 }
 import zio.schema._
 import zio.schema.annotation._
@@ -78,9 +76,7 @@ object JsonCodec {
         )
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
-        ZPipeline.fromChannel(
-          ZPipeline.utfDecode.channel.mapError(cce => ReadError(Cause.fail(cce), cce.getMessage))
-        ) >>>
+        ZPipeline.utfDecode.mapError(cce => ReadError(Cause.fail(cce), cce.getMessage)) >>>
           ZPipeline.groupAdjacentBy[String, Unit](_ => ()) >>>
           ZPipeline.map[(Unit, NonEmptyChunk[String]), String] {
             case (_, fragments) => fragments.mkString
@@ -504,26 +500,33 @@ object JsonCodec {
       (_: List[JsonError], in: RetractReader) => {
         val c1 = in.nextNonWhitespace()
         val c2 = in.nextNonWhitespace()
-        if (c1 == '{' && c2 == '}') {
-          true
-        } else {
-          false
-        }
+        c1 == '{' && c2 == '}'
       }
 
     private[schema] def option[A](A: ZJsonDecoder[A]): ZJsonDecoder[Option[A]] =
       new ZJsonDecoder[Option[A]] { self =>
 
-        def unsafeDecode(trace: List[JsonError], in: RetractReader): Option[A] = {
-          val in2 = new zio.json.internal.WithRecordingReader(in, 2)
-          if (emptyObjectDecoder.unsafeDecode(trace, in2)) {
-            None
-          } else {
-            in2.retract()
-            in2.rewind()
-            zio.json.JsonDecoder.option(A).unsafeDecode(trace, in2)
+        private[this] val ull: Array[Char] = "ull".toCharArray
+
+        def unsafeDecode(trace: List[JsonError], in: RetractReader): Option[A] =
+          (in.nextNonWhitespace(): @switch) match {
+            case 'n' =>
+              Lexer.readChars(trace, in, ull, "null")
+              None
+            case '{' =>
+              // If we encounter a `{` it could either be a legitimate object or an empty object marker
+              in.retract()
+              val rr = new WithRecordingReader(in, 2)
+              if (emptyObjectDecoder.unsafeDecode(trace, rr)) {
+                None
+              } else {
+                rr.rewind()
+                Some(A.unsafeDecode(trace, rr))
+              }
+            case _ =>
+              in.retract()
+              Some(A.unsafeDecode(trace, in))
           }
-        }
 
         override def unsafeDecodeMissing(trace: List[JsonError]): Option[A] =
           None
