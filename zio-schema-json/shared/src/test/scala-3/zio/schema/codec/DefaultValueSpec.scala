@@ -9,22 +9,23 @@ import zio.test.TestAspect._
 import zio.test.*
 
 object DefaultValueSpec extends ZIOSpecDefault {
+  implicit val defaultConfig: JsonCodec.Config = JsonCodec.Config.default
 
   def spec: Spec[TestEnvironment, Any] =
     suite("Custom Spec")(
-      customSuite,
+      customSuite
     ) @@ timeout(90.seconds)
 
   private val customSuite = suite("custom")(
     suite("default value schema")(
       test("default value at last field") {
-        val result = JsonCodec.jsonDecoder(Schema[WithDefaultValue]).decodeJson("""{"orderId": 1}""")
+        val result = JsonCodec.jsonDecoder(Schema[WithDefaultValue], defaultConfig).decodeJson("""{"orderId": 1}""")
         assertTrue(result.isRight)
       }
     )
   )
 
-  case class WithDefaultValue(orderId:Int, description: String = "desc")
+  case class WithDefaultValue(orderId: Int, description: String = "desc")
 
   object WithDefaultValue {
     implicit lazy val schema: Schema[WithDefaultValue] = DeriveSchema.gen[WithDefaultValue]
