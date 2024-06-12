@@ -2,12 +2,12 @@ package zio.schema.codec
 
 import scala.reflect.{ ClassTag, classTag }
 
-import org.bson._
 import org.bson.codecs.configuration.CodecRegistry
 import org.bson.codecs.{ Codec => BCodec, DecoderContext, EncoderContext }
 import org.bson.conversions.Bson
 import org.bson.io.BasicOutputBuffer
-import org.bson.types.ObjectId
+import org.bson.types.{ Decimal128, ObjectId }
+import org.bson.{ BsonDecimal128, _ }
 
 import zio.bson.BsonBuilder._
 import zio.bson._
@@ -22,6 +22,13 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
   object SimpleClass {
     implicit val schema: Schema[SimpleClass]        = DeriveSchema.gen
     implicit lazy val codec: BsonCodec[SimpleClass] = BsonSchemaCodec.bsonCodec(schema)
+  }
+
+  case class BigDecimalClass(value: BigDecimal)
+
+  object BigDecimalClass {
+    implicit val schema: Schema[BigDecimalClass]        = DeriveSchema.gen
+    implicit lazy val codec: BsonCodec[BigDecimalClass] = BsonSchemaCodec.bsonCodec(schema)
   }
 
   sealed trait Tree
@@ -79,6 +86,10 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
       } yield Customer(id, name, age, friends)
   }
 
+  // Custom generator for BigDecimal values with rounding to ensure exact representation as Decimal128
+  def genRoundedBigDecimal(scale: Int): Gen[Any, BigDecimal] =
+    Gen.double.map(d => BigDecimal(d).setScale(scale, BigDecimal.RoundingMode.HALF_UP))
+
   def spec: Spec[TestEnvironment with Scope, Any] = suite("BsonSchemaCodecSpec")(
     suite("round trip")(
       roundTripTest("SimpleClass")(
@@ -107,6 +118,12 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
             Customer.example.invitedFriends.map(_.value.toBsonValue): _*
           )
         )
+      ),
+      roundTripTest("BigDecimalClass")(
+        // 14 decimal places in the assert value below
+        genRoundedBigDecimal(14).map(BigDecimalClass(_)),
+        BigDecimalClass(BigDecimal("279.00000000000000")),
+        doc("value" -> new BsonDecimal128(Decimal128.parse("279.00000000000000")))
       )
     ),
     suite("configuration")(
