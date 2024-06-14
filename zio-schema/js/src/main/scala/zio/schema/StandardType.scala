@@ -1,10 +1,24 @@
 package zio.schema
 
+import zio.schema.{DeriveSchema, Schema, TypeId}
+import zio.schema.Schema.Field
 import java.math.BigInteger
 import java.time
 import java.time._
 
 import zio.Chunk
+
+case class Data[A](data: List[A])
+
+object Data {
+  implicit def schema[A: Schema]: Schema[Data[A]] = {
+    Schema.CaseClass1[List[A], Data[A]](
+      TypeId.Structural,
+      Field("data", Schema[List[A]], get0 = _.data, set0 = (d, data) => d.copy(data = data)),
+      (data) => Data(data)
+    )
+  }
+}
 
 sealed trait StandardType[A] extends Ordering[A] { self =>
   def tag: String
