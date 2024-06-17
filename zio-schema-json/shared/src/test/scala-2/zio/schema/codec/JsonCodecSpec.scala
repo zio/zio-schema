@@ -1881,30 +1881,30 @@ object JsonCodecSpec extends ZIOSpecDefault {
   }
 
   case class RecordExample(
-                      f1: Option[String],
-                      f2: Option[String],
-                      f3: Option[String] = None,
-                      f4: Option[String] = None,
-                      f5: Option[String] = None,
-                      f6: Option[String] = None,
-                      f7: Option[String] = None,
-                      f8: Option[String] = None,
-                      f9: Option[String] = None,
-                      f10: Option[String] = None,
-                      f11: Option[String] = None,
-                      f12: Option[String] = None,
-                      f13: Option[String] = None,
-                      f14: Option[String] = None,
-                      f15: Option[String] = None,
-                      f16: Option[String] = None,
-                      f17: Option[String] = None,
-                      f18: Option[String] = None,
-                      f19: Option[String] = None,
-                      f20: Option[String] = None,
-                      f21: Option[String] = None,
-                      f22: Option[String] = None,
-                      f23: Option[String] = None
-                    )
+    f1: Option[String],
+    f2: Option[String],
+    f3: Option[String] = None,
+    f4: Option[String] = None,
+    f5: Option[String] = None,
+    f6: Option[String] = None,
+    f7: Option[String] = None,
+    f8: Option[String] = None,
+    f9: Option[String] = None,
+    f10: Option[String] = None,
+    f11: Option[String] = None,
+    f12: Option[String] = None,
+    f13: Option[String] = None,
+    f14: Option[String] = None,
+    f15: Option[String] = None,
+    f16: Option[String] = None,
+    f17: Option[String] = None,
+    f18: Option[String] = None,
+    f19: Option[String] = None,
+    f20: Option[String] = None,
+    f21: Option[String] = None,
+    f22: Option[String] = None,
+    f23: Option[String] = None
+  )
 
   object RecordExample {
     implicit lazy val schema: Schema[RecordExample] = DeriveSchema.gen[RecordExample]
