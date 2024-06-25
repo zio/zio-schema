@@ -118,6 +118,22 @@ sealed trait DynamicValue {
       case _ =>
         Left(DecodeError.CastError(self, schema))
     }
+  override def hashCode(): Int = this match {
+    case DynamicValue.Primitive(value, standardType) => 31 * value.hashCode() + standardType.hashCode()
+    case DynamicValue.Record(id, values)             => 31 * id.hashCode() + values.hashCode()
+    case DynamicValue.Enumeration(id, value)         => 31 * id.hashCode() + value.hashCode()
+    case DynamicValue.Sequence(values)               => values.hashCode()
+    case DynamicValue.Dictionary(entries)            => entries.hashCode()
+    case DynamicValue.SetValue(values)               => values.hashCode()
+    case DynamicValue.SomeValue(value)               => value.hashCode()
+    case DynamicValue.NoneValue                      => 0
+    case DynamicValue.Tuple(left, right)             => 31 * left.hashCode() + right.hashCode()
+    case DynamicValue.LeftValue(value)               => value.hashCode()
+    case DynamicValue.RightValue(value)              => value.hashCode()
+    case DynamicValue.BothValue(left, right)         => 31 * left.hashCode() + right.hashCode()
+    case DynamicValue.DynamicAst(ast)                => ast.hashCode()
+    case DynamicValue.Error(message)                 => message.hashCode()
+  }
 
 }
 

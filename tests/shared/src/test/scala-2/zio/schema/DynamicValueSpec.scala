@@ -100,6 +100,14 @@ object DynamicValueSpec extends ZIOSpecDefault {
             assertTrue(json2 == Right(json))
           }
         } @@ TestAspect.size(250) @@ TestAspect.ignore
+      ),
+      suite("hashCode consistency")(
+        test("hashCode does not change across runs") {
+          val primitive1 = DynamicValue.Primitive(123, StandardType.IntType)
+          val hash1      = primitive1.hashCode()
+          val hash2      = primitive1.hashCode()
+          assert(hash1)(equalTo(hash2))
+        }
       )
     )
 
