@@ -133,6 +133,7 @@ sealed trait DynamicValue {
     case DynamicValue.BothValue(left, right)         => 31 * left.hashCode() + right.hashCode()
     case DynamicValue.DynamicAst(ast)                => ast.hashCode()
     case DynamicValue.Error(message)                 => message.hashCode()
+    case DynamicValue.Singleton(instance)            => instance.hashCode()
   }
 
 }
