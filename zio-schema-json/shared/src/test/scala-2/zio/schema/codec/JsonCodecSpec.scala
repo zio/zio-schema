@@ -222,7 +222,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
       test("missing fields should be replaced by default values") {
         assertDecodes(
           recordSchema,
-          ListMap[String, Any]("foo" -> "s", "bar" -> 0),
+          ListMap[String, Any]("foo" -> "s", "bar" -> 1),
           charSequenceToByteChunk("""{"foo":"s"}""")
         )
       },
@@ -1650,6 +1650,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
       .Field(
         "bar",
         Schema.Primitive(StandardType.IntType),
+        annotations0 = Chunk(fieldDefaultValue(1)),
         get0 = (p: ListMap[String, _]) => p("bar").asInstanceOf[Int],
         set0 = (p: ListMap[String, _], v: Int) => p.updated("bar", v)
       )
