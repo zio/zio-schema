@@ -1883,8 +1883,8 @@ object JsonCodecSpec extends ZIOSpecDefault {
   }
 
   case class RecordExample(
-    f1: Option[String],
-    f2: Option[String],
+    f1: Option[String], // the only field that does not have a default value
+    f2: Option[String] = None,
     f3: Option[String] = None,
     f4: Option[String] = None,
     f5: Option[String] = None,
