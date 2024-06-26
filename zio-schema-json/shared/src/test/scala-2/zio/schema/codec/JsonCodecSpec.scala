@@ -1,19 +1,21 @@
 package zio.schema.codec
 
-import java.time.{ZoneId, ZoneOffset}
+import java.time.{ ZoneId, ZoneOffset }
+
 import scala.collection.immutable.ListMap
+
 import zio.Console._
 import zio._
 import zio.json.JsonDecoder.JsonError
 import zio.json.ast.Json
-import zio.json.{DeriveJsonEncoder, JsonEncoder}
+import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
-import zio.schema.codec.JsonCodecSpec.PaymentMethod.{CreditCard, PayPal, WireTransfer}
-import zio.schema.codec.JsonCodecSpec.Subscription.{OneTime, Recurring}
+import zio.schema.codec.JsonCodecSpec.PaymentMethod.{ CreditCard, PayPal, WireTransfer }
+import zio.schema.codec.JsonCodecSpec.Subscription.{ OneTime, Recurring }
 import zio.schema.meta.MetaSchema
 import zio.stream.ZStream
 import zio.test.Assertion._
