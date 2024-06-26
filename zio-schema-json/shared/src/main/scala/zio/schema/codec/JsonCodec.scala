@@ -830,7 +830,18 @@ object JsonCodec {
               ()
             }
           }
-          (ListMap.newBuilder[String, Any] ++= builder.result()).result()
+          val tuples                       = builder.result()
+          val collectedFields: Set[String] = tuples.map { case (fieldName, _) => fieldName }.toSet
+          val resultBuilder                = ListMap.newBuilder[String, Any]
+
+          // add fields with default values if they are not present in the JSON
+          structure.foreach { field =>
+            if (!collectedFields.contains(field.name) && field.optional && field.defaultValue.isDefined) {
+              val value = field.name -> field.defaultValue.get
+              resultBuilder += value
+            }
+          }
+          (resultBuilder ++= tuples).result()
         }
     }
 

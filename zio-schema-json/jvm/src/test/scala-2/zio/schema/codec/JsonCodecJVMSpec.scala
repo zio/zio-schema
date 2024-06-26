@@ -20,6 +20,18 @@ object JsonCodecJVMSpec extends ZIOSpecDefault {
     ) @@ TestAspect.jvmOnly @@ timeout(180.seconds)
 
   private val decoderSuite = suite("decoding")(
+    suite("decode record with more than 22 fields")(
+      test("missing fields in the json payload are populated with their default values") {
+        val exampleSchema = zio.schema.DeriveSchema.gen[RecordExample]
+        val string        = """{"f1": "test"}"""
+        assertDecodesJson(exampleSchema, RecordExample(Some("test")), string)
+      },
+      test("fail if a field with no default value is missing in the json payload") {
+        val exampleSchema = zio.schema.DeriveSchema.gen[RecordExample2]
+        val string        = """{"f1": "test"}"""
+        assertDecodesJsonFailure(exampleSchema, string)
+      }
+    ),
     suite("case class")(
       test("case class with empty option field is decoded by stream") {
         val names     = Gen.option(Gen.elements("John", "Jane", "Jermaine", "Jasmine"))
@@ -50,6 +62,16 @@ object JsonCodecJVMSpec extends ZIOSpecDefault {
     )
   )
 
+  private def assertDecodesJson[A](schema: Schema[A], value: A, jsonString: String) = {
+    val either = JsonCodec.jsonDecoder(schema).decodeJson(jsonString)
+    zio.test.assert(either)(isRight(equalTo(value)))
+  }
+
+  private def assertDecodesJsonFailure[A](schema: Schema[A], jsonString: String) = {
+    val either = JsonCodec.jsonDecoder(schema).decodeJson(jsonString)
+    zio.test.assertTrue(either.isLeft)
+  }
+
   private def assertDecodesJsonStream[A](
     schema: Schema[A],
     value: Chunk[A],
@@ -64,4 +86,57 @@ object JsonCodecJVMSpec extends ZIOSpecDefault {
       .either
     assertZIO(result)(isRight(equalTo(value)))
   }
+
+  case class RecordExample(
+    f1: Option[String],
+    f2: Option[String] = None,
+    f3: Option[String] = None,
+    f4: Option[String] = None,
+    f5: Option[String] = None,
+    f6: Option[String] = None,
+    f7: Option[String] = None,
+    f8: Option[String] = None,
+    f9: Option[String] = None,
+    f10: Option[String] = None,
+    f11: Option[String] = None,
+    f12: Option[String] = None,
+    f13: Option[String] = None,
+    f14: Option[String] = None,
+    f15: Option[String] = None,
+    f16: Option[String] = None,
+    f17: Option[String] = None,
+    f18: Option[String] = None,
+    f19: Option[String] = None,
+    f20: Option[String] = None,
+    f21: Option[String] = None,
+    f22: Option[String] = None,
+    f23: Option[String] = None
+  )
+
+  case class RecordExample2(
+    f1: Option[String],
+    f2: Option[String],
+    f3: Option[String] = None,
+    f4: Option[String] = None,
+    f5: Option[String] = None,
+    f6: Option[String] = None,
+    f7: Option[String] = None,
+    f8: Option[String] = None,
+    f9: Option[String] = None,
+    f10: Option[String] = None,
+    f11: Option[String] = None,
+    f12: Option[String] = None,
+    f13: Option[String] = None,
+    f14: Option[String] = None,
+    f15: Option[String] = None,
+    f16: Option[String] = None,
+    f17: Option[String] = None,
+    f18: Option[String] = None,
+    f19: Option[String] = None,
+    f20: Option[String] = None,
+    f21: Option[String] = None,
+    f22: Option[String] = None,
+    f23: Option[String] = None
+  )
+
 }
