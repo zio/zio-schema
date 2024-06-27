@@ -1906,7 +1906,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     f20: Option[String] = None,
     f21: Option[String] = None,
     f22: Option[String] = None,
-    f23: Option[String] = None
+    @fieldName("$f23") f23: Option[String] = None
   )
 
   object RecordExample {
