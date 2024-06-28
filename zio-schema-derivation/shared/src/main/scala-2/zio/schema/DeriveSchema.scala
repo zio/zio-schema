@@ -330,9 +330,11 @@ object DeriveSchema {
               }
           }
           val fromMap = {
-            val casts = fieldTypes.map { termSymbol =>
-              q"""
-                 try m.apply(${termSymbol.name.toString.trim}).asInstanceOf[${termSymbol.typeSignature}]
+            val casts = fieldTypes.zip(fieldAnnotations).map {
+              case (termSymbol, annotations) =>
+                val newName = getFieldName(annotations).getOrElse(termSymbol.name.toString.trim)
+                q"""
+                 try m.apply(${newName}).asInstanceOf[${termSymbol.typeSignature}]
                  catch {
                    case _: ClassCastException => throw new RuntimeException("Field " + ${termSymbol.name.toString.trim} + " has invalid type")
                    case _: Throwable  => throw new RuntimeException("Field " + ${termSymbol.name.toString.trim} + " is missing")

@@ -814,7 +814,9 @@ object JsonCodec {
           if (Lexer.firstField(trace, in)) {
             while ({
               val field = Lexer.string(trace, in).toString
-              structure.find(_.name == field) match {
+              structure.find(
+                f => f.name == field || f.annotations.collectFirst { case fieldName(name) => name }.contains(field)
+              ) match {
                 case Some(Schema.Field(label, schema, _, _, _, _)) =>
                   val trace_ = JsonError.ObjectAccess(label) :: trace
                   Lexer.char(trace_, in, ':')
