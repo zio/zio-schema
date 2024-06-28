@@ -12,7 +12,7 @@ object DefaultValueSpec extends ZIOSpecDefault {
 
   def spec: Spec[TestEnvironment, Any] =
     suite("Custom Spec")(
-      customSuite,
+      customSuite
     ) @@ timeout(90.seconds)
 
   private val customSuite = suite("custom")(
@@ -24,7 +24,7 @@ object DefaultValueSpec extends ZIOSpecDefault {
     )
   )
 
-  case class WithDefaultValue(orderId:Int, description: String = "desc")
+  case class WithDefaultValue(orderId: Int, description: String = "desc")
 
   object WithDefaultValue {
     implicit lazy val schema: Schema[WithDefaultValue] = DeriveSchema.gen[WithDefaultValue]
