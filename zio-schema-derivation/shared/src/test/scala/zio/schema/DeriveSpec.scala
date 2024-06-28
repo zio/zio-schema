@@ -189,6 +189,9 @@ import zio.{ Chunk, Scope }
             maybeTypeInfo.contains(
               genericTypeInfo(ListMap("T" -> TypeId.parse("scala.Int").asInstanceOf[TypeId.Nominal]))
             ),
+            capturedSchema.schema.asInstanceOf[Schema.Record[GenericRecordWithDefaultValue[Int]]].id == TypeId.parse(
+              "zio.schema.DeriveSpec.GenericRecordWithDefaultValue"
+            ),
             annotations.exists { a =>
               a.isInstanceOf[fieldDefaultValue[_]] &&
               a.asInstanceOf[fieldDefaultValue[Option[Int]]].value == None
