@@ -195,7 +195,12 @@ private case class DeriveSchema()(using val ctx: Quotes) {
       then TypeRepr.of[T].typeSymbol.children.map(_.annotations).flatten.filter (filterAnnotation).map (_.asExpr)
       else TypeRepr.of[T].typeSymbol.annotations.filter (filterAnnotation).map (_.asExpr)
 
-    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr)}) }
+    val genericAnnotations = if (TypeRepr.of[T].classSymbol.exists(_.typeMembers.nonEmpty)){
+      val typeMembersExpr = Expr.ofSeq(TypeRepr.of[T].classSymbol.get.typeMembers.map { t => Expr(t.name) })
+      val typeArgsExpr = Expr.ofSeq(TypeRepr.of[T].typeArgs.map { t => Expr(t.typeSymbol.fullName) })
+      List('{zio.schema.annotation.genericTypeInfo(ListMap.from(${typeMembersExpr}.zip(${typeArgsExpr}.map(name => TypeId.parse(name).asInstanceOf[TypeId.Nominal]))))})
+    } else List.empty
+    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(genericAnnotations)}) }
     val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
 
     val applied = if (labels.length <= 22) {
@@ -372,7 +377,12 @@ private case class DeriveSchema()(using val ctx: Quotes) {
       case (false, true) => throw new Exception(s"${TypeRepr.of[T].typeSymbol.name} must be a simple Enum")
       case _             => TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
     }
-    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr.toList)}) }
+    val genericAnnotations = if (TypeRepr.of[T].classSymbol.exists(_.typeMembers.nonEmpty)){
+      val typeMembersExpr = Expr.ofSeq(TypeRepr.of[T].classSymbol.get.typeMembers.map { t => Expr(t.name) })
+      val typeArgsExpr = Expr.ofSeq(TypeRepr.of[T].typeArgs.map { t => Expr(t.typeSymbol.fullName) })
+      List('{zio.schema.annotation.genericTypeInfo(ListMap.from(${typeMembersExpr}.zip(${typeArgsExpr}.map(name => TypeId.parse(name).asInstanceOf[TypeId.Nominal]))))})
+    } else List.empty
+    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr.toList)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(genericAnnotations)}) }
 
     val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
 
