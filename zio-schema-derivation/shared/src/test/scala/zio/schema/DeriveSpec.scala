@@ -184,6 +184,9 @@ import zio.{ Chunk, Scope }
             .fields(0)
             .annotations
           assertTrue(
+            capturedSchema.schema.asInstanceOf[Schema.Record[GenericRecordWithDefaultValue[Int]]].id == TypeId.parse(
+              "zio.schema.DeriveSpec.GenericRecordWithDefaultValue"
+            ),
             annotations.exists { a =>
               a.isInstanceOf[fieldDefaultValue[_]] &&
               a.asInstanceOf[fieldDefaultValue[Option[Int]]].value == None
