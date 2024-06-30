@@ -48,6 +48,23 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
     @description("Red")
     case Red
 
+  enum NonSimpleEnum1:
+    case A(a: Int)
+
+  enum NonSimpleEnum2(a: Int):
+    case A(b: Int) extends NonSimpleEnum2(0)
+
+
+  enum NonSimpleEnum3(a: Int):
+    case A(b: Int) extends NonSimpleEnum3(b)
+
+  enum NonSimpleEnum4(val a: Int):
+    case A(override val a: Int) extends NonSimpleEnum4(a)
+
+  enum NonSimpleEnum5(a: Int, b: String):
+    case A extends NonSimpleEnum5(0, "")
+    case B(n: Int) extends NonSimpleEnum5(n, "")
+
   def versionSpecificSuite = Spec.labeled(
     "Scala 3 specific tests",
     suite("Derivation")(
@@ -67,6 +84,18 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
       test("correctly assigns simpleEnum to enum") {
         val derived: Schema[Colour] = DeriveSchema.gen[Colour]
         assertTrue(derived.annotations == Chunk(simpleEnum(true)))
+      },
+      test("doesn't assigns simpleEnum to non-simple enum") {
+        val derived1: Schema[NonSimpleEnum1] = DeriveSchema.gen[NonSimpleEnum1]
+        val derived2: Schema[NonSimpleEnum2] = DeriveSchema.gen[NonSimpleEnum2]
+        val derived3: Schema[NonSimpleEnum3] = DeriveSchema.gen[NonSimpleEnum3]
+        val derived4: Schema[NonSimpleEnum4] = DeriveSchema.gen[NonSimpleEnum4]
+        val derived5: Schema[NonSimpleEnum5] = DeriveSchema.gen[NonSimpleEnum5]
+        assertTrue(derived1.annotations.isEmpty) &&
+        assertTrue(derived2.annotations.isEmpty) &&
+        assertTrue(derived3.annotations.isEmpty) &&
+        assertTrue(derived4.annotations.isEmpty) &&
+        assertTrue(derived5.annotations.isEmpty)
       },
       test("derive different annotations for parent and child in enum") {
         val parent = DeriveSchema.gen[ColourAnnotations]
