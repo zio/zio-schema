@@ -417,7 +417,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         )
       }
     ),
-    suite("Generic Record") {
+    suite("Generic Record")(
       test("Do not encode transient field") {
         assertEncodes(
           RecordExample.schema.annotate(rejectExtraFields()),
@@ -427,8 +427,16 @@ object JsonCodecSpec extends ZIOSpecDefault {
           )
         )
       }
-
-    }
+    ),
+    suite("EnumN")(
+      test("Respects the case name annotation") {
+        assertEncodesJson(
+          Enum23Cases.schema,
+          Enum23Cases.Case1("foo"),
+          """{"NumberOne":{"value":"foo"}}"""
+        )
+      }
+    )
   )
 
   private val decoderSuite = suite("decoding")(
@@ -447,7 +455,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         )
       } @@ TestAspect.jvmOnly
     ),
-    suite("generic record")(
+    suite("Generic record")(
       test("with extra fields") {
         assertDecodes(
           recordSchema,
@@ -481,6 +489,22 @@ object JsonCodecSpec extends ZIOSpecDefault {
           RecordExampleWithOptField.schema,
           RecordExampleWithOptField(f1 = Some("test"), f2 = None, f4 = "", f5 = "hello"),
           charSequenceToByteChunk("""{"$f1":"test"}""")
+        )
+      }
+    ),
+    suite("EnumN")(
+      test("Respects the case name annotation") {
+        assertDecodes(
+          Enum23Cases.schema,
+          Enum23Cases.Case1("foo"),
+          charSequenceToByteChunk("""{"NumberOne":{"value":"foo"}}""")
+        )
+      },
+      test("Respects case aliases") {
+        assertDecodes(
+          Enum23Cases.schema,
+          Enum23Cases.Case1("foo"),
+          charSequenceToByteChunk("""{"One":{"value":"foo"}}""")
         )
       }
     ),
@@ -1975,4 +1999,55 @@ object JsonCodecSpec extends ZIOSpecDefault {
       DeriveSchema.gen[RecordExampleWithOptField]
   }
 
+  sealed trait Enum23Cases
+
+  object Enum23Cases {
+    implicit lazy val schema: Schema[Enum23Cases] = DeriveSchema.gen[Enum23Cases]
+
+    @caseName("NumberOne") @caseNameAliases("One") case class Case1(value: String) extends Enum23Cases
+
+    case class Case2(value: Int) extends Enum23Cases
+
+    case class Case3(value: String) extends Enum23Cases
+
+    case class Case4(value: String) extends Enum23Cases
+
+    case class Case5(value: String) extends Enum23Cases
+
+    case class Case6(value: String) extends Enum23Cases
+
+    case class Case7(value: String) extends Enum23Cases
+
+    case class Case8(value: String) extends Enum23Cases
+
+    case class Case9(value: String) extends Enum23Cases
+
+    case class Case10(value: String) extends Enum23Cases
+
+    case class Case11(value: String) extends Enum23Cases
+
+    case class Case12(value: String) extends Enum23Cases
+
+    case class Case13(value: String) extends Enum23Cases
+
+    case class Case14(value: String) extends Enum23Cases
+
+    case class Case15(value: String) extends Enum23Cases
+
+    case class Case16(value: String) extends Enum23Cases
+
+    case class Case17(value: String) extends Enum23Cases
+
+    case class Case18(value: String) extends Enum23Cases
+
+    case class Case19(value: String) extends Enum23Cases
+
+    case class Case20(value: String) extends Enum23Cases
+
+    case class Case21(value: String) extends Enum23Cases
+
+    case class Case22(value: String) extends Enum23Cases
+
+    case class Case23(value: String) extends Enum23Cases
+  }
 }
