@@ -292,6 +292,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"oneOf":{"_type":"StringValue2","value":"foo2"}}""")
         )
       },
+      test("ADT with intermediate enumeration") {
+        assertEncodes(
+          Schema[IntermediateEnum],
+          IntermediateEnum.FinalElem,
+          charSequenceToByteChunk(""""FinalElem"""")
+        )
+      },
       test("case class") {
         assertEncodes(
           searchRequestWithTransientFieldSchema,
@@ -1226,6 +1233,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Enumeration2(BooleanValue2(false))
         )
       },
+      test("ADT with intermediate enumeration") {
+        assertEncodesThenDecodes(
+          Schema[IntermediateEnum],
+          IntermediateEnum.FinalElem
+        )
+      },
       test("ADT with noDiscriminator") {
         assertEncodesThenDecodes(
           Schema[Enumeration3],
@@ -1740,6 +1753,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object Enumeration3 {
     implicit val schema: Schema[Enumeration3] = DeriveSchema.gen[Enumeration3]
+  }
+
+  sealed trait IntermediateEnum
+
+  object IntermediateEnum {
+    sealed trait IntermediateElem extends IntermediateEnum
+    case object FinalElem         extends IntermediateEnum
+    implicit val schema: zio.schema.Schema[IntermediateEnum] = zio.schema.DeriveSchema.gen[IntermediateEnum]
   }
 
   sealed trait Color
