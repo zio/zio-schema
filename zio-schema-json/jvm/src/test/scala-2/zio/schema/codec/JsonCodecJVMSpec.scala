@@ -115,7 +115,7 @@ object JsonCodecJVMSpec extends ZIOSpecDefault {
 
   case class RecordExample2(
     f1: Option[String],
-    f2: Option[String],
+    f2: String,
     f3: Option[String] = None,
     f4: Option[String] = None,
     f5: Option[String] = None,

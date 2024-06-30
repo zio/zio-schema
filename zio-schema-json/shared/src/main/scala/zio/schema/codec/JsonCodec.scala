@@ -462,7 +462,8 @@ object JsonCodec {
             pad(indent_, out)
             var first = true
             structure.foreach {
-              case Schema.Field(k, a, _, _, _, _) =>
+              case field if field.transient || isEmptyOptionalValue(field, value(field.fieldName), cfg) => ()
+              case f @ Schema.Field(_, a, _, _, _, _) =>
                 val enc = schemaEncoder(a.asInstanceOf[Schema[Any]], cfg)
                 if (first)
                   first = false
@@ -471,10 +472,10 @@ object JsonCodec {
                   if (indent.isDefined)
                     ZJsonEncoder.pad(indent_, out)
                 }
-                string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(k), indent_, out)
+                string.encoder.unsafeEncode(JsonFieldEncoder.string.unsafeEncodeField(f.fieldName), indent_, out)
                 if (indent.isEmpty) out.write(':')
                 else out.write(" : ")
-                enc.unsafeEncode(value(k), indent_, out)
+                enc.unsafeEncode(value(f.fieldName), indent_, out)
             }
             pad(indent, out)
             out.write('}')
@@ -551,7 +552,7 @@ object JsonCodec {
       case Schema.Map(ks, vs, _)                 => mapDecoder(ks, vs)
       case Schema.Set(s, _)                      => ZJsonDecoder.chunk(schemaDecoder(s, -1)).map(entries => entries.toSet)
       case Schema.Fail(message, _)               => failDecoder(message)
-      case Schema.GenericRecord(_, structure, _) => recordDecoder(structure.toChunk)
+      case Schema.GenericRecord(_, structure, _) => recordDecoder(structure.toChunk, schema.annotations.contains(rejectExtraFields()))
       case Schema.Either(left, right, _)         => ZJsonDecoder.either(schemaDecoder(left, -1), schemaDecoder(right, -1))
       case s @ Schema.Fallback(_, _, _, _)       => fallbackDecoder(s)
       case l @ Schema.Lazy(_)                    => schemaDecoder(l.schema, discriminator)
@@ -806,45 +807,48 @@ object JsonCodec {
     private def deAliasCaseName(alias: String, caseNameAliases: Map[String, String]): String =
       caseNameAliases.getOrElse(alias, alias)
 
-    private def recordDecoder[Z](structure: Seq[Schema.Field[Z, _]]): ZJsonDecoder[ListMap[String, Any]] = {
-      (trace: List[JsonError], in: RetractReader) =>
-        {
-          val builder: ChunkBuilder[(String, Any)] = zio.ChunkBuilder.make[(String, Any)](structure.size)
-          Lexer.char(trace, in, '{')
-          if (Lexer.firstField(trace, in)) {
-            while ({
-              val field = Lexer.string(trace, in).toString
-              structure.find(
-                f => f.name == field || f.annotations.collectFirst { case fieldName(name) => name }.contains(field)
-              ) match {
-                case Some(Schema.Field(label, schema, _, _, _, _)) =>
-                  val trace_ = JsonError.ObjectAccess(label) :: trace
-                  Lexer.char(trace_, in, ':')
-                  val value = schemaDecoder(schema).unsafeDecode(trace_, in)
-                  builder += ((JsonFieldDecoder.string.unsafeDecodeField(trace_, label), value))
-                case None =>
-                  Lexer.char(trace, in, ':')
-                  Lexer.skipValue(trace, in)
+    private def recordDecoder[Z](
+      structure: Seq[Schema.Field[Z, _]],
+      rejectAdditionalFields: Boolean
+    ): ZJsonDecoder[ListMap[String, Any]] = { (trace: List[JsonError], in: RetractReader) =>
+      {
+        val builder: ChunkBuilder[(String, Any)] = zio.ChunkBuilder.make[(String, Any)](structure.size)
+        Lexer.char(trace, in, '{')
+        if (Lexer.firstField(trace, in)) {
+          while ({
+            val field = Lexer.string(trace, in).toString
+            structure.find(f => f.nameAndAliases.contains(field)) match {
+              case Some(s @ Schema.Field(_, schema, _, _, _, _)) =>
+                val fieldName = s.fieldName
+                val trace_    = JsonError.ObjectAccess(fieldName) :: trace
+                Lexer.char(trace_, in, ':')
+                val value = schemaDecoder(schema).unsafeDecode(trace_, in)
+                builder += ((JsonFieldDecoder.string.unsafeDecodeField(trace_, fieldName), value))
+              case None if rejectAdditionalFields =>
+                throw UnsafeJson(JsonError.Message(s"unexpected field: $field") :: trace)
+              case None =>
+                Lexer.char(trace, in, ':')
+                Lexer.skipValue(trace, in)
 
-              }
-              (Lexer.nextField(trace, in))
-            }) {
-              ()
             }
+            Lexer.nextField(trace, in)
+          }) {
+            ()
           }
-          val tuples                       = builder.result()
-          val collectedFields: Set[String] = tuples.map { case (fieldName, _) => fieldName }.toSet
-          val resultBuilder                = ListMap.newBuilder[String, Any]
-
-          // add fields with default values if they are not present in the JSON
-          structure.foreach { field =>
-            if (!collectedFields.contains(field.name) && field.optional && field.defaultValue.isDefined) {
-              val value = field.name -> field.defaultValue.get
-              resultBuilder += value
-            }
-          }
-          (resultBuilder ++= tuples).result()
         }
+        val tuples                       = builder.result()
+        val collectedFields: Set[String] = tuples.map { case (fieldName, _) => fieldName }.toSet
+        val resultBuilder                = ListMap.newBuilder[String, Any]
+
+        // add fields with default values if they are not present in the JSON
+        structure.foreach { field =>
+          if (!collectedFields.contains(field.fieldName) && field.optional && field.defaultValue.isDefined) {
+            val value = field.fieldName -> field.defaultValue.get
+            resultBuilder += value
+          }
+        }
+        (resultBuilder ++= tuples).result()
+      }
     }
 
     private def fallbackDecoder[A, B](schema: Schema.Fallback[A, B]): ZJsonDecoder[Fallback[A, B]] =
