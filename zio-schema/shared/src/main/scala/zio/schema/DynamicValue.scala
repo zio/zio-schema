@@ -136,6 +136,7 @@ sealed trait DynamicValue {
     case DynamicValue.Singleton(instance)            => instance.hashCode()
   }
   override def equals(obj: Any): Boolean = obj match {
+    case that: DynamicValue if this eq that => true
     case that: DynamicValue =>
       (this, that) match {
         case (DynamicValue.Primitive(value1, standardType1), DynamicValue.Primitive(value2, standardType2)) =>
@@ -152,8 +153,6 @@ sealed trait DynamicValue {
           values1 == values2
         case (DynamicValue.SomeValue(value1), DynamicValue.SomeValue(value2)) =>
           value1 == value2
-        case (DynamicValue.NoneValue, DynamicValue.NoneValue) =>
-          true
         case (DynamicValue.Tuple(left1, right1), DynamicValue.Tuple(left2, right2)) =>
           left1 == left2 && right1 == right2
         case (DynamicValue.LeftValue(value1), DynamicValue.LeftValue(value2)) =>
