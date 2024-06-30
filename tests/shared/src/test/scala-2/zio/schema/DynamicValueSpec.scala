@@ -8,6 +8,18 @@ import zio.test.{ Sized, TestConfig, _ }
 
 object DynamicValueSpec extends ZIOSpecDefault {
 
+  case class Person(name: String, age: Int)
+
+  object Person {
+    implicit val schema: Schema[Person] = DeriveSchema.gen[Person]
+  }
+
+  case class User(name: String, age: Int)
+
+  object User {
+    implicit val schema: Schema[User] = DeriveSchema.gen[User]
+  }
+
   def spec: Spec[Environment, Any] =
     suite("DynamicValueSpec")(
       suite("round-trip")(
@@ -101,12 +113,31 @@ object DynamicValueSpec extends ZIOSpecDefault {
           }
         } @@ TestAspect.size(250) @@ TestAspect.ignore
       ),
-      suite("hashCode consistency")(
+      suite("hashCode and equality consistency")(
         test("hashCode does not change") {
           val primitive1 = DynamicValue.Primitive(123, StandardType.IntType)
           val hash1      = primitive1.hashCode()
           val hash2      = primitive1.hashCode()
           assert(hash1)(equalTo(hash2))
+        },
+        test("equivalent DynamicValues have same hashCode and equality") {
+          val person1 = Person("John Doe", 42)
+          val person2 = Person("John Doe", 42)
+
+          val dynamicPerson1 = DynamicValue.fromSchemaAndValue(Person.schema, person1)
+          val dynamicPerson2 = DynamicValue.fromSchemaAndValue(Person.schema, person2)
+
+          assert(dynamicPerson1.hashCode())(equalTo(dynamicPerson2.hashCode())) &&
+          assert(dynamicPerson1)(equalTo(dynamicPerson2))
+        },
+        test("different DynamicValues are not equal") {
+          val person1 = Person("John Doe", 42)
+          val person2 = Person("Jane Doe", 42)
+
+          val dynamicPerson1 = DynamicValue.fromSchemaAndValue(Person.schema, person1)
+          val dynamicPerson2 = DynamicValue.fromSchemaAndValue(Person.schema, person2)
+
+          assert(dynamicPerson1)(not(equalTo(dynamicPerson2)))
         }
       )
     )

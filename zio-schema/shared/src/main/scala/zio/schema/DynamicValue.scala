@@ -135,6 +135,43 @@ sealed trait DynamicValue {
     case DynamicValue.Error(message)                 => message.hashCode()
     case DynamicValue.Singleton(instance)            => instance.hashCode()
   }
+  override def equals(obj: Any): Boolean = obj match {
+    case that: DynamicValue =>
+      (this, that) match {
+        case (DynamicValue.Primitive(value1, standardType1), DynamicValue.Primitive(value2, standardType2)) =>
+          value1 == value2 && standardType1 == standardType2
+        case (DynamicValue.Record(id1, values1), DynamicValue.Record(id2, values2)) =>
+          id1 == id2 && values1 == values2
+        case (DynamicValue.Enumeration(id1, value1), DynamicValue.Enumeration(id2, value2)) =>
+          id1 == id2 && value1 == value2
+        case (DynamicValue.Sequence(values1), DynamicValue.Sequence(values2)) =>
+          values1 == values2
+        case (DynamicValue.Dictionary(entries1), DynamicValue.Dictionary(entries2)) =>
+          entries1 == entries2
+        case (DynamicValue.SetValue(values1), DynamicValue.SetValue(values2)) =>
+          values1 == values2
+        case (DynamicValue.SomeValue(value1), DynamicValue.SomeValue(value2)) =>
+          value1 == value2
+        case (DynamicValue.NoneValue, DynamicValue.NoneValue) =>
+          true
+        case (DynamicValue.Tuple(left1, right1), DynamicValue.Tuple(left2, right2)) =>
+          left1 == left2 && right1 == right2
+        case (DynamicValue.LeftValue(value1), DynamicValue.LeftValue(value2)) =>
+          value1 == value2
+        case (DynamicValue.RightValue(value1), DynamicValue.RightValue(value2)) =>
+          value1 == value2
+        case (DynamicValue.BothValue(left1, right1), DynamicValue.BothValue(left2, right2)) =>
+          left1 == left2 && right1 == right2
+        case (DynamicValue.DynamicAst(ast1), DynamicValue.DynamicAst(ast2)) =>
+          ast1 == ast2
+        case (DynamicValue.Error(message1), DynamicValue.Error(message2)) =>
+          message1 == message2
+        case (DynamicValue.Singleton(instance1), DynamicValue.Singleton(instance2)) =>
+          instance1 == instance2
+        case _ => false
+      }
+    case _ => false
+  }
 
 }
 
