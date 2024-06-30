@@ -1169,7 +1169,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
     implicit val schema: Schema[PersonWithOptionalField] = DeriveSchema.gen[PersonWithOptionalField]
   }
 
-  case class PersonWithTransientField(name: String, @transientField age: Int)
+  case class PersonWithTransientField(name: String, @transientField age: Int = 0)
 
   object PersonWithTransientField {
     implicit val schema: Schema[PersonWithTransientField] = DeriveSchema.gen[PersonWithTransientField]

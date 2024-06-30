@@ -271,10 +271,18 @@ object DeriveSchema {
                 }
                 val hasDefaultAnnotation =
                   annotations.exists {
-                    case q"new _root_.zio.schema.annotation.fieldDefaultValue(..$_)" => true
-                    case _                                                           => false
+                    case ann if ann.toString.contains("new fieldDefaultValue") => true
+                    case _                                                     => false
                   }
-                if (hasDefaultAnnotation || defaultConstructorValues.get(i).isEmpty) {
+                val transientField =
+                  annotations.exists {
+                    case ann if ann.toString().endsWith("new transientField()") => true
+                    case _                                                      => false
+                  }
+                if (transientField && !(hasDefaultAnnotation || defaultConstructorValues.contains(i))) {
+                  throw new IllegalStateException(s"Field ${symbol.name} is transient and must have a default value.")
+                }
+                if (hasDefaultAnnotation || !defaultConstructorValues.contains(i)) {
                   annotations
                 } else {
                   annotations :+
