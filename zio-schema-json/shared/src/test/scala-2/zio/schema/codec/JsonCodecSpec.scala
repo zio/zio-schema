@@ -1629,7 +1629,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     query: String,
     pageNumber: Int,
     resultPerPage: Int,
-    @transientField nextPage: String
+    @transientField nextPage: String = ""
   )
 
   val searchRequestWithTransientFieldSchema: Schema[SearchRequestWithTransientField] =
