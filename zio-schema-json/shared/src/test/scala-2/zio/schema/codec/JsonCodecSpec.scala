@@ -526,7 +526,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           JsonError.Message("extra field") :: Nil
         ) &>
           assertDecodesToError(
-            CaseClass0WithRejectExtraFields.schema,
+            schemaObject.annotate(rejectExtraFields()),
             """{"extraField":10}""",
             JsonError.Message("extra field") :: Nil
           )
@@ -1604,12 +1604,6 @@ object JsonCodecSpec extends ZIOSpecDefault {
       DeriveJsonEncoder.gen[PersonWithRejectExtraFields]
 
     val schema: Schema[PersonWithRejectExtraFields] = DeriveSchema.gen[PersonWithRejectExtraFields]
-  }
-
-  @rejectExtraFields final case class CaseClass0WithRejectExtraFields()
-
-  object CaseClass0WithRejectExtraFields {
-    val schema: Schema[CaseClass0WithRejectExtraFields] = DeriveSchema.gen[CaseClass0WithRejectExtraFields]
   }
 
   case class FieldDefaultValueSearchRequest(
