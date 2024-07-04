@@ -1607,6 +1607,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
   }
 
   @rejectExtraFields final case class CaseClass0WithRejectExtraFields()
+
   object CaseClass0WithRejectExtraFields {
     val schema: Schema[CaseClass0WithRejectExtraFields] = DeriveSchema.gen[CaseClass0WithRejectExtraFields]
   }
