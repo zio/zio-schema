@@ -524,7 +524,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
           PersonWithRejectExtraFields.schema,
           """{"name":"test","age":10,"extraField":10}""",
           JsonError.Message("extra field") :: Nil
-        )
+        ) &>
+          assertDecodesToError(
+            CaseClass0WithRejectExtraFields.schema,
+            """{"extraField":10}""",
+            JsonError.Message("extra field") :: Nil
+          )
       },
       test("transient field annotation") {
         assertDecodes(
@@ -1242,6 +1247,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodesThenDecodes(Schema[Command], Command.Cash) &>
           assertEncodesThenDecodes(Schema[Command], Command.Buy(100))
       },
+      test("decode discriminated case objects in array")(
+        assertDecodes(Schema[List[Command]], Command.Cash :: Nil, charSequenceToByteChunk("""[{"type":"Cash"}]"""))
+      ),
+      test("decode discriminated case objects with extra fields")(
+        assertDecodes(Schema[Command], Command.Cash, charSequenceToByteChunk("""{"type":"Cash","extraField":1}""")) &>
+          assertDecodes(Schema[Command], Command.Cash, charSequenceToByteChunk("""{"extraField":1,"type":"Cash"}""""))
+      ),
       suite("of case objects")(
         test("without annotation")(
           assertEncodesThenDecodes(Schema[Color], Color.Red)
@@ -1593,6 +1605,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
     val schema: Schema[PersonWithRejectExtraFields] = DeriveSchema.gen[PersonWithRejectExtraFields]
   }
+
+  @rejectExtraFields final case class CaseClass0WithRejectExtraFields()
+  object CaseClass0WithRejectExtraFields {
+    val schema: Schema[CaseClass0WithRejectExtraFields] = DeriveSchema.gen[CaseClass0WithRejectExtraFields]
+  }
+
   case class FieldDefaultValueSearchRequest(
     query: String,
     pageNumber: Int,
