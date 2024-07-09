@@ -991,7 +991,29 @@ object JsonCodec {
     import JsonCodec.JsonDecoder.schemaDecoder
 
     private[codec] def caseClass0Decoder[Z](discriminator: Int, schema: Schema.CaseClass0[Z]): ZJsonDecoder[Z] = { (trace: List[JsonError], in: RetractReader) =>
-      if (discriminator == -1) Codecs.unitDecoder.unsafeDecode(trace, in)
+      def skipField(): Unit = {
+        val rejectExtraFields = schema.annotations.collectFirst({ case _: rejectExtraFields => () }).isDefined
+        if (rejectExtraFields) {
+          throw UnsafeJson(JsonError.Message("extra field") :: trace)
+        }
+        Lexer.char(trace, in, '"')
+        Lexer.skipString(trace, in)
+        Lexer.char(trace, in, ':')
+        Lexer.skipValue(trace, in)
+      }
+
+      if (discriminator == -2) {
+        while (Lexer.nextField(trace, in)) { skipField() }
+      } else {
+        if (discriminator == -1) {
+          Lexer.char(trace, in, '{')
+        }
+        if (Lexer.firstField(trace, in)) {
+          skipField()
+          while (Lexer.nextField(trace, in)) { skipField() }
+        }
+      }
+
       schema.defaultConstruct()
     }
 
