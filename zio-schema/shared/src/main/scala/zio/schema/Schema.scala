@@ -394,6 +394,16 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     val transient: Boolean =
       annotations.exists(_.isInstanceOf[transientField])
 
+    val nameAndAliases: scala.collection.immutable.Set[String] =
+      annotations.collect {
+        case aliases: fieldNameAliases => aliases.aliases
+        case f: fieldName              => Seq(f.name)
+      }.flatten.toSet + name
+
+    val fieldName: String = annotations.collectFirst {
+      case f: fieldName => f.name
+    }.getOrElse(name)
+
     override def toString: String = s"Field($name,$schema)"
   }
 

@@ -365,8 +365,10 @@ object DeriveSchema {
             q"""(m: scala.collection.immutable.ListMap[String, _]) => try { Right($tpeCompanion.apply(..$casts)) } catch { case e: Throwable => Left(e.getMessage) }"""
           }
           val toMap = {
-            val tuples = fieldAccessors.map { fieldName =>
-              q"(${fieldName.toString},b.$fieldName)"
+            val tuples = fieldAccessors.zip(fieldAnnotations).map {
+              case (fieldName, annotations) =>
+                val newName = getFieldName(annotations).getOrElse(fieldName.toString)
+                q"(${newName},b.$fieldName)"
             }
             q"""(b: $tpe) => Right(scala.collection.immutable.ListMap.apply(..$tuples))"""
           }

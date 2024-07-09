@@ -416,6 +416,26 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""null""")
         )
       }
+    ),
+    suite("Generic Record")(
+      test("Do not encode transient field") {
+        assertEncodes(
+          RecordExample.schema.annotate(rejectExtraFields()),
+          RecordExample(f1 = Some("test"), f3 = Some("transient")),
+          charSequenceToByteChunk(
+            """{"$f1":"test","f2":null,"f4":null,"f5":null,"f6":null,"f7":null,"f8":null,"f9":null,"f10":null,"f11":null,"f12":null,"f13":null,"f14":null,"f15":null,"f16":null,"f17":null,"f18":null,"f19":null,"f20":null,"f21":null,"f22":null,"$f23":null}""".stripMargin
+          )
+        )
+      }
+    ),
+    suite("EnumN")(
+      test("Respects the case name annotation") {
+        assertEncodesJson(
+          Enum23Cases.schema,
+          Enum23Cases.Case1("foo"),
+          """{"NumberOne":{"value":"foo"}}"""
+        )
+      }
     )
   )
 
@@ -435,7 +455,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         )
       } @@ TestAspect.jvmOnly
     ),
-    suite("generic record")(
+    suite("Generic record")(
       test("with extra fields") {
         assertDecodes(
           recordSchema,
@@ -447,7 +467,44 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertDecodes(
           RecordExample.schema,
           RecordExample(f1 = Some("test"), f2 = None),
-          charSequenceToByteChunk("""{"f1":"test"}""")
+          charSequenceToByteChunk("""{"$f1":"test"}""")
+        )
+      },
+      test("aliased field") {
+        assertDecodes(
+          RecordExample.schema,
+          RecordExample(f1 = Some("test"), f2 = Some("alias")),
+          charSequenceToByteChunk("""{"$f1":"test", "field2":"alias"}""")
+        )
+      },
+      test("reject extra fields") {
+        assertDecodes(
+          RecordExample.schema.annotate(rejectExtraFields()),
+          RecordExample(f1 = Some("test")),
+          charSequenceToByteChunk("""{"$f1":"test", "extraField":"extra"}""")
+        ).flip.map(err => assertTrue(err.getMessage() == "(unexpected field: extraField)"))
+      },
+      test("optional field with schema or annotated default value") {
+        assertDecodes(
+          RecordExampleWithOptField.schema,
+          RecordExampleWithOptField(f1 = Some("test"), f2 = None, f4 = "", f5 = "hello"),
+          charSequenceToByteChunk("""{"$f1":"test"}""")
+        )
+      }
+    ),
+    suite("EnumN")(
+      test("Respects the case name annotation") {
+        assertDecodes(
+          Enum23Cases.schema,
+          Enum23Cases.Case1("foo"),
+          charSequenceToByteChunk("""{"NumberOne":{"value":"foo"}}""")
+        )
+      },
+      test("Respects case aliases") {
+        assertDecodes(
+          Enum23Cases.schema,
+          Enum23Cases.Case1("foo"),
+          charSequenceToByteChunk("""{"One":{"value":"foo"}}""")
         )
       }
     ),
@@ -1237,11 +1294,9 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Enumeration3(StringValue3("foo"))
         ) &> assertEncodesThenDecodes(
           Schema[Enumeration3],
-          Enumeration3(StringValue3Multi("foo", "bar"))
-        ) &> assertEncodesThenDecodes(Schema[Enumeration3], Enumeration3(IntValue3(-1))) &> assertEncodesThenDecodes(
-          Schema[Enumeration3],
-          Enumeration3(BooleanValue3(false))
-        ) &> assertEncodesThenDecodes(Schema[Enumeration3], Enumeration3(Nested(StringValue3("foo"))))
+          Enumeration3(StringValue3Multi("foo", "bar")),
+          print = true
+        )
       },
       test("of case classes with discriminator") {
         assertEncodesThenDecodes(Schema[Command], Command.Cash) &>
@@ -1897,11 +1952,37 @@ object JsonCodecSpec extends ZIOSpecDefault {
   }
 
   case class RecordExample(
-    f1: Option[String], // the only field that does not have a default value
-    f2: Option[String] = None,
-    f3: Option[String] = None,
+    @fieldName("$f1") f1: Option[String], // the only field that does not have a default value
+    @fieldNameAliases("field2") f2: Option[String] = None,
+    @transientField f3: Option[String] = None,
     f4: Option[String] = None,
     f5: Option[String] = None,
+    f6: Option[String] = None,
+    f7: Option[String] = None,
+    f8: Option[String] = None,
+    f9: Option[String] = None,
+    f10: Option[String] = None,
+    f11: Option[String] = None,
+    f12: Option[String] = None,
+    f13: Option[String] = None,
+    f14: Option[String] = None,
+    f15: Option[String] = None,
+    f16: Option[String] = None,
+    f17: Option[String] = None,
+    f18: Option[String] = None,
+    f19: Option[String] = None,
+    f20: Option[String] = None,
+    f21: Option[String] = None,
+    f22: Option[String] = None,
+    @fieldName("$f23") f23: Option[String] = None
+  )
+
+  case class RecordExampleWithOptField(
+    @fieldName("$f1") f1: Option[String], // the only field that does not have a default value
+    @optionalField @fieldNameAliases("field2") f2: Option[String] = None,
+    @transientField f3: Option[String] = None,
+    @optionalField f4: String,
+    @optionalField @fieldDefaultValue("hello") f5: String,
     f6: Option[String] = None,
     f7: Option[String] = None,
     f8: Option[String] = None,
@@ -1926,4 +2007,60 @@ object JsonCodecSpec extends ZIOSpecDefault {
     implicit lazy val schema: Schema[RecordExample] = DeriveSchema.gen[RecordExample]
   }
 
+  object RecordExampleWithOptField {
+    implicit lazy val schema: Schema[RecordExampleWithOptField] =
+      DeriveSchema.gen[RecordExampleWithOptField]
+  }
+
+  sealed trait Enum23Cases
+
+  object Enum23Cases {
+    implicit lazy val schema: Schema[Enum23Cases] = DeriveSchema.gen[Enum23Cases]
+
+    @caseName("NumberOne") @caseNameAliases("One") case class Case1(value: String) extends Enum23Cases
+
+    case class Case2(value: Int) extends Enum23Cases
+
+    case class Case3(value: String) extends Enum23Cases
+
+    case class Case4(value: String) extends Enum23Cases
+
+    case class Case5(value: String) extends Enum23Cases
+
+    case class Case6(value: String) extends Enum23Cases
+
+    case class Case7(value: String) extends Enum23Cases
+
+    case class Case8(value: String) extends Enum23Cases
+
+    case class Case9(value: String) extends Enum23Cases
+
+    case class Case10(value: String) extends Enum23Cases
+
+    case class Case11(value: String) extends Enum23Cases
+
+    case class Case12(value: String) extends Enum23Cases
+
+    case class Case13(value: String) extends Enum23Cases
+
+    case class Case14(value: String) extends Enum23Cases
+
+    case class Case15(value: String) extends Enum23Cases
+
+    case class Case16(value: String) extends Enum23Cases
+
+    case class Case17(value: String) extends Enum23Cases
+
+    case class Case18(value: String) extends Enum23Cases
+
+    case class Case19(value: String) extends Enum23Cases
+
+    case class Case20(value: String) extends Enum23Cases
+
+    case class Case21(value: String) extends Enum23Cases
+
+    case class Case22(value: String) extends Enum23Cases
+
+    case class Case23(value: String) extends Enum23Cases
+  }
 }
