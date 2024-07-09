@@ -232,7 +232,20 @@ object DeriveSchema {
 
         val typeId = q"_root_.zio.schema.TypeId.parse(${tpe.typeSymbol.fullName})"
 
-        val typeAnnotations: List[Tree] = collectTypeAnnotations(tpe)
+        val genericAnnotations: List[Tree] =
+          if (tpe.typeArgs.isEmpty) Nil
+          else {
+            val typeMembers = tpe.typeSymbol.asClass.typeParams.map(_.name.toString)
+            val typeArgs = tpe.typeArgs
+              .map(_.typeSymbol.fullName)
+              .map(t => q"_root_.zio.schema.TypeId.parse(${t}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]")
+            val typeMembersWithArgs = typeMembers.zip(typeArgs).map { case (m, a) => q"($m, $a)" }
+            List(
+              q"new _root_.zio.schema.annotation.genericTypeInfo(_root_.scala.collection.immutable.ListMap(..$typeMembersWithArgs))"
+            )
+          }
+
+        val typeAnnotations: List[Tree] = collectTypeAnnotations(tpe) ++ genericAnnotations
 
         val defaultConstructorValues =
           tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.head
@@ -565,7 +578,20 @@ object DeriveSchema {
       val hasSimpleEnum: Boolean =
         tpe.typeSymbol.annotations.exists(_.tree.tpe =:= typeOf[_root_.zio.schema.annotation.simpleEnum])
 
-      val typeAnnotations: List[Tree] = (isSimpleEnum, hasSimpleEnum) match {
+      val genericAnnotations: List[Tree] =
+        if (tpe.typeArgs.isEmpty) Nil
+        else {
+          val typeMembers = tpe.typeSymbol.asClass.typeParams.map(_.name.toString)
+          val typeArgs = tpe.typeArgs
+            .map(_.typeSymbol.fullName)
+            .map(t => q"_root_.zio.schema.TypeId.parse(${t}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]")
+          val typeMembersWithArgs = typeMembers.zip(typeArgs).map { case (m, a) => q"($m, $a)" }
+          List(
+            q"new _root_.zio.schema.annotation.genericTypeInfo(_root_.scala.collection.immutable.ListMap(..$typeMembersWithArgs))"
+          )
+        }
+
+      val typeAnnotations: List[Tree] = ((isSimpleEnum, hasSimpleEnum) match {
         case (true, false) =>
           tpe.typeSymbol.annotations.collect {
             case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
@@ -600,7 +626,7 @@ object DeriveSchema {
               c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
               EmptyTree
           }.filter(_ != EmptyTree)
-      }
+      }) ++ genericAnnotations
 
       val selfRefName  = c.freshName("ref")
       val selfRefIdent = Ident(TermName(selfRefName))
@@ -610,6 +636,19 @@ object DeriveSchema {
       val typeArgs = subtypes ++ Iterable(tpe)
 
       val cases = subtypes.map { (subtype: Type) =>
+        val genericAnnotations: List[Tree] =
+          if (subtype.typeArgs.isEmpty) Nil
+          else {
+            val typeMembers = subtype.typeSymbol.asClass.typeParams.map(_.name.toString)
+            val typeArgs = subtype.typeArgs
+              .map(_.typeSymbol.fullName)
+              .map(t => q"_root_.zio.schema.TypeId.parse(${t}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]")
+            val typeMembersWithArgs = typeMembers.zip(typeArgs).map { case (m, a) => q"($m, $a)" }
+            List(
+              q"new _root_.zio.schema.annotation.genericTypeInfo(_root_.scala.collection.immutable.ListMap(..$typeMembersWithArgs))"
+            )
+          }
+
         val typeAnnotations: List[Tree] =
           subtype.typeSymbol.annotations.collect {
             case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
@@ -625,7 +664,7 @@ object DeriveSchema {
             case annotation =>
               c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
               EmptyTree
-          }.filter(_ != EmptyTree)
+          }.filter(_ != EmptyTree) ++ genericAnnotations
 
         val caseLabel     = subtype.typeSymbol.name.toString.trim
         val caseSchema    = directInferSchema(tpe, concreteType(tpe, subtype), currentFrame +: stack)
