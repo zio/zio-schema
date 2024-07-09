@@ -339,6 +339,10 @@ private case class DeriveSchema()(using val ctx: Quotes) {
             .map(_.asExpr.asInstanceOf[Expr[Any]])
           val hasDefaultAnnotation =
             field.annotations.exists(_.tpe <:< TypeRepr.of[zio.schema.annotation.fieldDefaultValue[_]])
+          val transientField = field.annotations.exists(_.tpe <:< TypeRepr.of[zio.schema.annotation.transientField])
+          if (transientField && !hasDefaultAnnotation && defaults.get(field.name).isEmpty) {
+            report.errorAndAbort(s"Field ${field.name} is transient and must have a default value.")
+          }
           if (hasDefaultAnnotation || defaults.get(field.name).isEmpty) {
             annos
           } else {
