@@ -39,17 +39,17 @@ _ZIO Schema_ is used by a growing number of ZIO libraries, including [ZIO Flow](
 In order to use this library, we need to add the following lines in our `build.sbt` file:
 
 ```scala
-libraryDependencies += "dev.zio" %% "zio-schema"          % "1.2.2"
-libraryDependencies += "dev.zio" %% "zio-schema-avro"     % "1.2.2"
-libraryDependencies += "dev.zio" %% "zio-schema-bson"     % "1.2.2"
-libraryDependencies += "dev.zio" %% "zio-schema-json"     % "1.2.2"
-libraryDependencies += "dev.zio" %% "zio-schema-msg-pack" % "1.2.2"
-libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "1.2.2"
-libraryDependencies += "dev.zio" %% "zio-schema-thrift"   % "1.2.2"
-libraryDependencies += "dev.zio" %% "zio-schema-zio-test" % "1.2.2"
+libraryDependencies += "dev.zio" %% "zio-schema"          % "1.3.0"
+libraryDependencies += "dev.zio" %% "zio-schema-avro"     % "1.3.0"
+libraryDependencies += "dev.zio" %% "zio-schema-bson"     % "1.3.0"
+libraryDependencies += "dev.zio" %% "zio-schema-json"     % "1.3.0"
+libraryDependencies += "dev.zio" %% "zio-schema-msg-pack" % "1.3.0"
+libraryDependencies += "dev.zio" %% "zio-schema-protobuf" % "1.3.0"
+libraryDependencies += "dev.zio" %% "zio-schema-thrift"   % "1.3.0"
+libraryDependencies += "dev.zio" %% "zio-schema-zio-test" % "1.3.0"
 
 // Required for the automatic generic derivation of schemas
-libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "1.2.2"
+libraryDependencies += "dev.zio" %% "zio-schema-derivation" % "1.3.0"
 libraryDependencies += "org.scala-lang" % "scala-reflect"  % scalaVersion.value % "provided"
 ```
 
