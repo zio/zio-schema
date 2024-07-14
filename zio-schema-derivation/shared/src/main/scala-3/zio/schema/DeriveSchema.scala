@@ -121,7 +121,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.noSymbol)
     val selfRef = Ref(selfRefSymbol)
 
-    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
+    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].classSymbol.get.fullName.replaceAll("\\$", ""))})}
     val isEnumCase = Type.of[T] match {
       case '[reflect.Enum] => true
       case _ => false
@@ -201,7 +201,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
       List('{zio.schema.annotation.genericTypeInfo(ListMap.from(${typeMembersExpr}.zip(${typeArgsExpr}.map(name => TypeId.parse(name).asInstanceOf[TypeId.Nominal]))))})
     } else List.empty
     val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(genericAnnotations)}) }
-    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
+    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].classSymbol.get.fullName.replaceAll("\\$", ""))})}
 
     val applied = if (labels.length <= 22) {
 
@@ -390,7 +390,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     } else List.empty
     val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr.toList)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(genericAnnotations)}) }
 
-    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
+    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].classSymbol.get.fullName.replaceAll("\\$", ""))})}
 
     val applied = if (cases.length <= 22) {
       val args = List(typeInfo) ++ cases :+ annotations
