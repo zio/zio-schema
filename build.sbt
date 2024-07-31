@@ -104,6 +104,35 @@ lazy val root = project
     docs
   )
 
+//Switch to using the Scala 2 Scaladoc generator, which might not have this issue.
+
+Compile / doc := (Compile / doc).value
+Compile / doc / scalacOptions ++= Seq(
+  "-Xdoc-generator", "scaladoc"
+)
+Compile / doc / sources := Seq.empty
+Compile / packageDoc / publishArtifact := false
+
+Compile / doc := {
+  val targetDir = (Compile / target).value / "scala-3" / "api"
+  val files = (Compile / doc / sources).value
+  val s = streams.value
+  val cp = (Compile / doc / fullClasspath).value
+  val opts = (Compile / doc / scalacOptions).value
+
+  IO.createDirectory(targetDir)
+  val options = opts ++ Seq("-d", targetDir.getAbsolutePath)
+
+  val run = new ScalaDocRunner()
+  run.run("scala.tools.nsc.ScalaDoc", options, files, cp.files, s.log)
+
+  targetDir
+}
+
+
+
+
+
 lazy val tests = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("tests"))
   .dependsOn(zioSchemaDerivation % "compile->test", zioSchema % "test->test", zioSchemaZioTest % "compile->test")
