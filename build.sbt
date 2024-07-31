@@ -104,7 +104,6 @@ lazy val root = project
     docs
   )
 
-//Switch to using the Scala 2 Scaladoc generator, which might not have this issue.
 
 Compile / doc := (Compile / doc).value
 Compile / doc / scalacOptions ++= Seq(
