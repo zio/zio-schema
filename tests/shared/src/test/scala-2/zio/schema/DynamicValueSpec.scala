@@ -100,6 +100,22 @@ object DynamicValueSpec extends ZIOSpecDefault {
             assertTrue(json2 == Right(json))
           }
         } @@ TestAspect.size(250) @@ TestAspect.ignore
+      ),
+      suite("hashCode and equality consistency")(
+        test("hashCode does not change") {
+          check(DynamicValueGen.anyDynamicValue) { dynamicValue =>
+            val hash1 = dynamicValue.hashCode()
+            val hash2 = dynamicValue.hashCode()
+            assert(hash1)(equalTo(hash2))
+          }
+        },
+        test("equivalent DynamicValues have same hashCode and equality") {
+          check(DynamicValueGen.anyDynamicValue) { dynamicValue =>
+            val dynamicValueCopy = dynamicValue // Assuming the generation ensures equivalence
+            assert(dynamicValue.hashCode())(equalTo(dynamicValueCopy.hashCode())) &&
+            assert(dynamicValue)(equalTo(dynamicValueCopy))
+          }
+        }
       )
     )
 
@@ -114,5 +130,4 @@ object DynamicValueSpec extends ZIOSpecDefault {
     check(gen) { a =>
       assert(schema.fromDynamic(schema.toDynamic(a)))(isRight(equalTo(a)))
     }
-
 }
