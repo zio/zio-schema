@@ -53,7 +53,7 @@ object OrderingSpec extends ZIOSpecDefault {
       assert(schemaOrdering.compare(l, r))(equalTo(standardType.compare(l, r)))
     }
 
-  case class StructureTestCase(name: String, increasingPairGen: Gen[Sized, SchemaAndPair[_]])
+  case class StructureTestCase(name: String, increasingPairGen: Gen[Sized, SchemaAndPair[Any]])
 
   private val structureTestCases =
     Seq(
@@ -72,11 +72,11 @@ object OrderingSpec extends ZIOSpecDefault {
         assert(schema.ordering.compare(l, r))(isLessThan(0))
     }))
 
-  def genAnyOrderedPairOption: Gen[Sized, SchemaAndPair[Option[_]]] =
+  def genAnyOrderedPairOption: Gen[Sized, SchemaAndPair[Any]] =
     for {
       schema <- anySchema
       (l, r) <- genOrderedPairOption(schema)
-    } yield (Schema.Optional(schema), l, r).asInstanceOf[SchemaAndPair[Option[_]]]
+    } yield (Schema.Optional(schema), l, r).asInstanceOf[SchemaAndPair[Any]]
 
   def genOrderedPairOption[A](schema: Schema[A]): Gen[Sized, (Option[A], Option[A])] =
     Gen.oneOf(
@@ -88,12 +88,12 @@ object OrderingSpec extends ZIOSpecDefault {
       } yield (None, Some(a))
     )
 
-  def genAnyOrderedPairEither: Gen[Sized, SchemaAndPair[Either[_, _]]] =
+  def genAnyOrderedPairEither: Gen[Sized, SchemaAndPair[Any]] =
     for {
       leftSchema  <- anySchema
       rightSchema <- anySchema
       (l, r)      <- genOrderedPairEither(leftSchema, rightSchema)
-    } yield (Schema.Either(leftSchema, rightSchema), l, r).asInstanceOf[SchemaAndPair[Either[_, _]]]
+    } yield (Schema.Either(leftSchema, rightSchema), l, r).asInstanceOf[SchemaAndPair[Any]]
 
   def genOrderedPairEither[A, B](
     lSchema: Schema[A],
@@ -111,12 +111,12 @@ object OrderingSpec extends ZIOSpecDefault {
     } yield (Left(l), Right(r))
   )
 
-  def genAnyOrderedPairTuple: Gen[Sized, SchemaAndPair[_]] =
+  def genAnyOrderedPairTuple: Gen[Sized, SchemaAndPair[Any]] =
     for {
       xSchema <- anySchema
       ySchema <- anySchema
       (l, r)  <- genOrderedPairTuple(xSchema, ySchema)
-    } yield (Schema.Tuple2(xSchema, ySchema), l, r).asInstanceOf[SchemaAndPair[Either[_, _]]]
+    } yield (Schema.Tuple2(xSchema, ySchema), l, r).asInstanceOf[SchemaAndPair[Any]]
 
   def genOrderedPairTuple[A, B](
     xSchema: Schema[A],
@@ -134,17 +134,17 @@ object OrderingSpec extends ZIOSpecDefault {
       } yield ((x, smallY), (x, largeY))
     )
 
-  def genAnyOrderedPairChunks: Gen[Sized, SchemaAndPair[_]] =
+  def genAnyOrderedPairChunks: Gen[Sized, SchemaAndPair[Any]] =
     anySchema.flatMap(genOrderedPairChunk(_))
 
-  def genOrderedPairChunk[A](schema: Schema[A]): Gen[Sized, SchemaAndPair[_]] =
+  def genOrderedPairChunk[A](schema: Schema[A]): Gen[Sized, SchemaAndPair[Any]] =
     for {
       init <- Gen.chunkOf(genFromSchema(schema))
       rems <- Gen.oneOf(
                genChunkPairWithOrderedFirstElement(schema),
                genChunkPairWithOnlyFirstEmpty(schema)
              )
-    } yield (Schema.chunk(schema), init ++ rems._1, init ++ rems._2)
+    } yield (Schema.chunk(schema), init ++ rems._1, init ++ rems._2).asInstanceOf[SchemaAndPair[Any]]
 
   def genChunkPairWithOrderedFirstElement[A](
     schema: Schema[A]
@@ -161,20 +161,22 @@ object OrderingSpec extends ZIOSpecDefault {
       rem  <- Gen.chunkOf(genFromSchema(schema))
     } yield (Chunk(), init +: rem)
 
-  def genAnyOrderedPairTransform: Gen[Sized, SchemaAndPair[_]] =
-    Gen.oneOf(
-      anySchema.flatMap(genOrderedPairIdentityTransform(_)),
-      anySchema.flatMap(genOrderedPairDecodeTransform(_))
-    )
+  def genAnyOrderedPairTransform: Gen[Sized, SchemaAndPair[Any]] =
+    Gen
+      .oneOf(
+        anySchema.flatMap(genOrderedPairIdentityTransform(_)),
+        anySchema.flatMap(genOrderedPairDecodeTransform(_))
+      )
+      .asInstanceOf[Gen[Sized, SchemaAndPair[Any]]]
 
-  def genOrderedPairIdentityTransform[A](schema: Schema[A]): Gen[Sized, SchemaAndPair[_]] =
+  def genOrderedPairIdentityTransform[A](schema: Schema[A]): Gen[Sized, SchemaAndPair[Any]] =
     for {
       (small, large) <- genOrderedPair(schema)
     } yield (schema.transformOrFail({ (a: A) =>
       Right(a)
     }, { (a: A) =>
       Right(a)
-    }), small, large)
+    }), small, large).asInstanceOf[SchemaAndPair[Any]]
 
   def genOrderedPairDecodeTransform[A](
     schema: Schema[A]
@@ -189,14 +191,14 @@ object OrderingSpec extends ZIOSpecDefault {
       largeEncoded        = encode(large).toOption.get
     } yield (schema.transformOrFail(encode, decode), smallEncodedOrError, largeEncoded)
 
-  def genAnyOrderedPairRecord: Gen[Sized, SchemaAndPair[_]] =
+  def genAnyOrderedPairRecord: Gen[Sized, SchemaAndPair[Any]] =
     for {
       name <- Gen.string(Gen.alphaChar).map(TypeId.parse)
       schema <- anyStructure(anyTree(1)).map(fieldSet => {
                  Schema.GenericRecord(name, fieldSet)
                })
       pair <- genOrderedPairRecord(schema)
-    } yield pair
+    } yield pair.asInstanceOf[SchemaAndPair[Any]]
 
   def genOrderedPairRecord[A](schema: Schema.Record[A]): Gen[Sized, SchemaAndPair[A]] = {
     val fields: Chunk[Schema.Field[A, _]] = schema.fields
@@ -257,13 +259,15 @@ object OrderingSpec extends ZIOSpecDefault {
       } yield (field.name, dx, dy) +: rem
     }
 
-  def genAnyOrderedPairEnum: Gen[Sized, SchemaAndPair[_]] =
-    anyEnumSchema.flatMap(schema => {
-      Gen.oneOf(
-        genOrderedPairEnumSameCase(schema),
-        genOrderedPairEnumDiffCase(schema)
-      )
-    })
+  def genAnyOrderedPairEnum: Gen[Sized, SchemaAndPair[Any]] =
+    anyEnumSchema
+      .flatMap(schema => {
+        Gen.oneOf(
+          genOrderedPairEnumSameCase(schema),
+          genOrderedPairEnumDiffCase(schema)
+        )
+      })
+      .asInstanceOf[Gen[Sized, SchemaAndPair[Any]]]
 
   def genOrderedPairEnumSameCase[A](schema: Schema.Enum[A]): Gen[Sized, SchemaAndPair[A]] =
     for {
@@ -305,7 +309,7 @@ object OrderingSpec extends ZIOSpecDefault {
       .anyDynamicValueOfSchema(schema)
       .map(d => schema.fromDynamic(d).toOption.get)
 
-  def genAnyOrderedPair: Gen[Sized, SchemaAndPair[_]] =
+  def genAnyOrderedPair: Gen[Sized, SchemaAndPair[Any]] =
     for {
       schema <- anySchema
       (x, y) <- genOrderedPair(schema)
@@ -326,7 +330,7 @@ object OrderingSpec extends ZIOSpecDefault {
       DynamicValue.fromSchemaAndValue(schema, large.asInstanceOf[A])
     )
 
-  def genAnyOrderedTriplet: Gen[Sized, SchemaAndTriplet[_]] =
+  def genAnyOrderedTriplet: Gen[Sized, SchemaAndTriplet[Any]] =
     for {
       schema    <- anySchema
       (x, y, z) <- genOrderedTriplet(schema)

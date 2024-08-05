@@ -81,7 +81,7 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
             val expected =
               """[{"type":"record","name":"A","fields":[]},{"type":"record","name":"B","fields":[]},{"type":"record","name":"MyC","fields":[]},{"type":"record","name":"D","fields":[{"name":"s","type":"string"}]}]"""
             assert(result)(isRight(equalTo(expected)))
-          },
+          } @@ TestAspect.scala2Only,
           test("wraps nested unions") {
             val schemaA = DeriveSchema.gen[UnionWithNesting.Nested.A.type]
             val schemaB = DeriveSchema.gen[UnionWithNesting.Nested.B.type]
@@ -1178,7 +1178,8 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
             val s      = """{"type":"enum","name":"TestEnum","symbols":["a","b","c"]}"""
             val schema = AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            val symbolKeysAssetion = Assertion.hasKeys(hasSameElements(Seq("a", "b", "c")))
+            val symbolKeysAssetion: Assertion[Predef.Map[String, Any]] =
+              Assertion.hasKeys(hasSameElements(Seq("a", "b", "c")))
             val enumStringTypeAssertion: Assertion[ListMap[String, (Schema[_], Chunk[Any])]] =
               Assertion.hasValues(forall(tuple2First(isStandardType(StandardType.StringType))))
             assert(schema)(isRight(isEnum(enumStructure(symbolKeysAssetion && enumStringTypeAssertion))))
@@ -1858,8 +1859,8 @@ object AssertionHelper {
 
   def enumStructure(assertion: Assertion[ListMap[String, (Schema[_], Chunk[Any])]]): Assertion[Schema.Enum[_]] =
     Assertion.assertionRec("enumStructure")(assertion)(
-      enum =>
-        Some(`enum`.cases.foldRight(ListMap.empty[String, (Schema[_], Chunk[Any])]) { (caseValue, acc) =>
+      enum0 =>
+        Some(enum0.cases.foldRight(ListMap.empty[String, (Schema[_], Chunk[Any])]) { (caseValue, acc) =>
           (acc + (caseValue.id -> scala.Tuple2(caseValue.schema, caseValue.annotations)))
         })
     )

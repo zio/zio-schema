@@ -81,7 +81,11 @@ object DynamicValueGen {
       case Schema.Either(left, right, _) =>
         Gen.oneOf(anyDynamicLeftValueOfSchema(left), anyDynamicRightValueOfSchema(right))
       case Schema.Fallback(left, right, _, _) =>
-        Gen.oneOf(anyDynamicLeftValueOfSchema(left), anyDynamicRightValueOfSchema(right), anyDynamicBothValueOfSchema(left, right))
+        Gen.oneOf[Sized, DynamicValue](
+          anyDynamicLeftValueOfSchema(left.asInstanceOf[Schema[Any]]),
+          anyDynamicRightValueOfSchema(right.asInstanceOf[Schema[Any]]),
+          anyDynamicBothValueOfSchema(left.asInstanceOf[Schema[Any]], right.asInstanceOf[Schema[Any]])
+        )
       case Schema.Transform(schema, _, _, _, _) => anyDynamicValueOfSchema(schema)
       case Schema.Fail(message, _)              => Gen.const(DynamicValue.Error(message))
       case l @ Schema.Lazy(_)                   => anyDynamicValueOfSchema(l.schema)
