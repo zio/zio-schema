@@ -148,7 +148,7 @@ object PatchSpec extends ZIOSpecDefault {
         }
         val finalTestName = renamingFuncOption.fold(name)(renamingFunc => renamingFunc(name))
         standardType match {
-          case _ @StandardType.MonthDayType =>
+          case s if s.isInstanceOf[StandardType.MonthDayType.type] =>
             test(finalTestName) {
               patchingFunc(finalSchema)
             } @@ TestAspect.ignore // TODO Leap years!

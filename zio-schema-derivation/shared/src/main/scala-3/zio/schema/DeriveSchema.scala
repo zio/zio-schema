@@ -255,11 +255,17 @@ private case class DeriveSchema()(using val ctx: Quotes) {
              case None =>
                tpe.asType
            }
+           val annotations = paramAnns.getOrElse(label, List.empty)
+           val nameExpr = annotations.collectFirst {
+             case ann if ann.isExprOf[fieldName] =>
+               val fieldNameAnn = ann.asExprOf[fieldName]
+                 '{${fieldNameAnn}.name}
+              }.getOrElse(Expr(label))
            fieldType match { case '[t] =>
-            '{ try ${m}.apply(${Expr(label)}).asInstanceOf[t]
+            '{ try ${m}.apply(${nameExpr}).asInstanceOf[t]
                catch {
-                 case _: ClassCastException => throw new RuntimeException("Field " + ${Expr(label)} + " has invalid type")
-                 case _: Throwable => throw new RuntimeException("Field " + ${Expr(label)} + " is missing")
+                 case _: ClassCastException => throw new RuntimeException("Field " + ${nameExpr} + " has invalid type")
+                 case _: Throwable => throw new RuntimeException("Field " + ${nameExpr} + " is missing")
                }
             }.asTerm
            }
@@ -284,8 +290,14 @@ private case class DeriveSchema()(using val ctx: Quotes) {
               case None =>
                 tpe.asType
             }
+           val annotations = paramAnns.getOrElse(label, List.empty)
+           val nameExpr = annotations.collectFirst {
+             case ann if ann.isExprOf[fieldName] =>
+               val fieldNameAnn = ann.asExprOf[fieldName]
+               '{${fieldNameAnn}.name}
+           }.getOrElse(Expr(label))
            fieldType match { case '[t] =>
-             '{(${Expr(label)}, ${Select.unique(b.asTerm, label).asExprOf[t]})}
+             '{(${nameExpr}, ${Select.unique(b.asTerm, label).asExprOf[t]})}
            }
          }
        val toMap = '{(b: T) => Right(ListMap.apply(${Varargs(tuples('b))} :_*)) }
