@@ -6,11 +6,12 @@ import java.time.temporal.ChronoUnit
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 
+import zio.prelude.{ NonEmptyList, NonEmptyMap, NonEmptySet }
 import zio.schema.annotation._
 import zio.schema.internal.SourceLocation
 import zio.schema.meta._
 import zio.schema.validation._
-import zio.{ Chunk, Unsafe }
+import zio.{ Chunk, NonEmptyChunk, Unsafe }
 
 /**
  * A `Schema[A]` describes the structure of some data type `A`, in terms of case classes,
@@ -299,14 +300,35 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
   implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
     Schema.Sequence[Chunk[A], A, String](schemaA, identity, identity, Chunk.empty, "Chunk")
 
+  implicit def nonEmptyChunk[A](implicit schemaA: Schema[A]): Schema[NonEmptyChunk[A]] =
+    Schema[Chunk[A]].transformOrFail[NonEmptyChunk[A]](
+      chunk => NonEmptyChunk.fromChunk(chunk).toRight(s"Got an empty Chunk when NonEmptyChunk is expected"),
+      nonEmptyChunk => Right(nonEmptyChunk.toChunk)
+    )
+
   implicit def map[K, V](
     implicit keySchema: Schema[K],
     valueSchema: Schema[V]
   ): Schema[scala.collection.immutable.Map[K, V]] =
     Schema.Map(keySchema, valueSchema, Chunk.empty)
 
+  implicit def nonEmptyMap[K, V](
+    implicit keySchema: Schema[K],
+    valueSchema: Schema[V]
+  ): Schema[NonEmptyMap[K, V]] =
+    Schema[scala.collection.immutable.Map[K, V]].transformOrFail[NonEmptyMap[K, V]](
+      map => NonEmptyMap.fromMapOption(map).toRight(s"Got an empty Map when NonEmptyMap is expected"),
+      nonEmptyMap => Right(nonEmptyMap.toMap)
+    )
+
   implicit def set[A](implicit schemaA: Schema[A]): Schema[scala.collection.immutable.Set[A]] =
     Schema.Set(schemaA, Chunk.empty)
+
+  implicit def nonEmptySet[A](implicit schemaA: Schema[A]): Schema[NonEmptySet[A]] =
+    Schema[scala.collection.immutable.Set[A]].transformOrFail[NonEmptySet[A]](
+      set => NonEmptySet.fromSetOption(set).toRight(s"Got an empty Set when NonEmptySet is expected"),
+      nonEmptySet => Right(nonEmptySet.toSet)
+    )
 
   implicit def either[A, B](implicit left: Schema[A], right: Schema[B]): Schema[scala.util.Either[A, B]] =
     Schema.Either(left, right)
@@ -316,6 +338,9 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
 
   implicit def list[A](implicit schemaA: Schema[A]): Schema[List[A]] =
     Schema.Sequence[List[A], A, String](schemaA, _.toList, Chunk.fromIterable(_), Chunk.empty, "List")
+
+  implicit def nonEmptyList[A](implicit schemaA: Schema[A]): Schema[NonEmptyList[A]] =
+    Schema[NonEmptyChunk[A]].transform(NonEmptyList.fromNonEmptyChunk, _.toNonEmptyChunk)
 
   implicit def option[A](implicit element: Schema[A]): Schema[Option[A]] =
     Optional(element)
