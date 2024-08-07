@@ -3,6 +3,7 @@ package zio.schema.optics
 import scala.collection.immutable.ListMap
 
 import zio.optics._
+import zio.prelude.NonEmptyMap
 import zio.schema._
 import zio.{ Chunk, ChunkBuilder }
 
@@ -44,13 +45,23 @@ object ZioOpticsBuilder extends AccessorBuilder {
     collection match {
       case seq @ Schema.Sequence(_, _, _, _, _) =>
         ZTraversal[S, S, A, A](
-          ZioOpticsBuilder.makeSeqTraversalGet(seq),
+          ZioOpticsBuilder.makeSeqTraversalGet(seq.toChunk),
           ZioOpticsBuilder.makeSeqTraversalSet(seq)
+        )
+      case seq @ Schema.NonEmptySequence(_, _, _, _, _) =>
+        ZTraversal[S, S, A, A](
+          ZioOpticsBuilder.makeSeqTraversalGet(seq.toChunk),
+          ZioOpticsBuilder.makeNonEmptySeqTraversalSet(seq)
         )
       case Schema.Map(_: Schema[k], _: Schema[v], _) =>
         ZTraversal(
           ZioOpticsBuilder.makeMapTraversalGet[k, v],
           ZioOpticsBuilder.makeMapTraversalSet[k, v]
+        )
+      case Schema.NonEmptyMap(_: Schema[k], _: Schema[v], _) =>
+        ZTraversal(
+          ZioOpticsBuilder.makeMapTraversalGet[k, v],
+          ZioOpticsBuilder.makeNonEmptyMapTraversalSet[k, v]
         )
       case Schema.Set(_, _) =>
         ZTraversal(
@@ -103,9 +114,9 @@ object ZioOpticsBuilder extends AccessorBuilder {
   }
 
   private[optics] def makeSeqTraversalGet[S, A](
-    collection: Schema.Sequence[S, A, _]
+    toChunk: S => Chunk[A]
   ): S => Either[(OpticFailure, S), Chunk[A]] = { (whole: S) =>
-    Right(collection.toChunk(whole))
+    Right(toChunk(whole))
   }
 
   private[optics] def makeSeqTraversalSet[S, A](
@@ -123,13 +134,38 @@ object ZioOpticsBuilder extends AccessorBuilder {
     }
     Right(collection.fromChunk(builder.result()))
   }
+  private[optics] def makeNonEmptySeqTraversalSet[S, A](
+    collection: Schema.NonEmptySequence[S, A, _]
+  ): Chunk[A] => S => Either[(OpticFailure, S), S] = { (piece: Chunk[A]) => (whole: S) =>
+    val builder       = ChunkBuilder.make[A]()
+    val leftIterator  = collection.toChunk(whole).iterator
+    val rightIterator = piece.iterator
+    while (leftIterator.hasNext && rightIterator.hasNext) {
+      val _ = leftIterator.next()
+      builder += rightIterator.next()
+    }
+    while (leftIterator.hasNext) {
+      builder += leftIterator.next()
+    }
+    Right(collection.fromChunk(builder.result()))
+  }
 
   private[optics] def makeMapTraversalGet[K, V](whole: Map[K, V]): Either[(OpticFailure, Map[K, V]), Chunk[(K, V)]] =
     Right(Chunk.fromIterable(whole))
 
+  private[optics] def makeMapTraversalGet[K, V](
+    whole: NonEmptyMap[K, V]
+  ): Either[(OpticFailure, NonEmptyMap[K, V]), Chunk[(K, V)]] =
+    Right(Chunk.fromIterable(whole.toMap))
+
   private[optics] def makeMapTraversalSet[K, V]
     : Chunk[(K, V)] => Map[K, V] => Either[(OpticFailure, Map[K, V]), Map[K, V]] = {
     (piece: Chunk[(K, V)]) => (whole: Map[K, V]) =>
+      Right(whole ++ piece.toList)
+  }
+  private[optics] def makeNonEmptyMapTraversalSet[K, V]
+    : Chunk[(K, V)] => NonEmptyMap[K, V] => Either[(OpticFailure, NonEmptyMap[K, V]), NonEmptyMap[K, V]] = {
+    (piece: Chunk[(K, V)]) => (whole: NonEmptyMap[K, V]) =>
       Right(whole ++ piece.toList)
   }
 
