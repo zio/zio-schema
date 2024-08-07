@@ -54,16 +54,17 @@ object ProtobufCodec {
      */
     @scala.annotation.tailrec
     private[codec] def canBePacked(schema: Schema[_]): Boolean = schema match {
-      case Schema.Sequence(element, _, _, _, _) => canBePacked(element)
-      case Schema.Transform(codec, _, _, _, _)  => canBePacked(codec)
-      case Schema.Primitive(standardType, _)    => canBePacked(standardType)
-      case _: Schema.Tuple2[_, _]               => false
-      case _: Schema.Optional[_]                => false
-      case _: Schema.Fail[_]                    => false
-      case _: Schema.Either[_, _]               => false
-      case _: Schema.Fallback[_, _]             => false
-      case lzy @ Schema.Lazy(_)                 => canBePacked(lzy.schema)
-      case _                                    => false
+      case Schema.Sequence(element, _, _, _, _)         => canBePacked(element)
+      case Schema.NonEmptySequence(element, _, _, _, _) => canBePacked(element)
+      case Schema.Transform(codec, _, _, _, _)          => canBePacked(codec)
+      case Schema.Primitive(standardType, _)            => canBePacked(standardType)
+      case _: Schema.Tuple2[_, _]                       => false
+      case _: Schema.Optional[_]                        => false
+      case _: Schema.Fail[_]                            => false
+      case _: Schema.Either[_, _]                       => false
+      case _: Schema.Fallback[_, _]                     => false
+      case lzy @ Schema.Lazy(_)                         => canBePacked(lzy.schema)
+      case _                                            => false
     }
 
     private def canBePacked(standardType: StandardType[_]): Boolean = standardType match {
@@ -780,7 +781,6 @@ object ProtobufCodec {
 
     override protected def finishedCreatingOneSequenceElement(
       context: DecoderContext,
-      schema: Schema.Sequence[_, _, _],
       index: Int
     ): Boolean =
       state.length(context) > 0

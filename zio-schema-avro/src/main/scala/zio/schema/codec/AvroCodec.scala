@@ -19,6 +19,7 @@ import org.apache.avro.io.{ DecoderFactory, EncoderFactory }
 import org.apache.avro.util.Utf8
 import org.apache.avro.{ Conversions, LogicalTypes, Schema => SchemaAvro }
 
+import zio.prelude.NonEmptyMap
 import zio.schema.{ Fallback, FieldSet, Schema, StandardType, TypeId }
 import zio.stream.ZPipeline
 import zio.{ Chunk, Unsafe, ZIO }
@@ -201,9 +202,20 @@ object AvroCodec {
     case record: Schema.Record[_]           => decodeRecord(raw, record).map(_.asInstanceOf[A])
     case Schema.Sequence(element, f, _, _, _) =>
       decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(f.asInstanceOf[Chunk[Any] => A])
+    case nes @ Schema.NonEmptySequence(element, _, _, _, _) =>
+      decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(nes.fromChunk.asInstanceOf[Chunk[Any] => A])
     case Schema.Set(element, _) => decodeSequence(raw, element.asInstanceOf[Schema[Any]]).map(_.toSet.asInstanceOf[A])
     case mapSchema: Schema.Map[_, _] =>
       decodeMap(raw, mapSchema.asInstanceOf[Schema.Map[Any, Any]]).map(_.asInstanceOf[A])
+    case mapSchema: Schema.NonEmptyMap[_, _] =>
+      decodeMap(
+        raw,
+        Schema.Map(
+          mapSchema.keySchema.asInstanceOf[Schema[Any]],
+          mapSchema.valueSchema.asInstanceOf[Schema[Any]],
+          mapSchema.annotations
+        )
+      ).map(mapSchema.asInstanceOf[Schema.NonEmptyMap[Any, Any]].fromMap(_).asInstanceOf[A])
     case Schema.Transform(schema, f, _, _, _) =>
       decodeValue(raw, schema).flatMap(
         a => f(a).left.map(msg => DecodeError.MalformedFieldWithPath(Chunk.single("Error"), msg))
@@ -662,12 +674,22 @@ object AvroCodec {
         c21,
         c22
       )
-    case Schema.GenericRecord(typeId, structure, _) => encodeGenericRecord(a, typeId, structure)
-    case Schema.Primitive(standardType, _)          => encodePrimitive(a, standardType)
-    case Schema.Sequence(element, _, g, _, _)       => encodeSequence(element, g(a))
-    case Schema.Set(element, _)                     => encodeSet(element, a)
+    case Schema.GenericRecord(typeId, structure, _)   => encodeGenericRecord(a, typeId, structure)
+    case Schema.Primitive(standardType, _)            => encodePrimitive(a, standardType)
+    case Schema.Sequence(element, _, g, _, _)         => encodeSequence(element, g(a))
+    case Schema.NonEmptySequence(element, _, g, _, _) => encodeSequence(element, g(a))
+    case Schema.Set(element, _)                       => encodeSet(element, a)
     case mapSchema: Schema.Map[_, _] =>
       encodeMap(mapSchema.asInstanceOf[Schema.Map[Any, Any]], a.asInstanceOf[scala.collection.immutable.Map[Any, Any]])
+    case mapSchema: Schema.NonEmptyMap[_, _] =>
+      encodeMap(
+        Schema.Map(
+          mapSchema.keySchema.asInstanceOf[Schema[Any]],
+          mapSchema.valueSchema.asInstanceOf[Schema[Any]],
+          mapSchema.annotations
+        ),
+        a.asInstanceOf[NonEmptyMap[Any, Any]].toMap
+      )
     case Schema.Transform(schema, _, g, _, _) =>
       g(a).map(encodeValue(_, schema)).getOrElse(throw new Exception("Transform failed."))
     case Schema.Optional(schema, _) => encodeOption(schema, a)

@@ -432,18 +432,20 @@ object ThriftCodec {
 
     @tailrec
     final private def getType[A](schema: Schema[A]): Byte = schema match {
-      case _: Schema.Record[A]                  => TType.STRUCT
-      case Schema.Sequence(_, _, _, _, _)       => TType.LIST
-      case Schema.Map(_, _, _)                  => TType.MAP
-      case Schema.Set(_, _)                     => TType.SET
-      case Schema.Transform(schema, _, _, _, _) => getType(schema)
-      case Schema.Primitive(standardType, _)    => getPrimitiveType(standardType)
-      case Schema.Tuple2(_, _, _)               => TType.STRUCT
-      case Schema.Optional(schema, _)           => getType(schema)
-      case Schema.Either(_, _, _)               => TType.STRUCT
-      case Schema.Lazy(lzy)                     => getType(lzy())
-      case _: Schema.Enum[A]                    => TType.STRUCT
-      case _                                    => TType.VOID
+      case _: Schema.Record[A]                    => TType.STRUCT
+      case Schema.Sequence(_, _, _, _, _)         => TType.LIST
+      case Schema.NonEmptySequence(_, _, _, _, _) => TType.LIST
+      case Schema.Map(_, _, _)                    => TType.MAP
+      case Schema.NonEmptyMap(_, _, _)            => TType.MAP
+      case Schema.Set(_, _)                       => TType.SET
+      case Schema.Transform(schema, _, _, _, _)   => getType(schema)
+      case Schema.Primitive(standardType, _)      => getPrimitiveType(standardType)
+      case Schema.Tuple2(_, _, _)                 => TType.STRUCT
+      case Schema.Optional(schema, _)             => getType(schema)
+      case Schema.Either(_, _, _)                 => TType.STRUCT
+      case Schema.Lazy(lzy)                       => getType(lzy())
+      case _: Schema.Enum[A]                      => TType.STRUCT
+      case _                                      => TType.VOID
     }
   }
 
@@ -691,7 +693,6 @@ object ThriftCodec {
 
     override protected def finishedCreatingOneSequenceElement(
       context: DecoderContext,
-      schema: Schema.Sequence[_, _, _],
       index: Int
     ): Boolean =
       context.expectedCount.map(_ - (index + 1)).exists(_ > 0)

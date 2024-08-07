@@ -263,12 +263,13 @@ object Differ {
             Right(Currency.getInstance(s))
           } catch { case e: Throwable => Left(s"$s is not a valid Currency: ${e.getMessage}") }
       )
-    case Schema.Tuple2(leftSchema, rightSchema, _) => fromSchema(leftSchema) <*> fromSchema(rightSchema)
-    case Schema.Optional(schema, _)                => fromSchema(schema).optional
-    case Schema.Sequence(schema, g, f, _, _) =>
-      fromSchema(schema).chunk.transform(f, g)
+    case Schema.Tuple2(leftSchema, rightSchema, _)                                               => fromSchema(leftSchema) <*> fromSchema(rightSchema)
+    case Schema.Optional(schema, _)                                                              => fromSchema(schema).optional
+    case Schema.Sequence(schema, g, f, _, _)                                                     => fromSchema(schema).chunk.transform(f, g)
+    case s @ Schema.NonEmptySequence(schema, _, f, _, _)                                         => fromSchema(schema).chunk.transform(f, s.fromChunk)
     case Schema.Set(s, _)                                                                        => set(s)
     case Schema.Map(k, v, _)                                                                     => map(k, v)
+    case s @ Schema.NonEmptyMap(k, v, _)                                                         => map(k, v).transform(_.toMap.asInstanceOf[Map[Any, Any]], s.fromMap)
     case Schema.Either(leftSchema, rightSchema, _)                                               => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case Schema.Fallback(leftSchema, rightSchema, _, _)                                          => fallback(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                                                                      => fromSchema(s.schema)
