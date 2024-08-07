@@ -24,6 +24,16 @@ import zio.test._
 
 object JsonCodecSpec extends ZIOSpecDefault {
 
+  object Foo {
+    implicit val schema: Schema[Foo.type] = DeriveSchema.gen[Foo.type]
+  }
+
+  final case class Bar(a: Int)
+
+  object Bar {
+    implicit val schema: Schema[Bar] = DeriveSchema.gen[Bar]
+  }
+
   def spec: Spec[TestEnvironment, Any] =
     suite("JsonCodec Spec")(
       encoderSuite,
@@ -882,6 +892,36 @@ object JsonCodecSpec extends ZIOSpecDefault {
           zio.schema.codec.json.schemaJson,
           Json.Null,
           charSequenceToByteChunk("""null""")
+        )
+      }
+    ),
+    suite("zio.schema.codec.JsonCodec.jsonDecoder reject extra characters")(
+      test("extra } in empty object") {
+        assertTrue(
+          zio.schema.codec.JsonCodec
+            .jsonDecoder(Schema[Foo.type])
+            .decodeJson(
+              """{}}"""
+            )
+            .isLeft
+        )
+      },
+      test("extra } in non-empty object") {
+        assertTrue(
+          zio.schema.codec.JsonCodec
+            .jsonDecoder(Schema[Bar])
+            .decodeJson(
+              """{"a":1}}"""
+            )
+            .isLeft
+        )
+      },
+      test("extra \" in string") {
+        assertTrue(
+          zio.schema.codec.JsonCodec
+            .jsonDecoder(Schema[String])
+            .decodeJson("\"foo\"\"")
+            .isLeft
         )
       }
     )

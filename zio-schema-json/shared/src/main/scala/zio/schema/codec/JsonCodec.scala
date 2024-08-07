@@ -489,11 +489,25 @@ object JsonCodec {
     import Codecs._
     import ProductDecoder._
 
-    final def decode[A](schema: Schema[A], json: String): Either[DecodeError, A] =
-      schemaDecoder(schema).decodeJson(json) match {
+    final def decode[A](schema: Schema[A], json: String): Either[DecodeError, A] = {
+      val trimmedJson = json.trim
+      schemaDecoder(schema).decodeJson(trimmedJson) match {
         case Left(value)  => Left(ReadError(Cause.empty, value))
-        case Right(value) => Right(value)
+        case Right(value) =>
+          // Check for any remaining non-whitespace characters
+          val lastValidChar = trimmedJson.last match {
+            case '}' => trimmedJson.lastIndexOf('}')
+            case ']' => trimmedJson.lastIndexOf(']')
+            case '"' => trimmedJson.lastIndexOf('"')
+            case _   => trimmedJson.length - 1
+          }
+          if (trimmedJson.length > lastValidChar + 1) {
+            Left(ReadError(Cause.empty, "Unexpected characters after end of JSON"))
+          } else {
+            Right(value)
+          }
       }
+    }
 
     def x[A](dec: ZJsonDecoder[A]): Unit = dec match {
       case _: ZJsonDecoder[_] =>
@@ -543,96 +557,109 @@ object JsonCodec {
       }
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
-    private[codec] def schemaDecoder[A](schema: Schema[A], discriminator: Int = -1): ZJsonDecoder[A] = schema match {
-      case Schema.Primitive(standardType, _)     => primitiveCodec(standardType).decoder
-      case Schema.Optional(codec, _)             => option(schemaDecoder(codec, discriminator))
-      case Schema.Tuple2(left, right, _)         => ZJsonDecoder.tuple2(schemaDecoder(left, -1), schemaDecoder(right, -1))
-      case Schema.Transform(c, f, _, a, _)       => schemaDecoder(a.foldLeft(c)((s, a) => s.annotate(a)), discriminator).mapOrFail(f)
-      case Schema.Sequence(codec, f, _, _, _)    => ZJsonDecoder.chunk(schemaDecoder(codec, -1)).map(f)
-      case Schema.Map(ks, vs, _)                 => mapDecoder(ks, vs)
-      case Schema.Set(s, _)                      => ZJsonDecoder.chunk(schemaDecoder(s, -1)).map(entries => entries.toSet)
-      case Schema.Fail(message, _)               => failDecoder(message)
-      case Schema.GenericRecord(_, structure, _) => recordDecoder(structure.toChunk, schema.annotations.contains(rejectExtraFields()))
-      case Schema.Either(left, right, _)         => ZJsonDecoder.either(schemaDecoder(left, -1), schemaDecoder(right, -1))
-      case s @ Schema.Fallback(_, _, _, _)       => fallbackDecoder(s)
-      case l @ Schema.Lazy(_)                    => schemaDecoder(l.schema, discriminator)
-      //case Schema.Meta(_, _)                                                                           => astDecoder
-      case s @ Schema.CaseClass0(_, _, _)                                => caseClass0Decoder(discriminator, s)
-      case s @ Schema.CaseClass1(_, _, _, _)                             => caseClass1Decoder(discriminator, s)
-      case s @ Schema.CaseClass2(_, _, _, _, _)                          => caseClass2Decoder(discriminator, s)
-      case s @ Schema.CaseClass3(_, _, _, _, _, _)                       => caseClass3Decoder(discriminator, s)
-      case s @ Schema.CaseClass4(_, _, _, _, _, _, _)                    => caseClass4Decoder(discriminator, s)
-      case s @ Schema.CaseClass5(_, _, _, _, _, _, _, _)                 => caseClass5Decoder(discriminator, s)
-      case s @ Schema.CaseClass6(_, _, _, _, _, _, _, _, _)              => caseClass6Decoder(discriminator, s)
-      case s @ Schema.CaseClass7(_, _, _, _, _, _, _, _, _, _)           => caseClass7Decoder(discriminator, s)
-      case s @ Schema.CaseClass8(_, _, _, _, _, _, _, _, _, _, _)        => caseClass8Decoder(discriminator, s)
-      case s @ Schema.CaseClass9(_, _, _, _, _, _, _, _, _, _, _, _)     => caseClass9Decoder(discriminator, s)
-      case s @ Schema.CaseClass10(_, _, _, _, _, _, _, _, _, _, _, _, _) => caseClass10Decoder(discriminator, s)
-      case s @ Schema.CaseClass11(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-        caseClass11Decoder(discriminator, s)
-      case s @ Schema.CaseClass12(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-        caseClass12Decoder(discriminator, s)
-      case s @ Schema.CaseClass13(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-        caseClass13Decoder(discriminator, s)
-      case s @ Schema
-            .CaseClass14(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-        caseClass14Decoder(discriminator, s)
-      case s @ Schema
-            .CaseClass15(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-        caseClass15Decoder(discriminator, s)
-      case s @ Schema.CaseClass16(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-        caseClass16Decoder(discriminator, s)
-      case s @ Schema.CaseClass17(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-        caseClass17Decoder(discriminator, s)
-      case s @ Schema.CaseClass18(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-        caseClass18Decoder(discriminator, s)
-      case s @ Schema.CaseClass19(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-        caseClass19Decoder(discriminator, s)
-      case s @ Schema.CaseClass20(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-        caseClass20Decoder(discriminator, s)
-      case s @ Schema.CaseClass21(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-        caseClass21Decoder(discriminator, s)
-      case s @ Schema.CaseClass22(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-        caseClass22Decoder(discriminator, s)
-      case e @ Schema.Enum1(_, c, _)                                  => enumDecoder(e, c)
-      case e @ Schema.Enum2(_, c1, c2, _)                             => enumDecoder(e, c1, c2)
-      case e @ Schema.Enum3(_, c1, c2, c3, _)                         => enumDecoder(e, c1, c2, c3)
-      case e @ Schema.Enum4(_, c1, c2, c3, c4, _)                     => enumDecoder(e, c1, c2, c3, c4)
-      case e @ Schema.Enum5(_, c1, c2, c3, c4, c5, _)                 => enumDecoder(e, c1, c2, c3, c4, c5)
-      case e @ Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _)             => enumDecoder(e, c1, c2, c3, c4, c5, c6)
-      case e @ Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _)         => enumDecoder(e, c1, c2, c3, c4, c5, c6, c7)
-      case e @ Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _)     => enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8)
-      case e @ Schema.Enum9(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, _) => enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9)
-      case e @ Schema.Enum10(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
-      case e @ Schema.Enum11(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
-      case e @ Schema.Enum12(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
-      case e @ Schema.Enum13(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
-      case e @ Schema.Enum14(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
-      case e @ Schema.Enum15(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
-      case e @ Schema.Enum16(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
-      case e @ Schema.Enum17(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
-      case e @ Schema.Enum18(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
-      case e @ Schema.Enum19(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
-      case e @ Schema
-            .Enum20(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
-      case e @ Schema.Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
-      case e @ Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-      case e @ Schema.EnumN(_, cs, _) => enumDecoder(e, cs.toSeq: _*)
-      case d @ Schema.Dynamic(_)      => dynamicDecoder(d)
-      case _                          => throw new Exception(s"Missing a handler for decoding of schema ${schema.toString()}.")
+    private[codec] def schemaDecoder[A](schema: Schema[A], discriminator: Int = -1): ZJsonDecoder[A] = {
+      new ZJsonDecoder[A] {
+        def unsafeDecode(trace: List[JsonError], in: RetractReader): A = {
+          val result = schema match {
+            case Schema.Primitive(standardType, _)     => primitiveCodec(standardType).decoder
+            case Schema.Optional(codec, _)             => option(schemaDecoder(codec, discriminator))
+            case Schema.Tuple2(left, right, _)         => ZJsonDecoder.tuple2(schemaDecoder(left, -1), schemaDecoder(right, -1))
+            case Schema.Transform(c, f, _, a, _)       => schemaDecoder(a.foldLeft(c)((s, a) => s.annotate(a)), discriminator).mapOrFail(f)
+            case Schema.Sequence(codec, f, _, _, _)    => ZJsonDecoder.chunk(schemaDecoder(codec, -1)).map(f)
+            case Schema.Map(ks, vs, _)                 => mapDecoder(ks, vs)
+            case Schema.Set(s, _)                      => ZJsonDecoder.chunk(schemaDecoder(s, -1)).map(entries => entries.toSet)
+            case Schema.Fail(message, _)               => failDecoder(message)
+            case Schema.GenericRecord(_, structure, _) => recordDecoder(structure.toChunk, schema.annotations.contains(rejectExtraFields()))
+            case Schema.Either(left, right, _)         => ZJsonDecoder.either(schemaDecoder(left, -1), schemaDecoder(right, -1))
+            case s @ Schema.Fallback(_, _, _, _)       => fallbackDecoder(s)
+            case l @ Schema.Lazy(_)                    => schemaDecoder(l.schema, discriminator)
+            //case Schema.Meta(_, _)                                                                           => astDecoder
+            case s @ Schema.CaseClass0(_, _, _)                                => caseClass0Decoder(discriminator, s)
+            case s @ Schema.CaseClass1(_, _, _, _)                             => caseClass1Decoder(discriminator, s)
+            case s @ Schema.CaseClass2(_, _, _, _, _)                          => caseClass2Decoder(discriminator, s)
+            case s @ Schema.CaseClass3(_, _, _, _, _, _)                       => caseClass3Decoder(discriminator, s)
+            case s @ Schema.CaseClass4(_, _, _, _, _, _, _)                    => caseClass4Decoder(discriminator, s)
+            case s @ Schema.CaseClass5(_, _, _, _, _, _, _, _)                 => caseClass5Decoder(discriminator, s)
+            case s @ Schema.CaseClass6(_, _, _, _, _, _, _, _, _)              => caseClass6Decoder(discriminator, s)
+            case s @ Schema.CaseClass7(_, _, _, _, _, _, _, _, _, _)           => caseClass7Decoder(discriminator, s)
+            case s @ Schema.CaseClass8(_, _, _, _, _, _, _, _, _, _, _)        => caseClass8Decoder(discriminator, s)
+            case s @ Schema.CaseClass9(_, _, _, _, _, _, _, _, _, _, _, _)     => caseClass9Decoder(discriminator, s)
+            case s @ Schema.CaseClass10(_, _, _, _, _, _, _, _, _, _, _, _, _) => caseClass10Decoder(discriminator, s)
+            case s @ Schema.CaseClass11(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+              caseClass11Decoder(discriminator, s)
+            case s @ Schema.CaseClass12(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+              caseClass12Decoder(discriminator, s)
+            case s @ Schema.CaseClass13(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+              caseClass13Decoder(discriminator, s)
+            case s @ Schema
+                  .CaseClass14(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+              caseClass14Decoder(discriminator, s)
+            case s @ Schema
+                  .CaseClass15(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+              caseClass15Decoder(discriminator, s)
+            case s @ Schema.CaseClass16(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+              caseClass16Decoder(discriminator, s)
+            case s @ Schema.CaseClass17(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+              caseClass17Decoder(discriminator, s)
+            case s @ Schema.CaseClass18(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+              caseClass18Decoder(discriminator, s)
+            case s @ Schema.CaseClass19(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+              caseClass19Decoder(discriminator, s)
+            case s @ Schema.CaseClass20(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+              caseClass20Decoder(discriminator, s)
+            case s @ Schema.CaseClass21(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+              caseClass21Decoder(discriminator, s)
+            case s @ Schema.CaseClass22(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+              caseClass22Decoder(discriminator, s)
+            case e @ Schema.Enum1(_, c, _)                                  => enumDecoder(e, c)
+            case e @ Schema.Enum2(_, c1, c2, _)                             => enumDecoder(e, c1, c2)
+            case e @ Schema.Enum3(_, c1, c2, c3, _)                         => enumDecoder(e, c1, c2, c3)
+            case e @ Schema.Enum4(_, c1, c2, c3, c4, _)                     => enumDecoder(e, c1, c2, c3, c4)
+            case e @ Schema.Enum5(_, c1, c2, c3, c4, c5, _)                 => enumDecoder(e, c1, c2, c3, c4, c5)
+            case e @ Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _)             => enumDecoder(e, c1, c2, c3, c4, c5, c6)
+            case e @ Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _)         => enumDecoder(e, c1, c2, c3, c4, c5, c6, c7)
+            case e @ Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _)     => enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8)
+            case e @ Schema.Enum9(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, _) => enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9)
+            case e @ Schema.Enum10(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _) =>
+              enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
+            case e @ Schema.Enum11(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _) =>
+              enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
+            case e @ Schema.Enum12(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _) =>
+              enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
+            case e @ Schema.Enum13(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _) =>
+              enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
+            case e @ Schema.Enum14(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _) =>
+              enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
+            case e @ Schema.Enum15(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _) =>
+              enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
+            case e @ Schema.Enum16(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _) =>
+              enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
+            case e @ Schema.Enum17(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _) =>
+              enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
+            case e @ Schema.Enum18(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _) =>
+              enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
+            case e @ Schema.Enum19(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _) =>
+              enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
+            case e @ Schema
+                  .Enum20(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _) =>
+              enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
+            case e @ Schema.Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _) =>
+              enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
+            case e @ Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
+              enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
+            case e @ Schema.EnumN(_, cs, _) => enumDecoder(e, cs.toSeq: _*)
+            case d @ Schema.Dynamic(_)      => dynamicDecoder(d)
+            case _                          => throw new Exception(s"Missing a handler for decoding of schema ${schema.toString()}.")
+          }
+
+          // Check for unexpected characters after parsing
+          if (in.nextNonWhitespace() != -1) {
+            throw UnsafeJson(JsonError.Message("Unexpected characters after parsed content") :: trace)
+          }
+
+          result.asInstanceOf[A]
+        }
+      }
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
