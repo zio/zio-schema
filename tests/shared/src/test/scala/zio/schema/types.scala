@@ -229,13 +229,13 @@ object types {
       Gen.const(Schema[Arities])
     )
 
-  def anySchemaAndValue: Gen[Sized, SchemaAndValue[_]] =
+  def anySchemaAndValue: Gen[Sized, SchemaAndValue[Any]] =
     for {
       schema       <- anySchema
       dynamicValue <- DynamicValueGen.anyDynamicValueOfSchema(schema)
     } yield schema.asInstanceOf[Schema[Any]] -> dynamicValue.toTypedValue(schema).toOption.get
 
-  def anySchemaAndValuePair: Gen[Sized, SchemaAndValuePair[_]] =
+  def anySchemaAndValuePair: Gen[Sized, SchemaAndValuePair[Any]] =
     for {
       schema        <- anySchema
       dynamicValue1 <- DynamicValueGen.anyDynamicValueOfSchema(schema)
@@ -245,7 +245,7 @@ object types {
       .toOption
       .get)
 
-  def anySchemaAndValues(n: Int): Gen[Sized, SchemaAndValues[_]] =
+  def anySchemaAndValues(n: Int): Gen[Sized, SchemaAndValues[Any]] =
     for {
       schema        <- anySchema
       dynamicValues <- Gen.listOfN(n)(DynamicValueGen.anyDynamicValueOfSchema(schema))

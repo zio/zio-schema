@@ -5,8 +5,8 @@ import zio.schema.SchemaGen.Json.schema
 import zio.test._
 
 object AccessorBuilderSpec extends ZIOSpecDefault {
-  import TestAccessorBuilder._
   import Assertion._
+  import TestAccessorBuilder._
 
   private val builder: TestAccessorBuilder = new TestAccessorBuilder
 
@@ -70,15 +70,12 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
 
           val accessor = tupleSchema.makeAccessors(builder)
 
-          assert(
-            accessor match {
-              case (Lens(r1, f1), Lens(r2, f2)) =>
-                r1 == r2 && r2 == tupleSchema.toRecord &&
-                  f1.name == "_1" && f1.schema == leftSchema &&
-                  f2.name == "_2" && f2.schema == rightSchema
-              case _ => false
-            }
-          )(isTrue)
+          assertTrue(accessor match {
+            case (Lens(r1, f1), Lens(r2, f2)) =>
+              r1 == r2 && r2 == tupleSchema.toRecord &&
+                f1.name == "_1" && f1.schema == leftSchema &&
+                f2.name == "_2" && f2.schema == rightSchema
+          })
       }
     },
     test("either") {
@@ -122,8 +119,6 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
         accessor match {
           case (Lens(r1, f1), Lens(r2, f2), Lens(r3, f3)) =>
             r1 == schema && r2 == schema && r3 == schema && f1 == schema.field1 && f2 == schema.field2 && f3 == schema.field3
-          case _ => false
-
         }
       )
     },
