@@ -3,16 +3,51 @@ package zio.schema
 import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
 import scala.reflect.ClassTag
-
 import zio.schema.Deriver.WrappedF
+import zio.schema.DynamicValue.Constructor
 import zio.schema.Schema.Field
 import zio.schema.annotation.{ fieldDefaultValue, genericTypeInfo }
+import zio.schema.codec.DecodeError
 import zio.test.{ Spec, TestEnvironment, ZIOSpecDefault, assertTrue }
-import zio.{ Chunk, Scope }
+import zio.{ Chunk, Scope, Unsafe }
 
 @nowarn object DeriveSpec extends ZIOSpecDefault with VersionSpecificDeriveSpec {
   override def spec: Spec[TestEnvironment with Scope, Any] =
     suite("Derive")(
+      suite("ast derived schema dynamic to typed value")(
+        test("using auxiliary constructor") {
+          val user        = User("John", 30)
+          val userDynamic = schema.toDynamic(user)
+
+          val con = schema match {
+            case record: Schema.Record[_] =>
+              val stringOrUser: (Chunk[Any], Unsafe) => Either[String, User] = record.construct(_)(_)
+              // create a function out of record.construct, could also be created manually
+              Constructor.apply(stringOrUser)
+          }
+
+          val registry: PartialFunction[TypeId, Constructor[_]] = {
+            case TypeId.Nominal(Chunk("zio", "schema"), Chunk("DeriveSpec"), "User") => con
+          }
+
+          val either: Either[DecodeError, User] =
+            userDynamic.toTypedValue[User](registry)(schema.ast.toSchema)
+
+          assertTrue(either == Right(User("John", 30)))
+        },
+        test("fail if there is no matching constructor") {
+          val user        = User("John", 30)
+          val userDynamic = schema.toDynamic(user)
+
+          val registry: PartialFunction[TypeId, Constructor[_]] = PartialFunction.empty
+
+          import zio.test.Assertion.isLeft
+          import zio.test.assert
+
+          val either = userDynamic.toTypedValue(registry)(schema.ast.toSchema)
+          assert(either)(isLeft)
+        }
+      ),
       suite("case object")(
         test("can derive new instance for case object") {
           implicit val schema: Schema[CaseObject1.type] = DeriveSchema.gen[CaseObject1.type]
@@ -128,6 +163,7 @@ import zio.{ Chunk, Scope }
           val capturedSchema = Derive.derive[CapturedSchema, RecordWithBigTuple](schemaCapturer)
           val tupleSchema    = capturedSchema.inner.map(_.schema)
           val isARecord      = tupleSchema.get.isInstanceOf[Schema.Record[_]]
+
           def record: Schema.Record[(String, Int, Double, Record1, Record2, Record3)] =
             tupleSchema.get.asInstanceOf[Schema.Record[(String, Int, Double, Record1, Record2, Record3)]]
 
@@ -150,7 +186,8 @@ import zio.{ Chunk, Scope }
       suite("support for unknown types")(
         test("can pick up existing instance for unknown type") {
           implicit val openTraitTC: TC[OpenTrait] = new TC[OpenTrait] {
-            override def isDerived: Boolean   = false
+            override def isDerived: Boolean = false
+
             override def inner: Option[TC[_]] = None
           }
           val tc        = Derive.derive[TC, UnsupportedField1](deriver)
@@ -230,14 +267,17 @@ import zio.{ Chunk, Scope }
 
   trait TC[A] {
     def isDerived: Boolean
+
     def inner: Option[TC[_]]
   }
 
   object CaseObject1
 
   object CaseObject2
+
   implicit val co2TC: TC[CaseObject2.type] = new TC[CaseObject2.type] {
-    override def isDerived: Boolean   = false
+    override def isDerived: Boolean = false
+
     override def inner: Option[TC[_]] = None
   }
 
@@ -258,7 +298,8 @@ import zio.{ Chunk, Scope }
   object Record2 {
     implicit val schema: Schema[Record2] = DeriveSchema.gen[Record2]
     implicit val tc: TC[Record2] = new TC[Record2] {
-      override def isDerived: Boolean   = false
+      override def isDerived: Boolean = false
+
       override def inner: Option[TC[_]] = None
     }
   }
@@ -354,13 +395,16 @@ import zio.{ Chunk, Scope }
   sealed trait Enum1
 
   object Enum1 {
-    case object Enum1A                      extends Enum1
+    case object Enum1A extends Enum1
+
     final case class Enum1B(value: Record2) extends Enum1
-    final case class Enum1C(id: Int)        extends Enum1
+
+    final case class Enum1C(id: Int) extends Enum1
 
     object Enum1C {
       implicit val tc: TC[Enum1C] = new TC[Enum1C] {
-        override def isDerived: Boolean   = false
+        override def isDerived: Boolean = false
+
         override def inner: Option[TC[_]] = None
       }
     }
@@ -372,7 +416,8 @@ import zio.{ Chunk, Scope }
 
   object Enum2 {
     final case class Next(value: Enum2) extends Enum2
-    case object Stop                    extends Enum2
+
+    case object Stop extends Enum2
 
     implicit val schema: Schema[Enum2] = DeriveSchema.gen[Enum2]
   }
@@ -400,7 +445,8 @@ import zio.{ Chunk, Scope }
   }
 
   private val defaultOpenTraitTC: TC[UnsupportedField1] = new TC[UnsupportedField1] {
-    override def isDerived: Boolean   = true
+    override def isDerived: Boolean = true
+
     override def inner: Option[TC[_]] = None
   }
 
@@ -413,7 +459,8 @@ import zio.{ Chunk, Scope }
       summoned.getOrElse {
         assert(fields.forall(_.unwrap ne null)) // force evaluation
         new TC[A] {
-          override def isDerived: Boolean   = true
+          override def isDerived: Boolean = true
+
           override def inner: Option[TC[_]] = fields.headOption.map(_.unwrap)
         }
       }
@@ -441,7 +488,8 @@ import zio.{ Chunk, Scope }
       summoned.getOrElse {
         assert(cases.forall(_.unwrap ne null)) // force evaluation
         new TC[A] {
-          override def isDerived: Boolean   = true
+          override def isDerived: Boolean = true
+
           override def inner: Option[TC[_]] = cases.headOption.map(_.unwrap)
         }
       }
@@ -449,7 +497,8 @@ import zio.{ Chunk, Scope }
     override def derivePrimitive[A](st: StandardType[A], summoned: => Option[TC[A]]): TC[A] =
       summoned.getOrElse {
         new TC[A] {
-          override def isDerived: Boolean   = true
+          override def isDerived: Boolean = true
+
           override def inner: Option[TC[_]] = None
         }
       }
@@ -462,7 +511,8 @@ import zio.{ Chunk, Scope }
       summoned.getOrElse {
         assert(innerTC ne null) // force evaluation
         new TC[Option[A]] {
-          override def isDerived: Boolean   = true
+          override def isDerived: Boolean = true
+
           override def inner: Option[TC[_]] = Some(innerTC)
         }
       }
@@ -475,7 +525,8 @@ import zio.{ Chunk, Scope }
       summoned.getOrElse {
         assert(innerTC ne null) // force evaluation
         new TC[C[A]] {
-          override def isDerived: Boolean   = true
+          override def isDerived: Boolean = true
+
           override def inner: Option[TC[_]] = Some(innerTC)
         }
       }
@@ -484,7 +535,8 @@ import zio.{ Chunk, Scope }
       summoned.getOrElse {
         assert(innerTC ne null) // force evaluation
         new TC[Set[A]] {
-          override def isDerived: Boolean   = true
+          override def isDerived: Boolean = true
+
           override def inner: Option[TC[_]] = Some(innerTC)
         }
       }
@@ -499,7 +551,8 @@ import zio.{ Chunk, Scope }
         assert(key ne null)
         assert(value ne null) // force evaluation
         new TC[Map[K, V]] {
-          override def isDerived: Boolean   = true
+          override def isDerived: Boolean = true
+
           override def inner: Option[TC[_]] = Some(key)
         }
       }
@@ -514,7 +567,8 @@ import zio.{ Chunk, Scope }
         assert(left ne null)
         assert(right ne null)
         new TC[Either[A, B]] {
-          override def isDerived: Boolean   = true
+          override def isDerived: Boolean = true
+
           override def inner: Option[TC[_]] = Some(right)
         }
       }
@@ -539,7 +593,8 @@ import zio.{ Chunk, Scope }
           defaultOpenTraitTC.asInstanceOf[TC[A]]
         } else {
           new TC[A] {
-            override def isDerived: Boolean   = true
+            override def isDerived: Boolean = true
+
             override def inner: Option[TC[_]] = None
           }
         }
@@ -548,7 +603,9 @@ import zio.{ Chunk, Scope }
 
   trait TC2[A] {
     def schema: Schema[A]
+
     def innerCount: Int
+
     def hadSummoned: Boolean
   }
 
@@ -559,8 +616,10 @@ import zio.{ Chunk, Scope }
       summoned: => Option[TC2[A]]
     ): TC2[A] =
       new TC2[A] {
-        override def schema: Schema[A]    = record
-        override def innerCount: Int      = fields.size
+        override def schema: Schema[A] = record
+
+        override def innerCount: Int = fields.size
+
         override def hadSummoned: Boolean = summoned.isDefined
       }
 
@@ -570,15 +629,19 @@ import zio.{ Chunk, Scope }
       summoned: => Option[TC2[A]]
     ): TC2[A] =
       new TC2[A] {
-        override def schema: Schema[A]    = `enum`
-        override def innerCount: Int      = cases.size
+        override def schema: Schema[A] = `enum`
+
+        override def innerCount: Int = cases.size
+
         override def hadSummoned: Boolean = summoned.isDefined
       }
 
     override def derivePrimitive[A](st: StandardType[A], summoned: => Option[TC2[A]]): TC2[A] =
       new TC2[A] {
-        override def schema: Schema[A]    = Schema.primitive(st)
-        override def innerCount: Int      = 0
+        override def schema: Schema[A] = Schema.primitive(st)
+
+        override def innerCount: Int = 0
+
         override def hadSummoned: Boolean = summoned.isDefined
       }
 
@@ -589,8 +652,10 @@ import zio.{ Chunk, Scope }
     ): TC2[Option[A]] =
       new TC2[Option[A]] {
         override def schema: Schema[Option[A]] = option
-        override def innerCount: Int           = 1
-        override def hadSummoned: Boolean      = summoned.isDefined
+
+        override def innerCount: Int = 1
+
+        override def hadSummoned: Boolean = summoned.isDefined
       }
 
     override def deriveSequence[C[_], A](
@@ -600,7 +665,9 @@ import zio.{ Chunk, Scope }
     ): TC2[C[A]] =
       new TC2[C[A]] {
         override def schema: Schema[C[A]] = sequence
-        override def innerCount: Int      = 1
+
+        override def innerCount: Int = 1
+
         override def hadSummoned: Boolean = summoned.isDefined
       }
 
@@ -612,8 +679,10 @@ import zio.{ Chunk, Scope }
     ): TC2[Map[K, V]] =
       new TC2[Map[K, V]] {
         override def schema: Schema[Map[K, V]] = map
-        override def innerCount: Int           = 2
-        override def hadSummoned: Boolean      = summoned.isDefined
+
+        override def innerCount: Int = 2
+
+        override def hadSummoned: Boolean = summoned.isDefined
       }
 
     override def deriveTransformedRecord[A, B](
@@ -623,8 +692,10 @@ import zio.{ Chunk, Scope }
       summoned: => Option[TC2[B]]
     ): TC2[B] =
       new TC2[B] {
-        override def schema: Schema[B]    = transform
-        override def innerCount: Int      = fields.size
+        override def schema: Schema[B] = transform
+
+        override def innerCount: Int = fields.size
+
         override def hadSummoned: Boolean = summoned.isDefined
       }
 
@@ -708,6 +779,7 @@ import zio.{ Chunk, Scope }
 
   trait CapturedSchema[T] {
     def schema: Schema[T]
+
     def inner: Option[CapturedSchema[_]]
   }
 
@@ -719,6 +791,7 @@ import zio.{ Chunk, Scope }
     ): CapturedSchema[A] =
       new CapturedSchema[A] {
         override def schema: Schema[A] = record
+
         override def inner: Option[CapturedSchema[_]] =
           fields.headOption.map(_.unwrap)
       }
@@ -730,13 +803,15 @@ import zio.{ Chunk, Scope }
     ): CapturedSchema[A] =
       new CapturedSchema[A] {
         override def schema: Schema[A] = `enum`
+
         override def inner: Option[CapturedSchema[_]] =
           cases.headOption.map(_.unwrap)
       }
 
     override def derivePrimitive[A](st: StandardType[A], summoned: => Option[CapturedSchema[A]]): CapturedSchema[A] =
       new CapturedSchema[A] {
-        override def schema: Schema[A]                = Schema.Primitive(st)
+        override def schema: Schema[A] = Schema.Primitive(st)
+
         override def inner: Option[CapturedSchema[_]] = None
       }
 
@@ -746,7 +821,8 @@ import zio.{ Chunk, Scope }
       summoned: => Option[CapturedSchema[Option[A]]]
     ): CapturedSchema[Option[A]] =
       new CapturedSchema[Option[A]] {
-        override def schema: Schema[Option[A]]        = option
+        override def schema: Schema[Option[A]] = option
+
         override def inner: Option[CapturedSchema[_]] = Some(innerCS)
       }
 
@@ -756,7 +832,8 @@ import zio.{ Chunk, Scope }
       summoned: => Option[CapturedSchema[C[A]]]
     ): CapturedSchema[C[A]] =
       new CapturedSchema[C[A]] {
-        override def schema: Schema[C[A]]             = sequence
+        override def schema: Schema[C[A]] = sequence
+
         override def inner: Option[CapturedSchema[_]] = Some(innerCS)
       }
 
@@ -767,7 +844,8 @@ import zio.{ Chunk, Scope }
       summoned: => Option[CapturedSchema[Map[K, V]]]
     ): CapturedSchema[Map[K, V]] =
       new CapturedSchema[Map[K, V]] {
-        override def schema: Schema[Map[K, V]]        = map
+        override def schema: Schema[Map[K, V]] = map
+
         override def inner: Option[CapturedSchema[_]] = Some(key)
       }
 
@@ -779,8 +857,14 @@ import zio.{ Chunk, Scope }
     ): CapturedSchema[B] =
       new CapturedSchema[B] {
         override def schema: Schema[B] = transform
+
         override def inner: Option[CapturedSchema[_]] =
           fields.headOption.map(_.unwrap)
       }
   }
+
+  final case class User(name: String, age: Int)
+
+  implicit val schema: Schema[User] = DeriveSchema.gen[User]
+
 }
