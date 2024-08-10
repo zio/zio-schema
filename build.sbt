@@ -2,6 +2,8 @@ import sbtcrossproject.CrossPlugin.autoImport._
 import BuildHelper.{ crossProjectSettings, _ }
 import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
 
+Global / onChangedBuildSource := ReloadOnSourceChanges
+
 inThisBuild(
   List(
     name := "zio-schema",
@@ -127,13 +129,13 @@ lazy val zioSchemaMacros = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .nativeSettings(Test / fork := false)
   .nativeSettings(
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time" % "2.5.0"
+      "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
     )
   )
   .jsSettings(
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time"      % "2.5.0",
-      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.5.0"
+      "io.github.cquiroz" %%% "scala-java-time"      % scalaJavaTimeVersion,
+      "io.github.cquiroz" %%% "scala-java-time-tzdb" % scalaJavaTimeVersion
     )
   )
   .settings(testDeps)
@@ -157,13 +159,13 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .nativeSettings(Test / fork := false)
   .nativeSettings(
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time" % "2.5.0"
+      "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
     )
   )
   .jsSettings(
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time"      % "2.5.0",
-      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.5.0"
+      "io.github.cquiroz" %%% "scala-java-time"      % scalaJavaTimeVersion,
+      "io.github.cquiroz" %%% "scala-java-time-tzdb" % scalaJavaTimeVersion
     )
   )
   .settings(testDeps)
@@ -212,13 +214,13 @@ lazy val zioSchemaDerivation = crossProject(JSPlatform, JVMPlatform, NativePlatf
   .nativeSettings(Test / fork := false)
   .nativeSettings(
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time" % "2.5.0"
+      "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
     )
   )
   .jsSettings(
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time"      % "2.5.0",
-      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.5.0"
+      "io.github.cquiroz" %%% "scala-java-time"      % scalaJavaTimeVersion,
+      "io.github.cquiroz" %%% "scala-java-time-tzdb" % scalaJavaTimeVersion
     )
   )
   .settings(testDeps)
@@ -241,13 +243,13 @@ lazy val zioSchemaJson = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .nativeSettings(Test / fork := false)
   .nativeSettings(
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time" % "2.5.0"
+      "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
     )
   )
   .jsSettings(
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time"      % "2.5.0",
-      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.5.0"
+      "io.github.cquiroz" %%% "scala-java-time"      % scalaJavaTimeVersion,
+      "io.github.cquiroz" %%% "scala-java-time-tzdb" % scalaJavaTimeVersion
     )
   )
   .jsSettings(scalaJSLinkerConfig ~= { _.withOptimizer(false) })
@@ -268,13 +270,13 @@ lazy val zioSchemaProtobuf = crossProject(JSPlatform, JVMPlatform, NativePlatfor
   .nativeSettings(Test / fork := false)
   .nativeSettings(
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time" % "2.5.0"
+      "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
     )
   )
   .jsSettings(
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time"      % "2.5.0",
-      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.5.0"
+      "io.github.cquiroz" %%% "scala-java-time"      % scalaJavaTimeVersion,
+      "io.github.cquiroz" %%% "scala-java-time-tzdb" % scalaJavaTimeVersion
     )
   )
   .settings(testDeps)
@@ -292,8 +294,8 @@ lazy val zioSchemaThrift = project
   .settings(buildInfoSettings("zio.schema.thrift"))
   .settings(
     libraryDependencies ++= Seq(
-      "org.apache.thrift" % "libthrift"            % thriftVersion,
-      "javax.annotation"  % "javax.annotation-api" % javaxAnnotationApiVersion
+      "org.apache.thrift"  % "libthrift"              % thriftVersion,
+      "jakarta.annotation" % "jakarta.annotation-api" % javaxAnnotationApiVersion
     )
   )
   .settings(testDeps)
@@ -359,13 +361,13 @@ lazy val zioSchemaOptics = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .nativeSettings(Test / fork := false)
   .nativeSettings(
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time" % "2.5.0"
+      "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
     )
   )
   .jsSettings(
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time"      % "2.5.0",
-      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.5.0"
+      "io.github.cquiroz" %%% "scala-java-time"      % scalaJavaTimeVersion,
+      "io.github.cquiroz" %%% "scala-java-time-tzdb" % scalaJavaTimeVersion
     )
   )
   .settings(testDeps)
@@ -389,13 +391,13 @@ lazy val zioSchemaExamples = crossProject(JSPlatform, JVMPlatform, NativePlatfor
   .nativeSettings(Test / fork := false)
   .nativeSettings(
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time" % "2.5.0"
+      "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
     )
   )
   .jsSettings(
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time"      % "2.5.0",
-      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.5.0"
+      "io.github.cquiroz" %%% "scala-java-time"      % scalaJavaTimeVersion,
+      "io.github.cquiroz" %%% "scala-java-time-tzdb" % scalaJavaTimeVersion
     )
   )
   .settings(testDeps)
