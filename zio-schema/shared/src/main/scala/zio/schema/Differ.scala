@@ -25,6 +25,7 @@ import java.util.{ Currency, UUID }
 import scala.annotation.nowarn
 import scala.collection.immutable.ListMap
 
+import zio.prelude.NonEmptyMap
 import zio.schema.diff.Edit
 import zio.{ Chunk, ChunkBuilder }
 
@@ -269,7 +270,7 @@ object Differ {
     case s @ Schema.NonEmptySequence(schema, _, f, _, _)                                         => fromSchema(schema).chunk.transform(f, s.fromChunk)
     case Schema.Set(s, _)                                                                        => set(s)
     case Schema.Map(k, v, _)                                                                     => map(k, v)
-    case s @ Schema.NonEmptyMap(k, v, _)                                                         => map(k, v).transform(_.toMap.asInstanceOf[Map[Any, Any]], s.fromMap)
+    case s @ Schema.NonEmptyMap(k: Schema[kt], v: Schema[vt], _)                                 => map(k, v).transform[NonEmptyMap[kt, vt]](_.toMap.asInstanceOf[Map[kt, vt]], s.fromMap).asInstanceOf[Differ[A]]
     case Schema.Either(leftSchema, rightSchema, _)                                               => either(fromSchema(leftSchema), fromSchema(rightSchema))
     case Schema.Fallback(leftSchema, rightSchema, _, _)                                          => fallback(fromSchema(leftSchema), fromSchema(rightSchema))
     case s @ Schema.Lazy(_)                                                                      => fromSchema(s.schema)

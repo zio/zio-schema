@@ -188,7 +188,7 @@ object BuildHelper {
         baseDirectory.value
       )
     },
-    nativeConfig ~= { _.withMultithreading(false) },
+    nativeConfig ~= { _.withMultithreading(false) }
   )
 
   def buildInfoSettings(packageName: String) = Seq(

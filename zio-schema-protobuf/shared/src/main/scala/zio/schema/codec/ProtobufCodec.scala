@@ -182,8 +182,6 @@ object ProtobufCodec {
                     encodeKey(rightWireType, Some(2)) ++
                     rightDecoder.remainder
                 encodeKey(WireType.LengthDelimited(data.size), Some(seqIndex)) ++ data
-              case other =>
-                throw new IllegalStateException(s"Invalid state in processDictionary: $other")
             }
         }.flatten
         val data = encodeKey(
@@ -371,7 +369,7 @@ object ProtobufCodec {
           byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
           byteBuffer.putDouble(v)
           encodeKey(WireType.Bit64, fieldNumber) ++ Chunk.fromArray(byteBuffer.array)
-        case (StandardType.BinaryType, bytes: Chunk[Byte]) =>
+        case (StandardType.BinaryType, bytes: Chunk[Byte] @unchecked) =>
           encodeKey(WireType.LengthDelimited(bytes.length), fieldNumber) ++ bytes
         case (StandardType.CharType, c: Char) =>
           encodePrimitive(fieldNumber, StandardType.StringType, c.toString)
