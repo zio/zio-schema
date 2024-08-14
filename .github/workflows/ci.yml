@@ -1,8 +1,7 @@
 name: CI
 
 env:
-  JDK_JAVA_OPTIONS: -XX:+PrintCommandLineFlags -Xmx6G -Xss4M -XX:+UseG1GC # JDK_JAVA_OPTIONS is _the_ env. variable to use for modern Java
-  JVM_OPTS: -XX:+PrintCommandLineFlags -Xmx6G -Xss4M -XX:+UseG1GC # for Java 8 only (sadly, it is not modern enough for JDK_JAVA_OPTIONS)
+  JDK_JAVA_OPTIONS: -XX:+PrintCommandLineFlags -Xmx6G -Xss4M -XX:+UseG1GC
   NODE_OPTIONS: --max_old_space_size=6144
 
 on:
@@ -38,16 +37,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: ['adopt@1.11', 'openjdk@1.17']
+        java: ['temurin:17', 'temurin:21']
         scala: ['2.12.18', '2.13.12', '3.3.1']
         platform: ['JVM', 'Native', 'JS']
     steps:
     - uses: actions/checkout@v3.0.0
       with:
         fetch-depth: 0
-    - uses: olafurpg/setup-scala@v13
+    - uses: coursier/setup-action@v1
       with:
-        java-version: ${{ matrix.java }}
+        jvm: ${{ matrix.java }}
     - name: Cache scala dependencies
       uses: coursier/cache-action@v6
     - name: Install libuv
@@ -55,6 +54,12 @@ jobs:
       run: sudo apt-get update && sudo apt-get install -y libuv1-dev
     - name: Run tests
       run: sbt ++${{ matrix.scala }}! test${{ matrix.platform }}
+
+  ci:
+    runs-on: ubuntu-20.04
+    needs: [build,lint]
+    steps:
+      - run: echo "All checks passed"
 
   publish:
     runs-on: ubuntu-20.04
