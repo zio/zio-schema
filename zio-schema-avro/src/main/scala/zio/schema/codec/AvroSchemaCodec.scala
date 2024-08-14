@@ -3,11 +3,14 @@ package zio.schema.codec
 import java.nio.charset.StandardCharsets
 import java.time.format.DateTimeFormatter
 import java.time.{ Duration, Month, MonthDay, Period, Year, YearMonth }
+
 import scala.annotation.StaticAnnotation
 import scala.collection.immutable.ListMap
 import scala.jdk.CollectionConverters._
 import scala.util.{ Right, Try }
-import org.apache.avro.{ LogicalTypes, SchemaFormatter, Schema => SchemaAvro }
+
+import org.apache.avro.{ LogicalTypes, Schema => SchemaAvro }
+
 import zio.Chunk
 import zio.schema.CaseSet.Aux
 import zio.schema.Schema.{ Record, _ }
@@ -861,11 +864,7 @@ object AvroSchemaCodec extends AvroSchemaCodec {
   private[codec] def toZioTuple(schema: SchemaAvro): scala.util.Either[String, Schema[_]] =
     for {
       _ <- scala.util.Either
-            .cond(
-              schema.getFields.size() == 2,
-              (),
-              "Tuple must have exactly 2 fields:" + SchemaFormatter.getInstance("json").format(schema)
-            )
+            .cond(schema.getFields.size() == 2, (), "Tuple must have exactly 2 fields:" + schema.toString(false))
       _1 <- toZioSchema(schema.getFields.get(0).schema())
       _2 <- toZioSchema(schema.getFields.get(1).schema())
     } yield Schema.Tuple2(_1, _2, buildZioAnnotations(schema))
