@@ -54,16 +54,17 @@ object ProtobufCodec {
      */
     @scala.annotation.tailrec
     private[codec] def canBePacked(schema: Schema[_]): Boolean = schema match {
-      case Schema.Sequence(element, _, _, _, _) => canBePacked(element)
-      case Schema.Transform(codec, _, _, _, _)  => canBePacked(codec)
-      case Schema.Primitive(standardType, _)    => canBePacked(standardType)
-      case _: Schema.Tuple2[_, _]               => false
-      case _: Schema.Optional[_]                => false
-      case _: Schema.Fail[_]                    => false
-      case _: Schema.Either[_, _]               => false
-      case _: Schema.Fallback[_, _]             => false
-      case lzy @ Schema.Lazy(_)                 => canBePacked(lzy.schema)
-      case _                                    => false
+      case Schema.Sequence(element, _, _, _, _)         => canBePacked(element)
+      case Schema.NonEmptySequence(element, _, _, _, _) => canBePacked(element)
+      case Schema.Transform(codec, _, _, _, _)          => canBePacked(codec)
+      case Schema.Primitive(standardType, _)            => canBePacked(standardType)
+      case _: Schema.Tuple2[_, _]                       => false
+      case _: Schema.Optional[_]                        => false
+      case _: Schema.Fail[_]                            => false
+      case _: Schema.Either[_, _]                       => false
+      case _: Schema.Fallback[_, _]                     => false
+      case lzy @ Schema.Lazy(_)                         => canBePacked(lzy.schema)
+      case _                                            => false
     }
 
     private def canBePacked(standardType: StandardType[_]): Boolean = standardType match {
@@ -181,8 +182,6 @@ object ProtobufCodec {
                     encodeKey(rightWireType, Some(2)) ++
                     rightDecoder.remainder
                 encodeKey(WireType.LengthDelimited(data.size), Some(seqIndex)) ++ data
-              case other =>
-                throw new IllegalStateException(s"Invalid state in processDictionary: $other")
             }
         }.flatten
         val data = encodeKey(
@@ -370,7 +369,7 @@ object ProtobufCodec {
           byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
           byteBuffer.putDouble(v)
           encodeKey(WireType.Bit64, fieldNumber) ++ Chunk.fromArray(byteBuffer.array)
-        case (StandardType.BinaryType, bytes: Chunk[Byte]) =>
+        case (StandardType.BinaryType, bytes: Chunk[Byte] @unchecked) =>
           encodeKey(WireType.LengthDelimited(bytes.length), fieldNumber) ++ bytes
         case (StandardType.CharType, c: Char) =>
           encodePrimitive(fieldNumber, StandardType.StringType, c.toString)
@@ -780,7 +779,6 @@ object ProtobufCodec {
 
     override protected def finishedCreatingOneSequenceElement(
       context: DecoderContext,
-      schema: Schema.Sequence[_, _, _],
       index: Int
     ): Boolean =
       state.length(context) > 0

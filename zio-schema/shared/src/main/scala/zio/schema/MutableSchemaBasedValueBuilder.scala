@@ -2,6 +2,7 @@ package zio.schema
 
 import scala.util.control.NonFatal
 
+import zio.prelude.NonEmptyMap
 import zio.schema.MutableSchemaBasedValueBuilder.{ CreateValueFromSchemaError, ReadingFieldResult }
 import zio.{ Chunk, ChunkBuilder }
 
@@ -63,7 +64,6 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
    * is called. */
   protected def finishedCreatingOneSequenceElement(
     context: Context,
-    schema: Schema.Sequence[_, _, _],
     index: Int
   ): Boolean
 
@@ -542,7 +542,37 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
                 elems += elem
 
                 contextStack = contextStack.tail
-                val continue = finishedCreatingOneSequenceElement(contextStack.head, s, index)
+                val continue = finishedCreatingOneSequenceElement(contextStack.head, index)
+
+                if (continue) {
+                  currentSchema = elementSchema
+                  pushContext(startCreatingOneSequenceElement(contextStack.head, s))
+                  readOne(index + 1)
+                } else {
+                  contextStack = contextStack.tail
+                  finishWith(createSequence(contextStack.head, s, elems.result()))
+                }
+              }
+
+            currentSchema = elementSchema
+            startCreatingSequence(currentContext, s) match {
+              case Some(startingState) =>
+                pushContext(startingState)
+                pushContext(startCreatingOneSequenceElement(startingState, s))
+                readOne(0)
+              case None =>
+                finishWith(createSequence(currentContext, s, Chunk.empty))
+            }
+          case nes @ Schema.NonEmptySequence(elementSchema, _, _, _, _) =>
+            val s     = Schema.Sequence(elementSchema, nes.fromChunk, nes.toChunk, nes.annotations, nes.identity)
+            val elems = ChunkBuilder.make[Target]()
+
+            def readOne(index: Int): Unit =
+              push { elem =>
+                elems += elem
+
+                contextStack = contextStack.tail
+                val continue = finishedCreatingOneSequenceElement(contextStack.head, index)
 
                 if (continue) {
                   currentSchema = elementSchema
@@ -599,6 +629,53 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
                 readOne(0)
               case None =>
                 finishWith(createDictionary(contextStack.head, s, Chunk.empty))
+            }
+          case nem @ Schema.NonEmptyMap(ks: Schema[k], vs: Schema[v], _) =>
+            val s     = Schema.Map(ks, vs, nem.annotations)
+            val elems = ChunkBuilder.make[(Target, Target)]()
+
+            def readOne(index: Int): Unit =
+              push { key =>
+                currentSchema = vs
+                pushContext(startCreatingOneDictionaryValue(currentContext, s))
+
+                push { value =>
+                  val elem = (key, value)
+                  elems += elem
+
+                  contextStack = contextStack.tail.tail
+                  val continue = finishedCreatingOneDictionaryElement(contextStack.head, s, index)
+
+                  if (continue) {
+                    currentSchema = ks
+                    pushContext(startCreatingOneDictionaryElement(contextStack.head, s))
+                    readOne(index + 1)
+                  } else {
+                    val state = contextStack.head
+                    contextStack = contextStack.tail
+                    finishWith(
+                      NonEmptyMap
+                        .fromMapOption(createDictionary(state, s, elems.result()).asInstanceOf[Map[k, v]])
+                        .getOrElse(throw new IllegalStateException("NonEmpty map requires at least on element"))
+                        .asInstanceOf[Target]
+                    )
+                  }
+                }
+              }
+
+            startCreatingDictionary(currentContext, s) match {
+              case Some(startingState) =>
+                currentSchema = ks
+                pushContext(startingState)
+                pushContext(startCreatingOneDictionaryElement(startingState, s))
+                readOne(0)
+              case None =>
+                finishWith(
+                  NonEmptyMap
+                    .fromMapOption(createDictionary(contextStack.head, s, Chunk.empty).asInstanceOf[Map[k, v]])
+                    .getOrElse(throw new IllegalStateException("NonEmpty map requires at least on element"))
+                    .asInstanceOf[Target]
+                )
             }
 
           case s @ Schema.Set(as: Schema[a], _) =>

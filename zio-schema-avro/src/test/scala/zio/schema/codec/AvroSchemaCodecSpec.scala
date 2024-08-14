@@ -1918,10 +1918,7 @@ object AssertionHelper {
   def recordFields(assertion: Assertion[Iterable[Schema.Field[_, _]]]): Assertion[Schema.Record[_]] =
     Assertion.assertionRec[Schema.Record[_], Chunk[Field[_, _]]]("hasRecordField")(
       assertion
-    ) {
-      case r: Schema.Record[_] => Some(r.fields)
-      case _                   => None
-    }
+    )((r: Schema.Record[_]) => Some(r.fields))
 
   def hasSequenceElementSchema[A](assertion: Assertion[Schema[A]]): Assertion[Schema.Sequence[_, A, _]] =
     Assertion.hasField("schemaA", _.elementSchema, assertion)

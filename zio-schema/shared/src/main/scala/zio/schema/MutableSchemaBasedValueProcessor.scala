@@ -2,6 +2,7 @@ package zio.schema
 
 import scala.collection.immutable.ListMap
 
+import zio.prelude.NonEmptyMap
 import zio.{ Chunk, ChunkBuilder }
 
 /** Base trait for mutable value processors, processing a value with a known schema. An example
@@ -763,9 +764,63 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
           startProcessingSequence(currentContext, s, inputChunk.size)
           pushContext(contextForSequence(currentContext, s, 0))
           processNext(0)
+        case nes @ Schema.NonEmptySequence(schema, _, _, _, _) =>
+          val s           = Schema.Sequence(schema, nes.fromChunk, nes.toChunk, nes.annotations, nes.identity)
+          val inputChunk  = nes.toChunk.asInstanceOf[Any => Chunk[Any]](currentValue)
+          val resultChunk = ChunkBuilder.make[Target](inputChunk.size)
+
+          def processNext(inputIdx: Int): Unit = {
+            contextStack = contextStack.tail
+            if (inputIdx == inputChunk.size) {
+              finishWith(processSequence(currentContext, s, resultChunk.result()))
+            } else {
+              currentSchema = schema
+              currentValue = inputChunk(inputIdx)
+              pushContext(contextForSequence(currentContext, s, inputIdx))
+              push { dv =>
+                resultChunk += dv
+                processNext(inputIdx + 1)
+              }
+            }
+          }
+
+          startProcessingSequence(currentContext, s, inputChunk.size)
+          pushContext(contextForSequence(currentContext, s, 0))
+          processNext(0)
 
         case s @ Schema.Map(ks: Schema[k], vs: Schema[v], _) =>
           val inputChunk  = Chunk.fromIterable(currentValue.asInstanceOf[Map[k, v]])
+          val resultChunk = ChunkBuilder.make[(Target, Target)](inputChunk.size)
+
+          def processNext(inputIdx: Int): Unit =
+            if (inputIdx == inputChunk.size) {
+              finishWith(processDictionary(currentContext, s, resultChunk.result()))
+            } else {
+              currentSchema = ks
+              val currentTuple = inputChunk(inputIdx)
+              currentValue = currentTuple._1
+
+              pushContext(contextForMap(currentContext, s, inputIdx))
+              push { (a: Target) =>
+                contextStack = contextStack.tail
+
+                currentSchema = vs
+                currentValue = currentTuple._2
+                pushContext(contextForMap(currentContext, s, inputIdx))
+                push { (b: Target) =>
+                  contextStack = contextStack.tail
+                  val pair = (a, b)
+                  resultChunk += pair
+                  processNext(inputIdx + 1)
+                }
+              }
+            }
+
+          startProcessingDictionary(currentContext, s, inputChunk.size)
+          processNext(0)
+        case nem @ Schema.NonEmptyMap(ks: Schema[k], vs: Schema[v], _) =>
+          val s           = Schema.Map(ks, vs, nem.annotations)
+          val inputChunk  = Chunk.fromIterable(currentValue.asInstanceOf[NonEmptyMap[k, v]].toMap)
           val resultChunk = ChunkBuilder.make[(Target, Target)](inputChunk.size)
 
           def processNext(inputIdx: Int): Unit =

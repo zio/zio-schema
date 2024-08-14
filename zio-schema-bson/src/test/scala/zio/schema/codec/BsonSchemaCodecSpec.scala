@@ -40,10 +40,10 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
     implicit lazy val schema: Schema[Tree]   = DeriveSchema.gen
     implicit lazy val codec: BsonCodec[Tree] = BsonSchemaCodec.bsonCodec(schema)
 
-    private val genLeaf = Gen.int.map(Leaf)
+    private val genLeaf = Gen.int.map(Leaf.apply)
 
     lazy val gen: Gen[Any, Tree] = Gen.sized { i =>
-      if (i >= 2) Gen.oneOf(genLeaf, Gen.suspend(gen.zipWith(gen)(Branch)).resize(i / 2))
+      if (i >= 2) Gen.oneOf(genLeaf, Gen.suspend(gen.zipWith(gen)(Branch.apply)).resize(i / 2))
       else genLeaf
     }
   }

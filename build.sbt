@@ -39,8 +39,7 @@ inThisBuild(
 ThisBuild / publishTo := sonatypePublishToBundle.value
 scalacOptions ++= Seq("-scalajs")
 
-addCommandAlias("prepare", "fix; fmt")
-addCommandAlias("fmt", "all scalafmtSbt scalafmtAll")
+addCommandAlias("fmt", "all scalafmtSbt scalafmtAll;fix")
 addCommandAlias("fmtCheck", "all scalafmtSbtCheck scalafmtCheckAll")
 addCommandAlias("fix", "scalafixAll")
 addCommandAlias("fixCheck", "scalafixAll --check")
