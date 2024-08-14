@@ -945,6 +945,7 @@ object JsonCodec {
 
       val isEmptyCollection = value match {
         case _: Iterable[_] => value.asInstanceOf[Iterable[_]].isEmpty
+        case None           => true
         case _              => false
       }
 

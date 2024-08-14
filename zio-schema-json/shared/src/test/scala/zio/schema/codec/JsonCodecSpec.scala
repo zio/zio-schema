@@ -423,7 +423,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           RecordExample.schema.annotate(rejectExtraFields()),
           RecordExample(f1 = Some("test"), f3 = Some("transient")),
           charSequenceToByteChunk(
-            """{"$f1":"test","f2":null,"f4":null,"f5":null,"f6":null,"f7":null,"f8":null,"f9":null,"f10":null,"f11":null,"f12":null,"f13":null,"f14":null,"f15":null,"f16":null,"f17":null,"f18":null,"f19":null,"f20":null,"f21":null,"f22":null,"$f23":null}""".stripMargin
+            """{"$f1":"test"}""".stripMargin
           )
         )
       }
