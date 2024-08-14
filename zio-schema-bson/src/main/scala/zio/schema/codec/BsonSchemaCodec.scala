@@ -457,22 +457,24 @@ object BsonSchemaCodec {
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[codec] def schemaEncoder[A](schema: Schema[A]): BsonEncoder[A] =
       schema match {
-        case Schema.Primitive(standardType, _)     => primitiveCodec(standardType).encoder
-        case Schema.Sequence(schema, _, g, _, _)   => chunkEncoder(schemaEncoder(schema)).contramap(g)
-        case Schema.Map(ks, vs, _)                 => mapEncoder(ks, vs)
-        case Schema.Set(s, _)                      => chunkEncoder(schemaEncoder(s)).contramap(m => Chunk.fromIterable(m))
-        case Schema.Transform(c, _, g, _, _)       => transformEncoder(c, g)
-        case Schema.Tuple2(l, r, _)                => tuple2Encoder(schemaEncoder(l), schemaEncoder(r))
-        case Schema.Optional(schema, _)            => BsonEncoder.option(schemaEncoder(schema))
-        case Schema.Fail(_, _)                     => unitEncoder.contramap(_ => ())
-        case Schema.GenericRecord(_, structure, _) => genericRecordEncoder(structure.toChunk)
-        case Schema.Either(left, right, _)         => eitherEncoder(schemaEncoder(left), schemaEncoder(right))
-        case Schema.Fallback(left, right, _, _)    => fallbackEncoder(schemaEncoder(left), schemaEncoder(right))
-        case l @ Schema.Lazy(_)                    => schemaEncoder(l.schema)
-        case r: Schema.Record[A]                   => caseClassEncoder(r)
-        case e: Schema.Enum[A]                     => enumEncoder(e, e.cases)
-        case d @ Schema.Dynamic(_)                 => dynamicEncoder(d)
-        case null                                  => throw new Exception(s"A captured schema is null, most likely due to wrong field initialization order")
+        case Schema.Primitive(standardType, _)           => primitiveCodec(standardType).encoder
+        case Schema.Sequence(schema, _, g, _, _)         => chunkEncoder(schemaEncoder(schema)).contramap(g)
+        case Schema.NonEmptySequence(schema, _, g, _, _) => chunkEncoder(schemaEncoder(schema)).contramap(g)
+        case Schema.Map(ks, vs, _)                       => mapEncoder(ks, vs)
+        case Schema.NonEmptyMap(ks, vs, _)               => mapEncoder(ks, vs).contramap(_.toMap)
+        case Schema.Set(s, _)                            => chunkEncoder(schemaEncoder(s)).contramap(m => Chunk.fromIterable(m))
+        case Schema.Transform(c, _, g, _, _)             => transformEncoder(c, g)
+        case Schema.Tuple2(l, r, _)                      => tuple2Encoder(schemaEncoder(l), schemaEncoder(r))
+        case Schema.Optional(schema, _)                  => BsonEncoder.option(schemaEncoder(schema))
+        case Schema.Fail(_, _)                           => unitEncoder.contramap(_ => ())
+        case Schema.GenericRecord(_, structure, _)       => genericRecordEncoder(structure.toChunk)
+        case Schema.Either(left, right, _)               => eitherEncoder(schemaEncoder(left), schemaEncoder(right))
+        case Schema.Fallback(left, right, _, _)          => fallbackEncoder(schemaEncoder(left), schemaEncoder(right))
+        case l @ Schema.Lazy(_)                          => schemaEncoder(l.schema)
+        case r: Schema.Record[A]                         => caseClassEncoder(r)
+        case e: Schema.Enum[A]                           => enumEncoder(e, e.cases)
+        case d @ Schema.Dynamic(_)                       => dynamicEncoder(d)
+        case null                                        => throw new Exception(s"A captured schema is null, most likely due to wrong field initialization order")
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -773,22 +775,24 @@ object BsonSchemaCodec {
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[codec] def schemaDecoder[A](schema: Schema[A]): BsonDecoder[A] = schema match {
-      case Schema.Primitive(standardType, _)     => primitiveCodec(standardType).decoder
-      case Schema.Optional(codec, _)             => BsonDecoder.option(schemaDecoder(codec))
-      case Schema.Tuple2(left, right, _)         => tuple2Decoder(schemaDecoder(left), schemaDecoder(right))
-      case Schema.Transform(codec, f, _, _, _)   => schemaDecoder(codec).mapOrFail(f)
-      case Schema.Sequence(codec, f, _, _, _)    => chunkDecoder(schemaDecoder(codec)).map(f)
-      case Schema.Map(ks, vs, _)                 => mapDecoder(ks, vs)
-      case Schema.Set(s, _)                      => chunkDecoder(schemaDecoder(s)).map(entries => entries.toSet)
-      case Schema.Fail(message, _)               => failDecoder(message)
-      case Schema.GenericRecord(_, structure, _) => recordDecoder(structure.toChunk)
-      case Schema.Either(left, right, _)         => eitherDecoder(schemaDecoder(left), schemaDecoder(right))
-      case Schema.Fallback(left, right, _, _)    => fallbackDecoder(schemaDecoder(left), schemaDecoder(right))
-      case l @ Schema.Lazy(_)                    => schemaDecoder(l.schema)
-      case s: Schema.Record[A]                   => caseClassDecoder(s)
-      case e: Schema.Enum[A]                     => enumDecoder(e)
-      case d @ Schema.Dynamic(_)                 => dynamicDecoder(d)
-      case null                                  => throw new Exception(s"Missing a handler for decoding of schema $schema.")
+      case Schema.Primitive(standardType, _)              => primitiveCodec(standardType).decoder
+      case Schema.Optional(codec, _)                      => BsonDecoder.option(schemaDecoder(codec))
+      case Schema.Tuple2(left, right, _)                  => tuple2Decoder(schemaDecoder(left), schemaDecoder(right))
+      case Schema.Transform(codec, f, _, _, _)            => schemaDecoder(codec).mapOrFail(f)
+      case Schema.Sequence(codec, f, _, _, _)             => chunkDecoder(schemaDecoder(codec)).map(f)
+      case s @ Schema.NonEmptySequence(codec, _, _, _, _) => chunkDecoder(schemaDecoder(codec)).map(s.fromChunk)
+      case Schema.Map(ks, vs, _)                          => mapDecoder(ks, vs)
+      case s @ Schema.NonEmptyMap(ks, vs, _)              => mapDecoder(ks, vs).map(s.fromMap)
+      case Schema.Set(s, _)                               => chunkDecoder(schemaDecoder(s)).map(entries => entries.toSet)
+      case Schema.Fail(message, _)                        => failDecoder(message)
+      case Schema.GenericRecord(_, structure, _)          => recordDecoder(structure.toChunk)
+      case Schema.Either(left, right, _)                  => eitherDecoder(schemaDecoder(left), schemaDecoder(right))
+      case Schema.Fallback(left, right, _, _)             => fallbackDecoder(schemaDecoder(left), schemaDecoder(right))
+      case l @ Schema.Lazy(_)                             => schemaDecoder(l.schema)
+      case s: Schema.Record[A]                            => caseClassDecoder(s)
+      case e: Schema.Enum[A]                              => enumDecoder(e)
+      case d @ Schema.Dynamic(_)                          => dynamicDecoder(d)
+      case _                                              => throw new Exception(s"Missing a handler for decoding of schema $schema.")
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
