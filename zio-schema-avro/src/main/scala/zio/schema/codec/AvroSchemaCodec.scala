@@ -277,12 +277,14 @@ object AvroSchemaCodec extends AvroSchemaCodec {
 
   private def toAvroSchema(schema: Schema[_]): scala.util.Either[String, SchemaAvro] = {
     schema match {
-      case e: Enum[_]                    => toAvroEnum(e)
-      case record: Record[_]             => toAvroRecord(record)
-      case map: Schema.Map[_, _]         => toAvroMap(map)
-      case seq: Schema.Sequence[_, _, _] => toAvroSchema(seq.elementSchema).map(SchemaAvro.createArray)
-      case set: Schema.Set[_]            => toAvroSchema(set.elementSchema).map(SchemaAvro.createArray)
-      case Transform(codec, _, _, _, _)  => toAvroSchema(codec)
+      case e: Enum[_]                            => toAvroEnum(e)
+      case record: Record[_]                     => toAvroRecord(record)
+      case map: Schema.Map[_, _]                 => toAvroMap(map)
+      case map: Schema.NonEmptyMap[_, _]         => toAvroMap(map)
+      case seq: Schema.Sequence[_, _, _]         => toAvroSchema(seq.elementSchema).map(SchemaAvro.createArray)
+      case seq: Schema.NonEmptySequence[_, _, _] => toAvroSchema(seq.elementSchema).map(SchemaAvro.createArray)
+      case set: Schema.Set[_]                    => toAvroSchema(set.elementSchema).map(SchemaAvro.createArray)
+      case Transform(codec, _, _, _, _)          => toAvroSchema(codec)
       case Primitive(standardType, _) =>
         standardType match {
           case StandardType.UnitType   => Right(SchemaAvro.create(SchemaAvro.Type.NULL))
@@ -624,6 +626,18 @@ object AvroSchemaCodec extends AvroSchemaCodec {
         toAvroSchema(tupleSchema).map(SchemaAvro.createArray)
     }
 
+  private[codec] def toAvroMap(map: NonEmptyMap[_, _]): scala.util.Either[String, SchemaAvro] =
+    map.keySchema match {
+      case p: Schema.Primitive[_] if p.standardType == StandardType.StringType =>
+        toAvroSchema(map.valueSchema).map(SchemaAvro.createMap)
+      case _ =>
+        val tupleSchema = Schema
+          .Tuple2(map.keySchema, map.valueSchema)
+          .annotate(AvroAnnotations.name("Tuple"))
+          .annotate(AvroAnnotations.namespace("scala"))
+        toAvroSchema(tupleSchema).map(SchemaAvro.createArray)
+    }
+
   private[codec] def toAvroDecimal(schema: Schema[_]): scala.util.Either[String, SchemaAvro] = {
     val scale = schema.annotations.collectFirst { case AvroAnnotations.scale(s) => s }
       .getOrElse(AvroAnnotations.scale().scale)
@@ -820,7 +834,9 @@ object AvroSchemaCodec extends AvroSchemaCodec {
             case c: Dynamic                                                                          => Right(c)
             case c: GenericRecord                                                                    => Right(c)
             case c: Map[_, _]                                                                        => Right(c)
+            case c: NonEmptyMap[_, _]                                                                => Right(c)
             case c: Sequence[_, _, _]                                                                => Right(c)
+            case c: NonEmptySequence[_, _, _]                                                        => Right(c)
             case c: Set[_]                                                                           => Right(c)
             case c: Fail[_]                                                                          => Right(c)
             case c: Lazy[_]                                                                          => Right(c)

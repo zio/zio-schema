@@ -6,11 +6,12 @@ import java.time.temporal.ChronoUnit
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 
+import zio.prelude.NonEmptySet
 import zio.schema.annotation._
 import zio.schema.internal.SourceLocation
 import zio.schema.meta._
 import zio.schema.validation._
-import zio.{ Chunk, Unsafe }
+import zio.{ Chunk, NonEmptyChunk, Unsafe, prelude }
 
 /**
  * A `Schema[A]` describes the structure of some data type `A`, in terms of case classes,
@@ -196,6 +197,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
       schema match {
         case Sequence(schema, _, toChunk, _, _) =>
           toChunk(value).flatMap(value => loop(value, schema))
+        case nes @ NonEmptySequence(schema, _, _, _, _) =>
+          nes.toChunk(value).flatMap(value => loop(value, schema))
         case Transform(schema, _, g, _, _) =>
           g(value) match {
             case Right(value) => loop(value, schema)
@@ -211,6 +214,10 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
           loop(tuple.extract1(value), left) ++ loop(tuple.extract2(value), right)
         case l @ Lazy(_) =>
           loop(value, l.schema)
+        case Schema.NonEmptyMap(ks, vs, _) =>
+          Chunk.fromIterable(value.toMap.keys).flatMap(loop(_, ks)) ++ Chunk
+            .fromIterable(value.values)
+            .flatMap(loop(_, vs))
         case Schema.Map(ks, vs, _) =>
           Chunk.fromIterable(value.keys).flatMap(loop(_, ks)) ++ Chunk.fromIterable(value.values).flatMap(loop(_, vs))
         case set @ Schema.Set(as, _) =>
@@ -298,6 +305,30 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
 
   implicit def chunk[A](implicit schemaA: Schema[A]): Schema[Chunk[A]] =
     Schema.Sequence[Chunk[A], A, String](schemaA, identity, identity, Chunk.empty, "Chunk")
+
+  implicit def nonEmptyChunk[A](implicit schemaA: Schema[A]): Schema[NonEmptyChunk[A]] =
+    Schema.NonEmptySequence[NonEmptyChunk[A], A, String](
+      schemaA,
+      NonEmptyChunk.fromChunk,
+      _.toChunk,
+      Chunk.empty,
+      "NonEmptyChunk"
+    )
+
+  implicit def nonEmptySet[A](implicit schemaA: Schema[A]): Schema[NonEmptySet[A]] =
+    Schema.NonEmptySequence[NonEmptySet[A], A, String](
+      schemaA,
+      chunk => NonEmptySet.fromSetOption(chunk.toSet),
+      _.toNonEmptyChunk.toChunk,
+      Chunk.empty,
+      "NonEmptySet"
+    )
+
+  implicit def nonEmptyMap[K, V](
+    implicit keySchema: Schema[K],
+    valueSchema: Schema[V]
+  ): Schema[prelude.NonEmptyMap[K, V]] =
+    Schema.NonEmptyMap[K, V](keySchema, valueSchema, Chunk.empty)
 
   implicit def map[K, V](
     implicit keySchema: Schema[K],
@@ -393,6 +424,16 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
 
     val transient: Boolean =
       annotations.exists(_.isInstanceOf[transientField])
+
+    val nameAndAliases: scala.collection.immutable.Set[String] =
+      annotations.collect {
+        case aliases: fieldNameAliases => aliases.aliases
+        case f: fieldName              => Seq(f.name)
+      }.flatten.toSet + name
+
+    val fieldName: String = annotations.collectFirst {
+      case f: fieldName => f.name
+    }.getOrElse(name)
 
     override def toString: String = s"Field($name,$schema)"
   }
@@ -776,6 +817,67 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[scala.collection.immutable.Map[K, V], (K, V)] =
       b.makeTraversal(self, keySchema <*> valueSchema)
+  }
+
+  final case class NonEmptyMap[K, V](
+    keySchema: Schema[K],
+    valueSchema: Schema[V],
+    override val annotations: Chunk[Any] = Chunk.empty
+  ) extends Collection[prelude.NonEmptyMap[K, V], (K, V)] {
+    self =>
+    override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
+      Traversal[prelude.NonEmptyMap[K, V], (K, V)]
+
+    override def annotate(annotation: Any): NonEmptyMap[K, V] =
+      copy(annotations = (annotations :+ annotation).distinct)
+
+    override def defaultValue: scala.Either[String, prelude.NonEmptyMap[K, V]] =
+      keySchema.defaultValue.flatMap(
+        defaultKey => valueSchema.defaultValue.map(defaultValue => prelude.NonEmptyMap(defaultKey -> defaultValue))
+      )
+
+    def fromChunk(chunk: Chunk[(K, V)]): prelude.NonEmptyMap[K, V] =
+      fromChunkOption(chunk).getOrElse(throw new IllegalArgumentException("NonEmptyMap cannot be empty"))
+
+    def fromChunkOption(chunk: Chunk[(K, V)]): Option[prelude.NonEmptyMap[K, V]] =
+      NonEmptyChunk.fromChunk(chunk).map(prelude.NonEmptyMap.fromNonEmptyChunk)
+
+    def fromMap(map: scala.collection.immutable.Map[K, V]): prelude.NonEmptyMap[K, V] =
+      prelude.NonEmptyMap
+        .fromMapOption(map)
+        .getOrElse(throw new IllegalArgumentException("NonEmptyMap cannot be empty"))
+
+    def toChunk(map: prelude.NonEmptyMap[K, V]): Chunk[(K, V)] =
+      Chunk.fromIterable(map.toList)
+
+    override def makeAccessors(b: AccessorBuilder): b.Traversal[prelude.NonEmptyMap[K, V], (K, V)] =
+      b.makeTraversal(self, keySchema <*> valueSchema)
+  }
+
+  final case class NonEmptySequence[Col, Elm, I](
+    elementSchema: Schema[Elm],
+    fromChunkOption: Chunk[Elm] => Option[Col],
+    toChunk: Col => Chunk[Elm],
+    override val annotations: Chunk[Any] = Chunk.empty,
+    identity: I
+  ) extends Collection[Col, Elm] {
+    self =>
+    override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Traversal[Col, Elm]
+
+    val fromChunk: Chunk[Elm] => Col = (chunk: Chunk[Elm]) =>
+      fromChunkOption(chunk).getOrElse(
+        throw new IllegalArgumentException(s"NonEmptySequence $identity cannot be empty")
+      )
+
+    override def annotate(annotation: Any): NonEmptySequence[Col, Elm, I] =
+      copy(annotations = (annotations :+ annotation).distinct)
+
+    override def defaultValue: scala.util.Either[String, Col] =
+      elementSchema.defaultValue.map(fromChunk.compose(Chunk(_)))
+
+    override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elm] = b.makeTraversal(self, elementSchema)
+
+    override def toString: String = s"NonEmptySequence($elementSchema, $identity)"
   }
 
   final case class Set[A](elementSchema: Schema[A], override val annotations: Chunk[Any] = Chunk.empty)

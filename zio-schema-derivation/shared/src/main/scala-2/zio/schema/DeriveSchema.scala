@@ -232,7 +232,20 @@ object DeriveSchema {
 
         val typeId = q"_root_.zio.schema.TypeId.parse(${tpe.typeSymbol.fullName})"
 
-        val typeAnnotations: List[Tree] = collectTypeAnnotations(tpe)
+        val genericAnnotations: List[Tree] =
+          if (tpe.typeArgs.isEmpty) Nil
+          else {
+            val typeMembers = tpe.typeSymbol.asClass.typeParams.map(_.name.toString)
+            val typeArgs = tpe.typeArgs
+              .map(_.typeSymbol.fullName)
+              .map(t => q"_root_.zio.schema.TypeId.parse(${t}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]")
+            val typeMembersWithArgs = typeMembers.zip(typeArgs).map { case (m, a) => q"($m, $a)" }
+            List(
+              q"new _root_.zio.schema.annotation.genericTypeInfo(_root_.scala.collection.immutable.ListMap(..$typeMembersWithArgs))"
+            )
+          }
+
+        val typeAnnotations: List[Tree] = collectTypeAnnotations(tpe) ++ genericAnnotations
 
         val defaultConstructorValues =
           tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.head
@@ -271,10 +284,18 @@ object DeriveSchema {
                 }
                 val hasDefaultAnnotation =
                   annotations.exists {
-                    case q"new _root_.zio.schema.annotation.fieldDefaultValue(..$_)" => true
-                    case _                                                           => false
+                    case ann if ann.toString.contains("new fieldDefaultValue") => true
+                    case _                                                     => false
                   }
-                if (hasDefaultAnnotation || defaultConstructorValues.get(i).isEmpty) {
+                val transientField =
+                  annotations.exists {
+                    case ann if ann.toString().endsWith("new transientField()") => true
+                    case _                                                      => false
+                  }
+                if (transientField && !(hasDefaultAnnotation || defaultConstructorValues.contains(i))) {
+                  throw new IllegalStateException(s"Field ${symbol.name} is transient and must have a default value.")
+                }
+                if (hasDefaultAnnotation || !defaultConstructorValues.contains(i)) {
                   annotations
                 } else {
                   annotations :+
@@ -330,9 +351,11 @@ object DeriveSchema {
               }
           }
           val fromMap = {
-            val casts = fieldTypes.map { termSymbol =>
-              q"""
-                 try m.apply(${termSymbol.name.toString.trim}).asInstanceOf[${termSymbol.typeSignature}]
+            val casts = fieldTypes.zip(fieldAnnotations).map {
+              case (termSymbol, annotations) =>
+                val newName = getFieldName(annotations).getOrElse(termSymbol.name.toString.trim)
+                q"""
+                 try m.apply(${newName}).asInstanceOf[${termSymbol.typeSignature}]
                  catch {
                    case _: ClassCastException => throw new RuntimeException("Field " + ${termSymbol.name.toString.trim} + " has invalid type")
                    case _: Throwable  => throw new RuntimeException("Field " + ${termSymbol.name.toString.trim} + " is missing")
@@ -342,8 +365,10 @@ object DeriveSchema {
             q"""(m: scala.collection.immutable.ListMap[String, _]) => try { Right($tpeCompanion.apply(..$casts)) } catch { case e: Throwable => Left(e.getMessage) }"""
           }
           val toMap = {
-            val tuples = fieldAccessors.map { fieldName =>
-              q"(${fieldName.toString},b.$fieldName)"
+            val tuples = fieldAccessors.zip(fieldAnnotations).map {
+              case (fieldName, annotations) =>
+                val newName = getFieldName(annotations).getOrElse(fieldName.toString)
+                q"(${newName},b.$fieldName)"
             }
             q"""(b: $tpe) => Right(scala.collection.immutable.ListMap.apply(..$tuples))"""
           }
@@ -555,7 +580,20 @@ object DeriveSchema {
       val hasSimpleEnum: Boolean =
         tpe.typeSymbol.annotations.exists(_.tree.tpe =:= typeOf[_root_.zio.schema.annotation.simpleEnum])
 
-      val typeAnnotations: List[Tree] = (isSimpleEnum, hasSimpleEnum) match {
+      val genericAnnotations: List[Tree] =
+        if (tpe.typeArgs.isEmpty) Nil
+        else {
+          val typeMembers = tpe.typeSymbol.asClass.typeParams.map(_.name.toString)
+          val typeArgs = tpe.typeArgs
+            .map(_.typeSymbol.fullName)
+            .map(t => q"_root_.zio.schema.TypeId.parse(${t}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]")
+          val typeMembersWithArgs = typeMembers.zip(typeArgs).map { case (m, a) => q"($m, $a)" }
+          List(
+            q"new _root_.zio.schema.annotation.genericTypeInfo(_root_.scala.collection.immutable.ListMap(..$typeMembersWithArgs))"
+          )
+        }
+
+      val typeAnnotations: List[Tree] = ((isSimpleEnum, hasSimpleEnum) match {
         case (true, false) =>
           tpe.typeSymbol.annotations.collect {
             case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
@@ -590,7 +628,7 @@ object DeriveSchema {
               c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
               EmptyTree
           }.filter(_ != EmptyTree)
-      }
+      }) ++ genericAnnotations
 
       val selfRefName  = c.freshName("ref")
       val selfRefIdent = Ident(TermName(selfRefName))
@@ -600,6 +638,19 @@ object DeriveSchema {
       val typeArgs = subtypes ++ Iterable(tpe)
 
       val cases = subtypes.map { (subtype: Type) =>
+        val genericAnnotations: List[Tree] =
+          if (subtype.typeArgs.isEmpty) Nil
+          else {
+            val typeMembers = subtype.typeSymbol.asClass.typeParams.map(_.name.toString)
+            val typeArgs = subtype.typeArgs
+              .map(_.typeSymbol.fullName)
+              .map(t => q"_root_.zio.schema.TypeId.parse(${t}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]")
+            val typeMembersWithArgs = typeMembers.zip(typeArgs).map { case (m, a) => q"($m, $a)" }
+            List(
+              q"new _root_.zio.schema.annotation.genericTypeInfo(_root_.scala.collection.immutable.ListMap(..$typeMembersWithArgs))"
+            )
+          }
+
         val typeAnnotations: List[Tree] =
           subtype.typeSymbol.annotations.collect {
             case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
@@ -615,7 +666,7 @@ object DeriveSchema {
             case annotation =>
               c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
               EmptyTree
-          }.filter(_ != EmptyTree)
+          }.filter(_ != EmptyTree) ++ genericAnnotations
 
         val caseLabel     = subtype.typeSymbol.name.toString.trim
         val caseSchema    = directInferSchema(tpe, concreteType(tpe, subtype), currentFrame +: stack)

@@ -1,11 +1,12 @@
 package zio.schema
 
 import scala.annotation.nowarn
+import scala.collection.immutable.ListMap
 import scala.reflect.ClassTag
 
 import zio.schema.Deriver.WrappedF
 import zio.schema.Schema.Field
-import zio.schema.annotation.fieldDefaultValue
+import zio.schema.annotation.{ fieldDefaultValue, genericTypeInfo }
 import zio.test.{ Spec, TestEnvironment, ZIOSpecDefault, assertTrue }
 import zio.{ Chunk, Scope }
 
@@ -183,7 +184,14 @@ import zio.{ Chunk, Scope }
             .asInstanceOf[Schema.Record[GenericRecordWithDefaultValue[Int]]]
             .fields(0)
             .annotations
+          val maybeTypeInfo = capturedSchema.schema.annotations.collectFirst { case gt @ genericTypeInfo(_) => gt }
           assertTrue(
+            maybeTypeInfo.contains(
+              genericTypeInfo(ListMap("T" -> TypeId.parse("scala.Int").asInstanceOf[TypeId.Nominal]))
+            ),
+            capturedSchema.schema.asInstanceOf[Schema.Record[GenericRecordWithDefaultValue[Int]]].id == TypeId.parse(
+              "zio.schema.DeriveSpec.GenericRecordWithDefaultValue"
+            ),
             annotations.exists { a =>
               a.isInstanceOf[fieldDefaultValue[_]] &&
               a.asInstanceOf[fieldDefaultValue[Option[Int]]].value == None

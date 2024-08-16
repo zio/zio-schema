@@ -573,7 +573,15 @@ object ExtensibleMetaSchema {
             )
           case Schema.Sequence(schema, _, _, _, _) =>
             ListNode(item = subtree(NodePath.root / "item", Lineage.empty, schema), NodePath.root)
+          case Schema.NonEmptySequence(schema, _, _, _, _) =>
+            ListNode(item = subtree(NodePath.root / "item", Lineage.empty, schema), NodePath.root)
           case Schema.Map(ks, vs, _) =>
+            Dictionary(
+              keys = subtree(NodePath.root / "keys", Lineage.empty, ks),
+              values = subtree(NodePath.root / "values", Lineage.empty, vs),
+              NodePath.root
+            )
+          case Schema.NonEmptyMap(ks, vs, _) =>
             Dictionary(
               keys = subtree(NodePath.root / "keys", Lineage.empty, ks),
               values = subtree(NodePath.root / "values", Lineage.empty, vs),
@@ -642,7 +650,16 @@ object ExtensibleMetaSchema {
                 )
               case Schema.Sequence(schema, _, _, _, _) =>
                 ListNode(item = subtree(path / "item", lineage, schema, optional = false), path, optional)
+              case Schema.NonEmptySequence(schema, _, _, _, _) =>
+                ListNode(item = subtree(path / "item", lineage, schema, optional = false), path, optional)
               case Schema.Map(ks, vs, _) =>
+                Dictionary(
+                  keys = subtree(path / "keys", Lineage.empty, ks, optional = false),
+                  values = subtree(path / "values", Lineage.empty, vs, optional = false),
+                  path,
+                  optional
+                )
+              case Schema.NonEmptyMap(ks, vs, _) =>
                 Dictionary(
                   keys = subtree(path / "keys", Lineage.empty, ks, optional = false),
                   values = subtree(path / "values", Lineage.empty, vs, optional = false),

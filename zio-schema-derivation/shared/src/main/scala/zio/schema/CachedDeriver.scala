@@ -126,17 +126,21 @@ private[schema] object CachedDeriver {
     final case class Tuple2[A, B](leftKey: CacheKey[A], rightKey: CacheKey[B])                  extends CacheKey[(A, B)]
     final case class Set[A](element: CacheKey[A])                                               extends CacheKey[Set[A]]
     final case class Map[K, V](key: CacheKey[K], valuew: CacheKey[V])                           extends CacheKey[Map[K, V]]
+    final case class NonEmptyMap[K, V](key: CacheKey[K], valuew: CacheKey[V])                   extends CacheKey[NonEmptyMap[K, V]]
     final case class Misc[A](schema: Schema[A])                                                 extends CacheKey[A]
 
     def fromStandardType[A](st: StandardType[A]): CacheKey[A] = Primitive(st)
 
     def fromSchema[A](schema: Schema[A]): CacheKey[A] =
       schema match {
-        case e: Schema.Enum[_]             => WithId(e.id)
-        case record: Schema.Record[_]      => WithId(record.id)
-        case seq: Schema.Sequence[_, _, _] => WithIdentityObject(fromSchema(seq.elementSchema), seq.identity)
-        case set: Schema.Set[_]            => Set(fromSchema(set.elementSchema)).asInstanceOf[CacheKey[A]]
+        case e: Schema.Enum[_]                     => WithId(e.id)
+        case record: Schema.Record[_]              => WithId(record.id)
+        case seq: Schema.Sequence[_, _, _]         => WithIdentityObject(fromSchema(seq.elementSchema), seq.identity)
+        case seq: Schema.NonEmptySequence[_, _, _] => WithIdentityObject(fromSchema(seq.elementSchema), seq.identity)
+        case set: Schema.Set[_]                    => Set(fromSchema(set.elementSchema)).asInstanceOf[CacheKey[A]]
         case map: Schema.Map[_, _] =>
+          Map(fromSchema(map.keySchema), fromSchema(map.valueSchema)).asInstanceOf[CacheKey[A]]
+        case map: Schema.NonEmptyMap[_, _] =>
           Map(fromSchema(map.keySchema), fromSchema(map.valueSchema)).asInstanceOf[CacheKey[A]]
         case Schema.Transform(inner, _, _, _, identity) => WithIdentityObject(fromSchema(inner), identity)
         case Schema.Primitive(standardType, _)          => fromStandardType(standardType)

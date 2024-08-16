@@ -121,7 +121,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.noSymbol)
     val selfRef = Ref(selfRefSymbol)
 
-    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
+    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].classSymbol.get.fullName.replaceAll("\\$", ""))})}
     val isEnumCase = Type.of[T] match {
       case '[reflect.Enum] => true
       case _ => false
@@ -195,8 +195,13 @@ private case class DeriveSchema()(using val ctx: Quotes) {
       then TypeRepr.of[T].typeSymbol.children.map(_.annotations).flatten.filter (filterAnnotation).map (_.asExpr)
       else TypeRepr.of[T].typeSymbol.annotations.filter (filterAnnotation).map (_.asExpr)
 
-    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr)}) }
-    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
+    val genericAnnotations = if (TypeRepr.of[T].classSymbol.exists(_.typeMembers.nonEmpty)){
+      val typeMembersExpr = Expr.ofSeq(TypeRepr.of[T].classSymbol.get.typeMembers.map { t => Expr(t.name) })
+      val typeArgsExpr = Expr.ofSeq(TypeRepr.of[T].typeArgs.map { t => Expr(t.typeSymbol.fullName) })
+      List('{zio.schema.annotation.genericTypeInfo(ListMap.from(${typeMembersExpr}.zip(${typeArgsExpr}.map(name => TypeId.parse(name).asInstanceOf[TypeId.Nominal]))))})
+    } else List.empty
+    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(genericAnnotations)}) }
+    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].classSymbol.get.fullName.replaceAll("\\$", ""))})}
 
     val applied = if (labels.length <= 22) {
 
@@ -250,11 +255,17 @@ private case class DeriveSchema()(using val ctx: Quotes) {
              case None =>
                tpe.asType
            }
+           val annotations = paramAnns.getOrElse(label, List.empty)
+           val nameExpr = annotations.collectFirst {
+             case ann if ann.isExprOf[fieldName] =>
+               val fieldNameAnn = ann.asExprOf[fieldName]
+                 '{${fieldNameAnn}.name}
+              }.getOrElse(Expr(label))
            fieldType match { case '[t] =>
-            '{ try ${m}.apply(${Expr(label)}).asInstanceOf[t]
+            '{ try ${m}.apply(${nameExpr}).asInstanceOf[t]
                catch {
-                 case _: ClassCastException => throw new RuntimeException("Field " + ${Expr(label)} + " has invalid type")
-                 case _: Throwable => throw new RuntimeException("Field " + ${Expr(label)} + " is missing")
+                 case _: ClassCastException => throw new RuntimeException("Field " + ${nameExpr} + " has invalid type")
+                 case _: Throwable => throw new RuntimeException("Field " + ${nameExpr} + " is missing")
                }
             }.asTerm
            }
@@ -279,8 +290,14 @@ private case class DeriveSchema()(using val ctx: Quotes) {
               case None =>
                 tpe.asType
             }
+           val annotations = paramAnns.getOrElse(label, List.empty)
+           val nameExpr = annotations.collectFirst {
+             case ann if ann.isExprOf[fieldName] =>
+               val fieldNameAnn = ann.asExprOf[fieldName]
+               '{${fieldNameAnn}.name}
+           }.getOrElse(Expr(label))
            fieldType match { case '[t] =>
-             '{(${Expr(label)}, ${Select.unique(b.asTerm, label).asExprOf[t]})}
+             '{(${nameExpr}, ${Select.unique(b.asTerm, label).asExprOf[t]})}
            }
          }
        val toMap = '{(b: T) => Right(ListMap.apply(${Varargs(tuples('b))} :_*)) }
@@ -339,6 +356,10 @@ private case class DeriveSchema()(using val ctx: Quotes) {
             .map(_.asExpr.asInstanceOf[Expr[Any]])
           val hasDefaultAnnotation =
             field.annotations.exists(_.tpe <:< TypeRepr.of[zio.schema.annotation.fieldDefaultValue[_]])
+          val transientField = field.annotations.exists(_.tpe <:< TypeRepr.of[zio.schema.annotation.transientField])
+          if (transientField && !hasDefaultAnnotation && defaults.get(field.name).isEmpty) {
+            report.errorAndAbort(s"Field ${field.name} is transient and must have a default value.")
+          }
           if (hasDefaultAnnotation || defaults.get(field.name).isEmpty) {
             annos
           } else {
@@ -360,7 +381,9 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     val cases = typesAndLabels.map { case (tpe, label) => deriveCase[T](tpe, label, newStack) }
 
     val numParentFields: Int = TypeRepr.of[T].typeSymbol.declaredFields.length
-    val isSimpleEnum: Boolean = !TypeRepr.of[T].typeSymbol.children.map(_.declaredFields.length).exists( _ > numParentFields )
+    val childrenFields = TypeRepr.of[T].typeSymbol.children.map(_.declaredFields.length)
+    val childrenFieldsConstructor = TypeRepr.of[T].typeSymbol.children.map(_.caseFields.length)
+    val isSimpleEnum: Boolean = childrenFieldsConstructor.forall( _ == 0) && childrenFields.forall( _ <= numParentFields)
     val hasSimpleEnumAnn: Boolean = TypeRepr.of[T].typeSymbol.hasAnnotation(TypeRepr.of[_root_.zio.schema.annotation.simpleEnum].typeSymbol)
 
     val docAnnotationExpr = TypeRepr.of[T].typeSymbol.docstring.map { docstring =>
@@ -372,9 +395,14 @@ private case class DeriveSchema()(using val ctx: Quotes) {
       case (false, true) => throw new Exception(s"${TypeRepr.of[T].typeSymbol.name} must be a simple Enum")
       case _             => TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
     }
-    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr.toList)}) }
+    val genericAnnotations = if (TypeRepr.of[T].classSymbol.exists(_.typeMembers.nonEmpty)){
+      val typeMembersExpr = Expr.ofSeq(TypeRepr.of[T].classSymbol.get.typeMembers.map { t => Expr(t.name) })
+      val typeArgsExpr = Expr.ofSeq(TypeRepr.of[T].typeArgs.map { t => Expr(t.typeSymbol.fullName) })
+      List('{zio.schema.annotation.genericTypeInfo(ListMap.from(${typeMembersExpr}.zip(${typeArgsExpr}.map(name => TypeId.parse(name).asInstanceOf[TypeId.Nominal]))))})
+    } else List.empty
+    val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr.toList)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(genericAnnotations)}) }
 
-    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].show)})}
+    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].classSymbol.get.fullName.replaceAll("\\$", ""))})}
 
     val applied = if (cases.length <= 22) {
       val args = List(typeInfo) ++ cases :+ annotations
