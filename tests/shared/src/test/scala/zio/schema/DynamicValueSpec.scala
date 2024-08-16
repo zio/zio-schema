@@ -111,7 +111,7 @@ object DynamicValueSpec extends ZIOSpecDefault {
         },
         test("equivalent DynamicValues have same hashCode and equality") {
           check(DynamicValueGen.anyDynamicValue) { dynamicValue =>
-            val dynamicValueCopy = dynamicValue // Assuming the generation ensures equivalence
+            val dynamicValueCopy = dynamicValue
             assert(dynamicValue.hashCode())(equalTo(dynamicValueCopy.hashCode())) &&
             assert(dynamicValue)(equalTo(dynamicValueCopy))
           }
