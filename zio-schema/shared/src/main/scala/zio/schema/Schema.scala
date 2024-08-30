@@ -502,7 +502,10 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
       }
   }
 
-  sealed trait Collection[Col, Elem] extends Schema[Col]
+  sealed trait Collection[Col, Elem] extends Schema[Col] {
+    def fromChunk: Chunk[Elem] => Col
+    def toChunk: Col => Chunk[Elem]
+  }
 
   final case class Sequence[Col, Elem, I](
     elementSchema: Schema[Elem],
@@ -815,8 +818,13 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
           valueSchema.defaultValue.map(defaultValue => scala.collection.immutable.Map(defaultKey -> defaultValue))
       )
 
+    override val fromChunk: Chunk[(K, V)] => scala.collection.immutable.Map[K, V] = _.toMap
+
     override def makeAccessors(b: AccessorBuilder): b.Traversal[scala.collection.immutable.Map[K, V], (K, V)] =
       b.makeTraversal(self, keySchema <*> valueSchema)
+
+    override val toChunk: scala.collection.immutable.Map[K, V] => Chunk[(K, V)] = map => Chunk.fromIterable(map.toList)
+
   }
 
   final case class NonEmptyMap[K, V](
@@ -836,8 +844,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         defaultKey => valueSchema.defaultValue.map(defaultValue => prelude.NonEmptyMap(defaultKey -> defaultValue))
       )
 
-    def fromChunk(chunk: Chunk[(K, V)]): prelude.NonEmptyMap[K, V] =
-      fromChunkOption(chunk).getOrElse(throw new IllegalArgumentException("NonEmptyMap cannot be empty"))
+    override def fromChunk: Chunk[(K, V)] => prelude.NonEmptyMap[K, V] =
+      chunk => fromChunkOption(chunk).getOrElse(throw new IllegalArgumentException("NonEmptyMap cannot be empty"))
 
     def fromChunkOption(chunk: Chunk[(K, V)]): Option[prelude.NonEmptyMap[K, V]] =
       NonEmptyChunk.fromChunk(chunk).map(prelude.NonEmptyMap.fromNonEmptyChunk)
@@ -847,8 +855,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
         .fromMapOption(map)
         .getOrElse(throw new IllegalArgumentException("NonEmptyMap cannot be empty"))
 
-    def toChunk(map: prelude.NonEmptyMap[K, V]): Chunk[(K, V)] =
-      Chunk.fromIterable(map.toList)
+    override def toChunk: prelude.NonEmptyMap[K, V] => Chunk[(K, V)] = map => Chunk.fromIterable(map.toList)
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[prelude.NonEmptyMap[K, V], (K, V)] =
       b.makeTraversal(self, keySchema <*> valueSchema)
@@ -857,14 +864,14 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
   final case class NonEmptySequence[Col, Elm, I](
     elementSchema: Schema[Elm],
     fromChunkOption: Chunk[Elm] => Option[Col],
-    toChunk: Col => Chunk[Elm],
+    override val toChunk: Col => Chunk[Elm],
     override val annotations: Chunk[Any] = Chunk.empty,
     identity: I
   ) extends Collection[Col, Elm] {
     self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Traversal[Col, Elm]
 
-    val fromChunk: Chunk[Elm] => Col = (chunk: Chunk[Elm]) =>
+    override val fromChunk: Chunk[Elm] => Col = (chunk: Chunk[Elm]) =>
       fromChunkOption(chunk).getOrElse(
         throw new IllegalArgumentException(s"NonEmptySequence $identity cannot be empty")
       )
@@ -894,8 +901,13 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def defaultValue: scala.util.Either[String, scala.collection.immutable.Set[A]] =
       elementSchema.defaultValue.map(scala.collection.immutable.Set(_))
 
+    override val fromChunk: Chunk[A] => scala.collection.immutable.Set[A] = _.toSet
+
     override def makeAccessors(b: AccessorBuilder): b.Traversal[scala.collection.immutable.Set[A], A] =
       b.makeTraversal(self, elementSchema)
+
+    override val toChunk: scala.collection.immutable.Set[A] => Chunk[A] = Chunk.fromIterable(_)
+
   }
 
   final case class Dynamic(override val annotations: Chunk[Any] = Chunk.empty) extends Schema[DynamicValue] {
