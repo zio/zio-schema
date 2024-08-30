@@ -127,7 +127,6 @@ lazy val zioSchemaMacros = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .settings(macroDefinitionSettings)
   .nativeSettings(Test / fork := false)
   .nativeSettings(
-    nativeSettings,
     libraryDependencies ++= Seq(
       "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
     )
@@ -158,7 +157,6 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   )
   .nativeSettings(Test / fork := false)
   .nativeSettings(
-    nativeSettings,
     libraryDependencies ++= Seq(
       "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
     )
@@ -214,7 +212,6 @@ lazy val zioSchemaDerivation = crossProject(JSPlatform, JVMPlatform, NativePlatf
   )
   .nativeSettings(Test / fork := false)
   .nativeSettings(
-    nativeSettings,
     libraryDependencies ++= Seq(
       "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
     )
@@ -244,7 +241,6 @@ lazy val zioSchemaJson = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   )
   .nativeSettings(Test / fork := false)
   .nativeSettings(
-    nativeSettings,
     libraryDependencies ++= Seq(
       "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
     )
@@ -272,7 +268,6 @@ lazy val zioSchemaProtobuf = crossProject(JSPlatform, JVMPlatform, NativePlatfor
   .settings(buildInfoSettings("zio.schema.protobuf"))
   .nativeSettings(Test / fork := false)
   .nativeSettings(
-    nativeSettings,
     libraryDependencies ++= Seq(
       "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
     )
@@ -364,7 +359,6 @@ lazy val zioSchemaOptics = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   )
   .nativeSettings(Test / fork := false)
   .nativeSettings(
-    nativeSettings,
     libraryDependencies ++= Seq(
       "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
     )
@@ -395,7 +389,6 @@ lazy val zioSchemaExamples = crossProject(JSPlatform, JVMPlatform, NativePlatfor
   )
   .nativeSettings(Test / fork := false)
   .nativeSettings(
-    nativeSettings,
     libraryDependencies ++= Seq(
       "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
     )
