@@ -58,6 +58,11 @@ sealed trait Schema[A] {
   def defaultValue: scala.util.Either[String, A]
 
   /**
+   * Add a default value to this schema.
+   */
+  def default(value: A): Schema[A] = self.annotate(fieldDefaultValue(value))
+
+  /**
    * Chunk of annotations for this schema
    */
   def annotations: Chunk[Any]
@@ -562,7 +567,15 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
 
     override def annotate(annotation: Any): Primitive[A] = copy(annotations = (annotations :+ annotation).distinct)
 
-    override def defaultValue: scala.util.Either[String, A] = standardType.defaultValue
+    private def annotatedDefaultValue = annotations.collectFirst {
+      case a if a.isInstanceOf[fieldDefaultValue[_]] => a.asInstanceOf[fieldDefaultValue[A]].value
+    }
+
+    override def defaultValue: scala.util.Either[String, A] =
+      annotatedDefaultValue match {
+        case Some(value) => Right(value)
+        case None        => standardType.defaultValue
+      }
 
     override def makeAccessors(b: AccessorBuilder): Unit = ()
   }

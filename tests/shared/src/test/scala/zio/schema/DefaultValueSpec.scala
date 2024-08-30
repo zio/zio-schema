@@ -300,6 +300,11 @@ object DefaultValueSpec extends ZIOSpecDefault {
         val rightSchema = Schema.either(Schema.fail("Nothing"), Schema.primitive(StandardType.StringType))
         assert(rightSchema.defaultValue)(isRight(isRight(equalTo(""))))
       }
-    )
+    ),
+    suite("default from annotation") {
+      test("default value from annotation") {
+        assert(Schema[String].default("default").defaultValue)(isRight(equalTo("default")))
+      }
+    }
   )
 }
