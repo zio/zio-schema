@@ -1,5 +1,5 @@
 import sbtcrossproject.CrossPlugin.autoImport._
-import BuildHelper.{ crossProjectSettings, _ }
+import BuildHelper.*
 import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
@@ -113,6 +113,7 @@ lazy val tests = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema"))
   .settings(testDeps)
+  .nativeSettings(nativeSettings)
 
 lazy val testsJS = tests.js
   .settings(scalaJSUseMainModuleInitializer := true)
@@ -126,6 +127,7 @@ lazy val zioSchemaMacros = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .settings(buildInfoSettings("zio.schema"))
   .settings(macroDefinitionSettings)
   .nativeSettings(Test / fork := false)
+  .nativeSettings(nativeSettings)
   .nativeSettings(
     libraryDependencies ++= Seq(
       "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
@@ -156,6 +158,7 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     )
   )
   .nativeSettings(Test / fork := false)
+  .nativeSettings(nativeSettings)
   .nativeSettings(
     libraryDependencies ++= Seq(
       "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
@@ -211,6 +214,7 @@ lazy val zioSchemaDerivation = crossProject(JSPlatform, JVMPlatform, NativePlatf
     }
   )
   .nativeSettings(Test / fork := false)
+  .nativeSettings(nativeSettings)
   .nativeSettings(
     libraryDependencies ++= Seq(
       "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
@@ -240,6 +244,7 @@ lazy val zioSchemaJson = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     )
   )
   .nativeSettings(Test / fork := false)
+  .nativeSettings(nativeSettings)
   .nativeSettings(
     libraryDependencies ++= Seq(
       "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
@@ -267,6 +272,7 @@ lazy val zioSchemaProtobuf = crossProject(JSPlatform, JVMPlatform, NativePlatfor
   .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema.protobuf"))
   .nativeSettings(Test / fork := false)
+  .nativeSettings(nativeSettings)
   .nativeSettings(
     libraryDependencies ++= Seq(
       "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
@@ -358,6 +364,7 @@ lazy val zioSchemaOptics = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     )
   )
   .nativeSettings(Test / fork := false)
+  .nativeSettings(nativeSettings)
   .nativeSettings(
     libraryDependencies ++= Seq(
       "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
@@ -388,6 +395,7 @@ lazy val zioSchemaExamples = crossProject(JSPlatform, JVMPlatform, NativePlatfor
     scalacOptions -= "-Xfatal-warnings"
   )
   .nativeSettings(Test / fork := false)
+  .nativeSettings(nativeSettings)
   .nativeSettings(
     libraryDependencies ++= Seq(
       "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
@@ -412,6 +420,7 @@ lazy val zioSchemaZioTest = crossProject(JSPlatform, JVMPlatform, NativePlatform
   .settings(stdSettings("zio-schema-zio-test"))
   .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema.test"))
+  .nativeSettings(nativeSettings)
   .settings(
     libraryDependencies ++= Seq(
       "dev.zio" %%% "zio-test" % zioVersion
