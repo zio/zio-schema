@@ -151,6 +151,8 @@ sealed trait Schema[A] {
 
   def validate(value: A)(implicit schema: Schema[A]): Chunk[ValidationError] = Schema.validate[A](value)
 
+  def validation(validation: Validation[A]): Schema[A] = annotate(zio.schema.annotation.validate(validation))
+
   /**
    * Returns a new schema that combines this schema and the specified schema together, modeling
    * their tuple composition.
