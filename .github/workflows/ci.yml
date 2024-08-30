@@ -49,9 +49,9 @@ jobs:
         jvm: ${{ matrix.java }}
     - name: Cache scala dependencies
       uses: coursier/cache-action@v6
-    - name: Install libuv
+    - name: Install Bohem GC
       if: matrix.platform == 'Native'
-      run: sudo apt-get update && sudo apt-get install -y libuv1-dev
+      run: sudo apt-get update && sudo apt-get install -y libgc-dev
     - name: Run tests
       run: sbt ++${{ matrix.scala }}! test${{ matrix.platform }}
 
