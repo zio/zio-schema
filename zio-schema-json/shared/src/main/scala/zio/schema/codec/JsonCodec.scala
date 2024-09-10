@@ -21,8 +21,8 @@ import zio.prelude.NonEmptyMap
 import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
-import zio.stream.ZPipeline
-import zio.{ Cause, Chunk, ChunkBuilder, NonEmptyChunk, ZIO }
+import zio.stream.{ ZChannel, ZPipeline }
+import zio.{ Cause, Chunk, ChunkBuilder, ZIO, ZNothing }
 
 object JsonCodec {
 
@@ -47,11 +47,7 @@ object JsonCodec {
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
         ZPipeline.fromChannel(
           ZPipeline.utfDecode.channel.mapError(cce => ReadError(Cause.fail(cce), cce.getMessage))
-        ) >>>
-          ZPipeline.groupAdjacentBy[String, Unit](_ => ()) >>>
-          ZPipeline.map[(Unit, NonEmptyChunk[String]), String] {
-            case (_, fragments) => fragments.mkString
-          } >>>
+        ) >>> splitOnJsonBoundary >>>
           ZPipeline.mapZIO { (s: String) =>
             ZIO
               .fromEither(jsonCodec.decodeJson(s))
@@ -62,13 +58,117 @@ object JsonCodec {
         JsonEncoder.charSequenceToByteChunk(jsonCodec.encodeJson(value, None))
 
       override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
-        ZPipeline.mapChunks(
-          _.flatMap(encode)
-        )
+        ZPipeline.mapChunks[A, Chunk[Byte]](_.map(encode)).intersperse(Chunk.single('\n'.toByte)).flattenChunks
     }
 
   implicit def schemaBasedBinaryCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
     schemaBasedBinaryCodec[A](JsonCodec.Config.default)
+
+  val splitOnJsonBoundary: ZPipeline[Any, Nothing, String, String] = {
+    val validNumChars          = Set('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'E', 'e', '-', '+', '.')
+    val ContextJson            = 'j'
+    val ContextString          = 's'
+    val ContextBoolean         = 'b'
+    val ContextNull            = 'u'
+    val ContextNullAfterFirstL = 'x'
+    val ContextNumber          = 'n'
+    val ContextEscape          = 'e'
+
+    ZPipeline.suspend {
+      val stringBuilder = new StringBuilder
+      var depth         = 0
+      var context       = ContextJson
+
+      def fetchChunk(chunk: Chunk[String]): Chunk[String] = {
+        val chunkBuilder = ChunkBuilder.make[String]()
+        for {
+          string <- chunk
+          c      <- string
+        } {
+          var valueEnded = false
+          context match {
+            case ContextEscape =>
+              context = 's'
+            case ContextString =>
+              c match {
+                case '\\' => context = ContextEscape
+                case '"' =>
+                  context = ContextJson
+                  valueEnded = true
+                case _ =>
+              }
+            case ContextBoolean =>
+              if (c == 'e') {
+                context = ContextJson
+                valueEnded = true
+              }
+            case ContextNull =>
+              if (c == 'l') {
+                context = ContextNullAfterFirstL
+              }
+            case ContextNullAfterFirstL =>
+              if (c == 'l') {
+                context = ContextJson
+                valueEnded = true
+              }
+            case ContextNumber =>
+              c match {
+                case '}' | ']' =>
+                  depth -= 1
+                  context = ContextJson
+                  valueEnded = true
+                case _ if !validNumChars(c) =>
+                  context = ContextJson
+                  valueEnded = true
+                case _ =>
+              }
+            case _ =>
+              c match {
+                case '{' | '[' =>
+                  depth += 1
+                case '}' | ']' =>
+                  depth -= 1
+                  valueEnded = true
+                case '"' =>
+                  context = ContextString
+                case 't' | 'f' =>
+                  context = ContextBoolean
+                case 'n' =>
+                  context = ContextNull
+                case x if validNumChars(x) =>
+                  context = ContextNumber
+                case _ =>
+              }
+          }
+          if (depth > 0 || context != ContextJson || valueEnded)
+            stringBuilder.append(c)
+
+          if (valueEnded && depth == 0) {
+            val str = stringBuilder.result()
+            if (!str.forall(_.isWhitespace)) chunkBuilder += str
+            stringBuilder.clear()
+          }
+        }
+        chunkBuilder.result()
+      }
+
+      lazy val loop: ZChannel[Any, ZNothing, Chunk[String], Any, Nothing, Chunk[String], Any] =
+        ZChannel.readWithCause(
+          in => {
+            val out = fetchChunk(in)
+            if (out.isEmpty) loop else ZChannel.write(out) *> loop
+          },
+          err =>
+            if (stringBuilder.isEmpty) ZChannel.refailCause(err)
+            else ZChannel.write(Chunk.single(stringBuilder.result())) *> ZChannel.refailCause(err),
+          done =>
+            if (stringBuilder.isEmpty) ZChannel.succeed(done)
+            else ZChannel.write(Chunk.single(stringBuilder.result())) *> ZChannel.succeed(done)
+        )
+
+      ZPipeline.fromChannel(loop)
+    }
+  }
 
   def schemaBasedBinaryCodec[A](cfg: Config)(implicit schema: Schema[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
@@ -80,10 +180,7 @@ object JsonCodec {
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
         ZPipeline.utfDecode.mapError(cce => ReadError(Cause.fail(cce), cce.getMessage)) >>>
-          ZPipeline.groupAdjacentBy[String, Unit](_ => ()) >>>
-          ZPipeline.map[(Unit, NonEmptyChunk[String]), String] {
-            case (_, fragments) => fragments.mkString
-          } >>>
+          splitOnJsonBoundary >>>
           ZPipeline.mapZIO { (s: String) =>
             ZIO.fromEither(JsonDecoder.decode(schema, s))
           }
@@ -92,9 +189,7 @@ object JsonCodec {
         JsonEncoder.encode(schema, value, cfg)
 
       override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
-        ZPipeline.mapChunks(
-          _.flatMap(encode)
-        )
+        ZPipeline.mapChunks[A, Chunk[Byte]](_.map(encode)).intersperse(Chunk.single('\n'.toByte)).flattenChunks
     }
 
   def jsonEncoder[A](schema: Schema[A]): ZJsonEncoder[A] =

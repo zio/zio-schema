@@ -24,6 +24,9 @@ import zio.test._
 
 object JsonCodecSpec extends ZIOSpecDefault {
 
+  case class Person(name: String, age: Int)
+  val personSchema: Schema[Person] = DeriveSchema.gen[Person]
+
   def spec: Spec[TestEnvironment, Any] =
     suite("JsonCodec Spec")(
       encoderSuite,
@@ -436,6 +439,114 @@ object JsonCodecSpec extends ZIOSpecDefault {
           """{"NumberOne":{"value":"foo"}}"""
         )
       }
+    ),
+    suite("Streams")(
+      suite("Streams of integers")(
+        test("Encodes a stream with multiple integers") {
+          assertEncodesMany(Schema[Int], 1 to 5, charSequenceToByteChunk("1\n2\n3\n4\n5"))
+        },
+        test("Decodes a stream with multiple integers separated by newlines") {
+          assertDecodesMany(Schema[Int], Chunk.fromIterable(1 to 5), charSequenceToByteChunk("1\n2\n3\n4\n5"))
+        },
+        test("Decodes a stream with multiple integers separated by spaces") {
+          assertDecodesMany(Schema[Int], Chunk.fromIterable(1 to 5), charSequenceToByteChunk("1 2 3 4 5"))
+        },
+        test("Decodes a stream with multiple integers separated by commas and other non JSON number characters") {
+          assertDecodesMany(Schema[Int], Chunk.fromIterable(1 to 5), charSequenceToByteChunk("1 2, 3;;; 4x5"))
+        }
+      ),
+      suite("Streams of booleans")(
+        test("Encodes a stream with multiple booleans") {
+          assertEncodesMany(Schema[Boolean], List(true, true, false), charSequenceToByteChunk("true\ntrue\nfalse"))
+        },
+        test("Decodes a stream with multiple booleans separated by newlines") {
+          assertDecodesMany(Schema[Boolean], Chunk(true, true, false), charSequenceToByteChunk("true\ntrue\nfalse"))
+        },
+        test("Decodes a stream with multiple booleans separated by spaces") {
+          assertDecodesMany(Schema[Boolean], Chunk(true, true, false), charSequenceToByteChunk("true true false"))
+        },
+        test(
+          "Decodes a stream with multiple booleans separated by commas and other non JSON boolean characters and not separated at all"
+        ) {
+          assertDecodesMany(
+            Schema[Boolean],
+            Chunk(true, true, false, false),
+            charSequenceToByteChunk("true true, falsefalse")
+          )
+        }
+      ),
+      suite("Streams of strings")(
+        test("Encodes a stream with multiple strings") {
+          assertEncodesMany(Schema[String], List("a", "b", "c"), charSequenceToByteChunk("\"a\"\n\"b\"\n\"c\""))
+        },
+        test("Decodes a stream with multiple strings separated by newlines") {
+          assertDecodesMany(Schema[String], Chunk("a", "b", "c"), charSequenceToByteChunk("\"a\"\n\"b\"\n\"c\""))
+        },
+        test("Decodes a stream with multiple strings separated by spaces, commas and not separated at all") {
+          assertDecodesMany(Schema[String], Chunk("a", "b", "c", "d"), charSequenceToByteChunk(""""a" "b","c""d""""))
+        }
+      ),
+      suite("Stream of records")(
+        test("Encodes a stream with multiple records") {
+          assertEncodesMany(
+            personSchema,
+            List(
+              Person("Alice", 1),
+              Person("Bob", 2),
+              Person("Charlie", 3)
+            ),
+            charSequenceToByteChunk(
+              """{"name":"Alice","age":1}
+                |{"name":"Bob","age":2}
+                |{"name":"Charlie","age":3}""".stripMargin
+            )
+          )
+        },
+        test("Decodes a stream with multiple records separated by newlines") {
+          assertDecodesMany(
+            personSchema,
+            Chunk(
+              Person("Alice", 1),
+              Person("Bob", 2),
+              Person("Charlie", 3)
+            ),
+            charSequenceToByteChunk(
+              """{"name":"Alice","age":1}
+                |{"name":"Bob","age":2}
+                |{"name":"Charlie","age":3}""".stripMargin
+            )
+          )
+        },
+        test("Decodes a stream with multiple records, not separated with internalnewlines") {
+          assertDecodesMany(
+            personSchema,
+            Chunk(
+              Person("Alice", 1),
+              Person("Bob", 2),
+              Person("Charlie", 3)
+            ),
+            charSequenceToByteChunk(
+              """{"name":"Alice","age":1}{"name":"Bob",
+                |"age"
+                |:2}{"name":"Charlie","age":3}""".stripMargin
+            )
+          )
+        },
+        test("Encodes a stream with no records") {
+          assertEncodesMany(
+            personSchema,
+            List.empty[Person],
+            charSequenceToByteChunk("")
+          )
+        },
+        test("Decodes a stream with no records") {
+          assertDecodesMany(
+            personSchema,
+            Chunk.empty,
+            charSequenceToByteChunk("")
+          )
+        }
+      )
     )
   )
 
@@ -1307,7 +1418,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
       ),
       test("decode discriminated case objects with extra fields")(
         assertDecodes(Schema[Command], Command.Cash, charSequenceToByteChunk("""{"type":"Cash","extraField":1}""")) &>
-          assertDecodes(Schema[Command], Command.Cash, charSequenceToByteChunk("""{"extraField":1,"type":"Cash"}""""))
+          assertDecodes(Schema[Command], Command.Cash, charSequenceToByteChunk("""{"extraField":1,"type":"Cash"}"""))
       ),
       suite("of case objects")(
         test("without annotation")(
@@ -1505,6 +1616,23 @@ object JsonCodecSpec extends ZIOSpecDefault {
     assertZIO(stream)(equalTo(chunk))
   }
 
+  private def assertEncodesMany[A](
+    schema: Schema[A],
+    values: Seq[A],
+    chunk: Chunk[Byte],
+    cfg: JsonCodec.Config = JsonCodec.Config.default,
+    print: Boolean = false
+  ) = {
+    val stream = ZStream
+      .fromIterable(values)
+      .via(JsonCodec.schemaBasedBinaryCodec(cfg)(schema).streamEncoder)
+      .runCollect
+      .tap { chunk =>
+        printLine(s"${new String(chunk.toArray)}").when(print).ignore
+      }
+    assertZIO(stream)(equalTo(chunk))
+  }
+
   private def assertEncodesJson[A](
     schema: Schema[A],
     value: A,
@@ -1549,6 +1677,16 @@ object JsonCodecSpec extends ZIOSpecDefault {
   ) = {
     val result = ZStream.fromChunk(chunk).via(JsonCodec.schemaBasedBinaryCodec[A](cfg)(schema).streamDecoder).runCollect
     assertZIO(result)(equalTo(Chunk(value)))
+  }
+
+  private def assertDecodesMany[A](
+    schema: Schema[A],
+    values: Chunk[A],
+    chunk: Chunk[Byte],
+    cfg: JsonCodec.Config = JsonCodec.Config.default
+  ) = {
+    val result = ZStream.fromChunk(chunk).via(JsonCodec.schemaBasedBinaryCodec[A](cfg)(schema).streamDecoder).runCollect
+    assertZIO(result)(equalTo(values))
   }
 
   private def assertEncodesThenDecodesFallback[A, B](
