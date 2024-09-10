@@ -65,11 +65,19 @@ object JsonCodec {
     schemaBasedBinaryCodec[A](JsonCodec.Config.default)
 
   val splitOnJsonBoundary: ZPipeline[Any, Nothing, String, String] = {
-    val validNumChars = Set('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'E', 'e', '-', '+', '.')
+    val validNumChars          = Set('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'E', 'e', '-', '+', '.')
+    val ContextJson            = 'j'
+    val ContextString          = 's'
+    val ContextBoolean         = 'b'
+    val ContextNull            = 'u'
+    val ContextNullAfterFirstL = 'x'
+    val ContextNumber          = 'n'
+    val ContextEscape          = 'e'
+
     ZPipeline.suspend {
       val stringBuilder = new StringBuilder
       var depth         = 0
-      var valueType     = 'j' // j = json, s = string, b = boolean, u = null, n = number, x = null after first null, e = escape in string
+      var context       = ContextJson
 
       def fetchChunk(chunk: Chunk[String]): Chunk[String] = {
         val chunkBuilder = ChunkBuilder.make[String]()
@@ -78,43 +86,43 @@ object JsonCodec {
           c      <- string
         } {
           var valueEnded = false
-          valueType match {
-            case 'e' =>
-              valueType = 's'
-            case 's' =>
+          context match {
+            case ContextEscape =>
+              context = 's'
+            case ContextString =>
               c match {
-                case '\\' => valueType = 'e'
+                case '\\' => context = ContextEscape
                 case '"' =>
-                  valueType = 'j'
+                  context = ContextJson
                   valueEnded = true
                 case _ =>
               }
-            case 'b' =>
+            case ContextBoolean =>
               if (c == 'e') {
-                valueType = 'j'
+                context = ContextJson
                 valueEnded = true
               }
-            case 'u' =>
+            case ContextNull =>
               if (c == 'l') {
-                valueType = 'x'
+                context = ContextNullAfterFirstL
               }
-            case 'x' =>
+            case ContextNullAfterFirstL =>
               if (c == 'l') {
-                valueType = 'j'
+                context = ContextJson
                 valueEnded = true
               }
-            case 'n' =>
+            case ContextNumber =>
               c match {
                 case '}' | ']' =>
                   depth -= 1
-                  valueType = 'j'
+                  context = ContextJson
                   valueEnded = true
                 case _ if !validNumChars(c) =>
-                  valueType = 'j'
+                  context = ContextJson
                   valueEnded = true
                 case _ =>
               }
-            case 'j' =>
+            case _ =>
               c match {
                 case '{' | '[' =>
                   depth += 1
@@ -122,17 +130,17 @@ object JsonCodec {
                   depth -= 1
                   valueEnded = true
                 case '"' =>
-                  valueType = 's'
+                  context = ContextString
                 case 't' | 'f' =>
-                  valueType = 'b'
+                  context = ContextBoolean
                 case 'n' =>
-                  valueType = 'u'
+                  context = ContextNull
                 case x if validNumChars(x) =>
-                  valueType = 'n'
+                  context = ContextNumber
                 case _ =>
               }
           }
-          if (depth > 0 || valueType != 'j' || valueEnded)
+          if (depth > 0 || context != ContextJson || valueEnded)
             stringBuilder.append(c)
 
           if (valueEnded && depth == 0) {
