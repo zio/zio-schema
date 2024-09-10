@@ -441,69 +441,112 @@ object JsonCodecSpec extends ZIOSpecDefault {
       }
     ),
     suite("Streams")(
-      test("Encodes a stream with multiple integers") {
-        assertEncodesMore(Schema[Int], 1 to 5, charSequenceToByteChunk("1\n2\n3\n4\n5"))
-      },
-      test("Decodes a stream with multiple integers") {
-        assertDecodesMore(Schema[Int], Chunk.fromIterable(1 to 5), charSequenceToByteChunk("1\n2\n3\n4\n5")) &>
-          assertDecodesMore(Schema[Int], Chunk.fromIterable(1 to 5), charSequenceToByteChunk("1 2 3 4 5")) &>
-          assertDecodesMore(Schema[Int], Chunk.fromIterable(1 to 5), charSequenceToByteChunk("1 2, 3;;; 4x5"))
-      },
-      test("Decodes a stream with multiple booleans") {
-        assertDecodesMore(Schema[Boolean], Chunk(true, true, false), charSequenceToByteChunk("true true false")) &>
-          assertDecodesMore(Schema[Boolean], Chunk(true, true, false), charSequenceToByteChunk("truetruefalse"))
-      },
-      test("Encodes a stream with multiple strings") {
-        assertEncodesMore(Schema[String], List("a", "b", "c"), charSequenceToByteChunk("\"a\"\n\"b\"\n\"c\""))
-      },
-      test("Decodes a stream with multiple strings") {
-        assertDecodesMore(Schema[String], Chunk("a", "b", "c"), charSequenceToByteChunk("\"a\"\n\"b\"\n\"c\"")) &>
-          assertDecodesMore(Schema[String], Chunk("a", "b", "c"), charSequenceToByteChunk(""""a" "b""c""""))
-      },
-      test("Encodes a stream with multiple records") {
-        assertEncodesMore(
-          personSchema,
-          List(
-            Person("Alice", 1),
-            Person("Bob", 2),
-            Person("Charlie", 3)
-          ),
-          charSequenceToByteChunk(
-            """{"name":"Alice","age":1}
-              |{"name":"Bob","age":2}
-              |{"name":"Charlie","age":3}""".stripMargin
+      suite("Streams of integers")(
+        test("Encodes a stream with multiple integers") {
+          assertEncodesMany(Schema[Int], 1 to 5, charSequenceToByteChunk("1\n2\n3\n4\n5"))
+        },
+        test("Decodes a stream with multiple integers separated by newlines") {
+          assertDecodesMany(Schema[Int], Chunk.fromIterable(1 to 5), charSequenceToByteChunk("1\n2\n3\n4\n5"))
+        },
+        test("Decodes a stream with multiple integers separated by spaces") {
+          assertDecodesMany(Schema[Int], Chunk.fromIterable(1 to 5), charSequenceToByteChunk("1 2 3 4 5"))
+        },
+        test("Decodes a stream with multiple integers separated by commas and other non JSON number characters") {
+          assertDecodesMany(Schema[Int], Chunk.fromIterable(1 to 5), charSequenceToByteChunk("1 2, 3;;; 4x5"))
+        }
+      ),
+      suite("Streams of booleans")(
+        test("Encodes a stream with multiple booleans") {
+          assertEncodesMany(Schema[Boolean], List(true, true, false), charSequenceToByteChunk("true\ntrue\nfalse"))
+        },
+        test("Decodes a stream with multiple booleans separated by newlines") {
+          assertDecodesMany(Schema[Boolean], Chunk(true, true, false), charSequenceToByteChunk("true\ntrue\nfalse"))
+        },
+        test("Decodes a stream with multiple booleans separated by spaces") {
+          assertDecodesMany(Schema[Boolean], Chunk(true, true, false), charSequenceToByteChunk("true true false"))
+        },
+        test(
+          "Decodes a stream with multiple booleans separated by commas and other non JSON boolean characters and not separated at all"
+        ) {
+          assertDecodesMany(
+            Schema[Boolean],
+            Chunk(true, true, false, false),
+            charSequenceToByteChunk("true true, falsefalse")
           )
-        )
-      },
-      test("Decodes a stream with multiple records") {
-        assertDecodesMore(
-          personSchema,
-          Chunk(
-            Person("Alice", 1),
-            Person("Bob", 2),
-            Person("Charlie", 3)
-          ),
-          charSequenceToByteChunk(
-            """{"name":"Alice","age":1}
-              |{"name":"Bob","age":2}
-              |{"name":"Charlie","age":3}""".stripMargin
+        }
+      ),
+      suite("Streams of strings")(
+        test("Encodes a stream with multiple strings") {
+          assertEncodesMany(Schema[String], List("a", "b", "c"), charSequenceToByteChunk("\"a\"\n\"b\"\n\"c\""))
+        },
+        test("Decodes a stream with multiple strings separated by newlines") {
+          assertDecodesMany(Schema[String], Chunk("a", "b", "c"), charSequenceToByteChunk("\"a\"\n\"b\"\n\"c\""))
+        },
+        test("Decodes a stream with multiple strings separated by spaces, commas and not separated at all") {
+          assertDecodesMany(Schema[String], Chunk("a", "b", "c", "d"), charSequenceToByteChunk(""""a" "b","c""d""""))
+        }
+      ),
+      suite("Stream of records")(
+        test("Encodes a stream with multiple records") {
+          assertEncodesMany(
+            personSchema,
+            List(
+              Person("Alice", 1),
+              Person("Bob", 2),
+              Person("Charlie", 3)
+            ),
+            charSequenceToByteChunk(
+              """{"name":"Alice","age":1}
+                |{"name":"Bob","age":2}
+                |{"name":"Charlie","age":3}""".stripMargin
+            )
           )
-        )
-      },
-      test("Encodes a stream with no records") {
-        assertEncodesMore(
-          personSchema,
-          List.empty[Person],
-          charSequenceToByteChunk("")
-        )
-      },
-      test("Decodes a stream with no records") {
-        assertDecodesMore(
-          personSchema,
-          Chunk.empty,
-          charSequenceToByteChunk("")
-        )
-      }
+        },
+        test("Decodes a stream with multiple records separated by newlines") {
+          assertDecodesMany(
+            personSchema,
+            Chunk(
+              Person("Alice", 1),
+              Person("Bob", 2),
+              Person("Charlie", 3)
+            ),
+            charSequenceToByteChunk(
+              """{"name":"Alice","age":1}
+                |{"name":"Bob","age":2}
+                |{"name":"Charlie","age":3}""".stripMargin
+            )
+          )
+        },
+        test("Decodes a stream with multiple records, not separated with internalnewlines") {
+          assertDecodesMany(
+            personSchema,
+            Chunk(
+              Person("Alice", 1),
+              Person("Bob", 2),
+              Person("Charlie", 3)
+            ),
+            charSequenceToByteChunk(
+              """{"name":"Alice","age":1}{"name":"Bob",
+                |"age"
+                |:2}{"name":"Charlie","age":3}""".stripMargin
+            )
+          )
+        },
+        test("Encodes a stream with no records") {
+          assertEncodesMany(
+            personSchema,
+            List.empty[Person],
+            charSequenceToByteChunk("")
+          )
+        },
+        test("Decodes a stream with no records") {
+          assertDecodesMany(
+            personSchema,
+            Chunk.empty,
+            charSequenceToByteChunk("")
+          )
+        }
+      )
     )
   )
 
@@ -1573,7 +1616,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     assertZIO(stream)(equalTo(chunk))
   }
 
-  private def assertEncodesMore[A](
+  private def assertEncodesMany[A](
     schema: Schema[A],
     values: Seq[A],
     chunk: Chunk[Byte],
@@ -1636,7 +1679,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     assertZIO(result)(equalTo(Chunk(value)))
   }
 
-  private def assertDecodesMore[A](
+  private def assertDecodesMany[A](
     schema: Schema[A],
     values: Chunk[A],
     chunk: Chunk[Byte],
