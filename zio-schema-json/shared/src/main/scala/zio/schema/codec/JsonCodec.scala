@@ -137,7 +137,7 @@ object JsonCodec {
 
           if (valueEnded && depth == 0) {
             val str = stringBuilder.result()
-            if (!str.isBlank) chunkBuilder += str
+            if (!str.forall(_.isWhitespace)) chunkBuilder += str
             stringBuilder.clear()
           }
         }
