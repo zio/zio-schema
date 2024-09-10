@@ -20,8 +20,6 @@ import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test._
 
-import java.io.IOException
-
 object JsonCodecSpec extends ZIOSpecDefault {
 
   case class Person(name: String, age: Int)
