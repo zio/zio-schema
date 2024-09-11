@@ -445,6 +445,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
         test("Encodes a stream with multiple integers") {
           assertEncodesMany(Schema[Int], 1 to 5, charSequenceToByteChunk("1\n2\n3\n4\n5"))
         },
+        test("Encodes a stream with multiple integers to an array") {
+          assertEncodesMany(
+            Schema[Int],
+            1 to 5,
+            charSequenceToByteChunk("[1,2,3,4,5]"),
+            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+          )
+        },
         test("Decodes a stream with multiple integers separated by newlines") {
           assertDecodesMany(Schema[Int], Chunk.fromIterable(1 to 5), charSequenceToByteChunk("1\n2\n3\n4\n5"))
         },
@@ -453,17 +461,52 @@ object JsonCodecSpec extends ZIOSpecDefault {
         },
         test("Decodes a stream with multiple integers separated by commas and other non JSON number characters") {
           assertDecodesMany(Schema[Int], Chunk.fromIterable(1 to 5), charSequenceToByteChunk("1 2, 3;;; 4x5"))
+        },
+        test("Decodes a stream with multiple integers encoded as an array") {
+          assertDecodesMany(
+            Schema[Int],
+            Chunk.fromIterable(1 to 5),
+            charSequenceToByteChunk("[1,2,3,4,5]"),
+            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+          )
+        },
+        test("Decodes a stream with multiple integers encoded as an array with additional whitespace") {
+          assertDecodesMany(
+            Schema[Int],
+            Chunk.fromIterable(1 to 5),
+            charSequenceToByteChunk("""
+                                      |   [1,
+                                      |2,3,
+                                      |4,   5]   """.stripMargin),
+            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+          )
         }
       ),
       suite("Streams of booleans")(
         test("Encodes a stream with multiple booleans") {
           assertEncodesMany(Schema[Boolean], List(true, true, false), charSequenceToByteChunk("true\ntrue\nfalse"))
         },
+        test("Encodes a stream with multiple booleans to an array") {
+          assertEncodesMany(
+            Schema[Boolean],
+            List(true, true, false),
+            charSequenceToByteChunk("[true,true,false]"),
+            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+          )
+        },
         test("Decodes a stream with multiple booleans separated by newlines") {
           assertDecodesMany(Schema[Boolean], Chunk(true, true, false), charSequenceToByteChunk("true\ntrue\nfalse"))
         },
         test("Decodes a stream with multiple booleans separated by spaces") {
           assertDecodesMany(Schema[Boolean], Chunk(true, true, false), charSequenceToByteChunk("true true false"))
+        },
+        test("Decodes a stream with multiple booleans as an array") {
+          assertDecodesMany(
+            Schema[Boolean],
+            Chunk(true, true, false),
+            charSequenceToByteChunk("[true, true, false]"),
+            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+          )
         },
         test(
           "Decodes a stream with multiple booleans separated by commas and other non JSON boolean characters and not separated at all"
@@ -479,8 +522,24 @@ object JsonCodecSpec extends ZIOSpecDefault {
         test("Encodes a stream with multiple strings") {
           assertEncodesMany(Schema[String], List("a", "b", "c"), charSequenceToByteChunk("\"a\"\n\"b\"\n\"c\""))
         },
+        test("Encodes a stream with multiple strings as an array") {
+          assertEncodesMany(
+            Schema[String],
+            List("a", "b", "c"),
+            charSequenceToByteChunk("[\"a\",\"b\",\"c\"]"),
+            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+          )
+        },
         test("Decodes a stream with multiple strings separated by newlines") {
           assertDecodesMany(Schema[String], Chunk("a", "b", "c"), charSequenceToByteChunk("\"a\"\n\"b\"\n\"c\""))
+        },
+        test("Decodes a stream with multiple strings as an array") {
+          assertDecodesMany(
+            Schema[String],
+            Chunk("a", "b", "c"),
+            charSequenceToByteChunk("[\"a\", \"b\",\n\"c\"]"),
+            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+          )
         },
         test("Decodes a stream with multiple strings separated by spaces, commas and not separated at all") {
           assertDecodesMany(Schema[String], Chunk("a", "b", "c", "d"), charSequenceToByteChunk(""""a" "b","c""d""""))
@@ -502,6 +561,20 @@ object JsonCodecSpec extends ZIOSpecDefault {
             )
           )
         },
+        test("Encodes a stream with multiple records as an array") {
+          assertEncodesMany(
+            personSchema,
+            List(
+              Person("Alice", 1),
+              Person("Bob", 2),
+              Person("Charlie", 3)
+            ),
+            charSequenceToByteChunk(
+              """[{"name":"Alice","age":1},{"name":"Bob","age":2},{"name":"Charlie","age":3}]"""
+            ),
+            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+          )
+        },
         test("Decodes a stream with multiple records separated by newlines") {
           assertDecodesMany(
             personSchema,
@@ -517,7 +590,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
             )
           )
         },
-        test("Decodes a stream with multiple records, not separated with internalnewlines") {
+        test("Decodes a stream with multiple records, not separated with internal newlines") {
           assertDecodesMany(
             personSchema,
             Chunk(
@@ -532,6 +605,22 @@ object JsonCodecSpec extends ZIOSpecDefault {
             )
           )
         },
+        test("Decodes a stream with multiple records formatted as an array") {
+          assertDecodesMany(
+            personSchema,
+            Chunk(
+              Person("Alice", 1),
+              Person("Bob", 2),
+              Person("Charlie", 3)
+            ),
+            charSequenceToByteChunk(
+              """[{"name":"Alice","age":1},   {"name":"Bob","age":2},
+                |{"name":"Charlie","age"
+                |: 3}]""".stripMargin
+            ),
+            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+          )
+        },
         test("Encodes a stream with no records") {
           assertEncodesMany(
             personSchema,
@@ -539,11 +628,27 @@ object JsonCodecSpec extends ZIOSpecDefault {
             charSequenceToByteChunk("")
           )
         },
+        test("Encodes a stream with no records") {
+          assertEncodesMany(
+            personSchema,
+            List.empty[Person],
+            charSequenceToByteChunk("[]"),
+            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+          )
+        },
         test("Decodes a stream with no records") {
           assertDecodesMany(
             personSchema,
             Chunk.empty,
             charSequenceToByteChunk("")
+          )
+        },
+        test("Decodes a stream with no records from an array") {
+          assertDecodesMany(
+            personSchema,
+            Chunk.empty,
+            charSequenceToByteChunk("   [ ]  "),
+            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
           )
         }
       )
