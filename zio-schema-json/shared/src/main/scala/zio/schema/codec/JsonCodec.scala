@@ -1089,7 +1089,7 @@ object JsonCodec {
                 case e: Throwable => throw new RuntimeException(s"Failed to encode field '${s.name}' in $schema'", e)
               }
             val value = s.get(a)
-            if (!enc.isNothing(value) && !isEmptyOptionalValue(s, value, cfg)) {
+            if (!isEmptyOptionalValue(s, value, cfg)) {
               if (first)
                 first = false
               else {
