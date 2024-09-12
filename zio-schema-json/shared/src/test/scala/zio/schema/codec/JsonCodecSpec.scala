@@ -8,7 +8,7 @@ import zio.Console._
 import zio._
 import zio.json.JsonDecoder.JsonError
 import zio.json.ast.Json
-import zio.json.{ DeriveJsonEncoder, JsonEncoder, jsonExplicitNull }
+import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
 import zio.schema._
 import zio.schema.annotation._
@@ -121,7 +121,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[ListAndMapAndOption],
           ListAndMapAndOption(Nil, Map("foo" -> 1), Some("foo")),
           """{"map":{"foo":1},"option":"foo"}""",
-          JsonCodec.Config(ignoreEmptyCollections = true)
+          JsonCodec.Config(ignoreEmptyCollections = true, explicitNulls = false)
         )
       },
       test("map empty") {
@@ -129,7 +129,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[ListAndMapAndOption],
           ListAndMapAndOption(List("foo"), Map.empty, Some("foo")),
           """{"list":["foo"],"option":"foo"}""",
-          JsonCodec.Config(ignoreEmptyCollections = true)
+          JsonCodec.Config(ignoreEmptyCollections = true, explicitNulls = false)
         )
       },
       test("option empty") {
@@ -137,7 +137,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[ListAndMapAndOption],
           ListAndMapAndOption(List("foo"), Map("foo" -> 1), None),
           """{"list":["foo"],"map":{"foo":1}}""",
-          JsonCodec.Config(ignoreEmptyCollections = true)
+          JsonCodec.Config(ignoreEmptyCollections = true, explicitNulls = false)
         )
       },
       test("all empty") {
@@ -145,7 +145,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[ListAndMapAndOption],
           ListAndMapAndOption(Nil, Map.empty, None),
           """{}""",
-          JsonCodec.Config(ignoreEmptyCollections = true)
+          JsonCodec.Config(ignoreEmptyCollections = true, explicitNulls = false)
         )
       },
       test("all empty, but don't ignore empty collections") {
@@ -153,7 +153,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[ListAndMapAndOption],
           ListAndMapAndOption(Nil, Map.empty, None),
           """{"list":[],"map":{},"option":null}""",
-          JsonCodec.Config(ignoreEmptyCollections = false)
+          JsonCodec.Config(ignoreEmptyCollections = false, explicitNulls = true)
         )
       }
     ),
@@ -277,7 +277,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodes(
           WithOptionFields.schema,
           WithOptionFields(Some("s"), None),
-          charSequenceToByteChunk("""{"a":"s","b":null}""")
+          charSequenceToByteChunk("""{"a":"s"}""")
         )
       }
     ),
@@ -335,7 +335,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodes(
           Subscription.schema,
           Subscription.Unlimited(None),
-          charSequenceToByteChunk("""{"type":"unlimited","until":null}""")
+          charSequenceToByteChunk("""{"type":"unlimited"}""")
         )
       },
       suite("with no discriminator")(
@@ -879,7 +879,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertDecodes(
           WithOptionFields.schema,
           WithOptionFields(Some("s"), None),
-          charSequenceToByteChunk("""{"a":"s","b":null}""")
+          charSequenceToByteChunk("""{"a":"s"}""")
         )
       },
       test("case class with option fields accept empty json object as value") {
@@ -1885,7 +1885,6 @@ object JsonCodecSpec extends ZIOSpecDefault {
     charSequenceToByteChunk(encoded)
   }
 
-  @jsonExplicitNull
   case class SearchRequest(query: String, pageNumber: Int, resultPerPage: Int, nextPage: Option[String])
 
   object SearchRequest {
