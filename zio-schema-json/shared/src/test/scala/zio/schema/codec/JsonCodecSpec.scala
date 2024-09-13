@@ -1051,6 +1051,29 @@ object JsonCodecSpec extends ZIOSpecDefault {
         )
       }
     ),
+    suite("Missing collection fields")(
+      test("map") {
+        assertDecodes(
+          Schema[ListAndMap],
+          ListAndMap(Nil, Map.empty),
+          charSequenceToByteChunk("""{"list":[]}""")
+        )
+      },
+      test("list") {
+        assertDecodes(
+          Schema[ListAndMap],
+          ListAndMap(Nil, Map.empty),
+          charSequenceToByteChunk("""{"map":{}}""")
+        )
+      },
+      test("set") {
+        assertDecodes(
+          Schema[SetWrapper],
+          SetWrapper(Set.empty),
+          charSequenceToByteChunk("""{}""")
+        )
+      }
+    ),
     suite("zio.json.ast.Json decoding")(
       test("Json.Obj") {
         assertDecodes(
@@ -2170,6 +2193,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object ListAndMapAndOption {
     implicit lazy val schema: Schema[ListAndMapAndOption] = DeriveSchema.gen[ListAndMapAndOption]
+  }
+
+  final case class SetWrapper(set: Set[String])
+
+  object SetWrapper {
+    implicit lazy val schema: Schema[SetWrapper] = DeriveSchema.gen[SetWrapper]
   }
 
   final case class KeyWrapper(key: String)
