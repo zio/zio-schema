@@ -878,7 +878,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): b.Traversal[prelude.NonEmptyMap[K, V], (K, V)] =
       b.makeTraversal(self, keySchema <*> valueSchema)
 
-    override def empty: prelude.NonEmptyMap[K, V] = throw new IllegalArgumentException(s"NonEmptySequence $identity cannot be empty")
+    override def empty: prelude.NonEmptyMap[K, V] =
+      throw new IllegalArgumentException("NonEmptyMap cannot be empty")
   }
 
   final case class NonEmptySequence[Col, Elm, I](
