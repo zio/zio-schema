@@ -135,6 +135,13 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
           ed  <- encodeAndDecodeNS(schemaHighArityRecord, HighArity())
         } yield assert(ed)(equalTo(HighArity())) && assert(e)(equalTo(res))
       },
+      test("case classes with arity 22") {
+        for {
+          e   <- encode(schemaMaxArityCaseClass, MaxArityCaseClass()).map(toHex)
+          res <- write(MaxArityCaseClass())
+          ed  <- encodeAndDecodeNS(schemaMaxArityCaseClass, MaxArityCaseClass())
+        } yield assert(ed)(equalTo(MaxArityCaseClass())) && assert(e)(equalTo(res))
+      },
       test("integer") {
         for {
           ed2 <- encodeAndDecodeNS(schemaBasicInt, BasicInt(150))
@@ -937,6 +944,33 @@ object MessagePackCodecSpec extends ZIOSpecDefault {
     f23: Int = 23,
     f24: Int = 24
   )
+
+  case class MaxArityCaseClass(
+    f1: Int = 1,
+    f2: Int = 2,
+    f3: Int = 3,
+    f4: Int = 4,
+    f5: Int = 5,
+    f6: Int = 6,
+    f7: Int = 7,
+    f8: Int = 8,
+    f9: Int = 9,
+    f10: Int = 10,
+    f11: Int = 11,
+    f12: Int = 12,
+    f13: Int = 13,
+    f14: Int = 14,
+    f15: Int = 15,
+    f16: Int = 16,
+    f17: Int = 17,
+    f18: Int = 18,
+    f19: Int = 19,
+    f20: Int = 20,
+    f21: Int = 21,
+    f22: Int = 22
+  )
+
+  lazy val schemaMaxArityCaseClass: Schema[MaxArityCaseClass] = DeriveSchema.gen[MaxArityCaseClass]
 
   lazy val schemaHighArityRecord: Schema[HighArity] = DeriveSchema.gen[HighArity]
 
