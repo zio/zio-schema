@@ -1054,15 +1054,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
     suite("Missing collection fields")(
       test("map") {
         assertDecodes(
-          Schema[ListAndMap],
-          ListAndMap(Nil, Map.empty),
+          Schema[ListAndMapAndOption],
+          ListAndMapAndOption(Nil, Map.empty, None),
           charSequenceToByteChunk("""{"list":[]}""")
         )
       },
       test("list") {
         assertDecodes(
-          Schema[ListAndMap],
-          ListAndMap(Nil, Map.empty),
+          Schema[ListAndMapAndOption],
+          ListAndMapAndOption(Nil, Map.empty, None),
           charSequenceToByteChunk("""{"map":{}}""")
         )
       },
@@ -1070,6 +1070,20 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertDecodes(
           Schema[SetWrapper],
           SetWrapper(Set.empty),
+          charSequenceToByteChunk("""{}""")
+        )
+      },
+      test("vector") {
+        assertDecodes(
+          Schema[VectorWrapper],
+          VectorWrapper(Vector.empty),
+          charSequenceToByteChunk("""{}""")
+        )
+      },
+      test("chunck") {
+        assertDecodes(
+          Schema[ChunckWrapper],
+          ChunckWrapper(Chunk.empty),
           charSequenceToByteChunk("""{}""")
         )
       }
@@ -2199,6 +2213,18 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object SetWrapper {
     implicit lazy val schema: Schema[SetWrapper] = DeriveSchema.gen[SetWrapper]
+  }
+
+  final case class VectorWrapper(sequence: Vector[String])
+
+  object VectorWrapper {
+    implicit lazy val schema: Schema[VectorWrapper] = DeriveSchema.gen[VectorWrapper]
+  }
+
+  final case class ChunckWrapper(chunk: Chunk[String])
+
+  object ChunckWrapper {
+    implicit lazy val schema: Schema[ChunckWrapper] = DeriveSchema.gen[ChunckWrapper]
   }
 
   final case class KeyWrapper(key: String)

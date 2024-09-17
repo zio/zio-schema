@@ -535,7 +535,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
 
     override def toString: String = s"Sequence($elementSchema, $identity)"
 
-    override def empty: Col = Seq.empty[Elem].asInstanceOf[Col]
+    override def empty: Col = fromChunk(Chunk.empty[Elem])
   }
 
   final case class Transform[A, B, I](
