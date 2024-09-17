@@ -26,7 +26,11 @@ import zio.{ Cause, Chunk, ChunkBuilder, ZIO, ZNothing }
 
 object JsonCodec {
 
-  final case class Config(ignoreEmptyCollections: Boolean, treatStreamsAsArrays: Boolean = false)
+  final case class Config(
+    ignoreEmptyCollections: Boolean,
+    treatStreamsAsArrays: Boolean = false,
+    explicitNulls: Boolean = false
+  )
 
   object Config {
     val default: Config = Config(ignoreEmptyCollections = false)
@@ -1089,7 +1093,7 @@ object JsonCodec {
                 case e: Throwable => throw new RuntimeException(s"Failed to encode field '${s.name}' in $schema'", e)
               }
             val value = s.get(a)
-            if (!enc.isNothing(value) && !isEmptyOptionalValue(s, value, cfg)) {
+            if (!isEmptyOptionalValue(s, value, cfg) && (!enc.isNothing(value) || cfg.explicitNulls)) {
               if (first)
                 first = false
               else {

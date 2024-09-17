@@ -118,34 +118,42 @@ object JsonCodecSpec extends ZIOSpecDefault {
     suite("empty collections config")(
       test("list empty") {
         assertEncodesJson(
-          Schema[ListAndMap],
-          ListAndMap(Nil, Map("foo" -> 1)),
-          """{"map":{"foo":1}}""",
-          JsonCodec.Config(ignoreEmptyCollections = true)
+          Schema[ListAndMapAndOption],
+          ListAndMapAndOption(Nil, Map("foo" -> 1), Some("foo")),
+          """{"map":{"foo":1},"option":"foo"}""",
+          JsonCodec.Config(ignoreEmptyCollections = true, explicitNulls = false)
         )
       },
       test("map empty") {
         assertEncodesJson(
-          Schema[ListAndMap],
-          ListAndMap(List("foo"), Map.empty),
-          """{"list":["foo"]}""",
-          JsonCodec.Config(ignoreEmptyCollections = true)
+          Schema[ListAndMapAndOption],
+          ListAndMapAndOption(List("foo"), Map.empty, Some("foo")),
+          """{"list":["foo"],"option":"foo"}""",
+          JsonCodec.Config(ignoreEmptyCollections = true, explicitNulls = false)
+        )
+      },
+      test("option empty") {
+        assertEncodesJson(
+          Schema[ListAndMapAndOption],
+          ListAndMapAndOption(List("foo"), Map("foo" -> 1), None),
+          """{"list":["foo"],"map":{"foo":1}}""",
+          JsonCodec.Config(ignoreEmptyCollections = true, explicitNulls = false)
         )
       },
       test("all empty") {
         assertEncodesJson(
-          Schema[ListAndMap],
-          ListAndMap(Nil, Map.empty),
+          Schema[ListAndMapAndOption],
+          ListAndMapAndOption(Nil, Map.empty, None),
           """{}""",
-          JsonCodec.Config(ignoreEmptyCollections = true)
+          JsonCodec.Config(ignoreEmptyCollections = true, explicitNulls = false)
         )
       },
       test("all empty, but don't ignore empty collections") {
         assertEncodesJson(
-          Schema[ListAndMap],
-          ListAndMap(Nil, Map.empty),
-          """{"list":[],"map":{}}""",
-          JsonCodec.Config(ignoreEmptyCollections = false)
+          Schema[ListAndMapAndOption],
+          ListAndMapAndOption(Nil, Map.empty, None),
+          """{"list":[],"map":{},"option":null}""",
+          JsonCodec.Config(ignoreEmptyCollections = false, explicitNulls = true)
         )
       }
     ),
@@ -1510,8 +1518,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Enumeration3(StringValue3("foo"))
         ) &> assertEncodesThenDecodes(
           Schema[Enumeration3],
-          Enumeration3(StringValue3Multi("foo", "bar")),
-          print = true
+          Enumeration3(StringValue3Multi("foo", "bar"))
         )
       },
       test("of case classes with discriminator") {
@@ -2159,10 +2166,10 @@ object JsonCodecSpec extends ZIOSpecDefault {
     implicit lazy val schema: Schema[WithOptField] = DeriveSchema.gen[WithOptField]
   }
 
-  final case class ListAndMap(list: List[String], map: Map[String, Int])
+  final case class ListAndMapAndOption(list: List[String], map: Map[String, Int], option: Option[String])
 
-  object ListAndMap {
-    implicit lazy val schema: Schema[ListAndMap] = DeriveSchema.gen[ListAndMap]
+  object ListAndMapAndOption {
+    implicit lazy val schema: Schema[ListAndMapAndOption] = DeriveSchema.gen[ListAndMapAndOption]
   }
 
   final case class KeyWrapper(key: String)
