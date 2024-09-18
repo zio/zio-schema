@@ -512,6 +512,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
   sealed trait Collection[Col, Elem] extends Schema[Col] {
     def fromChunk: Chunk[Elem] => Col
     def toChunk: Col => Chunk[Elem]
+    def empty: Col
   }
 
   final case class Sequence[Col, Elem, I](
@@ -534,6 +535,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
 
     override def toString: String = s"Sequence($elementSchema, $identity)"
 
+    override def empty: Col = fromChunk(Chunk.empty[Elem])
   }
 
   final case class Transform[A, B, I](
@@ -840,6 +842,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
 
     override val toChunk: scala.collection.immutable.Map[K, V] => Chunk[(K, V)] = map => Chunk.fromIterable(map.toList)
 
+    override def empty: scala.collection.immutable.Map[K, V] = scala.collection.immutable.Map.empty[K, V]
   }
 
   final case class NonEmptyMap[K, V](
@@ -874,6 +877,9 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[prelude.NonEmptyMap[K, V], (K, V)] =
       b.makeTraversal(self, keySchema <*> valueSchema)
+
+    override def empty: prelude.NonEmptyMap[K, V] =
+      throw new IllegalArgumentException("NonEmptyMap cannot be empty")
   }
 
   final case class NonEmptySequence[Col, Elm, I](
@@ -900,6 +906,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elm] = b.makeTraversal(self, elementSchema)
 
     override def toString: String = s"NonEmptySequence($elementSchema, $identity)"
+
+    override def empty: Col = throw new IllegalArgumentException(s"NonEmptySequence $identity cannot be empty")
   }
 
   final case class Set[A](elementSchema: Schema[A], override val annotations: Chunk[Any] = Chunk.empty)
@@ -923,6 +931,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
 
     override val toChunk: scala.collection.immutable.Set[A] => Chunk[A] = Chunk.fromIterable(_)
 
+    override def empty: scala.collection.immutable.Set[A] = scala.collection.immutable.Set.empty[A]
   }
 
   final case class Dynamic(override val annotations: Chunk[Any] = Chunk.empty) extends Schema[DynamicValue] {

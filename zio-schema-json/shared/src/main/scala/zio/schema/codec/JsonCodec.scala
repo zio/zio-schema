@@ -1523,12 +1523,21 @@ object JsonCodec {
       var i = 0
       while (i < len) {
         if (buffer(i) == null) {
-
-          if ((fields(i).optional || fields(i).transient) && fields(i).defaultValue.isDefined)
+          if ((fields(i).optional || fields(i).transient) && fields(i).defaultValue.isDefined) {
             buffer(i) = fields(i).defaultValue.get
-          else
-            buffer(i) = schemaDecoder(schemas(i)).unsafeDecodeMissing(spans(i) :: trace)
+          } else {
+            val schema = fields(i).schema match {
+              case l @ Schema.Lazy(_) => l.schema
+              case _                  => schemas(i)
+            }
 
+            schema match {
+              case collection: Schema.Collection[_, _] =>
+                buffer(i) = collection.empty
+              case _ =>
+                buffer(i) = schemaDecoder(schema).unsafeDecodeMissing(spans(i) :: trace)
+            }
+          }
         }
         i += 1
       }
