@@ -18,7 +18,7 @@ libraryDependencies += "dev.zio" %% "zio-schema-zio-test" % @VERSION@
 
 ## DriveGen
 
-The `DriveGen` inside `zio.schema` package provides the `gen` operator which takes a `Schmea[A]` implicitly and returns a `Gen[Sized, A]`:
+The `DriveGen` inside `zio.schema` package provides the `gen` operator which takes a `Schema[A]` implicitly and returns a `Gen[Sized, A]`:
 
 ```scala
 object DeriveGen {
