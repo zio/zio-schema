@@ -588,7 +588,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
           (a: TraitWithMiddleTrait) => a.isInstanceOf[TraitLeaf.type]
         )
 
-        val caseMiddleTrait = Schema.Case[TraitWithMiddleTrait, MiddleTrait](
+        val middleTraitCase = Schema.Case[TraitWithMiddleTrait, MiddleTrait](
           "MiddleTrait",
           middleTraitSchema,
           (a: TraitWithMiddleTrait) => a.asInstanceOf[MiddleTrait],
@@ -600,7 +600,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
           Schema.Enum2[TraitLeaf.type, MiddleTrait, TraitWithMiddleTrait](
             TypeId.parse("zio.schema.DeriveSchemaSpec.TraitWithMiddleTrait"),
             traitLeafCase,
-            caseMiddleTrait
+            middleTraitCase
           )
 
         assert(derived)(hasSameSchema(expected))
