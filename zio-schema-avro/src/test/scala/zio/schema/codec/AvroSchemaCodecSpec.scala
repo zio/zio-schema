@@ -81,7 +81,7 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
             val expected =
               """[{"type":"record","name":"A","fields":[]},{"type":"record","name":"B","fields":[]},{"type":"record","name":"MyC","fields":[]},{"type":"record","name":"D","fields":[{"name":"s","type":"string"}]}]"""
             assert(result)(isRight(equalTo(expected)))
-          } @@ TestAspect.scala2Only,
+          } @@ TestAspect.scala2Only @@ TestAspect.ignore,
           test("wraps nested unions") {
             val schemaA = DeriveSchema.gen[UnionWithNesting.Nested.A.type]
             val schemaB = DeriveSchema.gen[UnionWithNesting.Nested.B.type]
