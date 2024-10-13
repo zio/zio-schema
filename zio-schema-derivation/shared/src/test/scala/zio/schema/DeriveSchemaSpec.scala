@@ -562,7 +562,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
           () => MiddleTraitLeaf,
           Chunk.empty
         )
-        val caseMiddleTraitLeaf = Schema.Case[MiddleTrait, MiddleTraitLeaf.type](
+        val middleTraitLeafCase = Schema.Case[MiddleTrait, MiddleTraitLeaf.type](
           "MiddleTraitLeaf",
           middleTraitLeafSchema,
           (a: MiddleTrait) => a.asInstanceOf[MiddleTraitLeaf.type],
@@ -571,7 +571,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
         )
         val middleTraitSchema = Schema.Enum1[MiddleTraitLeaf.type, MiddleTrait](
           TypeId.parse("zio.schema.DeriveSchemaSpec.MiddleTrait"),
-          caseMiddleTraitLeaf,
+          middleTraitLeafCase,
           Chunk(simpleEnum(automaticallyAdded = true))
         )
 
@@ -580,7 +580,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
           () => TraitLeaf,
           Chunk.empty
         )
-        val caseTraitLeaf = Schema.Case[TraitWithMiddleTrait, TraitLeaf.type](
+        val traitLeafCase = Schema.Case[TraitWithMiddleTrait, TraitLeaf.type](
           "TraitLeaf",
           traitLeafSchema,
           (a: TraitWithMiddleTrait) => a.asInstanceOf[TraitLeaf.type],
@@ -599,7 +599,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
         val expected =
           Schema.Enum2[TraitLeaf.type, MiddleTrait, TraitWithMiddleTrait](
             TypeId.parse("zio.schema.DeriveSchemaSpec.TraitWithMiddleTrait"),
-            caseTraitLeaf,
+            traitLeafCase,
             caseMiddleTrait
           )
 
