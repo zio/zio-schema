@@ -5,7 +5,6 @@ import scala.annotation.Annotation
 import zio.Chunk
 import zio.schema.annotation.{ fieldName, optionalField, simpleEnum }
 import zio.test._
-import zio.schema.TypeId.Nominal
 
 object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaSpec {
   import Assertion._
