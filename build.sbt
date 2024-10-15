@@ -4,6 +4,8 @@ import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
+addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12")
+
 inThisBuild(
   List(
     name := "zio-schema",
@@ -149,10 +151,11 @@ lazy val zioSchema = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .settings(buildInfoSettings("zio.schema"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio" %%% "zio"                % zioVersion,
-      "dev.zio" %%% "zio-streams"        % zioVersion,
-      "dev.zio" %%% "zio-prelude"        % zioPreludeVersion,
-      "dev.zio" %%% "zio-constraintless" % zioConstraintlessVersion
+      "dev.zio"     %%% "zio"                % zioVersion,
+      "dev.zio"     %%% "zio-streams"        % zioVersion,
+      "dev.zio"     %%% "zio-prelude"        % zioPreludeVersion,
+      "dev.zio"     %%% "zio-constraintless" % zioConstraintlessVersion,
+      "com.lihaoyi" %% "unroll-annotation"   % "0.1.12"
     )
   )
   .nativeSettings(Test / fork := false)
