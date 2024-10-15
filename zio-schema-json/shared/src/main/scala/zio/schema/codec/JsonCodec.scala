@@ -3,7 +3,7 @@ package zio.schema.codec
 import java.nio.CharBuffer
 import java.nio.charset.StandardCharsets
 
-import scala.annotation.{ switch, tailrec }
+import scala.annotation.{ switch, tailrec, unroll }
 import scala.collection.immutable.ListMap
 
 import zio.json.JsonCodec._
@@ -28,7 +28,7 @@ object JsonCodec {
 
   final case class Config(
     ignoreEmptyCollections: Boolean,
-    treatStreamsAsArrays: Boolean = false,
+    @unroll treatStreamsAsArrays: Boolean = false,
     explicitNulls: Boolean = false
   )
 
