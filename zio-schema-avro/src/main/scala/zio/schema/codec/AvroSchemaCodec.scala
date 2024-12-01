@@ -933,22 +933,9 @@ object AvroSchemaCodec extends AvroSchemaCodec {
 
     def unapply(schema: SchemaAvro): Option[SchemaAvro] =
       if (schema.getType == SchemaAvro.Type.UNION) {
-        val types = schema.getTypes
-        if (types.size == 2) {
-          if (types.get(0).getType == SchemaAvro.Type.NULL ||
-              types.get(1).getType == SchemaAvro.Type.NULL) {
-            if (types.get(1).getType != SchemaAvro.Type.NULL) {
-              Some(types.get(1))
-            } else if (types.get(0).getType != SchemaAvro.Type.NULL) {
-              Some(types.get(0))
-            } else {
-              None
-            }
-          } else {
-            None
-          }
-        } else {
-          None
+        schema.getTypes.asScala.toList match {
+          case List(t1, t2) if t1.getType == SchemaAvro.Type.NULL => Some(t2)
+          case _ => None
         }
       } else {
         None
