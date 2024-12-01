@@ -935,7 +935,7 @@ object AvroSchemaCodec extends AvroSchemaCodec {
       if (schema.getType == SchemaAvro.Type.UNION) {
         schema.getTypes.asScala.toList match {
           case List(t1, t2) if t1.getType == SchemaAvro.Type.NULL => Some(t2)
-          case _ => None
+          case _                                                  => None
         }
       } else {
         None
