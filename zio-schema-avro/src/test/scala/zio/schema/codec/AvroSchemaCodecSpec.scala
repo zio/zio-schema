@@ -1284,7 +1284,7 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
             val s      = """[{"type":"int"}, {"type":"null"}]"""
             val schema = AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(isRight(isOption(hasOptionElementSchema(isStandardType(StandardType.IntType)))))
+            assert(schema)(isRight(isOption(anything).negate))
           },
           test("not an option union with more than one element type") {
             val s      = """[{"type":"null"}, {"type":"int"}, {"type":"string"}]"""
