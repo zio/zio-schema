@@ -1524,23 +1524,23 @@ object JsonCodec {
   }
 
   private class CaseClassJsonDecoder[Z](caseClassSchema: Schema.Record[Z], discriminator: Int) {
-    private[this] val fields     = caseClassSchema.fields.toArray
-    private[this] val fieldNames = fields.map(_.name.asInstanceOf[String])
-    private[this] val spans      = fieldNames.map(JsonError.ObjectAccess(_))
+    private[this] val fields        = caseClassSchema.fields.toArray
+    private[this] val fieldDecoders = fields.map(field => schemaDecoder(field.schema))
+    private[this] val spans         = fields.map(field => JsonError.ObjectAccess(field.name.asInstanceOf[String]))
     private[this] val fieldAliases = { //TODO: replace by rawIds to idx map
       var m = Map.empty[String, Int]
-      fields.foreach {
-        case Schema.Field(name, _, annotations, _, _, _) =>
-          annotations.foreach {
-            case annotation: fieldNameAliases => annotation.aliases.foreach(alias => m = m.updated(alias, fieldNames.indexOf(name)))
-            case _                            =>
-          }
+      var i = 0
+      while (i < fields.length) {
+        fields(i).annotations.foreach {
+          case annotation: fieldNameAliases => annotation.aliases.foreach(alias => m = m.updated(alias, i))
+          case _                            =>
+        }
+        i += 1
       }
       m
     }
-    private[this] val allNames          = fieldNames ++ fieldAliases.keys
+    private[this] val allNames          = fields.map(_.name.asInstanceOf[String]) ++ fieldAliases.keys
     private[this] val stringMatrix      = new StringMatrix(allNames)
-    private[this] val fieldDecoders     = fields.map(f => schemaDecoder(f.schema))
     private[this] val rejectExtraFields = caseClassSchema.annotations.collectFirst({ case _: rejectExtraFields => () }).isDefined
 
     def unsafeDecodeFields(trace: List[JsonError], in: RetractReader): Array[Any] = {
