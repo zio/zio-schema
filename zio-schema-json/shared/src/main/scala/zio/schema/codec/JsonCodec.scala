@@ -1524,23 +1524,28 @@ object JsonCodec {
   }
 
   private class CaseClassJsonDecoder[Z](caseClassSchema: Schema.Record[Z], discriminator: Int) {
-    private[this] val fields        = caseClassSchema.fields.toArray
-    private[this] val fieldDecoders = fields.map(field => schemaDecoder(field.schema))
-    private[this] val spans         = fields.map(field => JsonError.ObjectAccess(field.name.asInstanceOf[String]))
-    private[this] val fieldAliases = { //TODO: replace by rawIds to idx map
-      var m = Map.empty[String, Int]
-      var i = 0
-      while (i < fields.length) {
-        fields(i).annotations.foreach {
+    private[this] val (fields, fieldDecoders, spans, stringMatrix) = {
+      val len = caseClassSchema.fields.length
+      val fs  = new Array[Schema.Field[Z, _]](len)
+      val ds  = new Array[ZJsonDecoder[_]](len)
+      val ss  = new Array[JsonError.ObjectAccess](len)
+      val ns  = new Array[String](len)
+      var m   = Map.empty[String, Int]
+      var i   = 0
+      caseClassSchema.fields.foreach { field =>
+        val name = field.name.asInstanceOf[String]
+        fs(i) = field
+        ns(i) = name
+        ss(i) = JsonError.ObjectAccess(name)
+        ds(i) = schemaDecoder(field.schema)
+        field.annotations.foreach {
           case annotation: fieldNameAliases => annotation.aliases.foreach(alias => m = m.updated(alias, i))
           case _                            =>
         }
         i += 1
       }
-      m
+      (fs, ds, ss, new StringMatrix(ns, m.toArray))
     }
-    private[this] val allNames          = fields.map(_.name.asInstanceOf[String]) ++ fieldAliases.keys
-    private[this] val stringMatrix      = new StringMatrix(allNames)
     private[this] val rejectExtraFields = caseClassSchema.annotations.collectFirst({ case _: rejectExtraFields => () }).isDefined
 
     def unsafeDecodeFields(trace: List[JsonError], in: RetractReader): Array[Any] = {
@@ -1556,12 +1561,9 @@ object JsonCodec {
         }
       var i = 0
       while (continue) {
-        val rawIdx = Lexer.field(trace, rr, stringMatrix)
+        val idx = Lexer.field(trace, rr, stringMatrix)
         if (i == discriminator) Lexer.skipValue(trace, rr)
-        else if (rawIdx >= 0) {
-          val idx =
-            if (rawIdx < len) rawIdx
-            else fieldAliases(allNames(rawIdx))
+        else if (idx >= 0) {
           if (buffer(idx) != null) error(trace, "duplicate")
           else buffer(idx) = fieldDecoders(idx).unsafeDecode(spans(idx) :: trace, rr)
         } else if (!rejectExtraFields) Lexer.skipValue(trace, rr)
