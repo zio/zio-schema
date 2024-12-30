@@ -1463,8 +1463,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodesThenDecodes(AllOptionalFields.schema, AllOptionalFields(None, None, None))
       },
       test("recursive data structure")(
-        assertDecodes(Schema[Recursive], Recursive(Some(Recursive(None))),
-          charSequenceToByteChunk("""{"n":{"n":null}}"""))
+        assertDecodes(
+          Schema[Recursive],
+          Recursive(Some(Recursive(None))),
+          charSequenceToByteChunk("""{"n":{"n":null}}""")
+        )
       )
     ),
     suite("record")(
