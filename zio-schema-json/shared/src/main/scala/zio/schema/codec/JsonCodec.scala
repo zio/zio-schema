@@ -291,7 +291,12 @@ object JsonCodec {
     import ZJsonEncoder.{ bump, pad }
 
     private case class EncoderKey[A](schema: Schema[A], cfg: Config, discriminatorTuple: DiscriminatorTuple) {
-      override val hashCode: Int = schema.hashCode ^ cfg.hashCode ^ discriminatorTuple.hashCode
+      override val hashCode: Int = System.identityHashCode(schema) ^ cfg.hashCode ^ discriminatorTuple.hashCode
+
+      override def equals(obj: Any): Boolean = obj match {
+        case ek: EncoderKey[_] => (ek.schema eq schema) && ek.cfg == cfg && ek.discriminatorTuple == discriminatorTuple
+        case _                 => false
+      }
     }
 
     private[codec] val CHARSET = StandardCharsets.UTF_8
@@ -337,7 +342,7 @@ object JsonCodec {
         case Schema.Either(left, right, _)                              => ZJsonEncoder.either(schemaEncoder(left, cfg, discriminatorTuple), schemaEncoder(right, cfg, discriminatorTuple))
         case Schema.Fallback(left, right, _, _)                         => fallbackEncoder(schemaEncoder(left, cfg, discriminatorTuple), schemaEncoder(right, cfg, discriminatorTuple))
         case l @ Schema.Lazy(_)                                         => schemaEncoder(l.schema, cfg, discriminatorTuple)
-        case s: Schema.Record[A]                                        => caseClassEncoder(s, discriminatorTuple, cfg)
+        case s: Schema.Record[A]                                        => caseClassEncoder(s, cfg, discriminatorTuple)
         case e @ Schema.Enum1(_, c, _)                                  => enumEncoder(e, cfg, c)
         case e @ Schema.Enum2(_, c1, c2, _)                             => enumEncoder(e, cfg, c1, c2)
         case e @ Schema.Enum3(_, c1, c2, c3, _)                         => enumEncoder(e, cfg, c1, c2, c3)
@@ -632,7 +637,12 @@ object JsonCodec {
     import ProductDecoder._
 
     private case class DecoderKey[A](schema: Schema[A], discriminator: Int) {
-      override val hashCode: Int = schema.hashCode ^ discriminator
+      override val hashCode: Int = System.identityHashCode(schema) ^ discriminator
+
+      override def equals(obj: Any): Boolean = obj match {
+        case dk: DecoderKey[_] => (dk.schema eq schema) && dk.discriminator == discriminator
+        case _                 => false
+      }
     }
 
     private[this] val decoders = new ConcurrentHashMap[DecoderKey[_], ZJsonDecoder[_]]
@@ -1101,9 +1111,9 @@ object JsonCodec {
         case _              => false
       })
 
-    private[codec] def caseClassEncoder[Z](schema: Schema.Record[Z], discriminatorTuple: DiscriminatorTuple, cfg: Config): ZJsonEncoder[Z] = {
+    private[codec] def caseClassEncoder[Z](schema: Schema.Record[Z], cfg: Config, discriminatorTuple: DiscriminatorTuple): ZJsonEncoder[Z] = {
       val nonTransientFields = schema.nonTransientFields.map(_.asInstanceOf[Schema.Field[Z, Any]]).toArray
-      val fieldEncoders      = nonTransientFields.map(s => JsonEncoder.schemaEncoder(s.schema, cfg))
+      val fieldEncoders      = nonTransientFields.map(s => JsonEncoder.schemaEncoder(s.schema, cfg, discriminatorTuple))
       val tags               = discriminatorTuple.map(_._1.tag).toArray
       val caseTpeNames       = discriminatorTuple.map(_._2).toArray
       (a: Z, indent: Option[Int], out: Write) => {
