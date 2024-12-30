@@ -341,7 +341,7 @@ object JsonCodec {
         case Schema.GenericRecord(_, structure, _)                      => recordEncoder(structure.toChunk, cfg)
         case Schema.Either(left, right, _)                              => ZJsonEncoder.either(schemaEncoder(left, cfg, discriminatorTuple), schemaEncoder(right, cfg, discriminatorTuple))
         case Schema.Fallback(left, right, _, _)                         => fallbackEncoder(schemaEncoder(left, cfg, discriminatorTuple), schemaEncoder(right, cfg, discriminatorTuple))
-        case l @ Schema.Lazy(_)                                         => schemaEncoder(l.schema, cfg, discriminatorTuple)
+        case l @ Schema.Lazy(_)                                         => ZJsonEncoder.suspend(schemaEncoder(l.schema, cfg, discriminatorTuple))
         case s: Schema.Record[A]                                        => caseClassEncoder(s, cfg, discriminatorTuple)
         case e @ Schema.Enum1(_, c, _)                                  => enumEncoder(e, cfg, c)
         case e @ Schema.Enum2(_, c1, c2, _)                             => enumEncoder(e, cfg, c1, c2)
@@ -725,7 +725,7 @@ object JsonCodec {
       case Schema.GenericRecord(_, structure, _)          => recordDecoder(structure.toChunk, schema.annotations.contains(rejectExtraFields()))
       case Schema.Either(left, right, _)                  => ZJsonDecoder.either(schemaDecoder(left, -1), schemaDecoder(right, -1))
       case s @ Schema.Fallback(_, _, _, _)                => fallbackDecoder(s)
-      case l @ Schema.Lazy(_)                             => schemaDecoder(l.schema, discriminator)
+      case l @ Schema.Lazy(_)                             => ZJsonDecoder.suspend(schemaDecoder(l.schema, discriminator))
       //case Schema.Meta(_, _)                                                                           => astDecoder
       case s @ Schema.CaseClass0(_, _, _)                                => caseClass0Decoder(discriminator, s)
       case s @ Schema.CaseClass1(_, _, _, _)                             => caseClass1Decoder(discriminator, s)
@@ -1094,10 +1094,8 @@ object JsonCodec {
                 JsonError.Message("Fallback decoder was unable to decode both left and right sides") :: trace
               )
           }
-
         }
       }
-
   }
 
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }

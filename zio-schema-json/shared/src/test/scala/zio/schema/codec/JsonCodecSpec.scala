@@ -1461,7 +1461,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
       },
       test("all optional fields empty") {
         assertEncodesThenDecodes(AllOptionalFields.schema, AllOptionalFields(None, None, None))
-      }
+      },
+      test("recursive data structure")(
+        assertDecodes(Schema[Recursive], Recursive(Some(Recursive(None))),
+          charSequenceToByteChunk("""{"n":{"n":null}}"""))
+      )
     ),
     suite("record")(
       test("any") {
@@ -2367,5 +2371,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
     case class Case22(value: String) extends Enum23Cases
 
     case class Case23(value: String) extends Enum23Cases
+  }
+
+  case class Recursive(n: Option[Recursive] = None)
+
+  object Recursive {
+    implicit val schema: Schema[Recursive] = DeriveSchema.gen
   }
 }
