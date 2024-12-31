@@ -1022,7 +1022,11 @@ object JsonCodec {
           continue = Lexer.nextField(trace, in)
         }
         // add fields with default values if they are not present in the JSON
-        remainingDefaults.forEach((fieldName, value) => map = map.updated(fieldName, value))
+        val it = remainingDefaults.entrySet.iterator
+        while (it.hasNext) {
+          val entry = it.next()
+          map = map.updated(entry.getKey, entry.getValue)
+        }
         map
       }
     }
