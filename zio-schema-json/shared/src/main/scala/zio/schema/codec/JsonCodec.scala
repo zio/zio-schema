@@ -986,9 +986,10 @@ object JsonCodec {
       caseNameAliases.getOrElse(alias, alias)
 
     private def recordDecoder(schema: GenericRecord): ZJsonDecoder[ListMap[String, Any]] = {
+      val capacity = schema.fields.size * 2
       val spansWithDecoders =
-        new util.HashMap[String, (JsonError.ObjectAccess, ZJsonDecoder[Any])](schema.fields.size * 2)
-      val defaults = new util.HashMap[String, Any]
+        new util.HashMap[String, (JsonError.ObjectAccess, ZJsonDecoder[Any])](capacity)
+      val defaults = new util.HashMap[String, Any](capacity)
       schema.fields.foreach { field =>
         val fieldName = field.fieldName
         val spanWithDecoder =
@@ -999,9 +1000,8 @@ object JsonCodec {
       val rejectAdditionalFields = schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
       (trace: List[JsonError], in: RetractReader) => {
         Lexer.char(trace, in, '{')
-        val remainingDefaults = defaults.clone().asInstanceOf[util.HashMap[String, Any]]
-        var map               = ListMap.empty[String, Any]
-        var continue          = Lexer.firstField(trace, in)
+        val map      = defaults.clone().asInstanceOf[util.HashMap[String, Any]]
+        var continue = Lexer.firstField(trace, in)
         while (continue) {
           val fieldNameOrAlias = Lexer.string(trace, in).toString
           val spanWithDecoder  = spansWithDecoders.get(fieldNameOrAlias)
@@ -1011,8 +1011,7 @@ object JsonCodec {
             val trace_ = span :: trace
             Lexer.char(trace_, in, ':')
             val fieldName = span.field
-            remainingDefaults.remove(fieldName)
-            map = map.updated(fieldName, dec.unsafeDecode(trace_, in))
+            map.put(fieldName, dec.unsafeDecode(trace_, in))
           } else if (rejectAdditionalFields) {
             throw UnsafeJson(JsonError.Message(s"unexpected field: $fieldNameOrAlias") :: trace)
           } else {
@@ -1021,13 +1020,11 @@ object JsonCodec {
           }
           continue = Lexer.nextField(trace, in)
         }
-        // add fields with default values if they are not present in the JSON
-        val it = remainingDefaults.entrySet.iterator
-        while (it.hasNext) {
-          val entry = it.next()
-          map = map.updated(entry.getKey, entry.getValue)
-        }
-        map
+        (ListMap.newBuilder[String, Any] ++= ({                         // to avoid O(n) insert operations
+          import scala.collection.JavaConverters.mapAsScalaMapConverter // use deprecated class for Scala 2.12 compatibility
+
+          map.asScala
+        }: @scala.annotation.nowarn)).result()
       }
     }
 
