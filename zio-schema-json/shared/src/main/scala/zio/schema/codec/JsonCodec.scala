@@ -1579,12 +1579,13 @@ object JsonCodec {
             buffer(idx) = field.defaultValue.get
           } else {
             val schema = field.schema match {
-              case l @ Schema.Lazy(_) => l.schema
+              case l: Schema.Lazy[_] => l.schema
               case s                  => s
             }
             buffer(idx) = schema match {
+              case _: Schema.Optional[_]               => None
               case collection: Schema.Collection[_, _] => collection.empty
-              case _                                   => schemaDecoder(schema).unsafeDecodeMissing(spans(idx) :: trace)
+              case _                                   => error(spans(idx) :: trace, "missing")
             }
           }
         }
