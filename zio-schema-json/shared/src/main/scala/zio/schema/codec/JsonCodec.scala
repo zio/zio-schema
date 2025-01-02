@@ -1578,9 +1578,10 @@ object JsonCodec {
           if ((field.optional || field.transient) && field.defaultValue.isDefined) {
             buffer(idx) = field.defaultValue.get
           } else {
-            val schema = field.schema match {
-              case l: Schema.Lazy[_] => l.schema
-              case s                  => s
+            var schema = field.schema
+            schema match {
+              case l: Schema.Lazy[_] => schema = l.schema
+              case _                 =>
             }
             buffer(idx) = schema match {
               case _: Schema.Optional[_]               => None
