@@ -812,6 +812,18 @@ object JsonCodecSpec extends ZIOSpecDefault {
             JsonError.Message("extra field") :: Nil
           )
       },
+      test("reject duplicated fields") {
+        assertDecodesToError(
+          personSchema,
+          """{"name":"test","age":10,"name":10}""",
+          JsonError.Message("duplicate") :: Nil
+        ) &>
+          assertDecodesToError(
+            personSchema,
+            """{"age":10,"name":"test","age":"100"}""",
+            JsonError.Message("duplicate") :: Nil
+          )
+      },
       test("transient field annotation") {
         assertDecodes(
           searchRequestWithTransientFieldSchema,
