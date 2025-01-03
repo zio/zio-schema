@@ -303,7 +303,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"oneOf":{"_type":"StringValue2","value":"foo2"}}""")
         )
       },
-      test("case class") {
+      test("transient field annotation") {
         assertEncodes(
           searchRequestWithTransientFieldSchema,
           SearchRequestWithTransientField("foo", 10, 20, "bar"),
