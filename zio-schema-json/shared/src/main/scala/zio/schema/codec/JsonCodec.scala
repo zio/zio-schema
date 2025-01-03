@@ -1011,7 +1011,7 @@ object JsonCodec {
             val trace_ = span :: trace
             Lexer.char(trace_, in, ':')
             val fieldName = span.field
-            val prev = map.put(fieldName, dec.unsafeDecode(trace_, in))
+            val prev      = map.put(fieldName, dec.unsafeDecode(trace_, in))
             if (prev != null) {
               throw UnsafeJson(JsonError.Message("duplicate") :: trace)
             }
