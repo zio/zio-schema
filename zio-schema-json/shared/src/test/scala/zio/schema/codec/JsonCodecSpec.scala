@@ -812,11 +812,29 @@ object JsonCodecSpec extends ZIOSpecDefault {
             JsonError.Message("extra field") :: Nil
           )
       },
-      test("transient field annotation") {
+      test("transient field annotation with default value in class definition") {
         assertDecodes(
           searchRequestWithTransientFieldSchema,
           SearchRequestWithTransientField("test", 0, 10),
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
+        )
+      },
+      test("transient field annotation with default value implicitly available for the field type") {
+        case class CaseClassWithTransientField(transient: String)
+        assertDecodes(
+          Schema.CaseClass1[String, CaseClassWithTransientField](
+            id0 = TypeId.fromTypeName("SearchRequestWithTransientField"),
+            field0 = Schema.Field(
+              name0 = "transient",
+              schema0 = Schema[String],
+              get0 = _.transient,
+              set0 = (x, transient) => x.copy(transient = transient),
+              annotations0 = Chunk(new transientField())
+            ),
+            defaultConstruct0 = new CaseClassWithTransientField(_)
+          ),
+          CaseClassWithTransientField(Schema[String].defaultValue.toOption.get),
+          charSequenceToByteChunk("""{}""")
         )
       },
       test("fieldDefaultValue") {
