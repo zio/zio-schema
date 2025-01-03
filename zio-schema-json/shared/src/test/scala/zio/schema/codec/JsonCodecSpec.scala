@@ -431,7 +431,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     suite("Generic Record")(
       test("Do not encode transient field") {
         assertEncodes(
-          RecordExample.schema.annotate(rejectExtraFields()),
+          RecordExample.schema,
           RecordExample(f1 = Some("test"), f3 = Some("transient")),
           charSequenceToByteChunk(
             """{"$f1":"test"}""".stripMargin
