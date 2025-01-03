@@ -815,7 +815,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
       test("transient field annotation") {
         assertDecodes(
           searchRequestWithTransientFieldSchema,
-          SearchRequestWithTransientField("test", 0, 10, Schema[String].defaultValue.getOrElse("")),
+          SearchRequestWithTransientField("test", 0, 10),
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
         )
       },
@@ -1991,7 +1991,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     query: String,
     pageNumber: Int,
     resultPerPage: Int,
-    @transientField nextPage: String = ""
+    @transientField nextPage: String = "transient"
   )
 
   val searchRequestWithTransientFieldSchema: Schema[SearchRequestWithTransientField] =
