@@ -995,7 +995,9 @@ object JsonCodec {
         val spanWithDecoder =
           (JsonError.ObjectAccess(fieldName), schemaDecoder(field.schema).asInstanceOf[ZJsonDecoder[Any]])
         field.nameAndAliases.foreach(x => spansWithDecoders.put(x, spanWithDecoder))
-        if (field.optional && field.defaultValue.isDefined) defaults.put(fieldName, field.defaultValue.get)
+        if ((field.optional || field.transient) && field.defaultValue.isDefined) {
+          defaults.put(fieldName, field.defaultValue.get)
+        }
       }
       val rejectAdditionalFields = schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
       (trace: List[JsonError], in: RetractReader) => {

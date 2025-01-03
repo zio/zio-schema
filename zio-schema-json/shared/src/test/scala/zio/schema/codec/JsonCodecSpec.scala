@@ -872,6 +872,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"foo":"s","bar":null}""")
         )
       },
+      test("with transient fields encoded as implicitly available schema default values") {
+        assertDecodes(
+          recordWithTransientSchema,
+          ListMap[String, Any]("foo" -> "", "bar" -> 0),
+          charSequenceToByteChunk("""{}""")
+        )
+      },
       test("case class with option fields encoded as null") {
         assertDecodes(
           WithOptionFields.schema,
@@ -2050,6 +2057,25 @@ object JsonCodecSpec extends ZIOSpecDefault {
         Schema.Primitive(StandardType.IntType).optional,
         get0 = (p: ListMap[String, _]) => p("bar").asInstanceOf[Option[Int]],
         set0 = (p: ListMap[String, _], v: Option[Int]) => p.updated("bar", v)
+      )
+  )
+
+  val recordWithTransientSchema: Schema[ListMap[String, _]] = Schema.record(
+    TypeId.Structural,
+    Schema.Field(
+      "foo",
+      Schema.Primitive(StandardType.StringType),
+      annotations0 = Chunk(transientField()),
+      get0 = (p: ListMap[String, _]) => p("foo").asInstanceOf[String],
+      set0 = (p: ListMap[String, _], v: String) => p.updated("foo", v)
+    ),
+    Schema
+      .Field(
+        "bar",
+        Schema.Primitive(StandardType.IntType),
+        annotations0 = Chunk(transientField()),
+        get0 = (p: ListMap[String, _]) => p("bar").asInstanceOf[Int],
+        set0 = (p: ListMap[String, _], v: Int) => p.updated("bar", v)
       )
   )
 
