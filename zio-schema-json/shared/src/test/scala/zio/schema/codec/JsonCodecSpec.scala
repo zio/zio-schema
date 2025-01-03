@@ -708,6 +708,18 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"$f1":"test", "extraField":"extra"}""")
         ).flip.map(err => assertTrue(err.getMessage() == "(unexpected field: extraField)"))
       },
+      test("reject duplicated fields") {
+        assertDecodesToError(
+          recordSchema,
+          """{"foo":"test","bar":10,"foo":10}""",
+          JsonError.Message("duplicate") :: Nil
+        ) &>
+          assertDecodesToError(
+            recordSchema,
+            """{"bar":10,"foo":"test","bar":"100"}""",
+            JsonError.Message("duplicate") :: Nil
+          )
+      },
       test("optional field with schema or annotated default value") {
         assertDecodes(
           RecordExampleWithOptField.schema,

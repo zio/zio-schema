@@ -1000,7 +1000,7 @@ object JsonCodec {
       val rejectAdditionalFields = schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
       (trace: List[JsonError], in: RetractReader) => {
         Lexer.char(trace, in, '{')
-        val map      = defaults.clone().asInstanceOf[util.HashMap[String, Any]]
+        val map      = new util.HashMap[String, Any]
         var continue = Lexer.firstField(trace, in)
         while (continue) {
           val fieldNameOrAlias = Lexer.string(trace, in).toString
@@ -1011,7 +1011,10 @@ object JsonCodec {
             val trace_ = span :: trace
             Lexer.char(trace_, in, ':')
             val fieldName = span.field
-            map.put(fieldName, dec.unsafeDecode(trace_, in))
+            val prev = map.put(fieldName, dec.unsafeDecode(trace_, in))
+            if (prev != null) {
+              throw UnsafeJson(JsonError.Message("duplicate") :: trace)
+            }
           } else if (rejectAdditionalFields) {
             throw UnsafeJson(JsonError.Message(s"unexpected field: $fieldNameOrAlias") :: trace)
           } else {
@@ -1019,6 +1022,11 @@ object JsonCodec {
             Lexer.skipValue(trace, in)
           }
           continue = Lexer.nextField(trace, in)
+        }
+        val it = defaults.entrySet().iterator()
+        while (it.hasNext) {
+          val entry = it.next()
+          map.putIfAbsent(entry.getKey, entry.getValue)
         }
         (ListMap.newBuilder[String, Any] ++= ({                         // to avoid O(n) insert operations
           import scala.collection.JavaConverters.mapAsScalaMapConverter // use deprecated class for Scala 2.12 compatibility
