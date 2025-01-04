@@ -303,7 +303,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"oneOf":{"_type":"StringValue2","value":"foo2"}}""")
         )
       },
-      test("case class") {
+      test("transient field annotation") {
         assertEncodes(
           searchRequestWithTransientFieldSchema,
           SearchRequestWithTransientField("foo", 10, 20, "bar"),
@@ -431,7 +431,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     suite("Generic Record")(
       test("Do not encode transient field") {
         assertEncodes(
-          RecordExample.schema.annotate(rejectExtraFields()),
+          RecordExample.schema,
           RecordExample(f1 = Some("test"), f3 = Some("transient")),
           charSequenceToByteChunk(
             """{"$f1":"test"}""".stripMargin
@@ -836,11 +836,29 @@ object JsonCodecSpec extends ZIOSpecDefault {
             JsonError.Message("duplicate") :: Nil
           )
       },
-      test("transient field annotation") {
+      test("transient field annotation with default value in class definition") {
         assertDecodes(
           searchRequestWithTransientFieldSchema,
-          SearchRequestWithTransientField("test", 0, 10, Schema[String].defaultValue.getOrElse("")),
+          SearchRequestWithTransientField("test", 0, 10),
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
+        )
+      },
+      test("transient field annotation with default value implicitly available for the field type") {
+        case class CaseClassWithTransientField(transient: String)
+        assertDecodes(
+          Schema.CaseClass1[String, CaseClassWithTransientField](
+            id0 = TypeId.fromTypeName("SearchRequestWithTransientField"),
+            field0 = Schema.Field(
+              name0 = "transient",
+              schema0 = Schema[String],
+              get0 = _.transient,
+              set0 = (x, transient) => x.copy(transient = transient),
+              annotations0 = Chunk(new transientField())
+            ),
+            defaultConstruct0 = new CaseClassWithTransientField(_)
+          ),
+          CaseClassWithTransientField(Schema[String].defaultValue.toOption.get),
+          charSequenceToByteChunk("""{}""")
         )
       },
       test("fieldDefaultValue") {
@@ -876,6 +894,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           recordWithOptionSchema,
           ListMap[String, Any]("foo" -> Some("s"), "bar" -> None),
           charSequenceToByteChunk("""{"foo":"s","bar":null}""")
+        )
+      },
+      test("with transient fields encoded as implicitly available schema default values") {
+        assertDecodes(
+          recordWithTransientSchema,
+          ListMap[String, Any]("foo" -> "", "bar" -> 0),
+          charSequenceToByteChunk("""{}""")
         )
       },
       test("case class with option fields encoded as null") {
@@ -2015,7 +2040,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     query: String,
     pageNumber: Int,
     resultPerPage: Int,
-    @transientField nextPage: String = ""
+    @transientField nextPage: String = "transient"
   )
 
   val searchRequestWithTransientFieldSchema: Schema[SearchRequestWithTransientField] =
@@ -2056,6 +2081,25 @@ object JsonCodecSpec extends ZIOSpecDefault {
         Schema.Primitive(StandardType.IntType).optional,
         get0 = (p: ListMap[String, _]) => p("bar").asInstanceOf[Option[Int]],
         set0 = (p: ListMap[String, _], v: Option[Int]) => p.updated("bar", v)
+      )
+  )
+
+  val recordWithTransientSchema: Schema[ListMap[String, _]] = Schema.record(
+    TypeId.Structural,
+    Schema.Field(
+      "foo",
+      Schema.Primitive(StandardType.StringType),
+      annotations0 = Chunk(transientField()),
+      get0 = (p: ListMap[String, _]) => p("foo").asInstanceOf[String],
+      set0 = (p: ListMap[String, _], v: String) => p.updated("foo", v)
+    ),
+    Schema
+      .Field(
+        "bar",
+        Schema.Primitive(StandardType.IntType),
+        annotations0 = Chunk(transientField()),
+        get0 = (p: ListMap[String, _]) => p("bar").asInstanceOf[Int],
+        set0 = (p: ListMap[String, _], v: Int) => p.updated("bar", v)
       )
   )
 
