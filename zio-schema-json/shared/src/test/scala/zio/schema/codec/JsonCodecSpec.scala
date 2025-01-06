@@ -92,6 +92,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
           )
       }
     ),
+    suite("case class")(
+      test("backticked field name") {
+        assertEncodesJson(
+          Schema[BacktickedFieldName],
+          BacktickedFieldName("test"),
+          """{"x-api-key":"test"}"""
+        )
+      }
+    ),
     suite("optional field annotation")(
       test("list empty") {
         assertEncodesJson(
@@ -868,6 +877,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
         )
       },
+      test("backticked field name") {
+        assertDecodes(
+          BacktickedFieldName.schema,
+          BacktickedFieldName("test"),
+          charSequenceToByteChunk("""{"x-api-key":"test"}""")
+        )
+      },
       test("field name with alias - id") {
         assertDecodes(
           Order.schema,
@@ -1599,7 +1615,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Enumeration2(StringValue2("foo"))
         ) &> assertEncodesThenDecodes(
           Schema[Enumeration2],
-          Enumeration2(StringValue2Multi("foo", "bar"))
+          Enumeration2(`StringValue2-Backticked`("foo", "bar"))
         ) &> assertEncodesThenDecodes(Schema[Enumeration2], Enumeration2(IntValue2(-1))) &> assertEncodesThenDecodes(
           Schema[Enumeration2],
           Enumeration2(BooleanValue2(false))
@@ -1611,7 +1627,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Enumeration3(StringValue3("foo"))
         ) &> assertEncodesThenDecodes(
           Schema[Enumeration3],
-          Enumeration3(StringValue3Multi("foo", "bar"))
+          Enumeration3(`StringValue3-Backticked`("foo", "bar"))
         )
       },
       test("of case classes with discriminator") {
@@ -2147,10 +2163,10 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   @discriminatorName("_type")
   sealed trait OneOf2
-  case class StringValue2(value: String)                       extends OneOf2
-  case class IntValue2(value: Int)                             extends OneOf2
-  case class BooleanValue2(value: Boolean)                     extends OneOf2
-  case class StringValue2Multi(value1: String, value2: String) extends OneOf2
+  case class StringValue2(value: String)                               extends OneOf2
+  case class IntValue2(value: Int)                                     extends OneOf2
+  case class BooleanValue2(value: Boolean)                             extends OneOf2
+  case class `StringValue2-Backticked`(value1: String, value2: String) extends OneOf2
 
   case class Enumeration2(oneOf: OneOf2)
 
@@ -2160,11 +2176,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   @noDiscriminator
   sealed trait OneOf3
-  case class StringValue3(value: String)                       extends OneOf3
-  case class IntValue3(value: Int)                             extends OneOf3
-  case class BooleanValue3(value: Boolean)                     extends OneOf3
-  case class StringValue3Multi(value1: String, value2: String) extends OneOf3
-  case class Nested(oneOf: OneOf3)                             extends OneOf3
+  case class StringValue3(value: String)                               extends OneOf3
+  case class IntValue3(value: Int)                                     extends OneOf3
+  case class BooleanValue3(value: Boolean)                             extends OneOf3
+  case class `StringValue3-Backticked`(value1: String, value2: String) extends OneOf3
+  case class Nested(oneOf: OneOf3)                                     extends OneOf3
 
   case class Enumeration3(oneOf: OneOf3)
 
@@ -2448,5 +2464,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object Recursive {
     implicit val schema: Schema[Recursive] = DeriveSchema.gen
+  }
+
+  case class BacktickedFieldName(`x-api-key`: String)
+
+  object BacktickedFieldName {
+    implicit val schema: Schema[BacktickedFieldName] = DeriveSchema.gen
   }
 }

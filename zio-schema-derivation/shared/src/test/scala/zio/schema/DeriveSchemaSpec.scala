@@ -111,7 +111,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     f21: Int = 21,
     f22: Int = 22,
     f23: Int = 23,
-    f24: Int = 24
+    `f-24`: Int = 24
   )
 
   object Arity24 {
@@ -140,7 +140,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     arity19: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User),
     arity20: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User),
     arity21: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User),
-    arity22: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User)
+    `arity-22`: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User)
   )
   //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -258,11 +258,11 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
   case class SimpleClass1() extends SimpleEnum1
 
   sealed trait SimpleEnum2
-  case class SimpleClass2() extends SimpleEnum2
+  case class `Simple-Class-2`() extends SimpleEnum2
 
   sealed abstract class AbstractBaseClass(val x: Int)
-  final case class ConcreteClass1(override val x: Int, y: Int)    extends AbstractBaseClass(x)
-  final case class ConcreteClass2(override val x: Int, s: String) extends AbstractBaseClass(x)
+  final case class ConcreteClass1(override val x: Int, y: Int)        extends AbstractBaseClass(x)
+  final case class `Concrete-Class-2`(override val x: Int, s: String) extends AbstractBaseClass(x)
 
   sealed abstract class AbstractBaseClass2(val x: Int)
   sealed abstract class MiddleClass(override val x: Int, val y: Int)                   extends AbstractBaseClass2(x)
@@ -288,13 +288,17 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
         assert(Schema[User].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
       test("correctly derives case class with arity > 22") {
-        assert(Schema[Arity24].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+        assert(Schema[Arity24].toString)(
+          not(containsString("null")) && not(equalTo("$Lazy$") && containsString("f-24"))
+        )
       },
       test("correctly derives recursive data structure") {
         assert(Schema[Recursive].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
       test("correctly derives tuple arities from 2 to 22") {
-        assert(Schema[TupleArities].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+        assert(Schema[TupleArities].toString)(
+          not(containsString("null")) && not(equalTo("$Lazy$") && containsString("arity-22"))
+        )
       },
       test("correctly derive mutually recursive data structure") {
         val c = Cyclic(1, CyclicChild1(2, CyclicChild2("3", None)))
@@ -526,26 +530,26 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
               (a: AbstractBaseClass) => a.isInstanceOf[ConcreteClass1]
             ),
             Schema.Case(
-              "ConcreteClass2",
+              "Concrete-Class-2",
               Schema.CaseClass2(
-                TypeId.parse("zio.schema.DeriveSchemaSpec.ConcreteClass2"),
-                field01 = Schema.Field[ConcreteClass2, Int](
+                TypeId.parse("zio.schema.DeriveSchemaSpec.Concrete-Class-2"),
+                field01 = Schema.Field[`Concrete-Class-2`, Int](
                   "x",
                   Schema.Primitive(StandardType.IntType),
                   get0 = _.x,
                   set0 = (a, b: Int) => a.copy(x = b)
                 ),
-                field02 = Schema.Field[ConcreteClass2, String](
+                field02 = Schema.Field[`Concrete-Class-2`, String](
                   "s",
                   Schema.Primitive(StandardType.StringType),
                   get0 = _.s,
                   set0 = (a, b: String) => a.copy(s = b)
                 ),
-                ConcreteClass2.apply
+                `Concrete-Class-2`.apply
               ),
-              (a: AbstractBaseClass) => a.asInstanceOf[ConcreteClass2],
-              (a: ConcreteClass2) => a.asInstanceOf[AbstractBaseClass],
-              (a: AbstractBaseClass) => a.isInstanceOf[ConcreteClass2]
+              (a: AbstractBaseClass) => a.asInstanceOf[`Concrete-Class-2`],
+              (a: `Concrete-Class-2`) => a.asInstanceOf[AbstractBaseClass],
+              (a: AbstractBaseClass) => a.isInstanceOf[`Concrete-Class-2`]
             ),
             Chunk.empty
           )
