@@ -1015,7 +1015,7 @@ object JsonCodec {
             val fieldName = span.field
             val prev      = map.put(fieldName, dec.unsafeDecode(trace_, in))
             if (prev != null) {
-              throw UnsafeJson(JsonError.Message("duplicate") :: trace)
+              throw UnsafeJson(JsonError.Message("duplicate") :: trace_)
             }
           } else if (rejectAdditionalFields) {
             throw UnsafeJson(JsonError.Message(s"unexpected field: $fieldNameOrAlias") :: trace)
@@ -1574,8 +1574,9 @@ object JsonCodec {
         val idx = Lexer.field(trace, reader, stringMatrix)
         if (pos == discriminator) Lexer.skipValue(trace, reader)
         else if (idx >= 0) {
-          if (buffer(idx) != null) error(trace, "duplicate")
-          else buffer(idx) = fieldDecoders(idx).unsafeDecode(spans(idx) :: trace, reader)
+          val trace_ = spans(idx) :: trace
+          if (buffer(idx) != null) error(trace_, "duplicate")
+          else buffer(idx) = fieldDecoders(idx).unsafeDecode(trace_, reader)
         } else if (!rejectExtraFields) Lexer.skipValue(trace, reader)
         else error(trace, "extra field")
         continue = Lexer.nextField(trace, reader)

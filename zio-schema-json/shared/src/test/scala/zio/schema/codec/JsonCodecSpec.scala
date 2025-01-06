@@ -712,12 +712,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertDecodesToError(
           recordSchema,
           """{"foo":"test","bar":10,"foo":10}""",
-          JsonError.Message("duplicate") :: Nil
+          JsonError.Message("duplicate") :: JsonError.ObjectAccess("foo") :: Nil
         ) &>
           assertDecodesToError(
             recordSchema,
             """{"bar":10,"foo":"test","bar":"100"}""",
-            JsonError.Message("duplicate") :: Nil
+            JsonError.Message("duplicate") :: JsonError.ObjectAccess("bar") :: Nil
           )
       },
       test("optional field with schema or annotated default value") {
@@ -828,12 +828,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertDecodesToError(
           personSchema,
           """{"name":"test","age":10,"name":10}""",
-          JsonError.Message("duplicate") :: Nil
+          JsonError.Message("duplicate") :: JsonError.ObjectAccess("name") :: Nil
         ) &>
           assertDecodesToError(
             personSchema,
             """{"age":10,"name":"test","age":"100"}""",
-            JsonError.Message("duplicate") :: Nil
+            JsonError.Message("duplicate") :: JsonError.ObjectAccess("age") :: Nil
           )
       },
       test("transient field annotation with default value in class definition") {
