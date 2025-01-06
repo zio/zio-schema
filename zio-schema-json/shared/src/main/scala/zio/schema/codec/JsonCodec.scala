@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 import scala.annotation.{ switch, tailrec }
 import scala.collection.immutable.ListMap
+import scala.util.control.NonFatal
 
 import zio.json.JsonCodec._
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
@@ -336,54 +337,17 @@ object JsonCodec {
         case Schema.NonEmptyMap(ks: Schema[kt], vs: Schema[vt], _) => mapEncoder(ks, vs, discriminatorTuple, cfg).contramap[NonEmptyMap[kt, vt]](_.toMap.asInstanceOf[Map[kt, vt]]).asInstanceOf[ZJsonEncoder[A]]
         case Schema.Set(s, _) =>
           ZJsonEncoder.chunk(schemaEncoder(s, cfg, discriminatorTuple)).contramap(m => Chunk.fromIterable(m))
-        case Schema.Transform(c, _, g, a, _)                            => transformEncoder(a.foldLeft(c)((s, a) => s.annotate(a)), g, cfg)
-        case Schema.Tuple2(l, r, _)                                     => ZJsonEncoder.tuple2(schemaEncoder(l, cfg, discriminatorTuple), schemaEncoder(r, cfg, discriminatorTuple))
-        case Schema.Optional(schema, _)                                 => ZJsonEncoder.option(schemaEncoder(schema, cfg, discriminatorTuple))
-        case Schema.Fail(_, _)                                          => unitEncoder.contramap(_ => ())
-        case s @ Schema.GenericRecord(_, _, _)                          => recordEncoder(s, cfg)
-        case Schema.Either(left, right, _)                              => ZJsonEncoder.either(schemaEncoder(left, cfg, discriminatorTuple), schemaEncoder(right, cfg, discriminatorTuple))
-        case Schema.Fallback(left, right, _, _)                         => fallbackEncoder(schemaEncoder(left, cfg, discriminatorTuple), schemaEncoder(right, cfg, discriminatorTuple))
-        case l @ Schema.Lazy(_)                                         => ZJsonEncoder.suspend(schemaEncoder(l.schema, cfg, discriminatorTuple))
-        case s: Schema.Record[A]                                        => caseClassEncoder(s, cfg, discriminatorTuple)
-        case e @ Schema.Enum1(_, c, _)                                  => enumEncoder(e, cfg, c)
-        case e @ Schema.Enum2(_, c1, c2, _)                             => enumEncoder(e, cfg, c1, c2)
-        case e @ Schema.Enum3(_, c1, c2, c3, _)                         => enumEncoder(e, cfg, c1, c2, c3)
-        case e @ Schema.Enum4(_, c1, c2, c3, c4, _)                     => enumEncoder(e, cfg, c1, c2, c3, c4)
-        case e @ Schema.Enum5(_, c1, c2, c3, c4, c5, _)                 => enumEncoder(e, cfg, c1, c2, c3, c4, c5)
-        case e @ Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _)             => enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6)
-        case e @ Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _)         => enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6, c7)
-        case e @ Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _)     => enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6, c7, c8)
-        case e @ Schema.Enum9(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, _) => enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6, c7, c8, c9)
-        case e @ Schema.Enum10(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _) =>
-          enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
-        case e @ Schema.Enum11(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _) =>
-          enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
-        case e @ Schema.Enum12(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _) =>
-          enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
-        case e @ Schema.Enum13(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _) =>
-          enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
-        case e @ Schema.Enum14(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _) =>
-          enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
-        case e @ Schema.Enum15(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _) =>
-          enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
-        case e @ Schema.Enum16(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _) =>
-          enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
-        case e @ Schema.Enum17(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _) =>
-          enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
-        case e @ Schema.Enum18(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _) =>
-          enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
-        case e @ Schema.Enum19(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _) =>
-          enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
-        case e @ Schema
-              .Enum20(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _) =>
-          enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
-        case e @ Schema
-              .Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _) =>
-          enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
-        case e @ Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
-          enumEncoder(e, cfg, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-        case e @ Schema.EnumN(_, cs, _) => enumEncoder(e, cfg, cs.toSeq: _*)
-        case d @ Schema.Dynamic(_)      => dynamicEncoder(d, cfg)
+        case Schema.Transform(c, _, g, a, _)    => transformEncoder(a.foldLeft(c)((s, a) => s.annotate(a)), g, cfg)
+        case Schema.Tuple2(l, r, _)             => ZJsonEncoder.tuple2(schemaEncoder(l, cfg, discriminatorTuple), schemaEncoder(r, cfg, discriminatorTuple))
+        case Schema.Optional(schema, _)         => ZJsonEncoder.option(schemaEncoder(schema, cfg, discriminatorTuple))
+        case Schema.Fail(_, _)                  => unitEncoder.contramap(_ => ())
+        case s @ Schema.GenericRecord(_, _, _)  => recordEncoder(s, cfg)
+        case Schema.Either(left, right, _)      => ZJsonEncoder.either(schemaEncoder(left, cfg, discriminatorTuple), schemaEncoder(right, cfg, discriminatorTuple))
+        case Schema.Fallback(left, right, _, _) => fallbackEncoder(schemaEncoder(left, cfg, discriminatorTuple), schemaEncoder(right, cfg, discriminatorTuple))
+        case l @ Schema.Lazy(_)                 => ZJsonEncoder.suspend(schemaEncoder(l.schema, cfg, discriminatorTuple))
+        case s: Schema.Record[A]                => caseClassEncoder(s, cfg, discriminatorTuple)
+        case s: Schema.Enum[A]                  => enumEncoder(s, cfg)
+        case d @ Schema.Dynamic(_)              => dynamicEncoder(d, cfg)
         case null =>
           throw new Exception(s"A captured schema is null, most likely due to wrong field initialization order")
       }
@@ -523,7 +487,7 @@ object JsonCodec {
           }
       }
 
-    private def enumEncoder[Z](schema: Schema.Enum[Z], cfg: Config, cases: Schema.Case[Z, _]*): ZJsonEncoder[Z] =
+    private def enumEncoder[Z](schema: Schema.Enum[Z], cfg: Config): ZJsonEncoder[Z] =
       // if all cases are CaseClass0, encode as a String
       if (schema.annotations.exists(_.isInstanceOf[simpleEnum])) {
         val caseMap: Map[Z, String] =
@@ -538,13 +502,9 @@ object JsonCodec {
       } else { (value: Z, indent: Option[Int], out: Write) =>
         {
           val nonTransientCase =
-            try cases.collectFirst {
-              case c @ Schema.Case(_, _, _, _, _, annotations) if annotations.collectFirst {
-                    case _: transientCase => ()
-                  }.isEmpty && c.deconstructOption(value).isDefined =>
-                c
-            } catch {
-              case ex: Throwable => throw new RuntimeException(s"Failed to encode enum type $schema", ex)
+            try schema.nonTransientCases.find(_.deconstructOption(value).isDefined)
+            catch {
+              case ex if NonFatal(ex) => throw new RuntimeException(s"Failed to encode enum type $schema", ex)
             }
 
           nonTransientCase match {
@@ -554,13 +514,14 @@ object JsonCodec {
               val discriminatorChunk = schema.annotations.collect {
                 case d: discriminatorName => (d, caseName)
               }
-              val noDiscriminators = schema.noDiscriminator
+              val noDiscriminators     = schema.noDiscriminator
+              val doJsonObjectWrapping = discriminatorChunk.isEmpty && !noDiscriminators
 
-              if (discriminatorChunk.isEmpty && !noDiscriminators) out.write('{')
+              if (doJsonObjectWrapping) out.write('{')
               val indent_ = bump(indent)
               pad(indent_, out)
 
-              if (discriminatorChunk.isEmpty && !noDiscriminators) {
+              if (doJsonObjectWrapping) {
                 string.encoder.unsafeEncode(caseName, indent_, out)
                 if (indent.isEmpty) out.write(':')
                 else out.write(" : ")
@@ -572,7 +533,7 @@ object JsonCodec {
                 discriminatorTuple = if (noDiscriminators) Chunk.empty else discriminatorChunk
               ).unsafeEncode(case_.deconstruct(value), indent, out)
 
-              if (discriminatorChunk.isEmpty && !noDiscriminators) out.write('}')
+              if (doJsonObjectWrapping) out.write('}')
             case None =>
               out.write("{}")
           }
