@@ -528,8 +528,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def annotate(annotation: Any): Sequence[Col, Elem, I] =
       copy(annotations = (annotations :+ annotation).distinct)
 
-    override def defaultValue: scala.util.Either[String, Col] =
-      elementSchema.defaultValue.map(fromChunk.compose(Chunk(_)))
+    override def defaultValue: scala.util.Either[String, Col] = Right(empty)
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, elementSchema)
 
@@ -830,10 +829,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def annotate(annotation: Any): Map[K, V] = copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, scala.collection.immutable.Map[K, V]] =
-      keySchema.defaultValue.flatMap(
-        defaultKey =>
-          valueSchema.defaultValue.map(defaultValue => scala.collection.immutable.Map(defaultKey -> defaultValue))
-      )
+      Right(empty)
 
     override val fromChunk: Chunk[(K, V)] => scala.collection.immutable.Map[K, V] = _.toMap
 
@@ -858,9 +854,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
       copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.Either[String, prelude.NonEmptyMap[K, V]] =
-      keySchema.defaultValue.flatMap(
-        defaultKey => valueSchema.defaultValue.map(defaultValue => prelude.NonEmptyMap(defaultKey -> defaultValue))
-      )
+      Left("NonEmptyMap has no default value")
 
     override def fromChunk: Chunk[(K, V)] => prelude.NonEmptyMap[K, V] =
       chunk => fromChunkOption(chunk).getOrElse(throw new IllegalArgumentException("NonEmptyMap cannot be empty"))
@@ -901,7 +895,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
       copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Col] =
-      elementSchema.defaultValue.map(fromChunk.compose(Chunk(_)))
+      Left(s"$identity cannot be empty")
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elm] = b.makeTraversal(self, elementSchema)
 
@@ -922,7 +916,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
       copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, scala.collection.immutable.Set[A]] =
-      elementSchema.defaultValue.map(scala.collection.immutable.Set(_))
+      Right(empty)
 
     override val fromChunk: Chunk[A] => scala.collection.immutable.Set[A] = _.toSet
 

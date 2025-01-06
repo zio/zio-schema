@@ -203,10 +203,16 @@ object DefaultValueSpec extends ZIOSpecDefault {
     ),
     suite("Sequence")(
       test("chunk") {
-        assert(Schema.chunk[Int].defaultValue)(isRight(equalTo(Chunk(0))))
+        assert(Schema.chunk[Int].defaultValue)(isRight(equalTo(Chunk())))
       },
       test("list") {
-        assert(Schema.list[Int].defaultValue)(isRight(equalTo(List(0))))
+        assert(Schema.list[Int].defaultValue)(isRight(equalTo(List())))
+      },
+      test("nonEmptyChunk") {
+        assert(Schema.nonEmptyChunk[Int].defaultValue)(isLeft)
+      },
+      test("nonEmptyMap") {
+        assert(Schema.nonEmptyMap[Int, String].defaultValue)(isLeft)
       }
     ),
     suite("Enumeration")(
