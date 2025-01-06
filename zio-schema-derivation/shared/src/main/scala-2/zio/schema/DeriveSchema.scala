@@ -1,5 +1,6 @@
 package zio.schema
 
+import scala.reflect.NameTransformer
 import scala.reflect.macros.whitebox
 
 import zio.Chunk
@@ -39,6 +40,11 @@ object DeriveSchema {
       tpe.typeSymbol.asClass.isClass && tpe.typeSymbol.asClass.isSealed && tpe.typeSymbol.asClass.isAbstract
 
     def isMap(tpe: Type): Boolean = tpe.typeSymbol.fullName == "scala.collection.immutable.Map"
+
+    def decodeName(s: Symbol): String = NameTransformer.decode(s.name.toString)
+
+    def decodeFieldName(s: Symbol): String =
+      NameTransformer.decode(s.name.toString.trim) // why is there a space at the end of field name?!
 
     def collectTypeAnnotations(tpe: Type): List[Tree] =
       tpe.typeSymbol.annotations.collect {
@@ -235,7 +241,7 @@ object DeriveSchema {
         val genericAnnotations: List[Tree] =
           if (tpe.typeArgs.isEmpty) Nil
           else {
-            val typeMembers = tpe.typeSymbol.asClass.typeParams.map(_.name.toString)
+            val typeMembers = tpe.typeSymbol.asClass.typeParams.map(decodeName)
             val typeArgs = tpe.typeArgs
               .map(_.typeSymbol.fullName)
               .map(t => q"_root_.zio.schema.TypeId.parse(${t}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]")
@@ -334,7 +340,7 @@ object DeriveSchema {
                 concreteType(tpe, termSymbol.typeSignature),
                 currentFrame +: stack
               )
-              val fieldLabel = termSymbol.name.toString.trim
+              val fieldLabel = decodeFieldName(termSymbol)
               val getFunc =
                 q" (z: _root_.scala.collection.immutable.ListMap[String, _]) => z.apply($fieldLabel).asInstanceOf[${termSymbol.typeSignature}]"
 
@@ -353,12 +359,13 @@ object DeriveSchema {
           val fromMap = {
             val casts = fieldTypes.zip(fieldAnnotations).map {
               case (termSymbol, annotations) =>
-                val newName = getFieldName(annotations).getOrElse(termSymbol.name.toString.trim)
+                val fieldLabel = decodeFieldName(termSymbol)
+                val newName    = getFieldName(annotations).getOrElse(fieldLabel)
                 q"""
                  try m.apply(${newName}).asInstanceOf[${termSymbol.typeSignature}]
                  catch {
-                   case _: ClassCastException => throw new RuntimeException("Field " + ${termSymbol.name.toString.trim} + " has invalid type")
-                   case _: Throwable  => throw new RuntimeException("Field " + ${termSymbol.name.toString.trim} + " is missing")
+                   case _: ClassCastException => throw new RuntimeException("Field " + $fieldLabel + " has invalid type")
+                   case _: Throwable  => throw new RuntimeException("Field " + $fieldLabel + " is missing")
                  }
                """
             }
@@ -414,8 +421,8 @@ object DeriveSchema {
                 currentFrame +: stack
               )
               val fieldArg   = if (fieldTypes.size > 1) TermName(s"field0${idx + 1}") else TermName("field0")
-              val fieldLabel = termSymbol.name.toString.trim
-              val getArg     = TermName(fieldLabel)
+              val fieldLabel = decodeFieldName(termSymbol)
+              val getArg     = TermName(termSymbol.name.toString.trim)
 
               val getFunc = q" (z: $tpe) => z.$getArg"
               val setFunc = q" (z: $tpe, v: $fieldType) => z.copy[..${tpe.typeArgs}]($getArg = v)"
@@ -459,9 +466,9 @@ object DeriveSchema {
 
           val typeArgsWithFields = fieldTypes.zip(fieldAnnotations).map {
             case (termSymbol, annotations) if annotations.nonEmpty =>
-              tq"${getFieldName(annotations).getOrElse(termSymbol.name.toString.trim)}.type"
+              tq"${getFieldName(annotations).getOrElse(decodeFieldName(termSymbol))}.type"
             case (termSymbol, _) =>
-              tq"${termSymbol.name.toString.trim}.type"
+              tq"${decodeFieldName(termSymbol)}.type"
           } ++ typeArgs
 
           fieldTypes.size match {
@@ -524,12 +531,12 @@ object DeriveSchema {
       val typeId = q"_root_.zio.schema.TypeId.parse(${tpe.toString()})"
 
       val appliedTypeArgs: Map[String, Type] =
-        tpe.typeConstructor.typeParams.map(_.name.toString).zip(tpe.typeArgs).toMap
+        tpe.typeConstructor.typeParams.map(decodeName).zip(tpe.typeArgs).toMap
 
       def appliedSubtype(subtype: Type): Type =
         if (subtype.typeArgs.size == 0) subtype
         else {
-          val appliedTypes = subtype.typeConstructor.typeParams.map(_.name.toString).map { typeParam =>
+          val appliedTypes = subtype.typeConstructor.typeParams.map(decodeName).map { typeParam =>
             appliedTypeArgs.get(typeParam) match {
               case None =>
                 c.abort(
@@ -583,7 +590,7 @@ object DeriveSchema {
       val genericAnnotations: List[Tree] =
         if (tpe.typeArgs.isEmpty) Nil
         else {
-          val typeMembers = tpe.typeSymbol.asClass.typeParams.map(_.name.toString)
+          val typeMembers = tpe.typeSymbol.asClass.typeParams.map(decodeName)
           val typeArgs = tpe.typeArgs
             .map(_.typeSymbol.fullName)
             .map(t => q"_root_.zio.schema.TypeId.parse(${t}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]")
@@ -641,7 +648,7 @@ object DeriveSchema {
         val genericAnnotations: List[Tree] =
           if (subtype.typeArgs.isEmpty) Nil
           else {
-            val typeMembers = subtype.typeSymbol.asClass.typeParams.map(_.name.toString)
+            val typeMembers = subtype.typeSymbol.asClass.typeParams.map(decodeName)
             val typeArgs = subtype.typeArgs
               .map(_.typeSymbol.fullName)
               .map(t => q"_root_.zio.schema.TypeId.parse(${t}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]")
@@ -668,7 +675,7 @@ object DeriveSchema {
               EmptyTree
           }.filter(_ != EmptyTree) ++ genericAnnotations
 
-        val caseLabel     = subtype.typeSymbol.name.toString.trim
+        val caseLabel     = decodeName(subtype.typeSymbol)
         val caseSchema    = directInferSchema(tpe, concreteType(tpe, subtype), currentFrame +: stack)
         val deconstructFn = q"(z: $tpe) => z.asInstanceOf[$subtype]"
         val constructFn   = q"(z: $subtype) => z.asInstanceOf[$tpe]"
