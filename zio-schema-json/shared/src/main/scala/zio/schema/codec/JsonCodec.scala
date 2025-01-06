@@ -733,45 +733,9 @@ object JsonCodec {
         caseClass21Decoder(discriminator, s)
       case s @ Schema.CaseClass22(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass22Decoder(discriminator, s)
-      case e @ Schema.Enum1(_, c, _)                                  => enumDecoder(e, c)
-      case e @ Schema.Enum2(_, c1, c2, _)                             => enumDecoder(e, c1, c2)
-      case e @ Schema.Enum3(_, c1, c2, c3, _)                         => enumDecoder(e, c1, c2, c3)
-      case e @ Schema.Enum4(_, c1, c2, c3, c4, _)                     => enumDecoder(e, c1, c2, c3, c4)
-      case e @ Schema.Enum5(_, c1, c2, c3, c4, c5, _)                 => enumDecoder(e, c1, c2, c3, c4, c5)
-      case e @ Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _)             => enumDecoder(e, c1, c2, c3, c4, c5, c6)
-      case e @ Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _)         => enumDecoder(e, c1, c2, c3, c4, c5, c6, c7)
-      case e @ Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _)     => enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8)
-      case e @ Schema.Enum9(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, _) => enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9)
-      case e @ Schema.Enum10(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10)
-      case e @ Schema.Enum11(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11)
-      case e @ Schema.Enum12(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12)
-      case e @ Schema.Enum13(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13)
-      case e @ Schema.Enum14(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14)
-      case e @ Schema.Enum15(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15)
-      case e @ Schema.Enum16(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16)
-      case e @ Schema.Enum17(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17)
-      case e @ Schema.Enum18(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18)
-      case e @ Schema.Enum19(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19)
-      case e @ Schema
-            .Enum20(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20)
-      case e @ Schema.Enum21(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21)
-      case e @ Schema.Enum22(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22, _) =>
-        enumDecoder(e, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, c21, c22)
-      case e @ Schema.EnumN(_, cs, _) => enumDecoder(e, cs.toSeq: _*)
-      case d @ Schema.Dynamic(_)      => dynamicDecoder(d)
-      case _                          => throw new Exception(s"Missing a handler for decoding of schema ${schema.toString()}.")
+      case s: Schema.Enum[A]     => enumDecoder(s)
+      case d @ Schema.Dynamic(_) => dynamicDecoder(d)
+      case _                     => throw new Exception(s"Missing a handler for decoding of schema ${schema.toString()}.")
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -828,11 +792,12 @@ object JsonCodec {
         case Json.Null          => DynamicValue.NoneValue
       }
 
-    private def enumDecoder[Z](parentSchema: Schema.Enum[Z], cases: Schema.Case[Z, _]*): ZJsonDecoder[Z] = {
+    private def enumDecoder[Z](parentSchema: Schema.Enum[Z]): ZJsonDecoder[Z] = {
+      val cases = parentSchema.cases
       val caseNameAliases = cases.flatMap {
         case Schema.Case(name, _, _, _, _, annotations) =>
           annotations.flatMap {
-            case a: caseNameAliases => a.aliases.toList.map(_ -> name)
+            case a: caseNameAliases => a.aliases.map(_ -> name)
             case cn: caseName       => List(cn.name -> name)
             case _                  => Nil
           }
@@ -846,18 +811,15 @@ object JsonCodec {
           s =>
             caseMap.get(caseNameAliases.getOrElse(s, s)) match {
               case Some(z) => Right(z)
-              case None    => Left("unrecognized string")
+              case _       => Left("unrecognized string")
             }
         )
       } else {
+        if (parentSchema.annotations.exists(_.isInstanceOf[noDiscriminator])) {
+          def error(trace: List[JsonError]): Nothing =
+            throw UnsafeJson(JsonError.Message("none of the subtypes could decode the data") :: trace)
 
-        val noDiscriminators = parentSchema.annotations.exists {
-          case noDiscriminator() => true
-          case _                 => false
-        }
-
-        (trace: List[JsonError], in: RetractReader) => {
-          if (noDiscriminators) {
+          (trace: List[JsonError], in: RetractReader) => {
             var rr                = RecordingReader(in)
             val it                = cases.iterator
             var result: Option[Z] = None
@@ -876,16 +838,15 @@ object JsonCodec {
 
             result match {
               case Some(value) => value
-              case None        => throw UnsafeJson(JsonError.Message("none of the subtypes could decode the data") :: trace)
+              case _           => error(trace)
             }
-
-          } else {
+          }
+        } else {
+          val maybeDiscriminatorName = parentSchema.annotations.collectFirst { case d: discriminatorName => d.tag }
+          (trace: List[JsonError], in: RetractReader) => {
             Lexer.char(trace, in, '{')
 
             if (Lexer.firstField(trace, in)) {
-              val maybeDiscriminatorName = parentSchema.annotations.collectFirst {
-                case d: discriminatorName => d.tag
-              }
               maybeDiscriminatorName match {
                 case None =>
                   val subtype = deAliasCaseName(Lexer.string(trace, in).toString, caseNameAliases)
@@ -896,7 +857,7 @@ object JsonCodec {
                       val decoded = schemaDecoder(c.schema, -1).unsafeDecode(trace_, in).asInstanceOf[Z]
                       Lexer.nextField(trace_, in)
                       decoded
-                    case None =>
+                    case _ =>
                       throw UnsafeJson(JsonError.Message("unrecognized subtype") :: trace_)
                   }
                 case Some(discriminatorName) =>
@@ -909,12 +870,12 @@ object JsonCodec {
                       val discriminator = Lexer.string(trace, rr).toString
                       // Perform a second de-aliasing because the first one would resolve the discriminator key instead.
                       val innerSubtype = deAliasCaseName(discriminator, caseNameAliases)
-                      if (index > 0) {
-                        rr.rewind()
-                        (innerSubtype, JsonError.ObjectAccess(innerSubtype) :: trace_, index)
-                      } else {
-                        (innerSubtype, JsonError.ObjectAccess(innerSubtype) :: trace_, -2)
-                      }
+                      (innerSubtype, JsonError.ObjectAccess(innerSubtype) :: trace_, {
+                        if (index > 0) {
+                          rr.rewind()
+                          index
+                        } else -2
+                      })
                     } else {
                       Lexer.char(trace_, rr, ':')
                       Lexer.skipValue(trace_, rr)
@@ -927,11 +888,14 @@ object JsonCodec {
                   val (subtype, trace_, discriminator) = findDiscriminator(0, rr)
 
                   cases.find(_.id == subtype) match {
-                    case Some(c) if discriminator >= 0 =>
-                      schemaDecoder(c.schema, discriminator).unsafeDecode(trace_, rr).asInstanceOf[Z]
                     case Some(c) =>
-                      schemaDecoder(c.schema, discriminator).unsafeDecode(trace_, in).asInstanceOf[Z]
-                    case None =>
+                      schemaDecoder(c.schema, discriminator)
+                        .unsafeDecode(trace_, {
+                          if (discriminator >= 0) rr
+                          else in
+                        })
+                        .asInstanceOf[Z]
+                    case _ =>
                       throw UnsafeJson(JsonError.Message("unrecognized subtype") :: trace_)
                   }
               }
