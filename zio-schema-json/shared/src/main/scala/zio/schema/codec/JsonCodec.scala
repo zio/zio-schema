@@ -863,13 +863,13 @@ object JsonCodec {
                 case Some(discriminatorName) =>
                   @tailrec
                   def findDiscriminator(index: Int, rr: RecordingReader): (String, List[JsonError], Int) = {
-                    val subtypeOrDiscriminator = deAliasCaseName(Lexer.string(trace, rr).toString, caseNameAliases)
-                    val trace_                 = JsonError.ObjectAccess(subtypeOrDiscriminator) :: trace
-                    if (subtypeOrDiscriminator == discriminatorName) {
+                    val discriminatorFieldName = Lexer.string(trace, rr).toString
+                    val trace_                 = JsonError.ObjectAccess(discriminatorFieldName) :: trace
+                    if (discriminatorFieldName == discriminatorName) {
                       Lexer.char(trace_, rr, ':')
-                      val discriminator = Lexer.string(trace, rr).toString
+                      val discriminatorFieldValue = Lexer.string(trace, rr).toString
                       // Perform a second de-aliasing because the first one would resolve the discriminator key instead.
-                      val innerSubtype = deAliasCaseName(discriminator, caseNameAliases)
+                      val innerSubtype = deAliasCaseName(discriminatorFieldValue, caseNameAliases)
                       (innerSubtype, JsonError.ObjectAccess(innerSubtype) :: trace_, {
                         if (index > 0) {
                           rr.rewind()
