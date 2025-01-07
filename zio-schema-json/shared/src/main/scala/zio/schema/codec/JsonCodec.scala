@@ -865,8 +865,8 @@ object JsonCodec {
                   def findDiscriminator(index: Int, rr: RecordingReader): (String, List[JsonError], Int) = {
                     val discriminatorFieldName = Lexer.string(trace, rr).toString
                     val trace_                 = JsonError.ObjectAccess(discriminatorFieldName) :: trace
+                    Lexer.char(trace_, rr, ':')
                     if (discriminatorFieldName == discriminatorName) {
-                      Lexer.char(trace_, rr, ':')
                       val discriminatorFieldValue = Lexer.string(trace, rr).toString
                       // Perform a second de-aliasing because the first one would resolve the discriminator key instead.
                       val innerSubtype = deAliasCaseName(discriminatorFieldValue, caseNameAliases)
@@ -877,7 +877,6 @@ object JsonCodec {
                         } else -2
                       })
                     } else {
-                      Lexer.char(trace_, rr, ':')
                       Lexer.skipValue(trace_, rr)
                       if (Lexer.nextField(trace, rr)) findDiscriminator(index + 1, rr)
                       else throw UnsafeJson(JsonError.Message("missing subtype") :: trace)
