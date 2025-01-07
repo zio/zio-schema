@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets
 import java.util
 import java.util.concurrent.ConcurrentHashMap
 
-import scala.annotation.{ switch }
+import scala.annotation.switch
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 
@@ -41,7 +41,7 @@ object JsonCodec {
     val default: Config = Config(ignoreEmptyCollections = false)
   }
 
-  type DiscriminatorTuple = Chunk[(discriminatorName, String)]
+  type DiscriminatorTuple = Option[(discriminatorName, String)]
 
   implicit def zioJsonBinaryCodec[A](implicit jsonCodec: ZJsonCodec[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
@@ -316,7 +316,7 @@ object JsonCodec {
     private[codec] def schemaEncoder[A](
       schema: Schema[A],
       cfg: Config,
-      discriminatorTuple: DiscriminatorTuple = Chunk.empty
+      discriminatorTuple: DiscriminatorTuple = None
     ): ZJsonEncoder[A] = {
       val key                      = EncoderKey(schema, cfg, discriminatorTuple)
       var encoder: ZJsonEncoder[A] = encoders.get(key).asInstanceOf[ZJsonEncoder[A]]
@@ -511,11 +511,11 @@ object JsonCodec {
             case Some(case_) =>
               val caseName = case_.caseName
 
-              val discriminatorChunk = schema.annotations.collect {
+              val discriminator = schema.annotations.collectFirst {
                 case d: discriminatorName => (d, caseName)
               }
               val noDiscriminators     = schema.noDiscriminator
-              val doJsonObjectWrapping = discriminatorChunk.isEmpty && !noDiscriminators
+              val doJsonObjectWrapping = discriminator.isEmpty && !noDiscriminators
 
               if (doJsonObjectWrapping) out.write('{')
               val indent_ = bump(indent)
@@ -530,7 +530,7 @@ object JsonCodec {
               schemaEncoder(
                 case_.schema.asInstanceOf[Schema[Any]],
                 cfg,
-                discriminatorTuple = if (noDiscriminators) Chunk.empty else discriminatorChunk
+                discriminatorTuple = if (noDiscriminators) None else discriminator
               ).unsafeEncode(case_.deconstruct(value), indent, out)
 
               if (doJsonObjectWrapping) out.write('}')
@@ -1040,8 +1040,6 @@ object JsonCodec {
     private[codec] def caseClassEncoder[Z](schema: Schema.Record[Z], cfg: Config, discriminatorTuple: DiscriminatorTuple): ZJsonEncoder[Z] = {
       val nonTransientFields = schema.nonTransientFields.map(_.asInstanceOf[Schema.Field[Z, Any]]).toArray
       val fieldEncoders      = nonTransientFields.map(s => JsonEncoder.schemaEncoder(s.schema, cfg, discriminatorTuple))
-      val tags               = discriminatorTuple.map(_._1.tag).toArray
-      val caseTpeNames       = discriminatorTuple.map(_._2).toArray
       (a: Z, indent: Option[Int], out: Write) => {
         out.write('{')
         val doPrettyPrint = indent ne None
@@ -1052,20 +1050,19 @@ object JsonCodec {
         }
         val strEnc = string.encoder
         var first  = true
-        var i      = 0
-        while (i < tags.length) {
+        if (discriminatorTuple ne None) {
+          val tuple = discriminatorTuple.get
           first = false
-          strEnc.unsafeEncode(tags(i), indent_, out)
+          strEnc.unsafeEncode(tuple._1.tag, indent_, out)
           if (doPrettyPrint) out.write(" : ")
           else out.write(':')
-          strEnc.unsafeEncode(caseTpeNames(i), indent_, out)
-          i += 1
+          strEnc.unsafeEncode(tuple._2, indent_, out)
         }
-        i = 0
-        while (i < nonTransientFields.length) {
-          val schema = nonTransientFields(i)
-          val enc    = fieldEncoders(i)
-          i += 1
+        var idx = 0
+        while (idx < nonTransientFields.length) {
+          val schema = nonTransientFields(idx)
+          val enc    = fieldEncoders(idx)
+          idx += 1
           val value = schema.get(a)
           if (!isEmptyOptionalValue(schema, value, cfg) && (!enc.isNothing(value) || cfg.explicitNulls)) {
             if (first) first = false
