@@ -1468,23 +1468,21 @@ object JsonCodec {
   ) {
 
     def unsafeDecodeFields(trace: List[JsonError], in: RetractReader): Array[Any] = {
-      val len    = fields.length
-      val buffer = new Array[Any](len)
-      var reader = in
-      if (discriminator == -1) Lexer.char(trace, reader, '{')
-      else reader = RecordingReader(reader)
-      var continue = Lexer.firstField(trace, reader)
-      var pos = 0
+      if (discriminator == -1) Lexer.char(trace, in, '{')
+      var continue = Lexer.firstField(trace, in)
+      val len      = fields.length
+      val buffer   = new Array[Any](len)
+      var pos      = 0
       while (continue) {
-        val idx = Lexer.field(trace, reader, stringMatrix)
-        if (pos == discriminator) Lexer.skipValue(trace, reader)
+        val idx = Lexer.field(trace, in, stringMatrix)
+        if (pos == discriminator) Lexer.skipValue(trace, in)
         else if (idx >= 0) {
           val trace_ = spans(idx) :: trace
           if (buffer(idx) != null) error(trace_, "duplicate")
-          else buffer(idx) = fieldDecoders(idx).unsafeDecode(trace_, reader)
-        } else if (!rejectExtraFields) Lexer.skipValue(trace, reader)
+          else buffer(idx) = fieldDecoders(idx).unsafeDecode(trace_, in)
+        } else if (!rejectExtraFields) Lexer.skipValue(trace, in)
         else error(trace, "extra field")
-        continue = Lexer.nextField(trace, reader)
+        continue = Lexer.nextField(trace, in)
         pos += 1
       }
       var idx = 0
