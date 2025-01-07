@@ -867,7 +867,7 @@ object JsonCodec {
                     val trace_                 = JsonError.ObjectAccess(discriminatorFieldName) :: trace
                     Lexer.char(trace_, rr, ':')
                     if (discriminatorFieldName == discriminatorName) {
-                      val discriminatorFieldValue = Lexer.string(trace, rr).toString
+                      val discriminatorFieldValue = Lexer.string(trace_, rr).toString
                       rr.rewind()
                       val subtype = deAliasCaseName(discriminatorFieldValue, caseNameAliases)
                       (subtype, JsonError.ObjectAccess(subtype) :: trace_, index)
