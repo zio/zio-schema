@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets
 import java.util
 import java.util.concurrent.ConcurrentHashMap
 
-import scala.annotation.{ switch, tailrec }
+import scala.annotation.{ switch }
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 
@@ -845,12 +845,12 @@ object JsonCodec {
           val maybeDiscriminatorName = parentSchema.annotations.collectFirst { case d: discriminatorName => d.tag }
           (trace: List[JsonError], in: RetractReader) => {
             Lexer.char(trace, in, '{')
-
             if (Lexer.firstField(trace, in)) {
               maybeDiscriminatorName match {
                 case None =>
-                  val subtype = deAliasCaseName(Lexer.string(trace, in).toString, caseNameAliases)
-                  val trace_  = JsonError.ObjectAccess(subtype) :: trace
+                  val fieldName = Lexer.string(trace, in).toString
+                  val subtype   = caseNameAliases.getOrElse(fieldName, fieldName)
+                  val trace_    = JsonError.ObjectAccess(subtype) :: trace
                   cases.find(_.id == subtype) match {
                     case Some(c) =>
                       Lexer.char(trace_, in, ':')
@@ -861,28 +861,29 @@ object JsonCodec {
                       throw UnsafeJson(JsonError.Message("unrecognized subtype") :: trace_)
                   }
                 case Some(discriminatorName) =>
-                  @tailrec
-                  def findDiscriminator(index: Int, rr: RecordingReader): (String, List[JsonError], Int) = {
-                    val discriminatorFieldName = Lexer.string(trace, rr).toString
-                    val trace_                 = JsonError.ObjectAccess(discriminatorFieldName) :: trace
-                    Lexer.char(trace_, rr, ':')
-                    if (discriminatorFieldName == discriminatorName) {
-                      val discriminatorFieldValue = Lexer.string(trace_, rr).toString
-                      rr.rewind()
-                      val subtype = deAliasCaseName(discriminatorFieldValue, caseNameAliases)
-                      (subtype, JsonError.ObjectAccess(subtype) :: trace_, index)
-                    } else {
-                      Lexer.skipValue(trace_, rr)
-                      if (Lexer.nextField(trace, rr)) findDiscriminator(index + 1, rr)
-                      else throw UnsafeJson(JsonError.Message("missing subtype") :: trace)
+                  val rr    = RecordingReader(in)
+                  var index = 0
+                  while ({
+                    (Lexer.string(trace, rr).toString != discriminatorName) && {
+                      Lexer.char(trace, rr, ':')
+                      Lexer.skipValue(trace, rr)
+                      Lexer.nextField(trace, rr) || {
+                        throw UnsafeJson(JsonError.Message("missing subtype") :: trace)
+                      }
                     }
+                  }) {
+                    index += 1
                   }
-
-                  val rr                               = RecordingReader(in)
-                  val (subtype, trace_, discriminator) = findDiscriminator(0, rr)
+                  val trace_ = JsonError.ObjectAccess(discriminatorName) :: trace
+                  Lexer.char(trace_, rr, ':')
+                  val fieldValue = Lexer.string(trace_, rr).toString
+                  val subtype    = caseNameAliases.getOrElse(fieldValue, fieldValue)
                   cases.find(_.id == subtype) match {
                     case Some(c) =>
-                      schemaDecoder(c.schema, discriminator).unsafeDecode(trace_, rr).asInstanceOf[Z]
+                      rr.rewind()
+                      schemaDecoder(c.schema, index)
+                        .unsafeDecode(JsonError.ObjectAccess(subtype) :: trace_, rr)
+                        .asInstanceOf[Z]
                     case _ =>
                       throw UnsafeJson(JsonError.Message("unrecognized subtype") :: trace_)
                   }
@@ -894,9 +895,6 @@ object JsonCodec {
         }
       }
     }
-
-    private def deAliasCaseName(alias: String, caseNameAliases: Map[String, String]): String =
-      caseNameAliases.getOrElse(alias, alias)
 
     private def recordDecoder(schema: GenericRecord): ZJsonDecoder[ListMap[String, Any]] = {
       val capacity = schema.fields.size * 2
