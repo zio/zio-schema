@@ -501,41 +501,32 @@ object JsonCodec {
         ZJsonEncoder.string.contramap(caseMap(_))
       } else { (value: Z, indent: Option[Int], out: Write) =>
         {
-          val nonTransientCase =
-            try schema.nonTransientCases.find(_.deconstructOption(value).isDefined)
-            catch {
-              case ex if NonFatal(ex) => throw new RuntimeException(s"Failed to encode enum type $schema", ex)
-            }
-
-          nonTransientCase match {
+          schema.nonTransientCases.find(_.isCase(value)) match {
             case Some(case_) =>
-              val caseName = case_.caseName
-
-              val discriminator = schema.annotations.collectFirst {
-                case d: discriminatorName => (d, caseName)
-              }
-              val noDiscriminators     = schema.noDiscriminator
-              val doJsonObjectWrapping = discriminator.isEmpty && !noDiscriminators
-
+              val caseName         = case_.caseName
+              val noDiscriminators = schema.noDiscriminator
+              val discriminatorTuple =
+                if (noDiscriminators) None
+                else schema.annotations.collectFirst { case d: discriminatorName => (d, caseName) }
+              val doJsonObjectWrapping = discriminatorTuple.isEmpty && !noDiscriminators
               if (doJsonObjectWrapping) out.write('{')
               val indent_ = bump(indent)
               pad(indent_, out)
-
               if (doJsonObjectWrapping) {
                 string.encoder.unsafeEncode(caseName, indent_, out)
                 if (indent.isEmpty) out.write(':')
                 else out.write(" : ")
               }
-
-              schemaEncoder(
-                case_.schema.asInstanceOf[Schema[Any]],
-                cfg,
-                discriminatorTuple = if (noDiscriminators) None else discriminator
-              ).unsafeEncode(case_.deconstruct(value), indent, out)
-
+              schemaEncoder(case_.schema.asInstanceOf[Schema[Any]], cfg, discriminatorTuple)
+                .unsafeEncode({
+                  try case_.deconstruct(value)
+                  catch {
+                    case ex if NonFatal(ex) => throw new RuntimeException(s"Failed to encode enum type $schema", ex)
+                  }
+                }, indent, out)
               if (doJsonObjectWrapping) out.write('}')
-            case None =>
-              out.write("{}")
+            case _ =>
+              out.write("{}") // for transient cases
           }
         }
       }
