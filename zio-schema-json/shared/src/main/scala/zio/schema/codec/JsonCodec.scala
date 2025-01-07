@@ -868,14 +868,9 @@ object JsonCodec {
                     Lexer.char(trace_, rr, ':')
                     if (discriminatorFieldName == discriminatorName) {
                       val discriminatorFieldValue = Lexer.string(trace, rr).toString
-                      // Perform a second de-aliasing because the first one would resolve the discriminator key instead.
-                      val innerSubtype = deAliasCaseName(discriminatorFieldValue, caseNameAliases)
-                      (innerSubtype, JsonError.ObjectAccess(innerSubtype) :: trace_, {
-                        if (index > 0) {
-                          rr.rewind()
-                          index
-                        } else -2
-                      })
+                      rr.rewind()
+                      val subtype = deAliasCaseName(discriminatorFieldValue, caseNameAliases)
+                      (subtype, JsonError.ObjectAccess(subtype) :: trace_, index)
                     } else {
                       Lexer.skipValue(trace_, rr)
                       if (Lexer.nextField(trace, rr)) findDiscriminator(index + 1, rr)
@@ -885,15 +880,9 @@ object JsonCodec {
 
                   val rr                               = RecordingReader(in)
                   val (subtype, trace_, discriminator) = findDiscriminator(0, rr)
-
                   cases.find(_.id == subtype) match {
                     case Some(c) =>
-                      schemaDecoder(c.schema, discriminator)
-                        .unsafeDecode(trace_, {
-                          if (discriminator >= 0) rr
-                          else in
-                        })
-                        .asInstanceOf[Z]
+                      schemaDecoder(c.schema, discriminator).unsafeDecode(trace_, rr).asInstanceOf[Z]
                     case _ =>
                       throw UnsafeJson(JsonError.Message("unrecognized subtype") :: trace_)
                   }
@@ -1104,12 +1093,8 @@ object JsonCodec {
     private[codec] def caseClass0Decoder[Z](discriminator: Int, schema: Schema.CaseClass0[Z]): ZJsonDecoder[Z] = {
       val rejectExtraFields = schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
       (trace: List[JsonError], in: RetractReader) => {
-        var continue =
-          if (discriminator == -2) Lexer.nextField(trace, in)
-          else {
-            if (discriminator == -1) Lexer.char(trace, in, '{')
-            Lexer.firstField(trace, in)
-          }
+        if (discriminator == -1) Lexer.char(trace, in, '{')
+        var continue = Lexer.firstField(trace, in)
         while (continue) {
           if (rejectExtraFields) {
             throw UnsafeJson(JsonError.Message("extra field") :: trace)
@@ -1486,13 +1471,9 @@ object JsonCodec {
       val len    = fields.length
       val buffer = new Array[Any](len)
       var reader = in
-      var continue =
-        if (discriminator == -2) Lexer.nextField(trace, reader)
-        else {
-          if (discriminator == -1) Lexer.char(trace, reader, '{')
-          else reader = RecordingReader(reader)
-          Lexer.firstField(trace, reader)
-        }
+      if (discriminator == -1) Lexer.char(trace, reader, '{')
+      else reader = RecordingReader(reader)
+      var continue = Lexer.firstField(trace, reader)
       var pos = 0
       while (continue) {
         val idx = Lexer.field(trace, reader, stringMatrix)
