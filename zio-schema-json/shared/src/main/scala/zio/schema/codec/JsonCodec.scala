@@ -1511,12 +1511,12 @@ object JsonCodec {
     fieldDecoders: Array[ZJsonDecoder[_]],
     spans: Array[JsonError.ObjectAccess],
     stringMatrix: StringMatrix,
-    hasDiscriminator: Boolean,
+    noDiscriminator: Boolean,
     skipExtraFields: Boolean
   ) {
 
     def unsafeDecodeFields(trace: List[JsonError], in: RetractReader): Array[Any] = {
-      if (!hasDiscriminator) Lexer.char(trace, in, '{')
+      if (noDiscriminator) Lexer.char(trace, in, '{')
       var continue = Lexer.firstField(trace, in)
       val len      = fields.length
       val buffer   = new Array[Any](len)
@@ -1524,7 +1524,7 @@ object JsonCodec {
         val idx = Lexer.field(trace, in, stringMatrix)
         if (idx >= 0) {
           val trace_ = spans(idx) :: trace
-          if (idx == len && hasDiscriminator) Lexer.skipValue(trace_, in)
+          if (idx == len) Lexer.skipValue(trace_, in) // skipping discriminator field values
           else if (buffer(idx) == null) buffer(idx) = fieldDecoders(idx).unsafeDecode(trace_, in)
           else error("duplicate", trace_)
         } else if (skipExtraFields) Lexer.skipValue(trace, in)
@@ -1592,7 +1592,7 @@ object JsonCodec {
         decoders,
         spans.result(),
         new StringMatrix(names.result(), aliases.result()),
-        hasDiscriminator,
+        !hasDiscriminator,
         !schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
       )
     }
