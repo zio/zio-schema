@@ -347,6 +347,41 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"type":"unlimited"}""")
         )
       },
+      test("pretty printing with discriminator field") {
+        val json = JsonCodec
+          .jsonCodec(Schema[OneOf4])
+          .encoder
+          .encodeJson(
+            RecordExampleWithDiscriminator(f1 = Some("test"), f2 = None),
+            Some(0)
+          )
+        assert(json)(
+          equalTo(
+            """{
+              |  "type" : "RecordExampleWithDiscriminator",
+              |  "$f1" : "test"
+              |}""".stripMargin
+          )
+        )
+      },
+      test("pretty printing with discriminator key") {
+        val json = JsonCodec
+          .jsonCodec(Schema[OneOf])
+          .encoder
+          .encodeJson(
+            StringValue("test"),
+            Some(0)
+          )
+        assert(json)(
+          equalTo(
+            """{
+              |  "StringValue" : {
+              |    "value" : "test"
+              |  }
+              |}""".stripMargin
+          )
+        )
+      },
       suite("with no discriminator")(
         test("example 1") {
           assertEncodes(
@@ -1637,6 +1672,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Enumeration3(`StringValue3-Backticked`("foo", "bar"))
         )
       },
+      test("ADT with generic records and discriminator field") {
+        assertEncodesThenDecodes(
+          Schema[OneOf4],
+          RecordExampleWithDiscriminator(f1 = Some("test"), f2 = None)
+        )
+      },
       test("of case classes with discriminator") {
         assertEncodesThenDecodes(Schema[Command], Command.Cash) &>
           assertEncodesThenDecodes(Schema[Command], Command.Buy(100))
@@ -2353,6 +2394,39 @@ object JsonCodecSpec extends ZIOSpecDefault {
   object AllOptionalFields {
     implicit lazy val schema: Schema[AllOptionalFields] = DeriveSchema.gen[AllOptionalFields]
   }
+
+  @discriminatorName("type")
+  sealed trait OneOf4
+
+  object OneOf4 {
+    implicit lazy val schema: Schema[OneOf4] = DeriveSchema.gen
+  }
+
+  @rejectExtraFields case class RecordExampleWithDiscriminator(
+    @fieldName("$f1") f1: Option[String], // the only field that does not have a default value
+    @fieldNameAliases("field2") f2: Option[String] = None,
+    @transientField f3: Option[String] = None,
+    f4: Option[String] = None,
+    f5: Option[String] = None,
+    f6: Option[String] = None,
+    f7: Option[String] = None,
+    f8: Option[String] = None,
+    f9: Option[String] = None,
+    f10: Option[String] = None,
+    f11: Option[String] = None,
+    f12: Option[String] = None,
+    f13: Option[String] = None,
+    f14: Option[String] = None,
+    f15: Option[String] = None,
+    f16: Option[String] = None,
+    f17: Option[String] = None,
+    f18: Option[String] = None,
+    f19: Option[String] = None,
+    f20: Option[String] = None,
+    f21: Option[String] = None,
+    f22: Option[String] = None,
+    @fieldName("$f23") f23: Option[String] = None
+  ) extends OneOf4
 
   case class RecordExample(
     @fieldName("$f1") f1: Option[String], // the only field that does not have a default value
