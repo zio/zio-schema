@@ -1511,12 +1511,12 @@ object JsonCodec {
     fieldDecoders: Array[ZJsonDecoder[_]],
     spans: Array[JsonError.ObjectAccess],
     stringMatrix: StringMatrix,
-    noDiscriminator: Boolean,
-    rejectExtraFields: Boolean
+    hasDiscriminator: Boolean,
+    skipExtraFields: Boolean
   ) {
 
     def unsafeDecodeFields(trace: List[JsonError], in: RetractReader): Array[Any] = {
-      if (noDiscriminator) Lexer.char(trace, in, '{')
+      if (!hasDiscriminator) Lexer.char(trace, in, '{')
       var continue = Lexer.firstField(trace, in)
       val len      = fields.length
       val buffer   = new Array[Any](len)
@@ -1524,10 +1524,10 @@ object JsonCodec {
         val idx = Lexer.field(trace, in, stringMatrix)
         if (idx >= 0) {
           val trace_ = spans(idx) :: trace
-          if (idx == len && !noDiscriminator) Lexer.skipValue(trace_, in)
+          if (idx == len && hasDiscriminator) Lexer.skipValue(trace_, in)
           else if (buffer(idx) != null) error("duplicate", trace_)
           else buffer(idx) = fieldDecoders(idx).unsafeDecode(trace_, in)
-        } else if (!rejectExtraFields) Lexer.skipValue(trace, in)
+        } else if (skipExtraFields) Lexer.skipValue(trace, in)
         else error("extra field", trace)
         continue = Lexer.nextField(trace, in)
       }
@@ -1581,7 +1581,8 @@ object JsonCodec {
         }
         i += 1
       }
-      if (discriminator.isDefined) {
+      val hasDiscriminator = discriminator.isDefined
+      if (hasDiscriminator) {
         val discriminatorName = discriminator.get
         names += discriminatorName
         spans += JsonError.ObjectAccess(discriminatorName)
@@ -1591,8 +1592,8 @@ object JsonCodec {
         decoders,
         spans.result(),
         new StringMatrix(names.result(), aliases.result()),
-        discriminator.isEmpty,
-        schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
+        hasDiscriminator,
+        !schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
       )
     }
   }
