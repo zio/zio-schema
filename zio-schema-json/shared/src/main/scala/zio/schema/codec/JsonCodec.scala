@@ -1525,8 +1525,8 @@ object JsonCodec {
         if (idx >= 0) {
           val trace_ = spans(idx) :: trace
           if (idx == len && hasDiscriminator) Lexer.skipValue(trace_, in)
-          else if (buffer(idx) != null) error("duplicate", trace_)
-          else buffer(idx) = fieldDecoders(idx).unsafeDecode(trace_, in)
+          else if (buffer(idx) == null) buffer(idx) = fieldDecoders(idx).unsafeDecode(trace_, in)
+          else error("duplicate", trace_)
         } else if (skipExtraFields) Lexer.skipValue(trace, in)
         else error("extra field", trace)
         continue = Lexer.nextField(trace, in)
