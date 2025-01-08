@@ -1576,18 +1576,18 @@ object JsonCodec {
       val spans    = Array.newBuilder[JsonError.ObjectAccess]
       val names    = Array.newBuilder[String]
       val aliases  = Array.newBuilder[(String, Int)]
-      var i        = 0
+      var idx      = 0
       schema.fields.foreach { field =>
-        fields(i) = field
-        decoders(i) = schemaDecoder(field.schema)
+        fields(idx) = field
+        decoders(idx) = schemaDecoder(field.schema)
         val name = field.name.asInstanceOf[String]
         names += name
         spans += JsonError.ObjectAccess(name)
         field.annotations.foreach {
-          case annotation: fieldNameAliases => annotation.aliases.foreach(a => aliases += ((a, i)))
-          case _                            =>
+          case fna: fieldNameAliases => fna.aliases.foreach(a => aliases += ((a, idx)))
+          case _                     =>
         }
-        i += 1
+        idx += 1
       }
       val hasDiscriminator = discriminator.isDefined
       if (hasDiscriminator) {
