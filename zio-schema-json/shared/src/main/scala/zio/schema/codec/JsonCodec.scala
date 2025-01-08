@@ -597,8 +597,8 @@ object JsonCodec {
     import Codecs._
     import ProductDecoder._
 
-    private case class DecoderKey[A](schema: Schema[A], discriminator: Int) {
-      override val hashCode: Int = System.identityHashCode(schema) ^ discriminator
+    private case class DecoderKey[A](schema: Schema[A], discriminator: Option[String]) {
+      override val hashCode: Int = System.identityHashCode(schema) ^ discriminator.hashCode
 
       override def equals(obj: Any): Boolean = obj match {
         case dk: DecoderKey[_] => (dk.schema eq schema) && dk.discriminator == discriminator
@@ -661,7 +661,7 @@ object JsonCodec {
           }
       }
 
-    private[codec] def schemaDecoder[A](schema: Schema[A], discriminator: Int = -1): ZJsonDecoder[A] = {
+    private[codec] def schemaDecoder[A](schema: Schema[A], discriminator: Option[String] = None): ZJsonDecoder[A] = {
       val key     = DecoderKey(schema, discriminator)
       var decoder = decoders.get(key).asInstanceOf[ZJsonDecoder[A]]
       if (decoder eq null) {
@@ -672,7 +672,7 @@ object JsonCodec {
     }
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
-    private[this] def schemaDecoderSlow[A](schema: Schema[A], discriminator: Int): ZJsonDecoder[A] = schema match {
+    private[this] def schemaDecoderSlow[A](schema: Schema[A], discriminator: Option[String]): ZJsonDecoder[A] = schema match {
       case Schema.Primitive(standardType, _)              => primitiveCodec(standardType).decoder
       case Schema.Optional(codec, _)                      => option(schemaDecoder(codec, discriminator))
       case Schema.Tuple2(left, right, _)                  => ZJsonDecoder.tuple2(schemaDecoder(left), schemaDecoder(right))
@@ -849,7 +849,8 @@ object JsonCodec {
           }
         }
       } else {
-        parentSchema.annotations.collectFirst { case d: discriminatorName => d.tag } match {
+        val discriminator = parentSchema.annotations.collectFirst { case d: discriminatorName => d.tag }
+        discriminator match {
           case None =>
             if (caseNameAliases.size <= 64) {
               val stringMatrix = new StringMatrix(caseNameAliases.keys.toArray)
@@ -894,62 +895,53 @@ object JsonCodec {
               val discriminatorSpan   = JsonError.ObjectAccess(discriminatorName)
               val caseMatrix          = new StringMatrix(caseNameAliases.keys.toArray)
               val cases = caseNameAliases.values.map { case_ =>
-                (JsonError.ObjectAccess(case_.id), case_.schema)
+                (JsonError.ObjectAccess(case_.id), schemaDecoder(case_.schema, discriminator))
               }.toArray
               (trace: List[JsonError], in: RetractReader) => {
                 Lexer.char(trace, in, '{')
                 if (!Lexer.firstField(trace, in)) error("missing subtype", trace)
-                val rr    = RecordingReader(in)
-                var index = 0
+                val rr = RecordingReader(in)
                 while ({
                   (Lexer.enumeration(trace, rr, discriminatorMatrix) < 0) && {
                     Lexer.char(trace, rr, ':')
                     Lexer.skipValue(trace, rr)
                     Lexer.nextField(trace, rr) || error("missing subtype", trace)
                   }
-                }) {
-                  index += 1
-                }
+                }) ()
                 val trace_ = discriminatorSpan :: trace
                 Lexer.char(trace_, rr, ':')
                 val idx = Lexer.enumeration(trace_, rr, caseMatrix)
                 rr.rewind()
                 if (idx < 0) error("unrecognized subtype", trace_)
-                val spanWithSchema = cases(idx)
-                schemaDecoder(spanWithSchema._2, index)
-                  .unsafeDecode(spanWithSchema._1 :: trace_, rr)
-                  .asInstanceOf[Z]
+                val spanWithDecoder = cases(idx)
+                spanWithDecoder._2.unsafeDecode(spanWithDecoder._1 :: trace_, rr).asInstanceOf[Z]
               }
             } else {
               val discriminatorSpan = JsonError.ObjectAccess(discriminatorName)
-              val cases             = new util.HashMap[String, (JsonError.ObjectAccess, Schema[Any])](caseNameAliases.size * 2)
+              val cases =
+                new util.HashMap[String, (JsonError.ObjectAccess, ZJsonDecoder[Any])](caseNameAliases.size * 2)
               caseNameAliases.foreach {
                 case (name, case_) =>
-                  cases.put(name, (JsonError.ObjectAccess(case_.id), case_.schema))
+                  cases.put(name, (JsonError.ObjectAccess(case_.id), schemaDecoder(case_.schema, discriminator)))
               }
               (trace: List[JsonError], in: RetractReader) => {
                 Lexer.char(trace, in, '{')
                 if (!Lexer.firstField(trace, in)) error("missing subtype", trace)
-                val rr    = RecordingReader(in)
-                var index = 0
+                val rr = RecordingReader(in)
                 while ({
                   (Lexer.string(trace, rr).toString != discriminatorName) && {
                     Lexer.char(trace, rr, ':')
                     Lexer.skipValue(trace, rr)
                     Lexer.nextField(trace, rr) || error("missing subtype", trace)
                   }
-                }) {
-                  index += 1
-                }
+                }) ()
                 val trace_ = discriminatorSpan :: trace
                 Lexer.char(trace_, rr, ':')
                 val fieldValue = Lexer.string(trace_, rr).toString
                 rr.rewind()
-                val spanWithSchema = cases.get(fieldValue)
-                if (spanWithSchema eq null) error("unrecognized subtype", trace_)
-                schemaDecoder(spanWithSchema._2, index)
-                  .unsafeDecode(spanWithSchema._1 :: trace_, rr)
-                  .asInstanceOf[Z]
+                val spanWithDecoder = cases.get(fieldValue)
+                if (spanWithDecoder eq null) error("unrecognized subtype", trace_)
+                spanWithDecoder._2.unsafeDecode(spanWithDecoder._1 :: trace_, rr).asInstanceOf[Z]
               }
             }
         }
@@ -1145,10 +1137,11 @@ object JsonCodec {
   //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   private[codec] object ProductDecoder {
 
-    private[codec] def caseClass0Decoder[Z](discriminator: Int, schema: Schema.CaseClass0[Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass0Decoder[Z](discriminator: Option[String], schema: Schema.CaseClass0[Z]): ZJsonDecoder[Z] = {
       val rejectExtraFields = schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
+      val noDiscriminator   = discriminator.isEmpty
       (trace: List[JsonError], in: RetractReader) => {
-        if (discriminator == -1) Lexer.char(trace, in, '{')
+        if (noDiscriminator) Lexer.char(trace, in, '{')
         var continue = Lexer.firstField(trace, in)
         while (continue) {
           if (rejectExtraFields) {
@@ -1164,7 +1157,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass1Decoder[A, Z](discriminator: Int, schema: Schema.CaseClass1[A, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass1Decoder[A, Z](discriminator: Option[String], schema: Schema.CaseClass1[A, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1172,7 +1165,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass2Decoder[A1, A2, Z](discriminator: Int, schema: Schema.CaseClass2[A1, A2, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass2Decoder[A1, A2, Z](discriminator: Option[String], schema: Schema.CaseClass2[A1, A2, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1180,7 +1173,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass3Decoder[A1, A2, A3, Z](discriminator: Int, schema: Schema.CaseClass3[A1, A2, A3, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass3Decoder[A1, A2, A3, Z](discriminator: Option[String], schema: Schema.CaseClass3[A1, A2, A3, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1188,7 +1181,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass4Decoder[A1, A2, A3, A4, Z](discriminator: Int, schema: Schema.CaseClass4[A1, A2, A3, A4, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass4Decoder[A1, A2, A3, A4, Z](discriminator: Option[String], schema: Schema.CaseClass4[A1, A2, A3, A4, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1196,7 +1189,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass5Decoder[A1, A2, A3, A4, A5, Z](discriminator: Int, schema: Schema.CaseClass5[A1, A2, A3, A4, A5, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass5Decoder[A1, A2, A3, A4, A5, Z](discriminator: Option[String], schema: Schema.CaseClass5[A1, A2, A3, A4, A5, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1204,7 +1197,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass6Decoder[A1, A2, A3, A4, A5, A6, Z](discriminator: Int, schema: Schema.CaseClass6[A1, A2, A3, A4, A5, A6, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass6Decoder[A1, A2, A3, A4, A5, A6, Z](discriminator: Option[String], schema: Schema.CaseClass6[A1, A2, A3, A4, A5, A6, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1212,7 +1205,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass7Decoder[A1, A2, A3, A4, A5, A6, A7, Z](discriminator: Int, schema: Schema.CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass7Decoder[A1, A2, A3, A4, A5, A6, A7, Z](discriminator: Option[String], schema: Schema.CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1220,7 +1213,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass8Decoder[A1, A2, A3, A4, A5, A6, A7, A8, Z](discriminator: Int, schema: Schema.CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass8Decoder[A1, A2, A3, A4, A5, A6, A7, A8, Z](discriminator: Option[String], schema: Schema.CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1228,7 +1221,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass9Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](discriminator: Int, schema: Schema.CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass9Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](discriminator: Option[String], schema: Schema.CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1236,7 +1229,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass10Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](discriminator: Int, schema: Schema.CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass10Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](discriminator: Option[String], schema: Schema.CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1244,7 +1237,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass11Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](discriminator: Int, schema: Schema.CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass11Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](discriminator: Option[String], schema: Schema.CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1252,7 +1245,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass12Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](discriminator: Int, schema: Schema.CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass12Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](discriminator: Option[String], schema: Schema.CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1260,7 +1253,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass13Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](discriminator: Int, schema: Schema.CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass13Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](discriminator: Option[String], schema: Schema.CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1268,7 +1261,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass14Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](discriminator: Int, schema: Schema.CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass14Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](discriminator: Option[String], schema: Schema.CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1291,7 +1284,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass15Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](discriminator: Int, schema: Schema.CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass15Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](discriminator: Option[String], schema: Schema.CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1315,7 +1308,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass16Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](discriminator: Int, schema: Schema.CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass16Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](discriminator: Option[String], schema: Schema.CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1340,7 +1333,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass17Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](discriminator: Int, schema: Schema.CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass17Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](discriminator: Option[String], schema: Schema.CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1366,7 +1359,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass18Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](discriminator: Int, schema: Schema.CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass18Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](discriminator: Option[String], schema: Schema.CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1393,7 +1386,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass19Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](discriminator: Int, schema: Schema.CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass19Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](discriminator: Option[String], schema: Schema.CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1421,7 +1414,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass20Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](discriminator: Int, schema: Schema.CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass20Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](discriminator: Option[String], schema: Schema.CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1450,7 +1443,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass21Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](discriminator: Int, schema: Schema.CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass21Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](discriminator: Option[String], schema: Schema.CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1480,7 +1473,7 @@ object JsonCodec {
       }
     }
 
-    private[codec] def caseClass22Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](discriminator: Int, schema: Schema.CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z]): ZJsonDecoder[Z] = {
+    private[codec] def caseClass22Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](discriminator: Option[String], schema: Schema.CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z]): ZJsonDecoder[Z] = {
       val ccjd = CaseClassJsonDecoder(schema, discriminator)
       (trace: List[JsonError], in: RetractReader) => {
         val buffer: Array[Any] = ccjd.unsafeDecodeFields(trace, in)
@@ -1518,27 +1511,25 @@ object JsonCodec {
     fieldDecoders: Array[ZJsonDecoder[_]],
     spans: Array[JsonError.ObjectAccess],
     stringMatrix: StringMatrix,
-    discriminator: Int,
+    noDiscriminator: Boolean,
     rejectExtraFields: Boolean
   ) {
 
     def unsafeDecodeFields(trace: List[JsonError], in: RetractReader): Array[Any] = {
-      if (discriminator == -1) Lexer.char(trace, in, '{')
+      if (noDiscriminator) Lexer.char(trace, in, '{')
       var continue = Lexer.firstField(trace, in)
       val len      = fields.length
       val buffer   = new Array[Any](len)
-      var pos      = 0
       while (continue) {
         val idx = Lexer.field(trace, in, stringMatrix)
-        if (pos == discriminator) Lexer.skipValue(trace, in)
-        else if (idx >= 0) {
+        if (idx >= 0) {
           val trace_ = spans(idx) :: trace
-          if (buffer(idx) != null) error(trace_, "duplicate")
+          if (idx == len && !noDiscriminator) Lexer.skipValue(trace_, in)
+          else if (buffer(idx) != null) error("duplicate", trace_)
           else buffer(idx) = fieldDecoders(idx).unsafeDecode(trace_, in)
         } else if (!rejectExtraFields) Lexer.skipValue(trace, in)
-        else error(trace, "extra field")
+        else error("extra field", trace)
         continue = Lexer.nextField(trace, in)
-        pos += 1
       }
       var idx = 0
       while (idx < len) {
@@ -1555,7 +1546,7 @@ object JsonCodec {
             buffer(idx) = schema match {
               case _: Schema.Optional[_]               => None
               case collection: Schema.Collection[_, _] => collection.empty
-              case _                                   => error(spans(idx) :: trace, "missing")
+              case _                                   => error("missing", spans(idx) :: trace)
             }
           }
         }
@@ -1564,38 +1555,43 @@ object JsonCodec {
       buffer
     }
 
-    private def error(trace: List[JsonError], msg: String): Nothing =
+    private def error(msg: String, trace: List[JsonError]): Nothing =
       throw UnsafeJson(JsonError.Message(msg) :: trace)
   }
 
   private object CaseClassJsonDecoder {
 
-    def apply[Z](schema: Schema.Record[Z], discriminator: Int): CaseClassJsonDecoder[Z] = {
+    def apply[Z](schema: Schema.Record[Z], discriminator: Option[String]): CaseClassJsonDecoder[Z] = {
       val len      = schema.fields.length
       val fields   = new Array[Schema.Field[Z, _]](len)
       val decoders = new Array[ZJsonDecoder[_]](len)
-      val spans    = new Array[JsonError.ObjectAccess](len)
-      val names    = new Array[String](len)
+      val spans    = Array.newBuilder[JsonError.ObjectAccess]
+      val names    = Array.newBuilder[String]
       val aliases  = Array.newBuilder[(String, Int)]
       var i        = 0
       schema.fields.foreach { field =>
-        val name = field.name.asInstanceOf[String]
         fields(i) = field
-        names(i) = name
-        spans(i) = JsonError.ObjectAccess(name)
         decoders(i) = schemaDecoder(field.schema)
+        val name = field.name.asInstanceOf[String]
+        names += name
+        spans += JsonError.ObjectAccess(name)
         field.annotations.foreach {
           case annotation: fieldNameAliases => annotation.aliases.foreach(a => aliases += ((a, i)))
           case _                            =>
         }
         i += 1
       }
+      if (discriminator.isDefined) {
+        val discriminatorName = discriminator.get
+        names += discriminatorName
+        spans += JsonError.ObjectAccess(discriminatorName)
+      }
       new CaseClassJsonDecoder(
         fields,
         decoders,
-        spans,
-        new StringMatrix(names, aliases.result()),
-        discriminator,
+        spans.result(),
+        new StringMatrix(names.result(), aliases.result()),
+        discriminator.isEmpty,
         schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
       )
     }
