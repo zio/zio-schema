@@ -515,10 +515,11 @@ object JsonCodec {
                 if (noDiscriminators) None
                 else schema.annotations.collectFirst { case d: discriminatorName => (d.tag, caseName) }
               val doJsonObjectWrapping = discriminatorTuple.isEmpty && !noDiscriminators
-              if (doJsonObjectWrapping) out.write('{')
-              val indent_ = bump(indent)
-              pad(indent_, out)
+              var indent_              = indent
               if (doJsonObjectWrapping) {
+                out.write('{')
+                indent_ = bump(indent)
+                pad(indent_, out)
                 string.encoder.unsafeEncode(caseName, indent_, out)
                 if (indent.isEmpty) out.write(':')
                 else out.write(" : ")
@@ -529,8 +530,11 @@ object JsonCodec {
                   catch {
                     case ex if NonFatal(ex) => throw new RuntimeException(s"Failed to encode enum type $schema", ex)
                   }
-                }, indent, out)
-              if (doJsonObjectWrapping) out.write('}')
+                }, indent_, out)
+              if (doJsonObjectWrapping) {
+                pad(indent, out)
+                out.write('}')
+              }
             case _ =>
               out.write("{}") // for transient cases
           }

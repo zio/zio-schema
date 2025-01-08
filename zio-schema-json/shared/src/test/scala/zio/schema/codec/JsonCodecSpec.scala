@@ -347,6 +347,41 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"type":"unlimited"}""")
         )
       },
+      test("pretty printing with discriminator field") {
+        val json = JsonCodec
+          .jsonCodec(Schema[OneOf4])
+          .encoder
+          .encodeJson(
+            RecordExampleWithDiscriminator(f1 = Some("test"), f2 = None),
+            Some(0)
+          )
+        assert(json)(
+          equalTo(
+            """{
+              |  "type" : "RecordExampleWithDiscriminator",
+              |  "$f1" : "test"
+              |}""".stripMargin
+          )
+        )
+      },
+      test("pretty printing with discriminator key") {
+        val json = JsonCodec
+          .jsonCodec(Schema[OneOf])
+          .encoder
+          .encodeJson(
+            StringValue("test"),
+            Some(0)
+          )
+        assert(json)(
+          equalTo(
+            """{
+              |  "StringValue" : {
+              |    "value" : "test"
+              |  }
+              |}""".stripMargin
+          )
+        )
+      },
       suite("with no discriminator")(
         test("example 1") {
           assertEncodes(
