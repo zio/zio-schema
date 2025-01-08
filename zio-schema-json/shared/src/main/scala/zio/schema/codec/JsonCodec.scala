@@ -790,9 +790,9 @@ object JsonCodec {
         val schema = case_.asInstanceOf[Schema.Case[Z, Any]]
         caseNameAliases.put(case_.id, schema)
         case_.annotations.foreach {
-          case a: caseNameAliases => a.aliases.foreach(a => caseNameAliases.put(a, schema))
-          case cn: caseName       => caseNameAliases.put(cn.name, schema)
-          case _                  =>
+          case cna: caseNameAliases => cna.aliases.foreach(a => caseNameAliases.put(a, schema))
+          case cn: caseName         => caseNameAliases.put(cn.name, schema)
+          case _                    =>
         }
       }
 
@@ -800,18 +800,33 @@ object JsonCodec {
         throw UnsafeJson(JsonError.Message(msg) :: trace)
 
       if (parentSchema.cases.forall(_.schema.isInstanceOf[Schema.CaseClass0[_]])) { // if all cases are CaseClass0, decode as String
-        new ZJsonDecoder[Z] {
-          private[this] val cases = new util.HashMap[String, Z](caseNameAliases.size * 2)
+        if (caseNameAliases.size <= 64) {
+          new ZJsonDecoder[Z] {
+            private[this] val stringMatrix = new StringMatrix(caseNameAliases.keys.toArray)
+            private[this] val cases = caseNameAliases.values.map { case_ =>
+              case_.schema.asInstanceOf[Schema.CaseClass0[Any]].defaultConstruct()
+            }.toArray.asInstanceOf[Array[Z]]
 
-          caseNameAliases.foreach {
-            case (name, case_) =>
-              cases.put(name, case_.schema.asInstanceOf[Schema.CaseClass0[Z]].defaultConstruct())
+            override def unsafeDecode(trace: List[JsonError], in: RetractReader): Z = {
+              val idx = Lexer.enumeration(trace, in, stringMatrix)
+              if (idx < 0) error("unrecognized string", trace)
+              cases(idx)
+            }
           }
+        } else {
+          new ZJsonDecoder[Z] {
+            private[this] val cases = new util.HashMap[String, Z](caseNameAliases.size * 2)
 
-          override def unsafeDecode(trace: List[JsonError], in: RetractReader): Z = {
-            val result = cases.get(Lexer.string(trace, in).toString)
-            if (result == null) error("unrecognized string", trace)
-            result
+            caseNameAliases.foreach {
+              case (name, case_) =>
+                cases.put(name, case_.schema.asInstanceOf[Schema.CaseClass0[Z]].defaultConstruct())
+            }
+
+            override def unsafeDecode(trace: List[JsonError], in: RetractReader): Z = {
+              val result = cases.get(Lexer.string(trace, in).toString)
+              if (result == null) error("unrecognized string", trace)
+              result
+            }
           }
         }
       } else if (parentSchema.annotations.exists(_.isInstanceOf[noDiscriminator])) {
@@ -836,53 +851,106 @@ object JsonCodec {
       } else {
         parentSchema.annotations.collectFirst { case d: discriminatorName => d.tag } match {
           case None =>
-            val cases = new util.HashMap[String, (JsonError.ObjectAccess, ZJsonDecoder[Any])](caseNameAliases.size * 2)
-            caseNameAliases.foreach {
-              case (name, case_) =>
-                cases.put(name, (JsonError.ObjectAccess(case_.id), schemaDecoder(case_.schema)))
-            }
-            (trace: List[JsonError], in: RetractReader) => {
-              Lexer.char(trace, in, '{')
-              if (!Lexer.firstField(trace, in)) error("missing subtype", trace)
-              val fieldName       = Lexer.string(trace, in).toString
-              val spanWithDecoder = cases.get(fieldName)
-              if (spanWithDecoder eq null) error("unrecognized subtype", trace)
-              val trace_ = spanWithDecoder._1 :: trace
-              Lexer.char(trace_, in, ':')
-              val decoded = spanWithDecoder._2.unsafeDecode(trace_, in).asInstanceOf[Z]
-              Lexer.nextField(trace_, in)
-              decoded
+            if (caseNameAliases.size <= 64) {
+              val stringMatrix = new StringMatrix(caseNameAliases.keys.toArray)
+              val cases = caseNameAliases.values.map { case_ =>
+                (JsonError.ObjectAccess(case_.id), schemaDecoder(case_.schema))
+              }.toArray
+              (trace: List[JsonError], in: RetractReader) => {
+                Lexer.char(trace, in, '{')
+                if (!Lexer.firstField(trace, in)) error("missing subtype", trace)
+                val idx = Lexer.enumeration(trace, in, stringMatrix)
+                if (idx < 0) error("unrecognized subtype", trace)
+                val spanWithDecoder = cases(idx)
+                val trace_          = spanWithDecoder._1 :: trace
+                Lexer.char(trace_, in, ':')
+                val decoded = spanWithDecoder._2.unsafeDecode(trace_, in).asInstanceOf[Z]
+                Lexer.nextField(trace_, in)
+                decoded
+              }
+            } else {
+              val cases =
+                new util.HashMap[String, (JsonError.ObjectAccess, ZJsonDecoder[Any])](caseNameAliases.size * 2)
+              caseNameAliases.foreach {
+                case (name, case_) =>
+                  cases.put(name, (JsonError.ObjectAccess(case_.id), schemaDecoder(case_.schema)))
+              }
+              (trace: List[JsonError], in: RetractReader) => {
+                Lexer.char(trace, in, '{')
+                if (!Lexer.firstField(trace, in)) error("missing subtype", trace)
+                val fieldName       = Lexer.string(trace, in).toString
+                val spanWithDecoder = cases.get(fieldName)
+                if (spanWithDecoder eq null) error("unrecognized subtype", trace)
+                val trace_ = spanWithDecoder._1 :: trace
+                Lexer.char(trace_, in, ':')
+                val decoded = spanWithDecoder._2.unsafeDecode(trace_, in).asInstanceOf[Z]
+                Lexer.nextField(trace_, in)
+                decoded
+              }
             }
           case Some(discriminatorName) =>
-            val cases = new util.HashMap[String, (JsonError.ObjectAccess, Schema[Any])](caseNameAliases.size * 2)
-            caseNameAliases.foreach {
-              case (name, case_) =>
-                cases.put(name, (JsonError.ObjectAccess(case_.id), case_.schema))
-            }
-            val discriminatorSpan = JsonError.ObjectAccess(discriminatorName)
-            (trace: List[JsonError], in: RetractReader) => {
-              Lexer.char(trace, in, '{')
-              if (!Lexer.firstField(trace, in)) error("missing subtype", trace)
-              val rr    = RecordingReader(in)
-              var index = 0
-              while ({
-                (Lexer.string(trace, rr).toString != discriminatorName) && {
-                  Lexer.char(trace, rr, ':')
-                  Lexer.skipValue(trace, rr)
-                  Lexer.nextField(trace, rr) || error("missing subtype", trace)
+            if (caseNameAliases.size <= 64) {
+              val discriminatorMatrix = new StringMatrix(Array(discriminatorName))
+              val discriminatorSpan   = JsonError.ObjectAccess(discriminatorName)
+              val caseMatrix          = new StringMatrix(caseNameAliases.keys.toArray)
+              val cases = caseNameAliases.values.map { case_ =>
+                (JsonError.ObjectAccess(case_.id), case_.schema)
+              }.toArray
+              (trace: List[JsonError], in: RetractReader) => {
+                Lexer.char(trace, in, '{')
+                if (!Lexer.firstField(trace, in)) error("missing subtype", trace)
+                val rr    = RecordingReader(in)
+                var index = 0
+                while ({
+                  (Lexer.enumeration(trace, rr, discriminatorMatrix) < 0) && {
+                    Lexer.char(trace, rr, ':')
+                    Lexer.skipValue(trace, rr)
+                    Lexer.nextField(trace, rr) || error("missing subtype", trace)
+                  }
+                }) {
+                  index += 1
                 }
-              }) {
-                index += 1
+                val trace_ = discriminatorSpan :: trace
+                Lexer.char(trace_, rr, ':')
+                val idx = Lexer.enumeration(trace_, rr, caseMatrix)
+                rr.rewind()
+                if (idx < 0) error("unrecognized subtype", trace_)
+                val spanWithSchema = cases(idx)
+                schemaDecoder(spanWithSchema._2, index)
+                  .unsafeDecode(spanWithSchema._1 :: trace_, rr)
+                  .asInstanceOf[Z]
               }
-              val trace_ = discriminatorSpan :: trace
-              Lexer.char(trace_, rr, ':')
-              val fieldValue = Lexer.string(trace_, rr).toString
-              rr.rewind()
-              val spanWithSchema = cases.get(fieldValue)
-              if (spanWithSchema eq null) error("unrecognized subtype", trace_)
-              schemaDecoder(spanWithSchema._2, index)
-                .unsafeDecode(spanWithSchema._1 :: trace_, rr)
-                .asInstanceOf[Z]
+            } else {
+              val discriminatorSpan = JsonError.ObjectAccess(discriminatorName)
+              val cases             = new util.HashMap[String, (JsonError.ObjectAccess, Schema[Any])](caseNameAliases.size * 2)
+              caseNameAliases.foreach {
+                case (name, case_) =>
+                  cases.put(name, (JsonError.ObjectAccess(case_.id), case_.schema))
+              }
+              (trace: List[JsonError], in: RetractReader) => {
+                Lexer.char(trace, in, '{')
+                if (!Lexer.firstField(trace, in)) error("missing subtype", trace)
+                val rr    = RecordingReader(in)
+                var index = 0
+                while ({
+                  (Lexer.string(trace, rr).toString != discriminatorName) && {
+                    Lexer.char(trace, rr, ':')
+                    Lexer.skipValue(trace, rr)
+                    Lexer.nextField(trace, rr) || error("missing subtype", trace)
+                  }
+                }) {
+                  index += 1
+                }
+                val trace_ = discriminatorSpan :: trace
+                Lexer.char(trace_, rr, ':')
+                val fieldValue = Lexer.string(trace_, rr).toString
+                rr.rewind()
+                val spanWithSchema = cases.get(fieldValue)
+                if (spanWithSchema eq null) error("unrecognized subtype", trace_)
+                schemaDecoder(spanWithSchema._2, index)
+                  .unsafeDecode(spanWithSchema._1 :: trace_, rr)
+                  .asInstanceOf[Z]
+              }
             }
         }
       }
