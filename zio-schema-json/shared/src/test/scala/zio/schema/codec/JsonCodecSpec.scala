@@ -1035,6 +1035,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"amount":1000, "type":"onetime"}""")
         )
       },
+      test("case name - illegal discriminator value") {
+        assertDecodesToError(
+          Subscription.schema,
+          """{"amount":1000, "type":123}""",
+          JsonError.Message("expected '\"' got '1'") :: JsonError.ObjectAccess("type") :: Nil
+        )
+      },
       test("case name - empty fields") {
         assertDecodes(
           Subscription.schema,
