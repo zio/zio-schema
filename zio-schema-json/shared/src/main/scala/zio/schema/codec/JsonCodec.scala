@@ -1516,8 +1516,11 @@ object JsonCodec {
   ) {
 
     def unsafeDecodeFields(trace: List[JsonError], in: RetractReader): Array[Any] = {
-      if (noDiscriminator) Lexer.char(trace, in, '{')
-      var continue = Lexer.firstField(trace, in)
+      var continue = true
+      if (noDiscriminator) {
+        Lexer.char(trace, in, '{')
+        continue = Lexer.firstField(trace, in)
+      }
       val len      = fields.length
       val buffer   = new Array[Any](len)
       while (continue) {
