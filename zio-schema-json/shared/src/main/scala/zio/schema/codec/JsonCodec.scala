@@ -805,6 +805,9 @@ object JsonCodec {
         case Json.Null          => DynamicValue.NoneValue
       }
 
+    private def error(msg: String, trace: List[JsonError]): Nothing =
+      throw UnsafeJson(JsonError.Message(msg) :: trace)
+
     private def enumDecoder[Z](parentSchema: Schema.Enum[Z]): ZJsonDecoder[Z] = {
       val caseNameAliases = new mutable.HashMap[String, Schema.Case[Z, Any]]
       parentSchema.cases.foreach { case_ =>
@@ -812,9 +815,6 @@ object JsonCodec {
         caseNameAliases.put(case_.caseName, schema)
         case_.caseNameAliases.foreach(a => caseNameAliases.put(a, schema))
       }
-
-      def error(msg: String, trace: List[JsonError]): Nothing =
-        throw UnsafeJson(JsonError.Message(msg) :: trace)
 
       if (parentSchema.cases.forall(_.schema.isInstanceOf[Schema.CaseClass0[_]])) { // if all cases are CaseClass0, decode as String
         if (caseNameAliases.size <= 64) {
@@ -970,18 +970,12 @@ object JsonCodec {
       schema: GenericRecord,
       discriminator: Option[String]
     ): ZJsonDecoder[ListMap[String, Any]] = {
-      val capacity = schema.fields.size * 2
       val spansWithDecoders =
-        new util.HashMap[String, (JsonError.ObjectAccess, ZJsonDecoder[Any])](capacity)
-      val defaults = new util.HashMap[String, Any](capacity)
+        new util.HashMap[String, (JsonError.ObjectAccess, ZJsonDecoder[Any])](schema.fields.size * 2)
       schema.fields.foreach { field =>
-        val fieldName = field.fieldName
         val spanWithDecoder =
-          (JsonError.ObjectAccess(fieldName), schemaDecoder(field.schema).asInstanceOf[ZJsonDecoder[Any]])
-        field.nameAndAliases.foreach(x => spansWithDecoders.put(x, spanWithDecoder))
-        if ((field.optional || field.transient) && field.defaultValue.isDefined) {
-          defaults.put(fieldName, field.defaultValue.get)
-        }
+          (JsonError.ObjectAccess(field.fieldName), schemaDecoder(field.schema).asInstanceOf[ZJsonDecoder[Any]])
+        field.nameAndAliases.foreach(spansWithDecoders.put(_, spanWithDecoder))
       }
       val skipExtraFields = !schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
       (trace: List[JsonError], in: RetractReader) => {
@@ -1000,23 +994,37 @@ object JsonCodec {
             val dec    = spanWithDecoder._2
             val trace_ = span :: trace
             lexer.char(trace_, in, ':')
-            val fieldName = span.field
+            val fieldName = span.field // reuse strings with calculated hashCode
             val prev      = map.put(fieldName, dec.unsafeDecode(trace_, in))
-            if (prev != null) {
-              throw UnsafeJson(JsonError.Message("duplicate") :: trace_)
-            }
+            if (prev != null) error("duplicate", trace_)
           } else if (skipExtraFields || discriminator.contains(fieldNameOrAlias)) {
             lexer.char(trace, in, ':')
             lexer.skipValue(trace, in)
-          } else {
-            throw UnsafeJson(JsonError.Message(s"unexpected field: $fieldNameOrAlias") :: trace)
-          }
+          } else error("extra field", trace)
           continue = lexer.nextField(trace, in)
         }
-        val it = defaults.entrySet().iterator()
-        while (it.hasNext) {
-          val entry = it.next()
-          map.putIfAbsent(entry.getKey, entry.getValue)
+        schema.fields.foreach { field =>
+          val fieldName = field.fieldName // reuse strings with calculated hashCode
+          if (map.get(fieldName) == null) {
+            map.put( // mitigation of a linking error for `map.computeIfAbsent` in Scala.js
+              fieldName, {
+                if ((field.optional || field.transient) && field.defaultValue.isDefined) {
+                  field.defaultValue.get
+                } else {
+                  var schema = field.schema
+                  schema match {
+                    case l: Schema.Lazy[_] => schema = l.schema
+                    case _                 =>
+                  }
+                  schema match {
+                    case _: Schema.Optional[_]               => None
+                    case collection: Schema.Collection[_, _] => collection.empty
+                    case _                                   => error("missing", spansWithDecoders.get(fieldName)._1 :: trace)
+                  }
+                }
+              }
+            )
+          }
         }
         (ListMap.newBuilder[String, Any] ++= ({                         // to avoid O(n) insert operations
           import scala.collection.JavaConverters.mapAsScalaMapConverter // use deprecated class for Scala 2.12 compatibility
@@ -1095,10 +1103,7 @@ object JsonCodec {
             case (Some(a), Some(b)) => Fallback.Both(a, b)
             case (Some(a), _)       => Fallback.Left(a)
             case (_, Some(b))       => Fallback.Right(b)
-            case _ =>
-              throw UnsafeJson(
-                JsonError.Message("Fallback decoder was unable to decode both left and right sides") :: trace
-              )
+            case _                  => error("Fallback decoder was unable to decode both left and right sides", trace)
           }
         }
       }
