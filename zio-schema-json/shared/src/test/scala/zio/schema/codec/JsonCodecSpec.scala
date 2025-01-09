@@ -933,6 +933,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"id":1,"value":10,"description":"test"}""")
         )
       },
+      test("old field name rejected") {
+        assertDecodesToError(
+          Order.schema,
+          """{"order-id":1,"value":10,"description":"test"}""",
+          JsonError.Message("missing") :: JsonError.ObjectAccess("orderId") :: Nil
+        )
+      },
       test("field name with alias - no alias") {
         assertDecodes(
           Order.schema,
@@ -2310,7 +2317,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
     implicit lazy val schema: Schema[Subscription] = DeriveSchema.gen[Subscription]
   }
 
-  case class Order(@fieldNameAliases("order_id", "id") orderId: Int, value: BigDecimal, description: String)
+  case class Order(
+    @fieldNameAliases("order_id", "id") @fieldName("orderId") `order-id`: Int,
+    value: BigDecimal,
+    description: String
+  )
 
   object Order {
     implicit lazy val schema: Schema[Order] = DeriveSchema.gen[Order]
