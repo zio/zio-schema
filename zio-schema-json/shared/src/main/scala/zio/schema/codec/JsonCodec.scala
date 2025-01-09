@@ -1152,7 +1152,7 @@ object JsonCodec {
               out.write(',')
               if (doPrettyPrint) pad(indent_, out)
             }
-            strEnc.unsafeEncode(schema.name, indent_, out)
+            strEnc.unsafeEncode(schema.fieldName, indent_, out)
             if (doPrettyPrint) out.write(" : ")
             else out.write(':')
             enc.unsafeEncode(value, indent_, out)
@@ -1607,13 +1607,10 @@ object JsonCodec {
       schema.fields.foreach { field =>
         fields(idx) = field
         decoders(idx) = schemaDecoder(field.schema)
-        val name = field.name.asInstanceOf[String]
+        val name = field.fieldName
         names += name
         spans += JsonError.ObjectAccess(name)
-        field.annotations.foreach {
-          case fna: fieldNameAliases => fna.aliases.foreach(a => aliases += ((a, idx)))
-          case _                     =>
-        }
+        (field.nameAndAliases - name).foreach(a => aliases += ((a, idx)))
         idx += 1
       }
       val hasDiscriminator = discriminator.isDefined
