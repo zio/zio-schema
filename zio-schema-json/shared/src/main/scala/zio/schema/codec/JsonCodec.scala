@@ -809,12 +809,8 @@ object JsonCodec {
       val caseNameAliases = new mutable.HashMap[String, Schema.Case[Z, Any]]
       parentSchema.cases.foreach { case_ =>
         val schema = case_.asInstanceOf[Schema.Case[Z, Any]]
-        caseNameAliases.put(case_.id, schema)
-        case_.annotations.foreach {
-          case cna: caseNameAliases => cna.aliases.foreach(a => caseNameAliases.put(a, schema))
-          case cn: caseName         => caseNameAliases.put(cn.name, schema)
-          case _                    =>
-        }
+        caseNameAliases.put(case_.caseName, schema)
+        case_.caseNameAliases.foreach(a => caseNameAliases.put(a, schema))
       }
 
       def error(msg: String, trace: List[JsonError]): Nothing =
@@ -876,7 +872,7 @@ object JsonCodec {
             if (caseNameAliases.size <= 64) {
               val stringMatrix = new StringMatrix(caseNameAliases.keys.toArray)
               val cases = caseNameAliases.values.map { case_ =>
-                (JsonError.ObjectAccess(case_.id), schemaDecoder(case_.schema))
+                (JsonError.ObjectAccess(case_.caseName), schemaDecoder(case_.schema))
               }.toArray
               (trace: List[JsonError], in: RetractReader) => {
                 val lexer = Lexer
@@ -895,7 +891,7 @@ object JsonCodec {
                 new util.HashMap[String, (JsonError.ObjectAccess, ZJsonDecoder[Any])](caseNameAliases.size * 2)
               caseNameAliases.foreach {
                 case (name, case_) =>
-                  cases.put(name, (JsonError.ObjectAccess(case_.id), schemaDecoder(case_.schema)))
+                  cases.put(name, (JsonError.ObjectAccess(case_.caseName), schemaDecoder(case_.schema)))
               }
               (trace: List[JsonError], in: RetractReader) => {
                 val lexer = Lexer
@@ -917,7 +913,7 @@ object JsonCodec {
               val discriminatorSpan   = JsonError.ObjectAccess(discriminatorName)
               val caseMatrix          = new StringMatrix(caseNameAliases.keys.toArray)
               val cases = caseNameAliases.values.map { case_ =>
-                (JsonError.ObjectAccess(case_.id), schemaDecoder(case_.schema, discriminator))
+                (JsonError.ObjectAccess(case_.caseName), schemaDecoder(case_.schema, discriminator))
               }.toArray
               (trace: List[JsonError], in: RetractReader) => {
                 val lexer = Lexer
@@ -943,7 +939,7 @@ object JsonCodec {
                 new util.HashMap[String, (JsonError.ObjectAccess, ZJsonDecoder[Any])](caseNameAliases.size * 2)
               caseNameAliases.foreach {
                 case (name, case_) =>
-                  cases.put(name, (JsonError.ObjectAccess(case_.id), schemaDecoder(case_.schema, discriminator)))
+                  cases.put(name, (JsonError.ObjectAccess(case_.caseName), schemaDecoder(case_.schema, discriminator)))
               }
               (trace: List[JsonError], in: RetractReader) => {
                 val lexer = Lexer
