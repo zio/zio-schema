@@ -235,7 +235,10 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     implicit lazy val schema: Schema.EnumN[Enum23, CaseSet.Aux[Enum23]] = DeriveSchema.gen[Enum23]
   }
 
-  case class RenamedField(@fieldName("renamed") name: String, @fieldName("number") num: Int)
+  case class RenamedField(
+    @fieldName("renamed") @fieldName("ignored_rename") name: String,
+    @fieldName("number") num: Int
+  )
 
   object RenamedField {
     implicit lazy val schema: Schema[RenamedField] = DeriveSchema.gen[RenamedField]
@@ -445,7 +448,9 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
         assert(Schema[ContainsSchema].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
       test("correctly derives renaming field when fieldName annotation is present") {
-        val derived = DeriveSchema.gen[RenamedField]
+        val derived       = DeriveSchema.gen[RenamedField]
+        val derivedField1 = derived.asInstanceOf[Schema.CaseClass2[String, Int, RenamedField]].field1
+        val derivedField2 = derived.asInstanceOf[Schema.CaseClass2[String, Int, RenamedField]].field2
 
         val expected: Schema[RenamedField] = {
           Schema.CaseClass2(
@@ -453,7 +458,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
             field01 = Schema.Field(
               "renamed",
               Schema.Primitive(StandardType.StringType),
-              Chunk(fieldName("renamed")),
+              Chunk(fieldName("renamed"), fieldName("ignored_rename")),
               get0 = _.name,
               set0 = (a, b: String) => a.copy(name = b)
             ),
@@ -467,6 +472,10 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
             RenamedField.apply
           )
         }
+        assert(derivedField1.fieldName)(equalTo("renamed")) &&
+        assert(derivedField1.nameAndAliases)(equalTo(Set("renamed"))) &&
+        assert(derivedField2.fieldName)(equalTo("number")) &&
+        assert(derivedField2.nameAndAliases)(equalTo(Set("number"))) &&
         assert(derived)(hasSameSchema(expected)) &&
         assert(verifyFieldName[derived.Field1]("renamed"))(isTrue)
       },
