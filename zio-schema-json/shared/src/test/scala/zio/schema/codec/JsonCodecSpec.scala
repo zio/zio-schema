@@ -25,6 +25,7 @@ import zio.test._
 object JsonCodecSpec extends ZIOSpecDefault {
 
   case class Person(name: String, age: Int)
+
   val personSchema: Schema[Person] = DeriveSchema.gen[Person]
 
   def spec: Spec[TestEnvironment, Any] =
@@ -1696,14 +1697,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertDecodes(Schema[Command], Command.Cash, charSequenceToByteChunk("""{"type":"Cash","extraField":1}""")) &>
           assertDecodes(Schema[Command], Command.Cash, charSequenceToByteChunk("""{"extraField":1,"type":"Cash"}"""))
       ),
-      suite("of case objects")(
+      suite("of case objects with less than 64 cases")(
         test("without annotation")(
           assertEncodesThenDecodes(Schema[Color], Color.Red)
         ),
         test("with caseName")(
           assertEncodesThenDecodes(Schema[Color], Color.Grass) &>
             assertEncodesJson(Schema[Color], Color.Grass, "\"Green\"") &>
-            assertDecodes(Schema[Color], Color.Grass, charSequenceToByteChunk("\"Green\""))
+            assertDecodes(Schema[Color], Color.Grass, charSequenceToByteChunk("\"Green\"")) &>
+            assertDecodesToError(Schema[Color], "\"Grass\"", JsonError.Message("unrecognized string") :: Nil)
         ),
         test("with caseAliases")(
           assertEncodesThenDecodes(Schema[Color], Color.Blue) &>
@@ -1714,6 +1716,24 @@ object JsonCodecSpec extends ZIOSpecDefault {
         ),
         test("invalid case")(
           assertDecodesToError(Schema[Color], "\"not a color\"", JsonError.Message("unrecognized string") :: Nil)
+        )
+      ),
+      suite("of case objects with 64 cases or more")(
+        test("without annotation")(
+          assertEncodesThenDecodes(Schema[BigEnum], BigEnum.Case69)
+        ),
+        test("with caseName")(
+          assertEncodesThenDecodes(Schema[BigEnum], BigEnum.Case00) &>
+            assertEncodesJson(Schema[BigEnum], BigEnum.Case00, "\"Case_00\"") &>
+            assertDecodes(Schema[BigEnum], BigEnum.Case00, charSequenceToByteChunk("\"Case_00\"")) &>
+            assertDecodesToError(Schema[BigEnum], "\"Case00\"", JsonError.Message("unrecognized string") :: Nil)
+        ),
+        test("with caseAliases")(
+          assertEncodesThenDecodes(Schema[BigEnum], BigEnum.Case00) &>
+            assertDecodes(Schema[BigEnum], BigEnum.Case00, charSequenceToByteChunk("\"Case-00\""))
+        ),
+        test("invalid case")(
+          assertDecodesToError(Schema[BigEnum], "\"CaseXX\"", JsonError.Message("unrecognized string") :: Nil)
         )
       )
     ),
@@ -2202,8 +2222,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
   )
 
   sealed trait OneOf
-  case class StringValue(value: String)   extends OneOf
-  case class IntValue(value: Int)         extends OneOf
+
+  case class StringValue(value: String) extends OneOf
+
+  case class IntValue(value: Int) extends OneOf
+
   case class BooleanValue(value: Boolean) extends OneOf
 
   object OneOf {
@@ -2218,9 +2241,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   @discriminatorName("_type")
   sealed trait OneOf2
-  case class StringValue2(value: String)                               extends OneOf2
-  case class IntValue2(value: Int)                                     extends OneOf2
-  case class BooleanValue2(value: Boolean)                             extends OneOf2
+
+  case class StringValue2(value: String) extends OneOf2
+
+  case class IntValue2(value: Int) extends OneOf2
+
+  case class BooleanValue2(value: Boolean) extends OneOf2
+
   case class `StringValue2-Backticked`(value1: String, value2: String) extends OneOf2
 
   case class Enumeration2(oneOf: OneOf2)
@@ -2231,11 +2258,16 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   @noDiscriminator
   sealed trait OneOf3
-  case class StringValue3(value: String)                               extends OneOf3
-  case class IntValue3(value: Int)                                     extends OneOf3
-  case class BooleanValue3(value: Boolean)                             extends OneOf3
+
+  case class StringValue3(value: String) extends OneOf3
+
+  case class IntValue3(value: Int) extends OneOf3
+
+  case class BooleanValue3(value: Boolean) extends OneOf3
+
   case class `StringValue3-Backticked`(value1: String, value2: String) extends OneOf3
-  case class Nested(oneOf: OneOf3)                                     extends OneOf3
+
+  case class Nested(oneOf: OneOf3) extends OneOf3
 
   case class Enumeration3(oneOf: OneOf3)
 
@@ -2262,12 +2294,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object Command {
     case class Buy(credits: Int) extends Command
-    case object Cash             extends Command
+
+    case object Cash extends Command
 
     implicit val schema: Schema[Command] = DeriveSchema.gen[Command]
   }
 
   case object Singleton
+
   implicit val schemaObject: Schema[Singleton.type] = DeriveSchema.gen[Singleton.type]
 
   case class Key(name: String, index: Int)
@@ -2275,6 +2309,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
   object Key {
     implicit lazy val schema: Schema[Key] = DeriveSchema.gen[Key]
   }
+
   case class Value(first: Int, second: Boolean)
 
   object Value {
@@ -2326,10 +2361,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
   object Order {
     implicit lazy val schema: Schema[Order] = DeriveSchema.gen[Order]
   }
+
   @noDiscriminator sealed trait Prompt
 
   object Prompt {
-    final case class Single(value: String)         extends Prompt
+    final case class Single(value: String) extends Prompt
+
     final case class Multiple(value: List[String]) extends Prompt
 
     implicit lazy val schema: Schema[Prompt] = DeriveSchema.gen[Prompt]
@@ -2505,7 +2542,8 @@ object JsonCodecSpec extends ZIOSpecDefault {
   object Enum23Cases {
     implicit lazy val schema: Schema[Enum23Cases] = DeriveSchema.gen[Enum23Cases]
 
-    @caseName("NumberOne") @caseNameAliases("One") case class Case1(value: String) extends Enum23Cases
+    @caseName("NumberOne")
+    @caseNameAliases("One") case class Case1(value: String) extends Enum23Cases
 
     case class Case2(value: Int) extends Enum23Cases
 
@@ -2562,5 +2600,85 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object BacktickedFieldName {
     implicit val schema: Schema[BacktickedFieldName] = DeriveSchema.gen
+  }
+
+  sealed trait BigEnum
+
+  object BigEnum {
+
+    @caseName("Case_00")
+    @caseNameAliases("Case-00")
+    case object Case00 extends BigEnum
+    case object Case01 extends BigEnum
+    case object Case02 extends BigEnum
+    case object Case03 extends BigEnum
+    case object Case04 extends BigEnum
+    case object Case05 extends BigEnum
+    case object Case06 extends BigEnum
+    case object Case07 extends BigEnum
+    case object Case08 extends BigEnum
+    case object Case09 extends BigEnum
+    case object Case10 extends BigEnum
+    case object Case11 extends BigEnum
+    case object Case12 extends BigEnum
+    case object Case13 extends BigEnum
+    case object Case14 extends BigEnum
+    case object Case15 extends BigEnum
+    case object Case16 extends BigEnum
+    case object Case17 extends BigEnum
+    case object Case18 extends BigEnum
+    case object Case19 extends BigEnum
+    case object Case20 extends BigEnum
+    case object Case21 extends BigEnum
+    case object Case22 extends BigEnum
+    case object Case23 extends BigEnum
+    case object Case24 extends BigEnum
+    case object Case25 extends BigEnum
+    case object Case26 extends BigEnum
+    case object Case27 extends BigEnum
+    case object Case28 extends BigEnum
+    case object Case29 extends BigEnum
+    case object Case30 extends BigEnum
+    case object Case31 extends BigEnum
+    case object Case32 extends BigEnum
+    case object Case33 extends BigEnum
+    case object Case34 extends BigEnum
+    case object Case35 extends BigEnum
+    case object Case36 extends BigEnum
+    case object Case37 extends BigEnum
+    case object Case38 extends BigEnum
+    case object Case39 extends BigEnum
+    case object Case40 extends BigEnum
+    case object Case41 extends BigEnum
+    case object Case42 extends BigEnum
+    case object Case43 extends BigEnum
+    case object Case44 extends BigEnum
+    case object Case45 extends BigEnum
+    case object Case46 extends BigEnum
+    case object Case47 extends BigEnum
+    case object Case48 extends BigEnum
+    case object Case49 extends BigEnum
+    case object Case50 extends BigEnum
+    case object Case51 extends BigEnum
+    case object Case52 extends BigEnum
+    case object Case53 extends BigEnum
+    case object Case54 extends BigEnum
+    case object Case55 extends BigEnum
+    case object Case56 extends BigEnum
+    case object Case57 extends BigEnum
+    case object Case58 extends BigEnum
+    case object Case59 extends BigEnum
+    case object Case60 extends BigEnum
+    case object Case61 extends BigEnum
+    case object Case62 extends BigEnum
+    case object Case63 extends BigEnum
+    case object Case64 extends BigEnum
+    case object Case65 extends BigEnum
+    case object Case66 extends BigEnum
+    case object Case67 extends BigEnum
+    case object Case68 extends BigEnum
+    case object Case69 extends BigEnum
+
+    implicit val schema: Schema[BigEnum] = DeriveSchema.gen
   }
 }
