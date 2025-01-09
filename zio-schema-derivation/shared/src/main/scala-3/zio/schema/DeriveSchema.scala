@@ -256,7 +256,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
                tpe.asType
            }
            val annotations = paramAnns.getOrElse(label, List.empty)
-           val nameExpr = annotations.collectFirst {
+           val nameExpr = annotations.reverse.collectFirst {
              case ann if ann.isExprOf[fieldName] =>
                val fieldNameAnn = ann.asExprOf[fieldName]
                  '{${fieldNameAnn}.name}
@@ -291,7 +291,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
                 tpe.asType
             }
            val annotations = paramAnns.getOrElse(label, List.empty)
-           val nameExpr = annotations.collectFirst {
+           val nameExpr = annotations.reverse.collectFirst {
              case ann if ann.isExprOf[fieldName] =>
                val fieldNameAnn = ann.asExprOf[fieldName]
                '{${fieldNameAnn}.name}
@@ -478,7 +478,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
       val chunk = '{ zio.Chunk.fromIterable(${ Expr.ofSeq(anns.reverse) }) }
 
       if (anns.nonEmpty) {
-        val (newName, newNameValue) = anns.collectFirst {
+        val (newName, newNameValue) = anns.reverse.collectFirst {
           case ann if ann.isExprOf[fieldName] =>
             val fieldNameAnn = ann.asExprOf[fieldName]
             ('{${fieldNameAnn}.name}, extractFieldNameValue(fieldNameAnn))
@@ -529,7 +529,7 @@ private case class DeriveSchema()(using val ctx: Quotes) {
       val chunk = '{ zio.Chunk.fromIterable(${ Expr.ofSeq(anns.reverse) }) }
 
       if (anns.nonEmpty) {
-        val newName = anns.collectFirst {
+        val newName = anns.reverse.collectFirst {
           case ann if ann.isExprOf[fieldName] => '{${ann.asExprOf[fieldName]}.name}
         }.getOrElse(Expr(name))
 
