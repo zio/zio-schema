@@ -25,6 +25,7 @@ import zio.test._
 object JsonCodecSpec extends ZIOSpecDefault {
 
   case class Person(name: String, age: Int)
+
   val personSchema: Schema[Person] = DeriveSchema.gen[Person]
 
   def spec: Spec[TestEnvironment, Any] =
@@ -90,6 +91,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
             Schema.Optional(Schema.Primitive(StandardType.StringType)),
             None
           )
+      }
+    ),
+    suite("case class")(
+      test("backticked field name") {
+        assertEncodesJson(
+          Schema[BacktickedFieldName],
+          BacktickedFieldName("test"),
+          """{"x-api-key":"test"}"""
+        )
       }
     ),
     suite("optional field annotation")(
@@ -303,7 +313,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"oneOf":{"_type":"StringValue2","value":"foo2"}}""")
         )
       },
-      test("case class") {
+      test("transient field annotation") {
         assertEncodes(
           searchRequestWithTransientFieldSchema,
           SearchRequestWithTransientField("foo", 10, 20, "bar"),
@@ -336,6 +346,41 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Subscription.schema,
           Subscription.Unlimited(None),
           charSequenceToByteChunk("""{"type":"unlimited"}""")
+        )
+      },
+      test("pretty printing with discriminator field") {
+        val json = JsonCodec
+          .jsonCodec(Schema[OneOf4])
+          .encoder
+          .encodeJson(
+            RecordExampleWithDiscriminator(f1 = Some("test"), f2 = None),
+            Some(0)
+          )
+        assert(json)(
+          equalTo(
+            """{
+              |  "type" : "RecordExampleWithDiscriminator",
+              |  "$f1" : "test"
+              |}""".stripMargin
+          )
+        )
+      },
+      test("pretty printing with discriminator key") {
+        val json = JsonCodec
+          .jsonCodec(Schema[OneOf])
+          .encoder
+          .encodeJson(
+            StringValue("test"),
+            Some(0)
+          )
+        assert(json)(
+          equalTo(
+            """{
+              |  "StringValue" : {
+              |    "value" : "test"
+              |  }
+              |}""".stripMargin
+          )
         )
       },
       suite("with no discriminator")(
@@ -431,7 +476,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     suite("Generic Record")(
       test("Do not encode transient field") {
         assertEncodes(
-          RecordExample.schema.annotate(rejectExtraFields()),
+          RecordExample.schema,
           RecordExample(f1 = Some("test"), f3 = Some("transient")),
           charSequenceToByteChunk(
             """{"$f1":"test"}""".stripMargin
@@ -708,6 +753,18 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"$f1":"test", "extraField":"extra"}""")
         ).flip.map(err => assertTrue(err.getMessage() == "(unexpected field: extraField)"))
       },
+      test("reject duplicated fields") {
+        assertDecodesToError(
+          recordSchema,
+          """{"foo":"test","bar":10,"foo":10}""",
+          JsonError.Message("duplicate") :: JsonError.ObjectAccess("foo") :: Nil
+        ) &>
+          assertDecodesToError(
+            recordSchema,
+            """{"bar":10,"foo":"test","bar":"100"}""",
+            JsonError.Message("duplicate") :: JsonError.ObjectAccess("bar") :: Nil
+          )
+      },
       test("optional field with schema or annotated default value") {
         assertDecodes(
           RecordExampleWithOptField.schema,
@@ -812,11 +869,41 @@ object JsonCodecSpec extends ZIOSpecDefault {
             JsonError.Message("extra field") :: Nil
           )
       },
-      test("transient field annotation") {
+      test("reject duplicated fields") {
+        assertDecodesToError(
+          personSchema,
+          """{"name":"test","age":10,"name":10}""",
+          JsonError.Message("duplicate") :: JsonError.ObjectAccess("name") :: Nil
+        ) &>
+          assertDecodesToError(
+            personSchema,
+            """{"age":10,"name":"test","age":"100"}""",
+            JsonError.Message("duplicate") :: JsonError.ObjectAccess("age") :: Nil
+          )
+      },
+      test("transient field annotation with default value in class definition") {
         assertDecodes(
           searchRequestWithTransientFieldSchema,
-          SearchRequestWithTransientField("test", 0, 10, Schema[String].defaultValue.getOrElse("")),
+          SearchRequestWithTransientField("test", 0, 10),
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
+        )
+      },
+      test("transient field annotation with default value implicitly available for the field type") {
+        case class CaseClassWithTransientField(transient: String)
+        assertDecodes(
+          Schema.CaseClass1[String, CaseClassWithTransientField](
+            id0 = TypeId.fromTypeName("SearchRequestWithTransientField"),
+            field0 = Schema.Field(
+              name0 = "transient",
+              schema0 = Schema[String],
+              get0 = _.transient,
+              set0 = (x, transient) => x.copy(transient = transient),
+              annotations0 = Chunk(new transientField())
+            ),
+            defaultConstruct0 = new CaseClassWithTransientField(_)
+          ),
+          CaseClassWithTransientField(Schema[String].defaultValue.toOption.get),
+          charSequenceToByteChunk("""{}""")
         )
       },
       test("fieldDefaultValue") {
@@ -824,6 +911,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           fieldDefaultValueSearchRequestSchema,
           FieldDefaultValueSearchRequest("test", 0, 10, "test"),
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
+        )
+      },
+      test("backticked field name") {
+        assertDecodes(
+          BacktickedFieldName.schema,
+          BacktickedFieldName("test"),
+          charSequenceToByteChunk("""{"x-api-key":"test"}""")
         )
       },
       test("field name with alias - id") {
@@ -840,6 +934,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"id":1,"value":10,"description":"test"}""")
         )
       },
+      test("old field name rejected") {
+        assertDecodesToError(
+          Order.schema,
+          """{"order-id":1,"value":10,"description":"test"}""",
+          JsonError.Message("missing") :: JsonError.ObjectAccess("orderId") :: Nil
+        )
+      },
       test("field name with alias - no alias") {
         assertDecodes(
           Order.schema,
@@ -852,6 +953,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           recordWithOptionSchema,
           ListMap[String, Any]("foo" -> Some("s"), "bar" -> None),
           charSequenceToByteChunk("""{"foo":"s","bar":null}""")
+        )
+      },
+      test("with transient fields encoded as implicitly available schema default values") {
+        assertDecodes(
+          recordWithTransientSchema,
+          ListMap[String, Any]("foo" -> "", "bar" -> 0),
+          charSequenceToByteChunk("""{}""")
         )
       },
       test("case class with option fields encoded as null") {
@@ -968,6 +1076,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Subscription.schema,
           OneTime(1000),
           charSequenceToByteChunk("""{"amount":1000, "type":"onetime"}""")
+        )
+      },
+      test("case name - illegal discriminator value") {
+        assertDecodesToError(
+          Subscription.schema,
+          """{"amount":1000, "type":123}""",
+          JsonError.Message("expected '\"' got '1'") :: JsonError.ObjectAccess("type") :: Nil
         )
       },
       test("case name - empty fields") {
@@ -1461,7 +1576,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
       },
       test("all optional fields empty") {
         assertEncodesThenDecodes(AllOptionalFields.schema, AllOptionalFields(None, None, None))
-      }
+      },
+      test("recursive data structure")(
+        assertDecodes(
+          Schema[Recursive],
+          Recursive(Some(Recursive(None))),
+          charSequenceToByteChunk("""{"n":{"n":null}}""")
+        )
+      )
     ),
     suite("record")(
       test("any") {
@@ -1543,7 +1665,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Enumeration2(StringValue2("foo"))
         ) &> assertEncodesThenDecodes(
           Schema[Enumeration2],
-          Enumeration2(StringValue2Multi("foo", "bar"))
+          Enumeration2(`StringValue2-Backticked`("foo", "bar"))
         ) &> assertEncodesThenDecodes(Schema[Enumeration2], Enumeration2(IntValue2(-1))) &> assertEncodesThenDecodes(
           Schema[Enumeration2],
           Enumeration2(BooleanValue2(false))
@@ -1555,7 +1677,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Enumeration3(StringValue3("foo"))
         ) &> assertEncodesThenDecodes(
           Schema[Enumeration3],
-          Enumeration3(StringValue3Multi("foo", "bar"))
+          Enumeration3(`StringValue3-Backticked`("foo", "bar"))
+        )
+      },
+      test("ADT with generic records and discriminator field") {
+        assertEncodesThenDecodes(
+          Schema[OneOf4],
+          RecordExampleWithDiscriminator(f1 = Some("test"), f2 = None)
         )
       },
       test("of case classes with discriminator") {
@@ -1569,14 +1697,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertDecodes(Schema[Command], Command.Cash, charSequenceToByteChunk("""{"type":"Cash","extraField":1}""")) &>
           assertDecodes(Schema[Command], Command.Cash, charSequenceToByteChunk("""{"extraField":1,"type":"Cash"}"""))
       ),
-      suite("of case objects")(
+      suite("of case objects with less than 64 cases")(
         test("without annotation")(
           assertEncodesThenDecodes(Schema[Color], Color.Red)
         ),
         test("with caseName")(
           assertEncodesThenDecodes(Schema[Color], Color.Grass) &>
             assertEncodesJson(Schema[Color], Color.Grass, "\"Green\"") &>
-            assertDecodes(Schema[Color], Color.Grass, charSequenceToByteChunk("\"Green\""))
+            assertDecodes(Schema[Color], Color.Grass, charSequenceToByteChunk("\"Green\"")) &>
+            assertDecodesToError(Schema[Color], "\"Grass\"", JsonError.Message("unrecognized string") :: Nil)
         ),
         test("with caseAliases")(
           assertEncodesThenDecodes(Schema[Color], Color.Blue) &>
@@ -1587,6 +1716,24 @@ object JsonCodecSpec extends ZIOSpecDefault {
         ),
         test("invalid case")(
           assertDecodesToError(Schema[Color], "\"not a color\"", JsonError.Message("unrecognized string") :: Nil)
+        )
+      ),
+      suite("of case objects with 64 cases or more")(
+        test("without annotation")(
+          assertEncodesThenDecodes(Schema[BigEnum], BigEnum.Case69)
+        ),
+        test("with caseName")(
+          assertEncodesThenDecodes(Schema[BigEnum], BigEnum.Case00) &>
+            assertEncodesJson(Schema[BigEnum], BigEnum.Case00, "\"Case_00\"") &>
+            assertDecodes(Schema[BigEnum], BigEnum.Case00, charSequenceToByteChunk("\"Case_00\"")) &>
+            assertDecodesToError(Schema[BigEnum], "\"Case00\"", JsonError.Message("unrecognized string") :: Nil)
+        ),
+        test("with caseAliases")(
+          assertEncodesThenDecodes(Schema[BigEnum], BigEnum.Case00) &>
+            assertDecodes(Schema[BigEnum], BigEnum.Case00, charSequenceToByteChunk("\"Case-00\""))
+        ),
+        test("invalid case")(
+          assertDecodesToError(Schema[BigEnum], "\"CaseXX\"", JsonError.Message("unrecognized string") :: Nil)
         )
       )
     ),
@@ -1984,7 +2131,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     query: String,
     pageNumber: Int,
     resultPerPage: Int,
-    @transientField nextPage: String = ""
+    @transientField nextPage: String = "transient"
   )
 
   val searchRequestWithTransientFieldSchema: Schema[SearchRequestWithTransientField] =
@@ -2028,6 +2175,25 @@ object JsonCodecSpec extends ZIOSpecDefault {
       )
   )
 
+  val recordWithTransientSchema: Schema[ListMap[String, _]] = Schema.record(
+    TypeId.Structural,
+    Schema.Field(
+      "foo",
+      Schema.Primitive(StandardType.StringType),
+      annotations0 = Chunk(transientField()),
+      get0 = (p: ListMap[String, _]) => p("foo").asInstanceOf[String],
+      set0 = (p: ListMap[String, _], v: String) => p.updated("foo", v)
+    ),
+    Schema
+      .Field(
+        "bar",
+        Schema.Primitive(StandardType.IntType),
+        annotations0 = Chunk(transientField()),
+        get0 = (p: ListMap[String, _]) => p("bar").asInstanceOf[Int],
+        set0 = (p: ListMap[String, _], v: Int) => p.updated("bar", v)
+      )
+  )
+
   val nestedRecordSchema: Schema[ListMap[String, _]] = Schema.record(
     TypeId.Structural,
     Schema.Field(
@@ -2056,8 +2222,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
   )
 
   sealed trait OneOf
-  case class StringValue(value: String)   extends OneOf
-  case class IntValue(value: Int)         extends OneOf
+
+  case class StringValue(value: String) extends OneOf
+
+  case class IntValue(value: Int) extends OneOf
+
   case class BooleanValue(value: Boolean) extends OneOf
 
   object OneOf {
@@ -2072,10 +2241,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   @discriminatorName("_type")
   sealed trait OneOf2
-  case class StringValue2(value: String)                       extends OneOf2
-  case class IntValue2(value: Int)                             extends OneOf2
-  case class BooleanValue2(value: Boolean)                     extends OneOf2
-  case class StringValue2Multi(value1: String, value2: String) extends OneOf2
+
+  case class StringValue2(value: String) extends OneOf2
+
+  case class IntValue2(value: Int) extends OneOf2
+
+  case class BooleanValue2(value: Boolean) extends OneOf2
+
+  case class `StringValue2-Backticked`(value1: String, value2: String) extends OneOf2
 
   case class Enumeration2(oneOf: OneOf2)
 
@@ -2085,11 +2258,16 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   @noDiscriminator
   sealed trait OneOf3
-  case class StringValue3(value: String)                       extends OneOf3
-  case class IntValue3(value: Int)                             extends OneOf3
-  case class BooleanValue3(value: Boolean)                     extends OneOf3
-  case class StringValue3Multi(value1: String, value2: String) extends OneOf3
-  case class Nested(oneOf: OneOf3)                             extends OneOf3
+
+  case class StringValue3(value: String) extends OneOf3
+
+  case class IntValue3(value: Int) extends OneOf3
+
+  case class BooleanValue3(value: Boolean) extends OneOf3
+
+  case class `StringValue3-Backticked`(value1: String, value2: String) extends OneOf3
+
+  case class Nested(oneOf: OneOf3) extends OneOf3
 
   case class Enumeration3(oneOf: OneOf3)
 
@@ -2116,12 +2294,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object Command {
     case class Buy(credits: Int) extends Command
-    case object Cash             extends Command
+
+    case object Cash extends Command
 
     implicit val schema: Schema[Command] = DeriveSchema.gen[Command]
   }
 
   case object Singleton
+
   implicit val schemaObject: Schema[Singleton.type] = DeriveSchema.gen[Singleton.type]
 
   case class Key(name: String, index: Int)
@@ -2129,6 +2309,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
   object Key {
     implicit lazy val schema: Schema[Key] = DeriveSchema.gen[Key]
   }
+
   case class Value(first: Int, second: Boolean)
 
   object Value {
@@ -2171,15 +2352,21 @@ object JsonCodecSpec extends ZIOSpecDefault {
     implicit lazy val schema: Schema[Subscription] = DeriveSchema.gen[Subscription]
   }
 
-  case class Order(@fieldNameAliases("order_id", "id") orderId: Int, value: BigDecimal, description: String)
+  case class Order(
+    @fieldNameAliases("order_id", "id") @fieldName("orderId") `order-id`: Int,
+    value: BigDecimal,
+    description: String
+  )
 
   object Order {
     implicit lazy val schema: Schema[Order] = DeriveSchema.gen[Order]
   }
+
   @noDiscriminator sealed trait Prompt
 
   object Prompt {
-    final case class Single(value: String)         extends Prompt
+    final case class Single(value: String) extends Prompt
+
     final case class Multiple(value: List[String]) extends Prompt
 
     implicit lazy val schema: Schema[Prompt] = DeriveSchema.gen[Prompt]
@@ -2256,6 +2443,39 @@ object JsonCodecSpec extends ZIOSpecDefault {
     implicit lazy val schema: Schema[AllOptionalFields] = DeriveSchema.gen[AllOptionalFields]
   }
 
+  @discriminatorName("type")
+  sealed trait OneOf4
+
+  object OneOf4 {
+    implicit lazy val schema: Schema[OneOf4] = DeriveSchema.gen
+  }
+
+  @rejectExtraFields case class RecordExampleWithDiscriminator(
+    @fieldName("$f1") f1: Option[String], // the only field that does not have a default value
+    @fieldNameAliases("field2") f2: Option[String] = None,
+    @transientField f3: Option[String] = None,
+    f4: Option[String] = None,
+    f5: Option[String] = None,
+    f6: Option[String] = None,
+    f7: Option[String] = None,
+    f8: Option[String] = None,
+    f9: Option[String] = None,
+    f10: Option[String] = None,
+    f11: Option[String] = None,
+    f12: Option[String] = None,
+    f13: Option[String] = None,
+    f14: Option[String] = None,
+    f15: Option[String] = None,
+    f16: Option[String] = None,
+    f17: Option[String] = None,
+    f18: Option[String] = None,
+    f19: Option[String] = None,
+    f20: Option[String] = None,
+    f21: Option[String] = None,
+    f22: Option[String] = None,
+    @fieldName("$f23") f23: Option[String] = None
+  ) extends OneOf4
+
   case class RecordExample(
     @fieldName("$f1") f1: Option[String], // the only field that does not have a default value
     @fieldNameAliases("field2") f2: Option[String] = None,
@@ -2322,7 +2542,8 @@ object JsonCodecSpec extends ZIOSpecDefault {
   object Enum23Cases {
     implicit lazy val schema: Schema[Enum23Cases] = DeriveSchema.gen[Enum23Cases]
 
-    @caseName("NumberOne") @caseNameAliases("One") case class Case1(value: String) extends Enum23Cases
+    @caseName("NumberOne")
+    @caseNameAliases("One") case class Case1(value: String) extends Enum23Cases
 
     case class Case2(value: Int) extends Enum23Cases
 
@@ -2367,5 +2588,97 @@ object JsonCodecSpec extends ZIOSpecDefault {
     case class Case22(value: String) extends Enum23Cases
 
     case class Case23(value: String) extends Enum23Cases
+  }
+
+  case class Recursive(n: Option[Recursive] = None)
+
+  object Recursive {
+    implicit val schema: Schema[Recursive] = DeriveSchema.gen
+  }
+
+  case class BacktickedFieldName(`x-api-key`: String)
+
+  object BacktickedFieldName {
+    implicit val schema: Schema[BacktickedFieldName] = DeriveSchema.gen
+  }
+
+  sealed trait BigEnum
+
+  object BigEnum {
+
+    @caseName("Case_00")
+    @caseNameAliases("Case-00")
+    case object Case00 extends BigEnum
+    case object Case01 extends BigEnum
+    case object Case02 extends BigEnum
+    case object Case03 extends BigEnum
+    case object Case04 extends BigEnum
+    case object Case05 extends BigEnum
+    case object Case06 extends BigEnum
+    case object Case07 extends BigEnum
+    case object Case08 extends BigEnum
+    case object Case09 extends BigEnum
+    case object Case10 extends BigEnum
+    case object Case11 extends BigEnum
+    case object Case12 extends BigEnum
+    case object Case13 extends BigEnum
+    case object Case14 extends BigEnum
+    case object Case15 extends BigEnum
+    case object Case16 extends BigEnum
+    case object Case17 extends BigEnum
+    case object Case18 extends BigEnum
+    case object Case19 extends BigEnum
+    case object Case20 extends BigEnum
+    case object Case21 extends BigEnum
+    case object Case22 extends BigEnum
+    case object Case23 extends BigEnum
+    case object Case24 extends BigEnum
+    case object Case25 extends BigEnum
+    case object Case26 extends BigEnum
+    case object Case27 extends BigEnum
+    case object Case28 extends BigEnum
+    case object Case29 extends BigEnum
+    case object Case30 extends BigEnum
+    case object Case31 extends BigEnum
+    case object Case32 extends BigEnum
+    case object Case33 extends BigEnum
+    case object Case34 extends BigEnum
+    case object Case35 extends BigEnum
+    case object Case36 extends BigEnum
+    case object Case37 extends BigEnum
+    case object Case38 extends BigEnum
+    case object Case39 extends BigEnum
+    case object Case40 extends BigEnum
+    case object Case41 extends BigEnum
+    case object Case42 extends BigEnum
+    case object Case43 extends BigEnum
+    case object Case44 extends BigEnum
+    case object Case45 extends BigEnum
+    case object Case46 extends BigEnum
+    case object Case47 extends BigEnum
+    case object Case48 extends BigEnum
+    case object Case49 extends BigEnum
+    case object Case50 extends BigEnum
+    case object Case51 extends BigEnum
+    case object Case52 extends BigEnum
+    case object Case53 extends BigEnum
+    case object Case54 extends BigEnum
+    case object Case55 extends BigEnum
+    case object Case56 extends BigEnum
+    case object Case57 extends BigEnum
+    case object Case58 extends BigEnum
+    case object Case59 extends BigEnum
+    case object Case60 extends BigEnum
+    case object Case61 extends BigEnum
+    case object Case62 extends BigEnum
+    case object Case63 extends BigEnum
+    case object Case64 extends BigEnum
+    case object Case65 extends BigEnum
+    case object Case66 extends BigEnum
+    case object Case67 extends BigEnum
+    case object Case68 extends BigEnum
+    case object Case69 extends BigEnum
+
+    implicit val schema: Schema[BigEnum] = DeriveSchema.gen
   }
 }

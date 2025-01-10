@@ -111,7 +111,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     f21: Int = 21,
     f22: Int = 22,
     f23: Int = 23,
-    f24: Int = 24
+    `f-24`: Int = 24
   )
 
   object Arity24 {
@@ -140,7 +140,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     arity19: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User),
     arity20: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User),
     arity21: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User),
-    arity22: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User)
+    `arity-22`: (User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User, User)
   )
   //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
@@ -235,7 +235,10 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     implicit lazy val schema: Schema.EnumN[Enum23, CaseSet.Aux[Enum23]] = DeriveSchema.gen[Enum23]
   }
 
-  case class RenamedField(@fieldName("renamed") name: String, @fieldName("number") num: Int)
+  case class RenamedField(
+    @fieldName("renamed") @fieldName("ignored_rename") name: String,
+    @fieldName("number") num: Int
+  )
 
   object RenamedField {
     implicit lazy val schema: Schema[RenamedField] = DeriveSchema.gen[RenamedField]
@@ -258,15 +261,20 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
   case class SimpleClass1() extends SimpleEnum1
 
   sealed trait SimpleEnum2
-  case class SimpleClass2() extends SimpleEnum2
+  case class `Simple-Class-2`() extends SimpleEnum2
 
   sealed abstract class AbstractBaseClass(val x: Int)
-  final case class ConcreteClass1(override val x: Int, y: Int)    extends AbstractBaseClass(x)
-  final case class ConcreteClass2(override val x: Int, s: String) extends AbstractBaseClass(x)
+  final case class ConcreteClass1(override val x: Int, y: Int)        extends AbstractBaseClass(x)
+  final case class `Concrete-Class-2`(override val x: Int, s: String) extends AbstractBaseClass(x)
 
   sealed abstract class AbstractBaseClass2(val x: Int)
   sealed abstract class MiddleClass(override val x: Int, val y: Int)                   extends AbstractBaseClass2(x)
   final case class ConcreteClass3(override val x: Int, override val y: Int, s: String) extends MiddleClass(x, y)
+
+  sealed trait TraitWithMiddleTrait
+  case object TraitLeaf       extends TraitWithMiddleTrait
+  sealed trait MiddleTrait    extends TraitWithMiddleTrait
+  case object MiddleTraitLeaf extends MiddleTrait
 
   override def spec: Spec[Environment, Any] = suite("DeriveSchemaSpec")(
     suite("Derivation")(
@@ -283,13 +291,17 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
         assert(Schema[User].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
       test("correctly derives case class with arity > 22") {
-        assert(Schema[Arity24].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+        assert(Schema[Arity24].toString)(
+          not(containsString("null")) && not(equalTo("$Lazy$") && containsString("f-24"))
+        )
       },
       test("correctly derives recursive data structure") {
         assert(Schema[Recursive].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
       test("correctly derives tuple arities from 2 to 22") {
-        assert(Schema[TupleArities].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
+        assert(Schema[TupleArities].toString)(
+          not(containsString("null")) && not(equalTo("$Lazy$") && containsString("arity-22"))
+        )
       },
       test("correctly derive mutually recursive data structure") {
         val c = Cyclic(1, CyclicChild1(2, CyclicChild2("3", None)))
@@ -436,7 +448,9 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
         assert(Schema[ContainsSchema].toString)(not(containsString("null")) && not(equalTo("$Lazy$")))
       },
       test("correctly derives renaming field when fieldName annotation is present") {
-        val derived = DeriveSchema.gen[RenamedField]
+        val derived       = DeriveSchema.gen[RenamedField]
+        val derivedField1 = derived.asInstanceOf[Schema.CaseClass2[String, Int, RenamedField]].field1
+        val derivedField2 = derived.asInstanceOf[Schema.CaseClass2[String, Int, RenamedField]].field2
 
         val expected: Schema[RenamedField] = {
           Schema.CaseClass2(
@@ -444,7 +458,7 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
             field01 = Schema.Field(
               "renamed",
               Schema.Primitive(StandardType.StringType),
-              Chunk(fieldName("renamed")),
+              Chunk(fieldName("renamed"), fieldName("ignored_rename")),
               get0 = _.name,
               set0 = (a, b: String) => a.copy(name = b)
             ),
@@ -458,6 +472,10 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
             RenamedField.apply
           )
         }
+        assert(derivedField1.fieldName)(equalTo("renamed")) &&
+        assert(derivedField1.nameAndAliases)(equalTo(Set("renamed"))) &&
+        assert(derivedField2.fieldName)(equalTo("number")) &&
+        assert(derivedField2.nameAndAliases)(equalTo(Set("number"))) &&
         assert(derived)(hasSameSchema(expected)) &&
         assert(verifyFieldName[derived.Field1]("renamed"))(isTrue)
       },
@@ -521,31 +539,41 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
               (a: AbstractBaseClass) => a.isInstanceOf[ConcreteClass1]
             ),
             Schema.Case(
-              "ConcreteClass2",
+              "Concrete-Class-2",
               Schema.CaseClass2(
-                TypeId.parse("zio.schema.DeriveSchemaSpec.ConcreteClass2"),
-                field01 = Schema.Field[ConcreteClass2, Int](
+                TypeId.parse("zio.schema.DeriveSchemaSpec.Concrete-Class-2"),
+                field01 = Schema.Field[`Concrete-Class-2`, Int](
                   "x",
                   Schema.Primitive(StandardType.IntType),
                   get0 = _.x,
                   set0 = (a, b: Int) => a.copy(x = b)
                 ),
-                field02 = Schema.Field[ConcreteClass2, String](
+                field02 = Schema.Field[`Concrete-Class-2`, String](
                   "s",
                   Schema.Primitive(StandardType.StringType),
                   get0 = _.s,
                   set0 = (a, b: String) => a.copy(s = b)
                 ),
-                ConcreteClass2.apply
+                `Concrete-Class-2`.apply
               ),
-              (a: AbstractBaseClass) => a.asInstanceOf[ConcreteClass2],
-              (a: ConcreteClass2) => a.asInstanceOf[AbstractBaseClass],
-              (a: AbstractBaseClass) => a.isInstanceOf[ConcreteClass2]
+              (a: AbstractBaseClass) => a.asInstanceOf[`Concrete-Class-2`],
+              (a: `Concrete-Class-2`) => a.asInstanceOf[AbstractBaseClass],
+              (a: AbstractBaseClass) => a.isInstanceOf[`Concrete-Class-2`]
             ),
             Chunk.empty
           )
         assert(derived)(hasSameSchema(expected))
       },
+      test(
+        "correctly derives schema for sealed trait with intermediate traits, having leaf classes for Scala2"
+      ) {
+        intermediateTraitTest(enum2Annotations = Chunk.empty)
+      } @@ TestAspect.scala2Only,
+      test(
+        "correctly derives schema for sealed trait with intermediate traits, having leaf classes for Scala3"
+      ) {
+        intermediateTraitTest(enum2Annotations = Chunk(simpleEnum(automaticallyAdded = true)))
+      } @@ TestAspect.scala3Only,
       test(
         "correctly derives schema for abstract sealed class with intermediate subclasses, having case class leaf classes"
       ) {
@@ -599,4 +627,63 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     ),
     versionSpecificSuite
   )
+
+  // Needed as I think is an unrelated existing bug in Scala 3 DeriveSchema whereby it adds simpleEnum annotation at the
+  // top level of the EnumN schema when one of the cases is a simple enum - however this does not happen with the Scala 2 macro.
+  // I think the Scala2 behavior is correct ie this should be a the leaf schema level.
+  // Create issue https://github.com/zio/zio-schema/issues/750 to track this
+  private def intermediateTraitTest(enum2Annotations: Chunk[Annotation]) = {
+    val derived: Schema.Enum2[TraitLeaf.type, MiddleTrait, TraitWithMiddleTrait] =
+      DeriveSchema.gen[TraitWithMiddleTrait]
+
+    val middleTraitLeafSchema = Schema.CaseClass0(
+      TypeId.fromTypeName("zio.schema.DeriveSchemaSpec.MiddleTraitLeaf"),
+      () => MiddleTraitLeaf,
+      Chunk.empty
+    )
+    val middleTraitLeafCase = Schema.Case[MiddleTrait, MiddleTraitLeaf.type](
+      "MiddleTraitLeaf",
+      middleTraitLeafSchema,
+      (a: MiddleTrait) => a.asInstanceOf[MiddleTraitLeaf.type],
+      (a: MiddleTraitLeaf.type) => a.asInstanceOf[MiddleTrait],
+      (a: MiddleTrait) => a.isInstanceOf[MiddleTraitLeaf.type]
+    )
+    val middleTraitSchema = Schema.Enum1[MiddleTraitLeaf.type, MiddleTrait](
+      TypeId.parse("zio.schema.DeriveSchemaSpec.MiddleTrait"),
+      middleTraitLeafCase,
+      Chunk(simpleEnum(automaticallyAdded = true))
+    )
+
+    val traitLeafSchema = Schema.CaseClass0(
+      TypeId.fromTypeName("zio.schema.DeriveSchemaSpec.TraitLeaf"),
+      () => TraitLeaf,
+      Chunk.empty
+    )
+    val traitLeafCase = Schema.Case[TraitWithMiddleTrait, TraitLeaf.type](
+      "TraitLeaf",
+      traitLeafSchema,
+      (a: TraitWithMiddleTrait) => a.asInstanceOf[TraitLeaf.type],
+      (a: TraitLeaf.type) => a.asInstanceOf[TraitWithMiddleTrait],
+      (a: TraitWithMiddleTrait) => a.isInstanceOf[TraitLeaf.type]
+    )
+
+    val middleTraitCase = Schema.Case[TraitWithMiddleTrait, MiddleTrait](
+      "MiddleTrait",
+      middleTraitSchema,
+      (a: TraitWithMiddleTrait) => a.asInstanceOf[MiddleTrait],
+      (a: MiddleTrait) => a.asInstanceOf[TraitWithMiddleTrait],
+      (a: TraitWithMiddleTrait) => a.isInstanceOf[MiddleTrait]
+    )
+
+    val expected =
+      Schema.Enum2[TraitLeaf.type, MiddleTrait, TraitWithMiddleTrait](
+        TypeId.parse("zio.schema.DeriveSchemaSpec.TraitWithMiddleTrait"),
+        traitLeafCase,
+        middleTraitCase,
+        enum2Annotations
+      )
+
+    assert(derived)(hasSameSchema(expected))
+  }
+
 }
