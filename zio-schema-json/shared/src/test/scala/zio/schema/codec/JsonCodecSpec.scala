@@ -477,9 +477,9 @@ object JsonCodecSpec extends ZIOSpecDefault {
       test("Do not encode transient field") {
         assertEncodes(
           RecordExample.schema,
-          RecordExample(f1 = Some("test"), f3 = Some("transient")),
+          RecordExample(f1 = "test", f3 = Some("transient"), f20 = None, f21 = Vector.empty, f22 = Nil),
           charSequenceToByteChunk(
-            """{"$f1":"test"}""".stripMargin
+            """{"$f1":"test","f20":null,"f21":[],"f22":[]}""".stripMargin
           )
         )
       }
@@ -732,26 +732,33 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"foo":"s","bar":1,"baz":2}""")
         )
       },
-      test("with missing fields") {
+      test("with empty optional and collection fields without default values") {
         assertDecodes(
           RecordExample.schema,
-          RecordExample(f1 = Some("test"), f2 = None),
+          RecordExample(f1 = "test", f2 = None, f20 = None, f21 = Vector.empty, f22 = Nil),
           charSequenceToByteChunk("""{"$f1":"test"}""")
+        )
+      },
+      test("missing required fields") {
+        assertDecodesToError(
+          RecordExample.schema,
+          """{}""",
+          JsonError.Message("missing") :: JsonError.ObjectAccess("$f1") :: Nil
         )
       },
       test("aliased field") {
         assertDecodes(
           RecordExample.schema,
-          RecordExample(f1 = Some("test"), f2 = Some("alias")),
+          RecordExample(f1 = "test", f2 = Some("alias"), f20 = None, f21 = Vector.empty, f22 = Nil),
           charSequenceToByteChunk("""{"$f1":"test", "field2":"alias"}""")
         )
       },
       test("reject extra fields") {
         assertDecodes(
           RecordExample.schema.annotate(rejectExtraFields()),
-          RecordExample(f1 = Some("test")),
+          RecordExample(f1 = "test", f20 = None, f21 = Vector.empty, f22 = Nil),
           charSequenceToByteChunk("""{"$f1":"test", "extraField":"extra"}""")
-        ).flip.map(err => assertTrue(err.getMessage() == "(unexpected field: extraField)"))
+        ).flip.map(err => assertTrue(err.getMessage() == "(extra field)"))
       },
       test("reject duplicated fields") {
         assertDecodesToError(
@@ -988,20 +995,6 @@ object JsonCodecSpec extends ZIOSpecDefault {
           WithOptionFields.schema,
           WithOptionFields(Some("s"), None),
           charSequenceToByteChunk("""{"a":"s"}""")
-        )
-      },
-      test("case class with option fields accept empty json object as value") {
-        assertDecodes(
-          WithOptionFields.schema,
-          WithOptionFields(Some("s"), None),
-          charSequenceToByteChunk("""{"a":"s", "b":{}}""")
-        )
-      },
-      test("case class with complex option field accept empty json object as value") {
-        assertDecodes(
-          WithComplexOptionField.schema,
-          WithComplexOptionField(None),
-          charSequenceToByteChunk("""{"order":{}}""")
         )
       },
       test("case class with complex option field correctly decodes") {
@@ -1697,7 +1690,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertDecodes(Schema[Command], Command.Cash, charSequenceToByteChunk("""{"type":"Cash","extraField":1}""")) &>
           assertDecodes(Schema[Command], Command.Cash, charSequenceToByteChunk("""{"extraField":1,"type":"Cash"}"""))
       ),
-      suite("of case objects with less than 64 cases")(
+      suite("of case objects with up to 64 cases")(
         test("without annotation")(
           assertEncodesThenDecodes(Schema[Color], Color.Red)
         ),
@@ -1718,7 +1711,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           assertDecodesToError(Schema[Color], "\"not a color\"", JsonError.Message("unrecognized string") :: Nil)
         )
       ),
-      suite("of case objects with 64 cases or more")(
+      suite("of case objects with more than 64 cases")(
         test("without annotation")(
           assertEncodesThenDecodes(Schema[BigEnum], BigEnum.Case69)
         ),
@@ -2477,7 +2470,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
   ) extends OneOf4
 
   case class RecordExample(
-    @fieldName("$f1") f1: Option[String], // the only field that does not have a default value
+    @fieldName("$f1") f1: String,
     @fieldNameAliases("field2") f2: Option[String] = None,
     @transientField f3: Option[String] = None,
     f4: Option[String] = None,
@@ -2493,12 +2486,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
     f14: Option[String] = None,
     f15: Option[String] = None,
     f16: Option[String] = None,
-    f17: Option[String] = None,
-    f18: Option[String] = None,
-    f19: Option[String] = None,
-    f20: Option[String] = None,
-    f21: Option[String] = None,
-    f22: Option[String] = None,
+    f17: List[String] = Nil,
+    f18: Vector[String] = Vector.empty,
+    f19: Option[RecordExample] = None,
+    f20: Option[String],
+    f21: Vector[String],
+    f22: List[String],
     @fieldName("$f23") f23: Option[String] = None
   )
 
