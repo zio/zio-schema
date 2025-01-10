@@ -12,7 +12,7 @@ import scala.util.control.NonFatal
 
 import zio.json.JsonDecoder.{ JsonError, UnsafeJson }
 import zio.json.ast.Json
-import zio.json.internal.{ Lexer, RecordingReader, RetractReader, StringMatrix, WithRecordingReader, Write }
+import zio.json.internal.{ Lexer, RecordingReader, RetractReader, StringMatrix, Write }
 import zio.json.{
   JsonCodec => ZJsonCodec,
   JsonDecoder => ZJsonDecoder,
@@ -649,16 +649,8 @@ object JsonCodec {
       case _: ZJsonDecoder[_] =>
     }
 
-    private val emptyObjectDecoder: ZJsonDecoder[Boolean] =
-      (_: List[JsonError], in: RetractReader) => {
-        val c1 = in.nextNonWhitespace()
-        val c2 = in.nextNonWhitespace()
-        c1 == '{' && c2 == '}'
-      }
-
     private[schema] def option[A](A: ZJsonDecoder[A]): ZJsonDecoder[Option[A]] =
-      new ZJsonDecoder[Option[A]] { self =>
-
+      new ZJsonDecoder[Option[A]] {
         private[this] val ull: Array[Char] = "ull".toCharArray
 
         def unsafeDecode(trace: List[JsonError], in: RetractReader): Option[A] =
@@ -666,16 +658,6 @@ object JsonCodec {
             case 'n' =>
               Lexer.readChars(trace, in, ull, "null")
               None
-            case '{' =>
-              // If we encounter a `{` it could either be a legitimate object or an empty object marker
-              in.retract()
-              val rr = new WithRecordingReader(in, 2)
-              if (emptyObjectDecoder.unsafeDecode(trace, rr)) {
-                None
-              } else {
-                rr.rewind()
-                Some(A.unsafeDecode(trace, rr))
-              }
             case _ =>
               in.retract()
               Some(A.unsafeDecode(trace, in))
@@ -1101,13 +1083,13 @@ object JsonCodec {
             case BadEnd() => ()
             case _: UnsafeJson =>
               in.retract()
-              val in2 = new zio.json.internal.WithRecordingReader(in, 64)
+              val rr = RecordingReader(in)
               try {
-                left = Some(leftDecoder.unsafeDecode(trace, in2))
+                left = Some(leftDecoder.unsafeDecode(trace, rr))
               } catch {
                 case UnsafeJson(_) =>
-                  in2.rewind()
-                  right = Some(rightDecoder.unsafeDecode(trace, in2))
+                  rr.rewind()
+                  right = Some(rightDecoder.unsafeDecode(trace, rr))
               }
           }
 

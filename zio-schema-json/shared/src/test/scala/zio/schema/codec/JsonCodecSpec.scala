@@ -997,20 +997,6 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"a":"s"}""")
         )
       },
-      test("case class with option fields accept empty json object as value") {
-        assertDecodes(
-          WithOptionFields.schema,
-          WithOptionFields(Some("s"), None),
-          charSequenceToByteChunk("""{"a":"s", "b":{}}""")
-        )
-      },
-      test("case class with complex option field accept empty json object as value") {
-        assertDecodes(
-          WithComplexOptionField.schema,
-          WithComplexOptionField(None),
-          charSequenceToByteChunk("""{"order":{}}""")
-        )
-      },
       test("case class with complex option field correctly decodes") {
         assertDecodes(
           WithComplexOptionField.schema,
