@@ -971,76 +971,82 @@ object JsonCodec {
     private def recordDecoder(
       schema: GenericRecord,
       discriminator: Option[String]
-    ): ZJsonDecoder[ListMap[String, Any]] = new ZJsonDecoder[ListMap[String, Any]] {
-      private[this] val fields = schema.fields.toArray
-      private[this] val spansWithDecoders =
-        new util.HashMap[String, (JsonError.ObjectAccess, ZJsonDecoder[Any])](fields.length << 1) {
-          fields.foreach { field =>
-            val spanWithDecoder =
-              (JsonError.ObjectAccess(field.fieldName), schemaDecoder(field.schema).asInstanceOf[ZJsonDecoder[Any]])
-            field.nameAndAliases.foreach(put(_, spanWithDecoder))
-          }
-        }
-      private[this] val skipExtraFields = !schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
-
-      override def unsafeDecode(trace: List[JsonError], in: RetractReader): ListMap[String, Any] = {
-        val lexer    = Lexer
-        var continue = true
-        if (discriminator eq None) {
-          lexer.char(trace, in, '{')
-          continue = lexer.firstField(trace, in)
-        }
-        val map = new util.HashMap[String, Any](fields.length << 1)
-        while (continue) {
-          val fieldNameOrAlias = lexer.string(trace, in).toString
-          val spanWithDecoder  = spansWithDecoders.get(fieldNameOrAlias)
-          if (spanWithDecoder ne null) {
-            val span   = spanWithDecoder._1
-            val dec    = spanWithDecoder._2
-            val trace_ = span :: trace
-            lexer.char(trace_, in, ':')
-            val fieldName = span.field // reuse strings with calculated hashCode
-            val prev      = map.put(fieldName, dec.unsafeDecode(trace_, in))
-            if (prev != null) error("duplicate", trace_)
-          } else if (skipExtraFields || discriminator.contains(fieldNameOrAlias)) {
-            lexer.char(trace, in, ':')
-            lexer.skipValue(trace, in)
-          } else error("extra field", trace)
-          continue = lexer.nextField(trace, in)
-        }
-        var idx = 0
-        while (idx < fields.length) {
-          val field = fields(idx)
-          idx += 1
-          val fieldName = field.fieldName // reuse strings with calculated hashCode
-          if (map.get(fieldName) == null) {
-            map.put( // mitigation of a linking error for `map.computeIfAbsent` in Scala.js
-              fieldName, {
-                if ((field.optional || field.transient) && field.defaultValue.isDefined) {
-                  field.defaultValue.get
-                } else {
-                  var schema = field.schema
-                  schema match {
-                    case l: Schema.Lazy[_] => schema = l.schema
-                    case _                 =>
-                  }
-                  schema match {
-                    case _: Schema.Optional[_]               => None
-                    case collection: Schema.Collection[_, _] => collection.empty
-                    case _                                   => error("missing", spansWithDecoders.get(fieldName)._1 :: trace)
-                  }
-                }
+    ): ZJsonDecoder[ListMap[String, Any]] =
+      if (schema.fields.foldLeft(0)(_ + _.nameAndAliases.size) <= 64) {
+        val ccjd = CaseClassJsonDecoder(schema, discriminator)
+        (trace: List[JsonError], in: RetractReader) => ccjd.unsafeDecodeListMap(trace, in)
+      } else {
+        new ZJsonDecoder[ListMap[String, Any]] {
+          private[this] val fields = schema.fields.toArray
+          private[this] val spansWithDecoders =
+            new util.HashMap[String, (JsonError.ObjectAccess, ZJsonDecoder[Any])](fields.length << 1) {
+              fields.foreach { field =>
+                val spanWithDecoder =
+                  (JsonError.ObjectAccess(field.fieldName), schemaDecoder(field.schema).asInstanceOf[ZJsonDecoder[Any]])
+                field.nameAndAliases.foreach(put(_, spanWithDecoder))
               }
-            )
+            }
+          private[this] val skipExtraFields = !schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
+
+          override def unsafeDecode(trace: List[JsonError], in: RetractReader): ListMap[String, Any] = {
+            val lexer    = Lexer
+            var continue = true
+            if (discriminator eq None) {
+              lexer.char(trace, in, '{')
+              continue = lexer.firstField(trace, in)
+            }
+            val map = new util.HashMap[String, Any](fields.length << 1)
+            while (continue) {
+              val fieldNameOrAlias = lexer.string(trace, in).toString
+              val spanWithDecoder  = spansWithDecoders.get(fieldNameOrAlias)
+              if (spanWithDecoder ne null) {
+                val span   = spanWithDecoder._1
+                val dec    = spanWithDecoder._2
+                val trace_ = span :: trace
+                lexer.char(trace_, in, ':')
+                val fieldName = span.field // reuse strings with calculated hashCode
+                val prev      = map.put(fieldName, dec.unsafeDecode(trace_, in))
+                if (prev != null) error("duplicate", trace_)
+              } else if (skipExtraFields || discriminator.contains(fieldNameOrAlias)) {
+                lexer.char(trace, in, ':')
+                lexer.skipValue(trace, in)
+              } else error("extra field", trace)
+              continue = lexer.nextField(trace, in)
+            }
+            var idx = 0
+            while (idx < fields.length) {
+              val field = fields(idx)
+              idx += 1
+              val fieldName = field.fieldName // reuse strings with calculated hashCode
+              if (map.get(fieldName) == null) {
+                map.put( // mitigation of a linking error for `map.computeIfAbsent` in Scala.js
+                  fieldName, {
+                    if ((field.optional || field.transient) && field.defaultValue.isDefined) {
+                      field.defaultValue.get
+                    } else {
+                      var schema = field.schema
+                      schema match {
+                        case l: Schema.Lazy[_] => schema = l.schema
+                        case _                 =>
+                      }
+                      schema match {
+                        case _: Schema.Optional[_]               => None
+                        case collection: Schema.Collection[_, _] => collection.empty
+                        case _                                   => error("missing", spansWithDecoders.get(fieldName)._1 :: trace)
+                      }
+                    }
+                  }
+                )
+              }
+            }
+            (ListMap.newBuilder[String, Any] ++= ({                         // to avoid O(n) insert operations
+              import scala.collection.JavaConverters.mapAsScalaMapConverter // use deprecated class for Scala 2.12 compatibility
+
+              map.asScala
+            }: @scala.annotation.nowarn)).result()
           }
         }
-        (ListMap.newBuilder[String, Any] ++= ({                         // to avoid O(n) insert operations
-          import scala.collection.JavaConverters.mapAsScalaMapConverter // use deprecated class for Scala 2.12 compatibility
-
-          map.asScala
-        }: @scala.annotation.nowarn)).result()
       }
-    }
 
     private def fallbackDecoder[A, B](schema: Schema.Fallback[A, B]): ZJsonDecoder[Fallback[A, B]] =
       new ZJsonDecoder[Fallback[A, B]] {
@@ -1552,6 +1558,35 @@ object JsonCodec {
     noDiscriminator: Boolean,
     skipExtraFields: Boolean
   ) {
+
+    def unsafeDecodeListMap(trace: List[JsonError], in: RetractReader): ListMap[String, Any] = {
+      val buffer = unsafeDecodeFields(trace, in)
+      (ListMap.newBuilder[String, Any] ++= new collection.Map[String, Any] { // only `.iterator` method will be called
+        override def +[Any](kv: (String, Any)): collection.Map[String, Any] = ???
+
+        override def -(key: String): collection.Map[String, Any] = ???
+
+        @scala.annotation.nowarn
+        override def -(key1: String, key2: String, keys: String*): collection.Map[String, Any] = ???
+
+        override def get(key: String): Option[Any] = ???
+
+        override def iterator: Iterator[(String, Any)] = new Iterator[(String, Any)] {
+          private[this] val names   = stringMatrix.xs // can contain a discriminator field name at the last position
+          private[this] val values  = buffer
+          private[this] var nextIdx = 0
+
+          def hasNext: Boolean = nextIdx < values.length
+
+          @inline
+          def next(): (String, Any) = {
+            val idx = nextIdx
+            nextIdx += 1
+            (names(idx), values(idx))
+          }
+        }
+      }).result()
+    }
 
     def unsafeDecodeFields(trace: List[JsonError], in: RetractReader): Array[Any] = {
       val lexer    = Lexer
