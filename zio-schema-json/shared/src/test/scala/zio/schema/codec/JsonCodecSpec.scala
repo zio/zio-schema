@@ -276,11 +276,19 @@ object JsonCodecSpec extends ZIOSpecDefault {
           "{}"
         )
       },
-      test("record with option fields encoded as null") {
+      test("record with option fields") {
         assertEncodes(
           recordWithOptionSchema,
           ListMap[String, Any]("foo" -> Some("s"), "bar" -> None),
-          charSequenceToByteChunk("""{"foo":"s","bar":null}""")
+          charSequenceToByteChunk("""{"foo":"s"}""")
+        )
+      },
+      test("record with option fields and flag to encode nulls") {
+        assertEncodes(
+          recordWithOptionSchema,
+          ListMap[String, Any]("foo" -> Some("s"), "bar" -> None),
+          charSequenceToByteChunk("""{"foo":"s","bar":null}"""),
+          JsonCodec.Config.default.copy(explicitNulls = true)
         )
       },
       test("case class with option fields omitted when empty") {
@@ -479,7 +487,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           RecordExample.schema,
           RecordExample(f1 = "test", f3 = Some("transient"), f20 = None, f21 = Vector.empty, f22 = Nil),
           charSequenceToByteChunk(
-            """{"$f1":"test","f20":null,"f21":[],"f22":[]}""".stripMargin
+            """{"$f1":"test","f21":[],"f22":[]}""".stripMargin
           )
         )
       }
