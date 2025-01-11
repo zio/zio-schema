@@ -1611,33 +1611,40 @@ object JsonCodec {
   private object CaseClassJsonDecoder {
 
     def apply[Z](schema: Schema.Record[Z], discriminator: Option[String]): CaseClassJsonDecoder[Z] = {
-      val len      = schema.fields.length
+      val hasDiscriminator = discriminator.isDefined
+      val len              = schema.fields.length
+      var nameLen          = len
+      if (hasDiscriminator) nameLen += 1
+      val aliasLen = schema.fields.foldLeft(0)(_ + _.nameAndAliases.size) - len
       val fields   = new Array[Schema.Field[Z, _]](len)
       val decoders = new Array[ZJsonDecoder[_]](len)
-      val spans    = Array.newBuilder[JsonError.ObjectAccess]
-      val names    = Array.newBuilder[String]
-      val aliases  = Array.newBuilder[(String, Int)]
+      val spans    = new Array[JsonError.ObjectAccess](nameLen)
+      val names    = new Array[String](nameLen)
+      val aliases  = new Array[(String, Int)](aliasLen)
       var idx      = 0
+      var aliasIdx = 0
       schema.fields.foreach { field =>
         fields(idx) = field
         decoders(idx) = schemaDecoder(field.schema)
         val name = field.fieldName
-        names += name
-        spans += JsonError.ObjectAccess(name)
-        (field.nameAndAliases - name).foreach(a => aliases += ((a, idx)))
+        names(idx) = name
+        spans(idx) = JsonError.ObjectAccess(name)
+        (field.nameAndAliases - name).foreach { a =>
+          aliases(aliasIdx) = (a, idx)
+          aliasIdx += 1
+        }
         idx += 1
       }
-      val hasDiscriminator = discriminator.isDefined
       if (hasDiscriminator) {
         val discriminatorName = discriminator.get
-        names += discriminatorName
-        spans += JsonError.ObjectAccess(discriminatorName)
+        names(idx) = discriminatorName
+        spans(idx) = JsonError.ObjectAccess(discriminatorName)
       }
       new CaseClassJsonDecoder(
         fields,
         decoders,
-        spans.result(),
-        new StringMatrix(names.result(), aliases.result()),
+        spans,
+        new StringMatrix(names, aliases),
         !hasDiscriminator,
         !schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
       )
