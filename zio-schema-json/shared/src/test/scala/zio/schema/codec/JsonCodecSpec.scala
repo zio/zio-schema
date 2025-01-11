@@ -79,6 +79,27 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Fallback.Both(3, "hello"),
           """[3,"hello"]"""
         )
+      },
+      test("both pretty printed") {
+        val json = JsonCodec
+          .jsonCodec(Schema.Fallback(Schema.set[Int], Schema.chunk[String]))
+          .encoder
+          .encodeJson(
+            Fallback.Both(Set(3), Chunk("hello")),
+            Some(0)
+          )
+        assert(json)(
+          equalTo(
+            """[
+              |  [
+              |    3
+              |  ],
+              |  [
+              |    "hello"
+              |  ]
+              |]""".stripMargin
+          )
+        )
       }
     ),
     suite("optional")(
