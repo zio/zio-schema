@@ -551,10 +551,10 @@ object JsonCodec {
                 indent_ = bump(indent)
                 pad(indent_, out)
               }
-              left.unsafeEncode(a, indent, out)
+              left.unsafeEncode(a, indent_, out)
               out.write(',')
               if (doPrettyPrint) pad(indent_, out)
-              right.unsafeEncode(b, indent, out)
+              right.unsafeEncode(b, indent_, out)
               if (doPrettyPrint) pad(indent, out)
               out.write(']')
           }
