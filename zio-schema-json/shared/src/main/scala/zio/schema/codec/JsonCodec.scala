@@ -330,24 +330,23 @@ object JsonCodec {
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[this] def schemaEncoderSlow[A](schema: Schema[A], cfg: Config, discriminatorTuple: DiscriminatorTuple): ZJsonEncoder[A] =
       schema match {
-        case Schema.Primitive(standardType, _)                     => primitiveCodec(standardType).encoder
-        case Schema.Sequence(schema, _, g, _, _)                   => ZJsonEncoder.chunk(schemaEncoder(schema, cfg, discriminatorTuple)).contramap(g)
-        case Schema.NonEmptySequence(schema, _, g, _, _)           => ZJsonEncoder.chunk(schemaEncoder(schema, cfg, discriminatorTuple)).contramap(g)
-        case Schema.Map(ks, vs, _)                                 => mapEncoder(ks, vs, discriminatorTuple, cfg)
-        case Schema.NonEmptyMap(ks: Schema[kt], vs: Schema[vt], _) => mapEncoder(ks, vs, discriminatorTuple, cfg).contramap[NonEmptyMap[kt, vt]](_.toMap.asInstanceOf[Map[kt, vt]]).asInstanceOf[ZJsonEncoder[A]]
-        case Schema.Set(s, _) =>
-          ZJsonEncoder.chunk(schemaEncoder(s, cfg, discriminatorTuple)).contramap(m => Chunk.fromIterable(m))
-        case Schema.Transform(c, _, g, a, _)    => transformEncoder(a.foldLeft(c)((s, a) => s.annotate(a)), g, cfg, discriminatorTuple)
-        case Schema.Tuple2(l, r, _)             => ZJsonEncoder.tuple2(schemaEncoder(l, cfg, discriminatorTuple), schemaEncoder(r, cfg, discriminatorTuple))
-        case Schema.Optional(schema, _)         => ZJsonEncoder.option(schemaEncoder(schema, cfg, discriminatorTuple))
-        case Schema.Fail(_, _)                  => unitEncoder.contramap(_ => ())
-        case s: Schema.GenericRecord            => recordEncoder(s, cfg, discriminatorTuple)
-        case Schema.Either(left, right, _)      => ZJsonEncoder.either(schemaEncoder(left, cfg, discriminatorTuple), schemaEncoder(right, cfg, discriminatorTuple))
-        case Schema.Fallback(left, right, _, _) => fallbackEncoder(schemaEncoder(left, cfg, discriminatorTuple), schemaEncoder(right, cfg, discriminatorTuple))
-        case l @ Schema.Lazy(_)                 => ZJsonEncoder.suspend(schemaEncoder(l.schema, cfg, discriminatorTuple))
-        case s: Schema.Record[A]                => caseClassEncoder(s, cfg, discriminatorTuple)
-        case s: Schema.Enum[A]                  => enumEncoder(s, cfg)
-        case d @ Schema.Dynamic(_)              => dynamicEncoder(d, cfg)
+        case Schema.Primitive(standardType, _)           => primitiveCodec(standardType).encoder
+        case Schema.Optional(schema, _)                  => ZJsonEncoder.option(schemaEncoder(schema, cfg))
+        case Schema.Tuple2(l, r, _)                      => ZJsonEncoder.tuple2(schemaEncoder(l, cfg), schemaEncoder(r, cfg))
+        case Schema.Sequence(schema, _, g, _, _)         => ZJsonEncoder.chunk(schemaEncoder(schema, cfg)).contramap(g)
+        case Schema.NonEmptySequence(schema, _, g, _, _) => ZJsonEncoder.chunk(schemaEncoder(schema, cfg)).contramap(g)
+        case Schema.Map(ks, vs, _)                       => mapEncoder(ks, vs, cfg)
+        case Schema.NonEmptyMap(ks, vs, _)               => mapEncoder(ks, vs, cfg).contramap(_.toMap)
+        case Schema.Set(s, _)                            => ZJsonEncoder.set(schemaEncoder(s, cfg))
+        case Schema.Transform(c, _, g, a, _)             => transformEncoder(a.foldLeft(c)((s, a) => s.annotate(a)), g, cfg, discriminatorTuple)
+        case Schema.Fail(_, _)                           => unitEncoder.contramap(_ => ())
+        case Schema.Either(left, right, _)               => ZJsonEncoder.either(schemaEncoder(left, cfg), schemaEncoder(right, cfg))
+        case Schema.Fallback(left, right, _, _)          => fallbackEncoder(schemaEncoder(left, cfg), schemaEncoder(right, cfg))
+        case l @ Schema.Lazy(_)                          => ZJsonEncoder.suspend(schemaEncoder(l.schema, cfg))
+        case s: Schema.GenericRecord                     => recordEncoder(s, cfg, discriminatorTuple)
+        case s: Schema.Record[A]                         => caseClassEncoder(s, cfg, discriminatorTuple)
+        case s: Schema.Enum[A]                           => enumEncoder(s, cfg)
+        case d @ Schema.Dynamic(_)                       => dynamicEncoder(d, cfg)
         case null =>
           throw new Exception(s"A captured schema is null, most likely due to wrong field initialization order")
       }
@@ -361,8 +360,8 @@ object JsonCodec {
         new JsonFieldEncoder[B] {
           override def unsafeEncodeField(b: B): String =
             g(b) match {
-              case Left(_)  => throw new RuntimeException(s"Failed to encode field $b")
               case Right(a) => fieldEncoder.unsafeEncodeField(a)
+              case _        => throw new RuntimeException(s"Failed to encode field $b")
             }
         }
       }
@@ -380,27 +379,19 @@ object JsonCodec {
     private[codec] def mapEncoder[K, V](
       ks: Schema[K],
       vs: Schema[V],
-      discriminatorTuple: DiscriminatorTuple,
       cfg: Config
     ): ZJsonEncoder[Map[K, V]] = {
       val valueEncoder = JsonEncoder.schemaEncoder(vs, cfg)
       jsonFieldEncoder(ks) match {
         case Some(jsonFieldEncoder) =>
-          ZJsonEncoder.keyValueIterable(jsonFieldEncoder, valueEncoder).contramap(a => Chunk.fromIterable(a).toMap)
+          ZJsonEncoder.map(jsonFieldEncoder, valueEncoder)
         case None =>
-          ZJsonEncoder
-            .chunk(schemaEncoder(ks, cfg, discriminatorTuple).zip(schemaEncoder(vs, cfg, discriminatorTuple)))
-            .contramap(m => Chunk.fromIterable(m))
+          ZJsonEncoder.chunk(schemaEncoder(ks, cfg).zip(valueEncoder)).contramap(Chunk.fromIterable)
       }
     }
 
-    private[codec] def dynamicEncoder(schema: Schema.Dynamic, cfg: JsonCodec.Config): ZJsonEncoder[DynamicValue] = {
-      val directMapping = schema.annotations.exists {
-        case directDynamicMapping() => true
-        case _                      => false
-      }
-
-      if (directMapping) {
+    private[codec] def dynamicEncoder(schema: Schema.Dynamic, cfg: JsonCodec.Config): ZJsonEncoder[DynamicValue] =
+      if (schema.annotations.exists(_.isInstanceOf[directDynamicMapping])) {
         new ZJsonEncoder[DynamicValue] { directEncoder =>
           override def unsafeEncode(value: DynamicValue, indent: Option[Int], out: Write): Unit =
             value match {
@@ -468,7 +459,6 @@ object JsonCodec {
       } else {
         schemaEncoder(DynamicValue.schema, cfg)
       }
-    }
 
     private def transformEncoder[A, B](
       schema: Schema[A],
@@ -481,14 +471,14 @@ object JsonCodec {
 
         override def unsafeEncode(b: B, indent: Option[Int], out: Write): Unit =
           g(b) match {
-            case Left(_)  => ()
             case Right(a) => innerEncoder.unsafeEncode(a, indent, out)
+            case _        => ()
           }
 
         override def isNothing(b: B): Boolean =
           g(b) match {
-            case Left(_)  => false
             case Right(a) => innerEncoder.isNothing(a)
+            case _        => false
           }
       }
 
@@ -576,11 +566,11 @@ object JsonCodec {
       discriminatorTuple: DiscriminatorTuple
     ): ZJsonEncoder[ListMap[String, _]] = {
       val nonTransientFields = schema.nonTransientFields.toArray
-      val encoders           = nonTransientFields.map(field => schemaEncoder(field.schema.asInstanceOf[Schema[Any]], cfg))
       if (nonTransientFields.isEmpty) { (_: ListMap[String, _], _: Option[Int], out: Write) =>
         out.write("{}")
-      } else { (value: ListMap[String, _], indent: Option[Int], out: Write) =>
-        {
+      } else {
+        val encoders = nonTransientFields.map(field => schemaEncoder(field.schema.asInstanceOf[Schema[Any]], cfg))
+        (value: ListMap[String, _], indent: Option[Int], out: Write) => {
           out.write('{')
           val doPrettyPrint = indent ne None
           var indent_       = indent
@@ -687,19 +677,20 @@ object JsonCodec {
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
     private[this] def schemaDecoderSlow[A](schema: Schema[A], discriminator: Option[String]): ZJsonDecoder[A] = schema match {
       case Schema.Primitive(standardType, _)              => primitiveCodec(standardType).decoder
-      case Schema.Optional(codec, _)                      => option(schemaDecoder(codec, discriminator))
+      case Schema.Optional(codec, _)                      => option(schemaDecoder(codec))
       case Schema.Tuple2(left, right, _)                  => ZJsonDecoder.tuple2(schemaDecoder(left), schemaDecoder(right))
       case Schema.Transform(c, f, _, a, _)                => schemaDecoder(a.foldLeft(c)((s, a) => s.annotate(a)), discriminator).mapOrFail(f)
       case Schema.Sequence(codec, f, _, _, _)             => ZJsonDecoder.chunk(schemaDecoder(codec)).map(f)
       case s @ Schema.NonEmptySequence(codec, _, _, _, _) => ZJsonDecoder.chunk(schemaDecoder(codec)).map(s.fromChunk)
       case Schema.Map(ks, vs, _)                          => mapDecoder(ks, vs)
       case Schema.NonEmptyMap(ks, vs, _)                  => mapDecoder(ks, vs).mapOrFail(m => NonEmptyMap.fromMapOption(m).toRight("NonEmptyMap expected"))
-      case Schema.Set(s, _)                               => ZJsonDecoder.chunk(schemaDecoder(s)).map(entries => entries.toSet)
+      case Schema.Set(s, _)                               => ZJsonDecoder.set(schemaDecoder(s))
       case Schema.Fail(message, _)                        => failDecoder(message)
-      case s: Schema.GenericRecord                        => recordDecoder(s, discriminator)
       case Schema.Either(left, right, _)                  => ZJsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
       case s @ Schema.Fallback(_, _, _, _)                => fallbackDecoder(s)
-      case l @ Schema.Lazy(_)                             => ZJsonDecoder.suspend(schemaDecoder(l.schema, discriminator))
+      case l @ Schema.Lazy(_)                             => ZJsonDecoder.suspend(schemaDecoder(l.schema))
+      case s: Schema.GenericRecord                        => recordDecoder(s, discriminator)
+      case s: Schema.Enum[A]                              => enumDecoder(s)
       //case Schema.Meta(_, _)                                                                           => astDecoder
       case s @ Schema.CaseClass0(_, _, _)                                => caseClass0Decoder(discriminator, s)
       case s @ Schema.CaseClass1(_, _, _, _)                             => caseClass1Decoder(discriminator, s)
@@ -738,7 +729,6 @@ object JsonCodec {
         caseClass21Decoder(discriminator, s)
       case s @ Schema.CaseClass22(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass22Decoder(discriminator, s)
-      case s: Schema.Enum[A]     => enumDecoder(s)
       case d @ Schema.Dynamic(_) => dynamicDecoder(d)
       case _                     => throw new Exception(s"Missing a handler for decoding of schema ${schema.toString()}.")
     }
@@ -751,9 +741,9 @@ object JsonCodec {
       val valueDecoder = JsonDecoder.schemaDecoder(vs)
       jsonFieldDecoder(ks) match {
         case Some(jsonFieldDecoder) =>
-          ZJsonDecoder.keyValueChunk(jsonFieldDecoder, valueDecoder).map(_.toMap)
+          ZJsonDecoder.map(jsonFieldDecoder, valueDecoder)
         case None =>
-          ZJsonDecoder.chunk(schemaDecoder(ks).zip(schemaDecoder(vs))).map(_.toMap)
+          ZJsonDecoder.chunk(schemaDecoder(ks).zip(valueDecoder)).map(_.toMap)
       }
     }
 
