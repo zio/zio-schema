@@ -635,10 +635,6 @@ object JsonCodec {
         case Right(value) => Right(value)
       }
 
-    def x[A](dec: ZJsonDecoder[A]): Unit = dec match {
-      case _: ZJsonDecoder[_] =>
-    }
-
     private[schema] def option[A](A: ZJsonDecoder[A]): ZJsonDecoder[Option[A]] =
       new ZJsonDecoder[Option[A]] {
 
