@@ -641,26 +641,23 @@ object JsonCodec {
 
     private[schema] def option[A](A: ZJsonDecoder[A]): ZJsonDecoder[Option[A]] =
       new ZJsonDecoder[Option[A]] {
-        private[this] val ull: Array[Char] = "ull".toCharArray
 
         def unsafeDecode(trace: List[JsonError], in: RetractReader): Option[A] =
           (in.nextNonWhitespace(): @switch) match {
             case 'n' =>
-              Lexer.readChars(trace, in, ull, "null")
+              if (in.readChar() != 'u' || in.readChar() != 'l' || in.readChar() != 'l') error("expected 'null'", trace)
               None
             case _ =>
               in.retract()
               Some(A.unsafeDecode(trace, in))
           }
 
-        override def unsafeDecodeMissing(trace: List[JsonError]): Option[A] =
-          None
+        override def unsafeDecodeMissing(trace: List[JsonError]): Option[A] = None
 
         final override def unsafeFromJsonAST(trace: List[JsonError], json: Json): Option[A] =
           json match {
-            case Json.Null         => None
-            case Json.Obj(Chunk()) => None
-            case _                 => Some(A.unsafeFromJsonAST(trace, json))
+            case Json.Null => None
+            case _         => Some(A.unsafeFromJsonAST(trace, json))
           }
       }
 
