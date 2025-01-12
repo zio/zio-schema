@@ -636,32 +636,25 @@ object JsonCodec {
         case Right(value) => Right(value)
       }
 
-    def x[A](dec: ZJsonDecoder[A]): Unit = dec match {
-      case _: ZJsonDecoder[_] =>
-    }
-
     private[schema] def option[A](A: ZJsonDecoder[A]): ZJsonDecoder[Option[A]] =
       new ZJsonDecoder[Option[A]] {
-        private[this] val ull: Array[Char] = "ull".toCharArray
 
         def unsafeDecode(trace: List[JsonError], in: RetractReader): Option[A] =
           (in.nextNonWhitespace(): @switch) match {
             case 'n' =>
-              Lexer.readChars(trace, in, ull, "null")
+              if (in.readChar() != 'u' || in.readChar() != 'l' || in.readChar() != 'l') error("expected 'null'", trace)
               None
             case _ =>
               in.retract()
               Some(A.unsafeDecode(trace, in))
           }
 
-        override def unsafeDecodeMissing(trace: List[JsonError]): Option[A] =
-          None
+        override def unsafeDecodeMissing(trace: List[JsonError]): Option[A] = None
 
         final override def unsafeFromJsonAST(trace: List[JsonError], json: Json): Option[A] =
           json match {
-            case Json.Null         => None
-            case Json.Obj(Chunk()) => None
-            case _                 => Some(A.unsafeFromJsonAST(trace, json))
+            case Json.Null => None
+            case _         => Some(A.unsafeFromJsonAST(trace, json))
           }
       }
 
@@ -1612,33 +1605,40 @@ object JsonCodec {
   private object CaseClassJsonDecoder {
 
     def apply[Z](schema: Schema.Record[Z], discriminator: Option[String]): CaseClassJsonDecoder[Z] = {
-      val len      = schema.fields.length
+      val hasDiscriminator = discriminator.isDefined
+      val len              = schema.fields.length
+      var nameLen          = len
+      if (hasDiscriminator) nameLen += 1
+      val aliasLen = schema.fields.foldLeft(0)(_ + _.nameAndAliases.size) - len
       val fields   = new Array[Schema.Field[Z, _]](len)
       val decoders = new Array[ZJsonDecoder[_]](len)
-      val spans    = Array.newBuilder[JsonError.ObjectAccess]
-      val names    = Array.newBuilder[String]
-      val aliases  = Array.newBuilder[(String, Int)]
+      val spans    = new Array[JsonError.ObjectAccess](nameLen)
+      val names    = new Array[String](nameLen)
+      val aliases  = new Array[(String, Int)](aliasLen)
       var idx      = 0
+      var aliasIdx = 0
       schema.fields.foreach { field =>
         fields(idx) = field
         decoders(idx) = schemaDecoder(field.schema)
         val name = field.fieldName
-        names += name
-        spans += JsonError.ObjectAccess(name)
-        (field.nameAndAliases - name).foreach(a => aliases += ((a, idx)))
+        names(idx) = name
+        spans(idx) = JsonError.ObjectAccess(name)
+        (field.nameAndAliases - name).foreach { a =>
+          aliases(aliasIdx) = (a, idx)
+          aliasIdx += 1
+        }
         idx += 1
       }
-      val hasDiscriminator = discriminator.isDefined
       if (hasDiscriminator) {
         val discriminatorName = discriminator.get
-        names += discriminatorName
-        spans += JsonError.ObjectAccess(discriminatorName)
+        names(idx) = discriminatorName
+        spans(idx) = JsonError.ObjectAccess(discriminatorName)
       }
       new CaseClassJsonDecoder(
         fields,
         decoders,
-        spans.result(),
-        new StringMatrix(names.result(), aliases.result()),
+        spans,
+        new StringMatrix(names, aliases),
         !hasDiscriminator,
         !schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
       )
