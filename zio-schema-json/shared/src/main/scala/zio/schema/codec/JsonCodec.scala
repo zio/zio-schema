@@ -570,7 +570,7 @@ object JsonCodec {
         out.write("{}")
       } else {
         val encoders = nonTransientFields.map(field => schemaEncoder(field.schema.asInstanceOf[Schema[Any]], cfg))
-        (value: ListMap[String, _], indent: Option[Int], out: Write) => {
+        (a: ListMap[String, _], indent: Option[Int], out: Write) => {
           out.write('{')
           val doPrettyPrint = indent ne None
           var indent_       = indent
@@ -590,21 +590,22 @@ object JsonCodec {
           }
           var idx = 0
           while (idx < nonTransientFields.length) {
-            val field      = nonTransientFields(idx)
-            val fieldName  = field.fieldName
-            val fieldValue = value(fieldName)
-            if (!isEmptyOptionalValue(field, fieldValue, cfg)) {
+            val field   = nonTransientFields(idx)
+            val encoder = encoders(idx)
+            idx += 1
+            val name  = field.fieldName
+            val value = a(name)
+            if (!isEmptyOptionalValue(field, value, cfg) && (!encoder.isNothing(value) || cfg.explicitNulls)) {
               if (first) first = false
               else {
                 out.write(',')
                 if (doPrettyPrint) pad(indent_, out)
               }
-              strEnc.unsafeEncode(fieldName, indent_, out)
+              strEnc.unsafeEncode(name, indent_, out)
               if (doPrettyPrint) out.write(" : ")
               else out.write(':')
-              encoders(idx).unsafeEncode(fieldValue, indent_, out)
+              encoder.unsafeEncode(value, indent_, out)
             }
-            idx += 1
           }
           if (doPrettyPrint) pad(indent, out)
           out.write('}')
@@ -1099,7 +1100,7 @@ object JsonCodec {
 
     private[codec] def caseClassEncoder[Z](schema: Schema.Record[Z], cfg: Config, discriminatorTuple: DiscriminatorTuple): ZJsonEncoder[Z] = {
       val nonTransientFields = schema.nonTransientFields.map(_.asInstanceOf[Schema.Field[Z, Any]]).toArray
-      val fieldEncoders      = nonTransientFields.map(s => JsonEncoder.schemaEncoder(s.schema, cfg, discriminatorTuple))
+      val encoders           = nonTransientFields.map(s => JsonEncoder.schemaEncoder(s.schema, cfg, discriminatorTuple))
       (a: Z, indent: Option[Int], out: Write) => {
         out.write('{')
         val doPrettyPrint = indent ne None
@@ -1120,20 +1121,20 @@ object JsonCodec {
         }
         var idx = 0
         while (idx < nonTransientFields.length) {
-          val schema = nonTransientFields(idx)
-          val enc    = fieldEncoders(idx)
+          val field   = nonTransientFields(idx)
+          val encoder = encoders(idx)
           idx += 1
-          val value = schema.get(a)
-          if (!isEmptyOptionalValue(schema, value, cfg) && (!enc.isNothing(value) || cfg.explicitNulls)) {
+          val value = field.get(a)
+          if (!isEmptyOptionalValue(field, value, cfg) && (!encoder.isNothing(value) || cfg.explicitNulls)) {
             if (first) first = false
             else {
               out.write(',')
               if (doPrettyPrint) pad(indent_, out)
             }
-            strEnc.unsafeEncode(schema.fieldName, indent_, out)
+            strEnc.unsafeEncode(field.fieldName, indent_, out)
             if (doPrettyPrint) out.write(" : ")
             else out.write(':')
-            enc.unsafeEncode(value, indent_, out)
+            encoder.unsafeEncode(value, indent_, out)
           }
         }
         if (doPrettyPrint) pad(indent, out)
