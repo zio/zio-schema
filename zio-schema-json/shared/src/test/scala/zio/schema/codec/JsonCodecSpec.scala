@@ -1034,6 +1034,43 @@ object JsonCodecSpec extends ZIOSpecDefault {
         )
       }
     ),
+    suite("case class with more than 64 fields")(
+      test("required and optional fields") {
+        assertDecodes(
+          BigProduct.schema,
+          BigProduct(f00 = true, f67 = None, f68 = Nil, f69 = Vector.empty),
+          charSequenceToByteChunk("""{"f00":true}""")
+        )
+      },
+      test("missing requireda fields") {
+        assertDecodesToError(
+          BigProduct.schema,
+          """{}""",
+          JsonError.Message("missing") :: JsonError.ObjectAccess("f00") :: Nil
+        )
+      },
+      test("reject extra fields") {
+        assertDecodesToError(
+          BigProduct.schema.annotate(rejectExtraFields()),
+          """{"f00":true,"extraField":10}""",
+          JsonError.Message("extra field") :: Nil
+        )
+      },
+      test("reject duplicated fields") {
+        assertDecodesToError(
+          BigProduct.schema,
+          """{"f00":true,"age":10,"f00":false}""",
+          JsonError.Message("duplicate") :: JsonError.ObjectAccess("f00") :: Nil
+        )
+      },
+      test("field name with alias - id") {
+        assertDecodes(
+          BigProduct.schema,
+          BigProduct(f00 = true, f01 = Some(123.toByte), f67 = None, f68 = Nil, f69 = Vector.empty),
+          charSequenceToByteChunk("""{"f00":true,"f-01":123}""")
+        )
+      }
+    ),
     suite("enums")(
       test("case name aliases - default") {
         assertDecodes(
@@ -1062,7 +1099,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
           WireTransfer("foo", "bar"),
           charSequenceToByteChunk("""{"wire_transfer":{"accountNumber":"foo","bankCode":"bar"}}""")
         )
-      }
+      },
+      test("no discriminator")(
+        assertDecodesToError(PaymentMethod.schema, "{}", JsonError.Message("missing subtype") :: Nil)
+      ),
+      test("illegal case")(
+        assertDecodesToError(PaymentMethod.schema, """{"cash":{}}""", JsonError.Message("unrecognized subtype") :: Nil)
+      )
     ),
     suite("enums - with discriminator")(
       test("case name") {
@@ -1129,6 +1172,10 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Prompt.Multiple(List("hello", "world")),
           charSequenceToByteChunk("""{"value":["hello","world"]}""")
         )
+      },
+      test("wrong example") {
+        assertDecodesToError(Prompt.schema, "123",
+          JsonError.Message("none of the subtypes could decode the data") :: Nil)
       }
     ),
     suite("dynamic direct mapping")(
@@ -1715,6 +1762,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
       test("decode discriminated case objects in array")(
         assertDecodes(Schema[List[Command]], Command.Cash :: Nil, charSequenceToByteChunk("""[{"type":"Cash"}]"""))
       ),
+      test("no discriminator field")(
+        assertDecodesToError(Schema[Command], "{\"b\":123}", JsonError.Message("missing subtype") :: Nil) &>
+          assertDecodesToError(Schema[Command], "{}", JsonError.Message("missing subtype") :: Nil)
+      ),
+      test("illegal case")(
+        assertDecodesToError(Schema[Command], "{\"type\":\"Run\"}",
+          JsonError.Message("unrecognized subtype") :: JsonError.ObjectAccess("type") :: Nil)
+      ),
       test("decode discriminated case objects with extra fields")(
         assertDecodes(Schema[Command], Command.Cash, charSequenceToByteChunk("""{"type":"Cash","extraField":1}""")) &>
           assertDecodes(Schema[Command], Command.Cash, charSequenceToByteChunk("""{"extraField":1,"type":"Cash"}"""))
@@ -1756,6 +1811,53 @@ object JsonCodecSpec extends ZIOSpecDefault {
         ),
         test("invalid case")(
           assertDecodesToError(Schema[BigEnum], "\"CaseXX\"", JsonError.Message("unrecognized string") :: Nil)
+        )
+      ),
+      suite("of case classes and case objects with more than 64 cases")(
+        test("without annotation")(
+          assertEncodesThenDecodes(Schema[BigEnum2], BigEnum2.Case69)
+        ),
+        test("with caseName")(
+          assertEncodesThenDecodes(Schema[BigEnum2], BigEnum2.Case00(123.toByte)) &>
+            assertEncodesJson(Schema[BigEnum2], BigEnum2.Case00(123.toByte), "{\"Case_00\":{\"b\":123}}") &>
+            assertDecodes(Schema[BigEnum2], BigEnum2.Case00(123.toByte), charSequenceToByteChunk("{\"Case_00\":{\"b\":123}}")) &>
+            assertDecodesToError(Schema[BigEnum2], "{\"Case00\":{}}", JsonError.Message("unrecognized subtype") :: Nil)
+        ),
+        test("with caseAliases")(
+          assertEncodesThenDecodes(Schema[BigEnum2], BigEnum2.Case00(123.toByte)) &>
+            assertDecodes(Schema[BigEnum2], BigEnum2.Case00(123.toByte), charSequenceToByteChunk("{\"Case-00\":{\"b\":123}}"))
+        ),
+        test("no discriminator key")(
+          assertDecodesToError(Schema[BigEnum2], "{}", JsonError.Message("missing subtype") :: Nil)
+        ),
+        test("invalid case")(
+          assertDecodesToError(Schema[BigEnum2], "{\"CaseXX\":{}}", JsonError.Message("unrecognized subtype") :: Nil)
+        )
+      ),
+      suite("of case classes and case objects with more than 64 cases and discriminator field")(
+        test("without annotation")(
+          assertEncodesThenDecodes(Schema[BigEnum3], BigEnum3.Case69)
+        ),
+        test("with caseName")(
+          assertEncodesThenDecodes(Schema[BigEnum3], BigEnum3.Case00(123.toByte)) &>
+            assertEncodesJson(Schema[BigEnum3], BigEnum3.Case00(123.toByte), "{\"type\":\"Case_00\",\"b\":123}") &>
+            assertDecodes(Schema[BigEnum3], BigEnum3.Case00(123.toByte),
+              charSequenceToByteChunk("{\"b\":123,\"type\":\"Case_00\"}")) &>
+            assertDecodesToError(Schema[BigEnum3], "{\"type\":\"Case00\"}",
+              JsonError.Message("unrecognized subtype") :: JsonError.ObjectAccess("type") :: Nil)
+        ),
+        test("with caseAliases")(
+          assertEncodesThenDecodes(Schema[BigEnum3], BigEnum3.Case00(123.toByte)) &>
+            assertDecodes(Schema[BigEnum3], BigEnum3.Case00(123.toByte),
+              charSequenceToByteChunk("{\"type\":\"Case-00\",\"b\":123}"))
+        ),
+        test("no discriminator field")(
+          assertDecodesToError(Schema[BigEnum3], "{\"b\":123}", JsonError.Message("missing subtype") :: Nil) &>
+            assertDecodesToError(Schema[BigEnum3], "{}", JsonError.Message("missing subtype") :: Nil)
+        ),
+        test("invalid case")(
+          assertDecodesToError(Schema[BigEnum3], "{\"type\":\"CaseXX\"}",
+            JsonError.Message("unrecognized subtype") :: JsonError.ObjectAccess("type") :: Nil)
         )
       )
     ),
@@ -2702,5 +2804,243 @@ object JsonCodecSpec extends ZIOSpecDefault {
     case object Case69 extends BigEnum
 
     implicit val schema: Schema[BigEnum] = DeriveSchema.gen
+  }
+
+  sealed trait BigEnum2
+
+  object BigEnum2 {
+
+    @caseName("Case_00")
+    @caseNameAliases("Case-00")
+    case class Case00(b: Byte) extends BigEnum2
+    case object Case01 extends BigEnum2
+    case object Case02 extends BigEnum2
+    case object Case03 extends BigEnum2
+    case object Case04 extends BigEnum2
+    case object Case05 extends BigEnum2
+    case object Case06 extends BigEnum2
+    case object Case07 extends BigEnum2
+    case object Case08 extends BigEnum2
+    case object Case09 extends BigEnum2
+    case object Case10 extends BigEnum2
+    case object Case11 extends BigEnum2
+    case object Case12 extends BigEnum2
+    case object Case13 extends BigEnum2
+    case object Case14 extends BigEnum2
+    case object Case15 extends BigEnum2
+    case object Case16 extends BigEnum2
+    case object Case17 extends BigEnum2
+    case object Case18 extends BigEnum2
+    case object Case19 extends BigEnum2
+    case object Case20 extends BigEnum2
+    case object Case21 extends BigEnum2
+    case object Case22 extends BigEnum2
+    case object Case23 extends BigEnum2
+    case object Case24 extends BigEnum2
+    case object Case25 extends BigEnum2
+    case object Case26 extends BigEnum2
+    case object Case27 extends BigEnum2
+    case object Case28 extends BigEnum2
+    case object Case29 extends BigEnum2
+    case object Case30 extends BigEnum2
+    case object Case31 extends BigEnum2
+    case object Case32 extends BigEnum2
+    case object Case33 extends BigEnum2
+    case object Case34 extends BigEnum2
+    case object Case35 extends BigEnum2
+    case object Case36 extends BigEnum2
+    case object Case37 extends BigEnum2
+    case object Case38 extends BigEnum2
+    case object Case39 extends BigEnum2
+    case object Case40 extends BigEnum2
+    case object Case41 extends BigEnum2
+    case object Case42 extends BigEnum2
+    case object Case43 extends BigEnum2
+    case object Case44 extends BigEnum2
+    case object Case45 extends BigEnum2
+    case object Case46 extends BigEnum2
+    case object Case47 extends BigEnum2
+    case object Case48 extends BigEnum2
+    case object Case49 extends BigEnum2
+    case object Case50 extends BigEnum2
+    case object Case51 extends BigEnum2
+    case object Case52 extends BigEnum2
+    case object Case53 extends BigEnum2
+    case object Case54 extends BigEnum2
+    case object Case55 extends BigEnum2
+    case object Case56 extends BigEnum2
+    case object Case57 extends BigEnum2
+    case object Case58 extends BigEnum2
+    case object Case59 extends BigEnum2
+    case object Case60 extends BigEnum2
+    case object Case61 extends BigEnum2
+    case object Case62 extends BigEnum2
+    case object Case63 extends BigEnum2
+    case object Case64 extends BigEnum2
+    case object Case65 extends BigEnum2
+    case object Case66 extends BigEnum2
+    case object Case67 extends BigEnum2
+    case object Case68 extends BigEnum2
+    case object Case69 extends BigEnum2
+
+    implicit val schema: Schema[BigEnum2] = DeriveSchema.gen
+  }
+
+  @discriminatorName("type")
+  sealed trait BigEnum3
+
+  object BigEnum3 {
+
+    @caseName("Case_00")
+    @caseNameAliases("Case-00")
+    case class Case00(b: Byte) extends BigEnum3
+    case object Case01 extends BigEnum3
+    case object Case02 extends BigEnum3
+    case object Case03 extends BigEnum3
+    case object Case04 extends BigEnum3
+    case object Case05 extends BigEnum3
+    case object Case06 extends BigEnum3
+    case object Case07 extends BigEnum3
+    case object Case08 extends BigEnum3
+    case object Case09 extends BigEnum3
+    case object Case10 extends BigEnum3
+    case object Case11 extends BigEnum3
+    case object Case12 extends BigEnum3
+    case object Case13 extends BigEnum3
+    case object Case14 extends BigEnum3
+    case object Case15 extends BigEnum3
+    case object Case16 extends BigEnum3
+    case object Case17 extends BigEnum3
+    case object Case18 extends BigEnum3
+    case object Case19 extends BigEnum3
+    case object Case20 extends BigEnum3
+    case object Case21 extends BigEnum3
+    case object Case22 extends BigEnum3
+    case object Case23 extends BigEnum3
+    case object Case24 extends BigEnum3
+    case object Case25 extends BigEnum3
+    case object Case26 extends BigEnum3
+    case object Case27 extends BigEnum3
+    case object Case28 extends BigEnum3
+    case object Case29 extends BigEnum3
+    case object Case30 extends BigEnum3
+    case object Case31 extends BigEnum3
+    case object Case32 extends BigEnum3
+    case object Case33 extends BigEnum3
+    case object Case34 extends BigEnum3
+    case object Case35 extends BigEnum3
+    case object Case36 extends BigEnum3
+    case object Case37 extends BigEnum3
+    case object Case38 extends BigEnum3
+    case object Case39 extends BigEnum3
+    case object Case40 extends BigEnum3
+    case object Case41 extends BigEnum3
+    case object Case42 extends BigEnum3
+    case object Case43 extends BigEnum3
+    case object Case44 extends BigEnum3
+    case object Case45 extends BigEnum3
+    case object Case46 extends BigEnum3
+    case object Case47 extends BigEnum3
+    case object Case48 extends BigEnum3
+    case object Case49 extends BigEnum3
+    case object Case50 extends BigEnum3
+    case object Case51 extends BigEnum3
+    case object Case52 extends BigEnum3
+    case object Case53 extends BigEnum3
+    case object Case54 extends BigEnum3
+    case object Case55 extends BigEnum3
+    case object Case56 extends BigEnum3
+    case object Case57 extends BigEnum3
+    case object Case58 extends BigEnum3
+    case object Case59 extends BigEnum3
+    case object Case60 extends BigEnum3
+    case object Case61 extends BigEnum3
+    case object Case62 extends BigEnum3
+    case object Case63 extends BigEnum3
+    case object Case64 extends BigEnum3
+    case object Case65 extends BigEnum3
+    case object Case66 extends BigEnum3
+    case object Case67 extends BigEnum3
+    case object Case68 extends BigEnum3
+    case object Case69 extends BigEnum3
+
+    implicit val schema: Schema[BigEnum3] = DeriveSchema.gen
+  }
+
+  case class BigProduct(
+    f00: Boolean,
+    @fieldNameAliases("f-01") f01: Option[Byte] = None,
+    f02: Option[Short] = None,
+    f03: Option[Int] = None,
+    f04: Option[Long] = None,
+    f05: Option[Float] = None,
+    f06: Option[Double] = None,
+    f07: Option[Byte] = None,
+    f08: Option[Byte] = None,
+    f09: Option[Byte] = None,
+    f10: Option[Byte] = None,
+    f11: Option[Byte] = None,
+    f12: Option[Byte] = None,
+    f13: Option[Byte] = None,
+    f14: Option[Byte] = None,
+    f15: Option[Byte] = None,
+    f16: Option[Byte] = None,
+    f17: Option[Byte] = None,
+    f18: Option[Byte] = None,
+    f19: Option[Byte] = None,
+    f20: Option[Byte] = None,
+    f21: Option[Byte] = None,
+    f22: Option[Byte] = None,
+    f23: Option[Byte] = None,
+    f24: Option[Byte] = None,
+    f25: Option[Byte] = None,
+    f26: Option[Byte] = None,
+    f27: Option[Byte] = None,
+    f28: Option[Byte] = None,
+    f29: Option[Byte] = None,
+    f30: Option[Byte] = None,
+    f31: Option[Byte] = None,
+    f32: Option[Byte] = None,
+    f33: Option[Byte] = None,
+    f34: Option[Byte] = None,
+    f35: Option[Byte] = None,
+    f36: Option[Byte] = None,
+    f37: Option[Byte] = None,
+    f38: Option[Byte] = None,
+    f39: Option[Byte] = None,
+    f40: Option[Byte] = None,
+    f41: Option[Byte] = None,
+    f42: Option[Byte] = None,
+    f43: Option[Byte] = None,
+    f44: Option[Byte] = None,
+    f45: Option[Byte] = None,
+    f46: Option[Byte] = None,
+    f47: Option[Byte] = None,
+    f48: Option[Byte] = None,
+    f49: Option[Byte] = None,
+    f50: Option[Byte] = None,
+    f51: Option[Byte] = None,
+    f52: Option[Byte] = None,
+    f53: Option[Byte] = None,
+    f54: Option[Byte] = None,
+    f55: Option[Byte] = None,
+    f56: Option[Byte] = None,
+    f57: Option[Byte] = None,
+    f58: Option[Byte] = None,
+    f59: Option[Byte] = None,
+    f60: Option[Byte] = None,
+    f61: Option[Byte] = None,
+    f62: Option[Byte] = None,
+    f63: Option[Byte] = None,
+    f64: Option[Byte] = None,
+    f65: Option[Byte] = None,
+    f66: Option[Byte] = None,
+    f67: Option[BigProduct],
+    f68: List[Byte],
+    f69: Vector[Byte]
+  )
+
+  object BigProduct {
+    implicit val schema: Schema[BigProduct] = DeriveSchema.gen
   }
 }
