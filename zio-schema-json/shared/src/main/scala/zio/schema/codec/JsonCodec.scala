@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets
 import java.util
 import java.util.concurrent.ConcurrentHashMap
 
-import scala.annotation.switch
+import scala.annotation._
 import scala.collection.immutable.ListMap
 import scala.collection.mutable
 import scala.util.control.NonFatal
@@ -33,7 +33,7 @@ object JsonCodec {
 
   final case class Config(
     ignoreEmptyCollections: Boolean,
-    treatStreamsAsArrays: Boolean = false,
+    @unroll treatStreamsAsArrays: Boolean = false,
     explicitNulls: Boolean = false
   )
 
