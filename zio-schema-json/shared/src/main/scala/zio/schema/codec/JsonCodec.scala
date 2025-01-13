@@ -919,7 +919,7 @@ object JsonCodec {
                     lexer.nextField(trace, rr) || error("missing subtype", trace)
                   }
                 }) ()
-                val trace_ = discriminatorSpan :: trace
+                val trace_     = discriminatorSpan :: trace
                 val fieldValue = lexer.string(trace_, rr).toString
                 rr.rewind()
                 val spanWithDecoder = cases.get(fieldValue)

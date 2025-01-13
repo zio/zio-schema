@@ -1174,8 +1174,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
         )
       },
       test("wrong example") {
-        assertDecodesToError(Prompt.schema, "123",
-          JsonError.Message("none of the subtypes could decode the data") :: Nil)
+        assertDecodesToError(
+          Prompt.schema,
+          "123",
+          JsonError.Message("none of the subtypes could decode the data") :: Nil
+        )
       }
     ),
     suite("dynamic direct mapping")(
@@ -1767,8 +1770,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
           assertDecodesToError(Schema[Command], "{}", JsonError.Message("missing subtype") :: Nil)
       ),
       test("illegal case")(
-        assertDecodesToError(Schema[Command], "{\"type\":\"Run\"}",
-          JsonError.Message("unrecognized subtype") :: JsonError.ObjectAccess("type") :: Nil)
+        assertDecodesToError(
+          Schema[Command],
+          "{\"type\":\"Run\"}",
+          JsonError.Message("unrecognized subtype") :: JsonError.ObjectAccess("type") :: Nil
+        )
       ),
       test("decode discriminated case objects with extra fields")(
         assertDecodes(Schema[Command], Command.Cash, charSequenceToByteChunk("""{"type":"Cash","extraField":1}""")) &>
@@ -1820,12 +1826,20 @@ object JsonCodecSpec extends ZIOSpecDefault {
         test("with caseName")(
           assertEncodesThenDecodes(Schema[BigEnum2], BigEnum2.Case00(123.toByte)) &>
             assertEncodesJson(Schema[BigEnum2], BigEnum2.Case00(123.toByte), "{\"Case_00\":{\"b\":123}}") &>
-            assertDecodes(Schema[BigEnum2], BigEnum2.Case00(123.toByte), charSequenceToByteChunk("{\"Case_00\":{\"b\":123}}")) &>
+            assertDecodes(
+              Schema[BigEnum2],
+              BigEnum2.Case00(123.toByte),
+              charSequenceToByteChunk("{\"Case_00\":{\"b\":123}}")
+            ) &>
             assertDecodesToError(Schema[BigEnum2], "{\"Case00\":{}}", JsonError.Message("unrecognized subtype") :: Nil)
         ),
         test("with caseAliases")(
           assertEncodesThenDecodes(Schema[BigEnum2], BigEnum2.Case00(123.toByte)) &>
-            assertDecodes(Schema[BigEnum2], BigEnum2.Case00(123.toByte), charSequenceToByteChunk("{\"Case-00\":{\"b\":123}}"))
+            assertDecodes(
+              Schema[BigEnum2],
+              BigEnum2.Case00(123.toByte),
+              charSequenceToByteChunk("{\"Case-00\":{\"b\":123}}")
+            )
         ),
         test("no discriminator key")(
           assertDecodesToError(Schema[BigEnum2], "{}", JsonError.Message("missing subtype") :: Nil)
@@ -1841,23 +1855,35 @@ object JsonCodecSpec extends ZIOSpecDefault {
         test("with caseName")(
           assertEncodesThenDecodes(Schema[BigEnum3], BigEnum3.Case00(123.toByte)) &>
             assertEncodesJson(Schema[BigEnum3], BigEnum3.Case00(123.toByte), "{\"type\":\"Case_00\",\"b\":123}") &>
-            assertDecodes(Schema[BigEnum3], BigEnum3.Case00(123.toByte),
-              charSequenceToByteChunk("{\"b\":123,\"type\":\"Case_00\"}")) &>
-            assertDecodesToError(Schema[BigEnum3], "{\"type\":\"Case00\"}",
-              JsonError.Message("unrecognized subtype") :: JsonError.ObjectAccess("type") :: Nil)
+            assertDecodes(
+              Schema[BigEnum3],
+              BigEnum3.Case00(123.toByte),
+              charSequenceToByteChunk("{\"b\":123,\"type\":\"Case_00\"}")
+            ) &>
+            assertDecodesToError(
+              Schema[BigEnum3],
+              "{\"type\":\"Case00\"}",
+              JsonError.Message("unrecognized subtype") :: JsonError.ObjectAccess("type") :: Nil
+            )
         ),
         test("with caseAliases")(
           assertEncodesThenDecodes(Schema[BigEnum3], BigEnum3.Case00(123.toByte)) &>
-            assertDecodes(Schema[BigEnum3], BigEnum3.Case00(123.toByte),
-              charSequenceToByteChunk("{\"type\":\"Case-00\",\"b\":123}"))
+            assertDecodes(
+              Schema[BigEnum3],
+              BigEnum3.Case00(123.toByte),
+              charSequenceToByteChunk("{\"type\":\"Case-00\",\"b\":123}")
+            )
         ),
         test("no discriminator field")(
           assertDecodesToError(Schema[BigEnum3], "{\"b\":123}", JsonError.Message("missing subtype") :: Nil) &>
             assertDecodesToError(Schema[BigEnum3], "{}", JsonError.Message("missing subtype") :: Nil)
         ),
         test("invalid case")(
-          assertDecodesToError(Schema[BigEnum3], "{\"type\":\"CaseXX\"}",
-            JsonError.Message("unrecognized subtype") :: JsonError.ObjectAccess("type") :: Nil)
+          assertDecodesToError(
+            Schema[BigEnum3],
+            "{\"type\":\"CaseXX\"}",
+            JsonError.Message("unrecognized subtype") :: JsonError.ObjectAccess("type") :: Nil
+          )
         )
       )
     ),
@@ -2813,75 +2839,75 @@ object JsonCodecSpec extends ZIOSpecDefault {
     @caseName("Case_00")
     @caseNameAliases("Case-00")
     case class Case00(b: Byte) extends BigEnum2
-    case object Case01 extends BigEnum2
-    case object Case02 extends BigEnum2
-    case object Case03 extends BigEnum2
-    case object Case04 extends BigEnum2
-    case object Case05 extends BigEnum2
-    case object Case06 extends BigEnum2
-    case object Case07 extends BigEnum2
-    case object Case08 extends BigEnum2
-    case object Case09 extends BigEnum2
-    case object Case10 extends BigEnum2
-    case object Case11 extends BigEnum2
-    case object Case12 extends BigEnum2
-    case object Case13 extends BigEnum2
-    case object Case14 extends BigEnum2
-    case object Case15 extends BigEnum2
-    case object Case16 extends BigEnum2
-    case object Case17 extends BigEnum2
-    case object Case18 extends BigEnum2
-    case object Case19 extends BigEnum2
-    case object Case20 extends BigEnum2
-    case object Case21 extends BigEnum2
-    case object Case22 extends BigEnum2
-    case object Case23 extends BigEnum2
-    case object Case24 extends BigEnum2
-    case object Case25 extends BigEnum2
-    case object Case26 extends BigEnum2
-    case object Case27 extends BigEnum2
-    case object Case28 extends BigEnum2
-    case object Case29 extends BigEnum2
-    case object Case30 extends BigEnum2
-    case object Case31 extends BigEnum2
-    case object Case32 extends BigEnum2
-    case object Case33 extends BigEnum2
-    case object Case34 extends BigEnum2
-    case object Case35 extends BigEnum2
-    case object Case36 extends BigEnum2
-    case object Case37 extends BigEnum2
-    case object Case38 extends BigEnum2
-    case object Case39 extends BigEnum2
-    case object Case40 extends BigEnum2
-    case object Case41 extends BigEnum2
-    case object Case42 extends BigEnum2
-    case object Case43 extends BigEnum2
-    case object Case44 extends BigEnum2
-    case object Case45 extends BigEnum2
-    case object Case46 extends BigEnum2
-    case object Case47 extends BigEnum2
-    case object Case48 extends BigEnum2
-    case object Case49 extends BigEnum2
-    case object Case50 extends BigEnum2
-    case object Case51 extends BigEnum2
-    case object Case52 extends BigEnum2
-    case object Case53 extends BigEnum2
-    case object Case54 extends BigEnum2
-    case object Case55 extends BigEnum2
-    case object Case56 extends BigEnum2
-    case object Case57 extends BigEnum2
-    case object Case58 extends BigEnum2
-    case object Case59 extends BigEnum2
-    case object Case60 extends BigEnum2
-    case object Case61 extends BigEnum2
-    case object Case62 extends BigEnum2
-    case object Case63 extends BigEnum2
-    case object Case64 extends BigEnum2
-    case object Case65 extends BigEnum2
-    case object Case66 extends BigEnum2
-    case object Case67 extends BigEnum2
-    case object Case68 extends BigEnum2
-    case object Case69 extends BigEnum2
+    case object Case01         extends BigEnum2
+    case object Case02         extends BigEnum2
+    case object Case03         extends BigEnum2
+    case object Case04         extends BigEnum2
+    case object Case05         extends BigEnum2
+    case object Case06         extends BigEnum2
+    case object Case07         extends BigEnum2
+    case object Case08         extends BigEnum2
+    case object Case09         extends BigEnum2
+    case object Case10         extends BigEnum2
+    case object Case11         extends BigEnum2
+    case object Case12         extends BigEnum2
+    case object Case13         extends BigEnum2
+    case object Case14         extends BigEnum2
+    case object Case15         extends BigEnum2
+    case object Case16         extends BigEnum2
+    case object Case17         extends BigEnum2
+    case object Case18         extends BigEnum2
+    case object Case19         extends BigEnum2
+    case object Case20         extends BigEnum2
+    case object Case21         extends BigEnum2
+    case object Case22         extends BigEnum2
+    case object Case23         extends BigEnum2
+    case object Case24         extends BigEnum2
+    case object Case25         extends BigEnum2
+    case object Case26         extends BigEnum2
+    case object Case27         extends BigEnum2
+    case object Case28         extends BigEnum2
+    case object Case29         extends BigEnum2
+    case object Case30         extends BigEnum2
+    case object Case31         extends BigEnum2
+    case object Case32         extends BigEnum2
+    case object Case33         extends BigEnum2
+    case object Case34         extends BigEnum2
+    case object Case35         extends BigEnum2
+    case object Case36         extends BigEnum2
+    case object Case37         extends BigEnum2
+    case object Case38         extends BigEnum2
+    case object Case39         extends BigEnum2
+    case object Case40         extends BigEnum2
+    case object Case41         extends BigEnum2
+    case object Case42         extends BigEnum2
+    case object Case43         extends BigEnum2
+    case object Case44         extends BigEnum2
+    case object Case45         extends BigEnum2
+    case object Case46         extends BigEnum2
+    case object Case47         extends BigEnum2
+    case object Case48         extends BigEnum2
+    case object Case49         extends BigEnum2
+    case object Case50         extends BigEnum2
+    case object Case51         extends BigEnum2
+    case object Case52         extends BigEnum2
+    case object Case53         extends BigEnum2
+    case object Case54         extends BigEnum2
+    case object Case55         extends BigEnum2
+    case object Case56         extends BigEnum2
+    case object Case57         extends BigEnum2
+    case object Case58         extends BigEnum2
+    case object Case59         extends BigEnum2
+    case object Case60         extends BigEnum2
+    case object Case61         extends BigEnum2
+    case object Case62         extends BigEnum2
+    case object Case63         extends BigEnum2
+    case object Case64         extends BigEnum2
+    case object Case65         extends BigEnum2
+    case object Case66         extends BigEnum2
+    case object Case67         extends BigEnum2
+    case object Case68         extends BigEnum2
+    case object Case69         extends BigEnum2
 
     implicit val schema: Schema[BigEnum2] = DeriveSchema.gen
   }
@@ -2894,75 +2920,75 @@ object JsonCodecSpec extends ZIOSpecDefault {
     @caseName("Case_00")
     @caseNameAliases("Case-00")
     case class Case00(b: Byte) extends BigEnum3
-    case object Case01 extends BigEnum3
-    case object Case02 extends BigEnum3
-    case object Case03 extends BigEnum3
-    case object Case04 extends BigEnum3
-    case object Case05 extends BigEnum3
-    case object Case06 extends BigEnum3
-    case object Case07 extends BigEnum3
-    case object Case08 extends BigEnum3
-    case object Case09 extends BigEnum3
-    case object Case10 extends BigEnum3
-    case object Case11 extends BigEnum3
-    case object Case12 extends BigEnum3
-    case object Case13 extends BigEnum3
-    case object Case14 extends BigEnum3
-    case object Case15 extends BigEnum3
-    case object Case16 extends BigEnum3
-    case object Case17 extends BigEnum3
-    case object Case18 extends BigEnum3
-    case object Case19 extends BigEnum3
-    case object Case20 extends BigEnum3
-    case object Case21 extends BigEnum3
-    case object Case22 extends BigEnum3
-    case object Case23 extends BigEnum3
-    case object Case24 extends BigEnum3
-    case object Case25 extends BigEnum3
-    case object Case26 extends BigEnum3
-    case object Case27 extends BigEnum3
-    case object Case28 extends BigEnum3
-    case object Case29 extends BigEnum3
-    case object Case30 extends BigEnum3
-    case object Case31 extends BigEnum3
-    case object Case32 extends BigEnum3
-    case object Case33 extends BigEnum3
-    case object Case34 extends BigEnum3
-    case object Case35 extends BigEnum3
-    case object Case36 extends BigEnum3
-    case object Case37 extends BigEnum3
-    case object Case38 extends BigEnum3
-    case object Case39 extends BigEnum3
-    case object Case40 extends BigEnum3
-    case object Case41 extends BigEnum3
-    case object Case42 extends BigEnum3
-    case object Case43 extends BigEnum3
-    case object Case44 extends BigEnum3
-    case object Case45 extends BigEnum3
-    case object Case46 extends BigEnum3
-    case object Case47 extends BigEnum3
-    case object Case48 extends BigEnum3
-    case object Case49 extends BigEnum3
-    case object Case50 extends BigEnum3
-    case object Case51 extends BigEnum3
-    case object Case52 extends BigEnum3
-    case object Case53 extends BigEnum3
-    case object Case54 extends BigEnum3
-    case object Case55 extends BigEnum3
-    case object Case56 extends BigEnum3
-    case object Case57 extends BigEnum3
-    case object Case58 extends BigEnum3
-    case object Case59 extends BigEnum3
-    case object Case60 extends BigEnum3
-    case object Case61 extends BigEnum3
-    case object Case62 extends BigEnum3
-    case object Case63 extends BigEnum3
-    case object Case64 extends BigEnum3
-    case object Case65 extends BigEnum3
-    case object Case66 extends BigEnum3
-    case object Case67 extends BigEnum3
-    case object Case68 extends BigEnum3
-    case object Case69 extends BigEnum3
+    case object Case01         extends BigEnum3
+    case object Case02         extends BigEnum3
+    case object Case03         extends BigEnum3
+    case object Case04         extends BigEnum3
+    case object Case05         extends BigEnum3
+    case object Case06         extends BigEnum3
+    case object Case07         extends BigEnum3
+    case object Case08         extends BigEnum3
+    case object Case09         extends BigEnum3
+    case object Case10         extends BigEnum3
+    case object Case11         extends BigEnum3
+    case object Case12         extends BigEnum3
+    case object Case13         extends BigEnum3
+    case object Case14         extends BigEnum3
+    case object Case15         extends BigEnum3
+    case object Case16         extends BigEnum3
+    case object Case17         extends BigEnum3
+    case object Case18         extends BigEnum3
+    case object Case19         extends BigEnum3
+    case object Case20         extends BigEnum3
+    case object Case21         extends BigEnum3
+    case object Case22         extends BigEnum3
+    case object Case23         extends BigEnum3
+    case object Case24         extends BigEnum3
+    case object Case25         extends BigEnum3
+    case object Case26         extends BigEnum3
+    case object Case27         extends BigEnum3
+    case object Case28         extends BigEnum3
+    case object Case29         extends BigEnum3
+    case object Case30         extends BigEnum3
+    case object Case31         extends BigEnum3
+    case object Case32         extends BigEnum3
+    case object Case33         extends BigEnum3
+    case object Case34         extends BigEnum3
+    case object Case35         extends BigEnum3
+    case object Case36         extends BigEnum3
+    case object Case37         extends BigEnum3
+    case object Case38         extends BigEnum3
+    case object Case39         extends BigEnum3
+    case object Case40         extends BigEnum3
+    case object Case41         extends BigEnum3
+    case object Case42         extends BigEnum3
+    case object Case43         extends BigEnum3
+    case object Case44         extends BigEnum3
+    case object Case45         extends BigEnum3
+    case object Case46         extends BigEnum3
+    case object Case47         extends BigEnum3
+    case object Case48         extends BigEnum3
+    case object Case49         extends BigEnum3
+    case object Case50         extends BigEnum3
+    case object Case51         extends BigEnum3
+    case object Case52         extends BigEnum3
+    case object Case53         extends BigEnum3
+    case object Case54         extends BigEnum3
+    case object Case55         extends BigEnum3
+    case object Case56         extends BigEnum3
+    case object Case57         extends BigEnum3
+    case object Case58         extends BigEnum3
+    case object Case59         extends BigEnum3
+    case object Case60         extends BigEnum3
+    case object Case61         extends BigEnum3
+    case object Case62         extends BigEnum3
+    case object Case63         extends BigEnum3
+    case object Case64         extends BigEnum3
+    case object Case65         extends BigEnum3
+    case object Case66         extends BigEnum3
+    case object Case67         extends BigEnum3
+    case object Case68         extends BigEnum3
+    case object Case69         extends BigEnum3
 
     implicit val schema: Schema[BigEnum3] = DeriveSchema.gen
   }
