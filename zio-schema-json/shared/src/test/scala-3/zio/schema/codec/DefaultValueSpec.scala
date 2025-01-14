@@ -4,6 +4,7 @@ import zio.Console._
 import zio._
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema._
+import zio.schema.annotation._
 import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test.*
@@ -21,6 +22,26 @@ object DefaultValueSpec extends ZIOSpecDefault {
         val result = JsonCodec.jsonDecoder(Schema[WithDefaultValue]).decodeJson("""{"orderId": 1}""")
         assertTrue(result.isRight)
       }
+    ),
+    suite("union types")(
+      test("union type of standard types") {
+        val schema = Schema.chunk(DeriveSchema.gen[Int | String | Boolean])
+        val decoder = JsonCodec.jsonDecoder(schema)
+        val encoder = JsonCodec.jsonEncoder(schema)
+        val json = """["abc",1,true]"""
+        val value = Chunk[Int | String | Boolean]("abc", 1, true)
+        assert(decoder.decodeJson(json))(equalTo(Right(value)))
+        assert(encoder.encodeJson(value))(equalTo(json))
+      },
+      test("union type of enums") {
+        val schema = Schema.chunk(Schema[Result])
+        val decoder = JsonCodec.jsonDecoder(schema)
+        val encoder = JsonCodec.jsonEncoder(schema)
+        val json = """[{"res":{"Left":"Err1"}},{"res":{"Left":"Err21"}},{"res":{"Right":{"i":1}}}]"""
+        val value = Chunk[Result](Result(Left(ErrorGroup1.Err1)), Result(Left(ErrorGroup2.Err21)), Result(Right(Value(1))))
+        assert(decoder.decodeJson(json))(equalTo(Right(value)))
+        assert(encoder.encodeJson(value))(equalTo(json))
+      }
     )
   )
 
@@ -30,4 +51,21 @@ object DefaultValueSpec extends ZIOSpecDefault {
     implicit lazy val schema: Schema[WithDefaultValue] = DeriveSchema.gen[WithDefaultValue]
   }
 
+  enum ErrorGroup1:
+    case Err1
+    case Err2
+    case Err3
+
+  enum ErrorGroup2:
+    case Err21
+    case Err22
+    case Err23
+
+  case class Value(i: Int)
+  object Value:
+    given Schema[Value] = DeriveSchema.gen[Value]
+
+  case class Result(res: Either[ErrorGroup1 | ErrorGroup2, Value])
+  object Result:
+    given Schema[Result] = DeriveSchema.gen[Result]
 }

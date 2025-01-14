@@ -91,29 +91,35 @@ private case class DeriveSchema()(using val ctx: Quotes) {
                   case Some(mirror) =>
                     mirror.mirrorType match {
                       case MirrorType.Sum =>
-                        deriveEnum[T](mirror, stack)
+                        val types = mirror.types.toList
+                        val labels = mirror.labels.toList
+                        deriveEnum[T](types, labels, stack, false)
                       case MirrorType.Product =>
-                       deriveCaseClass[T](mirror, stack, top)
+                        deriveCaseClass[T](mirror, stack, top)
                     }
                   case None =>
                     val sym = typeRepr.typeSymbol
                     if (sym.isClassDef && sym.flags.is(Flags.Module)) {
                       deriveCaseObject[T](stack, top)
-                    }
-                    else {
-                      report.errorAndAbort(s"Deriving schema for ${typeRepr.show} is not supported")
+                    } else {
+                      def collectOrTypeCases(tpe: TypeRepr): List[TypeRepr] = tpe match {
+                        case OrType(left, right) => collectOrTypeCases(left) ++ collectOrTypeCases(right)
+                        case _ => List(tpe)
+                      }
+
+                      val types = collectOrTypeCases(typeRepr)
+                      val size = types.size
+                      if (size > 1) {
+                        val labels = (1 to size).map(_.toString).toList
+                        deriveEnum[T](types, labels, stack, true)
+                      } else {
+                        report.errorAndAbort(s"Deriving schema for ${typeRepr.show} is not supported")
+                      }
                     }
               }
           }
         }
     }
-
-    //println()
-    //println()
-    //println(s"RESULT ${typeRepr.show}")
-    //println(s"------")
-    //println(s"RESULT ${result.show}")
-
     result
   }
 
@@ -369,17 +375,13 @@ private case class DeriveSchema()(using val ctx: Quotes) {
       }.toMap
   }
 
-  def deriveEnum[T: Type](mirror: Mirror, stack: Stack)(using Quotes) = {
+  def deriveEnum[T: Type](types: List[TypeRepr], labels: List[String], stack: Stack, isUnion: Boolean)(using Quotes) = {
     val selfRefSymbol = Symbol.newVal(Symbol.spliceOwner, s"derivedSchema${stack.size}", TypeRepr.of[Schema[T]], Flags.Lazy, Symbol.noSymbol)
     val selfRef = Ref(selfRefSymbol)
     val newStack = stack.push(selfRef, TypeRepr.of[T])
 
-    val labels = mirror.labels.toList
-    val types = mirror.types.toList
     val typesAndLabels = types.zip(labels)
-
     val cases = typesAndLabels.map { case (tpe, label) => deriveCase[T](tpe, label, newStack) }
-
     val numParentFields: Int = TypeRepr.of[T].typeSymbol.declaredFields.length
     val childrenFields = TypeRepr.of[T].typeSymbol.children.map(_.declaredFields.length)
     val childrenFieldsConstructor = TypeRepr.of[T].typeSymbol.children.map(_.caseFields.length)
@@ -390,10 +392,11 @@ private case class DeriveSchema()(using val ctx: Quotes) {
       val docstringExpr = Expr(docstring)
       '{zio.schema.annotation.description(${docstringExpr})}
     }
-    val annotationExprs = (isSimpleEnum, hasSimpleEnumAnn) match {
-      case (true, false) => TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr).+:('{zio.schema.annotation.simpleEnum(true)})
-      case (false, true) => throw new Exception(s"${TypeRepr.of[T].typeSymbol.name} must be a simple Enum")
-      case _             => TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
+    val annotationExprs = (isUnion, isSimpleEnum, hasSimpleEnumAnn) match {
+      case (false, true, false) => TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr).+:('{zio.schema.annotation.simpleEnum(true)})
+      case (false, false, true) => throw new Exception(s"${TypeRepr.of[T].typeSymbol.name} must be a simple Enum")
+      case (true, _, _)         => TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr).+:('{zio.schema.annotation.noDiscriminator()})
+      case _                    => TypeRepr.of[T].typeSymbol.annotations.filter(filterAnnotation).map(_.asExpr)
     }
     val genericAnnotations = if (TypeRepr.of[T].classSymbol.exists(_.typeMembers.nonEmpty)){
       val typeMembersExpr = Expr.ofSeq(TypeRepr.of[T].classSymbol.get.typeMembers.map { t => Expr(t.name) })
@@ -402,7 +405,9 @@ private case class DeriveSchema()(using val ctx: Quotes) {
     } else List.empty
     val annotations = '{ zio.Chunk.fromIterable(${Expr.ofSeq(annotationExprs)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(docAnnotationExpr.toList)}) ++ zio.Chunk.fromIterable(${Expr.ofSeq(genericAnnotations)}) }
 
-    val typeInfo = '{TypeId.parse(${Expr(TypeRepr.of[T].classSymbol.get.fullName.replaceAll("\\$", ""))})}
+    val typeInfo =
+      if (isUnion) '{TypeId.fromTypeName("|")}
+      else '{TypeId.parse(${Expr(TypeRepr.of[T].classSymbol.get.fullName.replaceAll("\\$", ""))})}
 
     val applied = if (cases.length <= 22) {
       val args = List(typeInfo) ++ cases :+ annotations
@@ -440,7 +445,6 @@ private case class DeriveSchema()(using val ctx: Quotes) {
         }
     }
   }
-
 
   // Derive Field for a CaseClass
   def deriveField[T: Type](repr: TypeRepr, name: String, anns: List[Expr[Any]], stack: Stack)(using Quotes) = {
