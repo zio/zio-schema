@@ -1758,6 +1758,12 @@ object JsonCodecSpec extends ZIOSpecDefault {
           RecordExampleWithDiscriminator(f1 = Some("test"), f2 = None)
         )
       },
+      test("nested ADT with discriminator field") {
+        assertEncodesThenDecodes(
+          Schema[GeoJSON.GeoJSON],
+          GeoJSON.Feature(geometry = GeoJSON.Point(1.0 -> 2.0))
+        )
+      } @@ TestAspect.ignore,
       test("of case classes with discriminator") {
         assertEncodesThenDecodes(Schema[Command], Command.Cash) &>
           assertEncodesThenDecodes(Schema[Command], Command.Buy(100))
@@ -3068,5 +3074,29 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object BigProduct {
     implicit val schema: Schema[BigProduct] = DeriveSchema.gen
+  }
+
+  object GeoJSON {
+    @discriminatorName("type") sealed trait Geometry                            extends Product with Serializable
+    @discriminatorName("type") sealed trait SimpleGeometry                      extends Geometry
+    case class Point(coordinates: (Double, Double))                             extends SimpleGeometry
+    case class MultiPoint(coordinates: Chunk[(Double, Double)])                 extends SimpleGeometry
+    case class LineString(coordinates: Chunk[(Double, Double)])                 extends SimpleGeometry
+    case class MultiLineString(coordinates: Chunk[Chunk[(Double, Double)]])     extends SimpleGeometry
+    case class Polygon(coordinates: Chunk[Chunk[(Double, Double)]])             extends SimpleGeometry
+    case class MultiPolygon(coordinates: Chunk[Chunk[Chunk[(Double, Double)]]]) extends SimpleGeometry
+    case class GeometryCollection(geometries: Chunk[SimpleGeometry])            extends Geometry
+    @discriminatorName("type") sealed trait GeoJSON                             extends Product with Serializable
+    @discriminatorName("type") sealed trait SimpleGeoJSON                       extends GeoJSON
+    case class Feature(
+      properties: Map[String, String] = Map.empty,
+      geometry: Geometry,
+      bbox: Option[(Double, Double, Double, Double)] = None
+    ) extends SimpleGeoJSON
+    case class FeatureCollection(features: Chunk[SimpleGeoJSON], bbox: Option[(Double, Double, Double, Double)] = None)
+        extends GeoJSON
+    object GeoJSON {
+      implicit lazy val schema: Schema[GeoJSON] = DeriveSchema.gen
+    }
   }
 }
