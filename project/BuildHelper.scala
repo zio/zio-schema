@@ -3,6 +3,11 @@ import Keys.*
 import sbtcrossproject.CrossPlugin.autoImport.*
 import sbtbuildinfo.*
 import BuildInfoKeys.*
+import com.typesafe.tools.mima.core.Problem
+import com.typesafe.tools.mima.core.ProblemFilters.exclude
+import com.typesafe.tools.mima.plugin.MimaKeys.{ mimaBinaryIssueFilters, mimaFailOnProblem, mimaPreviousArtifacts }
+import com.typesafe.tools.mima.plugin.MimaPlugin.autoImport.mimaCheckDirection
+import sbtdynver.DynVerPlugin.autoImport.previousStableVersion
 import scalafix.sbt.ScalafixPlugin.autoImport.*
 import scalanativecrossproject.NativePlatform
 
@@ -225,6 +230,14 @@ object BuildHelper {
       Test / parallelExecution := !sys.env.contains("CI"),
       incOptions ~= (_.withLogRecompileOnMacro(true)),
       autoAPIMappings := true,
-      testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
+      testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
+      mimaPreviousArtifacts := previousStableVersion.value.map(organization.value %% name.value % _).toSet,
+      mimaCheckDirection := "backward", // TODO use "both" for patch versions
+      mimaBinaryIssueFilters ++= Seq(
+        exclude[Problem]("zio.schema.codec.JsonCodec#JsonDecoder.x"),
+        exclude[Problem]("zio.schema.SchemaPlatformSpecific.*"),
+        exclude[Problem]("zio.schema.Schema.url")
+      ),
+      mimaFailOnProblem := true
     )
 }
