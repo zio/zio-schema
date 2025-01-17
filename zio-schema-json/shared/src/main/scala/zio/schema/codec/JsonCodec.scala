@@ -875,9 +875,9 @@ object JsonCodec {
                 decoded
               }
             }
-          case Some(discriminatorName) =>
-            val discriminatorMatrix = new StringMatrix(Array(discriminatorName))
-            val discriminatorSpan   = JsonError.ObjectAccess(discriminatorName)
+          case Some(discrName) =>
+            val discriminatorMatrix = new StringMatrix(Array(discrName))
+            val discriminatorSpan   = JsonError.ObjectAccess(discrName)
             if (caseNameAliases.size <= 64) {
               val caseMatrix = new StringMatrix(caseNameAliases.keys.toArray)
               val cases = caseNameAliases.values.map { case_ =>

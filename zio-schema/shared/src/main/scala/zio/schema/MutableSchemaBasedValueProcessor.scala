@@ -897,16 +897,16 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
         case s: Schema.Fallback[l, r] =>
           startProcessingFallback(currentContext, s)
           currentValue.asInstanceOf[zio.schema.Fallback[l, r]] match {
-            case zio.schema.Fallback.Left(value: l) =>
-              currentValue = value
+            case zio.schema.Fallback.Left(left: l) =>
+              currentValue = left
               currentSchema = s.left
               pushContext(contextForFallback(currentContext, zio.schema.Fallback.Left(())))
               push { dyn =>
                 contextStack = contextStack.tail
                 finishWith(processFallback(currentContext, s, zio.schema.Fallback.Left(dyn)))
               }
-            case zio.schema.Fallback.Right(value: r) =>
-              currentValue = value
+            case zio.schema.Fallback.Right(right: r) =>
+              currentValue = right
               currentSchema = s.right
               pushContext(contextForFallback(currentContext, zio.schema.Fallback.Right(())))
               push { dyn =>

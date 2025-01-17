@@ -2199,12 +2199,6 @@ object JsonCodecSpec extends ZIOSpecDefault {
         )
       }
 
-  private def flatten[A](value: A): A = value match {
-    case Some(None)    => None.asInstanceOf[A]
-    case Some(Some(a)) => flatten(Some(flatten(a))).asInstanceOf[A]
-    case _             => value
-  }
-
   implicit def mapEncoder[K, V](
     implicit keyEncoder: JsonEncoder[K],
     valueEncoder: JsonEncoder[V]
