@@ -1535,7 +1535,7 @@ object JsonCodec {
         override def get(key: String): Option[Any] = ???
 
         override def iterator: Iterator[(String, Any)] = new Iterator[(String, Any)] {
-          private[this] val names   = stringMatrix.xs // can contain a discriminator field name at the last position
+          private[this] val keys    = spans
           private[this] val values  = buffer
           private[this] var nextIdx = 0
 
@@ -1545,7 +1545,7 @@ object JsonCodec {
           def next(): (String, Any) = {
             val idx = nextIdx
             nextIdx += 1
-            (names(idx), values(idx))
+            (keys(idx).field, values(idx))
           }
         }
       }).result()
