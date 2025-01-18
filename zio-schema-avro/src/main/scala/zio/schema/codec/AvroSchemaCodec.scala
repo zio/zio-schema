@@ -392,11 +392,11 @@ object AvroSchemaCodec extends AvroSchemaCodec {
           codecName       <- getName(codec)
           codecAvroSchema <- toAvroSchema(codec)
           wrappedAvroSchema = codecAvroSchema match {
-            case schema: SchemaAvro if schema.getType == SchemaAvro.Type.NULL =>
-              wrapAvro(schema, codecName, UnionWrapper)
-            case schema: SchemaAvro if schema.getType == SchemaAvro.Type.UNION =>
-              wrapAvro(schema, codecName, UnionWrapper)
-            case schema => schema
+            case s: SchemaAvro if s.getType == SchemaAvro.Type.NULL =>
+              wrapAvro(s, codecName, UnionWrapper)
+            case s: SchemaAvro if s.getType == SchemaAvro.Type.UNION =>
+              wrapAvro(s, codecName, UnionWrapper)
+            case s => s
           }
         } yield SchemaAvro.createUnion(SchemaAvro.create(SchemaAvro.Type.NULL), wrappedAvroSchema)
       case Fail(message, _) => Left(message)
@@ -437,7 +437,7 @@ object AvroSchemaCodec extends AvroSchemaCodec {
   }
 
   private def getTimeprecisionType(value: Chunk[Any]): Option[TimePrecisionType] = value.collectFirst {
-    case AvroAnnotations.timeprecision(precision) => precision
+    case AvroAnnotations.timeprecision(p) => p
   }
 
   private[codec] def toAvroInstant(
@@ -575,9 +575,9 @@ object AvroSchemaCodec extends AvroSchemaCodec {
           val name           = getNameOption(annotations).getOrElse(symbol)
           val schemaWithName = addNameAnnotationIfMissing(schema, name)
           toAvroSchema(schemaWithName).map {
-            case schema: SchemaAvro if schema.getType == SchemaAvro.Type.UNION =>
-              wrapAvro(schema, name, UnionWrapper) // handle nested unions
-            case schema => schema
+            case s: SchemaAvro if s.getType == SchemaAvro.Type.UNION =>
+              wrapAvro(s, name, UnionWrapper) // handle nested unions
+            case s => s
           }
       }
       cases.toList.map(_.merge).partition {
