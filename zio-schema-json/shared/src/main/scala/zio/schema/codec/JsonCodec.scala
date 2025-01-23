@@ -52,7 +52,7 @@ object JsonCodec {
       explicitNulls
     )
 
-    def copy(ignoreEmptyCollections: Boolean): Config  = new Config(
+    def copy(ignoreEmptyCollections: Boolean): Config = new Config(
       ignoreEmptyCollections,
       this.treatStreamsAsArrays,
       this.explicitNulls
@@ -60,7 +60,8 @@ object JsonCodec {
   }
 
   object Config {
-    def apply(ignoreEmptyCollections: Boolean): Config  = new Config(
+
+    def apply(ignoreEmptyCollections: Boolean): Config = new Config(
       ignoreEmptyCollections
     )
 
