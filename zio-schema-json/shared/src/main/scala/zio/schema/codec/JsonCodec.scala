@@ -276,7 +276,7 @@ object JsonCodec {
     protected[codec] val unitCodec: ZJsonCodec[Unit] = ZJsonCodec(unitEncoder, unitDecoder)
 
     protected[codec] def failDecoder[A](message: String): ZJsonDecoder[A] =
-      (trace: List[ZJsonDecoder.JsonError], _: RetractReader) => throw UnsafeJson(JsonError.Message(message) :: trace)
+      (trace: List[ZJsonDecoder.JsonError], _: RetractReader) => Lexer.error(message, trace)
 
     private[codec] def primitiveCodec[A](standardType: StandardType[A]): ZJsonCodec[A] =
       standardType match {
@@ -669,7 +669,10 @@ object JsonCodec {
         def unsafeDecode(trace: List[JsonError], in: RetractReader): Option[A] =
           (in.nextNonWhitespace(): @switch) match {
             case 'n' =>
-              if (in.readChar() != 'u' || in.readChar() != 'l' || in.readChar() != 'l') error("expected 'null'", trace)
+              val c1 = in.readChar()
+              val c2 = in.readChar()
+              val c3 = in.readChar()
+              if (c1 != 'u' || c2 != 'l' || c3 != 'l') Lexer.error("expected 'null'", trace)
               None
             case _ =>
               in.retract()
@@ -800,9 +803,6 @@ object JsonCodec {
         case Json.Null          => DynamicValue.NoneValue
       }
 
-    private def error(msg: String, trace: List[JsonError]): Nothing =
-      throw UnsafeJson(JsonError.Message(msg) :: trace)
-
     private def enumDecoder[Z](parentSchema: Schema.Enum[Z]): ZJsonDecoder[Z] = {
       val caseNameAliases = new mutable.HashMap[String, Schema.Case[Z, Any]]
       parentSchema.cases.foreach { case_ =>
@@ -821,7 +821,7 @@ object JsonCodec {
 
             override def unsafeDecode(trace: List[JsonError], in: RetractReader): Z = {
               val idx = Lexer.enumeration(trace, in, stringMatrix)
-              if (idx < 0) error("unrecognized string", trace)
+              if (idx < 0) Lexer.error("unrecognized string", trace)
               cases(idx)
             }
           }
@@ -836,7 +836,7 @@ object JsonCodec {
 
             override def unsafeDecode(trace: List[JsonError], in: RetractReader): Z = {
               val result = cases.get(Lexer.string(trace, in).toString)
-              if (result == null) error("unrecognized string", trace)
+              if (result == null) Lexer.error("unrecognized string", trace)
               result
             }
           }
@@ -857,7 +857,7 @@ object JsonCodec {
                   rr = RecordingReader(rr)
               }
             }
-            error("none of the subtypes could decode the data", trace)
+            Lexer.error("none of the subtypes could decode the data", trace)
           }
         }
       } else {
@@ -872,9 +872,9 @@ object JsonCodec {
               (trace: List[JsonError], in: RetractReader) => {
                 val lexer = Lexer
                 lexer.char(trace, in, '{')
-                if (!lexer.firstField(trace, in)) error("missing subtype", trace)
+                if (!lexer.firstField(trace, in)) Lexer.error("missing subtype", trace)
                 val idx = lexer.field(trace, in, caseMatrix)
-                if (idx < 0) error("unrecognized subtype", trace)
+                if (idx < 0) Lexer.error("unrecognized subtype", trace)
                 val spanWithDecoder = cases(idx)
                 val trace_          = spanWithDecoder._1 :: trace
                 val decoded         = spanWithDecoder._2.unsafeDecode(trace_, in).asInstanceOf[Z]
@@ -891,10 +891,10 @@ object JsonCodec {
               (trace: List[JsonError], in: RetractReader) => {
                 val lexer = Lexer
                 lexer.char(trace, in, '{')
-                if (!lexer.firstField(trace, in)) error("missing subtype", trace)
+                if (!lexer.firstField(trace, in)) lexer.error("missing subtype", trace)
                 val fieldName       = lexer.string(trace, in).toString
                 val spanWithDecoder = cases.get(fieldName)
-                if (spanWithDecoder eq null) error("unrecognized subtype", trace)
+                if (spanWithDecoder eq null) lexer.error("unrecognized subtype", trace)
                 val trace_ = spanWithDecoder._1 :: trace
                 lexer.char(trace_, in, ':')
                 val decoded = spanWithDecoder._2.unsafeDecode(trace_, in).asInstanceOf[Z]
@@ -913,18 +913,18 @@ object JsonCodec {
               (trace: List[JsonError], in: RetractReader) => {
                 val lexer = Lexer
                 lexer.char(trace, in, '{')
-                if (!lexer.firstField(trace, in)) error("missing subtype", trace)
+                if (!lexer.firstField(trace, in)) lexer.error("missing subtype", trace)
                 val rr = RecordingReader(in)
                 while ({
                   (lexer.field(trace, rr, discriminatorMatrix) < 0) && {
                     lexer.skipValue(trace, rr)
-                    lexer.nextField(trace, rr) || error("missing subtype", trace)
+                    lexer.nextField(trace, rr) || lexer.error("missing subtype", trace)
                   }
                 }) ()
                 val trace_ = discriminatorSpan :: trace
                 val idx    = lexer.enumeration(trace_, rr, caseMatrix)
                 rr.rewind()
-                if (idx < 0) error("unrecognized subtype", trace_)
+                if (idx < 0) lexer.error("unrecognized subtype", trace_)
                 val spanWithDecoder = cases(idx)
                 spanWithDecoder._2.unsafeDecode(spanWithDecoder._1 :: trace_, rr).asInstanceOf[Z]
               }
@@ -938,19 +938,19 @@ object JsonCodec {
               (trace: List[JsonError], in: RetractReader) => {
                 val lexer = Lexer
                 lexer.char(trace, in, '{')
-                if (!lexer.firstField(trace, in)) error("missing subtype", trace)
+                if (!lexer.firstField(trace, in)) lexer.error("missing subtype", trace)
                 val rr = RecordingReader(in)
                 while ({
                   (lexer.field(trace, rr, discriminatorMatrix) < 0) && {
                     lexer.skipValue(trace, rr)
-                    lexer.nextField(trace, rr) || error("missing subtype", trace)
+                    lexer.nextField(trace, rr) || lexer.error("missing subtype", trace)
                   }
                 }) ()
                 val trace_     = discriminatorSpan :: trace
                 val fieldValue = lexer.string(trace_, rr).toString
                 rr.rewind()
                 val spanWithDecoder = cases.get(fieldValue)
-                if (spanWithDecoder eq null) error("unrecognized subtype", trace_)
+                if (spanWithDecoder eq null) lexer.error("unrecognized subtype", trace_)
                 spanWithDecoder._2.unsafeDecode(spanWithDecoder._1 :: trace_, rr).asInstanceOf[Z]
               }
             }
@@ -996,11 +996,11 @@ object JsonCodec {
                 lexer.char(trace_, in, ':')
                 val fieldName = span.field // reuse strings with calculated hashCode
                 val prev      = map.put(fieldName, dec.unsafeDecode(trace_, in))
-                if (prev != null) error("duplicate", trace_)
+                if (prev != null) lexer.error("duplicate", trace_)
               } else if (skipExtraFields || discriminator.contains(fieldNameOrAlias)) {
                 lexer.char(trace, in, ':')
                 lexer.skipValue(trace, in)
-              } else error("extra field", trace)
+              } else lexer.error("extra field", trace)
               continue = lexer.nextField(trace, in)
             }
             var idx = 0
@@ -1022,7 +1022,7 @@ object JsonCodec {
                       schema match {
                         case _: Schema.Optional[_]               => None
                         case collection: Schema.Collection[_, _] => collection.empty
-                        case _                                   => error("missing", spansWithDecoders.get(fieldName)._1 :: trace)
+                        case _                                   => lexer.error("missing", spansWithDecoders.get(fieldName)._1 :: trace)
                       }
                     }
                   }
@@ -1105,7 +1105,7 @@ object JsonCodec {
             case (Some(a), Some(b)) => Fallback.Both(a, b)
             case (Some(a), _)       => Fallback.Left(a)
             case (_, Some(b))       => Fallback.Right(b)
-            case _                  => error("Fallback decoder was unable to decode both left and right sides", trace)
+            case _                  => Lexer.error("Fallback decoder was unable to decode both left and right sides", trace)
           }
         }
       }
@@ -1178,9 +1178,7 @@ object JsonCodec {
         if (noDiscriminator) lexer.char(trace, in, '{')
         var continue = lexer.firstField(trace, in)
         while (continue) {
-          if (rejectExtraFields) {
-            throw UnsafeJson(JsonError.Message("extra field") :: trace)
-          }
+          if (rejectExtraFields) lexer.error("extra field", trace)
           lexer.char(trace, in, '"')
           lexer.skipString(trace, in)
           lexer.char(trace, in, ':')
@@ -1593,9 +1591,9 @@ object JsonCodec {
           val trace_ = spans(idx) :: trace
           if (idx == len) lexer.skipValue(trace_, in) // skipping discriminator field values
           else if (buffer(idx) == null) buffer(idx) = fieldDecoders(idx).unsafeDecode(trace_, in)
-          else error("duplicate", trace_)
+          else lexer.error("duplicate", trace_)
         } else if (skipExtraFields) lexer.skipValue(trace, in)
-        else error("extra field", trace)
+        else lexer.error("extra field", trace)
         continue = lexer.nextField(trace, in)
       }
       var idx = 0
@@ -1613,7 +1611,7 @@ object JsonCodec {
             buffer(idx) = schema match {
               case _: Schema.Optional[_]               => None
               case collection: Schema.Collection[_, _] => collection.empty
-              case _                                   => error("missing", spans(idx) :: trace)
+              case _                                   => lexer.error("missing", spans(idx) :: trace)
             }
           }
         }
@@ -1621,9 +1619,6 @@ object JsonCodec {
       }
       buffer
     }
-
-    private def error(msg: String, trace: List[JsonError]): Nothing =
-      throw UnsafeJson(JsonError.Message(msg) :: trace)
   }
 
   private object CaseClassJsonDecoder {
