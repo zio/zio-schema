@@ -230,9 +230,17 @@ object BuildHelper {
       incOptions ~= (_.withLogRecompileOnMacro(true)),
       autoAPIMappings := true,
       testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
-      mimaPreviousArtifacts := previousStableVersion.value.map(organization.value %% name.value % _).toSet,
+      mimaPreviousArtifacts := previousStableVersion.value.filter(_ != "1.5.0")
+        .map(organization.value %% name.value % _).toSet ++ Set(
+          organization.value %% name.value % "1.4.1",
+        ),
       mimaCheckDirection := "backward", // TODO use "both" for patch versions
       mimaBinaryIssueFilters ++= Seq(
+        exclude[Problem]("zio.schema.Schema#Collection.fromChunk"),
+        exclude[Problem]("zio.schema.Schema#Collection.toChunk"),
+        exclude[Problem]("zio.schema.Schema#Collection.empty"),
+        exclude[Problem]("zio.schema.Schema#NonEmptyMap.fromChunk"),
+        exclude[Problem]("zio.schema.Schema#NonEmptyMap.toChunk"),
         exclude[Problem]("zio.schema.codec.JsonCodec#JsonDecoder.x"),
         exclude[Problem]("zio.schema.SchemaPlatformSpecific.*"),
         exclude[Problem]("zio.schema.Schema.url")
