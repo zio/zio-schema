@@ -33,11 +33,38 @@ object JsonCodec {
 
   final case class Config(
     ignoreEmptyCollections: Boolean,
-    @unroll treatStreamsAsArrays: Boolean = false,
+    treatStreamsAsArrays: Boolean = false,
     explicitNulls: Boolean = false
-  )
+  ) {
+    def this(ignoreEmptyCollections: Boolean) = this(
+      ignoreEmptyCollections,
+      treatStreamsAsArrays = false,
+      explicitNulls = false
+    )
+
+    def copy(
+      ignoreEmptyCollections: Boolean = false,
+      @unroll treatStreamsAsArrays: Boolean = false,
+      explicitNulls: Boolean = false
+    ): Config = new Config(
+      ignoreEmptyCollections,
+      treatStreamsAsArrays,
+      explicitNulls
+    )
+
+    def copy(ignoreEmptyCollections: Boolean): Config = new Config(
+      ignoreEmptyCollections,
+      this.treatStreamsAsArrays,
+      this.explicitNulls
+    )
+  }
 
   object Config {
+
+    def apply(ignoreEmptyCollections: Boolean): Config = new Config(
+      ignoreEmptyCollections
+    )
+
     val default: Config = Config(ignoreEmptyCollections = false)
   }
 
