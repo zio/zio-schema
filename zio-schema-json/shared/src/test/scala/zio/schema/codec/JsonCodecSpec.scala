@@ -1143,6 +1143,35 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"amount":1000, "type":"onetime"}""")
         )
       },
+      test("case name aliases - type in the last place and the content with an escaped string") {
+        @discriminatorName("type")
+        sealed trait Example {
+          type Content
+          def content: Content
+        }
+
+        object Example {
+          @caseName("JSON")
+          final case class JsonInput(content: String) extends Example {
+            override type Content = String
+          }
+
+          implicit val schema: Schema[Example] = DeriveSchema.gen
+        }
+
+        assertDecodes(
+          Example.schema,
+          Example.JsonInput(""""{\n  \"name\": \"John\",\"location\":\"Sydney\",\n  \"email\": \"jdoe@test.com\"\n}""""),
+          charSequenceToByteChunk(
+            """
+              |{
+              |  "content": "\"{\\n  \\\"name\\\": \\\"John\\\",\\\"location\\\":\\\"Sydney\\\",\\n  \\\"email\\\": \\\"jdoe@test.com\\\"\\n}\"",
+              |  "type": "JSON"
+              |}
+              |""".stripMargin.trim
+          )
+        )
+      },
       test("case name - illegal discriminator value") {
         assertDecodesToError(
           Subscription.schema,
