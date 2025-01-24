@@ -1161,7 +1161,9 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
         assertDecodes(
           Example.schema,
-          Example.JsonInput(""""{\n  \"name\": \"John\",\"location\":\"Sydney\",\n  \"email\": \"jdoe@test.com\"\n}""""),
+          Example.JsonInput(
+            """"{\n  \"name\": \"John\",\"location\":\"Sydney\",\n  \"email\": \"jdoe@test.com\"\n}""""
+          ),
           charSequenceToByteChunk(
             """
               |{
