@@ -1554,7 +1554,6 @@ object JsonCodec {
 
         override def -(key: String): collection.Map[String, Any] = ???
 
-        @scala.annotation.nowarn
         override def -(key1: String, key2: String, keys: String*): collection.Map[String, Any] = ???
 
         override def get(key: String): Option[Any] = ???
