@@ -306,10 +306,8 @@ object DeriveSchema {
                 } else {
                   annotations :+
                     q"new _root_.zio.schema.annotation.fieldDefaultValue[${symbol.typeSignature}](${defaultConstructorValues(i)})"
-
                 }
-
-            }.filter(_ != EmptyTree)
+            }
           }.getOrElse(Nil)
 
         val fieldValidations: List[Tree] =
@@ -324,11 +322,10 @@ object DeriveSchema {
                       c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
                       EmptyTree
                   }
-              }
-            }.filter(_ != EmptyTree)
-              .map(_.foldLeft[c.universe.Tree](q"_root_.zio.schema.validation.Validation.succeed") {
+              }.foldLeft[c.universe.Tree](q"_root_.zio.schema.validation.Validation.succeed") {
                 case (acc, t) => q"$acc && $t"
-              })
+              }
+            }
           }.getOrElse(Nil)
 
         if (arity > 22) {
