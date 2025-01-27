@@ -220,6 +220,7 @@ object BuildHelper {
       ThisBuild / scalaVersion := Scala213, //crossScalaVersions.value.head, //Scala3,
       scalacOptions ++= compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value),
+      versionScheme := Some("early-semver"),
       ThisBuild / semanticdbEnabled := scalaVersion.value != Scala3, // enable SemanticDB,
       ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
       ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
