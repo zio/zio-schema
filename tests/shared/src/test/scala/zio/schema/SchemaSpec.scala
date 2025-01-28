@@ -40,7 +40,13 @@ object SchemaSpec extends ZIOSpecDefault {
         assert(schemaEnum("key"))(hasSameSchema(schemaEnum("key"))) &&
         assert(schemaEnum("key1"))(not(hasSameSchema(schemaEnum("key2"))))
 
-      } @@ TestAspect.scala2Only
+      } @@ TestAspect.scala2Only,
+      test("schema of schema") {
+        assert(schemaInt.serializable)(hasSameSchema(schemaInt.serializable))
+      },
+      test("schema of schema of schema") {
+        assert(schemaInt.serializable.serializable)(hasSameSchema(schemaInt.serializable.serializable))
+      }
     ),
     test("Tuple.toRecord should preserve annotations") {
       val left        = Schema.primitive(StandardType.StringType)

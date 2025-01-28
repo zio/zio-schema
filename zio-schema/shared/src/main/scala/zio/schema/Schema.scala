@@ -129,6 +129,7 @@ sealed trait Schema[A] {
   def serializable: Schema[Schema[A]] =
     MetaSchema
       .fromSchema(self)
+      .toSchema
       .asInstanceOf[Schema[Schema[_]]]
       .transformOrFail(
         s => s.coerce(self),
@@ -559,6 +560,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def serializable: Schema[Schema[B]] =
       MetaSchema
         .fromSchema(schema)
+        .toSchema
         .asInstanceOf[Schema[Schema[_]]]
         .transformOrFail(
           s => s.coerce(schema).flatMap(s1 => Right(s1.transformOrFail(f, g))),
