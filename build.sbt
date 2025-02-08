@@ -108,7 +108,6 @@ lazy val root = project
     zioSchemaMsgPack,
     zioSchemaXmlJVM,
     zioSchemaXmlJS,
-    zioSchemaXml.native,
     docs
   )
 
@@ -270,30 +269,23 @@ lazy val zioSchemaJsonJS = zioSchemaJson.js
 
 lazy val zioSchemaJsonJVM = zioSchemaJson.jvm
 
-lazy val zioSchemaXml = crossProject(JSPlatform, JVMPlatform, NativePlatform)
+lazy val zioSchemaXml = crossProject(JSPlatform, JVMPlatform)
   .in(file("zio-schema-xml"))
   .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
   .settings(stdSettings("zio-schema-xml"))
   .settings(crossProjectSettings)
   .settings(buildInfoSettings("zio.schema.xml"))
-  .settings(
-    libraryDependencies ++= Seq(
-    "org.scala-lang.modules" %% "scala-xml" % "2.2.0"
-    )
-  )
-  .nativeSettings(Test / fork := false)
-  .nativeSettings(
-    libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time" % scalaJavaTimeVersion
-    )
+  .jvmSettings(
+    libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "2.2.0"
   )
   .jsSettings(
     libraryDependencies ++= Seq(
-      "io.github.cquiroz" %%% "scala-java-time"      % scalaJavaTimeVersion,
-      "io.github.cquiroz" %%% "scala-java-time-tzdb" % scalaJavaTimeVersion
-    )
+      "org.scala-lang.modules" %%% "scala-xml"            % "2.2.0",
+      "io.github.cquiroz"      %%% "scala-java-time"      % scalaJavaTimeVersion,
+      "io.github.cquiroz"      %%% "scala-java-time-tzdb" % scalaJavaTimeVersion
+    ),
+    scalaJSLinkerConfig ~= { _.withOptimizer(false) }
   )
-  .jsSettings(scalaJSLinkerConfig ~= { _.withOptimizer(false) })
   .settings(testDeps)
 
 lazy val zioSchemaXmlJS = zioSchemaXml.js
