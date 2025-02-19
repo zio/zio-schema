@@ -369,11 +369,11 @@ object JsonCodec {
         case Schema.Fail(_, _)                           => unitEncoder.contramap(_ => ())
         case Schema.Either(left, right, _)               => ZJsonEncoder.either(schemaEncoder(left, cfg), schemaEncoder(right, cfg))
         case Schema.Fallback(left, right, _, _)          => fallbackEncoder(schemaEncoder(left, cfg), schemaEncoder(right, cfg))
-        case l @ Schema.Lazy(_)                          => ZJsonEncoder.suspend(schemaEncoder(l.schema, cfg))
+        case s: Schema.Lazy[A]                           => ZJsonEncoder.suspend(schemaEncoder(s.schema, cfg, discriminatorTuple))
         case s: Schema.GenericRecord                     => recordEncoder(s, cfg, discriminatorTuple)
         case s: Schema.Record[A]                         => caseClassEncoder(s, cfg, discriminatorTuple)
         case s: Schema.Enum[A]                           => enumEncoder(s, cfg)
-        case d @ Schema.Dynamic(_)                       => dynamicEncoder(d, cfg)
+        case s: Schema.Dynamic                           => dynamicEncoder(s, cfg)
         case null =>
           throw new Exception(s"A captured schema is null, most likely due to wrong field initialization order")
       }
@@ -712,7 +712,7 @@ object JsonCodec {
       case Schema.Fail(message, _)                        => failDecoder(message)
       case Schema.Either(left, right, _)                  => ZJsonDecoder.either(schemaDecoder(left), schemaDecoder(right))
       case s @ Schema.Fallback(_, _, _, _)                => fallbackDecoder(s)
-      case l @ Schema.Lazy(_)                             => ZJsonDecoder.suspend(schemaDecoder(l.schema))
+      case s: Schema.Lazy[A]                              => ZJsonDecoder.suspend(schemaDecoder(s.schema, discriminator))
       case s: Schema.GenericRecord                        => recordDecoder(s, discriminator)
       case s: Schema.Enum[A]                              => enumDecoder(s)
       //case Schema.Meta(_, _)                                                                           => astDecoder
@@ -753,8 +753,8 @@ object JsonCodec {
         caseClass21Decoder(discriminator, s)
       case s @ Schema.CaseClass22(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass22Decoder(discriminator, s)
-      case d @ Schema.Dynamic(_) => dynamicDecoder(d)
-      case _                     => throw new Exception(s"Missing a handler for decoding of schema ${schema.toString()}.")
+      case s: Schema.Dynamic => dynamicDecoder(s)
+      case _                 => throw new Exception(s"Missing a handler for decoding of schema ${schema.toString()}.")
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 

@@ -23,6 +23,16 @@ object DefaultValueSpec extends ZIOSpecDefault {
         assertTrue(result.isRight)
       }
     ),
+    suite("enum with discrimintator")(
+      test("default value at last field") {
+        val encoder = JsonCodec.jsonEncoder(Schema[Base])
+        val decoder = JsonCodec.jsonDecoder(Schema[Base])
+        val value = BaseA("a")
+        val json = """{"type":"BaseA","a":"a"}"""
+        assert(decoder.decodeJson(json))(equalTo(Right(value)))
+        assert(encoder.encodeJson(value))(equalTo(json))
+      }
+    ),
     suite("union types")(
       test("union type of standard types") {
         val schema = Schema.chunk(DeriveSchema.gen[Int | String | Boolean])
@@ -68,4 +78,12 @@ object DefaultValueSpec extends ZIOSpecDefault {
   case class Result(res: Either[ErrorGroup1 | ErrorGroup2, Value])
   object Result:
     given Schema[Result] = DeriveSchema.gen[Result]
+
+  @discriminatorName("type")
+  sealed trait Base derives Schema:
+    def a: String
+
+  case class BaseA(a: String) extends Base derives Schema
+
+  case class BaseB(a: String) extends Base derives Schema
 }
