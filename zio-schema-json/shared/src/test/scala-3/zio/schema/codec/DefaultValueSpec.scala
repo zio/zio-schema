@@ -27,8 +27,8 @@ object DefaultValueSpec extends ZIOSpecDefault {
       test("default value at last field") {
         val encoder = JsonCodec.jsonEncoder(Schema[Base])
         val decoder = JsonCodec.jsonDecoder(Schema[Base])
-        val value = BaseA("a")
-        val json = """{"type":"BaseA","a":"a"}"""
+        val value = BaseB("a", Inner(1))
+        val json = """{"type":"BaseB","a":"a","b":{"i":1}}"""
         assert(decoder.decodeJson(json))(equalTo(Right(value)))
         assert(encoder.encodeJson(value))(equalTo(json))
       }
@@ -79,11 +79,13 @@ object DefaultValueSpec extends ZIOSpecDefault {
   object Result:
     given Schema[Result] = DeriveSchema.gen[Result]
 
+  case class Inner(i: Int) derives Schema
+
   @discriminatorName("type")
   sealed trait Base derives Schema:
     def a: String
 
   case class BaseA(a: String) extends Base derives Schema
 
-  case class BaseB(a: String) extends Base derives Schema
+  case class BaseB(a: String, b: Inner) extends Base derives Schema
 }

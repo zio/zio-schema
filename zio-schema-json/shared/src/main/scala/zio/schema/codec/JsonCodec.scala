@@ -1117,14 +1117,14 @@ object JsonCodec {
 
     private[codec] def isEmptyOptionalValue(schema: Schema.Field[_, _], value: Any, cfg: Config) =
       (cfg.ignoreEmptyCollections || schema.optional) && (value match {
-        case None           => true
-        case _: Iterable[_] => value.asInstanceOf[Iterable[_]].isEmpty
-        case _              => false
+        case None            => true
+        case it: Iterable[_] => it.isEmpty
+        case _               => false
       })
 
     private[codec] def caseClassEncoder[Z](schema: Schema.Record[Z], cfg: Config, discriminatorTuple: DiscriminatorTuple): ZJsonEncoder[Z] = {
       val nonTransientFields = schema.nonTransientFields.toArray.asInstanceOf[Array[Schema.Field[Z, Any]]]
-      val encoders           = nonTransientFields.map(s => JsonEncoder.schemaEncoder(s.schema, cfg, discriminatorTuple))
+      val encoders           = nonTransientFields.map(s => JsonEncoder.schemaEncoder(s.schema, cfg))
       (a: Z, indent: Option[Int], out: Write) => {
         out.write('{')
         val doPrettyPrint = indent ne None
