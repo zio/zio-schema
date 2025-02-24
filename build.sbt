@@ -356,8 +356,9 @@ lazy val zioSchemaAvro = project
   .settings(buildInfoSettings("zio.schema.avro"))
   .settings(
     libraryDependencies ++= Seq(
-      "dev.zio"         %% "zio-json" % zioJsonVersion,
-      "org.apache.avro" % "avro"      % avroVersion
+      "dev.zio"                %% "zio-json"                % zioJsonVersion,
+      "org.apache.avro"        % "avro"                     % avroVersion,
+      "org.scala-lang.modules" %% "scala-collection-compat" % scalaCollectionCompatVersion
     )
   )
   .settings(testDeps)
