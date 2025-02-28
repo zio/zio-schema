@@ -29,18 +29,29 @@ object DefaultValueSpec extends ZIOSpecDefault {
         val decoder = JsonCodec.jsonDecoder(Schema[Base])
         val value = BaseB("a", Inner(1))
         val json = """{"type":"BaseB","a":"a","b":{"i":1}}"""
-        assert(decoder.decodeJson(json))(equalTo(Right(value)))
+        assert(decoder.decodeJson(json))(equalTo(Right(value))) &&
         assert(encoder.encodeJson(value))(equalTo(json))
       }
     ),
     suite("union types")(
       test("union type of standard types") {
+        val schema = DeriveSchema.gen[Int | String | Boolean]
+        val decoder = JsonCodec.jsonDecoder(schema)
+        val encoder = JsonCodec.jsonEncoder(schema)
+        assert(decoder.decodeJson("abc"))(equalTo(Right("abc"))) &&
+          assert(decoder.decodeJson("1"))(equalTo(Right(1))) &&
+          assert(decoder.decodeJson("true"))(equalTo(Right(true))) &&
+          assert(encoder.encodeJson("abc"))(equalTo(""""abc"""")) &&
+          assert(encoder.encodeJson(1))(equalTo("1")) &&
+          assert(encoder.encodeJson(true))(equalTo("true"))
+      },
+      test("union type of standard types - Chunk") {
         val schema = Schema.chunk(DeriveSchema.gen[Int | String | Boolean])
         val decoder = JsonCodec.jsonDecoder(schema)
         val encoder = JsonCodec.jsonEncoder(schema)
         val json = """["abc",1,true]"""
         val value = Chunk[Int | String | Boolean]("abc", 1, true)
-        assert(decoder.decodeJson(json))(equalTo(Right(value)))
+        assert(decoder.decodeJson(json))(equalTo(Right(value))) &&
         assert(encoder.encodeJson(value))(equalTo(json))
       },
       test("union type of enums") {
@@ -49,7 +60,7 @@ object DefaultValueSpec extends ZIOSpecDefault {
         val encoder = JsonCodec.jsonEncoder(schema)
         val json = """[{"res":{"Left":"Err1"}},{"res":{"Left":"Err21"}},{"res":{"Right":{"i":1}}}]"""
         val value = Chunk[Result](Result(Left(ErrorGroup1.Err1)), Result(Left(ErrorGroup2.Err21)), Result(Right(Value(1))))
-        assert(decoder.decodeJson(json))(equalTo(Right(value)))
+        assert(decoder.decodeJson(json))(equalTo(Right(value))) &&
         assert(encoder.encodeJson(value))(equalTo(json))
       }
     )
