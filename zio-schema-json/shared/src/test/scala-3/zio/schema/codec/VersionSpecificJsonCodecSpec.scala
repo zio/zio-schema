@@ -9,10 +9,10 @@ import zio.test.Assertion._
 import zio.test.TestAspect._
 import zio.test.*
 
-object DefaultValueSpec extends ZIOSpecDefault {
+object VersionSpecificJsonCodecSpec extends ZIOSpecDefault {
 
   def spec: Spec[TestEnvironment, Any] =
-    suite("Custom Spec")(
+    suite("VersionSpecificJsonCodecSpec")(
       customSuite
     ) @@ timeout(90.seconds)
 
@@ -55,8 +55,9 @@ object DefaultValueSpec extends ZIOSpecDefault {
       test("union type of custom types") {
         import UnionValue.given
 
-        val decoder = zio.json.JsonCodec[Map[String, UnionValue]].decoder
-        val encoder = zio.json.JsonCodec[Map[String, UnionValue]].encoder
+        val schema = Schema.map(Schema[String], Schema[UnionValue])
+        val decoder = JsonCodec.jsonDecoder(schema)
+        val encoder = JsonCodec.jsonEncoder(schema)
         val json = """{"a":1,"b":"toto","c":true,"d":null}"""
         val value = Map("a" -> 1, "b" -> "toto", "c" -> true, "d" -> null)
         assert(decoder.decodeJson(json))(equalTo(Right(value))) &&
@@ -110,9 +111,7 @@ object DefaultValueSpec extends ZIOSpecDefault {
         CaseSet.caseOf[Boolean, UnionValue]("boolean")(_.asInstanceOf[Boolean])(_.asInstanceOf[UnionValue])(_.isInstanceOf[Boolean]) ++
         CaseSet.caseOf[String, UnionValue]("string")(_.asInstanceOf[String])(_.asInstanceOf[UnionValue])(_.isInstanceOf[String]) ++
         CaseSet.caseOf[Null, UnionValue]("null")(_.asInstanceOf[Null])(_.asInstanceOf[UnionValue])(_ == null),
-      annotations = Chunk(zio.schema.annotation.noDiscriminator())
+      Chunk(noDiscriminator())
     )
-
-    given zio.json.JsonCodec[UnionValue] = JsonCodec.jsonCodec(Schema[UnionValue])
   }
 }
