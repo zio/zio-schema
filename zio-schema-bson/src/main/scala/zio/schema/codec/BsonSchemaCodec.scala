@@ -3,6 +3,7 @@ package zio.schema.codec
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 
+import scala.collection.compat._
 import scala.collection.immutable.{ HashMap, ListMap }
 import scala.jdk.CollectionConverters._
 
@@ -42,6 +43,11 @@ import zio.schema.{ DynamicValue, Fallback, Schema, StandardType, TypeId }
 import zio.{ Chunk, ChunkBuilder, Unsafe }
 
 object BsonSchemaCodec {
+
+  {
+    // TODO: better way to prevent scalafix from removing the import
+    val _ = IterableOnce
+  }
 
   case class Config(
     sumTypeHandling: SumTypeHandling = WrapperWithClassNameField,
