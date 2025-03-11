@@ -2,14 +2,12 @@ package zio.schema.codec
 
 import java.nio.charset.StandardCharsets
 import java.time.Instant
-
-import scala.collection.compat._
 import scala.collection.immutable.{ HashMap, ListMap }
 import scala.jdk.CollectionConverters._
+import scala.collection.compat._
 
 import org.bson.types.ObjectId
 import org.bson.{ BsonDocument, BsonNull, BsonReader, BsonType, BsonValue, BsonWriter }
-
 import zio.bson.BsonBuilder._
 import zio.bson.DecoderUtils._
 import zio.bson.{
@@ -39,22 +37,80 @@ import zio.schema.annotation.{
 }
 import zio.schema.{ DynamicValue, Fallback, Schema, StandardType, TypeId }
 import zio.{ Chunk, ChunkBuilder, Unsafe }
+import zio.schema.codec.BsonSchemaCodec.Config.{ SumTypeHandling, TermMapping }
+import zio.schema.codec.BsonSchemaCodec.Config.SumTypeHandling.WrapperWithClassNameField
 
 object BsonSchemaCodec {
 
-  {
-    // TODO: better way to prevent scalafix from removing the import
-    val _ = IterableOnce
+  case class Config(
+    sumTypeHandling: SumTypeHandling = WrapperWithClassNameField,
+    classNameMapping: TermMapping = identity
+  )
+
+  object Config {
+
+    type TermMapping = String => String
+
+    sealed trait SumTypeHandling
+
+    object SumTypeHandling {
+
+      /**
+       * Sum type hierarchy:
+       * {{{
+       *   sealed trait MySum
+       *   case class SomeBranch(a: Int) extends MySum
+       *   case class OtherBranch(b: String) extends MySum
+       *
+       *   case class Outer(mySum: MySum)
+       * }}}
+       *
+       * Result BSON for [[WrapperWithClassNameField]]:
+       * {{{
+       *   {
+       *     mySum: {
+       *       SomeBranch: {
+       *         a: 123
+       *       }
+       *     }
+       *   }
+       * }}}
+       */
+      case object WrapperWithClassNameField extends SumTypeHandling
+
+      /**
+       * Sum type hierarchy:
+       * {{{
+       *   sealed trait MySum
+       *   case class SomeBranch(a: Int) extends MySum
+       *   case class OtherBranch(b: String) extends MySum
+       *
+       *   case class Outer(mySum: MySum)
+       * }}}
+       *
+       * Result BSON for `DiscriminatorField("type")`:
+       * {{{
+       *   {
+       *     mySum: {
+       *       type: "SomeBranch"
+       *       a: 123
+       *     }
+       *   }
+       * }}}
+       */
+      final case class DiscriminatorField(name: String) extends SumTypeHandling
+    }
+
   }
 
-  def bsonEncoder[A](schema: Schema[A]): BsonEncoder[A] =
-    BsonSchemaEncoder.schemaEncoder(schema)
+  def bsonEncoder[A](schema: Schema[A], config: Config = Config()): BsonEncoder[A] =
+    BsonSchemaEncoder.schemaEncoder(config)(schema)
 
-  def bsonDecoder[A](schema: Schema[A]): BsonDecoder[A] =
-    BsonSchemaDecoder.schemaDecoder(schema)
+  def bsonDecoder[A](schema: Schema[A], config: Config = Config()): BsonDecoder[A] =
+    BsonSchemaDecoder.schemaDecoder(config)(schema)
 
-  def bsonCodec[A](schema: Schema[A]): BsonCodec[A] =
-    BsonCodec(bsonEncoder(schema), bsonDecoder(schema))
+  def bsonCodec[A](schema: Schema[A], config: Config = Config()): BsonCodec[A] =
+    BsonCodec(bsonEncoder(schema, config), bsonDecoder(schema, config))
 
   object Codecs {
     protected[codec] val unitEncoder: BsonEncoder[Unit] = new BsonEncoder[Unit] {
@@ -455,25 +511,25 @@ object BsonSchemaCodec {
     private def chunkEncoder[A: BsonEncoder]: BsonEncoder[Chunk[A]] = BsonEncoder.iterable[A, Chunk]
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
-    private[codec] def schemaEncoder[A](schema: Schema[A]): BsonEncoder[A] =
+    private[codec] def schemaEncoder[A](config: Config)(schema: Schema[A]): BsonEncoder[A] =
       schema match {
         case Schema.Primitive(standardType, _)           => primitiveCodec(standardType).encoder
-        case Schema.Sequence(schema, _, g, _, _)         => chunkEncoder(schemaEncoder(schema)).contramap(g)
-        case Schema.NonEmptySequence(schema, _, g, _, _) => chunkEncoder(schemaEncoder(schema)).contramap(g)
-        case Schema.Map(ks, vs, _)                       => mapEncoder(ks, vs)
-        case Schema.NonEmptyMap(ks, vs, _)               => mapEncoder(ks, vs).contramap(_.toMap)
-        case Schema.Set(s, _)                            => chunkEncoder(schemaEncoder(s)).contramap(m => Chunk.fromIterable(m))
-        case Schema.Transform(c, _, g, _, _)             => transformEncoder(c, g)
-        case Schema.Tuple2(l, r, _)                      => tuple2Encoder(schemaEncoder(l), schemaEncoder(r))
-        case Schema.Optional(schema, _)                  => BsonEncoder.option(schemaEncoder(schema))
+        case Schema.Sequence(schema, _, g, _, _)         => chunkEncoder(schemaEncoder(config)(schema)).contramap(g)
+        case Schema.NonEmptySequence(schema, _, g, _, _) => chunkEncoder(schemaEncoder(config)(schema)).contramap(g)
+        case Schema.Map(ks, vs, _)                       => mapEncoder(config)(ks, vs)
+        case Schema.NonEmptyMap(ks, vs, _)               => mapEncoder(config)(ks, vs).contramap(_.toMap)
+        case Schema.Set(s, _)                            => chunkEncoder(schemaEncoder(config)(s)).contramap(m => Chunk.fromIterable(m))
+        case Schema.Transform(c, _, g, _, _)             => transformEncoder(config)(c, g)
+        case Schema.Tuple2(l, r, _)                      => tuple2Encoder(schemaEncoder(config)(l), schemaEncoder(config)(r))
+        case Schema.Optional(schema, _)                  => BsonEncoder.option(schemaEncoder(config)(schema))
         case Schema.Fail(_, _)                           => unitEncoder.contramap(_ => ())
-        case Schema.GenericRecord(_, structure, _)       => genericRecordEncoder(structure.toChunk)
-        case Schema.Either(left, right, _)               => eitherEncoder(schemaEncoder(left), schemaEncoder(right))
-        case Schema.Fallback(left, right, _, _)          => fallbackEncoder(schemaEncoder(left), schemaEncoder(right))
-        case l @ Schema.Lazy(_)                          => schemaEncoder(l.schema)
-        case r: Schema.Record[A]                         => caseClassEncoder(r)
-        case e: Schema.Enum[A]                           => enumEncoder(e, e.cases)
-        case d @ Schema.Dynamic(_)                       => dynamicEncoder(d)
+        case Schema.GenericRecord(_, structure, _)       => genericRecordEncoder(config)(structure.toChunk)
+        case Schema.Either(left, right, _)               => eitherEncoder(schemaEncoder(config)(left), schemaEncoder(config)(right))
+        case Schema.Fallback(left, right, _, _)          => fallbackEncoder(schemaEncoder(config)(left), schemaEncoder(config)(right))
+        case l @ Schema.Lazy(_)                          => schemaEncoder(config)(l.schema)
+        case r: Schema.Record[A]                         => caseClassEncoder(config)(r)
+        case e: Schema.Enum[A]                           => enumEncoder(config)(e, e.cases)
+        case d @ Schema.Dynamic(_)                       => dynamicEncoder(config)(d)
         case null                                        => throw new Exception(s"A captured schema is null, most likely due to wrong field initialization order")
       }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
@@ -486,18 +542,18 @@ object BsonSchemaCodec {
         case _                                            => None
       }
 
-    private[codec] def mapEncoder[K, V](ks: Schema[K], vs: Schema[V]): BsonEncoder[Map[K, V]] = {
-      val valueEncoder = BsonSchemaEncoder.schemaEncoder(vs)
+    private[codec] def mapEncoder[K, V](config: Config)(ks: Schema[K], vs: Schema[V]): BsonEncoder[Map[K, V]] = {
+      val valueEncoder = BsonSchemaEncoder.schemaEncoder(config)(vs)
       bsonFieldEncoder(ks) match {
         case Some(bsonFieldEncoder) =>
           BsonEncoder.map(bsonFieldEncoder, valueEncoder)
         case None =>
-          chunkEncoder(tuple2Encoder(schemaEncoder(ks), schemaEncoder(vs)))
+          chunkEncoder(tuple2Encoder(schemaEncoder(config)(ks), schemaEncoder(config)(vs)))
             .contramap(m => Chunk.fromIterable(m))
       }
     }
 
-    private def dynamicEncoder(schema: Schema.Dynamic): BsonEncoder[DynamicValue] = {
+    private def dynamicEncoder(config: Config)(schema: Schema.Dynamic): BsonEncoder[DynamicValue] = {
       val directMapping = schema.annotations.exists {
         case directDynamicMapping() => true
         case _                      => false
@@ -592,13 +648,13 @@ object BsonSchemaCodec {
             }
         }
       } else {
-        schemaEncoder(DynamicValue.schema)
+        schemaEncoder(config)(DynamicValue.schema)
       }
     }
 
-    private def transformEncoder[A, B](schema: Schema[A], g: B => Either[String, A]): BsonEncoder[B] =
+    private def transformEncoder[A, B](config: Config)(schema: Schema[A], g: B => Either[String, A]): BsonEncoder[B] =
       new BsonEncoder[B] {
-        private lazy val innerEncoder = schemaEncoder(schema)
+        private lazy val innerEncoder = schemaEncoder(config)(schema)
 
         override def encode(writer: BsonWriter, b: B, ctx: BsonEncoder.EncoderContext): Unit =
           g(b) match {
@@ -613,7 +669,9 @@ object BsonSchemaCodec {
           }
       }
 
-    private def enumEncoder[Z](parentSchema: Schema.Enum[Z], cases: Chunk[Schema.Case[Z, _]]): BsonEncoder[Z] =
+    private def enumEncoder[Z](
+      config: Config
+    )(parentSchema: Schema.Enum[Z], cases: Chunk[Schema.Case[Z, _]]): BsonEncoder[Z] =
       // if all cases are CaseClass0, encode as a String
       if (cases.forall(_.schema.isInstanceOf[Schema.CaseClass0[_]])) {
         val caseMap: Map[Z, String] = cases
@@ -629,11 +687,15 @@ object BsonSchemaCodec {
       } else {
         val bsonDiscriminator   = parentSchema.annotations.collectFirst { case d: bsonDiscriminator => d.name }
         val schemaDiscriminator = parentSchema.annotations.collectFirst { case d: discriminatorName => d.tag }
-        val discriminator       = bsonDiscriminator.orElse(schemaDiscriminator)
+        val configDiscriminator = config.sumTypeHandling match {
+          case SumTypeHandling.WrapperWithClassNameField => None
+          case SumTypeHandling.DiscriminatorField(name)  => Some(name)
+        }
+        val discriminator = bsonDiscriminator.orElse(schemaDiscriminator).orElse(configDiscriminator)
 
         def getCaseName(case_ : Schema.Case[Z, _]) = {
           val manualBsonHint = case_.annotations.collectFirst { case bsonHint(name) => name }
-          val caseName       = case_.caseName
+          val caseName       = config.classNameMapping(case_.caseName)
           manualBsonHint.getOrElse(caseName)
         }
 
@@ -656,7 +718,7 @@ object BsonSchemaCodec {
           override def encode(writer: BsonWriter, value: Z, ctx: BsonEncoder.EncoderContext): Unit =
             nonTransientCase(value) match {
               case Some(case_) =>
-                val encoder = schemaEncoder(case_.schema).asInstanceOf[BsonEncoder[Z]]
+                val encoder = schemaEncoder(config)(case_.schema).asInstanceOf[BsonEncoder[Z]]
                 encoder.encode(writer, value, BsonEncoder.EncoderContext.default)
               case None =>
                 writer.writeStartDocument()
@@ -666,7 +728,7 @@ object BsonSchemaCodec {
           override def toBsonValue(value: Z): BsonValue =
             nonTransientCase(value) match {
               case Some(case_) =>
-                val encoder = schemaEncoder(case_.schema).asInstanceOf[BsonEncoder[Z]]
+                val encoder = schemaEncoder(config)(case_.schema).asInstanceOf[BsonEncoder[Z]]
                 encoder.toBsonValue(value)
               case None => doc()
             }
@@ -678,7 +740,7 @@ object BsonSchemaCodec {
                   writer.writeStartDocument()
                   nonTransientCase(value) match {
                     case Some(case_) =>
-                      val encoder = schemaEncoder(case_.schema).asInstanceOf[BsonEncoder[Z]]
+                      val encoder = schemaEncoder(config)(case_.schema).asInstanceOf[BsonEncoder[Z]]
 
                       val name = getCaseName(case_)
                       writer.writeName(name)
@@ -692,7 +754,7 @@ object BsonSchemaCodec {
                 def toBsonValue(value: Z): BsonValue =
                   nonTransientCase(value) match {
                     case Some(case_) =>
-                      val encoder = schemaEncoder(case_.schema).asInstanceOf[BsonEncoder[Z]]
+                      val encoder = schemaEncoder(config)(case_.schema).asInstanceOf[BsonEncoder[Z]]
 
                       val name = getCaseName(case_)
                       doc(name -> encoder.toBsonValue(value))
@@ -709,7 +771,7 @@ object BsonSchemaCodec {
 
                   nonTransientCase(value) match {
                     case Some(case_) =>
-                      val encoder = schemaEncoder(case_.schema).asInstanceOf[BsonEncoder[Z]]
+                      val encoder = schemaEncoder(config)(case_.schema).asInstanceOf[BsonEncoder[Z]]
 
                       val name = getCaseName(case_)
                       writer.writeName(discriminator)
@@ -725,7 +787,7 @@ object BsonSchemaCodec {
                 def toBsonValue(value: Z): BsonValue =
                   nonTransientCase(value) match {
                     case Some(case_) =>
-                      val encoder  = schemaEncoder(case_.schema).asInstanceOf[BsonEncoder[Z]]
+                      val encoder  = schemaEncoder(config)(case_.schema).asInstanceOf[BsonEncoder[Z]]
                       val caseBson = encoder.toBsonValue(value)
 
                       if (!caseBson.isDocument) throw new RuntimeException("Subtype is not encoded as an object")
@@ -741,14 +803,16 @@ object BsonSchemaCodec {
         }
       }
 
-    private def genericRecordEncoder[Z](structure: Seq[Schema.Field[Z, _]]): BsonEncoder[ListMap[String, _]] =
+    private def genericRecordEncoder[Z](
+      config: Config
+    )(structure: Seq[Schema.Field[Z, _]]): BsonEncoder[ListMap[String, _]] =
       new BsonEncoder[ListMap[String, _]] {
         override def encode(writer: BsonWriter, value: ListMap[String, _], ctx: BsonEncoder.EncoderContext): Unit = {
           if (!ctx.inlineNextObject) writer.writeStartDocument()
 
           structure.foreach {
             case Schema.Field(k, a, _, _, _, _) =>
-              val enc = schemaEncoder(a.asInstanceOf[Schema[Any]])
+              val enc = schemaEncoder(config)(a.asInstanceOf[Schema[Any]])
 
               writer.writeName(k)
               enc.encode(writer, value(k), BsonEncoder.EncoderContext.default)
@@ -760,7 +824,7 @@ object BsonSchemaCodec {
         override def toBsonValue(value: ListMap[String, _]): BsonValue =
           new BsonDocument(structure.map {
             case Schema.Field(k, a, _, _, _, _) =>
-              val enc = schemaEncoder(a.asInstanceOf[Schema[Any]])
+              val enc = schemaEncoder(config)(a.asInstanceOf[Schema[Any]])
               element(k, enc.toBsonValue(value(k)))
           }.asJava)
       }
@@ -774,36 +838,37 @@ object BsonSchemaCodec {
     private def chunkDecoder[A: BsonDecoder]: BsonDecoder[Chunk[A]] = BsonDecoder.iterableFactory[A, Chunk]
 
     //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
-    private[codec] def schemaDecoder[A](schema: Schema[A]): BsonDecoder[A] = schema match {
+    private[codec] def schemaDecoder[A](config: Config)(schema: Schema[A]): BsonDecoder[A] = schema match {
       case Schema.Primitive(standardType, _)              => primitiveCodec(standardType).decoder
-      case Schema.Optional(codec, _)                      => BsonDecoder.option(schemaDecoder(codec))
-      case Schema.Tuple2(left, right, _)                  => tuple2Decoder(schemaDecoder(left), schemaDecoder(right))
-      case Schema.Transform(codec, f, _, _, _)            => schemaDecoder(codec).mapOrFail(f)
-      case Schema.Sequence(codec, f, _, _, _)             => chunkDecoder(schemaDecoder(codec)).map(f)
-      case s @ Schema.NonEmptySequence(codec, _, _, _, _) => chunkDecoder(schemaDecoder(codec)).map(s.fromChunk)
-      case Schema.Map(ks, vs, _)                          => mapDecoder(ks, vs)
-      case s @ Schema.NonEmptyMap(ks, vs, _)              => mapDecoder(ks, vs).map(s.fromMap)
-      case Schema.Set(s, _)                               => chunkDecoder(schemaDecoder(s)).map(entries => entries.toSet)
+      case Schema.Optional(codec, _)                      => BsonDecoder.option(schemaDecoder(config)(codec))
+      case Schema.Tuple2(left, right, _)                  => tuple2Decoder(schemaDecoder(config)(left), schemaDecoder(config)(right))
+      case Schema.Transform(codec, f, _, _, _)            => schemaDecoder(config)(codec).mapOrFail(f)
+      case Schema.Sequence(codec, f, _, _, _)             => chunkDecoder(schemaDecoder(config)(codec)).map(f)
+      case s @ Schema.NonEmptySequence(codec, _, _, _, _) => chunkDecoder(schemaDecoder(config)(codec)).map(s.fromChunk)
+      case Schema.Map(ks, vs, _)                          => mapDecoder(config)(ks, vs)
+      case s @ Schema.NonEmptyMap(ks, vs, _)              => mapDecoder(config)(ks, vs).map(s.fromMap)
+      case Schema.Set(s, _)                               => chunkDecoder(schemaDecoder(config)(s)).map(entries => entries.toSet)
       case Schema.Fail(message, _)                        => failDecoder(message)
-      case Schema.GenericRecord(_, structure, _)          => recordDecoder(structure.toChunk)
-      case Schema.Either(left, right, _)                  => eitherDecoder(schemaDecoder(left), schemaDecoder(right))
-      case Schema.Fallback(left, right, _, _)             => fallbackDecoder(schemaDecoder(left), schemaDecoder(right))
-      case l @ Schema.Lazy(_)                             => schemaDecoder(l.schema)
-      case s: Schema.Record[A]                            => caseClassDecoder(s)
-      case e: Schema.Enum[A]                              => enumDecoder(e)
-      case d @ Schema.Dynamic(_)                          => dynamicDecoder(d)
+      case Schema.GenericRecord(_, structure, _)          => recordDecoder(config)(structure.toChunk)
+      case Schema.Either(left, right, _)                  => eitherDecoder(schemaDecoder(config)(left), schemaDecoder(config)(right))
+      case Schema.Fallback(left, right, _, _)             => fallbackDecoder(schemaDecoder(config)(left), schemaDecoder(config)(right))
+      case l @ Schema.Lazy(_)                             => schemaDecoder(config)(l.schema)
+      case s: Schema.Record[A]                            => caseClassDecoder(config)(s)
+      case e: Schema.Enum[A]                              => enumDecoder(config)(e)
+      case d @ Schema.Dynamic(_)                          => dynamicDecoder(config)(d)
       case _                                              => throw new Exception(s"Missing a handler for decoding of schema $schema.")
     }
     //scalafmt: { maxColumn = 120, optIn.configStyleArguments = true }
 
-    private[codec] def mapDecoder[K, V](
+    private[codec] def mapDecoder[K, V](config: Config)(
       ks: Schema[K],
       vs: Schema[V]
     ): BsonDecoder[Map[K, V]] = {
-      val valueDecoder = BsonSchemaDecoder.schemaDecoder(vs)
+      val valueDecoder = BsonSchemaDecoder.schemaDecoder(config)(vs)
       bsonFieldDecoder(ks) match {
         case Some(bsonFieldDecoder) => BsonDecoder.mapFactory(bsonFieldDecoder, valueDecoder, Map)
-        case None                   => chunkDecoder(tuple2Decoder(schemaDecoder(ks), schemaDecoder(vs))).map(_.toList.toMap)
+        case None =>
+          chunkDecoder(tuple2Decoder(schemaDecoder(config)(ks), schemaDecoder(config)(vs))).map(_.toList.toMap)
       }
     }
 
@@ -815,7 +880,7 @@ object BsonSchemaCodec {
         case _                                            => None
       }
 
-    private def dynamicDecoder(schema: Schema.Dynamic): BsonDecoder[DynamicValue] = {
+    private def dynamicDecoder(config: Config)(schema: Schema.Dynamic): BsonDecoder[DynamicValue] = {
       val directMapping = schema.annotations.exists {
         case directDynamicMapping() => true
         case _                      => false
@@ -824,7 +889,7 @@ object BsonSchemaCodec {
       if (directMapping) {
         BsonDecoder.bsonValueDecoder[BsonValue].map(bsonToDynamicValue)
       } else {
-        schemaDecoder(DynamicValue.schema)
+        schemaDecoder(config)(DynamicValue.schema)
       }
     }
 
@@ -877,7 +942,7 @@ object BsonSchemaCodec {
         case BsonType.MAX_KEY => DynamicValue.NoneValue
       }
 
-    private def enumDecoder[Z](parentSchema: Schema.Enum[Z]): BsonDecoder[Z] = {
+    private def enumDecoder[Z](config: Config)(parentSchema: Schema.Enum[Z]): BsonDecoder[Z] = {
       val cases = parentSchema.cases
       val caseNameAliases = cases.flatMap {
         case Schema.Case(name, _, _, _, _, annotations) =>
@@ -922,7 +987,7 @@ object BsonSchemaCodec {
                 while (result.isEmpty && it.hasNext) {
                   val c = it.next()
                   try {
-                    val decoded = schemaDecoder(c.schema).decodeUnsafe(reader, trace, ctx).asInstanceOf[Z]
+                    val decoded = schemaDecoder(config)(c.schema).decodeUnsafe(reader, trace, ctx).asInstanceOf[Z]
                     result = Some(decoded)
                   } catch {
                     case _: Exception => mark.reset()
@@ -946,7 +1011,7 @@ object BsonSchemaCodec {
               while (result.isEmpty && it.hasNext) {
                 val c = it.next()
                 try {
-                  val decoded = schemaDecoder(c.schema).fromBsonValueUnsafe(value, trace, ctx).asInstanceOf[Z]
+                  val decoded = schemaDecoder(config)(c.schema).fromBsonValueUnsafe(value, trace, ctx).asInstanceOf[Z]
                   result = Some(decoded)
                 } catch {
                   case _: Exception =>
@@ -963,9 +1028,12 @@ object BsonSchemaCodec {
           val discriminators = parentSchema.annotations.collect {
             case d: bsonDiscriminator => d.name
             case d: discriminatorName => d.tag
-          }.toSet
+          }.toSet ++ (config.sumTypeHandling match {
+            case SumTypeHandling.WrapperWithClassNameField => Set.empty[String]
+            case SumTypeHandling.DiscriminatorField(name)  => Set(name)
+          })
 
-          val casesIndex = Map(cases.map(c => c.id -> c): _*)
+          val casesIndex = Map(cases.map(c => config.classNameMapping(c.id) -> c): _*)
 
           def getCase(name: String) = casesIndex.get(caseNameAliases.getOrElse(name, name))
 
@@ -982,7 +1050,7 @@ object BsonSchemaCodec {
                   val result =
                     getCase(name) match {
                       case None    => throw BsonDecoder.Error(nextTrace, s"Invalid disambiguator $name.")
-                      case Some(c) => schemaDecoder(c.schema).decodeUnsafe(reader, nextTrace, nextCtx)
+                      case Some(c) => schemaDecoder(config)(c.schema).decodeUnsafe(reader, nextTrace, nextCtx)
                     }
 
                   reader.readEndDocument()
@@ -1007,7 +1075,7 @@ object BsonSchemaCodec {
                   getCase(name) match {
                     case None => throw BsonDecoder.Error(nextTrace, s"Invalid disambiguator $name.")
                     case Some(c) =>
-                      schemaDecoder(c.schema).fromBsonValueUnsafe(element, nextTrace, nextCtx).asInstanceOf[Z]
+                      schemaDecoder(config)(c.schema).fromBsonValueUnsafe(element, nextTrace, nextCtx).asInstanceOf[Z]
                   }
                 }
             }
@@ -1045,7 +1113,7 @@ object BsonSchemaCodec {
                     case Some(c) =>
                       mark.reset()
                       val nextCtx = ctx.copy(ignoreExtraField = Some(discriminator))
-                      schemaDecoder(c.schema).decodeUnsafe(reader, trace, nextCtx).asInstanceOf[Z]
+                      schemaDecoder(config)(c.schema).decodeUnsafe(reader, trace, nextCtx).asInstanceOf[Z]
                   }
                 }
 
@@ -1073,7 +1141,7 @@ object BsonSchemaCodec {
                             throw BsonDecoder.Error(trace, s"Invalid disambiguator ${hint.asString().getValue}.")
                           case Some(c) =>
                             val nextCtx = ctx.copy(ignoreExtraField = Some(discriminator))
-                            schemaDecoder(c.schema).fromBsonValueUnsafe(value, trace, nextCtx).asInstanceOf[Z]
+                            schemaDecoder(config)(c.schema).fromBsonValueUnsafe(value, trace, nextCtx).asInstanceOf[Z]
                         }
                       }
                   }
@@ -1085,7 +1153,9 @@ object BsonSchemaCodec {
       }
     }
 
-    private def recordDecoder[Z](structure: Seq[Schema.Field[Z, _]]): BsonDecoder[ListMap[String, Any]] =
+    private def recordDecoder[Z](
+      config: Config
+    )(structure: Seq[Schema.Field[Z, _]]): BsonDecoder[ListMap[String, Any]] =
       new BsonDecoder[ListMap[String, Any]] {
         override def decodeUnsafe(
           reader: BsonReader,
@@ -1103,7 +1173,7 @@ object BsonSchemaCodec {
               case Some(Schema.Field(label, schema, _, _, _, _)) =>
                 val nextTrace = BsonTrace.Field(field) :: trace
                 val value =
-                  schemaDecoder(schema).decodeUnsafe(reader, nextTrace, BsonDecoder.BsonDecoderContext.default)
+                  schemaDecoder(config)(schema).decodeUnsafe(reader, nextTrace, BsonDecoder.BsonDecoderContext.default)
                 builder += (label -> value)
               case None => reader.skipValue()
             }
@@ -1129,7 +1199,7 @@ object BsonSchemaCodec {
                   structure.find(_.name == field) match {
                     case Some(Schema.Field(label, schema, _, _, _, _)) =>
                       val nextTrace = BsonTrace.Field(field) :: trace
-                      val value = schemaDecoder(schema)
+                      val value = schemaDecoder(config)(schema)
                         .fromBsonValueUnsafe(v, nextTrace, BsonDecoder.BsonDecoderContext.default)
                       Some((label, value))
                     case None => None
@@ -1142,7 +1212,7 @@ object BsonSchemaCodec {
   }
   private[codec] object ProductEncoder {
 
-    private[codec] def caseClassEncoder[Z](
+    private[codec] def caseClassEncoder[Z](config: Config)(
       parentSchema: Schema.Record[Z]
     ): BsonEncoder[Z] = new BsonEncoder[Z] {
       private val keepNulls = false // TODO: configuration
@@ -1164,7 +1234,7 @@ object BsonSchemaCodec {
         }
 
       private lazy val tcs: Array[BsonEncoder[Any]] =
-        nonTransientFields.map(s => BsonSchemaEncoder.schemaEncoder(s.schema).asInstanceOf[BsonEncoder[Any]])
+        nonTransientFields.map(s => BsonSchemaEncoder.schemaEncoder(config)(s.schema).asInstanceOf[BsonEncoder[Any]])
 
       private val len = nonTransientFields.length
 
@@ -1219,7 +1289,7 @@ object BsonSchemaCodec {
 
     import BsonSchemaDecoder.schemaDecoder
 
-    private[codec] def caseClassDecoder[Z](caseClassSchema: Schema.Record[Z]): BsonDecoder[Z] = {
+    private[codec] def caseClassDecoder[Z](config: Config)(caseClassSchema: Schema.Record[Z]): BsonDecoder[Z] = {
       val fields   = caseClassSchema.fields
       val len: Int = fields.length
       val fieldNames = fields.map { f =>
@@ -1238,7 +1308,7 @@ object BsonSchemaCodec {
           case _: rejectExtraFields => ()
           case _: bsonNoExtraFields => ()
         }.isDefined
-      lazy val tcs: Array[BsonDecoder[Any]] = schemas.map(s => schemaDecoder(s).asInstanceOf[BsonDecoder[Any]])
+      lazy val tcs: Array[BsonDecoder[Any]] = schemas.map(s => schemaDecoder(config)(s).asInstanceOf[BsonDecoder[Any]])
 
       new BsonDecoder[Z] {
         def decodeUnsafe(reader: BsonReader, trace: List[BsonTrace], ctx: BsonDecoder.BsonDecoderContext): Z =
