@@ -110,14 +110,23 @@ object BsonSchemaCodec {
 
   }
 
-  def bsonEncoder[A](schema: Schema[A], config: Config = Config()): BsonEncoder[A] =
+  def bsonEncoder[A](schema: Schema[A], config: Config): BsonEncoder[A] =
     BsonSchemaEncoder.schemaEncoder(config)(schema)
 
-  def bsonDecoder[A](schema: Schema[A], config: Config = Config()): BsonDecoder[A] =
+  def bsonEncoder[A](schema: Schema[A]): BsonEncoder[A] =
+    bsonEncoder(schema, Config())
+
+  def bsonDecoder[A](schema: Schema[A], config: Config): BsonDecoder[A] =
     BsonSchemaDecoder.schemaDecoder(config)(schema)
 
-  def bsonCodec[A](schema: Schema[A], config: Config = Config()): BsonCodec[A] =
+  def bsonDecoder[A](schema: Schema[A]): BsonDecoder[A] =
+    bsonDecoder(schema, Config())
+
+  def bsonCodec[A](schema: Schema[A], config: Config): BsonCodec[A] =
     BsonCodec(bsonEncoder(schema, config), bsonDecoder(schema, config))
+
+  def bsonCodec[A](schema: Schema[A]): BsonCodec[A] =
+    bsonCodec(schema, Config())
 
   object Codecs {
     protected[codec] val unitEncoder: BsonEncoder[Unit] = new BsonEncoder[Unit] {
