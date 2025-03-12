@@ -15,6 +15,51 @@ object BsonConfig {
     implicit lazy val codec: BsonCodec[WithoutDiscriminator] = BsonSchemaCodec.bsonCodec(schema)
   }
 
+  sealed trait WithClassNameTransformOptions
+
+  object WithClassNameTransformOptions {
+    case class A(s: String) extends WithClassNameTransformOptions
+    case class B(s: String) extends WithClassNameTransformOptions
+
+    implicit lazy val schema: Schema[WithClassNameTransformOptions] = DeriveSchema.gen
+    implicit lazy val codec: BsonCodec[WithClassNameTransformOptions] = BsonSchemaCodec.bsonCodec(
+      schema,
+      BsonSchemaCodec.Config.withClassNameMapping(
+        classNameMapping = _.toLowerCase
+      )
+    )
+  }
+
+  sealed trait WithDiscriminatorOptions
+
+  object WithDiscriminatorOptions {
+    case class A(s: String) extends WithDiscriminatorOptions
+    case class B(s: String) extends WithDiscriminatorOptions
+
+    implicit lazy val schema: Schema[WithDiscriminatorOptions] = DeriveSchema.gen
+    implicit lazy val codec: BsonCodec[WithDiscriminatorOptions] = BsonSchemaCodec.bsonCodec(
+      schema,
+      BsonSchemaCodec.Config.withSumTypeHandling(
+        sumTypeHandling = BsonSchemaCodec.SumTypeHandling.DiscriminatorField("type")
+      )
+    )
+  }
+
+  sealed trait WithoutDiscriminatorOptions
+
+  object WithoutDiscriminatorOptions {
+    case class A(s: String) extends WithoutDiscriminatorOptions
+    case class B(s: String) extends WithoutDiscriminatorOptions
+
+    implicit lazy val schema: Schema[WithoutDiscriminatorOptions] = DeriveSchema.gen
+    implicit lazy val codec: BsonCodec[WithoutDiscriminatorOptions] = BsonSchemaCodec.bsonCodec(
+      schema,
+      BsonSchemaCodec.Config.withSumTypeHandling(
+        sumTypeHandling = BsonSchemaCodec.SumTypeHandling.WrapperWithClassNameField
+      )
+    )
+  }
+
   @bsonDiscriminator("$type")
   sealed trait WithDiscriminator
 
