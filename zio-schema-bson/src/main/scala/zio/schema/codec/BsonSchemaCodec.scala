@@ -2,12 +2,14 @@ package zio.schema.codec
 
 import java.nio.charset.StandardCharsets
 import java.time.Instant
+
 import scala.collection.compat._
 import scala.collection.immutable.{ HashMap, ListMap }
 import scala.jdk.CollectionConverters._
 
 import org.bson.types.ObjectId
 import org.bson.{ BsonDocument, BsonNull, BsonReader, BsonType, BsonValue, BsonWriter }
+
 import zio.bson.BsonBuilder._
 import zio.bson.DecoderUtils._
 import zio.bson.{
@@ -35,9 +37,9 @@ import zio.schema.annotation.{
   transientCase,
   transientField
 }
+import zio.schema.codec.BsonSchemaCodec.SumTypeHandling.WrapperWithClassNameField
 import zio.schema.{ DynamicValue, Fallback, Schema, StandardType, TypeId }
 import zio.{ Chunk, ChunkBuilder, Unsafe }
-import zio.schema.codec.BsonSchemaCodec.SumTypeHandling.WrapperWithClassNameField
 
 object BsonSchemaCodec {
 
