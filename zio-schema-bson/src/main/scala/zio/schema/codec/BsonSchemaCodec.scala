@@ -114,7 +114,7 @@ object BsonSchemaCodec {
     def withClassNameMapping(classNameMapping: TermMapping): Config =
       copy(classNameMapping = classNameMapping)
 
-    def copy(
+    private[this] def copy(
       sumTypeHandling: SumTypeHandling = sumTypeHandling,
       classNameMapping: TermMapping = classNameMapping
     ): Config =
