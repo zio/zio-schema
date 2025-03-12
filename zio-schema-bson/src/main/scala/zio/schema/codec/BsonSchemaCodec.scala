@@ -2,14 +2,12 @@ package zio.schema.codec
 
 import java.nio.charset.StandardCharsets
 import java.time.Instant
-
 import scala.collection.compat._
 import scala.collection.immutable.{ HashMap, ListMap }
 import scala.jdk.CollectionConverters._
 
 import org.bson.types.ObjectId
 import org.bson.{ BsonDocument, BsonNull, BsonReader, BsonType, BsonValue, BsonWriter }
-
 import zio.bson.BsonBuilder._
 import zio.bson.DecoderUtils._
 import zio.bson.{
@@ -37,96 +35,115 @@ import zio.schema.annotation.{
   transientCase,
   transientField
 }
-import zio.schema.codec.BsonSchemaCodec.Config.SumTypeHandling.WrapperWithClassNameField
-import zio.schema.codec.BsonSchemaCodec.Config.{ SumTypeHandling, TermMapping }
 import zio.schema.{ DynamicValue, Fallback, Schema, StandardType, TypeId }
 import zio.{ Chunk, ChunkBuilder, Unsafe }
+import zio.schema.codec.BsonSchemaCodec.SumTypeHandling.WrapperWithClassNameField
 
 object BsonSchemaCodec {
+
+  type TermMapping = String => String
+
+  sealed trait SumTypeHandling
+
+  object SumTypeHandling {
+
+    /**
+     * Sum type hierarchy:
+     * {{{
+     *   sealed trait MySum
+     *   case class SomeBranch(a: Int) extends MySum
+     *   case class OtherBranch(b: String) extends MySum
+     *
+     *   case class Outer(mySum: MySum)
+     * }}}
+     *
+     * Result BSON for [[WrapperWithClassNameField]]:
+     * {{{
+     *   {
+     *     mySum: {
+     *       SomeBranch: {
+     *         a: 123
+     *       }
+     *     }
+     *   }
+     * }}}
+     */
+    case object WrapperWithClassNameField extends SumTypeHandling
+
+    /**
+     * Sum type hierarchy:
+     * {{{
+     *   sealed trait MySum
+     *   case class SomeBranch(a: Int) extends MySum
+     *   case class OtherBranch(b: String) extends MySum
+     *
+     *   case class Outer(mySum: MySum)
+     * }}}
+     *
+     * Result BSON for `DiscriminatorField("type")`:
+     * {{{
+     *   {
+     *     mySum: {
+     *       type: "SomeBranch"
+     *       a: 123
+     *     }
+     *   }
+     * }}}
+     */
+    final case class DiscriminatorField(name: String) extends SumTypeHandling
+  }
 
   {
     // TODO: better way to prevent scalafix from removing the import
     val _ = IterableOnce
   }
 
-  case class Config(
-    sumTypeHandling: SumTypeHandling = WrapperWithClassNameField,
-    classNameMapping: TermMapping = identity
-  )
+  /**
+   * Configuration for the BSON schema codec.
+   * @param sumTypeHandling The handling of sum types.
+   * @param classNameMapping The mapping of class names.
+   */
+  class Config private (
+    val sumTypeHandling: SumTypeHandling,
+    val classNameMapping: TermMapping
+  ) {
 
-  object Config {
+    def withSumTypeHandling(sumTypeHandling: SumTypeHandling): Config =
+      copy(sumTypeHandling = sumTypeHandling)
 
-    type TermMapping = String => String
+    def withClassNameMapping(classNameMapping: TermMapping): Config =
+      copy(classNameMapping = classNameMapping)
 
-    sealed trait SumTypeHandling
-
-    object SumTypeHandling {
-
-      /**
-       * Sum type hierarchy:
-       * {{{
-       *   sealed trait MySum
-       *   case class SomeBranch(a: Int) extends MySum
-       *   case class OtherBranch(b: String) extends MySum
-       *
-       *   case class Outer(mySum: MySum)
-       * }}}
-       *
-       * Result BSON for [[WrapperWithClassNameField]]:
-       * {{{
-       *   {
-       *     mySum: {
-       *       SomeBranch: {
-       *         a: 123
-       *       }
-       *     }
-       *   }
-       * }}}
-       */
-      case object WrapperWithClassNameField extends SumTypeHandling
-
-      /**
-       * Sum type hierarchy:
-       * {{{
-       *   sealed trait MySum
-       *   case class SomeBranch(a: Int) extends MySum
-       *   case class OtherBranch(b: String) extends MySum
-       *
-       *   case class Outer(mySum: MySum)
-       * }}}
-       *
-       * Result BSON for `DiscriminatorField("type")`:
-       * {{{
-       *   {
-       *     mySum: {
-       *       type: "SomeBranch"
-       *       a: 123
-       *     }
-       *   }
-       * }}}
-       */
-      final case class DiscriminatorField(name: String) extends SumTypeHandling
-    }
-
+    def copy(
+      sumTypeHandling: SumTypeHandling = sumTypeHandling,
+      classNameMapping: TermMapping = classNameMapping
+    ): Config =
+      new Config(sumTypeHandling, classNameMapping)
   }
+
+  object Config
+      extends Config(
+        sumTypeHandling = WrapperWithClassNameField,
+        classNameMapping = identity
+      )
 
   def bsonEncoder[A](schema: Schema[A], config: Config): BsonEncoder[A] =
     BsonSchemaEncoder.schemaEncoder(config)(schema)
 
   def bsonEncoder[A](schema: Schema[A]): BsonEncoder[A] =
-    bsonEncoder(schema, Config())
+    bsonEncoder(schema, Config)
 
   def bsonDecoder[A](schema: Schema[A], config: Config): BsonDecoder[A] =
     BsonSchemaDecoder.schemaDecoder(config)(schema)
 
   def bsonDecoder[A](schema: Schema[A]): BsonDecoder[A] =
-    bsonDecoder(schema, Config())
+    bsonDecoder(schema, Config)
 
   def bsonCodec[A](schema: Schema[A], config: Config): BsonCodec[A] =
     BsonCodec(bsonEncoder(schema, config), bsonDecoder(schema, config))
 
   def bsonCodec[A](schema: Schema[A]): BsonCodec[A] =
-    bsonCodec(schema, Config())
+    bsonCodec(schema, Config)
 
   object Codecs {
     protected[codec] val unitEncoder: BsonEncoder[Unit] = new BsonEncoder[Unit] {

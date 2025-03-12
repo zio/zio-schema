@@ -24,7 +24,7 @@ object BsonConfig {
     implicit lazy val schema: Schema[WithClassNameTransformOptions] = DeriveSchema.gen
     implicit lazy val codec: BsonCodec[WithClassNameTransformOptions] = BsonSchemaCodec.bsonCodec(
       schema,
-      BsonSchemaCodec.Config(
+      BsonSchemaCodec.Config.withClassNameMapping(
         classNameMapping = _.toLowerCase
       )
     )
@@ -39,8 +39,8 @@ object BsonConfig {
     implicit lazy val schema: Schema[WithDiscriminatorOptions] = DeriveSchema.gen
     implicit lazy val codec: BsonCodec[WithDiscriminatorOptions] = BsonSchemaCodec.bsonCodec(
       schema,
-      BsonSchemaCodec.Config(
-        sumTypeHandling = BsonSchemaCodec.Config.SumTypeHandling.DiscriminatorField("type")
+      BsonSchemaCodec.Config.withSumTypeHandling(
+        sumTypeHandling = BsonSchemaCodec.SumTypeHandling.DiscriminatorField("type")
       )
     )
   }
@@ -54,8 +54,8 @@ object BsonConfig {
     implicit lazy val schema: Schema[WithoutDiscriminatorOptions] = DeriveSchema.gen
     implicit lazy val codec: BsonCodec[WithoutDiscriminatorOptions] = BsonSchemaCodec.bsonCodec(
       schema,
-      BsonSchemaCodec.Config(
-        sumTypeHandling = BsonSchemaCodec.Config.SumTypeHandling.WrapperWithClassNameField
+      BsonSchemaCodec.Config.withSumTypeHandling(
+        sumTypeHandling = BsonSchemaCodec.SumTypeHandling.WrapperWithClassNameField
       )
     )
   }
