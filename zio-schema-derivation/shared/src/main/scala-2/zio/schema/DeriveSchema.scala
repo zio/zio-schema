@@ -563,7 +563,7 @@ object DeriveSchema {
           child.typeSignature
           val childClass = child.asClass
           if (childClass.isSealed && childClass.isTrait)
-            Set(childClass.asType.toType)
+            knownSubclassesOf(childClass)
           else if (childClass.isCaseClass || (childClass.isClass && childClass.isAbstract)) {
             val st = concreteType(concreteType(tpe, parent.asType.toType), child.asType.toType)
             Set(appliedSubtype(st))
