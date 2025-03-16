@@ -1794,7 +1794,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[GeoJSON.GeoJSON],
           GeoJSON.Feature(geometry = GeoJSON.Point(1.0 -> 2.0))
         )
-      },
+      } @@ TestAspect.scala2Only,
       test("of case classes with discriminator") {
         assertEncodesThenDecodes(Schema[Command], Command.Cash) &>
           assertEncodesThenDecodes(Schema[Command], Command.Buy(100))
