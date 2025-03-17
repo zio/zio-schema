@@ -45,6 +45,31 @@ object DynamicValueGen {
     }
   }
 
+  // Method to generate arbitrary DynamicValue
+  def anyDynamicValue: Gen[Sized, DynamicValue] =
+    Gen.oneOf(
+      anyPrimitiveDynamicValue(StandardType.StringType),
+      anyPrimitiveDynamicValue(StandardType.IntType),
+      anyPrimitiveDynamicValue(StandardType.BoolType),
+      anyPrimitiveDynamicValue(StandardType.DoubleType),
+      anyPrimitiveDynamicValue(StandardType.UUIDType),
+      anyPrimitiveDynamicValue(StandardType.LocalDateType),
+      anyPrimitiveDynamicValue(StandardType.LocalDateTimeType),
+      anyPrimitiveDynamicValue(StandardType.LocalTimeType),
+      anyPrimitiveDynamicValue(StandardType.InstantType),
+      anyPrimitiveDynamicValue(StandardType.DurationType),
+      anyPrimitiveDynamicValue(StandardType.ZoneIdType),
+      anyPrimitiveDynamicValue(StandardType.ZoneOffsetType),
+      anyPrimitiveDynamicValue(StandardType.ZonedDateTimeType),
+      anyPrimitiveDynamicValue(StandardType.YearType),
+      anyPrimitiveDynamicValue(StandardType.YearMonthType),
+      anyPrimitiveDynamicValue(StandardType.MonthType),
+      anyPrimitiveDynamicValue(StandardType.MonthDayType),
+      anyPrimitiveDynamicValue(StandardType.DayOfWeekType),
+      anyPrimitiveDynamicValue(StandardType.BigDecimalType),
+      anyPrimitiveDynamicValue(StandardType.BigIntegerType)
+    )
+
   //scalafmt: { maxColumn = 400 }
   def anyDynamicValueOfSchema[A](schema: Schema[A]): Gen[Sized, DynamicValue] =
     schema match {
