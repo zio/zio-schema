@@ -107,7 +107,6 @@ lazy val root = project
     zioSchemaBson,
     zioSchemaMsgPack,
     zioSchemaXmlJVM,
-    zioSchemaXmlJS,
     docs
   )
 
@@ -269,7 +268,7 @@ lazy val zioSchemaJsonJS = zioSchemaJson.js
 
 lazy val zioSchemaJsonJVM = zioSchemaJson.jvm
 
-lazy val zioSchemaXml = crossProject(JSPlatform, JVMPlatform)
+lazy val zioSchemaXml = crossProject(JVMPlatform)
   .in(file("zio-schema-xml"))
   .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
   .settings(stdSettings("zio-schema-xml"))
@@ -278,20 +277,10 @@ lazy val zioSchemaXml = crossProject(JSPlatform, JVMPlatform)
   .jvmSettings(
     libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "2.2.0"
   )
-  .jsSettings(
-    libraryDependencies ++= Seq(
-      "org.scala-lang.modules" %%% "scala-xml"            % "2.2.0",
-      "io.github.cquiroz"      %%% "scala-java-time"      % scalaJavaTimeVersion,
-      "io.github.cquiroz"      %%% "scala-java-time-tzdb" % scalaJavaTimeVersion
-    ),
-    scalaJSLinkerConfig ~= { _.withOptimizer(false) }
-  )
   .settings(testDeps)
 
-lazy val zioSchemaXmlJS = zioSchemaXml.js
-  .settings(scalaJSUseMainModuleInitializer := true)
-
 lazy val zioSchemaXmlJVM = zioSchemaXml.jvm
+
 
 lazy val zioSchemaProtobuf = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("zio-schema-protobuf"))
