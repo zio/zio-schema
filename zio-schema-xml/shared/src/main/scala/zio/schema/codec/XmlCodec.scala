@@ -1,25 +1,23 @@
 package zio.schema.codec
 
+import java.lang.Double
 import java.math.BigDecimal
 import java.nio.CharBuffer
 import java.nio.charset.StandardCharsets
-import java.util.concurrent.ConcurrentHashMap
-import java.time.{ZoneOffset, ZoneId}
 import java.util.Currency
-import java.lang.{Short, Double}
+import java.util.concurrent.ConcurrentHashMap
 
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
-import scala.xml.{Elem, MetaData, NamespaceBinding, Node, Null, TopScope, UnprefixedAttribute, XML}
+import scala.xml.{ Elem, MetaData, NamespaceBinding, Node, Null, TopScope, UnprefixedAttribute, XML }
 
 import zio.prelude.NonEmptyMap
 import zio.schema._
 import zio.schema.annotation.{ discriminatorName, rejectExtraFields, _ }
 import zio.schema.codec.DecodeError.ReadError
-import zio.stream.ZPipeline
-import zio.{Cause, Chunk, ZIO}
 import zio.schema.codec.XmlCodec.Codecs._
-import java.nio.file.{Files, Paths, StandardOpenOption}
+import zio.stream.ZPipeline
+import zio.{ Cause, Chunk, ZIO }
 
 object XmlCodec {
 
@@ -83,9 +81,9 @@ object XmlCodec {
       }
   }
 
-   trait ZXmlDecoderChunk[A] { self =>
-    def decodeXmlboolean(node:  Node): Either[DecodeError, Chunk[A]]
-   }
+  trait ZXmlDecoderChunk[A] { self =>
+    def decodeXmlboolean(node: Node): Either[DecodeError, Chunk[A]]
+  }
 
   trait XmlFieldEncoder[A] {
     def unsafeEncodeField(a: A): String
@@ -113,84 +111,82 @@ object XmlCodec {
 
   object XmlError {
     case class ObjectAccess(field: String) extends XmlError
-    case class Message(msg: String) extends XmlError
-    case class Raw(msg: String) extends XmlError  
-  
-  def render(errors: List[XmlError]): String =
-    errors.map {
-      case ObjectAccess(field) => s"ObjectAccess($field)"
-      case Message(msg)        => s"Message($msg)"
-      case Raw(msg)            => s"$msg"
+    case class Message(msg: String)        extends XmlError
+    case class Raw(msg: String)            extends XmlError
 
-    }.mkString(", ")
+    def render(errors: List[XmlError]): String =
+      errors.map {
+        case ObjectAccess(field) => s"ObjectAccess($field)"
+        case Message(msg)        => s"Message($msg)"
+        case Raw(msg)            => s"$msg"
+
+      }.mkString(", ")
   }
 
-def schemaBasedBinaryCodec[A](cfg: Config)(implicit schema: Schema[A]): BinaryCodec[A] =
-  new BinaryCodec[A] {
-    override def decode(whole: Chunk[Byte]): Either[DecodeError, A] = {
-      val xmlStr = new String(whole.toArray, StandardCharsets.UTF_8)
-      val result = zio.schema.codec.XmlCodec.XmlDecoder.decode(schema, xmlStr)
-      result
+  def schemaBasedBinaryCodec[A](cfg: Config)(implicit schema: Schema[A]): BinaryCodec[A] =
+    new BinaryCodec[A] {
+      override def decode(whole: Chunk[Byte]): Either[DecodeError, A] = {
+        val xmlStr = new String(whole.toArray, StandardCharsets.UTF_8)
+        val result = zio.schema.codec.XmlCodec.XmlDecoder.decode(schema, xmlStr)
+        result
+      }
+
+      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] = schema match {
+        case Schema.Primitive(StandardType.BoolType, _) =>
+          (ZPipeline.utfDecode
+            .mapError(cce => ReadError(Cause.fail(cce), cce.getMessage))
+            .map(_.trim)
+            .filter(_.nonEmpty)
+            .mapZIO { xmlString =>
+              ZIO.fromEither {
+                val xml = XML.loadString(xmlString)
+                zio.schema.codec.XmlCodec.Codecs.extractAll(statefulBoolDecoder, xml, "No more booleans")
+              }
+            }
+            .mapChunks((chunk: Chunk[List[Boolean]]) => chunk.flatMap(Chunk.fromIterable)))
+            .asInstanceOf[ZPipeline[Any, DecodeError, Byte, A]]
+
+        case Schema.Primitive(StandardType.IntType, _) =>
+          (ZPipeline.utfDecode
+            .mapError(cce => ReadError(Cause.fail(cce), cce.getMessage))
+            .map(_.trim)
+            .filter(_.nonEmpty)
+            .mapZIO { xmlString =>
+              ZIO.fromEither {
+                val xml = XML.loadString(xmlString)
+                zio.schema.codec.XmlCodec.Codecs.extractAll(statefulIntDecoder, xml, "No more ints")
+              }
+            }
+            .mapChunks((chunk: Chunk[List[Int]]) => chunk.flatMap(Chunk.fromIterable)))
+            .asInstanceOf[ZPipeline[Any, DecodeError, Byte, A]]
+
+        case _ =>
+          // Default pipeline for other types.
+          ZPipeline.utfDecode
+            .mapError(cce => ReadError(Cause.fail(cce), cce.getMessage))
+            .map(_.trim)
+            .filter(_.nonEmpty)
+            .mapZIO { xmlString =>
+              ZIO.fromEither(zio.schema.codec.XmlCodec.XmlDecoder.decode(schema, xmlString))
+            }
+      }
+
+      override def encode(value: A): Chunk[Byte] = {
+        val encoded = XmlEncoder.encode(schema, value, cfg)
+        encoded
+      }
+
+      override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
+        ZPipeline
+          .mapChunks[A, Chunk[Byte]] { chunk =>
+            chunk.map { value =>
+              encode(value)
+            }
+          }
+          .intersperse(Chunk.single('\n'.toByte))
+          .flattenChunks
+
     }
-    
-    override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] = schema match {
-  case Schema.Primitive(StandardType.BoolType, _) =>
-    (ZPipeline.utfDecode
-      .mapError(cce => ReadError(Cause.fail(cce), cce.getMessage))
-      .map(_.trim)
-      .filter(_.nonEmpty)
-      .mapZIO { xmlString =>
-        ZIO.fromEither {
-          val xml = XML.loadString(xmlString)
-          zio.schema.codec.XmlCodec.Codecs.extractAll(statefulBoolDecoder, xml, "No more booleans")
-        }
-      }
-      .mapChunks((chunk: Chunk[List[Boolean]]) =>
-        chunk.flatMap(Chunk.fromIterable)
-      )).asInstanceOf[ZPipeline[Any, DecodeError, Byte, A]]
-
-  case Schema.Primitive(StandardType.IntType, _) =>
-    (ZPipeline.utfDecode
-      .mapError(cce => ReadError(Cause.fail(cce), cce.getMessage))
-      .map(_.trim)
-      .filter(_.nonEmpty)
-      .mapZIO { xmlString =>
-        ZIO.fromEither {
-          val xml = XML.loadString(xmlString)
-          zio.schema.codec.XmlCodec.Codecs.extractAll(statefulIntDecoder, xml, "No more ints")
-        }
-      }
-      .mapChunks((chunk: Chunk[List[Int]]) =>
-        chunk.flatMap(Chunk.fromIterable)
-      )).asInstanceOf[ZPipeline[Any, DecodeError, Byte, A]]
-
-  case _ =>
-    // Default pipeline for other types.
-    ZPipeline.utfDecode
-      .mapError(cce => ReadError(Cause.fail(cce), cce.getMessage))
-      .map(_.trim)
-      .filter(_.nonEmpty)
-      .mapZIO { xmlString =>
-        ZIO.fromEither(zio.schema.codec.XmlCodec.XmlDecoder.decode(schema, xmlString))
-      }
-}
-
-override def encode(value: A): Chunk[Byte] = {
-  val encoded = XmlEncoder.encode(schema, value, cfg)
-  encoded
-}
-
-override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
-  ZPipeline
-    .mapChunks[A, Chunk[Byte]] { chunk =>
-      chunk.map { value =>
-        encode(value)
-      }
-    }
-    .intersperse(Chunk.single('\n'.toByte))
-    .flattenChunks
-
-  }
 
   /** Derives an XML encoder for a given schema using the default configuration. */
   def xmlEncoder[A](schema: Schema[A]): ZXmlEncoder[A] =
@@ -244,160 +240,155 @@ override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
           Left(ReadError(Cause.empty, message))
       }
 
-
     protected[codec] def statefulBoolDecoder: ZXmlDecoder[Boolean] =
-    new ZXmlDecoder[Boolean] {
-    private var cached: Option[Seq[Boolean]] = None
-    private var index: Int = 0
-    private var lastNode: Option[Node] = None
+      new ZXmlDecoder[Boolean] {
+        private var cached: Option[Seq[Boolean]] = None
+        private var index: Int                   = 0
+        private var lastNode: Option[Node]       = None
 
-    override def decodeXml(node: Node): Either[DecodeError, Boolean] = {
-      if (lastNode.forall(_ ne node)) {
-        cached = None
-        index = 0
-        lastNode = Some(node)
-      }
-      
-      if (cached.isEmpty) {
-        val direct = node \ "boolean"
-
-        val boolNodes: Seq[Node] = node.label match {
-          case "boolean" => Seq(node)
-          case _         => if (direct.nonEmpty) direct else node \\ "boolean"
-        }
-        
-        if (boolNodes.isEmpty) {
-          val text = node.text.trim.toLowerCase
-          text match {
-            case "true"  => return Right(true)
-            case "false" => return Right(false)
-            case _       => return Left(ReadError(Cause.empty, s"Invalid Boolean value: $text"))
+        override def decodeXml(node: Node): Either[DecodeError, Boolean] = {
+          if (lastNode.forall(_ ne node)) {
+            cached = None
+            index = 0
+            lastNode = Some(node)
           }
-        } else {
-          val decoded: Seq[Either[DecodeError, Boolean]] = boolNodes.map { child =>
-            val text = child.text.trim.toLowerCase
-            text match {
-              case "true"  => Right(true)
-              case "false" => Right(false)
-              case _       => Left(ReadError(Cause.empty, s"Invalid Boolean value: $text"))
+
+          if (cached.isEmpty) {
+            val direct = node \ "boolean"
+
+            val boolNodes: Seq[Node] = node.label match {
+              case "boolean" => Seq(node)
+              case _         => if (direct.nonEmpty) direct else node \\ "boolean"
             }
-          }
-          decoded.collectFirst { case Left(err) => err } match {
-            case Some(err) => return Left(err)
-            case None =>
-              val allBooleans = decoded.collect { case Right(b) => b }
-              cached = Some(allBooleans)
-              index = 0
-          }
-        }
-      }
-      cached match {
-        case Some(booleans) if index < booleans.size =>
-          val result = booleans(index)
-          index += 1
-          Right(result)
-        case _ =>
-          Left(ReadError(Cause.empty, "No more booleans"))
-      }
-    }
-  }
 
-
-  protected[codec] def statefulIntDecoder: ZXmlDecoder[Int] =
-  new ZXmlDecoder[Int] {
-    private var cached: Option[Seq[Int]] = None
-    private var index: Int = 0
-    private var lastNode: Option[Node] = None
-
-    override def decodeXml(node: Node): Either[DecodeError, Int] = {
-      if (lastNode.forall(_ ne node)) {
-        cached = None
-        index = 0
-        lastNode = Some(node)
-      }
-
-      if (node.label == "int") {
-        if (index == 0) {
-          index = 1
-          node.text.trim.toIntOption.toRight(
-            ReadError(Cause.empty, s"Invalid Int value: ${node.text.trim}")
-          )
-        } else {
-          Left(ReadError(Cause.empty, "No more ints"))
-        }
-      } else {
-        val direct = node \ "int"
-        val intNodes: Seq[Node] = if (direct.nonEmpty) direct.toList else (node \\ "int").toList
-
-        if (intNodes.isEmpty) {
-          val tokens = node.text.trim.split("\\s+")
-          if (tokens.length == 1) {
-            tokens(0).toIntOption match {
-              case Some(i) => Right(i)
-              case None    => Left(ReadError(Cause.empty, s"Invalid Int value: ${tokens(0)}"))
-            }
-          } else {
-            val joined = tokens.mkString("")
-            joined.toIntOption match {
-              case Some(i) => Right(i)
-              case None    => Left(ReadError(Cause.empty, s"Invalid concatenated Int value: $joined"))
-            }
-          }
-        } else {
-          if (intNodes.size == 1) {
-            intNodes.head.text.trim.toIntOption.toRight(
-              ReadError(Cause.empty, s"Invalid Int value: ${intNodes.head.text.trim}")
-            )
-          } else {
-            if (cached.isEmpty) {
-              val decoded: Seq[Either[DecodeError, Int]] = intNodes.map { child =>
-                val text = child.text.trim
-                text.toIntOption match {
-                  case Some(i) => Right(i)
-                  case None    => Left(ReadError(Cause.empty, s"Invalid Int value: $text"))
+            if (boolNodes.isEmpty) {
+              val text = node.text.trim.toLowerCase
+              text match {
+                case "true"  => return Right(true)
+                case "false" => return Right(false)
+                case _       => return Left(ReadError(Cause.empty, s"Invalid Boolean value: $text"))
+              }
+            } else {
+              val decoded: Seq[Either[DecodeError, Boolean]] = boolNodes.map { child =>
+                val text = child.text.trim.toLowerCase
+                text match {
+                  case "true"  => Right(true)
+                  case "false" => Right(false)
+                  case _       => Left(ReadError(Cause.empty, s"Invalid Boolean value: $text"))
                 }
               }
               decoded.collectFirst { case Left(err) => err } match {
                 case Some(err) => return Left(err)
                 case None =>
-                  val allInts = decoded.collect { case Right(i) => i }
-                  cached = Some(allInts)
+                  val allBooleans = decoded.collect { case Right(b) => b }
+                  cached = Some(allBooleans)
                   index = 0
               }
             }
-            cached match {
-              case Some(ints) if index < ints.size =>
-                val result = ints(index)
-                index += 1
-                Right(result)
-              case _ =>
-                Left(ReadError(Cause.empty, "No more ints"))
+          }
+          cached match {
+            case Some(booleans) if index < booleans.size =>
+              val result = booleans(index)
+              index += 1
+              Right(result)
+            case _ =>
+              Left(ReadError(Cause.empty, "No more booleans"))
+          }
+        }
+      }
+
+    protected[codec] def statefulIntDecoder: ZXmlDecoder[Int] =
+      new ZXmlDecoder[Int] {
+        private var cached: Option[Seq[Int]] = None
+        private var index: Int               = 0
+        private var lastNode: Option[Node]   = None
+
+        override def decodeXml(node: Node): Either[DecodeError, Int] = {
+          if (lastNode.forall(_ ne node)) {
+            cached = None
+            index = 0
+            lastNode = Some(node)
+          }
+
+          if (node.label == "int") {
+            if (index == 0) {
+              index = 1
+              node.text.trim.toIntOption.toRight(
+                ReadError(Cause.empty, s"Invalid Int value: ${node.text.trim}")
+              )
+            } else {
+              Left(ReadError(Cause.empty, "No more ints"))
+            }
+          } else {
+            val direct              = node \ "int"
+            val intNodes: Seq[Node] = if (direct.nonEmpty) direct.toList else (node \\ "int").toList
+
+            if (intNodes.isEmpty) {
+              val tokens = node.text.trim.split("\\s+")
+              if (tokens.length == 1) {
+                tokens(0).toIntOption match {
+                  case Some(i) => Right(i)
+                  case None    => Left(ReadError(Cause.empty, s"Invalid Int value: ${tokens(0)}"))
+                }
+              } else {
+                val joined = tokens.mkString("")
+                joined.toIntOption match {
+                  case Some(i) => Right(i)
+                  case None    => Left(ReadError(Cause.empty, s"Invalid concatenated Int value: $joined"))
+                }
+              }
+            } else {
+              if (intNodes.size == 1) {
+                intNodes.head.text.trim.toIntOption.toRight(
+                  ReadError(Cause.empty, s"Invalid Int value: ${intNodes.head.text.trim}")
+                )
+              } else {
+                if (cached.isEmpty) {
+                  val decoded: Seq[Either[DecodeError, Int]] = intNodes.map { child =>
+                    val text = child.text.trim
+                    text.toIntOption match {
+                      case Some(i) => Right(i)
+                      case None    => Left(ReadError(Cause.empty, s"Invalid Int value: $text"))
+                    }
+                  }
+                  decoded.collectFirst { case Left(err) => err } match {
+                    case Some(err) => return Left(err)
+                    case None =>
+                      val allInts = decoded.collect { case Right(i) => i }
+                      cached = Some(allInts)
+                      index = 0
+                  }
+                }
+                cached match {
+                  case Some(ints) if index < ints.size =>
+                    val result = ints(index)
+                    index += 1
+                    Right(result)
+                  case _ =>
+                    Left(ReadError(Cause.empty, "No more ints"))
+                }
+              }
             }
           }
         }
       }
+
+    def extractAll[T](
+      decoder: ZXmlDecoder[T],
+      node: Node,
+      noMoreMsg: String
+    ): Either[DecodeError, List[T]] = {
+      def loop(acc: List[T]): Either[DecodeError, List[T]] =
+        decoder.decodeXml(node) match {
+          case Right(value) =>
+            loop(acc :+ value)
+          case Left(ReadError(_, msg)) if msg == noMoreMsg =>
+            Right(acc)
+          case Left(err) =>
+            Left(err)
+        }
+      loop(Nil)
     }
-  }
-
-
-
- def extractAll[T](
-  decoder: ZXmlDecoder[T],
-  node: Node,
-  noMoreMsg: String
-): Either[DecodeError, List[T]] = {
-  def loop(acc: List[T]): Either[DecodeError, List[T]] =
-    decoder.decodeXml(node) match {
-      case Right(value) =>
-        loop(acc :+ value)
-      case Left(ReadError(_, msg)) if msg == noMoreMsg =>
-        Right(acc)
-      case Left(err) =>
-        Left(err)
-    }
-  loop(Nil)
-}
-
 
     // ─────────────────────────────────────────────────────────────
     // Primitive Codec: Maps a StandardType to an XML codec.
@@ -416,7 +407,7 @@ override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
             }
           )
 
-        case StandardType.UnitType   => unitCodec
+        case StandardType.UnitType => unitCodec
 
         case StandardType.IntType =>
           ZXmlCodec(
@@ -445,26 +436,24 @@ override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
             }
           )
 
-       case StandardType.DoubleType =>
-  ZXmlCodec(
-    new ZXmlEncoder[java.lang.Double] {
-      override def encodeXml(value: Double): Elem = {
-        val result = <double>{java.lang.Double.toString(value)}</double>
-        result
-      }
-    },
-    new ZXmlDecoder[java.lang.Double] {
-      override def decodeXml(node: Node): Either[DecodeError, java.lang.Double] =
-        try {
-          Right(java.lang.Double.valueOf(node.text).doubleValue())
-        } catch {
-          case NonFatal(_) =>
-            Left(ReadError(Cause.empty, s"Invalid Double value: ${node.text}"))
-        }
-    }
-  ).asInstanceOf[ZXmlCodec[A]]
-
-
+        case StandardType.DoubleType =>
+          ZXmlCodec(
+            new ZXmlEncoder[java.lang.Double] {
+              override def encodeXml(value: Double): Elem = {
+                val result = <double>{java.lang.Double.toString(value)}</double>
+                result
+              }
+            },
+            new ZXmlDecoder[java.lang.Double] {
+              override def decodeXml(node: Node): Either[DecodeError, java.lang.Double] =
+                try {
+                  Right(java.lang.Double.valueOf(node.text).doubleValue())
+                } catch {
+                  case NonFatal(_) =>
+                    Left(ReadError(Cause.empty, s"Invalid Double value: ${node.text}"))
+                }
+            }
+          ).asInstanceOf[ZXmlCodec[A]]
 
         case StandardType.LocalDateType =>
           ZXmlCodec(
@@ -565,28 +554,27 @@ override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
             }
           )
 
-      case StandardType.ShortType =>
-  ZXmlCodec(
-    new ZXmlEncoder[java.lang.Short] {
-      override def encodeXml(value: java.lang.Short): Elem = {
-        val result = <short>{value.toString}</short>
-        result
-      }
-    },
-    new ZXmlDecoder[java.lang.Short] {
-      override def decodeXml(node: Node): Either[DecodeError, java.lang.Short] = {
-        val receivedText = node.text
-        try {
-          val decodedValue = java.lang.Short.valueOf(receivedText)
-          Right(decodedValue)
-        } catch {
-          case NonFatal(_) =>
-            Left(ReadError(Cause.empty, s"Invalid Short value: $receivedText"))
-        }
-      }
-    }
-  ).asInstanceOf[ZXmlCodec[A]]
-
+        case StandardType.ShortType =>
+          ZXmlCodec(
+            new ZXmlEncoder[java.lang.Short] {
+              override def encodeXml(value: java.lang.Short): Elem = {
+                val result = <short>{value.toString}</short>
+                result
+              }
+            },
+            new ZXmlDecoder[java.lang.Short] {
+              override def decodeXml(node: Node): Either[DecodeError, java.lang.Short] = {
+                val receivedText = node.text
+                try {
+                  val decodedValue = java.lang.Short.valueOf(receivedText)
+                  Right(decodedValue)
+                } catch {
+                  case NonFatal(_) =>
+                    Left(ReadError(Cause.empty, s"Invalid Short value: $receivedText"))
+                }
+              }
+            }
+          ).asInstanceOf[ZXmlCodec[A]]
 
         case StandardType.ZonedDateTimeType =>
           ZXmlCodec(
@@ -603,296 +591,288 @@ override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
             }
           )
 
-      case StandardType.ZoneOffsetType =>
-      ZXmlCodec(
-        new ZXmlEncoder[ZoneOffset] {
-          override def encodeXml(value: ZoneOffset): Elem =
-            <ZoneOffset>{ value.toString }</ZoneOffset>
-        },
-        new ZXmlDecoder[ZoneOffset] {
-          override def decodeXml(node: Node): Either[DecodeError, ZoneOffset] =
-            try {
-              Right(ZoneOffset.of(node.text.trim))
-            } catch {
-              case _: Exception =>
-                Left(ReadError(Cause.empty, "Invalid ZoneOffset value"))
+        case StandardType.ZoneOffsetType =>
+          ZXmlCodec(
+            new ZXmlEncoder[ZoneOffset] {
+              override def encodeXml(value: ZoneOffset): Elem =
+                <ZoneOffset>{value.toString}</ZoneOffset>
+            },
+            new ZXmlDecoder[ZoneOffset] {
+              override def decodeXml(node: Node): Either[DecodeError, ZoneOffset] =
+                try {
+                  Right(ZoneOffset.of(node.text.trim))
+                } catch {
+                  case _: Exception =>
+                    Left(ReadError(Cause.empty, "Invalid ZoneOffset value"))
+                }
             }
-        }
-      ).asInstanceOf[ZXmlCodec[A]]
+          ).asInstanceOf[ZXmlCodec[A]]
 
-    case StandardType.ZoneIdType =>
-      ZXmlCodec(
-        new ZXmlEncoder[ZoneId] {
-          override def encodeXml(value: ZoneId): Elem =
-            <ZoneId>{ value.toString }</ZoneId>
-        },
-        new ZXmlDecoder[ZoneId] {
-          override def decodeXml(node: Node): Either[DecodeError, ZoneId] =
-            try {
-              Right(ZoneId.of(node.text.trim))
-            } catch {
-              case _: Exception =>
-                Left(ReadError(Cause.empty, "Invalid ZoneId value"))
+        case StandardType.ZoneIdType =>
+          ZXmlCodec(
+            new ZXmlEncoder[ZoneId] {
+              override def encodeXml(value: ZoneId): Elem =
+                <ZoneId>{value.toString}</ZoneId>
+            },
+            new ZXmlDecoder[ZoneId] {
+              override def decodeXml(node: Node): Either[DecodeError, ZoneId] =
+                try {
+                  Right(ZoneId.of(node.text.trim))
+                } catch {
+                  case _: Exception =>
+                    Left(ReadError(Cause.empty, "Invalid ZoneId value"))
+                }
             }
-        }
-      ).asInstanceOf[ZXmlCodec[A]]
+          ).asInstanceOf[ZXmlCodec[A]]
 
-    case StandardType.CurrencyType =>
-      ZXmlCodec(
-        new ZXmlEncoder[Currency] {
-          override def encodeXml(value: Currency): Elem =
-            <Currency>{ value.getCurrencyCode }</Currency>
-        },
-        new ZXmlDecoder[Currency] {
-          override def decodeXml(node: Node): Either[DecodeError, Currency] =
-            try {
-              Right(Currency.getInstance(node.text.trim))
-            } catch {
-              case _: Exception =>
-                Left(ReadError(Cause.empty, "Invalid Currency value"))
+        case StandardType.CurrencyType =>
+          ZXmlCodec(
+            new ZXmlEncoder[Currency] {
+              override def encodeXml(value: Currency): Elem =
+                <Currency>{value.getCurrencyCode}</Currency>
+            },
+            new ZXmlDecoder[Currency] {
+              override def decodeXml(node: Node): Either[DecodeError, Currency] =
+                try {
+                  Right(Currency.getInstance(node.text.trim))
+                } catch {
+                  case _: Exception =>
+                    Left(ReadError(Cause.empty, "Invalid Currency value"))
+                }
             }
-        }
-      ).asInstanceOf[ZXmlCodec[A]]
+          ).asInstanceOf[ZXmlCodec[A]]
 
-      case StandardType.BinaryType =>
-      ZXmlCodec(
-        new ZXmlEncoder[Chunk[Byte]] {
-          override def encodeXml(value: Chunk[Byte]): Elem = {
-            val base64 = java.util.Base64.getEncoder.encodeToString(value.toArray)
-            <binary>{base64}</binary>
-          }
-        },
-        new ZXmlDecoder[Chunk[Byte]] {
-          override def decodeXml(node: Node): Either[DecodeError, Chunk[Byte]] = {
-            val text = node.text.trim
-            try {
-              val bytes = java.util.Base64.getDecoder.decode(text)
-              Right(Chunk.fromArray(bytes))
-            } catch {
-              case ex: Exception =>
-                Left(ReadError(Cause.empty, s"Invalid binary value: $text"))
+        case StandardType.BinaryType =>
+          ZXmlCodec(
+            new ZXmlEncoder[Chunk[Byte]] {
+              override def encodeXml(value: Chunk[Byte]): Elem = {
+                val base64 = java.util.Base64.getEncoder.encodeToString(value.toArray)
+                <binary>{base64}</binary>
+              }
+            },
+            new ZXmlDecoder[Chunk[Byte]] {
+              override def decodeXml(node: Node): Either[DecodeError, Chunk[Byte]] = {
+                val text = node.text.trim
+                try {
+                  val bytes = java.util.Base64.getDecoder.decode(text)
+                  Right(Chunk.fromArray(bytes))
+                } catch {
+                  case _: Exception =>
+                    Left(ReadError(Cause.empty, s"Invalid binary value: $text"))
+                }
+              }
             }
-          }
-        }
-      ).asInstanceOf[ZXmlCodec[A]]
+          ).asInstanceOf[ZXmlCodec[A]]
 
-       case StandardType.CharType =>
-  ZXmlCodec(
-    new ZXmlEncoder[Char] {
-      override def encodeXml(value: Char): Elem =
-        <char xml:space="preserve" code={value.toInt.toString}>{value.toString}</char>
-    },
-    new ZXmlDecoder[Char] {
-      override def decodeXml(node: Node): Either[DecodeError, Char] = {
-  val charNode = if (node.label == "char") node else (node \ "char").headOption.getOrElse(node)
+        case StandardType.CharType =>
+          ZXmlCodec(
+            new ZXmlEncoder[Char] {
+              override def encodeXml(value: Char): Elem =
+                <char xml:space="preserve" code={value.toInt.toString}>{value.toString}</char>
+            },
+            new ZXmlDecoder[Char] {
+              override def decodeXml(node: Node): Either[DecodeError, Char] = {
+                val charNode = if (node.label == "char") node else (node \ "char").headOption.getOrElse(node)
 
-  val text = charNode.text
+                val text = charNode.text
 
-  if (text.nonEmpty && text.length == 1) {
-    Right(text.charAt(0))
-  } else {
-    // Attempt to recover using the "code" attribute.
-    val codeAttr = (charNode \ "@code").text
-    if (codeAttr.nonEmpty) {
-      try {
-        val recoveredChar = codeAttr.toInt.toChar
-        Right(recoveredChar)
-      } catch {
-        case NonFatal(_) =>
-          val errMsg = s"Invalid Char code: $codeAttr"
-          Left(ReadError(Cause.empty, errMsg))
-      }
-    } else {
-      Right('\u0000')
-    }
-  }
-}
-    }
-  )
-
-
-
-
-      case StandardType.UUIDType =>
-  ZXmlCodec(
-    new ZXmlEncoder[java.util.UUID] {
-      override def encodeXml(value: java.util.UUID): Elem = <uuid>{value.toString}</uuid>
-    },
-    new ZXmlDecoder[java.util.UUID] {
-      override def decodeXml(node: Node): Either[DecodeError, java.util.UUID] =
-        try {
-          Right(java.util.UUID.fromString(node.text.trim))
-        } catch {
-          case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid UUID format: ${node.text.trim}"))
-        }
-    }
-  )   
-   
-       case StandardType.DayOfWeekType =>
-  ZXmlCodec(
-    new ZXmlEncoder[java.time.DayOfWeek] {
-      override def encodeXml(value: java.time.DayOfWeek): Elem =
-        <dayOfWeek>{value.toString}</dayOfWeek>
-    },
-    new ZXmlDecoder[java.time.DayOfWeek] {
-      override def decodeXml(node: Node): Either[DecodeError, java.time.DayOfWeek] =
-        try {
-          Right(java.time.DayOfWeek.valueOf(node.text.trim))
-        } catch {
-          case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid DayOfWeek value: ${node.text.trim}"))
-        }
-    }
-  )
-
-  case StandardType.DurationType =>
-  ZXmlCodec(
-    new ZXmlEncoder[Duration] {
-      override def encodeXml(value: Duration): Elem =
-        <duration>{value.toString}</duration>
-    },
-    new ZXmlDecoder[Duration] {
-      override def decodeXml(node: Node): Either[DecodeError, Duration] =
-        try {
-          Right(Duration.parse(node.text.trim))
-        } catch {
-          case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid Duration format: ${node.text.trim}"))
-        }
-    }
-  )
-
-    case StandardType.MonthType =>
-      ZXmlCodec(
-        new ZXmlEncoder[Month] {
-          override def encodeXml(value: Month): Elem = <month>{value.toString}</month>
-        },
-        new ZXmlDecoder[Month] {
-          override def decodeXml(node: Node): Either[DecodeError, Month] =
-            try {
-              Right(Month.valueOf(node.text.trim.toUpperCase))
-            } catch {
-              case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid Month format: ${node.text.trim}"))
+                if (text.nonEmpty && text.length == 1) {
+                  Right(text.charAt(0))
+                } else {
+                  // Attempt to recover using the "code" attribute.
+                  val codeAttr = (charNode \ "@code").text
+                  if (codeAttr.nonEmpty) {
+                    try {
+                      val recoveredChar = codeAttr.toInt.toChar
+                      Right(recoveredChar)
+                    } catch {
+                      case NonFatal(_) =>
+                        val errMsg = s"Invalid Char code: $codeAttr"
+                        Left(ReadError(Cause.empty, errMsg))
+                    }
+                  } else {
+                    Right('\u0000')
+                  }
+                }
+              }
             }
-        }
-      )
+          )
 
-    case StandardType.MonthDayType =>
-      ZXmlCodec(
-        new ZXmlEncoder[MonthDay] {
-          override def encodeXml(value: MonthDay): Elem = <monthDay>{value.toString}</monthDay>
-        },
-        new ZXmlDecoder[MonthDay] {
-          override def decodeXml(node: Node): Either[DecodeError, MonthDay] =
-            try {
-              Right(MonthDay.parse(node.text.trim))
-            } catch {
-              case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid MonthDay format: ${node.text.trim}"))
+        case StandardType.UUIDType =>
+          ZXmlCodec(
+            new ZXmlEncoder[java.util.UUID] {
+              override def encodeXml(value: java.util.UUID): Elem = <uuid>{value.toString}</uuid>
+            },
+            new ZXmlDecoder[java.util.UUID] {
+              override def decodeXml(node: Node): Either[DecodeError, java.util.UUID] =
+                try {
+                  Right(java.util.UUID.fromString(node.text.trim))
+                } catch {
+                  case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid UUID format: ${node.text.trim}"))
+                }
             }
-        }
-      )
+          )
 
-
-  case StandardType.OffsetTimeType =>
-      ZXmlCodec(
-        new ZXmlEncoder[OffsetTime] {
-          override def encodeXml(value: OffsetTime): Elem = <offsetTime>{value.toString}</offsetTime>
-        },
-        new ZXmlDecoder[OffsetTime] {
-          override def decodeXml(node: Node): Either[DecodeError, OffsetTime] =
-            try {
-              Right(OffsetTime.parse(node.text.trim))
-            } catch {
-              case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid OffsetTime format: ${node.text.trim}"))
+        case StandardType.DayOfWeekType =>
+          ZXmlCodec(
+            new ZXmlEncoder[java.time.DayOfWeek] {
+              override def encodeXml(value: java.time.DayOfWeek): Elem =
+                <dayOfWeek>{value.toString}</dayOfWeek>
+            },
+            new ZXmlDecoder[java.time.DayOfWeek] {
+              override def decodeXml(node: Node): Either[DecodeError, java.time.DayOfWeek] =
+                try {
+                  Right(java.time.DayOfWeek.valueOf(node.text.trim))
+                } catch {
+                  case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid DayOfWeek value: ${node.text.trim}"))
+                }
             }
-        }
-      )
+          )
 
-       case StandardType.OffsetDateTimeType =>
-      ZXmlCodec(
-        new ZXmlEncoder[OffsetDateTime] {
-          override def encodeXml(value: OffsetDateTime): Elem = <offsetDateTime>{value.toString}</offsetDateTime>
-        },
-        new ZXmlDecoder[OffsetDateTime] {
-          override def decodeXml(node: Node): Either[DecodeError, OffsetDateTime] =
-            try {
-              Right(OffsetDateTime.parse(node.text.trim))
-            } catch {
-              case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid OffsetDateTime format: ${node.text.trim}"))
+        case StandardType.DurationType =>
+          ZXmlCodec(
+            new ZXmlEncoder[Duration] {
+              override def encodeXml(value: Duration): Elem =
+                <duration>{value.toString}</duration>
+            },
+            new ZXmlDecoder[Duration] {
+              override def decodeXml(node: Node): Either[DecodeError, Duration] =
+                try {
+                  Right(Duration.parse(node.text.trim))
+                } catch {
+                  case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid Duration format: ${node.text.trim}"))
+                }
             }
-        }
-      )
+          )
 
-      case StandardType.LocalTimeType =>
-      ZXmlCodec(
-        new ZXmlEncoder[LocalTime] {
-          override def encodeXml(value: LocalTime): Elem = <localTime>{value.toString}</localTime>
-        },
-        new ZXmlDecoder[LocalTime] {
-          override def decodeXml(node: Node): Either[DecodeError, LocalTime] =
-            try {
-              Right(LocalTime.parse(node.text.trim, DateTimeFormatter.ISO_LOCAL_TIME))
-            } catch {
-              case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid LocalTime format: ${node.text.trim}"))
+        case StandardType.MonthType =>
+          ZXmlCodec(
+            new ZXmlEncoder[Month] {
+              override def encodeXml(value: Month): Elem = <month>{value.toString}</month>
+            },
+            new ZXmlDecoder[Month] {
+              override def decodeXml(node: Node): Either[DecodeError, Month] =
+                try {
+                  Right(Month.valueOf(node.text.trim.toUpperCase))
+                } catch {
+                  case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid Month format: ${node.text.trim}"))
+                }
             }
-        }
-      )
+          )
 
-      case StandardType.PeriodType =>
-  ZXmlCodec(
-    new ZXmlEncoder[Period] {
-      override def encodeXml(value: Period): Elem =
-        <period>{value.toString}</period>
-    },
-    new ZXmlDecoder[Period] {
-      override def decodeXml(node: Node): Either[DecodeError, Period] = {
-        val text = node.text.trim
-        try {
-          Right(Period.parse(text))
-        } catch {
-          case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid Period format: $text"))
-        }
-      }
-    }
-  )
+        case StandardType.MonthDayType =>
+          ZXmlCodec(
+            new ZXmlEncoder[MonthDay] {
+              override def encodeXml(value: MonthDay): Elem = <monthDay>{value.toString}</monthDay>
+            },
+            new ZXmlDecoder[MonthDay] {
+              override def decodeXml(node: Node): Either[DecodeError, MonthDay] =
+                try {
+                  Right(MonthDay.parse(node.text.trim))
+                } catch {
+                  case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid MonthDay format: ${node.text.trim}"))
+                }
+            }
+          )
 
-  case StandardType.YearType =>
-  ZXmlCodec(
-    new ZXmlEncoder[Year] {
-      override def encodeXml(value: Year): Elem =
-        <year>{value.toString}</year>
-    },
-    new ZXmlDecoder[Year] {
-      override def decodeXml(node: Node): Either[DecodeError, Year] = {
-        val text = node.text.trim
-        try {
-          Right(Year.parse(text))
-        } catch {
-          case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid Year format: $text"))
-        }
-      }
-    }
-  )
+        case StandardType.OffsetTimeType =>
+          ZXmlCodec(
+            new ZXmlEncoder[OffsetTime] {
+              override def encodeXml(value: OffsetTime): Elem = <offsetTime>{value.toString}</offsetTime>
+            },
+            new ZXmlDecoder[OffsetTime] {
+              override def decodeXml(node: Node): Either[DecodeError, OffsetTime] =
+                try {
+                  Right(OffsetTime.parse(node.text.trim))
+                } catch {
+                  case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid OffsetTime format: ${node.text.trim}"))
+                }
+            }
+          )
 
-  case StandardType.YearMonthType =>
-  ZXmlCodec(
-    new ZXmlEncoder[YearMonth] {
-      override def encodeXml(value: YearMonth): Elem =
-        <yearMonth>{value.toString}</yearMonth>
-    },
-    new ZXmlDecoder[YearMonth] {
-      override def decodeXml(node: Node): Either[DecodeError, YearMonth] = {
-        val text = node.text.trim
-        try {
-          Right(YearMonth.parse(text))
-        } catch {
-          case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid YearMonth format: $text"))
-        }
-      }
-    }
-  )
+        case StandardType.OffsetDateTimeType =>
+          ZXmlCodec(
+            new ZXmlEncoder[OffsetDateTime] {
+              override def encodeXml(value: OffsetDateTime): Elem = <offsetDateTime>{value.toString}</offsetDateTime>
+            },
+            new ZXmlDecoder[OffsetDateTime] {
+              override def decodeXml(node: Node): Either[DecodeError, OffsetDateTime] =
+                try {
+                  Right(OffsetDateTime.parse(node.text.trim))
+                } catch {
+                  case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid OffsetDateTime format: ${node.text.trim}"))
+                }
+            }
+          )
 
+        case StandardType.LocalTimeType =>
+          ZXmlCodec(
+            new ZXmlEncoder[LocalTime] {
+              override def encodeXml(value: LocalTime): Elem = <localTime>{value.toString}</localTime>
+            },
+            new ZXmlDecoder[LocalTime] {
+              override def decodeXml(node: Node): Either[DecodeError, LocalTime] =
+                try {
+                  Right(LocalTime.parse(node.text.trim, DateTimeFormatter.ISO_LOCAL_TIME))
+                } catch {
+                  case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid LocalTime format: ${node.text.trim}"))
+                }
+            }
+          )
 
+        case StandardType.PeriodType =>
+          ZXmlCodec(
+            new ZXmlEncoder[Period] {
+              override def encodeXml(value: Period): Elem =
+                <period>{value.toString}</period>
+            },
+            new ZXmlDecoder[Period] {
+              override def decodeXml(node: Node): Either[DecodeError, Period] = {
+                val text = node.text.trim
+                try {
+                  Right(Period.parse(text))
+                } catch {
+                  case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid Period format: $text"))
+                }
+              }
+            }
+          )
 
+        case StandardType.YearType =>
+          ZXmlCodec(
+            new ZXmlEncoder[Year] {
+              override def encodeXml(value: Year): Elem =
+                <year>{value.toString}</year>
+            },
+            new ZXmlDecoder[Year] {
+              override def decodeXml(node: Node): Either[DecodeError, Year] = {
+                val text = node.text.trim
+                try {
+                  Right(Year.parse(text))
+                } catch {
+                  case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid Year format: $text"))
+                }
+              }
+            }
+          )
 
+        case StandardType.YearMonthType =>
+          ZXmlCodec(
+            new ZXmlEncoder[YearMonth] {
+              override def encodeXml(value: YearMonth): Elem =
+                <yearMonth>{value.toString}</yearMonth>
+            },
+            new ZXmlDecoder[YearMonth] {
+              override def decodeXml(node: Node): Either[DecodeError, YearMonth] = {
+                val text = node.text.trim
+                try {
+                  Right(YearMonth.parse(text))
+                } catch {
+                  case NonFatal(_) => Left(ReadError(Cause.empty, s"Invalid YearMonth format: $text"))
+                }
+              }
+            }
+          )
 
         case _ =>
           ZXmlCodec(
@@ -960,243 +940,235 @@ override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
   }
 
   object XmlTupleEncoder {
-  def tuple2[A, B](left: ZXmlEncoder[A], right: ZXmlEncoder[B]): ZXmlEncoder[(A, B)] =
-    new ZXmlEncoder[(A, B)] {
-      override def encodeXml(value: (A, B)): Elem = {
-        val (a, b) = value
-        val leftXml  = left.encodeXml(a)
-        val rightXml = right.encodeXml(b)
-        val tupleXml =
-          <tuple>
+
+    def tuple2[A, B](left: ZXmlEncoder[A], right: ZXmlEncoder[B]): ZXmlEncoder[(A, B)] =
+      new ZXmlEncoder[(A, B)] {
+        override def encodeXml(value: (A, B)): Elem = {
+          val (a, b)   = value
+          val leftXml  = left.encodeXml(a)
+          val rightXml = right.encodeXml(b)
+          val tupleXml =
+            <tuple>
             <left>{leftXml}</left>
             <right>{rightXml}</right>
           </tuple>
-        tupleXml
+          tupleXml
+        }
       }
-    }
-}
+  }
 
+  object XmlEitherEncoder {
 
- object XmlEitherEncoder {
-  def either[A, B](left: ZXmlEncoder[A], right: ZXmlEncoder[B]): ZXmlEncoder[Either[A, B]] =
-    new ZXmlEncoder[Either[A, B]] {
-      override def encodeXml(value: Either[A, B]): Elem = value match {
-        case Left(a) =>
-          val encodedLeft = left.encodeXml(a)
-          <left>{encodedLeft}</left>
-        case Right(b) =>
-          val encodedRight = right.encodeXml(b)
-          <right>{encodedRight}</right>
+    def either[A, B](left: ZXmlEncoder[A], right: ZXmlEncoder[B]): ZXmlEncoder[Either[A, B]] =
+      new ZXmlEncoder[Either[A, B]] {
+        override def encodeXml(value: Either[A, B]): Elem = value match {
+          case Left(a) =>
+            val encodedLeft = left.encodeXml(a)
+            <left>{encodedLeft}</left>
+          case Right(b) =>
+            val encodedRight = right.encodeXml(b)
+            <right>{encodedRight}</right>
+        }
       }
-    }
-}
-
+  }
 
   // helper objects for decoding logic
   object XmlTupleDecoder {
 
-  def unwrapTo(node: Node, expected: String): Node = {
-    if (node.label == expected) node
-    else {
-      node.child.collect { case e: Elem => e }.find(_.label == expected) match {
-        case Some(child) => unwrapTo(child, expected)  
-        case None        => node  
+    def unwrapTo(node: Node, expected: String): Node =
+      if (node.label == expected) node
+      else {
+        node.child.collect { case e: Elem => e }.find(_.label == expected) match {
+          case Some(child) => unwrapTo(child, expected)
+          case None        => node
+        }
       }
-    }
-  }
 
-  def tuple2[A, B](leftDecoder: ZXmlDecoder[A], rightDecoder: ZXmlDecoder[B]): ZXmlDecoder[(A, B)] =
-    new ZXmlDecoder[(A, B)] {
-      override def decodeXml(node: Node): Either[DecodeError, (A, B)] = {
-        val tupleNode = unwrapTo(node, "tuple")
-        if (tupleNode.label != "tuple") {
-          val err = ReadError(Cause.empty, s"Expected <tuple> element, found <${tupleNode.label}>")
-          Left(err)
-        } else {
-          // Unwrap left and right parts.
-          val leftOpt  = (tupleNode \ "left").headOption.map(unwrapTo(_, "left"))
-          val rightOpt = (tupleNode \ "right").headOption.map(unwrapTo(_, "right"))
-          (leftOpt, rightOpt) match {
-            case (Some(lNode), Some(rNode)) =>
-              val decodedLeft  = leftDecoder.decodeXml(lNode)
-              val decodedRight = rightDecoder.decodeXml(rNode)
-              for {
-                a <- decodedLeft
-                b <- decodedRight
-              } yield (a, b)
-            case _ =>
-              val err = ReadError(Cause.empty, "Missing <left> or <right> element in tuple")
-              Left(err)
+    def tuple2[A, B](leftDecoder: ZXmlDecoder[A], rightDecoder: ZXmlDecoder[B]): ZXmlDecoder[(A, B)] =
+      new ZXmlDecoder[(A, B)] {
+        override def decodeXml(node: Node): Either[DecodeError, (A, B)] = {
+          val tupleNode = unwrapTo(node, "tuple")
+          if (tupleNode.label != "tuple") {
+            val err = ReadError(Cause.empty, s"Expected <tuple> element, found <${tupleNode.label}>")
+            Left(err)
+          } else {
+            // Unwrap left and right parts.
+            val leftOpt  = (tupleNode \ "left").headOption.map(unwrapTo(_, "left"))
+            val rightOpt = (tupleNode \ "right").headOption.map(unwrapTo(_, "right"))
+            (leftOpt, rightOpt) match {
+              case (Some(lNode), Some(rNode)) =>
+                val decodedLeft  = leftDecoder.decodeXml(lNode)
+                val decodedRight = rightDecoder.decodeXml(rNode)
+                for {
+                  a <- decodedLeft
+                  b <- decodedRight
+                } yield (a, b)
+              case _ =>
+                val err = ReadError(Cause.empty, "Missing <left> or <right> element in tuple")
+                Left(err)
+            }
           }
         }
       }
-    }
-}
-
-
-object XmlCollectionDecoder {
-
-  private def sequence[A](eithers: Seq[Either[DecodeError, A]]): Either[DecodeError, Seq[A]] =
-  eithers.foldRight(Right(Nil): Either[DecodeError, List[A]]) { (elem, acc) =>
-    for {
-      xs <- acc
-      x  <- elem
-    } yield x :: xs
   }
 
+  object XmlCollectionDecoder {
 
-  def chunk[A](elementDecoder: ZXmlDecoder[A]): ZXmlDecoder[Seq[A]] =
-    new ZXmlDecoder[Seq[A]] {
-      override def decodeXml(node: Node): Either[DecodeError, Seq[A]] ={
-         val seqNode = 
-        if (node.label != "seq") {
-          node.child.collect { case e: Elem => e }.headOption.filter(_.label == "seq").getOrElse(node)
-        } else node
-        if (seqNode.label != "seq")
-          Left(ReadError(Cause.empty, s"Expected <seq> element, found <${node.label}>"))
-        else {
-          val children: Seq[Elem] = node.child.collect { case e: Elem => e }.toList
-          sequence(children.map { child =>
-            val result = elementDecoder.decodeXml(child)
-            result
-          })
-        }
-      }
-    }
-
-  def set[A](elementDecoder: ZXmlDecoder[A]): ZXmlDecoder[Set[A]] =
-    new ZXmlDecoder[Set[A]] {
-      override def decodeXml(node: Node): Either[DecodeError, Set[A]] =
-        if (node.label != "set")
-          Left(ReadError(Cause.empty, s"Expected <set> element, found <${node.label}>"))
-        else {
-          val children: Seq[Elem] = node.child.collect { case e: Elem => e }.toList
-          sequence(children.map { child =>
-            val result = elementDecoder.decodeXml(child)
-            result
-          }).map { seq =>
-            val setValue = seq.toSet
-            setValue
-          }
-        }
-    }
-}
-
-
- object XmlFieldDecoder {
-
-  val string: XmlFieldDecoder[String] = (node: Node) => Right(node.text)
-
-  val int: XmlFieldDecoder[Int] = (node: Node) =>
-    node.text.toIntOption.toRight(ReadError(Cause.empty, "Invalid Int"))
-
-  val long: XmlFieldDecoder[Long] = (node: Node) =>
-    node.text.toLongOption.toRight(ReadError(Cause.empty, "Invalid Long"))
-
-  def map[K, V](
-  keyDecoder: XmlFieldDecoder[K],
-  valueDecoder: XmlFieldDecoder[V]
-): XmlFieldDecoder[Map[K, V]] = (node: Node) => {
-  node.label match {
-    case "record" =>
-      val fields: Seq[Elem] = node.child.collect { case e: Elem if e.label == "field" => e }.toList
-      val parsed: Seq[Either[DecodeError, (K, V)]] = fields.map { field =>
-        field.attribute("name").flatMap(_.headOption) match {
-          case Some(attr) =>
-            val keyNode = scala.xml.Text(attr.text)
-            for {
-              key <- keyDecoder.decodeField(keyNode)
-              childElem <- field.child.collect { case e: Elem => e }.headOption.toRight(
-                             ReadError(Cause.empty, "Missing value element in <field>")
-                           )
-              value <- valueDecoder.decodeField(childElem)
-            } yield key -> value
-          case None =>
-            val errorMsg = "Missing 'name' attribute on <field> for key"
-            Left(ReadError(Cause.empty, errorMsg))
-        }
-      }
-      sequence(parsed).map(_.toMap)
-
-    case _ =>
-      val entries: Seq[Elem] = node.child.collect { case e: Elem => e }.toList
-      val parsed: Seq[Either[DecodeError, (K, V)]] = entries.map { entry =>
-        for {
-          keyNode <- (entry \ "key").headOption
-                       .orElse((entry \\ "key").headOption)
-                       .toRight(ReadError(Cause.empty, "Missing <key> node"))
-          valueNode <- (entry \ "value").headOption
-                         .orElse((entry \\ "value").headOption)
-                         .toRight(ReadError(Cause.empty, "Missing <value> node"))
-          key   <- keyDecoder.decodeField(keyNode)
-          value <- valueDecoder.decodeField(valueNode)
-        } yield key -> value
-      }
-      sequence(parsed).map(_.toMap)
-  }
-}
-
-  private def sequence[A](eithers: Seq[Either[DecodeError, A]]): Either[DecodeError, Seq[A]] =
-    eithers
-      .foldRight(Right(Nil): Either[DecodeError, List[A]]) { (elem, acc) =>
+    private def sequence[A](eithers: Seq[Either[DecodeError, A]]): Either[DecodeError, Seq[A]] =
+      eithers.foldRight(Right(Nil): Either[DecodeError, List[A]]) { (elem, acc) =>
         for {
           xs <- acc
           x  <- elem
         } yield x :: xs
       }
-      .map(_.reverse)
 
-  def fromZXmlDecoder[V](decoder: ZXmlDecoder[V]): XmlFieldDecoder[V] =
-    (node: Node) => decoder.decodeXml(node)
+    def chunk[A](elementDecoder: ZXmlDecoder[A]): ZXmlDecoder[Seq[A]] =
+      new ZXmlDecoder[Seq[A]] {
+        override def decodeXml(node: Node): Either[DecodeError, Seq[A]] = {
+          val seqNode =
+            if (node.label != "seq") {
+              node.child.collect { case e: Elem => e }.headOption.filter(_.label == "seq").getOrElse(node)
+            } else node
+          if (seqNode.label != "seq")
+            Left(ReadError(Cause.empty, s"Expected <seq> element, found <${node.label}>"))
+          else {
+            val children: Seq[Elem] = node.child.collect { case e: Elem => e }.toList
+            sequence(children.map { child =>
+              val result = elementDecoder.decodeXml(child)
+              result
+            })
+          }
+        }
+      }
 
-  
-  def asZXmlDecoder[A](fieldDecoder: XmlFieldDecoder[A]): ZXmlDecoder[A] =
-    new ZXmlDecoder[A] {
-      override def decodeXml(node: Node): Either[DecodeError, A] =
-        fieldDecoder.decodeField(node)
+    def set[A](elementDecoder: ZXmlDecoder[A]): ZXmlDecoder[Set[A]] =
+      new ZXmlDecoder[Set[A]] {
+        override def decodeXml(node: Node): Either[DecodeError, Set[A]] =
+          if (node.label != "set")
+            Left(ReadError(Cause.empty, s"Expected <set> element, found <${node.label}>"))
+          else {
+            val children: Seq[Elem] = node.child.collect { case e: Elem => e }.toList
+            sequence(children.map { child =>
+              val result = elementDecoder.decodeXml(child)
+              result
+            }).map { seq =>
+              val setValue = seq.toSet
+              setValue
+            }
+          }
+      }
+  }
+
+  object XmlFieldDecoder {
+
+    val string: XmlFieldDecoder[String] = (node: Node) => Right(node.text)
+
+    val int: XmlFieldDecoder[Int] = (node: Node) => node.text.toIntOption.toRight(ReadError(Cause.empty, "Invalid Int"))
+
+    val long: XmlFieldDecoder[Long] = (node: Node) =>
+      node.text.toLongOption.toRight(ReadError(Cause.empty, "Invalid Long"))
+
+    def map[K, V](
+      keyDecoder: XmlFieldDecoder[K],
+      valueDecoder: XmlFieldDecoder[V]
+    ): XmlFieldDecoder[Map[K, V]] = (node: Node) => {
+      node.label match {
+        case "record" =>
+          val fields: Seq[Elem] = node.child.collect { case e: Elem if e.label == "field" => e }.toList
+          val parsed: Seq[Either[DecodeError, (K, V)]] = fields.map { field =>
+            field.attribute("name").flatMap(_.headOption) match {
+              case Some(attr) =>
+                val keyNode = scala.xml.Text(attr.text)
+                for {
+                  key <- keyDecoder.decodeField(keyNode)
+                  childElem <- field.child.collect { case e: Elem => e }.headOption.toRight(
+                                ReadError(Cause.empty, "Missing value element in <field>")
+                              )
+                  value <- valueDecoder.decodeField(childElem)
+                } yield key -> value
+              case None =>
+                val errorMsg = "Missing 'name' attribute on <field> for key"
+                Left(ReadError(Cause.empty, errorMsg))
+            }
+          }
+          sequence(parsed).map(_.toMap)
+
+        case _ =>
+          val entries: Seq[Elem] = node.child.collect { case e: Elem => e }.toList
+          val parsed: Seq[Either[DecodeError, (K, V)]] = entries.map { entry =>
+            for {
+              keyNode <- (entry \ "key").headOption
+                          .orElse((entry \\ "key").headOption)
+                          .toRight(ReadError(Cause.empty, "Missing <key> node"))
+              valueNode <- (entry \ "value").headOption
+                            .orElse((entry \\ "value").headOption)
+                            .toRight(ReadError(Cause.empty, "Missing <value> node"))
+              key   <- keyDecoder.decodeField(keyNode)
+              value <- valueDecoder.decodeField(valueNode)
+            } yield key -> value
+          }
+          sequence(parsed).map(_.toMap)
+      }
     }
-}
 
+    private def sequence[A](eithers: Seq[Either[DecodeError, A]]): Either[DecodeError, Seq[A]] =
+      eithers
+        .foldRight(Right(Nil): Either[DecodeError, List[A]]) { (elem, acc) =>
+          for {
+            xs <- acc
+            x  <- elem
+          } yield x :: xs
+        }
+        .map(_.reverse)
+
+    def fromZXmlDecoder[V](decoder: ZXmlDecoder[V]): XmlFieldDecoder[V] =
+      (node: Node) => decoder.decodeXml(node)
+
+    def asZXmlDecoder[A](fieldDecoder: XmlFieldDecoder[A]): ZXmlDecoder[A] =
+      new ZXmlDecoder[A] {
+        override def decodeXml(node: Node): Either[DecodeError, A] =
+          fieldDecoder.decodeField(node)
+      }
+  }
 
   object XmlEitherDecoder {
 
-  def either[A, B](left: ZXmlDecoder[A], right: ZXmlDecoder[B]): ZXmlDecoder[Either[A, B]] =
-    new ZXmlDecoder[Either[A, B]] {
-      override def decodeXml(node: Node): Either[DecodeError, Either[A, B]] = {
-        node.label match {
-          case "left" =>
-            val childOpt = (node \ "_").headOption
-            childOpt match {
-              case Some(child) =>
-                val decodedLeft = left.decodeXml(child)
-                decodedLeft.map(Left(_))
-              case None =>
-                val err = ReadError(Cause.empty, "Missing content in <left> element")
-                Left(err)
-            }
-          case "right" =>
-            val childOpt = (node \ "_").headOption
-            childOpt match {
-              case Some(child) =>
-                val decodedRight = right.decodeXml(child)
-                decodedRight.map(Right(_))
-              case None =>
-                val err = ReadError(Cause.empty, "Missing content in <right> element")
-                Left(err)
-            }
-          case other =>
-            val err = ReadError(Cause.empty, s"Expected <left> or <right> element, but found <$other>")
-            Left(err)
-        }
+    def either[A, B](left: ZXmlDecoder[A], right: ZXmlDecoder[B]): ZXmlDecoder[Either[A, B]] =
+      new ZXmlDecoder[Either[A, B]] {
+        override def decodeXml(node: Node): Either[DecodeError, Either[A, B]] =
+          node.label match {
+            case "left" =>
+              val childOpt = (node \ "_").headOption
+              childOpt match {
+                case Some(child) =>
+                  val decodedLeft = left.decodeXml(child)
+                  decodedLeft.map(Left(_))
+                case None =>
+                  val err = ReadError(Cause.empty, "Missing content in <left> element")
+                  Left(err)
+              }
+            case "right" =>
+              val childOpt = (node \ "_").headOption
+              childOpt match {
+                case Some(child) =>
+                  val decodedRight = right.decodeXml(child)
+                  decodedRight.map(Right(_))
+                case None =>
+                  val err = ReadError(Cause.empty, "Missing content in <right> element")
+                  Left(err)
+              }
+            case other =>
+              val err = ReadError(Cause.empty, s"Expected <left> or <right> element, but found <$other>")
+              Left(err)
+          }
       }
-    }
-}
+  }
 
   private def unLazy[A](schema: Schema[A]): Schema[A] =
-     schema match {
-    case l: Schema.Lazy[A] => unLazy(l.schema)
-    case _                 => schema
-  }
+    schema match {
+      case l: Schema.Lazy[A] => unLazy(l.schema)
+      case _                 => schema
+    }
 
   object XmlEncoder {
 
@@ -1214,9 +1186,9 @@ object XmlCollectionDecoder {
       }
     }
 
-  // --------------------------
-  // Charset and Cache
-  // --------------------------
+    // --------------------------
+    // Charset and Cache
+    // --------------------------
     private[codec] val CHARSET = StandardCharsets.UTF_8
     private[this] val encoders = new ConcurrentHashMap[EncoderKey[_], ZXmlEncoder[_]]()
 
@@ -1318,29 +1290,29 @@ object XmlCollectionDecoder {
       }
 
     private[codec] def transformFieldEncoder[A, B](
-     schema: Schema[A],
-     g: B => Either[String, A]
-   ): Option[XmlFieldEncoder[B]] =
-    xmlFieldEncoder(schema).map { fieldEncoder =>
-     new XmlFieldEncoder[B] {
-      override def unsafeEncodeField(b: B): String =
-        g(b) match {
-          case Right(a)  => fieldEncoder.unsafeEncodeField(a)
-          case Left(err) => throw new RuntimeException(s"Failed to encode field $b: $err")
+      schema: Schema[A],
+      g: B => Either[String, A]
+    ): Option[XmlFieldEncoder[B]] =
+      xmlFieldEncoder(schema).map { fieldEncoder =>
+        new XmlFieldEncoder[B] {
+          override def unsafeEncodeField(b: B): String =
+            g(b) match {
+              case Right(a)  => fieldEncoder.unsafeEncodeField(a)
+              case Left(err) => throw new RuntimeException(s"Failed to encode field $b: $err")
+            }
         }
-    }
-  }
+      }
 
-  private[codec] def xmlFieldEncoder[A](schema: Schema[A]): Option[XmlFieldEncoder[A]] =
-   schema match {
-    case Schema.Primitive(StandardType.StringType, _) => Some(XmlFieldEncoder.string)
-    case Schema.Primitive(StandardType.LongType, _)   => Some(XmlFieldEncoder.long)
-    case Schema.Primitive(StandardType.IntType, _)    => Some(XmlFieldEncoder.int)
-    case Schema.Transform(c, f, g, a, _) =>
-      transformFieldEncoder(a.foldLeft(c)((s, a) => s.annotate(a)), g)
-    case Schema.Lazy(inner) => xmlFieldEncoder(inner())
-    case _                  => None
-  }
+    private[codec] def xmlFieldEncoder[A](schema: Schema[A]): Option[XmlFieldEncoder[A]] =
+      schema match {
+        case Schema.Primitive(StandardType.StringType, _) => Some(XmlFieldEncoder.string)
+        case Schema.Primitive(StandardType.LongType, _)   => Some(XmlFieldEncoder.long)
+        case Schema.Primitive(StandardType.IntType, _)    => Some(XmlFieldEncoder.int)
+        case Schema.Transform(c, f, g, a, _) =>
+          transformFieldEncoder(a.foldLeft(c)((s, a) => s.annotate(a)), g)
+        case Schema.Lazy(inner) => xmlFieldEncoder(inner())
+        case _                  => None
+      }
 
     // -----------------------------------------------------------------------------
 // Map Encoder
@@ -1351,7 +1323,6 @@ object XmlCollectionDecoder {
         case Some(fieldEncoder) =>
           XmlFieldEncoder.map(fieldEncoder, valueEncoder)
         case None =>
-
           val pairEncoder: ZXmlEncoder[(K, V)] =
             new ZXmlEncoder[(K, V)] {
               override def encodeXml(pair: (K, V)): Elem = {
@@ -1492,23 +1463,23 @@ object XmlCollectionDecoder {
             <enum>{caseMap(a)}</enum>
           }
         }
-      }else if (schema.annotations.exists(_.isInstanceOf[noDiscriminator])) {
-  new ZXmlEncoder[Z] {
-    private def formatXml(elem: Elem): Elem =
-      if (cfg.prettyPrint)
-        scala.xml.XML.loadString(new scala.xml.PrettyPrinter(80, 2).format(elem))
-      else elem
+      } else if (schema.annotations.exists(_.isInstanceOf[noDiscriminator])) {
+        new ZXmlEncoder[Z] {
+          private def formatXml(elem: Elem): Elem =
+            if (cfg.prettyPrint)
+              scala.xml.XML.loadString(new scala.xml.PrettyPrinter(80, 2).format(elem))
+            else elem
 
-    override def encodeXml(a: Z): Elem = formatXml {
-      val possible = schema.nonTransientCases.iterator.collectFirst {
-        case sc if sc.isCase(a) =>
-          schemaEncoder(sc.schema.asInstanceOf[Schema[Any]], cfg, None)
-            .encodeXml(sc.deconstruct(a).asInstanceOf[Any])
-      }
-      possible.getOrElse(scala.xml.Elem(null, "enum", scala.xml.Null, scala.xml.TopScope, minimizeEmpty = true))
-    }
-  }
-}else {
+          override def encodeXml(a: Z): Elem = formatXml {
+            val possible = schema.nonTransientCases.iterator.collectFirst {
+              case sc if sc.isCase(a) =>
+                schemaEncoder(sc.schema.asInstanceOf[Schema[Any]], cfg, None)
+                  .encodeXml(sc.deconstruct(a).asInstanceOf[Any])
+            }
+            possible.getOrElse(scala.xml.Elem(null, "enum", scala.xml.Null, scala.xml.TopScope, minimizeEmpty = true))
+          }
+        }
+      } else {
         // Otherwise, use a discriminator attribute.
         val discriminatorName: Option[String] =
           if (schema.noDiscriminator) None
@@ -1546,8 +1517,7 @@ object XmlCollectionDecoder {
         }
       }
     }
-    
-      
+
     private def fallbackEncoder[A, B](
       left: ZXmlEncoder[A],
       right: ZXmlEncoder[B],
@@ -1557,10 +1527,11 @@ object XmlCollectionDecoder {
 
         def formatXml(elem: Elem): Elem =
           if (cfg.prettyPrint) scala.xml.XML.loadString(new scala.xml.PrettyPrinter(80, 2).format(elem))
-          else  scala.xml.Utility.trim(elem) match {
-      case e: Elem => e
-      case other   => throw new Exception(s"Expected an Elem after trimming, got: $other")
-    }
+          else
+            scala.xml.Utility.trim(elem) match {
+              case e: Elem => e
+              case other   => throw new Exception(s"Expected an Elem after trimming, got: $other")
+            }
 
         override def encodeXml(f: Fallback[A, B]): Elem = formatXml {
           f match {
@@ -1655,7 +1626,6 @@ object XmlCollectionDecoder {
     import XmlFieldDecoder._
     import ProductDecoder._
 
-
     // --- Caching mechanism ---
     private case class DecoderKey[A](schema: Schema[A], discriminator: Option[String]) {
       override val hashCode: Int = System.identityHashCode(schema) ^ discriminator.hashCode
@@ -1667,17 +1637,16 @@ object XmlCollectionDecoder {
     private[this] val decoders = new ConcurrentHashMap[DecoderKey[_], ZXmlDecoder[_]]()
 
     def filterNodes(node: scala.xml.Node): scala.xml.Node = node match {
-  case elem: scala.xml.Elem =>
-    val filteredChildren = elem.child.flatMap {
-      case t: scala.xml.Text if t.text.trim.nonEmpty => Seq(t)  
-      case t: scala.xml.Text                           => Seq.empty  
-      case e: scala.xml.Elem                          => Seq(filterNodes(e))
-      case other                                      => Seq(other)
+      case elem: scala.xml.Elem =>
+        val filteredChildren = elem.child.flatMap {
+          case t: scala.xml.Text if t.text.trim.nonEmpty => Seq(t)
+          case _: scala.xml.Text                         => Seq.empty
+          case e: scala.xml.Elem                         => Seq(filterNodes(e))
+          case other                                     => Seq(other)
+        }
+        elem.copy(child = filteredChildren)
+      case other => other
     }
-    elem.copy(child = filteredChildren)
-  case other => other
-}
-
 
     // --- Top-level XML decode method ---
     final def decode[A](schema: Schema[A], xml: String): Either[DecodeError, A] =
@@ -1747,58 +1716,56 @@ object XmlCollectionDecoder {
       case s: Schema.Enum[A] =>
         enumDecoder(s)
       case s @ Schema.CaseClass0(_, _, _) =>
-       caseClass0Decoder(discriminator, s)
-    case s @ Schema.CaseClass1(_, _, _, _) =>
-       caseClass1Decoder(discriminator, s)
-    case s @ Schema.CaseClass2(_, _, _, _, _) =>
-       caseClass2Decoder(discriminator, s)
-    case s @ Schema.CaseClass3(_, _, _, _, _, _) =>
-       caseClass3Decoder(discriminator, s)
-    case s @ Schema.CaseClass4(_, _, _, _, _, _, _) =>
-       caseClass4Decoder(discriminator, s)
-    case s @ Schema.CaseClass5(_, _, _, _, _, _, _, _) =>
-       caseClass5Decoder(discriminator, s)
-    case s @ Schema.CaseClass6(_, _, _, _, _, _, _, _, _) =>
-      caseClass6Decoder(discriminator, s)
-    case s @ Schema.CaseClass7(_, _, _, _, _, _, _, _, _, _) =>
-       caseClass7Decoder(discriminator, s)
-    case s @ Schema.CaseClass8(_, _, _, _, _, _, _, _, _, _, _) =>
-       caseClass8Decoder(discriminator, s)
-    case s @ Schema.CaseClass9(_, _, _, _, _, _, _, _, _, _, _, _) =>
-       caseClass9Decoder(discriminator, s)
-    case s @ Schema.CaseClass10(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
-       caseClass10Decoder(discriminator, s)
-    case s @ Schema.CaseClass11(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-       caseClass11Decoder(discriminator, s)
-    case s @ Schema.CaseClass12(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-       caseClass12Decoder(discriminator, s)
-    case s @ Schema.CaseClass13(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-       caseClass13Decoder(discriminator, s)
-    case s @ Schema.CaseClass14(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-       caseClass14Decoder(discriminator, s)
-    case s @ Schema.CaseClass15(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-       caseClass15Decoder(discriminator, s)
-    case s @ Schema.CaseClass16(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-       caseClass16Decoder(discriminator, s)
-    case s @ Schema.CaseClass17(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-       caseClass17Decoder(discriminator, s)
-    case s @ Schema.CaseClass18(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-       caseClass18Decoder(discriminator, s)
-    case s @ Schema.CaseClass19(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-       caseClass19Decoder(discriminator, s)
-    case s @ Schema.CaseClass20(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-       caseClass20Decoder(discriminator, s)
-    case s @ Schema.CaseClass21(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-       caseClass21Decoder(discriminator, s)
-    case s @ Schema.CaseClass22(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+        caseClass0Decoder(discriminator, s)
+      case s @ Schema.CaseClass1(_, _, _, _) =>
+        caseClass1Decoder(discriminator, s)
+      case s @ Schema.CaseClass2(_, _, _, _, _) =>
+        caseClass2Decoder(discriminator, s)
+      case s @ Schema.CaseClass3(_, _, _, _, _, _) =>
+        caseClass3Decoder(discriminator, s)
+      case s @ Schema.CaseClass4(_, _, _, _, _, _, _) =>
+        caseClass4Decoder(discriminator, s)
+      case s @ Schema.CaseClass5(_, _, _, _, _, _, _, _) =>
+        caseClass5Decoder(discriminator, s)
+      case s @ Schema.CaseClass6(_, _, _, _, _, _, _, _, _) =>
+        caseClass6Decoder(discriminator, s)
+      case s @ Schema.CaseClass7(_, _, _, _, _, _, _, _, _, _) =>
+        caseClass7Decoder(discriminator, s)
+      case s @ Schema.CaseClass8(_, _, _, _, _, _, _, _, _, _, _) =>
+        caseClass8Decoder(discriminator, s)
+      case s @ Schema.CaseClass9(_, _, _, _, _, _, _, _, _, _, _, _) =>
+        caseClass9Decoder(discriminator, s)
+      case s @ Schema.CaseClass10(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
+        caseClass10Decoder(discriminator, s)
+      case s @ Schema.CaseClass11(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+        caseClass11Decoder(discriminator, s)
+      case s @ Schema.CaseClass12(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+        caseClass12Decoder(discriminator, s)
+      case s @ Schema.CaseClass13(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+        caseClass13Decoder(discriminator, s)
+      case s @ Schema.CaseClass14(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+        caseClass14Decoder(discriminator, s)
+      case s @ Schema.CaseClass15(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+        caseClass15Decoder(discriminator, s)
+      case s @ Schema.CaseClass16(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+        caseClass16Decoder(discriminator, s)
+      case s @ Schema.CaseClass17(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+        caseClass17Decoder(discriminator, s)
+      case s @ Schema.CaseClass18(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+        caseClass18Decoder(discriminator, s)
+      case s @ Schema.CaseClass19(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+        caseClass19Decoder(discriminator, s)
+      case s @ Schema.CaseClass20(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+        caseClass20Decoder(discriminator, s)
+      case s @ Schema.CaseClass21(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+        caseClass21Decoder(discriminator, s)
+      case s @ Schema.CaseClass22(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
         caseClass22Decoder(discriminator, s)
-
 
       case d @ Schema.Dynamic(_) => dynamicDecoder(d)
       case _ =>
         throw new Exception(s"Missing a handler for decoding of schema ${schema.toString()}.")
     }
-
 
 // --- XML Field Decoder ---
     private[codec] def xmlFieldDecoder[A](schema: Schema[A]): Option[XmlFieldDecoder[A]] =
@@ -1814,64 +1781,64 @@ object XmlCollectionDecoder {
 
 // --- XML Map Decoder ---
 
-   private def mapDecoder[K, V](ks: Schema[K], vs: Schema[V]): ZXmlDecoder[Map[K, V]] = {
-  val valueDecoder = XmlDecoder.schemaDecoder(vs)
-  xmlFieldDecoder(ks) match {
-    case Some(fieldDecoder) =>
-      asZXmlDecoder(
-        XmlFieldDecoder.map(fieldDecoder, XmlFieldDecoder.fromZXmlDecoder(valueDecoder))
-      )
-    case None =>
-      new ZXmlDecoder[Map[K, V]] {
-        override def decodeXml(node: Node): Either[DecodeError, Map[K, V]] = {
-          val entries: Seq[Elem] = node.label match {
-            case "seq" =>
-              node.child.collect { case e: Elem => e }.toList
-            case "map" | "record" =>
-              node.child.collect { case e: Elem if e.label == "entry" => e }.toList
-            case other =>
-              return Left(ReadError(Cause.empty, s"Unexpected container element <$other> for map decoding"))
-          }
-          val decodedEntries: Seq[Either[DecodeError, (K, V)]] = entries.map { entry =>
-            for {
-              keyContainer <- (entry \ "key").headOption
-                                .orElse((entry \\ "key").headOption)
-                                .toRight(ReadError(Cause.empty, "Missing <key> node"))
-              recordKey = keyContainer.label match {
-                case "record" => keyContainer
-                case _ =>
-                  keyContainer.child.collect { case e: Elem if e.label == "record" => e }
-                    .headOption.orElse((keyContainer \\ "record").headOption)
-                    .getOrElse(keyContainer)
+    private def mapDecoder[K, V](ks: Schema[K], vs: Schema[V]): ZXmlDecoder[Map[K, V]] = {
+      val valueDecoder = XmlDecoder.schemaDecoder(vs)
+      xmlFieldDecoder(ks) match {
+        case Some(fieldDecoder) =>
+          asZXmlDecoder(
+            XmlFieldDecoder.map(fieldDecoder, XmlFieldDecoder.fromZXmlDecoder(valueDecoder))
+          )
+        case None =>
+          new ZXmlDecoder[Map[K, V]] {
+            override def decodeXml(node: Node): Either[DecodeError, Map[K, V]] = {
+              val entries: Seq[Elem] = node.label match {
+                case "seq" =>
+                  node.child.collect { case e: Elem => e }.toList
+                case "map" | "record" =>
+                  node.child.collect { case e: Elem if e.label == "entry" => e }.toList
+                case other =>
+                  return Left(ReadError(Cause.empty, s"Unexpected container element <$other> for map decoding"))
               }
-              key <- XmlDecoder.schemaDecoder(ks).decodeXml(recordKey)
-              valueContainer <- (entry \ "value").headOption
-                                  .orElse((entry \\ "value").headOption)
-                                  .toRight(ReadError(Cause.empty, "Missing <value> node"))
-              recordValue = valueContainer.label match {
-                case "record" => valueContainer
-                case _ =>
-                  valueContainer.child.collect { case e: Elem if e.label == "record" => e }
-                    .headOption.orElse((valueContainer \\ "record").headOption)
-                    .getOrElse(valueContainer)
+              val decodedEntries: Seq[Either[DecodeError, (K, V)]] = entries.map { entry =>
+                for {
+                  keyContainer <- (entry \ "key").headOption
+                                   .orElse((entry \\ "key").headOption)
+                                   .toRight(ReadError(Cause.empty, "Missing <key> node"))
+                  recordKey = keyContainer.label match {
+                    case "record" => keyContainer
+                    case _ =>
+                      keyContainer.child.collect { case e: Elem if e.label == "record" => e }.headOption
+                        .orElse((keyContainer \\ "record").headOption)
+                        .getOrElse(keyContainer)
+                  }
+                  key <- XmlDecoder.schemaDecoder(ks).decodeXml(recordKey)
+                  valueContainer <- (entry \ "value").headOption
+                                     .orElse((entry \\ "value").headOption)
+                                     .toRight(ReadError(Cause.empty, "Missing <value> node"))
+                  recordValue = valueContainer.label match {
+                    case "record" => valueContainer
+                    case _ =>
+                      valueContainer.child.collect { case e: Elem if e.label == "record" => e }.headOption
+                        .orElse((valueContainer \\ "record").headOption)
+                        .getOrElse(valueContainer)
+                  }
+                  value <- valueDecoder.decodeXml(recordValue)
+                } yield key -> value
               }
-              value <- valueDecoder.decodeXml(recordValue)
-            } yield key -> value
+              sequence(decodedEntries).map(_.toMap)
+            }
+            private def sequence[A](eithers: Seq[Either[DecodeError, A]]): Either[DecodeError, Seq[A]] =
+              eithers
+                .foldRight(Right(Nil): Either[DecodeError, List[A]]) { (elem, acc) =>
+                  for {
+                    xs <- acc
+                    x  <- elem
+                  } yield x :: xs
+                }
+                .map(_.reverse)
           }
-          sequence(decodedEntries).map(_.toMap)
-        }
-        private def sequence[A](eithers: Seq[Either[DecodeError, A]]): Either[DecodeError, Seq[A]] =
-          eithers.foldRight(Right(Nil): Either[DecodeError, List[A]]) { (elem, acc) =>
-            for {
-              xs <- acc
-              x  <- elem
-            } yield x :: xs
-          }.map(_.reverse)
       }
-  }
-}
-
-
+    }
 
     // --- XML Dynamic Decoder ---
 // If the dynamic schema is annotated for direct mapping, decode the XML directly;
@@ -1920,11 +1887,11 @@ object XmlCollectionDecoder {
         val rightNode = (node \ "right").headOption.map(xmlToDynamicValue).getOrElse(DynamicValue.NoneValue)
         DynamicValue.BothValue(leftNode, rightNode)
       case _ =>
-       val childElems = node.child.collect { case e: Elem => e }
-    if (childElems.size == 1)
-      xmlToDynamicValue(childElems.head)
-    else
-      DynamicValue.Primitive(node.text, StandardType.StringType)
+        val childElems = node.child.collect { case e: Elem => e }
+        if (childElems.size == 1)
+          xmlToDynamicValue(childElems.head)
+        else
+          DynamicValue.Primitive(node.text, StandardType.StringType)
     }
 
     // Suspend: a helper to defer evaluation of a decoder (for lazy schemas).
@@ -1934,297 +1901,277 @@ object XmlCollectionDecoder {
         override def decodeXml(node: Node): Either[DecodeError, A] = d.decodeXml(node)
       }
 
-  
-
     // --- XML Enum Decoder ---
 
-   private def enumDecoder[Z](parentSchema: Schema.Enum[Z]): ZXmlDecoder[Z] = {
-  import scala.collection.mutable
-  val caseNameAliases = mutable.HashMap[String, Schema.Case[Z, Any]]()
+    private def enumDecoder[Z](parentSchema: Schema.Enum[Z]): ZXmlDecoder[Z] = {
+      import scala.collection.mutable
+      val caseNameAliases = mutable.HashMap[String, Schema.Case[Z, Any]]()
 
-  parentSchema.cases.foreach { case_ =>
-    val schemaCase = case_.asInstanceOf[Schema.Case[Z, Any]]
-    caseNameAliases.put(case_.caseName, schemaCase)
-    schemaCase.caseNameAliases.foreach(a => caseNameAliases.put(a, schemaCase))
-  }
-
-  // If all enum cases are CaseClass0 (i.e. string-based enums)
- if (parentSchema.cases.forall(_.schema.isInstanceOf[Schema.CaseClass0[_]])) {
-  new ZXmlDecoder[Z] {
-    override def decodeXml(node: Node): Either[DecodeError, Z] = {
-      val caseName =
-        if (node.label == "field") {
-          val name = (node \ "@name").text.trim
-          name
-        } else {
-          val inner = node.text.trim
-          if (inner.nonEmpty) {
-            inner
-          } else {
-            node.label
-          }
-        }
-      caseNameAliases.get(caseName) match {
-        case Some(schemaCase) =>
-          Right(schemaCase.schema.asInstanceOf[Schema.CaseClass0[Z]].defaultConstruct())
-        case None =>
-          val errorMsg = s"Unrecognized enum case: $caseName"
-          Left(ReadError(Cause.empty, errorMsg))
+      parentSchema.cases.foreach { case_ =>
+        val schemaCase = case_.asInstanceOf[Schema.Case[Z, Any]]
+        caseNameAliases.put(case_.caseName, schemaCase)
+        schemaCase.caseNameAliases.foreach(a => caseNameAliases.put(a, schemaCase))
       }
-    }
-  }
-}
 
-  // If @noDiscriminator is present, try each case's decoder.
-  else if (parentSchema.annotations.exists(_.isInstanceOf[noDiscriminator])) {
-    new ZXmlDecoder[Z] {
-      override def decodeXml(node: Node): Either[DecodeError, Z] = {
-        parentSchema.cases.iterator.map { schemaCase =>
-          // Unwrap lazy schemas before decoding.
-          schemaDecoder(unLazy(schemaCase.schema), None).decodeXml(node)
-        }.collectFirst { case Right(value) =>
-          Right(value.asInstanceOf[Z])
-        }.getOrElse {
-          val errorMsg = "None of the subtypes could decode the XML data"
-          Left(ReadError(Cause.empty, errorMsg))
-        }
-      }
-    }
-  }
-  
-
-
-else {
-  val discriminatorTag = parentSchema.annotations.collectFirst {
-    case d: discriminatorName => d.tag
-  }.getOrElse("type")
-
-  // A helper function to unwrap known wrapper elements
-  def unwrapEnumNode(node: Node): Node = {
- 
-  node.child.filter(_.isInstanceOf[Elem]) match {
-    case Seq(inner: Elem) if Set("record", "oneOf").contains(node.label) =>
-      unwrapEnumNode(inner)
-    case children if children.nonEmpty =>
-      children.find(_.attribute("type").exists(_.nonEmpty)).getOrElse(node)
-    case _ => node
-  }
- }
-  
-  new ZXmlDecoder[Z] {
-    override def decodeXml(node: Node): Either[DecodeError, Z] = {
-      // If the outer node is an <enum>, extract the discriminator from it and use its first child for payload decoding.
-      val (discriminatorValueOpt, payloadNode) = 
-        if (node.label == "enum") {
-          val discOpt = node.attribute(discriminatorTag)
-            .flatMap(_.headOption)
-            .map(_.text.trim)
-          val inner = node.child.collect { case e: Elem => e }.headOption.getOrElse(node)
-          (discOpt, inner)
-        } else {
-          val effectiveNode = unwrapEnumNode(node)
-          val discOpt = effectiveNode.attribute(discriminatorTag)
-            .flatMap(_.headOption)
-            .map(_.text.trim)
-            .orElse((effectiveNode \ discriminatorTag).headOption.map(_.text.trim))
-            .orElse {
-              effectiveNode.child.collect { case e: Elem => e } match {
-                case Seq(singleChild) => Some(singleChild.text.trim)
-                case _                => None
+      // If all enum cases are CaseClass0 (i.e. string-based enums)
+      if (parentSchema.cases.forall(_.schema.isInstanceOf[Schema.CaseClass0[_]])) {
+        new ZXmlDecoder[Z] {
+          override def decodeXml(node: Node): Either[DecodeError, Z] = {
+            val caseName =
+              if (node.label == "field") {
+                val name = (node \ "@name").text.trim
+                name
+              } else {
+                val inner = node.text.trim
+                if (inner.nonEmpty) {
+                  inner
+                } else {
+                  node.label
+                }
               }
+            caseNameAliases.get(caseName) match {
+              case Some(schemaCase) =>
+                Right(schemaCase.schema.asInstanceOf[Schema.CaseClass0[Z]].defaultConstruct())
+              case None =>
+                val errorMsg = s"Unrecognized enum case: $caseName"
+                Left(ReadError(Cause.empty, errorMsg))
             }
-          (discOpt, effectiveNode)
-        }
-
-      discriminatorValueOpt match {
-        case None =>
-          val errorMsg = s"Missing discriminator '$discriminatorTag' on enum element"
-          Left(ReadError(Cause.empty, errorMsg))
-        case Some(discrValue) =>
-          caseNameAliases.get(discrValue) match {
-            case None =>
-              val errorMsg = s"Unrecognized enum case: $discrValue"
-              Left(ReadError(Cause.empty, errorMsg))
-            case Some(schemaCase) =>
-              schemaDecoder(unLazy(schemaCase.schema).asInstanceOf[Schema[Any]], None).decodeXml(payloadNode) match {
-                case Right(value) =>
-                  Right(value.asInstanceOf[Z])
-                case Left(err) =>
-                  Left(err)
-              }
           }
-      }
-    }
-  }
-}
-
-
-}
-
-
-
-  private def recordDecoder[A](
-  schema: Schema.GenericRecord,
-  discriminator: Option[String]
-): ZXmlDecoder[ListMap[String, Any]] =
-  if (schema.fields.foldLeft(0)(_ + _.nameAndAliases.size) <= 64) {
-    val ccxd = CaseClassXmlDecoder(schema, discriminator)
-    new ZXmlDecoder[ListMap[String, Any]] {
-      override def decodeXml(node: scala.xml.Node): Either[DecodeError, ListMap[String, Any]] = {
-        try {
-          val trimmed = scala.xml.Utility.trim(node).toString
-          
-          val result = ccxd.unsafeDecodeListMap(Nil, node)
-          
-          
-          Right(result)
-        } catch {
-          case e: Exception =>
-            Left(ReadError(Cause.fail(e), e.getMessage))
         }
       }
-    }
-  } else {
-  new ZXmlDecoder[ListMap[String, Any]] {
 
-    def unwrapTo(node: scala.xml.Node, expected: String): scala.xml.Node = {
-      if (node.label == expected) node
-      else {
-        node.child.collect { case e: scala.xml.Elem => e }.find(_.label == expected) match {
-          case Some(child) => unwrapTo(child, expected)
-          case None        => node
-        }
-      }
-    }
-
-    override def decodeXml(node: scala.xml.Node): Either[DecodeError, ListMap[String, Any]] = {
-      // First, unwrap the outer node to find a <record> element.
-      val effectiveNode = unwrapTo(node, "record")
-      if (effectiveNode.label != "record")
-        return Left(ReadError(Cause.empty, s"Expected <record> element but found <${effectiveNode.label}>"))
-
-      val fieldsArr = schema.fields.toArray
-      val spansWithDecoders = new scala.collection.mutable.HashMap[String, (XmlError.ObjectAccess, ZXmlDecoder[Any])]()
-      fieldsArr.foreach { field =>
-        val span = XmlError.ObjectAccess(field.fieldName)
-        val dec  = schemaDecoder(field.schema).asInstanceOf[ZXmlDecoder[Any]]
-        field.nameAndAliases.foreach { name =>
-          spansWithDecoders.put(name, (span, dec))
-        }
-      }
-      val skipExtraFields = !schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
-      val map = new scala.collection.mutable.HashMap[String, Any]()
-
-      // Iterate over the immediate child elements of the effective <record> node.
-      val children = (effectiveNode \ "_").collect { case e: scala.xml.Elem => e }
-      children.foreach { child =>
-
-        val fieldNameOrAlias =
-          if (child.label == "field") (child \ "@name").text.trim
-          else child.label
-
-        spansWithDecoders.get(fieldNameOrAlias) match {
-          case Some((span, dec)) =>
-            
-            val effectiveChild =
-              if (child.label == "fields") unwrapTo(child, "seq") else child
-
-            dec.decodeXml(effectiveChild) match {
+      // If @noDiscriminator is present, try each case's decoder.
+      else if (parentSchema.annotations.exists(_.isInstanceOf[noDiscriminator])) {
+        new ZXmlDecoder[Z] {
+          override def decodeXml(node: Node): Either[DecodeError, Z] =
+            parentSchema.cases.iterator.map { schemaCase =>
+              // Unwrap lazy schemas before decoding.
+              schemaDecoder(unLazy(schemaCase.schema), None).decodeXml(node)
+            }.collectFirst {
               case Right(value) =>
-                val primaryField = span.field // the primary field name
-                if (map.contains(primaryField))
-                  return Left(ReadError(Cause.empty, s"duplicate field: $primaryField"))
-                else
-                  map.put(primaryField, value)
-              case Left(err) => return Left(err)
+                Right(value.asInstanceOf[Z])
+            }.getOrElse {
+              val errorMsg = "None of the subtypes could decode the XML data"
+              Left(ReadError(Cause.empty, errorMsg))
             }
-          case None =>
-            if (!skipExtraFields && !discriminator.contains(fieldNameOrAlias))
-              return Left(ReadError(Cause.empty, s"extra field : $fieldNameOrAlias"))
         }
-      }
-      // Fill in missing fields.
-      fieldsArr.foreach { field =>
-        if (!map.contains(field.fieldName)) {
-          // Unwrap the schema in case of lazy values.
-          val underlying = field.schema match {
-            case l: Schema.Lazy[_] => l.schema
-            case s                 => s
+      } else {
+        val discriminatorTag = parentSchema.annotations.collectFirst {
+          case d: discriminatorName => d.tag
+        }.getOrElse("type")
+
+        // A helper function to unwrap known wrapper elements
+        def unwrapEnumNode(node: Node): Node =
+          node.child.filter(_.isInstanceOf[Elem]) match {
+            case Seq(inner: Elem) if Set("record", "oneOf").contains(node.label) =>
+              unwrapEnumNode(inner)
+            case children if children.nonEmpty =>
+              children.find(_.attribute("type").exists(_.nonEmpty)).getOrElse(node)
+            case _ => node
           }
-          val value =
-            underlying match {
-              case _: Schema.Optional[_] =>
-                // If the field is optional (even if no default is provided), use None.
-                None
-              case collection: Schema.Collection[_, _] =>
-                collection.empty
-              case _ =>
-                if (field.optional || field.transient)
-                  field.defaultValue.getOrElse(None)
-                else
-                  return Left(ReadError(Cause.empty, s"missing field: ${field.fieldName}"))
+
+        new ZXmlDecoder[Z] {
+          override def decodeXml(node: Node): Either[DecodeError, Z] = {
+            // If the outer node is an <enum>, extract the discriminator from it and use its first child for payload decoding.
+            val (discriminatorValueOpt, payloadNode) =
+              if (node.label == "enum") {
+                val discOpt = node
+                  .attribute(discriminatorTag)
+                  .flatMap(_.headOption)
+                  .map(_.text.trim)
+                val inner = node.child.collect { case e: Elem => e }.headOption.getOrElse(node)
+                (discOpt, inner)
+              } else {
+                val effectiveNode = unwrapEnumNode(node)
+                val discOpt = effectiveNode
+                  .attribute(discriminatorTag)
+                  .flatMap(_.headOption)
+                  .map(_.text.trim)
+                  .orElse((effectiveNode \ discriminatorTag).headOption.map(_.text.trim))
+                  .orElse {
+                    effectiveNode.child.collect { case e: Elem => e } match {
+                      case Seq(singleChild) => Some(singleChild.text.trim)
+                      case _                => None
+                    }
+                  }
+                (discOpt, effectiveNode)
+              }
+
+            discriminatorValueOpt match {
+              case None =>
+                val errorMsg = s"Missing discriminator '$discriminatorTag' on enum element"
+                Left(ReadError(Cause.empty, errorMsg))
+              case Some(discrValue) =>
+                caseNameAliases.get(discrValue) match {
+                  case None =>
+                    val errorMsg = s"Unrecognized enum case: $discrValue"
+                    Left(ReadError(Cause.empty, errorMsg))
+                  case Some(schemaCase) =>
+                    schemaDecoder(unLazy(schemaCase.schema).asInstanceOf[Schema[Any]], None)
+                      .decodeXml(payloadNode) match {
+                      case Right(value) =>
+                        Right(value.asInstanceOf[Z])
+                      case Left(err) =>
+                        Left(err)
+                    }
+                }
             }
-          map.put(field.fieldName, value)
+          }
         }
       }
-      Right(ListMap(map.toSeq: _*))
+
     }
-  }
-}
 
+    private def recordDecoder[A](
+      schema: Schema.GenericRecord,
+      discriminator: Option[String]
+    ): ZXmlDecoder[ListMap[String, Any]] =
+      if (schema.fields.foldLeft(0)(_ + _.nameAndAliases.size) <= 64) {
+        val ccxd = CaseClassXmlDecoder(schema, discriminator)
+        new ZXmlDecoder[ListMap[String, Any]] {
+          override def decodeXml(node: scala.xml.Node): Either[DecodeError, ListMap[String, Any]] =
+            try {
+              scala.xml.Utility.trim(node).toString
 
+              val result = ccxd.unsafeDecodeListMap(Nil, node)
 
+              Right(result)
+            } catch {
+              case e: Exception =>
+                Left(ReadError(Cause.fail(e), e.getMessage))
+            }
+        }
+      } else {
+        new ZXmlDecoder[ListMap[String, Any]] {
 
+          def unwrapTo(node: scala.xml.Node, expected: String): scala.xml.Node =
+            if (node.label == expected) node
+            else {
+              node.child.collect { case e: scala.xml.Elem => e }.find(_.label == expected) match {
+                case Some(child) => unwrapTo(child, expected)
+                case None        => node
+              }
+            }
 
+          override def decodeXml(node: scala.xml.Node): Either[DecodeError, ListMap[String, Any]] = {
+            // First, unwrap the outer node to find a <record> element.
+            val effectiveNode = unwrapTo(node, "record")
+            if (effectiveNode.label != "record")
+              return Left(ReadError(Cause.empty, s"Expected <record> element but found <${effectiveNode.label}>"))
 
+            val fieldsArr = schema.fields.toArray
+            val spansWithDecoders =
+              new scala.collection.mutable.HashMap[String, (XmlError.ObjectAccess, ZXmlDecoder[Any])]()
+            fieldsArr.foreach { field =>
+              val span = XmlError.ObjectAccess(field.fieldName)
+              val dec  = schemaDecoder(field.schema).asInstanceOf[ZXmlDecoder[Any]]
+              field.nameAndAliases.foreach { name =>
+                spansWithDecoders.put(name, (span, dec))
+              }
+            }
+            val skipExtraFields = !schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
+            val map             = new scala.collection.mutable.HashMap[String, Any]()
 
+            // Iterate over the immediate child elements of the effective <record> node.
+            val children = (effectiveNode \ "_").collect { case e: scala.xml.Elem => e }
+            children.foreach { child =>
+              val fieldNameOrAlias =
+                if (child.label == "field") (child \ "@name").text.trim
+                else child.label
+
+              spansWithDecoders.get(fieldNameOrAlias) match {
+                case Some((span, dec)) =>
+                  val effectiveChild =
+                    if (child.label == "fields") unwrapTo(child, "seq") else child
+
+                  dec.decodeXml(effectiveChild) match {
+                    case Right(value) =>
+                      val primaryField = span.field // the primary field name
+                      if (map.contains(primaryField))
+                        return Left(ReadError(Cause.empty, s"duplicate field: $primaryField"))
+                      else
+                        map.put(primaryField, value)
+                    case Left(err) => return Left(err)
+                  }
+                case None =>
+                  if (!skipExtraFields && !discriminator.contains(fieldNameOrAlias))
+                    return Left(ReadError(Cause.empty, s"extra field : $fieldNameOrAlias"))
+              }
+            }
+            // Fill in missing fields.
+            fieldsArr.foreach { field =>
+              if (!map.contains(field.fieldName)) {
+                // Unwrap the schema in case of lazy values.
+                val underlying = field.schema match {
+                  case l: Schema.Lazy[_] => l.schema
+                  case s                 => s
+                }
+                val value =
+                  underlying match {
+                    case _: Schema.Optional[_] =>
+                      // If the field is optional (even if no default is provided), use None.
+                      None
+                    case collection: Schema.Collection[_, _] =>
+                      collection.empty
+                    case _ =>
+                      if (field.optional || field.transient)
+                        field.defaultValue.getOrElse(None)
+                      else
+                        return Left(ReadError(Cause.empty, s"missing field: ${field.fieldName}"))
+                  }
+                map.put(field.fieldName, value)
+              }
+            }
+            Right(ListMap(map.toSeq: _*))
+          }
+        }
+      }
 
     private def fallbackDecoder[A, B](schema: Schema.Fallback[A, B]): ZXmlDecoder[Fallback[A, B]] =
-  new ZXmlDecoder[Fallback[A, B]] {
-    override def decodeXml(node: Node): Either[DecodeError, Fallback[A, B]] = {
-      val leftDecoder  = schemaDecoder(schema.left)
-      val rightDecoder = schemaDecoder(schema.right)
+      new ZXmlDecoder[Fallback[A, B]] {
+        override def decodeXml(node: Node): Either[DecodeError, Fallback[A, B]] = {
+          val leftDecoder  = schemaDecoder(schema.left)
+          val rightDecoder = schemaDecoder(schema.right)
 
-      val leftChildOpt  = (node \ "left").headOption
-      val rightChildOpt = (node \ "right").headOption
+          val leftChildOpt  = (node \ "left").headOption
+          val rightChildOpt = (node \ "right").headOption
 
-      (leftChildOpt, rightChildOpt) match {
-        case (Some(ln), Some(rn)) =>
-          for {
-            leftValue  <- leftDecoder.decodeXml(ln)
-            rightValue <- rightDecoder.decodeXml(rn)
-          } yield Fallback.Both(leftValue, rightValue)
-        case (Some(ln), None) =>
-          leftDecoder.decodeXml(ln).map(Fallback.Left(_))
-        case (None, Some(rn)) =>
-          rightDecoder.decodeXml(rn).map(Fallback.Right(_))
-        case (None, None) =>
-          val nodeToDecode =
-            if (node.label == "fallback") {
-              node.child.collect { case e: Elem => e }.headOption match {
-                case Some(inner) =>
-                  inner
-                case None =>
-                  node
-              }
-            } else node
+          (leftChildOpt, rightChildOpt) match {
+            case (Some(ln), Some(rn)) =>
+              for {
+                leftValue  <- leftDecoder.decodeXml(ln)
+                rightValue <- rightDecoder.decodeXml(rn)
+              } yield Fallback.Both(leftValue, rightValue)
+            case (Some(ln), None) =>
+              leftDecoder.decodeXml(ln).map(Fallback.Left(_))
+            case (None, Some(rn)) =>
+              rightDecoder.decodeXml(rn).map(Fallback.Right(_))
+            case (None, None) =>
+              val nodeToDecode =
+                if (node.label == "fallback") {
+                  node.child.collect { case e: Elem => e }.headOption match {
+                    case Some(inner) =>
+                      inner
+                    case None =>
+                      node
+                  }
+                } else node
 
-
-          // First, try decoding the (possibly unwrapped) node with the left decoder.
-          leftDecoder.decodeXml(nodeToDecode) match {
-            case Right(a) =>
-              Right(Fallback.Left(a))
-            case Left(_)  =>
-              rightDecoder.decodeXml(nodeToDecode) match {
-                case Right(b)  =>
-                  Right(Fallback.Right(b))
-                case Left(err) =>
-                  Left(err)
+              // First, try decoding the (possibly unwrapped) node with the left decoder.
+              leftDecoder.decodeXml(nodeToDecode) match {
+                case Right(a) =>
+                  Right(Fallback.Left(a))
+                case Left(_) =>
+                  rightDecoder.decodeXml(nodeToDecode) match {
+                    case Right(b) =>
+                      Right(Fallback.Right(b))
+                    case Left(err) =>
+                      Left(err)
+                  }
               }
           }
+        }
       }
-    }
-  }
 
   }
 
@@ -2312,880 +2259,1166 @@ else {
     }
   }
 
-  class XmlStringMatrix(names: Array[String], aliases: Array[(String, Int)]) {
-  }
+  class XmlStringMatrix(names: Array[String], aliases: Array[(String, Int)]) {}
 
 // ----- The Product Decoder for case classes -----
 
   private[codec] object ProductDecoder {
 
-  private[codec] def caseClass0Decoder[Z](discriminator: Option[String], schema: Schema.CaseClass0[Z]): ZXmlDecoder[Z] = {
-  val rejectExtraFields = schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
-  val noDiscriminator   = discriminator.isEmpty
+    private[codec] def caseClass0Decoder[Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass0[Z]
+    ): ZXmlDecoder[Z] = {
+      val rejectExtraFields = schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
+      val noDiscriminator   = discriminator.isEmpty
 
-  // Helper function to unwrap a node until one with the expected label is found.
-  def unwrapTo(node: scala.xml.Node, expected: String): scala.xml.Node = {
-    if (node.label == expected) node
-    else {
-      node.child.collect { case e: scala.xml.Elem => e }.find(_.label == expected) match {
-        case Some(child) => unwrapTo(child, expected)
-        case None        => node
+      // Helper function to unwrap a node until one with the expected label is found.
+      def unwrapTo(node: scala.xml.Node, expected: String): scala.xml.Node =
+        if (node.label == expected) node
+        else {
+          node.child.collect { case e: scala.xml.Elem => e }.find(_.label == expected) match {
+            case Some(child) => unwrapTo(child, expected)
+            case None        => node
+          }
+        }
+
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] = {
+          val effectiveNode = if (noDiscriminator) unwrapTo(node, "record") else node
+          if (noDiscriminator && effectiveNode.label != "record")
+            return Left(ReadError(Cause.empty, s"Expected <record> element but i found <${effectiveNode.label}>"))
+          val children = (effectiveNode \ "_").collect { case e: scala.xml.Elem => e }
+          if (rejectExtraFields && children.nonEmpty)
+            return Left(ReadError(Cause.empty, s"Extra field encountered"))
+          Right(schema.defaultConstruct())
+        }
       }
     }
-  }
 
-  new ZXmlDecoder[Z] {
-    override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] = {
-      val effectiveNode = if (noDiscriminator) unwrapTo(node, "record") else node
-      if (noDiscriminator && effectiveNode.label != "record")
-        return Left(ReadError(Cause.empty, s"Expected <record> element but i found <${effectiveNode.label}>"))
-      val children = (effectiveNode \ "_").collect { case e: scala.xml.Elem => e }
-      if (rejectExtraFields && children.nonEmpty)
-        return Left(ReadError(Cause.empty, s"Extra field encountered"))
-      Right(schema.defaultConstruct())
-    }
-  }
-}
-
-
-  private[codec] def caseClass1Decoder[A, Z](discriminator: Option[String], schema: Schema.CaseClass1[A, Z]): ZXmlDecoder[Z] =
-    new ZXmlDecoder[Z] {
-      override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-        try {
-          val ccxd = CaseClassXmlDecoder(schema, discriminator)
-          val buffer: Array[Any] = ccxd.unsafeDecodeFields(Nil, node)
-          Right(schema.defaultConstruct(buffer(0).asInstanceOf[A]))
-        } catch {
-          case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
-        }
-    }
-
-  private[codec] def caseClass2Decoder[A1, A2, Z](discriminator: Option[String], schema: Schema.CaseClass2[A1, A2, Z]): ZXmlDecoder[Z] =
-    new ZXmlDecoder[Z] {
-      override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-        try {
-          val ccxd = CaseClassXmlDecoder(schema, discriminator)
-          val buffer: Array[Any] = ccxd.unsafeDecodeFields(Nil, node)
-          Right(schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2]))
-        } catch {
-          case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
-        }
-    }
-
-  private[codec] def caseClass3Decoder[A1, A2, A3, Z](discriminator: Option[String], schema: Schema.CaseClass3[A1, A2, A3, Z]): ZXmlDecoder[Z] =
-    new ZXmlDecoder[Z] {
-      override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-        try {
-          val ccxd = CaseClassXmlDecoder(schema, discriminator)
-          val buffer = ccxd.unsafeDecodeFields(Nil, node)
-          Right(schema.construct(
-            buffer(0).asInstanceOf[A1],
-            buffer(1).asInstanceOf[A2],
-            buffer(2).asInstanceOf[A3]
-          ))
-        } catch {
-          case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
-        }
-    }
-
-  private[codec] def caseClass4Decoder[A1, A2, A3, A4, Z](discriminator: Option[String], schema: Schema.CaseClass4[A1, A2, A3, A4, Z]): ZXmlDecoder[Z] =
-    new ZXmlDecoder[Z] {
-      override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-        try {
-          val ccxd = CaseClassXmlDecoder(schema, discriminator)
-          val buffer = ccxd.unsafeDecodeFields(Nil, node)
-          Right(schema.construct(
-            buffer(0).asInstanceOf[A1],
-            buffer(1).asInstanceOf[A2],
-            buffer(2).asInstanceOf[A3],
-            buffer(3).asInstanceOf[A4]
-          ))
-        } catch {
-          case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
-        }
-    }
-
-  private[codec] def caseClass5Decoder[A1, A2, A3, A4, A5, Z](discriminator: Option[String], schema: Schema.CaseClass5[A1, A2, A3, A4, A5, Z]): ZXmlDecoder[Z] =
-    new ZXmlDecoder[Z] {
-      override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-        try {
-          val ccxd = CaseClassXmlDecoder(schema, discriminator)
-          val buffer = ccxd.unsafeDecodeFields(Nil, node)
-          Right(schema.construct(
-            buffer(0).asInstanceOf[A1],
-            buffer(1).asInstanceOf[A2],
-            buffer(2).asInstanceOf[A3],
-            buffer(3).asInstanceOf[A4],
-            buffer(4).asInstanceOf[A5]
-          ))
-        } catch {
-          case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
-        }
-    }
-
-  private[codec] def caseClass6Decoder[A1, A2, A3, A4, A5, A6, Z](discriminator: Option[String], schema: Schema.CaseClass6[A1, A2, A3, A4, A5, A6, Z]): ZXmlDecoder[Z] =
-    new ZXmlDecoder[Z] {
-      override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-        try {
-          val ccxd = CaseClassXmlDecoder(schema, discriminator)
-          val buffer = ccxd.unsafeDecodeFields(Nil, node)
-          Right(schema.construct(
-            buffer(0).asInstanceOf[A1],
-            buffer(1).asInstanceOf[A2],
-            buffer(2).asInstanceOf[A3],
-            buffer(3).asInstanceOf[A4],
-            buffer(4).asInstanceOf[A5],
-            buffer(5).asInstanceOf[A6]
-          ))
-        } catch {
-          case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
-        }
-    }
-
-  private[codec] def caseClass7Decoder[A1, A2, A3, A4, A5, A6, A7, Z](discriminator: Option[String], schema: Schema.CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z]): ZXmlDecoder[Z] =
-    new ZXmlDecoder[Z] {
-      override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-        try {
-          val ccxd = CaseClassXmlDecoder(schema, discriminator)
-          val buffer = ccxd.unsafeDecodeFields(Nil, node)
-          Right(schema.construct(
-            buffer(0).asInstanceOf[A1],
-            buffer(1).asInstanceOf[A2],
-            buffer(2).asInstanceOf[A3],
-            buffer(3).asInstanceOf[A4],
-            buffer(4).asInstanceOf[A5],
-            buffer(5).asInstanceOf[A6],
-            buffer(6).asInstanceOf[A7]
-          ))
-        } catch {
-          case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
-        }
-    }
-
-  private[codec] def caseClass8Decoder[A1, A2, A3, A4, A5, A6, A7, A8, Z](discriminator: Option[String], schema: Schema.CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z]): ZXmlDecoder[Z] =
-    new ZXmlDecoder[Z] {
-      override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-        try {
-          val ccxd = CaseClassXmlDecoder(schema, discriminator)
-          val buffer = ccxd.unsafeDecodeFields(Nil, node)
-          Right(schema.construct(
-            buffer(0).asInstanceOf[A1],
-            buffer(1).asInstanceOf[A2],
-            buffer(2).asInstanceOf[A3],
-            buffer(3).asInstanceOf[A4],
-            buffer(4).asInstanceOf[A5],
-            buffer(5).asInstanceOf[A6],
-            buffer(6).asInstanceOf[A7],
-            buffer(7).asInstanceOf[A8]
-          ))
-        } catch {
-          case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
-        }
-    }
-
-  private[codec] def caseClass9Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](discriminator: Option[String], schema: Schema.CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]): ZXmlDecoder[Z] =
-    new ZXmlDecoder[Z] {
-      override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-        try {
-          val ccxd = CaseClassXmlDecoder(schema, discriminator)
-          val buffer = ccxd.unsafeDecodeFields(Nil, node)
-          Right(schema.construct(
-            buffer(0).asInstanceOf[A1],
-            buffer(1).asInstanceOf[A2],
-            buffer(2).asInstanceOf[A3],
-            buffer(3).asInstanceOf[A4],
-            buffer(4).asInstanceOf[A5],
-            buffer(5).asInstanceOf[A6],
-            buffer(6).asInstanceOf[A7],
-            buffer(7).asInstanceOf[A8],
-            buffer(8).asInstanceOf[A9]
-          ))
-        } catch {
-          case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
-        }
-    }
-
-  private[codec] def caseClass10Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](discriminator: Option[String], schema: Schema.CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]): ZXmlDecoder[Z] =
-    new ZXmlDecoder[Z] {
-      override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-        try {
-          val ccxd = CaseClassXmlDecoder(schema, discriminator)
-          val buffer = ccxd.unsafeDecodeFields(Nil, node)
-          Right(schema.construct(
-            buffer(0).asInstanceOf[A1],
-            buffer(1).asInstanceOf[A2],
-            buffer(2).asInstanceOf[A3],
-            buffer(3).asInstanceOf[A4],
-            buffer(4).asInstanceOf[A5],
-            buffer(5).asInstanceOf[A6],
-            buffer(6).asInstanceOf[A7],
-            buffer(7).asInstanceOf[A8],
-            buffer(8).asInstanceOf[A9],
-            buffer(9).asInstanceOf[A10]
-          ))
-        } catch {
-          case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
-        }
-    }
-
-  private[codec] def caseClass11Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](discriminator: Option[String], schema: Schema.CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]): ZXmlDecoder[Z] =
-    new ZXmlDecoder[Z] {
-      override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-        try {
-          val ccxd = CaseClassXmlDecoder(schema, discriminator)
-          val buffer = ccxd.unsafeDecodeFields(Nil, node)
-          Right(schema.construct(
-            buffer(0).asInstanceOf[A1],
-            buffer(1).asInstanceOf[A2],
-            buffer(2).asInstanceOf[A3],
-            buffer(3).asInstanceOf[A4],
-            buffer(4).asInstanceOf[A5],
-            buffer(5).asInstanceOf[A6],
-            buffer(6).asInstanceOf[A7],
-            buffer(7).asInstanceOf[A8],
-            buffer(8).asInstanceOf[A9],
-            buffer(9).asInstanceOf[A10],
-            buffer(10).asInstanceOf[A11]
-          ))
-        } catch {
-          case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
-        }
-    }
-
-  private[codec] def caseClass12Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](discriminator: Option[String], schema: Schema.CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]): ZXmlDecoder[Z] =
-    new ZXmlDecoder[Z] {
-      override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-        try {
-          val ccxd = CaseClassXmlDecoder(schema, discriminator)
-          val buffer = ccxd.unsafeDecodeFields(Nil, node)
-          Right(schema.construct(
-            buffer(0).asInstanceOf[A1],
-            buffer(1).asInstanceOf[A2],
-            buffer(2).asInstanceOf[A3],
-            buffer(3).asInstanceOf[A4],
-            buffer(4).asInstanceOf[A5],
-            buffer(5).asInstanceOf[A6],
-            buffer(6).asInstanceOf[A7],
-            buffer(7).asInstanceOf[A8],
-            buffer(8).asInstanceOf[A9],
-            buffer(9).asInstanceOf[A10],
-            buffer(10).asInstanceOf[A11],
-            buffer(11).asInstanceOf[A12]
-          ))
-        } catch {
-          case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
-        }
-    }
-
-  private[codec] def caseClass13Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
-  discriminator: Option[String],
-  schema: Schema.CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]
-): ZXmlDecoder[Z] =
-  new ZXmlDecoder[Z] {
-    override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-      try {
-        val ccxd   = CaseClassXmlDecoder(schema, discriminator)
-        val buffer = ccxd.unsafeDecodeFields(Nil, node)
-        Right(schema.construct(
-          buffer(0).asInstanceOf[A1],
-          buffer(1).asInstanceOf[A2],
-          buffer(2).asInstanceOf[A3],
-          buffer(3).asInstanceOf[A4],
-          buffer(4).asInstanceOf[A5],
-          buffer(5).asInstanceOf[A6],
-          buffer(6).asInstanceOf[A7],
-          buffer(7).asInstanceOf[A8],
-          buffer(8).asInstanceOf[A9],
-          buffer(9).asInstanceOf[A10],
-          buffer(10).asInstanceOf[A11],
-          buffer(11).asInstanceOf[A12],
-          buffer(12).asInstanceOf[A13]
-        ))
-      } catch {
-        case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+    private[codec] def caseClass1Decoder[A, Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass1[A, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd               = CaseClassXmlDecoder(schema, discriminator)
+            val buffer: Array[Any] = ccxd.unsafeDecodeFields(Nil, node)
+            Right(schema.defaultConstruct(buffer(0).asInstanceOf[A]))
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
       }
-  }
 
-private[codec] def caseClass14Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
-  discriminator: Option[String],
-  schema: Schema.CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]
-): ZXmlDecoder[Z] =
-  new ZXmlDecoder[Z] {
-    override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-      try {
-        val ccxd   = CaseClassXmlDecoder(schema, discriminator)
-        val buffer = ccxd.unsafeDecodeFields(Nil, node)
-        Right(schema.construct(
-          buffer(0).asInstanceOf[A1],
-          buffer(1).asInstanceOf[A2],
-          buffer(2).asInstanceOf[A3],
-          buffer(3).asInstanceOf[A4],
-          buffer(4).asInstanceOf[A5],
-          buffer(5).asInstanceOf[A6],
-          buffer(6).asInstanceOf[A7],
-          buffer(7).asInstanceOf[A8],
-          buffer(8).asInstanceOf[A9],
-          buffer(9).asInstanceOf[A10],
-          buffer(10).asInstanceOf[A11],
-          buffer(11).asInstanceOf[A12],
-          buffer(12).asInstanceOf[A13],
-          buffer(13).asInstanceOf[A14]
-        ))
-      } catch {
-        case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+    private[codec] def caseClass2Decoder[A1, A2, Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass2[A1, A2, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd               = CaseClassXmlDecoder(schema, discriminator)
+            val buffer: Array[Any] = ccxd.unsafeDecodeFields(Nil, node)
+            Right(schema.construct(buffer(0).asInstanceOf[A1], buffer(1).asInstanceOf[A2]))
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
       }
-  }
 
-private[codec] def caseClass15Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
-  discriminator: Option[String],
-  schema: Schema.CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]
-): ZXmlDecoder[Z] =
-  new ZXmlDecoder[Z] {
-    override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-      try {
-        val ccxd   = CaseClassXmlDecoder(schema, discriminator)
-        val buffer = ccxd.unsafeDecodeFields(Nil, node)
-        Right(schema.construct(
-          buffer(0).asInstanceOf[A1],
-          buffer(1).asInstanceOf[A2],
-          buffer(2).asInstanceOf[A3],
-          buffer(3).asInstanceOf[A4],
-          buffer(4).asInstanceOf[A5],
-          buffer(5).asInstanceOf[A6],
-          buffer(6).asInstanceOf[A7],
-          buffer(7).asInstanceOf[A8],
-          buffer(8).asInstanceOf[A9],
-          buffer(9).asInstanceOf[A10],
-          buffer(10).asInstanceOf[A11],
-          buffer(11).asInstanceOf[A12],
-          buffer(12).asInstanceOf[A13],
-          buffer(13).asInstanceOf[A14],
-          buffer(14).asInstanceOf[A15]
-        ))
-      } catch {
-        case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+    private[codec] def caseClass3Decoder[A1, A2, A3, Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass3[A1, A2, A3, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
       }
-  }
 
-private[codec] def caseClass16Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
-  discriminator: Option[String],
-  schema: Schema.CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]
-): ZXmlDecoder[Z] =
-  new ZXmlDecoder[Z] {
-    override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-      try {
-        val ccxd   = CaseClassXmlDecoder(schema, discriminator)
-        val buffer = ccxd.unsafeDecodeFields(Nil, node)
-        Right(schema.construct(
-          buffer(0).asInstanceOf[A1],
-          buffer(1).asInstanceOf[A2],
-          buffer(2).asInstanceOf[A3],
-          buffer(3).asInstanceOf[A4],
-          buffer(4).asInstanceOf[A5],
-          buffer(5).asInstanceOf[A6],
-          buffer(6).asInstanceOf[A7],
-          buffer(7).asInstanceOf[A8],
-          buffer(8).asInstanceOf[A9],
-          buffer(9).asInstanceOf[A10],
-          buffer(10).asInstanceOf[A11],
-          buffer(11).asInstanceOf[A12],
-          buffer(12).asInstanceOf[A13],
-          buffer(13).asInstanceOf[A14],
-          buffer(14).asInstanceOf[A15],
-          buffer(15).asInstanceOf[A16]
-        ))
-      } catch {
-        case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+    private[codec] def caseClass4Decoder[A1, A2, A3, A4, Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass4[A1, A2, A3, A4, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
       }
-  }
 
-private[codec] def caseClass17Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z](
-  discriminator: Option[String],
-  schema: Schema.CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]
-): ZXmlDecoder[Z] =
-  new ZXmlDecoder[Z] {
-    override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-      try {
-        val ccxd   = CaseClassXmlDecoder(schema, discriminator)
-        val buffer = ccxd.unsafeDecodeFields(Nil, node)
-        Right(schema.construct(
-          buffer(0).asInstanceOf[A1],
-          buffer(1).asInstanceOf[A2],
-          buffer(2).asInstanceOf[A3],
-          buffer(3).asInstanceOf[A4],
-          buffer(4).asInstanceOf[A5],
-          buffer(5).asInstanceOf[A6],
-          buffer(6).asInstanceOf[A7],
-          buffer(7).asInstanceOf[A8],
-          buffer(8).asInstanceOf[A9],
-          buffer(9).asInstanceOf[A10],
-          buffer(10).asInstanceOf[A11],
-          buffer(11).asInstanceOf[A12],
-          buffer(12).asInstanceOf[A13],
-          buffer(13).asInstanceOf[A14],
-          buffer(14).asInstanceOf[A15],
-          buffer(15).asInstanceOf[A16],
-          buffer(16).asInstanceOf[A17]
-        ))
-      } catch {
-        case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+    private[codec] def caseClass5Decoder[A1, A2, A3, A4, A5, Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass5[A1, A2, A3, A4, A5, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
       }
-  }
 
-private[codec] def caseClass18Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z](
-  discriminator: Option[String],
-  schema: Schema.CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]
-): ZXmlDecoder[Z] =
-  new ZXmlDecoder[Z] {
-    override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-      try {
-        val ccxd   = CaseClassXmlDecoder(schema, discriminator)
-        val buffer = ccxd.unsafeDecodeFields(Nil, node)
-        Right(schema.construct(
-          buffer(0).asInstanceOf[A1],
-          buffer(1).asInstanceOf[A2],
-          buffer(2).asInstanceOf[A3],
-          buffer(3).asInstanceOf[A4],
-          buffer(4).asInstanceOf[A5],
-          buffer(5).asInstanceOf[A6],
-          buffer(6).asInstanceOf[A7],
-          buffer(7).asInstanceOf[A8],
-          buffer(8).asInstanceOf[A9],
-          buffer(9).asInstanceOf[A10],
-          buffer(10).asInstanceOf[A11],
-          buffer(11).asInstanceOf[A12],
-          buffer(12).asInstanceOf[A13],
-          buffer(13).asInstanceOf[A14],
-          buffer(14).asInstanceOf[A15],
-          buffer(15).asInstanceOf[A16],
-          buffer(16).asInstanceOf[A17],
-          buffer(17).asInstanceOf[A18]
-        ))
-      } catch {
-        case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+    private[codec] def caseClass6Decoder[A1, A2, A3, A4, A5, A6, Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass6[A1, A2, A3, A4, A5, A6, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
       }
-  }
 
-private[codec] def caseClass19Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z](
-  discriminator: Option[String],
-  schema: Schema.CaseClass19[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, Z]
-): ZXmlDecoder[Z] =
-  new ZXmlDecoder[Z] {
-    override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-      try {
-        val ccxd   = CaseClassXmlDecoder(schema, discriminator)
-        val buffer = ccxd.unsafeDecodeFields(Nil, node)
-        Right(schema.construct(
-          buffer(0).asInstanceOf[A1],
-          buffer(1).asInstanceOf[A2],
-          buffer(2).asInstanceOf[A3],
-          buffer(3).asInstanceOf[A4],
-          buffer(4).asInstanceOf[A5],
-          buffer(5).asInstanceOf[A6],
-          buffer(6).asInstanceOf[A7],
-          buffer(7).asInstanceOf[A8],
-          buffer(8).asInstanceOf[A9],
-          buffer(9).asInstanceOf[A10],
-          buffer(10).asInstanceOf[A11],
-          buffer(11).asInstanceOf[A12],
-          buffer(12).asInstanceOf[A13],
-          buffer(13).asInstanceOf[A14],
-          buffer(14).asInstanceOf[A15],
-          buffer(15).asInstanceOf[A16],
-          buffer(16).asInstanceOf[A17],
-          buffer(17).asInstanceOf[A18],
-          buffer(18).asInstanceOf[A19]
-        ))
-      } catch {
-        case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+    private[codec] def caseClass7Decoder[A1, A2, A3, A4, A5, A6, A7, Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass7[A1, A2, A3, A4, A5, A6, A7, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6],
+                buffer(6).asInstanceOf[A7]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
       }
-  }
 
-private[codec] def caseClass20Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z](
-  discriminator: Option[String],
-  schema: Schema.CaseClass20[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, Z]
-): ZXmlDecoder[Z] =
-  new ZXmlDecoder[Z] {
-    override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-      try {
-        val ccxd   = CaseClassXmlDecoder(schema, discriminator)
-        val buffer = ccxd.unsafeDecodeFields(Nil, node)
-        Right(schema.construct(
-          buffer(0).asInstanceOf[A1],
-          buffer(1).asInstanceOf[A2],
-          buffer(2).asInstanceOf[A3],
-          buffer(3).asInstanceOf[A4],
-          buffer(4).asInstanceOf[A5],
-          buffer(5).asInstanceOf[A6],
-          buffer(6).asInstanceOf[A7],
-          buffer(7).asInstanceOf[A8],
-          buffer(8).asInstanceOf[A9],
-          buffer(9).asInstanceOf[A10],
-          buffer(10).asInstanceOf[A11],
-          buffer(11).asInstanceOf[A12],
-          buffer(12).asInstanceOf[A13],
-          buffer(13).asInstanceOf[A14],
-          buffer(14).asInstanceOf[A15],
-          buffer(15).asInstanceOf[A16],
-          buffer(16).asInstanceOf[A17],
-          buffer(17).asInstanceOf[A18],
-          buffer(18).asInstanceOf[A19],
-          buffer(19).asInstanceOf[A20]
-        ))
-      } catch {
-        case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+    private[codec] def caseClass8Decoder[A1, A2, A3, A4, A5, A6, A7, A8, Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass8[A1, A2, A3, A4, A5, A6, A7, A8, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6],
+                buffer(6).asInstanceOf[A7],
+                buffer(7).asInstanceOf[A8]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
       }
-  }
 
-private[codec] def caseClass21Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z](
-  discriminator: Option[String],
-  schema: Schema.CaseClass21[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, Z]
-): ZXmlDecoder[Z] =
-  new ZXmlDecoder[Z] {
-    override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-      try {
-        val ccxd   = CaseClassXmlDecoder(schema, discriminator)
-        val buffer = ccxd.unsafeDecodeFields(Nil, node)
-        Right(schema.construct(
-          buffer(0).asInstanceOf[A1],
-          buffer(1).asInstanceOf[A2],
-          buffer(2).asInstanceOf[A3],
-          buffer(3).asInstanceOf[A4],
-          buffer(4).asInstanceOf[A5],
-          buffer(5).asInstanceOf[A6],
-          buffer(6).asInstanceOf[A7],
-          buffer(7).asInstanceOf[A8],
-          buffer(8).asInstanceOf[A9],
-          buffer(9).asInstanceOf[A10],
-          buffer(10).asInstanceOf[A11],
-          buffer(11).asInstanceOf[A12],
-          buffer(12).asInstanceOf[A13],
-          buffer(13).asInstanceOf[A14],
-          buffer(14).asInstanceOf[A15],
-          buffer(15).asInstanceOf[A16],
-          buffer(16).asInstanceOf[A17],
-          buffer(17).asInstanceOf[A18],
-          buffer(18).asInstanceOf[A19],
-          buffer(19).asInstanceOf[A20],
-          buffer(20).asInstanceOf[A21]
-        ))
-      } catch {
-        case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+    private[codec] def caseClass9Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6],
+                buffer(6).asInstanceOf[A7],
+                buffer(7).asInstanceOf[A8],
+                buffer(8).asInstanceOf[A9]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
       }
-  }
 
-private[codec] def caseClass22Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z](
-  discriminator: Option[String],
-  schema: Schema.CaseClass22[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, Z]
-): ZXmlDecoder[Z] =
-  new ZXmlDecoder[Z] {
-    override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
-      try {
-        val ccxd   = CaseClassXmlDecoder(schema, discriminator)
-        val buffer = ccxd.unsafeDecodeFields(Nil, node)
-        Right(schema.construct(
-          buffer(0).asInstanceOf[A1],
-          buffer(1).asInstanceOf[A2],
-          buffer(2).asInstanceOf[A3],
-          buffer(3).asInstanceOf[A4],
-          buffer(4).asInstanceOf[A5],
-          buffer(5).asInstanceOf[A6],
-          buffer(6).asInstanceOf[A7],
-          buffer(7).asInstanceOf[A8],
-          buffer(8).asInstanceOf[A9],
-          buffer(9).asInstanceOf[A10],
-          buffer(10).asInstanceOf[A11],
-          buffer(11).asInstanceOf[A12],
-          buffer(12).asInstanceOf[A13],
-          buffer(13).asInstanceOf[A14],
-          buffer(14).asInstanceOf[A15],
-          buffer(15).asInstanceOf[A16],
-          buffer(16).asInstanceOf[A17],
-          buffer(17).asInstanceOf[A18],
-          buffer(18).asInstanceOf[A19],
-          buffer(19).asInstanceOf[A20],
-          buffer(20).asInstanceOf[A21],
-          buffer(21).asInstanceOf[A22]
-        ))
-      } catch {
-        case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+    private[codec] def caseClass10Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6],
+                buffer(6).asInstanceOf[A7],
+                buffer(7).asInstanceOf[A8],
+                buffer(8).asInstanceOf[A9],
+                buffer(9).asInstanceOf[A10]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
       }
+
+    private[codec] def caseClass11Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass11[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6],
+                buffer(6).asInstanceOf[A7],
+                buffer(7).asInstanceOf[A8],
+                buffer(8).asInstanceOf[A9],
+                buffer(9).asInstanceOf[A10],
+                buffer(10).asInstanceOf[A11]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
+      }
+
+    private[codec] def caseClass12Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass12[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6],
+                buffer(6).asInstanceOf[A7],
+                buffer(7).asInstanceOf[A8],
+                buffer(8).asInstanceOf[A9],
+                buffer(9).asInstanceOf[A10],
+                buffer(10).asInstanceOf[A11],
+                buffer(11).asInstanceOf[A12]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
+      }
+
+    private[codec] def caseClass13Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass13[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6],
+                buffer(6).asInstanceOf[A7],
+                buffer(7).asInstanceOf[A8],
+                buffer(8).asInstanceOf[A9],
+                buffer(9).asInstanceOf[A10],
+                buffer(10).asInstanceOf[A11],
+                buffer(11).asInstanceOf[A12],
+                buffer(12).asInstanceOf[A13]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
+      }
+
+    private[codec] def caseClass14Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass14[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6],
+                buffer(6).asInstanceOf[A7],
+                buffer(7).asInstanceOf[A8],
+                buffer(8).asInstanceOf[A9],
+                buffer(9).asInstanceOf[A10],
+                buffer(10).asInstanceOf[A11],
+                buffer(11).asInstanceOf[A12],
+                buffer(12).asInstanceOf[A13],
+                buffer(13).asInstanceOf[A14]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
+      }
+
+    private[codec] def caseClass15Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass15[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6],
+                buffer(6).asInstanceOf[A7],
+                buffer(7).asInstanceOf[A8],
+                buffer(8).asInstanceOf[A9],
+                buffer(9).asInstanceOf[A10],
+                buffer(10).asInstanceOf[A11],
+                buffer(11).asInstanceOf[A12],
+                buffer(12).asInstanceOf[A13],
+                buffer(13).asInstanceOf[A14],
+                buffer(14).asInstanceOf[A15]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
+      }
+
+    private[codec] def caseClass16Decoder[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z](
+      discriminator: Option[String],
+      schema: Schema.CaseClass16[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6],
+                buffer(6).asInstanceOf[A7],
+                buffer(7).asInstanceOf[A8],
+                buffer(8).asInstanceOf[A9],
+                buffer(9).asInstanceOf[A10],
+                buffer(10).asInstanceOf[A11],
+                buffer(11).asInstanceOf[A12],
+                buffer(12).asInstanceOf[A13],
+                buffer(13).asInstanceOf[A14],
+                buffer(14).asInstanceOf[A15],
+                buffer(15).asInstanceOf[A16]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
+      }
+
+    private[codec] def caseClass17Decoder[
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      Z
+    ](
+      discriminator: Option[String],
+      schema: Schema.CaseClass17[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6],
+                buffer(6).asInstanceOf[A7],
+                buffer(7).asInstanceOf[A8],
+                buffer(8).asInstanceOf[A9],
+                buffer(9).asInstanceOf[A10],
+                buffer(10).asInstanceOf[A11],
+                buffer(11).asInstanceOf[A12],
+                buffer(12).asInstanceOf[A13],
+                buffer(13).asInstanceOf[A14],
+                buffer(14).asInstanceOf[A15],
+                buffer(15).asInstanceOf[A16],
+                buffer(16).asInstanceOf[A17]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
+      }
+
+    private[codec] def caseClass18Decoder[
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      Z
+    ](
+      discriminator: Option[String],
+      schema: Schema.CaseClass18[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, Z]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6],
+                buffer(6).asInstanceOf[A7],
+                buffer(7).asInstanceOf[A8],
+                buffer(8).asInstanceOf[A9],
+                buffer(9).asInstanceOf[A10],
+                buffer(10).asInstanceOf[A11],
+                buffer(11).asInstanceOf[A12],
+                buffer(12).asInstanceOf[A13],
+                buffer(13).asInstanceOf[A14],
+                buffer(14).asInstanceOf[A15],
+                buffer(15).asInstanceOf[A16],
+                buffer(16).asInstanceOf[A17],
+                buffer(17).asInstanceOf[A18]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
+      }
+
+    private[codec] def caseClass19Decoder[
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      A19,
+      Z
+    ](
+      discriminator: Option[String],
+      schema: Schema.CaseClass19[
+        A1,
+        A2,
+        A3,
+        A4,
+        A5,
+        A6,
+        A7,
+        A8,
+        A9,
+        A10,
+        A11,
+        A12,
+        A13,
+        A14,
+        A15,
+        A16,
+        A17,
+        A18,
+        A19,
+        Z
+      ]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6],
+                buffer(6).asInstanceOf[A7],
+                buffer(7).asInstanceOf[A8],
+                buffer(8).asInstanceOf[A9],
+                buffer(9).asInstanceOf[A10],
+                buffer(10).asInstanceOf[A11],
+                buffer(11).asInstanceOf[A12],
+                buffer(12).asInstanceOf[A13],
+                buffer(13).asInstanceOf[A14],
+                buffer(14).asInstanceOf[A15],
+                buffer(15).asInstanceOf[A16],
+                buffer(16).asInstanceOf[A17],
+                buffer(17).asInstanceOf[A18],
+                buffer(18).asInstanceOf[A19]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
+      }
+
+    private[codec] def caseClass20Decoder[
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      A19,
+      A20,
+      Z
+    ](
+      discriminator: Option[String],
+      schema: Schema.CaseClass20[
+        A1,
+        A2,
+        A3,
+        A4,
+        A5,
+        A6,
+        A7,
+        A8,
+        A9,
+        A10,
+        A11,
+        A12,
+        A13,
+        A14,
+        A15,
+        A16,
+        A17,
+        A18,
+        A19,
+        A20,
+        Z
+      ]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6],
+                buffer(6).asInstanceOf[A7],
+                buffer(7).asInstanceOf[A8],
+                buffer(8).asInstanceOf[A9],
+                buffer(9).asInstanceOf[A10],
+                buffer(10).asInstanceOf[A11],
+                buffer(11).asInstanceOf[A12],
+                buffer(12).asInstanceOf[A13],
+                buffer(13).asInstanceOf[A14],
+                buffer(14).asInstanceOf[A15],
+                buffer(15).asInstanceOf[A16],
+                buffer(16).asInstanceOf[A17],
+                buffer(17).asInstanceOf[A18],
+                buffer(18).asInstanceOf[A19],
+                buffer(19).asInstanceOf[A20]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
+      }
+
+    private[codec] def caseClass21Decoder[
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      A19,
+      A20,
+      A21,
+      Z
+    ](
+      discriminator: Option[String],
+      schema: Schema.CaseClass21[
+        A1,
+        A2,
+        A3,
+        A4,
+        A5,
+        A6,
+        A7,
+        A8,
+        A9,
+        A10,
+        A11,
+        A12,
+        A13,
+        A14,
+        A15,
+        A16,
+        A17,
+        A18,
+        A19,
+        A20,
+        A21,
+        Z
+      ]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6],
+                buffer(6).asInstanceOf[A7],
+                buffer(7).asInstanceOf[A8],
+                buffer(8).asInstanceOf[A9],
+                buffer(9).asInstanceOf[A10],
+                buffer(10).asInstanceOf[A11],
+                buffer(11).asInstanceOf[A12],
+                buffer(12).asInstanceOf[A13],
+                buffer(13).asInstanceOf[A14],
+                buffer(14).asInstanceOf[A15],
+                buffer(15).asInstanceOf[A16],
+                buffer(16).asInstanceOf[A17],
+                buffer(17).asInstanceOf[A18],
+                buffer(18).asInstanceOf[A19],
+                buffer(19).asInstanceOf[A20],
+                buffer(20).asInstanceOf[A21]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
+      }
+
+    private[codec] def caseClass22Decoder[
+      A1,
+      A2,
+      A3,
+      A4,
+      A5,
+      A6,
+      A7,
+      A8,
+      A9,
+      A10,
+      A11,
+      A12,
+      A13,
+      A14,
+      A15,
+      A16,
+      A17,
+      A18,
+      A19,
+      A20,
+      A21,
+      A22,
+      Z
+    ](
+      discriminator: Option[String],
+      schema: Schema.CaseClass22[
+        A1,
+        A2,
+        A3,
+        A4,
+        A5,
+        A6,
+        A7,
+        A8,
+        A9,
+        A10,
+        A11,
+        A12,
+        A13,
+        A14,
+        A15,
+        A16,
+        A17,
+        A18,
+        A19,
+        A20,
+        A21,
+        A22,
+        Z
+      ]
+    ): ZXmlDecoder[Z] =
+      new ZXmlDecoder[Z] {
+        override def decodeXml(node: scala.xml.Node): Either[DecodeError, Z] =
+          try {
+            val ccxd   = CaseClassXmlDecoder(schema, discriminator)
+            val buffer = ccxd.unsafeDecodeFields(Nil, node)
+            Right(
+              schema.construct(
+                buffer(0).asInstanceOf[A1],
+                buffer(1).asInstanceOf[A2],
+                buffer(2).asInstanceOf[A3],
+                buffer(3).asInstanceOf[A4],
+                buffer(4).asInstanceOf[A5],
+                buffer(5).asInstanceOf[A6],
+                buffer(6).asInstanceOf[A7],
+                buffer(7).asInstanceOf[A8],
+                buffer(8).asInstanceOf[A9],
+                buffer(9).asInstanceOf[A10],
+                buffer(10).asInstanceOf[A11],
+                buffer(11).asInstanceOf[A12],
+                buffer(12).asInstanceOf[A13],
+                buffer(13).asInstanceOf[A14],
+                buffer(14).asInstanceOf[A15],
+                buffer(15).asInstanceOf[A16],
+                buffer(16).asInstanceOf[A17],
+                buffer(17).asInstanceOf[A18],
+                buffer(18).asInstanceOf[A19],
+                buffer(19).asInstanceOf[A20],
+                buffer(20).asInstanceOf[A21],
+                buffer(21).asInstanceOf[A22]
+              )
+            )
+          } catch {
+            case e: Exception => Left(ReadError(Cause.fail(e), e.getMessage))
+          }
+      }
+
   }
-
-}
-
 
   // ---------- Existing CaseClassXmlDecoder (unchanged) ----------
 
-private object NotSet
+  private object NotSet
 
-private class CaseClassXmlDecoder[Z](
-  fields: Array[Schema.Field[Z, _]],
-  fieldDecoders: Array[ZXmlDecoder[_]],
-  spans: Array[XmlError.ObjectAccess],
-  stringMatrix: XmlStringMatrix,
-  noDiscriminator: Boolean,
-  skipExtraFields: Boolean
-) {
+  private class CaseClassXmlDecoder[Z](
+    fields: Array[Schema.Field[Z, _]],
+    fieldDecoders: Array[ZXmlDecoder[_]],
+    spans: Array[XmlError.ObjectAccess],
+    stringMatrix: XmlStringMatrix,
+    noDiscriminator: Boolean,
+    skipExtraFields: Boolean
+  ) {
 
-  private def effectiveName(child: scala.xml.Elem): String = {
-    if (child.label == "field") {
-      val nameAttr = (child \ "@name").text.trim
-      if (nameAttr.nonEmpty) {
-        nameAttr
+    private def effectiveName(child: scala.xml.Elem): String =
+      if (child.label == "field") {
+        val nameAttr = (child \ "@name").text.trim
+        if (nameAttr.nonEmpty) {
+          nameAttr
+        } else {
+          child.label
+        }
       } else {
         child.label
       }
-    } else {
-      child.label
+
+    private def extractFieldValue(child: scala.xml.Elem): Option[String] =
+      if (child.child.exists {
+            case e: scala.xml.Elem => e.label == "null"
+            case _                 => false
+          }) {
+        None
+      } else {
+        val extracted = child.child.collect { case e: scala.xml.Elem => e.text.trim }.headOption
+          .getOrElse(child.text.trim)
+        val normalized = extracted
+        Some(normalized)
+      }
+
+    def unsafeDecodeListMap(trace: List[XmlError], node: scala.xml.Node): ListMap[String, Any] = {
+      scala.xml.Utility.trim(node).toString
+
+      val buffer = unsafeDecodeFields(trace, node)
+      val result = ListMap(fields.zip(buffer).map { case (field, v) => field.fieldName -> v }: _*)
+
+      result
+    }
+
+    def unsafeDecodeFields(trace: List[XmlError], node: scala.xml.Node): Array[Any] = {
+      scala.xml.Utility.trim(node).toString
+
+      val effectiveNode = {
+        val elems = node.child.collect { case e: scala.xml.Elem => e }
+        if (elems.size == 1 && elems.head.label == "record") {
+          elems.head
+        } else node
+      }
+
+      val len    = fields.length
+      val buffer = Array.fill[Any](len)(NotSet)
+
+      val lookup = new scala.collection.mutable.HashMap[String, Int]()
+      for (i <- 0 until len) {
+        val field = fields(i)
+        lookup(field.fieldName) = i
+        field.nameAndAliases.foreach { name =>
+          lookup(name) = i
+        }
+      }
+
+      // Collect all element children of the effective record.
+      val allChildren: Seq[scala.xml.Elem] = effectiveNode.child.collect { case e: scala.xml.Elem => e }.toList
+      // Decide whether to use the "wrapped" style or "direct" style.
+      val children: Seq[scala.xml.Elem] =
+        if (allChildren.exists(_.label == "field")) {
+          allChildren.filter(_.label == "field")
+        } else {
+          allChildren
+        }
+
+      val effectiveNames = children.map(child => effectiveName(child))
+      effectiveNames.groupBy(identity).foreach {
+        case (name, group) =>
+          if (group.size > 1 && lookup.contains(name)) {
+            val idx = lookup(name)
+            throw ReadError(
+              Cause.empty,
+              XmlError.render(XmlError.Message("duplicate") :: spans(idx) :: Nil)
+            )
+          }
+      }
+
+      children.foreach { child =>
+        val name = effectiveName(child)
+        if (name.isEmpty) {} else {
+          lookup.get(name) match {
+            case Some(idx) =>
+              if (buffer(idx) != NotSet) {
+                throw ReadError(Cause.empty, XmlError.render(XmlError.Message("duplicate") :: spans(idx) :: Nil))
+              }
+              val field = fields(idx)
+              field.optional || (field.schema.toString.contains("None") && field.schema.toString.contains("Some"))
+              val underlyingSchema = field.schema match {
+                case l: Schema.Lazy[_] => l.schema
+                case s                 => s
+              }
+
+              underlyingSchema match {
+                // For string fields, use the current logic.
+                case prim: Schema.Primitive[_] if prim.standardType == StandardType.StringType =>
+                  fieldDecoders(idx).decodeXml(child) match {
+                    case Right(decodedValue) =>
+                      buffer(idx) = decodedValue
+                    case Left(err) =>
+                      throw ReadError(Cause.fail(err), err.toString)
+                  }
+
+                // NEW: For collections, avoid flattening text.
+                case _: Schema.Collection[_, _] =>
+                  fieldDecoders(idx).decodeXml(child) match {
+                    case Right(decodedValue) =>
+                      buffer(idx) = decodedValue
+                    case Left(err) =>
+                      throw ReadError(Cause.fail(err), err.toString)
+                  }
+
+                case _ =>
+                  child.text
+                  val trimmedText        = child.text.trim
+                  val normalizedValueOpt = extractFieldValue(child)
+                  val isOptionalField = underlyingSchema match {
+                    case _: Schema.Optional[_] => true
+                    case _                     => false
+                  }
+
+                  normalizedValueOpt match {
+                    case None if isOptionalField =>
+                      buffer(idx) = None
+                    case Some(value) if value.isEmpty && isOptionalField && child.child.forall {
+                          case e: scala.xml.Elem => e.label == "null"
+                          case _                 => false
+                        } =>
+                      buffer(idx) = None
+                    case Some(value) if child.child.isEmpty && trimmedText.isEmpty && isOptionalField =>
+                      buffer(idx) = None
+                    case Some(value) if child.child.isEmpty && trimmedText.isEmpty =>
+                      underlyingSchema match {
+                        case col: Schema.Collection[_, _] =>
+                          buffer(idx) = col.empty
+                        case _ =>
+                          buffer(idx) = None
+                      }
+                    case Some(_) =>
+                      val newChild =
+                        underlyingSchema match {
+                          case opt: Schema.Optional[_] =>
+                            opt.schema match {
+                              case prim: Schema.Primitive[_] if prim.standardType == StandardType.StringType =>
+                                child match {
+                                  case elem: scala.xml.Elem =>
+                                    elem.copy(child = elem.child.map {
+                                      case t: scala.xml.Text => scala.xml.Text(t.text.trim)
+                                      case other             => other
+                                    })
+                                  case other => other
+                                }
+                              case _ => child
+                            }
+                          case prim: Schema.Primitive[_] if prim.standardType != StandardType.StringType =>
+                            child match {
+                              case elem: scala.xml.Elem =>
+                                elem.copy(child = elem.child.map {
+                                  case t: scala.xml.Text => scala.xml.Text(t.text.trim)
+                                  case other             => other
+                                })
+                              case other => other
+                            }
+                          case _ => child
+                        }
+                      fieldDecoders(idx).decodeXml(newChild) match {
+                        case Right(decodedValue) =>
+                          buffer(idx) = decodedValue
+                        case Left(err) =>
+                          throw ReadError(Cause.fail(err), err.toString)
+                      }
+                  }
+              }
+            case None =>
+              if (!skipExtraFields) {
+                throw ReadError(Cause.empty, s"extra field: $name")
+              }
+          }
+        }
+      }
+
+      // For any expected field that was not set, use default or report missing.
+      for (i <- 0 until len) {
+        if (buffer(i) == NotSet) {
+          val field = fields(i)
+          if ((field.optional || field.transient) && field.defaultValue.isDefined)
+            buffer(i) = field.defaultValue.get
+          else {
+            val underlyingSchema = field.schema match {
+              case l: Schema.Lazy[_] => l.schema
+              case s                 => s
+            }
+            buffer(i) = underlyingSchema match {
+              case opt: Schema.Optional[_] if opt.schema.isInstanceOf[Schema.Collection[_, _]] =>
+                opt.schema.asInstanceOf[Schema.Collection[_, _]].empty
+              case _: Schema.Optional[_]               => None
+              case collection: Schema.Collection[_, _] => collection.empty
+              case _ =>
+                throw ReadError(
+                  Cause.empty,
+                  XmlError.render(XmlError.Message("missing") :: spans(i) :: trace)
+                )
+            }
+          }
+        }
+      }
+      buffer
     }
   }
 
- 
-  private def extractFieldValue(child: scala.xml.Elem): Option[String] = {
-  if (child.child.exists {
-    case e: scala.xml.Elem => e.label == "null"
-    case _ => false
-  }) {
-    None
-  } else {
-    val extracted = child.child.collect { case e: scala.xml.Elem => e.text.trim }
-      .headOption.getOrElse(child.text.trim)
-    val normalized = extracted 
-    Some(normalized)
-  }
-}
+  private object CaseClassXmlDecoder {
 
-
-  def unsafeDecodeListMap(trace: List[XmlError], node: scala.xml.Node): ListMap[String, Any] = {
-    val raw = scala.xml.Utility.trim(node).toString
-
-    val buffer = unsafeDecodeFields(trace, node)
-    val result = ListMap(fields.zip(buffer).map { case (field, v) => field.fieldName -> v }: _*)
-
-    result
-  }
-
- def unsafeDecodeFields(trace: List[XmlError], node: scala.xml.Node): Array[Any] = {
-  val raw = scala.xml.Utility.trim(node).toString
-
-  val effectiveNode = {
-    val elems = node.child.collect { case e: scala.xml.Elem => e }
-    if (elems.size == 1 && elems.head.label == "record") {
-      elems.head
-    } else node
-  }
-
-  val len = fields.length
-  val buffer = Array.fill[Any](len)(NotSet)
-
-  val lookup = new scala.collection.mutable.HashMap[String, Int]()
-  for (i <- 0 until len) {
-    val field = fields(i)
-    lookup(field.fieldName) = i
-    field.nameAndAliases.foreach { name =>
-      lookup(name) = i
-    }
-  }
-
-  // Collect all element children of the effective record.
-  val allChildren: Seq[scala.xml.Elem] = effectiveNode.child.collect { case e: scala.xml.Elem => e }.toList
-  // Decide whether to use the "wrapped" style or "direct" style.
-  val children: Seq[scala.xml.Elem] =
-    if (allChildren.exists(_.label == "field")) {
-      allChildren.filter(_.label == "field")
-    } else {
-      allChildren
-    }
-
-  val effectiveNames = children.map(child => effectiveName(child))
-  effectiveNames.groupBy(identity).foreach { case (name, group) =>
-    if (group.size > 1 && lookup.contains(name)) {
-      val idx = lookup(name)
-      throw ReadError(
-        Cause.empty,
-        XmlError.render(XmlError.Message("duplicate") :: spans(idx) :: Nil)
+    def apply[Z](schema: Schema.Record[Z], discriminator: Option[String]): CaseClassXmlDecoder[Z] = {
+      val hasDiscriminator = discriminator.isDefined
+      val len              = schema.fields.length
+      var nameLen          = len
+      if (hasDiscriminator) nameLen += 1
+      val aliasLen = schema.fields.foldLeft(0)(_ + _.nameAndAliases.size) - len
+      val fields   = new Array[Schema.Field[Z, _]](len)
+      val decoders = new Array[ZXmlDecoder[_]](len)
+      val spans    = new Array[XmlError.ObjectAccess](nameLen)
+      val names    = new Array[String](nameLen)
+      val aliases  = new Array[(String, Int)](aliasLen)
+      var idx      = 0
+      var aliasIdx = 0
+      schema.fields.foreach { field =>
+        fields(idx) = field
+        decoders(idx) = XmlDecoder.schemaDecoder(field.schema)
+        val name = field.fieldName
+        names(idx) = name
+        spans(idx) = XmlError.ObjectAccess(name)
+        (field.nameAndAliases - name).foreach { a =>
+          aliases(aliasIdx) = (a, idx)
+          aliasIdx += 1
+        }
+        idx += 1
+      }
+      if (hasDiscriminator) {
+        val discriminatorName = discriminator.get
+        names(idx) = discriminatorName
+        spans(idx) = XmlError.ObjectAccess(discriminatorName)
+      }
+      new CaseClassXmlDecoder(
+        fields,
+        decoders,
+        spans,
+        new XmlStringMatrix(names, aliases),
+        !hasDiscriminator,
+        !schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
       )
     }
   }
-
-  children.foreach { child =>
-  val name = effectiveName(child)
-  if (name.isEmpty) {
-  } else {
-    lookup.get(name) match {
-      case Some(idx) =>
-        if (buffer(idx) != NotSet) {
-          throw ReadError(Cause.empty, XmlError.render(XmlError.Message("duplicate") :: spans(idx) :: Nil))
-        }
-        val field = fields(idx)
-        val isOptional: Boolean =
-          field.optional || (field.schema.toString.contains("None") && field.schema.toString.contains("Some"))
-        val underlyingSchema = field.schema match {
-          case l: Schema.Lazy[_] => l.schema
-          case s                 => s
-        }
-
-        underlyingSchema match {
-          // For string fields, use the current logic.
-          case prim: Schema.Primitive[_] if prim.standardType == StandardType.StringType =>
-            fieldDecoders(idx).decodeXml(child) match {
-              case Right(decodedValue) =>
-                buffer(idx) = decodedValue
-              case Left(err) =>
-                throw ReadError(Cause.fail(err), err.toString)
-            }
-
-          // NEW: For collections, avoid flattening text.
-          case col: Schema.Collection[_, _] =>
-            fieldDecoders(idx).decodeXml(child) match {
-              case Right(decodedValue) =>
-                buffer(idx) = decodedValue
-              case Left(err) =>
-                throw ReadError(Cause.fail(err), err.toString)
-            }
-
-          case _ =>
-            val rawText = child.text
-            val trimmedText = child.text.trim
-            val normalizedValueOpt = extractFieldValue(child)
-            val isOptionalField = underlyingSchema match {
-              case _: Schema.Optional[_] => true
-              case _                     => false
-            }
-
-            normalizedValueOpt match {
-              case None if isOptionalField =>
-                buffer(idx) = None
-              case Some(value) if value.isEmpty && isOptionalField && child.child.forall {
-                case e: scala.xml.Elem => e.label == "null"
-                case _                 => false
-              } =>
-                buffer(idx) = None
-              case Some(value) if child.child.isEmpty && trimmedText.isEmpty && isOptionalField =>
-                buffer(idx) = None
-              case Some(value) if child.child.isEmpty && trimmedText.isEmpty =>
-                underlyingSchema match {
-                  case col: Schema.Collection[_, _] =>
-                    buffer(idx) = col.empty
-                  case _ =>
-                    buffer(idx) = None
-                }
-              case Some(_) =>
-                val newChild =
-                  underlyingSchema match {
-                    case opt: Schema.Optional[_] =>
-                      opt.schema match {
-                        case prim: Schema.Primitive[_] if prim.standardType == StandardType.StringType =>
-                          child match {
-                            case elem: scala.xml.Elem =>
-                              elem.copy(child = elem.child.map {
-                                case t: scala.xml.Text => scala.xml.Text(t.text.trim)
-                                case other             => other
-                              })
-                            case other => other
-                          }
-                        case _ => child
-                      }
-                    case prim: Schema.Primitive[_] if prim.standardType != StandardType.StringType =>
-                      child match {
-                        case elem: scala.xml.Elem =>
-                          elem.copy(child = elem.child.map {
-                            case t: scala.xml.Text => scala.xml.Text(t.text.trim)
-                            case other             => other
-                          })
-                        case other => other
-                      }
-                    case _ => child
-                  }
-                fieldDecoders(idx).decodeXml(newChild) match {
-                  case Right(decodedValue) =>
-                    buffer(idx) = decodedValue
-                  case Left(err) =>
-                    throw ReadError(Cause.fail(err), err.toString)
-                }
-            }
-        }
-      case None =>
-        if (!skipExtraFields) {
-          throw ReadError(Cause.empty, s"extra field: $name")
-        }
-    }
-  }
-}
-
-  // For any expected field that was not set, use default or report missing.
-  for (i <- 0 until len) {
-    if (buffer(i) == NotSet) {
-      val field = fields(i)
-      if ((field.optional || field.transient) && field.defaultValue.isDefined)
-        buffer(i) = field.defaultValue.get
-      else {
-        val underlyingSchema = field.schema match {
-          case l: Schema.Lazy[_] => l.schema
-          case s                 => s
-        }
-        buffer(i) = underlyingSchema match {
-          case opt: Schema.Optional[_] if opt.schema.isInstanceOf[Schema.Collection[_, _]] =>
-            opt.schema.asInstanceOf[Schema.Collection[_, _]].empty
-          case _: Schema.Optional[_]               => None
-          case collection: Schema.Collection[_, _] => collection.empty
-          case _ =>
-            throw ReadError(
-              Cause.empty,
-              XmlError.render(XmlError.Message("missing") :: spans(i) :: trace)
-            )
-        }
-      }
-    }
-  }
-  buffer
-}
-}
-
-
-
-
-private object CaseClassXmlDecoder {
-
-  def apply[Z](schema: Schema.Record[Z], discriminator: Option[String]): CaseClassXmlDecoder[Z] = {
-    val hasDiscriminator = discriminator.isDefined
-    val len = schema.fields.length
-    var nameLen = len
-    if (hasDiscriminator) nameLen += 1
-    val aliasLen = schema.fields.foldLeft(0)(_ + _.nameAndAliases.size) - len
-    val fields = new Array[Schema.Field[Z, _]](len)
-    val decoders = new Array[ZXmlDecoder[_]](len)
-    val spans = new Array[XmlError.ObjectAccess](nameLen)
-    val names = new Array[String](nameLen)
-    val aliases = new Array[(String, Int)](aliasLen)
-    var idx = 0
-    var aliasIdx = 0
-    schema.fields.foreach { field =>
-      fields(idx) = field
-      decoders(idx) = XmlDecoder.schemaDecoder(field.schema)
-      val name = field.fieldName
-      names(idx) = name
-      spans(idx) = XmlError.ObjectAccess(name)
-      (field.nameAndAliases - name).foreach { a =>
-        aliases(aliasIdx) = (a, idx)
-        aliasIdx += 1
-      }
-      idx += 1
-    }
-    if (hasDiscriminator) {
-      val discriminatorName = discriminator.get
-      names(idx) = discriminatorName
-      spans(idx) = XmlError.ObjectAccess(discriminatorName)
-    }
-    new CaseClassXmlDecoder(
-      fields,
-      decoders,
-      spans,
-      new XmlStringMatrix(names, aliases),
-      !hasDiscriminator,
-      !schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
-    )
-  }
-}
 }

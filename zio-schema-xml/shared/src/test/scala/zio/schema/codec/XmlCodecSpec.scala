@@ -1,33 +1,25 @@
 package zio.schema.codec
 
 import java.nio.charset.StandardCharsets
-import java.time.{ ZoneId, ZoneOffset }
+import java.time.ZoneOffset
 
 import scala.collection.immutable.ListMap
 
 import zio.Console._
-import zio.schema._
-import zio.schema.codec.XmlCodec
-import zio.stream.{ZStream , ZPipeline}
-import zio.test.Assertion._
-import zio.test.TestAspect._
-import zio.schema.annotation._
-import zio.test._
-import zio.{Chunk, _}
 import zio.schema.CaseSet._
 import zio.schema.annotation._
-import zio.schema.{ DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
-
-
-import zio.schema.codec.XmlCodec.XmlFieldEncoder
+import zio.schema.codec.DecodeError.ReadError
+import zio.schema.codec.XmlCodec
 import zio.schema.codec.XmlCodec.XmlEncoder.charSequenceToByteChunk
 import zio.schema.codec.XmlCodec.XmlError
-import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.XmlCodecSpec.PaymentMethod.{ CreditCard, PayPal, WireTransfer }
 import zio.schema.codec.XmlCodecSpec.Subscription.{ OneTime, Recurring }
-
-import java.nio.file.{Paths, Files, StandardOpenOption}
-import java.nio.charset.StandardCharsets
+import zio.schema.{DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId, _}
+import zio.stream.ZStream
+import zio.test.Assertion._
+import zio.test.TestAspect._
+import zio.test._
+import zio.{Chunk, _}
 
 
 
@@ -1115,7 +1107,7 @@ test("Xml.Arr") {
   )
  },
   test("reject extra fields") {
-  val cfg = XmlCodec.Config.default.copy(prettyPrint = false)
+  XmlCodec.Config.default.copy(prettyPrint = false)
   val xmlStr =
     """<record>
       |  <field name="f1"><string>test</string></field>
@@ -1950,7 +1942,7 @@ suite("enums - with no discriminator")(
  ),
  suite("zio.schema.codec.Xml decoding")(
   test("Xml.Record") {
-    val cfg = XmlCodec.Config.default.copy(prettyPrint = false)
+    XmlCodec.Config.default.copy(prettyPrint = false)
     val expectedValue = ListMap[String, Any]("foo" -> "s", "bar" -> 1)
     val xmlInput = charSequenceToByteChunk(
       """<record>
@@ -2899,7 +2891,7 @@ suite("any schema")(
               else
                 // Recursively re-run with the obtained value for further diagnosis.
                 assertEncodesThenDecodesFallback(schema, obtained, print)
-            case Left(error) =>
+            case Left(_) =>
               ZIO.succeed(assertTrue(false))
           }
         }
@@ -2935,7 +2927,7 @@ private def assertEncodesThenDecodesWithDifferentSchemas[A1, A2](
         assertTrue(decodedChunk.size == 1)
         val decodedValue = decodedChunk.head
         assertTrue(compare(value, decodedValue))
-      case Left(error) =>
+      case Left(_) =>
         assertTrue(false)
     }
 
@@ -3187,8 +3179,7 @@ private def assertEncodesThenDecodesWithDifferentSchemas[A1, A2](
 
   val optionalSearchRequestSchema: Schema[OptionalSearchRequest] = DeriveSchema.gen[OptionalSearchRequest]
 
-  private val optionalSearchRequestGen: Gen[Sized, OptionalSearchRequest] =
-    for {
+  for {
       query      <- Gen.string
       pageNumber <- Gen.int(Int.MinValue, Int.MaxValue)
       results    <- Gen.int(Int.MinValue, Int.MaxValue)
