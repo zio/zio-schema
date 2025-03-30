@@ -1589,20 +1589,20 @@ object XmlCodec {
             else elem
 
           override def encodeXml(fields: ListMap[String, Any]): Elem = formatXml {
-            val children: Seq[Elem] = nonTransientFields.zipWithIndex.flatMap {
-              case (field, idx) =>
-                val name  = field.fieldName
-                val value = fields(name)
+           val children: Seq[Elem] = nonTransientFields.toIndexedSeq.zipWithIndex.flatMap {
+  case (field, idx) =>
+    val name  = field.fieldName
+    val value = fields(name)
+    if (isEmptyOptionalValue(field, value, cfg) || (encoders(idx).isNothing(value) && !cfg.explicitNulls))
+      None
+    else
+      Some(
+        <field name={name}>
+          {schemaEncoder(field.schema.asInstanceOf[Schema[Any]], cfg).encodeXml(value)}
+        </field>
+      )
+}
 
-                if (isEmptyOptionalValue(field, value, cfg) || (encoders(idx).isNothing(value) && !cfg.explicitNulls))
-                  None
-                else
-                  Some(
-                    <field name={name}>
-                {schemaEncoder(field.schema.asInstanceOf[Schema[Any]], cfg).encodeXml(value)}
-              </field>
-                  )
-            }
 
             val attributes = discriminatorTuple match {
               case Some((discName, discValue)) =>
@@ -2070,77 +2070,92 @@ object XmlCodec {
               }
             }
 
-          override def decodeXml(node: scala.xml.Node): Either[DecodeError, ListMap[String, Any]] = {
-            // First, unwrap the outer node to find a <record> element.
-            val effectiveNode = unwrapTo(node, "record")
-            if (effectiveNode.label != "record")
-              return Left(ReadError(Cause.empty, s"Expected <record> element but found <${effectiveNode.label}>"))
+         override def decodeXml(node: scala.xml.Node): Either[DecodeError, ListMap[String, Any]] = {
+  // First, unwrap the outer node to find a <record> element.
+  val effectiveNode = unwrapTo(node, "record")
+  if (effectiveNode.label != "record")
+    Left(ReadError(Cause.empty, s"Expected <record> element but found <${effectiveNode.label}>"))
+  else {
+    val fieldsArr = schema.fields.toArray
+    val spansWithDecoders = new scala.collection.mutable.HashMap[String, (XmlError.ObjectAccess, ZXmlDecoder[Any])]()
+    fieldsArr.foreach { field =>
+      val span = XmlError.ObjectAccess(field.fieldName)
+      val dec  = schemaDecoder(field.schema).asInstanceOf[ZXmlDecoder[Any]]
+      field.nameAndAliases.foreach { name =>
+        spansWithDecoders.put(name, (span, dec))
+      }
+    }
+    val skipExtraFields = !schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
+    val map = new scala.collection.mutable.HashMap[String, Any]()
 
-            val fieldsArr = schema.fields.toArray
-            val spansWithDecoders =
-              new scala.collection.mutable.HashMap[String, (XmlError.ObjectAccess, ZXmlDecoder[Any])]()
-            fieldsArr.foreach { field =>
-              val span = XmlError.ObjectAccess(field.fieldName)
-              val dec  = schemaDecoder(field.schema).asInstanceOf[ZXmlDecoder[Any]]
-              field.nameAndAliases.foreach { name =>
-                spansWithDecoders.put(name, (span, dec))
-              }
-            }
-            val skipExtraFields = !schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
-            val map             = new scala.collection.mutable.HashMap[String, Any]()
+    // Iterate over the immediate child elements of the effective <record> node using foldLeft.
+    val children = (effectiveNode \ "_").collect { case e: scala.xml.Elem => e }
+    val decodeResult: Either[DecodeError, scala.collection.mutable.HashMap[String, Any]] =
+      children.foldLeft(Right(map): Either[DecodeError, scala.collection.mutable.HashMap[String, Any]]) {
+        (acc, child) =>
+          acc.flatMap { currentMap =>
+            val fieldNameOrAlias =
+              if (child.label == "field") (child \ "@name").text.trim
+              else child.label
 
-            // Iterate over the immediate child elements of the effective <record> node.
-            val children = (effectiveNode \ "_").collect { case e: scala.xml.Elem => e }
-            children.foreach { child =>
-              val fieldNameOrAlias =
-                if (child.label == "field") (child \ "@name").text.trim
-                else child.label
+            spansWithDecoders.get(fieldNameOrAlias) match {
+              case Some((span, dec)) =>
+                val effectiveChild =
+                  if (child.label == "fields") unwrapTo(child, "seq") else child
 
-              spansWithDecoders.get(fieldNameOrAlias) match {
-                case Some((span, dec)) =>
-                  val effectiveChild =
-                    if (child.label == "fields") unwrapTo(child, "seq") else child
-
-                  dec.decodeXml(effectiveChild) match {
-                    case Right(value) =>
-                      val primaryField = span.field // the primary field name
-                      if (map.contains(primaryField))
-                        return Left(ReadError(Cause.empty, s"duplicate field: $primaryField"))
-                      else
-                        map.put(primaryField, value)
-                    case Left(err) => return Left(err)
-                  }
-                case None =>
-                  if (!skipExtraFields && !discriminator.contains(fieldNameOrAlias))
-                    return Left(ReadError(Cause.empty, s"extra field : $fieldNameOrAlias"))
-              }
-            }
-            // Fill in missing fields.
-            fieldsArr.foreach { field =>
-              if (!map.contains(field.fieldName)) {
-                // Unwrap the schema in case of lazy values.
-                val underlying = field.schema match {
-                  case l: Schema.Lazy[_] => l.schema
-                  case s                 => s
+                dec.decodeXml(effectiveChild) match {
+                  case Right(value) =>
+                    val primaryField = span.field // the primary field name
+                    if (currentMap.contains(primaryField))
+                      Left(ReadError(Cause.empty, s"duplicate field: $primaryField"))
+                    else {
+                      currentMap.put(primaryField, value)
+                      Right(currentMap)
+                    }
+                  case Left(err) =>
+                    Left(err)
                 }
-                val value =
-                  underlying match {
-                    case _: Schema.Optional[_] =>
-                      // If the field is optional (even if no default is provided), use None.
-                      None
-                    case collection: Schema.Collection[_, _] =>
-                      collection.empty
-                    case _ =>
-                      if (field.optional || field.transient)
-                        field.defaultValue.getOrElse(None)
-                      else
-                        return Left(ReadError(Cause.empty, s"missing field: ${field.fieldName}"))
-                  }
-                map.put(field.fieldName, value)
-              }
+              case None =>
+                if (!skipExtraFields && !discriminator.contains(fieldNameOrAlias))
+                  Left(ReadError(Cause.empty, s"extra field : $fieldNameOrAlias"))
+                else
+                  Right(currentMap)
             }
-            Right(ListMap(map.toSeq: _*))
           }
+      }
+
+    // Process missing fields
+    decodeResult.flatMap { currentMap =>
+      fieldsArr.foldLeft(Right(()): Either[DecodeError, Unit]) { (acc, field) =>
+        acc.flatMap { _ =>
+          if (!currentMap.contains(field.fieldName)) {
+            // Unwrap the schema in case of lazy values.
+            val underlying = field.schema match {
+              case l: Schema.Lazy[_] => l.schema
+              case s                 => s
+            }
+            underlying match {
+              case _: Schema.Optional[_] =>
+                currentMap.put(field.fieldName, None)
+                Right(())
+              case collection: Schema.Collection[_, _] =>
+                currentMap.put(field.fieldName, collection.empty)
+                Right(())
+              case _ =>
+                if (field.optional || field.transient) {
+                  currentMap.put(field.fieldName, field.defaultValue.getOrElse(None))
+                  Right(())
+                } else {
+                  Left(ReadError(Cause.empty, s"missing field: ${field.fieldName}"))
+                }
+            }
+          } else Right(())
+        }
+      }.map(_ => ListMap(currentMap.toSeq: _*))
+    }
+  }
+}
+
         }
       }
 
@@ -2227,25 +2242,24 @@ object XmlCodec {
 
         override def encodeXml(a: Z): Elem = formatXml {
           val ns = cfg.namespace.getOrElse("")
-          val children: Seq[Elem] = nonTransientFields.zip(encoders).flatMap {
-            case (field, encoder) =>
-              val value = field.get(a)
+          val children: Seq[Elem] = nonTransientFields.toIndexedSeq.zip(encoders).flatMap {
+  case (field, encoder) =>
+    val value = field.get(a)
+    if (isEmptyOptionalValue(field, value, cfg) || (encoder.isNothing(value) && !cfg.explicitNulls))
+      None
+    else
+      Some(
+        Elem(
+          prefix = if (ns.nonEmpty) "ns" else null,
+          label = field.fieldName,
+          attributes = Null,
+          scope = if (ns.nonEmpty) NamespaceBinding("ns", ns, TopScope) else TopScope,
+          minimizeEmpty = true,
+          child = encoder.encodeXml(value)
+        )
+      )
+}
 
-              // Skip empty optional values and fields that are "nothing" unless explicit nulls are enabled
-              if (isEmptyOptionalValue(field, value, cfg) || (encoder.isNothing(value) && !cfg.explicitNulls))
-                None
-              else
-                Some(
-                  Elem(
-                    prefix = if (ns.nonEmpty) "ns" else null,
-                    label = field.fieldName,
-                    attributes = Null,
-                    scope = if (ns.nonEmpty) NamespaceBinding("ns", ns, TopScope) else TopScope,
-                    minimizeEmpty = true,
-                    child = encoder.encodeXml(value)
-                  )
-                )
-          }
 
           // Build attributes from discriminator if provided
           val attributes: MetaData = discriminatorTuple match {
@@ -2276,7 +2290,7 @@ object XmlCodec {
     }
   }
 
-  class XmlStringMatrix(names: Array[String], aliases: Array[(String, Int)]) {}
+  class XmlStringMatrix(val names: Array[String],val aliases: Array[(String, Int)]) {}
 
 // ----- The Product Decoder for case classes -----
 
@@ -3181,8 +3195,6 @@ object XmlCodec {
     fields: Array[Schema.Field[Z, _]],
     fieldDecoders: Array[ZXmlDecoder[_]],
     spans: Array[XmlError.ObjectAccess],
-    stringMatrix: XmlStringMatrix,
-    noDiscriminator: Boolean,
     skipExtraFields: Boolean
   ) {
 
@@ -3212,13 +3224,14 @@ object XmlCodec {
       }
 
     def unsafeDecodeListMap(trace: List[XmlError], node: scala.xml.Node): ListMap[String, Any] = {
-      scala.xml.Utility.trim(node).toString
+  scala.xml.Utility.trim(node).toString
 
-      val buffer = unsafeDecodeFields(trace, node)
-      val result = ListMap(fields.zip(buffer).map { case (field, v) => field.fieldName -> v }: _*)
+  val buffer = unsafeDecodeFields(trace, node)
+  val result = ListMap(fields.zip(buffer).map { case (field, v) => field.fieldName -> v }.toIndexedSeq: _*)
 
-      result
-    }
+  result
+}
+
 
     def unsafeDecodeFields(trace: List[XmlError], node: scala.xml.Node): Array[Any] = {
       scala.xml.Utility.trim(node).toString
@@ -3310,6 +3323,8 @@ object XmlCodec {
                   normalizedValueOpt match {
                     case None if isOptionalField =>
                       buffer(idx) = None
+                    case None =>
+                      throw ReadError(Cause.empty, s"missing required field: ${field.fieldName}")
                     case Some(value) if value.isEmpty && isOptionalField && child.child.forall {
                           case e: scala.xml.Elem => e.label == "null"
                           case _                 => false
@@ -3432,8 +3447,6 @@ object XmlCodec {
         fields,
         decoders,
         spans,
-        new XmlStringMatrix(names, aliases),
-        !hasDiscriminator,
         !schema.annotations.exists(_.isInstanceOf[rejectExtraFields])
       )
     }
