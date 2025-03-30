@@ -8,6 +8,7 @@ import java.util.Currency
 import java.util.concurrent.ConcurrentHashMap
 
 import scala.collection.immutable.ListMap
+import scala.util.Try
 import scala.util.control.NonFatal
 import scala.xml.{ Elem, MetaData, NamespaceBinding, Node, Null, TopScope, UnprefixedAttribute, XML }
 
@@ -18,7 +19,6 @@ import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.XmlCodec.Codecs._
 import zio.stream.ZPipeline
 import zio.{ Cause, Chunk, ZIO }
-import scala.util.Try
 
 object XmlCodec {
 
