@@ -43,9 +43,10 @@ object AvroCodecSpec extends ZIOSpecDefault {
   }
 
   case class ViviRequestKey(deviceId: String)
-object ViviRequestKey {
-  implicit val schemaViviRequestKey: Schema[ViviRequestKey] = DeriveSchema.gen[ViviRequestKey]
-}
+
+  object ViviRequestKey {
+    implicit val schemaViviRequestKey: Schema[ViviRequestKey] = DeriveSchema.gen[ViviRequestKey]
+  }
 
   case class Class0()
 
@@ -746,7 +747,7 @@ object ViviRequestKey {
       assertTrue(result == Right(HighArity()))
     },
     test("Decode single field record") {
-      val codec = AvroCodec.schemaBasedBinaryCodec[ViviRequestKey]
+      val codec  = AvroCodec.schemaBasedBinaryCodec[ViviRequestKey]
       val bytes  = codec.encode(ViviRequestKey("device-123"))
       val result = codec.decode(bytes)
       assertTrue(result == Right(ViviRequestKey("device-123")))
@@ -811,10 +812,10 @@ object ViviRequestKey {
       val result                      = codec.decodeGenericRecord(generic)
       assertTrue(result == Right(Record("John", 42)))
     },
-     test("Encode/Decode for ViviRequestKey") {
+    test("Encode/Decode for ViviRequestKey") {
       val codec: AvroCodec.ExtendedBinaryCodec[ViviRequestKey] = AvroCodec.schemaBasedBinaryCodec[ViviRequestKey]
-      val generic: GenericData.Record = codec.encodeGenericRecord(ViviRequestKey("device-123"))
-      val result = codec.decodeGenericRecord(generic)
+      val generic: GenericData.Record                          = codec.encodeGenericRecord(ViviRequestKey("device-123"))
+      val result                                               = codec.decodeGenericRecord(generic)
       assertTrue(result == Right(ViviRequestKey("device-123")))
     }
   )
