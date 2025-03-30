@@ -886,7 +886,7 @@ object XmlCodec {
             }
           )
 
-        case _ =>
+        case null =>
           ZXmlCodec(
             new ZXmlEncoder[A] {
               override def encodeXml(value: A): Elem = <primitive>{value.toString}</primitive>
@@ -3351,7 +3351,7 @@ object XmlCodec {
                                       case t: scala.xml.Text => scala.xml.Text(t.text.trim)
                                       case other             => other
                                     })
-                                  case other => other
+                                  case null => null
                                 }
                               case _ => child
                             }
@@ -3362,7 +3362,7 @@ object XmlCodec {
                                   case t: scala.xml.Text => scala.xml.Text(t.text.trim)
                                   case other             => other
                                 })
-                              case other => other
+                              case null => null
                             }
                           case _ => child
                         }
