@@ -278,6 +278,7 @@ lazy val zioSchemaXml = crossProject(JVMPlatform)
     libraryDependencies += "org.scala-lang.modules" %% "scala-xml" % "2.2.0"
   )
   .settings(testDeps)
+  .settings(mimaPreviousArtifacts := Set())
 
 lazy val zioSchemaXmlJVM = zioSchemaXml.jvm
 
