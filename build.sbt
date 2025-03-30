@@ -281,7 +281,6 @@ lazy val zioSchemaXml = crossProject(JVMPlatform)
 
 lazy val zioSchemaXmlJVM = zioSchemaXml.jvm
 
-
 lazy val zioSchemaProtobuf = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("zio-schema-protobuf"))
   .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")

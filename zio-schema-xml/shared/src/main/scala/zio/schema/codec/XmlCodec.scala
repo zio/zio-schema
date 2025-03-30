@@ -298,86 +298,86 @@ object XmlCodec {
         }
       }
 
-   import scala.util.Try
+    import scala.util.Try
 
-protected[codec] def statefulIntDecoder: ZXmlDecoder[Int] =
-  new ZXmlDecoder[Int] {
-    private var cached: Option[Seq[Int]] = None
-    private var index: Int               = 0
-    private var lastNode: Option[Node]   = None
+    protected[codec] def statefulIntDecoder: ZXmlDecoder[Int] =
+      new ZXmlDecoder[Int] {
+        private var cached: Option[Seq[Int]] = None
+        private var index: Int               = 0
+        private var lastNode: Option[Node]   = None
 
-    override def decodeXml(node: Node): Either[DecodeError, Int] = {
-      if (lastNode.forall(_ ne node)) {
-        cached = None
-        index = 0
-        lastNode = Some(node)
-      }
-
-      if (node.label == "int") {
-        if (index == 0) {
-          index = 1
-          Option(node.text.trim)
-            .flatMap(s => Try(s.toInt).toOption)
-            .toRight(ReadError(Cause.empty, s"Invalid Int value: ${node.text.trim}"))
-        } else {
-          Left(ReadError(Cause.empty, "No more ints"))
-        }
-      } else {
-        val direct              = node \ "int"
-        val intNodes: Seq[Node] = if (direct.nonEmpty) direct.toList else (node \\ "int").toList
-
-        if (intNodes.isEmpty) {
-          val tokens = node.text.trim.split("\\s+")
-          if (tokens.length == 1) {
-            Option(tokens(0))
-              .flatMap(s => Try(s.toInt).toOption) match {
-              case Some(i) => Right(i)
-              case None    => Left(ReadError(Cause.empty, s"Invalid Int value: ${tokens(0)}"))
-            }
-          } else {
-            val joined = tokens.mkString("")
-            Option(joined)
-              .flatMap(s => Try(s.toInt).toOption) match {
-              case Some(i) => Right(i)
-              case None    => Left(ReadError(Cause.empty, s"Invalid concatenated Int value: $joined"))
-            }
+        override def decodeXml(node: Node): Either[DecodeError, Int] = {
+          if (lastNode.forall(_ ne node)) {
+            cached = None
+            index = 0
+            lastNode = Some(node)
           }
-        } else {
-          if (intNodes.size == 1) {
-            Option(intNodes.head.text.trim)
-              .flatMap(s => Try(s.toInt).toOption)
-              .toRight(ReadError(Cause.empty, s"Invalid Int value: ${intNodes.head.text.trim}"))
+
+          if (node.label == "int") {
+            if (index == 0) {
+              index = 1
+              Option(node.text.trim)
+                .flatMap(s => Try(s.toInt).toOption)
+                .toRight(ReadError(Cause.empty, s"Invalid Int value: ${node.text.trim}"))
+            } else {
+              Left(ReadError(Cause.empty, "No more ints"))
+            }
           } else {
-            if (cached.isEmpty) {
-              val decoded: Seq[Either[DecodeError, Int]] = intNodes.map { child =>
-                val text = child.text.trim
-                Option(text)
+            val direct              = node \ "int"
+            val intNodes: Seq[Node] = if (direct.nonEmpty) direct.toList else (node \\ "int").toList
+
+            if (intNodes.isEmpty) {
+              val tokens = node.text.trim.split("\\s+")
+              if (tokens.length == 1) {
+                Option(tokens(0))
                   .flatMap(s => Try(s.toInt).toOption) match {
                   case Some(i) => Right(i)
-                  case None    => Left(ReadError(Cause.empty, s"Invalid Int value: $text"))
+                  case None    => Left(ReadError(Cause.empty, s"Invalid Int value: ${tokens(0)}"))
+                }
+              } else {
+                val joined = tokens.mkString("")
+                Option(joined)
+                  .flatMap(s => Try(s.toInt).toOption) match {
+                  case Some(i) => Right(i)
+                  case None    => Left(ReadError(Cause.empty, s"Invalid concatenated Int value: $joined"))
                 }
               }
-              decoded.collectFirst { case Left(err) => err } match {
-                case Some(err) => return Left(err)
-                case None =>
-                  val allInts = decoded.collect { case Right(i) => i }
-                  cached = Some(allInts)
-                  index = 0
+            } else {
+              if (intNodes.size == 1) {
+                Option(intNodes.head.text.trim)
+                  .flatMap(s => Try(s.toInt).toOption)
+                  .toRight(ReadError(Cause.empty, s"Invalid Int value: ${intNodes.head.text.trim}"))
+              } else {
+                if (cached.isEmpty) {
+                  val decoded: Seq[Either[DecodeError, Int]] = intNodes.map { child =>
+                    val text = child.text.trim
+                    Option(text)
+                      .flatMap(s => Try(s.toInt).toOption) match {
+                      case Some(i) => Right(i)
+                      case None    => Left(ReadError(Cause.empty, s"Invalid Int value: $text"))
+                    }
+                  }
+                  decoded.collectFirst { case Left(err) => err } match {
+                    case Some(err) => return Left(err)
+                    case None =>
+                      val allInts = decoded.collect { case Right(i) => i }
+                      cached = Some(allInts)
+                      index = 0
+                  }
+                }
+                cached match {
+                  case Some(ints) if index < ints.size =>
+                    val result = ints(index)
+                    index += 1
+                    Right(result)
+                  case _ =>
+                    Left(ReadError(Cause.empty, "No more ints"))
+                }
               }
-            }
-            cached match {
-              case Some(ints) if index < ints.size =>
-                val result = ints(index)
-                index += 1
-                Right(result)
-              case _ =>
-                Left(ReadError(Cause.empty, "No more ints"))
             }
           }
         }
       }
-    }
-  }
 
     def extractAll[T](
       decoder: ZXmlDecoder[T],
@@ -438,9 +438,9 @@ protected[codec] def statefulIntDecoder: ZXmlDecoder[Int] =
             },
             new ZXmlDecoder[Float] {
               override def decodeXml(node: Node): Either[DecodeError, Float] =
-Option(node.text)
-  .flatMap(s => Try(s.toFloat).toOption)
-  .toRight(ReadError(Cause.empty, "Invalid Float value"))
+                Option(node.text)
+                  .flatMap(s => Try(s.toFloat).toOption)
+                  .toRight(ReadError(Cause.empty, "Invalid Float value"))
             }
           )
 
@@ -532,9 +532,9 @@ Option(node.text)
             },
             new ZXmlDecoder[Byte] {
               override def decodeXml(node: Node): Either[DecodeError, Byte] =
-Option(node.text)
-  .flatMap(s => Try(s.toByte).toOption)
-  .toRight(ReadError(Cause.empty, "Invalid Byte value"))
+                Option(node.text)
+                  .flatMap(s => Try(s.toByte).toOption)
+                  .toRight(ReadError(Cause.empty, "Invalid Byte value"))
             }
           )
 
@@ -560,9 +560,9 @@ Option(node.text)
             },
             new ZXmlDecoder[Long] {
               override def decodeXml(node: Node): Either[DecodeError, Long] =
-Option(node.text)
-  .flatMap(s => Try(s.toLong).toOption)
-  .toRight(ReadError(Cause.empty, "Invalid Long value"))
+                Option(node.text)
+                  .flatMap(s => Try(s.toLong).toOption)
+                  .toRight(ReadError(Cause.empty, "Invalid Long value"))
             }
           )
 
@@ -1076,14 +1076,14 @@ Option(node.text)
     val string: XmlFieldDecoder[String] = (node: Node) => Right(node.text)
 
     val int: XmlFieldDecoder[Int] = (node: Node) =>
-  Option(node.text)
-    .flatMap(s => Try(s.toInt).toOption)
-    .toRight(ReadError(Cause.empty, "Invalid Int"))
+      Option(node.text)
+        .flatMap(s => Try(s.toInt).toOption)
+        .toRight(ReadError(Cause.empty, "Invalid Int"))
 
-val long: XmlFieldDecoder[Long] = (node: Node) =>
-  Option(node.text)
-    .flatMap(s => Try(s.toLong).toOption)
-    .toRight(ReadError(Cause.empty, "Invalid Long"))
+    val long: XmlFieldDecoder[Long] = (node: Node) =>
+      Option(node.text)
+        .flatMap(s => Try(s.toLong).toOption)
+        .toRight(ReadError(Cause.empty, "Invalid Long"))
 
     def map[K, V](
       keyDecoder: XmlFieldDecoder[K],
