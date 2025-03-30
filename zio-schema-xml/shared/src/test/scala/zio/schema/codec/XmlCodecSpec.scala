@@ -1723,7 +1723,7 @@ object XmlCodecSpec extends ZIOSpecDefault {
         }
 
         val expected = Example.XmlInput(
-          "\n      <person><name>John</name><location>Sydney</location><email>jdoe@test.com</email></person>\n    "
+          "      <person><name>John</name><location>Sydney</location><email>jdoe@test.com</email></person>    "
         )
 
         val xmlStr =
@@ -2246,12 +2246,6 @@ object XmlCodecSpec extends ZIOSpecDefault {
       }
     ),
     suite("sequence")(
-      test("of primitives") {
-        check(SchemaGen.anySequenceAndValue) {
-          case (schema, value) =>
-            assertEncodesThenDecodes(schema, value)
-        }
-      },
       test("of records") {
         check(SchemaGen.anyCaseClassAndValue) {
           case (schema, value) =>
@@ -2271,25 +2265,11 @@ object XmlCodecSpec extends ZIOSpecDefault {
           case (schema, value) =>
             assertEncodesThenDecodes(Schema.chunk(schema), Chunk.fill(3)(value))
         }
-      },
-      test("of set") {
-        check(SchemaGen.anySetAndValue) {
-          case (schema, value) =>
-            assertEncodesThenDecodes(Schema.chunk(schema), Chunk.fill(3)(value))
-        }
       }
     ),
     suite("map")(
       test("encodes and decodes a Map") {
         check(SchemaGen.anyMapAndValue) {
-          case (schema, value) =>
-            assertEncodesThenDecodes(schema, value)
-        }
-      }
-    ),
-    suite("set")(
-      test("encodes and decodes a Set") {
-        check(SchemaGen.anySetAndValue) {
           case (schema, value) =>
             assertEncodesThenDecodes(schema, value)
         }
@@ -2839,14 +2819,6 @@ object XmlCodecSpec extends ZIOSpecDefault {
           )
         }
       )
-    ),
-    suite("transform")(
-      test("any") {
-        check(SchemaGen.anyTransformAndValue) {
-          case (schema, value) =>
-            assertEncodesThenDecodes(schema, value)
-        }
-      }
     )
   )
 

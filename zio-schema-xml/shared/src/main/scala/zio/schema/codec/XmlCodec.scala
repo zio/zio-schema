@@ -2007,7 +2007,7 @@ object XmlCodec {
                   .orElse((effectiveNode \ discriminatorTag).headOption.map(_.text.trim))
                   .orElse {
                     effectiveNode.child.collect { case e: Elem => e } match {
-                      case Seq(singleChild) => Some(singleChild.text.trim)
+                      case Seq(singleChild: Elem) => Some(singleChild.text.trim)
                       case _                => None
                     }
                   }
