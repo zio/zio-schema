@@ -18,6 +18,7 @@ import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.XmlCodec.Codecs._
 import zio.stream.ZPipeline
 import zio.{ Cause, Chunk, ZIO }
+import scala.util.Try
 
 object XmlCodec {
 
@@ -297,81 +298,86 @@ object XmlCodec {
         }
       }
 
-    protected[codec] def statefulIntDecoder: ZXmlDecoder[Int] =
-      new ZXmlDecoder[Int] {
-        private var cached: Option[Seq[Int]] = None
-        private var index: Int               = 0
-        private var lastNode: Option[Node]   = None
+   import scala.util.Try
 
-        override def decodeXml(node: Node): Either[DecodeError, Int] = {
-          if (lastNode.forall(_ ne node)) {
-            cached = None
-            index = 0
-            lastNode = Some(node)
-          }
+protected[codec] def statefulIntDecoder: ZXmlDecoder[Int] =
+  new ZXmlDecoder[Int] {
+    private var cached: Option[Seq[Int]] = None
+    private var index: Int               = 0
+    private var lastNode: Option[Node]   = None
 
-          if (node.label == "int") {
-            if (index == 0) {
-              index = 1
-              node.text.trim.toIntOption.toRight(
-                ReadError(Cause.empty, s"Invalid Int value: ${node.text.trim}")
-              )
-            } else {
-              Left(ReadError(Cause.empty, "No more ints"))
+    override def decodeXml(node: Node): Either[DecodeError, Int] = {
+      if (lastNode.forall(_ ne node)) {
+        cached = None
+        index = 0
+        lastNode = Some(node)
+      }
+
+      if (node.label == "int") {
+        if (index == 0) {
+          index = 1
+          Option(node.text.trim)
+            .flatMap(s => Try(s.toInt).toOption)
+            .toRight(ReadError(Cause.empty, s"Invalid Int value: ${node.text.trim}"))
+        } else {
+          Left(ReadError(Cause.empty, "No more ints"))
+        }
+      } else {
+        val direct              = node \ "int"
+        val intNodes: Seq[Node] = if (direct.nonEmpty) direct.toList else (node \\ "int").toList
+
+        if (intNodes.isEmpty) {
+          val tokens = node.text.trim.split("\\s+")
+          if (tokens.length == 1) {
+            Option(tokens(0))
+              .flatMap(s => Try(s.toInt).toOption) match {
+              case Some(i) => Right(i)
+              case None    => Left(ReadError(Cause.empty, s"Invalid Int value: ${tokens(0)}"))
             }
           } else {
-            val direct              = node \ "int"
-            val intNodes: Seq[Node] = if (direct.nonEmpty) direct.toList else (node \\ "int").toList
-
-            if (intNodes.isEmpty) {
-              val tokens = node.text.trim.split("\\s+")
-              if (tokens.length == 1) {
-                tokens(0).toIntOption match {
+            val joined = tokens.mkString("")
+            Option(joined)
+              .flatMap(s => Try(s.toInt).toOption) match {
+              case Some(i) => Right(i)
+              case None    => Left(ReadError(Cause.empty, s"Invalid concatenated Int value: $joined"))
+            }
+          }
+        } else {
+          if (intNodes.size == 1) {
+            Option(intNodes.head.text.trim)
+              .flatMap(s => Try(s.toInt).toOption)
+              .toRight(ReadError(Cause.empty, s"Invalid Int value: ${intNodes.head.text.trim}"))
+          } else {
+            if (cached.isEmpty) {
+              val decoded: Seq[Either[DecodeError, Int]] = intNodes.map { child =>
+                val text = child.text.trim
+                Option(text)
+                  .flatMap(s => Try(s.toInt).toOption) match {
                   case Some(i) => Right(i)
-                  case None    => Left(ReadError(Cause.empty, s"Invalid Int value: ${tokens(0)}"))
-                }
-              } else {
-                val joined = tokens.mkString("")
-                joined.toIntOption match {
-                  case Some(i) => Right(i)
-                  case None    => Left(ReadError(Cause.empty, s"Invalid concatenated Int value: $joined"))
+                  case None    => Left(ReadError(Cause.empty, s"Invalid Int value: $text"))
                 }
               }
-            } else {
-              if (intNodes.size == 1) {
-                intNodes.head.text.trim.toIntOption.toRight(
-                  ReadError(Cause.empty, s"Invalid Int value: ${intNodes.head.text.trim}")
-                )
-              } else {
-                if (cached.isEmpty) {
-                  val decoded: Seq[Either[DecodeError, Int]] = intNodes.map { child =>
-                    val text = child.text.trim
-                    text.toIntOption match {
-                      case Some(i) => Right(i)
-                      case None    => Left(ReadError(Cause.empty, s"Invalid Int value: $text"))
-                    }
-                  }
-                  decoded.collectFirst { case Left(err) => err } match {
-                    case Some(err) => return Left(err)
-                    case None =>
-                      val allInts = decoded.collect { case Right(i) => i }
-                      cached = Some(allInts)
-                      index = 0
-                  }
-                }
-                cached match {
-                  case Some(ints) if index < ints.size =>
-                    val result = ints(index)
-                    index += 1
-                    Right(result)
-                  case _ =>
-                    Left(ReadError(Cause.empty, "No more ints"))
-                }
+              decoded.collectFirst { case Left(err) => err } match {
+                case Some(err) => return Left(err)
+                case None =>
+                  val allInts = decoded.collect { case Right(i) => i }
+                  cached = Some(allInts)
+                  index = 0
               }
+            }
+            cached match {
+              case Some(ints) if index < ints.size =>
+                val result = ints(index)
+                index += 1
+                Right(result)
+              case _ =>
+                Left(ReadError(Cause.empty, "No more ints"))
             }
           }
         }
       }
+    }
+  }
 
     def extractAll[T](
       decoder: ZXmlDecoder[T],
@@ -432,7 +438,9 @@ object XmlCodec {
             },
             new ZXmlDecoder[Float] {
               override def decodeXml(node: Node): Either[DecodeError, Float] =
-                node.text.toFloatOption.toRight(ReadError(Cause.empty, "Invalid Float value"))
+Option(node.text)
+  .flatMap(s => Try(s.toFloat).toOption)
+  .toRight(ReadError(Cause.empty, "Invalid Float value"))
             }
           )
 
@@ -524,7 +532,9 @@ object XmlCodec {
             },
             new ZXmlDecoder[Byte] {
               override def decodeXml(node: Node): Either[DecodeError, Byte] =
-                node.text.toByteOption.toRight(ReadError(Cause.empty, "Invalid Byte value"))
+Option(node.text)
+  .flatMap(s => Try(s.toByte).toOption)
+  .toRight(ReadError(Cause.empty, "Invalid Byte value"))
             }
           )
 
@@ -550,7 +560,9 @@ object XmlCodec {
             },
             new ZXmlDecoder[Long] {
               override def decodeXml(node: Node): Either[DecodeError, Long] =
-                node.text.toLongOption.toRight(ReadError(Cause.empty, "Invalid Long value"))
+Option(node.text)
+  .flatMap(s => Try(s.toLong).toOption)
+  .toRight(ReadError(Cause.empty, "Invalid Long value"))
             }
           )
 
@@ -1063,10 +1075,15 @@ object XmlCodec {
 
     val string: XmlFieldDecoder[String] = (node: Node) => Right(node.text)
 
-    val int: XmlFieldDecoder[Int] = (node: Node) => node.text.toIntOption.toRight(ReadError(Cause.empty, "Invalid Int"))
+    val int: XmlFieldDecoder[Int] = (node: Node) =>
+  Option(node.text)
+    .flatMap(s => Try(s.toInt).toOption)
+    .toRight(ReadError(Cause.empty, "Invalid Int"))
 
-    val long: XmlFieldDecoder[Long] = (node: Node) =>
-      node.text.toLongOption.toRight(ReadError(Cause.empty, "Invalid Long"))
+val long: XmlFieldDecoder[Long] = (node: Node) =>
+  Option(node.text)
+    .flatMap(s => Try(s.toLong).toOption)
+    .toRight(ReadError(Cause.empty, "Invalid Long"))
 
     def map[K, V](
       keyDecoder: XmlFieldDecoder[K],
