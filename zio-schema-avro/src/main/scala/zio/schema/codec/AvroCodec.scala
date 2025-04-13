@@ -60,11 +60,8 @@ object AvroCodec {
         decodeValue(decoded, schema)
       }
 
-      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] = ZPipeline.mapChunksZIO { chunk =>
-        ZIO.fromEither(
-          decode(chunk).map(Chunk(_))
-        )
-      }
+      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
+        ZPipeline.mapChunksEither(bytes => decode(bytes).map(Chunk(_)))
 
       override def encodeGenericRecord(value: A)(implicit schema: Schema[A]): GenericData.Record =
         encodeValue(value, schema).asInstanceOf[GenericData.Record]
