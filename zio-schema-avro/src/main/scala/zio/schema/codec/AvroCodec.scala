@@ -22,7 +22,7 @@ import org.apache.avro.{ Conversions, LogicalTypes, Schema => SchemaAvro }
 import zio.prelude.NonEmptyMap
 import zio.schema.{ Fallback, FieldSet, Schema, StandardType, TypeId }
 import zio.stream.ZPipeline
-import zio.{ Chunk, Unsafe, ZIO }
+import zio.{ Chunk, Unsafe }
 
 object AvroCodec {
 
@@ -49,9 +49,8 @@ object AvroCodec {
         encoded
       }
 
-      override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] = ZPipeline.mapChunks { chunk =>
-        chunk.flatMap(encode)
-      }
+      override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
+        ZPipeline.mapChunks(_.flatMap(encode))
 
       override def decode(whole: Chunk[Byte]): Either[DecodeError, A] = {
         val datumReader = new GenericDatumReader[Any](avroSchema)
@@ -60,11 +59,8 @@ object AvroCodec {
         decodeValue(decoded, schema)
       }
 
-      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] = ZPipeline.mapChunksZIO { chunk =>
-        ZIO.fromEither(
-          decode(chunk).map(Chunk(_))
-        )
-      }
+      override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
+        ZPipeline.mapChunksEither(bytes => decode(bytes).map(Chunk.single))
 
       override def encodeGenericRecord(value: A)(implicit schema: Schema[A]): GenericData.Record =
         encodeValue(value, schema).asInstanceOf[GenericData.Record]

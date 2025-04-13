@@ -24,12 +24,13 @@ import zio.prelude.NonEmptyMap
 import zio.schema.Schema.GenericRecord
 import zio.schema._
 import zio.schema.annotation.{ discriminatorName, rejectExtraFields, _ }
-import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.JsonDecoder.schemaDecoder
 import zio.stream.{ ZChannel, ZPipeline }
 import zio.{ Cause, Chunk, ChunkBuilder, ZIO, ZNothing }
 
 object JsonCodec {
+
+  private val streamEncoderSeparator: Chunk[Byte] = Chunk.single('\n'.toByte)
 
   final case class Config(
     ignoreEmptyCollections: Boolean,
@@ -74,27 +75,23 @@ object JsonCodec {
     new BinaryCodec[A] {
       override def decode(whole: Chunk[Byte]): Either[DecodeError, A] =
         jsonCodec
-          .decodeJson(
-            new String(whole.toArray, JsonEncoder.CHARSET)
-          )
+          .decodeJson(new String(whole.toArray, JsonEncoder.CHARSET))
           .left
           .map(failure => DecodeError.ReadError(Cause.empty, failure))
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
         ZPipeline.fromChannel(
-          ZPipeline.utfDecode.channel.mapError(cce => ReadError(Cause.fail(cce), cce.getMessage))
+          ZPipeline.utfDecode.channel.mapError(cce => DecodeError.ReadError(Cause.fail(cce), cce.getMessage))
         ) >>> splitOnJsonBoundary >>>
-          ZPipeline.mapZIO { (s: String) =>
-            ZIO
-              .fromEither(jsonCodec.decodeJson(s))
-              .mapError(failure => DecodeError.ReadError(Cause.empty, failure))
+          ZPipeline.mapEitherChunked { (s: String) =>
+            jsonCodec.decodeJson(s).left.map(failure => DecodeError.ReadError(Cause.empty, failure))
           }
 
       override def encode(value: A): Chunk[Byte] =
         JsonEncoder.charSequenceToByteChunk(jsonCodec.encodeJson(value, None))
 
       override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
-        ZPipeline.mapChunks[A, Chunk[Byte]](_.map(encode)).intersperse(Chunk.single('\n'.toByte)).flattenChunks
+        ZPipeline.mapChunks[A, Chunk[Byte]](_.map(encode)).intersperse(streamEncoderSeparator).flattenChunks
     }
 
   implicit def schemaBasedBinaryCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
@@ -224,7 +221,7 @@ object JsonCodec {
         )
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
-        ZPipeline.utfDecode.mapError(cce => ReadError(Cause.fail(cce), cce.getMessage)) >>>
+        ZPipeline.utfDecode.mapError(cce => DecodeError.ReadError(Cause.fail(cce), cce.getMessage)) >>>
           (if (cfg.treatStreamsAsArrays) splitJsonArrayElements else splitOnJsonBoundary) >>>
           ZPipeline.mapZIO { (s: String) =>
             ZIO.fromEither(JsonDecoder.decode(schema, s))
@@ -670,7 +667,7 @@ object JsonCodec {
 
     final def decode[A](schema: Schema[A], json: String): Either[DecodeError, A] =
       schemaDecoder(schema).decodeJson(json) match {
-        case Left(value)  => Left(ReadError(Cause.empty, value))
+        case Left(value)  => Left(DecodeError.ReadError(Cause.empty, value))
         case Right(value) => Right(value)
       }
 
