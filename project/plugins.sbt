@@ -10,5 +10,6 @@ addSbtPlugin("org.scala-native"   % "sbt-scala-native"              % "0.5.6")
 addSbtPlugin("pl.project13.scala" % "sbt-jmh"                       % "0.4.7")
 addSbtPlugin("dev.zio"            % "zio-sbt-website"               % "0.4.0-alpha.31")
 addSbtPlugin("com.typesafe"       % "sbt-mima-plugin"               % "1.1.4")
+addSbtPlugin("org.scoverage"      % "sbt-scoverage"                 % "2.3.1")
 
 libraryDependencies += "org.snakeyaml" % "snakeyaml-engine" % "2.9"

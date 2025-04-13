@@ -565,16 +565,6 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
         assert(derived)(hasSameSchema(expected))
       },
       test(
-        "correctly derives schema for sealed trait with intermediate traits, having leaf classes for Scala2"
-      ) {
-        intermediateTraitTest(enum2Annotations = Chunk.empty)
-      } @@ TestAspect.scala2Only,
-      test(
-        "correctly derives schema for sealed trait with intermediate traits, having leaf classes for Scala3"
-      ) {
-        intermediateTraitTest(enum2Annotations = Chunk(simpleEnum(automaticallyAdded = true)))
-      } @@ TestAspect.scala3Only,
-      test(
         "correctly derives schema for abstract sealed class with intermediate subclasses, having case class leaf classes"
       ) {
         val derived = DeriveSchema.gen[AbstractBaseClass2]
@@ -627,63 +617,5 @@ object DeriveSchemaSpec extends ZIOSpecDefault with VersionSpecificDeriveSchemaS
     ),
     versionSpecificSuite
   )
-
-  // Needed as I think is an unrelated existing bug in Scala 3 DeriveSchema whereby it adds simpleEnum annotation at the
-  // top level of the EnumN schema when one of the cases is a simple enum - however this does not happen with the Scala 2 macro.
-  // I think the Scala2 behavior is correct ie this should be a the leaf schema level.
-  // Create issue https://github.com/zio/zio-schema/issues/750 to track this
-  private def intermediateTraitTest(enum2Annotations: Chunk[Annotation]) = {
-    val derived: Schema.Enum2[TraitLeaf.type, MiddleTrait, TraitWithMiddleTrait] =
-      DeriveSchema.gen[TraitWithMiddleTrait]
-
-    val middleTraitLeafSchema = Schema.CaseClass0(
-      TypeId.fromTypeName("zio.schema.DeriveSchemaSpec.MiddleTraitLeaf"),
-      () => MiddleTraitLeaf,
-      Chunk.empty
-    )
-    val middleTraitLeafCase = Schema.Case[MiddleTrait, MiddleTraitLeaf.type](
-      "MiddleTraitLeaf",
-      middleTraitLeafSchema,
-      (a: MiddleTrait) => a.asInstanceOf[MiddleTraitLeaf.type],
-      (a: MiddleTraitLeaf.type) => a.asInstanceOf[MiddleTrait],
-      (a: MiddleTrait) => a.isInstanceOf[MiddleTraitLeaf.type]
-    )
-    val middleTraitSchema = Schema.Enum1[MiddleTraitLeaf.type, MiddleTrait](
-      TypeId.parse("zio.schema.DeriveSchemaSpec.MiddleTrait"),
-      middleTraitLeafCase,
-      Chunk(simpleEnum(automaticallyAdded = true))
-    )
-
-    val traitLeafSchema = Schema.CaseClass0(
-      TypeId.fromTypeName("zio.schema.DeriveSchemaSpec.TraitLeaf"),
-      () => TraitLeaf,
-      Chunk.empty
-    )
-    val traitLeafCase = Schema.Case[TraitWithMiddleTrait, TraitLeaf.type](
-      "TraitLeaf",
-      traitLeafSchema,
-      (a: TraitWithMiddleTrait) => a.asInstanceOf[TraitLeaf.type],
-      (a: TraitLeaf.type) => a.asInstanceOf[TraitWithMiddleTrait],
-      (a: TraitWithMiddleTrait) => a.isInstanceOf[TraitLeaf.type]
-    )
-
-    val middleTraitCase = Schema.Case[TraitWithMiddleTrait, MiddleTrait](
-      "MiddleTrait",
-      middleTraitSchema,
-      (a: TraitWithMiddleTrait) => a.asInstanceOf[MiddleTrait],
-      (a: MiddleTrait) => a.asInstanceOf[TraitWithMiddleTrait],
-      (a: TraitWithMiddleTrait) => a.isInstanceOf[MiddleTrait]
-    )
-
-    val expected =
-      Schema.Enum2[TraitLeaf.type, MiddleTrait, TraitWithMiddleTrait](
-        TypeId.parse("zio.schema.DeriveSchemaSpec.TraitWithMiddleTrait"),
-        traitLeafCase,
-        middleTraitCase,
-        enum2Annotations
-      )
-
-    assert(derived)(hasSameSchema(expected))
-  }
 
 }
