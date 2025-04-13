@@ -1,7 +1,8 @@
-import sbtcrossproject.CrossPlugin.autoImport._
-import BuildHelper.{ crossProjectSettings, _ }
-import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
+import sbtcrossproject.CrossPlugin.autoImport.*
+import BuildHelper.{crossProjectSettings, *}
+import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport.*
 import com.typesafe.tools.mima.plugin.MimaKeys.mimaPreviousArtifacts
+import sbt.{Resolver, ThisBuild}
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
@@ -33,7 +34,9 @@ inThisBuild(
     licenses := Seq("Apache-2.0" -> url(s"${scmInfo.value.map(_.browseUrl).get}/blob/v${version.value}/LICENSE")),
     pgpPassphrase := sys.env.get("PGP_PASSWORD").map(_.toArray),
     pgpPublicRing := file("/tmp/public.asc"),
-    pgpSecretRing := file("/tmp/secret.asc")
+    pgpSecretRing := file("/tmp/secret.asc"),
+    resolvers ++= Resolver.sonatypeOssRepos("snapshots"),
+    resolvers ++= Resolver.sonatypeOssRepos("staging")
   )
 )
 

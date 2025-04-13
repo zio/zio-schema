@@ -28,13 +28,9 @@ object MessagePackCodec {
       }
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
-        ZPipeline.mapChunksZIO { chunk =>
-          ZIO.fromEither(
-            decodeChunk(chunk).map(Chunk(_))
-          )
-        }
+        ZPipeline.mapChunksEither(bytes => decodeChunk(bytes).map(Chunk.single))
 
-      private def decodeChunk(chunk: Chunk[Byte]) =
+      private def decodeChunk(chunk: Chunk[Byte]): Either[DecodeError, A] =
         new MessagePackDecoder(chunk)
           .decode(schema)
           .left
