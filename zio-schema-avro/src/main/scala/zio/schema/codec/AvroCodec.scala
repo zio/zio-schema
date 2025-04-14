@@ -465,21 +465,18 @@ object AvroCodec {
     combined.map(_.toMap)
 
   }
-  private def decodeSequence[A](a: A, schema: Schema[A]) = {
-    val array  = a.asInstanceOf[GenericData.Array[Any]]
-    val result = array.asScala.toList.map(decodeValue(_, schema))
-    val traversed: Either[List[DecodeError], List[A]] = result.partition(_.isLeft) match {
-      case (Nil, decoded) => Right(for (Right(i) <- decoded) yield i)
-      case (errors, _)    => Left(for (Left(s)   <- errors) yield s)
-    }
-    val combined: Either[DecodeError, List[A]] = traversed.left.map { errors =>
-      errors.foldLeft[DecodeError](DecodeError.MalformedFieldWithPath(Chunk.empty, "Sequence decoding failed."))(
-        (acc, error) => acc.and(DecodeError.MalformedFieldWithPath(Chunk.empty, s"${error.message}"))
-      )
-    }
 
-    combined.map(Chunk.fromIterable(_))
-  }
+  private def decodeSequence[A](a: A, schema: Schema[A]) =
+    (a.asInstanceOf[GenericData.AbstractArray[Any]].asScala.map(decodeValue(_, schema)).partition(_.isLeft) match {
+      case (errors, decoded) if errors.isEmpty => Right(for (Right(i) <- decoded) yield i)
+      case (errors, _) =>
+        Left {
+          (for (Left(s) <- errors) yield s)
+            .foldLeft[DecodeError](DecodeError.MalformedFieldWithPath(Chunk.empty, "Sequence decoding failed."))(
+              (acc, error) => acc.and(DecodeError.MalformedFieldWithPath(Chunk.empty, s"${error.message}"))
+            )
+        }
+    }).map(Chunk.fromIterable(_))
 
   private def decodeTuple2[A, B](value: Any, schemaLeft: Schema[A], schemaRight: Schema[B]) = {
     val record  = value.asInstanceOf[GenericRecord]
