@@ -880,7 +880,7 @@ object AvroSchemaCodec extends AvroSchemaCodec {
   private[codec] def toZioTuple(schema: SchemaAvro): scala.util.Either[String, Schema[_]] =
     for {
       _ <- scala.util.Either
-            .cond(schema.getFields.size() == 2, (), "Tuple must have exactly 2 fields:" + schema.toString(false))
+            .cond(schema.getFields.size() == 2, (), "Tuple must have exactly 2 fields:" + schema)
       _1 <- toZioSchema(schema.getFields.get(0).schema())
       _2 <- toZioSchema(schema.getFields.get(1).schema())
     } yield Schema.Tuple2(_1, _2, buildZioAnnotations(schema))
