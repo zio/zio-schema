@@ -231,7 +231,13 @@ object AvroCodec {
   }
 
   private def decodeCaseClass1[A, Z](raw: Any, schema: Schema.CaseClass1[A, Z]) =
-    decodeValue(raw, schema.field.schema).map(schema.defaultConstruct)
+    raw match {
+      case record: GenericRecord =>
+        val fieldValue = record.get(schema.field.name)
+        decodeValue(fieldValue, schema.field.schema).map(schema.defaultConstruct)
+      case other =>
+        decodeValue(other, schema.field.schema).map(schema.defaultConstruct)
+    }
 
   private def decodeEnum[Z](raw: Any, cases: Schema.Case[Z, _]*): Either[DecodeError, Any] =
     raw match {
