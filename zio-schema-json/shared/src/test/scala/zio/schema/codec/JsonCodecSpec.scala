@@ -13,6 +13,7 @@ import zio.schema.CaseSet._
 import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
+import zio.schema.codec.JsonCodec.ExplicitConfig
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
 import zio.schema.codec.JsonCodecSpec.PaymentMethod.{ CreditCard, PayPal, WireTransfer }
 import zio.schema.codec.JsonCodecSpec.Subscription.{ OneTime, Recurring }
@@ -152,7 +153,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[ListAndMapAndOption],
           ListAndMapAndOption(Nil, Map("foo" -> 1), Some("foo")),
           """{"map":{"foo":1},"option":"foo"}""",
-          JsonCodec.Config(ignoreEmptyCollections = true, explicitNulls = false)
+          JsonCodec.Configuration(ExplicitConfig(encoding = false), explicitNulls = ExplicitConfig())
         )
       },
       test("map empty") {
@@ -160,7 +161,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[ListAndMapAndOption],
           ListAndMapAndOption(List("foo"), Map.empty, Some("foo")),
           """{"list":["foo"],"option":"foo"}""",
-          JsonCodec.Config(ignoreEmptyCollections = true, explicitNulls = false)
+          JsonCodec.Configuration(ExplicitConfig(encoding = false), explicitNulls = ExplicitConfig())
         )
       },
       test("option empty") {
@@ -168,7 +169,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[ListAndMapAndOption],
           ListAndMapAndOption(List("foo"), Map("foo" -> 1), None),
           """{"list":["foo"],"map":{"foo":1}}""",
-          JsonCodec.Config(ignoreEmptyCollections = true, explicitNulls = false)
+          JsonCodec.Configuration(ExplicitConfig(encoding = false), explicitNulls = ExplicitConfig(encoding = false))
         )
       },
       test("all empty") {
@@ -176,7 +177,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[ListAndMapAndOption],
           ListAndMapAndOption(Nil, Map.empty, None),
           """{}""",
-          JsonCodec.Config(ignoreEmptyCollections = true, explicitNulls = false)
+          JsonCodec.Configuration(ExplicitConfig(encoding = false), explicitNulls = ExplicitConfig(encoding = false))
         )
       },
       test("all empty, but don't ignore empty collections") {
@@ -184,7 +185,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[ListAndMapAndOption],
           ListAndMapAndOption(Nil, Map.empty, None),
           """{"list":[],"map":{},"option":null}""",
-          JsonCodec.Config(ignoreEmptyCollections = false, explicitNulls = true)
+          JsonCodec.Configuration(ExplicitConfig(encoding = true), explicitNulls = ExplicitConfig(encoding = true))
         )
       }
     ),
@@ -301,7 +302,8 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodes(
           recordWithOptionSchema,
           ListMap[String, Any]("foo" -> Some("s"), "bar" -> None),
-          charSequenceToByteChunk("""{"foo":"s"}""")
+          charSequenceToByteChunk("""{"foo":"s"}"""),
+          JsonCodec.Configuration(explicitNulls = ExplicitConfig(encoding = false))
         )
       },
       test("record with option fields and flag to encode nulls") {
@@ -309,14 +311,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
           recordWithOptionSchema,
           ListMap[String, Any]("foo" -> Some("s"), "bar" -> None),
           charSequenceToByteChunk("""{"foo":"s","bar":null}"""),
-          JsonCodec.Config.default.copy(explicitNulls = true)
+          JsonCodec.Configuration.default.copy(explicitNulls = ExplicitConfig(encoding = true))
         )
       },
       test("case class with option fields omitted when empty") {
         assertEncodes(
           WithOptionFields.schema,
           WithOptionFields(Some("s"), None),
-          charSequenceToByteChunk("""{"a":"s"}""")
+          charSequenceToByteChunk("""{"a":"s"}"""),
+          JsonCodec.Configuration(explicitNulls = ExplicitConfig(encoding = false))
         )
       }
     ),
@@ -324,7 +327,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
       test("of primitives") {
         assertEncodes(
           enumSchema,
-          ("foo"),
+          "foo",
           charSequenceToByteChunk("""{"string":"foo"}""")
         )
       },
@@ -374,7 +377,16 @@ object JsonCodecSpec extends ZIOSpecDefault {
         assertEncodes(
           Subscription.schema,
           Subscription.Unlimited(None),
-          charSequenceToByteChunk("""{"type":"unlimited"}""")
+          charSequenceToByteChunk("""{"type":"unlimited"}"""),
+          JsonCodec.Configuration(explicitNulls = ExplicitConfig(encoding = false))
+        )
+      },
+      test("case name annotation with empty fields and explicit nulls") {
+        assertEncodes(
+          Subscription.schema,
+          Subscription.Unlimited(None),
+          charSequenceToByteChunk("""{"type":"unlimited","until":null}"""),
+          JsonCodec.Configuration(explicitNulls = ExplicitConfig(encoding = true))
         )
       },
       test("pretty printing with discriminator field") {
@@ -508,7 +520,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           RecordExample.schema,
           RecordExample(f1 = "test", f3 = Some("transient"), f20 = None, f21 = Vector.empty, f22 = Nil),
           charSequenceToByteChunk(
-            """{"$f1":"test","f21":[],"f22":[]}""".stripMargin
+            """{"$f1":"test","f20":null,"f21":[],"f22":[]}""".stripMargin
           )
         )
       }
@@ -532,7 +544,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
             Schema[Int],
             1 to 5,
             charSequenceToByteChunk("[1,2,3,4,5]"),
-            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+            JsonCodec.Configuration(treatStreamsAsArrays = true)
           )
         },
         test("Decodes a stream with multiple integers separated by newlines") {
@@ -549,7 +561,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
             Schema[Int],
             Chunk.fromIterable(1 to 5),
             charSequenceToByteChunk("[1,2,3,4,5]"),
-            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+            JsonCodec.Configuration(treatStreamsAsArrays = true)
           )
         },
         test("Decodes a stream with multiple integers encoded as an array with additional whitespace") {
@@ -560,7 +572,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
                                       |   [1,
                                       |2,3,
                                       |4,   5]   """.stripMargin),
-            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+            JsonCodec.Configuration(treatStreamsAsArrays = true)
           )
         }
       ),
@@ -573,7 +585,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
             Schema[Boolean],
             List(true, true, false),
             charSequenceToByteChunk("[true,true,false]"),
-            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+            JsonCodec.Configuration(treatStreamsAsArrays = true)
           )
         },
         test("Decodes a stream with multiple booleans separated by newlines") {
@@ -587,7 +599,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
             Schema[Boolean],
             Chunk(true, true, false),
             charSequenceToByteChunk("[true, true, false]"),
-            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+            JsonCodec.Configuration(treatStreamsAsArrays = true)
           )
         },
         test(
@@ -609,7 +621,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
             Schema[String],
             List("a", "b", "c"),
             charSequenceToByteChunk("[\"a\",\"b\",\"c\"]"),
-            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+            JsonCodec.Configuration(treatStreamsAsArrays = true)
           )
         },
         test("Decodes a stream with multiple strings separated by newlines") {
@@ -620,7 +632,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
             Schema[String],
             Chunk("a", "b", "c"),
             charSequenceToByteChunk("[\"a\", \"b\",\n\"c\"]"),
-            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+            JsonCodec.Configuration(treatStreamsAsArrays = true)
           )
         },
         test("Decodes a stream with multiple strings separated by spaces, commas and not separated at all") {
@@ -654,7 +666,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
             charSequenceToByteChunk(
               """[{"name":"Alice","age":1},{"name":"Bob","age":2},{"name":"Charlie","age":3}]"""
             ),
-            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+            JsonCodec.Configuration(treatStreamsAsArrays = true)
           )
         },
         test("Decodes a stream with multiple records separated by newlines") {
@@ -700,7 +712,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
                 |{"name":"Charlie","age"
                 |: 3}]""".stripMargin
             ),
-            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+            JsonCodec.Configuration(treatStreamsAsArrays = true)
           )
         },
         test("Encodes a stream with no records") {
@@ -715,7 +727,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
             personSchema,
             List.empty[Person],
             charSequenceToByteChunk("[]"),
-            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+            JsonCodec.Configuration(treatStreamsAsArrays = true)
           )
         },
         test("Decodes a stream with no records") {
@@ -730,7 +742,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
             personSchema,
             Chunk.empty,
             charSequenceToByteChunk("   [ ]  "),
-            JsonCodec.Config(ignoreEmptyCollections = false, treatStreamsAsArrays = true)
+            JsonCodec.Configuration(treatStreamsAsArrays = true)
           )
         }
       )
@@ -766,6 +778,22 @@ object JsonCodecSpec extends ZIOSpecDefault {
           RecordExample.schema,
           RecordExample(f1 = "test", f2 = None, f20 = None, f21 = Vector.empty, f22 = Nil),
           charSequenceToByteChunk("""{"$f1":"test"}""")
+        )
+      },
+      test("with empty optional and collection fields without default values, but explicit empty collections") {
+        assertDecodesToError(
+          RecordExample.schema,
+          """{"$f1":"test"}""",
+          JsonError.Message("missing") :: JsonError.ObjectAccess("f21") :: Nil,
+          JsonCodec.Configuration(explicitEmptyCollections = ExplicitConfig(decoding = true))
+        )
+      },
+      test("with empty optional and collection fields without default values, but explicit nulls") {
+        assertDecodesToError(
+          RecordExample.schema,
+          """{"$f1":"test"}""",
+          JsonError.Message("missing") :: JsonError.ObjectAccess("f20") :: Nil,
+          JsonCodec.Configuration(explicitNulls = ExplicitConfig(decoding = true))
         )
       },
       test("missing required fields") {
@@ -2086,7 +2114,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     schema: Schema[A],
     value: A,
     chunk: Chunk[Byte],
-    cfg: JsonCodec.Config = JsonCodec.Config.default,
+    cfg: JsonCodec.Configuration = JsonCodec.Configuration.default,
     print: Boolean = false
   ) = {
     val stream = ZStream
@@ -2103,7 +2131,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     schema: Schema[A],
     values: Seq[A],
     chunk: Chunk[Byte],
-    cfg: JsonCodec.Config = JsonCodec.Config.default,
+    cfg: JsonCodec.Configuration = JsonCodec.Configuration.default,
     print: Boolean = false
   ) = {
     val stream = ZStream
@@ -2120,7 +2148,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     schema: Schema[A],
     value: A,
     json: String,
-    cfg: JsonCodec.Config = JsonCodec.Config.default
+    cfg: JsonCodec.Configuration = JsonCodec.Configuration.default
   ) = {
     val stream = ZStream
       .succeed(value)
@@ -2133,7 +2161,11 @@ object JsonCodecSpec extends ZIOSpecDefault {
   def assertEncodesJson[A](schema: Schema[A], value: A)(implicit enc: JsonEncoder[A]): ZIO[Any, Nothing, TestResult] = {
     val stream = ZStream
       .succeed(value)
-      .via(JsonCodec.schemaBasedBinaryCodec[A](schema).streamEncoder)
+      .via(
+        JsonCodec
+          .schemaBasedBinaryCodec[A](JsonCodec.Configuration(explicitNulls = ExplicitConfig(encoding = false)))(schema)
+          .streamEncoder
+      )
       .runCollect
     assertZIO(stream)(equalTo(jsonEncoded(value)))
   }
@@ -2142,7 +2174,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     schema: Schema[A],
     json: CharSequence,
     errors: List[JsonError],
-    cfg: JsonCodec.Config = JsonCodec.Config.default
+    cfg: JsonCodec.Configuration = JsonCodec.Configuration.default
   ) = {
     val stream = ZStream
       .fromChunk(charSequenceToByteChunk(json))
@@ -2156,7 +2188,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     schema: Schema[A],
     value: A,
     chunk: Chunk[Byte],
-    cfg: JsonCodec.Config = JsonCodec.Config.default
+    cfg: JsonCodec.Configuration = JsonCodec.Configuration.default
   ) = {
     val result = ZStream.fromChunk(chunk).via(JsonCodec.schemaBasedBinaryCodec[A](cfg)(schema).streamDecoder).runCollect
     assertZIO(result)(equalTo(Chunk(value)))
@@ -2166,7 +2198,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     schema: Schema[A],
     values: Chunk[A],
     chunk: Chunk[Byte],
-    cfg: JsonCodec.Config = JsonCodec.Config.default
+    cfg: JsonCodec.Configuration = JsonCodec.Configuration.default
   ) = {
     val result = ZStream.fromChunk(chunk).via(JsonCodec.schemaBasedBinaryCodec[A](cfg)(schema).streamDecoder).runCollect
     assertZIO(result)(equalTo(values))
@@ -2178,13 +2210,19 @@ object JsonCodecSpec extends ZIOSpecDefault {
   ): ZIO[Any, Nothing, TestResult] =
     ZStream
       .succeed(value)
-      .via(JsonCodec.schemaBasedBinaryCodec[zio.schema.Fallback[A, B]](JsonCodec.Config.default)(schema).streamEncoder)
+      .via(
+        JsonCodec
+          .schemaBasedBinaryCodec[zio.schema.Fallback[A, B]](JsonCodec.Configuration.default)(schema)
+          .streamEncoder
+      )
       .runCollect
       .flatMap { encoded =>
         ZStream
           .fromChunk(encoded)
           .via(
-            JsonCodec.schemaBasedBinaryCodec[zio.schema.Fallback[A, B]](JsonCodec.Config.default)(schema).streamDecoder
+            JsonCodec
+              .schemaBasedBinaryCodec[zio.schema.Fallback[A, B]](JsonCodec.Configuration.default)(schema)
+              .streamDecoder
           )
           .runCollect
       }
@@ -2211,7 +2249,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     value: A1,
     compare: (A1, A2) => Boolean,
     print: Boolean,
-    cfg: JsonCodec.Config = JsonCodec.Config.default
+    cfg: JsonCodec.Configuration = JsonCodec.Configuration.default
   ) =
     ZStream
       .succeed(value)
