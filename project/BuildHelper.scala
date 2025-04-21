@@ -253,7 +253,18 @@ object BuildHelper {
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.JsonCodec#JsonDecoder.decode"),
         ProblemFilters.exclude[Problem]("zio.schema.codec.JsonCodec#JsonDecoder#DecoderKey.*"),
         ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.JsonCodec#CaseClassJsonDecoder.apply"),
-        ProblemFilters.exclude[Problem]("zio.schema.codec.JsonCodec#JsonEncoder#EncoderKey.*")
+        ProblemFilters.exclude[Problem]("zio.schema.codec.JsonCodec#JsonEncoder#EncoderKey.*"),
+        ProblemFilters.exclude[ReversedMissingMethodProblem](
+          "zio.schema.Schema#Enum.zio$schema$Schema$Enum$_setter_$discriminatorName_="
+        ),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("zio.schema.Schema#Enum.discriminatorName"),
+        ProblemFilters
+          .exclude[ReversedMissingMethodProblem]("zio.schema.Schema#Field.zio$schema$Schema$Field$_setter_$aliases_="),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("zio.schema.Schema#Field.aliases"),
+        ProblemFilters.exclude[ReversedMissingMethodProblem](
+          "zio.schema.Schema#Record.zio$schema$Schema$Record$_setter_$rejectExtraFields_="
+        ),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("zio.schema.Schema#Record.rejectExtraFields")
       ),
       mimaFailOnProblem := true
     )
