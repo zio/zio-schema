@@ -3,7 +3,7 @@ import Keys.*
 import sbtcrossproject.CrossPlugin.autoImport.*
 import sbtbuildinfo.*
 import BuildInfoKeys.*
-import com.typesafe.tools.mima.core.Problem
+import com.typesafe.tools.mima.core.*
 import com.typesafe.tools.mima.core.ProblemFilters.exclude
 import com.typesafe.tools.mima.plugin.MimaKeys.{ mimaBinaryIssueFilters, mimaFailOnProblem, mimaPreviousArtifacts }
 import com.typesafe.tools.mima.plugin.MimaPlugin.autoImport.mimaCheckDirection
@@ -33,17 +33,17 @@ object BuildHelper {
   val Scala213: String = versions("2.13")
   val Scala3: String   = versions("3.3")
 
-  val zioVersion                   = "2.1.15"
-  val zioJsonVersion               = "0.7.39"
+  val zioVersion                   = "2.1.17"
+  val zioJsonVersion               = "0.7.42"
   val zioPreludeVersion            = "1.0.0-RC39"
   val zioOpticsVersion             = "0.2.2"
   val zioBsonVersion               = "1.0.6"
-  val avroVersion                  = "1.11.4"
+  val avroVersion                  = "1.12.0"
   val bsonVersion                  = "4.11.3"
   val zioConstraintlessVersion     = "0.3.3"
   val scalaCollectionCompatVersion = "2.13.0"
   val msgpackVersion               = "0.9.9"
-  val jacksonScalaVersion          = "2.18.2"
+  val jacksonScalaVersion          = "2.18.3"
   val thriftVersion                = "0.21.0"
   val javaxAnnotationApiVersion    = "1.3.5"
   val scalaJavaTimeVersion         = "2.6.0"
@@ -198,7 +198,7 @@ object BuildHelper {
       val os = System.getProperty("os.name").toLowerCase
       // For some unknown reason, we can't run the test suites in debug mode on MacOS
       if (os.contains("mac")) cfg.withMode(Mode.releaseFast)
-      else cfg.withGC(GC.boehm) // See https://github.com/scala-native/scala-native/issues/4032
+      else cfg
     },
     scalacOptions += {
       if (crossProjectPlatform.value == NativePlatform)
@@ -246,7 +246,25 @@ object BuildHelper {
         exclude[Problem]("zio.schema.Schema#NonEmptyMap.toChunk"),
         exclude[Problem]("zio.schema.codec.JsonCodec#JsonDecoder.x"),
         exclude[Problem]("zio.schema.SchemaPlatformSpecific.*"),
-        exclude[Problem]("zio.schema.Schema.url")
+        exclude[Problem]("zio.schema.Schema.url"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.JsonCodec#CaseClassJsonDecoder.this"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.JsonCodec#CaseClassJsonDecoder.apply"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.JsonCodec#CaseClassJsonDecoder.this"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.JsonCodec#JsonDecoder.decode"),
+        ProblemFilters.exclude[Problem]("zio.schema.codec.JsonCodec#JsonDecoder#DecoderKey.*"),
+        ProblemFilters.exclude[DirectMissingMethodProblem]("zio.schema.codec.JsonCodec#CaseClassJsonDecoder.apply"),
+        ProblemFilters.exclude[Problem]("zio.schema.codec.JsonCodec#JsonEncoder#EncoderKey.*"),
+        ProblemFilters.exclude[ReversedMissingMethodProblem](
+          "zio.schema.Schema#Enum.zio$schema$Schema$Enum$_setter_$discriminatorName_="
+        ),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("zio.schema.Schema#Enum.discriminatorName"),
+        ProblemFilters
+          .exclude[ReversedMissingMethodProblem]("zio.schema.Schema#Field.zio$schema$Schema$Field$_setter_$aliases_="),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("zio.schema.Schema#Field.aliases"),
+        ProblemFilters.exclude[ReversedMissingMethodProblem](
+          "zio.schema.Schema#Record.zio$schema$Schema$Record$_setter_$rejectExtraFields_="
+        ),
+        ProblemFilters.exclude[ReversedMissingMethodProblem]("zio.schema.Schema#Record.rejectExtraFields")
       ),
       mimaFailOnProblem := true
     )
