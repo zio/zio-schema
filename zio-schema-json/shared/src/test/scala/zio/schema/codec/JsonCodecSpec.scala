@@ -15,6 +15,7 @@ import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.ExplicitConfig
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
+import zio.schema.codec.JsonCodec.NameFormat.CamelCase
 import zio.schema.codec.JsonCodecSpec.PaymentMethod.{ CreditCard, PayPal, WireTransfer }
 import zio.schema.codec.JsonCodecSpec.Subscription.{ OneTime, Recurring }
 import zio.schema.meta.MetaSchema
@@ -124,6 +125,41 @@ object JsonCodecSpec extends ZIOSpecDefault {
         )
       }
     ),
+    suiteAll("map case class field names") {
+      test("snake case") {
+        assertEncodesJson(
+          Schema[SearchRequest],
+          SearchRequest("foo", 10, 20, None),
+          """{"query":"foo","page_number":10,"result_per_page":20}""",
+          JsonCodec.Configuration(ExplicitConfig(encoding = false), fieldNameFormat = JsonCodec.NameFormat.SnakeCase)
+        )
+      }
+      test("kebab case") {
+        assertEncodesJson(
+          Schema[SearchRequest],
+          SearchRequest("foo", 10, 20, None),
+          """{"query":"foo","page-number":10,"result-per-page":20}""",
+          JsonCodec.Configuration(ExplicitConfig(encoding = false), fieldNameFormat = JsonCodec.NameFormat.KebabCase)
+        )
+      }
+      test("camel case") {
+        assertEncodesJson(
+          Schema[SearchRequest],
+          SearchRequest("foo", 10, 20, None),
+          """{"query":"foo","pageNumber":10,"resultPerPage":20}""",
+          JsonCodec.Configuration(ExplicitConfig(encoding = false), fieldNameFormat = JsonCodec.NameFormat.CamelCase)
+        )
+      }
+      test("pascal case") {
+        assertEncodesJson(
+          Schema[SearchRequest],
+          SearchRequest("foo", 10, 20, None),
+          """{"Query":"foo","PageNumber":10,"ResultPerPage":20}""",
+          JsonCodec.Configuration(ExplicitConfig(encoding = false), fieldNameFormat = JsonCodec.NameFormat.PascalCase)
+        )
+      }
+
+    },
     suite("optional field annotation")(
       test("list empty") {
         assertEncodesJson(
@@ -311,7 +347,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           recordWithOptionSchema,
           ListMap[String, Any]("foo" -> Some("s"), "bar" -> None),
           charSequenceToByteChunk("""{"foo":"s","bar":null}"""),
-          JsonCodec.Configuration.default.copy(explicitNulls = ExplicitConfig(encoding = true))
+          JsonCodec.Configuration(explicitNulls = ExplicitConfig(encoding = true))
         )
       },
       test("case class with option fields omitted when empty") {
@@ -336,6 +372,42 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[Enumeration],
           Enumeration(StringValue("foo")),
           charSequenceToByteChunk("""{"oneOf":{"StringValue":{"value":"foo"}}}""")
+        )
+      },
+      test("ADT with format") {
+        assertEncodes(
+          Schema[Enumeration],
+          Enumeration(StringValue("foo")),
+          charSequenceToByteChunk("""{"oneOf":{"stringValue":{"value":"foo"}}}"""),
+          JsonCodec.Configuration(
+            discriminatorSettings = JsonCodec.DiscriminatorSetting.ClassName(JsonCodec.NameFormat.CamelCase)
+          )
+        )
+      },
+      test("ADT no discriminator config") {
+        assertEncodes(
+          Schema[Enumeration],
+          Enumeration(StringValue("foo")),
+          charSequenceToByteChunk("""{"oneOf":{"value":"foo"}}"""),
+          JsonCodec.Configuration(discriminatorSettings = JsonCodec.DiscriminatorSetting.NoDiscriminator)
+        )
+      },
+      test("ADT discriminator name config") {
+        assertEncodes(
+          Schema[Enumeration],
+          Enumeration(StringValue("foo")),
+          charSequenceToByteChunk("""{"oneOf":{"foo":"StringValue","value":"foo"}}"""),
+          JsonCodec.Configuration(discriminatorSettings = JsonCodec.DiscriminatorSetting.Name("foo"))
+        )
+      },
+      test("ADT discriminator name config with format") {
+        assertEncodes(
+          Schema[Enumeration],
+          Enumeration(StringValue("foo")),
+          charSequenceToByteChunk("""{"oneOf":{"foo":"string_value","value":"foo"}}"""),
+          JsonCodec.Configuration(
+            discriminatorSettings = JsonCodec.DiscriminatorSetting.Name("foo", JsonCodec.NameFormat.SnakeCase)
+          )
         )
       },
       test("ADT with annotation") {
@@ -371,6 +443,22 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Subscription.schema,
           Recurring("monthly", 10),
           charSequenceToByteChunk("""{"type":"recurring","period":"monthly","amount":10}""")
+        )
+      },
+      test("case name annotation with discriminator annotation ignores no discriminator config") {
+        assertEncodes(
+          Subscription.schema,
+          Recurring("monthly", 10),
+          charSequenceToByteChunk("""{"type":"recurring","period":"monthly","amount":10}"""),
+          JsonCodec.Configuration(discriminatorSettings = JsonCodec.DiscriminatorSetting.NoDiscriminator)
+        )
+      },
+      test("case name annotation with discriminator annotation ignores discriminator name config") {
+        assertEncodes(
+          Subscription.schema,
+          Recurring("monthly", 10),
+          charSequenceToByteChunk("""{"type":"recurring","period":"monthly","amount":10}"""),
+          JsonCodec.Configuration(discriminatorSettings = JsonCodec.DiscriminatorSetting.Name("foo"))
         )
       },
       test("case name annotation with empty fields") {
@@ -921,6 +1009,64 @@ object JsonCodecSpec extends ZIOSpecDefault {
           charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}""")
         )
       },
+      suiteAll("map case class field names") {
+        test("snake case") {
+          assertDecodes(
+            SearchRequest.schema,
+            SearchRequest("test", 0, 10, None),
+            charSequenceToByteChunk("""{"query":"test","page_number":0,"result_per_page":10}"""),
+            JsonCodec.Configuration(fieldNameFormat = JsonCodec.NameFormat.SnakeCase)
+          ) &>
+            assertDecodesToError(
+              SearchRequest.schema,
+              """{"query":"test","pageNumber":0,"resultPerPage":10}""",
+              JsonError.Message("missing") :: JsonError.ObjectAccess("page_number") :: Nil,
+              JsonCodec.Configuration(fieldNameFormat = JsonCodec.NameFormat.SnakeCase)
+            )
+        }
+        test("kebab case") {
+          assertDecodes(
+            SearchRequest.schema,
+            SearchRequest("test", 0, 10, None),
+            charSequenceToByteChunk("""{"query":"test","page-number":0,"result-per-page":10}"""),
+            JsonCodec.Configuration(fieldNameFormat = JsonCodec.NameFormat.KebabCase)
+          ) &>
+            assertDecodesToError(
+              SearchRequest.schema,
+              """{"query":"test","pageNumber":0,"resultPerPage":10}""",
+              JsonError.Message("missing") :: JsonError.ObjectAccess("page-number") :: Nil,
+              JsonCodec.Configuration(fieldNameFormat = JsonCodec.NameFormat.KebabCase)
+            )
+        }
+        test("camel case") {
+          assertDecodes(
+            SearchRequest.schema,
+            SearchRequest("test", 0, 10, None),
+            charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}"""),
+            JsonCodec.Configuration(fieldNameFormat = JsonCodec.NameFormat.CamelCase)
+          ) &>
+            assertDecodesToError(
+              SearchRequest.schema,
+              """{"query":"test","page_number":0,"result_per_page":10}""",
+              JsonError.Message("missing") :: JsonError.ObjectAccess("pageNumber") :: Nil,
+              JsonCodec.Configuration(fieldNameFormat = JsonCodec.NameFormat.CamelCase)
+            )
+        }
+        test("pascal case") {
+          assertDecodes(
+            SearchRequest.schema,
+            SearchRequest("test", 0, 10, None),
+            charSequenceToByteChunk("""{"Query":"test","PageNumber":0,"ResultPerPage":10}"""),
+            JsonCodec.Configuration(fieldNameFormat = JsonCodec.NameFormat.PascalCase)
+          ) &>
+            assertDecodesToError(
+              SearchRequest.schema,
+              """{"query":"test","page_number":0,"result_per_page":10}""",
+              JsonError.Message("missing") :: JsonError.ObjectAccess("Query") :: Nil,
+              JsonCodec.Configuration(fieldNameFormat = JsonCodec.NameFormat.PascalCase)
+            )
+        }
+      },
       test("reject extra fields") {
         assertDecodesToError(
           PersonWithRejectExtraFields.schema,
@@ -932,6 +1078,14 @@ object JsonCodecSpec extends ZIOSpecDefault {
             """{"extraField":10}""",
             JsonError.Message("extra field") :: Nil
           )
+      },
+      test("reject extra fields via config") {
+        assertDecodesToError(
+          personSchema,
+          """{"name":"test","age":10,"extraField":10}""",
+          JsonError.Message("extra field") :: Nil,
+          JsonCodec.Configuration(rejectExtraFields = true)
+        )
       },
       test("reject duplicated fields") {
         assertDecodesToError(
@@ -1100,6 +1254,40 @@ object JsonCodecSpec extends ZIOSpecDefault {
       }
     ),
     suite("enums")(
+      test("ADT with format") {
+        assertDecodes(
+          Enumeration.schema,
+          Enumeration(StringValue("foo")),
+          charSequenceToByteChunk("""{"oneOf":{"stringValue":{"value":"foo"}}}"""),
+          JsonCodec.Configuration(discriminatorSettings = JsonCodec.DiscriminatorSetting.ClassName(CamelCase))
+        )
+      },
+      test("ADT no discriminator config") {
+        assertDecodes(
+          Enumeration.schema,
+          Enumeration(StringValue("foo")),
+          charSequenceToByteChunk("""{"oneOf":{"value":"foo"}}"""),
+          JsonCodec.Configuration(discriminatorSettings = JsonCodec.DiscriminatorSetting.NoDiscriminator)
+        )
+      },
+      test("ADT discriminator name config") {
+        assertDecodes(
+          Enumeration.schema,
+          Enumeration(StringValue("foo")),
+          charSequenceToByteChunk("""{"oneOf":{"type":"StringValue", "value":"foo"}}}"""),
+          JsonCodec.Configuration(discriminatorSettings = JsonCodec.DiscriminatorSetting.Name("type"))
+        )
+      },
+      test("ADT discriminator name config with format") {
+        assertDecodes(
+          Enumeration.schema,
+          Enumeration(StringValue("foo")),
+          charSequenceToByteChunk("""{"oneOf":{"type":"stringValue","value":"foo"}}"""),
+          JsonCodec.Configuration(
+            discriminatorSettings = JsonCodec.DiscriminatorSetting.Name("type", JsonCodec.NameFormat.CamelCase)
+          )
+        )
+      },
       test("case name aliases - default") {
         assertDecodes(
           PaymentMethod.schema,
@@ -2292,6 +2480,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
 
   object SearchRequest {
     implicit val encoder: JsonEncoder[SearchRequest] = DeriveJsonEncoder.gen[SearchRequest]
+    implicit val schema: Schema[SearchRequest]       = DeriveSchema.gen[SearchRequest]
   }
 
   case class OptionalSearchRequest(
