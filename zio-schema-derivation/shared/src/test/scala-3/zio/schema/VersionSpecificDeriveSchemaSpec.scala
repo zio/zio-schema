@@ -81,6 +81,18 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
         )
         assert(Schema[AutoDerives])(hasSameSchema(expected))
       },
+      test("correctly assigns noDiscriminator to union") {
+        val derived: Schema[Int | String | Boolean] = DeriveSchema.gen
+        derived match {
+          case Schema.Enum3(id, case1, case2, case3, annotations) =>
+            assertTrue(id.name == "|") &&
+            assertTrue(case1.id == "1") &&
+            assertTrue(case2.id == "2") &&
+            assertTrue(case3.id == "3") &&
+            assertTrue(annotations == Chunk(noDiscriminator()))
+          case _ => assertTrue(false)
+        }
+      },
       test("correctly assigns simpleEnum to enum") {
         val derived: Schema[Colour] = DeriveSchema.gen[Colour]
         assertTrue(derived.annotations == Chunk(simpleEnum(true)))

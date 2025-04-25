@@ -271,10 +271,8 @@ object ProtobufCodec {
       context: EncoderContext,
       index: Int,
       field: Schema.Field[_, _]
-    ): EncoderContext = {
-      val fieldNumber = FieldMapping.getFieldNumber(field).getOrElse(index + 1)
-      context.copy(fieldNumber = Some(fieldNumber))
-    }
+    ): EncoderContext =
+      context.copy(fieldNumber = Some(FieldMapping.getFieldNumber(field).getOrElse(index + 1)))
 
     override protected def contextForTuple(context: EncoderContext, index: Int): EncoderContext =
       context.copy(fieldNumber = Some(index))
@@ -628,21 +626,21 @@ object ProtobufCodec {
         ReadingFieldResult.Finished()
       } else {
         keyDecoder(context) match {
-          case (wt, fieldNumber) =>
+          case (wt, fieldNum) =>
             val fieldMapping = fieldMappingCache.get(record)
-            fieldMapping.fieldNumberToIndex.get(fieldNumber) match {
-              case Some(index) => {
-                if (record.fields.isDefinedAt(index)) {
+            fieldMapping.fieldNumberToIndex.get(fieldNum) match {
+              case Some(idx) => {
+                if (record.fields.isDefinedAt(idx)) {
                   ReadingFieldResult.ReadField(wt match {
                     case LengthDelimited(width) =>
                       context.limitedTo(state, width)
                     case _ =>
                       context
-                  }, index)
+                  }, idx)
                 } else {
                   throw ExtraFields(
                     "Unknown",
-                    s"Failed to decode record. Schema does not contain field number $fieldNumber."
+                    s"Failed to decode record. Schema does not contain field number $fieldNum."
                   )
                 }
               }
@@ -667,7 +665,7 @@ object ProtobufCodec {
                   case _ =>
                     throw ExtraFields(
                       "Unknown",
-                      s"Failed to decode record. Schema does not contain field number $fieldNumber and it's length is unknown"
+                      s"Failed to decode record. Schema does not contain field number $fieldNum and it's length is unknown"
                     )
                 }
             }
@@ -721,17 +719,17 @@ object ProtobufCodec {
       cases: Chunk[Schema.Case[_, _]]
     ): (DecoderContext, Int) =
       keyDecoder(context) match {
-        case (wt, fieldNumber) if fieldNumber <= cases.length =>
+        case (wt, fieldNum) if fieldNum <= cases.length =>
           wt match {
             case LengthDelimited(width) =>
-              (context.limitedTo(state, width), fieldNumber - 1)
+              (context.limitedTo(state, width), fieldNum - 1)
             case _ =>
-              (context, fieldNumber - 1)
+              (context, fieldNum - 1)
           }
-        case (_, fieldNumber) =>
+        case (_, fieldNum) =>
           throw MissingField(
-            cases(fieldNumber - 1).schema,
-            s"Failed to decode enumeration. Schema does not contain field number $fieldNumber."
+            cases(fieldNum - 1).schema,
+            s"Failed to decode enumeration. Schema does not contain field number $fieldNum."
           )
       }
 
@@ -752,8 +750,8 @@ object ProtobufCodec {
           None
         case (LengthDelimited(width), 2) =>
           Some(context.limitedTo(state, width).copy(packed = canBePacked(schema.elementSchema)))
-        case (wt, fieldNumber) =>
-          throw MalformedField(schema, s"Invalid wire type ($wt) or field number ($fieldNumber) for packed sequence")
+        case (wt, fieldNum) =>
+          throw MalformedField(schema, s"Invalid wire type ($wt) or field number ($fieldNum) for packed sequence")
       }
 
     override protected def startCreatingOneSequenceElement(
@@ -799,8 +797,8 @@ object ProtobufCodec {
           None
         case (LengthDelimited(width), 2) =>
           Some(context.limitedTo(state, width).copy(packed = canBePacked(schema.keySchema.zip(schema.valueSchema))))
-        case (wt, fieldNumber) =>
-          throw MalformedField(schema, s"Invalid wire type ($wt) or field number ($fieldNumber) for packed sequence")
+        case (wt, fieldNum) =>
+          throw MalformedField(schema, s"Invalid wire type ($wt) or field number ($fieldNum) for packed sequence")
       }
 
     override protected def startCreatingOneDictionaryElement(
@@ -850,8 +848,8 @@ object ProtobufCodec {
           None
         case (LengthDelimited(width), 2) =>
           Some(context.limitedTo(state, width).copy(packed = canBePacked(schema.elementSchema)))
-        case (wt, fieldNumber) =>
-          throw MalformedField(schema, s"Invalid wire type ($wt) or field number ($fieldNumber) for packed sequence")
+        case (wt, fieldNum) =>
+          throw MalformedField(schema, s"Invalid wire type ($wt) or field number ($fieldNum) for packed sequence")
       }
 
     override protected def startCreatingOneSetElement(context: DecoderContext, schema: Schema.Set[_]): DecoderContext =
@@ -887,8 +885,8 @@ object ProtobufCodec {
         case (LengthDelimited(0), 1)     => None
         case (LengthDelimited(width), 2) => Some(context.limitedTo(state, width))
         case (_, 2)                      => Some(context)
-        case (_, fieldNumber) =>
-          throw MalformedField(schema, s"Invalid field number $fieldNumber for option")
+        case (_, fieldNum) =>
+          throw MalformedField(schema, s"Invalid field number $fieldNum for option")
       }
 
     override protected def createOptional(
@@ -903,10 +901,10 @@ object ProtobufCodec {
       schema: Schema.Either[_, _]
     ): Either[DecoderContext, DecoderContext] =
       keyDecoder(context) match {
-        case (_, fieldNumber) if fieldNumber == 1 => Left(context)
-        case (_, fieldNumber) if fieldNumber == 2 => Right(context)
-        case (_, fieldNumber) =>
-          throw ExtraFields(fieldNumber.toString, s"Invalid field number ($fieldNumber) for either")
+        case (_, fieldNum) if fieldNum == 1 => Left(context)
+        case (_, fieldNum) if fieldNum == 2 => Right(context)
+        case (_, fieldNum) =>
+          throw ExtraFields(fieldNum.toString, s"Invalid field number ($fieldNum) for either")
       }
 
     override protected def createEither(
@@ -921,9 +919,9 @@ object ProtobufCodec {
       schema: Schema.Fallback[_, _]
     ): Fallback[DecoderContext, DecoderContext] =
       keyDecoder(context) match {
-        case (_, fieldNumber) if fieldNumber == 1 => Fallback.Left(context)
-        case (_, fieldNumber) if fieldNumber == 2 => Fallback.Right(context)
-        case (_, fieldNumber) if fieldNumber == 3 => Fallback.Both(context, context)
+        case (_, fieldNum) if fieldNum == 1 => Fallback.Left(context)
+        case (_, fieldNum) if fieldNum == 2 => Fallback.Right(context)
+        case (_, fieldNum) if fieldNum == 3 => Fallback.Both(context, context)
         case _ =>
           throw ExtraFields(fieldNumber.toString, s"Invalid field number ($fieldNumber) for fallback")
       }
@@ -938,8 +936,8 @@ object ProtobufCodec {
             case LengthDelimited(width) => context.limitedTo(state, width)
             case _                      => context
           }
-        case (_, fieldNumber) =>
-          throw MalformedField(schema, s"Invalid field number $fieldNumber for fallback's right field")
+        case (_, fieldNum) =>
+          throw MalformedField(schema, s"Invalid field number $fieldNum for fallback's right field")
       }
 
     override protected def createFallback(
@@ -959,8 +957,8 @@ object ProtobufCodec {
             case LengthDelimited(width) => context.limitedTo(state, width)
             case _                      => context
           }
-        case (_, fieldNumber) =>
-          throw MalformedField(schema, s"Invalid field number $fieldNumber for tuple's first field")
+        case (_, fieldNum) =>
+          throw MalformedField(schema, s"Invalid field number $fieldNum for tuple's first field")
       }
 
     override protected def startReadingSecondTupleElement(
@@ -976,8 +974,8 @@ object ProtobufCodec {
             case LengthDelimited(width) => context.limitedTo(state, width)
             case _                      => context
           }
-        case (_, fieldNumber) =>
-          throw MalformedField(schema, s"Invalid field number $fieldNumber for tuple's second field")
+        case (_, fieldNum) =>
+          throw MalformedField(schema, s"Invalid field number $fieldNum for tuple's second field")
       }
 
     override protected def createTuple(
@@ -1015,29 +1013,29 @@ object ProtobufCodec {
      * 0 & 0x07 => 0, 1 & 0x07 => 1, 2 & 0x07 => 2, 9 & 0x07 => 1, 15 & 0x07 => 7
      */
     private[codec] def keyDecoder(context: DecoderContext): (WireType, Int) = {
-      val key         = varIntDecoder(context)
-      val fieldNumber = (key >>> 3).toInt
-      if (fieldNumber < 1) {
-        throw ExtraFields(fieldNumber.toString, s"Failed decoding key. Invalid field number $fieldNumber")
+      val key      = varIntDecoder(context)
+      val fieldNum = (key >>> 3).toInt
+      if (fieldNum < 1) {
+        throw ExtraFields(fieldNum.toString, s"Failed decoding key. Invalid field number $fieldNum")
       } else {
         key & 0x07 match {
-          case 0 => (WireType.VarInt, fieldNumber)
-          case 1 => (WireType.Bit64, fieldNumber)
+          case 0 => (WireType.VarInt, fieldNum)
+          case 1 => (WireType.Bit64, fieldNum)
           case 2 =>
             val length = varIntDecoder(context)
-            (WireType.LengthDelimited(length.toInt), fieldNumber)
-          case 3 => (WireType.StartGroup, fieldNumber)
-          case 4 => (WireType.EndGroup, fieldNumber)
-          case 5 => (WireType.Bit32, fieldNumber)
+            (WireType.LengthDelimited(length.toInt), fieldNum)
+          case 3 => (WireType.StartGroup, fieldNum)
+          case 4 => (WireType.EndGroup, fieldNum)
+          case 5 => (WireType.Bit32, fieldNum)
           case n =>
-            throw ExtraFields(fieldNumber.toString, s"Failed decoding key. Unknown wire type $n")
+            throw ExtraFields(fieldNum.toString, s"Failed decoding key. Unknown wire type $n")
         }
       }
     }
 
     private def rawFieldDecoder(context: DecoderContext, expectedFieldNumber: Int): DecoderContext =
       keyDecoder(context) match {
-        case (wt, fieldNumber) if fieldNumber == expectedFieldNumber =>
+        case (wt, fieldNum) if fieldNum == expectedFieldNumber =>
           wt match {
             case LengthDelimited(width) =>
               context.limitedTo(state, width)

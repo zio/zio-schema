@@ -238,6 +238,36 @@ object BsonSchemaCodecSpec extends ZIOSpecDefault {
             doc("b" -> int(1)) -> SchemaConfig.TransientField("defaultValue", 1),
             doc("a" -> str("str"), "b" -> int(1)) -> SchemaConfig.TransientField("str", 1)
           )
+        ),
+        suite("Config with DiscriminatorField")(
+          testEncodeExamples[BsonConfig.WithDiscriminatorOptions](
+            BsonConfig.WithDiscriminatorOptions.A("str") -> doc("type" -> str("A"), "s" -> str("str")),
+            BsonConfig.WithDiscriminatorOptions.B("str") -> doc("type" -> str("B"), "s" -> str("str"))
+          ),
+          testDecodeExamples[BsonConfig.WithDiscriminatorOptions](
+            doc("type" -> str("A"), "s" -> str("str")) -> BsonConfig.WithDiscriminatorOptions.A("str"),
+            doc("type" -> str("B"), "s" -> str("str")) -> BsonConfig.WithDiscriminatorOptions.B("str")
+          )
+        ),
+        suite("Config with WrapperWithClassNameField")(
+          testEncodeExamples[BsonConfig.WithoutDiscriminatorOptions](
+            BsonConfig.WithoutDiscriminatorOptions.A("str") -> doc("A" -> doc("s" -> str("str"))),
+            BsonConfig.WithoutDiscriminatorOptions.B("str") -> doc("B" -> doc("s" -> str("str")))
+          ),
+          testDecodeExamples[BsonConfig.WithoutDiscriminatorOptions](
+            doc("A" -> doc("s" -> str("str"))) -> BsonConfig.WithoutDiscriminatorOptions.A("str"),
+            doc("B" -> doc("s" -> str("str"))) -> BsonConfig.WithoutDiscriminatorOptions.B("str")
+          )
+        ),
+        suite("Config with classNameTransform")(
+          testEncodeExamples[BsonConfig.WithClassNameTransformOptions](
+            BsonConfig.WithClassNameTransformOptions.A("str") -> doc("a" -> doc("s" -> str("str"))),
+            BsonConfig.WithClassNameTransformOptions.B("str") -> doc("b" -> doc("s" -> str("str")))
+          ),
+          testDecodeExamples[BsonConfig.WithClassNameTransformOptions](
+            doc("a" -> doc("s" -> str("str"))) -> BsonConfig.WithClassNameTransformOptions.A("str"),
+            doc("b" -> doc("s" -> str("str"))) -> BsonConfig.WithClassNameTransformOptions.B("str")
+          )
         )
       ),
       suite("bson annotations")(
