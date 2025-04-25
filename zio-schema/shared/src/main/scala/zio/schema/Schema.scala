@@ -126,14 +126,18 @@ sealed trait Schema[A] {
 
   def repeated: Schema[Chunk[A]] = Schema.chunk(self)
 
-  def serializable: Schema[Schema[A]] =
-    MetaSchema
-      .fromSchema(self)
-      .asInstanceOf[Schema[Schema[_]]]
-      .transformOrFail(
-        s => s.coerce(self),
-        s => Right(s.ast.toSchema)
+  def serializable: Schema[Schema[A]] = {
+    ast
+      .toSchema
+      .asInstanceOf[Schema[Any]]
+      .transformOrFail[Schema[A]](
+        {
+          case s: Schema[_] => s.coerce(self)
+          case _ => Left("schema value type must be schema")
+        },
+        (s: Schema[A]) => Right(s.ast.toSchema.asInstanceOf[Schema[Any]])
       )
+  }
 
   def toDynamic(value: A): DynamicValue =
     DynamicValue.fromSchemaAndValue(self, value)
