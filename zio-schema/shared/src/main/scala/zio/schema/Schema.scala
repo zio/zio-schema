@@ -126,18 +126,15 @@ sealed trait Schema[A] {
 
   def repeated: Schema[Chunk[A]] = Schema.chunk(self)
 
-  def serializable: Schema[Schema[A]] = {
-    ast
+  def serializable: Schema[Schema[A]] =
+    MetaSchema
+      .fromSchema(self)
       .toSchema
-      .asInstanceOf[Schema[Any]]
-      .transformOrFail[Schema[A]](
-        {
-          case s: Schema[_] => s.coerce(self)
-          case _ => Left("schema value type must be schema")
-        },
-        (s: Schema[A]) => Right(s.ast.toSchema.asInstanceOf[Schema[Any]])
+      .asInstanceOf[Schema[Schema[_]]]
+      .transformOrFail(
+        s => s.coerce(self),
+        s => Right(s.ast.toSchema)
       )
-  }
 
   def toDynamic(value: A): DynamicValue =
     DynamicValue.fromSchemaAndValue(self, value)
@@ -406,6 +403,9 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
 
     def caseOf(z: Z): Option[Case[Z, _]] = cases.find(_.isCase(z))
 
+    val discriminatorName: Option[String] =
+      annotations.collectFirst { case d: discriminatorName => d.tag }
+
     val noDiscriminator: Boolean =
       annotations.exists(_.isInstanceOf[noDiscriminator])
 
@@ -436,15 +436,21 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     val transient: Boolean =
       annotations.exists(_.isInstanceOf[transientField])
 
-    val nameAndAliases: scala.collection.immutable.Set[String] =
-      annotations.collect {
-        case aliases: fieldNameAliases => aliases.aliases
-        case f: fieldName              => Seq(f.name)
-      }.flatten.toSet + name
-
     val fieldName: String = annotations.collectFirst {
       case f: fieldName => f.name
     }.getOrElse(name)
+
+    val aliases: scala.collection.immutable.Set[String] = {
+      annotations.foldLeft(scala.collection.immutable.Set.empty[String]) { (acc, annotation) =>
+        annotation match {
+          case aliases: fieldNameAliases => acc ++ aliases.aliases
+          case _                         => acc
+        }
+      }
+    }
+
+    val nameAndAliases: scala.collection.immutable.Set[String] =
+      aliases + fieldName
 
     override def toString: String = s"Field($name,$schema)"
   }
@@ -491,6 +497,9 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     lazy val nonTransientFields: Chunk[Field[R, _]] =
       fields.filterNot(_.transient)
 
+    val rejectExtraFields: Boolean =
+      annotations.exists(_.isInstanceOf[rejectExtraFields])
+
     def construct(fieldValues: Chunk[Any])(implicit unsafe: Unsafe): scala.util.Either[String, R]
 
     def deconstruct(value: R)(implicit unsafe: Unsafe): Chunk[Option[Any]]
@@ -532,8 +541,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def annotate(annotation: Any): Sequence[Col, Elem, I] =
       copy(annotations = (annotations :+ annotation).distinct)
 
-    override def defaultValue: scala.util.Either[String, Col] =
-      elementSchema.defaultValue.map(fromChunk.compose(Chunk(_)))
+    override def defaultValue: scala.util.Either[String, Col] = Right(empty)
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, elementSchema)
 
@@ -562,6 +570,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def serializable: Schema[Schema[B]] =
       MetaSchema
         .fromSchema(schema)
+        .toSchema
         .asInstanceOf[Schema[Schema[_]]]
         .transformOrFail(
           s => s.coerce(schema).flatMap(s1 => Right(s1.transformOrFail(f, g))),
@@ -834,10 +843,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
     override def annotate(annotation: Any): Map[K, V] = copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, scala.collection.immutable.Map[K, V]] =
-      keySchema.defaultValue.flatMap(
-        defaultKey =>
-          valueSchema.defaultValue.map(defaultValue => scala.collection.immutable.Map(defaultKey -> defaultValue))
-      )
+      Right(empty)
 
     override val fromChunk: Chunk[(K, V)] => scala.collection.immutable.Map[K, V] = _.toMap
 
@@ -862,9 +868,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
       copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.Either[String, prelude.NonEmptyMap[K, V]] =
-      keySchema.defaultValue.flatMap(
-        defaultKey => valueSchema.defaultValue.map(defaultValue => prelude.NonEmptyMap(defaultKey -> defaultValue))
-      )
+      Left("NonEmptyMap has no default value")
 
     override def fromChunk: Chunk[(K, V)] => prelude.NonEmptyMap[K, V] =
       chunk => fromChunkOption(chunk).getOrElse(throw new IllegalArgumentException("NonEmptyMap cannot be empty"))
@@ -905,7 +909,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
       copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, Col] =
-      elementSchema.defaultValue.map(fromChunk.compose(Chunk(_)))
+      Left(s"$identity cannot be empty")
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elm] = b.makeTraversal(self, elementSchema)
 
@@ -926,7 +930,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality {
       copy(annotations = (annotations :+ annotation).distinct)
 
     override def defaultValue: scala.util.Either[String, scala.collection.immutable.Set[A]] =
-      elementSchema.defaultValue.map(scala.collection.immutable.Set(_))
+      Right(empty)
 
     override val fromChunk: Chunk[A] => scala.collection.immutable.Set[A] = _.toSet
 

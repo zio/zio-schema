@@ -1,5 +1,6 @@
 package zio.schema
 
+import scala.annotation.nowarn
 /**
  * Useful to create factory methods.
  * 
@@ -14,7 +15,7 @@ trait Factory[A] {
 
 object Factory {
 
-  inline implicit def factory[A]: Factory[A] = new Factory[A] {
+  @nowarn inline implicit def factory[A]: Factory[A] = new Factory[A] {
     override def derive[F[_]](deriver: Deriver[F])(implicit schema: Schema[A]): F[A] = Derive.derive[F, A](deriver)(schema)
   }
 }
