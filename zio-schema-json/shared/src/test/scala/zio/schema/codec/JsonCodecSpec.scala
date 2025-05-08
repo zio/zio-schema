@@ -10,12 +10,12 @@ import zio.json.JsonDecoder.JsonError
 import zio.json.ast.Json
 import zio.json.{ DeriveJsonEncoder, JsonEncoder }
 import zio.schema.CaseSet._
+import zio.schema.NameFormat.CamelCase
 import zio.schema._
 import zio.schema.annotation._
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.codec.JsonCodec.ExplicitConfig
 import zio.schema.codec.JsonCodec.JsonEncoder.charSequenceToByteChunk
-import zio.schema.codec.JsonCodec.NameFormat.CamelCase
 import zio.schema.codec.JsonCodecSpec.PaymentMethod.{ CreditCard, PayPal, WireTransfer }
 import zio.schema.codec.JsonCodecSpec.Subscription.{ OneTime, Recurring }
 import zio.schema.meta.MetaSchema
@@ -131,7 +131,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[SearchRequest],
           SearchRequest("foo", 10, 20, None),
           """{"query":"foo","page_number":10,"result_per_page":20}""",
-          JsonCodec.Configuration(ExplicitConfig(encoding = false), fieldNameFormat = JsonCodec.NameFormat.SnakeCase)
+          JsonCodec.Configuration(ExplicitConfig(encoding = false), fieldNameFormat = NameFormat.SnakeCase)
         )
       }
       test("kebab case") {
@@ -139,7 +139,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[SearchRequest],
           SearchRequest("foo", 10, 20, None),
           """{"query":"foo","page-number":10,"result-per-page":20}""",
-          JsonCodec.Configuration(ExplicitConfig(encoding = false), fieldNameFormat = JsonCodec.NameFormat.KebabCase)
+          JsonCodec.Configuration(ExplicitConfig(encoding = false), fieldNameFormat = NameFormat.KebabCase)
         )
       }
       test("camel case") {
@@ -147,7 +147,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[SearchRequest],
           SearchRequest("foo", 10, 20, None),
           """{"query":"foo","pageNumber":10,"resultPerPage":20}""",
-          JsonCodec.Configuration(ExplicitConfig(encoding = false), fieldNameFormat = JsonCodec.NameFormat.CamelCase)
+          JsonCodec.Configuration(ExplicitConfig(encoding = false), fieldNameFormat = NameFormat.CamelCase)
         )
       }
       test("pascal case") {
@@ -155,7 +155,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Schema[SearchRequest],
           SearchRequest("foo", 10, 20, None),
           """{"Query":"foo","PageNumber":10,"ResultPerPage":20}""",
-          JsonCodec.Configuration(ExplicitConfig(encoding = false), fieldNameFormat = JsonCodec.NameFormat.PascalCase)
+          JsonCodec.Configuration(ExplicitConfig(encoding = false), fieldNameFormat = NameFormat.PascalCase)
         )
       }
 
@@ -380,7 +380,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Enumeration(StringValue("foo")),
           charSequenceToByteChunk("""{"oneOf":{"stringValue":{"value":"foo"}}}"""),
           JsonCodec.Configuration(
-            discriminatorSettings = JsonCodec.DiscriminatorSetting.ClassName(JsonCodec.NameFormat.CamelCase)
+            discriminatorSettings = JsonCodec.DiscriminatorSetting.ClassName(NameFormat.CamelCase)
           )
         )
       },
@@ -406,7 +406,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Enumeration(StringValue("foo")),
           charSequenceToByteChunk("""{"oneOf":{"foo":"string_value","value":"foo"}}"""),
           JsonCodec.Configuration(
-            discriminatorSettings = JsonCodec.DiscriminatorSetting.Name("foo", JsonCodec.NameFormat.SnakeCase)
+            discriminatorSettings = JsonCodec.DiscriminatorSetting.Name("foo", NameFormat.SnakeCase)
           )
         )
       },
@@ -1015,13 +1015,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
             SearchRequest.schema,
             SearchRequest("test", 0, 10, None),
             charSequenceToByteChunk("""{"query":"test","page_number":0,"result_per_page":10}"""),
-            JsonCodec.Configuration(fieldNameFormat = JsonCodec.NameFormat.SnakeCase)
+            JsonCodec.Configuration(fieldNameFormat = NameFormat.SnakeCase)
           ) &>
             assertDecodesToError(
               SearchRequest.schema,
               """{"query":"test","pageNumber":0,"resultPerPage":10}""",
               JsonError.Message("missing") :: JsonError.ObjectAccess("page_number") :: Nil,
-              JsonCodec.Configuration(fieldNameFormat = JsonCodec.NameFormat.SnakeCase)
+              JsonCodec.Configuration(fieldNameFormat = NameFormat.SnakeCase)
             )
         }
         test("kebab case") {
@@ -1029,13 +1029,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
             SearchRequest.schema,
             SearchRequest("test", 0, 10, None),
             charSequenceToByteChunk("""{"query":"test","page-number":0,"result-per-page":10}"""),
-            JsonCodec.Configuration(fieldNameFormat = JsonCodec.NameFormat.KebabCase)
+            JsonCodec.Configuration(fieldNameFormat = NameFormat.KebabCase)
           ) &>
             assertDecodesToError(
               SearchRequest.schema,
               """{"query":"test","pageNumber":0,"resultPerPage":10}""",
               JsonError.Message("missing") :: JsonError.ObjectAccess("page-number") :: Nil,
-              JsonCodec.Configuration(fieldNameFormat = JsonCodec.NameFormat.KebabCase)
+              JsonCodec.Configuration(fieldNameFormat = NameFormat.KebabCase)
             )
         }
         test("camel case") {
@@ -1043,13 +1043,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
             SearchRequest.schema,
             SearchRequest("test", 0, 10, None),
             charSequenceToByteChunk("""{"query":"test","pageNumber":0,"resultPerPage":10}"""),
-            JsonCodec.Configuration(fieldNameFormat = JsonCodec.NameFormat.CamelCase)
+            JsonCodec.Configuration(fieldNameFormat = NameFormat.CamelCase)
           ) &>
             assertDecodesToError(
               SearchRequest.schema,
               """{"query":"test","page_number":0,"result_per_page":10}""",
               JsonError.Message("missing") :: JsonError.ObjectAccess("pageNumber") :: Nil,
-              JsonCodec.Configuration(fieldNameFormat = JsonCodec.NameFormat.CamelCase)
+              JsonCodec.Configuration(fieldNameFormat = NameFormat.CamelCase)
             )
         }
         test("pascal case") {
@@ -1057,13 +1057,13 @@ object JsonCodecSpec extends ZIOSpecDefault {
             SearchRequest.schema,
             SearchRequest("test", 0, 10, None),
             charSequenceToByteChunk("""{"Query":"test","PageNumber":0,"ResultPerPage":10}"""),
-            JsonCodec.Configuration(fieldNameFormat = JsonCodec.NameFormat.PascalCase)
+            JsonCodec.Configuration(fieldNameFormat = NameFormat.PascalCase)
           ) &>
             assertDecodesToError(
               SearchRequest.schema,
               """{"query":"test","page_number":0,"result_per_page":10}""",
               JsonError.Message("missing") :: JsonError.ObjectAccess("Query") :: Nil,
-              JsonCodec.Configuration(fieldNameFormat = JsonCodec.NameFormat.PascalCase)
+              JsonCodec.Configuration(fieldNameFormat = NameFormat.PascalCase)
             )
         }
       },
@@ -1284,7 +1284,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Enumeration(StringValue("foo")),
           charSequenceToByteChunk("""{"oneOf":{"type":"stringValue","value":"foo"}}"""),
           JsonCodec.Configuration(
-            discriminatorSettings = JsonCodec.DiscriminatorSetting.Name("type", JsonCodec.NameFormat.CamelCase)
+            discriminatorSettings = JsonCodec.DiscriminatorSetting.Name("type", NameFormat.CamelCase)
           )
         )
       },
