@@ -74,6 +74,12 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
       this.treatStreamsAsArrays,
       this.explicitNulls
     )
+
+    def copy(ignoreEmptyCollections: Boolean, treatStreamsAsArrays: Boolean): Config = new Config(
+      ignoreEmptyCollections,
+      treatStreamsAsArrays,
+      this.explicitNulls
+    )
   }
 
   @deprecated(
