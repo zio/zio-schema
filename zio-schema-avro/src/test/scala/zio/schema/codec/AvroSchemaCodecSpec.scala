@@ -157,6 +157,18 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
 
             assert(result)(isLeft(containsString("""0invalid""")))
           },
+          test("support default values for record fields") {
+            val schema = DeriveSchema.gen[SpecTestData.DefaultFieldValueRecord]
+            val result = AvroSchemaCodec.encode(schema)
+
+            assert(result)(
+              isRight(
+                equalTo(
+                  """{"type":"record","name":"DefaultFieldValueRecord","fields":[{"name":"s","type":"string","default":"x"},{"name":"b","type":"boolean","default":true}]}"""
+                )
+              )
+            )
+          },
           test("pick up name from annotation") {
             val schema = DeriveSchema.gen[SpecTestData.NamedRecord]
             val result = AvroSchemaCodec.encode(schema)
@@ -1989,6 +2001,11 @@ object SpecTestData {
   }
 
   case class Record(s: String, b: Boolean)
+
+  case class DefaultFieldValueRecord(
+    @AvroAnnotations.default("x") s: String = "x",
+    @AvroAnnotations.default(java.lang.Boolean.valueOf(true)) b: Boolean = true
+  )
 
   @AvroAnnotations.name("MyNamedRecord")
   case class NamedRecord(s: String, b: Boolean)

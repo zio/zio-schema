@@ -23,7 +23,7 @@ import java.util.UUID
 import org.apache.avro.generic.GenericData
 
 import zio._
-import zio.schema.codec.AvroAnnotations.avroEnum
+import zio.schema.codec.AvroAnnotations._
 import zio.schema.{ DeriveSchema, Fallback, Schema }
 import zio.stream.ZStream
 import zio.test._
@@ -75,30 +75,30 @@ object AvroCodecSpec extends ZIOSpecDefault {
   }
 
   case class HighArity(
-    f1: Int = 1,
-    f2: Int = 2,
-    f3: Int = 3,
-    f4: Int = 4,
-    f5: Int = 5,
-    f6: Int = 6,
-    f7: Int = 7,
-    f8: Int = 8,
-    f9: Int = 9,
-    f10: Int = 10,
-    f11: Int = 11,
-    f12: Int = 12,
-    f13: Int = 13,
-    f14: Int = 14,
-    f15: Int = 15,
-    f16: Int = 16,
-    f17: Int = 17,
-    f18: Int = 18,
-    f19: Int = 19,
-    f20: Int = 20,
-    f21: Int = 21,
-    f22: Int = 22,
-    f23: Int = 23,
-    f24: Int = 24
+    @default(java.lang.Integer.valueOf(1)) f1: Int = 1,
+    @default(java.lang.Integer.valueOf(2)) f2: Int = 2,
+    @default(java.lang.Integer.valueOf(3)) f3: Int = 3,
+    @default(java.lang.Integer.valueOf(4)) f4: Int = 4,
+    @default(java.lang.Integer.valueOf(5)) f5: Int = 5,
+    @default(java.lang.Integer.valueOf(6)) f6: Int = 6,
+    @default(java.lang.Integer.valueOf(7)) f7: Int = 7,
+    @default(java.lang.Integer.valueOf(8)) f8: Int = 8,
+    @default(java.lang.Integer.valueOf(9)) f9: Int = 9,
+    @default(java.lang.Integer.valueOf(10)) f10: Int = 10,
+    @default(java.lang.Integer.valueOf(11)) f11: Int = 11,
+    @default(java.lang.Integer.valueOf(12)) f12: Int = 12,
+    @default(java.lang.Integer.valueOf(13)) f13: Int = 13,
+    @default(java.lang.Integer.valueOf(14)) f14: Int = 14,
+    @default(java.lang.Integer.valueOf(15)) f15: Int = 15,
+    @default(java.lang.Integer.valueOf(16)) f16: Int = 16,
+    @default(java.lang.Integer.valueOf(17)) f17: Int = 17,
+    @default(java.lang.Integer.valueOf(18)) f18: Int = 18,
+    @default(java.lang.Integer.valueOf(19)) f19: Int = 19,
+    @default(java.lang.Integer.valueOf(20)) f20: Int = 20,
+    @default(java.lang.Integer.valueOf(21)) f21: Int = 21,
+    @default(java.lang.Integer.valueOf(22)) f22: Int = 22,
+    @default(java.lang.Integer.valueOf(23)) f23: Int = 23,
+    @default(java.lang.Integer.valueOf(24)) f24: Int = 24
   )
 
   object HighArity {
