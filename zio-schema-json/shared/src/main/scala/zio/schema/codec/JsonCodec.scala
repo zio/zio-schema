@@ -1207,8 +1207,6 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
         private[this] val leftDecoder  = schemaDecoder(schema.left, config)
         private[this] val rightDecoder = schemaDecoder(schema.right, config)
 
-        case class BadEnd() extends Throwable
-
         def unsafeDecode(trace: List[JsonError], in: RetractReader): Fallback[A, B] = {
           var left: Option[A]  = None
           var right: Option[B] = None
@@ -1246,13 +1244,12 @@ JsonCodec.Configuration makes it now possible to configure en-/decoding of empty
               }
               try lexer.nextArrayElement(trace, in)
               catch {
-                case _: UnsafeJson => throw BadEnd()
+                case _: UnsafeJson => ()
               }
             }
 
           } catch {
             // It's not an array, so it is of type A or B
-            case BadEnd() => ()
             case _: UnsafeJson =>
               in.retract()
               val rr = RecordingReader(in)
