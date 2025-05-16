@@ -5,8 +5,6 @@ import com.typesafe.tools.mima.plugin.MimaKeys.mimaPreviousArtifacts
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
-addCompilerPlugin("com.lihaoyi" %% "unroll-plugin" % "0.1.12")
-
 inThisBuild(
   List(
     name := "zio-schema",
