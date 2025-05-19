@@ -45,7 +45,7 @@ object BuildHelper {
   val msgpackVersion               = "0.9.9"
   val jacksonScalaVersion          = "2.19.0"
   val thriftVersion                = "0.21.0"
-  val javaxAnnotationApiVersion    = "1.3.5"
+  val javaxAnnotationApiVersion    = "3.0.0"
   val scalaJavaTimeVersion         = "2.6.0"
 
   def macroDefinitionSettings = Seq(
