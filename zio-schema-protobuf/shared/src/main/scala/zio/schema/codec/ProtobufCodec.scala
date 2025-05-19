@@ -15,7 +15,7 @@ import zio.schema.annotation.fieldDefaultValue
 import zio.schema.codec.DecodeError.{ ExtraFields, MalformedField, MissingField }
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZPipeline
-import zio.{ Cause, Chunk, ChunkBuilder, Unsafe, ZIO }
+import zio.{ Cause, Chunk, ChunkBuilder, Unsafe }
 
 object ProtobufCodec {
 
@@ -25,15 +25,13 @@ object ProtobufCodec {
         new Decoder(whole).decode(schema)
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
-        ZPipeline.mapChunksZIO(chunk => ZIO.fromEither(new Decoder(chunk).decode(schema).map(Chunk(_))))
+        ZPipeline.mapChunksEither(bytes => new Decoder(bytes).decode(schema).map(Chunk.single))
 
       override def encode(value: A): Chunk[Byte] =
         Encoder.process(schema, value)
 
       override def streamEncoder: ZPipeline[Any, Nothing, A, Byte] =
-        ZPipeline.mapChunks(
-          _.flatMap(encode)
-        )
+        ZPipeline.mapChunks(_.flatMap(encode))
     }
 
   object Protobuf {
