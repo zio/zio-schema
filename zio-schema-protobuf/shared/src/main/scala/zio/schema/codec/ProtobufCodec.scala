@@ -15,7 +15,7 @@ import zio.schema.annotation.fieldDefaultValue
 import zio.schema.codec.DecodeError.{ ExtraFields, MalformedField, MissingField }
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZPipeline
-import zio.{ Cause, Chunk, ChunkBuilder, Unsafe, ZIO }
+import zio.{ Cause, Chunk, ChunkBuilder, Unsafe }
 
 object ProtobufCodec {
 
