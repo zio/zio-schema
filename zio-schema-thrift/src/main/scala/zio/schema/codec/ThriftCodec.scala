@@ -14,7 +14,7 @@ import zio.schema.MutableSchemaBasedValueBuilder.{ CreateValueFromSchemaError, R
 import zio.schema._
 import zio.schema.codec.DecodeError.{ EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath }
 import zio.stream.ZPipeline
-import zio.{ Cause, Chunk, Unsafe, ZIO }
+import zio.{ Cause, Chunk, Unsafe }
 
 object ThriftCodec {
 

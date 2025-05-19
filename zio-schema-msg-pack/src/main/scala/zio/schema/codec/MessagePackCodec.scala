@@ -6,7 +6,7 @@ import java.time._
 import zio.schema.codec.DecodeError.ReadError
 import zio.schema.{ Schema, StandardType }
 import zio.stream.ZPipeline
-import zio.{ Cause, Chunk, ZIO }
+import zio.{ Cause, Chunk }
 
 object MessagePackCodec {
   implicit def messagePackCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
