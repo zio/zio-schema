@@ -116,7 +116,7 @@ sealed trait DynamicValue {
                 vDyn.toTypedValueLazyValidation(schema.valueSchema)
               )((k, v) => (k, v))
           })
-          .map(_.toMap)
+          .map(pairs => ListMap(pairs.toSeq: _*))
 
       case (_, l @ Schema.Lazy(_)) =>
         toTypedValueLazyValidation(l.schema)
@@ -219,7 +219,7 @@ object DynamicValue {
             Validation.fail(DecodeError.IncompatibleShape(values, structure))
         }
       })
-      .map(_.to(ListMap))
+      .map(pairs => ListMap(pairs.toSeq: _*))
   }
 
   final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
