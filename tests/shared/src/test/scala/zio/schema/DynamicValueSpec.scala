@@ -4,7 +4,8 @@ import zio._
 import zio.schema.Schema.Primitive
 import zio.schema.SchemaGen._
 import zio.test.Assertion._
-import zio.test.{ Sized, TestConfig, _ }
+import zio.test.{ Sized, TestConfig, Gen, _ }
+import scala.collection.immutable.ListMap
 
 object DynamicValueSpec extends ZIOSpecDefault {
 
@@ -100,6 +101,28 @@ object DynamicValueSpec extends ZIOSpecDefault {
             assertTrue(json2 == Right(json))
           }
         } @@ TestAspect.size(250) @@ TestAspect.ignore
+      ),
+      suite("error accumulation")(
+        test("accumulates errors for multiple invalid fields") {
+          val schema = Schema.CaseClass2[String, Int, (String, Int)](
+            id0 = TypeId.parse("Test"),
+            field01 = Schema.Field("a", Schema[String], get0 = _._1, set0 = (t, v) => (v, t._2)),
+            field02 = Schema.Field("b", Schema[Int], get0 = _._2, set0 = (t, v) => (t._1, v)),
+            construct0 = (a, b) => (a, b)
+          )
+          val dynamic = DynamicValue.Record(
+            TypeId.parse("Test"),
+            ListMap(
+              "a" -> DynamicValue.Primitive("notAnInt", StandardType.StringType),
+              "b" -> DynamicValue.Primitive("alsoNotAnInt", StandardType.StringType)
+            )
+          )
+          val result = dynamic.toTypedValueV(schema)
+          assertTrue(
+            result.isFailure &&
+            result.fold(errors => errors.size == 1, _ => false)
+          )
+        }
       )
     )
 

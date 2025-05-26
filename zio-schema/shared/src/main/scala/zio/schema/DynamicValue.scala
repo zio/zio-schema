@@ -9,6 +9,8 @@ import scala.collection.immutable.ListMap
 import zio.schema.codec.DecodeError
 import zio.schema.meta.{ MetaSchema, Migration }
 import zio.{ Cause, Chunk, Unsafe }
+import zio.prelude.Validation
+import zio.NonEmptyChunk
 
 sealed trait DynamicValue {
   self =>
@@ -19,106 +21,113 @@ sealed trait DynamicValue {
       case (_, error @ Left(_))      => error
     }
 
-  def toTypedValue[A](implicit schema: Schema[A]): Either[String, A] =
-    toTypedValueLazyError.left.map(_.message)
+  /**
+   * Converts this DynamicValue to a typed value using the provided Schema, accumulating all errors.
+   * Returns a Validation[DecodeError, A] that contains all errors encountered during decoding.
+   */
+  def toTypedValueV[A](implicit schema: Schema[A]): Validation[DecodeError, A] =
+    toTypedValueLazyValidation
 
-  def toValue[A](implicit schema: Schema[A]): Either[DecodeError, A] = toTypedValueLazyError
+  /**
+   * Converts this DynamicValue to a typed value using the provided Schema, accumulating all errors.
+   * Returns an Either[NonEmptyChunk[DecodeError], A] for compatibility.
+   */
+  def toTypedValueEither[A](implicit schema: Schema[A]): Either[NonEmptyChunk[DecodeError], A] =
+    toTypedValueV(schema).toEither
 
+  /**
+   * Converts this DynamicValue to a typed value using the provided Schema, accumulating all errors.
+   * Returns an Option[A], None if any errors occurred.
+   */
   def toTypedValueOption[A](implicit schema: Schema[A]): Option[A] =
-    toTypedValueLazyError.toOption
+    toTypedValueV(schema).toOption
 
-  private def toTypedValueLazyError[A](implicit schema: Schema[A]): Either[DecodeError, A] =
+  // Deprecated: for backward compatibility, fail-fast only (returns first error)
+  @deprecated("Use toTypedValueV or toTypedValueEither for error accumulation", "0.4.0")
+  def toTypedValue[A](implicit schema: Schema[A]): Either[String, A] =
+    toTypedValueV(schema).toEither.left.map(_.head.message)
+
+  // Deprecated: for backward compatibility, fail-fast only (returns first error)
+  @deprecated("Use toTypedValueV or toTypedValueEither for error accumulation", "0.4.0")
+  def toValue[A](implicit schema: Schema[A]): Either[DecodeError, A] =
+    toTypedValueV(schema).toEither.left.map(_.head)
+
+  // --- Internal recursive decoding using Validation ---
+  private def toTypedValueLazyValidation[A](implicit schema: Schema[A]): Validation[DecodeError, A] =
     (self, schema) match {
       case (DynamicValue.Primitive(value, p), Schema.Primitive(p2, _)) if p == p2 =>
-        Right(value.asInstanceOf[A])
+        Validation.succeed(value.asInstanceOf[A])
 
       case (DynamicValue.Record(_, values), Schema.GenericRecord(_, structure, _)) =>
-        DynamicValue.decodeStructure(values, structure.toChunk).asInstanceOf[Either[DecodeError, A]]
+        DynamicValue.decodeStructureV(values, structure.toChunk).map(_.asInstanceOf[A])
 
       case (DynamicValue.Record(_, values), s: Schema.Record[A]) =>
         DynamicValue
-          .decodeStructure(values, s.fields)
+          .decodeStructureV(values, s.fields)
           .map(m => Chunk.fromIterable(m.values))
-          .flatMap(values => s.construct(values)(Unsafe.unsafe).left.map(err => DecodeError.MalformedField(s, err)))
+          .flatMap(values =>
+            Validation.fromEither(s.construct(values)(Unsafe.unsafe).left.map(err => DecodeError.MalformedField(s, err)))
+          )
 
       case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
         s.caseOf(key) match {
           case Some(caseValue) =>
-            value.toTypedValueLazyError(caseValue.schema).asInstanceOf[Either[DecodeError, A]]
-          case None => Left(DecodeError.MissingCase(key, s))
+            value.toTypedValueLazyValidation(caseValue.schema).map(_.asInstanceOf[A])
+          case None => Validation.fail(DecodeError.MissingCase(key, s))
         }
 
       case (DynamicValue.LeftValue(value), Schema.Either(schema1, _, _)) =>
-        value.toTypedValueLazyError(schema1).map(Left(_))
+        value.toTypedValueLazyValidation(schema1).map(Left(_))
 
       case (DynamicValue.RightValue(value), Schema.Either(_, schema1, _)) =>
-        value.toTypedValueLazyError(schema1).map(Right(_))
+        value.toTypedValueLazyValidation(schema1).map(Right(_))
 
       case (DynamicValue.Tuple(leftValue, rightValue), Schema.Tuple2(leftSchema, rightSchema, _)) =>
-        val typedLeft  = leftValue.toTypedValueLazyError(leftSchema)
-        val typedRight = rightValue.toTypedValueLazyError(rightSchema)
-        (typedLeft, typedRight) match {
-          case (Left(e1), Left(e2)) =>
-            Left(DecodeError.And(e1, e2))
-          case (_, Left(e))         => Left(e)
-          case (Left(e), _)         => Left(e)
-          case (Right(a), Right(b)) => Right(a -> b)
-        }
+        Validation.validateWith(
+          leftValue.toTypedValueLazyValidation(leftSchema),
+          rightValue.toTypedValueLazyValidation(rightSchema)
+        )((a, b) => (a, b))
 
       case (DynamicValue.Sequence(values), schema: Schema.Sequence[col, t, _]) =>
-        values
-          .foldLeft[Either[DecodeError, Chunk[t]]](Right[DecodeError, Chunk[t]](Chunk.empty)) {
-            case (err @ Left(_), _) => err
-            case (Right(values), value) =>
-              value.toTypedValueLazyError(schema.elementSchema).map(values :+ _)
-          }
-          .map(schema.fromChunk)
+        Validation.validateAll(values.map(_.toTypedValueLazyValidation(schema.elementSchema))).map(schema.fromChunk)
 
       case (DynamicValue.SetValue(values), schema: Schema.Set[t]) =>
-        values.foldLeft[Either[DecodeError, Set[t]]](Right[DecodeError, Set[t]](Set.empty)) {
-          case (err @ Left(_), _) => err
-          case (Right(values), value) =>
-            value.toTypedValueLazyError(schema.elementSchema).map(values + _)
-        }
+        Validation.validateAll(values.map(_.toTypedValueLazyValidation(schema.elementSchema))).map(_.toSet)
 
       case (DynamicValue.SomeValue(value), Schema.Optional(schema: Schema[_], _)) =>
-        value.toTypedValueLazyError(schema).map(Some(_))
+        value.toTypedValueLazyValidation(schema).map(Some(_))
 
       case (DynamicValue.NoneValue, Schema.Optional(_, _)) =>
-        Right(None)
+        Validation.succeed(None)
 
       case (value, Schema.Transform(schema, f, _, _, _)) =>
         value
-          .toTypedValueLazyError(schema)
-          .flatMap(value => f(value).left.map(err => DecodeError.MalformedField(schema, err)))
+          .toTypedValueLazyValidation(schema)
+          .flatMap(v => Validation.fromEither(f(v).left.map(err => DecodeError.MalformedField(schema, err))))
 
       case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
-        entries.foldLeft[Either[DecodeError, Map[k, v]]](Right[DecodeError, Map[k, v]](Map.empty)) {
-          case (err @ Left(_), _) => err
-          case (Right(map), entry) => {
-            for {
-              key   <- entry._1.toTypedValueLazyError(schema.keySchema)
-              value <- entry._2.toTypedValueLazyError(schema.valueSchema)
-            } yield map ++ Map(key -> value)
-          }
-        }
+        Validation.validateAll(entries.map { case (kDyn, vDyn) =>
+          Validation.validateWith(
+            kDyn.toTypedValueLazyValidation(schema.keySchema),
+            vDyn.toTypedValueLazyValidation(schema.valueSchema)
+          )((k, v) => (k, v))
+        }).map(_.toMap)
 
       case (_, l @ Schema.Lazy(_)) =>
-        toTypedValueLazyError(l.schema)
+        toTypedValueLazyValidation(l.schema)
 
       case (DynamicValue.Error(message), _) =>
-        Left(DecodeError.ReadError(Cause.empty, message))
+        Validation.fail(DecodeError.ReadError(Cause.empty, message))
 
       case (DynamicValue.Tuple(dyn, DynamicValue.DynamicAst(ast)), _) =>
         val valueSchema = ast.toSchema.asInstanceOf[Schema[Any]]
-        dyn.toTypedValueLazyError(valueSchema).map(a => (a -> valueSchema).asInstanceOf[A])
+        dyn.toTypedValueLazyValidation(valueSchema).map(a => (a -> valueSchema).asInstanceOf[A])
 
-      case (dyn, Schema.Dynamic(_)) => Right(dyn)
+      case (dyn, Schema.Dynamic(_)) => Validation.succeed(dyn)
 
       case _ =>
-        Left(DecodeError.CastError(self, schema))
+        Validation.fail(DecodeError.CastError(self, schema))
     }
-
 }
 
 object DynamicValue {
@@ -190,21 +199,20 @@ object DynamicValue {
   def fromSchemaAndValue[A](schema: Schema[A], value: A): DynamicValue =
     FromSchemaAndValue.process(schema, value)
 
-  def decodeStructure(
+  // New: Validation-based decodeStructure
+  def decodeStructureV(
     values: ListMap[String, DynamicValue],
     structure: Chunk[Schema.Field[_, _]]
-  ): Either[DecodeError, ListMap[String, _]] = {
+  ): Validation[DecodeError, ListMap[String, _]] = {
     val keys = values.keySet
-    keys.foldLeft[Either[DecodeError, ListMap[String, Any]]](Right(ListMap.empty)) {
-      case (Right(record), key) =>
-        (structure.find(_.name == key), values.get(key)) match {
-          case (Some(field), Some(value)) =>
-            value.toTypedValueLazyError(field.schema).map(value => (record + (key -> value)))
-          case _ =>
-            Left(DecodeError.IncompatibleShape(values, structure))
-        }
-      case (Left(err), _) => Left(err)
-    }
+    Validation.validateAll(keys.toList.map { key =>
+      (structure.find(_.name == key), values.get(key)) match {
+        case (Some(field), Some(value)) =>
+          value.toTypedValueLazyValidation(field.schema).map(v => key -> v)
+        case _ =>
+          Validation.fail(DecodeError.IncompatibleShape(values, structure))
+      }
+    }).map(_.to(ListMap))
   }
 
   final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue
@@ -544,7 +552,7 @@ object DynamicValue {
 
   private def hasStandardType(value: DynamicValue, standardType: StandardType[_]): Boolean =
     value match {
-      case DynamicValue.Primitive(_, tpe) => tpe == standardType
+      case DynamicValue.Primitive(_, typ) => typ == standardType
       case _                              => false
     }
 
