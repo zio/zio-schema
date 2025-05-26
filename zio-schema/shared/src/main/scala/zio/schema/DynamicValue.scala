@@ -65,8 +65,10 @@ sealed trait DynamicValue {
         DynamicValue
           .decodeStructureV(values, s.fields)
           .map(m => Chunk.fromIterable(m.values))
-          .flatMap(values =>
-            Validation.fromEither(s.construct(values)(Unsafe.unsafe).left.map(err => DecodeError.MalformedField(s, err)))
+          .flatMap(
+            values =>
+              Validation
+                .fromEither(s.construct(values)(Unsafe.unsafe).left.map(err => DecodeError.MalformedField(s, err)))
           )
 
       case (DynamicValue.Enumeration(_, (key, value)), s: Schema.Enum[A]) =>
@@ -106,12 +108,15 @@ sealed trait DynamicValue {
           .flatMap(v => Validation.fromEither(f(v).left.map(err => DecodeError.MalformedField(schema, err))))
 
       case (DynamicValue.Dictionary(entries), schema: Schema.Map[k, v]) =>
-        Validation.validateAll(entries.map { case (kDyn, vDyn) =>
-          Validation.validateWith(
-            kDyn.toTypedValueLazyValidation(schema.keySchema),
-            vDyn.toTypedValueLazyValidation(schema.valueSchema)
-          )((k, v) => (k, v))
-        }).map(_.toMap)
+        Validation
+          .validateAll(entries.map {
+            case (kDyn, vDyn) =>
+              Validation.validateWith(
+                kDyn.toTypedValueLazyValidation(schema.keySchema),
+                vDyn.toTypedValueLazyValidation(schema.valueSchema)
+              )((k, v) => (k, v))
+          })
+          .map(_.toMap)
 
       case (_, l @ Schema.Lazy(_)) =>
         toTypedValueLazyValidation(l.schema)
@@ -205,14 +210,16 @@ object DynamicValue {
     structure: Chunk[Schema.Field[_, _]]
   ): Validation[DecodeError, ListMap[String, _]] = {
     val keys = values.keySet
-    Validation.validateAll(keys.toList.map { key =>
-      (structure.find(_.name == key), values.get(key)) match {
-        case (Some(field), Some(value)) =>
-          value.toTypedValueLazyValidation(field.schema).map(v => key -> v)
-        case _ =>
-          Validation.fail(DecodeError.IncompatibleShape(values, structure))
-      }
-    }).map(_.to(ListMap))
+    Validation
+      .validateAll(keys.toList.map { key =>
+        (structure.find(_.name == key), values.get(key)) match {
+          case (Some(field), Some(value)) =>
+            value.toTypedValueLazyValidation(field.schema).map(v => key -> v)
+          case _ =>
+            Validation.fail(DecodeError.IncompatibleShape(values, structure))
+        }
+      })
+      .map(_.to(ListMap))
   }
 
   final case class Record(id: TypeId, values: ListMap[String, DynamicValue]) extends DynamicValue

@@ -120,7 +120,7 @@ object DynamicValueSpec extends ZIOSpecDefault {
           val result = dynamic.toTypedValueV(schema)
           assertTrue(
             result.isFailure &&
-            result.fold(errors => errors.size == 1, _ => false)
+              result.fold(errors => errors.size == 1, _ => false)
           )
         }
       )
