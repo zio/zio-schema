@@ -84,7 +84,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     needs: [build,lint]
-    if: github.event_name != 'pull_request'
+    if: ${{ github.event_name != 'pull_request' }}
     steps:
       - uses: actions/checkout@v4.2.2
         with:
