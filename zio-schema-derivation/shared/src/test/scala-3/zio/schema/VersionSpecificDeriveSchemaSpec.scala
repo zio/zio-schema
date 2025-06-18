@@ -35,7 +35,6 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
   }
 
   /** Colour scaladoc */
-  @caseName("Red")
   enum ColourWithDoc(val rgb: Int) {
     /** Red scaladoc */
     case Red extends ColourWithDoc(0xff0000)
@@ -45,8 +44,9 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
 
   @description("Colour Enum")
   enum ColourAnnotations:
-    @description("Red")
-    case Red
+    @caseName("red") case Red extends ColourAnnotations
+    @caseName("green") case Green extends ColourAnnotations
+    @caseName("blue") case Blue extends ColourAnnotations
 
   enum NonSimpleEnum1:
     case A(a: Int)
@@ -109,17 +109,21 @@ trait VersionSpecificDeriveSchemaSpec extends ZIOSpecDefault {
         assertTrue(derived4.annotations.isEmpty) &&
         assertTrue(derived5.annotations.isEmpty)
       },
-      test("derive different annotations for parent and child in enum") {
-        val parent = DeriveSchema.gen[ColourAnnotations]
-        val child = parent match {
-          case Schema.Enum1(_, c, _) => c
-        }
-        assertTrue(child.annotations == Chunk(description("Red"))) &&
-        assertTrue(parent.annotations == Chunk(simpleEnum(true), description("Colour Enum")))
+      test("derive different annotations for enum") {
+        val enumeration = DeriveSchema.gen[ColourAnnotations]
+        val cases = enumeration.asInstanceOf[Schema.Enum[ColourAnnotations]].cases
+        assertTrue(enumeration.annotations == Chunk(simpleEnum(true), description("Colour Enum"))) &&
+        assertTrue(cases(0).annotations == Chunk(caseName("red"))) &&
+        assertTrue(cases(1).annotations == Chunk(caseName("green"))) &&
+        assertTrue(cases(2).annotations == Chunk(caseName("blue")))
       },
-      test("correctly derive annotations for child in enum") {
-        val child: Schema[ColourAnnotations.Red.type] = DeriveSchema.gen[ColourAnnotations.Red.type]
-        assertTrue(child.annotations == Chunk(description("Red")))
+      test("correctly derive annotations for cases in enum") {
+        val case1 = DeriveSchema.gen[ColourAnnotations.Red.type]
+        val case2 = DeriveSchema.gen[ColourAnnotations.Green.type]
+        val case3 = DeriveSchema.gen[ColourAnnotations.Blue.type]
+        assertTrue(case1.annotations == Chunk(caseName("red"))) &&
+        assertTrue(case2.annotations == Chunk(caseName("green"))) &&
+        assertTrue(case3.annotations == Chunk(caseName("blue")))
       },
       test("correctly adds scaladoc as description"){
         val colourWithDoc: Schema[ColourWithDoc] = DeriveSchema.gen[ColourWithDoc]
