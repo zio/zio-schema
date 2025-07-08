@@ -44,7 +44,7 @@ object BuildHelper {
   val scalaCollectionCompatVersion = "2.13.0"
   val msgpackVersion               = "0.9.9"
   val jacksonScalaVersion          = "2.19.1"
-  val thriftVersion                = "0.21.0"
+  val thriftVersion                = "0.22.0"
   val javaxAnnotationApiVersion    = "3.0.0"
   val scalaJavaTimeVersion         = "2.6.0"
 
