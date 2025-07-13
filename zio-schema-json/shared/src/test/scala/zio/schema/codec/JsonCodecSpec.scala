@@ -1471,6 +1471,24 @@ object JsonCodecSpec extends ZIOSpecDefault {
           )
         )
       },
+      test("of uuid keys and values") {
+        check(Gen.uuid) { uuid =>
+          assertDecodes(
+            Schema.map[java.util.UUID, Value],
+            Map(uuid -> Value(0, true)),
+            charSequenceToByteChunk(s"""{"$uuid":{"first":0,"second":true}}""")
+          )
+        }
+      },
+      test("of simple enums and values") {
+        assertDecodes(
+          Schema.map[Color, Value](Schema[Color], Schema[Value]),
+          Map(Color.Red -> Value(0, true), Color.Blue -> Value(1, false), Color.Grass -> Value(2, true)),
+          charSequenceToByteChunk(
+            """{"Red":{"first":0,"second":true},"Blue":{"first":1,"second":false},"Green":{"first":2,"second":true}}"""
+          )
+        )
+      },
       test("of primitive keys with transformation to complex keys") {
         assertDecodes(
           Schema
@@ -1673,6 +1691,15 @@ object JsonCodecSpec extends ZIOSpecDefault {
           Map(Key("a", 0) -> Value(0, true), Key("b", 1) -> Value(1, false)),
           charSequenceToByteChunk(
             """[[{"name":"a","index":0},{"first":0,"second":true}],[{"name":"b","index":1},{"first":1,"second":false}]]"""
+          )
+        )
+      },
+      test("Map of simple enums and values") {
+        assertEncodes(
+          Schema.map[Color, Value](Schema[Color], Schema[Value]),
+          Map(Color.Red -> Value(0, true), Color.Blue -> Value(1, false), Color.Grass -> Value(2, true)),
+          charSequenceToByteChunk(
+            """{"Red":{"first":0,"second":true},"Blue":{"first":1,"second":false},"Green":{"first":2,"second":true}}"""
           )
         )
       },
@@ -2683,7 +2710,7 @@ object JsonCodecSpec extends ZIOSpecDefault {
     implicit val schema: Schema[Enumeration3] = DeriveSchema.gen[Enumeration3]
   }
 
-  sealed trait Color
+  sealed trait Color extends Product with Serializable
 
   object Color {
     case object Red extends Color
