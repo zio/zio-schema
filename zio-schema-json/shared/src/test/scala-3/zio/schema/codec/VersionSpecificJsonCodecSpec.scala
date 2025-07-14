@@ -78,6 +78,15 @@ object VersionSpecificJsonCodecSpec extends ZIOSpecDefault {
         val value = Map("a" -> 1, "b" -> "toto", "c" -> true, "d" -> null)
         assert(decoder.decodeJson(json))(equalTo(Right(value))) &&
         assert(encoder.encodeJson(value))(equalTo(json))
+      },
+      test("IArray") {
+        val schema = Schema.iArray[Int]
+        val decoder = JsonCodec.jsonDecoder(schema)
+        val encoder = JsonCodec.jsonEncoder(schema)
+        val json = """[1,2,3]"""
+        val value = IArray(1, 2, 3)
+        assertTrue(decoder.decodeJson(json).exists(_.sameElements(value))) &&
+        assertTrue(encoder.encodeJson(value) == json)
       }
     )
   )
