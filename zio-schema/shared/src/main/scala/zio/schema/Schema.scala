@@ -537,7 +537,6 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
   ) extends Collection[Col, Elem] {
     self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Traversal[Col, Elem]
-    override def toString: String = s"Sequence($identity, $annotations)"
 
     override def annotate(annotation: Any): Sequence[Col, Elem, I] =
       copy(annotations = (annotations :+ annotation).distinct)
@@ -546,7 +545,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, elementSchema)
 
-    override def toString: String = s"Sequence($identity)"
+    override def toString: String = s"Sequence($identity, $annotations)"
 
     override def empty: Col = fromChunk(Chunk.empty[Elem])
   }
@@ -559,7 +558,6 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
     identity: I
   ) extends Schema[B] {
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = schema.Accessors[Lens, Prism, Traversal]
-    override def toString: String = s"Transform($identity, $annotations)"
 
     def defaultValue: scala.util.Either[String, B] = schema.defaultValue.flatMap(f)
 
@@ -579,7 +577,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           s => Right(s.transformOrFail(g, f).ast.toSchema)
         )
 
-    override def toString: String = s"Transform($identity)"
+    override def toString: String = s"Transform($identity, $annotations)"
 
   }
 
