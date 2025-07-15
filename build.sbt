@@ -55,7 +55,7 @@ addCommandAlias(
   "testJVM",
   "testsJVM/test; zioSchemaMacrosJVM/test; zioSchemaJVM/test; zioSchemaDerivationJVM/test;" +
     "zioSchemaOpticsJVM/test; zioSchemaJsonJVM/test; zioSchemaProtobufJVM/test; zioSchemaZioTestJVM/test;" +
-    "zioSchemaAvro/test; zioSchemaThrift/test; zioSchemaBson/test; zioSchemaMsgPack/test"
+    "zioSchemaAvro/test; zioSchemaThrift/test; zioSchemaBson/test; zioSchemaMsgPack/test; zioSchemaXml/test"
 )
 
 addCommandAlias(
@@ -110,6 +110,7 @@ lazy val root = project
     zioSchemaAvro,
     zioSchemaBson,
     zioSchemaMsgPack,
+    zioSchemaXml,
     docs
   )
 
@@ -356,6 +357,19 @@ lazy val zioSchemaBson = project
   )
   .settings(testDeps)
 
+lazy val zioSchemaXml = project
+  .in(file("zio-schema-xml"))
+  .dependsOn(zioSchema.jvm, zioSchemaDerivation.jvm, tests.jvm % "test->test")
+  .settings(stdSettings("zio-schema-xml"))
+  .settings(dottySettings)
+  .settings(buildInfoSettings("zio.schema.xml"))
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.scala-lang.modules" %% "scala-xml" % "2.3.0"
+    )
+  )
+  .settings(testDeps)
+
 lazy val zioSchemaOptics = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("zio-schema-optics"))
   .dependsOn(zioSchema, zioSchemaDerivation, tests % "test->test")
@@ -480,7 +494,8 @@ lazy val docs = project
     zioSchemaAvro,
     zioSchemaBson,
     zioSchemaMsgPack,
-    zioSchemaThrift
+    zioSchemaThrift,
+    zioSchemaXml
   )
   .enablePlugins(WebsitePlugin)
 
