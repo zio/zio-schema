@@ -537,6 +537,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
   ) extends Collection[Col, Elem] {
     self =>
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Traversal[Col, Elem]
+    override def toString: String = s"Sequence($identity, $annotations)"
 
     override def annotate(annotation: Any): Sequence[Col, Elem, I] =
       copy(annotations = (annotations :+ annotation).distinct)
@@ -558,6 +559,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
     identity: I
   ) extends Schema[B] {
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = schema.Accessors[Lens, Prism, Traversal]
+    override def toString: String = s"Transform($identity, $annotations)"
 
     def defaultValue: scala.util.Either[String, B] = schema.defaultValue.flatMap(f)
 
@@ -584,6 +586,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
   final case class Primitive[A](standardType: StandardType[A], annotations: Chunk[Any] = Chunk.empty)
       extends Schema[A] {
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Unit
+    override def toString: String = s"Primitive(${standardType.tag}, $annotations)"
 
     override def annotate(annotation: Any): Primitive[A] = copy(annotations = (annotations :+ annotation).distinct)
 
@@ -648,6 +651,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
 
   final case class Fail[A](message: String, annotations: Chunk[Any] = Chunk.empty) extends Schema[A] {
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Unit
+    override def toString: String = s"Fail($message, $annotations)"
 
     override def annotate(annotation: Any): Fail[A] = copy(annotations = (annotations :+ annotation).distinct)
 
@@ -952,6 +956,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
     def id: TypeId = DynamicValue.typeId
 
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] = Unit
+    override def toString: String = s"Dynamic($annotations)"
 
     /**
      * The default value for a `Schema` of type `A`.
