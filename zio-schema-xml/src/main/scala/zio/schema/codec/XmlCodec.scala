@@ -1,7 +1,7 @@
 package zio.schema.codec
 
-import scala.xml._
 import scala.util.Try
+import scala.xml._
 
 import zio._
 import zio.schema._
@@ -129,7 +129,7 @@ object XmlCodec {
           encodeSequence(toChunk(value), elementSchema, fieldName, cfg)
 
         case Schema.Map(_, valueSchema, _) =>
-          encodeMap(value.asInstanceOf[Map[String, _]], valueSchema, fieldName, cfg)
+          encodeMap(value.asInstanceOf[Map[String, _]], valueSchema.asInstanceOf[Schema[Any]], fieldName, cfg)
 
         case Schema.Set(elementSchema, _) =>
           encodeSet(value.asInstanceOf[Set[Any]], elementSchema.asInstanceOf[Schema[Any]], fieldName, cfg)
@@ -150,13 +150,25 @@ object XmlCodec {
           encodeEnumN(value, cases.toSeq, fieldName, cfg)
 
         case Schema.Optional(schema, _) =>
-          encodeOptional(value.asInstanceOf[Option[_]], schema, fieldName, cfg)
+          encodeOptional(value.asInstanceOf[Option[_]], schema.asInstanceOf[Schema[Any]], fieldName, cfg)
 
         case Schema.Tuple2(left, right, _) =>
-          encodeTuple2(value.asInstanceOf[(_, _)], left, right, fieldName, cfg)
+          encodeTuple2(
+            value.asInstanceOf[(_, _)],
+            left.asInstanceOf[Schema[Any]],
+            right.asInstanceOf[Schema[Any]],
+            fieldName,
+            cfg
+          )
 
         case Schema.Either(left, right, _) =>
-          encodeEither(value.asInstanceOf[Either[_, _]], left, right, fieldName, cfg)
+          encodeEither(
+            value.asInstanceOf[Either[_, _]],
+            left.asInstanceOf[Schema[Any]],
+            right.asInstanceOf[Schema[Any]],
+            fieldName,
+            cfg
+          )
 
         case Schema.Transform(schema, _, _, _, _) =>
           encodeValue(value, schema.asInstanceOf[Schema[A]], fieldName, cfg)
@@ -210,23 +222,23 @@ object XmlCodec {
       }
     }
 
-    private def encodeMap[K, V](
-      map: Map[K, V],
-      valueSchema: Schema[V],
+    private def encodeMap(
+      map: Map[String, _],
+      valueSchema: Schema[Any],
       fieldName: Option[String],
       cfg: Configuration
     ): Node = {
-      val entries = map.map {
-        case (k, v) =>
+      val entries = map.toSeq.map {
+        case (k: String, v: Any) =>
           Elem(
             null,
             "entry",
             Attribute("key", Text(k.toString), Null),
             TopScope,
             false,
-            encodeValue(v, valueSchema, None, cfg)
+            encodeValue(v.asInstanceOf[Any], valueSchema, None, cfg)
           )
-      }.toSeq
+      }
       fieldName match {
         case Some(name) => Elem(null, name, Null, TopScope, false, entries: _*)
         case None       => Group(entries)
@@ -377,14 +389,14 @@ object XmlCodec {
           throw new RuntimeException(s"No case matched for enum value: $value")
       }
 
-    private def encodeOptional[A](
-      value: Option[A],
-      schema: Schema[A],
+    private def encodeOptional(
+      value: Option[_],
+      schema: Schema[Any],
       fieldName: Option[String],
       cfg: Configuration
     ): Node =
       value match {
-        case Some(v) => encodeValue(v, schema, fieldName, cfg)
+        case Some(v) => encodeValue(v.asInstanceOf[Any], schema, fieldName, cfg)
         case None =>
           fieldName match {
             case Some(name) => Elem(null, name, Attribute("nil", Text("true"), Null), TopScope, false)
@@ -392,17 +404,17 @@ object XmlCodec {
           }
       }
 
-    private def encodeTuple2[A, B](
-      value: (A, B),
-      left: Schema[A],
-      right: Schema[B],
+    private def encodeTuple2(
+      value: (_, _),
+      left: Schema[Any],
+      right: Schema[Any],
       fieldName: Option[String],
       cfg: Configuration
     ): Node = {
       val (a, b) = value
       val children = Seq(
-        encodeValue(a, left, Some("_1"), cfg),
-        encodeValue(b, right, Some("_2"), cfg)
+        encodeValue(a.asInstanceOf[Any], left, Some("_1"), cfg),
+        encodeValue(b.asInstanceOf[Any], right, Some("_2"), cfg)
       )
       fieldName match {
         case Some(name) => Elem(null, name, Null, TopScope, false, children: _*)
@@ -410,22 +422,22 @@ object XmlCodec {
       }
     }
 
-    private def encodeEither[A, B](
-      value: Either[A, B],
-      left: Schema[A],
-      right: Schema[B],
+    private def encodeEither(
+      value: Either[_, _],
+      left: Schema[Any],
+      right: Schema[Any],
       fieldName: Option[String],
       cfg: Configuration
     ): Node =
       value match {
         case Left(a) =>
-          val elem = encodeValue(a, left, None, cfg)
+          val elem = encodeValue(a.asInstanceOf[Any], left, None, cfg)
           fieldName match {
             case Some(name) => Elem(null, name, Attribute("type", Text("left"), Null), TopScope, false, elem)
             case None       => Elem(null, "left", Null, TopScope, false, elem)
           }
         case Right(b) =>
-          val elem = encodeValue(b, right, None, cfg)
+          val elem = encodeValue(b.asInstanceOf[Any], right, None, cfg)
           fieldName match {
             case Some(name) => Elem(null, name, Attribute("type", Text("right"), Null), TopScope, false, elem)
             case None       => Elem(null, "right", Null, TopScope, false, elem)

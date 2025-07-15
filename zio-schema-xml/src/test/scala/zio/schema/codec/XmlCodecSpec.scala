@@ -1,8 +1,7 @@
 package zio.schema.codec
 
 import zio._
-import zio.schema._
-import zio.schema.DeriveSchema
+import zio.schema.{ DeriveSchema, _ }
 import zio.test._
 
 object XmlCodecSpec extends ZIOSpecDefault {
