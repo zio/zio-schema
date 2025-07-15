@@ -452,7 +452,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
     val nameAndAliases: scala.collection.immutable.Set[String] =
       aliases + fieldName
 
-    override def toString: String = s"Field($name,$schema)"
+    override def toString: String = s"Field($name)"
   }
 
   object Field {
@@ -545,7 +545,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elem] = b.makeTraversal(self, elementSchema)
 
-    override def toString: String = s"Sequence($elementSchema, $identity)"
+    override def toString: String = s"Sequence($identity)"
 
     override def empty: Col = fromChunk(Chunk.empty[Elem])
   }
@@ -577,7 +577,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
           s => Right(s.transformOrFail(g, f).ast.toSchema)
         )
 
-    override def toString: String = s"Transform($schema, $identity)"
+    override def toString: String = s"Transform($identity)"
 
   }
 
@@ -913,7 +913,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
 
     override def makeAccessors(b: AccessorBuilder): b.Traversal[Col, Elm] = b.makeTraversal(self, elementSchema)
 
-    override def toString: String = s"NonEmptySequence($elementSchema, $identity)"
+    override def toString: String = s"NonEmptySequence($identity)"
 
     override def empty: Col = throw new IllegalArgumentException(s"NonEmptySequence $identity cannot be empty")
   }
@@ -987,7 +987,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
     val transient: Boolean =
       annotations.exists(_.isInstanceOf[transientCase])
 
-    override def toString: String = s"Case($id,$schema,$annotations)"
+    override def toString: String = s"Case($id,$annotations)"
   }
 
   sealed case class Enum1[A, Z](id: TypeId, case1: Case[Z, A], annotations: Chunk[Any] = Chunk.empty) extends Enum[Z] {
@@ -1002,6 +1002,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
 
     override def cases: Chunk[Case[Z, A]] =
       Chunk(case1)
+
+    override def toString: String = s"Enum1($id)"
   }
 
   sealed case class Enum2[A1, A2, Z](
@@ -1022,6 +1024,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       (b.makePrism(self, case1), b.makePrism(self, case2))
 
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2)
+
+    override def toString: String = s"Enum2($id)"
   }
 
   sealed case class Enum3[A1, A2, A3, Z](
@@ -1046,6 +1050,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3))
 
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3)
+
+    override def toString: String = s"Enum3($id)"
   }
 
   sealed case class Enum4[A1, A2, A3, A4, Z](
@@ -1079,6 +1085,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       (b.makePrism(self, case1), b.makePrism(self, case2), b.makePrism(self, case3), b.makePrism(self, case4))
 
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4)
+
+    override def toString: String = s"Enum4($id)"
   }
 
   sealed case class Enum5[A1, A2, A3, A4, A5, Z](
@@ -1123,6 +1131,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       )
 
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5)
+
+    override def toString: String = s"Enum5($id)"
   }
 
   sealed case class Enum6[A1, A2, A3, A4, A5, A6, Z](
@@ -1171,6 +1181,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       )
 
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5, case6)
+
+    override def toString: String = s"Enum6($id)"
   }
 
   sealed case class Enum7[A1, A2, A3, A4, A5, A6, A7, Z](
@@ -1221,6 +1233,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       )
 
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5, case6, case7)
+
+    override def toString: String = s"Enum7($id)"
   }
 
   sealed case class Enum8[A1, A2, A3, A4, A5, A6, A7, A8, Z](
@@ -1275,6 +1289,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       )
 
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5, case6, case7, case8)
+
+    override def toString: String = s"Enum8($id)"
   }
 
   sealed case class Enum9[A1, A2, A3, A4, A5, A6, A7, A8, A9, Z](
@@ -1332,6 +1348,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       )
 
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9)
+
+    override def toString: String = s"Enum9($id)"
   }
 
   sealed case class Enum10[A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, Z](
@@ -1393,6 +1411,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       )
 
     override def cases: Chunk[Case[Z, _]] = Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10)
+
+    override def toString: String = s"Enum10($id)"
   }
 
   sealed case class Enum11[
@@ -1472,6 +1492,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
 
     override def cases: Chunk[Case[Z, _]] =
       Chunk(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10, case11)
+
+    override def toString: String = s"Enum11($id)"
   }
 
   sealed case class Enum12[
@@ -1568,6 +1590,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       case11,
       case12
     )
+
+    override def toString: String = s"Enum12($id)"
   }
 
   sealed case class Enum13[
@@ -1670,6 +1694,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       case12,
       case13
     )
+
+    override def toString: String = s"Enum13($id)"
   }
 
   sealed case class Enum14[
@@ -1778,6 +1804,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       case13,
       case14
     )
+
+    override def toString: String = s"Enum14($id)"
   }
 
   sealed case class Enum15[
@@ -1894,6 +1922,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       case14,
       case15
     )
+
+    override def toString: String = s"Enum15($id)"
   }
 
   sealed case class Enum16[
@@ -2016,6 +2046,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       case15,
       case16
     )
+
+    override def toString: String = s"Enum16($id)"
   }
 
   sealed case class Enum17[
@@ -2144,6 +2176,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       case16,
       case17
     )
+
+    override def toString: String = s"Enum17($id)"
   }
 
   sealed case class Enum18[
@@ -2278,6 +2312,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       case17,
       case18
     )
+
+    override def toString: String = s"Enum18($id)"
   }
 
   sealed case class Enum19[
@@ -2418,6 +2454,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       case18,
       case19
     )
+
+    override def toString: String = s"Enum19($id)"
   }
 
   sealed case class Enum20[
@@ -2564,6 +2602,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       case19,
       case20
     )
+
+    override def toString: String = s"Enum20($id)"
   }
 
   sealed case class Enum21[
@@ -2718,6 +2758,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       case20,
       case21
     )
+
+    override def toString: String = s"Enum21($id)"
   }
 
   sealed case class Enum22[
@@ -2878,6 +2920,8 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       case21,
       case22
     )
+
+    override def toString: String = s"Enum22($id)"
   }
 
   sealed case class EnumN[Z, C <: CaseSet.Aux[Z]](id: TypeId, caseSet: C, annotations: Chunk[Any] = Chunk.empty)
@@ -3612,7 +3656,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk()
 
-    override def toString: String = s"CaseClass0($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass0($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass0 {
@@ -3662,7 +3706,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
         Left(s"wrong number of values for $fields")
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] = Chunk(Some(field.get(value)))
-    override def toString: String                                                   = s"CaseClass1(${fields.mkString(",")})"
+    override def toString: String                                                   = s"CaseClass1(${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass1 {
@@ -3731,7 +3775,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] =
       Chunk(Some(field1.get(value)), Some(field2.get(value)))
 
-    override def toString: String = s"CaseClass2($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass2($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass2 {
@@ -3810,7 +3854,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] =
       Chunk(Some(field1.get(value)), Some(field2.get(value)), Some(field3.get(value)))
-    override def toString: String = s"CaseClass3($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass3($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass3 {
@@ -3912,7 +3956,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
 
     override def deconstruct(value: Z)(implicit unsafe: Unsafe): Chunk[Option[Any]] =
       Chunk(Some(field1.get(value)), Some(field2.get(value)), Some(field3.get(value)), Some(field4.get(value)))
-    override def toString: String = s"CaseClass4($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass4($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass4 {
@@ -4038,7 +4082,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field4.get(value)),
       Some(field5.get(value))
     )
-    override def toString: String = s"CaseClass5($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass5($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass5 {
@@ -4203,7 +4247,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field6.get(value))
     )
 
-    override def toString: String = s"CaseClass6($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass6($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass6 {
@@ -4388,7 +4432,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field7.get(value))
     )
 
-    override def toString: String = s"CaseClass7($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass7($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass7 {
@@ -4596,7 +4640,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field8.get(value))
     )
 
-    override def toString: String = s"CaseClass8($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass8($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass8 {
@@ -4820,7 +4864,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field8.get(value)),
       Some(field9.get(value))
     )
-    override def toString: String = s"CaseClass9($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass9($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass9 {
@@ -5085,7 +5129,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field10.get(value))
     )
 
-    override def toString: String = s"CaseClass10($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass10($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass10 {
@@ -5371,7 +5415,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field11.get(value))
     )
 
-    override def toString: String = s"CaseClass11($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass11($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass11 {
@@ -5676,7 +5720,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field12.get(value))
     )
 
-    override def toString: String = s"CaseClass12($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass12($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass12 {
@@ -6000,7 +6044,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field13.get(value))
     )
 
-    override def toString: String = s"CaseClass13($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass13($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass13 {
@@ -6343,7 +6387,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field14.get(value))
     )
 
-    override def toString: String = s"CaseClass14($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass14($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass14 {
@@ -6706,7 +6750,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field15.get(value))
     )
 
-    override def toString: String = s"CaseClass15($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass15($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass15 {
@@ -7090,7 +7134,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field16.get(value))
     )
 
-    override def toString: String = s"CaseClass16($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass16($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass16 {
@@ -7493,7 +7537,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field17.get(value))
     )
 
-    override def toString: String = s"CaseClass17($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass17($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass17 {
@@ -7915,7 +7959,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field18.get(value))
     )
 
-    override def toString: String = s"CaseClass18($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass18($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass18 {
@@ -8358,7 +8402,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field19.get(value))
     )
 
-    override def toString: String = s"CaseClass19($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass19($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass19 {
@@ -8820,7 +8864,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field20.get(value))
     )
 
-    override def toString: String = s"CaseClass20($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass20($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass20 {
@@ -9322,7 +9366,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field21.get(value))
     )
 
-    override def toString: String = s"CaseClass21($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass21($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass21 {
@@ -9890,7 +9934,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
       Some(field22.get(value))
     )
 
-    override def toString: String = s"CaseClass22($id, ${fields.mkString(",")})"
+    override def toString: String = s"CaseClass22($id, ${fields.map(_.name).mkString(",")})"
   }
 
   object CaseClass22 {

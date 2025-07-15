@@ -366,7 +366,8 @@ lazy val zioSchemaXml = project
   .settings(
     libraryDependencies ++= Seq(
       "org.scala-lang.modules" %% "scala-xml" % "2.3.0"
-    )
+    ),
+    mimaPreviousArtifacts := Set()
   )
   .settings(testDeps)
 

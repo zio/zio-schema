@@ -5,7 +5,7 @@ import scala.util.Try
 
 import zio._
 import zio.schema._
-import zio.stream.{ZChannel, ZPipeline}
+import zio.stream.{ ZChannel, ZPipeline }
 
 object XmlCodec {
 
@@ -49,18 +49,18 @@ object XmlCodec {
   private val xmlSplitter: ZPipeline[Any, Nothing, String, String] =
     ZPipeline.suspend {
       val stringBuilder = new StringBuilder
-      var inTag = false
-      var depth = 0
+      var inTag         = false
+      var depth         = 0
 
       def fetchChunk(chunk: Chunk[String]): Chunk[String] = {
         val chunkBuilder = ChunkBuilder.make[String]()
-        
+
         for {
           string <- chunk
-          c <- string
+          c      <- string
         } {
           stringBuilder.append(c)
-          
+
           c match {
             case '<' if !inTag =>
               inTag = true
@@ -87,7 +87,7 @@ object XmlCodec {
             case _ =>
           }
         }
-        
+
         chunkBuilder.result()
       }
 
@@ -109,11 +109,12 @@ object XmlCodec {
     }
 
   object XmlEncoder {
+
     def encode[A](schema: Schema[A], value: A, cfg: Configuration): Chunk[Byte] = {
       val xml = schema match {
-        case Schema.Primitive(standardType, _) => 
+        case Schema.Primitive(standardType, _) =>
           Elem(null, standardType.tag, Null, TopScope, false, Text(encodeValue(value, schema, None, cfg).text))
-        case _ => 
+        case _ =>
           encodeValue(value, schema, None, cfg)
       }
       Chunk.fromArray(xml.toString.getBytes("UTF-8"))
@@ -123,125 +124,163 @@ object XmlCodec {
       schema match {
         case Schema.Primitive(standardType, _) =>
           encodePrimitive(value, standardType, fieldName)
-          
+
         case Schema.Sequence(elementSchema, _, toChunk, _, _) =>
           encodeSequence(toChunk(value), elementSchema, fieldName, cfg)
-          
+
         case Schema.Map(_, valueSchema, _) =>
           encodeMap(value.asInstanceOf[Map[String, _]], valueSchema, fieldName, cfg)
-          
+
         case Schema.Set(elementSchema, _) =>
           encodeSet(value.asInstanceOf[Set[Any]], elementSchema.asInstanceOf[Schema[Any]], fieldName, cfg)
-          
+
         case record: Schema.Record[A] =>
           encodeRecord(value, record, fieldName, cfg)
-          
+
         case Schema.Enum1(_, case1, _) =>
           encodeEnum1(value, case1, fieldName, cfg)
-          
+
         case Schema.Enum2(_, case1, case2, _) =>
           encodeEnum2(value, case1, case2, fieldName, cfg)
-          
+
         case Schema.Enum3(_, case1, case2, case3, _) =>
           encodeEnum3(value, case1, case2, case3, fieldName, cfg)
-          
+
         case Schema.EnumN(_, cases, _) =>
           encodeEnumN(value, cases.toSeq, fieldName, cfg)
-          
+
         case Schema.Optional(schema, _) =>
           encodeOptional(value.asInstanceOf[Option[_]], schema, fieldName, cfg)
-          
+
         case Schema.Tuple2(left, right, _) =>
           encodeTuple2(value.asInstanceOf[(_, _)], left, right, fieldName, cfg)
-          
+
         case Schema.Either(left, right, _) =>
           encodeEither(value.asInstanceOf[Either[_, _]], left, right, fieldName, cfg)
-          
+
         case Schema.Transform(schema, _, _, _, _) =>
           encodeValue(value, schema.asInstanceOf[Schema[A]], fieldName, cfg)
-          
+
         case Schema.Lazy(schema0) =>
           encodeValue(value, schema0(), fieldName, cfg)
-          
+
         case _ =>
-          Text(value.toString)
+          throw new RuntimeException(s"Unsupported schema type for XML encoding: ${schema.getClass.getSimpleName}")
       }
 
     private def encodePrimitive[A](value: A, standardType: StandardType[A], fieldName: Option[String]): Node = {
       val text = standardType match {
-        case StandardType.StringType => value.toString
-        case StandardType.BoolType => value.toString
-        case StandardType.ByteType => value.toString
-        case StandardType.ShortType => value.toString
-        case StandardType.IntType => value.toString
-        case StandardType.LongType => value.toString
-        case StandardType.FloatType => value.toString
-        case StandardType.DoubleType => value.toString
-        case StandardType.CharType => value.toString
+        case StandardType.StringType     => value.toString
+        case StandardType.BoolType       => value.toString
+        case StandardType.ByteType       => value.toString
+        case StandardType.ShortType      => value.toString
+        case StandardType.IntType        => value.toString
+        case StandardType.LongType       => value.toString
+        case StandardType.FloatType      => value.toString
+        case StandardType.DoubleType     => value.toString
+        case StandardType.CharType       => value.toString
         case StandardType.BigIntegerType => value.toString
         case StandardType.BigDecimalType => value.toString
-        case StandardType.UUIDType => value.toString
-        case StandardType.UnitType => "()"
-        case StandardType.BinaryType => 
+        case StandardType.UUIDType       => value.toString
+        case StandardType.UnitType       => "()"
+        case StandardType.BinaryType =>
           val chunk = value.asInstanceOf[Chunk[Byte]]
           java.util.Base64.getEncoder.encodeToString(chunk.toArray)
-        case _ => value.toString
+        case _ =>
+          throw new RuntimeException(
+            s"Unsupported standard type for XML encoding: ${standardType.getClass.getSimpleName}"
+          )
       }
       fieldName match {
         case Some(name) => Elem(null, name, Null, TopScope, false, Text(text))
-        case None => Text(text)
+        case None       => Text(text)
       }
     }
 
-    private def encodeSequence[A](chunk: Chunk[A], elementSchema: Schema[A], fieldName: Option[String], cfg: Configuration): Node = {
+    private def encodeSequence[A](
+      chunk: Chunk[A],
+      elementSchema: Schema[A],
+      fieldName: Option[String],
+      cfg: Configuration
+    ): Node = {
       val children = chunk.map(elem => encodeValue(elem, elementSchema, None, cfg))
       fieldName match {
         case Some(name) => Elem(null, name, Null, TopScope, false, children: _*)
-        case None => Group(children)
+        case None       => Group(children)
       }
     }
 
-    private def encodeMap[K, V](map: Map[K, V], valueSchema: Schema[V], fieldName: Option[String], cfg: Configuration): Node = {
-      val entries = map.map { case (k, v) =>
-        Elem(null, "entry", Attribute("key", Text(k.toString), Null), TopScope, false, encodeValue(v, valueSchema, None, cfg))
+    private def encodeMap[K, V](
+      map: Map[K, V],
+      valueSchema: Schema[V],
+      fieldName: Option[String],
+      cfg: Configuration
+    ): Node = {
+      val entries = map.map {
+        case (k, v) =>
+          Elem(
+            null,
+            "entry",
+            Attribute("key", Text(k.toString), Null),
+            TopScope,
+            false,
+            encodeValue(v, valueSchema, None, cfg)
+          )
       }.toSeq
       fieldName match {
         case Some(name) => Elem(null, name, Null, TopScope, false, entries: _*)
-        case None => Group(entries)
+        case None       => Group(entries)
       }
     }
 
-    private def encodeSet[A](set: Set[A], elementSchema: Schema[A], fieldName: Option[String], cfg: Configuration): Node =
+    private def encodeSet[A](
+      set: Set[A],
+      elementSchema: Schema[A],
+      fieldName: Option[String],
+      cfg: Configuration
+    ): Node =
       encodeSequence(Chunk.fromIterable(set), elementSchema, fieldName, cfg)
 
-    private def encodeRecord[A](value: A, record: Schema.Record[A], fieldName: Option[String], cfg: Configuration): Node = {
+    private def encodeRecord[A](
+      value: A,
+      record: Schema.Record[A],
+      fieldName: Option[String],
+      cfg: Configuration
+    ): Node = {
       val fields = record.fields.flatMap { field =>
-        val fieldValue = field.get(value)
+        val fieldValue  = field.get(value)
         val isAttribute = field.annotations.exists(_.isInstanceOf[xmlAttribute])
-        
+
         if (isAttribute) {
           None // Attributes are handled separately
         } else {
           Some(encodeValue(fieldValue, field.schema.asInstanceOf[Schema[Any]], Some(field.name), cfg))
         }
       }
-      
+
       val attributes = record.fields.flatMap { field =>
-        val fieldValue = field.get(value)
+        val fieldValue  = field.get(value)
         val isAttribute = field.annotations.exists(_.isInstanceOf[xmlAttribute])
-        
+
         if (isAttribute) {
           Some(Attribute(field.name, Text(fieldValue.toString), Null))
         } else {
           None
         }
-      }.foldLeft[MetaData](Null) { (acc, attr) => attr.copy(next = acc) }
-      
+      }.foldLeft[MetaData](Null) { (acc, attr) =>
+        attr.copy(next = acc)
+      }
+
       val elemName = fieldName.getOrElse(record.id.name)
       Elem(null, elemName, attributes, TopScope, false, fields: _*)
     }
 
-    private def encodeEnum1[A, A1](value: A, case1: Schema.Case[A, A1], fieldName: Option[String], cfg: Configuration): Node = {
+    private def encodeEnum1[A, A1](
+      value: A,
+      case1: Schema.Case[A, A1],
+      fieldName: Option[String],
+      cfg: Configuration
+    ): Node = {
       val caseValue = case1.deconstruct(value)
       Elem(null, fieldName.getOrElse(case1.id), Null, TopScope, false, encodeValue(caseValue, case1.schema, None, cfg))
     }
@@ -255,10 +294,24 @@ object XmlCodec {
     ): Node =
       case1.deconstructOption(value) match {
         case Some(caseValue) =>
-          Elem(null, fieldName.getOrElse(case1.id), Null, TopScope, false, encodeValue(caseValue, case1.schema, None, cfg))
+          Elem(
+            null,
+            fieldName.getOrElse(case1.id),
+            Null,
+            TopScope,
+            false,
+            encodeValue(caseValue, case1.schema, None, cfg)
+          )
         case None =>
           val caseValue = case2.deconstruct(value)
-          Elem(null, fieldName.getOrElse(case2.id), Null, TopScope, false, encodeValue(caseValue, case2.schema, None, cfg))
+          Elem(
+            null,
+            fieldName.getOrElse(case2.id),
+            Null,
+            TopScope,
+            false,
+            encodeValue(caseValue, case2.schema, None, cfg)
+          )
       }
 
     private def encodeEnum3[A, A1, A2, A3](
@@ -271,38 +324,81 @@ object XmlCodec {
     ): Node =
       case1.deconstructOption(value) match {
         case Some(caseValue) =>
-          Elem(null, fieldName.getOrElse(case1.id), Null, TopScope, false, encodeValue(caseValue, case1.schema, None, cfg))
+          Elem(
+            null,
+            fieldName.getOrElse(case1.id),
+            Null,
+            TopScope,
+            false,
+            encodeValue(caseValue, case1.schema, None, cfg)
+          )
         case None =>
           case2.deconstructOption(value) match {
             case Some(caseValue) =>
-              Elem(null, fieldName.getOrElse(case2.id), Null, TopScope, false, encodeValue(caseValue, case2.schema, None, cfg))
+              Elem(
+                null,
+                fieldName.getOrElse(case2.id),
+                Null,
+                TopScope,
+                false,
+                encodeValue(caseValue, case2.schema, None, cfg)
+              )
             case None =>
               val caseValue = case3.deconstruct(value)
-              Elem(null, fieldName.getOrElse(case3.id), Null, TopScope, false, encodeValue(caseValue, case3.schema, None, cfg))
+              Elem(
+                null,
+                fieldName.getOrElse(case3.id),
+                Null,
+                TopScope,
+                false,
+                encodeValue(caseValue, case3.schema, None, cfg)
+              )
           }
       }
 
-    private def encodeEnumN[A](value: A, cases: Seq[Schema.Case[A, _]], fieldName: Option[String], cfg: Configuration): Node = {
+    private def encodeEnumN[A](
+      value: A,
+      cases: Seq[Schema.Case[A, _]],
+      fieldName: Option[String],
+      cfg: Configuration
+    ): Node =
       cases.find(_.deconstructOption(value).isDefined) match {
         case Some(matchedCase) =>
           val caseValue = matchedCase.deconstruct(value)
-          Elem(null, fieldName.getOrElse(matchedCase.id), Null, TopScope, false, encodeValue(caseValue, matchedCase.schema.asInstanceOf[Schema[Any]], None, cfg))
+          Elem(
+            null,
+            fieldName.getOrElse(matchedCase.id),
+            Null,
+            TopScope,
+            false,
+            encodeValue(caseValue, matchedCase.schema.asInstanceOf[Schema[Any]], None, cfg)
+          )
         case None =>
           throw new RuntimeException(s"No case matched for enum value: $value")
       }
-    }
 
-    private def encodeOptional[A](value: Option[A], schema: Schema[A], fieldName: Option[String], cfg: Configuration): Node =
+    private def encodeOptional[A](
+      value: Option[A],
+      schema: Schema[A],
+      fieldName: Option[String],
+      cfg: Configuration
+    ): Node =
       value match {
         case Some(v) => encodeValue(v, schema, fieldName, cfg)
-        case None => 
+        case None =>
           fieldName match {
             case Some(name) => Elem(null, name, Attribute("nil", Text("true"), Null), TopScope, false)
-            case None => Text("")
+            case None       => Text("")
           }
       }
 
-    private def encodeTuple2[A, B](value: (A, B), left: Schema[A], right: Schema[B], fieldName: Option[String], cfg: Configuration): Node = {
+    private def encodeTuple2[A, B](
+      value: (A, B),
+      left: Schema[A],
+      right: Schema[B],
+      fieldName: Option[String],
+      cfg: Configuration
+    ): Node = {
       val (a, b) = value
       val children = Seq(
         encodeValue(a, left, Some("_1"), cfg),
@@ -310,28 +406,35 @@ object XmlCodec {
       )
       fieldName match {
         case Some(name) => Elem(null, name, Null, TopScope, false, children: _*)
-        case None => Group(children)
+        case None       => Group(children)
       }
     }
 
-    private def encodeEither[A, B](value: Either[A, B], left: Schema[A], right: Schema[B], fieldName: Option[String], cfg: Configuration): Node =
+    private def encodeEither[A, B](
+      value: Either[A, B],
+      left: Schema[A],
+      right: Schema[B],
+      fieldName: Option[String],
+      cfg: Configuration
+    ): Node =
       value match {
-        case Left(a) => 
+        case Left(a) =>
           val elem = encodeValue(a, left, None, cfg)
           fieldName match {
             case Some(name) => Elem(null, name, Attribute("type", Text("left"), Null), TopScope, false, elem)
-            case None => Elem(null, "left", Null, TopScope, false, elem)
+            case None       => Elem(null, "left", Null, TopScope, false, elem)
           }
         case Right(b) =>
           val elem = encodeValue(b, right, None, cfg)
           fieldName match {
             case Some(name) => Elem(null, name, Attribute("type", Text("right"), Null), TopScope, false, elem)
-            case None => Elem(null, "right", Null, TopScope, false, elem)
+            case None       => Elem(null, "right", Null, TopScope, false, elem)
           }
       }
   }
 
   object XmlDecoder {
+
     def decode[A](schema: Schema[A], xml: String, cfg: Configuration): Either[DecodeError, A] =
       Try(XML.loadString(xml)).toEither match {
         case Left(error) =>
@@ -350,51 +453,51 @@ object XmlCodec {
       schema match {
         case Schema.Primitive(standardType, _) =>
           decodePrimitive(node, standardType)
-          
+
         case Schema.Sequence(elementSchema, fromChunk, _, _, _) =>
           decodeSequence(node, elementSchema, fromChunk, cfg)
-          
+
         case Schema.Map(keySchema, valueSchema, _) =>
           decodeMap(node, keySchema, valueSchema, cfg)
-          
+
         case Schema.Set(elementSchema, _) =>
           decodeSet(node, elementSchema, cfg)
-          
+
         case record: Schema.Record[A] =>
           decodeRecord(node, record, cfg)
-          
+
         case Schema.Enum1(_, case1, _) =>
           decodeEnum1(node, case1, cfg)
-          
+
         case Schema.Enum2(_, case1, case2, _) =>
           decodeEnum2(node, case1, case2, cfg)
-          
+
         case Schema.Enum3(_, case1, case2, case3, _) =>
           decodeEnum3(node, case1, case2, case3, cfg)
-          
+
         case Schema.EnumN(_, cases, _) =>
           decodeEnumN(node, cases.toSeq, cfg)
-          
+
         case Schema.Optional(schema, _) =>
           decodeOptional(node, schema, cfg)
-          
+
         case Schema.Tuple2(left, right, _) =>
           decodeTuple2(node, left, right, cfg)
-          
+
         case Schema.Either(left, right, _) =>
           decodeEither(node, left, right, cfg)
-          
+
         case Schema.Transform(schema, f, _, _, _) =>
           decodeValue(node, schema, cfg).flatMap { value =>
             f(value) match {
-              case Left(error) => Left(DecodeError.ReadError(Cause.empty, error))
+              case Left(error)   => Left(DecodeError.ReadError(Cause.empty, error))
               case Right(result) => Right(result.asInstanceOf[A])
             }
           }
-          
+
         case Schema.Lazy(schema0) =>
           decodeValue(node, schema0(), cfg)
-          
+
         case _ =>
           Left(DecodeError.ReadError(Cause.empty, s"Unsupported schema type: $schema"))
       }
@@ -403,54 +506,66 @@ object XmlCodec {
       val text = node.text
       Try {
         standardType match {
-          case StandardType.StringType => text.asInstanceOf[A]
-          case StandardType.BoolType => text.toBoolean.asInstanceOf[A]
-          case StandardType.ByteType => text.toByte.asInstanceOf[A]
-          case StandardType.ShortType => text.toShort.asInstanceOf[A]
-          case StandardType.IntType => text.toInt.asInstanceOf[A]
-          case StandardType.LongType => text.toLong.asInstanceOf[A]
-          case StandardType.FloatType => text.toFloat.asInstanceOf[A]
-          case StandardType.DoubleType => text.toDouble.asInstanceOf[A]
-          case StandardType.CharType => text.charAt(0).asInstanceOf[A]
+          case StandardType.StringType     => text.asInstanceOf[A]
+          case StandardType.BoolType       => text.toBoolean.asInstanceOf[A]
+          case StandardType.ByteType       => text.toByte.asInstanceOf[A]
+          case StandardType.ShortType      => text.toShort.asInstanceOf[A]
+          case StandardType.IntType        => text.toInt.asInstanceOf[A]
+          case StandardType.LongType       => text.toLong.asInstanceOf[A]
+          case StandardType.FloatType      => text.toFloat.asInstanceOf[A]
+          case StandardType.DoubleType     => text.toDouble.asInstanceOf[A]
+          case StandardType.CharType       => text.charAt(0).asInstanceOf[A]
           case StandardType.BigIntegerType => new java.math.BigInteger(text).asInstanceOf[A]
           case StandardType.BigDecimalType => new java.math.BigDecimal(text).asInstanceOf[A]
-          case StandardType.UUIDType => java.util.UUID.fromString(text).asInstanceOf[A]
-          case StandardType.UnitType => ().asInstanceOf[A]
-          case StandardType.BinaryType => 
+          case StandardType.UUIDType       => java.util.UUID.fromString(text).asInstanceOf[A]
+          case StandardType.UnitType       => ().asInstanceOf[A]
+          case StandardType.BinaryType =>
             val bytes = java.util.Base64.getDecoder.decode(text)
             Chunk.fromArray(bytes).asInstanceOf[A]
           case _ => text.asInstanceOf[A]
         }
-      }.toEither.left.map(error => DecodeError.ReadError(Cause.fail(error), error.getMessage)).asInstanceOf[Either[DecodeError, A]]
+      }.toEither.left
+        .map(error => DecodeError.ReadError(Cause.fail(error), error.getMessage))
+        .asInstanceOf[Either[DecodeError, A]]
     }
 
-    private def decodeSequence[A, Col](node: Node, elementSchema: Schema[A], fromChunk: Chunk[A] => Col, cfg: Configuration): Either[DecodeError, Col] = {
+    private def decodeSequence[A, Col](
+      node: Node,
+      elementSchema: Schema[A],
+      fromChunk: Chunk[A] => Col,
+      cfg: Configuration
+    ): Either[DecodeError, Col] = {
       val children = node match {
         case elem: Elem => elem.child.filter(_.isInstanceOf[Elem])
-        case _ => Seq.empty
+        case _          => Seq.empty
       }
-      
+
       val decoded = children.foldLeft[Either[DecodeError, Chunk[A]]](Right(Chunk.empty)) { (acc, child) =>
         acc.flatMap { chunk =>
           decodeValue(child, elementSchema, cfg).map(chunk :+ _)
         }
       }
-      
+
       decoded.map(fromChunk)
     }
 
-    private def decodeMap[K, V](node: Node, keySchema: Schema[K], valueSchema: Schema[V], cfg: Configuration): Either[DecodeError, Map[K, V]] = {
+    private def decodeMap[K, V](
+      node: Node,
+      keySchema: Schema[K],
+      valueSchema: Schema[V],
+      cfg: Configuration
+    ): Either[DecodeError, Map[K, V]] = {
       val entries = node match {
         case elem: Elem => elem.child.filter(_.label == "entry")
-        case _ => Seq.empty
+        case _          => Seq.empty
       }
-      
+
       entries.foldLeft[Either[DecodeError, Map[K, V]]](Right(Map.empty)) { (acc, entry) =>
         acc.flatMap { map =>
           entry.attribute("key") match {
             case Some(keyNode) =>
               for {
-                key <- decodePrimitive(Text(keyNode.text), keySchema.asInstanceOf[Schema.Primitive[K]].standardType)
+                key   <- decodePrimitive(Text(keyNode.text), keySchema.asInstanceOf[Schema.Primitive[K]].standardType)
                 value <- decodeValue(entry.child.head, valueSchema, cfg)
               } yield map + (key -> value)
             case None =>
@@ -466,17 +581,18 @@ object XmlCodec {
     private def decodeRecord[A](node: Node, record: Schema.Record[A], cfg: Configuration): Either[DecodeError, A] = {
       val elem = node match {
         case e: Elem => e
-        case _ => return Left(DecodeError.ReadError(Cause.empty, "Expected element for record"))
+        case _       => return Left(DecodeError.ReadError(Cause.empty, "Expected element for record"))
       }
-      
+
       val fieldValues = record.fields.foldLeft[Either[DecodeError, Chunk[Any]]](Right(Chunk.empty)) { (acc, field) =>
         acc.flatMap { values =>
           val isAttribute = field.annotations.exists(_.isInstanceOf[xmlAttribute])
-          
+
           val fieldValue = if (isAttribute) {
             elem.attribute(field.name) match {
-              case Some(attr) => decodePrimitive(Text(attr.text), field.schema.asInstanceOf[Schema.Primitive[_]].standardType)
-              case None => 
+              case Some(attr) =>
+                decodePrimitive(Text(attr.text), field.schema.asInstanceOf[Schema.Primitive[_]].standardType)
+              case None =>
                 if (field.schema.isInstanceOf[Schema.Optional[_]]) Right(None)
                 else Left(DecodeError.ReadError(Cause.empty, s"Missing attribute: ${field.name}"))
             }
@@ -488,20 +604,20 @@ object XmlCodec {
                 else Left(DecodeError.ReadError(Cause.empty, s"Missing field: ${field.name}"))
             }
           }
-          
+
           fieldValue.map(v => values :+ v)
         }
       }
-      
+
       fieldValues.flatMap { values =>
         record.construct(values)(Unsafe.unsafe) match {
-          case Left(error) => Left(DecodeError.ReadError(Cause.empty, error))
+          case Left(error)  => Left(DecodeError.ReadError(Cause.empty, error))
           case Right(value) => Right(value)
         }
       }
     }
 
-    private def decodeEnum1[A, A1](node: Node, case1: Schema.Case[A, A1], cfg: Configuration): Either[DecodeError, A] = {
+    private def decodeEnum1[A, A1](node: Node, case1: Schema.Case[A, A1], cfg: Configuration): Either[DecodeError, A] =
       if (node.label == case1.id) {
         decodeValue(node.child.head, case1.schema, cfg).map { value =>
           case1.construct(value)
@@ -509,7 +625,6 @@ object XmlCodec {
       } else {
         Left(DecodeError.ReadError(Cause.empty, s"Expected ${case1.id} but got ${node.label}"))
       }
-    }
 
     private def decodeEnum2[A, A1, A2](
       node: Node,
@@ -549,10 +664,12 @@ object XmlCodec {
           case3.construct(value)
         }
       } else {
-        Left(DecodeError.ReadError(Cause.empty, s"Expected ${case1.id}, ${case2.id} or ${case3.id} but got ${node.label}"))
+        Left(
+          DecodeError.ReadError(Cause.empty, s"Expected ${case1.id}, ${case2.id} or ${case3.id} but got ${node.label}")
+        )
       }
 
-    private def decodeEnumN[A](node: Node, cases: Seq[Schema.Case[A, _]], cfg: Configuration): Either[DecodeError, A] = {
+    private def decodeEnumN[A](node: Node, cases: Seq[Schema.Case[A, _]], cfg: Configuration): Either[DecodeError, A] =
       cases.find(_.id == node.label) match {
         case Some(matchedCase) =>
           decodeValue(node.child.head, matchedCase.schema.asInstanceOf[Schema[Any]], cfg).map { value =>
@@ -561,48 +678,58 @@ object XmlCodec {
         case None =>
           Left(DecodeError.ReadError(Cause.empty, s"No matching case for ${node.label}"))
       }
-    }
 
-    private def decodeOptional[A](node: Node, schema: Schema[A], cfg: Configuration): Either[DecodeError, Option[A]] = {
+    private def decodeOptional[A](node: Node, schema: Schema[A], cfg: Configuration): Either[DecodeError, Option[A]] =
       node match {
         case elem: Elem if elem.attribute("nil").exists(_.text == "true") => Right(None)
-        case _ if node.text.isEmpty => Right(None)
-        case _ => decodeValue(node, schema, cfg).map(Some(_))
+        case _ if node.text.isEmpty                                       => Right(None)
+        case _                                                            => decodeValue(node, schema, cfg).map(Some(_))
       }
-    }
 
-    private def decodeTuple2[A, B](node: Node, left: Schema[A], right: Schema[B], cfg: Configuration): Either[DecodeError, (A, B)] = {
+    private def decodeTuple2[A, B](
+      node: Node,
+      left: Schema[A],
+      right: Schema[B],
+      cfg: Configuration
+    ): Either[DecodeError, (A, B)] = {
       val elem = node match {
         case e: Elem => e
-        case _ => return Left(DecodeError.ReadError(Cause.empty, "Expected element for tuple"))
+        case _       => return Left(DecodeError.ReadError(Cause.empty, "Expected element for tuple"))
       }
-      
+
       for {
         a <- elem.child.find(_.label == "_1") match {
-          case Some(child) => decodeValue(child, left, cfg)
-          case None => Left(DecodeError.ReadError(Cause.empty, "Missing _1 in tuple"))
-        }
+              case Some(child) => decodeValue(child, left, cfg)
+              case None        => Left(DecodeError.ReadError(Cause.empty, "Missing _1 in tuple"))
+            }
         b <- elem.child.find(_.label == "_2") match {
-          case Some(child) => decodeValue(child, right, cfg)
-          case None => Left(DecodeError.ReadError(Cause.empty, "Missing _2 in tuple"))
-        }
+              case Some(child) => decodeValue(child, right, cfg)
+              case None        => Left(DecodeError.ReadError(Cause.empty, "Missing _2 in tuple"))
+            }
       } yield (a, b)
     }
 
-    private def decodeEither[A, B](node: Node, left: Schema[A], right: Schema[B], cfg: Configuration): Either[DecodeError, Either[A, B]] = {
+    private def decodeEither[A, B](
+      node: Node,
+      left: Schema[A],
+      right: Schema[B],
+      cfg: Configuration
+    ): Either[DecodeError, Either[A, B]] =
       node match {
         case elem: Elem =>
           elem.attribute("type").map(_.text) match {
-            case Some("left") => decodeValue(elem.child.head, left, cfg).map(Left(_))
+            case Some("left")  => decodeValue(elem.child.head, left, cfg).map(Left(_))
             case Some("right") => decodeValue(elem.child.head, right, cfg).map(Right(_))
             case _ =>
               if (elem.label == "left") decodeValue(elem.child.head, left, cfg).map(Left(_))
               else if (elem.label == "right") decodeValue(elem.child.head, right, cfg).map(Right(_))
-              else Left(DecodeError.ReadError(Cause.empty, "Either must have type attribute or be named 'left' or 'right'"))
+              else
+                Left(
+                  DecodeError.ReadError(Cause.empty, "Either must have type attribute or be named 'left' or 'right'")
+                )
           }
         case _ => Left(DecodeError.ReadError(Cause.empty, "Expected element for Either"))
       }
-    }
   }
 
   case class xmlAttribute() extends scala.annotation.StaticAnnotation
