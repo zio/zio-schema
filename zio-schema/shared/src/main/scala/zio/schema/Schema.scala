@@ -602,6 +602,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
 
   final case class Optional[A](schema: Schema[A], annotations: Chunk[Any] = Chunk.empty) extends Schema[Option[A]] {
     self =>
+    override def toString: String = s"Optional($annotations)"
     type OptionalType = A
 
     val some = "Some"
@@ -658,6 +659,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
   final case class Tuple2[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
       extends Schema[(A, B)] {
     self =>
+    override def toString: String = s"Tuple2($annotations)"
 
     val first  = "_1"
     val second = "_2"
@@ -687,6 +689,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
   final case class Either[A, B](left: Schema[A], right: Schema[B], annotations: Chunk[Any] = Chunk.empty)
       extends Schema[scala.util.Either[A, B]] {
     self =>
+    override def toString: String = s"Either($annotations)"
     type LeftType  = A
     type RightType = B
 
@@ -837,6 +840,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Collection[scala.collection.immutable.Map[K, V], (K, V)] {
     self =>
+    override def toString: String = s"Map($annotations)"
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       Traversal[scala.collection.immutable.Map[K, V], (K, V)]
 
@@ -861,6 +865,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
     override val annotations: Chunk[Any] = Chunk.empty
   ) extends Collection[prelude.NonEmptyMap[K, V], (K, V)] {
     self =>
+    override def toString: String = s"NonEmptyMap($annotations)"
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
       Traversal[prelude.NonEmptyMap[K, V], (K, V)]
 
@@ -921,6 +926,7 @@ object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVers
   final case class Set[A](elementSchema: Schema[A], override val annotations: Chunk[Any] = Chunk.empty)
       extends Collection[scala.collection.immutable.Set[A], A] {
     self =>
+    override def toString: String = s"Set($annotations)"
     type ElementType = A
 
     override type Accessors[Lens[_, _, _], Prism[_, _, _], Traversal[_, _]] =
