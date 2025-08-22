@@ -9,7 +9,7 @@ addSbtPlugin("com.github.sbt"     % "sbt-ci-release"                % "1.11.2")
 addSbtPlugin("org.portable-scala" % "sbt-scala-native-crossproject" % "1.3.2")
 addSbtPlugin("org.scala-native"   % "sbt-scala-native"              % "0.5.8")
 addSbtPlugin("pl.project13.scala" % "sbt-jmh"                       % "0.4.7")
-addSbtPlugin("dev.zio"            % "zio-sbt-website"               % "0.4.0-alpha.32")
+addSbtPlugin("dev.zio"            % "zio-sbt-website"               % "0.4.0-alpha.33")
 addSbtPlugin("com.typesafe"       % "sbt-mima-plugin"               % "1.1.4")
 addSbtPlugin("org.scoverage"      % "sbt-scoverage"                 % "2.3.1")
 
