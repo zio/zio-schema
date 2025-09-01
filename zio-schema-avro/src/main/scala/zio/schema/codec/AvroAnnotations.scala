@@ -37,7 +37,7 @@ object AvroAnnotations {
    */
   final case class timeprecision(timeprecisionType: TimePrecisionType) extends StaticAnnotation
 
-  final private[codec] case class default(javaDefaultObject: java.lang.Object) extends StaticAnnotation
+  final case class default(javaDefaultObject: java.lang.Object) extends StaticAnnotation
 
   /**
    * Used to annotate a record in order to render it as a avro error record

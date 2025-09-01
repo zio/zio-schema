@@ -166,7 +166,7 @@ sealed trait Schema[A] {
   def zip[B](that: Schema[B]): Schema[(A, B)] = Schema.Tuple2(self, that)
 }
 
-object Schema extends SchemaPlatformSpecific with SchemaEquality {
+object Schema extends SchemaPlatformSpecific with SchemaEquality with SchemaVersionSpecific {
   def apply[A](implicit schema: Schema[A]): Schema[A] = schema
 
   def defer[A](schema: => Schema[A]): Schema[A] = Lazy(() => schema)

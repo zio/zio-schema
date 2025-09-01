@@ -31,6 +31,22 @@ object VersionSpecificJsonCodecSpec extends ZIOSpecDefault {
         val json = """{"type":"BaseB","a":"a","b":{"i":1}}"""
         assert(decoder.decodeJson(json))(equalTo(Right(value))) &&
         assert(encoder.encodeJson(value))(equalTo(json))
+      },
+      test("enum with case name annotations") {
+        val schema1 = Schema.chunk(DeriveSchema.gen[Foo])
+        val schema2 = Schema.chunk(DeriveSchema.gen[Foo2])
+        val decoder1 = JsonCodec.jsonDecoder(schema1)
+        val decoder2 = JsonCodec.jsonDecoder(schema2)
+        val encoder1 = JsonCodec.jsonEncoder(schema1)
+        val encoder2 = JsonCodec.jsonEncoder(schema2)
+        val json1 = """["bar","baz","qux","Quux"]"""
+        val json2 = """["Bar","baz","qux"]"""
+        val value1 = Chunk[Foo](Foo.Bar, Foo.Baz, Foo.Qux, Foo.Quux)
+        val value2 = Chunk[Foo2](Foo2.Bar, Foo2.Baz, Foo2.Qux)
+        assert(decoder1.decodeJson(json1))(equalTo(Right(value1))) &&
+        assert(decoder2.decodeJson(json2))(equalTo(Right(value2))) &&
+        assert(encoder1.encodeJson(value1))(equalTo(json1)) &&
+        assert(encoder2.encodeJson(value2))(equalTo(json2))
       }
     ),
     suite("union types")(
@@ -62,6 +78,15 @@ object VersionSpecificJsonCodecSpec extends ZIOSpecDefault {
         val value = Map("a" -> 1, "b" -> "toto", "c" -> true, "d" -> null)
         assert(decoder.decodeJson(json))(equalTo(Right(value))) &&
         assert(encoder.encodeJson(value))(equalTo(json))
+      },
+      test("IArray") {
+        val schema = Schema.iArray[Int]
+        val decoder = JsonCodec.jsonDecoder(schema)
+        val encoder = JsonCodec.jsonEncoder(schema)
+        val json = """[1,2,3]"""
+        val value = IArray(1, 2, 3)
+        assertTrue(decoder.decodeJson(json).exists(_.sameElements(value))) &&
+        assertTrue(encoder.encodeJson(value) == json)
       }
     )
   )
@@ -71,6 +96,17 @@ object VersionSpecificJsonCodecSpec extends ZIOSpecDefault {
   object WithDefaultValue {
     implicit lazy val schema: Schema[WithDefaultValue] = DeriveSchema.gen[WithDefaultValue]
   }
+
+  enum Foo:
+    @caseName("bar") @caseName("xxx") case Bar
+    @caseName("baz") case Baz
+    @caseName("qux") case Qux
+    case Quux
+
+  enum Foo2:
+    case Bar
+    @caseName("baz") @caseName("xxx") case Baz
+    @caseName("qux") case Qux
 
   enum ErrorGroup1:
     case Err1

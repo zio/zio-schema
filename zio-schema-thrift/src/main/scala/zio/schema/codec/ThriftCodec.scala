@@ -14,7 +14,7 @@ import zio.schema.MutableSchemaBasedValueBuilder.{ CreateValueFromSchemaError, R
 import zio.schema._
 import zio.schema.codec.DecodeError.{ EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath }
 import zio.stream.ZPipeline
-import zio.{ Cause, Chunk, Unsafe, ZIO }
+import zio.{ Cause, Chunk, Unsafe }
 
 object ThriftCodec {
 
@@ -27,11 +27,7 @@ object ThriftCodec {
           decodeChunk(whole)
 
       override def streamDecoder: ZPipeline[Any, DecodeError, Byte, A] =
-        ZPipeline.mapChunksZIO { chunk =>
-          ZIO.fromEither(
-            decodeChunk(chunk).map(Chunk(_))
-          )
-        }
+        ZPipeline.mapChunksEither(bytes => decodeChunk(bytes).map(Chunk.single))
 
       override def encode(value: A): Chunk[Byte] =
         new Encoder().encode(schema, value)
