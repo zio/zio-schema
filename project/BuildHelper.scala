@@ -35,11 +35,11 @@ object BuildHelper {
 
   val zioVersion                   = "2.1.21"
   val zioJsonVersion               = "0.7.44"
-  val zioPreludeVersion            = "1.0.0-RC41"
+  val zioPreludeVersion            = "1.0.0-RC42"
   val zioOpticsVersion             = "0.2.2"
   val zioBsonVersion               = "1.0.6"
   val avroVersion                  = "1.12.0"
-  val bsonVersion                  = "5.6.0"
+  val bsonVersion                  = "5.6.1"
   val zioConstraintlessVersion     = "0.3.3"
   val scalaCollectionCompatVersion = "2.13.0"
   val msgpackVersion               = "0.9.10"
@@ -65,7 +65,7 @@ object BuildHelper {
       CrossVersion.partialVersion(scalaVersion) match {
         case Some((2, x)) =>
           Seq(
-            compilerPlugin(("org.typelevel" %% "kind-projector" % "0.13.3").cross(CrossVersion.full))
+            compilerPlugin(("org.typelevel" %% "kind-projector" % "0.13.4").cross(CrossVersion.full))
           )
         case _ => Seq.empty
       }
