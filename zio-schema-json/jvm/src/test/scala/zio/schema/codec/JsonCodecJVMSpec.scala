@@ -40,23 +40,22 @@ object JsonCodecJVMSpec extends ZIOSpecDefault {
         val delimiter = Gen.elements(JsonStreamDelimiter.Array, JsonStreamDelimiter.Newline)
         val codec     = JsonCodec.jsonEncoder(AllOptionalFields.schema)
 
-        check(Gen.chunkOfBounded(0, 3)(person), delimiter) {
-          (people, delim) =>
-            val indent        = if (delim == JsonStreamDelimiter.Array) Some(1) else None
-            val encodedPeople = people.map(p => codec.encodeJson(p, indent))
-            val encoded = delim match {
-              case JsonStreamDelimiter.Array =>
-                encodedPeople.mkString("[", ",", "]")
-              case JsonStreamDelimiter.Newline =>
-                encodedPeople.mkString("", "\n", "\n")
-            }
+        check(Gen.chunkOfBounded(0, 3)(person), delimiter) { (people, delim) =>
+          val indent        = if (delim == JsonStreamDelimiter.Array) Some(1) else None
+          val encodedPeople = people.map(p => codec.encodeJson(p, indent))
+          val encoded       = delim match {
+            case JsonStreamDelimiter.Array   =>
+              encodedPeople.mkString("[", ",", "]")
+            case JsonStreamDelimiter.Newline =>
+              encodedPeople.mkString("", "\n", "\n")
+          }
 
-            assertDecodesJsonStream(
-              AllOptionalFields.schema,
-              people,
-              charSequenceToByteChunk(encoded),
-              delim
-            )
+          assertDecodesJsonStream(
+            AllOptionalFields.schema,
+            people,
+            charSequenceToByteChunk(encoded),
+            delim
+          )
         }
       }
     )
