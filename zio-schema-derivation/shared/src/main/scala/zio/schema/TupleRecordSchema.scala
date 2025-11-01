@@ -7,7 +7,7 @@ private[schema] object TupleRecordSchema {
   def tupleToRecordSchema[T](schemas: => Chunk[Schema[_]]): Schema.Record[T] = {
     val arity = schemas.length
     arity match {
-      case 2 =>
+      case 2  =>
         Schema
           .CaseClass2[Any, Any, (Any, Any)](
             TypeId.parse(s"zio.schema.Tuple.Tuple$arity"),
@@ -26,7 +26,7 @@ private[schema] object TupleRecordSchema {
             (t1, t2) => (t1, t2)
           )
           .asInstanceOf[Schema.Record[T]]
-      case 3 =>
+      case 3  =>
         Schema
           .CaseClass3[Any, Any, Any, (Any, Any, Any)](
             TypeId.parse(s"zio.schema.Tuple.Tuple$arity"),
@@ -51,7 +51,7 @@ private[schema] object TupleRecordSchema {
             (t1, t2, t3) => (t1, t2, t3)
           )
           .asInstanceOf[Schema.Record[T]]
-      case 4 =>
+      case 4  =>
         Schema
           .CaseClass4[Any, Any, Any, Any, (Any, Any, Any, Any)](
             TypeId.parse(s"zio.schema.Tuple.Tuple$arity"),
@@ -82,7 +82,7 @@ private[schema] object TupleRecordSchema {
             (t1, t2, t3, t4) => (t1, t2, t3, t4)
           )
           .asInstanceOf[Schema.Record[T]]
-      case 5 =>
+      case 5  =>
         Schema
           .CaseClass5[Any, Any, Any, Any, Any, (Any, Any, Any, Any, Any)](
             TypeId.parse(s"zio.schema.Tuple.Tuple$arity"),
@@ -119,7 +119,7 @@ private[schema] object TupleRecordSchema {
             (t1, t2, t3, t4, t5) => (t1, t2, t3, t4, t5)
           )
           .asInstanceOf[Schema.Record[T]]
-      case 6 =>
+      case 6  =>
         Schema
           .CaseClass6[Any, Any, Any, Any, Any, Any, (Any, Any, Any, Any, Any, Any)](
             TypeId.parse(s"zio.schema.Tuple.Tuple$arity"),
@@ -162,7 +162,7 @@ private[schema] object TupleRecordSchema {
             (t1, t2, t3, t4, t5, t6) => (t1, t2, t3, t4, t5, t6)
           )
           .asInstanceOf[Schema.Record[T]]
-      case 7 =>
+      case 7  =>
         Schema
           .CaseClass7[Any, Any, Any, Any, Any, Any, Any, (Any, Any, Any, Any, Any, Any, Any)](
             TypeId.parse(s"zio.schema.Tuple.Tuple$arity"),
@@ -211,7 +211,7 @@ private[schema] object TupleRecordSchema {
             (t1, t2, t3, t4, t5, t6, t7) => (t1, t2, t3, t4, t5, t6, t7)
           )
           .asInstanceOf[Schema.Record[T]]
-      case 8 =>
+      case 8  =>
         Schema
           .CaseClass8[Any, Any, Any, Any, Any, Any, Any, Any, (Any, Any, Any, Any, Any, Any, Any, Any)](
             TypeId.parse(s"zio.schema.Tuple.Tuple$arity"),
@@ -266,7 +266,7 @@ private[schema] object TupleRecordSchema {
             (t1, t2, t3, t4, t5, t6, t7, t8) => (t1, t2, t3, t4, t5, t6, t7, t8)
           )
           .asInstanceOf[Schema.Record[T]]
-      case 9 =>
+      case 9  =>
         Schema
           .CaseClass9[Any, Any, Any, Any, Any, Any, Any, Any, Any, (Any, Any, Any, Any, Any, Any, Any, Any, Any)](
             TypeId.parse(s"zio.schema.Tuple.Tuple$arity"),
@@ -1174,7 +1174,8 @@ private[schema] object TupleRecordSchema {
             Schema.Field(
               "_10",
               schemas(9).asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._10,
+              get0 =
+                (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._10,
               set0 =
                 (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any), v: Any) =>
                   t.copy(_10 = v)
@@ -1182,7 +1183,8 @@ private[schema] object TupleRecordSchema {
             Schema.Field(
               "_11",
               schemas(10).asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._11,
+              get0 =
+                (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._11,
               set0 =
                 (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any), v: Any) =>
                   t.copy(_11 = v)
@@ -1190,7 +1192,8 @@ private[schema] object TupleRecordSchema {
             Schema.Field(
               "_12",
               schemas(11).asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._12,
+              get0 =
+                (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._12,
               set0 =
                 (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any), v: Any) =>
                   t.copy(_12 = v)
@@ -1198,7 +1201,8 @@ private[schema] object TupleRecordSchema {
             Schema.Field(
               "_13",
               schemas(12).asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._13,
+              get0 =
+                (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._13,
               set0 =
                 (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any), v: Any) =>
                   t.copy(_13 = v)
@@ -1206,7 +1210,8 @@ private[schema] object TupleRecordSchema {
             Schema.Field(
               "_14",
               schemas(13).asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._14,
+              get0 =
+                (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._14,
               set0 =
                 (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any), v: Any) =>
                   t.copy(_14 = v)
@@ -1214,7 +1219,8 @@ private[schema] object TupleRecordSchema {
             Schema.Field(
               "_15",
               schemas(14).asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._15,
+              get0 =
+                (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._15,
               set0 =
                 (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any), v: Any) =>
                   t.copy(_15 = v)
@@ -1222,7 +1228,8 @@ private[schema] object TupleRecordSchema {
             Schema.Field(
               "_16",
               schemas(15).asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._16,
+              get0 =
+                (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._16,
               set0 =
                 (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any), v: Any) =>
                   t.copy(_16 = v)
@@ -1230,7 +1237,8 @@ private[schema] object TupleRecordSchema {
             Schema.Field(
               "_17",
               schemas(16).asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._17,
+              get0 =
+                (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._17,
               set0 =
                 (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any), v: Any) =>
                   t.copy(_17 = v)
@@ -4790,7 +4798,7 @@ private[schema] object TupleRecordSchema {
               )
           )
           .asInstanceOf[Schema.Record[T]]
-      case _ => throw new IllegalArgumentException(s"Unsupported tuple arity: $arity")
+      case _  => throw new IllegalArgumentException(s"Unsupported tuple arity: $arity")
     }
   }
 }

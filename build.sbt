@@ -206,7 +206,7 @@ lazy val zioSchemaDerivation = crossProject(JSPlatform, JVMPlatform, NativePlatf
           Seq(
             "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
           )
-        case _ => Seq()
+        case _            => Seq()
       }
     }
   )
@@ -217,7 +217,7 @@ lazy val zioSchemaDerivation = crossProject(JSPlatform, JVMPlatform, NativePlatf
           Seq(
             "org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided
           )
-        case _ => Seq()
+        case _            => Seq()
       }
     }
   )
@@ -318,9 +318,9 @@ lazy val zioSchemaMsgPack = project
   .settings(buildInfoSettings("zio.schema.msgpack"))
   .settings(
     libraryDependencies ++= Seq(
-      "org.msgpack"                  % "msgpack-core"               % msgpackVersion,
-      "org.msgpack"                  % "jackson-dataformat-msgpack" % msgpackVersion % Test,
-      "com.fasterxml.jackson.module" %% "jackson-module-scala"      % jacksonScalaVersion % Test
+      "org.msgpack"                   % "msgpack-core"               % msgpackVersion,
+      "org.msgpack"                   % "jackson-dataformat-msgpack" % msgpackVersion      % Test,
+      "com.fasterxml.jackson.module" %% "jackson-module-scala"       % jacksonScalaVersion % Test
     )
   )
   .settings(testDeps)
@@ -333,7 +333,7 @@ lazy val zioSchemaAvro = project
   .settings(buildInfoSettings("zio.schema.avro"))
   .settings(
     libraryDependencies ++= Seq(
-      "org.apache.avro"        % "avro"                     % avroVersion,
+      "org.apache.avro"         % "avro"                    % avroVersion,
       "org.scala-lang.modules" %% "scala-collection-compat" % scalaCollectionCompatVersion
     )
   )
@@ -346,7 +346,7 @@ lazy val zioSchemaBson = project
   .settings(buildInfoSettings("zio.schema.bson"))
   .settings(
     libraryDependencies ++= Seq(
-      "org.mongodb"            % "bson"                     % bsonVersion,
+      "org.mongodb"             % "bson"                    % bsonVersion,
       "dev.zio"                %% "zio-bson"                % zioBsonVersion,
       "dev.zio"                %% "zio"                     % zioVersion, // zio.Chunk
       "dev.zio"                %% "zio-test-magnolia"       % zioVersion % Test, // TODO: implement DeriveDiff in zioSchemaZioTest

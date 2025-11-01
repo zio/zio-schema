@@ -29,7 +29,7 @@ object Main {
     val standardTypeRegex                                 = "StandardType\\[.*".r
     val suffixRegex                                       = "((])(?!.*])).*".r
     var unsortedStandardTypes: Vector[StandardTypeForDoc] = Vector.empty
-    var markdownFile =
+    var markdownFile                                      =
       """---
         |id: standard-type-reference
         |title: "Standard Type Reference"
@@ -44,14 +44,14 @@ object Main {
     val source = Source.fromFile(standardTypeFile)
 
     try {
-      for (line <- source.getLines()) {
+      for (line <- source.getLines())
         if (line.contains("implicit object")) {
-          val unparsedLine = standardTypeRegex
+          val unparsedLine       = standardTypeRegex
             .findFirstIn(line)
             .getOrElse("Expected StandardType to be present in line while parsing standard type doc")
-          val trimmedLine       = unparsedLine.trim()
-          val lineWithoutPrefix = trimmedLine.replace("StandardType[", "")
-          val standardTypeStr   = suffixRegex.replaceFirstIn(lineWithoutPrefix, "")
+          val trimmedLine        = unparsedLine.trim()
+          val lineWithoutPrefix  = trimmedLine.replace("StandardType[", "")
+          val standardTypeStr    = suffixRegex.replaceFirstIn(lineWithoutPrefix, "")
           val standardTypeForDoc = standardTypeStr match {
             case typ @ "java.util.UUID"     => StandardTypeForDoc(typ, isJSSupported = false)
             case typ @ "java.util.Currency" => StandardTypeForDoc(typ, isJSSupported = false, isNativeSupported = false)
@@ -59,7 +59,6 @@ object Main {
           }
           unsortedStandardTypes = unsortedStandardTypes :+ standardTypeForDoc
         }
-      }
 
       val sortedStandardTypes = unsortedStandardTypes.sortBy(_.name)
       sortedStandardTypes.foreach { standardType =>
@@ -69,9 +68,7 @@ object Main {
         markdownFile += s"\n|`${standardType.name}`|$jvmSupport|$jsSupport|$nativeSupport|"
       }
       markdownFile
-    } finally {
-      source.close()
-    }
+    } finally source.close()
   }
 
   def main(args: Array[String]): Unit = {

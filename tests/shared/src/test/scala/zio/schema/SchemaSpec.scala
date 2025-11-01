@@ -11,51 +11,52 @@ import zio.test._
 
 object SchemaSpec extends ZIOSpecDefault {
 
-  def spec: Spec[Environment, Any] = suite("Schema Spec")(
-    suite("Should have valid equals")(
-      test("primitive") {
-        assert(schemaUnit)(hasSameSchema(schemaUnit))
-      },
-      test("sequence") {
-        assert(Schema.chunk(schemaUnit))(hasSameSchema(Schema.chunk(schemaUnit)))
-      } @@ TestAspect.scala2Only,
-      test("tuple") {
-        assert(Schema.Tuple2(schemaUnit, schemaUnit))(hasSameSchema(Schema.Tuple2(schemaUnit, schemaUnit))) &&
-        assert(Schema.Tuple2(schemaTransform, schemaTransform))(
-          hasSameSchema(Schema.Tuple2(schemaTransform, schemaTransform))
-        )
-      },
-      test("record") {
-        assert(schemaRecord("key"))(hasSameSchema(schemaRecord("key"))) &&
-        assert(schemaRecord("key1"))(not(hasSameSchema(schemaRecord("key2"))))
-      },
-      test("transform") {
-        assert(schemaTransform)(hasSameSchema(schemaTransform)) &&
-        assert(schemaTransformMethod)(hasSameSchema(schemaTransformMethod))
-      } @@ TestAspect.scala2Only,
-      test("optional") {
-        assert(Schema.Optional(schemaUnit))(hasSameSchema(Schema.Optional(schemaUnit)))
-      },
-      test("enumeration") {
-        assert(schemaEnum("key"))(hasSameSchema(schemaEnum("key"))) &&
-        assert(schemaEnum("key1"))(not(hasSameSchema(schemaEnum("key2"))))
+  def spec: Spec[Environment, Any] =
+    suite("Schema Spec")(
+      suite("Should have valid equals")(
+        test("primitive") {
+          assert(schemaUnit)(hasSameSchema(schemaUnit))
+        },
+        test("sequence") {
+          assert(Schema.chunk(schemaUnit))(hasSameSchema(Schema.chunk(schemaUnit)))
+        } @@ TestAspect.scala2Only,
+        test("tuple") {
+          assert(Schema.Tuple2(schemaUnit, schemaUnit))(hasSameSchema(Schema.Tuple2(schemaUnit, schemaUnit))) &&
+          assert(Schema.Tuple2(schemaTransform, schemaTransform))(
+            hasSameSchema(Schema.Tuple2(schemaTransform, schemaTransform))
+          )
+        },
+        test("record") {
+          assert(schemaRecord("key"))(hasSameSchema(schemaRecord("key"))) &&
+          assert(schemaRecord("key1"))(not(hasSameSchema(schemaRecord("key2"))))
+        },
+        test("transform") {
+          assert(schemaTransform)(hasSameSchema(schemaTransform)) &&
+          assert(schemaTransformMethod)(hasSameSchema(schemaTransformMethod))
+        } @@ TestAspect.scala2Only,
+        test("optional") {
+          assert(Schema.Optional(schemaUnit))(hasSameSchema(Schema.Optional(schemaUnit)))
+        },
+        test("enumeration") {
+          assert(schemaEnum("key"))(hasSameSchema(schemaEnum("key"))) &&
+          assert(schemaEnum("key1"))(not(hasSameSchema(schemaEnum("key2"))))
 
-      } @@ TestAspect.scala2Only,
-      test("schema of schema") {
-        assert(schemaInt.serializable)(hasSameSchema(schemaInt.serializable))
-      },
-      test("schema of schema of schema") {
-        assert(schemaInt.serializable.serializable)(hasSameSchema(schemaInt.serializable.serializable))
+        } @@ TestAspect.scala2Only,
+        test("schema of schema") {
+          assert(schemaInt.serializable)(hasSameSchema(schemaInt.serializable))
+        },
+        test("schema of schema of schema") {
+          assert(schemaInt.serializable.serializable)(hasSameSchema(schemaInt.serializable.serializable))
+        }
+      ),
+      test("Tuple.toRecord should preserve annotations") {
+        val left        = Schema.primitive(StandardType.StringType)
+        val right       = Schema.primitive(StandardType.StringType)
+        val tupleSchema = Schema.Tuple2(left, right, Chunk("some Annotation"))
+        val record      = tupleSchema.toRecord
+        assert(record.annotations)(hasFirst(equalTo("some Annotation")))
       }
-    ),
-    test("Tuple.toRecord should preserve annotations") {
-      val left        = Schema.primitive(StandardType.StringType)
-      val right       = Schema.primitive(StandardType.StringType)
-      val tupleSchema = Schema.Tuple2(left, right, Chunk("some Annotation"))
-      val record      = tupleSchema.toRecord
-      assert(record.annotations)(hasFirst(equalTo("some Annotation")))
-    }
-  )
+    )
 
   def schemaUnit: Schema[Unit] = Schema[Unit]
   def schemaInt: Schema[Int]   = Schema[Int]

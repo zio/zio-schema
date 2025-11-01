@@ -8,15 +8,16 @@ import zio.test._
 
 object LensSpec extends ZIOSpecDefault {
 
-  def spec: Spec[Environment, Any] = suite("LensSpec")(
-    suite("constructors")(
-      test("first")(lensLaws(Gen.int.zip(Gen.int), Gen.int)(Lens.first)),
-      test("second")(lensLaws(Gen.int.zip(Gen.int), Gen.int)(Lens.second)),
-      test("field1")(lensLaws(TestClass.gen, Gen.int)(TestClass.field1)),
-      test("field2")(lensLaws(TestClass.gen, Gen.string)(TestClass.field2)),
-      test("field2")(lensLaws(TestClass.gen, Gen.long)(TestClass.field3))
+  def spec: Spec[Environment, Any] =
+    suite("LensSpec")(
+      suite("constructors")(
+        test("first")(lensLaws(Gen.int.zip(Gen.int), Gen.int)(Lens.first)),
+        test("second")(lensLaws(Gen.int.zip(Gen.int), Gen.int)(Lens.second)),
+        test("field1")(lensLaws(TestClass.gen, Gen.int)(TestClass.field1)),
+        test("field2")(lensLaws(TestClass.gen, Gen.string)(TestClass.field2)),
+        test("field2")(lensLaws(TestClass.gen, Gen.long)(TestClass.field3))
+      )
     )
-  )
 
   def lensLaws[F, Env <: TestConfig, Whole, Piece](genWhole: Gen[Env, Whole], genPiece: Gen[Env, Piece])(
     lens: ZioOpticsBuilder.Lens[F, Whole, Piece]

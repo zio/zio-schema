@@ -80,18 +80,18 @@ object DynamicValueGen {
       case Schema.Set(schema, _)                                                                                                                                                                      => Gen.setOfBounded(0, 2)(anyDynamicValueOfSchema(schema)).map(DynamicValue.SetValue(_))
       case Schema.Optional(schema, _)                                                                                                                                                                 => Gen.oneOf(anyDynamicSomeValueOfSchema(schema), Gen.const(DynamicValue.NoneValue))
       case Schema.Tuple2(left, right, _)                                                                                                                                                              => anyDynamicTupleValue(left, right)
-      case Schema.Either(left, right, _) =>
+      case Schema.Either(left, right, _)                                                                                                                                                              =>
         Gen.oneOf(anyDynamicLeftValueOfSchema(left), anyDynamicRightValueOfSchema(right))
-      case Schema.Fallback(left, right, _, _) =>
+      case Schema.Fallback(left, right, _, _)                                                                                                                                                         =>
         Gen.oneOf[Sized, DynamicValue](
           anyDynamicLeftValueOfSchema(left.asInstanceOf[Schema[Any]]),
           anyDynamicRightValueOfSchema(right.asInstanceOf[Schema[Any]]),
           anyDynamicBothValueOfSchema(left.asInstanceOf[Schema[Any]], right.asInstanceOf[Schema[Any]])
         )
-      case Schema.Transform(schema, _, _, _, _) => anyDynamicValueOfSchema(schema)
-      case Schema.Fail(message, _)              => Gen.const(DynamicValue.Error(message))
-      case l @ Schema.Lazy(_)                   => anyDynamicValueOfSchema(l.schema)
-      case Schema.Dynamic(_)                    => SchemaGen.anySchema.flatMap(anyDynamicValueOfSchema(_))
+      case Schema.Transform(schema, _, _, _, _)                                                                                                                                                       => anyDynamicValueOfSchema(schema)
+      case Schema.Fail(message, _)                                                                                                                                                                    => Gen.const(DynamicValue.Error(message))
+      case l @ Schema.Lazy(_)                                                                                                                                                                         => anyDynamicValueOfSchema(l.schema)
+      case Schema.Dynamic(_)                                                                                                                                                                          => SchemaGen.anySchema.flatMap(anyDynamicValueOfSchema(_))
     }
   //scalafmt: { maxColumn = 120 }
 
@@ -102,19 +102,19 @@ object DynamicValueGen {
     anyDynamicValueOfSchema(schema).map(DynamicValue.RightValue(_))
 
   def anyDynamicBothValueOfSchema[A, B](left: Schema[A], right: Schema[A]): Gen[Sized, DynamicValue.BothValue] =
-    anyDynamicValueOfSchema(left).zip(anyDynamicValueOfSchema(right)).map {
-      case (l, r) => DynamicValue.BothValue(l, r)
+    anyDynamicValueOfSchema(left).zip(anyDynamicValueOfSchema(right)).map { case (l, r) =>
+      DynamicValue.BothValue(l, r)
     }
 
   def anyDynamicSomeValueOfSchema[A](schema: Schema[A]): Gen[Sized, DynamicValue.SomeValue] =
     anyDynamicValueOfSchema(schema).map(DynamicValue.SomeValue(_))
 
   def anyDynamicTupleValue[A, B](left: Schema[A], right: Schema[B]): Gen[Sized, DynamicValue.Tuple] =
-    anyDynamicValueOfSchema(left).zip(anyDynamicValueOfSchema(right)).map {
-      case (l, r) => DynamicValue.Tuple(l, r)
+    anyDynamicValueOfSchema(left).zip(anyDynamicValueOfSchema(right)).map { case (l, r) =>
+      DynamicValue.Tuple(l, r)
     }
 
-  def anyDynamicValueOfEnum[A](cases: Chunk[Schema.Case[A, _]]): Gen[Sized, DynamicValue.Enumeration] =
+  def anyDynamicValueOfEnum[A](cases: Chunk[Schema.Case[A, _]]): Gen[Sized, DynamicValue.Enumeration]        =
     for {
       index <- Gen.int(0, cases.size - 1)
       value <- anyDynamicValueOfSchema(cases(index).schema)

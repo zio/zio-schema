@@ -22,7 +22,7 @@ object BuildHelper {
     import java.util.{ List => JList, Map => JMap }
     import scala.jdk.CollectionConverters._
 
-    val doc = new Load(LoadSettings.builder().build())
+    val doc  = new Load(LoadSettings.builder().build())
       .loadFromReader(scala.io.Source.fromFile(".github/workflows/ci.yml").bufferedReader())
     val yaml = doc.asInstanceOf[JMap[String, JMap[String, JMap[String, JMap[String, JMap[String, JList[String]]]]]]]
     val list = yaml.get("jobs").get("build").get("strategy").get("matrix").get("scala").asScala
@@ -48,17 +48,18 @@ object BuildHelper {
   val javaxAnnotationApiVersion    = "3.0.0"
   val scalaJavaTimeVersion         = "2.6.0"
 
-  def macroDefinitionSettings = Seq(
-    scalacOptions += "-language:experimental.macros",
-    libraryDependencies ++= {
-      if (scalaVersion.value == Scala3) Seq()
-      else
-        Seq(
-          "org.scala-lang" % "scala-reflect"  % scalaVersion.value % Provided,
-          "org.scala-lang" % "scala-compiler" % scalaVersion.value % Provided
-        )
-    }
-  )
+  def macroDefinitionSettings =
+    Seq(
+      scalacOptions += "-language:experimental.macros",
+      libraryDependencies ++= {
+        if (scalaVersion.value == Scala3) Seq()
+        else
+          Seq(
+            "org.scala-lang" % "scala-reflect"  % scalaVersion.value % Provided,
+            "org.scala-lang" % "scala-compiler" % scalaVersion.value % Provided
+          )
+      }
+    )
 
   private def compileOnlyDeps(scalaVersion: String): Seq[ModuleID] =
     (
@@ -67,7 +68,7 @@ object BuildHelper {
           Seq(
             compilerPlugin(("org.typelevel" %% "kind-projector" % "0.13.4").cross(CrossVersion.full))
           )
-        case _ => Seq.empty
+        case _            => Seq.empty
       }
     ) ++ (
       CrossVersion.partialVersion(scalaVersion) match {
@@ -75,7 +76,7 @@ object BuildHelper {
           Seq(
             compilerPlugin(("org.scalamacros" % "paradise" % "2.1.1").cross(CrossVersion.full))
           )
-        case _ => Seq.empty
+        case _                       => Seq.empty
       }
     )
 
@@ -115,7 +116,7 @@ object BuildHelper {
       else Seq.empty
 
     val extraOptions = CrossVersion.partialVersion(scalaVersion) match {
-      case Some((3, _)) =>
+      case Some((3, _))  =>
         Seq(
           "-language:implicitConversions",
           "-Xignore-scala2-macros",
@@ -140,7 +141,7 @@ object BuildHelper {
           "-Ywarn-nullary-unit",
           "-Wconf:cat=unused-nowarn:s"
         ) ++ std2xOptions ++ optimizerOptions
-      case _ => Seq.empty
+      case _             => Seq.empty
     }
 
     stdOptions ++ extraOptions
@@ -159,7 +160,7 @@ object BuildHelper {
     for {
       platform <- List("shared", platform)
       version  <- "scala" :: versions.toList.map("scala-" + _)
-      result   = baseDirectory.getParentFile / platform.toLowerCase / "src" / conf / version
+      result    = baseDirectory.getParentFile / platform.toLowerCase / "src" / conf / version
       if result.exists
     } yield result
 
@@ -171,7 +172,7 @@ object BuildHelper {
         List("2.12", "2.11+", "2.12+", "2.11-2.12", "2.12-2.13", "2.x")
       case Some((2, 13)) =>
         List("2.13", "2.11+", "2.12+", "2.13+", "2.12-2.13", "2.x")
-      case _ =>
+      case _             =>
         List()
     }
     platformSpecificSources(platform, conf, baseDir)(versions: _*)
@@ -208,16 +209,17 @@ object BuildHelper {
     Test / fork := crossProjectPlatform.value == JVMPlatform // set fork to `true` on JVM to improve log readability, JS and Native need `false`
   )
 
-  def buildInfoSettings(packageName: String) = Seq(
-    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
-    buildInfoPackage := packageName
-  )
+  def buildInfoSettings(packageName: String) =
+    Seq(
+      buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
+      buildInfoPackage := packageName
+    )
 
   def stdSettings(prjName: String) =
     Seq(
       name := s"$prjName",
       crossScalaVersions := Seq(Scala213, Scala212, Scala3),
-      ThisBuild / scalaVersion := Scala213, //crossScalaVersions.value.head, //Scala3,
+      ThisBuild / scalaVersion := Scala213,                          //crossScalaVersions.value.head, //Scala3,
       scalacOptions ++= compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value),
       versionScheme := Some("early-semver"),
@@ -237,7 +239,7 @@ object BuildHelper {
         .toSet ++ Set(
         organization.value %% name.value % "1.4.1"
       ),
-      mimaCheckDirection := "backward", // TODO use "both" for patch versions
+      mimaCheckDirection := "backward",                              // TODO use "both" for patch versions
       mimaBinaryIssueFilters ++= Seq(
         exclude[Problem]("zio.schema.Schema#Collection.fromChunk"),
         exclude[Problem]("zio.schema.Schema#Collection.toChunk"),

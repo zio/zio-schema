@@ -10,33 +10,34 @@ import zio.schema.annotation.directDynamicMapping
 import zio.schema.{ DynamicValue, Schema, StandardType, TypeId }
 
 package object json {
+
   implicit val schemaJson: Schema[Json] =
     Schema.dynamicValue.transform(toJson, fromJson).annotate(directDynamicMapping())
 
   private def toJson(dv: DynamicValue): Json =
     dv match {
-      case DynamicValue.Record(_, values) =>
+      case DynamicValue.Record(_, values)              =>
         values.foldLeft(Json.Obj()) { case (obj, (name, value)) => (name, toJson(value)) +: obj }
-      case DynamicValue.Enumeration(_, _) =>
+      case DynamicValue.Enumeration(_, _)              =>
         throw new Exception("DynamicValue.Enumeration is unsupported")
-      case DynamicValue.Sequence(values) =>
+      case DynamicValue.Sequence(values)               =>
         Json.Arr(values.map(toJson))
-      case DynamicValue.Dictionary(_) =>
+      case DynamicValue.Dictionary(_)                  =>
         throw new Exception("DynamicValue.Dictionary is unsupported")
-      case DynamicValue.SetValue(values) =>
+      case DynamicValue.SetValue(values)               =>
         Json.Arr(Chunk.fromIterable(values.map(toJson)))
       case DynamicValue.Primitive(value, standardType) =>
         standardType.asInstanceOf[StandardType[_]] match {
-          case StandardType.UnitType   => Json.Obj()
-          case StandardType.StringType => Json.Str(value.asInstanceOf[String])
-          case StandardType.BoolType   => Json.Bool(value.asInstanceOf[Boolean])
-          case StandardType.ByteType   => Json.Num(value.asInstanceOf[Byte])
-          case StandardType.ShortType  => Json.Num(value.asInstanceOf[Short])
-          case StandardType.IntType    => Json.Num(value.asInstanceOf[Int])
-          case StandardType.LongType   => Json.Num(value.asInstanceOf[Long])
-          case StandardType.FloatType  => Json.Num(value.asInstanceOf[Float])
-          case StandardType.DoubleType => Json.Num(value.asInstanceOf[Double])
-          case StandardType.BinaryType =>
+          case StandardType.UnitType           => Json.Obj()
+          case StandardType.StringType         => Json.Str(value.asInstanceOf[String])
+          case StandardType.BoolType           => Json.Bool(value.asInstanceOf[Boolean])
+          case StandardType.ByteType           => Json.Num(value.asInstanceOf[Byte])
+          case StandardType.ShortType          => Json.Num(value.asInstanceOf[Short])
+          case StandardType.IntType            => Json.Num(value.asInstanceOf[Int])
+          case StandardType.LongType           => Json.Num(value.asInstanceOf[Long])
+          case StandardType.FloatType          => Json.Num(value.asInstanceOf[Float])
+          case StandardType.DoubleType         => Json.Num(value.asInstanceOf[Double])
+          case StandardType.BinaryType         =>
             Json.Str(Base64.getEncoder.encodeToString(value.asInstanceOf[Chunk[Byte]].toArray))
           case StandardType.CharType           => Json.Str(value.asInstanceOf[Char].toString)
           case StandardType.UUIDType           => Json.Str(value.asInstanceOf[java.util.UUID].toString)
@@ -60,15 +61,15 @@ package object json {
           case StandardType.ZonedDateTimeType  => Json.Str(value.asInstanceOf[java.time.ZonedDateTime].toString)
           case StandardType.CurrencyType       => Json.Str(value.asInstanceOf[java.util.Currency].toString)
         }
-      case DynamicValue.Singleton(_)       => Json.Obj()
-      case DynamicValue.SomeValue(value)   => toJson(value)
-      case DynamicValue.NoneValue          => Json.Null
-      case DynamicValue.Tuple(left, right) => Json.Arr(Chunk(toJson(left), toJson(right)))
-      case DynamicValue.LeftValue(value)   => Json.Obj("Left" -> toJson(value))
-      case DynamicValue.RightValue(value)  => Json.Obj("Right" -> toJson(value))
-      case DynamicValue.BothValue(_, _)    => throw new Exception("DynamicValue.BothValue is unsupported")
-      case DynamicValue.DynamicAst(_)      => throw new Exception("DynamicValue.DynamicAst is unsupported")
-      case DynamicValue.Error(_)           => throw new Exception("DynamicValue.Error is unsupported")
+      case DynamicValue.Singleton(_)                   => Json.Obj()
+      case DynamicValue.SomeValue(value)               => toJson(value)
+      case DynamicValue.NoneValue                      => Json.Null
+      case DynamicValue.Tuple(left, right)             => Json.Arr(Chunk(toJson(left), toJson(right)))
+      case DynamicValue.LeftValue(value)               => Json.Obj("Left" -> toJson(value))
+      case DynamicValue.RightValue(value)              => Json.Obj("Right" -> toJson(value))
+      case DynamicValue.BothValue(_, _)                => throw new Exception("DynamicValue.BothValue is unsupported")
+      case DynamicValue.DynamicAst(_)                  => throw new Exception("DynamicValue.DynamicAst is unsupported")
+      case DynamicValue.Error(_)                       => throw new Exception("DynamicValue.Error is unsupported")
     }
 
   private def fromJson(json: Json): DynamicValue =

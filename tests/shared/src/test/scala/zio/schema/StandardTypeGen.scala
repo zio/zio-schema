@@ -51,7 +51,7 @@ object StandardTypeGen {
 
   type StandardTypeAndGen[A] = (StandardType[A], Gen[Sized, A])
 
-  val anyStandardTypeAndGen: Gen[Any, StandardTypeAndGen[Any]] = {
+  val anyStandardTypeAndGen: Gen[Any, StandardTypeAndGen[Any]] =
     anyStandardType.map { t =>
       t.asInstanceOf[StandardType[_]] match {
         case typ: StandardType.StringType.type         => typ -> Gen.string
@@ -85,5 +85,4 @@ object StandardTypeGen {
         case typ                                       => platformSpecificStandardTypeAndGen(typ.asInstanceOf[StandardType[Any]])
       }
     }.asInstanceOf[Gen[Any, StandardTypeAndGen[Any]]]
-  }
 }
