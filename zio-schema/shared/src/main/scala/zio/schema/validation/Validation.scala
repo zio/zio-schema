@@ -54,12 +54,12 @@ final case class Validation[A](bool: Bool[Predicate[A]]) { self =>
           val leftValidation  = loop(left)
           val rightValidation = loop(right)
           combineAnd(leftValidation, rightValidation)
-        case Or(left, right) =>
+        case Or(left, right)  =>
           val leftValidation  = loop(left)
           val rightValidation = loop(right)
           combineOr(leftValidation, rightValidation)
-        case Leaf(predicate) => predicate.validate(value)
-        case Not(value)      => loop(value).swap
+        case Leaf(predicate)  => predicate.validate(value)
+        case Not(value)       => loop(value).swap
       }
     }
 
@@ -74,7 +74,7 @@ object Validation extends Regexs with Time {
   def minLength(n: Int): Validation[String] = Validation(Bool.Leaf(Str.MinLength(n)))
   def maxLength(n: Int): Validation[String] = Validation(Bool.Leaf(Str.MaxLength(n)))
   //Regex
-  def regex(r: Regex): Validation[String] = Validation(Bool.Leaf(Str.Matches(r)))
+  def regex(r: Regex): Validation[String]   = Validation(Bool.Leaf(Str.Matches(r)))
 
   // Numerical operations
   def greaterThan[A](value: A)(implicit numType: NumType[A]): Validation[A] =

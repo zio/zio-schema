@@ -9,10 +9,10 @@ import zio.stream.ZPipeline
 import zio.{ Cause, Chunk }
 
 object MessagePackCodec {
+
   implicit def messagePackCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
     new BinaryCodec[A] {
-      override def encode(a: A): Chunk[Byte] =
-        new MessagePackEncoder().encode(schema, a)
+      override def encode(a: A): Chunk[Byte] = new MessagePackEncoder().encode(schema, a)
 
       override def decode(bytes: Chunk[Byte]): Either[DecodeError, A] =
         if (bytes.isEmpty)

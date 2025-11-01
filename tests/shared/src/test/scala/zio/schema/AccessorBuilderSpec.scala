@@ -10,62 +10,62 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
 
   private val builder: TestAccessorBuilder = new TestAccessorBuilder
 
-  override def spec: Spec[Environment, Any] = suite("AccessorBuilder")(
-    test("fail") {
-      assert(Schema.fail("error").makeAccessors(builder).asInstanceOf[Unit])(isUnit)
-    },
-    test("primitive") {
-      check(SchemaGen.anyPrimitive) { schema =>
-        assert(schema.makeAccessors(builder))(isUnit)
-      }
-    },
-    test("sequence") {
-      check(SchemaGen.anySchema) { elementSchema =>
-        val collectionSchema = elementSchema.repeated
-        val traversal        = collectionSchema.makeAccessors(builder)
+  override def spec: Spec[Environment, Any] =
+    suite("AccessorBuilder")(
+      test("fail") {
+        assert(Schema.fail("error").makeAccessors(builder).asInstanceOf[Unit])(isUnit)
+      },
+      test("primitive") {
+        check(SchemaGen.anyPrimitive) { schema =>
+          assert(schema.makeAccessors(builder))(isUnit)
+        }
+      },
+      test("sequence") {
+        check(SchemaGen.anySchema) { elementSchema =>
+          val collectionSchema = elementSchema.repeated
+          val traversal        = collectionSchema.makeAccessors(builder)
 
-        assert(
-          traversal match {
-            case Traversal(col, elem) =>
-              col == collectionSchema && elem == elementSchema
-            case _ => false
-          }
-        )(isTrue)
-      }
-    },
-    test("transform") {
-      check(SchemaGen.anyPrimitive) { schema =>
-        val transform = schema.transformOrFail[Unit](_ => Left("error"), _ => Left("error"))
+          assert(
+            traversal match {
+              case Traversal(col, elem) =>
+                col == collectionSchema && elem == elementSchema
+              case _                    => false
+            }
+          )(isTrue)
+        }
+      },
+      test("transform") {
+        check(SchemaGen.anyPrimitive) { schema =>
+          val transform = schema.transformOrFail[Unit](_ => Left("error"), _ => Left("error"))
 
-        val transformAccessor = transform.makeAccessors(builder)
-        val schemaAccessor    = schema.makeAccessors(builder)
+          val transformAccessor = transform.makeAccessors(builder)
+          val schemaAccessor    = schema.makeAccessors(builder)
 
-        assert(
-          transformAccessor == schemaAccessor
-        )(isTrue)
-      }
-    },
-    test("optional") {
-      check(SchemaGen.anyPrimitive) { schema =>
-        val optionalSchema: Schema.Optional[_] = schema.optional.asInstanceOf[Schema.Optional[_]]
-        val enumSchema                         = optionalSchema.toEnum
-        val accessor                           = optionalSchema.makeAccessors(builder)
+          assert(
+            transformAccessor == schemaAccessor
+          )(isTrue)
+        }
+      },
+      test("optional") {
+        check(SchemaGen.anyPrimitive) { schema =>
+          val optionalSchema: Schema.Optional[_] = schema.optional.asInstanceOf[Schema.Optional[_]]
+          val enumSchema                         = optionalSchema.toEnum
+          val accessor                           = optionalSchema.makeAccessors(builder)
 
-        assert(
-          accessor match {
-            case (
-                Prism(e1, Case("Some", c1, _, _, _, _)),
-                Prism(e2, Case("None", _, _, _, _, _))
-                ) =>
-              e1 == e2 && e2 == enumSchema && c1 == optionalSchema.someCodec
-            case _ => false
-          }
-        )(isTrue)
-      }
-    },
-    test("tuple") {
-      check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
-        case (leftSchema, rightSchema) =>
+          assert(
+            accessor match {
+              case (
+                    Prism(e1, Case("Some", c1, _, _, _, _)),
+                    Prism(e2, Case("None", _, _, _, _, _))
+                  ) =>
+                e1 == e2 && e2 == enumSchema && c1 == optionalSchema.someCodec
+              case _ => false
+            }
+          )(isTrue)
+        }
+      },
+      test("tuple") {
+        check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) { case (leftSchema, rightSchema) =>
           val tupleSchema: Schema.Tuple2[_, _] = (leftSchema <*> rightSchema).asInstanceOf[Schema.Tuple2[_, _]]
 
           val accessor = tupleSchema.makeAccessors(builder)
@@ -76,20 +76,19 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
                 f1.name == "_1" && f1.schema == leftSchema &&
                 f2.name == "_2" && f2.schema == rightSchema
           })
-      }
-    },
-    test("either") {
-      check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
-        case (leftSchema, rightSchema) =>
+        }
+      },
+      test("either") {
+        check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) { case (leftSchema, rightSchema) =>
           val eitherSchema: Schema.Either[_, _] =
             (rightSchema <+> leftSchema).asInstanceOf[Schema.Either[_, _]]
-          val accessor = eitherSchema.makeAccessors(builder)
+          val accessor                          = eitherSchema.makeAccessors(builder)
 
           assert(
             accessor match {
               case (
-                  Prism(e1, Case("Right", c1, _, _, _, _)),
-                  Prism(e2, Case("Left", c2, _, _, _, _))
+                    Prism(e1, Case("Right", c1, _, _, _, _)),
+                    Prism(e2, Case("Left", c2, _, _, _, _))
                   ) =>
                 e1 == e2 && e2 == eitherSchema.toEnum &&
                   c1 == eitherSchema.rightSchema && c2 == eitherSchema.leftSchema
@@ -98,43 +97,43 @@ object AccessorBuilderSpec extends ZIOSpecDefault {
                 false
             }
           )(isTrue)
-      }
-    },
-    test("lazy") {
-      check(SchemaGen.anyPrimitive) { schema =>
-        val lazySchema         = Schema.defer(schema)
-        val eagerAccessor: Any = schema.makeAccessors(builder)
-        val lazyAccessor: Any  = lazySchema.makeAccessors(builder)
-
-        assert(eagerAccessor == lazyAccessor)(isTrue)
-      }
-    },
-    test("case class") {
-      val schema: Schema.CaseClass3[String, SchemaGen.Arity2, SchemaGen.Arity1, SchemaGen.Arity3] =
-        Schema[SchemaGen.Arity3]
-          .asInstanceOf[Schema.CaseClass3[String, SchemaGen.Arity2, SchemaGen.Arity1, SchemaGen.Arity3]]
-      val accessor = schema.makeAccessors(builder)
-
-      assertTrue(
-        accessor match {
-          case (Lens(r1, f1), Lens(r2, f2), Lens(r3, f3)) =>
-            r1 == schema && r2 == schema && r3 == schema && f1 == schema.field1 && f2 == schema.field2 && f3 == schema.field3
         }
-      )
-    },
-    test("sealed trait") {
-      val (Prism(s1, c1), Prism(s2, c2), Prism(s3, c3), Prism(s4, c4), Prism(s5, c5), Prism(s6, c6)) =
-        SchemaGen.Json.schema.makeAccessors(builder)
+      },
+      test("lazy") {
+        check(SchemaGen.anyPrimitive) { schema =>
+          val lazySchema         = Schema.defer(schema)
+          val eagerAccessor: Any = schema.makeAccessors(builder)
+          val lazyAccessor: Any  = lazySchema.makeAccessors(builder)
 
-      assertTrue(
-        s1 == schema && s2 == schema && s3 == schema & s4 == schema && s5 == schema && s6 == schema &&
-          c1.id == "JNull" &&
-          c2.id == "JString" &&
-          c3.id == "JNumber" &&
-          c4.id == "JDecimal" &&
-          c5.id == "JObject" &&
-          c6.id == "JArray"
-      )
-    }
-  )
+          assert(eagerAccessor == lazyAccessor)(isTrue)
+        }
+      },
+      test("case class") {
+        val schema: Schema.CaseClass3[String, SchemaGen.Arity2, SchemaGen.Arity1, SchemaGen.Arity3] =
+          Schema[SchemaGen.Arity3]
+            .asInstanceOf[Schema.CaseClass3[String, SchemaGen.Arity2, SchemaGen.Arity1, SchemaGen.Arity3]]
+        val accessor                                                                                = schema.makeAccessors(builder)
+
+        assertTrue(
+          accessor match {
+            case (Lens(r1, f1), Lens(r2, f2), Lens(r3, f3)) =>
+              r1 == schema && r2 == schema && r3 == schema && f1 == schema.field1 && f2 == schema.field2 && f3 == schema.field3
+          }
+        )
+      },
+      test("sealed trait") {
+        val (Prism(s1, c1), Prism(s2, c2), Prism(s3, c3), Prism(s4, c4), Prism(s5, c5), Prism(s6, c6)) =
+          SchemaGen.Json.schema.makeAccessors(builder)
+
+        assertTrue(
+          s1 == schema && s2 == schema && s3 == schema & s4 == schema && s5 == schema && s6 == schema &&
+            c1.id == "JNull" &&
+            c2.id == "JString" &&
+            c3.id == "JNumber" &&
+            c4.id == "JDecimal" &&
+            c5.id == "JObject" &&
+            c6.id == "JArray"
+        )
+      }
+    )
 }

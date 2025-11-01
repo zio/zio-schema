@@ -9,8 +9,7 @@ object NodePath extends Subtype[Chunk[String]] {
 
   implicit class NodePathSyntax(private val self: NodePath) extends AnyVal {
 
-    def /(label: String): NodePath =
-      NodePath(self :+ label)
+    def /(label: String): NodePath = NodePath(self :+ label)
 
     def /(subpath: NodePath): NodePath = NodePath(self ++ subpath)
 
