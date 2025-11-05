@@ -29,7 +29,7 @@ jobs:
         with:
           apps: sbt
       - name: Cache scala dependencies
-        uses: coursier/cache-action@v6
+        uses: coursier/cache-action@v7
       - name: Lint code
         run: sbt fmtCheck fixCheck
 
@@ -51,7 +51,7 @@ jobs:
         jvm: ${{ matrix.java }}
         apps: sbt
     - name: Cache scala dependencies
-      uses: coursier/cache-action@v6
+      uses: coursier/cache-action@v7
     - name: Install Bohem GC
       if: matrix.platform == 'Native'
       run: sudo apt-get update && sudo apt-get install -y libgc-dev
