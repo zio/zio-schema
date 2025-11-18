@@ -6,33 +6,34 @@ import zio.test._
 
 object RecordSpec extends ZIOSpecDefault {
 
-  override def spec: Spec[Environment, Any] = suite("Record Spec")(
-    suite("Deconstruct should get the values of a case class' fields")(
-      assertDeconstructResults("CaseClass0", Record0()),
-      assertDeconstructResults("CaseClass1", Record1()),
-      assertDeconstructResults("CaseClass2", Record2()),
-      assertDeconstructResults("CaseClass3", Record3()),
-      assertDeconstructResults("CaseClass4", Record4()),
-      assertDeconstructResults("CaseClass5", Record5()),
-      assertDeconstructResults("CaseClass6", Record6()),
-      assertDeconstructResults("CaseClass7", Record7()),
-      assertDeconstructResults("CaseClass8", Record8()),
-      assertDeconstructResults("CaseClass9", Record9()),
-      assertDeconstructResults("CaseClass10", Record10()),
-      assertDeconstructResults("CaseClass11", Record11()),
-      assertDeconstructResults("CaseClass12", Record12()),
-      assertDeconstructResults("CaseClass13", Record13()),
-      assertDeconstructResults("CaseClass14", Record14()),
-      assertDeconstructResults("CaseClass15", Record15()),
-      assertDeconstructResults("CaseClass16", Record16()),
-      assertDeconstructResults("CaseClass17", Record17()),
-      assertDeconstructResults("CaseClass18", Record18()),
-      assertDeconstructResults("CaseClass19", Record19()),
-      assertDeconstructResults("CaseClass20", Record20()),
-      assertDeconstructResults("CaseClass21", Record21()),
-      assertDeconstructResults("CaseClass22", Record22())
+  override def spec: Spec[Environment, Any] =
+    suite("Record Spec")(
+      suite("Deconstruct should get the values of a case class' fields")(
+        assertDeconstructResults("CaseClass0", Record0()),
+        assertDeconstructResults("CaseClass1", Record1()),
+        assertDeconstructResults("CaseClass2", Record2()),
+        assertDeconstructResults("CaseClass3", Record3()),
+        assertDeconstructResults("CaseClass4", Record4()),
+        assertDeconstructResults("CaseClass5", Record5()),
+        assertDeconstructResults("CaseClass6", Record6()),
+        assertDeconstructResults("CaseClass7", Record7()),
+        assertDeconstructResults("CaseClass8", Record8()),
+        assertDeconstructResults("CaseClass9", Record9()),
+        assertDeconstructResults("CaseClass10", Record10()),
+        assertDeconstructResults("CaseClass11", Record11()),
+        assertDeconstructResults("CaseClass12", Record12()),
+        assertDeconstructResults("CaseClass13", Record13()),
+        assertDeconstructResults("CaseClass14", Record14()),
+        assertDeconstructResults("CaseClass15", Record15()),
+        assertDeconstructResults("CaseClass16", Record16()),
+        assertDeconstructResults("CaseClass17", Record17()),
+        assertDeconstructResults("CaseClass18", Record18()),
+        assertDeconstructResults("CaseClass19", Record19()),
+        assertDeconstructResults("CaseClass20", Record20()),
+        assertDeconstructResults("CaseClass21", Record21()),
+        assertDeconstructResults("CaseClass22", Record22())
+      )
     )
-  )
 
   private def assertDeconstructResults[A](name: String, value: A)(implicit record: Record[A]): Spec[Any, Nothing] =
     test(name) {
@@ -65,6 +66,7 @@ object RecordSpec extends ZIOSpecDefault {
   object Record3 {
     implicit val record: Schema.Record[Record3] = DeriveSchema.gen[Record3]
   }
+
   case class Record4(
     a: String = "dummy-value",
     b: String = "dummy-value",
@@ -75,6 +77,7 @@ object RecordSpec extends ZIOSpecDefault {
   object Record4 {
     implicit val record: Schema.Record[Record4] = DeriveSchema.gen[Record4]
   }
+
   case class Record5(
     a: String = "dummy-value",
     b: String = "dummy-value",
@@ -86,6 +89,7 @@ object RecordSpec extends ZIOSpecDefault {
   object Record5 {
     implicit val record: Schema.Record[Record5] = DeriveSchema.gen[Record5]
   }
+
   case class Record6(
     a: String = "dummy-value",
     b: String = "dummy-value",
@@ -98,6 +102,7 @@ object RecordSpec extends ZIOSpecDefault {
   object Record6 {
     implicit val record: Schema.Record[Record6] = DeriveSchema.gen[Record6]
   }
+
   case class Record7(
     a: String = "dummy-value",
     b: String = "dummy-value",
@@ -111,6 +116,7 @@ object RecordSpec extends ZIOSpecDefault {
   object Record7 {
     implicit val record: Schema.Record[Record7] = DeriveSchema.gen[Record7]
   }
+
   case class Record8(
     a: String = "dummy-value",
     b: String = "dummy-value",
@@ -125,6 +131,7 @@ object RecordSpec extends ZIOSpecDefault {
   object Record8 {
     implicit val record: Schema.Record[Record8] = DeriveSchema.gen[Record8]
   }
+
   case class Record9(
     a: String = "dummy-value",
     b: String = "dummy-value",
@@ -140,6 +147,7 @@ object RecordSpec extends ZIOSpecDefault {
   object Record9 {
     implicit val record: Schema.Record[Record9] = DeriveSchema.gen[Record9]
   }
+
   case class Record10(
     a: String = "dummy-value",
     b: String = "dummy-value",

@@ -3,6 +3,7 @@ package zio.schema.internal
 import scala.reflect.macros.blackbox
 
 object Macros {
+
   private[internal] def location(c: blackbox.Context): (String, Int, Int) = {
     val path = c.enclosingPosition.source.path
     val line = c.enclosingPosition.line

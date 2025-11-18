@@ -43,17 +43,17 @@ object ZioOpticsBuilder extends AccessorBuilder {
     element: Schema[A]
   ): Optic[S, S, Chunk[A], OpticFailure, OpticFailure, Chunk[A], S] =
     collection match {
-      case seq @ Schema.Sequence(_, _, _, _, _) =>
+      case seq @ Schema.Sequence(_, _, _, _, _)              =>
         ZTraversal[S, S, A, A](
           ZioOpticsBuilder.makeSeqTraversalGet(seq.toChunk),
           ZioOpticsBuilder.makeSeqTraversalSet(seq)
         )
-      case seq @ Schema.NonEmptySequence(_, _, _, _, _) =>
+      case seq @ Schema.NonEmptySequence(_, _, _, _, _)      =>
         ZTraversal[S, S, A, A](
           ZioOpticsBuilder.makeSeqTraversalGet(seq.toChunk),
           ZioOpticsBuilder.makeNonEmptySeqTraversalSet(seq)
         )
-      case Schema.Map(_: Schema[k], _: Schema[v], _) =>
+      case Schema.Map(_: Schema[k], _: Schema[v], _)         =>
         ZTraversal(
           ZioOpticsBuilder.makeMapTraversalGet[k, v],
           ZioOpticsBuilder.makeMapTraversalSet[k, v]
@@ -63,7 +63,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
           ZioOpticsBuilder.makeMapTraversalGet[k, v],
           ZioOpticsBuilder.makeNonEmptyMapTraversalSet[k, v]
         )
-      case Schema.Set(_, _) =>
+      case Schema.Set(_, _)                                  =>
         ZTraversal(
           ZioOpticsBuilder.makeSetTraversalGet[A],
           ZioOpticsBuilder.makeSetTraversalSet[A]
@@ -85,7 +85,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
             }
           }
           .getOrElse(Left(OpticFailure(s"No term found with label ${term.name}") -> whole))
-      case _ => Left(OpticFailure(s"Unexpected dynamic value for whole") -> whole)
+      case _                              => Left(OpticFailure(s"Unexpected dynamic value for whole") -> whole)
     }
   }
 
@@ -100,7 +100,7 @@ object ZioOpticsBuilder extends AccessorBuilder {
           case Left(error)  => Left(OpticFailure(error) -> whole)
           case Right(value) => Right(value)
         }
-      case _ => Left(OpticFailure(s"Unexpected dynamic value for whole") -> whole)
+      case _                                 => Left(OpticFailure(s"Unexpected dynamic value for whole") -> whole)
     }
   }
 
@@ -129,11 +129,11 @@ object ZioOpticsBuilder extends AccessorBuilder {
       val _ = leftIterator.next()
       builder += rightIterator.next()
     }
-    while (leftIterator.hasNext) {
+    while (leftIterator.hasNext)
       builder += leftIterator.next()
-    }
     Right(collection.fromChunk(builder.result()))
   }
+
   private[optics] def makeNonEmptySeqTraversalSet[S, A](
     collection: Schema.NonEmptySequence[S, A, _]
   ): Chunk[A] => S => Either[(OpticFailure, S), S] = { (piece: Chunk[A]) => (whole: S) =>
@@ -144,9 +144,8 @@ object ZioOpticsBuilder extends AccessorBuilder {
       val _ = leftIterator.next()
       builder += rightIterator.next()
     }
-    while (leftIterator.hasNext) {
+    while (leftIterator.hasNext)
       builder += leftIterator.next()
-    }
     Right(collection.fromChunk(builder.result()))
   }
 
@@ -155,14 +154,14 @@ object ZioOpticsBuilder extends AccessorBuilder {
 
   private[optics] def makeMapTraversalGet[K, V](
     whole: NonEmptyMap[K, V]
-  ): Either[(OpticFailure, NonEmptyMap[K, V]), Chunk[(K, V)]] =
-    Right(Chunk.fromIterable(whole.toMap))
+  ): Either[(OpticFailure, NonEmptyMap[K, V]), Chunk[(K, V)]] = Right(Chunk.fromIterable(whole.toMap))
 
   private[optics] def makeMapTraversalSet[K, V]
     : Chunk[(K, V)] => Map[K, V] => Either[(OpticFailure, Map[K, V]), Map[K, V]] = {
     (piece: Chunk[(K, V)]) => (whole: Map[K, V]) =>
       Right(whole ++ piece.toList)
   }
+
   private[optics] def makeNonEmptyMapTraversalSet[K, V]
     : Chunk[(K, V)] => NonEmptyMap[K, V] => Either[(OpticFailure, NonEmptyMap[K, V]), NonEmptyMap[K, V]] = {
     (piece: Chunk[(K, V)]) => (whole: NonEmptyMap[K, V]) =>
