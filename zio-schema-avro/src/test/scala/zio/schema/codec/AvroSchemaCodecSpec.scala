@@ -7,10 +7,10 @@ import scala.util.Try
 
 import zio.schema.Schema._
 import zio.schema._
-import zio.schema.codec.AvroAnnotations.{ BytesType, DecimalType, FieldOrderType }
+import zio.schema.codec.AvroAnnotations.{BytesType, DecimalType, FieldOrderType}
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, Scope }
+import zio.{Chunk, Scope}
 
 object AvroSchemaCodecSpec extends ZIOSpecDefault {
   import AssertionHelper._
@@ -278,8 +278,8 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
             val schema      = Schema.Map(keySchema, valueSchema)
             val result      = AvroSchemaCodec.encode(schema)
 
-            val isArray    = startsWithString("""{"type":"array"""")
-            val tupleItems = containsString(""""items":{"type":"record","name":"Tuple","namespace":"scala"""")
+            val isArray         = startsWithString("""{"type":"array"""")
+            val tupleItems      = containsString(""""items":{"type":"record","name":"Tuple","namespace":"scala"""")
             val hasTupleField_1 = containsString(
               """{"name":"_1","type":{"type":"record","name":"Simple","namespace":"","fields":[{"name":"s","type":"string"}]}}"""
             )
@@ -293,8 +293,8 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
             val schema      = Schema.Map(keySchema, valueSchema)
             val result      = AvroSchemaCodec.encode(schema)
 
-            val isArray    = startsWithString("""{"type":"array"""")
-            val tupleItems = containsString(""""items":{"type":"record","name":"Tuple","namespace":"scala"""")
+            val isArray         = startsWithString("""{"type":"array"""")
+            val tupleItems      = containsString(""""items":{"type":"record","name":"Tuple","namespace":"scala"""")
             val hasTupleField_1 = containsString(
               """{"name":"_1","type":{"type":"record","name":"Simple","namespace":"","fields":[{"name":"s","type":"string"}]}}"""
             )
@@ -320,7 +320,7 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
           },
           test("encodes complex types") {
             val valueSchema = DeriveSchema.gen[SpecTestData.NamedRecord]
-            val schema = Schema
+            val schema      = Schema
               .Sequence[Chunk[NamedRecord], NamedRecord, String](valueSchema, identity, identity, Chunk.empty, "Seq")
             val result = AvroSchemaCodec.encode(schema)
 
@@ -348,7 +348,7 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
           },
           test("encodes complex types") {
             val valueSchema = DeriveSchema.gen[SpecTestData.NamedRecord]
-            val schema = Schema
+            val schema      = Schema
               .Sequence[Chunk[NamedRecord], NamedRecord, String](valueSchema, identity, identity, Chunk.empty, "Seq")
             val result = AvroSchemaCodec.encode(schema)
 
@@ -595,7 +595,7 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
             assert(result)(isRight(equalTo("\"bytes\"")))
           },
           test("encodes BinaryType as fixed") {
-            val size = 12
+            val size   = 12
             val schema =
               Schema
                 .primitive(StandardType.BinaryType)
@@ -739,8 +739,8 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
 
             assert(result)(isRight(equalTo("""{"type":"int","zio.schema.codec.intType":"zoneOffset"}""")))
           },
-          //TODO 1
-          //test("encodes MonthDayType") {
+          // TODO 1
+          // test("encodes MonthDayType") {
           //  val schema = Schema.primitive(StandardType.MonthDayType)
           //  val result = AvroSchemaCodec.encode(schema)
 
@@ -751,9 +751,9 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
           //      )
           //    )
           //  )
-          //},
-          //TODO 2
-          //test("encodes PeriodType") {
+          // },
+          // TODO 2
+          // test("encodes PeriodType") {
           //  val schema = Schema.primitive(StandardType.PeriodType)
           //  val result = AvroSchemaCodec.encode(schema)
           //
@@ -764,9 +764,9 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
           //      )
           //    )
           //  )
-          //},
-          //TODO 3
-          //test("encodes YearMonthType") {
+          // },
+          // TODO 3
+          // test("encodes YearMonthType") {
           //  val schema = Schema.primitive(StandardType.YearMonthType)
           //  val result = AvroSchemaCodec.encode(schema)
           //
@@ -777,9 +777,9 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
           //      )
           //    )
           //  )
-          //},
-          //TODO 4
-          //test("encodes Duration") {
+          // },
+          // TODO 4
+          // test("encodes Duration") {
           //  val schema = Schema.primitive(StandardType.DurationType) // .duration(ChronoUnit.DAYS))
           //  val result = AvroSchemaCodec.encode(schema)
           //
@@ -790,7 +790,7 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
           //      )
           //    )
           //  )
-          //},
+          // },
           test("encodes InstantType as string") {
             val schema = Schema.primitive(StandardType.InstantType).annotate(AvroAnnotations.formatToString)
             val result = AvroSchemaCodec.encode(schema)
@@ -929,7 +929,7 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
           test("decode a nested record") {
             val s =
               """{"type":"record","name":"TestRecord","fields":[{"name":"nested","type":{"type":"record","name":"Inner","fields":[{"name":"innerS","type":"string"}]}},{"name":"b","type":"boolean"}]}"""
-            val schema = AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes()))
+            val schema         = AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes()))
             val expectedSchema = Schema.record(
               TypeId.fromTypeName("TestRecord"),
               Schema.Field(
@@ -1027,14 +1027,14 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
               """{"type":"record","name":"Duration","namespace":"zio.schema.codec.avro","fields":[{"name":"seconds","type":"long"},{"name":"nanos","type":"int"}],"zio.schema.codec.recordType":"duration"}"""
             val schema = AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(isRight(isStandardType(StandardType.DurationType))) //(ChronoUnit.MILLIS))))
+            assert(schema)(isRight(isStandardType(StandardType.DurationType))) // (ChronoUnit.MILLIS))))
           },
           test("duration record chrono unit annotation") {
             val s =
               """{"type":"record","name":"Duration","namespace":"zio.schema.codec.avro","fields":[{"name":"seconds","type":"long"},{"name":"nanos","type":"int"}],"zio.schema.codec.recordType":"duration","zio.schema.codec.avro.durationChronoUnit":"DAYS"}"""
             val schema = AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            assert(schema)(isRight(isStandardType(StandardType.DurationType))) //(ChronoUnit.DAYS))))
+            assert(schema)(isRight(isStandardType(StandardType.DurationType))) // (ChronoUnit.DAYS))))
           },
           test("assign the name annotation") {
             val s =
@@ -1376,12 +1376,12 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
               """{"type":"fixed","name":"Decimal_10_10","size":5,"logicalType":"decimal","precision":11,"scale":10}"""
             val schema = AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            val isDecimalAssertion = isStandardType(StandardType.BigDecimalType)
+            val isDecimalAssertion                                 = isStandardType(StandardType.BigDecimalType)
             val hasDecimalTypeAnnotation: Assertion[Iterable[Any]] =
               exists(equalTo(AvroAnnotations.decimal(DecimalType.Fixed(5))))
             val hasScalaAnnotation: Assertion[Iterable[Any]]     = exists(equalTo(AvroAnnotations.scale(10)))
             val hasPrecisionAnnotation: Assertion[Iterable[Any]] = exists(equalTo(AvroAnnotations.precision(11)))
-            val hasAnnotationsAssertion =
+            val hasAnnotationsAssertion                          =
               annotations(hasDecimalTypeAnnotation && hasScalaAnnotation && hasPrecisionAnnotation)
             assert(schema)(isRight(isDecimalAssertion && hasAnnotationsAssertion))
           },
@@ -1390,10 +1390,10 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
               """{"type":"fixed","name":"Decimal_10_10","size":5,"logicalType":"decimal","precision":10,"scale":10}"""
             val schema = AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            val isBigIntegerType = isStandardType(StandardType.BigIntegerType)
+            val isBigIntegerType                                   = isStandardType(StandardType.BigIntegerType)
             val hasDecimalTypeAnnotation: Assertion[Iterable[Any]] =
               exists(equalTo(AvroAnnotations.decimal(DecimalType.Fixed(5))))
-            val hasScalaAnnotation: Assertion[Iterable[Any]] = exists(equalTo(AvroAnnotations.scale(10)))
+            val hasScalaAnnotation: Assertion[Iterable[Any]]             = exists(equalTo(AvroAnnotations.scale(10)))
             val doesNotHavePrecisionAnnotation: Assertion[Iterable[Any]] =
               exists(Assertion.isSubtype[AvroAnnotations.precision.type](anything)).negate
             val hasAnnotationsAssertion =
@@ -1437,7 +1437,7 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
           },
           test("decodes instant with formatter pattern") {
             val pattern = "yyyy MM dd"
-            val s =
+            val s       =
               s"""{"type":"string","zio.schema.codec.stringType":"instant","zio.schema.codec.avro.dateTimeFormatter":"$pattern"}"""
             val schema = AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes()))
 
@@ -1445,7 +1445,7 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
           },
           test("decode DateTimeFormatter field fails on invalid formatter") {
             val pattern = "this is not a valid formatter pattern"
-            val s =
+            val s       =
               s"""{"type":"string","zio.schema.codec.stringType":"instant","zio.schema.codec.avro.dateTimeFormatter":"$pattern"}"""
             val schema = AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes()))
 
@@ -1553,12 +1553,12 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
             val s      = """{"type":"bytes","logicalType":"decimal","precision":20,"scale":10}"""
             val schema = AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            val isDecimalAssertion = isStandardType(StandardType.BigDecimalType)
+            val isDecimalAssertion                                 = isStandardType(StandardType.BigDecimalType)
             val hasDecimalTypeAnnotation: Assertion[Iterable[Any]] =
               exists(equalTo(AvroAnnotations.decimal(DecimalType.Bytes)))
             val hasScalaAnnotation: Assertion[Iterable[Any]]     = exists(equalTo(AvroAnnotations.scale(10)))
             val hasPrecisionAnnotation: Assertion[Iterable[Any]] = exists(equalTo(AvroAnnotations.precision(20)))
-            val hasAnnotationsAssertion =
+            val hasAnnotationsAssertion                          =
               annotations(hasDecimalTypeAnnotation && hasScalaAnnotation && hasPrecisionAnnotation)
             assert(schema)(isRight(isDecimalAssertion && hasAnnotationsAssertion))
           },
@@ -1566,7 +1566,7 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
             val s      = """{"type":"bytes","logicalType":"decimal","precision":20,"scale":20}"""
             val schema = AvroSchemaCodec.decode(Chunk.fromArray(s.getBytes()))
 
-            val isBigIntegerAssertion = isStandardType(StandardType.BigIntegerType)
+            val isBigIntegerAssertion                              = isStandardType(StandardType.BigIntegerType)
             val hasDecimalTypeAnnotation: Assertion[Iterable[Any]] =
               exists(equalTo(AvroAnnotations.decimal(DecimalType.Bytes)))
             val hasScalaAnnotation: Assertion[Iterable[Any]] = exists(equalTo(AvroAnnotations.scale(20)))
@@ -1758,7 +1758,7 @@ object AvroSchemaCodecSpec extends ZIOSpecDefault {
         val decoded = for {
           avroSchemaString <- AvroSchemaCodec.encode(initialSchemaDerived)
           decoded          <- AvroSchemaCodec.decode(Chunk.fromArray(avroSchemaString.getBytes()))
-          //_ <- AvroSchemaCodec.encode(decoded) TODO: this fails
+          // _ <- AvroSchemaCodec.encode(decoded) TODO: this fails
         } yield decoded
 
         assert(decoded)(isRight(hasField("ast", _.ast, equalTo(initialSchemaDerived.ast))))
@@ -1770,8 +1770,9 @@ object AssertionHelper {
 
   def isRecord[A](assertion: Assertion[Schema.Record[A]]): Assertion[Schema[_]] =
     Assertion.isCase[Schema[_], Schema.Record[A]](
-      "Record", {
-        case r: Schema.Record[_] => Try { r.asInstanceOf[Schema.Record[A]] }.toOption
+      "Record",
+      {
+        case r: Schema.Record[_] => Try(r.asInstanceOf[Schema.Record[A]]).toOption
         case _                   => None
       },
       assertion
@@ -1779,7 +1780,8 @@ object AssertionHelper {
 
   def isEmptyRecord[A]: Assertion[Schema[_]] =
     Assertion.isCase[Schema[_], Schema[_]](
-      "EmptyRecord", {
+      "EmptyRecord",
+      {
         case r: CaseClass0[_]                                                => Some(r)
         case r @ GenericRecord(_, structure, _) if structure.toChunk.isEmpty => Some(r)
         case _                                                               => None
@@ -1789,8 +1791,9 @@ object AssertionHelper {
 
   def isEnum[A](assertion: Assertion[Schema.Enum[A]]): Assertion[Schema[_]] =
     Assertion.isCase[Schema[_], Schema.Enum[A]](
-      "Enum", {
-        case r: Schema.Enum[_] => Try { r.asInstanceOf[Schema.Enum[A]] }.toOption
+      "Enum",
+      {
+        case r: Schema.Enum[_] => Try(r.asInstanceOf[Schema.Enum[A]]).toOption
         case _                 => None
       },
       assertion
@@ -1798,8 +1801,9 @@ object AssertionHelper {
 
   def isSequence[A](assertion: Assertion[Schema.Sequence[_, A, _]]): Assertion[Schema[_]] =
     Assertion.isCase[Schema[_], Schema.Sequence[_, A, _]](
-      "List", {
-        case r: Schema.Sequence[_, _, _] => Try { r.asInstanceOf[Schema.Sequence[_, A, _]] }.toOption
+      "List",
+      {
+        case r: Schema.Sequence[_, _, _] => Try(r.asInstanceOf[Schema.Sequence[_, A, _]]).toOption
         case _                           => None
       },
       assertion
@@ -1807,8 +1811,9 @@ object AssertionHelper {
 
   def isMap[K, V](assertion: Assertion[Schema.Map[K, V]]): Assertion[Schema[_]] =
     Assertion.isCase[Schema[_], Schema.Map[K, V]](
-      "Map", {
-        case r: Schema.Map[_, _] => Try { r.asInstanceOf[Schema.Map[K, V]] }.toOption
+      "Map",
+      {
+        case r: Schema.Map[_, _] => Try(r.asInstanceOf[Schema.Map[K, V]]).toOption
         case _                   => None
       },
       assertion
@@ -1816,8 +1821,9 @@ object AssertionHelper {
 
   def isTuple[A, B](assertion: Assertion[Schema.Tuple2[A, B]]): Assertion[Schema[_]] =
     Assertion.isCase[Schema[_], Schema.Tuple2[A, B]](
-      "Tuple", {
-        case r: Schema.Tuple2[_, _] => Try { r.asInstanceOf[Schema.Tuple2[A, B]] }.toOption
+      "Tuple",
+      {
+        case r: Schema.Tuple2[_, _] => Try(r.asInstanceOf[Schema.Tuple2[A, B]]).toOption
         case _                      => None
       },
       assertion
@@ -1834,8 +1840,9 @@ object AssertionHelper {
 
   def isEither[A, B](assertion: Assertion[Schema.Either[A, B]]): Assertion[Schema[_]] =
     Assertion.isCase[Schema[_], Schema.Either[A, B]](
-      "Either", {
-        case r: Schema.Either[_, _] => Try { r.asInstanceOf[Schema.Either[A, B]] }.toOption
+      "Either",
+      {
+        case r: Schema.Either[_, _] => Try(r.asInstanceOf[Schema.Either[A, B]]).toOption
         case _                      => None
       },
       assertion
@@ -1851,17 +1858,22 @@ object AssertionHelper {
 
   def isOption[A](assertion: Assertion[Schema.Optional[A]]): Assertion[Schema[_]] =
     Assertion.isCase[Schema[_], Schema.Optional[A]](
-      "Optional", {
-        case r: Schema.Optional[_] => Try { r.asInstanceOf[Schema.Optional[A]] }.toOption
+      "Optional",
+      {
+        case r: Schema.Optional[_] => Try(r.asInstanceOf[Schema.Optional[A]]).toOption
         case _                     => None
       },
       assertion
     )
 
   def tuple2First[A](assertion: Assertion[A]): Assertion[(A, _)] =
-    Assertion.isCase[(A, _), A]("Tuple", {
-      case (a, _) => Some(a)
-    }, assertion)
+    Assertion.isCase[(A, _), A](
+      "Tuple",
+      { case (a, _) =>
+        Some(a)
+      },
+      assertion
+    )
 
   def hasMapKeys[K](assertion: Assertion[Schema[K]]): Assertion[Schema.Map[K, _]] =
     hasField("keySchema", _.keySchema, assertion)
@@ -1870,11 +1882,10 @@ object AssertionHelper {
     hasField("valueSchema", _.valueSchema, assertion)
 
   def enumStructure(assertion: Assertion[ListMap[String, (Schema[_], Chunk[Any])]]): Assertion[Schema.Enum[_]] =
-    Assertion.assertionRec("enumStructure")(assertion)(
-      enum0 =>
-        Some(enum0.cases.foldRight(ListMap.empty[String, (Schema[_], Chunk[Any])]) { (caseValue, acc) =>
-          (acc + (caseValue.id -> scala.Tuple2(caseValue.schema, caseValue.annotations)))
-        })
+    Assertion.assertionRec("enumStructure")(assertion)(enum0 =>
+      Some(enum0.cases.foldRight(ListMap.empty[String, (Schema[_], Chunk[Any])]) { (caseValue, acc) =>
+        (acc + (caseValue.id -> scala.Tuple2(caseValue.schema, caseValue.annotations)))
+      })
     )
 
   def annotations(assertion: Assertion[Chunk[Any]]): Assertion[Any] =
@@ -1948,10 +1959,14 @@ object AssertionHelper {
     hasField("initialSchemaDerived", _.schema, assertion)
 
   def isPrimitive[A](assertion: Assertion[Primitive[A]]): Assertion[Schema[_]] =
-    Assertion.isCase[Schema[_], Primitive[A]]("Primitive", {
-      case p: Primitive[_] => Try { p.asInstanceOf[Primitive[A]] }.toOption
-      case _               => None
-    }, assertion)
+    Assertion.isCase[Schema[_], Primitive[A]](
+      "Primitive",
+      {
+        case p: Primitive[_] => Try(p.asInstanceOf[Primitive[A]]).toOption
+        case _               => None
+      },
+      assertion
+    )
 
   def isStandardType[A](standardType: StandardType[A]): Assertion[Schema[_]] =
     isPrimitive[A](hasField("standardType", _.standardType, equalTo(standardType)))

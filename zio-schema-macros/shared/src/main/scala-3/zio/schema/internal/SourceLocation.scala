@@ -11,9 +11,9 @@ object SourceLocation {
     import ctx.reflect._
 
     val position = Position.ofMacroExpansion
-    val path = Expr(position.sourceFile.path)
-    val line = Expr(position.startLine)
-    val col = Expr(position.startColumn)
+    val path     = Expr(position.sourceFile.path)
+    val line     = Expr(position.startLine)
+    val col      = Expr(position.startColumn)
     '{ SourceLocation($path, $line, $col) }
   }
 }

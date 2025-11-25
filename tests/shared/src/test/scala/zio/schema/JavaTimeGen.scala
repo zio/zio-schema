@@ -44,7 +44,7 @@ object JavaTimeGen {
       dayOfMonth <- Gen.int(1, month.maxLength)
     } yield MonthDay.of(month, dayOfMonth)
 
-  //Needs to be an ISO-8601 year between 0000 and 9999
+  // Needs to be an ISO-8601 year between 0000 and 9999
   val anyIntYear: Gen[Any, Int] = Gen.int(0, 9999)
 
   val anyYear: Gen[Any, Year] = anyIntYear.map(Year.of)
@@ -59,7 +59,7 @@ object JavaTimeGen {
     Gen.long(range.getMinimum, range.getMaximum)
   }
 
-  //FIXME There is a bug in JDK Duration parsing that caused issues in zio-json (https://github.com/zio/zio-json/issues/214).
+  // FIXME There is a bug in JDK Duration parsing that caused issues in zio-json (https://github.com/zio/zio-json/issues/214).
   // Do not generate Durations with - seconds.Once that is addressed can remove filter condition
   val anyDuration: Gen[Any, Duration] = Gen
     .long(0, 999999999L)
@@ -101,14 +101,14 @@ object JavaTimeGen {
 //  private val zoneIds = regionZoneIds.map(_.toList ++ zoneOffsets)
 
   // FIXME: Shuffle is really slow.
-  //private val zoneIds =
+  // private val zoneIds =
   //  for {
   //    ids      <- regionZoneIds
   //    all      = ids ++ zoneOffsets
   //    shuffled <- Random.shuffle(all.toList)
   //  } yield shuffled
 
-  //FIXME Sampling causes some sort of pathological performance issue.
+  // FIXME Sampling causes some sort of pathological performance issue.
   val anyZoneId: Gen[Any, ZoneId] = Gen.const(ZoneId.systemDefault())
 //    Gen(ZStream.fromIterableM(zoneIds).map {
 //      case offset: ZoneOffset => Sample.noShrink(offset)

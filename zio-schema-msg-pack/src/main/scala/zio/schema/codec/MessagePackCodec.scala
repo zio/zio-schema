@@ -1,12 +1,12 @@
 package zio.schema.codec
 
-import java.math.{ BigInteger, MathContext }
+import java.math.{BigInteger, MathContext}
 import java.time._
 
 import zio.schema.codec.DecodeError.ReadError
-import zio.schema.{ Schema, StandardType }
+import zio.schema.{Schema, StandardType}
 import zio.stream.ZPipeline
-import zio.{ Cause, Chunk }
+import zio.{Cause, Chunk}
 
 object MessagePackCodec {
   implicit def messagePackCodec[A](implicit schema: Schema[A]): BinaryCodec[A] =
@@ -37,7 +37,7 @@ object MessagePackCodec {
           .map(identity)
     }
 
-  //TODO those are duplicates from ThriftCodec
+  // TODO those are duplicates from ThriftCodec
   val bigDecimalStructure: Seq[Schema.Field[java.math.BigDecimal, _]] =
     Seq(
       Schema.Field(

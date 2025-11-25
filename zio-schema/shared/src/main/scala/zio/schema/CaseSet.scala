@@ -7,7 +7,7 @@ import zio.schema.Schema._
 
 sealed trait CaseSet { self =>
 
-  import CaseSet.{ :+: }
+  import CaseSet.:+:
 
   type EnumType
 
@@ -84,8 +84,8 @@ object CaseSet {
   }
   val :+: = Cons
 
-  def apply[Z](c: Case[Z, _]*): CaseSet = c.foldRight[CaseSet.Aux[Z]](Empty[Z]()) {
-    case (c, cs) => Cons(c, cs)
+  def apply[Z](c: Case[Z, _]*): CaseSet = c.foldRight[CaseSet.Aux[Z]](Empty[Z]()) { case (c, cs) =>
+    Cons(c, cs)
   }
 
   def caseOf[A: Schema, Z >: A](
@@ -109,8 +109,8 @@ object Append extends AppendLowPriority {
 
   type WithOut[EnumType, Left, Right, Out0] = Append[EnumType, Left, Right] { type Out = Out0 }
 
-  implicit def AppendCons[A, T <: CaseSet.Aux[Z], Z, That <: CaseSet.Aux[Z]](
-    implicit append: Append[Z, T, That]
+  implicit def AppendCons[A, T <: CaseSet.Aux[Z], Z, That <: CaseSet.Aux[Z]](implicit
+    append: Append[Z, T, That]
   ): Append.WithOut[Z, Cons[A, T, Z], That, Cons[A, append.Out, Z]] =
     new Append[Z, Cons[A, T, Z], That] {
       override type Out = Cons[A, append.Out, Z]

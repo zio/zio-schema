@@ -8,8 +8,8 @@ private[schema] object AstRenderer {
   private val INDENT_STEP = 2
 
   def render(ast: ExtensibleMetaSchema[_]): String = ast match {
-    case v @ ExtensibleMetaSchema.Value(_, _, _)    => renderValue(v, 0, None)
-    case f @ ExtensibleMetaSchema.FailNode(_, _, _) => renderFail(f, 0, None)
+    case v @ ExtensibleMetaSchema.Value(_, _, _)              => renderValue(v, 0, None)
+    case f @ ExtensibleMetaSchema.FailNode(_, _, _)           => renderFail(f, 0, None)
     case ExtensibleMetaSchema.Product(_, _, fields, optional) =>
       val buffer = new StringBuffer()
       buffer.append(s"product")

@@ -11,8 +11,8 @@ import zio._
 import zio.schema.CaseSet._
 import zio.schema.annotation.transientField
 import zio.schema.meta.MetaSchema
-import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
-import zio.stream.{ ZSink, ZStream }
+import zio.schema.{CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId}
+import zio.stream.{ZSink, ZStream}
 import zio.test.Assertion._
 import zio.test._
 
@@ -166,33 +166,30 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
         test("empty dynamic string") {
           for {
             ed2 <- encodeAndDecodeNS(
-                    Schema.dynamicValue,
-                    DynamicValue.Primitive("", StandardType.StringType)
-                  )
+                     Schema.dynamicValue,
+                     DynamicValue.Primitive("", StandardType.StringType)
+                   )
           } yield assert(ed2)(equalTo(DynamicValue.Primitive("", StandardType.StringType)))
         },
         test("two integers") {
-          check(Gen.int, Gen.int) {
-            case (a, b) =>
-              for {
-                ed2 <- encodeAndDecodeNS(schemaBasicTwoInts, BasicTwoInts(a, b))
-              } yield assert(ed2)(equalTo(BasicTwoInts(a, b)))
+          check(Gen.int, Gen.int) { case (a, b) =>
+            for {
+              ed2 <- encodeAndDecodeNS(schemaBasicTwoInts, BasicTwoInts(a, b))
+            } yield assert(ed2)(equalTo(BasicTwoInts(a, b)))
           }
         },
         test("two integers inside wrapper class") {
-          check(Gen.int, Gen.int) {
-            case (a, b) =>
-              for {
-                ed2 <- encodeAndDecodeNS(basicTwoIntWrapperSchema, BasicTwoIntWrapper(BasicTwoInts(a, b)))
-              } yield assert(ed2)(equalTo(BasicTwoIntWrapper(BasicTwoInts(a, b))))
+          check(Gen.int, Gen.int) { case (a, b) =>
+            for {
+              ed2 <- encodeAndDecodeNS(basicTwoIntWrapperSchema, BasicTwoIntWrapper(BasicTwoInts(a, b)))
+            } yield assert(ed2)(equalTo(BasicTwoIntWrapper(BasicTwoInts(a, b))))
           }
         },
         test("two wrapped integers inside wrapper class") {
-          check(Gen.int, Gen.int) {
-            case (a, b) =>
-              for {
-                e2 <- encodeAndDecodeNS(separateWrapper, SeparateWrapper(BasicInt(a), BasicInt(b)))
-              } yield assert(e2)(equalTo(SeparateWrapper(BasicInt(a), BasicInt(b))))
+          check(Gen.int, Gen.int) { case (a, b) =>
+            for {
+              e2 <- encodeAndDecodeNS(separateWrapper, SeparateWrapper(BasicInt(a), BasicInt(b)))
+            } yield assert(e2)(equalTo(SeparateWrapper(BasicInt(a), BasicInt(b))))
           }
         },
         test("complex product and string and integer") {
@@ -364,13 +361,13 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           check(Gen.localDateTime) { value =>
             for {
               ed <- encodeAndDecode(
-                     Primitive(StandardType.LocalDateTimeType),
-                     value
-                   )
-              ed2 <- encodeAndDecodeNS(
                       Primitive(StandardType.LocalDateTimeType),
                       value
                     )
+              ed2 <- encodeAndDecodeNS(
+                       Primitive(StandardType.LocalDateTimeType),
+                       value
+                     )
             } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
           }
         },
@@ -392,12 +389,13 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           }
         },
         test("zoned date times") {
-          check(Gen.zonedDateTime.filter(_.getZone != ZoneId.of("GMT0"))) { value => // https://bugs.openjdk.org/browse/JDK-8138664
-            val zoneSchema = Primitive(StandardType.ZonedDateTimeType)
-            for {
-              ed  <- encodeAndDecode(zoneSchema, value)
-              ed2 <- encodeAndDecodeNS(zoneSchema, value)
-            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+          check(Gen.zonedDateTime.filter(_.getZone != ZoneId.of("GMT0"))) {
+            value => // https://bugs.openjdk.org/browse/JDK-8138664
+              val zoneSchema = Primitive(StandardType.ZonedDateTimeType)
+              for {
+                ed  <- encodeAndDecode(zoneSchema, value)
+                ed2 <- encodeAndDecodeNS(zoneSchema, value)
+              } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
           }
         },
         test("currencies") {
@@ -699,21 +697,19 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
           } yield assert(ed)(equalTo(Chunk.succeed(set))) && assert(ed2)(equalTo(set))
         },
         test("recursive data types") {
-          check(SchemaGen.anyRecursiveTypeAndValue) {
-            case (schema, value) =>
-              for {
-                ed <- encodeAndDecode2(schema, value)
+          check(SchemaGen.anyRecursiveTypeAndValue) { case (schema, value) =>
+            for {
+              ed <- encodeAndDecode2(schema, value)
 //              ed2 <- encodeAndDecodeNS(schema, value)
-              } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
+            } yield assertTrue(ed == Right(Chunk(value))) // && assert(ed2)(equalTo(value))
           }
         },
         test("deep recursive data types") {
-          check(SchemaGen.anyDeepRecursiveTypeAndValue) {
-            case (schema, value) =>
-              for {
-                ed <- encodeAndDecode2(schema, value)
-                //              ed2 <- encodeAndDecodeNS(schema, value)
-              } yield assertTrue(ed == Right(Chunk(value))) //&& assert(ed2)(equalTo(value))
+          check(SchemaGen.anyDeepRecursiveTypeAndValue) { case (schema, value) =>
+            for {
+              ed <- encodeAndDecode2(schema, value)
+              //              ed2 <- encodeAndDecodeNS(schema, value)
+            } yield assertTrue(ed == Right(Chunk(value))) // && assert(ed2)(equalTo(value))
           }
         } @@ TestAspect.size(200)
       ),
@@ -1183,10 +1179,10 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
   def toHex(chunk: Chunk[Byte]): String =
     chunk.toArray.map { byte =>
       val intToHex: (Int => Char) = { int =>
-        ('A' - 0xA + int + (((int - 10) >> 31) & ('0' - 55))).toChar
+        ('A' - 0xa + int + (((int - 10) >> 31) & ('0' - 55))).toChar
       }
-      val left  = (byte >> 4) & 0xF
-      val right = byte & 0xF
+      val left  = (byte >> 4) & 0xf
+      val right = byte & 0xf
       s"${intToHex(left)}${intToHex(right)}"
     }.mkString
 
@@ -1212,7 +1208,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       )
       .run(ZSink.collectAll)
 
-  //NS == non streaming variant of encode
+  // NS == non streaming variant of encode
   def encodeNS[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
     ZIO.succeed(ProtobufCodec.protobufCodec(schema).encode(input))
 
@@ -1236,7 +1232,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       )
       .run(ZSink.collectAll)
 
-  //NS == non streaming variant of decode
+  // NS == non streaming variant of decode
   def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
     ZIO.succeed(ProtobufCodec.protobufCodec(schema).decode(fromHex(hex))).absolve[DecodeError, A]
 
@@ -1259,9 +1255,8 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .apply(ZStream.succeed(input))
       .run(ZSink.collectAll)
       .either
-      .tapSome {
-        case Left(error) =>
-          printLine(s"Failed to encode and decode input $input\nError=$error").orDie
+      .tapSome { case Left(error) =>
+        printLine(s"Failed to encode and decode input $input\nError=$error").orDie
       }
 
   def encodeAndDecode[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, Chunk[A]] =
@@ -1272,7 +1267,7 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .apply(ZStream.succeed(input))
       .run(ZSink.collectAll)
 
-  //NS == non streaming variant of encodeAndDecode
+  // NS == non streaming variant of encodeAndDecode
   def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)
@@ -1293,8 +1288,8 @@ object ProtobufCodecSpec extends ZIOSpecDefault {
       .map(a => ProtobufCodec.protobufCodec(schema).encode(a))
       .tap(encoded => printLine(s"\nEncoded Bytes:\n${toHex(encoded)}").when(print).ignore)
       .map(ch => ProtobufCodec.protobufCodec(schema).decode(ch))
-      .tapSome {
-        case Left(err) => printLine(s"Failed to encode and decode value $input\nError = $err").orDie
+      .tapSome { case Left(err) =>
+        printLine(s"Failed to encode and decode value $input\nError = $err").orDie
       }
 
   def encodeAndDecodeNS[A](encodeSchema: Schema[A], decodeSchema: Schema[A], input: A): ZIO[Any, DecodeError, A] =

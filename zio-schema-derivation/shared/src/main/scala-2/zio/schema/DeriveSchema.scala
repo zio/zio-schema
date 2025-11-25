@@ -67,7 +67,7 @@ object DeriveSchema {
       if (isCaseObject(tpe)) {
         val typeId          = q"_root_.zio.schema.TypeId.parse(${tpe.typeSymbol.asClass.fullName})"
         val typeAnnotations = collectTypeAnnotations(tpe)
-        val annotations =
+        val annotations     =
           if (typeAnnotations.isEmpty) q"_root_.zio.Chunk.empty"
           else q"_root_.zio.Chunk.apply(..$typeAnnotations)"
         q"_root_.zio.schema.Schema.CaseClass0($typeId, () => ${tpe.typeSymbol.asClass.module}, $annotations)"
@@ -84,10 +84,9 @@ object DeriveSchema {
     def directInferSchema(parentType: Type, schemaType: Type, stack: List[Frame[c.type]]): Tree = {
       stack
         .find(_.tpe =:= schemaType)
-        .map {
-          case Frame(_, ref, _) =>
-            val refIdent = Ident(TermName(ref))
-            q"_root_.zio.schema.Schema.defer($refIdent)"
+        .map { case Frame(_, ref, _) =>
+          val refIdent = Ident(TermName(ref))
+          q"_root_.zio.schema.Schema.defer($refIdent)"
         }
         .getOrElse {
           if (schemaType =:= parentType)
@@ -118,29 +117,29 @@ object DeriveSchema {
                     if (schemaType <:< eitherType)
                       q"""_root_.zio.schema.Schema.either(
                         _root_.zio.schema.Schema.defer(${directInferSchema(
-                        parentType,
-                        concreteType(parentType, typeArg1),
-                        stack
-                      )}),
+                          parentType,
+                          concreteType(parentType, typeArg1),
+                          stack
+                        )}),
                         _root_.zio.schema.Schema.defer(${directInferSchema(
-                        parentType,
-                        concreteType(parentType, typeArg2),
-                        stack
-                      )})
+                          parentType,
+                          concreteType(parentType, typeArg2),
+                          stack
+                        )})
                       )
                    """
                     else if (schemaType <:< tuple2Type)
                       q"""_root_.zio.schema.Schema.tuple2(
                         _root_.zio.schema.Schema.defer(${directInferSchema(
-                        parentType,
-                        concreteType(parentType, typeArg1),
-                        stack
-                      )}),
+                          parentType,
+                          concreteType(parentType, typeArg1),
+                          stack
+                        )}),
                         _root_.zio.schema.Schema.defer(${directInferSchema(
-                        parentType,
-                        concreteType(parentType, typeArg2),
-                        stack
-                      )})
+                          parentType,
+                          concreteType(parentType, typeArg2),
+                          stack
+                        )})
                       )
                    """
                     else
@@ -149,20 +148,20 @@ object DeriveSchema {
                     if (schemaType <:< tuple3Type)
                       q"""_root_.zio.schema.Schema.tuple3(
                         _root_.zio.schema.Schema.defer(${directInferSchema(
-                        parentType,
-                        concreteType(parentType, typeArg1),
-                        stack
-                      )}),
+                          parentType,
+                          concreteType(parentType, typeArg1),
+                          stack
+                        )}),
                         _root_.zio.schema.Schema.defer(${directInferSchema(
-                        parentType,
-                        concreteType(parentType, typeArg2),
-                        stack
-                      )}),
+                          parentType,
+                          concreteType(parentType, typeArg2),
+                          stack
+                        )}),
                         _root_.zio.schema.Schema.defer(${directInferSchema(
-                        parentType,
-                        concreteType(parentType, typeArg3),
-                        stack
-                      )})
+                          parentType,
+                          concreteType(parentType, typeArg3),
+                          stack
+                        )})
 
                       )
                    """
@@ -172,25 +171,25 @@ object DeriveSchema {
                     if (schemaType <:< tuple4Type)
                       q"""_root_.zio.schema.Schema.tuple4(
                         _root_.zio.schema.Schema.defer(${directInferSchema(
-                        parentType,
-                        concreteType(parentType, typeArg1),
-                        stack
-                      )}),
+                          parentType,
+                          concreteType(parentType, typeArg1),
+                          stack
+                        )}),
                         _root_.zio.schema.Schema.defer(${directInferSchema(
-                        parentType,
-                        concreteType(parentType, typeArg2),
-                        stack
-                      )}),
+                          parentType,
+                          concreteType(parentType, typeArg2),
+                          stack
+                        )}),
                         _root_.zio.schema.Schema.defer(${directInferSchema(
-                        parentType,
-                        concreteType(parentType, typeArg3),
-                        stack
-                      )}),
+                          parentType,
+                          concreteType(parentType, typeArg3),
+                          stack
+                        )}),
                         _root_.zio.schema.Schema.defer(${directInferSchema(
-                        parentType,
-                        concreteType(parentType, typeArg4),
-                        stack
-                      )})
+                          parentType,
+                          concreteType(parentType, typeArg4),
+                          stack
+                        )})
                       )
                    """
                     else
@@ -205,8 +204,8 @@ object DeriveSchema {
     }
 
     def getFieldName(annotations: List[Tree]): Option[String] =
-      annotations.collectFirst {
-        case q"new fieldName($name1)" => name1.toString
+      annotations.collectFirst { case q"new fieldName($name1)" =>
+        name1.toString
       }.map(s => s.substring(1, s.length() - 1))
 
     def deriveRecord(tpe: Type, stack: List[Frame[c.type]]): Tree = stack.find(_.tpe =:= tpe) match {
@@ -221,7 +220,7 @@ object DeriveSchema {
 
         val currentFrame = Frame[c.type](c, selfRefName, tpe)
 
-        val sortedDecls = tpe.decls.sorted
+        val sortedDecls                      = tpe.decls.sorted
         val fieldTypes: Iterable[TermSymbol] = sortedDecls.collect {
           case p: TermSymbol if p.isCaseAccessor && !p.isMethod => p
         }
@@ -242,7 +241,7 @@ object DeriveSchema {
           if (tpe.typeArgs.isEmpty) Nil
           else {
             val typeMembers = tpe.typeSymbol.asClass.typeParams.map(decodeName)
-            val typeArgs = tpe.typeArgs
+            val typeArgs    = tpe.typeArgs
               .map(_.typeSymbol.fullName)
               .map(t => q"_root_.zio.schema.TypeId.parse(${t}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]")
             val typeMembersWithArgs = typeMembers.zip(typeArgs).map { case (m, a) => q"($m, $a)" }
@@ -257,56 +256,54 @@ object DeriveSchema {
           tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.head
             .map(_.asTerm)
             .zipWithIndex
-            .flatMap {
-              case (symbol, i) =>
-                if (symbol.isParamWithDefault) {
-                  val defaultInit  = tpe.companion.member(TermName(s"$$lessinit$$greater$$default$$${i + 1}"))
-                  val defaultApply = tpe.companion.member(TermName(s"apply$$default$$${i + 1}"))
-                  Some(i -> defaultInit)
-                    .filter(_ => defaultInit != NoSymbol)
-                    .orElse(Some(i -> defaultApply).filter(_ => defaultApply != NoSymbol))
-                } else None
+            .flatMap { case (symbol, i) =>
+              if (symbol.isParamWithDefault) {
+                val defaultInit  = tpe.companion.member(TermName(s"$$lessinit$$greater$$default$$${i + 1}"))
+                val defaultApply = tpe.companion.member(TermName(s"apply$$default$$${i + 1}"))
+                Some(i -> defaultInit)
+                  .filter(_ => defaultInit != NoSymbol)
+                  .orElse(Some(i -> defaultApply).filter(_ => defaultApply != NoSymbol))
+              } else None
             }
             .toMap
 
-        val fieldAnnotations: List[List[Tree]] = //List.fill(arity)(Nil)
+        val fieldAnnotations: List[List[Tree]] = // List.fill(arity)(Nil)
           tpe.typeSymbol.asClass.primaryConstructor.asMethod.paramLists.headOption.map { symbols =>
-            symbols.zipWithIndex.map {
-              case (symbol, i) =>
-                val annotations = symbol.annotations.collect {
-                  case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
-                    annotation.tree match {
-                      case q"new $annConstructor(..$annotationArgs)" =>
-                        q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
-                      case q"new $annConstructor()" =>
-                        q"new ${annConstructor.tpe.typeSymbol}()"
-                      case tree =>
-                        c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
-                        EmptyTree
-                    }
-                  case annotation =>
-                    c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
-                    EmptyTree
-                }
-                val hasDefaultAnnotation =
-                  annotations.exists {
-                    case ann if ann.toString.contains("new fieldDefaultValue") => true
-                    case _                                                     => false
+            symbols.zipWithIndex.map { case (symbol, i) =>
+              val annotations = symbol.annotations.collect {
+                case annotation if !(annotation.tree.tpe <:< JavaAnnotationTpe) =>
+                  annotation.tree match {
+                    case q"new $annConstructor(..$annotationArgs)" =>
+                      q"new ${annConstructor.tpe.typeSymbol}(..$annotationArgs)"
+                    case q"new $annConstructor()" =>
+                      q"new ${annConstructor.tpe.typeSymbol}()"
+                    case tree =>
+                      c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
+                      EmptyTree
                   }
-                val transientField =
-                  annotations.exists {
-                    case ann if ann.toString().endsWith("new transientField()") => true
-                    case _                                                      => false
-                  }
-                if (transientField && !(hasDefaultAnnotation || defaultConstructorValues.contains(i))) {
-                  throw new IllegalStateException(s"Field ${symbol.name} is transient and must have a default value.")
+                case annotation =>
+                  c.warning(c.enclosingPosition, s"Unhandled annotation ${annotation.tree}")
+                  EmptyTree
+              }
+              val hasDefaultAnnotation =
+                annotations.exists {
+                  case ann if ann.toString.contains("new fieldDefaultValue") => true
+                  case _                                                     => false
                 }
-                if (hasDefaultAnnotation || !defaultConstructorValues.contains(i)) {
-                  annotations
-                } else {
-                  annotations :+
-                    q"new _root_.zio.schema.annotation.fieldDefaultValue[${symbol.typeSignature}](${defaultConstructorValues(i)})"
+              val transientField =
+                annotations.exists {
+                  case ann if ann.toString().endsWith("new transientField()") => true
+                  case _                                                      => false
                 }
+              if (transientField && !(hasDefaultAnnotation || defaultConstructorValues.contains(i))) {
+                throw new IllegalStateException(s"Field ${symbol.name} is transient and must have a default value.")
+              }
+              if (hasDefaultAnnotation || !defaultConstructorValues.contains(i)) {
+                annotations
+              } else {
+                annotations :+
+                  q"new _root_.zio.schema.annotation.fieldDefaultValue[${symbol.typeSignature}](${defaultConstructorValues(i)})"
+              }
             }
           }.getOrElse(Nil)
 
@@ -322,43 +319,41 @@ object DeriveSchema {
                       c.warning(c.enclosingPosition, s"Unhandled annotation tree $tree")
                       EmptyTree
                   }
-              }.foldLeft[c.universe.Tree](q"_root_.zio.schema.validation.Validation.succeed") {
-                case (acc, t) => q"$acc && $t"
+              }.foldLeft[c.universe.Tree](q"_root_.zio.schema.validation.Validation.succeed") { case (acc, t) =>
+                q"$acc && $t"
               }
             }
           }.getOrElse(Nil)
 
         if (arity > 22) {
-          val fields = fieldTypes.zip(fieldAnnotations).map {
-            case (termSymbol, annotations) =>
-              val fieldType = concreteType(tpe, termSymbol.typeSignature)
-              val fieldSchema = directInferSchema(
-                tpe,
-                concreteType(tpe, termSymbol.typeSignature),
-                currentFrame +: stack
-              )
-              val fieldLabel = decodeFieldName(termSymbol)
-              val getFunc =
-                q" (z: _root_.scala.collection.immutable.ListMap[String, _]) => z.apply($fieldLabel).asInstanceOf[${termSymbol.typeSignature}]"
+          val fields = fieldTypes.zip(fieldAnnotations).map { case (termSymbol, annotations) =>
+            val fieldType   = concreteType(tpe, termSymbol.typeSignature)
+            val fieldSchema = directInferSchema(
+              tpe,
+              concreteType(tpe, termSymbol.typeSignature),
+              currentFrame +: stack
+            )
+            val fieldLabel = decodeFieldName(termSymbol)
+            val getFunc    =
+              q" (z: _root_.scala.collection.immutable.ListMap[String, _]) => z.apply($fieldLabel).asInstanceOf[${termSymbol.typeSignature}]"
 
-              val setFunc =
-                q" (z: _root_.scala.collection.immutable.ListMap[String, _], v: ${termSymbol.typeSignature}) => z.updated($fieldLabel, v)"
+            val setFunc =
+              q" (z: _root_.scala.collection.immutable.ListMap[String, _], v: ${termSymbol.typeSignature}) => z.updated($fieldLabel, v)"
 
-              if (annotations.nonEmpty) {
-                val newName       = getFieldName(annotations).getOrElse(fieldLabel)
-                val singletonType = tq"${newName}.type"
-                q"_root_.zio.schema.Schema.Field.apply(name0 = $newName, schema0 = $fieldSchema, annotations0 = _root_.zio.Chunk.apply[Any](..$annotations), get0 = $getFunc, set0 = $setFunc).asInstanceOf[_root_.zio.schema.Schema.Field.WithFieldName[scala.collection.immutable.ListMap[String, _], $singletonType, ${fieldType}]]"
-              } else {
-                val singletonType = tq"${fieldLabel}.type"
-                q"_root_.zio.schema.Schema.Field.apply(name0 = $fieldLabel, schema0 = $fieldSchema, get0 = $getFunc, set0 = $setFunc).asInstanceOf[_root_.zio.schema.Schema.Field.WithFieldName[scala.collection.immutable.ListMap[String, _], $singletonType, ${fieldType}]]"
-              }
+            if (annotations.nonEmpty) {
+              val newName       = getFieldName(annotations).getOrElse(fieldLabel)
+              val singletonType = tq"${newName}.type"
+              q"_root_.zio.schema.Schema.Field.apply(name0 = $newName, schema0 = $fieldSchema, annotations0 = _root_.zio.Chunk.apply[Any](..$annotations), get0 = $getFunc, set0 = $setFunc).asInstanceOf[_root_.zio.schema.Schema.Field.WithFieldName[scala.collection.immutable.ListMap[String, _], $singletonType, ${fieldType}]]"
+            } else {
+              val singletonType = tq"${fieldLabel}.type"
+              q"_root_.zio.schema.Schema.Field.apply(name0 = $fieldLabel, schema0 = $fieldSchema, get0 = $getFunc, set0 = $setFunc).asInstanceOf[_root_.zio.schema.Schema.Field.WithFieldName[scala.collection.immutable.ListMap[String, _], $singletonType, ${fieldType}]]"
+            }
           }
           val fromMap = {
-            val casts = fieldTypes.zip(fieldAnnotations).map {
-              case (termSymbol, annotations) =>
-                val fieldLabel = decodeFieldName(termSymbol)
-                val newName    = getFieldName(annotations).getOrElse(fieldLabel)
-                q"""
+            val casts = fieldTypes.zip(fieldAnnotations).map { case (termSymbol, annotations) =>
+              val fieldLabel = decodeFieldName(termSymbol)
+              val newName    = getFieldName(annotations).getOrElse(fieldLabel)
+              q"""
                  try m.apply(${newName}).asInstanceOf[${termSymbol.typeSignature}]
                  catch {
                    case _: ClassCastException => throw new RuntimeException("Field " + $fieldLabel + " has invalid type")
@@ -369,10 +364,9 @@ object DeriveSchema {
             q"""(m: scala.collection.immutable.ListMap[String, _]) => try { Right($tpeCompanion.apply(..$casts)) } catch { case e: Throwable => Left(e.getMessage) }"""
           }
           val toMap = {
-            val tuples = fieldAccessors.zip(fieldAnnotations).map {
-              case (fieldName, annotations) =>
-                val newName = getFieldName(annotations).getOrElse(fieldName.toString)
-                q"(${newName},b.$fieldName)"
+            val tuples = fieldAccessors.zip(fieldAnnotations).map { case (fieldName, annotations) =>
+              val newName = getFieldName(annotations).getOrElse(fieldName.toString)
+              q"(${newName},b.$fieldName)"
             }
             q"""(b: $tpe) => Right(scala.collection.immutable.ListMap.apply(..$tuples))"""
           }
@@ -411,7 +405,7 @@ object DeriveSchema {
 
           val fieldDefs = fieldTypes.zip(fieldAnnotations).zip(fieldValidations).zipWithIndex.map {
             case (((termSymbol, annotations), validation), idx) =>
-              val fieldType = concreteType(tpe, termSymbol.typeSignature)
+              val fieldType   = concreteType(tpe, termSymbol.typeSignature)
               val fieldSchema = directInferSchema(
                 tpe,
                 fieldType,
@@ -434,15 +428,13 @@ object DeriveSchema {
               }
           }
 
-          val constructArgs = fieldTypes.zipWithIndex.map {
-            case (term, idx) =>
-              val arg = TermName(s"_$idx")
-              q"$arg: ${term.typeSignature.asSeenFrom(tpe, tpe.typeSymbol.asClass)}"
+          val constructArgs = fieldTypes.zipWithIndex.map { case (term, idx) =>
+            val arg = TermName(s"_$idx")
+            q"$arg: ${term.typeSignature.asSeenFrom(tpe, tpe.typeSymbol.asClass)}"
           }
-          val constructApplyArgs = fieldTypes.zipWithIndex.map {
-            case (_, idx) =>
-              val arg = TermName(s"_$idx")
-              q"$arg"
+          val constructApplyArgs = fieldTypes.zipWithIndex.map { case (_, idx) =>
+            val arg = TermName(s"_$idx")
+            q"$arg"
           }
 
           val constructExpr =
@@ -453,11 +445,15 @@ object DeriveSchema {
 
           val applyArgs =
             if (typeAnnotations.isEmpty)
-              Iterable(q"annotations0 = _root_.zio.Chunk.empty") ++ Iterable(q"id0 = ${typeId}") ++ fieldDefs ++ Iterable(
+              Iterable(q"annotations0 = _root_.zio.Chunk.empty") ++ Iterable(
+                q"id0 = ${typeId}"
+              ) ++ fieldDefs ++ Iterable(
                 constructExpr
               )
             else
-              Iterable(q"annotations0 = _root_.zio.Chunk.apply(..$typeAnnotations)") ++ Iterable(q"id0 = ${typeId}") ++ fieldDefs ++ Iterable(
+              Iterable(q"annotations0 = _root_.zio.Chunk.apply(..$typeAnnotations)") ++ Iterable(
+                q"id0 = ${typeId}"
+              ) ++ fieldDefs ++ Iterable(
                 constructExpr
               )
 
@@ -588,7 +584,7 @@ object DeriveSchema {
         if (tpe.typeArgs.isEmpty) Nil
         else {
           val typeMembers = tpe.typeSymbol.asClass.typeParams.map(decodeName)
-          val typeArgs = tpe.typeArgs
+          val typeArgs    = tpe.typeArgs
             .map(_.typeSymbol.fullName)
             .map(t => q"_root_.zio.schema.TypeId.parse(${t}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]")
           val typeMembersWithArgs = typeMembers.zip(typeArgs).map { case (m, a) => q"($m, $a)" }
@@ -646,7 +642,7 @@ object DeriveSchema {
           if (subtype.typeArgs.isEmpty) Nil
           else {
             val typeMembers = subtype.typeSymbol.asClass.typeParams.map(decodeName)
-            val typeArgs = subtype.typeArgs
+            val typeArgs    = subtype.typeArgs
               .map(_.typeSymbol.fullName)
               .map(t => q"_root_.zio.schema.TypeId.parse(${t}).asInstanceOf[_root_.zio.schema.TypeId.Nominal]")
             val typeMembersWithArgs = typeMembers.zip(typeArgs).map { case (m, a) => q"($m, $a)" }

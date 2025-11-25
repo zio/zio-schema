@@ -1,25 +1,25 @@
 import sbt.*
-import Keys.*
+import Keys.{scalacOptions, *}
 import sbtcrossproject.CrossPlugin.autoImport.*
 import sbtbuildinfo.*
 import BuildInfoKeys.*
 import com.typesafe.tools.mima.core.*
 import com.typesafe.tools.mima.core.ProblemFilters.exclude
-import com.typesafe.tools.mima.plugin.MimaKeys.{ mimaBinaryIssueFilters, mimaFailOnProblem, mimaPreviousArtifacts }
+import com.typesafe.tools.mima.plugin.MimaKeys.{mimaBinaryIssueFilters, mimaFailOnProblem, mimaPreviousArtifacts}
 import com.typesafe.tools.mima.plugin.MimaPlugin.autoImport.mimaCheckDirection
 import sbtdynver.DynVerPlugin.autoImport.previousStableVersion
 import scalafix.sbt.ScalafixPlugin.autoImport.*
 import scalanativecrossproject.NativePlatform
 
-import scala.scalanative.build.{ GC, Mode }
+import scala.scalanative.build.{GC, Mode}
 import scala.scalanative.sbtplugin.ScalaNativePlugin.autoImport.nativeConfig
 
 object BuildHelper {
 
   private val versions: Map[String, String] = {
-    import org.snakeyaml.engine.v2.api.{ Load, LoadSettings }
+    import org.snakeyaml.engine.v2.api.{Load, LoadSettings}
 
-    import java.util.{ List => JList, Map => JMap }
+    import java.util.{List => JList, Map => JMap}
     import scala.jdk.CollectionConverters._
 
     val doc = new Load(LoadSettings.builder().build())
@@ -148,10 +148,16 @@ object BuildHelper {
 
   val dottySettings = Seq(
     scalacOptions --= {
+      if (scalaVersion.value == Scala3) Seq("-Xfatal-warnings")
+      else Seq()
+    },
+    scalacOptions ++= {
       if (scalaVersion.value == Scala3)
-        Seq("-Xfatal-warnings")
-      else
-        Seq()
+        Seq(
+          "-no-indent",             // See https://x.com/ghostdogpr/status/1706589471469425074
+          "-language:noAutoTupling" // See https://github.com/scala/scala3/discussions/19255
+        )
+      else Seq()
     }
   )
 
@@ -159,7 +165,7 @@ object BuildHelper {
     for {
       platform <- List("shared", platform)
       version  <- "scala" :: versions.toList.map("scala-" + _)
-      result   = baseDirectory.getParentFile / platform.toLowerCase / "src" / conf / version
+      result    = baseDirectory.getParentFile / platform.toLowerCase / "src" / conf / version
       if result.exists
     } yield result
 
@@ -209,18 +215,18 @@ object BuildHelper {
   )
 
   def buildInfoSettings(packageName: String) = Seq(
-    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
+    buildInfoKeys    := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, isSnapshot),
     buildInfoPackage := packageName
   )
 
   def stdSettings(prjName: String) =
     Seq(
-      name := s"$prjName",
-      crossScalaVersions := Seq(Scala213, Scala212, Scala3),
-      ThisBuild / scalaVersion := Scala213, //crossScalaVersions.value.head, //Scala3,
+      name                     := s"$prjName",
+      crossScalaVersions       := Seq(Scala213, Scala212, Scala3),
+      ThisBuild / scalaVersion := Scala213, // crossScalaVersions.value.head, //Scala3,
       scalacOptions ++= compilerOptions(scalaVersion.value, optimize = !isSnapshot.value),
       libraryDependencies ++= compileOnlyDeps(scalaVersion.value),
-      versionScheme := Some("early-semver"),
+      versionScheme                 := Some("early-semver"),
       ThisBuild / semanticdbEnabled := scalaVersion.value != Scala3, // enable SemanticDB,
       ThisBuild / semanticdbOptions += "-P:semanticdb:synthetics:on",
       ThisBuild / semanticdbVersion := scalafixSemanticdb.revision,
@@ -229,8 +235,8 @@ object BuildHelper {
       ),
       Test / parallelExecution := !sys.env.contains("CI"),
       incOptions ~= (_.withLogRecompileOnMacro(true)),
-      autoAPIMappings := true,
-      testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
+      autoAPIMappings       := true,
+      testFrameworks        := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
       mimaPreviousArtifacts := previousStableVersion.value
         .filter(_ != "1.5.0")
         .map(organization.value %% name.value % _)

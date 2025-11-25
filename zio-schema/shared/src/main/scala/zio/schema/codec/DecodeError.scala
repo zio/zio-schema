@@ -3,10 +3,10 @@ package zio.schema.codec
 import scala.collection.immutable.ListMap
 import scala.util.control.NoStackTrace
 
-import zio.schema.Schema.{ Field, Record }
+import zio.schema.Schema.{Field, Record}
 import zio.schema.validation.Validation
-import zio.schema.{ DynamicValue, Schema }
-import zio.{ Cause, Chunk }
+import zio.schema.{DynamicValue, Schema}
+import zio.{Cause, Chunk}
 
 sealed trait DecodeError extends Exception with NoStackTrace { self =>
   def message: String

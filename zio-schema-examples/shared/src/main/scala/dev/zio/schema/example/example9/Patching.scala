@@ -1,6 +1,6 @@
 package dev.zio.schema.example.example9
 
-import zio.schema.{ DeriveSchema, Patch, Schema }
+import zio.schema.{DeriveSchema, Patch, Schema}
 
 object Patching extends App {
 

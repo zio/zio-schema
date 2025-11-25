@@ -2,7 +2,7 @@ package zio.schema.codec
 
 import zio.bson._
 import zio.schema.annotation._
-import zio.schema.{ DeriveSchema, Schema }
+import zio.schema.{DeriveSchema, Schema}
 
 object MixedConfig {
 

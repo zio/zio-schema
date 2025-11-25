@@ -3,24 +3,29 @@ package zio.schema
 import scala.util.control.NonFatal
 
 import zio.prelude.NonEmptyMap
-import zio.schema.MutableSchemaBasedValueBuilder.{ CreateValueFromSchemaError, ReadingFieldResult }
-import zio.{ Chunk, ChunkBuilder }
+import zio.schema.MutableSchemaBasedValueBuilder.{CreateValueFromSchemaError, ReadingFieldResult}
+import zio.{Chunk, ChunkBuilder}
 
 /**
- * Base trait for mutable builders producing a value based on a schema, such as codec decoders.
+ * Base trait for mutable builders producing a value based on a schema, such as
+ * codec decoders.
  *
- * The implementation is stack safe and consists of a series of invocations of the protected methods
- * the trait defines. Maintaining the state of the builder, such as stream position etc. is the responsibility
- * of the implementation class via mutable state.
+ * The implementation is stack safe and consists of a series of invocations of
+ * the protected methods the trait defines. Maintaining the state of the
+ * builder, such as stream position etc. is the responsibility of the
+ * implementation class via mutable state.
  *
- * The Target type parameter is the base type for the generated values - this in many cases can be Any but
- * potentially could be used to track errors in value level as well - although failure in the context handler
- * manipulation methods cannot be expressed this way.
+ * The Target type parameter is the base type for the generated values - this in
+ * many cases can be Any but potentially could be used to track errors in value
+ * level as well - although failure in the context handler manipulation methods
+ * cannot be expressed this way.
  *
- * The Context type parameter is a use-case dependent type that is managed in a stack during the execution of the builder.
- * The implementation can generate new context values for the value's subtrees and it can be used to track local state
- * required for gathering all information for the value to be created. The current context value is also propagated to
- * any exception thrown so it can be used to provide detailed location information for decoder errors.
+ * The Context type parameter is a use-case dependent type that is managed in a
+ * stack during the execution of the builder. The implementation can generate
+ * new context values for the value's subtrees and it can be used to track local
+ * state required for gathering all information for the value to be created. The
+ * current context value is also propagated to any exception thrown so it can be
+ * used to provide detailed location information for decoder errors.
  */
 trait MutableSchemaBasedValueBuilder[Target, Context] {
 
@@ -30,13 +35,17 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
   /** The next value to build is a record with the given schema */
   protected def startCreatingRecord(context: Context, record: Schema.Record[_]): Context
 
-  /** Called for each field of a record. The result is either Finished indicating there are no more fields to read,
-   * or it contains an updated context belonging to the field and the next field's index in the schema. This allows
-   * the implementation to instantiate fields in a different order than what the schema defines.
-   * A third option is to just update the context without reading any field - this can be used to skip data,
-   * for example when reading a newer format of a record that has more fields than the older one.
+  /**
+   * Called for each field of a record. The result is either Finished indicating
+   * there are no more fields to read, or it contains an updated context
+   * belonging to the field and the next field's index in the schema. This
+   * allows the implementation to instantiate fields in a different order than
+   * what the schema defines. A third option is to just update the context
+   * without reading any field - this can be used to skip data, for example when
+   * reading a newer format of a record that has more fields than the older one.
    *
-   * The index parameter is a 0-based index, incremented by one for each field read within a record.
+   * The index parameter is a 0-based index, incremented by one for each field
+   * read within a record.
    */
   protected def startReadingField(context: Context, record: Schema.Record[_], index: Int): ReadingFieldResult[Context]
 
@@ -49,19 +58,26 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
   /** Creates an enum value from the read constructor value */
   protected def createEnum(context: Context, cases: Chunk[Schema.Case[_, _]], index: Int, value: Target): Target
 
-  /** The next value to build is a sequence. If the returned value is None, the builder creates an empty sequence,
-   * otherwise it calls startCreatingOneSequenceElement and finishedCreatingOneSequenceElement for
+  /**
+   * The next value to build is a sequence. If the returned value is None, the
+   * builder creates an empty sequence, otherwise it calls
+   * startCreatingOneSequenceElement and finishedCreatingOneSequenceElement for
    * each element with the returned context.
    */
   protected def startCreatingSequence(context: Context, schema: Schema.Sequence[_, _, _]): Option[Context]
 
-  /** Called before constructing a next sequence element. The returned context is used for constructing
-   * that single element.*/
+  /**
+   * Called before constructing a next sequence element. The returned context is
+   * used for constructing that single element.
+   */
   protected def startCreatingOneSequenceElement(context: Context, schema: Schema.Sequence[_, _, _]): Context
 
-  /** Called after constructing a single sequence element. The context is the context of the whole sequence.
-   * If the returned value is true, a next element will be read otherwise the sequence is completed and createSequence
-   * is called. */
+  /**
+   * Called after constructing a single sequence element. The context is the
+   * context of the whole sequence. If the returned value is true, a next
+   * element will be read otherwise the sequence is completed and createSequence
+   * is called.
+   */
   protected def finishedCreatingOneSequenceElement(
     context: Context,
     index: Int
@@ -70,23 +86,33 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
   /** Creates the sequence value from the chunk of element values */
   protected def createSequence(context: Context, schema: Schema.Sequence[_, _, _], values: Chunk[Target]): Target
 
-  /** The next value to build is a dictionary. If the returned value is None, the builder creates an empty dictionary,
-   * otherwise it calls startCreatingOneDictionaryElement, startCreatingOneDictionaryValue and
-   * finishedCreatingOneDictionaryElement for each element with the returned context.
+  /**
+   * The next value to build is a dictionary. If the returned value is None, the
+   * builder creates an empty dictionary, otherwise it calls
+   * startCreatingOneDictionaryElement, startCreatingOneDictionaryValue and
+   * finishedCreatingOneDictionaryElement for each element with the returned
+   * context.
    */
   protected def startCreatingDictionary(context: Context, schema: Schema.Map[_, _]): Option[Context]
 
-  /** Called before constructing a next dictionary element. The returned context is used for constructing
-   * that single element's key. */
+  /**
+   * Called before constructing a next dictionary element. The returned context
+   * is used for constructing that single element's key.
+   */
   protected def startCreatingOneDictionaryElement(context: Context, schema: Schema.Map[_, _]): Context
 
-  /** Called after the key of a single element was created, before the value gets created.
-   * The returned context is for constructing the element's value part. */
+  /**
+   * Called after the key of a single element was created, before the value gets
+   * created. The returned context is for constructing the element's value part.
+   */
   protected def startCreatingOneDictionaryValue(context: Context, schema: Schema.Map[_, _]): Context
 
-  /** Called after constructing a single dictionary element. The context is the context of the whole dictionary.
-   * If the returned value is true, a next element will be read otherwise the dictionary is completed and createDictionary
-   * is called. */
+  /**
+   * Called after constructing a single dictionary element. The context is the
+   * context of the whole dictionary. If the returned value is true, a next
+   * element will be read otherwise the dictionary is completed and
+   * createDictionary is called.
+   */
   protected def finishedCreatingOneDictionaryElement(
     context: Context,
     schema: Schema.Map[_, _],
@@ -96,44 +122,60 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
   /** Creates the dictionary value from the chunk of key-value pairs */
   protected def createDictionary(context: Context, schema: Schema.Map[_, _], values: Chunk[(Target, Target)]): Target
 
-  /** The next value to build is a set. If the returned value is None, the builder creates an empty set,
-   * otherwise it calls startCreatingOneSetElement and finishedCreatingOneSetElement for
-   * each element with the returned context.
+  /**
+   * The next value to build is a set. If the returned value is None, the
+   * builder creates an empty set, otherwise it calls startCreatingOneSetElement
+   * and finishedCreatingOneSetElement for each element with the returned
+   * context.
    */
   protected def startCreatingSet(context: Context, schema: Schema.Set[_]): Option[Context]
 
-  /** Called before constructing a next set element. The returned context is used for constructing
-   * that single element. */
+  /**
+   * Called before constructing a next set element. The returned context is used
+   * for constructing that single element.
+   */
   protected def startCreatingOneSetElement(context: Context, schema: Schema.Set[_]): Context
 
-  /** Called after constructing a single set element. The context is the context of the whole set.
-   * If the returned value is true, a next element will be read otherwise the set is completed and createSet
-   * is called. */
+  /**
+   * Called after constructing a single set element. The context is the context
+   * of the whole set. If the returned value is true, a next element will be
+   * read otherwise the set is completed and createSet is called.
+   */
   protected def finishedCreatingOneSetElement(context: Context, schema: Schema.Set[_], index: Int): Boolean
 
   /** Creates the set value from the chunk of element values */
   protected def createSet(context: Context, schema: Schema.Set[_], values: Chunk[Target]): Target
 
-  /** The next value to be created is an optional value. If the result is None, the optional value created
-   * will be None. If it is a context, that context will be used to create the optional value. */
+  /**
+   * The next value to be created is an optional value. If the result is None,
+   * the optional value created will be None. If it is a context, that context
+   * will be used to create the optional value.
+   */
   protected def startCreatingOptional(context: Context, schema: Schema.Optional[_]): Option[Context]
 
   /** Creates the optional value from the inner value */
   protected def createOptional(context: Context, schema: Schema.Optional[_], value: Option[Target]): Target
 
-  /** The next value to be created is an either value with the given schema. Similarly to optional values,
-   * this method is responsible for gathering enough information to decide whether the created value will
-   * be a Left or a Right. The result value represents this, and for each case allows specifying a context
-   * that will be used to create the inner value. */
+  /**
+   * The next value to be created is an either value with the given schema.
+   * Similarly to optional values, this method is responsible for gathering
+   * enough information to decide whether the created value will be a Left or a
+   * Right. The result value represents this, and for each case allows
+   * specifying a context that will be used to create the inner value.
+   */
   protected def startCreatingEither(context: Context, schema: Schema.Either[_, _]): Either[Context, Context]
 
   /** Create the either value from an inner value */
   protected def createEither(context: Context, schema: Schema.Either[_, _], value: Either[Target, Target]): Target
 
-  /** The next value to be created is a fallback value with the given Fallback schema. Similarly to optional values,
-   * this method is responsible for gathering enough information to decide whether the created value will
-   * be a Left, a Right or a Both. The result value represents this, and for each case allows specifying a context
-   * that will be used to create the inner value. */
+  /**
+   * The next value to be created is a fallback value with the given Fallback
+   * schema. Similarly to optional values, this method is responsible for
+   * gathering enough information to decide whether the created value will be a
+   * Left, a Right or a Both. The result value represents this, and for each
+   * case allows specifying a context that will be used to create the inner
+   * value.
+   */
   protected def startCreatingFallback(context: Context, schema: Schema.Fallback[_, _]): Fallback[Context, Context]
 
   /** Create the fallback value from an inner value */
@@ -142,24 +184,31 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
   /** Called for reading right element of a `Fallback.Both` */
   protected def startReadingRightFallback(context: Context, schema: Schema.Fallback[_, _]): Context
 
-  /** The next value to be created is a tuple with the given schema. The returned context is used to
-   * construct the first element of the tuple. */
+  /**
+   * The next value to be created is a tuple with the given schema. The returned
+   * context is used to construct the first element of the tuple.
+   */
   protected def startCreatingTuple(context: Context, schema: Schema.Tuple2[_, _]): Context
 
-  /** Called after finished constructing the first element, before constructing the second. The returned
-   * context is used to construct the second value.
+  /**
+   * Called after finished constructing the first element, before constructing
+   * the second. The returned context is used to construct the second value.
    */
   protected def startReadingSecondTupleElement(context: Context, schema: Schema.Tuple2[_, _]): Context
 
   /** Creates the tuple from the constructed first and second values */
   protected def createTuple(context: Context, schema: Schema.Tuple2[_, _], left: Target, right: Target): Target
 
-  /** Creates a Dynamic value. If the returned value is None, it indicates that the builder does
-   * not have any built-in support for Dynamic values, and it will be built using Dynamic's schema. */
+  /**
+   * Creates a Dynamic value. If the returned value is None, it indicates that
+   * the builder does not have any built-in support for Dynamic values, and it
+   * will be built using Dynamic's schema.
+   */
   protected def createDynamic(context: Context): Option[Target]
 
-  /** Transforms a value with the given function that can fail. Making this customizable allows encoding the failure
-   * in Target.
+  /**
+   * Transforms a value with the given function that can fail. Making this
+   * customizable allows encoding the failure in Target.
    */
   protected def transform(context: Context, value: Target, f: Any => Either[String, Any], schema: Schema[_]): Target
 
@@ -526,7 +575,7 @@ trait MutableSchemaBasedValueBuilder[Target, Context] {
                 _
               ) =>
             enumCases(s.cases)
-          //scalafmt: { maxColumn = 120 }
+          // scalafmt: { maxColumn = 120 }
 
           case s @ Schema.EnumN(_, _, _) =>
             enumCases(s.cases)
@@ -1154,7 +1203,10 @@ object MutableSchemaBasedValueBuilder {
   }
 }
 
-/** A simpler version of SimpleMutableSchemaBasedValueBuilder without using any Context */
+/**
+ * A simpler version of SimpleMutableSchemaBasedValueBuilder without using any
+ * Context
+ */
 trait SimpleMutableSchemaBasedValueBuilder[Target] extends MutableSchemaBasedValueBuilder[Target, Unit] {
   override protected def createPrimitive(context: Unit, typ: StandardType[_]): Target =
     createPrimitive(typ)

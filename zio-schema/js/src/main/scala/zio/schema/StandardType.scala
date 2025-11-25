@@ -166,8 +166,8 @@ object StandardType {
   }
 
   implicit object CurrencyType extends StandardType[java.util.Currency] {
-    override def tag: String                                      = Tags.CURRENCY
-    override def defaultValue: Either[String, java.util.Currency] = Left("Currency generation not available in ScalaJS")
+    override def tag: String                                                = Tags.CURRENCY
+    override def defaultValue: Either[String, java.util.Currency]           = Left("Currency generation not available in ScalaJS")
     override def compare(x: java.util.Currency, y: java.util.Currency): Int =
       x.getCurrencyCode.compareTo(y.getCurrencyCode)
   }
@@ -184,11 +184,11 @@ object StandardType {
     override def defaultValue: Either[String, java.math.BigInteger] = Right(java.math.BigInteger.ZERO)
   }
 
-  //java.time specific types
+  // java.time specific types
   implicit object DayOfWeekType extends StandardType[DayOfWeek] {
     override def tag: String                              = Tags.DAY_OF_WEEK
     override def compare(x: DayOfWeek, y: DayOfWeek): Int = x.getValue.compareTo(y.getValue)
-    override def defaultValue: Either[String, DayOfWeek] =
+    override def defaultValue: Either[String, DayOfWeek]  =
       Right(java.time.temporal.WeekFields.of(java.util.Locale.getDefault).getFirstDayOfWeek)
   }
 
@@ -199,14 +199,14 @@ object StandardType {
   }
 
   implicit object MonthDayType extends StandardType[java.time.MonthDay] {
-    override def tag: String                            = Tags.MONTH_DAY
-    override def compare(x: MonthDay, y: MonthDay): Int = x.compareTo(y)
+    override def tag: String                                      = Tags.MONTH_DAY
+    override def compare(x: MonthDay, y: MonthDay): Int           = x.compareTo(y)
     override def defaultValue: Either[String, java.time.MonthDay] =
       Right(java.time.MonthDay.of(java.time.Month.JANUARY, 1))
   }
 
   implicit object PeriodType extends StandardType[java.time.Period] {
-    override def tag: String = Tags.PERIOD
+    override def tag: String                        = Tags.PERIOD
     override def compare(x: Period, y: Period): Int = {
       val startDate = time.LocalDate.of(0, 1, 1)
       startDate.plus(x).compareTo(startDate.plus(y))

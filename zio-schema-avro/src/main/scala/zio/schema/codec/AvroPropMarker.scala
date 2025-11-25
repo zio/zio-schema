@@ -1,12 +1,12 @@
 package zio.schema.codec
 
 import java.time.format.DateTimeFormatter
-import java.time.temporal.{ ChronoUnit, TemporalUnit }
+import java.time.temporal.{ChronoUnit, TemporalUnit}
 
 import scala.jdk.CollectionConverters._
 import scala.util.Try
 
-import org.apache.avro.{ LogicalType, LogicalTypes, Schema => SchemaAvro }
+import org.apache.avro.{LogicalType, LogicalTypes, Schema => SchemaAvro}
 
 sealed trait AvroPropMarker {
   def propName: String
@@ -36,7 +36,7 @@ object AvroPropMarker {
 
   final case class Formatter(dateTimeFormatter: DateTimeFormatter) extends AvroPropMarker {
     override def propName: String = Formatter.propName
-    override def value: Any = dateTimeFormatter match {
+    override def value: Any       = dateTimeFormatter match {
       case f if f.equals(DateTimeFormatter.ISO_LOCAL_DATE_TIME)  => "ISO_LOCAL_DATE_TIME"
       case f if f.equals(DateTimeFormatter.ISO_DATE)             => "ISO_DATE"
       case f if f.equals(DateTimeFormatter.ISO_TIME)             => "ISO_TIME"
@@ -116,7 +116,7 @@ object AvroPropMarker {
         case "ISO_DATE_TIME"        => Right(Formatter(DateTimeFormatter.ISO_DATE_TIME))
         case "RFC_1123_DATE_TIME"   => Right(Formatter(DateTimeFormatter.RFC_1123_DATE_TIME))
         case "BASIC_ISO_DATE"       => Right(Formatter(DateTimeFormatter.BASIC_ISO_DATE))
-        case s: String =>
+        case s: String              =>
           Try {
             Formatter(DateTimeFormatter.ofPattern(s))
           }.toEither.left.map(_.getMessage)

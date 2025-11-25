@@ -8,7 +8,7 @@ import scala.collection.immutable.ListMap
 import org.msgpack.core.MessagePack
 
 import zio.Chunk
-import zio.schema.{ DynamicValue, Fallback, Schema, StandardType }
+import zio.schema.{DynamicValue, Fallback, Schema, StandardType}
 
 private[codec] class MessagePackEncoder {
   private val packer = MessagePack.newDefaultBufferPacker()
@@ -20,7 +20,7 @@ private[codec] class MessagePackEncoder {
     chunk
   }
 
-  //scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
+  // scalafmt: { maxColumn = 400, optIn.configStyleArguments = false }
   private def encodeValue[A](schema: Schema[A], value: A): Unit =
     (schema, value) match {
       case (Schema.GenericRecord(_, structure, _), v: Map[String, _])      => encodeRecord(structure.toChunk, v)
@@ -35,9 +35,9 @@ private[codec] class MessagePackEncoder {
       case (fallbackSchema: Schema.Fallback[_, _], v: Fallback[_, _])      => encodeFallback(fallbackSchema.asInstanceOf[Schema.Fallback[Any, Any]].left, fallbackSchema.asInstanceOf[Schema.Fallback[Any, Any]].right, v.asInstanceOf[Fallback[Any, Any]])
       case (lzy @ Schema.Lazy(_), v)                                       => encodeValue(lzy.schema, v)
       //  case (Schema.Meta(ast, _), _)                                        => encodeValue(fieldNumber, Schema[MetaSchema], ast)
-      case (Schema.CaseClass0(_, _, _), _)         => encodePrimitive(StandardType.UnitType, ())
-      case (Schema.CaseClass1(_, f, _, _), v)      => encodeCaseClass(v, f)
-      case (Schema.CaseClass2(_, f1, f2, _, _), v) => encodeCaseClass(v, f1, f2)
+      case (Schema.CaseClass0(_, _, _), _)             => encodePrimitive(StandardType.UnitType, ())
+      case (Schema.CaseClass1(_, f, _, _), v)          => encodeCaseClass(v, f)
+      case (Schema.CaseClass2(_, f1, f2, _, _), v)     => encodeCaseClass(v, f1, f2)
       case (Schema.CaseClass3(_, f1, f2, f3, _, _), v) =>
         encodeCaseClass(v, f1, f2, f3)
       case (Schema.CaseClass4(_, f1, f2, f3, f4, _, _), v) =>
@@ -78,13 +78,13 @@ private[codec] class MessagePackEncoder {
         encodeCaseClass(v, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, tail._1)
       case (Schema.CaseClass22(_, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, tail), v) =>
         encodeCaseClass(v, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, tail._1, tail._2)
-      case (Schema.Enum1(_, c, _), v)                          => encodeEnum(v, c)
-      case (Schema.Enum2(_, c1, c2, _), v)                     => encodeEnum(v, c1, c2)
-      case (Schema.Enum3(_, c1, c2, c3, _), v)                 => encodeEnum(v, c1, c2, c3)
-      case (Schema.Enum4(_, c1, c2, c3, c4, _), v)             => encodeEnum(v, c1, c2, c3, c4)
-      case (Schema.Enum5(_, c1, c2, c3, c4, c5, _), v)         => encodeEnum(v, c1, c2, c3, c4, c5)
-      case (Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _), v)     => encodeEnum(v, c1, c2, c3, c4, c5, c6)
-      case (Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _), v) => encodeEnum(v, c1, c2, c3, c4, c5, c6, c7)
+      case (Schema.Enum1(_, c, _), v)                              => encodeEnum(v, c)
+      case (Schema.Enum2(_, c1, c2, _), v)                         => encodeEnum(v, c1, c2)
+      case (Schema.Enum3(_, c1, c2, c3, _), v)                     => encodeEnum(v, c1, c2, c3)
+      case (Schema.Enum4(_, c1, c2, c3, c4, _), v)                 => encodeEnum(v, c1, c2, c3, c4)
+      case (Schema.Enum5(_, c1, c2, c3, c4, c5, _), v)             => encodeEnum(v, c1, c2, c3, c4, c5)
+      case (Schema.Enum6(_, c1, c2, c3, c4, c5, c6, _), v)         => encodeEnum(v, c1, c2, c3, c4, c5, c6)
+      case (Schema.Enum7(_, c1, c2, c3, c4, c5, c6, c7, _), v)     => encodeEnum(v, c1, c2, c3, c4, c5, c6, c7)
       case (Schema.Enum8(_, c1, c2, c3, c4, c5, c6, c7, c8, _), v) =>
         encodeEnum(v, c1, c2, c3, c4, c5, c6, c7, c8)
       case (Schema.Enum9(_, c1, c2, c3, c4, c5, c6, c7, c8, c9, _), v) =>
@@ -274,10 +274,9 @@ private[codec] class MessagePackEncoder {
 
   def encodeMap[K, V](schema: Schema.Map[K, V], v: Map[K, V]): Unit = {
     packer.packMapHeader(v.size)
-    v.foreach {
-      case (k, v) =>
-        encodeValue(schema.keySchema, k)
-        encodeValue(schema.valueSchema, v)
+    v.foreach { case (k, v) =>
+      encodeValue(schema.keySchema, k)
+      encodeValue(schema.valueSchema, v)
     }
   }
 
@@ -296,10 +295,9 @@ private[codec] class MessagePackEncoder {
 
   private def writeStructure(fields: Seq[(Schema.Field[_, _], Any)]): Unit = {
     packer.packMapHeader(fields.size)
-    fields.foreach {
-      case (fieldSchema: Schema.Field[_, Any], value) =>
-        packer.packString(fieldSchema.name)
-        encodeValue(fieldSchema.schema, value)
+    fields.foreach { case (fieldSchema: Schema.Field[_, Any], value) =>
+      packer.packString(fieldSchema.name)
+      encodeValue(fieldSchema.schema, value)
     }
   }
 

@@ -7,7 +7,7 @@ import zio.constraintless.TypeList._
 import zio.schema.CaseSet._
 import zio.schema.SchemaAssertions._
 import zio.schema.meta.ExtensibleMetaSchema.Labelled
-import zio.schema.meta.{ ExtensibleMetaSchema, MetaSchema, NodePath }
+import zio.schema.meta.{ExtensibleMetaSchema, MetaSchema, NodePath}
 import zio.test._
 
 object MetaSchemaSpec extends ZIOSpecDefault {
@@ -15,33 +15,30 @@ object MetaSchemaSpec extends ZIOSpecDefault {
   def spec: Spec[Environment, Any] = suite("MetaSchema")(
     suite("from schema")(
       test("primitive") {
-        check(SchemaGen.anyPrimitive) {
-          case s @ Schema.Primitive(typ, _) =>
-            assertTrue(MetaSchema.fromSchema(s) == ExtensibleMetaSchema.Value[DynamicValue :: End](typ))
+        check(SchemaGen.anyPrimitive) { case s @ Schema.Primitive(typ, _) =>
+          assertTrue(MetaSchema.fromSchema(s) == ExtensibleMetaSchema.Value[DynamicValue :: End](typ))
         }
       }
     ),
     suite("optional")(
       test("primitive") {
-        check(SchemaGen.anyPrimitive) {
-          case s @ Schema.Primitive(typ, _) =>
-            assertTrue(
-              MetaSchema.fromSchema(s.optional) == ExtensibleMetaSchema.Value[DynamicValue :: End](typ, optional = true)
-            )
+        check(SchemaGen.anyPrimitive) { case s @ Schema.Primitive(typ, _) =>
+          assertTrue(
+            MetaSchema.fromSchema(s.optional) == ExtensibleMetaSchema.Value[DynamicValue :: End](typ, optional = true)
+          )
         }
       }
     ),
     suite("sequence")(
       test("primitive") {
-        check(SchemaGen.anyPrimitive) {
-          case s @ Schema.Primitive(typ, _) =>
-            assertTrue(
-              MetaSchema.fromSchema(Schema.chunk(s)) == ExtensibleMetaSchema
-                .ListNode(
-                  ExtensibleMetaSchema.Value[DynamicValue :: End](typ, path = NodePath.root / "item"),
-                  NodePath.root
-                )
-            )
+        check(SchemaGen.anyPrimitive) { case s @ Schema.Primitive(typ, _) =>
+          assertTrue(
+            MetaSchema.fromSchema(Schema.chunk(s)) == ExtensibleMetaSchema
+              .ListNode(
+                ExtensibleMetaSchema.Value[DynamicValue :: End](typ, path = NodePath.root / "item"),
+                NodePath.root
+              )
+          )
         }
       }
     ),
@@ -82,7 +79,7 @@ object MetaSchemaSpec extends ZIOSpecDefault {
         assertTrue(MetaSchema.fromSchema(schema) == expectedAst)
       },
       test("case class") {
-        val schema = Schema[SchemaGen.Arity2]
+        val schema      = Schema[SchemaGen.Arity2]
         val expectedAst =
           ExtensibleMetaSchema.Product(
             id = TypeId.parse("zio.schema.SchemaGen.Arity2"),
@@ -198,7 +195,7 @@ object MetaSchemaSpec extends ZIOSpecDefault {
         assertTrue(MetaSchema.fromSchema(schema) == expectedAst)
       },
       test("sealed trait") {
-        val schema = Schema[Pet]
+        val schema      = Schema[Pet]
         val expectedAst = ExtensibleMetaSchema.Sum[DynamicValue :: End](
           TypeId.parse("zio.schema.MetaSchemaSpec.Pet"),
           path = NodePath.root,
@@ -274,27 +271,25 @@ object MetaSchemaSpec extends ZIOSpecDefault {
         }
       },
       test("tuple") {
-        check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
-          case (left, right) =>
-            assert(MetaSchema.fromSchema(left <*> right).toSchema)(hasSameSchemaStructure(left <*> right))
+        check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) { case (left, right) =>
+          assert(MetaSchema.fromSchema(left <*> right).toSchema)(hasSameSchemaStructure(left <*> right))
         }
       },
       test("either") {
-        check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) {
-          case (left, right) =>
-            assert(MetaSchema.fromSchema(left <+> right).toSchema)(hasSameSchemaStructure(left <+> right))
+        check(SchemaGen.anyPrimitive <*> SchemaGen.anyPrimitive) { case (left, right) =>
+          assert(MetaSchema.fromSchema(left <+> right).toSchema)(hasSameSchemaStructure(left <+> right))
         }
       },
       test("case class") {
         check(SchemaGen.anyCaseClassSchema) { schema =>
           assert(MetaSchema.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
         }
-      } @@ TestAspect.ignore, //annotations are missing in the meta schema
+      } @@ TestAspect.ignore, // annotations are missing in the meta schema
       test("sealed trait") {
         check(SchemaGen.anyEnumSchema) { schema =>
           assert(MetaSchema.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))
         }
-      } @@ TestAspect.ignore, //annotations are missing in the meta schema
+      } @@ TestAspect.ignore, // annotations are missing in the meta schema
       test("recursive type") {
         check(SchemaGen.anyRecursiveType) { schema =>
           assert(MetaSchema.fromSchema(schema).toSchema)(hasSameSchemaStructure(schema))

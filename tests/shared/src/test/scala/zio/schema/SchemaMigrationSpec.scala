@@ -340,11 +340,11 @@ object SchemaMigrationSpec extends ZIOSpecDefault {
         v1 <- Gen.int
         v2 <- PetFood.genMigratable
         v3 <- Gen.listOf(
-               BrandedPetFood.gen.withFilter {
-                 case BrandedPetFood.HamsterFood(_, _) => false
-                 case _                                => true
-               }
-             )
+                BrandedPetFood.gen.withFilter {
+                  case BrandedPetFood.HamsterFood(_, _) => false
+                  case _                                => true
+                }
+              )
       } yield NestedEnum1(v1, v2, v3)
   }
 

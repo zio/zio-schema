@@ -4,17 +4,17 @@ import java.nio.ByteBuffer
 import java.time._
 import java.util.UUID
 
-import scala.annotation.{ nowarn, tailrec }
+import scala.annotation.{nowarn, tailrec}
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 
 import org.apache.thrift.protocol._
 
-import zio.schema.MutableSchemaBasedValueBuilder.{ CreateValueFromSchemaError, ReadingFieldResult }
+import zio.schema.MutableSchemaBasedValueBuilder.{CreateValueFromSchemaError, ReadingFieldResult}
 import zio.schema._
-import zio.schema.codec.DecodeError.{ EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath }
+import zio.schema.codec.DecodeError.{EmptyContent, MalformedFieldWithPath, ReadError, ReadErrorWithPath}
 import zio.stream.ZPipeline
-import zio.{ Cause, Chunk, Unsafe }
+import zio.{Cause, Chunk, Unsafe}
 
 object ThriftCodec {
 
@@ -42,26 +42,27 @@ object ThriftCodec {
       private def decodeChunk(chunk: Chunk[Byte]): Either[DecodeError, A] =
         if (chunk.isEmpty)
           Left(EmptyContent("No bytes to decode"))
-        else {
-          try {
-            Right(
-              new Decoder(chunk)
-                .create(schema)
-                .asInstanceOf[A]
-            )
-          } catch {
-            case error: CreateValueFromSchemaError[DecoderContext] =>
-              error.cause match {
-                case error: DecodeError => Left(error)
-                case _ =>
-                  Left(
-                    ReadErrorWithPath(error.context.path, Cause.fail(error.cause), error.cause.getMessage)
-                  )
-              }
-            case NonFatal(err) =>
-              Left(ReadError(Cause.fail(err), err.getMessage))
-          }
-        }: @nowarn
+        else
+          {
+            try {
+              Right(
+                new Decoder(chunk)
+                  .create(schema)
+                  .asInstanceOf[A]
+              )
+            } catch {
+              case error: CreateValueFromSchemaError[DecoderContext] =>
+                error.cause match {
+                  case error: DecodeError => Left(error)
+                  case _                  =>
+                    Left(
+                      ReadErrorWithPath(error.context.path, Cause.fail(error.cause), error.cause.getMessage)
+                    )
+                }
+              case NonFatal(err) =>
+                Left(ReadError(Cause.fail(err), err.getMessage))
+            }
+          }: @nowarn
     }
 
   class Encoder extends MutableSchemaBasedValueProcessor[Unit, Encoder.Context] {
@@ -277,7 +278,7 @@ object ThriftCodec {
 
     private def writePrimitiveType[A](standardType: StandardType[A], value: A): Unit =
       (standardType, value) match {
-        case (StandardType.UnitType, _) =>
+        case (StandardType.UnitType, _)             =>
         case (StandardType.StringType, str: String) =>
           writeString(str)
         case (StandardType.BoolType, b: Boolean) =>
@@ -379,7 +380,7 @@ object ThriftCodec {
 
     private def getPrimitiveType[A](standardType: StandardType[A]): Byte =
       standardType match {
-        case StandardType.UnitType => TType.VOID
+        case StandardType.UnitType   => TType.VOID
         case StandardType.StringType =>
           TType.STRING
         case StandardType.BoolType =>
@@ -519,7 +520,7 @@ object ThriftCodec {
           new java.math.BigDecimal(unscaled, scale, new java.math.MathContext(precision))
 
         case StandardType.BinaryType => decodeBinary(context.path)
-        case StandardType.CharType =>
+        case StandardType.CharType   =>
           val decoded = decodeString(context.path)
 
           if (decoded.length == 1)
@@ -619,22 +620,21 @@ object ThriftCodec {
       if (record.fields.nonEmpty) {
         val valuesMap = values.toMap
         val allValues =
-          record.fields.zipWithIndex.map {
-            case (field, idx) =>
-              valuesMap.get(idx) match {
-                case Some(value) => value
-                case None =>
-                  emptyValue(field.schema) match {
-                    case Some(value) =>
-                      value
-                    case None =>
-                      if ((field.optional || field.transient) && field.defaultValue.isDefined) {
-                        field.defaultValue.get
-                      } else {
-                        fail(context.copy(path = context.path :+ field.name), s"Missing value")
-                      }
-                  }
-              }
+          record.fields.zipWithIndex.map { case (field, idx) =>
+            valuesMap.get(idx) match {
+              case Some(value) => value
+              case None        =>
+                emptyValue(field.schema) match {
+                  case Some(value) =>
+                    value
+                  case None =>
+                    if ((field.optional || field.transient) && field.defaultValue.isDefined) {
+                      field.defaultValue.get
+                    } else {
+                      fail(context.copy(path = context.path :+ field.name), s"Missing value")
+                    }
+                }
+            }
           }
         Unsafe.unsafe { implicit u =>
           record.construct(allValues) match {
@@ -765,8 +765,8 @@ object ThriftCodec {
     ): Option[DecoderContext] = {
       val field = p.readFieldBegin()
       field.id match {
-        case 1 => None
-        case 2 => Some(context.copy(path = context.path :+ "Some"))
+        case 1  => None
+        case 2  => Some(context.copy(path = context.path :+ "Some"))
         case id =>
           fail(context, s"Error decoding optional, wrong field id $id").asInstanceOf[Option[DecoderContext]]
       }
@@ -831,7 +831,7 @@ object ThriftCodec {
       value: Fallback[Any, Any]
     ): Any =
       value
-    //if (schema.fullDecode) value else value.simplify
+    // if (schema.fullDecode) value else value.simplify
 
     override protected def startCreatingTuple(context: DecoderContext, schema: Schema.Tuple2[_, _]): DecoderContext = {
       p.readFieldBegin()

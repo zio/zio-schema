@@ -1,5 +1,5 @@
 import sbtcrossproject.CrossPlugin.autoImport._
-import BuildHelper.{ crossProjectSettings, _ }
+import BuildHelper.{crossProjectSettings, _}
 import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
 import com.typesafe.tools.mima.plugin.MimaKeys.mimaPreviousArtifacts
 
@@ -7,10 +7,10 @@ Global / onChangedBuildSource := ReloadOnSourceChanges
 
 inThisBuild(
   List(
-    name := "zio-schema",
+    name         := "zio-schema",
     organization := "dev.zio",
-    homepage := Some(url("https://zio.dev/zio-schema")),
-    developers := List(
+    homepage     := Some(url("https://zio.dev/zio-schema")),
+    developers   := List(
       Developer(
         "ioleo",
         "Piotr Gołębiewski",
@@ -30,7 +30,7 @@ inThisBuild(
         "scm:git:git@github.com:zio/zio-schema.git"
       )
     ),
-    licenses := Seq("Apache-2.0" -> url(s"${scmInfo.value.map(_.browseUrl).get}/blob/v${version.value}/LICENSE")),
+    licenses      := Seq("Apache-2.0" -> url(s"${scmInfo.value.map(_.browseUrl).get}/blob/v${version.value}/LICENSE")),
     pgpPassphrase := sys.env.get("PGP_PASSWORD").map(_.toArray),
     pgpPublicRing := file("/tmp/public.asc"),
     pgpSecretRing := file("/tmp/secret.asc")
@@ -73,8 +73,8 @@ addCommandAlias(
 lazy val root = project
   .in(file("."))
   .settings(
-    name := "zio-schema",
-    publish / skip := true,
+    name                  := "zio-schema",
+    publish / skip        := true,
     mimaPreviousArtifacts := Set()
 //    unusedCompileDependenciesFilter -= moduleFilter("org.scala-js", "scalajs-library")
   )
@@ -118,7 +118,7 @@ lazy val tests = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .dependsOn(zioSchemaDerivation % "compile->test", zioSchema % "test->test", zioSchemaZioTest % "compile->test")
   .settings(stdSettings("zio-schema-tests"))
   .settings(
-    publish / skip := true,
+    publish / skip        := true,
     mimaPreviousArtifacts := Set()
   )
   .settings(crossProjectSettings)
@@ -318,9 +318,9 @@ lazy val zioSchemaMsgPack = project
   .settings(buildInfoSettings("zio.schema.msgpack"))
   .settings(
     libraryDependencies ++= Seq(
-      "org.msgpack"                  % "msgpack-core"               % msgpackVersion,
-      "org.msgpack"                  % "jackson-dataformat-msgpack" % msgpackVersion % Test,
-      "com.fasterxml.jackson.module" %% "jackson-module-scala"      % jacksonScalaVersion % Test
+      "org.msgpack"                   % "msgpack-core"               % msgpackVersion,
+      "org.msgpack"                   % "jackson-dataformat-msgpack" % msgpackVersion      % Test,
+      "com.fasterxml.jackson.module" %% "jackson-module-scala"       % jacksonScalaVersion % Test
     )
   )
   .settings(testDeps)
@@ -333,7 +333,7 @@ lazy val zioSchemaAvro = project
   .settings(buildInfoSettings("zio.schema.avro"))
   .settings(
     libraryDependencies ++= Seq(
-      "org.apache.avro"        % "avro"                     % avroVersion,
+      "org.apache.avro"         % "avro"                    % avroVersion,
       "org.scala-lang.modules" %% "scala-collection-compat" % scalaCollectionCompatVersion
     )
   )
@@ -346,7 +346,7 @@ lazy val zioSchemaBson = project
   .settings(buildInfoSettings("zio.schema.bson"))
   .settings(
     libraryDependencies ++= Seq(
-      "org.mongodb"            % "bson"                     % bsonVersion,
+      "org.mongodb"             % "bson"                    % bsonVersion,
       "dev.zio"                %% "zio-bson"                % zioBsonVersion,
       "dev.zio"                %% "zio"                     % zioVersion, // zio.Chunk
       "dev.zio"                %% "zio-test-magnolia"       % zioVersion % Test, // TODO: implement DeriveDiff in zioSchemaZioTest
@@ -393,9 +393,9 @@ lazy val zioSchemaExamples = crossProject(JSPlatform, JVMPlatform, NativePlatfor
   .settings(crossScalaVersions -= Scala212)
   .dependsOn(zioSchema, zioSchemaJson, zioSchemaProtobuf, zioSchemaOptics)
   .settings(
-    publish / skip := true,
+    publish / skip        := true,
     mimaPreviousArtifacts := Set(),
-    moduleName := "zio-schema-example",
+    moduleName            := "zio-schema-example",
     scalacOptions -= "-Yno-imports",
     scalacOptions -= "-Xfatal-warnings"
   )
@@ -451,11 +451,11 @@ lazy val docs = project
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio" % zioVersion
     ),
-    projectName := "ZIO Schema",
-    mainModuleName := (zioSchemaJVM / moduleName).value,
-    projectStage := ProjectStage.Development,
+    projectName                                := "ZIO Schema",
+    mainModuleName                             := (zioSchemaJVM / moduleName).value,
+    projectStage                               := ProjectStage.Development,
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(),
-    mdoc := {
+    mdoc                                       := {
       (Compile / run).evaluated
       mdoc.evaluated
     },

@@ -25,24 +25,24 @@ import scala.collection.immutable.ListMap
 import scala.util.Try
 
 import org.apache.thrift.TSerializable
-import org.apache.thrift.protocol.{ TBinaryProtocol, TField, TType }
+import org.apache.thrift.protocol.{TBinaryProtocol, TField, TType}
 
 import zio.schema.CaseSet.caseOf
-import zio.schema.annotation.{ fieldDefaultValue, optionalField, transientField }
-import zio.schema.codec.{ generated => g }
-import zio.schema.{ CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId }
-import zio.stream.{ ZSink, ZStream }
+import zio.schema.annotation.{fieldDefaultValue, optionalField, transientField}
+import zio.schema.codec.{generated => g}
+import zio.schema.{CaseSet, DeriveSchema, DynamicValue, DynamicValueGen, Schema, SchemaGen, StandardType, TypeId}
+import zio.stream.{ZSink, ZStream}
 import zio.test.Assertion._
 import zio.test._
-import zio.{ Chunk, Console, Scope, Task, ZIO }
+import zio.{Chunk, Console, Scope, Task, ZIO}
 
 // TODO: use generators instead of manual encode/decode
 
 /**
  * Testing data were generated with thrift compiler
  *
- * cd zio-schema-thrift/shared/src/test                                                                                                                                                           ±[●●●][thrift]
- * thrift -r --gen java:generated_annotations=undated -out scala resources/testing-data.thrift
+ * cd zio-schema-thrift/shared/src/test ±[●●●][thrift] thrift -r --gen
+ * java:generated_annotations=undated -out scala resources/testing-data.thrift
  */
 object ThriftCodecSpec extends ZIOSpecDefault {
 
@@ -179,11 +179,11 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       },
       test("records with arity greater than 22") {
         for {
-          e <- encode(schemaHighArityRecord, HighArity()).map(toHex)
+          e   <- encode(schemaHighArityRecord, HighArity()).map(toHex)
           res <- write(
-                  new generated.HighArity(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
-                    23, 24)
-                )
+                   new generated.HighArity(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
+                     22, 23, 24)
+                 )
           ed <- encodeAndDecodeNS(schemaHighArityRecord, HighArity())
         } yield assert(ed)(equalTo(HighArity())) && assert(e)(equalTo(res))
       },
@@ -367,11 +367,11 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       test("local date times") {
         val value = LocalDateTime.now()
         for {
-          ed <- encodeAndDecode(Primitive(StandardType.LocalDateTimeType), value)
+          ed  <- encodeAndDecode(Primitive(StandardType.LocalDateTimeType), value)
           ed2 <- encodeAndDecodeNS(
-                  Primitive(StandardType.LocalDateTimeType),
-                  value
-                )
+                   Primitive(StandardType.LocalDateTimeType),
+                   value
+                 )
         } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
       },
       test("offset times") {
@@ -587,19 +587,19 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         val value = ClassWithOption(123, None)
         for {
           bytesFieldOmitted <- writeManually { p =>
-                                p.writeFieldBegin(new TField("number", TType.I32, 1))
-                                p.writeI32(123)
-                                p.writeFieldStop()
-                              }
-          d <- decodeNS(classWithOptionSchema, bytesFieldOmitted)
+                                 p.writeFieldBegin(new TField("number", TType.I32, 1))
+                                 p.writeI32(123)
+                                 p.writeFieldStop()
+                               }
+          d                 <- decodeNS(classWithOptionSchema, bytesFieldOmitted)
           bytesFieldPresent <- writeManually { p =>
-                                p.writeFieldBegin(new TField("number", TType.I32, 1))
-                                p.writeI32(123)
-                                p.writeFieldBegin(new TField("name", TType.STRUCT, 2))
-                                p.writeFieldBegin(new TField("", TType.VOID, 1))
-                                p.writeFieldStop()
-                                p.writeFieldStop()
-                              }
+                                 p.writeFieldBegin(new TField("number", TType.I32, 1))
+                                 p.writeI32(123)
+                                 p.writeFieldBegin(new TField("name", TType.STRUCT, 2))
+                                 p.writeFieldBegin(new TField("", TType.VOID, 1))
+                                 p.writeFieldStop()
+                                 p.writeFieldStop()
+                               }
           d2 <- decodeNS(classWithOptionSchema, bytesFieldPresent)
         } yield assert(d)(equalTo(value)) && assert(d2)(equalTo(value))
       },
@@ -722,39 +722,37 @@ object ThriftCodecSpec extends ZIOSpecDefault {
         } yield assert(ed)(equalTo(Chunk.succeed(m))) && assert(ed2)(equalTo(m))
       },
       test("recursive data types") {
-        check(SchemaGen.anyRecursiveTypeAndValue) {
-          case (schema, value) =>
-            for {
-              ed  <- encodeAndDecode(schema, value)
-              ed2 <- encodeAndDecodeNS(schema, value)
-            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+        check(SchemaGen.anyRecursiveTypeAndValue) { case (schema, value) =>
+          for {
+            ed  <- encodeAndDecode(schema, value)
+            ed2 <- encodeAndDecodeNS(schema, value)
+          } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         }
       },
       test("deep recursive data types") {
-        check(SchemaGen.anyDeepRecursiveTypeAndValue) {
-          case (schema, value) =>
-            for {
-              ed  <- encodeAndDecode(schema, value)
-              ed2 <- encodeAndDecodeNS(schema, value)
-            } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
+        check(SchemaGen.anyDeepRecursiveTypeAndValue) { case (schema, value) =>
+          for {
+            ed  <- encodeAndDecode(schema, value)
+            ed2 <- encodeAndDecodeNS(schema, value)
+          } yield assert(ed)(equalTo(Chunk(value))) && assert(ed2)(equalTo(value))
         }
       } @@ TestAspect.size(200),
       test("case object") {
         for {
           ed2 <- encodeAndDecodeNS(
+                   Schema.CaseClass0(
+                     TypeId.parse("zio.schema.thrift.ThriftCodecSpec.ObjectExample"),
+                     () => ObjectExample
+                   ),
+                   ObjectExample
+                 )
+          ed <- encodeAndDecode(
                   Schema.CaseClass0(
                     TypeId.parse("zio.schema.thrift.ThriftCodecSpec.ObjectExample"),
                     () => ObjectExample
                   ),
                   ObjectExample
                 )
-          ed <- encodeAndDecode(
-                 Schema.CaseClass0(
-                   TypeId.parse("zio.schema.thrift.ThriftCodecSpec.ObjectExample"),
-                   () => ObjectExample
-                 ),
-                 ObjectExample
-               )
         } yield assert(ed)(equalTo(Chunk(ObjectExample))) && assert(ed2)(equalTo(ObjectExample))
       },
       test("case class with transient field") {
@@ -880,30 +878,30 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       test("decode case class with optionalField annotation") {
         for {
           bytes <- writeManually { p =>
-                    p.writeFieldBegin(new TField("name", TType.STRING, 1))
-                    p.writeString("Dan")
-                    p.writeFieldStop()
-                  }
+                     p.writeFieldBegin(new TField("name", TType.STRING, 1))
+                     p.writeString("Dan")
+                     p.writeFieldStop()
+                   }
           d <- decodeNS(PersonWithOptionalField.schema, bytes)
         } yield assert(d)(equalTo(PersonWithOptionalField("Dan", 0)))
       },
       test("decode case class with transientField") {
         for {
           bytes <- writeManually { p =>
-                    p.writeFieldBegin(new TField("name", TType.STRING, 1))
-                    p.writeString("Jim")
-                    p.writeFieldStop()
-                  }
+                     p.writeFieldBegin(new TField("name", TType.STRING, 1))
+                     p.writeString("Jim")
+                     p.writeFieldStop()
+                   }
           d <- decodeNS(PersonWithTransientField.schema, bytes)
         } yield assert(d)(equalTo(PersonWithTransientField("Jim", 0)))
       },
       test("decode case class with fieldDefaultValue annotation") {
         for {
           bytes <- writeManually { p =>
-                    p.writeFieldBegin(new TField("name", TType.STRING, 1))
-                    p.writeString("Alex")
-                    p.writeFieldStop()
-                  }
+                     p.writeFieldBegin(new TField("name", TType.STRING, 1))
+                     p.writeString("Alex")
+                     p.writeFieldStop()
+                   }
           d <- decodeNS(PersonWithDefaultField.schema, bytes)
         } yield assert(d)(equalTo(PersonWithDefaultField("Alex", 18)))
       }
@@ -919,16 +917,16 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       test("missing value") {
         for {
           bytes <- writeManually { p =>
-                    p.writeFieldBegin(new TField("name", TType.STRING, 1))
-                    p.writeString("Dan")
-                    p.writeFieldStop()
-                  }
-          d <- decode(Record.schemaRecord, bytes).exit
-          bytes2 <- writeManually { p =>
-                     p.writeFieldBegin(new TField("value", TType.I32, 2))
-                     p.writeI32(123)
+                     p.writeFieldBegin(new TField("name", TType.STRING, 1))
+                     p.writeString("Dan")
                      p.writeFieldStop()
                    }
+          d      <- decode(Record.schemaRecord, bytes).exit
+          bytes2 <- writeManually { p =>
+                      p.writeFieldBegin(new TField("value", TType.I32, 2))
+                      p.writeI32(123)
+                      p.writeFieldStop()
+                    }
           d2 <- decode(Record.schemaRecord, bytes2).exit
         } yield assert(d)(failsWithA[DecodeError]) &&
           assert(d2)(failsWithA[DecodeError])
@@ -936,21 +934,21 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       test("unable to decode") {
         for {
           bytes <- writeManually { p =>
-                    p.writeFieldBegin(new TField("name", TType.STRING, 1))
-                    p.writeString("Dan")
-                    p.writeFieldBegin(new TField("value", TType.I32, 2))
-                    p.writeFieldStop()
-                  }
+                     p.writeFieldBegin(new TField("name", TType.STRING, 1))
+                     p.writeString("Dan")
+                     p.writeFieldBegin(new TField("value", TType.I32, 2))
+                     p.writeFieldStop()
+                   }
           d <- decode(Record.schemaRecord, bytes).exit
         } yield assert(d)(failsWithA[DecodeError])
       },
       test("unknown type") {
         for {
           bytes <- writeManually { p =>
-                    p.writeFieldBegin(new TField("value", TType.I32, 2))
-                    p.writeString("This is number one bullshit")
-                    p.writeFieldStop()
-                  }
+                     p.writeFieldBegin(new TField("value", TType.I32, 2))
+                     p.writeString("This is number one bullshit")
+                     p.writeFieldStop()
+                   }
           d <- decode(Record.schemaRecord, bytes).exit
         } yield assert(d)(failsWithA[DecodeError])
       }
@@ -1194,7 +1192,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       .via(ThriftCodec.thriftCodec(schema).streamEncoder)
       .run(ZSink.collectAll)
 
-  //NS == non streaming variant of encode
+  // NS == non streaming variant of encode
   def encodeNS[A](schema: Schema[A], input: A): ZIO[Any, Nothing, Chunk[Byte]] =
     ZIO.succeed(ThriftCodec.thriftCodec(schema).encode(input))
 
@@ -1204,7 +1202,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       .via(ThriftCodec.thriftCodec(schema).streamDecoder)
       .run(ZSink.collectAll)
 
-  //NS == non streaming variant of decode
+  // NS == non streaming variant of decode
   def decodeNS[A](schema: Schema[A], hex: String): ZIO[Any, DecodeError, A] =
     ZIO.succeed(ThriftCodec.thriftCodec(schema).decode(fromHex(hex))).absolve[DecodeError, A]
 
@@ -1222,7 +1220,7 @@ object ThriftCodecSpec extends ZIOSpecDefault {
       .via(ThriftCodec.thriftCodec(decodeSchema).streamDecoder)
       .run(ZSink.collectAll)
 
-  //NS == non streaming variant of encodeAndDecode
+  // NS == non streaming variant of encodeAndDecode
   def encodeAndDecodeNS[A](schema: Schema[A], input: A, print: Boolean = false): ZIO[Any, DecodeError, A] =
     ZIO
       .succeed(input)

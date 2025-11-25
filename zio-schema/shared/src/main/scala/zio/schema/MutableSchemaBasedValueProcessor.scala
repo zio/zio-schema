@@ -3,37 +3,51 @@ package zio.schema
 import scala.collection.immutable.ListMap
 
 import zio.prelude.NonEmptyMap
-import zio.{ Chunk, ChunkBuilder }
+import zio.{Chunk, ChunkBuilder}
 
-/** Base trait for mutable value processors, processing a value with a known schema. An example
- * is protocol encoders.
+/**
+ * Base trait for mutable value processors, processing a value with a known
+ * schema. An example is protocol encoders.
  *
- * The implementation is stack safe and consists of invocations of a series of processXYZ methods, as well
- * as built-in support for a context value which is handled in a stacked way.
+ * The implementation is stack safe and consists of invocations of a series of
+ * processXYZ methods, as well as built-in support for a context value which is
+ * handled in a stacked way.
  *
- * Maintaining any global state (per process) such as stream writers etc. is the responsibility of the implementation class.
+ * Maintaining any global state (per process) such as stream writers etc. is the
+ * responsibility of the implementation class.
  *
- * The Target type parameter is the base type for the process function's output value. In case the process is
- * built entirely using side effects (such as calls to a mutable writer interface) this type can be Unit.
+ * The Target type parameter is the base type for the process function's output
+ * value. In case the process is built entirely using side effects (such as
+ * calls to a mutable writer interface) this type can be Unit.
  *
- * The Context type parameter is the use-case specific context type which is passed for each process invocation, and
- * can be manipulated before each process call achieving a local state.
+ * The Context type parameter is the use-case specific context type which is
+ * passed for each process invocation, and can be manipulated before each
+ * process call achieving a local state.
  */
 trait MutableSchemaBasedValueProcessor[Target, Context] {
 
   /** Process a primitive value */
   protected def processPrimitive(context: Context, value: Any, typ: StandardType[Any]): Target
 
-  /** Called before processing a record (before calling processXYZ for the record's fields) */
+  /**
+   * Called before processing a record (before calling processXYZ for the
+   * record's fields)
+   */
   protected def startProcessingRecord(context: Context, schema: Schema.Record[_]): Unit = {}
 
-  /** Process a record in the given context with the given schema, using the already processed values of its fields. */
+  /**
+   * Process a record in the given context with the given schema, using the
+   * already processed values of its fields.
+   */
   protected def processRecord(context: Context, schema: Schema.Record[_], value: ListMap[String, Target]): Target
 
   /** Called before processing an enum */
   protected def startProcessingEnum(context: Context, schema: Schema.Enum[_]): Unit = {}
 
-  /** Process an enum in the given context with the given schema using the processed constructor  value and it's name */
+  /**
+   * Process an enum in the given context with the given schema using the
+   * processed constructor value and it's name
+   */
   protected def processEnum(context: Context, schema: Schema.Enum[_], tuple: (String, Target)): Target
 
   /** Called before processing a sequence */
@@ -45,7 +59,9 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
   /** Called before processing a dictionary */
   protected def startProcessingDictionary(context: Context, schema: Schema.Map[_, _], size: Int): Unit = {}
 
-  /*** Process a dictionary using its already processed key-value pairs */
+  /**
+   * * Process a dictionary using its already processed key-value pairs
+   */
   protected def processDictionary(context: Context, schema: Schema.Map[_, _], value: Chunk[(Target, Target)]): Target
 
   /** Called before processing a set */
@@ -63,7 +79,9 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
   /** Called before processing a fallback value */
   protected def startProcessingFallback(context: Context, schema: Schema.Fallback[_, _]): Unit = {}
 
-  /** Process a fallback value using its already processed left or right value */
+  /**
+   * Process a fallback value using its already processed left or right value
+   */
   protected def processFallback(
     context: Context,
     schema: Schema.Fallback[_, _],
@@ -73,7 +91,9 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
   /** Called before processing an option value */
   protected def startProcessingOption(context: Context, schema: Schema.Optional[_]): Unit = {}
 
-  /** Process an optional value using its already processed inner value, or None */
+  /**
+   * Process an optional value using its already processed inner value, or None
+   */
   protected def processOption(context: Context, schema: Schema.Optional[_], value: Option[Target]): Target
 
   /** Called before processing a pair of values */
@@ -82,8 +102,11 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
   /** Process a tuple using its already processed left and right values */
   protected def processTuple(context: Context, schema: Schema.Tuple2[_, _], left: Target, right: Target): Target
 
-  /** Process a dynamic value. If the result is None it indicates that the processor has no
-   * built-in support for dynamic values, and the Dynamic value's schema should be used instead. */
+  /**
+   * Process a dynamic value. If the result is None it indicates that the
+   * processor has no built-in support for dynamic values, and the Dynamic
+   * value's schema should be used instead.
+   */
   protected def processDynamic(context: Context, value: DynamicValue): Option[Target]
 
   /** Fails the processing */
@@ -98,22 +121,34 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
   /** Gets the context for a tuple's given field within the parent context */
   protected def contextForTuple(context: Context, index: Int): Context
 
-  /** Gets the context for an enum's given constructor within the parent context */
+  /**
+   * Gets the context for an enum's given constructor within the parent context
+   */
   protected def contextForEnumConstructor(context: Context, index: Int, c: Schema.Case[_, _]): Context
 
-  /** Gets the context for an either's left or right value within the parent context */
+  /**
+   * Gets the context for an either's left or right value within the parent
+   * context
+   */
   protected def contextForEither(context: Context, e: Either[Unit, Unit]): Context
 
-  /** Gets the context for a fallback's left or right value within the parent context */
+  /**
+   * Gets the context for a fallback's left or right value within the parent
+   * context
+   */
   protected def contextForFallback(context: Context, e: zio.schema.Fallback[Unit, Unit]): Context
 
   /** Gets the context for an option's inner value within the parent context */
   protected def contextForOption(context: Context, o: Option[Unit]): Context
 
-  /** Gets the context for a sequence's given element within the parent context */
+  /**
+   * Gets the context for a sequence's given element within the parent context
+   */
   protected def contextForSequence(context: Context, schema: Schema.Sequence[_, _, _], index: Int): Context
 
-  /** Gets the context for a dictionary's given element within the parent context */
+  /**
+   * Gets the context for a dictionary's given element within the parent context
+   */
   protected def contextForMap(context: Context, schema: Schema.Map[_, _], index: Int): Context
 
   /** Gets the context for a set's given element within the parent context */
@@ -200,7 +235,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
       }
 
       if (!found) {
-        //This should never happen unless someone manually builds an Enum and doesn't include all cases
+        // This should never happen unless someone manually builds an Enum and doesn't include all cases
         finishWith(fail(contextStack.head, "Invalid enum constructor"))
       }
     }
@@ -734,7 +769,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
             case21,
             case22
           )
-        //scalafmt: { maxColumn = 120 }
+        // scalafmt: { maxColumn = 120 }
 
         case s @ Schema.EnumN(_, cases, _) =>
           enumCases(s, cases.toSeq: _*)
@@ -975,7 +1010,7 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
         case Schema.Dynamic(_) =>
           processDynamic(currentContext, currentValue.asInstanceOf[DynamicValue]) match {
             case Some(target) => finishWith(target)
-            case None =>
+            case None         =>
               currentSchema = DynamicValue.schema
           }
       }
@@ -984,7 +1019,10 @@ trait MutableSchemaBasedValueProcessor[Target, Context] {
   }
 }
 
-/** A simpler version of MutableSchemaBasedValueProcessor without using any Context  */
+/**
+ * A simpler version of MutableSchemaBasedValueProcessor without using any
+ * Context
+ */
 trait SimpleMutableSchemaBasedValueProcessor[Target] extends MutableSchemaBasedValueProcessor[Target, Unit] {
 
   protected def processPrimitive(value: Any, typ: StandardType[Any]): Target

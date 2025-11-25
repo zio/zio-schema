@@ -4,9 +4,10 @@ import scala.annotation.nowarn
 import scala.reflect.ClassTag
 
 import zio.Chunk
-import zio.schema.Deriver.{ WrappedF, wrap }
+import zio.schema.Deriver.{WrappedF, wrap}
 
-/** Deriver builds type class instances based on a Schema.
+/**
+ * Deriver builds type class instances based on a Schema.
  *
  * The minimum set of methods to implement are:
  *   - `deriveRecord`
@@ -17,19 +18,23 @@ import zio.schema.Deriver.{ WrappedF, wrap }
  *   - `deriveMap`
  *   - `deriveTransformedRecord` (for records with more than 22 fields)
  *
- * In addition to this more methods can be overridden to handle all the supported Schema types of zio-schema:
+ * In addition to this more methods can be overridden to handle all the
+ * supported Schema types of zio-schema:
  *   - `deriveEither` (calls `deriveEnum` by default)
  *   - `deriveSet` (calls `deriveSequence` by default)
  *   - `deriveTupleN` (calls `deriveRecord` by default)
  *
- * The `cached` method converts this deriver to one that uses a cache of instances shared between macro invocations.
+ * The `cached` method converts this deriver to one that uses a cache of
+ * instances shared between macro invocations.
  *
- * Each derive methods get an optional summoned implicit value of the derived type class. It is the deriver's
- * decision whether to use the available instance (as a user defined customization for a given type) or not.
+ * Each derive methods get an optional summoned implicit value of the derived
+ * type class. It is the deriver's decision whether to use the available
+ * instance (as a user defined customization for a given type) or not.
  *
- * If the decision is to always accept a summoned value if there is any, use the `Deriver.AutoAcceptSummoned` trait
- * which implements this automatically and only calls the trait's methods in case there is no available implicit for
- * the actual type.
+ * If the decision is to always accept a summoned value if there is any, use the
+ * `Deriver.AutoAcceptSummoned` trait which implements this automatically and
+ * only calls the trait's methods in case there is no available implicit for the
+ * actual type.
  */
 trait Deriver[F[_]] extends VersionSpecificDeriver[F] { self =>
 
@@ -120,7 +125,7 @@ trait Deriver[F[_]] extends VersionSpecificDeriver[F] { self =>
   def deriveUnknown[A: ClassTag](summoned: => Option[F[A]]): F[A] =
     summoned match {
       case Some(value) => value
-      case None =>
+      case None        =>
         throw new IllegalArgumentException(
           s"Cannot derive instance for type ${implicitly[ClassTag[A]].runtimeClass.getName}"
         )

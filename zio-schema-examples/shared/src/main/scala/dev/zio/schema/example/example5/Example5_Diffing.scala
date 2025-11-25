@@ -5,8 +5,8 @@ import zio.schema.Schema._
 import zio.schema._
 
 /**
- * Example 5: In this example, we use ZIO-Schema to detect changes in our objects.
- *
+ * Example 5: In this example, we use ZIO-Schema to detect changes in our
+ * objects.
  */
 private[example5] object Domain {
   final case class Person(name: String, age: Int)

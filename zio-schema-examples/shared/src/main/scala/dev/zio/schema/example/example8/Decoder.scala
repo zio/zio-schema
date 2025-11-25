@@ -35,8 +35,8 @@ object Decoder {
           .map(list => DynamicValue.Sequence(Chunk.fromIterable(list)))
 
       case Json.JObj(map) =>
-        map.map {
-          case (k, v) => k -> jsonToDynamicValue(v)
+        map.map { case (k, v) =>
+          k -> jsonToDynamicValue(v)
         }.foldRight[Either[String, DynamicValue]](Right(DynamicValue.Record(TypeId.Structural, ListMap.empty))) {
           case ((key, Right(value)), Right(DynamicValue.Record(_, values))) =>
             Right(DynamicValue.Record(TypeId.parse(key), values + (key -> value)))

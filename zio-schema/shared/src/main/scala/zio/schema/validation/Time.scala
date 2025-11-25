@@ -5,6 +5,7 @@ import scala.collection.mutable
 
 trait Time {
 
+  // format: off
   /**
    * Format is almost the same as the one used by the java.time.format.DateTimeFormatter class.
    *
@@ -41,6 +42,7 @@ trait Time {
     val regex = parseFormat(format)
     Validation.regex(regex)
   }
+  // format: on
 
   sealed private trait Field
   private case class TimeField(letter: Char, length: Int, maxLength: Int) extends Field
@@ -84,7 +86,7 @@ trait Time {
       val cur = format.charAt(pos)
 
       field match {
-        case None => setField(cur)
+        case None                                                 => setField(cur)
         case Some(f @ TimeField(letter, _, _)) if (letter != cur) =>
           result += f
           setField(cur)
@@ -142,7 +144,7 @@ trait Time {
     case TimeField('m', 2, _) | TimeField('s', 2, _) => from00to59
     case TimeField('S', length, _)                   => Regex.digit.between(length, length)
     case TimeField('a', _, _)                        => Regex.oneOf('A', 'P').between(1, 1) ~ Regex.oneOf('M').between(1, 1)
-    case TimeField(_, _, _) =>
+    case TimeField(_, _, _)                          =>
       throw new IllegalArgumentException(s"Something went terribly wrong. This is a bug. Please report it.")
     case Literal(l) => l.map(c => Regex.oneOf(c)).reduce(_ ~ _)
   }

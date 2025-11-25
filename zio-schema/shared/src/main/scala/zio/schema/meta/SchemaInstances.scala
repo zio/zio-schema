@@ -1,15 +1,16 @@
 package zio.schema.meta
 
-import zio.constraintless.IsElementOf.{ Head, Tail }
-import zio.constraintless.{ IsElementOf, TypeList }
+import zio.constraintless.IsElementOf.{Head, Tail}
+import zio.constraintless.{IsElementOf, TypeList}
 import zio.schema.Schema
 
-/** Special version of zio-constraintless's Instances for capturing Schema instances
- **/
+/**
+ * Special version of zio-constraintless's Instances for capturing Schema
+ * instances
+ */
 trait SchemaInstances[As <: TypeList] {
 
-  def withInstance[B, D](use: Schema[B] => D)(
-    implicit
+  def withInstance[B, D](use: Schema[B] => D)(implicit
     ev: B IsElementOf As
   ): D
 
@@ -19,8 +20,7 @@ trait SchemaInstances[As <: TypeList] {
 object SchemaInstances {
   import TypeList._
 
-  implicit def instancesCons[A, As <: TypeList](
-    implicit
+  implicit def instancesCons[A, As <: TypeList](implicit
     c: Schema[A],
     ev: SchemaInstances[As]
   ): SchemaInstances[A :: As] = new SchemaInstances[A :: As] {
@@ -40,8 +40,7 @@ object SchemaInstances {
 
   // The definition is slightly from what mentioned in the paper where it traverses hlist
   implicit lazy val instancesEnd: SchemaInstances[End] = new SchemaInstances[End] {
-    override def withInstance[B, D](use: Schema[B] => D)(
-      implicit
+    override def withInstance[B, D](use: Schema[B] => D)(implicit
       ev: IsElementOf[B, End]
     ): D =
       sys.error("hmmm")

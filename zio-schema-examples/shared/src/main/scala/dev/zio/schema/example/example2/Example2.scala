@@ -2,16 +2,18 @@ package dev.zio.schema.example.example2
 
 import zio._
 import zio.schema.Schema._
-import zio.schema.{ Schema, TypeId }
+import zio.schema.{Schema, TypeId}
 import zio.stream.ZPipeline
 
 /**
  * Example 2 of ZIO-Schema
  *
- * In this example, we pull the definition of our schema into the companion objects of our types.
- * This will help us in the future to avoid having to write the same code over and over again.
+ * In this example, we pull the definition of our schema into the companion
+ * objects of our types. This will help us in the future to avoid having to
+ * write the same code over and over again.
  *
- * Again we'll also show that the moved schema can still be used to transform an object from/to JSON and Protobuf.
+ * Again we'll also show that the moved schema can still be used to transform an
+ * object from/to JSON and Protobuf.
  */
 
 object Domain {
@@ -156,15 +158,15 @@ object JsonSample extends zio.ZIOAppDefault {
 
   override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
-      _      <- ZIO.unit
-      person = Person("Michelle", 32)
+      _                   <- ZIO.unit
+      person               = Person("Michelle", 32)
       personToJsonPipeline = JsonCodec
-        .schemaBasedBinaryCodec[Person](Person.schema)
-        .streamEncoder
+                               .schemaBasedBinaryCodec[Person](Person.schema)
+                               .streamEncoder
       _ <- ZStream(person)
-            .via(personToJsonPipeline)
-            .via(ZPipeline.utf8Decode)
-            .foreach(f => ZIO.debug(f))
+             .via(personToJsonPipeline)
+             .via(ZPipeline.utf8Decode)
+             .foreach(f => ZIO.debug(f))
     } yield ExitCode.success
 }
 
@@ -174,19 +176,19 @@ object ProtobufExample extends ZIOAppDefault {
 
   override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
-      _      <- ZIO.unit
-      _      <- ZIO.debug("protobuf roundtrip")
+      _     <- ZIO.unit
+      _     <- ZIO.debug("protobuf roundtrip")
       person = Person("Michelle", 32)
 
       personToProto = ProtobufCodec.protobufCodec[Person](Person.schema).streamEncoder
       protoToPerson = ProtobufCodec.protobufCodec[Person](Person.schema).streamDecoder
 
       newPerson <- ZStream(person)
-                    .via(personToProto)
-                    .via(protoToPerson)
-                    .runHead
-                    .some
-                    .catchAll(error => ZIO.debug(error))
+                     .via(personToProto)
+                     .via(protoToPerson)
+                     .runHead
+                     .some
+                     .catchAll(error => ZIO.debug(error))
       _ <- ZIO.debug("is old person the new person? " + (person == newPerson).toString)
       _ <- ZIO.debug("old person: " + person)
       _ <- ZIO.debug("new person: " + newPerson)
@@ -194,13 +196,13 @@ object ProtobufExample extends ZIOAppDefault {
 }
 
 object CombiningExample extends zio.ZIOAppDefault {
-  import zio.schema.codec.{ JsonCodec, ProtobufCodec }
+  import zio.schema.codec.{JsonCodec, ProtobufCodec}
   import zio.stream.ZStream
 
   override def run: ZIO[Environment with ZIOAppArgs, Any, Any] =
     for {
-      _      <- ZIO.unit
-      _      <- ZIO.debug("combining roundtrip")
+      _     <- ZIO.unit
+      _     <- ZIO.debug("combining roundtrip")
       person = Person("Michelle", 32)
 
       personToJson = JsonCodec.schemaBasedBinaryCodec[Person](Person.schema).streamEncoder
@@ -210,16 +212,16 @@ object CombiningExample extends zio.ZIOAppDefault {
       protoToPerson = ProtobufCodec.protobufCodec[Person](Person.schema).streamDecoder
 
       newPerson <- ZStream(person)
-                    .tap(v => ZIO.debug("input object is: " + v))
-                    .via(personToJson)
-                    .via(jsonToPerson)
-                    .tap(v => ZIO.debug("object after json roundtrip: " + v))
-                    .via(personToProto)
-                    .via(protoToPerson)
-                    .tap(v => ZIO.debug("person after protobuf roundtrip: " + v))
-                    .runHead
-                    .some
-                    .catchAll(error => ZIO.debug(error))
+                     .tap(v => ZIO.debug("input object is: " + v))
+                     .via(personToJson)
+                     .via(jsonToPerson)
+                     .tap(v => ZIO.debug("object after json roundtrip: " + v))
+                     .via(personToProto)
+                     .via(protoToPerson)
+                     .tap(v => ZIO.debug("person after protobuf roundtrip: " + v))
+                     .runHead
+                     .some
+                     .catchAll(error => ZIO.debug(error))
       _ <- ZIO.debug("is old person the new person? " + (person == newPerson).toString)
       _ <- ZIO.debug("old person: " + person)
       _ <- ZIO.debug("new person: " + newPerson)

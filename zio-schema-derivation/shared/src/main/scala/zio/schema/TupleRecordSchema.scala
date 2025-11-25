@@ -1174,7 +1174,8 @@ private[schema] object TupleRecordSchema {
             Schema.Field(
               "_10",
               schemas(9).asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._10,
+              get0 =
+                (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._10,
               set0 =
                 (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any), v: Any) =>
                   t.copy(_10 = v)
@@ -1182,7 +1183,8 @@ private[schema] object TupleRecordSchema {
             Schema.Field(
               "_11",
               schemas(10).asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._11,
+              get0 =
+                (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._11,
               set0 =
                 (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any), v: Any) =>
                   t.copy(_11 = v)
@@ -1190,7 +1192,8 @@ private[schema] object TupleRecordSchema {
             Schema.Field(
               "_12",
               schemas(11).asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._12,
+              get0 =
+                (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._12,
               set0 =
                 (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any), v: Any) =>
                   t.copy(_12 = v)
@@ -1198,7 +1201,8 @@ private[schema] object TupleRecordSchema {
             Schema.Field(
               "_13",
               schemas(12).asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._13,
+              get0 =
+                (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._13,
               set0 =
                 (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any), v: Any) =>
                   t.copy(_13 = v)
@@ -1206,7 +1210,8 @@ private[schema] object TupleRecordSchema {
             Schema.Field(
               "_14",
               schemas(13).asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._14,
+              get0 =
+                (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._14,
               set0 =
                 (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any), v: Any) =>
                   t.copy(_14 = v)
@@ -1214,7 +1219,8 @@ private[schema] object TupleRecordSchema {
             Schema.Field(
               "_15",
               schemas(14).asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._15,
+              get0 =
+                (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._15,
               set0 =
                 (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any), v: Any) =>
                   t.copy(_15 = v)
@@ -1222,7 +1228,8 @@ private[schema] object TupleRecordSchema {
             Schema.Field(
               "_16",
               schemas(15).asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._16,
+              get0 =
+                (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._16,
               set0 =
                 (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any), v: Any) =>
                   t.copy(_16 = v)
@@ -1230,7 +1237,8 @@ private[schema] object TupleRecordSchema {
             Schema.Field(
               "_17",
               schemas(16).asInstanceOf[Schema[Any]],
-              get0 = (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._17,
+              get0 =
+                (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any)) => t._17,
               set0 =
                 (t: (Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any, Any), v: Any) =>
                   t.copy(_17 = v)

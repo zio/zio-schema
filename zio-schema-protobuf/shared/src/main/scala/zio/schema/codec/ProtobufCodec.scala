@@ -1,7 +1,7 @@
 package zio.schema.codec
 
 import java.nio.charset.StandardCharsets
-import java.nio.{ ByteBuffer, ByteOrder }
+import java.nio.{ByteBuffer, ByteOrder}
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -9,13 +9,13 @@ import java.util.UUID
 import scala.collection.immutable.ListMap
 import scala.util.control.NonFatal
 
-import zio.schema.MutableSchemaBasedValueBuilder.{ CreateValueFromSchemaError, ReadingFieldResult }
+import zio.schema.MutableSchemaBasedValueBuilder.{CreateValueFromSchemaError, ReadingFieldResult}
 import zio.schema._
 import zio.schema.annotation.fieldDefaultValue
-import zio.schema.codec.DecodeError.{ ExtraFields, MalformedField, MissingField }
+import zio.schema.codec.DecodeError.{ExtraFields, MalformedField, MissingField}
 import zio.schema.codec.ProtobufCodec.Protobuf.WireType.LengthDelimited
 import zio.stream.ZPipeline
-import zio.{ Cause, Chunk, ChunkBuilder, Unsafe }
+import zio.{Cause, Chunk, ChunkBuilder, Unsafe}
 
 object ProtobufCodec {
 
@@ -48,7 +48,9 @@ object ProtobufCodec {
     }
 
     /**
-     * Used when encoding sequence of values to decide whether each value need its own key or values can be packed together without keys (for example numbers).
+     * Used when encoding sequence of values to decide whether each value need
+     * its own key or values can be packed together without keys (for example
+     * numbers).
      */
     @scala.annotation.tailrec
     private[codec] def canBePacked(schema: Schema[_]): Boolean = schema match {
@@ -140,7 +142,7 @@ object ProtobufCodec {
         )
       } else {
         val chunk = value.flatten
-        val data = encodeKey(
+        val data  = encodeKey(
           WireType.LengthDelimited(chunk.size),
           Some(2)
         ) ++ chunk
@@ -160,27 +162,26 @@ object ProtobufCodec {
           Some(1)
         )
       } else {
-        val chunk = value.map {
-          case (left, right) =>
-            val leftDecoder  = new Decoder(left)
-            val rightDecoder = new Decoder(right)
+        val chunk = value.map { case (left, right) =>
+          val leftDecoder  = new Decoder(left)
+          val rightDecoder = new Decoder(right)
 
-            (
-              leftDecoder.keyDecoder(
-                DecoderContext(None, packed = false, dictionaryElementContext = None, directByteEncoding = false)
-              ),
-              rightDecoder.keyDecoder(
-                DecoderContext(None, packed = false, dictionaryElementContext = None, directByteEncoding = false)
-              )
-            ) match {
-              case ((leftWireType, seqIndex), (rightWireType, _)) =>
-                val data =
-                  encodeKey(leftWireType, Some(1)) ++
-                    leftDecoder.remainder ++
-                    encodeKey(rightWireType, Some(2)) ++
-                    rightDecoder.remainder
-                encodeKey(WireType.LengthDelimited(data.size), Some(seqIndex)) ++ data
-            }
+          (
+            leftDecoder.keyDecoder(
+              DecoderContext(None, packed = false, dictionaryElementContext = None, directByteEncoding = false)
+            ),
+            rightDecoder.keyDecoder(
+              DecoderContext(None, packed = false, dictionaryElementContext = None, directByteEncoding = false)
+            )
+          ) match {
+            case ((leftWireType, seqIndex), (rightWireType, _)) =>
+              val data =
+                encodeKey(leftWireType, Some(1)) ++
+                  leftDecoder.remainder ++
+                  encodeKey(rightWireType, Some(2)) ++
+                  rightDecoder.remainder
+              encodeKey(WireType.LengthDelimited(data.size), Some(seqIndex)) ++ data
+          }
         }.flatten
         val data = encodeKey(
           WireType.LengthDelimited(chunk.size),
@@ -203,7 +204,7 @@ object ProtobufCodec {
         )
       } else {
         val chunk = Chunk.fromIterable(value).flatten
-        val data = encodeKey(
+        val data  = encodeKey(
           WireType.LengthDelimited(chunk.size),
           Some(2)
         ) ++ chunk
@@ -445,19 +446,19 @@ object ProtobufCodec {
 
       while (!done) {
         if (higherBits != 0x00) {
-          builder += (0x80 | (current & 0x7F)).byteValue()
+          builder += (0x80 | (current & 0x7f)).byteValue()
           current = higherBits
           higherBits = higherBits >>> 7
         } else {
-          builder += (current & 0x7F).byteValue()
+          builder += (current & 0x7f).byteValue()
           done = true
         }
       }
     }
 
     /**
-     * Encodes key. Key contains field number out of flatten schema structure and wire type.
-     * 1 << 3 => 8, 2 << 3 => 16, 3 << 3 => 24
+     * Encodes key. Key contains field number out of flatten schema structure
+     * and wire type. 1 << 3 => 8, 2 << 3 => 16, 3 << 3 => 24
      *
      * More info:
      * https://developers.google.com/protocol-buffers/docs/encoding#structure
@@ -523,7 +524,7 @@ object ProtobufCodec {
         case CreateValueFromSchemaError(_, cause) =>
           cause match {
             case error: DecodeError => Left(error)
-            case _ =>
+            case _                  =>
               Left(DecodeError.ReadError(Cause.fail(cause), cause.getMessage))
           }
         case NonFatal(err) =>
@@ -540,14 +541,14 @@ object ProtobufCodec {
         case StandardType.BoolType                                => varIntDecoder(context) != 0
         case StandardType.ShortType                               => varIntDecoder(context).shortValue
         case StandardType.ByteType if !context.directByteEncoding => varIntDecoder(context).byteValue
-        case StandardType.ByteType if context.directByteEncoding =>
+        case StandardType.ByteType if context.directByteEncoding  =>
           val result = state.peek
           state.move(1)
           result
-        case StandardType.IntType    => varIntDecoder(context).intValue
-        case StandardType.LongType   => varIntDecoder(context)
-        case StandardType.FloatType  => floatDecoder(context)
-        case StandardType.DoubleType => doubleDecoder(context)
+        case StandardType.IntType        => varIntDecoder(context).intValue
+        case StandardType.LongType       => varIntDecoder(context)
+        case StandardType.FloatType      => floatDecoder(context)
+        case StandardType.DoubleType     => doubleDecoder(context)
         case StandardType.BigIntegerType =>
           val bytes = binaryDecoder(context)
           new java.math.BigInteger(bytes.toArray)
@@ -560,7 +561,7 @@ object ProtobufCodec {
 
         case StandardType.BinaryType => binaryDecoder(context)
         case StandardType.CharType   => stringDecoder(context).charAt(0)
-        case StandardType.UUIDType =>
+        case StandardType.UUIDType   =>
           val uuid = stringDecoder(context)
           try UUID.fromString(uuid)
           catch {
@@ -587,7 +588,7 @@ object ProtobufCodec {
           val year  = createTypedPrimitive(rawFieldDecoder(context, 1), StandardType.IntType)
           val month = createTypedPrimitive(rawFieldDecoder(context, 2), StandardType.IntType)
           YearMonth.of(year, month)
-        case StandardType.ZoneIdType => ZoneId.of(stringDecoder(context))
+        case StandardType.ZoneIdType     => ZoneId.of(stringDecoder(context))
         case StandardType.ZoneOffsetType =>
           ZoneOffset.ofTotalSeconds(varIntDecoder(context).intValue)
         case StandardType.DurationType =>
@@ -629,12 +630,15 @@ object ProtobufCodec {
             fieldMapping.fieldNumberToIndex.get(fieldNum) match {
               case Some(idx) => {
                 if (record.fields.isDefinedAt(idx)) {
-                  ReadingFieldResult.ReadField(wt match {
-                    case LengthDelimited(width) =>
-                      context.limitedTo(state, width)
-                    case _ =>
-                      context
-                  }, idx)
+                  ReadingFieldResult.ReadField(
+                    wt match {
+                      case LengthDelimited(width) =>
+                        context.limitedTo(state, width)
+                      case _ =>
+                        context
+                    },
+                    idx
+                  )
                 } else {
                   throw ExtraFields(
                     "Unknown",
@@ -680,8 +684,8 @@ object ProtobufCodec {
         val mask  = Array.fill(record.fields.length)(false)
 
         for ((field, index) <- record.fields.zipWithIndex) {
-          val defaultValue = field.annotations.collectFirst {
-            case fieldDefaultValue(defaultValue) => defaultValue
+          val defaultValue = field.annotations.collectFirst { case fieldDefaultValue(defaultValue) =>
+            defaultValue
           }
 
           defaultValue match {
@@ -883,7 +887,7 @@ object ProtobufCodec {
         case (LengthDelimited(0), 1)     => None
         case (LengthDelimited(width), 2) => Some(context.limitedTo(state, width))
         case (_, 2)                      => Some(context)
-        case (_, fieldNum) =>
+        case (_, fieldNum)               =>
           throw MalformedField(schema, s"Invalid field number $fieldNum for option")
       }
 
@@ -901,7 +905,7 @@ object ProtobufCodec {
       keyDecoder(context) match {
         case (_, fieldNum) if fieldNum == 1 => Left(context)
         case (_, fieldNum) if fieldNum == 2 => Right(context)
-        case (_, fieldNum) =>
+        case (_, fieldNum)                  =>
           throw ExtraFields(fieldNum.toString, s"Invalid field number ($fieldNum) for either")
       }
 
@@ -920,7 +924,7 @@ object ProtobufCodec {
         case (_, fieldNum) if fieldNum == 1 => Fallback.Left(context)
         case (_, fieldNum) if fieldNum == 2 => Fallback.Right(context)
         case (_, fieldNum) if fieldNum == 3 => Fallback.Both(context, context)
-        case _ =>
+        case _                              =>
           throw ExtraFields(fieldNumber.toString, s"Invalid field number ($fieldNumber) for fallback")
       }
 
@@ -1005,10 +1009,11 @@ object ProtobufCodec {
       DecoderContext(limit = None, packed = false, dictionaryElementContext = None, directByteEncoding = false)
 
     /**
-     * Decodes key which consist out of field type (wire type) and a field number.
+     * Decodes key which consist out of field type (wire type) and a field
+     * number.
      *
-     * 8 >>> 3 => 1, 16 >>> 3 => 2, 24 >>> 3 => 3, 32 >>> 3 => 4
-     * 0 & 0x07 => 0, 1 & 0x07 => 1, 2 & 0x07 => 2, 9 & 0x07 => 1, 15 & 0x07 => 7
+     * 8 >>> 3 => 1, 16 >>> 3 => 2, 24 >>> 3 => 3, 32 >>> 3 => 4 0 & 0x07 => 0,
+     * 1 & 0x07 => 1, 2 & 0x07 => 2, 9 & 0x07 => 1, 15 & 0x07 => 7
      */
     private[codec] def keyDecoder(context: DecoderContext): (WireType, Int) = {
       val key      = varIntDecoder(context)
@@ -1075,12 +1080,13 @@ object ProtobufCodec {
     }
 
     /**
-     * Decodes bytes to following types: int32, int64, uint32, uint64, sint32, sint64, bool, enumN.
-     * Takes index of first byte which is inside 0 - 127 range.
+     * Decodes bytes to following types: int32, int64, uint32, uint64, sint32,
+     * sint64, bool, enumN. Takes index of first byte which is inside 0 - 127
+     * range.
      *
-     * (0 -> 127) & 0x80 => 0, (128 -> 255) & 0x80 => 128
-     * (0 << 7 => 0, 1 << 7 => 128, 2 << 7 => 256, 3 << 7 => 384
-     * 1 & 0X7F => 1, 127 & 0x7F => 127, 128 & 0x7F => 0, 129 & 0x7F => 1
+     * (0 -> 127) & 0x80 => 0, (128 -> 255) & 0x80 => 128 (0 << 7 => 0, 1 << 7 =>
+     * 128, 2 << 7 => 256, 3 << 7 => 384 1 & 0X7F => 1, 127 & 0x7F => 127, 128 &
+     * 0x7F => 0, 129 & 0x7F => 1
      */
     private def varIntDecoder(context: DecoderContext): Long = {
       val maxLength = state.length(context)
